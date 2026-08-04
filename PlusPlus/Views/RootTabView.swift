@@ -3,18 +3,24 @@ import SwiftUI
 import SwiftData
 import PlusPlusKit
 
-/// The app's TWO roots (Dave, 2026-08-04): Today, and Search.
+/// The app's TWO roots (Dave, 2026-08-04): Today, and the catalog root.
 ///
-/// Routines · Exercises · Kit are gone as destinations — not hidden, replaced.
-/// A catalog with an EMPTY query has always been that catalog's whole list
-/// (`catalog-scopes.md`), and all three have rendered one `CatalogScopeView`
-/// since 2026-07-25, so the search surface dialled to Routines *is* the
-/// Routines list. The scope bar is what a tab tap used to be.
+/// ⚠️ Two ROOTS, but FOUR destinations. Routines · Exercises · Kit are still
+/// places a user goes — the drawer lists them and Operator steers to them —
+/// they simply share one root and differ by scope. A catalog with an EMPTY
+/// query has always been that catalog's whole list (`catalog-scopes.md`), and
+/// all three have rendered one `CatalogScopeView` since 2026-07-25, so the
+/// root dialled to Routines *is* the Routines list.
 ///
-/// The type keeps its name so the diff stays reversible. Its raw values are the
-/// drawer's swipe-gate keys; `FindScope.contextKey` separately carries the
-/// three RETIRED raw values on for Operator's view-context. ⚠️ Two different
-/// key spaces — see the `onChange` pair below.
+/// The `.search` case is named for the surface's mechanism and NOT for what
+/// the user is doing on it; the drawer says "Routines". Renaming it would
+/// churn `reveal.activeTab` and `revealRoot(tab:)` for no behaviour.
+///
+/// ⚠️ THREE key spaces, easily crossed. This type's raw values are the
+/// drawer's swipe-gate keys; `FindScope.rawValue` is the drawer's row
+/// highlight; `FindScope.contextKey` carries the three RETIRED tab raw values
+/// on for Operator's view-context. The last two differ on exactly one scope
+/// (`kit` vs `equipment`) — see the `onChange` pair below.
 enum AppTab: String, CaseIterable {
     case today, search
 
@@ -31,21 +37,25 @@ enum AppTab: String, CaseIterable {
 /// `ExercisesTabView` / `EquipmentTabView` / `FindOrCreateView` are gone, their
 /// swipes, reorder and creates absorbed into that one surface.
 ///
-/// **2026-08-04 — the tab bar is GONE, and with it the scope control's whole
-/// placement problem.** Surface selection is a vertical list at the top of the
-/// reveal drawer (`DrawerNavList`), plus a floating key on Today; scope
-/// selection is NATIVE `.searchScopes`. Native scopes were retired on builds
-/// 140–143 because they render exactly once per app run **on a bottom-morphed
-/// field** — and the morph was `Tab(role: .search)`'s. No tab bar, no morph, no
-/// bottom field: the scope bar takes its ordinary top placement.
-/// `ScopeSegmentedControl` survives unused as the fallback if that bet is wrong
-/// on device.
+/// **2026-08-04 — the tab bar is GONE.** Surface selection is a vertical list
+/// at the top of the reveal drawer (`DrawerNavList` — Today · Routines ·
+/// Exercises · Kit), plus a native `.bottomBar` search key on Today. Scope
+/// selection is `ScopeSegmentedControl`, always visible in the first row of the
+/// catalog root's pinned section header.
 ///
-/// ⚠️ The retired mechanisms stay retired and are NOT to be re-tried on their
-/// old terms: `tabViewBottomAccessory` (137–139, 144 — never rises with the
-/// keyboard), a `.bottomBar` `ToolbarItem` (145), a top `safeAreaInset` under
-/// the bar (147). They were all answers to "where does the scope control go
-/// when the field is at the bottom", and that question no longer exists.
+/// ⚠️ **Native `.searchScopes` was reversed and re-retired the same day.** It
+/// came back because removing the tab bar removed the bottom morph its 140–143
+/// retirement depended on — a sound argument. It went again because scopes
+/// belong to the search PRESENTATION and Dave wants the bar visible AT REST,
+/// which no activation mode expresses. The full account is in
+/// `ScopeSegmentedControl` and `navigation.md`.
+///
+/// ⚠️ Retired mechanisms that stay retired: `tabViewBottomAccessory` (137–139,
+/// 144 — never rises with the keyboard) and a TOP `safeAreaInset` under the bar
+/// (147). ⚠️ The `.bottomBar` objection (145) is SPENT, not repealed: it was
+/// that the row is the one a bottom-morphed search FIELD expands into, and
+/// there is no bottom field any more. Today's key is a plain navigating
+/// button, so it has no field to collide with.
 struct RootTabView: View {
 
     @State private var tab: AppTab = .today
@@ -201,12 +211,12 @@ struct RootTabView: View {
                     .toolbar(.hidden, for: .tabBar)
             }
             Tab("Search", systemImage: "magnifyingglass", value: AppTab.search) {
-                // The field and the scope bar are NOT attached here. They go
-                // INSIDE `CatalogScopeView`'s own `NavigationStack` — see its
-                // `searchScope` note. Build 140 attached them out here and the
-                // scope bar never appeared: `.searchScopes` needs `.searchable`
-                // on a view inside a navigation container, and out here the
-                // modifier lands above that stack.
+                // ⚠️ The FIELD is not attached here. It goes INSIDE
+                // `CatalogScopeView`'s own `NavigationStack` — build 140
+                // attached it out here, above that stack, where `.searchable`
+                // has no navigation container to render into. (The scope bar
+                // is not a search modifier at all any more; it is a row in the
+                // list's pinned header.)
                 CatalogScopeView(scope: scope, query: $query, tab: .search, searchScope: $scope)
                     .toolbar(.hidden, for: .tabBar)
             }

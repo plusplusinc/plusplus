@@ -8,12 +8,16 @@ import SwiftData
 /// The app's surface picker: a vertical list at the top of the reveal drawer
 /// (Dave, 2026-08-04), replacing the bottom tab bar.
 ///
-/// Two rows, because there are two roots — **Today** and **Search**. Routines,
-/// Exercises and Kit are not missing from this list; they are the search
-/// surface's SCOPES, reached from the scope bar under the field. The three of
-/// them have rendered one `CatalogScopeView` since 2026-07-25 and an empty
-/// query has always shown a scope's whole list, so a scope tap lands on
+/// FOUR rows over TWO roots — **Today · Routines · Exercises · Kit** — because
+/// the list names DESTINATIONS, not the mechanism that reaches them. The last
+/// three all land on the ONE catalog root and differ only in the `FindScope`
+/// they dial; they have rendered one `CatalogScopeView` since 2026-07-25 and
+/// an empty query has always shown a scope's whole list, so a row lands on
 /// exactly the screen a tab tap used to.
+///
+/// ⚠️ A two-row version (Today · Search) shipped in build 183 and was
+/// corrected the same day: "Search" is how you get there, "Routines" is what
+/// you wanted.
 ///
 /// ⚠️ Rows are FLAT, not raised keys. `design-grammar.md`: caps depress for
 /// committing and navigating BUTTONS; chips, toggles, segments and ROWS stay

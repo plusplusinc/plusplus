@@ -41,8 +41,6 @@ import SwiftUI
 struct ScopeSegmentedControl: View {
     @Binding var scope: FindScope
 
-    var identifier: String = "catalogScopeControl"
-
     var body: some View {
         Picker("Catalog", selection: $scope) {
             ForEach(FindScope.allCases, id: \.self) { item in
@@ -71,6 +69,11 @@ struct ScopeSegmentedControl: View {
         // ellipses and the control stops naming anything. The search field is
         // NOT capped: its text is the user's own.
         .dynamicTypeSize(...DynamicTypeSize.accessibility1)
-        .accessibilityIdentifier(identifier)
+        // ⚠️ NO `.accessibilityIdentifier` here. `SmokeTests.selectScope`
+        // reaches the SEGMENTS through `app.segmentedControls.firstMatch
+        // .buttons`, and testing.md records that accessibility modifiers on a
+        // multi-child container can flatten it and take its children out of
+        // XCUITest's tree. An identifier nothing queries would be pure risk on
+        // the exact path the suite walks.
     }
 }

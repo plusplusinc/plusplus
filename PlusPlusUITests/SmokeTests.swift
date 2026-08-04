@@ -94,7 +94,13 @@ final class SmokeTests: XCTestCase {
         if key.waitForExistence(timeout: 5) {
             key.tap()
         } else {
-            // Not on Today — go the long way round.
+            // ⚠️ Not on Today, so there is no search key — go round through the
+            // drawer. This DIALS ROUTINES, which is a scope change the caller
+            // did not ask for. Every live call site either early-returns above
+            // or comes from Today, so the branch is currently dead; it is
+            // spelled out because the next caller that reaches it from a third
+            // surface and then asserts a non-routines scope would be debugging
+            // a helper, not a bug.
             goToSurface("drawerNavRoutines")
         }
         XCTAssertTrue(searchField.waitForExistence(timeout: 5), "the catalog root carries the system field")
@@ -371,9 +377,18 @@ final class SmokeTests: XCTestCase {
                 app.segmentedControls.firstMatch.waitForExistence(timeout: 5),
                 "the scope bar is up before any query"
             )
-            // The field exists and is NOT focused: no keyboard on arrival.
+            // The field exists and is NOT focused on arrival.
             XCTAssertTrue(searchField.waitForExistence(timeout: 5), "the field sits under the heading")
-            XCTAssertFalse(app.keyboards.element.exists, "arriving must not raise the keyboard")
+            // ⚠️ Focus is asserted through the HEADING, not through
+            // `app.keyboards`: a CI runner usually has the hardware keyboard
+            // attached, so the software keyboard never appears and that
+            // assertion passes whatever the app does. A visible large title is
+            // the honest proxy — focusing the field collapses it, so the title
+            // still being there means search is not active.
+            XCTAssertTrue(
+                app.staticTexts[scope].exists,
+                "the heading survives arrival, so the field did not take focus"
+            )
         }
         snap("nav-catalog-root")
 
@@ -423,20 +438,16 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(field.waitForExistence(timeout: 5))
         XCTAssertEqual(field.value as? String, "Bodyweight Basics")
 
-        // The native field's own Cancel clears the query; the catalog stays
-        // put, since the SCOPE — not the field — decides which one you're on.
-        // ⚠️ It is labelled **Close**, beside a "Clear text" key. The
-        // affordance is the SYSTEM's — the field is morphed out of the
-        // search-role tab — so its noun is not the app's to choose, and
-        // "Cancel" stopped matching when #452 reworked this surface. Both
-        // are accepted: the assertion is about leaving search, not about
-        // which word the platform picked.
-        let cancel = app.buttons
-            .matching(NSPredicate(format: "label IN {'Cancel', 'Close'} OR identifier IN {'Cancel', 'Close'}"))
-            .firstMatch
-        XCTAssertTrue(cancel.waitForExistence(timeout: 5), "the search field's own Close · \(buttonInventory())")
-        cancel.tap()
-        XCTAssertTrue(plus.waitForExistence(timeout: 5), "cancelling search returns the catalog · \(buttonInventory())")
+        // ⚠️ NO Cancel/Close assertion any more (2026-08-04). That key belongs
+        // to the search PRESENTATION, and this surface is no longer presented
+        // at rest — the field just sits under the large title, and a push
+        // deactivates whatever presentation was live. Asserting a key that
+        // correctly does not exist is how a green suite starts lying.
+        //
+        // What the flow actually claims is that popping the template detail
+        // returns the catalog, so assert that and nothing more. The scope —
+        // not the field — decides which catalog you land back on.
+        XCTAssertTrue(plus.waitForExistence(timeout: 5), "popping the template returns the catalog · \(buttonInventory())")
     }
 
     /// The universal surface end to end: open search from the bar, switch to

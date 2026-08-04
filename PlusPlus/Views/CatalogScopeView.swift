@@ -95,13 +95,15 @@ struct CatalogScopeView: View {
     private let tabKey: String
     /// The search root's scope selection, and nothing else's.
     ///
-    /// ⚠️ The field and the scope bar live INSIDE this view's `NavigationStack`,
-    /// not on the `Tab` in `RootTabView` (build 140 put them there and the scope
-    /// bar never rendered). `.searchScopes` needs `.searchable` on a view inside
-    /// a NAVIGATION CONTAINER; attached to `CatalogScopeView` from outside, the
-    /// modifier sits ABOVE this stack, so the field still morphed — the tab role
-    /// gives it that — but the scope bar had no search presentation to attach
-    /// to. Non-nil marks the one instance that owns both.
+    /// Non-nil marks the ONE instance that owns the search field and the scope
+    /// control. It is the ROOT's state, not this view's, so a scope change
+    /// survives everything this view does — and `scopeRow` binds to it rather
+    /// than to `scope`, which is only the value the root passed down.
+    ///
+    /// ⚠️ The FIELD lives inside this view's `NavigationStack`, never on the
+    /// `Tab` in `RootTabView`: build 140 attached it out there and it landed
+    /// above the stack, where `.searchable` has no navigation container to
+    /// render into.
     private let searchScope: Binding<FindScope>?
     /// Picker mode only: a row tap (or a fresh create) hands the item back
     /// here instead of opening it.
@@ -166,6 +168,14 @@ struct CatalogScopeView: View {
     /// The picker field's one-shot focus intent. Never armed on entry — the
     /// list is the point; the keyboard rises when the field is tapped.
     @State private var pickerFieldWantsFocus = false
+    /// Is the system search presentation active? ⚠️ Written `false` by this
+    /// view on the way OUT and `true` only by the system when the user taps
+    /// the field. This root stays MOUNTED across surface switches (it is a
+    /// `TabView` child), so without the write-out a presentation begun here
+    /// survives a trip to Today and back — and search being active collapses
+    /// the large title, which is the heading naming the catalog. You would
+    /// return to a catalog that no longer says which one it is.
+    @State private var searchPresented = false
     @State private var path = NavigationPath()
     @State private var pushed: Push?
     // No `openSwipeRow` here any more: the catalog rows use NATIVE
@@ -430,7 +440,11 @@ struct CatalogScopeView: View {
                 }
             // The system field and the native scope bar, INSIDE the stack —
             // see `searchScope`.
-                .modifier(SearchPresentation(query: $boundQuery, scope: searchScope))
+                .modifier(SearchPresentation(
+                    query: $boundQuery,
+                    scope: searchScope,
+                    presented: $searchPresented
+                ))
                 .navigationDestination(for: Exercise.self) { exercise in
                     ExerciseDetailScreen(exercise: exercise)
                 }
@@ -462,6 +476,15 @@ struct CatalogScopeView: View {
         // GitHub. Native tabs fire `onDisappear` on a switch, so this is the
         // same close trigger every other surface uses.
         .syncsProgramOnClose()
+        // ⚠️ END the search presentation on the way out, for the same reason
+        // that `onDisappear` works as a close trigger above: this root stays
+        // MOUNTED, so its presentation state outlives leaving it. Return with
+        // search still active and the large title is still collapsed — a
+        // catalog that has stopped naming itself, which is exactly the heading
+        // Dave asked for. Dismissal only; nothing here ever presents.
+        .onDisappear {
+            if searchPresented { searchPresented = false }
+        }
         // Changing scope is the scope bar dialling a different catalog — the
         // same surface looking at something else, so it stays MOUNTED (an
         // `.id(scope)` would rebuild it, which is exactly what stops a scope
@@ -840,34 +863,6 @@ struct CatalogScopeView: View {
                 }
             }
             .listStyle(.plain)
-            // ⚠️ On the SEARCH surface the facet row starts in its PINNED seat
-            // (Dave, 2026-08-02, from a three-shot scroll sequence — pixel
-            // measured at 3x). A `.plain` List puts its own top padding ABOVE
-            // the first section header, and that padding SCROLLS: the row sat
-            // ~22 pt low at rest and only reached its seat after 22 pt of
-            // travel. Two faults, one cause. (1) The gap: on a surface with no
-            // large title there is nothing for that space to hold, so the
-            // chips read as floating below the bar. (2) The hairline: the row
-            // pins with its top exactly on the navigation bar's scrolled-under
-            // edge (the 4 pt you see below the line is `FacetChip`'s 44 pt hit
-            // frame around its 36 pt cap — the same 4 pt #521 measured), so an
-            // OPAQUE pinned row occludes that line — but only once it has
-            // arrived. During those 22 pt the bar was in its scrolled state
-            // with nothing over it, which is the hairline blinking in and out.
-            // Seated from rest, the line is covered at every offset > 0 and
-            // the bar is in its edge state at 0, so it never draws.
-            //
-            // Both knobs, because the padding has been either one across
-            // releases and neither is observable from a Linux session: the
-            // section-header top padding (`listSectionSpacing`) and any
-            // default scroll-content top margin. Zeroing an absent one is a
-            // no-op.
-            //
-            // ⚠️ SEARCH ONLY. The other four roots wear the system LARGE
-            // title, and that title travels through this very space — closing
-            // it there would seat the chips against the bar and re-open the
-            // #521 class of large-title argument. `nil`/`.default` leaves them
-            // exactly as they shipped.
             // ⚠️ The zeroed `listSectionSpacing` + `contentMargins` pair is
             // GONE (2026-08-04). They existed because the search surface had
             // NO title, so the `.plain` List's top padding held nothing and
@@ -1019,14 +1014,6 @@ struct CatalogScopeView: View {
 
     // MARK: - The facet row (filtering returns, 2026-07-31)
 
-    /// Per-scope single-select facet chips in a horizontal run, led by the
-    /// summary chip whenever anything is active (the summarize-never-
-    /// insta-clear law). State is `filters`; the engine applies it.
-    ///
-    /// Mounted two ways, both PINNED: the single section's header on tab
-    /// roots (list-internal, so the system large-title bar never sees it —
-    /// see `listBody`), and a top `safeAreaInset` on presented/picker
-    /// surfaces, whose chrome is app-drawn.
     /// The scope control's row, first in the pinned header (2026-08-04).
     ///
     /// ⚠️ OPAQUE, like the facet row beneath it, and for the same reason: a
@@ -1049,6 +1036,14 @@ struct CatalogScopeView: View {
         }
     }
 
+    /// Per-scope single-select facet chips in a horizontal run, led by the
+    /// summary chip whenever anything is active (the summarize-never-
+    /// insta-clear law). State is `filters`; the engine applies it.
+    ///
+    /// Mounted two ways, both PINNED: the single section's header on tab
+    /// roots (list-internal, so the system large-title bar never sees it —
+    /// see `listBody`), and a top `safeAreaInset` on presented/picker
+    /// surfaces, whose chrome is app-drawn.
     private func filterRow(shown: Int, hidden: Int) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 7) {
@@ -1826,27 +1821,32 @@ private extension FindOrCreateEngine.Result {
 }
 
 
-/// The system search field and the NATIVE scope bar, attached INSIDE the
-/// search root's `NavigationStack` and only there.
+/// The system search field, attached INSIDE the catalog root's own
+/// `NavigationStack` and only there.
 ///
 /// A modifier so the branch lives in one place rather than forking the stack's
 /// body. The condition is safe to branch on because it is fixed per instance:
 /// `searchScope` is a `let` decided at init, so a given `CatalogScopeView`
-/// either always carries search or never does. Search presentation must not be
-/// re-created underneath itself, and this can't do that.
+/// either always carries search or never does.
 ///
-/// ⚠️ **Native `.searchScopes` is back** (2026-08-04), reversing builds
-/// 140–143. It was retired because the system's scope bar rendered exactly
-/// ONCE per app run and at the top, nowhere near the field it scoped — but
-/// that failure was a property of a BOTTOM-MORPHED field, and the morph came
-/// from `Tab(role: .search)`. The tab bar is gone, so the field takes its
-/// ordinary `.navigationBarDrawer` placement and the scope bar sits directly
-/// under it, where it belongs. `ScopeSegmentedControl` is kept unused as the
-/// fallback if this turns out to be wrong on device.
+/// ⚠️ **NO scope bar here.** Native `.searchScopes` was reversed onto this
+/// surface and re-retired the same day (2026-08-04): scopes belong to the
+/// search PRESENTATION, and the requirement is a scope bar visible AT REST,
+/// which no activation mode expresses. `ScopeSegmentedControl` draws it in the
+/// list's pinned section header instead — that file carries the full account.
 private struct SearchPresentation: ViewModifier {
     @Binding var query: String
     /// Non-nil only on the search root. Everywhere else this modifier is inert.
     let scope: Binding<FindScope>?
+    /// Search's presentation, bound so leaving the surface can END it.
+    ///
+    /// ⚠️ This binding is only ever written **false**, never true, and the
+    /// distinction is the whole reason it is safe. The parallel
+    /// `claude/native-searchable-spike` branch names programmatic
+    /// RE-PRESENTATION as the suspect for its build-175 relapse — writing
+    /// `true` to force search open. Writing `false` is a dismissal, which has
+    /// no such history, and the system still owns every presentation.
+    @Binding var presented: Bool
 
     func body(content: Content) -> some View {
         if let scope {
@@ -1867,7 +1867,11 @@ private struct SearchPresentation: ViewModifier {
                 // stating a preference SwiftUI already satisfies adds a
                 // promise it can abandon (same branch: "Placement is a
                 // preference, not a guarantee").
-                .searchable(text: $query, prompt: "Search \(scope.wrappedValue.searchNoun)")
+                .searchable(
+                    text: $query,
+                    isPresented: $presented,
+                    prompt: "Search \(scope.wrappedValue.searchNoun)"
+                )
                 // ⚠️ NATIVE `.searchScopes` IS NOT USED, and this is the
                 // second reversal in three days — worth stating rather than
                 // leaving as an absence. It came back on 2026-08-04 because

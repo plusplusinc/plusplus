@@ -59,8 +59,9 @@ unchanged either way — only the rows differ.
   — `.hard` (139, a full-width slab) and hiding it outright (148, read-through)
   are both RETIRED. It goes ON THE SCROLLING CONTENT, never as a background on
   chrome (build 133's mistake). It still earns its keep with the bar gone:
-  content now runs to the home indicator, and Today's floating search key sits
-  over it.
+  content now runs to the home indicator. ⚠️ On Today the bottom edge is now a
+  system toolbar rather than a floating key, so the effect meets the bar's own
+  glass there.
 - ⚠️ **Landings still ride a pending SLOT**, consumed on receive OR on appear
   (`RoutineArrival`, `OperatorArrival`). A root's content is built on FIRST
   selection, so a bare post reaches nobody on a never-visited surface — the
@@ -226,30 +227,43 @@ about the scope control, stay here.
 
 A **root** wears the SYSTEM navigation bar — the ++ key (`AppMenuKey`) as a
 leading `ToolbarItem` and the root's own accessory (the catalog's kit switcher)
-as a trailing one. Today keeps `.navigationTitle("Today")` + `.large`; the
-search root carries no title (law above). Today has no trailing key: every
-start lives on the rail (the anytime card's sport keys + Train) or on a
-routine's own card. Both keys carry
+as a trailing one. **Both roots carry a `.large` title**: Today's says "Today",
+the catalog root's names the SCOPE. Both keys carry
 **`.sharedBackgroundVisibility(.hidden)`** — they bring their own raised-key
 chrome and would otherwise nest inside the toolbar's shared glass (a box in a
-box). ⚠️ **A root must NOT hide its navigation bar.** `.searchable` AND its
-scope bar belong to that bar's presentation, so hiding it left the field with
-nowhere to fall back to (build 135's invisible input) and the scope bar nothing
-to attach to (build 140). `CatalogTabHeader` is DELETED and Today's
+box). ⚠️ **A root must NOT hide its navigation bar.** `.searchable` belongs to
+that bar's presentation, so hiding it left the field with nowhere to fall back
+to (build 135's invisible input). `CatalogTabHeader` is DELETED and Today's
 hand-rolled twin with it; the system bar handles the Dynamic-Type reflow the
 old hand rules policed.
 
-⚠️ **The ++ key is now the ONLY resting route to the drawer's surface list**,
-so it is load-bearing in a way it was not while a tab bar existed — with the
-leading-edge drag (`ui-interaction.md`) as the gesture twin. Today additionally
-carries a **floating search key**, bottom-trailing: `HeaderIconButton` (44 pt
-cap == hit frame, r11, `.raisedKey()`), identifier `todaySearchButton`. ⚠️ An
-`.overlay`, never a `safeAreaInset` — an inset reserves a full-width band for
-one key and shifts Today's landing geometry, which `today-rail.md` measures to
-the point. It sits on the TRAILING edge so it never contends with the reveal
-drawer's 16 pt leading strip, and it routes through
-`RevealController.requestSurface` exactly as the drawer's own Search row does:
-one route in, two doors.
+⚠️ **The ++ key is the only resting route to the drawer's surface list**, with
+the leading-edge drag (`ui-interaction.md`) as its gesture twin.
+
+**Today additionally carries a native search key, floating bottom-trailing**
+(2026-08-04): a `.bottomBar` `ToolbarItem` preceded by
+`ToolbarSpacer(.flexible, placement: .bottomBar)`. It NAVIGATES to the catalog
+root through `RevealController.requestSurface`, the same route the drawer's
+rows take.
+
+- ⚠️ **The spacer is what pushes it trailing** — a lone bottom-bar item
+  centres, and shipping without one is a miss the parallel search branch made
+  ("add the missing ToolbarSpacer").
+- ⚠️ **NOT `DefaultToolbarItem(kind: .search)`.** That reposits the system's
+  OWN search item, which belongs to a `.searchable` on that view and activates
+  search in place. This one navigates, so it is a plain button — which is also
+  why it cannot relapse the way a bottom-placed FIELD does (build 175 on the
+  parallel branch).
+- ⚠️ **It REVERSES the never-a-bottom-inset law, deliberately and at a cost.**
+  The custom `HeaderIconButton` it replaces was an `.overlay` precisely so
+  Today's landing geometry — measured to the point in `today-rail.md` — would
+  not move. A visible bottom bar IS a bottom safe-area inset on the scroll
+  content, so that protection is gone and nothing replaced it. Dave asked for
+  the native control knowing the app's raised-key chrome is wrong against the
+  system's bar (a control wears what it SITS AGAINST). **Device check:** cold
+  open Today on a short fresh-install timeline and confirm the opening
+  `scrollTo` still seats the active setup step at the top; if it does not, the
+  answer is a floating overlay wearing system chrome, not a toolbar tweak.
 
 **Today's own laws moved to `today-rail.md`** (2026-08-02) — the header band's
 pin, the date-first rail and its anytime entry, history's month landmarks, and
