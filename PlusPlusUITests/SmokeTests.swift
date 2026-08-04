@@ -17,65 +17,101 @@ final class SmokeTests: XCTestCase {
     /// Launch and confirm the app is actually interactive before the test
     /// body runs. `app.launch()` on a loaded CI runner intermittently returns
     /// with the process up but the first screen not yet live — the documented
-    /// launch-wedge flake: the tab bar never materialises and the test's first
-    /// assertion times out ~2 minutes in. The `--uitest-reset` launch lands on
-    /// the Today tab, so use the tab bar as the ready signal; if it doesn't
+    /// launch-wedge flake: the first screen never materialises and the test's
+    /// first assertion times out ~2 minutes in. The `--uitest-reset` launch
+    /// lands on Today, so use its ++ key as the ready signal; if it doesn't
     /// appear, terminate and relaunch once. No assertion here — if it wedges
     /// twice, let the test's own first assertion surface it rather than mask a
     /// genuine startup crash behind a passing setUp.
+    ///
+    /// ⚠️ The old signal was the tab BAR, which no longer exists (2026-08-04).
+    /// `appMenuButton` is the replacement because it is on both roots and it is
+    /// the thing every navigation now goes through.
     private func launchAndSettle() {
         for attempt in 0..<2 {
             app.launch()
-            if tabButton("today").waitForExistence(timeout: 30) { return }
+            if appMenuKey.waitForExistence(timeout: 30) { return }
             if attempt == 0 { app.terminate() }
         }
     }
 
-    /// The chrome is the system's `TabView` bar, carrying Today · Routines ·
-    /// Exercises · Kit · Search (2026-07-26). The three catalog tabs and the
-    /// search tab all show the same screen; the tab only picks the scope.
-    private func tabButton(_ tab: String) -> XCUIElement {
-        app.tabBars.buttons[tab.capitalized]
+    /// The ++ key, top-left on both roots — it opens the reveal drawer, which
+    /// is where the app's surface list lives now that the tab bar is gone.
+    private var appMenuKey: XCUIElement {
+        app.buttons["appMenuButton"]
     }
 
-    /// Go to a catalog by its tab. The native search scope bar does the same
-    /// job WHILE searching (`selectScope`); this is the resting way.
+    /// Open the drawer and land on a surface from its nav list.
+    ///
+    /// ⚠️ The drawer opens with an ANIMATED whole-app slide, and the list is
+    /// only hit-testable once the app layer has moved off it (`RevealSurface`
+    /// is `allowsHitTesting(controller.isOpen)`), so the row's existence is not
+    /// enough — wait for hittability.
+    private func goToSurface(_ identifier: String) {
+        XCTAssertTrue(appMenuKey.waitForExistence(timeout: 10), "the ++ key is on this root")
+        appMenuKey.tap()
+        let row = app.buttons[identifier]
+        XCTAssertTrue(
+            row.waitForExistence(timeout: 5),
+            "\(identifier) is in the drawer's nav list"
+        )
+        // ⚠️ `XCTWaiter`, not `expectation(for:)` + `waitForExpectations` —
+        // the latter waits on EVERY unfulfilled expectation in the test, so a
+        // helper using it would entangle itself with whatever the flow set up.
+        let hittable = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "hittable == 1"),
+            object: row
+        )
+        XCTAssertEqual(
+            XCTWaiter().wait(for: [hittable], timeout: 5),
+            .completed,
+            "\(identifier) is reachable once the drawer has slid open"
+        )
+        row.tap()
+    }
+
+    /// Go to a catalog. Two steps now, where a tab tap used to be one: the
+    /// search surface, then its scope. The surface presents search on arrival,
+    /// so the scope bar is already there.
     private func goToCatalog(_ scope: String) {
-        let key = tabButton(scope)
-        XCTAssertTrue(key.waitForExistence(timeout: 10), "the \(scope) tab is in the bar")
-        key.tap()
+        openSearch()
+        selectScope(scope)
     }
 
-    /// The NATIVE search field, expanded out of the search-role tab — a
-    /// `searchField` element, not a custom `textField` with an identifier.
+    /// The NATIVE search field. Since the tab bar came out it takes its
+    /// ordinary `.navigationBarDrawer` placement rather than morphing out of a
+    /// search-role tab — still a `searchField` element, not a custom
+    /// `textField` with an identifier.
     private var searchField: XCUIElement {
         app.searchFields.firstMatch
     }
 
-    /// Open the catalogs (the separated search circle beside Today), which
-    /// morphs the bar into the field.
+    /// Open the catalogs. Today's floating key is the door under test because
+    /// it is the one a user reaches for; the drawer's Search row is the same
+    /// route and is covered by `testDrawerNavigatesBetweenSurfaces`.
     private func openSearch() {
-        let key = app.tabBars.buttons["Search"]
-        XCTAssertTrue(key.waitForExistence(timeout: 10))
-        key.tap()
-        XCTAssertTrue(searchField.waitForExistence(timeout: 5))
+        if searchField.exists { return }
+        let key = app.buttons["todaySearchButton"]
+        if key.waitForExistence(timeout: 5) {
+            key.tap()
+        } else {
+            // Not on Today — go the long way round.
+            goToSurface("drawerNavSearch")
+        }
+        XCTAssertTrue(searchField.waitForExistence(timeout: 5), "the search surface carries the system field")
     }
 
-    /// Pick a catalog on the segmented control in the search surface's
-    /// navigation bar. It exists only on the Search tab — off search the tab
-    /// bar is the scope control (`goToCatalog`).
+    /// Pick a catalog on the NATIVE search scope bar, under the field
+    /// (2026-08-04, replacing the app-placed `ScopeSegmentedControl`).
     ///
-    /// It's a native `Picker(.segmented)`, so its segments are the system's own
-    /// buttons; there are no app-set identifiers to hit. The segments are
-    /// GLYPHS (iOS segmented controls take a title or an image, never both), so
-    /// the word only reaches XCUITest through the `.accessibilityLabel` the
-    /// control sets — matched by CONTAINS, and falling back to POSITION if that
-    /// label doesn't propagate, since the scope order is fixed by
-    /// `FindScope.allCases` and a name miss here would otherwise read as "the
-    /// control is missing".
+    /// It is still a segmented control, so its segments are the system's own
+    /// buttons with no app-set identifiers to hit — but they carry WORDS now
+    /// rather than glyphs, so the label match is the real path and the
+    /// positional fallback is only insurance. The scope order is fixed by
+    /// `FindScope.allCases`.
     private func selectScope(_ scope: String) {
         let control = app.segmentedControls.firstMatch
-        XCTAssertTrue(control.waitForExistence(timeout: 5), "the scope control rides the navigation bar on search")
+        XCTAssertTrue(control.waitForExistence(timeout: 5), "the scope bar sits under the search field")
         let named = control.buttons
             .matching(NSPredicate(format: "label CONTAINS[c] %@", scope))
             .firstMatch
@@ -312,13 +348,59 @@ final class SmokeTests: XCTestCase {
         ) == .completed
     }
 
+    /// The new navigation, end to end (2026-08-04): the drawer's list is the
+    /// surface picker, and the scope bar is what the three catalog tabs were.
+    ///
+    /// ⚠️ This flow is the one that would go silently wrong: `requestSurface`
+    /// is an observable SLOT the root consumes and clears, so a mis-wired
+    /// consumer leaves a row that highlights and does nothing. XCUITest can see
+    /// that, unlike most of this change.
+    func testDrawerNavigatesBetweenSurfaces() throws {
+        // Today → Search, via the drawer.
+        goToSurface("drawerNavSearch")
+        XCTAssertTrue(
+            searchField.waitForExistence(timeout: 5),
+            "the Search row lands on the search surface · \(buttonInventory())"
+        )
+        // The scope bar is present WITHOUT typing — that is what
+        // `.onSearchPresentation` buys, and it is the whole reason the three
+        // catalog tabs could come out.
+        XCTAssertTrue(
+            app.segmentedControls.firstMatch.waitForExistence(timeout: 5),
+            "the scope bar draws on arrival, before any query"
+        )
+        snap("nav-search-surface")
+
+        // Every catalog is reachable from that one bar.
+        for scope in ["exercises", "kit", "routines"] {
+            selectScope(scope)
+        }
+
+        // Search → Today, via the drawer.
+        goToSurface("drawerNavToday")
+        XCTAssertTrue(
+            app.staticTexts["Today"].waitForExistence(timeout: 5),
+            "the Today row lands back on the timeline"
+        )
+
+        // Today → Search again, via the FLOATING key rather than the drawer.
+        let key = app.buttons["todaySearchButton"]
+        XCTAssertTrue(key.waitForExistence(timeout: 5), "Today carries the floating search key")
+        key.tap()
+        XCTAssertTrue(
+            searchField.waitForExistence(timeout: 5),
+            "the floating key is the same route as the drawer's Search row"
+        )
+        snap("nav-drawer-and-key")
+    }
+
     func testRoutinesTabOpensTemplateDetail() throws {
         goToCatalog("routines")
 
-        // The tab already lists the catalog templates under CATALOG, so
-        // reaching one is just search narrowing the list you're on — no
-        // detour through another surface (2026-07-25). Search also PINS the
-        // row (the lazy-List rule); a bodyweight template survives a
+        // The scope already lists the catalog templates under CATALOG, so
+        // reaching one is just narrowing the list you're on — no detour
+        // through another surface (2026-07-25). Typing also PINS the row
+        // (the lazy-List rule); a bodyweight template survives a
         // zero-equipment store, so don't swap in a gear-requiring one.
         let plus = app.buttons["newRoutineButton"]
         XCTAssertTrue(plus.waitForExistence(timeout: 5))
@@ -383,21 +465,28 @@ final class SmokeTests: XCTestCase {
         XCTAssertEqual(nameField.value as? String, "Wall Slides")
         app.buttons["saveExerciseButton"].tap()
 
-        // Lands on the Exercises tab (create → its list, entrance flash).
-        // Do NOT probe the tab's top create row here: the arrival beat
-        // scrolls the new W-named row to center, which pushes the top of
-        // the lazy List out of the realized window — unrealized rows are
-        // invisible to XCUITest (the testing.md lazy-list law; this
-        // assertion's first form failed CI exactly that way). The tab
-        // item's selection + the scrolled-into-view row are the honest
-        // probes.
-        // The landing leaves search for the Exercises TAB and shows the new
-        // row. The tab item carries `.isSelected`, so it is the honest probe
-        // for "we ended up on the right catalog".
-        let exercisesTab = tabButton("exercises")
-        XCTAssertTrue(exercisesTab.waitForExistence(timeout: 5))
+        // Lands on the exercises CATALOG (create → its list, entrance flash).
+        // Do NOT probe the top create row here: the arrival beat scrolls the
+        // new W-named row to center, which pushes the top of the lazy List out
+        // of the realized window — unrealized rows are invisible to XCUITest
+        // (the testing.md lazy-list law; this assertion's first form failed CI
+        // exactly that way).
+        //
+        // ⚠️ The old probe was `tabButton("exercises").isSelected`, and there
+        // is no tab item to carry that any more. The scope BAR carries the
+        // selection instead, and it is the same claim: the landing dialled the
+        // right catalog. Falls back to the scrolled-into-view row alone if the
+        // segment's selected state doesn't reach XCUITest, which is the
+        // assertion that actually matters.
+        let scopeBar = app.segmentedControls.firstMatch
+        XCTAssertTrue(scopeBar.waitForExistence(timeout: 5), "the scope bar is on the search surface")
         XCTAssertTrue(app.staticTexts["Wall Slides"].waitForExistence(timeout: 5))
-        XCTAssertTrue(exercisesTab.isSelected)
+        let exercisesSegment = scopeBar.buttons
+            .matching(NSPredicate(format: "label CONTAINS[c] %@", "exercises"))
+            .firstMatch
+        if exercisesSegment.exists {
+            XCTAssertTrue(exercisesSegment.isSelected, "the landing dialled the exercises scope")
+        }
         snap("find-or-create-landed-exercise")
     }
 
@@ -566,25 +655,30 @@ final class SmokeTests: XCTestCase {
             recordCard.waitForExistence(timeout: 10),
             "the committed card on Today · \(buttonInventory())"
         )
-        // ⚠️ TWO floating bars, and the card has to clear both. The
-        // navigation bar sits over the top of the timeline and the tab bar
-        // over the bottom; XCUITest models neither as covering, so a card
-        // under either reports hittable and the tap lands on the bar. Dave
-        // confirmed on build 158 that tapping a finished workout opens its
-        // record, so the app was never the problem — the probe kept aiming at
-        // covered points. It has been found under each bar in turn: below the
-        // fold while the setup scaffold held a full viewport, then at y = 52
-        // of a 912 pt screen, tucked under the large title, after zero
-        // scrolls.
+        // ⚠️ Floating chrome the card has to clear, and XCUITest models none
+        // of it as covering — so a card under it reports hittable and the tap
+        // lands on the chrome. Dave confirmed on build 158 that tapping a
+        // finished workout opens its record, so the app was never the problem;
+        // the probe kept aiming at covered points. It has been found under each
+        // band in turn: below the fold while the setup scaffold held a full
+        // viewport, then at y = 52 of a 912 pt screen, tucked under the large
+        // title, after zero scrolls.
         //
         // So scroll toward whichever band it is in, rather than assuming the
         // fold is always the problem, and stop when it is clear of both.
+        //
+        // ⚠️ The bands are no longer symmetric (2026-08-04). The top is still
+        // the navigation bar; the BOTTOM used to be the tab bar and is now just
+        // the floating search key, which covers one corner rather than a full
+        // row. Kept as a band anyway, sized for the key plus its margin: the
+        // card is full-width, so it can still be caught under that corner.
         let bandHeight: CGFloat = 140
+        let bottomBandHeight: CGFloat = 72
         var scrolls = 0
         while scrolls < 8 {
             let frame = recordCard.frame
             let clearsTop = frame.minY > bandHeight
-            let clearsBottom = frame.maxY < app.frame.height - bandHeight
+            let clearsBottom = frame.maxY < app.frame.height - bottomBandHeight
             if recordCard.isHittable, clearsTop, clearsBottom { break }
             if clearsTop { app.swipeUp() } else { app.swipeDown() }
             scrolls += 1
@@ -754,17 +848,17 @@ final class SmokeTests: XCTestCase {
         add.tap()
 
         // ONE landing for every template add (design review 2026-07-23):
-        // the add switches to the Routines tab and entrance-flashes the
-        // new card — same as adding from the Routines tab itself. The
-        // card is briefly held out for its entrance beat, so wait
-        // generously. Setup then continues back on Today.
+        // the add dials the routines catalog and entrance-flashes the new
+        // card — same as adding from that list itself. The card is briefly
+        // held out for its entrance beat, so wait generously. Setup then
+        // continues back on Today.
         let landedCard = app.staticTexts["Bodyweight Basics"]
         XCTAssertTrue(
             landedCard.waitForExistence(timeout: 10),
-            "the template add should land on the Routines list showing the new card"
+            "the template add should land on the routines list showing the new card"
         )
         snap("setup-step2-added")
-        tabButton("today").tap()
+        goToSurface("drawerNavToday")
 
         // Step 3 unlocks: schedule Bodyweight Basics for today so it stages.
         let scheduleCTA = app.buttons["setupScheduleStep"]
@@ -809,7 +903,7 @@ final class SmokeTests: XCTestCase {
     }
 
     /// The welcome beat (opt-in via --uitest-welcome; every other test
-    /// launches straight into the tabs): ONE screen now — the mark, the
+    /// launches straight into the app): ONE screen now — the mark, the
     /// name, the idea, and a single "Get started" that drops into the
     /// app. The old mechanics + Health screens are gone (the Health ask
     /// moved to a contextual primer on the first workout).
@@ -824,13 +918,14 @@ final class SmokeTests: XCTestCase {
         snap("welcome-idea")
         start.tap()
 
-        // The intro yields to the app proper. The tab bar EXISTS under
-        // the overlay the whole time, so existence proves nothing —
-        // hittability is the dismissal signal.
-        let today = tabButton("today")
-        XCTAssertTrue(today.waitForExistence(timeout: 10))
-        let hittable = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == 1"), object: today)
-        XCTAssertEqual(XCTWaiter().wait(for: [hittable], timeout: 10), .completed, "the welcome screen must land in the tabbed app")
+        // The intro yields to the app proper. The ++ key EXISTS under the
+        // overlay the whole time, so existence proves nothing — hittability is
+        // the dismissal signal. (It replaced the tab bar as the probe when the
+        // bar came out, 2026-08-04; the property under test is unchanged.)
+        let menuKey = appMenuKey
+        XCTAssertTrue(menuKey.waitForExistence(timeout: 10))
+        let hittable = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == 1"), object: menuKey)
+        XCTAssertEqual(XCTWaiter().wait(for: [hittable], timeout: 10), .completed, "the welcome screen must land in the app")
         snap("welcome-done")
 
         // Seen once means seen: a relaunch (no reset of the flag inside

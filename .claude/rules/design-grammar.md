@@ -133,7 +133,7 @@ Siblings: `navigation.md` (tab bar, search, scope control, landings),
   trails DELETE on customs; Routines trail DELETE. Catalog templates have
   neither. **Row context menus are gone** — the swipes ARE those acts, and on
   Routines a long press belongs to `.onMove`. **Reorder is routines-only,
-  tab-only, empty-query-only, MINE-tier-only**: a ranked or narrowed list has
+  root-only, empty-query-only, MINE-tier-only**: a ranked or narrowed list has
   no order to write back. Routines render as **cardless rows** outside Today —
   a catalog list reads flat — but cardless is a CHROME decision: the row still
   renders the shared `RoutineCardContent` (title · `focus · schedule · effort
@@ -252,12 +252,12 @@ Siblings: `navigation.md` (tab bar, search, scope control, landings),
   new exercise's defaults) via a `.swap` picker destination.
 - **Equipment is availability, not ownership** (2026-07-11): what gear you
   "have" is membership in the ACTIVE `EquipmentLibrary` (Home, Hotel…),
-  switched from a tray off the Kit-tab header and via the catalog's "Switch
-  library…" footer; the tab list re-renders behind the tray, which is how the
+  switched from a tray off the Kit scope's header and via the catalog's
+  "Switch library…" footer; the list re-renders behind the tray, which is how the
   app-wide scope reads. Lists never HIDE by kit availability (#113
   flag-don't-hide, extended 2026-07-25) — grouping mechanics in
   `navigation.md`; unavailable gear reads in notes amber ("needs X", card
-  pills) on rows. The **Exercises tab IS the whole catalog** (2026-07-17): an
+  pills) on rows. The **Exercises scope IS the whole catalog** (2026-07-17): an
   exercise is a thing you choose to do, not property — curation is FAVORITES
   (`Exercise.isFavorite`; `inLibrary` frozen). The GEAR facet and
   `GearPickSheet` were RETIRED 2026-07-25 (the search field reaches what
@@ -268,7 +268,7 @@ Siblings: `navigation.md` (tab bar, search, scope control, landings),
   Apple's word). **One possessive for the active kit: "your kit"**
   (2026-07-20; "My equipment"/"YOUR KIT ✓" retired — `GearFit.mine`'s raw
   value stays internal). **Naming the active kit follows one rule**
-  (2026-07-20): a switcher CONTROL (the Kit-tab pill, the catalog "Adding to"
+  (2026-07-20): a switcher CONTROL (the Kit header pill, the catalog "Adding to"
   strip, the routine Kit chip) always shows the raw kit name; PROSE and
   verdicts use `EquipmentLibrary.activeNamePhrase` (name the kit once more
   than one exists, else "your kit"). Opening the catalog to change membership
@@ -280,9 +280,9 @@ Siblings: `navigation.md` (tab bar, search, scope control, landings),
   so anywhere it can't go (mid-sentence prose, a saturated button cap) the
   name takes its noun instead, via `EquipmentLibrary.activeKitPhrase` ("the
   main kit"). The bug is invisible until a SECOND kit exists, since prose says
-  "your kit" until then. The user-facing term is "kit", the fourth tab is
+  "your kit" until then. The user-facing term is "kit", the search scope is
   labeled **Kit** (2026-07-20), and **"gear" is retired** from user-facing
   copy — **kit** for the your-set sense, **equipment** for the single-item /
   catalog sense ("Equipment catalog" keeps its name). `EquipmentLibrary` the
-  type, `AppTab.equipment`, and the interchange's
+  type, `FindScope.contextKey`'s `"equipment"`, and the interchange's
   `program/equipment-libraries/` path are frozen internals.

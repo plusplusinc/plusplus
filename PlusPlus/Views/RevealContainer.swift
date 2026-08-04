@@ -29,14 +29,46 @@ final class RevealController {
 
     // MARK: - Swipe-to-open gating (root views only)
 
-    /// Raw value of the active tab; set by RootTabView.
+    /// Raw value of the active SURFACE ("today" / "search"); set by
+    /// RootTabView. ⚠️ Not the same string as Operator's view-context line,
+    /// which keys on the catalog (`FindScope.contextKey`) — the two answer
+    /// different questions and only looked alike while surfaces and catalogs
+    /// were the same thing.
     var activeTab = "today"
-    /// Per-tab "is this tab's NavigationStack at its root?", reported by
+    /// Per-surface "is this root's NavigationStack at its root?", reported by
     /// each root view. Swipe-to-open is allowed only at a root, where there
     /// is no pushed screen whose full-width swipe-back the edge drag would
     /// fight.
     var tabRootState: [String: Bool] = [:]
     var canSwipeOpen: Bool { tabRootState[activeTab] ?? true }
+
+    // MARK: - Surface selection (the drawer's nav list, and Today's search key)
+
+    /// A request to land on a surface, written by whatever is asking and read
+    /// once by `RootTabView`, which clears it.
+    ///
+    /// The drawer's list sits BENEATH the app layer, so it cannot set the
+    /// root's state directly; this is the slot it writes into. A plain
+    /// observable value rather than a `NotificationCenter` post because
+    /// `RootTabView` is always mounted — there is no unbuilt receiver to
+    /// miss the signal, which is the only thing the pending-slot pattern in
+    /// `Arrivals.swift` exists to solve.
+    struct SurfaceRequest: Equatable {
+        let surface: AppTab
+        /// Which catalog to dial on the way in. `nil` keeps the current one.
+        var scope: FindScope?
+    }
+
+    /// ⚠️ Cleared by the consumer, which is what lets the SAME request be
+    /// made twice: `onChange` never fires on an equal value, so a second tap
+    /// on the row you are already on would be swallowed if this latched.
+    var requestedSurface: SurfaceRequest?
+
+    /// Ask for a surface. Callers use this rather than writing the slot, so
+    /// the drawer row and Today's floating key are one route in.
+    func requestSurface(_ surface: AppTab, scope: FindScope? = nil) {
+        requestedSurface = SurfaceRequest(surface: surface, scope: scope)
+    }
 
     /// A soft tap on every commit to open or closed.
     private let impact = UIImpactFeedbackGenerator(style: .medium)

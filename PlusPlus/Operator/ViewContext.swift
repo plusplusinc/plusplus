@@ -10,9 +10,20 @@ import Observation
 /// parent's line when the parent re-appears.
 @Observable @MainActor
 final class ViewContext {
-    /// The active tab's raw value ("today", "routines", …).
+    /// What the main surface is showing, as one of the frozen catalog keys
+    /// or "today" — "today", "routines", "exercises", "equipment".
+    ///
+    /// ⚠️ These are NOT the surface names. Since the tab bar came out
+    /// (2026-08-04) there are two surfaces, Today and Search, and the search
+    /// surface writes its SCOPE here via `FindScope.contextKey` rather than
+    /// the word "search". Deliberate: this line is what Operator reads and
+    /// what `OperatorChips` is unit-tested against, and "the user is looking
+    /// at routines" is the useful fact — "the user is looking at search"
+    /// would be a regression in what the assistant knows. The surface name
+    /// lives on `RevealController.activeTab`, which answers a different
+    /// question (which root's swipe gate applies).
     var tab: String = "today"
-    /// The deepest reported screen line; nil means the tab root.
+    /// The deepest reported screen line; nil means the surface root.
     var detail: String?
 
     /// The one line Operator sees.

@@ -17,14 +17,16 @@ beside it. The laws that constrain these surfaces live in the sibling rules:
 **`catalog-scopes.md`** (what the catalog shows: scopes, tiers, facets) and **`today-rail.md`** (Today's band, rail, landmarks and pull) —
 both load when you touch view code; read them before changing what they govern.
 
-**Five tabs** on the native iOS 26 Liquid Glass `TabView` (`RootTabView`):
-**Today · Routines · Exercises · Kit · Search**. The last wears
-`Tab(role: .search)`, so the system separates it and gives it the bar→field
-morph. The three catalog tabs and the search tab all render the same
-`CatalogScopeView` — a tab picks which CATALOG, never which screen. The
-container laws that constrain that row (the `.principal` toolbar row, search
-scopes, the accessory's retirement, the morph's state-write rule) are in
-`navigation.md`; read them before changing anything in it.
+**Two roots and NO tab bar** (`RootTabView`): **Today** and **Search**. The
+surface picker is a vertical list at the top of the reveal drawer
+(`DrawerNavList`), plus a floating search key bottom-right on Today. Routines,
+Exercises and Kit are the search surface's SCOPES, on a native scope bar under
+the field — they all render the same `CatalogScopeView`, and an empty query
+shows a scope's whole list, so a scope IS the catalog screen. It is still a
+`TabView` underneath, with the bar hidden, so both roots keep their push stack
+and scroll position. The container laws (the scope bar and its activation, the
+present-on-appear rule, the retired placements) are in `navigation.md`; read
+them before changing anything here.
 
 **Today** — the unified timeline: scheduled work, carried-over work, and
 committed sessions on a DATE-FIRST rail (each entry's date on its own row,
@@ -40,20 +42,23 @@ can never take the landing slot; it presents the GitHub tray directly.
 Pull-to-refresh answers in the gap the pull opens (mechanics in
 `today-rail.md`).
 
-**Routines / Exercises / Kit** — catalog surfaces over `CatalogScopeView`,
-MINE then CATALOG, a single-select facet row per scope (exercises kind/
-muscle/movement/mechanic/sides · kit type · routines focus/effort/style),
-PINNED as the list's one section header on tabs and as a top inset on
-presented/picker surfaces (laws in `navigation.md`), with the swipe law
-LEADING is curation / TRAILING is destructive. On Kit the CATALOG tier is ordered by what each
-piece would OPEN rather than by alphabet, stating it as an `Opens N` tag
-(laws in `catalog-scopes.md`). Routine detail keeps the superset rail.
+**Search (Routines / Exercises / Kit)** — one catalog surface over
+`CatalogScopeView`, dialled by the scope bar. MINE then CATALOG, a
+single-select facet row per scope (exercises kind/muscle/movement/mechanic/
+sides · kit type · routines focus/effort/style), PINNED as the list's one
+section header on the root and as a top inset on presented/picker surfaces
+(laws in `navigation.md`), with the swipe law LEADING is curation / TRAILING
+is destructive. On Kit the CATALOG tier is ordered by what each piece would
+OPEN rather than by alphabet, stating it as an `Opens N` tag (laws in
+`catalog-scopes.md`). Routine detail keeps the superset rail.
 
-**The drawer** — the top-left ++ key (and a leading-edge drag on any tab
-root) slides the whole app right, revealing `RevealSurface`: settings folded
-inline (appearance, units, GitHub / Health / calendar sync, the active kit
-as the hero card), Operator, and tiles opening trays (data, what's new,
-about). Mechanics in `ui-interaction.md`.
+**The drawer** — the top-left ++ key (and a leading-edge drag on either
+root) slides the whole app right, revealing `RevealSurface`: the surface list
+at the top (`DrawerNavList` — Today · Search), then settings folded inline
+(appearance, units, GitHub / Health / calendar sync, the active kit as the
+hero card), Operator, and tiles opening trays (data, what's new, about).
+Mechanics in `ui-interaction.md`. ⚠️ It is the app's primary navigation now,
+not just a settings shelf.
 
 **First run** — `WelcomeView` fuses splash and welcome into one continuous
 shot; there is no onboarding flow — a fresh install's Today shows three

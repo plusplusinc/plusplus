@@ -22,6 +22,9 @@ struct TodayView: View {
     var onGoToRoutines: () -> Void = {}
 
     @Environment(\.modelContext) private var modelContext
+    /// The drawer controller — Today's floating search key asks it for the
+    /// search surface, the same route the drawer's own nav row takes.
+    @Environment(RevealController.self) private var reveal
     /// Pending (today's) card sits on a translucent surface; under Reduce
     /// Transparency it goes opaque so its caption text keeps contrast.
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -513,11 +516,35 @@ struct TodayView: View {
                 }
             }
             .background(Theme.background)
-            // The SYSTEM navigation bar, like every other tab root as of
+            // The floating search key (Dave, 2026-08-04). With the tab bar
+            // gone the bottom-right corner is free, and search needs a door
+            // that isn't "open the drawer first".
+            //
+            // ⚠️ An `.overlay`, NOT a `safeAreaInset`: an inset reserves a
+            // band across the FULL width for a single 44 pt key, which would
+            // push the timeline up by that much on a surface whose landing
+            // geometry is measured to the point (`today-rail.md`). It floats
+            // instead, and the `.soft` bottom scroll edge effect the rail
+            // already carries is what keeps rows from reading through it.
+            //
+            // It sits on the TRAILING edge, so it never contends with the
+            // reveal drawer's 16 pt leading-edge open strip.
+            .overlay(alignment: .bottomTrailing) {
+                HeaderIconButton(
+                    systemImage: "magnifyingglass",
+                    accessibilityLabel: "Search",
+                    identifier: "todaySearchButton"
+                ) {
+                    reveal.requestSurface(.search)
+                }
+                .padding(.trailing, 16)
+                .padding(.bottom, 12)
+            }
+            // The SYSTEM navigation bar, like every other root as of
             // 2026-07-26 — Today's hand-rolled header is gone with the
-            // catalogs'. Nothing forced it here (Today hosts no search), but
-            // one tab keeping a drawn title row while four wear the real bar
-            // is an inconsistency with nothing behind it.
+            // catalogs'. Nothing forced it here (Today hosts no search field),
+            // but one root keeping a drawn title row while the other wears the
+            // real bar is an inconsistency with nothing behind it.
             .navigationTitle("Today")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {

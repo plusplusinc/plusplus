@@ -25,11 +25,14 @@ file too before changing where any of this sits. Siblings: `design-grammar.md`
 (the chip and tag anatomy these laws assume), `app-surfaces.md` (what each
 screen is).
 
-- **Today is a TAB, never a scope**: a timeline of derived state has nothing
-  to narrow. `All` is GONE; an **empty query shows the scope's WHOLE list,
-  grouped as its tab groups it**.
+- **Today is a SURFACE, never a scope**: a timeline of derived state has
+  nothing to narrow. `All` is GONE; an **empty query shows the scope's WHOLE
+  list**. ⚠️ That law stopped being a convenience on 2026-08-04 and became
+  STRUCTURAL: the three catalog tabs were retired precisely because a scope
+  with no query already WAS the tab's list. Anything that makes an empty query
+  show less than the whole list deletes a destination.
 - **All three scopes read alike: MINE then CATALOG, plus ONE facet row**
-  (filtering returned 2026-07-31, reversing 2026-07-25) — the Kit tab means
+  (filtering returned 2026-07-31, reversing 2026-07-25) — the Kit scope means
   "equipment, mine first", not "my kit". The row per scope: exercises kind ·
   muscle · movement · mechanic · sides; kit type; routines focus · effort ·
   style. State in `CatalogFilterState` — ephemeral per `CatalogScopeView`
@@ -71,7 +74,7 @@ screen is).
   occludes it (the 4 pt you see under the line is `FacetChip`'s 44 pt hit
   frame around its 36 pt cap). Closed with `listSectionSpacing(.custom(0))` +
   `contentMargins(.top, 0, for: .scrollContent)`, both, gated to
-  `isSearchSurface`. ⚠️ Do NOT close it on the other four roots — the system
+  `isSearchSurface`. ⚠️ Do NOT close it on Today — the system
   large title travels through that space. ⚠️ And do NOT reach for a top
   `scrollEdgeEffectStyle` to kill the hairline: seating the row IS the fix,
   and the line never draws at offset 0. Typing
@@ -94,8 +97,8 @@ screen is).
   doable overview then a missing group per type — which still shows when a
   type has ONLY missing results, so an only-missing query never empties.
   Collapse state is ephemeral per-surface `@State`, reset on entry; a
-  cross-tab arrival that needs gear expands the group so its entrance flash
-  isn't on a hidden row.
+  cross-surface arrival that needs gear expands the group so its entrance
+  flash isn't on a hidden row.
 - **The Kit scope's CATALOG tier is ordered by what a piece would OPEN**
   (2026-08-02, #251): unlock count descending, name as the tiebreak, and the
   row states it as an `Opens N` tag in place of its "N exercises" one (MINE

@@ -2,16 +2,29 @@ import Foundation
 import SwiftData
 import PlusPlusKit
 
-/// What the Find-or-create surface is looking at. These are the app's three
-/// CATALOG tabs — the ones the search field absorbs when it takes over the tab
-/// bar, which then ride above it as the accessory scope row (2026-07-25).
-/// Today is deliberately absent: it is a tab, never a scope (it holds a
+/// What the Find-or-create surface is looking at. These WERE the app's three
+/// catalog tabs; since the tab bar came out (2026-08-04) they are the app's
+/// three search SCOPES, and the scope bar is what a tab tap used to be.
+/// Today is deliberately absent: it is a surface, never a scope (it holds a
 /// timeline of derived state, not a list of typed items, so there is nothing
 /// in it to narrow). The former `.all` lens is gone — a scope with no query
-/// now shows its whole list, and cross-scope hits are surfaced by the
-/// per-scope counts on the labels.
+/// shows its whole list, which is exactly what makes the scope bar a catalog
+/// picker rather than a result filter.
 enum FindScope: String, CaseIterable {
     case routines, exercises, kit
+
+    /// Operator's view-context key, and the reveal drawer's per-surface swipe
+    /// gate key. ⚠️ These three strings are FROZEN: they were `AppTab`'s raw
+    /// values, `OperatorChips` is unit-tested against them, and "equipment"
+    /// (never "kit") is the frozen internal the vocabulary law names. The tab
+    /// they came from is gone; the strings outlived it on purpose.
+    var contextKey: String {
+        switch self {
+        case .routines: return "routines"
+        case .exercises: return "exercises"
+        case .kit: return "equipment"
+        }
+    }
 
     /// The scope's name, identical to the tab it was absorbed from — the
     /// control changes shape, never its vocabulary.

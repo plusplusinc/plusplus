@@ -73,6 +73,12 @@ struct RevealSurface: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 identity
+                // The app's surface picker, directly under the wordmark
+                // (Dave, 2026-08-04) — this is where the bottom tab bar went.
+                // It leads the drawer because it is the only thing here that
+                // navigates the APP; everything below it configures or opens.
+                DrawerNavList()
+                    .padding(.top, 22)
                 operatorHero
                     .padding(.top, 26)
                 librarySection
