@@ -28,6 +28,19 @@ extension FindScope {
     /// consumes an arrival — a landing switches away from search by
     /// definition (`CatalogScopeView.ownsLandings`).
     var tab: AppTab { .browse }
+
+    /// The ViewContext line for Browse dialled to this scope — the OLD tab
+    /// raw values, frozen: `OperatorChips` keys its catalog teaching chips on
+    /// them, and "routines" tells the model more than "browse" would. ⚠️
+    /// "equipment", not "kit" — the chips' historical key (the dead
+    /// `AppTab.equipment`'s raw value), kept so the chip cases stay live.
+    var operatorContextKey: String {
+        switch self {
+        case .routines: return "routines"
+        case .exercises: return "exercises"
+        case .kit: return "equipment"
+        }
+    }
 }
 
 /// v4 navigation root (2026-08-05, prototype A of the structure exploration):
@@ -280,7 +293,11 @@ struct RootTabView: View {
         // a popped detail's stale line).
         .onChange(of: tab, initial: true) { _, newTab in
             reveal.activeTab = newTab.rawValue
-            viewContext.tab = newTab.rawValue
+            // Browse reports the SCOPE, not the tab (swift-reviewer,
+            // 2026-08-05): Operator's catalog chips key on the old per-tab
+            // strings, and "routines" tells the model what's actually on
+            // screen where "browse" wouldn't.
+            viewContext.tab = newTab == .browse ? scope.operatorContextKey : newTab.rawValue
             viewContext.detail = nil
             // The scope needs no syncing here: Browse and search share the one
             // state, so each already opens on the catalog the other was
@@ -291,6 +308,11 @@ struct RootTabView: View {
             // list with nothing on screen explaining the filter and no way to
             // clear it — the "stale invisible query reads as data loss" law.
             if newTab != .search { query = "" }
+        }
+        // A wheel dial changes what Browse is looking at without a tab
+        // change — keep Operator's context line following it.
+        .onChange(of: scope) { _, newScope in
+            if tab == .browse { viewContext.tab = newScope.operatorContextKey }
         }
         // Operator's outcome navigation: the root switches tabs; the
         // owning tab root resolves and pushes (the .plusplusStartRoutine

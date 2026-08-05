@@ -66,16 +66,21 @@ final class SmokeTests: XCTestCase {
     /// (`ScopeWheel`, 2026-08-05 — the app-owned wheel that replaced the
     /// glyphs-only segmented control, so cells carry app identifiers again).
     ///
+    /// ⚠️ Identifiers are per-INSTANCE (`-browse` / `-search`): both wheel
+    /// roots stay mounted over one shared scope, and an inactive tab's
+    /// elements are visible to queries, so a bare identifier is a
+    /// multiple-match once both tabs have been built.
+    ///
     /// The wheel clips at the row's trailing edge, so the far cell can be
     /// realized but not hittable — swipe the track toward it first, the same
     /// affordance a thumb uses. A tap on the already-selected cell is a no-op
     /// write, so callers don't need to check state first.
-    private func selectScope(_ scope: String) {
-        let cell = app.buttons["findScope-\(scope.lowercased())"]
+    private func selectScope(_ scope: String, on instance: String = "browse") {
+        let cell = app.buttons["findScope-\(scope.lowercased())-\(instance)"]
         XCTAssertTrue(cell.waitForExistence(timeout: 5), "the scope wheel rides the catalog roots' bar")
         if !cell.isHittable {
-            let track = app.scrollViews["scopeWheel"].firstMatch
-            let swipeable = track.exists ? track : app.otherElements["scopeWheel"].firstMatch
+            let track = app.scrollViews["scopeWheel-\(instance)"].firstMatch
+            let swipeable = track.exists ? track : app.otherElements["scopeWheel-\(instance)"].firstMatch
             if swipeable.exists { swipeable.swipeLeft() }
         }
         cell.tap()
@@ -356,8 +361,8 @@ final class SmokeTests: XCTestCase {
         snap("find-or-create-open")
 
         // While searching, the catalog is picked on the scope wheel rather
-        // than by leaving search.
-        selectScope("exercises")
+        // than by leaving search — the SEARCH instance's wheel.
+        selectScope("exercises", on: "search")
         let createRow = app.buttons["createExerciseRow"]
         XCTAssertTrue(createRow.waitForExistence(timeout: 5))
 
@@ -385,7 +390,7 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(browseTab.waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Wall Slides"].waitForExistence(timeout: 5))
         XCTAssertTrue(browseTab.isSelected)
-        XCTAssertTrue(app.buttons["findScope-exercises"].isSelected, "the wheel landed on the exercises catalog")
+        XCTAssertTrue(app.buttons["findScope-exercises-browse"].isSelected, "the wheel landed on the exercises catalog")
         snap("find-or-create-landed-exercise")
     }
 

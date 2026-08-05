@@ -453,7 +453,7 @@ struct CatalogScopeView: View {
                         ToolbarItem(placement: .principal) {
                             HStack(spacing: barGap) {
                                 AppMenuKey()
-                                ScopeWheel(scope: scopeSelection)
+                                ScopeWheel(scope: scopeSelection, instanceKey: isSearch ? "search" : "browse")
                                     // Absorbs whatever the two keys leave. No
                                     // minimum: an `HStack` never offers one
                                     // flexible child more than its share, so
@@ -471,7 +471,12 @@ struct CatalogScopeView: View {
                                     // this row's centre. Match the padding and
                                     // the three line up.
                                     .padding(.bottom, 4)
-                                LibrarySwitcherKey(name: activeKitName, identifier: scope.switcherIdentifier) {
+                                // Per-INSTANCE identifier, not per-scope: both
+                                // wheel roots share one scope now, so a
+                                // scope-keyed identifier would sit on two live
+                                // switchers at once — the exact multiple-match
+                                // the per-scope scheme once existed to prevent.
+                                LibrarySwitcherKey(name: activeKitName, identifier: isSearch ? "searchKitSwitcher" : "browseKitSwitcher") {
                                     libraryTrayReason = nil
                                     showingLibraryTray = true
                                 }
@@ -545,6 +550,20 @@ struct CatalogScopeView: View {
             // #251 order — the surface stays mounted, so `onAppear` never
             // refires. Guarded inside: search and non-kit scopes seed empty.
             seedEquipmentOrder()
+            // ⚠️ The THIRD landing door (swift-reviewer, 2026-08-05). A
+            // landing that arrives while Browse is FRONTMOST on a different
+            // scope reaches neither of the other two: the onReceive below is
+            // subscribed to the OLD scope's notification name when the post
+            // is delivered (NotificationCenter is synchronous; the root dials
+            // `scope` in the same beat, but this instance re-subscribes only
+            // on the next body pass), and onAppear needs a tab change this
+            // path never makes. A share-linked routine imported while
+            // browsing exercises would play no flash AND leave a live slot to
+            // fire a phantom path-reset on a later visit. This onChange runs
+            // AFTER the update, with the landing's scope; the guards inside
+            // both consumers make it a no-op on every ordinary wheel dial.
+            consumeArrival()
+            consumeOperatorPush()
         }
         // A cross-tab add lands HERE with the entrance flash — consumed on
         // receive when this tab is already built, on appear when the landing is
@@ -1786,16 +1805,6 @@ struct CatalogScopeView: View {
 }
 
 private extension FindScope {
-    /// Distinct per surface so a smoke test visiting more than one doesn't hit
-    /// a multiple-match on a shared identifier.
-    var switcherIdentifier: String {
-        switch self {
-        case .routines: return "routinesKitSwitcher"
-        case .exercises: return "exercisesKitSwitcher"
-        case .kit: return "librarySwitcherButton"
-        }
-    }
-
     /// The landing this scope answers — one landing for every add.
     var arrivalNotification: Notification.Name {
         switch self {
@@ -1825,7 +1834,7 @@ private extension FindOrCreateEngine.Result {
 ///
 /// A modifier so the branch lives in one place rather than forking the stack's
 /// body. The condition is safe to branch on because it is fixed per instance:
-/// `searchScope` is a `let` decided at init, so a given `CatalogScopeView`
+/// `isSearch` is a `let` decided at init, so a given `CatalogScopeView`
 /// either always carries search or never does. Search presentation must not be
 /// re-created underneath itself, and this can't do that.
 private struct SearchPresentation: ViewModifier {

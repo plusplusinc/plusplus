@@ -44,6 +44,13 @@ import SwiftUI
 /// not change the scope, only a tap or drag does.
 struct ScopeWheel: View {
     @Binding var scope: FindScope
+    /// Which mounted instance this is ("browse" / "search") — suffixed onto
+    /// every accessibility identifier. Browse and search each mount a wheel
+    /// over the SAME scope state, and instances in inactive tabs are visible
+    /// to XCUITest queries (the reason per-scope switcher identifiers ever
+    /// existed), so a shared identifier is a guaranteed multiple-match the
+    /// moment both tabs have been built.
+    let instanceKey: String
 
     /// Even space from the band edge to a chevron.
     private let edgePadding: CGFloat = 6
@@ -61,10 +68,20 @@ struct ScopeWheel: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     /// The id of the cell currently under the band — mirrors the scroll for
-    /// the mechanics. `scope` is the source of truth for the SELECTION.
+    /// the mechanics and the live selected look. `scope` is the source of
+    /// truth for the SELECTION, and a user drag commits it on SETTLE only
+    /// (`commitCenteredCell`): `.scrollPosition(id:)` updates per cell
+    /// crossed, so committing per update would run the catalog's whole
+    /// scope-change reset (path, filters, ranking pass, kit-order seed) for
+    /// every cell a fling passes through.
     @State private var centeredID: Int?
     /// Chevrons fade out while the wheel is in motion.
     @State private var isScrolling = false
+    /// Bumped by THIS instance's own commits (tap, chevron, drag settle) —
+    /// the haptic trigger. Never the shared `scope`: two instances mount
+    /// over one state, and the inactive wheel applying a deferred update on
+    /// tab return must not tick.
+    @State private var hapticTick = 0
 
     private var options: [FindScope] { FindScope.allCases }
     private var selectedIndex: Int { options.firstIndex(of: scope) ?? 0 }
@@ -116,8 +133,15 @@ struct ScopeWheel: View {
             .contentMargins(.trailing, max(0, width - cellWidth), for: .scrollContent)
             .scrollTargetBehavior(.viewAligned)
             .scrollPosition(id: $centeredID, anchor: UnitPoint(x: bandCenter / max(width, 1), y: 0.5))
-            .onScrollPhaseChange { _, phase in isScrolling = phase != .idle }
-            .accessibilityIdentifier("scopeWheel")
+            .onScrollPhaseChange { _, phase in
+                isScrolling = phase != .idle
+                // A drag's landing commits HERE, once, not per cell crossed
+                // (see `centeredID`). Programmatic scrolls settle with the
+                // centered cell already matching the scope, so the commit
+                // no-ops for them.
+                if phase == .idle { commitCenteredCell() }
+            }
+            .accessibilityIdentifier("scopeWheel-\(instanceKey)")
             // The fixed selection band (behind the cells), pinned LEFT,
             // wearing the selection look every selected control shares.
             .background(alignment: .leading) {
@@ -136,14 +160,8 @@ struct ScopeWheel: View {
         // Chrome shared with the bar's keys can't grow without bound — the
         // same cap the segmented control carried.
         .dynamicTypeSize(...DynamicTypeSize.accessibility1)
-        .sensoryFeedback(.selection, trigger: scope)
+        .sensoryFeedback(.selection, trigger: hapticTick)
         .onAppear { centeredID = selectedIndex }
-        .onChange(of: centeredID) { _, new in
-            // A drag settling on a new cell selects it — but NOT VoiceOver's
-            // reveal-scroll, which would change the scope just by navigating.
-            guard !voiceOverOn, let new, options.indices.contains(new), new != selectedIndex else { return }
-            scope = options[new]
-        }
         .onChange(of: scope) { old, new in
             let oldIndex = options.firstIndex(of: old) ?? 0
             let newIndex = options.firstIndex(of: new) ?? 0
@@ -159,6 +177,15 @@ struct ScopeWheel: View {
         }
     }
 
+    /// A user drag's landing, applied once the scroll rests — and NOT under
+    /// VoiceOver, whose reveal-scroll must never change the scope just by
+    /// navigating the options.
+    private func commitCenteredCell() {
+        guard !voiceOverOn, let c = centeredID, options.indices.contains(c), c != selectedIndex else { return }
+        scope = options[c]
+        hapticTick += 1
+    }
+
     // MARK: Cells
 
     private func cell(index: Int, option: FindScope, cellWidth: CGFloat, bandCenter: CGFloat) -> some View {
@@ -166,6 +193,7 @@ struct ScopeWheel: View {
         // a drag), but under VoiceOver pin it to the real selection.
         let visualSelected = voiceOverOn ? (selectedIndex == index) : ((centeredID ?? selectedIndex) == index)
         return Button {
+            if option != scope { hapticTick += 1 }
             scope = option   // onChange scrolls the wheel to it
         } label: {
             // Icon OVER label — the stacked layout that halves the width the
@@ -205,7 +233,7 @@ struct ScopeWheel: View {
         }
         .accessibilityLabel(option.label)
         .accessibilityAddTraits(visualSelected ? [.isButton, .isSelected] : .isButton)
-        .accessibilityIdentifier("findScope-\(option.rawValue)")
+        .accessibilityIdentifier("findScope-\(option.rawValue)-\(instanceKey)")
     }
 
     // MARK: Chevrons
@@ -246,7 +274,9 @@ struct ScopeWheel: View {
 
     private func step(_ delta: Int) {
         let target = min(max(selectedIndex + delta, 0), last)
-        if target != selectedIndex { scope = options[target] }
+        guard target != selectedIndex else { return }
+        scope = options[target]
+        hapticTick += 1
     }
 }
 

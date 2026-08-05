@@ -171,9 +171,14 @@ that era's white/grey. It replaced `ScopeSegmentedControl` (settled
 `UISegmentedControl` segment takes a title OR an image, never both
 (DTS-confirmed), so the segmented control was GLYPHS-only — the wheel gives
 the scopes their words back. Its cells carry `.accessibilityLabel` +
-`.isSelected` (the segmented-control a11y model) and `findScope-<raw>`
-identifiers; the track is `scopeWheel`, and the smoke helper swipes it when
-a clipped far cell isn't hittable.
+`.isSelected` (the segmented-control a11y model) and per-INSTANCE
+`findScope-<raw>-<browse|search>` identifiers (both roots stay mounted over
+one scope, and an inactive tab's elements answer queries — the kit
+switchers went per-instance for the same reason); the track is
+`scopeWheel-<instance>`, and the smoke helper swipes it when a clipped far
+cell isn't hittable. ⚠️ A user fling commits the scope on SETTLE only —
+committing per cell crossed would run the catalog's whole scope-change
+reset for every cell passed through.
 
 - ⚠️ **The wheel mirrors the SCROLL into state** (`.scrollPosition(id:)` +
   `.onScrollPhaseChange`). Scroll-driven, not layout-driven — a different
