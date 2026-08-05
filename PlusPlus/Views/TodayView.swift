@@ -2243,10 +2243,16 @@ struct TodayView: View {
             // from an `.onGeometryChange` probe on this row. That probe is the
             // documented iOS 26 morph trigger (nav-diag 4e): a layout observer
             // anywhere in the TabView subtree breaks `Tab(role: .search)`'s
-            // morph on FIRST activation, and since the catalog surface hides its
-            // nav bar the fallback placement has nowhere to render — the failure
-            // is no visible field at all. Build 126 shipped straight into it.
-            // The measurement is gone rather than moved.
+            // morph on FIRST activation, and since the catalog surface hid its
+            // nav bar at the time, the fallback placement had nowhere to render
+            // — the failure was no visible field at all. Build 126 shipped
+            // straight into it. The measurement is gone rather than moved.
+            // ⚠️ The search role was retired 2026-08-05, so that specific
+            // trigger has no morph left to break — do NOT read this as
+            // permission to put a layout-writing probe back in the TabView
+            // subtree. The finding was never scoped to search: it is that
+            // geometry-driven state writes re-render the TabView during initial
+            // layout, and the role is one thing that failed to survive it.
             .frame(minHeight: setupActive ? viewportHeight : 0, alignment: .top)
         }
     }

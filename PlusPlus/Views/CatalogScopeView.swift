@@ -1758,7 +1758,24 @@ private struct SearchPresentation: ViewModifier {
     func body(content: Content) -> some View {
         if let scope {
             content
-                .searchable(text: $query, prompt: "Search \(scope.wrappedValue.searchNoun)")
+                // ⚠️ TOP, explicitly (Dave, 2026-08-05). `.navigationBarDrawer`
+                // puts the field in the drawer below the navigation bar, and
+                // `displayMode: .always` keeps it there instead of letting it
+                // collapse away on scroll — a field that hides when the list
+                // moves is the one thing this surface cannot afford, since the
+                // field IS the surface. Paired with retiring `Tab(role:
+                // .search)` in `RootTabView`: the role's morph is the BOTTOM
+                // placement, so a placement argument alone would have been an
+                // argument with it.
+                //
+                // The gain beyond the placement itself: the scope bar renders
+                // directly under the field it scopes, instead of at the top of
+                // a screen whose field is at the bottom.
+                .searchable(
+                    text: $query,
+                    placement: .navigationBarDrawer(displayMode: .always),
+                    prompt: "Search \(scope.wrappedValue.searchNoun)"
+                )
                 // Scoping is the SYSTEM'S scope bar (2026-08-05, Dave: another
                 // shot at it) — the app-drawn `ScopeSegmentedControl` that rode
                 // the `.principal` slot for six builds is deleted. What is
@@ -1774,6 +1791,14 @@ private struct SearchPresentation: ViewModifier {
                 // underneath it, which is the shape of a control that renders
                 // once and never again. It attaches to a stable, `.inline`,
                 // content-keeping bar now.
+                //
+                // ⚠️ And as of the placement above, the OTHER half of that
+                // failure's context is gone too: 140–143 read "renders once,
+                // and at the TOP" on a field morphed out of the search-role
+                // tab, i.e. the scope bar was rendering where scope bars go
+                // while the field was at the far end of the screen. With the
+                // field in the drawer, the top IS where it belongs. Whichever
+                // of the two theories is right, both point the same way now.
                 //
                 // ⚠️ WORDS, not glyphs. The glyph-only rule was a consequence
                 // of the principal slot (three words could not share a row with

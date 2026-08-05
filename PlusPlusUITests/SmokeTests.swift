@@ -46,14 +46,17 @@ final class SmokeTests: XCTestCase {
         key.tap()
     }
 
-    /// The NATIVE search field, expanded out of the search-role tab — a
-    /// `searchField` element, not a custom `textField` with an identifier.
+    /// The NATIVE search field, in the navigation bar's drawer at the top of
+    /// the search tab (2026-08-05) — a `searchField` element, not a custom
+    /// `textField` with an identifier. It used to be morphed out of a
+    /// search-role tab at the BOTTOM; the query is the same either way.
     private var searchField: XCUIElement {
         app.searchFields.firstMatch
     }
 
-    /// Open the catalogs (the separated search circle beside Today), which
-    /// morphs the bar into the field.
+    /// Open the catalogs. The Search tab is an ordinary tab now, so this is a
+    /// plain tab tap and the field is simply there at the top — no morph to
+    /// wait on.
     private func openSearch() {
         let key = app.tabBars.buttons["Search"]
         XCTAssertTrue(key.waitForExistence(timeout: 10))
@@ -356,8 +359,8 @@ final class SmokeTests: XCTestCase {
         // The native field's own Cancel clears the query; the catalog stays
         // put, since the SCOPE — not the field — decides which one you're on.
         // ⚠️ It is labelled **Close**, beside a "Clear text" key. The
-        // affordance is the SYSTEM's — the field is morphed out of the
-        // search-role tab — so its noun is not the app's to choose, and
+        // affordance is the SYSTEM's — it belongs to `.searchable`, wherever
+        // the field is placed — so its noun is not the app's to choose, and
         // "Cancel" stopped matching when #452 reworked this surface. Both
         // are accepted: the assertion is about leaving search, not about
         // which word the platform picked.
