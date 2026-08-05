@@ -52,13 +52,19 @@ struct ScopeWheel: View {
     /// moment both tabs have been built.
     let instanceKey: String
 
-    /// Even space from the band edge to a chevron.
-    private let edgePadding: CGFloat = 6
-    /// The chevron glyph's nominal width, reserved on each side of the label.
-    private let chevronWidth: CGFloat = 6
-    /// Space between a chevron and the label column.
-    private let labelGap: CGFloat = 2
-    private let spacing: CGFloat = 6
+    /// Even space from the cell edge to the LABEL column — the only side
+    /// reserve a cell carries. ⚠️ The chevrons no longer claim width here
+    /// (Dave's build-191 screenshot): a mid-height chevron zone sat exactly
+    /// where the label row is widest, so ‹ › collided with "Exercises" —
+    /// and reserving it in EVERY cell pushed the neighbours' centered
+    /// content ~50 pt out, reading as a stray floating key rather than the
+    /// next option on a wheel. The chevrons flank the ICON row instead
+    /// (`chevron(_:)`), whose column is far narrower than any label.
+    private let edgePadding: CGFloat = 8
+    /// The chevron's edge column: glyph seated on the icon row, hit target
+    /// the full cell height.
+    private let chevronWidth: CGFloat = 14
+    private let spacing: CGFloat = 4
     private let cellHeight: CGFloat = 44
     private let bandHeight: CGFloat = 40
     private let tiltDegrees: Double = 18
@@ -86,8 +92,6 @@ struct ScopeWheel: View {
     private var options: [FindScope] { FindScope.allCases }
     private var selectedIndex: Int { options.firstIndex(of: scope) ?? 0 }
     private var last: Int { options.count - 1 }
-    /// Reserved on EACH side of the label column: edge pad + chevron + gap.
-    private var sideReserve: CGFloat { edgePadding + chevronWidth + labelGap }
 
     /// The widest label at its selected (semibold) weight, from `UIFont`
     /// metrics — never a layout probe (see the header). Re-derived per render,
@@ -115,7 +119,7 @@ struct ScopeWheel: View {
             // Clamp to the viewport so the intrinsic band never overflows at
             // accessibility sizes; `minimumScaleFactor` absorbs any shortfall
             // rather than the wheel running off-screen.
-            let cellWidth = max(1, min(maxLabelWidth + 2 * sideReserve, width - 8))
+            let cellWidth = max(1, min(maxLabelWidth + 2 * edgePadding, width - 8))
             let bandCenter = cellWidth / 2
 
             ScrollView(.horizontal) {
@@ -209,6 +213,12 @@ struct ScopeWheel: View {
                     .minimumScaleFactor(0.7)
             }
             .foregroundStyle(visualSelected ? Theme.selectedInk : Theme.textSecondary)
+            // The label's clearance is ENFORCED, not hoped for (build 191:
+            // the text spanned the cell and the chevrons sat on its first
+            // and last glyphs — `minimumScaleFactor` never fires while the
+            // cell is wider than the text, so the inner frame is what makes
+            // it fire when a label outgrows its column).
+            .frame(maxWidth: cellWidth - 2 * edgePadding)
             .frame(width: cellWidth, height: cellHeight)
         }
         .buttonStyle(.plain)
@@ -244,7 +254,7 @@ struct ScopeWheel: View {
             Spacer(minLength: 0)
             chevron(.forward)
         }
-        .padding(.horizontal, edgePadding)
+        .padding(.horizontal, 2)
         .frame(width: cellWidth, height: cellHeight)
         // A supplementary visual affordance — assistive tech uses the option
         // buttons, which are directly selectable.
@@ -261,10 +271,16 @@ struct ScopeWheel: View {
             Image(systemName: dir == .backward ? "chevron.left" : "chevron.right")
                 .font(.system(.caption2, weight: .semibold))
                 .foregroundStyle(Theme.textFaint)
-                // Hit zone extends into the reserved gap (never over the
-                // label), full height for a comfortable target.
-                .frame(width: chevronWidth + labelGap + edgePadding, height: cellHeight,
-                       alignment: dir == .backward ? .leading : .trailing)
+                // Seated on the ICON row, not mid-height (build 191: the
+                // label row is the cell's widest, and a vertically centred
+                // chevron landed on its first and last glyphs). The icon
+                // column is the narrowest thing in the cell, so the band's
+                // top corners are the one place a chevron can live without
+                // colliding at any label width. Hit target stays the full
+                // cell height at the edge.
+                .padding(.top, 10)
+                .frame(width: chevronWidth, height: cellHeight,
+                       alignment: dir == .backward ? .topLeading : .topTrailing)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
