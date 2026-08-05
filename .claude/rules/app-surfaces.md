@@ -24,9 +24,9 @@ its bar→field morph were retired 2026-08-05, so the field sits at the TOP in
 `.navigationBarDrawer(displayMode: .always)`. The three catalog tabs and the
 search tab all render the same
 `CatalogScopeView` — a tab picks which CATALOG, never which screen. The
-container laws that constrain that row (the system's `.searchScopes` bar, the
-field's placement, the accessory's retirement, the layout-state-write rule)
-are in `navigation.md`; read them before changing anything in it.
+container laws that constrain that surface (the scope WHEEL in the pinned
+band, the field's placement, the accessory's retirement, the
+layout-state-write rule) are in `navigation.md`; read them first.
 
 **Today** — the unified timeline: scheduled work, carried-over work, and
 committed sessions on a DATE-FIRST rail (each entry's date on its own row,

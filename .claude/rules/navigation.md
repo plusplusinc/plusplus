@@ -163,49 +163,61 @@ the native clear (✕) and Cancel. The placeholder is per-scope
 
 ## The scope control
 
-**Scope selection is the TAB BAR, and — on the search surface — the SYSTEM'S
-own scope bar**: native `.searchScopes`, on the same `.searchable` that carries
-the field, inside `CatalogScopeView`'s stack (2026-08-05). ✅ **CONFIRMED ON
-DEVICE, build 187** (Dave): it renders, and it SURVIVES focusing and unfocusing
-the field. **The 140–143 "renders exactly once per app run" finding does not
-reproduce** — it is retired as a live constraint, and this file no longer tells
-you not to try it. ⚠️ What that pass ran with matters, because one input has
-changed since: 187 carried `.avoidHidingContent`, and build 188 reverses it
-(see below). The search surface's bar row is the same leading-key/trailing-key
-arrangement as the other four roots again.
+**Scope selection is the TAB BAR, and — on the search surface — an inline
+horizontal WHEEL**: `InlineWheelPicker`, in the PINNED BAND directly under the
+field, above the facet chips (2026-08-05, Dave). ⚠️ It is a RESTORE, not a new
+control: it shipped on the Find-or-create surface 2026-07-24 (#447) and was
+recovered from that pull request's own ref — squash merges had left it in no
+reachable commit, so `git log --all` in a normal clone cannot see it. **When
+something looks unrecoverable, check `refs/pull/<n>/head` before rebuilding it.**
 
-- ⚠️ **`activation: .onSearchPresentation`, never the iOS default.** The
-  default is `.onTextEntry`, and an EMPTY query is a first-class state here —
-  it browses the scope's whole list. A scope control that appears only once you
-  type is missing exactly when you arrive wanting to change catalogs.
-- **Segment labels are WORDS** (`FindScope.label`). The glyph-only rule was a
-  consequence of the `.principal` slot, not of segmented controls: the platform
-  limit is only that ONE segment cannot carry a title AND an image
-  (`.titleAndIcon` drops the icon; DTS-confirmed). The system's scope bar owns
-  a full row, so the words fit and reach VoiceOver without an
-  `.accessibilityLabel` standing in for a symbol name.
-- ⚠️ **`.searchPresentationToolbarBehavior` is `.automatic` again**
-  (2026-08-05, Dave: focusing the input should hide the ++ key and the kit
-  switcher so the field rises to the top), REVERSING build 147's
-  `.avoidHidingContent`. 147's reasoning does not bind any more: the scope
-  control lived in that row then, so hiding the row took the only way to
-  change catalogs with it. Now scoping belongs to the search PRESENTATION, and
-  what clears is two keys that each have a second door (the drawer opens on a
-  leading-edge drag from any root; the kit is on every catalog tab).
-  ✅ It was feared to be in tension with the scope bar; **build 188 shows it
-  is not** (Dave's screenshot: bar cleared, field focused, scope bar there).
-- **Why 140–143 failed: one theory is now DISPROVED, and the rest is open.**
-  They failed as "renders exactly ONCE per app run, at the TOP" on a
-  bottom-morphed field, across four activation routes. Three things differed
-  by build 187, which changed all three at once: the title is `.inline` rather
-  than `.large` (it used to collapse away as search presented), the bar kept
-  its content (`.avoidHidingContent`, 147), and the field is in the top drawer,
-  so "at the TOP" is where a scope bar belongs rather than a complaint.
-  ⚠️ **Build 188 removed the middle one and the scope bar was unaffected**, so
-  **the system clearing this bar was never what broke it** — the write-up that
-  guessed otherwise (docs/DECISIONS.md, 2026-08-05) was wrong, and the
-  remaining candidates are the `.inline` title and the drawer placement. Do
-  not re-assert the bar-clearing explanation; it has been tested.
+- **Anatomy** (all device-tuned in #447 through an HTML prototype, so treat the
+  constants as decided): a LEFT-anchored selection band whose leading edge sits
+  on the 16 pt content column, sized INTRINSICALLY to the widest option label
+  plus even padding and reserved chevron space (a hidden width-probe
+  `PreferenceKey` — ⚠️ measuring the CELLS instead re-measures a fixed width and
+  the band grows every render); white selected / grey unselected, **no blue** —
+  selection reads by band and weight, not a pill; a soft 3D cylinder tilt
+  (18°) that Reduce Motion flattens; faint in-band chevrons that step and fade
+  while the wheel moves. Built on native scroll mechanics
+  (`ScrollView(.horizontal)` + `.viewAligned` + `.scrollPosition(id:)`), so it
+  can never overflow its viewport.
+- ⚠️ **The accessibility model is the segmented control's, and it is
+  load-bearing**: each option is a labelled `Button` with `.isSelected` (NOT
+  one adjustable element, which would hide the per-option identifiers the smoke
+  test needs); icons and chevrons are hidden from assistive tech; and
+  VoiceOver's reveal-scroll is gated out of the scroll→selection sync
+  (`accessibilityVoiceOverEnabled`) so NAVIGATING options cannot change the
+  scope — only a tap or drag does.
+- **Why not native `.searchScopes`** (which held this job for one day and
+  WORKS — device-passed on 187, survived focus/blur on 188): it cannot be
+  STYLED. Its entire public surface is a binding, an activation and tagged
+  labels, so a system-drawn bar over app-drawn filter chips is two vocabularies
+  with no way to converge them (Dave, 2026-08-05). ⚠️ The objection is styling,
+  not behaviour — do not re-argue it from the 140–143 finding, which is dead
+  (below).
+- ⚠️ **The band under the field is what made this possible.** The control's
+  seven-build history was entirely a consequence of the field being morphed out
+  of the tab bar at the BOTTOM, leaving no container for a scope control that
+  the keyboard did not bury. The field moved to the top drawer the same day, so
+  the band the facet chips already pin in was free — and it is where a scope
+  control belongs, next to the filters it sits with.
+- ⚠️ **`.searchPresentationToolbarBehavior` is `.automatic`** (2026-08-05,
+  Dave: focusing the input should hide the ++ key and the kit switcher so the
+  field rises), REVERSING build 147's `.avoidHidingContent`. 147's reasoning
+  does not bind: the scope control lived in the navigation bar then, so
+  emptying that row took the only way to change catalogs with it. Scoping is in
+  the band now, and what clears is two keys that each have a second door (the
+  drawer opens on a leading-edge drag from any root; the kit is on every
+  catalog tab).
+- **The 140–143 "renders exactly ONCE per app run" finding is RETIRED**, on
+  device: native scopes rendered and survived focus/blur on 187/188. ⚠️ WHY it
+  failed then is still unknown — three things differed and 187 changed all
+  three (the title went `.large` → `.inline`, the bar kept its content, the
+  field moved to the drawer). Build 188 removed the bar-clearing one alone and
+  the scope bar was unaffected, so **that** explanation is disproved; the
+  `.inline` title and the placement remain untested candidates. Do not re-assert
+  the bar-clearing story.
 - **The retired containers stay retired** — post-mortems in docs/DECISIONS.md
   + git, per this file's header. ⚠️ `tabViewBottomAccessory` does not rise with
   the keyboard (137–139, 144), and app-authored animation does not survive

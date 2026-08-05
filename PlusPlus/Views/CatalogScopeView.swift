@@ -384,12 +384,13 @@ struct CatalogScopeView: View {
     ///
     /// ⚠️ The search surface used to measure its OWN width in a
     /// `GeometryReader` here, because it laid the whole bar row out by hand as
-    /// one `.principal` item around `ScopeSegmentedControl`. Scoping is the
-    /// system's `.searchScopes` again (2026-08-05), so the row is the same
-    /// leading-key/trailing-key arrangement as the other four roots and the
-    /// probe is gone with the hand-layout — one fewer geometry read inside the
-    /// TabView subtree, and one fewer re-run of the ranking pipeline per size
-    /// change.
+    /// one `.principal` item around `ScopeSegmentedControl`. That row is gone
+    /// (2026-08-05) and has NOT come back with the wheel: the scope control
+    /// lives in the pinned BAND under the field now, not in the navigation bar,
+    /// so this row is the same leading-key/trailing-key arrangement as the
+    /// other four roots and the probe went with the hand-layout — one fewer
+    /// geometry read inside the TabView subtree, and one fewer re-run of the
+    /// ranking pipeline per size change.
     private var tabBody: some View {
         NavigationStack(path: $path) {
             listBody
@@ -976,68 +977,23 @@ struct CatalogScopeView: View {
     /// see `listBody`), and a top `safeAreaInset` on presented/picker
     /// surfaces, whose chrome is app-drawn.
     private func filterRow(shown: Int, hidden: Int) -> some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            // ⚠️ `GlassEffectContainer` because the chips are glass now and
-            // sit close together — that is the documented case for it: it
-            // groups them for the compositor instead of rendering each
-            // effect standalone. **`spacing: 0` on purpose.** The parameter
-            // is the distance within which neighbouring effects BLEND, and
-            // these are separate controls: a container spaced to the 8 pt
-            // gap would fuse Focus·Effort·Style into one glass blob. If they
-            // ever should merge, that is the knob.
-            GlassEffectContainer(spacing: 0) {
-                // 8, up from 7: glass wants a little more breathing room than
-                // a stroked chip did, and it matches the band's own padding.
-                HStack(spacing: 8) {
-                    if !filters.isEmpty(for: scope) {
-                        FilterSummaryChip(
-                            facets: filters.activeFacets(for: scope),
-                            shown: shown,
-                            total: shown + hidden
-                        ) {
-                            withAnimation(Theme.Anim.standard) {
-                                filters.clear(scope: scope)
-                            }
-                        }
-                    }
-                    switch scope {
-                    case .exercises:
-                        // Kind leads: the coarsest axis, and the reason the
-                        // cardio push wanted a facet at all — every cardio
-                        // exercise files under Full Body, so no other facet
-                        // reaches the cardio rows as a set (#475). The two
-                        // BINARY facets keep their Menus; everything with a
-                        // real list of options opens a tray (#498).
-                        FacetTrayChip(name: "Kind", options: CatalogKind.allCases, display: \.label, selection: $filters.kinds, identifier: "facetKind")
-                        FacetTrayChip(name: "Muscle", options: MuscleGroup.allCases, display: \.displayName, selection: $filters.muscles, identifier: "facetMuscle", searchPrompt: "Search muscle groups")
-                        FacetTrayChip(name: "Movement", options: MovementPattern.allCases, display: \.displayName, selection: $filters.patterns, identifier: "facetMovement", searchPrompt: "Search movements")
-                        FacetChip(name: "Mechanic", options: ExerciseMechanic.allCases, display: \.displayName, selection: $filters.mechanic, identifier: "facetMechanic")
-                        FacetChip(name: "Sides", options: ExerciseLaterality.allCases, display: \.displayName, selection: $filters.laterality, identifier: "facetSides")
-                    case .kit:
-                        FacetTrayChip(name: "Type", options: SeedData.EquipmentCategory.allCases, display: \.rawValue, selection: $filters.equipmentCategories, identifier: "facetType")
-                    case .routines:
-                        FacetTrayChip(name: "Focus", options: RoutineTemplate.Focus.allCases, display: \.rawValue, selection: $filters.focuses, identifier: "facetFocus")
-                        FacetTrayChip(name: "Effort", options: RoutineTemplate.Effort.allCases, display: \.rawValue, selection: $filters.efforts, identifier: "facetEffort")
-                        FacetTrayChip(name: "Style", options: RoutineTemplate.Style.allCases, display: \.rawValue, selection: $filters.styles, identifier: "facetStyle")
-                    }
-                }
-            }
-            .padding(.horizontal, 16)
+        VStack(spacing: 8) {
+            // The scope wheel leads the band on the SEARCH surface only — off
+            // search the tab bar is the scope control, so there is nothing to
+            // dial. See `scopeWheel`.
+            if isSearchSurface { scopeWheel }
+            facetChips(shown: shown, hidden: hidden)
         }
         // ⚠️ The top padding is the SEARCH surface's alone (Dave, 2026-08-05:
-        // even out the vertical gap). There the row sits under the scope bar,
-        // which sits under the field, and the two gaps did not match — the
-        // field-to-scopes gap is the system's, and this one was 0 plus the
-        // 4 pt of `FacetChip`'s 44 pt hit frame. 8 above and 8 below gives
-        // the band equal air.
+        // even out the vertical gap): there the band sits under the field, and
+        // its air did not match the field's own. 8 above and 8 below.
         //
-        // ⚠️ It goes INSIDE the opaque band, not on `contentMargins`, and
-        // that is the whole point: `contentMargins(.top, 0)` is the
-        // 2026-08-02 seating fix (the row starts in its PINNED seat, which is
-        // what stops the navigation bar's hairline drawing for the 22 pt it
-        // used to take arriving). Padding within the band moves the chips
-        // without moving where the band starts, so the seat and the hairline
-        // are untouched.
+        // ⚠️ It goes INSIDE the opaque band, not on `contentMargins`, and that
+        // is the whole point: `contentMargins(.top, 0)` is the 2026-08-02
+        // seating fix (the row starts in its PINNED seat, which is what stops
+        // the navigation bar's hairline drawing for the 22 pt it used to take
+        // arriving). Padding within the band moves its content without moving
+        // where the band starts, so the seat and the hairline are untouched.
         //
         // ⚠️ The other four roots keep 0: their large title travels through
         // this space, and 8 pt there is a gap in the title's path.
@@ -1046,6 +1002,86 @@ struct CatalogScopeView: View {
         .animation(Theme.Anim.standard, value: filters.isEmpty(for: scope))
         // OPAQUE — rows scroll under this band (the picker-field rule).
         .background(Theme.background)
+    }
+
+    /// Scope as the app's own inline horizontal WHEEL (`InlineWheelPicker`),
+    /// restored 2026-08-05 at Dave's ask, replacing native `.searchScopes`.
+    ///
+    /// ⚠️ It is a RESTORE, not a rebuild: the control shipped on the
+    /// Find-or-create surface (2026-07-24, #447 — a left-anchored intrinsic
+    /// band the scopes wheel through, in-band direction chevrons, a soft 3D
+    /// tilt, and the segmented-control accessibility model that keeps
+    /// VoiceOver's reveal-scroll from mutating the selection). It was lost
+    /// when that surface was replaced, and recovered from the pull request's
+    /// own ref — squash merges left it in no reachable commit, which is worth
+    /// knowing the next time something looks unrecoverable.
+    ///
+    /// **Why the wheel and not the system's scope bar** (Dave, 2026-08-05):
+    /// `.searchScopes` cannot be styled — its whole surface is a binding, an
+    /// activation and tagged labels — so a native bar over app-drawn filter
+    /// chips is two vocabularies with no way to converge them. The wheel is
+    /// the app's, so it matches the chips under it by construction.
+    ///
+    /// ⚠️ It sits in the pinned band UNDER the field, which is the placement
+    /// that made this possible: the control's seven-build history was entirely
+    /// about the bottom-morphed field leaving nowhere for a scope control to
+    /// live. The field moved to the top drawer earlier today, so the band
+    /// directly beneath it — the same one the facet chips already pin in — was
+    /// free, and it is where a scope control belongs anyway.
+    private var scopeWheel: some View {
+        InlineWheelPicker(
+            options: FindScope.allCases.map(\.label),
+            selectedIndex: Binding(
+                get: { FindScope.allCases.firstIndex(of: searchScope?.wrappedValue ?? scope) ?? 0 },
+                set: { searchScope?.wrappedValue = FindScope.allCases[$0] }
+            ),
+            // The SAME symbols the tab bar uses for the same three scopes, so a
+            // scope reads identically in both places. `All` is long gone (Today
+            // is a tab, never a scope), so unlike 2026-07-24 every option has a
+            // glyph and none needs the text-only case.
+            symbols: FindScope.allCases.map { Optional($0.symbolName) },
+            identifiers: FindScope.allCases.map { "findScope-\($0.rawValue)" },
+            scrollIdentifier: "findScopeWheel"
+        )
+    }
+
+    private func facetChips(shown: Int, hidden: Int) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 7) {
+                if !filters.isEmpty(for: scope) {
+                    FilterSummaryChip(
+                        facets: filters.activeFacets(for: scope),
+                        shown: shown,
+                        total: shown + hidden
+                    ) {
+                        withAnimation(Theme.Anim.standard) {
+                            filters.clear(scope: scope)
+                        }
+                    }
+                }
+                switch scope {
+                case .exercises:
+                    // Kind leads: the coarsest axis, and the reason the
+                    // cardio push wanted a facet at all — every cardio
+                    // exercise files under Full Body, so no other facet
+                    // reaches the cardio rows as a set (#475). The two
+                    // BINARY facets keep their Menus; everything with a
+                    // real list of options opens a tray (#498).
+                    FacetTrayChip(name: "Kind", options: CatalogKind.allCases, display: \.label, selection: $filters.kinds, identifier: "facetKind")
+                    FacetTrayChip(name: "Muscle", options: MuscleGroup.allCases, display: \.displayName, selection: $filters.muscles, identifier: "facetMuscle", searchPrompt: "Search muscle groups")
+                    FacetTrayChip(name: "Movement", options: MovementPattern.allCases, display: \.displayName, selection: $filters.patterns, identifier: "facetMovement", searchPrompt: "Search movements")
+                    FacetChip(name: "Mechanic", options: ExerciseMechanic.allCases, display: \.displayName, selection: $filters.mechanic, identifier: "facetMechanic")
+                    FacetChip(name: "Sides", options: ExerciseLaterality.allCases, display: \.displayName, selection: $filters.laterality, identifier: "facetSides")
+                case .kit:
+                    FacetTrayChip(name: "Type", options: SeedData.EquipmentCategory.allCases, display: \.rawValue, selection: $filters.equipmentCategories, identifier: "facetType")
+                case .routines:
+                    FacetTrayChip(name: "Focus", options: RoutineTemplate.Focus.allCases, display: \.rawValue, selection: $filters.focuses, identifier: "facetFocus")
+                    FacetTrayChip(name: "Effort", options: RoutineTemplate.Effort.allCases, display: \.rawValue, selection: $filters.efforts, identifier: "facetEffort")
+                    FacetTrayChip(name: "Style", options: RoutineTemplate.Style.allCases, display: \.rawValue, selection: $filters.styles, identifier: "facetStyle")
+                }
+            }
+            .padding(.horizontal, 16)
+        }
     }
 
     /// Everything above the sections, in one `some View` boundary.
@@ -1806,49 +1842,22 @@ private struct SearchPresentation: ViewModifier {
                     placement: .navigationBarDrawer(displayMode: .always),
                     prompt: "Search \(scope.wrappedValue.searchNoun)"
                 )
-                // Scoping is the SYSTEM'S scope bar (2026-08-05, Dave: another
-                // shot at it) — the app-drawn `ScopeSegmentedControl` that rode
-                // the `.principal` slot for six builds is deleted. What is
-                // different from builds 140–143, which is why this is worth
-                // re-trying rather than a re-run: both modifiers this
-                // presentation carries now arrived AFTER those builds, and both
-                // are about the navigation bar the scope bar attaches to. On
-                // 140–143 the title was still `.large` (it collapsed away as
-                // search presented) and `.avoidHidingContent` did not exist
-                // here yet, so the system cleared the bar's content on
-                // activation — build 143's emptied top band. The scope bar had
-                // to attach to a bar that was being emptied and re-laid out
-                // underneath it, which is the shape of a control that renders
-                // once and never again. It attaches to a stable, `.inline`,
-                // content-keeping bar now.
+                // ⚠️ NO `.searchScopes`. Scoping is the app's own
+                // `InlineWheelPicker`, in the pinned band under this field
+                // (see `CatalogScopeView.scopeWheel`).
                 //
-                // ⚠️ And as of the placement above, the OTHER half of that
-                // failure's context is gone too: 140–143 read "renders once,
-                // and at the TOP" on a field morphed out of the search-role
-                // tab, i.e. the scope bar was rendering where scope bars go
-                // while the field was at the far end of the screen. With the
-                // field in the drawer, the top IS where it belongs. Whichever
-                // of the two theories is right, both point the same way now.
-                //
-                // ⚠️ WORDS, not glyphs. The glyph-only rule was a consequence
-                // of the principal slot (three words could not share a row with
-                // the ++ key and a variable-width kit switcher, and a segmented
-                // control truncates rather than scrolls), NOT of segmented
-                // controls — the platform limit is only that ONE segment cannot
-                // carry a title AND an image. The system's scope bar owns a full
-                // row, so the words fit and the label reaches VoiceOver without
-                // an `.accessibilityLabel` standing in for a symbol name.
-                //
-                // ⚠️ `.onSearchPresentation`, not the iOS default: the default
-                // is `.onTextEntry`, and an EMPTY query is a first-class state
-                // here — it browses the scope's whole list. A scope control that
-                // appears only once you type would be missing at exactly the
-                // moment you arrive wanting to change catalogs.
-                .searchScopes(scope, activation: .onSearchPresentation) {
-                    ForEach(FindScope.allCases, id: \.self) { item in
-                        Text(item.label).tag(item)
-                    }
-                }
+                // ⚠️ Read the reason precisely, because the obvious one is
+                // wrong: the system's bar WORKS here. It was device-passed on
+                // build 187 and survived a focus/blur cycle on 188, which
+                // retired the 140–143 "renders exactly once per app run"
+                // finding for good — that constraint is dead and this comment
+                // is not reviving it. It was dropped because it cannot be
+                // STYLED: the whole public surface of `.searchScopes` is a
+                // binding, an activation and tagged labels, so a system-drawn
+                // bar sitting over app-drawn filter chips is two vocabularies
+                // with no way to converge them (Dave, 2026-08-05). If the
+                // filter row ever goes native, this is the first thing to
+                // reconsider — it is a styling decision, not a technical one.
                 // ⚠️ The bar's other content YIELDS to the field while search
                 // is active — the system's own `.automatic` behaviour, stated
                 // explicitly rather than left to the default so nobody reads

@@ -64,46 +64,33 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(searchField.waitForExistence(timeout: 5))
     }
 
-    /// Pick a catalog on the system's search scope bar. It exists only on the
-    /// Search tab — off search the tab bar is the scope control
-    /// (`goToCatalog`).
+    /// Pick a catalog on the scope WHEEL — `InlineWheelPicker`, in the pinned
+    /// band under the search field. It exists only on the Search tab; off
+    /// search the tab bar is the scope control (`goToCatalog`).
     ///
-    /// It's the system's own `.searchScopes` bar (2026-08-05), so its segments
-    /// are system buttons with no app-set identifiers: matched by CONTAINS on
-    /// the scope's own word, falling back to POSITION since the order is fixed
-    /// by `FindScope.allCases` and a name miss would otherwise read as "the
-    /// control is missing".
+    /// Each option is a labelled `Button` carrying its own identifier
+    /// (`findScope-<rawValue>`), which is the segmented-control accessibility
+    /// model the wheel was built on — so this is an identifier tap, not a
+    /// label match against system chrome.
     ///
-    /// ⚠️ The bar activates `.onSearchPresentation`. Whether ARRIVING on the
-    /// search tab counts as a presentation, or whether the field has to be
-    /// tapped first, is the open device-pass question on this change — so the
-    /// helper tries the bar as it finds it and only then taps the field to
-    /// force a presentation. That fallback keeps the flows honest about what
-    /// they exercise; it does not settle the question, which XCUITest can't
-    /// see anyway.
+    /// ⚠️ The wheel is a horizontal `ScrollView`, so an option far from the
+    /// band can be REALIZED but not hittable (`isHittable` is not "visible" —
+    /// testing.md). Swipe the track toward it first, then tap; the track
+    /// carries `findScopeWheel` for exactly this.
     private func selectScope(_ scope: String) {
-        var control = app.segmentedControls.firstMatch
-        if !control.waitForExistence(timeout: 5) {
-            searchField.tap()
-            control = app.segmentedControls.firstMatch
-            XCTAssertTrue(
-                control.waitForExistence(timeout: 5),
-                "the scope bar belongs to the search presentation · \(buttonInventory())"
-            )
+        let option = app.buttons["findScope-\(scope.lowercased())"]
+        XCTAssertTrue(
+            option.waitForExistence(timeout: 5),
+            "the scope wheel rides the band under the field · \(buttonInventory())"
+        )
+        if !option.isHittable {
+            app.otherElements["findScopeWheel"].swipeLeft()
         }
-        let named = control.buttons
-            .matching(NSPredicate(format: "label CONTAINS[c] %@", scope))
-            .firstMatch
-        if named.exists {
-            named.tap()
+        guard option.isHittable else {
+            XCTFail("scope \(scope) never became hittable · \(rect(option.frame))")
             return
         }
-        let order = ["routines", "exercises", "kit"]
-        guard let index = order.firstIndex(of: scope.lowercased()) else {
-            XCTFail("unknown scope \(scope)")
-            return
-        }
-        control.buttons.element(boundBy: index).tap()
+        option.tap()
     }
 
     // MARK: - Flows
@@ -380,8 +367,8 @@ final class SmokeTests: XCTestCase {
         openSearch()
         snap("find-or-create-open")
 
-        // While searching, the catalog is picked on the search presentation's
-        // own scope bar rather than by leaving for another tab.
+        // While searching, the catalog is picked on the scope wheel rather
+        // than by leaving for another tab.
         selectScope("exercises")
         let createRow = app.buttons["createExerciseRow"]
         XCTAssertTrue(createRow.waitForExistence(timeout: 5))

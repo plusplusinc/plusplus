@@ -69,16 +69,16 @@ extension FindScope {
 /// but now that `CatalogScopeView` exists they are tabs over ONE screen, which
 /// is what the two-tab round was really after.
 ///
-/// **The tab bar is the scope control; inside search, the system's own scope
-/// bar is** — native `.searchScopes`, attached to the same `.searchable` that
-/// carries the field, inside `CatalogScopeView`'s stack (2026-08-05, Dave:
-/// another shot at it, reversing the app-drawn control that held the
-/// `.principal` slot from 2026-07-26). It has never lived in
-/// `tabViewBottomAccessory` successfully (that container does not rise with the
-/// keyboard) and never in a `.bottomBar` item (that row is the one the
-/// search-role field expands into); those two stay retired. What made the
-/// system's answer worth re-trying, and what to check on device, is on
-/// `SearchPresentation` in `CatalogScopeView`.
+/// **The tab bar is the scope control; inside search, an inline horizontal
+/// WHEEL is** — `InlineWheelPicker`, in the pinned band directly under the
+/// field (2026-08-05, Dave). Native `.searchScopes` held that job for one day
+/// and works fine; it went because it cannot be styled to sit with the app's
+/// own filter chips. The app-drawn `ScopeSegmentedControl` that held the
+/// `.principal` slot from 2026-07-26 is gone for a different reason — that slot
+/// existed only because the field was morphed out of the tab bar at the bottom,
+/// and the field is at the top now. ⚠️ `tabViewBottomAccessory` (does not rise
+/// with the keyboard) and a `.bottomBar` item (the row the search-role field
+/// expanded into) stay retired; both were bottom-field problems.
 struct RootTabView: View {
 
     /// The Today tab's icon reflects whether there's anything to do today
@@ -313,8 +313,8 @@ struct RootTabView: View {
         // ⚠️ NOTHING rides `tabViewBottomAccessory` any more. The scope control
         // lived there for four builds and the container was always wrong: it
         // does not rise with the keyboard, so search's own keyboard buried it.
-        // Scoping is the system's `.searchScopes` bar now — see
-        // `SearchPresentation` in `CatalogScopeView`.
+        // Scoping is the app's own `InlineWheelPicker`, in the pinned band
+        // under the search field — see `CatalogScopeView.scopeWheel`.
         //
         // ⚠️ NO `.tabViewSearchActivation(.searchTabSelection)` here, and it is
         // no longer even available: that modifier addresses a SEARCH-ROLE tab,

@@ -12,41 +12,30 @@ enum FilterChipShape {
     static let cornerRadius: CGFloat = Theme.keyRadius
 }
 
-/// The chip anatomy, in ONE place — all three chips wore a copy of it, and
-/// the copies are why this is a modifier now rather than three edits (Dave,
-/// 2026-08-05: make the filter triggers match the search field and the scope
-/// bar).
+/// The chip anatomy, in ONE place — all three chips wore a copy of it, which
+/// is why this is a modifier rather than three edits.
 ///
-/// **It is LIQUID GLASS, not app-drawn chrome.** The chips sit directly under
-/// two system glass controls (the search field, the scope bar) and were the
-/// only thing in that stack wearing a hairline stroke over a transparent
-/// ground, which read as a different material rather than a different
-/// control. `.glassEffect` is the system's own answer and it brings the
-/// specular edge, the adaptive legibility and the dark/light behaviour that a
-/// stroke was standing in for.
+/// ⚠️ **It is APP-DRAWN, and Liquid Glass was tried here and REVERTED**
+/// (2026-08-05, build 189). The chips briefly wore
+/// `.glassEffect(.regular.interactive(), in: …)` to match the system search
+/// field and the native scope bar above them. Two things came of it, and both
+/// are worth keeping written down:
 ///
-/// What is DELIBERATELY unchanged, because each is a law rather than a detail
-/// (design-grammar.md):
-/// - **The r11 ROUNDED RECT survives.** Filter controls sit at
-///   `FilterChipShape.cornerRadius`, data tags at r6, and shape carries role
-///   by radius. The field and the scope bar above are capsules; matching
-///   THAT would reverse the 2026-07-20 rounded-rects-not-capsules law, which
-///   is Dave's to reverse, not this change's.
-/// - **One selection look.** Active still reads as a tinted ground plus a
-///   brighter label. The tint is now `Glass.tint` rather than a drawn
-///   `selectedTint` fill — the same intent (a wash, never a solid blue) via
-///   the material's own knob. ⚠️ The RING is dropped: glass draws its own
-///   edge, and a stroke on top of it is the box-in-a-box that killed the
-///   bottom accessory.
-/// - **`.interactive()`**, so a press responds the way the scope bar's
-///   segments do. That is the one animation this chip gets; `Theme.Anim`
-///   still owns the active-state cross-fade.
+/// 1. **It broke the taps.** The chips stopped opening their trays and menus
+///    entirely. Interactive glass on a Button's LABEL installs its own touch
+///    handling and swallows the button's own gesture — Apple's guidance is
+///    `.buttonStyle(.glass)` on the button, not a raw `glassEffect` on what it
+///    wraps, and the off-label version is what shipped. (`GlassEffectContainer`
+///    around the row was the other suspect; both went at once.)
+/// 2. **The whole reason for it dissolved.** Glass was chasing the system scope
+///    bar, and scoping is `InlineWheelPicker` again — an app-drawn control, in
+///    the app's own idiom. There is no system material left in that stack to
+///    match, so a drawn chip beside a drawn wheel is now the CONSISTENT answer
+///    rather than the odd one out.
 ///
-/// ⚠️ CONTRAST IS UNVERIFIED. `Theme.selectedInk` was measured against a
-/// drawn 12% wash over `surface` (2026-07-28, the 4.07:1 finding); glass
-/// composites differently and over live content. The law that produced that
-/// finding — a hue proven on one ground has not been shown to read on
-/// another — applies to this change too, and it needs eyes on device.
+/// So this is `SelectableChip`'s anatomy: 36 pt chip in a 44 pt vertical-only
+/// hit frame, r11, border unselected, tinted ground + ring + `selectedInk`
+/// selected. If glass is ever tried again, it needs the button style, not this.
 private struct FilterChipChrome: ViewModifier {
     let isActive: Bool
     var horizontalPadding: CGFloat = 14
@@ -56,13 +45,11 @@ private struct FilterChipChrome: ViewModifier {
             .font(.system(.footnote, weight: .semibold))
             .padding(.horizontal, horizontalPadding)
             .frame(height: 36)
+            .background(isActive ? Theme.selectedTint : Color.clear)
             .foregroundStyle(isActive ? Theme.selectedInk : Theme.textPrimary)
-            .glassEffect(
-                isActive
-                    ? .regular.tint(Theme.selected).interactive()
-                    : .regular.interactive(),
-                in: RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius)
-            )
+            .clipShape(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius))
+            .overlay(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius)
+                .strokeBorder(isActive ? Theme.selectedRing : Theme.borderStrong, lineWidth: 1))
             // 36 pt chip inside a 44 pt hit target, growing VERTICALLY ONLY
             // (the SelectableChip alignment lesson, 2026-07-24).
             .frame(height: 44)
