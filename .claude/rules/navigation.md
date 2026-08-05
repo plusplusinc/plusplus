@@ -180,10 +180,18 @@ the other four roots again.
   (`.titleAndIcon` drops the icon; DTS-confirmed). The system's scope bar owns
   a full row, so the words fit and reach VoiceOver without an
   `.accessibilityLabel` standing in for a symbol name.
-- ⚠️ **`.searchPresentationToolbarBehavior(.avoidHidingContent)` is still
-  required**, and it is now the FIRST suspect if the bar misbehaves: it is what
-  stops search activation from emptying the navigation bar the scope bar
-  attaches to. What it buys is the ++ key and the kit switcher staying put.
+- ⚠️ **`.searchPresentationToolbarBehavior` is `.automatic` again**
+  (2026-08-05, Dave: focusing the input should hide the ++ key and the kit
+  switcher so the field rises to the top), REVERSING build 147's
+  `.avoidHidingContent`. 147's reasoning does not bind any more: the scope
+  control lived in that row then, so hiding the row took the only way to
+  change catalogs with it. Now scoping belongs to the search PRESENTATION, and
+  what clears is two keys that each have a second door (the drawer opens on a
+  leading-edge drag from any root; the kit is on every catalog tab).
+  ⚠️ **This is in KNOWN TENSION with the scope bar** — the 140–143 theory
+  below blames render-once partly on the system clearing this bar on
+  activation, which `.automatic` restores. The device pass settles which ask
+  wins; they may not be co-satisfiable, and that is a choice, not a bug.
 - ⚠️ **What changed since builds 140–143, when native scopes were retired.**
   They failed as "renders exactly ONCE per app run, at the TOP" on a
   bottom-morphed field, across four activation routes. Both modifiers above
@@ -191,8 +199,10 @@ the other four roots again.
   140–143 the title was still `.large` (collapsing away as search presented)
   and the system was clearing the bar's content on activation (143's emptied
   top band). A scope bar attaching to a bar being emptied and re-laid out under
-  it is the shape of a control that renders once. It attaches to a stable,
-  `.inline`, content-keeping bar now. ⚠️ And since the field moved to the
+  it is the shape of a control that renders once. ⚠️ **Half of that is back as
+  of the `.automatic` reversal above** — the `.inline` title stands, the
+  content-keeping does not — so the device pass is now a clean experiment on
+  which half mattered. ⚠️ And since the field moved to the
   drawer (2026-08-05) the OTHER half of that failure is moot as well: "at the
   TOP" was only a complaint while the field was at the bottom. If it fails
   anyway, the lever is `.searchFocused` on arrival (it costs the

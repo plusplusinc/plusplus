@@ -1819,18 +1819,35 @@ private struct SearchPresentation: ViewModifier {
                         Text(item.label).tag(item)
                     }
                 }
-                // Keep the bar's OTHER content — the ++ key and the kit
-                // switcher — while search is active (Dave, build 147).
-                // Activating search otherwise tells the navigation bar to clear
-                // its content and give search the room: the system's
-                // `.automatic` behaviour, and the same mechanism that emptied
-                // the top band on 143 before the title came off. Those keys are
-                // how you reach the drawer and change kit; losing them the
-                // moment you tap the field is a dead end, not a decluttering.
-                // ⚠️ It is ALSO the standing suspect above — if the scope bar
-                // fails again, this is the first modifier to try toggling, and
-                // the trade it buys back is the two keys.
-                .searchPresentationToolbarBehavior(.avoidHidingContent)
+                // ⚠️ The bar's other content YIELDS to the field while search
+                // is active — the system's own `.automatic` behaviour, stated
+                // explicitly rather than left to the default so nobody reads
+                // its absence as an oversight (Dave, 2026-08-05: focusing the
+                // input should hide the ++ key and the kit switcher so the
+                // field rises to the top of the view).
+                //
+                // This REVERSES build 147's `.avoidHidingContent`, and the
+                // reason that call doesn't bind any more is that the bar it
+                // was protecting is not the bar we have. On 147 the scope
+                // control ITSELF lived in this row, so hiding the row took the
+                // only way to change catalogs with it — a dead end, not a
+                // decluttering. Scoping moved to the system's scope bar
+                // (2026-08-05), which belongs to the search presentation and
+                // stays. What clears now is two keys that both have another
+                // door: the drawer also opens on a leading-edge drag from any
+                // tab root, and the kit is reachable from every catalog tab.
+                //
+                // ⚠️ KNOWN TENSION, and it is the thing to watch on device.
+                // The 140–143 theory recorded above blames the render-once
+                // scope-bar failure partly on the system CLEARING this bar on
+                // activation — which is exactly what this modifier restores.
+                // If the scope bar survives a focus/blur cycle here, that
+                // theory is wrong and the `.inline` title was the load-bearing
+                // half. If it dies, the theory is right and these two asks are
+                // in genuine conflict: the scope bar and the rising field
+                // cannot both have this row, and that is Dave's call, not a
+                // bug to fix. Either result is worth more than the guess.
+                .searchPresentationToolbarBehavior(.automatic)
         } else {
             content
         }
