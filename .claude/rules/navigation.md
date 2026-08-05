@@ -192,23 +192,20 @@ arrangement as the other four roots again.
   change catalogs with it. Now scoping belongs to the search PRESENTATION, and
   what clears is two keys that each have a second door (the drawer opens on a
   leading-edge drag from any root; the kit is on every catalog tab).
-  ⚠️ **This is in KNOWN TENSION with the scope bar** — the 140–143 theory
-  below blames render-once partly on the system clearing this bar on
-  activation, which `.automatic` restores. The device pass settles which ask
-  wins; they may not be co-satisfiable, and that is a choice, not a bug.
-- **Why 140–143 failed is still not known, and 187 did not settle it.** They
-  failed as "renders exactly ONCE per app run, at the TOP" on a bottom-morphed
-  field, across four activation routes. THREE things differ now, and the
-  passing build changed all three at once: the title is `.inline` rather than
-  `.large` (it used to collapse away as search presented), the bar kept its
-  content (`.avoidHidingContent`, added at 147), and the field is in the top
-  drawer, so "at the TOP" is where a scope bar belongs rather than a
-  complaint. ⚠️ **Build 188 removes exactly one of them** — the `.automatic`
-  reversal above — which makes it a single-variable test of the bar-clearing
-  half. Record the result here when it lands. If the bar DOES break there, the
-  two asks are not co-satisfiable and which one keeps that row is Dave's call;
-  the fallback for the scope bar is `git revert` — `ScopeSegmentedControl` and
-  its hand-laid `.principal` row are a few commits back, not a rebuild.
+  ✅ It was feared to be in tension with the scope bar; **build 188 shows it
+  is not** (Dave's screenshot: bar cleared, field focused, scope bar there).
+- **Why 140–143 failed: one theory is now DISPROVED, and the rest is open.**
+  They failed as "renders exactly ONCE per app run, at the TOP" on a
+  bottom-morphed field, across four activation routes. Three things differed
+  by build 187, which changed all three at once: the title is `.inline` rather
+  than `.large` (it used to collapse away as search presented), the bar kept
+  its content (`.avoidHidingContent`, 147), and the field is in the top drawer,
+  so "at the TOP" is where a scope bar belongs rather than a complaint.
+  ⚠️ **Build 188 removed the middle one and the scope bar was unaffected**, so
+  **the system clearing this bar was never what broke it** — the write-up that
+  guessed otherwise (docs/DECISIONS.md, 2026-08-05) was wrong, and the
+  remaining candidates are the `.inline` title and the drawer placement. Do
+  not re-assert the bar-clearing explanation; it has been tested.
 - **The retired containers stay retired** — post-mortems in docs/DECISIONS.md
   + git, per this file's header. ⚠️ `tabViewBottomAccessory` does not rise with
   the keyboard (137–139, 144), and app-authored animation does not survive

@@ -195,9 +195,24 @@ Siblings: `navigation.md` (tab bar, search, scope control, landings),
   button — sentence-case plain font, border unselected, tinted ground + ring
   selected (`SelectableChip`'s anatomy). **Facet filtering RETURNED
   2026-07-31** (Dave, reversing the 2026-07-25 retirement) as `FacetChip` +
-  `FilterSummaryChip` (`Views/Components/FilterChips.swift`), REBUILT on that
-  anatomy — ⚠️ the git-history versions wear the retired solid-blue fill; do
-  not copy them. **A facet with a real list of options is a TRAY**
+  `FilterSummaryChip` (`Views/Components/FilterChips.swift`) — ⚠️ the
+  git-history versions wear the retired solid-blue fill; do not copy them.
+  ⚠️ **The filter chips are LIQUID GLASS, and they are the one place that
+  anatomy differs from `SelectableChip`'s** (2026-08-05, Dave: make the filter
+  triggers match the search field and the scope bar). They sit directly under
+  two system glass controls on the search surface and were the only thing in
+  that stack wearing a hairline stroke over a transparent ground, which reads
+  as a different MATERIAL rather than a different control. One shared
+  `filterChipChrome(isActive:)` now carries all three chips:
+  `.glassEffect(.regular.interactive(), in: RoundedRectangle(r11))`, tinted
+  with `Theme.selected` when active. ⚠️ **The r11 rounded rect survives** —
+  the field and scope bar above are CAPSULES, and matching that would reverse
+  the rounded-rects-not-capsules law below, which is Dave's call, not a
+  styling change's. ⚠️ **No ring**: glass draws its own edge, and a stroke on
+  top is the box-in-a-box that killed the bottom accessory. ⚠️ Glass elements
+  that sit close together belong in a `GlassEffectContainer` — the facet row
+  uses `spacing: 0`, since that parameter is the distance within which
+  neighbours BLEND and these are separate controls. **A facet with a real list of options is a TRAY**
   (`FacetTrayChip` → `SheetPickList`, multi-select, #498); a BINARY facet
   (mechanic, sides) keeps its single-select `FacetChip` Menu, because picking
   both options says what picking neither says. Never a multi-select `Menu`

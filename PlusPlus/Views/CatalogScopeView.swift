@@ -977,41 +977,71 @@ struct CatalogScopeView: View {
     /// surfaces, whose chrome is app-drawn.
     private func filterRow(shown: Int, hidden: Int) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 7) {
-                if !filters.isEmpty(for: scope) {
-                    FilterSummaryChip(
-                        facets: filters.activeFacets(for: scope),
-                        shown: shown,
-                        total: shown + hidden
-                    ) {
-                        withAnimation(Theme.Anim.standard) {
-                            filters.clear(scope: scope)
+            // ⚠️ `GlassEffectContainer` because the chips are glass now and
+            // sit close together — that is the documented case for it: it
+            // groups them for the compositor instead of rendering each
+            // effect standalone. **`spacing: 0` on purpose.** The parameter
+            // is the distance within which neighbouring effects BLEND, and
+            // these are separate controls: a container spaced to the 8 pt
+            // gap would fuse Focus·Effort·Style into one glass blob. If they
+            // ever should merge, that is the knob.
+            GlassEffectContainer(spacing: 0) {
+                // 8, up from 7: glass wants a little more breathing room than
+                // a stroked chip did, and it matches the band's own padding.
+                HStack(spacing: 8) {
+                    if !filters.isEmpty(for: scope) {
+                        FilterSummaryChip(
+                            facets: filters.activeFacets(for: scope),
+                            shown: shown,
+                            total: shown + hidden
+                        ) {
+                            withAnimation(Theme.Anim.standard) {
+                                filters.clear(scope: scope)
+                            }
                         }
                     }
-                }
-                switch scope {
-                case .exercises:
-                    // Kind leads: the coarsest axis, and the reason the
-                    // cardio push wanted a facet at all — every cardio
-                    // exercise files under Full Body, so no other facet
-                    // reaches the cardio rows as a set (#475). The two
-                    // BINARY facets keep their Menus; everything with a
-                    // real list of options opens a tray (#498).
-                    FacetTrayChip(name: "Kind", options: CatalogKind.allCases, display: \.label, selection: $filters.kinds, identifier: "facetKind")
-                    FacetTrayChip(name: "Muscle", options: MuscleGroup.allCases, display: \.displayName, selection: $filters.muscles, identifier: "facetMuscle", searchPrompt: "Search muscle groups")
-                    FacetTrayChip(name: "Movement", options: MovementPattern.allCases, display: \.displayName, selection: $filters.patterns, identifier: "facetMovement", searchPrompt: "Search movements")
-                    FacetChip(name: "Mechanic", options: ExerciseMechanic.allCases, display: \.displayName, selection: $filters.mechanic, identifier: "facetMechanic")
-                    FacetChip(name: "Sides", options: ExerciseLaterality.allCases, display: \.displayName, selection: $filters.laterality, identifier: "facetSides")
-                case .kit:
-                    FacetTrayChip(name: "Type", options: SeedData.EquipmentCategory.allCases, display: \.rawValue, selection: $filters.equipmentCategories, identifier: "facetType")
-                case .routines:
-                    FacetTrayChip(name: "Focus", options: RoutineTemplate.Focus.allCases, display: \.rawValue, selection: $filters.focuses, identifier: "facetFocus")
-                    FacetTrayChip(name: "Effort", options: RoutineTemplate.Effort.allCases, display: \.rawValue, selection: $filters.efforts, identifier: "facetEffort")
-                    FacetTrayChip(name: "Style", options: RoutineTemplate.Style.allCases, display: \.rawValue, selection: $filters.styles, identifier: "facetStyle")
+                    switch scope {
+                    case .exercises:
+                        // Kind leads: the coarsest axis, and the reason the
+                        // cardio push wanted a facet at all — every cardio
+                        // exercise files under Full Body, so no other facet
+                        // reaches the cardio rows as a set (#475). The two
+                        // BINARY facets keep their Menus; everything with a
+                        // real list of options opens a tray (#498).
+                        FacetTrayChip(name: "Kind", options: CatalogKind.allCases, display: \.label, selection: $filters.kinds, identifier: "facetKind")
+                        FacetTrayChip(name: "Muscle", options: MuscleGroup.allCases, display: \.displayName, selection: $filters.muscles, identifier: "facetMuscle", searchPrompt: "Search muscle groups")
+                        FacetTrayChip(name: "Movement", options: MovementPattern.allCases, display: \.displayName, selection: $filters.patterns, identifier: "facetMovement", searchPrompt: "Search movements")
+                        FacetChip(name: "Mechanic", options: ExerciseMechanic.allCases, display: \.displayName, selection: $filters.mechanic, identifier: "facetMechanic")
+                        FacetChip(name: "Sides", options: ExerciseLaterality.allCases, display: \.displayName, selection: $filters.laterality, identifier: "facetSides")
+                    case .kit:
+                        FacetTrayChip(name: "Type", options: SeedData.EquipmentCategory.allCases, display: \.rawValue, selection: $filters.equipmentCategories, identifier: "facetType")
+                    case .routines:
+                        FacetTrayChip(name: "Focus", options: RoutineTemplate.Focus.allCases, display: \.rawValue, selection: $filters.focuses, identifier: "facetFocus")
+                        FacetTrayChip(name: "Effort", options: RoutineTemplate.Effort.allCases, display: \.rawValue, selection: $filters.efforts, identifier: "facetEffort")
+                        FacetTrayChip(name: "Style", options: RoutineTemplate.Style.allCases, display: \.rawValue, selection: $filters.styles, identifier: "facetStyle")
+                    }
                 }
             }
             .padding(.horizontal, 16)
         }
+        // ⚠️ The top padding is the SEARCH surface's alone (Dave, 2026-08-05:
+        // even out the vertical gap). There the row sits under the scope bar,
+        // which sits under the field, and the two gaps did not match — the
+        // field-to-scopes gap is the system's, and this one was 0 plus the
+        // 4 pt of `FacetChip`'s 44 pt hit frame. 8 above and 8 below gives
+        // the band equal air.
+        //
+        // ⚠️ It goes INSIDE the opaque band, not on `contentMargins`, and
+        // that is the whole point: `contentMargins(.top, 0)` is the
+        // 2026-08-02 seating fix (the row starts in its PINNED seat, which is
+        // what stops the navigation bar's hairline drawing for the 22 pt it
+        // used to take arriving). Padding within the band moves the chips
+        // without moving where the band starts, so the seat and the hairline
+        // are untouched.
+        //
+        // ⚠️ The other four roots keep 0: their large title travels through
+        // this space, and 8 pt there is a gap in the title's path.
+        .padding(.top, isSearchSurface ? 8 : 0)
         .padding(.bottom, 8)
         .animation(Theme.Anim.standard, value: filters.isEmpty(for: scope))
         // OPAQUE — rows scroll under this band (the picker-field rule).
