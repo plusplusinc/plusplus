@@ -12,6 +12,58 @@ enum FilterChipShape {
     static let cornerRadius: CGFloat = Theme.keyRadius
 }
 
+/// The chip anatomy, in ONE place — all three chips wore a copy of it, which
+/// is why this is a modifier rather than three edits.
+///
+/// ⚠️ **It is APP-DRAWN, and Liquid Glass was tried here and REVERTED**
+/// (2026-08-05, build 189). The chips briefly wore
+/// `.glassEffect(.regular.interactive(), in: …)` to match the system search
+/// field and the native scope bar above them. Two things came of it, and both
+/// are worth keeping written down:
+///
+/// 1. **It broke the taps.** The chips stopped opening their trays and menus
+///    entirely. Interactive glass on a Button's LABEL installs its own touch
+///    handling and swallows the button's own gesture — Apple's guidance is
+///    `.buttonStyle(.glass)` on the button, not a raw `glassEffect` on what it
+///    wraps, and the off-label version is what shipped. (`GlassEffectContainer`
+///    around the row was the other suspect; both went at once.)
+/// 2. **The whole reason for it dissolved.** Glass was chasing the system scope
+///    bar, and scoping is `InlineWheelPicker` again — an app-drawn control, in
+///    the app's own idiom. There is no system material left in that stack to
+///    match, so a drawn chip beside a drawn wheel is now the CONSISTENT answer
+///    rather than the odd one out.
+///
+/// So this is `SelectableChip`'s anatomy: 36 pt chip in a 44 pt vertical-only
+/// hit frame, r11, border unselected, tinted ground + ring + `selectedInk`
+/// selected. If glass is ever tried again, it needs the button style, not this.
+private struct FilterChipChrome: ViewModifier {
+    let isActive: Bool
+    var horizontalPadding: CGFloat = 14
+
+    func body(content: Content) -> some View {
+        content
+            .font(.system(.footnote, weight: .semibold))
+            .padding(.horizontal, horizontalPadding)
+            .frame(height: 36)
+            .background(isActive ? Theme.selectedTint : Color.clear)
+            .foregroundStyle(isActive ? Theme.selectedInk : Theme.textPrimary)
+            .clipShape(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius))
+            .overlay(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius)
+                .strokeBorder(isActive ? Theme.selectedRing : Theme.borderStrong, lineWidth: 1))
+            // 36 pt chip inside a 44 pt hit target, growing VERTICALLY ONLY
+            // (the SelectableChip alignment lesson, 2026-07-24).
+            .frame(height: 44)
+            .contentShape(Rectangle())
+    }
+}
+
+extension View {
+    /// One filter chip's chrome. See `FilterChipChrome`.
+    func filterChipChrome(isActive: Bool, horizontalPadding: CGFloat = 14) -> some View {
+        modifier(FilterChipChrome(isActive: isActive, horizontalPadding: horizontalPadding))
+    }
+}
+
 /// One single-select facet: a Menu chip. The active value becomes the
 /// chip's label; "Any" clears. Never value-cycling — the Menu shows a
 /// checkmark on the current pick so state is visible before changing it.
@@ -53,18 +105,7 @@ struct FacetChip<Value: Hashable>: View {
                     .font(.system(.caption2, weight: .semibold))
                     .accessibilityHidden(true)
             }
-            .font(.system(.footnote, weight: .semibold))
-            .padding(.horizontal, 14)
-            .frame(height: 36)
-            .background(isActive ? Theme.selectedTint : Color.clear)
-            .foregroundStyle(isActive ? Theme.selectedInk : Theme.textPrimary)
-            .clipShape(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius))
-            .overlay(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius)
-                .strokeBorder(isActive ? Theme.selectedRing : Theme.borderStrong, lineWidth: 1))
-            // 36 pt chip inside a 44 pt hit target, growing VERTICALLY ONLY
-            // (the SelectableChip alignment lesson, 2026-07-24).
-            .frame(height: 44)
-            .contentShape(Rectangle())
+            .filterChipChrome(isActive: isActive)
         }
         .animation(Theme.Anim.selection, value: isActive)
         .sensoryFeedback(.selection, trigger: selection)
@@ -116,16 +157,7 @@ struct FacetTrayChip<Value>: View where Value: Hashable & RawRepresentable, Valu
                     .font(.system(.caption2, weight: .semibold))
                     .accessibilityHidden(true)
             }
-            .font(.system(.footnote, weight: .semibold))
-            .padding(.horizontal, 14)
-            .frame(height: 36)
-            .background(isActive ? Theme.selectedTint : Color.clear)
-            .foregroundStyle(isActive ? Theme.selectedInk : Theme.textPrimary)
-            .clipShape(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius))
-            .overlay(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius)
-                .strokeBorder(isActive ? Theme.selectedRing : Theme.borderStrong, lineWidth: 1))
-            .frame(height: 44)
-            .contentShape(Rectangle())
+            .filterChipChrome(isActive: isActive)
         }
         .buttonStyle(.plain)
         .animation(Theme.Anim.selection, value: isActive)
@@ -190,16 +222,9 @@ struct FilterSummaryChip: View {
                     .accessibilityHidden(true)
                 Text("\(facets.count)")
             }
-            .font(.system(.footnote, weight: .semibold))
-            .padding(.horizontal, 12)
-            .frame(height: 36)
-            .background(Theme.selectedTint)
-            .foregroundStyle(Theme.selectedInk)
-            .clipShape(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius))
-            .overlay(RoundedRectangle(cornerRadius: FilterChipShape.cornerRadius)
-                .strokeBorder(Theme.selectedRing, lineWidth: 1))
-            .frame(height: 44)
-            .contentShape(Rectangle())
+            // Always active by construction — it only exists while something
+            // is filtering — so it always wears the tinted glass.
+            .filterChipChrome(isActive: true, horizontalPadding: 12)
         }
         // ⚠️ Plain, never the default: on tab roots the facet row is LIST
         // CONTENT now, and inside a `List` row taps route into default-styled

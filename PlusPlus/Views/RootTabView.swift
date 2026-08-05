@@ -11,10 +11,12 @@ import PlusPlusKit
 /// path re-mounts.
 enum AppTab: String, CaseIterable {
     case today, routines, exercises, equipment
-    /// It wears `Tab(role: .search)`, so the system renders it as the separated
-    /// circle and morphs the bar into the search field when it's selected. The
-    /// field narrows whichever catalog the scope is already on — selecting it
-    /// deliberately leaves `scope` alone.
+    /// An ORDINARY tab since 2026-08-05 (Dave: put the input at the top).
+    /// It wore `Tab(role: .search)` from 2026-07-26, which rendered it as the
+    /// separated circle and morphed the tab bar into the field at the BOTTOM —
+    /// and that morph IS the bottom placement, so a top field and the role are
+    /// two names for opposite things. The field narrows whichever catalog the
+    /// scope is already on; selecting it deliberately leaves `scope` alone.
     case search
 
     var label: String { rawValue }
@@ -67,14 +69,16 @@ extension FindScope {
 /// but now that `CatalogScopeView` exists they are tabs over ONE screen, which
 /// is what the two-tab round was really after.
 ///
-/// **The tab bar is the scope control; inside search, a NAVIGATION BAR item
-/// is** — a native segmented `Picker` in the `.principal` slot, between the ++
-/// key and the kit switcher (Dave, 2026-07-26). It does NOT live in
-/// `tabViewBottomAccessory` (that container never rises with the keyboard), it
-/// is NOT native `.searchScopes` (which renders once per app run on a
-/// bottom-aligned field), and it is NOT a `.bottomBar` item (that row is the
-/// one the search-role field expands into); see `ScopeSegmentedControl` for the
-/// whole account and the rules that survived seven builds of it.
+/// **The tab bar is the scope control; inside search, an inline horizontal
+/// WHEEL is** — `InlineWheelPicker`, in the pinned band directly under the
+/// field (2026-08-05, Dave). Native `.searchScopes` held that job for one day
+/// and works fine; it went because it cannot be styled to sit with the app's
+/// own filter chips. The app-drawn `ScopeSegmentedControl` that held the
+/// `.principal` slot from 2026-07-26 is gone for a different reason — that slot
+/// existed only because the field was morphed out of the tab bar at the bottom,
+/// and the field is at the top now. ⚠️ `tabViewBottomAccessory` (does not rise
+/// with the keyboard) and a `.bottomBar` item (the row the search-role field
+/// expanded into) stay retired; both were bottom-field problems.
 struct RootTabView: View {
 
     /// The Today tab's icon reflects whether there's anything to do today
@@ -256,12 +260,13 @@ struct RootTabView: View {
                 TodayView(onGoToRoutines: { land(on: .routines) })
             }
             // ⚠️ These do NOT hide while search is active, though `Tab.hidden(_:)`
-            // makes it easy to (build 139 did). It delivers Today beside the
-            // morphed field, but the bar does not REFLOW around the hidden
-            // tabs: what's left is a full-width group capsule with Today
+            // makes it easy to (build 139 did). The bar does not REFLOW around
+            // hidden tabs: what's left is a full-width group capsule with Today
             // rattling around alone in the middle of it (Dave's screenshot).
-            // Which tab the system parks beside the field is a smaller problem
-            // than that.
+            // Build 139 hid them to deliver Today beside the MORPHED field;
+            // that motive died with the role (2026-08-05) — the bar now stays
+            // whole while search is up — but the reflow finding is why nobody
+            // should reach for `Tab.hidden` here again.
             Tab(FindScope.routines.label, systemImage: FindScope.routines.symbolName, value: AppTab.routines) {
                 catalog(.routines, on: .routines)
             }
@@ -272,37 +277,55 @@ struct RootTabView: View {
             Tab(FindScope.kit.label, systemImage: FindScope.kit.symbolName, value: AppTab.equipment) {
                 catalog(.kit, on: .equipment)
             }
-            // The SEARCH ROLE (Dave, 2026-07-26: "the sort of search tab that
-            // makes the search input expand out of it to the side"). The role is
-            // a package deal — the system floats it apart as the separated
-            // circle AND gives it the morph into the field — and the morph is
-            // the half worth having. A plain tab seats search in the group but
-            // leaves the field homeless: `.searchable` then wants the navigation
-            // bar this screen hides, which is why build 135 had no visible input
-            // at all. Only THIS tab carries the field, for the same reason.
-            Tab(value: AppTab.search, role: .search) {
+            // An ORDINARY tab (Dave, 2026-08-05: put the input at the top),
+            // retiring `Tab(role: .search)` — which carried this surface from
+            // 2026-07-26 and gave it two things at once: the separated circle
+            // in the bar, and the morph of the bar INTO the field at the
+            // bottom. ⚠️ **That morph IS the bottom placement.** Asking the
+            // role for a top field is asking it to be both things, and the one
+            // recorded sighting of a top field on this surface is the morph
+            // FAILING (nav-diag 4e), which leaves the circle in the bar AND a
+            // field up top — two search affordances. So the role goes, and
+            // `.searchable` takes an explicit `.navigationBarDrawer` placement
+            // instead (see `SearchPresentation`).
+            //
+            // ⚠️ Build 135's homeless field is NOT the hazard being re-run
+            // here: that was a tab root that HID its navigation bar, so the
+            // drawer had nowhere to attach. Since 2026-07-26 every root wears
+            // the system bar, which is exactly the container a drawer needs.
+            // ⚠️ The app owns this word now. The search ROLE supplied a
+            // system-localized label and glyph; a plain tab supplies neither,
+            // so "Search" and the magnifier are the app's to state — and to
+            // localize, when localization arrives.
+            Tab("Search", systemImage: "magnifyingglass", value: AppTab.search) {
                 // ⚠️ The field and the scope bar are NOT attached here. They go
                 // INSIDE `CatalogScopeView`'s own `NavigationStack` — see its
                 // `searchScope` note. Build 140 attached them out here and the
                 // scope bar never appeared: `.searchScopes` needs `.searchable`
                 // on a view inside a navigation container, and out here the
-                // modifier lands above that stack. The FIELD still morphed
-                // (the tab role does that), which is what made it look wired up.
+                // modifier lands above that stack. That was masked at the time
+                // because the FIELD still appeared — the tab role morphed it —
+                // which is what made it look wired up. With the role gone,
+                // attaching out here would now fail visibly instead.
                 catalog(scope, on: .search, searchScope: $scope)
             }
         }
         // ⚠️ NOTHING rides `tabViewBottomAccessory` any more. The scope control
         // lived there for four builds and the container was always wrong: it
         // does not rise with the keyboard, so search's own keyboard buried it.
-        // It is a `.principal` NAVIGATION BAR item on the search surface now —
-        // see `ScopeSegmentedControl`, which carries the whole account.
+        // Scoping is the app's own `InlineWheelPicker`, in the pinned band
+        // under the search field — see `CatalogScopeView.scopeWheel`.
         //
-        // ⚠️ NO `.tabViewSearchActivation(.searchTabSelection)` here, and that
-        // absence is deliberate. Build 143 added it to force a fresh scope-bar
-        // presentation on every arrival; native scopes are gone, so that
-        // justification went with them. Arriving without the keyboard also
-        // means arriving with the whole surface in view — pick a catalog first,
-        // tap the field when you actually want to type.
+        // ⚠️ NO `.tabViewSearchActivation(.searchTabSelection)` here, and it is
+        // no longer even available: that modifier addresses a SEARCH-ROLE tab,
+        // and this tab is an ordinary one as of 2026-08-05. Build 143 used it
+        // to force a fresh scope-bar presentation on every arrival. If the
+        // scope bar turns out not to appear until the field is tapped, the
+        // lever now is `.searchFocused` on arrival — which costs the same thing
+        // 143's did (the keyboard up before you have looked at the surface),
+        // and which Dave chose against on 2026-07-26. A drawer field is VISIBLE
+        // unfocused, though, which the morphed one was not, so the trade is
+        // milder than it was.
         //
         // ⚠️ NO `.tabBarMinimizeBehavior(.onScrollDown)` either (Dave,
         // 2026-07-27). It only ever existed to move the bottom accessory

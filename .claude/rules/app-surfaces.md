@@ -18,13 +18,15 @@ beside it. The laws that constrain these surfaces live in the sibling rules:
 both load when you touch view code; read them before changing what they govern.
 
 **Five tabs** on the native iOS 26 Liquid Glass `TabView` (`RootTabView`):
-**Today · Routines · Exercises · Kit · Search**. The last wears
-`Tab(role: .search)`, so the system separates it and gives it the bar→field
-morph. The three catalog tabs and the search tab all render the same
+**Today · Routines · Exercises · Kit · Search**, all five ORDINARY tabs: the
+search one carries its own label and magnifier since `Tab(role: .search)` and
+its bar→field morph were retired 2026-08-05, so the field sits at the TOP in
+`.navigationBarDrawer(displayMode: .always)`. The three catalog tabs and the
+search tab all render the same
 `CatalogScopeView` — a tab picks which CATALOG, never which screen. The
-container laws that constrain that row (the `.principal` toolbar row, search
-scopes, the accessory's retirement, the morph's state-write rule) are in
-`navigation.md`; read them before changing anything in it.
+container laws that constrain that surface (the scope WHEEL in the pinned
+band, the field's placement, the accessory's retirement, the
+layout-state-write rule) are in `navigation.md`; read them first.
 
 **Today** — the unified timeline: scheduled work, carried-over work, and
 committed sessions on a DATE-FIRST rail (each entry's date on its own row,

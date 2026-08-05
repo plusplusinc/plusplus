@@ -46,14 +46,17 @@ final class SmokeTests: XCTestCase {
         key.tap()
     }
 
-    /// The NATIVE search field, expanded out of the search-role tab — a
-    /// `searchField` element, not a custom `textField` with an identifier.
+    /// The NATIVE search field, in the navigation bar's drawer at the top of
+    /// the search tab (2026-08-05) — a `searchField` element, not a custom
+    /// `textField` with an identifier. It used to be morphed out of a
+    /// search-role tab at the BOTTOM; the query is the same either way.
     private var searchField: XCUIElement {
         app.searchFields.firstMatch
     }
 
-    /// Open the catalogs (the separated search circle beside Today), which
-    /// morphs the bar into the field.
+    /// Open the catalogs. The Search tab is an ordinary tab now, so this is a
+    /// plain tab tap and the field is simply there at the top — no morph to
+    /// wait on.
     private func openSearch() {
         let key = app.tabBars.buttons["Search"]
         XCTAssertTrue(key.waitForExistence(timeout: 10))
@@ -61,34 +64,33 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(searchField.waitForExistence(timeout: 5))
     }
 
-    /// Pick a catalog on the segmented control in the search surface's
-    /// navigation bar. It exists only on the Search tab — off search the tab
-    /// bar is the scope control (`goToCatalog`).
+    /// Pick a catalog on the scope WHEEL — `InlineWheelPicker`, in the pinned
+    /// band under the search field. It exists only on the Search tab; off
+    /// search the tab bar is the scope control (`goToCatalog`).
     ///
-    /// It's a native `Picker(.segmented)`, so its segments are the system's own
-    /// buttons; there are no app-set identifiers to hit. The segments are
-    /// GLYPHS (iOS segmented controls take a title or an image, never both), so
-    /// the word only reaches XCUITest through the `.accessibilityLabel` the
-    /// control sets — matched by CONTAINS, and falling back to POSITION if that
-    /// label doesn't propagate, since the scope order is fixed by
-    /// `FindScope.allCases` and a name miss here would otherwise read as "the
-    /// control is missing".
+    /// Each option is a labelled `Button` carrying its own identifier
+    /// (`findScope-<rawValue>`), which is the segmented-control accessibility
+    /// model the wheel was built on — so this is an identifier tap, not a
+    /// label match against system chrome.
+    ///
+    /// ⚠️ The wheel is a horizontal `ScrollView`, so an option far from the
+    /// band can be REALIZED but not hittable (`isHittable` is not "visible" —
+    /// testing.md). Swipe the track toward it first, then tap; the track
+    /// carries `findScopeWheel` for exactly this.
     private func selectScope(_ scope: String) {
-        let control = app.segmentedControls.firstMatch
-        XCTAssertTrue(control.waitForExistence(timeout: 5), "the scope control rides the navigation bar on search")
-        let named = control.buttons
-            .matching(NSPredicate(format: "label CONTAINS[c] %@", scope))
-            .firstMatch
-        if named.exists {
-            named.tap()
+        let option = app.buttons["findScope-\(scope.lowercased())"]
+        XCTAssertTrue(
+            option.waitForExistence(timeout: 5),
+            "the scope wheel rides the band under the field · \(buttonInventory())"
+        )
+        if !option.isHittable {
+            app.otherElements["findScopeWheel"].swipeLeft()
+        }
+        guard option.isHittable else {
+            XCTFail("scope \(scope) never became hittable · \(rect(option.frame))")
             return
         }
-        let order = ["routines", "exercises", "kit"]
-        guard let index = order.firstIndex(of: scope.lowercased()) else {
-            XCTFail("unknown scope \(scope)")
-            return
-        }
-        control.buttons.element(boundBy: index).tap()
+        option.tap()
     }
 
     // MARK: - Flows
@@ -344,8 +346,8 @@ final class SmokeTests: XCTestCase {
         // The native field's own Cancel clears the query; the catalog stays
         // put, since the SCOPE — not the field — decides which one you're on.
         // ⚠️ It is labelled **Close**, beside a "Clear text" key. The
-        // affordance is the SYSTEM's — the field is morphed out of the
-        // search-role tab — so its noun is not the app's to choose, and
+        // affordance is the SYSTEM's — it belongs to `.searchable`, wherever
+        // the field is placed — so its noun is not the app's to choose, and
         // "Cancel" stopped matching when #452 reworked this surface. Both
         // are accepted: the assertion is about leaving search, not about
         // which word the platform picked.
@@ -365,8 +367,8 @@ final class SmokeTests: XCTestCase {
         openSearch()
         snap("find-or-create-open")
 
-        // While searching, the catalog is picked on the accessory's scope
-        // control rather than by leaving for another tab.
+        // While searching, the catalog is picked on the scope wheel rather
+        // than by leaving for another tab.
         selectScope("exercises")
         let createRow = app.buttons["createExerciseRow"]
         XCTAssertTrue(createRow.waitForExistence(timeout: 5))

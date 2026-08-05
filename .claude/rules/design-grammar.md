@@ -195,9 +195,22 @@ Siblings: `navigation.md` (tab bar, search, scope control, landings),
   button — sentence-case plain font, border unselected, tinted ground + ring
   selected (`SelectableChip`'s anatomy). **Facet filtering RETURNED
   2026-07-31** (Dave, reversing the 2026-07-25 retirement) as `FacetChip` +
-  `FilterSummaryChip` (`Views/Components/FilterChips.swift`), REBUILT on that
-  anatomy — ⚠️ the git-history versions wear the retired solid-blue fill; do
-  not copy them. **A facet with a real list of options is a TRAY**
+  `FilterSummaryChip` (`Views/Components/FilterChips.swift`) — ⚠️ the
+  git-history versions wear the retired solid-blue fill; do not copy them.
+  ⚠️ **Liquid Glass was TRIED on these chips and REVERTED** (2026-08-05,
+  build 189). They briefly wore `.glassEffect(.regular.interactive(), in: r11)`
+  to match the system search field and the native scope bar above them. Two
+  findings, both worth keeping: **it broke the taps** — interactive glass on a
+  Button's LABEL installs its own touch handling and swallows the button's own
+  gesture, and Apple's guidance is `.buttonStyle(.glass)` ON THE BUTTON, never
+  a raw `glassEffect` on what it wraps; and **the reason for it dissolved** —
+  glass was chasing the system scope bar, and scoping is the app's own
+  `InlineWheelPicker` again, so no system material is left in that stack to
+  match. A drawn chip beside a drawn wheel is the CONSISTENT answer now. The
+  shared `filterChipChrome(isActive:)` extracted for the experiment SURVIVES
+  (all three chips wore a copy of the anatomy); only its body reverted. If
+  glass is tried here again, it needs the button style.
+  **A facet with a real list of options is a TRAY**
   (`FacetTrayChip` → `SheetPickList`, multi-select, #498); a BINARY facet
   (mechanic, sides) keeps its single-select `FacetChip` Menu, because picking
   both options says what picking neither says. Never a multi-select `Menu`

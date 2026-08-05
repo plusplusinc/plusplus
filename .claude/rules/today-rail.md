@@ -46,8 +46,10 @@ chrome, landings), `design-grammar.md` (color/key/tag/motion/copy),
   ⚠️ Three riders, all invisible until they bite. The landing's anchor is a
   zero-LAYOUT overlay held one band-height ABOVE that block's bottom, its
   height DERIVED from `UIFont` (never probed — a state write during layout
-  anywhere in the TabView subtree breaks the search-role morph, and Today is
-  inside it; `navigation.md`): `scrollTo` ignores pinned headers, so a bottom-seated
+  anywhere in the TabView subtree re-renders the TabView during initial
+  layout, and Today is inside it; the search-role morph was the casualty that
+  proved it, and the law outlived the role's 2026-08-05 retirement —
+  `navigation.md`): `scrollTo` ignores pinned headers, so a bottom-seated
   anchor puts today's first row BEHIND the band. The below-anchor
   `minHeight` wraps below-anchor content ONLY, or content above the anchor
   eats it and a short timeline can't scroll today to the top. And the
