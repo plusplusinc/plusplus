@@ -41,7 +41,7 @@ struct AnytimeCard: View {
     /// carry. The triad law lives there; chips stay presets.
     let onCustom: (Exercise) -> Void
     let onStartEmpty: () -> Void
-    /// Hands off to the Routines tab — a pointer, never a second copy
+    /// Hands off to the routines catalog — a pointer, never a second copy
     /// of the library (the start tray died for duplicating surfaces).
     let onChooseRoutine: () -> Void
     let onEdit: () -> Void

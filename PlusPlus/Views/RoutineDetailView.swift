@@ -237,7 +237,7 @@ struct RoutineDetailView: View {
     }
 
     private var detailContent: some View {
-        // ⚠️ A PURE width read (the ScopeSegmentedControl precedent): the
+        // ⚠️ A PURE width read (the catalog bar-row precedent): the
         // value goes straight into this render's row heights and is never
         // written to state — `onScrollGeometryChange`/`PreferenceKey` here
         // would break the search-role morph (nav-diag 4e).

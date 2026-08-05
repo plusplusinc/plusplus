@@ -32,8 +32,8 @@ extension Notification.Name {
     /// regardless of which screen presented the session cover.
     static let plusplusWorkoutFinished = Notification.Name("plusplusWorkoutFinished")
     /// Posted by `RoutineArrival.land(_:)` when a routine was added from
-    /// outside the Routines tab (Today's setup step, a share import). The
-    /// root switches to the Routines tab, which plays its entrance flash on
+    /// outside the routines catalog (Today's setup step, a share import). The
+    /// root switches to Browse dialled to routines, which plays its entrance flash on
     /// the new card — ONE landing for every add (Dave, 2026-07-23). The
     /// uuid rides `RoutineArrival.pending`, not the notification, so a
     /// not-yet-mounted list can still consume it on first appear.

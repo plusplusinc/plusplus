@@ -14,7 +14,7 @@ import SwiftData
 /// lands on the Routines list with the same entrance flash a same-tab add
 /// gets — one landing for every add (Dave, 2026-07-23; the Today setup
 /// flow used to land inside the new routine's detail instead). The uuid
-/// is a HANDOFF SLOT, not a notification payload: the Routines tab may
+/// is a HANDOFF SLOT, not a notification payload: the Browse tab may
 /// not be mounted yet when the add happens (a first-run setup flow), so
 /// the list consumes it on appear as well as on receive — whichever
 /// fires first wins, and consuming clears the slot.
@@ -23,7 +23,7 @@ enum RoutineArrival {
     static var pending: UUID?
 
     /// Stamp the arrival and announce it: RootTabView switches to the
-    /// Routines tab; a mounted list consumes immediately, an unmounted
+    /// routines catalog (Browse); a mounted list consumes immediately, an unmounted
     /// one on its first appear.
     static func land(_ uuid: UUID) {
         pending = uuid
