@@ -165,10 +165,14 @@ the native clear (✕) and Cancel. The placeholder is per-scope
 
 **Scope selection is the TAB BAR, and — on the search surface — the SYSTEM'S
 own scope bar**: native `.searchScopes`, on the same `.searchable` that carries
-the field, inside `CatalogScopeView`'s stack (2026-08-05, Dave: another shot at
-it — ⚠️ **UNVALIDATED until his device pass**, see docs/DEVICE-PASS.md). The
-search surface's bar row is the same leading-key/trailing-key arrangement as
-the other four roots again.
+the field, inside `CatalogScopeView`'s stack (2026-08-05). ✅ **CONFIRMED ON
+DEVICE, build 187** (Dave): it renders, and it SURVIVES focusing and unfocusing
+the field. **The 140–143 "renders exactly once per app run" finding does not
+reproduce** — it is retired as a live constraint, and this file no longer tells
+you not to try it. ⚠️ What that pass ran with matters, because one input has
+changed since: 187 carried `.avoidHidingContent`, and build 188 reverses it
+(see below). The search surface's bar row is the same leading-key/trailing-key
+arrangement as the other four roots again.
 
 - ⚠️ **`activation: .onSearchPresentation`, never the iOS default.** The
   default is `.onTextEntry`, and an EMPTY query is a first-class state here —
@@ -192,23 +196,19 @@ the other four roots again.
   below blames render-once partly on the system clearing this bar on
   activation, which `.automatic` restores. The device pass settles which ask
   wins; they may not be co-satisfiable, and that is a choice, not a bug.
-- ⚠️ **What changed since builds 140–143, when native scopes were retired.**
-  They failed as "renders exactly ONCE per app run, at the TOP" on a
-  bottom-morphed field, across four activation routes. Both modifiers above
-  arrived AFTER those builds, and both are about that same navigation bar: on
-  140–143 the title was still `.large` (collapsing away as search presented)
-  and the system was clearing the bar's content on activation (143's emptied
-  top band). A scope bar attaching to a bar being emptied and re-laid out under
-  it is the shape of a control that renders once. ⚠️ **Half of that is back as
-  of the `.automatic` reversal above** — the `.inline` title stands, the
-  content-keeping does not — so the device pass is now a clean experiment on
-  which half mattered. ⚠️ And since the field moved to the
-  drawer (2026-08-05) the OTHER half of that failure is moot as well: "at the
-  TOP" was only a complaint while the field was at the bottom. If it fails
-  anyway, the lever is `.searchFocused` on arrival (it costs the
-  arrive-without-keyboard behaviour), and the fallback is `git revert` —
-  `ScopeSegmentedControl` and its hand-laid `.principal` row are two commits
-  back, not a rebuild.
+- **Why 140–143 failed is still not known, and 187 did not settle it.** They
+  failed as "renders exactly ONCE per app run, at the TOP" on a bottom-morphed
+  field, across four activation routes. THREE things differ now, and the
+  passing build changed all three at once: the title is `.inline` rather than
+  `.large` (it used to collapse away as search presented), the bar kept its
+  content (`.avoidHidingContent`, added at 147), and the field is in the top
+  drawer, so "at the TOP" is where a scope bar belongs rather than a
+  complaint. ⚠️ **Build 188 removes exactly one of them** — the `.automatic`
+  reversal above — which makes it a single-variable test of the bar-clearing
+  half. Record the result here when it lands. If the bar DOES break there, the
+  two asks are not co-satisfiable and which one keeps that row is Dave's call;
+  the fallback for the scope bar is `git revert` — `ScopeSegmentedControl` and
+  its hand-laid `.principal` row are a few commits back, not a rebuild.
 - **The retired containers stay retired** — post-mortems in docs/DECISIONS.md
   + git, per this file's header. ⚠️ `tabViewBottomAccessory` does not rise with
   the keyboard (137–139, 144), and app-authored animation does not survive
