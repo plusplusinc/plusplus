@@ -2,11 +2,12 @@ import SwiftUI
 import SwiftData
 import PlusPlusKit
 
-/// ONE view per catalog type, rendered by BOTH the tab and the search scope
-/// (Dave, 2026-07-25): tapping **Routines** with search closed and scoping to
-/// **Routines** with it open land here, on the same screen. Search only adds a
-/// query. That is the whole point of this file — the universal-search surface
-/// had become a second copy of the three catalog tabs, so the two became one.
+/// ONE view per catalog type, rendered by BOTH the Browse tab and the search
+/// tab (Dave, 2026-07-25; tabs collapsed 2026-08-05): dialling the scope wheel
+/// to **Routines** with search closed and with it open land here, on the same
+/// screen. Search only adds a query. That is the whole point of this file —
+/// the universal-search surface had become a second copy of the catalog
+/// surfaces, so they became one.
 ///
 /// It replaces four screens: `RoutineListView`, `ExercisesTabView`,
 /// `EquipmentTabView`, `FindOrCreateView`, and the pushed
@@ -31,9 +32,9 @@ struct CatalogScopeView: View {
     /// Where this surface is mounted. The list is identical either way; the
     /// chrome, the search field, and the push mechanism differ.
     enum Mode: Equatable {
-        /// A tab root: owns a `NavigationStack` and the app's expanding header
-        /// search field. `query` still arrives as a binding, because the scope
-        /// picker that outlives this view lives in the tab bar's accessory.
+        /// A tab root (Browse or search): owns a `NavigationStack` and the
+        /// scope wheel in its navigation bar. `query` still arrives as a
+        /// binding, because it belongs to the search presentation in the ROOT.
         case tab
         /// Presented inside someone else's stack (a sheet, or Today's setup
         /// push) with the pushed-screen chrome and its own header field. This
@@ -75,50 +76,55 @@ struct CatalogScopeView: View {
     let scope: FindScope
     let mode: Mode
 
-    /// The query. In `.tab` mode it lives in the ROOT — the segmented scope
-    /// picker sits outside this view and switching scope must not lose what you
-    /// typed; in `.presented` mode the surface owns it.
+    /// The query. In `.tab` mode it lives in the ROOT — the scope state sits
+    /// outside this view and switching scope must not lose what you typed; in
+    /// `.presented` mode the surface owns it.
     @Binding private var boundQuery: String
     // Per-scope match COUNTS are gone with the hand-drawn bar (2026-07-25):
-    // there are no scope labels in the chrome to paint them on. The segmented
-    // picker in the tab bar's accessory is the cross-scope affordance now.
+    // there are no scope labels in the chrome to paint them on. The scope
+    // wheel is the cross-scope affordance now.
     /// Which tab root this is: the reveal drawer's per-tab swipe gate keys on
     /// it, and so does `ownsLandings`.
     ///
     /// That second job is load-bearing since the catalogs became tabs again
-    /// (2026-07-26): a `Tab`'s content is its own view tree, so the Routines tab
+    /// (2026-07-26): a `Tab`'s content is its own view tree, so Browse
     /// and a search tab dialled to routines are two live instances of this view.
     /// Anything answering a broadcast has to name one of them.
     private let tabKey: String
-    /// The SEARCH tab's scope selection, and nothing else's.
+    /// The scope wheel's binding — non-nil on BOTH tab instances (Browse and
+    /// search), which both seat `ScopeWheel` in their principal row. Browse
+    /// and search share the state behind it (`RootTabView.scope`), so each
+    /// opens on the catalog the other was looking at.
+    private let scopeSelection: Binding<FindScope>?
+    /// The one instance that carries the system field.
     ///
-    /// ⚠️ The field and the scope bar live INSIDE this view's `NavigationStack`,
-    /// not on the `Tab` in `RootTabView` (build 140 put them there and the scope
-    /// bar never rendered). `.searchScopes` needs `.searchable` on a view inside
-    /// a NAVIGATION CONTAINER; attached to `CatalogScopeView` from outside, the
-    /// modifier sits ABOVE this stack, so the field still morphed — the tab role
-    /// gives it that — but the scope bar had no search presentation to attach
-    /// to. Non-nil marks the one instance that owns both.
-    private let searchScope: Binding<FindScope>?
+    /// ⚠️ The field lives INSIDE this view's `NavigationStack`, not on the
+    /// `Tab` in `RootTabView` (build 140 put it there and the scope
+    /// presentation never worked). `.searchable` needs a view inside a
+    /// NAVIGATION CONTAINER; attached to `CatalogScopeView` from outside, the
+    /// modifier sits ABOVE this stack — the field still morphed (the tab role
+    /// gives it that), which is what made it look wired up.
+    private let isSearch: Bool
     /// Picker mode only: a row tap (or a fresh create) hands the item back
     /// here instead of opening it.
     private let onPick: ((Exercise) -> Void)?
     /// Picker mode's sheet title ("Add exercise" / "Swap for…").
     private var pickerTitle = ""
 
-    /// A tab root. `searchScope` is non-nil ONLY on the search tab — that is
-    /// what makes this instance the one carrying the field and the scope bar.
+    /// A tab root: Browse, or — with `isSearch` — the search tab.
     init(
         scope: FindScope,
         query: Binding<String>,
         tab: AppTab,
-        searchScope: Binding<FindScope>? = nil
+        scopeSelection: Binding<FindScope>? = nil,
+        isSearch: Bool = false
     ) {
         self.scope = scope
         self.mode = .tab
         self._boundQuery = query
         self.tabKey = tab.rawValue
-        self.searchScope = searchScope
+        self.scopeSelection = scopeSelection
+        self.isSearch = isSearch
         self.onPick = nil
     }
 
@@ -128,7 +134,8 @@ struct CatalogScopeView: View {
         self.mode = .presented(setupMode: setupMode)
         self._boundQuery = .constant("")
         self.tabKey = ""
-        self.searchScope = nil
+        self.scopeSelection = nil
+        self.isSearch = false
         self.onPick = nil
     }
 
@@ -138,7 +145,8 @@ struct CatalogScopeView: View {
         self.mode = .picker
         self._boundQuery = .constant("")
         self.tabKey = ""
-        self.searchScope = nil
+        self.scopeSelection = nil
+        self.isSearch = false
         self.onPick = onPick
         self.pickerTitle = title
     }
@@ -221,7 +229,7 @@ struct CatalogScopeView: View {
     private var isPicking: Bool { mode == .picker }
 
     /// The one tab that hosts the system search field.
-    private var isSearchSurface: Bool { searchScope != nil }
+    private var isSearchSurface: Bool { isSearch }
 
     private var trimmedQuery: String {
         queryBinding.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -386,10 +394,9 @@ struct CatalogScopeView: View {
     /// nothing to attach to (build 140's missing scopes). The title, the ++ key
     /// and the kit switcher move into the real bar; nothing is lost but the
     /// hand-drawing.
-    @ViewBuilder
     private var tabBody: some View {
-        // The SEARCH surface — and ONLY it — measures its own width, because
-        // only it lays out the bar row by hand.
+        // Both catalog roots lay their bar row out by hand (the one-principal-
+        // item law below), so both measure their own width.
         //
         // ⚠️ A PURE layout read: the proxy's size is used directly and never
         // written to state. That distinction is the law — an
@@ -398,19 +405,13 @@ struct CatalogScopeView: View {
         // failing on first activation, because it feeds layout back into state.
         // A `GeometryReader` that merely reads is not that.
         //
-        // ⚠️ It is still not free, which is why the other four roots don't pay
-        // for it: the closure re-runs on every size change, height included, and
-        // rebuilding this view re-runs the ranking pipeline (`outcome`
-        // is hoisted in `listBody` precisely because it is expensive). On the
-        // search tab that pipeline already runs per keystroke, so the extra
-        // passes are marginal; on a scrolling catalog the tab bar minimising
-        // would have re-ranked the whole list mid-scroll for nothing.
-        if isSearchSurface {
-            GeometryReader { proxy in
-                tabStack(barWidth: proxy.size.width)
-            }
-        } else {
-            tabStack(barWidth: nil)
+        // ⚠️ Not free: the closure re-runs on every size change, and rebuilding
+        // this view re-runs the ranking pipeline (`outcome` is hoisted in
+        // `listBody` precisely because it is expensive). Acceptable since the
+        // bar never minimizes (navigation.md): the size changes on rotation
+        // and window changes, never mid-scroll.
+        GeometryReader { proxy in
+            tabStack(barWidth: proxy.size.width)
         }
     }
 
@@ -418,20 +419,20 @@ struct CatalogScopeView: View {
         NavigationStack(path: $path) {
             listBody
                 .background(Theme.background)
-                // The SEARCH surface carries no title (Dave, 2026-07-26): the
-                // scope control already names the catalog, so a title is
-                // duplicative — and a large one FLASHES on entry, collapsing
-                // away as search presents and leaving the top area empty. The
-                // bar itself stays: hiding it is what left `.searchable` with
-                // nowhere to fall back to in the first place.
-                .navigationTitle(isSearchSurface ? "" : scope.label)
-                .navigationBarTitleDisplayMode(isSearchSurface ? .inline : .large)
+                // A catalog root carries no title (search's 2026-07-26 rule,
+                // extended to Browse 2026-08-05): the scope wheel names the
+                // catalog, so a title is duplicative — and on search a large
+                // one FLASHES on entry, collapsing away as search presents.
+                // The bar itself stays: hiding it is what left `.searchable`
+                // with nowhere to fall back to in the first place.
+                .navigationTitle("")
+                .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    if let searchScope {
-                        // ⚠️ On the SEARCH surface the app owns the WHOLE bar
-                        // row as one `.principal` item, rather than letting the
-                        // system place three (Dave, build 150: make the control
-                        // take the available width, less an even gap).
+                    if let scopeSelection {
+                        // ⚠️ Both catalog roots own the WHOLE bar row as one
+                        // `.principal` item, rather than letting the system
+                        // place three (Dave, build 150: make the control take
+                        // the available width, less an even gap).
                         //
                         // Why it has to be one item: a principal item is a
                         // TITLE VIEW, and UIKit centres a title view **in the
@@ -452,7 +453,7 @@ struct CatalogScopeView: View {
                         ToolbarItem(placement: .principal) {
                             HStack(spacing: barGap) {
                                 AppMenuKey()
-                                ScopeSegmentedControl(scope: searchScope)
+                                ScopeWheel(scope: scopeSelection, instanceKey: isSearch ? "search" : "browse")
                                     // Absorbs whatever the two keys leave. No
                                     // minimum: an `HStack` never offers one
                                     // flexible child more than its share, so
@@ -470,7 +471,12 @@ struct CatalogScopeView: View {
                                     // this row's centre. Match the padding and
                                     // the three line up.
                                     .padding(.bottom, 4)
-                                LibrarySwitcherKey(name: activeKitName, identifier: scope.switcherIdentifier) {
+                                // Per-INSTANCE identifier, not per-scope: both
+                                // wheel roots share one scope now, so a
+                                // scope-keyed identifier would sit on two live
+                                // switchers at once — the exact multiple-match
+                                // the per-scope scheme once existed to prevent.
+                                LibrarySwitcherKey(name: activeKitName, identifier: isSearch ? "searchKitSwitcher" : "browseKitSwitcher") {
                                     libraryTrayReason = nil
                                     showingLibraryTray = true
                                 }
@@ -483,31 +489,16 @@ struct CatalogScopeView: View {
                             // it to nothing.
                             .frame(width: barWidth.flatMap { $0 > barGap * 2 ? $0 - barGap * 2 : nil })
                         }
-                        // The row brings its own key chrome and the control
-                        // brings its own track, so it opts out of the toolbar's
+                        // The row brings its own key chrome and the wheel
+                        // brings its own band, so it opts out of the toolbar's
                         // shared glass — without this they nest inside a system
                         // capsule, the box-in-a-box that killed the accessory.
-                        .sharedBackgroundVisibility(.hidden)
-                    } else {
-                        // Every other root: the system places the two keys, and
-                        // the title sits between them.
-                        ToolbarItem(placement: .topBarLeading) { AppMenuKey() }
-                            .sharedBackgroundVisibility(.hidden)
-                        // The kit is CONTEXT on every catalog, never a filter
-                        // chip: it decides which rows fall into the "require
-                        // more equipment" group below.
-                        ToolbarItem(placement: .topBarTrailing) {
-                            LibrarySwitcherKey(name: activeKitName, identifier: scope.switcherIdentifier) {
-                                libraryTrayReason = nil
-                                showingLibraryTray = true
-                            }
-                        }
                         .sharedBackgroundVisibility(.hidden)
                     }
                 }
             // The system field, on the SEARCH tab only, and INSIDE the stack —
-            // see `searchScope`.
-                .modifier(SearchPresentation(query: $boundQuery, scope: searchScope))
+            // see `isSearch`.
+                .modifier(SearchPresentation(query: $boundQuery, scope: isSearch ? scopeSelection : nil))
                 .navigationDestination(for: Exercise.self) { exercise in
                     ExerciseDetailScreen(exercise: exercise)
                 }
@@ -524,7 +515,7 @@ struct CatalogScopeView: View {
                 .navigationDestination(for: RoutineTemplate.self) { template in
                     RoutineTemplateDetailScreen(template: template, path: $path) { routine in
                         // Pop the template BEFORE landing. The landing happens
-                        // on the Routines tab, which may be a different
+                        // on Browse, which may be a different
                         // instance of this view (search pushed it, the tab
                         // consumes it), and whoever hosted the push would
                         // otherwise keep a stale detail of a template you had
@@ -539,7 +530,7 @@ struct CatalogScopeView: View {
         // GitHub. Native tabs fire `onDisappear` on a switch, so this is the
         // same close trigger every other surface uses.
         .syncsProgramOnClose()
-        // Changing scope is the search tab dialling the accessory — the same
+        // Changing scope is a catalog root dialling the wheel — the same
         // surface looking at something else, so it stays MOUNTED (an `.id(scope)`
         // would rebuild it, which is exactly what stops a scope change feeling
         // like one). Only what can't survive the change resets: a pushed detail
@@ -555,6 +546,24 @@ struct CatalogScopeView: View {
             if !expandedMissing.isEmpty { expandedMissing = [] }
             // Facets die with the scope they narrowed (same guard rule).
             if filters != CatalogFilterState() { filters = CatalogFilterState() }
+            // Dialling Browse to the kit catalog is an ARRIVAL for the
+            // #251 order — the surface stays mounted, so `onAppear` never
+            // refires. Guarded inside: search and non-kit scopes seed empty.
+            seedEquipmentOrder()
+            // ⚠️ The THIRD landing door (swift-reviewer, 2026-08-05). A
+            // landing that arrives while Browse is FRONTMOST on a different
+            // scope reaches neither of the other two: the onReceive below is
+            // subscribed to the OLD scope's notification name when the post
+            // is delivered (NotificationCenter is synchronous; the root dials
+            // `scope` in the same beat, but this instance re-subscribes only
+            // on the next body pass), and onAppear needs a tab change this
+            // path never makes. A share-linked routine imported while
+            // browsing exercises would play no flash AND leave a live slot to
+            // fire a phantom path-reset on a later visit. This onChange runs
+            // AFTER the update, with the landing's scope; the guards inside
+            // both consumers make it a no-op on every ordinary wheel dial.
+            consumeArrival()
+            consumeOperatorPush()
         }
         // A cross-tab add lands HERE with the entrance flash — consumed on
         // receive when this tab is already built, on appear when the landing is
@@ -576,12 +585,14 @@ struct CatalogScopeView: View {
 
     /// Whether landings addressed to this scope belong to THIS instance.
     ///
-    /// The catalog tab that owns the scope is the answer, never "whichever
-    /// instance is showing it" — the search tab dialled to routines shows
-    /// routines too, and a landing switches away from search by definition, so
-    /// letting search consume would play the entrance flash on the surface
-    /// you're being taken off. Both slots survive an unbuilt tab, so the
-    /// owner can consume late, on appear.
+    /// Browse is the answer (`FindScope.tab`), never "whichever instance is
+    /// showing it" — the search tab dialled to routines shows routines too,
+    /// and a landing switches away from search by definition, so letting
+    /// search consume would play the entrance flash on the surface you're
+    /// being taken off. Both slots survive an unbuilt tab, so the owner can
+    /// consume late, on appear — and the root dials Browse's scope as part
+    /// of every landing (`RootTabView.land`), so the consuming list is the
+    /// one on screen.
     private var ownsLandings: Bool { tabKey == scope.tab.rawValue }
 
     /// Push the routine an Operator outcome is steering to. The path resets
@@ -776,12 +787,12 @@ struct CatalogScopeView: View {
         let sections = displayed(outcome.sections)
         let shown = sections.reduce(0) { $0 + $1.count }
         let hiddenByFilters = outcome.hiddenByFilters
-        // The facet row's seat on the search surface — the law is on the two
+        // The facet row's seat on the catalog roots — the law is on the two
         // modifiers that consume these. Hoisted and explicitly typed so the
         // ternaries never enter the `List`'s own inference (the type-check
         // budget law, ui-interaction.md).
-        let headerSpacing: ListSectionSpacing = isSearchSurface ? .custom(0) : .default
-        let topContentMargin: CGFloat? = isSearchSurface ? 0 : nil
+        let headerSpacing: ListSectionSpacing = mode.isTab ? .custom(0) : .default
+        let topContentMargin: CGFloat? = mode.isTab ? 0 : nil
         return ScrollViewReader { proxy in
             List {
                 // ONE section holds the whole list, and on a TAB root its
@@ -878,7 +889,7 @@ struct CatalogScopeView: View {
                 }
             }
             .listStyle(.plain)
-            // ⚠️ On the SEARCH surface the facet row starts in its PINNED seat
+            // ⚠️ On the catalog roots the facet row starts in its PINNED seat
             // (Dave, 2026-08-02, from a three-shot scroll sequence — pixel
             // measured at 3x). A `.plain` List puts its own top padding ABOVE
             // the first section header, and that padding SCROLLS: the row sat
@@ -901,11 +912,14 @@ struct CatalogScopeView: View {
             // default scroll-content top margin. Zeroing an absent one is a
             // no-op.
             //
-            // ⚠️ SEARCH ONLY. The other four roots wear the system LARGE
-            // title, and that title travels through this very space — closing
-            // it there would seat the chips against the bar and re-open the
-            // #521 class of large-title argument. `nil`/`.default` leaves them
-            // exactly as they shipped.
+            // ⚠️ TAB ROOTS ONLY — and since the catalog roots gave up their
+            // large titles for the scope wheel (2026-08-05), Browse has the
+            // same nothing-in-that-space condition search always had, so it
+            // seats too. If a large title ever returns to a catalog root,
+            // that root must go back to `nil`/`.default`: the title travels
+            // through this very space, and closing it re-opens the #521
+            // class of large-title argument. Presented/picker mounts never
+            // read these (their facet row rides a `safeAreaInset`).
             .listSectionSpacing(headerSpacing)
             .contentMargins(.top, topContentMargin, for: .scrollContent)
             .scrollContentBackground(.hidden)
@@ -1791,16 +1805,6 @@ struct CatalogScopeView: View {
 }
 
 private extension FindScope {
-    /// Distinct per surface so a smoke test visiting more than one doesn't hit
-    /// a multiple-match on a shared identifier.
-    var switcherIdentifier: String {
-        switch self {
-        case .routines: return "routinesKitSwitcher"
-        case .exercises: return "exercisesKitSwitcher"
-        case .kit: return "librarySwitcherButton"
-        }
-    }
-
     /// The landing this scope answers — one landing for every add.
     var arrivalNotification: Notification.Name {
         switch self {
@@ -1830,7 +1834,7 @@ private extension FindOrCreateEngine.Result {
 ///
 /// A modifier so the branch lives in one place rather than forking the stack's
 /// body. The condition is safe to branch on because it is fixed per instance:
-/// `searchScope` is a `let` decided at init, so a given `CatalogScopeView`
+/// `isSearch` is a `let` decided at init, so a given `CatalogScopeView`
 /// either always carries search or never does. Search presentation must not be
 /// re-created underneath itself, and this can't do that.
 private struct SearchPresentation: ViewModifier {
@@ -1843,8 +1847,8 @@ private struct SearchPresentation: ViewModifier {
             content
                 // The scope control is NOT here — it's a `.principal`
                 // `ToolbarItem` on the navigation bar, between the ++ key and
-                // the kit switcher (see `tabBody`'s toolbar, and
-                // `ScopeSegmentedControl` for the five placements that came
+                // the kit switcher (see `tabStack`'s toolbar, and
+                // navigation.md for the five placements that came
                 // before it). ⚠️ NO `.searchScopes` either: on a bottom-aligned
                 // field morphed out of `Tab(role: .search)` the system's own
                 // scope bar renders exactly once per app run, at the top,

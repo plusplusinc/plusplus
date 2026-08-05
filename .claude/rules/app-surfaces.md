@@ -17,14 +17,17 @@ beside it. The laws that constrain these surfaces live in the sibling rules:
 **`catalog-scopes.md`** (what the catalog shows: scopes, tiers, facets) and **`today-rail.md`** (Today's band, rail, landmarks and pull) —
 both load when you touch view code; read them before changing what they govern.
 
-**Five tabs** on the native iOS 26 Liquid Glass `TabView` (`RootTabView`):
-**Today · Routines · Exercises · Kit · Search**. The last wears
-`Tab(role: .search)`, so the system separates it and gives it the bar→field
-morph. The three catalog tabs and the search tab all render the same
-`CatalogScopeView` — a tab picks which CATALOG, never which screen. The
-container laws that constrain that row (the `.principal` toolbar row, search
-scopes, the accessory's retirement, the morph's state-write rule) are in
-`navigation.md`; read them before changing anything in it.
+**Three tabs** on the native iOS 26 Liquid Glass `TabView` (`RootTabView`,
+2026-08-05 — prototype A of the structure exploration): **Today · Browse ·
+Search**. The last wears `Tab(role: .search)`, so the system separates it and
+gives it the bar→field morph. Tabs name MODES (do · browse · find), never
+scopes: Browse and search render the same `CatalogScopeView`, and WHICH
+catalog (Routines · Exercises · Kit) is the **scope wheel**'s job
+(`ScopeWheel`, in both catalog roots' principal row), stated once — the two
+instances share one scope state, so search opens on the catalog you were
+browsing. The container laws that constrain that row (the `.principal`
+toolbar row, the retired scope-control homes, the morph's state-write rule)
+are in `navigation.md`; read them before changing anything in it.
 
 **Today** — the unified timeline: scheduled work, carried-over work, and
 committed sessions on a DATE-FIRST rail (each entry's date on its own row,
@@ -40,7 +43,8 @@ can never take the landing slot; it presents the GitHub tray directly.
 Pull-to-refresh answers in the gap the pull opens (mechanics in
 `today-rail.md`).
 
-**Routines / Exercises / Kit** — catalog surfaces over `CatalogScopeView`,
+**Browse (Routines / Exercises / Kit scopes)** — catalog surfaces over
+`CatalogScopeView`,
 MINE then CATALOG, a single-select facet row per scope (exercises kind/
 muscle/movement/mechanic/sides · kit type · routines focus/effort/style),
 PINNED as the list's one section header on tabs and as a top inset on

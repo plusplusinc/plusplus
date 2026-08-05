@@ -29,7 +29,7 @@ screen is).
   to narrow. `All` is GONE; an **empty query shows the scope's WHOLE list,
   grouped as its tab groups it**.
 - **All three scopes read alike: MINE then CATALOG, plus ONE facet row**
-  (filtering returned 2026-07-31, reversing 2026-07-25) — the Kit tab means
+  (filtering returned 2026-07-31, reversing 2026-07-25) — the Kit scope means
   "equipment, mine first", not "my kit". The row per scope: exercises kind ·
   muscle · movement · mechanic · sides; kit type; routines focus · effort ·
   style. State in `CatalogFilterState` — ephemeral per `CatalogScopeView`
@@ -63,16 +63,18 @@ screen is).
   band law states in full (`today-rail.md`: a pinned top inset costs the
   system large title, on a `List` and a `ScrollView` alike). PRESENTED and PICKER keep the pinned, opaque top
   `safeAreaInset` (app-drawn chrome); no geometry probes anywhere.
-  ⚠️ **On the SEARCH surface that header starts in its PINNED seat**
-  (2026-08-02): a `.plain` List pads above its first section header and that
-  padding SCROLLS, so the row began 22 pt low and only arrived after 22 pt of
-  travel — and the nav bar's scrolled-under hairline was visible for exactly
-  that window, because the seated row's opaque band lands ON the line and
-  occludes it (the 4 pt you see under the line is `FacetChip`'s 44 pt hit
-  frame around its 36 pt cap). Closed with `listSectionSpacing(.custom(0))` +
-  `contentMargins(.top, 0, for: .scrollContent)`, both, gated to
-  `isSearchSurface`. ⚠️ Do NOT close it on the other four roots — the system
-  large title travels through that space. ⚠️ And do NOT reach for a top
+  ⚠️ **On the catalog roots that header starts in its PINNED seat**
+  (2026-08-02 on search; widened to Browse 2026-08-05 when the catalog roots
+  gave up large titles for the scope wheel): a `.plain` List pads above its
+  first section header and that padding SCROLLS, so the row began 22 pt low
+  and only arrived after 22 pt of travel — and the nav bar's scrolled-under
+  hairline was visible for exactly that window, because the seated row's
+  opaque band lands ON the line and occludes it (the 4 pt you see under the
+  line is `FacetChip`'s 44 pt hit frame around its 36 pt cap). Closed with
+  `listSectionSpacing(.custom(0))` + `contentMargins(.top, 0, for:
+  .scrollContent)`, both, gated to `mode.isTab`. ⚠️ If a large title ever
+  returns to a catalog root, un-seat that root — the title travels through
+  that space. ⚠️ And do NOT reach for a top
   `scrollEdgeEffectStyle` to kill the hairline: seating the row IS the fix,
   and the line never draws at offset 0. Typing
   still reaches everything without chips: muscle groups, movement patterns
@@ -108,8 +110,8 @@ screen is).
   side door: `SortChip` stays deleted and nothing offers a choice of order.
   ⚠️ The counts are passed IN as `[String: Int]`, computed on appear and
   never inside the scoring pass. An EMPTY map leaves the order as it arrived, which is what
-  keeps the PRESENTED equipment catalog its flat alphabetical run: only the
-  tab passes counts, and the NULL kit passes none either (it refuses every
+  keeps the PRESENTED equipment catalog its flat alphabetical run: only
+  Browse passes counts, and the NULL kit passes none either (it refuses every
   add, so ordering it by what it would open is a hundred propositions the
   surface cannot accept).
   ⚠️ **The ORDER is FROZEN for the visit, the TAGS are live.** `unlocks` is a
@@ -117,16 +119,19 @@ screen is).
   and the leading swipe commits membership in place, so a live order would
   re-sort the tier under the thumb that just swiped and put the next swipe on
   a different row. That is the complaint the presented catalog's flat run
-  exists to answer. The seed is taken on APPEAR only (`equipmentOrder`);
-  leaving and returning re-sorts. The tags read a LIVE per-render map
+  exists to answer. The seed is taken on ARRIVAL only (`equipmentOrder`) —
+  `onAppear`, or the scope-change reset now that the catalogs are scopes of
+  one Browse root (2026-08-05); both are moments nobody is mid-gesture in.
+  Leaving and returning re-sorts. The tags read a LIVE per-render map
   (`equipmentOpensCounts`, beside the exercise counts that already ride every
   render) because a number printed on a row has to be true when it is read.
 - ⚠️ The next law is about CATALOG LIST rows, not detail screens. A pushed
   detail has always been a cross-reference graph (exercise → equipment →
   routine, `CatalogDetailViews`), and that is not a scope switch in a list.
 - **Cross-scope discovery is the scope control itself** — never link rows,
-  and per-scope result counts are GONE (2026-07-25: a glyph-only segment has
-  nowhere to paint a number, and the central `matchCounts` costs a second
-  ranking pass per keystroke). Prompts and empty states use
+  and per-scope result counts are GONE (2026-07-25: retired with the
+  hand-drawn bar, and the central `matchCounts` costs a second
+  ranking pass per keystroke — the wheel's cells could paint numbers, but
+  the cost argument still bans them). Prompts and empty states use
   `FindScope.searchNoun`, not `label`.
 

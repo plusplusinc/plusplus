@@ -17,7 +17,7 @@ enum OperatorDestination: Equatable, Codable {
     ///
     /// The stamp is what makes the routine push survive a tab that isn't
     /// mounted yet (2026-07-26). A tab's content is built when it is first
-    /// selected, so a notification alone reaches nobody when the Routines tab
+    /// selected, so a notification alone reaches nobody when the Browse tab
     /// has never been visited — the push would be a silent no-op, the failure
     /// class the build-76 dead taps came from. The slot waits for the tab
     /// instead, which is the `RoutineArrival` handoff exactly.

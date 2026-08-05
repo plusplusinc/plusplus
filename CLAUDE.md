@@ -63,7 +63,7 @@ No third-party dependencies without discussion first.
 > certain files → **.claude/rules/** (`paths:` frontmatter); a procedure → **.claude/skills/**.
 > The test for living here: would a session need it BEFORE knowing what it was about to touch?
 
-**Last updated:** 2026-08-02 · **Latest TestFlight build:** 169, from main (the whole decision-sheet run, #503–#509). ⚠️ 165–168 were dispatched from `claude/search-input-animation-bug-fdmdq5`, NOT main; 164 and 160–163 were.
+**Last updated:** 2026-08-05 · **Latest TestFlight build:** 191, from main (the three-tab bar + scope wheel, #554). ⚠️ 170–190 were dispatched from feature branches by parallel sessions, NOT main — the 169 line here was 21 builds stale when caught.
 ⚠️ Build number = workflow RUN number, not last-build+1 — check `actions_list` before writing a What's-New entry. It moves on a PARALLEL SESSION's dispatch from any branch, so a number read an hour ago is already stale (2026-08-02: 165–168 landed from a feature branch mid-round).
 
 **On main, awaiting Dave's device pass:** the queue lives in

@@ -280,9 +280,11 @@ Siblings: `navigation.md` (tab bar, search, scope control, landings),
   so anywhere it can't go (mid-sentence prose, a saturated button cap) the
   name takes its noun instead, via `EquipmentLibrary.activeKitPhrase` ("the
   main kit"). The bug is invisible until a SECOND kit exists, since prose says
-  "your kit" until then. The user-facing term is "kit", the fourth tab is
-  labeled **Kit** (2026-07-20), and **"gear" is retired** from user-facing
+  "your kit" until then. The user-facing term is "kit", the catalog scope is
+  labeled **Kit** (2026-07-20; a tab until the 2026-08-05 three-tab bar), and
+  **"gear" is retired** from user-facing
   copy — **kit** for the your-set sense, **equipment** for the single-item /
   catalog sense ("Equipment catalog" keeps its name). `EquipmentLibrary` the
-  type, `AppTab.equipment`, and the interchange's
-  `program/equipment-libraries/` path are frozen internals.
+  type and the interchange's
+  `program/equipment-libraries/` path are frozen internals
+  (`AppTab.equipment` died with its tab).

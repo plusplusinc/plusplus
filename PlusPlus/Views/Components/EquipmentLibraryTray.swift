@@ -12,7 +12,7 @@ import SwiftData
 struct EquipmentLibraryTray: View {
     /// When provided, the tray shows a shortcut into equipment curation.
     /// Only callers that are NOT themselves an edit surface pass one (the
-    /// reveal drawer, which is remote from the catalog); the Kit tab and the
+    /// reveal drawer, which is remote from the catalog); the Kit scope and the
     /// catalog pass nil, since editing is already right there. The full
     /// switch / create / rename / delete capability set is always present
     /// regardless — this is the one contextual extra.

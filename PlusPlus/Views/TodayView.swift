@@ -17,7 +17,7 @@ import UIKit        // UIFont metrics: the pinned band's height, derived not mea
 /// routine, then schedule — each becoming a committed-style card when
 /// done. The scaffold lives until the first real session commits.
 struct TodayView: View {
-    /// Switches the root to the Routines tab (the done routine-step
+    /// Switches the root to the routines catalog (the done routine-step
     /// card's edit affordance).
     var onGoToRoutines: () -> Void = {}
 
@@ -966,7 +966,7 @@ struct TodayView: View {
     /// The anytime card, wired to Today's start machinery. Quick starts
     /// commit through `startQuick` (the pending-flag config-sheet route
     /// stays the CUSTOM escape); Train's two paths are the scratch start
-    /// and a handoff to the Routines tab — a pointer, never a second
+    /// and a handoff to the routines catalog — a pointer, never a second
     /// copy of the library.
     private var anytimeCard: some View {
         AnytimeCard(
@@ -2207,7 +2207,7 @@ struct TodayView: View {
                 gatedSub: "Needs your equipment first",
                 cta: "Pick a routine",
                 identifier: "setupRoutineStep",
-                // Lands on the Routines tab, which IS the routine catalog now
+                // Lands on the routines catalog (Browse dialled to routines)
                 // (2026-07-25): yours, then everything you could add. The
                 // standalone catalog screen and the pre-scoped search deep link
                 // both retired into it.
@@ -2341,7 +2341,7 @@ struct TodayView: View {
                             // begins a build-as-you-go session directly —
                             // the start tray died with the play key
                             // (build 159); routines start from their own
-                            // cards and the Routines tab.
+                            // cards and the routines catalog.
                             Image(systemName: "play.fill")
                                 .font(.system(.caption, weight: .semibold))
                             Text("Start a workout")

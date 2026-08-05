@@ -206,7 +206,7 @@ struct ExerciseDetailScreen: View {
                     // 2026-07-23): adding to an existing routine used to
                     // have no door at all — the point of discovery offered
                     // only "New routine with X", and reaching an existing
-                    // routine meant reversing through the Routines tab.
+                    // routine meant reversing through the routines catalog.
                     // The sheet leads with creation (top row, create/add
                     // grammar) and lists the routines below it.
                     CreateRow(label: "Add to routine…", identifier: "addToRoutine") {
