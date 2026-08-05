@@ -67,14 +67,16 @@ extension FindScope {
 /// but now that `CatalogScopeView` exists they are tabs over ONE screen, which
 /// is what the two-tab round was really after.
 ///
-/// **The tab bar is the scope control; inside search, a NAVIGATION BAR item
-/// is** — a native segmented `Picker` in the `.principal` slot, between the ++
-/// key and the kit switcher (Dave, 2026-07-26). It does NOT live in
-/// `tabViewBottomAccessory` (that container never rises with the keyboard), it
-/// is NOT native `.searchScopes` (which renders once per app run on a
-/// bottom-aligned field), and it is NOT a `.bottomBar` item (that row is the
-/// one the search-role field expands into); see `ScopeSegmentedControl` for the
-/// whole account and the rules that survived seven builds of it.
+/// **The tab bar is the scope control; inside search, the system's own scope
+/// bar is** — native `.searchScopes`, attached to the same `.searchable` that
+/// carries the field, inside `CatalogScopeView`'s stack (2026-08-05, Dave:
+/// another shot at it, reversing the app-drawn control that held the
+/// `.principal` slot from 2026-07-26). It has never lived in
+/// `tabViewBottomAccessory` successfully (that container does not rise with the
+/// keyboard) and never in a `.bottomBar` item (that row is the one the
+/// search-role field expands into); those two stay retired. What made the
+/// system's answer worth re-trying, and what to check on device, is on
+/// `SearchPresentation` in `CatalogScopeView`.
 struct RootTabView: View {
 
     /// The Today tab's icon reflects whether there's anything to do today
@@ -294,15 +296,21 @@ struct RootTabView: View {
         // ⚠️ NOTHING rides `tabViewBottomAccessory` any more. The scope control
         // lived there for four builds and the container was always wrong: it
         // does not rise with the keyboard, so search's own keyboard buried it.
-        // It is a `.principal` NAVIGATION BAR item on the search surface now —
-        // see `ScopeSegmentedControl`, which carries the whole account.
+        // Scoping is the system's `.searchScopes` bar now — see
+        // `SearchPresentation` in `CatalogScopeView`.
         //
         // ⚠️ NO `.tabViewSearchActivation(.searchTabSelection)` here, and that
-        // absence is deliberate. Build 143 added it to force a fresh scope-bar
-        // presentation on every arrival; native scopes are gone, so that
-        // justification went with them. Arriving without the keyboard also
-        // means arriving with the whole surface in view — pick a catalog first,
-        // tap the field when you actually want to type.
+        // absence is deliberate — but it is now the FIRST lever to reach for if
+        // the scope bar does not appear on arrival. Build 143 added it to force
+        // a fresh scope-bar presentation on every arrival, and the reason it
+        // came back out was the bottom accessory, which is dead: the accessory
+        // did not rise with the keyboard, so auto-focusing on arrival buried
+        // the control. The reason it STAYS out is now Dave's, not the
+        // container's — arriving without the keyboard means arriving with the
+        // whole surface in view, so you pick a catalog first and tap the field
+        // when you actually want to type. If `.onSearchPresentation` turns out
+        // not to count a tab arrival as a presentation, that trade is the one
+        // being made.
         //
         // ⚠️ NO `.tabBarMinimizeBehavior(.onScrollDown)` either (Dave,
         // 2026-07-27). It only ever existed to move the bottom accessory

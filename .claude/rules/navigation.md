@@ -39,7 +39,8 @@ Search** (`Tab(role: .search)`).
   `GeometryReader` + `PreferenceKey`) anywhere in the TabView subtree breaks
   the search-role morph on FIRST activation (nav-diag 4e; recheck: iOS 27).
   Measure from `UIFont` metrics, or read geometry WITHOUT writing state
-  (`ScopeSegmentedControl`'s width). ⚠️ Not `OverflowCapsuleRow` — it writes
+  (`RoutineDetailView.detailContent`'s width read — the live exemplar since
+  `ScopeSegmentedControl`'s bar row was deleted 2026-08-05). ⚠️ Not `OverflowCapsuleRow` — it writes
   `@State` from a `GeometryReader` and renders inside catalog rows, i.e.
   inside this very subtree; only its TAG widths come from `UIFont`.
 - ⚠️ Because **a `Tab`'s content is its own view tree**, the four
@@ -145,56 +146,51 @@ exercises / equipment").
 
 ## The scope control
 
-**Scope selection is the TAB BAR, and — on the search surface — a native
-segmented `Picker` in the NAVIGATION BAR, between the ++ key and the kit
-switcher** (`ScopeSegmentedControl`, settled 2026-07-26 after SEVEN builds in
-six placements). That's the slot the other roots put their title in, which on
-this surface the control effectively is.
+**Scope selection is the TAB BAR, and — on the search surface — the SYSTEM'S
+own scope bar**: native `.searchScopes`, on the same `.searchable` that carries
+the field, inside `CatalogScopeView`'s stack (2026-08-05, Dave: another shot at
+it — ⚠️ **UNVALIDATED until his device pass**, see docs/DEVICE-PASS.md). The
+search surface's bar row is the same leading-key/trailing-key arrangement as
+the other four roots again.
 
-- ⚠️ **The search surface builds that row ITSELF**: one `.principal`
-  `ToolbarItem` holding all three pieces at an explicit `width - 32`, with no
-  leading or trailing items. A principal item is a TITLE VIEW, and UIKit centres
-  it in the BAR, not between the side items — so ANY side item makes the two
-  gaps asymmetric by its own width, and `.frame(maxWidth: .infinity)` cannot
-  fix it (the bar proposes unbounded width). With no side items the title view
-  gets the whole bar and every gap is the app's. The width is a PURE
-  `GeometryReader` read (never written to state), gated to this surface — the
-  closure re-runs on height changes, and rebuilding re-runs the ranking
-  pipeline, so a scrolling catalog would re-rank mid-scroll. No hard
-  `minWidth` on the control (an `HStack` already caps a flexible sibling; a
-  floor makes the ROW overflow and shear keys off a narrow screen), an
-  OPTIONAL width so a zero-size first pass leaves the row at its ideal size,
-  and `.padding(.bottom, 4)` because `RaisedKeyStyle` pads each key by its
-  travel, seating caps 2 pt above the row's centre.
-- ⚠️ **The segments are GLYPHS ONLY — a platform limit, not a preference**: a
-  `UISegmentedControl` segment takes a title OR an image, never both
-  (`.titleAndIcon` drops the icon; DTS-confirmed), and three words beside the
-  ++ key and a variable-width kit switcher overflow the principal slot. Same
-  symbols the tab bar uses for the same scopes. Each segment
-  carries an explicit `.accessibilityLabel` (without it VoiceOver reads the
-  symbol name); the smoke helper falls back to POSITION if the label doesn't
-  reach XCUITest. It wears `.tint(Theme.background)` — a dark selected segment
-  in dark mode (build 146 dropped the tint and got the inverse of the tab bar
-  below; it's back) — and NO `.controlSize(.large)` (taller than the bar).
-- ⚠️ Two modifiers make a segmented control legal in a toolbar at all:
-  `.sharedBackgroundVisibility(.hidden)` on the item (it brings its own
-  track; the toolbar's shared glass would wrap it in a second shape) and
-  `.searchPresentationToolbarBehavior(.avoidHidingContent)` on the search
-  presentation.
-- **It is app-placed because every system-owned home failed** — four
-  retired mechanisms, none to be re-tried (post-mortems: docs/DECISIONS.md
-  + git, per this file's header). ⚠️ `tabViewBottomAccessory` does not rise
-  with the keyboard (137–139, 144), and app-authored animation does not
-  survive inside it (139). ⚠️ Native `.searchScopes` renders exactly ONCE
-  per app run on a bottom-morphed search field, and at the TOP (140–143;
-  four activation routes tried). ⚠️ A `.bottomBar` `ToolbarItem` lands in
-  the SAME ROW the field expands into (145) — Photos' recipe works only
-  because its search is a small button there. ⚠️ A TOP `safeAreaInset`
-  under the bar (147) was one row too many. All four: recheck iOS 27.
-  ⚠️ **Do NOT hand-roll the segmented control** — iOS 26's interactive
-  glass belongs to tab bars and SEGMENTED CONTROLS alone. Remaining escape
-  if the principal row ever fails: Photos' `.bottomBar` item with
-  `.sharedBackgroundVisibility(.hidden)` + `.controlSize(.large)`.
+- ⚠️ **`activation: .onSearchPresentation`, never the iOS default.** The
+  default is `.onTextEntry`, and an EMPTY query is a first-class state here —
+  it browses the scope's whole list. A scope control that appears only once you
+  type is missing exactly when you arrive wanting to change catalogs.
+- **Segment labels are WORDS** (`FindScope.label`). The glyph-only rule was a
+  consequence of the `.principal` slot, not of segmented controls: the platform
+  limit is only that ONE segment cannot carry a title AND an image
+  (`.titleAndIcon` drops the icon; DTS-confirmed). The system's scope bar owns
+  a full row, so the words fit and reach VoiceOver without an
+  `.accessibilityLabel` standing in for a symbol name.
+- ⚠️ **`.searchPresentationToolbarBehavior(.avoidHidingContent)` is still
+  required**, and it is now the FIRST suspect if the bar misbehaves: it is what
+  stops search activation from emptying the navigation bar the scope bar
+  attaches to. What it buys is the ++ key and the kit switcher staying put.
+- ⚠️ **What changed since builds 140–143, when native scopes were retired.**
+  They failed as "renders exactly ONCE per app run, at the TOP" on a
+  bottom-morphed field, across four activation routes. Both modifiers above
+  arrived AFTER those builds, and both are about that same navigation bar: on
+  140–143 the title was still `.large` (collapsing away as search presented)
+  and the system was clearing the bar's content on activation (143's emptied
+  top band). A scope bar attaching to a bar being emptied and re-laid out under
+  it is the shape of a control that renders once. It attaches to a stable,
+  `.inline`, content-keeping bar now. If it fails anyway, the next lever is
+  `.tabViewSearchActivation(.searchTabSelection)` (it costs the
+  arrive-without-keyboard behaviour), and the fallback is `git revert` —
+  `ScopeSegmentedControl` and its hand-laid `.principal` row are one commit
+  back, not a rebuild.
+- **The retired containers stay retired** — post-mortems in docs/DECISIONS.md
+  + git, per this file's header. ⚠️ `tabViewBottomAccessory` does not rise with
+  the keyboard (137–139, 144), and app-authored animation does not survive
+  inside it (139). ⚠️ A `.bottomBar` `ToolbarItem` lands in the SAME ROW the
+  field expands into (145) — Photos' recipe works only because its search is a
+  small button there. ⚠️ A TOP `safeAreaInset` under the bar (147) was one row
+  too many. All three: recheck iOS 27.
+  ⚠️ **Do NOT hand-roll a segmented control** — iOS 26's interactive glass
+  belongs to tab bars and SEGMENTED CONTROLS alone, so an app-drawn one cannot
+  look native however it is styled, and app-authored animation does not survive
+  inside a system container (138).
 - The custom `SegmentedTabs` was RETIRED (2026-07-24) — every other former
   segmented site is native `Picker` (`.segmented` for short unit/mode toggles,
   a pushed `NavigationSelectRow` for multi-word modes).

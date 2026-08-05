@@ -22,9 +22,9 @@ both load when you touch view code; read them before changing what they govern.
 `Tab(role: .search)`, so the system separates it and gives it the bar→field
 morph. The three catalog tabs and the search tab all render the same
 `CatalogScopeView` — a tab picks which CATALOG, never which screen. The
-container laws that constrain that row (the `.principal` toolbar row, search
-scopes, the accessory's retirement, the morph's state-write rule) are in
-`navigation.md`; read them before changing anything in it.
+container laws that constrain that row (the system's `.searchScopes` bar, the
+accessory's retirement, the morph's state-write rule) are in `navigation.md`;
+read them before changing anything in it.
 
 **Today** — the unified timeline: scheduled work, carried-over work, and
 committed sessions on a DATE-FIRST rail (each entry's date on its own row,

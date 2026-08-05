@@ -125,8 +125,11 @@ screen is).
   detail has always been a cross-reference graph (exercise → equipment →
   routine, `CatalogDetailViews`), and that is not a scope switch in a list.
 - **Cross-scope discovery is the scope control itself** — never link rows,
-  and per-scope result counts are GONE (2026-07-25: a glyph-only segment has
-  nowhere to paint a number, and the central `matchCounts` costs a second
-  ranking pass per keystroke). Prompts and empty states use
+  and per-scope result counts are GONE (2026-07-25). ⚠️ The reason that
+  SURVIVES is the cost: the central `matchCounts` is a second ranking pass per
+  keystroke. The other half of the 2026-07-25 reasoning ("a glyph-only segment
+  has nowhere to paint a number") expired 2026-08-05, when scoping became the
+  system's `.searchScopes` bar and the segments took words — a system scope
+  segment is still not a view the app can decorate. Prompts and empty states use
   `FindScope.searchNoun`, not `label`.
 

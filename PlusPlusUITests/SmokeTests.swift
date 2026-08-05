@@ -61,21 +61,33 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(searchField.waitForExistence(timeout: 5))
     }
 
-    /// Pick a catalog on the segmented control in the search surface's
-    /// navigation bar. It exists only on the Search tab — off search the tab
-    /// bar is the scope control (`goToCatalog`).
+    /// Pick a catalog on the system's search scope bar. It exists only on the
+    /// Search tab — off search the tab bar is the scope control
+    /// (`goToCatalog`).
     ///
-    /// It's a native `Picker(.segmented)`, so its segments are the system's own
-    /// buttons; there are no app-set identifiers to hit. The segments are
-    /// GLYPHS (iOS segmented controls take a title or an image, never both), so
-    /// the word only reaches XCUITest through the `.accessibilityLabel` the
-    /// control sets — matched by CONTAINS, and falling back to POSITION if that
-    /// label doesn't propagate, since the scope order is fixed by
-    /// `FindScope.allCases` and a name miss here would otherwise read as "the
+    /// It's the system's own `.searchScopes` bar (2026-08-05), so its segments
+    /// are system buttons with no app-set identifiers: matched by CONTAINS on
+    /// the scope's own word, falling back to POSITION since the order is fixed
+    /// by `FindScope.allCases` and a name miss would otherwise read as "the
     /// control is missing".
+    ///
+    /// ⚠️ The bar activates `.onSearchPresentation`. Whether ARRIVING on the
+    /// search tab counts as a presentation, or whether the field has to be
+    /// tapped first, is the open device-pass question on this change — so the
+    /// helper tries the bar as it finds it and only then taps the field to
+    /// force a presentation. That fallback keeps the flows honest about what
+    /// they exercise; it does not settle the question, which XCUITest can't
+    /// see anyway.
     private func selectScope(_ scope: String) {
-        let control = app.segmentedControls.firstMatch
-        XCTAssertTrue(control.waitForExistence(timeout: 5), "the scope control rides the navigation bar on search")
+        var control = app.segmentedControls.firstMatch
+        if !control.waitForExistence(timeout: 5) {
+            searchField.tap()
+            control = app.segmentedControls.firstMatch
+            XCTAssertTrue(
+                control.waitForExistence(timeout: 5),
+                "the scope bar belongs to the search presentation · \(buttonInventory())"
+            )
+        }
         let named = control.buttons
             .matching(NSPredicate(format: "label CONTAINS[c] %@", scope))
             .firstMatch
@@ -365,8 +377,8 @@ final class SmokeTests: XCTestCase {
         openSearch()
         snap("find-or-create-open")
 
-        // While searching, the catalog is picked on the accessory's scope
-        // control rather than by leaving for another tab.
+        // While searching, the catalog is picked on the search presentation's
+        // own scope bar rather than by leaving for another tab.
         selectScope("exercises")
         let createRow = app.buttons["createExerciseRow"]
         XCTAssertTrue(createRow.waitForExistence(timeout: 5))
