@@ -472,10 +472,19 @@ struct CatalogScopeView: View {
                                 // for the plate — so the wheel, which had no
                                 // plate of its own, needed that padding to sit
                                 // on their baseline. The segmented control
-                                // carries its own travel (its well shows 4 pt
-                                // beneath the cap, which IS the plate strip),
-                                // so it already matches. Adding the pad back
-                                // would count that travel twice.
+                                // draws its own cap AND plate, so it already
+                                // matches; adding the pad back would count that
+                                // travel twice.
+                                //
+                                // ⚠️ That only holds while the control TOTALS
+                                // what a key totals — 48 pt, both neighbours
+                                // being 44 pt caps plus 4 pt of travel. This
+                                // HStack centres, so a control of any other
+                                // height splits the difference and throws all
+                                // three caps out of register. The invariant
+                                // lives on `ScopeSegmentedControl.capHeight`,
+                                // where it is enforced; it is repeated here
+                                // because THIS is the row that depends on it.
                                 // Per-INSTANCE identifier, not per-scope: both
                                 // catalog roots share one scope now, so a
                                 // scope-keyed identifier would sit on two live

@@ -227,8 +227,15 @@ so the smoke helper just taps a cell.
   hard `minWidth` on the control (an `HStack` already caps a flexible sibling;
   a floor makes the ROW overflow and shear keys off a narrow screen), an
   OPTIONAL width so a zero-size first pass leaves the row at its ideal size,
-  and `.padding(.bottom, 4)` because `RaisedKeyStyle` pads each key by its
-  travel, seating caps 2 pt above the row's centre.
+  and NO `.padding(.bottom, 4)` on the scope control (2026-08-06). ⚠️ That pad
+  existed because `RaisedKeyStyle` pads each key by its travel, so a control
+  with no plate of its own sat 2 pt off their baseline; the segmented control
+  carries its own travel and the pad would count it twice. **The invariant it
+  became is the one that binds now: the scope control's TOTAL height must
+  equal a key's cap + travel — 48, since both neighbours frame at 44.** The
+  mount is a centred `HStack`, so any mismatch splits it in half and throws
+  every cap edge and plate strip out of register. It shipped 4 pt short for
+  one review round; check `RaisedKey.swift` before changing either number.
 - ⚠️ Two modifiers make an own-chrome control legal in a toolbar at all:
   `.sharedBackgroundVisibility(.hidden)` on the item (the control brings its
   own well and cap; the toolbar's shared glass would wrap it in a second

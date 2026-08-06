@@ -72,12 +72,30 @@ struct ScopeSegmentedControl: View {
     /// The plate strip under the cap — `RaisedKeyStyle`'s standard 4 pt, so
     /// this control's underside matches the keys flanking it exactly.
     private let travel: CGFloat = 4
-    private let capHeight: CGFloat = 40
+    /// ⚠️ **44, because both neighbours are 44.** `AppMenuKey` frames its
+    /// glyph at 44×44 and `LibrarySwitcherKey` at height 44, and
+    /// `RaisedKeyStyle` then pads each by `travel` — so a key occupies 48 pt
+    /// and its cap the top 44 of that. This control has to total the same 48
+    /// or NOTHING in the row shares a baseline: the mount is a centred
+    /// `HStack`, so a 44 pt control centres in a 48 pt row and throws every
+    /// cap edge and every plate strip 2 pt out of register. It shipped at 40
+    /// for exactly one review round. Changing either number here is a change
+    /// to that invariant — check it against `RaisedKey.swift` first.
+    private let capHeight: CGFloat = 44
+    /// How far the finger may stray before the press is off the key. Mirrors
+    /// `onLongPressGesture(maximumDistance:)`'s 10 pt slop — see `isSinking`.
+    private let pressSlop: CGFloat = 12
 
-    /// Which cell the finger is on, for the cap's sink. Gesture-driven state,
-    /// not layout-driven — see the header.
-    @GestureState private var pressedIndex: Int?
+    /// Which cell the finger went down on, and how far it has strayed since.
+    /// Gesture-driven state, not layout-driven — see the header.
+    @GestureState private var press: (index: Int, distance: CGFloat)?
     @State private var hapticTick = 0
+    /// Not read directly — `Theme.Anim.selection` resolves Reduce Motion
+    /// itself. Held so flipping the setting mid-session INVALIDATES this
+    /// view: the token is a computed property, so without an environment
+    /// dependency the cap can keep travelling until something else happens
+    /// to rebuild the control.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var options: [FindScope] { FindScope.allCases }
     private var selectedIndex: Int { options.firstIndex(of: scope) ?? 0 }
@@ -85,7 +103,22 @@ struct ScopeSegmentedControl: View {
     /// The cap sinks only when the finger is on the ALREADY-selected cell — a
     /// re-press of a raised key. Pressing a different cell slides the cap
     /// over, and the slide is that gesture's feedback.
-    private var isSinking: Bool { pressedIndex == selectedIndex }
+    ///
+    /// ⚠️ **The distance test is what makes leaving the key pop it.** A
+    /// `DragGesture` keeps tracking after the finger leaves the view it is
+    /// attached to, so a latch that only records WHICH cell went down stays
+    /// asserted while the finger is dragged anywhere on screen — the cap
+    /// stays sunk for the whole drag and the Button never fires, so nothing
+    /// happened AND the key looks held. That is not how the two keys beside
+    /// it behave: `RaisedKeyStyle` rides `configuration.isPressed`, which
+    /// UIKit clears the moment the touch leaves the button. Judging by
+    /// travelled distance restores that, and a slop rather than exact bounds
+    /// is deliberate — it is the affordance `onLongPressGesture` ships, and a
+    /// thumb wobble should not pop a key.
+    private var isSinking: Bool {
+        guard let press, press.index == selectedIndex else { return false }
+        return press.distance < pressSlop
+    }
 
     var body: some View {
         // ⚠️ The CELLS are the layout, and the well and cap are backgrounds
@@ -105,30 +138,34 @@ struct ScopeSegmentedControl: View {
                     .frame(height: capHeight)
             }
         }
-        // The extra `travel` is the plate strip the well shows beneath the cap
-        // — the same 4 pt `RaisedKeyStyle` reserves, so this control's
-        // underside matches the keys flanking it without the mount site
-        // padding anything.
+        // The extra `travel` is where the selected key's PLATE sits (drawn in
+        // `key`, not by the well) — the same 4 pt `RaisedKeyStyle` reserves.
+        // ⚠️ 44 + 4 = 48, which is what a key totals, and the mount site
+        // depends on that exact number: see `capHeight`.
         .frame(height: capHeight + travel, alignment: .top)
         .background(alignment: .topLeading) {
             GeometryReader { proxy in
                 // PURE read: used inline, never stored. See the header.
-                cap(width: proxy.size.width / CGFloat(options.count))
+                key(width: proxy.size.width / CGFloat(options.count))
             }
         }
         .background(well)
         // Chrome sharing a row with two keys can't grow without bound, and a
-        // segmented control TRUNCATES rather than wrapping — at accessibility
-        // sizes three uncapped labels become three ellipses and the control
-        // stops naming anything. The search field is NOT capped: its text is
-        // the user's own.
+        // segmented control TRUNCATES rather than wrapping. ⚠️ This BOUNDS the
+        // damage, it does not remove it: three equal cells on a 375 pt screen
+        // leave each label ~57 pt, and "Exercises" in caption2 semibold needs
+        // more than that at `accessibility1` even after `minimumScaleFactor`
+        // — so it still truncates, just not into three bare ellipses. Reading
+        // the labels at the largest sizes is a device-pass item, not a settled
+        // question. The search field is NOT capped: its text is the user's own.
         .dynamicTypeSize(...DynamicTypeSize.accessibility1)
         .sensoryFeedback(.selection, trigger: hapticTick)
     }
 
-    /// The recessed track the cap sits proud of. `surface` rather than the
+    /// The recessed track the key sits proud of. `surface` rather than the
     /// page, so an unselected segment reads as BELOW the row rather than level
-    /// with it; the border is the same one a key's plate wears.
+    /// with it. ⚠️ This is a RECESS, not a plate — the plate is `key`'s, in
+    /// `Theme.border`, and the two must not be conflated (see `key`).
     private var well: some View {
         RoundedRectangle(cornerRadius: Theme.keyRadius)
             .fill(Theme.surface)
@@ -138,10 +175,27 @@ struct ScopeSegmentedControl: View {
             )
     }
 
-    /// The raised cap over the selected scope — `AppMenuKey`'s exact anatomy
-    /// (opaque `background` fill, `borderStrong` stroke, `keyRadius`), so the
-    /// three controls in this row read as one family.
-    private func cap(width: CGFloat) -> some View {
+    /// The selected scope's KEY: an opaque cap on a fixed base plate, the
+    /// whole assembly sliding to whichever scope is selected.
+    ///
+    /// ⚠️ The modifier order below is `RaisedKeyStyle.makeBody`'s, deliberately
+    /// — `.offset` the cap, `.padding(.bottom, travel)` to reserve the strip,
+    /// then a `.background` plate `.padding(.top, travel)` so the plate
+    /// occupies exactly that strip and NEVER moves. Copying the order is what
+    /// makes this read as the same key as its neighbours rather than as
+    /// something similar.
+    ///
+    /// ⚠️ **The plate is `Theme.border`, the well is not.** The well's
+    /// `surface` fill is the recess the unselected cells sit in; it is not a
+    /// plate, and letting it stand in for one was wrong twice over. In light
+    /// mode the strip under this cap rendered `#F4F3F1` while the strip under
+    /// both neighbours rendered `#DDDBD7` — a visibly flatter underside on the
+    /// middle element. In DARK mode it also inverted the elevation read: the
+    /// cap is `background` (`#201F1D`, the darkest thing in the control) over
+    /// a lighter `surface` well, which reads as a cut-out rather than a raised
+    /// key. A real `border` plate is what sells the elevation in both schemes,
+    /// because it is what sells it on every other key in the app.
+    private func key(width: CGFloat) -> some View {
         RoundedRectangle(cornerRadius: Theme.keyRadius)
             .fill(Theme.background)
             .overlay(
@@ -149,14 +203,21 @@ struct ScopeSegmentedControl: View {
                     .strokeBorder(Theme.borderStrong)
             )
             .frame(width: width, height: capHeight)
-            .offset(x: CGFloat(selectedIndex) * width, y: isSinking ? travel : 0)
-            // Two animations, two meanings, two tokens: the cap SLIDES between
-            // scopes and SINKS under a finger. `Theme.Anim.selection` already
-            // resolves near-instant under Reduce Motion (the cap arrives
-            // instead of travelling), and `press` is deliberately unaffected —
-            // a 4 pt depression is not vestibular motion.
-            .animation(Theme.Anim.selection, value: selectedIndex)
+            .offset(y: isSinking ? travel : 0)
+            // `press` is deliberately unaffected by Reduce Motion — a 4 pt
+            // depression is not vestibular motion (RaisedKeyStyle's own rule).
             .animation(Theme.Anim.press, value: isSinking)
+            .padding(.bottom, travel)
+            .background {
+                RoundedRectangle(cornerRadius: Theme.keyRadius)
+                    .fill(Theme.border)
+                    .padding(.top, travel)
+            }
+            .offset(x: CGFloat(selectedIndex) * width)
+            // The cap SLIDES between scopes. `Theme.Anim.selection` already
+            // resolves near-instant under Reduce Motion (the key arrives
+            // instead of travelling).
+            .animation(Theme.Anim.selection, value: selectedIndex)
             .allowsHitTesting(false)
     }
 
@@ -196,7 +257,9 @@ struct ScopeSegmentedControl: View {
         // without a tap (the ui-interaction.md latch law).
         .simultaneousGesture(
             DragGesture(minimumDistance: 0)
-                .updating($pressedIndex) { _, state, _ in state = index }
+                .updating($press) { value, state, _ in
+                    state = (index, hypot(value.translation.width, value.translation.height))
+                }
         )
         .accessibilityLabel(option.label)
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
