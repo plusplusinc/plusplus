@@ -48,6 +48,15 @@ import SwiftUI
 /// anywhere in the `TabView` subtree is the documented iOS 26 search-morph
 /// killer (navigation.md, nav-diag 4e).
 ///
+/// ⚠️ **Known, not fixed: the pill is seated with `.offset(x:)`, which is not
+/// layout-direction aware**, while the `HStack`'s cell order and the
+/// `GeometryReader`'s `.topLeading` placement both are. Under RTL the pill
+/// would seat from the trailing edge and then be pushed further trailing,
+/// landing outside the track for any index > 0. Unreachable today (the app
+/// ships no `.lproj` bundles, so only the RTL pseudolanguage gets there) and
+/// the wheel and the raised version had the identical shape — named here so
+/// it is not mistaken for handled the day a localization lands.
+///
 /// Accessibility: each scope is a labelled `Button` carrying `.isSelected`, so
 /// VoiceOver reads "Exercises, selected, button" and Voice Control works by
 /// name. Identifiers are unchanged across all three shapes this control has
@@ -72,12 +81,6 @@ struct ScopeSegmentedControl: View {
     private let inset: CGFloat = 3
 
     @State private var hapticTick = 0
-    /// Not read directly — `Theme.Anim.selection` resolves Reduce Motion
-    /// itself. Held so flipping the setting mid-session INVALIDATES this
-    /// view: the token is a computed property, so without an environment
-    /// dependency the pill can keep travelling until something else happens
-    /// to rebuild the control.
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var options: [FindScope] { FindScope.allCases }
     private var selectedIndex: Int { options.firstIndex(of: scope) ?? 0 }
@@ -118,12 +121,21 @@ struct ScopeSegmentedControl: View {
     /// control reads as one object rather than three loose chips — which
     /// matters because the facet row directly below IS three loose chips, and
     /// the two rows have to stay tellable apart.
+    ///
+    /// ⚠️ **`borderStrong`, not `border`**, and it is the same number twice
+    /// over: it is what `SelectableChip` and `FacetChip` stroke unselected
+    /// (so this really is their anatomy rather than a lookalike), AND what
+    /// both flanking keys stroke (so the bar row shares one edge weight).
+    /// Drawn at `border` for its first cut, the track measured 1.38:1 against
+    /// the light-mode page while the keys carried 1.82:1 — two crisp keys with
+    /// a ghost between them, which is the "one family" read failing for the
+    /// opposite reason the raised version failed.
     private var track: some View {
         RoundedRectangle(cornerRadius: Theme.keyRadius)
             .fill(Theme.surface)
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.keyRadius)
-                    .strokeBorder(Theme.border)
+                    .strokeBorder(Theme.borderStrong)
             )
     }
 

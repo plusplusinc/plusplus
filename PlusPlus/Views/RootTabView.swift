@@ -62,8 +62,12 @@ extension FindScope {
 ///
 /// **The scope control is `ScopeSegmentedControl`** (Dave, 2026-08-06), a
 /// `.principal` navigation-bar item between the ++ key and the kit switcher
-/// on BOTH catalog instances, drawn in the app's own raised-key grammar so
-/// the three pieces of that row read as one family. It is NOT
+/// on BOTH catalog instances, drawn FLAT in the app's own chip grammar — a
+/// track, and the one selection look on the chosen scope. ⚠️ It spent build
+/// 193 RAISED, matching the flanking keys' cap and plate, and Dave killed
+/// that the same day: it sat in a WELL while its neighbours sit on the bar,
+/// so it read as a key inside a box beside two keys that weren't. Matching a
+/// raised neighbour never required being raised. It is NOT
 /// `tabViewBottomAccessory`, NOT native `.searchScopes`, NOT a `.bottomBar`
 /// item, NOT a `Picker(.segmented)` — the four retired homes and the
 /// seven-build account live in navigation.md and docs/DECISIONS.md

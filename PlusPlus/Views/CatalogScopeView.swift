@@ -476,15 +476,10 @@ struct CatalogScopeView: View {
                                     // 4 pt beneath it to sit on their baseline.
                                     // The pad and the control's height are ONE
                                     // decision — see `ScopeSegmentedControl`.
-                                    //
-                                    // ⚠️ This pad came back with the flatten.
-                                    // The raised version drew its own plate, so
-                                    // it totalled 48 and the pad would have
-                                    // counted that travel twice; the wheel
-                                    // before it needed the pad for exactly the
-                                    // reason this control does. Whether it
-                                    // belongs is a function of whether the
-                                    // control has a plate, not of taste.
+                                    // ⚠️ Whether this pad belongs is a function
+                                    // of whether the control draws a PLATE of
+                                    // its own, never of taste. History in
+                                    // docs/DECISIONS.md 2026-08-06.
                                     .padding(.bottom, 4)
                                 // Per-INSTANCE identifier, not per-scope: both
                                 // catalog roots share one scope now, so a

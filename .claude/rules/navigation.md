@@ -265,10 +265,13 @@ so the smoke helper just taps a cell.
   under the bar (147) was one row too many. All four: recheck iOS 27.
   ⚠️ **Do NOT hand-roll a segmented-control LOOKALIKE** — iOS 26's
   interactive glass belongs to tab bars and SEGMENTED CONTROLS alone, so an
-  app-drawn pill-track can never look native. `ScopeSegmentedControl` is
-  deliberately NOT that (see the section above): it wears the app's raised-key
-  chrome, so it is a segmented control the app OWNS rather than one imitating
-  the system. Remaining escape if the principal row ever fails: Photos'
+  app-drawn pill-track can never look native. ⚠️ `ScopeSegmentedControl` IS
+  an app-drawn pill on a track — and the law still doesn't bind it, because
+  the law is about IMITATION. That control wears the app's own chip grammar
+  (track · tinted pill · selection ring · `borderStrong` edge, the anatomy
+  `SelectableChip` and `FacetChip` already carry), which a `UISegmentedControl`
+  cannot be made to do either. What is forbidden is reaching for the SYSTEM's
+  look and missing; wearing the app's own is the escape. Remaining escape if the principal row ever fails: Photos'
   `.bottomBar` item with `.sharedBackgroundVisibility(.hidden)` +
   `.controlSize(.large)`.
 - The custom `SegmentedTabs` was RETIRED (2026-07-24) — every other former
