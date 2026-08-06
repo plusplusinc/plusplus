@@ -156,33 +156,40 @@ exercises / equipment").
 
 ## The scope control
 
-**Scope selection is an APP-DRAWN SEGMENTED CONTROL in the raised-key
-family** (`ScopeSegmentedControl`, Dave 2026-08-06 — "make it match the
-design of the 3d buttons somehow, so it goes nicely between the ++ and the
-kit switcher"): a recessed well spanning the control, with the selected
-scope wearing an opaque cap sitting proud of it — `AppMenuKey`'s exact
-anatomy (`background` fill, `borderStrong` stroke, `keyRadius`) over
-`RaisedKeyStyle`'s standard 4 pt plate. It rides the NAVIGATION BAR's
-principal row on BOTH catalog roots, between the ++ key and the kit
-switcher, the slot other roots put their title in — which on these surfaces
-the control effectively is. Selecting SLIDES the cap
-(`Theme.Anim.selection`, the selection-slides law); pressing the selected
-cell SINKS it (`Theme.Anim.press`), so all three pieces of that row press
-alike. Cells stack icon OVER label, carry `.accessibilityLabel` +
-`.isSelected` (the segmented-control a11y model) and per-INSTANCE
+**Scope selection is an APP-DRAWN, FLAT segmented control**
+(`ScopeSegmentedControl`): a recessed track spanning the control
+(`Theme.surface` + `Theme.border` at `keyRadius`), with the selected scope
+wearing the app's ONE selection look — `selectedTint` ground + `selectedRing`
++ `selectedInk` label — on a pill INSET 3 pt inside it. It rides the
+NAVIGATION BAR's principal row on BOTH catalog roots, between the ++ key and
+the kit switcher, the slot other roots put their title in — which on these
+surfaces the control effectively is. Selecting SLIDES the pill
+(`Theme.Anim.selection`, the selection-slides law). There is NO press
+response, deliberately: a flat control's state flip is its feedback. Cells
+stack icon OVER label, carry `.accessibilityLabel` + `.isSelected` (the
+segmented-control a11y model) and per-INSTANCE
 `findScope-<raw>-<browse|search>` identifiers (both roots stay mounted over
 one scope, and an inactive tab's elements answer queries — the kit switchers
 went per-instance for the same reason). Every segment is on screen at once,
 so the smoke helper just taps a cell.
 
-- ⚠️ **It deviates from two standing laws, both on Dave's call.**
-  design-grammar's flat-controls-stay-flat law reserves a raised cap for
-  buttons that commit or navigate, and a scope segment does neither — but
-  belonging to the row it sits in IS the ask. And the ONE selection look's
-  GROUND becomes the key's own opaque cap; only the `selectedInk` half
-  survives, with ELEVATION carrying what the tint carried. Selection is
-  still stated twice (raised, and blue). Don't generalize either deviation
-  past this control.
+- ⚠️ **It was RAISED for one build (193) and is flat again** (Dave,
+  2026-08-06, same day: "let's kill the 3d for the segmented control").
+  The raised version wore a cap on a plate, sliding and sinking like its
+  neighbours, and carried two deliberate deviations —
+  flat-controls-stay-flat suspended, and the ONE selection look's ground
+  replaced by elevation. **Both are RETIRED, and the reason is worth
+  keeping.** On device it read cramped, and the containment was the fault:
+  the ++ key and the kit switcher are caps sitting DIRECTLY on the bar,
+  while this sat in a well — a fourth shape neither neighbour has. So the
+  cap anatomy matched and the control still read as a different species,
+  because "same family" was never about the cap. Matching a raised
+  neighbour does not require being raised.
+- ⚠️ **The pill's radius is `keyRadius - inset`, not `keyRadius`.**
+  Concentric corners must be the outer radius minus the gap or the curves
+  visibly disagree. The raised version had cap and well both at `keyRadius`
+  about a point apart — the same fault design-grammar records the
+  sheet-corner experiment being reverted for.
 - ⚠️ **The "do NOT hand-roll a segmented control" law below still stands,
   and does not bind here.** It forbids faking iOS 26's interactive glass,
   which belongs to tab bars and native segmented controls alone. This one
@@ -194,17 +201,19 @@ so the smoke helper just taps a cell.
   rule; the icon-over-label stack is now a WIDTH choice, kept because it is
   the proven fit for this row.
 - ⚠️ **Cell width is a PURE `GeometryReader` read**, used inline and never
-  written to `@State` — a layout-fed write anywhere in the TabView subtree is
-  nav-diag 4e's morph killer. The press latch is `@GestureState` (gesture
-  class, not layout class, and a cancelled touch clears it on its own —
-  ui-interaction.md's latch law).
-- ⚠️ **The cap's slide is app-authored animation inside a bar item**, the one
+  written to `@State`, taken from a `.background` so it cannot influence the
+  size it measures — a layout-fed write anywhere in the TabView subtree is
+  nav-diag 4e's morph killer. ⚠️ And the ROOT is the cells, not a
+  `GeometryReader`: a reader has no ideal size, so on the pass where the bar
+  row's width is unknown it collapses the control to a stub, and on the
+  search tab that pass IS the first activation.
+- ⚠️ **The pill's slide is app-authored animation inside a bar item**, the one
   thing build 138 saw fail (a `matchedGeometryEffect` pill refused to travel
   inside `tabViewBottomAccessory`). Two reasons to expect better: a
   `.principal` item is a title view the app FILLS, not a system-owned
   container, and this animates a plain `.offset` on a value rather than
   matching geometry across identities. #1 device check for this control — if
-  the cap teleports, drop the animation, not the control.
+  it teleports, drop the animation, not the control.
 - **The one-build `ScopeWheel` it replaced** (2026-08-05) was a horizontal
   take on the picker wheel, reviving #447's `InlineWheelPicker`. It went for
   a LOOK reason, not a mechanism one: nothing in the row it sat in wheeled.
@@ -227,20 +236,20 @@ so the smoke helper just taps a cell.
   hard `minWidth` on the control (an `HStack` already caps a flexible sibling;
   a floor makes the ROW overflow and shear keys off a narrow screen), an
   OPTIONAL width so a zero-size first pass leaves the row at its ideal size,
-  and NO `.padding(.bottom, 4)` on the scope control (2026-08-06). ⚠️ That pad
-  existed because `RaisedKeyStyle` pads each key by its travel, so a control
-  with no plate of its own sat 2 pt off their baseline; the segmented control
-  carries its own travel and the pad would count it twice. **The invariant it
-  became is the one that binds now: the scope control's TOTAL height must
-  equal a key's cap + travel — 48, since both neighbours frame at 44.** The
-  mount is a centred `HStack`, so any mismatch splits it in half and throws
-  every cap edge and plate strip out of register. It shipped 4 pt short for
-  one review round; check `RaisedKey.swift` before changing either number.
+  and `.padding(.bottom, 4)` on the scope control. ⚠️ **The pad is a function
+  of whether the control has a PLATE, not of taste.** `RaisedKeyStyle` pads
+  each key by its travel, so a key's visible cap occupies the TOP 44 of a
+  48 pt box. A FLAT control is 44 and needs that 4 pt beneath it to share the
+  caps' baseline — true of the wheel, and true again since the 2026-08-06
+  flatten. It was correctly ABSENT for the one build the control was raised
+  and drew its own plate, where it would have counted the travel twice.
+  Height and pad are one decision; check `RaisedKey.swift` before touching
+  either.
 - ⚠️ Two modifiers make an own-chrome control legal in a toolbar at all:
   `.sharedBackgroundVisibility(.hidden)` on the item (the control brings its
-  own well and cap; the toolbar's shared glass would wrap it in a second
-  shape, and it is MORE load-bearing now that the row holds three pieces of
-  key anatomy) and
+  own track; the toolbar's shared glass would wrap it in a second shape, and
+  after the flatten that capsule would be the ONLY container in the row —
+  which is exactly what the flatten removed) and
   `.searchPresentationToolbarBehavior(.avoidHidingContent)` on the search
   presentation. The control also caps its Dynamic Type at `accessibility1` —
   chrome sharing a bar with two keys can't grow without bound.

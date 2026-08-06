@@ -74,7 +74,7 @@ the standing laws around it, and it was 8.4 KB of a 25 KB budget, growing by
 one line per round with no drain until a build ships. **Read it before
 touching a surface it names**, and delete an item once it has been passed.
 
-**In flight:** `claude/scope-segmented-control-3d` — the scope wheel replaced by `ScopeSegmentedControl`, an app-DRAWN segmented control in the raised-key family, so the principal row's three pieces (++ key · scope · kit switcher) read as one family (Dave, 2026-08-06; docs/DECISIONS.md same date). Two deliberate law deviations, both his call: a raised cap on a non-committing control, and elevation carrying the selection ground.
+**In flight:** `claude/scope-segmented-control-3d` — the scope wheel replaced by `ScopeSegmentedControl`, an app-DRAWN segmented control in the principal row (Dave, 2026-08-06; docs/DECISIONS.md same date). ⚠️ It shipped RAISED in build 193 and Dave flattened it the same day: both law deviations it carried (a raised cap on a non-committing control, elevation carrying the selection ground) are RETIRED, and design-grammar binds unamended again. The lesson worth keeping is why — it read as a key INSIDE A BOX beside two keys that weren't, so matching a raised neighbour never required being raised.
 **Previously in flight:** nothing. The decision-sheet rounds (#503–#509) all landed on main 2026-08-01/02; the ONE build Dave asked for follows them (see the build line above). `LiveWorkoutSettings` (phone's own `HKWorkoutSession`) remains off by default.
 
 **Org + license:** both repos live in the **plusplusinc** org, PUBLIC. App/repo **AGPL-3.0**; **PlusPlusKit + PlusPlusCLI are MIT** (the contract is meant for adoption). Actions minutes are free on public repos — macOS included.

@@ -465,26 +465,27 @@ struct CatalogScopeView: View {
                                     // instead make the ROW overflow on a narrow
                                     // screen and shear the keys off both ends.
                                     .frame(maxWidth: .infinity)
-                                // ⚠️ No `.padding(.bottom, 4)` here any more,
-                                // and its absence is the point. The raised keys
-                                // are 4 pt taller than they look — `RaisedKeyStyle`
-                                // pads the bottom by its travel to leave room
-                                // for the plate — so the wheel, which had no
-                                // plate of its own, needed that padding to sit
-                                // on their baseline. The segmented control
-                                // draws its own cap AND plate, so it already
-                                // matches; adding the pad back would count that
-                                // travel twice.
-                                //
-                                // ⚠️ That only holds while the control TOTALS
-                                // what a key totals — 48 pt, both neighbours
-                                // being 44 pt caps plus 4 pt of travel. This
-                                // HStack centres, so a control of any other
-                                // height splits the difference and throws all
-                                // three caps out of register. The invariant
-                                // lives on `ScopeSegmentedControl.capHeight`,
-                                // where it is enforced; it is repeated here
-                                // because THIS is the row that depends on it.
+                                    // ⚠️ The raised keys are 4 pt taller than
+                                    // they look: `RaisedKeyStyle` pads the
+                                    // bottom by its travel to leave room for
+                                    // the plate, so their visible caps occupy
+                                    // the TOP 44 of a 48 pt box. The scope
+                                    // control is FLAT (2026-08-06, Dave: "kill
+                                    // the 3d") and has no travel of its own, so
+                                    // it is a 44 pt control that needs the same
+                                    // 4 pt beneath it to sit on their baseline.
+                                    // The pad and the control's height are ONE
+                                    // decision — see `ScopeSegmentedControl`.
+                                    //
+                                    // ⚠️ This pad came back with the flatten.
+                                    // The raised version drew its own plate, so
+                                    // it totalled 48 and the pad would have
+                                    // counted that travel twice; the wheel
+                                    // before it needed the pad for exactly the
+                                    // reason this control does. Whether it
+                                    // belongs is a function of whether the
+                                    // control has a plate, not of taste.
+                                    .padding(.bottom, 4)
                                 // Per-INSTANCE identifier, not per-scope: both
                                 // catalog roots share one scope now, so a
                                 // scope-keyed identifier would sit on two live
@@ -503,15 +504,14 @@ struct CatalogScopeView: View {
                             // it to nothing.
                             .frame(width: barWidth.flatMap { $0 > barGap * 2 ? $0 - barGap * 2 : nil })
                         }
-                        // Every piece in this row brings its own key chrome —
-                        // two caps and a capped track — so it opts out of the
-                        // toolbar's shared glass. Without this they nest inside
-                        // a system capsule, the box-in-a-box that killed the
-                        // accessory. ⚠️ More load-bearing since 2026-08-06 than
-                        // it was under the wheel: the scope control is now the
-                        // same key anatomy as its two neighbours, so a system
-                        // capsule around the trio would wrap three keys in a
-                        // fourth shape.
+                        // Every piece in this row brings its own chrome —
+                        // two raised keys and a flat bordered track — so it
+                        // opts out of the toolbar's shared glass. Without this
+                        // they nest inside a system capsule, the box-in-a-box
+                        // that killed the accessory. ⚠️ Doubly so now that the
+                        // scope control is flat (2026-08-06): a shared glass
+                        // capsule would be the ONLY container in the row, and
+                        // a container is exactly what the flatten removed.
                         .sharedBackgroundVisibility(.hidden)
                     }
                 }

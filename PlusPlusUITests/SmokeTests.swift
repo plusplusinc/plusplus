@@ -63,9 +63,10 @@ final class SmokeTests: XCTestCase {
     }
 
     /// Pick a catalog on the scope control in the catalog roots' navigation
-    /// bar (`ScopeSegmentedControl`, 2026-08-06 — the app-drawn segmented
-    /// control in the raised-key family that replaced the scope wheel; cells
-    /// keep the wheel's identifiers).
+    /// bar (`ScopeSegmentedControl`, 2026-08-06 — the app-drawn FLAT segmented
+    /// control that replaced the scope wheel; it spent one build raised and
+    /// was flattened the same day, and cells kept their identifiers through
+    /// all three shapes).
     ///
     /// ⚠️ Identifiers are per-INSTANCE (`-browse` / `-search`): both catalog
     /// roots stay mounted over one shared scope, and an inactive tab's
