@@ -21,7 +21,7 @@ prototype A of the structure exploration; the five-tab era ran 2026-07-26 →
 home-indicator clearance and label alignment are all things a real tab bar
 does for free). `TabView` = **Today · Browse · Search** (`Tab(role:
 .search)`). Tabs name MODES (do · browse · find), never scopes: WHICH
-catalog is the scope wheel's job (see the scope control below), and Browse +
+catalog is the scope control's job (see below), and Browse +
 search share ONE scope state, so each opens on the catalog the other was
 looking at and a tab switch changes the mode, never the catalog.
 
@@ -43,8 +43,8 @@ looking at and a tab switch changes the mode, never the catalog.
 - ⚠️ **Anything that writes state during layout** (`.onGeometryChange`,
   `GeometryReader` + `PreferenceKey`) anywhere in the TabView subtree breaks
   the search-role morph on FIRST activation (nav-diag 4e; recheck: iOS 27).
-  Measure from `UIFont` metrics (`ScopeWheel`'s band width), or read geometry
-  WITHOUT writing state (the catalog bar-row width). ⚠️ Not
+  Measure from `UIFont` metrics, or read geometry WITHOUT writing state (the
+  catalog bar-row width, and the scope control's own cell width). ⚠️ Not
   `OverflowCapsuleRow` — it writes `@State` from a `GeometryReader` and
   renders inside catalog rows, i.e. inside this very subtree; only its TAG
   widths come from `UIFont`.
@@ -68,7 +68,7 @@ looking at and a tab switch changes the mode, never the catalog.
 ## One view: CatalogScopeView
 
 **Browse and the search scopes are ONE view** (2026-07-25; the catalog tabs
-collapsed into Browse 2026-08-05). Dialling the wheel to **Routines** with
+collapsed into Browse 2026-08-05). Dialling the scope to **Routines** with
 search closed and with it open land on the same screen: `CatalogScopeView`.
 Search adds a QUERY, never a destination — `RootTabView` mounts two
 instances (Browse and search) over one shared `scope`, keying nothing on
@@ -111,7 +111,7 @@ exercises / equipment").
   shipping OS; if it recurs, kill the morph trigger at its source, don't
   revert.
 - **A catalog root carries no title** (Dave, 2026-07-26 for search; extended
-  to Browse 2026-08-05): the scope wheel names the catalog, and on search a
+  to Browse 2026-08-05): the scope control names the catalog, and on search a
   large title FLASHES on entry then collapses as search presents.
   `.navigationTitle("")` + `.inline` on both; Today keeps `.large`. The bar
   itself stays — hiding it is what left `.searchable` with nowhere to fall
@@ -156,38 +156,63 @@ exercises / equipment").
 
 ## The scope control
 
-**Scope selection is the SCOPE WHEEL** (`ScopeWheel`, 2026-08-05): a
-horizontal take on the native picker wheel — fixed left-pinned selection
-band, options wheeling through it on native scroll physics — riding the
-NAVIGATION BAR's principal row on BOTH catalog roots, between the ++ key and
-the kit switcher. That's the slot the other roots put their title in, which
-on these surfaces the wheel effectively is. It revives #447's
-`InlineWheelPicker` (retired with `FindOrCreateView`) with two changes:
-cells stack icon OVER label (roughly half the old cell width, so the band
-plus both peeking neighbours fit the row), and the band wears the ONE
-selection look (`selectedTint` + `selectedRing` + `selectedInk`) instead of
-that era's white/grey. It replaced `ScopeSegmentedControl` (settled
-2026-07-26 after SEVEN builds in six placements; retired 2026-08-05): a
-`UISegmentedControl` segment takes a title OR an image, never both
-(DTS-confirmed), so the segmented control was GLYPHS-only — the wheel gives
-the scopes their words back. Its cells carry `.accessibilityLabel` +
+**Scope selection is an APP-DRAWN SEGMENTED CONTROL in the raised-key
+family** (`ScopeSegmentedControl`, Dave 2026-08-06 — "make it match the
+design of the 3d buttons somehow, so it goes nicely between the ++ and the
+kit switcher"): a recessed well spanning the control, with the selected
+scope wearing an opaque cap sitting proud of it — `AppMenuKey`'s exact
+anatomy (`background` fill, `borderStrong` stroke, `keyRadius`) over
+`RaisedKeyStyle`'s standard 4 pt plate. It rides the NAVIGATION BAR's
+principal row on BOTH catalog roots, between the ++ key and the kit
+switcher, the slot other roots put their title in — which on these surfaces
+the control effectively is. Selecting SLIDES the cap
+(`Theme.Anim.selection`, the selection-slides law); pressing the selected
+cell SINKS it (`Theme.Anim.press`), so all three pieces of that row press
+alike. Cells stack icon OVER label, carry `.accessibilityLabel` +
 `.isSelected` (the segmented-control a11y model) and per-INSTANCE
 `findScope-<raw>-<browse|search>` identifiers (both roots stay mounted over
-one scope, and an inactive tab's elements answer queries — the kit
-switchers went per-instance for the same reason); the track is
-`scopeWheel-<instance>`, and the smoke helper swipes it when a clipped far
-cell isn't hittable. ⚠️ A user fling commits the scope on SETTLE only —
-committing per cell crossed would run the catalog's whole scope-change
-reset for every cell passed through.
+one scope, and an inactive tab's elements answer queries — the kit switchers
+went per-instance for the same reason). Every segment is on screen at once,
+so the smoke helper just taps a cell.
 
-- ⚠️ **The wheel mirrors the SCROLL into state** (`.scrollPosition(id:)` +
-  `.onScrollPhaseChange`). Scroll-driven, not layout-driven — a different
-  write class from the banned probes — but UNPROVEN against first-activation
-  morph: the #1 device check for this shape (docs/DEVICE-PASS.md). If the
-  morph objects, the fallback seat is the pinned facet-row header in content
-  (#447's own lineage), NOT a revert to glyphs. Its band width comes from
-  `UIFont` metrics per render — never a `PreferenceKey` probe (the #447
-  original's probe is exactly nav-diag 4e's write class).
+- ⚠️ **It deviates from two standing laws, both on Dave's call.**
+  design-grammar's flat-controls-stay-flat law reserves a raised cap for
+  buttons that commit or navigate, and a scope segment does neither — but
+  belonging to the row it sits in IS the ask. And the ONE selection look's
+  GROUND becomes the key's own opaque cap; only the `selectedInk` half
+  survives, with ELEVATION carrying what the tint carried. Selection is
+  still stated twice (raised, and blue). Don't generalize either deviation
+  past this control.
+- ⚠️ **The "do NOT hand-roll a segmented control" law below still stands,
+  and does not bind here.** It forbids faking iOS 26's interactive glass,
+  which belongs to tab bars and native segmented controls alone. This one
+  isn't trying to look native — it wears app chrome on purpose, which a
+  `UISegmentedControl` cannot be made to do. Wearing app chrome also drops
+  the platform limit that shaped every earlier version: a `UISegmentedControl`
+  segment takes a title OR an image, never both (DTS-confirmed), which is why
+  the 2026-07-26 control was GLYPHS-only. A view the app draws has no such
+  rule; the icon-over-label stack is now a WIDTH choice, kept because it is
+  the proven fit for this row.
+- ⚠️ **Cell width is a PURE `GeometryReader` read**, used inline and never
+  written to `@State` — a layout-fed write anywhere in the TabView subtree is
+  nav-diag 4e's morph killer. The press latch is `@GestureState` (gesture
+  class, not layout class, and a cancelled touch clears it on its own —
+  ui-interaction.md's latch law).
+- ⚠️ **The cap's slide is app-authored animation inside a bar item**, the one
+  thing build 138 saw fail (a `matchedGeometryEffect` pill refused to travel
+  inside `tabViewBottomAccessory`). Two reasons to expect better: a
+  `.principal` item is a title view the app FILLS, not a system-owned
+  container, and this animates a plain `.offset` on a value rather than
+  matching geometry across identities. #1 device check for this control — if
+  the cap teleports, drop the animation, not the control.
+- **The one-build `ScopeWheel` it replaced** (2026-08-05) was a horizontal
+  take on the picker wheel, reviving #447's `InlineWheelPicker`. It went for
+  a LOOK reason, not a mechanism one: nothing in the row it sat in wheeled.
+  Its own laws died with it — the settle-only commit, the
+  `scopeWheel-<instance>` track and the smoke helper's swipe fallback, the
+  `.scrollPosition(id:)`/`.onScrollPhaseChange` scroll-into-state mirror.
+  Don't re-derive them; a control that doesn't scroll has none of those
+  problems.
 
 - ⚠️ **A catalog root builds that row ITSELF**: one `.principal`
   `ToolbarItem` holding all three pieces at an explicit `width - 32`, with no
@@ -199,16 +224,18 @@ reset for every cell passed through.
   `GeometryReader` read (never written to state) — the closure re-runs on
   size changes and rebuilding re-runs the ranking pipeline, acceptable only
   because the bar never minimizes, so the size holds still mid-scroll. No
-  hard `minWidth` on the wheel (an `HStack` already caps a flexible sibling;
+  hard `minWidth` on the control (an `HStack` already caps a flexible sibling;
   a floor makes the ROW overflow and shear keys off a narrow screen), an
   OPTIONAL width so a zero-size first pass leaves the row at its ideal size,
   and `.padding(.bottom, 4)` because `RaisedKeyStyle` pads each key by its
   travel, seating caps 2 pt above the row's centre.
 - ⚠️ Two modifiers make an own-chrome control legal in a toolbar at all:
-  `.sharedBackgroundVisibility(.hidden)` on the item (the wheel brings its
-  own band; the toolbar's shared glass would wrap it in a second shape) and
+  `.sharedBackgroundVisibility(.hidden)` on the item (the control brings its
+  own well and cap; the toolbar's shared glass would wrap it in a second
+  shape, and it is MORE load-bearing now that the row holds three pieces of
+  key anatomy) and
   `.searchPresentationToolbarBehavior(.avoidHidingContent)` on the search
-  presentation. The wheel also caps its Dynamic Type at `accessibility1` —
+  presentation. The control also caps its Dynamic Type at `accessibility1` —
   chrome sharing a bar with two keys can't grow without bound.
 - **It is app-placed because every system-owned home failed** — four
   retired mechanisms, none to be re-tried (post-mortems: docs/DECISIONS.md
@@ -222,9 +249,10 @@ reset for every cell passed through.
   under the bar (147) was one row too many. All four: recheck iOS 27.
   ⚠️ **Do NOT hand-roll a segmented-control LOOKALIKE** — iOS 26's
   interactive glass belongs to tab bars and SEGMENTED CONTROLS alone, so an
-  app-drawn pill-track can never look native. The wheel is deliberately NOT
-  that: a native-picker idiom the app owns outright, device-proven in its
-  #447 era. Remaining escape if the principal row ever fails: Photos'
+  app-drawn pill-track can never look native. `ScopeSegmentedControl` is
+  deliberately NOT that (see the section above): it wears the app's raised-key
+  chrome, so it is a segmented control the app OWNS rather than one imitating
+  the system. Remaining escape if the principal row ever fails: Photos'
   `.bottomBar` item with `.sharedBackgroundVisibility(.hidden)` +
   `.controlSize(.large)`.
 - The custom `SegmentedTabs` was RETIRED (2026-07-24) — every other former
@@ -246,9 +274,10 @@ A **tab root** wears the SYSTEM navigation bar. Today: `.navigationTitle` +
 `.large`, the ++ key (`AppMenuKey`) as a leading `ToolbarItem` and no
 trailing accessory — every start lives on the rail (the anytime card's sport
 keys + Train) or on a routine's own card. The two catalog roots: no title
-and ONE `.principal` item holding ++ key · scope wheel · kit switcher (the
+and ONE `.principal` item holding ++ key · scope control · kit switcher (the
 scope-control laws above). Every own-chrome bar item carries
-**`.sharedBackgroundVisibility(.hidden)`** — raised keys and the wheel bring
+**`.sharedBackgroundVisibility(.hidden)`** — raised keys and the scope
+control bring
 their own chrome and would otherwise nest inside the toolbar's shared glass
 (a box in a box). ⚠️ **A tab root must NOT hide its navigation bar.**
 `.searchable` belongs to that bar's presentation, so hiding it left the

@@ -8,9 +8,10 @@ import PlusPlusKit
 ///
 /// Tabs name MODES — doing, browsing, finding — never scopes of one surface.
 /// Browse and search both render the same `CatalogScopeView`; WHICH catalog is
-/// the scope wheel's job (`ScopeWheel`, the principal-row control both carry),
-/// stated exactly once. The two instances share one `scope` state, so search
-/// always opens on the catalog you were just browsing, and vice versa.
+/// the scope control's job (`ScopeSegmentedControl`, the principal-row control
+/// both carry), stated exactly once. The two instances share one `scope`
+/// state, so search always opens on the catalog you were just browsing, and
+/// vice versa.
 enum AppTab: String, CaseIterable {
     case today, browse
     /// It wears `Tab(role: .search)`, so the system renders it as the separated
@@ -47,7 +48,7 @@ extension FindScope {
 /// **Today · Browse · Search**. v3's five-tab bar spent three slots naming
 /// scopes of ONE surface and then named the same scopes again in search's
 /// principal row; now the tabs name modes and the scope is stated once, on the
-/// scope wheel both catalog instances carry. History: #109 (bottom tabs, FAB
+/// scope control both catalog instances carry. History: #109 (bottom tabs, FAB
 /// gone), 2026-07-25 (catalog tabs and search scopes became one view),
 /// 2026-07-26 (five tabs, system chrome), docs/DECISIONS.md for the rest.
 ///
@@ -55,17 +56,18 @@ extension FindScope {
 /// `AppBottomBar` is deleted, and the search-role morph is rented from the
 /// native `TabView`. The catalogs spent one 2026-07 build as a scope dialled
 /// on a bottom-accessory wheel while the bar carried only Today and Search —
-/// this shape is that idea landing where it belongs: the wheel rides the
-/// NAVIGATION bar (the accessory never rises with the keyboard), and
+/// this shape is that idea landing where it belongs: the scope control rides
+/// the NAVIGATION bar (the accessory never rises with the keyboard), and
 /// `CatalogScopeView` exists for it to dial.
 ///
-/// **The scope control is `ScopeWheel`**, a `.principal` navigation-bar item
-/// between the ++ key and the kit switcher on BOTH catalog instances. It is
-/// NOT `tabViewBottomAccessory`, NOT native `.searchScopes`, NOT a
-/// `.bottomBar` item, NOT a hand-rolled segmented control — the four retired
-/// homes and the seven-build account live in navigation.md and
-/// docs/DECISIONS.md (2026-07-26; the segmented control the wheel replaces
-/// was retired 2026-08-05).
+/// **The scope control is `ScopeSegmentedControl`** (Dave, 2026-08-06), a
+/// `.principal` navigation-bar item between the ++ key and the kit switcher
+/// on BOTH catalog instances, drawn in the app's own raised-key grammar so
+/// the three pieces of that row read as one family. It is NOT
+/// `tabViewBottomAccessory`, NOT native `.searchScopes`, NOT a `.bottomBar`
+/// item, NOT a `Picker(.segmented)` — the four retired homes and the
+/// seven-build account live in navigation.md and docs/DECISIONS.md
+/// (2026-07-26; the one-build `ScopeWheel` it replaces was 2026-08-05).
 struct RootTabView: View {
 
     /// The Today tab's icon reflects whether there's anything to do today
@@ -89,7 +91,7 @@ struct RootTabView: View {
     /// The query, and which catalog the app is looking at. The query belongs
     /// to the system's search presentation on the search-role tab; `scope` is
     /// SHARED by the Browse and search instances — one state, written by
-    /// either wheel — so opening search narrows the catalog you were just
+    /// either control — so opening search narrows the catalog you were just
     /// browsing, and leaving search lands Browse where you left off. (The old
     /// per-tab literal-scope plumbing died with the catalog tabs: with no
     /// fixed-scope tabs there is no outgoing-catalog frame to hide.)
@@ -231,7 +233,7 @@ struct RootTabView: View {
 
     private var appContent: some View {
         // Today · Browse · Search (Dave, 2026-08-05). Browse and the search
-        // tab render THE SAME view: the scope wheel decides which catalog,
+        // tab render THE SAME view: the scope control decides which catalog,
         // never which screen, so moving between catalogs reads as one surface
         // changing scope — and moving between Browse and search reads as the
         // same room with the query on or off.
@@ -267,7 +269,8 @@ struct RootTabView: View {
         // lived there for four builds and the container was always wrong: it
         // does not rise with the keyboard, so search's own keyboard buried it.
         // It is a `.principal` NAVIGATION BAR item on both catalog roots now —
-        // see `ScopeWheel` and navigation.md, which carry the whole account.
+        // see `ScopeSegmentedControl` and navigation.md, which carry the
+        // whole account.
         //
         // ⚠️ NO `.tabViewSearchActivation(.searchTabSelection)` here, and that
         // absence is deliberate. Build 143 added it to force a fresh scope-bar
@@ -309,7 +312,7 @@ struct RootTabView: View {
             // clear it — the "stale invisible query reads as data loss" law.
             if newTab != .search { query = "" }
         }
-        // A wheel dial changes what Browse is looking at without a tab
+        // A scope change alters what Browse is looking at without a tab
         // change — keep Operator's context line following it.
         .onChange(of: scope) { _, newScope in
             if tab == .browse { viewContext.tab = newScope.operatorContextKey }

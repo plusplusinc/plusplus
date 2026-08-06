@@ -33,12 +33,12 @@ final class SmokeTests: XCTestCase {
 
     /// The chrome is the system's `TabView` bar, carrying Today · Browse ·
     /// Search (2026-08-05). Browse and the search tab show the same screen;
-    /// the scope wheel in their navigation bar picks the catalog.
+    /// the scope control in their navigation bar picks the catalog.
     private func tabButton(_ tab: String) -> XCUIElement {
         app.tabBars.buttons[tab.capitalized]
     }
 
-    /// Go to a catalog: the Browse tab, then the scope wheel. The same wheel
+    /// Go to a catalog: the Browse tab, then the scope control. The same control
     /// does the same job while searching (`selectScope`).
     private func goToCatalog(_ scope: String) {
         let key = tabButton("browse")
@@ -62,27 +62,24 @@ final class SmokeTests: XCTestCase {
         XCTAssertTrue(searchField.waitForExistence(timeout: 5))
     }
 
-    /// Pick a catalog on the scope wheel in the catalog roots' navigation bar
-    /// (`ScopeWheel`, 2026-08-05 — the app-owned wheel that replaced the
-    /// glyphs-only segmented control, so cells carry app identifiers again).
+    /// Pick a catalog on the scope control in the catalog roots' navigation
+    /// bar (`ScopeSegmentedControl`, 2026-08-06 — the app-drawn segmented
+    /// control in the raised-key family that replaced the scope wheel; cells
+    /// keep the wheel's identifiers).
     ///
-    /// ⚠️ Identifiers are per-INSTANCE (`-browse` / `-search`): both wheel
+    /// ⚠️ Identifiers are per-INSTANCE (`-browse` / `-search`): both catalog
     /// roots stay mounted over one shared scope, and an inactive tab's
     /// elements are visible to queries, so a bare identifier is a
     /// multiple-match once both tabs have been built.
     ///
-    /// The wheel clips at the row's trailing edge, so the far cell can be
-    /// realized but not hittable — swipe the track toward it first, the same
-    /// affordance a thumb uses. A tap on the already-selected cell is a no-op
-    /// write, so callers don't need to check state first.
+    /// Every segment is on screen at once — the control divides the row it is
+    /// given, it does not scroll — so there is no realized-but-clipped cell
+    /// and no swipe to reach one (the wheel's track fallback died with it). A
+    /// tap on the already-selected cell is a no-op write, so callers don't
+    /// need to check state first.
     private func selectScope(_ scope: String, on instance: String = "browse") {
         let cell = app.buttons["findScope-\(scope.lowercased())-\(instance)"]
-        XCTAssertTrue(cell.waitForExistence(timeout: 5), "the scope wheel rides the catalog roots' bar")
-        if !cell.isHittable {
-            let track = app.scrollViews["scopeWheel-\(instance)"].firstMatch
-            let swipeable = track.exists ? track : app.otherElements["scopeWheel-\(instance)"].firstMatch
-            if swipeable.exists { swipeable.swipeLeft() }
-        }
+        XCTAssertTrue(cell.waitForExistence(timeout: 5), "the scope control rides the catalog roots' bar")
         cell.tap()
     }
 
@@ -353,15 +350,15 @@ final class SmokeTests: XCTestCase {
     }
 
     /// The universal surface end to end: open search from the bar, dial the
-    /// wheel to the Exercises scope, create a custom from the query, and land
+    /// control to the Exercises scope, create a custom from the query, and land
     /// on Browse showing the exercises catalog with the new row present (the
     /// no-toasts landing grammar).
     func testUniversalSearchCreatesExercise() throws {
         openSearch()
         snap("find-or-create-open")
 
-        // While searching, the catalog is picked on the scope wheel rather
-        // than by leaving search — the SEARCH instance's wheel.
+        // While searching, the catalog is picked on the scope control rather
+        // than by leaving search — the SEARCH instance's control.
         selectScope("exercises", on: "search")
         let createRow = app.buttons["createExerciseRow"]
         XCTAssertTrue(createRow.waitForExistence(timeout: 5))
@@ -384,13 +381,13 @@ final class SmokeTests: XCTestCase {
         // W-named row to center, which pushes the top of the lazy List out of
         // the realized window — unrealized rows are invisible to XCUITest
         // (the testing.md lazy-list law; this assertion's first form failed
-        // CI exactly that way). The tab item's selection, the wheel cell's
+        // CI exactly that way). The tab item's selection, the scope cell's
         // `.isSelected`, and the scrolled-into-view row are the honest probes.
         let browseTab = tabButton("browse")
         XCTAssertTrue(browseTab.waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["Wall Slides"].waitForExistence(timeout: 5))
         XCTAssertTrue(browseTab.isSelected)
-        XCTAssertTrue(app.buttons["findScope-exercises-browse"].isSelected, "the wheel landed on the exercises catalog")
+        XCTAssertTrue(app.buttons["findScope-exercises-browse"].isSelected, "the scope control landed on the exercises catalog")
         snap("find-or-create-landed-exercise")
     }
 
