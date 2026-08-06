@@ -165,8 +165,16 @@ NAVIGATION BAR's principal row on BOTH catalog roots, between the ++ key and
 the kit switcher, the slot other roots put their title in — which on these
 surfaces the control effectively is. Selecting SLIDES the pill
 (`Theme.Anim.selection`, the selection-slides law). There is NO press
-response, deliberately: a flat control's state flip is its feedback. Cells
-stack icon OVER label, carry `.accessibilityLabel` + `.isSelected` (the
+response, deliberately: a flat control's state flip is its feedback. ⚠️ Cells
+are ONE WORD, no glyph (build 194): stacking icon over label put two things
+in a 44 pt control, and at a large Dynamic Type size the stack outgrew the
+38 pt selection pill — the pill's border drew through "Routines". Both
+neighbours in that row are single-line and reflow fine, so the stack was the
+only thing that broke. It was never a design choice anyway: it was inherited
+from the wheel, which inherited it from the glyph-only segmented control,
+which stacked to dodge `UISegmentedControl`'s title-OR-image limit — a limit
+that stopped applying the moment the app drew the control itself. Cells carry
+`.accessibilityLabel` + `.isSelected` (the
 segmented-control a11y model) and per-INSTANCE
 `findScope-<raw>-<browse|search>` identifiers (both roots stay mounted over
 one scope, and an inactive tab's elements answer queries — the kit switchers

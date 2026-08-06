@@ -39,8 +39,10 @@ import SwiftUI
 /// made to do — and which also drops that control's platform limit: a segment
 /// takes a title OR an image, never both (DTS, forums 816517). That limit is
 /// why the 2026-07-26 control was glyph-only and why the wheel stacked icon
-/// over label to escape it. A view the app draws has no such rule; the stack
-/// here is a WIDTH choice, kept because it is the proven fit for this row.
+/// over label to escape it. ⚠️ This control carries NEITHER inheritance: it is
+/// one WORD per cell (build 194 — see `cell`, where stacking is what broke).
+/// The whole icon-and-label question was an artifact of a platform limit that
+/// stopped applying the moment the app drew the control itself.
 ///
 /// ⚠️ **No layout-fed state writes.** The cell width is a pure
 /// `GeometryReader` READ used inline, from a `.background` so it can neither
@@ -107,12 +109,13 @@ struct ScopeSegmentedControl: View {
         }
         .background(track)
         // Chrome sharing a row with two keys can't grow without bound, and a
-        // segmented control TRUNCATES rather than wrapping. ⚠️ This BOUNDS the
-        // damage, it does not remove it: three equal cells on a 393 pt screen
-        // leave each label roughly 69 pt before padding, and "Exercises" wants
-        // more than that well before `accessibility1`. Reading the labels at
-        // the largest sizes is a device-pass item, not a settled question.
-        // The search field is NOT capped: its text is the user's own.
+        // segmented control TRUNCATES rather than wrapping. ⚠️ The cap bounds
+        // how far the labels push; `minimumScaleFactor` absorbs the rest, and
+        // dropping the glyph gave each word the cell's full width AND full
+        // height. What the cap can no longer do is hide a LAYOUT fault — the
+        // build-194 overflow was the icon stack outgrowing a 44 pt control,
+        // and a Dynamic Type ceiling would only have moved the size at which
+        // it broke. The search field is NOT capped: its text is the user's own.
         .dynamicTypeSize(...DynamicTypeSize.accessibility1)
         .sensoryFeedback(.selection, trigger: hapticTick)
     }
@@ -164,22 +167,32 @@ struct ScopeSegmentedControl: View {
             scope = option
             hapticTick += 1
         } label: {
-            // Icon OVER label: a width choice, not a platform limit (header).
-            // Stacked is what fits three scopes into the principal row beside
-            // the ++ key and a variable-width kit switcher.
-            VStack(spacing: 2) {
-                Image(systemName: option.symbolName)
-                    .font(.system(.footnote, weight: .semibold))
-                    .accessibilityHidden(true)
-                Text(option.label)
-                    .font(.system(.caption2, weight: isSelected ? .semibold : .regular))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-            }
-            .foregroundStyle(isSelected ? Theme.selectedInk : Theme.textSecondary)
-            .padding(.horizontal, 4)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .contentShape(Rectangle())
+            // ⚠️ ONE LINE, no glyph — and the icons went for a CORRECTNESS
+            // reason, not a taste one (Dave, build 194: "still pretty
+            // fucked"). Stacking icon over label put two things in a 44 pt
+            // control, and at his Dynamic Type size the stack grew taller
+            // than the 38 pt selection pill: the pill's border drew straight
+            // through "Routines" and the glyph crossed its top edge. Both
+            // neighbours in this row are single-line (`LibrarySwitcherKey` is
+            // one `.footnote` in a 44 pt frame, and it reflows fine at the
+            // same size) — the scope control was the only thing stacking, so
+            // it was the only thing that broke.
+            //
+            // The stack was always a WIDTH compromise inherited from the
+            // wheel, which inherited it from the glyph-only segmented control
+            // it replaced. Nothing needs it here: one word per cell reads
+            // better, gets the full cell height AND width, and cannot
+            // overflow its own pill.
+            Text(option.label)
+                // `.footnote`, matching the kit switcher exactly, so the row
+                // reads at one size.
+                .font(.system(.footnote, weight: isSelected ? .semibold : .regular))
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .foregroundStyle(isSelected ? Theme.selectedInk : Theme.textSecondary)
+                .padding(.horizontal, 6)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .contentShape(Rectangle())
         }
         // ⚠️ `.plain`, and nothing else. A flat control's state flip is its
         // feedback (design-grammar) — no press offset, no latch, and so none

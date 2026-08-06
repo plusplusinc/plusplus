@@ -23,14 +23,6 @@ enum FindScope: String, CaseIterable {
         }
     }
 
-    var symbolName: String {
-        switch self {
-        case .routines: return "square.stack"
-        case .exercises: return "list.bullet"
-        case .kit: return "dumbbell"
-        }
-    }
-
     /// What this scope SEARCHES, which is not always what the tab is called:
     /// the Kit scope searches the whole equipment catalog, not just your kit,
     /// so it takes the single-item/catalog word (the kit-vs-equipment
