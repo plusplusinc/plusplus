@@ -1606,3 +1606,19 @@ Prototype A (#554/#555 — Today · Browse · Search with the scope wheel) shipp
 **What this also buys, and what it doesn't.** It buys real width — the label now gets the whole cell instead of sharing it with a glyph and 2 pt of spacing — which is the closest thing to a fix the cramping has had. It does NOT change the cell count or the control's share of the bar, so on the narrowest phone with a long kit name beside it the words still lean on `minimumScaleFactor`. If that still reads badly, the live option is naming only the SELECTED scope and letting its segment grow (the prototype set explored for this round), which is the only shape that gets roomier as type gets bigger.
 
 **⚠️ A Dynamic Type ceiling would not have caught this, and it is worth saying why.** The control caps at `accessibility1`, and the overflow happened well below that. A cap bounds how far labels push; it cannot fix a control whose CONTENT is taller than its frame, it only moves the size at which that shows. The fault was the stack, and the fix had to be the stack.
+
+## 2026-08-06 — One type size across the scope control's row, not one per label
+
+**Decision.** `ScopeSegmentedControl` picks a single type size for all three labels via a `ViewThatFits` ramp whose candidates are the WHOLE row at `.footnote` → `.caption` → `.caption2`. The per-label `minimumScaleFactor` stays underneath as a backstop.
+
+**Reason.** Dave asked whether the labels' vertical alignment was fixed, and the honest answer was *half*. Removing the glyphs (entry above) fixed the fault the screenshot showed — SF Symbols differ in height, so a taller glyph pushed its label down and the selected word sat lower than its neighbours. It did NOT fix the second one: `minimumScaleFactor` scales each `Text` independently, and the cells are equal thirds, so "Exercises" shrinks to fit while "Kit" never needs to. Three words at two sizes, centred in their cells, put their baselines and cap-heights out of register — a vertical-alignment fault wearing a width fault's clothes.
+
+**⚠️ It bites at the DEFAULT type size, which is why it could not be deferred.** Roughly 63 pt of semibold "Exercises" against about 57 pt of cell interior on a 393 pt screen. This was not an accessibility-size edge case; it would have shipped visible in the next build.
+
+**Why the ramp rather than a smaller fixed font.** A fixed size would violate the type law (dynamic styles only, so Dynamic Type reflow comes free) and would still be wrong at some size. The ramp keeps every candidate a system text style, so reflow survives; it just refuses to let the three cells disagree about which one they are using.
+
+**⚠️ The candidate must be the WHOLE ROW.** A ramp applied per cell would choose per cell and reintroduce exactly the disagreement it exists to prevent. `cellRow(style:)` exists for that reason and for no other.
+
+**Risk profile, stated because it is the reason this is safe to ship without a Simulator.** If `ViewThatFits` picks the first candidate every time — the failure mode if its ideal-size measurement does not behave as expected inside a `.principal` toolbar item — the control renders exactly as it did before this change, because the per-label `minimumScaleFactor` is still there. The worst case IS the old behaviour. It is pure layout with no state written, so it does not touch the nav-diag 4e class.
+
+**Still not solved.** The control's share of the bar. When the ramp steps down a size on a narrow screen beside a long kit name, that is the control running out of room, not a rendering fault — and the shape that gets roomier as type grows is naming only the selected scope and letting its segment expand.

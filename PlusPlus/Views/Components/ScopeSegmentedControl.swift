@@ -94,11 +94,26 @@ struct ScopeSegmentedControl: View {
         // width is still unknown it would collapse the control to a stub — and
         // on the search tab that pass IS the first activation. An `HStack` of
         // labelled cells has a real ideal width.
-        HStack(spacing: 0) {
-            ForEach(Array(options.enumerated()), id: \.offset) { index, option in
-                cell(index: index, option: option)
-                    .frame(maxWidth: .infinity)
-            }
+        // ⚠️ ONE type size for all three labels, chosen for the LONGEST.
+        // `minimumScaleFactor` scales each `Text` independently, and the cells
+        // are equal thirds — so "Exercises" (the longest) shrinks while "Kit"
+        // (which fits at any size) does not, and the row renders three words at
+        // two different sizes with their baselines and cap-heights out of
+        // register. That is a vertical-alignment fault wearing a width fault's
+        // clothes, and it survives at the DEFAULT type size: ~57 pt of cell
+        // interior against roughly 63 pt of semibold "Exercises".
+        //
+        // `ViewThatFits` picks the first candidate whose IDEAL width fits, and
+        // the candidate is the whole row — so whatever it picks, all three
+        // labels wear it. The per-label `minimumScaleFactor` stays as a
+        // backstop for sizes where even `.caption2` overflows; when the ramp
+        // does its job nothing scales and nothing is out of register. Strictly
+        // better than the ramp being absent: the worst case IS the old
+        // behaviour. Pure layout, no state written — safe in this subtree.
+        ViewThatFits(in: .horizontal) {
+            cellRow(style: .footnote)
+            cellRow(style: .caption)
+            cellRow(style: .caption2)
         }
         .frame(height: height)
         .background(alignment: .topLeading) {
@@ -160,7 +175,19 @@ struct ScopeSegmentedControl: View {
             .allowsHitTesting(false)
     }
 
-    private func cell(index: Int, option: FindScope) -> some View {
+    /// One candidate row for the size ramp above — the same three cells, all
+    /// at `style`. Every candidate must be the WHOLE row, or the ramp would be
+    /// choosing per cell and reintroduce exactly what it exists to prevent.
+    private func cellRow(style: Font.TextStyle) -> some View {
+        HStack(spacing: 0) {
+            ForEach(Array(options.enumerated()), id: \.offset) { index, option in
+                cell(index: index, option: option, style: style)
+                    .frame(maxWidth: .infinity)
+            }
+        }
+    }
+
+    private func cell(index: Int, option: FindScope, style: Font.TextStyle) -> some View {
         let isSelected = index == selectedIndex
         return Button {
             guard option != scope else { return }
@@ -186,7 +213,7 @@ struct ScopeSegmentedControl: View {
             Text(option.label)
                 // `.footnote`, matching the kit switcher exactly, so the row
                 // reads at one size.
-                .font(.system(.footnote, weight: isSelected ? .semibold : .regular))
+                .font(.system(style, weight: isSelected ? .semibold : .regular))
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .foregroundStyle(isSelected ? Theme.selectedInk : Theme.textSecondary)
