@@ -94,7 +94,7 @@ touching a surface it names**, and delete an item once it has been passed.
 - **PlusPlusWatch** — watchOS companion (WatchConnectivity; depends on PlusPlusKit)
 - **PlusPlusWidgets** — widget extension: Live Activity + Today/Streak widgets + App Intents
 - **PlusPlusKit** — pure SwiftPM package, Linux-tested (the platform contract)
-- **PlusPlusTests / PlusPlusUITests** — ~150 app unit tests + 10 UI smoke flows; 616 Kit + 26 CLI tests run on Linux (counts verified 2026-08-01, watch repair round)
+- **PlusPlusTests / PlusPlusUITests** — 347 app unit tests in 51 suites + 13 UI smoke flows; 597 Kit + 26 CLI tests run on Linux (every count re-read from CI + the suites themselves 2026-08-07, Operator removal; the previous line claimed ~150 app / 616 Kit and both had drifted)
 
 **Project structure** (annotated per-file map lives in the directories themselves; these are the load-bearing locations):
 ```

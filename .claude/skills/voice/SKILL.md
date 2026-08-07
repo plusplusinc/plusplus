@@ -9,7 +9,7 @@ description: The PlusPlus brand voice — principles, vocabulary, and rewrite ch
 
 ## Principles
 
-1. **No "we", no "I".** The app has no first person. (Operator is the one deliberate exception — a character with its own persona file; it follows every other rule here.)
+1. **No "we", no "I".** The app has no first person, with no exceptions.
 2. **The app doesn't refer to itself unless absolutely necessary.** No "the app", no "it/itself" meaning the app. Usually the fix is restructuring so the subject is the user's stuff ("What you have decides what you can train"), not the software. Where self-reference is unavoidable — privacy statements, permission asks — the name is **PlusPlus**: "PlusPlus never phones home."
 3. **Consequence first, mechanism second.** Say what it means for the user; explain implementation only where it buys trust (privacy, data ownership). "Your equipment filters the catalog everywhere" is mechanics-first; "What you have decides what you can train" is the same fact, consequence-first.
 4. **Deadpan is welcome anywhere it rides a fact.** The test: delete the joke — if information is lost, the line was good; if nothing is lost, the wit was decoration, cut it. Wit must land on first read with no frame required (a line needing a lifter's or a dev's context to parse is out). Anti-shame outranks funny. No jokes on destructive confirms.
@@ -48,7 +48,6 @@ Bad (the classes the 2026-07-17 sweep removed — don't reintroduce):
 ## Carve-outs
 
 - **OS-permission copy keeps "access"** — it's Apple's word in grant flows (Health, Calendar, GitHub). "PlusPlus needs calendar access." stays.
-- **OperatorPersona.swift** — deliberate first-person character; exempt from principles 1–2 only.
 - **FormCues + exercise-specific catalog descriptions** stay specific: a barbell cue SHOULD name the bar. Principle 8 governs generic surfaces only.
 - **Bare "—" placeholder glyphs** for missing values are not prose; they stay.
 - **"own" survives for data ownership** ("a git repo you own") and the

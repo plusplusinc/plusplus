@@ -18,7 +18,7 @@ Check classes, in severity order:
 1. **Law violations** — em dashes in prose (bare "—" placeholders exempt);
    obligation words ("due" and friends) on a user surface; "own"/"owned"
    outside the data-ownership + "My equipment"-possessive allowances.
-2. **Self-reference** — "we", "I" (outside OperatorPersona.swift), "the
+2. **Self-reference** — "we", "I", "the
    app", or app-as-"it"; unavoidable self-reference must say "PlusPlus".
 3. **Vocabulary drift** — "library" for an equipment set (it's "kit";
    default kit is `main`), routine/workout confusion, "have access to",
@@ -33,7 +33,7 @@ Check classes, in severity order:
 
 Boring is fine: a plain factual label needs no flavor added — never propose
 injecting wit, only removing what fails the skill. Do not propose rewrites
-of carve-out copy (Operator persona, FormCues specificity, permission
+of carve-out copy (FormCues specificity, permission
 "access", placeholder glyphs, quips).
 
 Output: findings ranked by severity, each with file:line, the offending

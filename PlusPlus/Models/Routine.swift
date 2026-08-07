@@ -95,8 +95,8 @@ final class Routine {
         set {
             let normalized = newValue.normalized
             // Stamp the anchor ONLY on a real value change, in the ONE
-            // place every write path funnels through (tray, Operator,
-            // undo, interchange import alike) — a no-op re-assignment
+            // place every write path funnels through (the schedule tray and
+            // interchange import alike) — a no-op re-assignment
             // (sync pull writing the same schedule back) must not move
             // the anchor and quietly clear a carried day.
             if normalized != schedule {

@@ -54,10 +54,13 @@ piece would OPEN rather than by alphabet, stating it as an `Opens N` tag
 (laws in `catalog-scopes.md`). Routine detail keeps the superset rail.
 
 **The drawer** — the top-left ++ key (and a leading-edge drag on any tab
-root) slides the whole app right, revealing `RevealSurface`: settings folded
-inline (appearance, units, GitHub / Health / calendar sync, the active kit
-as the hero card), Operator, and tiles opening trays (data, what's new,
-about). Mechanics in `ui-interaction.md`.
+root) slides the whole app right, revealing `RevealSurface`, in one column:
+the ++ identity, the active kit as the first row (a `statusRow` under a KIT
+label — there is NO hero card; Operator held that slot until it was removed
+2026-08-07), the GitHub / Health / calendar sync rows, then a divider and a
+2×2 tile group opening trays (settings, data, what's new, about). ⚠️
+Appearance and units are NOT inline — they live inside the Settings tray.
+Mechanics in `ui-interaction.md`.
 
 **First run** — `WelcomeView` fuses splash and welcome into one continuous
 shot; there is no onboarding flow — a fresh install's Today shows three

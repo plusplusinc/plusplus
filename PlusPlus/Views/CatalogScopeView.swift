@@ -563,7 +563,6 @@ struct CatalogScopeView: View {
             // AFTER the update, with the landing's scope; the guards inside
             // both consumers make it a no-op on every ordinary wheel dial.
             consumeArrival()
-            consumeOperatorPush()
         }
         // A cross-tab add lands HERE with the entrance flash — consumed on
         // receive when this tab is already built, on appear when the landing is
@@ -573,13 +572,6 @@ struct CatalogScopeView: View {
         }
         .onAppear {
             consumeArrival()
-            consumeOperatorPush()
-        }
-        // Operator's outcome navigation: a touched routine pushes by its stable
-        // uuid. Same two-door handoff as an arrival — the tab this lands on may
-        // not have been built yet when the notification goes out.
-        .onReceive(NotificationCenter.default.publisher(for: .plusplusOperatorShow)) { _ in
-            consumeOperatorPush()
         }
     }
 
@@ -594,14 +586,6 @@ struct CatalogScopeView: View {
     /// of every landing (`RootTabView.land`), so the consuming list is the
     /// one on screen.
     private var ownsLandings: Bool { tabKey == scope.tab.rawValue }
-
-    /// Push the routine an Operator outcome is steering to. The path resets
-    /// first, so the result is one Back from the list.
-    private func consumeOperatorPush() {
-        guard ownsLandings, scope == .routines, let uuid = OperatorArrival.takeRoutine() else { return }
-        path = NavigationPath()
-        path.append(RoutineRef(uuid: uuid))
-    }
 
     /// The presented form (a sheet, or Today's setup push): pushed chrome with
     /// its own expanding field, an item destination, and — in setup mode — the

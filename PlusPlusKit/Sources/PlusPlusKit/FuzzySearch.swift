@@ -1,16 +1,20 @@
 import Foundation
 
 /// The one forgiving text-match rule for every search surface (exercise
-/// and equipment catalogs, the routine catalog, Operator's find_items).
+/// and equipment catalogs, the routine catalog).
 /// A query matches when EVERY query word finds a home somewhere in the
 /// candidate — order-free, case- and diacritic-insensitive, tolerant of
 /// small typos and missing spaces — and the score ranks how honest that
 /// home is (exact > prefix > substring > initials > typo), so tolerant
 /// matches never outrank literal ones.
 ///
-/// Deliberately NOT used for Operator's write-target resolution: the
-/// ChangeEngine keeps its exact-then-unique-substring rule (it asks,
-/// it never guesses). Discovery is forgiving; applying changes is not.
+/// Discovery is forgiving; resolving one canonical name is not — that is
+/// `bestMatch`'s job, and it declines a blank query rather than guess.
+/// ⚠️ `bestMatch` has NO consumer in this repo since Operator's removal
+/// (2026-08-07); it is kept as Kit API, exercised only by Kit's own tests.
+/// The app's one name-to-object site (`.plusplusStartRoutine`) matches
+/// exactly on purpose and is headed for stable ids instead (#431) — do not
+/// wire a forgiving resolver into a path that STARTS a workout.
 public enum FuzzySearch {
     /// Match quality in 0...1, or nil when the query doesn't match.
     /// A blank (empty/whitespace) query is nil — callers decide what an

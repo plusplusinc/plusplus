@@ -23,24 +23,11 @@ enum AppTab: String, CaseIterable {
 }
 
 extension FindScope {
-    /// The tab that OWNS this scope's landings and Operator pushes: Browse,
-    /// for all three. The search instance shows the same catalogs but never
-    /// consumes an arrival — a landing switches away from search by
-    /// definition (`CatalogScopeView.ownsLandings`).
+    /// The tab that OWNS this scope's landings: Browse, for all three. The
+    /// search instance shows the same catalogs but never consumes an arrival
+    /// — a landing switches away from search by definition
+    /// (`CatalogScopeView.ownsLandings`).
     var tab: AppTab { .browse }
-
-    /// The ViewContext line for Browse dialled to this scope — the OLD tab
-    /// raw values, frozen: `OperatorChips` keys its catalog teaching chips on
-    /// them, and "routines" tells the model more than "browse" would. ⚠️
-    /// "equipment", not "kit" — the chips' historical key (the dead
-    /// `AppTab.equipment`'s raw value), kept so the chip cases stay live.
-    var operatorContextKey: String {
-        switch self {
-        case .routines: return "routines"
-        case .exercises: return "exercises"
-        case .kit: return "equipment"
-        }
-    }
 }
 
 /// v4 navigation root (2026-08-05, prototype A of the structure exploration):
@@ -105,10 +92,6 @@ struct RootTabView: View {
     /// AppMenuScreen). Lives here, above the tabs' NavigationStacks, so it
     /// moves the whole TabView as one layer.
     @State private var reveal = RevealController()
-    /// What screen is frontmost, as one compact line — Operator's
-    /// view-context (injected app-wide; screens report via
-    /// `.operatorContext(_:)`).
-    @State private var viewContext = ViewContext()
     /// The launch beat (splash + first-launch welcome, fused): a cold open
     /// always opens on the `++` mark; `introShowsWelcome` decides whether
     /// it settles into the welcome content or dissolves straight to Today.
@@ -189,9 +172,6 @@ struct RootTabView: View {
         RevealContainer(controller: reveal) {
             routedAppContent
         }
-        // Injected here so BOTH layers see it: the tabs report context,
-        // the reveal surface (Operator) reads it.
-        .environment(viewContext)
     }
 
     /// A landing leaves search first: a create lands on the catalog that owns
@@ -236,8 +216,6 @@ struct RootTabView: View {
         // changing scope — and moving between Browse and search reads as the
         // same room with the query on or off.
         TabView(selection: $tab) {
-            // Operator's context: the tab line comes from the onChange below;
-            // pushed details report (and clear) their own via .operatorContext.
             Tab("Today", systemImage: todayStatus.systemImage, value: AppTab.today) {
                 TodayView(onGoToRoutines: { land(on: .browse, scope: .routines) })
             }
@@ -288,17 +266,9 @@ struct RootTabView: View {
         // through it.
         .tint(Theme.textPrimary)
         // Swipe-to-open is gated on the active tab being at its root; keep
-        // the reveal controller told which tab is showing. Operator's
-        // view-context follows the same signal (a tab switch also clears
-        // a popped detail's stale line).
+        // the reveal controller told which tab is showing.
         .onChange(of: tab, initial: true) { _, newTab in
             reveal.activeTab = newTab.rawValue
-            // Browse reports the SCOPE, not the tab (swift-reviewer,
-            // 2026-08-05): Operator's catalog chips key on the old per-tab
-            // strings, and "routines" tells the model what's actually on
-            // screen where "browse" wouldn't.
-            viewContext.tab = newTab == .browse ? scope.operatorContextKey : newTab.rawValue
-            viewContext.detail = nil
             // The scope needs no syncing here: Browse and search share the one
             // state, so each already opens on the catalog the other was
             // looking at. A tab switch changes the mode, never the catalog.
@@ -308,27 +278,6 @@ struct RootTabView: View {
             // list with nothing on screen explaining the filter and no way to
             // clear it — the "stale invisible query reads as data loss" law.
             if newTab != .search { query = "" }
-        }
-        // A wheel dial changes what Browse is looking at without a tab
-        // change — keep Operator's context line following it.
-        .onChange(of: scope) { _, newScope in
-            if tab == .browse { viewContext.tab = newScope.operatorContextKey }
-        }
-        // Operator's outcome navigation: the root switches tabs; the
-        // owning tab root resolves and pushes (the .plusplusStartRoutine
-        // pattern). The drawer closes too, so a half-height Operator
-        // tray shows the result landing behind it live (Dave, build-85
-        // round) — and dismissing the tray lands on the result, not the
-        // drawer.
-        .onReceive(NotificationCenter.default.publisher(for: .plusplusOperatorShow)) { note in
-            guard let destination = note.object as? OperatorDestination else { return }
-            switch destination {
-            case .today: land(on: .today)
-            case .routine: land(on: .browse, scope: .routines)
-            case .exercisesTab: land(on: .browse, scope: .exercises)
-            case .equipmentTab: land(on: .browse, scope: .kit)
-            }
-            reveal.close()
         }
         .overlay {
             if showingIntro {
