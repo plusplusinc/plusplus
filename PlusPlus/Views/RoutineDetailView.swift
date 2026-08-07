@@ -251,9 +251,6 @@ struct RoutineDetailView: View {
         .task(id: supersetTipEligible) {
             SupersetCreationTip.canPair = supersetTipEligible
         }
-        // Operator's view-context: the deepest visible screen reports
-        // one compact line (appear-only; the root's re-appear clears it).
-        .operatorContext("routines/\(routine.name)")
         // Custom key chrome: back + share/settings as trailing keys, no
         // centered title. The name moved to the body header (Dave,
         // build-78) where it gets full width and wraps instead of
@@ -1470,8 +1467,8 @@ struct RoutineDetailView: View {
             // whether or not its builder produces content.
             swapReturnTarget = nil
             // Resolve the slot within the live graph; a slot deleted while
-            // the picker was up (another device, an Operator apply) is a
-            // clean no-op, not a crash.
+            // the picker was up (another device, a sync pull) is a clean
+            // no-op, not a crash.
             guard let entry = routine.sortedGroups.flatMap(\.sortedExercises).first(where: { $0.uuid == uuid }) else { return }
             // Targets reset to the new exercise's add-time defaults by the
             // model (the equipment-resolve law: a barbell weight must not

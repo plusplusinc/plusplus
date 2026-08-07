@@ -51,12 +51,12 @@ looking at and a tab switch changes the mode, never the catalog.
 - ⚠️ Because **a `Tab`'s content is its own view tree**, Browse and search
   are two live INSTANCES of the catalog, so every broadcast needs one named
   owner: `ownsLandings` (`tabKey == scope.tab.rawValue`; `FindScope.tab` is
-  `.browse` for all three) makes BROWSE the consumer of arrivals and Operator
-  pushes, never "whichever instance shows that scope" — a landing switches
+  `.browse` for all three) makes BROWSE the consumer of arrivals, never
+  "whichever instance shows that scope" — a landing switches
   away from search by definition. ⚠️ And because a tab's content is built on
   FIRST selection, a notification alone reaches nobody on a never-visited
   tab — every cross-tab landing rides a pending SLOT consumed on receive OR
-  on appear (`RoutineArrival`, `OperatorArrival`); a bare post is the
+  on appear (`RoutineArrival`); a bare post is the
   build-76 silent-dead-tap class. A landing also DIALS the shared scope
   (`RootTabView.land(on:scope:)`), so the list the entrance flash plays on is
   the one on screen. The query is search's and dies with it.

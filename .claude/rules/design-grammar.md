@@ -71,8 +71,8 @@ Siblings: `navigation.md` (tab bar, search, scope control, landings),
   toolbars on pushed screens. **Icon-only keys are 11-pt ROUNDED SQUARES
   everywhere** (2026-07-19; the all-circles round and the sheet-corner
   concentric experiment were both reverted by Dave — uneven concentric corners
-  read wrong): `HeaderIconButton`/`HeaderMenuKey`/`AppMenuKey`/Operator
-  send-stop use `RoundedRectangle(cornerRadius: 11)` + `.raisedKey()`. The one
+  read wrong): `HeaderIconButton`/`HeaderMenuKey`/`AppMenuKey`
+  use `RoundedRectangle(cornerRadius: 11)` + `.raisedKey()`. The one
   sanctioned variant is `ConfigIconButton` (30 pt cap, r8, FLAT bordered — it
   configures a value in place, it doesn't commit or navigate; the radius
   scales with the cap). No other per-context corner variation. ⚠️ **A raised

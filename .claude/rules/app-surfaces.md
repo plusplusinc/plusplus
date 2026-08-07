@@ -56,7 +56,7 @@ piece would OPEN rather than by alphabet, stating it as an `Opens N` tag
 **The drawer** — the top-left ++ key (and a leading-edge drag on any tab
 root) slides the whole app right, revealing `RevealSurface`: settings folded
 inline (appearance, units, GitHub / Health / calendar sync, the active kit
-as the hero card), Operator, and tiles opening trays (data, what's new,
+as the hero card), and tiles opening trays (data, what's new,
 about). Mechanics in `ui-interaction.md`.
 
 **First run** — `WelcomeView` fuses splash and welcome into one continuous

@@ -275,10 +275,10 @@ struct ExerciseDetailScreen: View {
                     // Permanent ids before the push resolves (the
                     // tray-flicker law, swiftdata.md).
                     try? modelContext.save()
-                    // Close the sheet and push behind it in one tick — the
-                    // Operator receipt chain's pattern (tray closes, the
-                    // stack behind pushes). ⚠️ Silent-dead-tap class: needs
-                    // the device pass like every routine-nav change.
+                    // Close the sheet and push behind it in one tick: the
+                    // sheet closes, the stack behind it pushes. ⚠️
+                    // Silent-dead-tap class: needs the device pass like
+                    // every routine-nav change.
                     showingAddToRoutine = false
                     routine.uuid.map { path = .routine($0) }
                 },

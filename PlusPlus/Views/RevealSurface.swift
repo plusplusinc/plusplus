@@ -15,8 +15,6 @@ import PlusPlusKit
 struct RevealSurface: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
-    @Environment(RevealController.self) private var reveal
-    @Environment(ViewContext.self) private var viewContext
     // Appearance now lives in the Settings tray (SettingsTray owns that
     // @AppStorage). The weight unit stays here — export/import read it.
     @AppStorage(WeightUnitSetting.key) private var weightUnitRaw = WeightUnit.lb.rawValue
@@ -28,12 +26,6 @@ struct RevealSurface: View {
     @State private var sync = GitHubSyncCoordinator.shared
     @State private var health = HealthSyncCoordinator.shared
     @State private var calendar = CalendarSyncCoordinator.shared
-
-    /// Operator's conductor — created LAZILY on first use (drawer open
-    /// or hero tap), never at app init: the model session and thread
-    /// load shouldn't cost a launch that never opens the drawer.
-    @State private var operatorController: OperatorController?
-    @State private var operatorAvailability = OperatorAvailability.current()
 
     @State private var activeTray: Tray?
     /// Work queued behind a closing tray — run in the tray's onDismiss so
@@ -55,7 +47,7 @@ struct RevealSurface: View {
     @State private var importResultMessage: String?
     @State private var dataError: String?
 
-    enum Tray: String, Identifiable { case operatorChat, library, sync, health, calendar, settings, data, whatsNew, about; var id: String { rawValue } }
+    enum Tray: String, Identifiable { case library, sync, health, calendar, settings, data, whatsNew, about; var id: String { rawValue } }
     enum Push: String, Identifiable { case equipment; var id: String { rawValue } }
 
     private var version: String {
@@ -73,8 +65,6 @@ struct RevealSurface: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 identity
-                operatorHero
-                    .padding(.top, 26)
                 librarySection
                     .padding(.top, 26)
                 syncSection
@@ -158,80 +148,7 @@ struct RevealSurface: View {
         }
     }
 
-    // MARK: - Operator card (the hero)
-
-    /// Operator takes the hero slot (Dave, 2026-07-15); the active
-    /// library demotes to a row below. Always visible — unavailable
-    /// states show a quiet status word here and explain themselves
-    /// inside the tray, in Operator's voice. Redesigned in the build-85
-    /// round (Dave: caption + title + snippet read "operator operator
-    /// operator"): one face glyph with ++ eyes, the name once, and the
-    /// designed tagline wrapping beneath — no dot (dots mean sync
-    /// state), no last-reply snippet.
-    private var operatorHero: some View {
-        Button { openOperator() } label: {
-            HStack(alignment: .center, spacing: 12) {
-                OperatorFaceGlyph(size: 38, ready: operatorAvailability == .ready)
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text("Operator")
-                            .font(.system(size: 20, weight: .bold))
-                            .foregroundStyle(Theme.textPrimary)
-                        if let word = operatorAvailability.statusWord {
-                            Text(word)
-                                .font(.system(.caption2, design: .monospaced))
-                                .foregroundStyle(Theme.textFaint)
-                        }
-                    }
-                    Text(OperatorPersona.heroTagline)
-                        .font(.system(.caption, design: .monospaced))
-                        .foregroundStyle(Theme.textFaint)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer(minLength: 6)
-                Image(systemName: "chevron.right")
-                    .font(.system(.caption, weight: .bold))
-                    .foregroundStyle(Theme.textFaint)
-            }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.cardRadius - 2))
-            .overlay(RoundedRectangle(cornerRadius: Theme.cardRadius - 2).strokeBorder(Theme.borderStrong))
-        }
-        .buttonStyle(RaisedKeyStyle(plate: Theme.border, cornerRadius: Theme.cardRadius - 2, travel: 3))
-        .accessibilityIdentifier("operatorHeroCard")
-        // Availability flips in Settings, outside the app; the session
-        // prewarms as soon as the drawer opens so the first turn is fast.
-        .onChange(of: reveal.isOpen) { _, isOpen in
-            guard isOpen else { return }
-            operatorAvailability = .current()
-            if operatorAvailability == .ready {
-                ensureOperatorController().prewarmIfReady()
-            }
-        }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active { operatorAvailability = .current() }
-        }
-    }
-
-    @discardableResult
-    private func ensureOperatorController() -> OperatorController {
-        if let operatorController { return operatorController }
-        let controller = OperatorController(context: modelContext)
-        controller.contextLine = { [weak viewContext] in viewContext?.line }
-        controller.hasWorkoutHistory = { [modelContext] in
-            ((try? modelContext.fetchCount(FetchDescriptor<WorkoutSession>())) ?? 0) > 0
-        }
-        operatorController = controller
-        return controller
-    }
-
-    private func openOperator() {
-        ensureOperatorController()
-        openTray(.operatorChat)
-    }
-
-    // MARK: - Active-library row (demoted from the hero slot)
+    // MARK: - Active-library row
 
     private var librarySection: some View {
         let items = activeLibrary?.members.count ?? 0
@@ -350,7 +267,7 @@ struct RevealSurface: View {
     }
 
     /// A trigger row: an optional status dot (SYNC rows only — a dot means
-    /// "state of a connection", so Operator/Library rows pass nil; Dave,
+    /// "state of a connection", so the Kit row passes nil; Dave,
     /// build-85 design round), a leading icon (GitHub mark / SF Symbol),
     /// the name, then a right-aligned status word before the chevron. `status`
     /// is optional so a never-connected GitHub row shows no trailing word.
@@ -449,14 +366,6 @@ struct RevealSurface: View {
     @ViewBuilder
     private func trayContent(_ tray: Tray) -> some View {
         switch tray {
-        case .operatorChat:
-            // The controller exists by construction (openOperator creates
-            // it before presenting); the fallback renders nothing.
-            if let operatorController {
-                OperatorTray(controller: operatorController)
-            } else {
-                Color.clear
-            }
         case .library:
             // One canonical kit tray everywhere (switch · create · rename ·
             // delete), with the curation shortcut the drawer needs since it
@@ -1157,7 +1066,7 @@ enum WhatsNew {
         ("154", "Rest bends to you · add or take off 15 seconds while it runs, from the phone or the Lock Screen · pause mid rest and the countdown waits where you left it · paused now says what it caught and what comes next"),
         ("116", "Find or create: one search for the whole app · the search key beside the tabs finds routines, exercises, and equipment, yours or the catalog's · type what's missing and create it on the spot"),
         ("108", "Rest countdowns beep the last three seconds, a higher tone starts the next move · the live workout is back on the Dynamic Island and Lock Screen · the set overview colors every exercise: done, now, and up next"),
-        ("84", "Operator: chat with your training data behind the ++ key · ask anything, change anything · bulk edits preview before they touch a thing, small ones undo in a tap · the model runs entirely on this phone · and outdoor runs now keep their route: map, splits, and stats on the record"),
+        ("84", "Outdoor runs keep their route · map, splits, and stats on the record"),
         ("61", "Scheduled workouts on your calendar · one tap on the event starts the session · works with Apple and Google"),
         ("55", "Sync your program and history to a GitHub repo you own · restore-safe on a new phone"),
         ("48", "Kits: keep one set of equipment for home and another for the road · switch and the whole app follows · your kit travels with you to a new phone"),
