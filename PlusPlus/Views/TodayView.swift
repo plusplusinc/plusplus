@@ -266,6 +266,22 @@ struct TodayView: View {
                             // Lazy: the committed section is the whole
                             // history — eager building made every render
                             // O(sessions) (bug hunt perf finding).
+                            //
+                            // ⚠️ **ONE lazy container on this axis, and every
+                            // rail row is a DIRECT child of it.** Build 163
+                            // (#532) nested a second `LazyVStack` inside this
+                            // section to carry the below-anchor min-height,
+                            // and a nested lazy stack realizes NO children:
+                            // Today rendered as one viewport of blank space
+                            // for every install from 2026-08-01 (Dave's
+                            // fresh-install screenshot; the smoke suite went
+                            // red on that push and stayed red for six days —
+                            // ui-test isn't required and its tracking issue
+                            // was already open, so nothing said so). Do not
+                            // reintroduce an inner lazy stack to scope a
+                            // frame; a frame that has to wrap a subrange of
+                            // these rows has to wrap them EAGERLY, and eager
+                            // is what the perf finding above forbids.
                             LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
                                 // ONE section holds the whole timeline, and
                                 // the week band is its HEADER — which is what
@@ -285,50 +301,7 @@ struct TodayView: View {
                                 // below the landing lives in this section so
                                 // the band stays pinned the whole way down.
                                 Section {
-                                    // The week ahead is INSIDE the band's
-                                    // section (build 163, Dave: the bar
-                                    // "should always sit fully above the
-                                    // timeline, including future items").
-                                    // A section header renders where its
-                                    // section BEGINS, so while the future
-                                    // block sat above the section the band
-                                    // drew between the week ahead and
-                                    // today — chrome wedged into the middle
-                                    // of the rail. (Its eagerness and its
-                                    // anchor are load-bearing — see
-                                    // `weekAheadBlock`.)
-                                    weekAheadBlock
-                                    // ⚠️ The min-height binds the BELOW-ANCHOR
-                                    // region ONLY, which is why it moved off
-                                    // the outer stack (review): with the band
-                                    // header and the week ahead now inside
-                                    // that stack, a min-height there is eaten
-                                    // by content ABOVE the anchor and stops
-                                    // guaranteeing today can reach the top.
-                                    // Nested and LAZY — an eager stack here
-                                    // would reinstate the O(sessions) render
-                                    // the bug hunt killed; as the section's
-                                    // last child its size only feeds the
-                                    // outer stack's estimate.
-                                    LazyVStack(spacing: 0) {
-                                        presentEntries(viewportHeight: viewport.size.height)
-                                        committedHistory
-                                    // Once real history exists the interactive
-                                    // scaffold is gone, but the finished setup
-                                    // steps stay as permanent "origin"
-                                    // milestones at the very bottom (Dave,
-                                    // 2026-07-24): the done steps read as
-                                    // committed cards, and any step left
-                                    // unfinished stays actionable so setup is
-                                    // still reachable. The onboarding anchors
-                                    // it carries are inert here (the
-                                    // reveal-scroll only runs while setup is
-                                    // active).
-                                        if !setupActive {
-                                            setupSection(viewportHeight: viewport.size.height)
-                                        }
-                                    }
-                                    .frame(minHeight: viewport.size.height, alignment: .top)
+                                    timelineEntries(viewportHeight: viewport.size.height)
                                 } header: {
                                     weekStripBand
                                 }
@@ -347,6 +320,24 @@ struct TodayView: View {
                                 // the first logged session.
                             }
                             .padding(.horizontal, 16)
+                            // Pad the timeline to at least a screen so the
+                            // opening `scrollTo` has somewhere to go (see the
+                            // GeometryReader note); taller timelines make it a
+                            // no-op. ⚠️ It sits on the WHOLE stack, which is
+                            // the only place a frame can sit now that every
+                            // row is a direct child of the one lazy container
+                            // (the law above). #532 wanted it to bind the
+                            // BELOW-anchor region alone — with the week ahead
+                            // inside the section, a tall week can eat this
+                            // padding and leave today short of the very top.
+                            // That is a landing imperfection on one state (a
+                            // full week scheduled, almost no history); the
+                            // shape that fixed it exactly rendered nothing at
+                            // all, which is not a trade. Anything better than
+                            // this needs the below-anchor height, and probing
+                            // for it writes state during layout — banned
+                            // anywhere in the TabView subtree (navigation.md).
+                            .frame(minHeight: viewport.size.height, alignment: .top)
                         }
                         // ⚠️ The 16 pt content column stays per-child, NOT on
                         // this stack: the pinned band above is full-width
@@ -1220,6 +1211,38 @@ struct TodayView: View {
             runs.append((key: "\(parts.year ?? 0)-\(parts.month ?? 0)", label: label, sessions: [session]))
         }
         return runs
+    }
+
+    /// The band's section, top to bottom: the week ahead, the present
+    /// entries, committed history, and — once history exists — the finished
+    /// setup steps as permanent origin milestones (Dave, 2026-07-24: the
+    /// done steps read as committed cards, and any step left unfinished
+    /// stays actionable, so setup is still reachable; the onboarding anchors
+    /// they carry are inert there, the reveal-scroll only runs while setup
+    /// is active).
+    ///
+    /// ⚠️ Every one of these is a DIRECT child of the single lazy stack —
+    /// this is a `@ViewBuilder` boundary, not a container. Wrapping any
+    /// subrange in a second `LazyVStack` is what blanked the surface (the
+    /// law at the mount site); wrapping it eagerly is what the O(sessions)
+    /// perf finding forbids. It is its OWN builder for the reason
+    /// `committedHistory` below gives — this stack sits at the
+    /// type-checker's budget, and four members inline is what tips it.
+    @ViewBuilder
+    private func timelineEntries(viewportHeight: CGFloat) -> some View {
+        // The week ahead is INSIDE the band's section (build 163, Dave: the
+        // bar "should always sit fully above the timeline, including future
+        // items"). A section header renders where its section BEGINS, so
+        // while the future block sat above the section the band drew between
+        // the week ahead and today — chrome wedged into the middle of the
+        // rail. (Its eagerness and its anchor are load-bearing — see
+        // `weekAheadBlock`.)
+        weekAheadBlock
+        presentEntries(viewportHeight: viewportHeight)
+        committedHistory
+        if !setupActive {
+            setupSection(viewportHeight: viewportHeight)
+        }
     }
 
     /// The committed run, in month sections (#506, Q11-A).

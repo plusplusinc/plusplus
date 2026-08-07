@@ -75,6 +75,17 @@ the state reaches the backlog exactly once instead of never. **An open issue
 with that title means the suite is currently red** — a later red push adds
 nothing, by design.
 
+⚠️ **That "by design" is a real blind spot, and it has cost six days once**
+(2026-08-07). The alarm is keyed on "is anything red", not on WHICH tests, so
+a NEW failure arriving while the issue is open is silent. #500 was filed
+2026-07-31 for two tests; #532 turned Today's whole timeline blank on
+2026-08-01 and its four failures were never reported, through twelve merges
+and a TestFlight build. **So when you touch a surface the smoke suite covers,
+read the failing SET from the latest main run yourself** (`get_job_logs`,
+`tail_lines: 160` — the `::error::` lines are at the end) rather than
+inferring "already known" from the open issue. And when you fix the suite,
+CLOSE #500, or the next regression is invisible too.
+
 Making it required was considered and rejected: it is the slowest job and has
 two documented flake modes below, so one bad runner would block every merge.
 
