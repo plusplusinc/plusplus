@@ -65,7 +65,7 @@ screen is).
   `safeAreaInset` (app-drawn chrome); no geometry probes anywhere.
   ⚠️ **On the catalog roots that header starts in its PINNED seat**
   (2026-08-02 on search; widened to Browse 2026-08-05 when the catalog roots
-  gave up large titles for the scope wheel): a `.plain` List pads above its
+  gave up large titles for the scope control): a `.plain` List pads above its
   first section header and that padding SCROLLS, so the row began 22 pt low
   and only arrived after 22 pt of travel — and the nav bar's scrolled-under
   hairline was visible for exactly that window, because the seated row's
@@ -131,7 +131,7 @@ screen is).
 - **Cross-scope discovery is the scope control itself** — never link rows,
   and per-scope result counts are GONE (2026-07-25: retired with the
   hand-drawn bar, and the central `matchCounts` costs a second
-  ranking pass per keystroke — the wheel's cells could paint numbers, but
-  the cost argument still bans them). Prompts and empty states use
+  ranking pass per keystroke — the scope control's cells could paint numbers,
+  but the cost argument still bans them). Prompts and empty states use
   `FindScope.searchNoun`, not `label`.
 

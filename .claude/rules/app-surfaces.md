@@ -22,8 +22,10 @@ both load when you touch view code; read them before changing what they govern.
 Search**. The last wears `Tab(role: .search)`, so the system separates it and
 gives it the bar→field morph. Tabs name MODES (do · browse · find), never
 scopes: Browse and search render the same `CatalogScopeView`, and WHICH
-catalog (Routines · Exercises · Kit) is the **scope wheel**'s job
-(`ScopeWheel`, in both catalog roots' principal row), stated once — the two
+catalog (Routines · Exercises · Kit) is the **scope control**'s job
+(`ScopeSegmentedControl`, an app-drawn FLAT segmented control — track plus
+the app's one selection look — in both catalog roots' principal row),
+stated once — the two
 instances share one scope state, so search opens on the catalog you were
 browsing. The container laws that constrain that row (the `.principal`
 toolbar row, the retired scope-control homes, the morph's state-write rule)

@@ -1151,6 +1151,7 @@ private struct AboutTray: View {
 /// dispatch (one line each, no obligation words).
 enum WhatsNew {
     static let entries: [(build: String, notes: String)] = [
+        ("193", "Tap a catalog to switch · routines, exercises and equipment sit side by side now · no more spinning to get to one · search still opens on the catalog you were just browsing"),
         ("191", "The bar slims to three · Browse holds all three catalogs on one wheel: routines, exercises, equipment · spin it, tap a neighbor, or tap a chevron · search opens on the catalog you were just browsing · everything else is where it was"),
         ("159", "A run ends when you stop · one effort, and the key says finish · quick start sits right on Today now · reach a distance you asked for and the next effort starts itself · a 6 × 400 m keeps all six splits · the finish shows what you did beside last time and leaves the verdict to you · and your iPhone can record the workout as it happens, for calories and a heart rate that keeps up (Settings → Apple Health)"),
         ("158", "A run, ride, row or swim gets a clock that counts and numbers that mean something · start one from the tray in a tap · prescribe any two of distance, duration and pace and the third works itself out · your heart rate lands on every set · and a ride files to Health as a ride, not as strength training"),

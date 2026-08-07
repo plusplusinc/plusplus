@@ -3,7 +3,7 @@ import SwiftData
 import PlusPlusKit
 
 /// ONE view per catalog type, rendered by BOTH the Browse tab and the search
-/// tab (Dave, 2026-07-25; tabs collapsed 2026-08-05): dialling the scope wheel
+/// tab (Dave, 2026-07-25; tabs collapsed 2026-08-05): dialling the scope control
 /// to **Routines** with search closed and with it open land here, on the same
 /// screen. Search only adds a query. That is the whole point of this file —
 /// the universal-search surface had become a second copy of the catalog
@@ -33,7 +33,7 @@ struct CatalogScopeView: View {
     /// chrome, the search field, and the push mechanism differ.
     enum Mode: Equatable {
         /// A tab root (Browse or search): owns a `NavigationStack` and the
-        /// scope wheel in its navigation bar. `query` still arrives as a
+        /// scope control in its navigation bar. `query` still arrives as a
         /// binding, because it belongs to the search presentation in the ROOT.
         case tab
         /// Presented inside someone else's stack (a sheet, or Today's setup
@@ -82,7 +82,7 @@ struct CatalogScopeView: View {
     @Binding private var boundQuery: String
     // Per-scope match COUNTS are gone with the hand-drawn bar (2026-07-25):
     // there are no scope labels in the chrome to paint them on. The scope
-    // wheel is the cross-scope affordance now.
+    // control is the cross-scope affordance now.
     /// Which tab root this is: the reveal drawer's per-tab swipe gate keys on
     /// it, and so does `ownsLandings`.
     ///
@@ -91,8 +91,9 @@ struct CatalogScopeView: View {
     /// and a search tab dialled to routines are two live instances of this view.
     /// Anything answering a broadcast has to name one of them.
     private let tabKey: String
-    /// The scope wheel's binding — non-nil on BOTH tab instances (Browse and
-    /// search), which both seat `ScopeWheel` in their principal row. Browse
+    /// The scope control's binding — non-nil on BOTH tab instances (Browse
+    /// and search), which both seat `ScopeSegmentedControl` in their
+    /// principal row. Browse
     /// and search share the state behind it (`RootTabView.scope`), so each
     /// opens on the catalog the other was looking at.
     private let scopeSelection: Binding<FindScope>?
@@ -420,7 +421,7 @@ struct CatalogScopeView: View {
             listBody
                 .background(Theme.background)
                 // A catalog root carries no title (search's 2026-07-26 rule,
-                // extended to Browse 2026-08-05): the scope wheel names the
+                // extended to Browse 2026-08-05): the scope control names the
                 // catalog, so a title is duplicative — and on search a large
                 // one FLASHES on entry, collapsing away as search presents.
                 // The bar itself stays: hiding it is what left `.searchable`
@@ -453,7 +454,7 @@ struct CatalogScopeView: View {
                         ToolbarItem(placement: .principal) {
                             HStack(spacing: barGap) {
                                 AppMenuKey()
-                                ScopeWheel(scope: scopeSelection, instanceKey: isSearch ? "search" : "browse")
+                                ScopeSegmentedControl(scope: scopeSelection, instanceKey: isSearch ? "search" : "browse")
                                     // Absorbs whatever the two keys leave. No
                                     // minimum: an `HStack` never offers one
                                     // flexible child more than its share, so
@@ -464,15 +465,24 @@ struct CatalogScopeView: View {
                                     // instead make the ROW overflow on a narrow
                                     // screen and shear the keys off both ends.
                                     .frame(maxWidth: .infinity)
-                                    // The raised keys are 4 pt taller than they
-                                    // look: `RaisedKeyStyle` pads the bottom by
-                                    // its travel to leave room for the plate,
-                                    // so their visible caps centre 2 pt above
-                                    // this row's centre. Match the padding and
-                                    // the three line up.
+                                    // ⚠️ The raised keys are 4 pt taller than
+                                    // they look: `RaisedKeyStyle` pads the
+                                    // bottom by its travel to leave room for
+                                    // the plate, so their visible caps occupy
+                                    // the TOP 44 of a 48 pt box. The scope
+                                    // control is FLAT (2026-08-06, Dave: "kill
+                                    // the 3d") and has no travel of its own, so
+                                    // it is a 44 pt control that needs the same
+                                    // 4 pt beneath it to sit on their baseline.
+                                    // The pad and the control's height are ONE
+                                    // decision — see `ScopeSegmentedControl`.
+                                    // ⚠️ Whether this pad belongs is a function
+                                    // of whether the control draws a PLATE of
+                                    // its own, never of taste. History in
+                                    // docs/DECISIONS.md 2026-08-06.
                                     .padding(.bottom, 4)
                                 // Per-INSTANCE identifier, not per-scope: both
-                                // wheel roots share one scope now, so a
+                                // catalog roots share one scope now, so a
                                 // scope-keyed identifier would sit on two live
                                 // switchers at once — the exact multiple-match
                                 // the per-scope scheme once existed to prevent.
@@ -489,10 +499,14 @@ struct CatalogScopeView: View {
                             // it to nothing.
                             .frame(width: barWidth.flatMap { $0 > barGap * 2 ? $0 - barGap * 2 : nil })
                         }
-                        // The row brings its own key chrome and the wheel
-                        // brings its own band, so it opts out of the toolbar's
-                        // shared glass — without this they nest inside a system
-                        // capsule, the box-in-a-box that killed the accessory.
+                        // Every piece in this row brings its own chrome —
+                        // two raised keys and a flat bordered track — so it
+                        // opts out of the toolbar's shared glass. Without this
+                        // they nest inside a system capsule, the box-in-a-box
+                        // that killed the accessory. ⚠️ Doubly so now that the
+                        // scope control is flat (2026-08-06): a shared glass
+                        // capsule would be the ONLY container in the row, and
+                        // a container is exactly what the flatten removed.
                         .sharedBackgroundVisibility(.hidden)
                     }
                 }
@@ -530,7 +544,7 @@ struct CatalogScopeView: View {
         // GitHub. Native tabs fire `onDisappear` on a switch, so this is the
         // same close trigger every other surface uses.
         .syncsProgramOnClose()
-        // Changing scope is a catalog root dialling the wheel — the same
+        // Changing scope is a catalog root dialling the control — the same
         // surface looking at something else, so it stays MOUNTED (an `.id(scope)`
         // would rebuild it, which is exactly what stops a scope change feeling
         // like one). Only what can't survive the change resets: a pushed detail
@@ -561,7 +575,7 @@ struct CatalogScopeView: View {
             // browsing exercises would play no flash AND leave a live slot to
             // fire a phantom path-reset on a later visit. This onChange runs
             // AFTER the update, with the landing's scope; the guards inside
-            // both consumers make it a no-op on every ordinary wheel dial.
+            // both consumers make it a no-op on every ordinary scope change.
             consumeArrival()
             consumeOperatorPush()
         }
@@ -913,7 +927,7 @@ struct CatalogScopeView: View {
             // no-op.
             //
             // ⚠️ TAB ROOTS ONLY — and since the catalog roots gave up their
-            // large titles for the scope wheel (2026-08-05), Browse has the
+            // large titles for the scope control (2026-08-05), Browse has the
             // same nothing-in-that-space condition search always had, so it
             // seats too. If a large title ever returns to a catalog root,
             // that root must go back to `nil`/`.default`: the title travels
