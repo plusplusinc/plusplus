@@ -43,14 +43,28 @@ chrome, landings), `design-grammar.md` (color/key/tag/motion/copy),
   mid-rail. That block stays EAGER inside it as ONE `VStack` child: a
   `LazyVStack` sizes unrealized children approximately and the anchor sits
   below it (#267).
-  ⚠️ Three riders, all invisible until they bite. The landing's anchor is a
-  zero-LAYOUT overlay held one band-height ABOVE that block's bottom, its
+  ⚠️ **ONE lazy container on this axis, and every rail row is a DIRECT child
+  of it** (2026-08-07). A `LazyVStack` nested inside that pinned-header one
+  realizes NO children, so Today draws as a viewport of BLANK SPACE — the
+  large title, the ++ key and the tab bar all fine, the timeline simply
+  absent. Build 163 (#532) nested one to scope the below-anchor `minHeight`
+  and shipped that on every install for six days: `ui-test` went red on the
+  push and stayed red, but it is not a required check and its tracking issue
+  was ALREADY OPEN, so the mechanism that files one said nothing, and the
+  four failing assertions carried no message (`todayInventory()` now exists
+  for exactly this). Do NOT reintroduce an inner lazy stack to scope a
+  frame: a frame that wraps a subrange of these rows has to wrap them
+  eagerly, and eager history is the O(sessions) render the bug hunt killed.
+  The `minHeight` therefore sits on the WHOLE stack, which #532 was right
+  to call imprecise — a tall week ahead eats it and leaves today short of
+  the very top on a nearly-empty timeline. That imperfection is the price
+  of a surface that renders at all.
+  ⚠️ Two more riders, both invisible until they bite. The landing's anchor is
+  a zero-LAYOUT overlay held one band-height ABOVE that block's bottom, its
   height DERIVED from `UIFont` (never probed — a state write during layout
   anywhere in the TabView subtree breaks the search-role morph, and Today is
   inside it; `navigation.md`): `scrollTo` ignores pinned headers, so a bottom-seated
-  anchor puts today's first row BEHIND the band. The below-anchor
-  `minHeight` wraps below-anchor content ONLY, or content above the anchor
-  eats it and a short timeline can't scroll today to the top. And the
+  anchor puts today's first row BEHIND the band. And the
   opening `scrollTo` is DEFERRED a runloop — against an id its lazy
   container hasn't created yet it is a silent no-op, one-shot flag
   already burned.

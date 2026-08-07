@@ -149,8 +149,16 @@ struct TodayView: View {
 
     /// The opening scroll target: the active setup step during onboarding,
     /// else today's content. Keeps the returning-user path (#267) unchanged.
-    private var openingScrollTarget: String {
-        activeSetupAnchor ?? Self.todayAnchorID
+    ///
+    /// ⚠️ Nil when there is nothing to scroll to — no setup step running and
+    /// no week ahead above today, so the resting offset already IS the
+    /// landing. The anchor only exists while the week-ahead block does
+    /// (`weekAheadBlock`), and a `scrollTo` against an id that isn't in the
+    /// tree is a silent no-op; saying so here means the call site reads as
+    /// intent instead of depending on that.
+    private var openingScrollTarget: String? {
+        if let anchor = activeSetupAnchor { return anchor }
+        return showsFutureSection ? Self.todayAnchorID : nil
     }
 
     /// True only when Today's own timeline is the visible surface — no
@@ -266,6 +274,22 @@ struct TodayView: View {
                             // Lazy: the committed section is the whole
                             // history — eager building made every render
                             // O(sessions) (bug hunt perf finding).
+                            //
+                            // ⚠️ **ONE lazy container on this axis, and every
+                            // rail row is a DIRECT child of it.** Build 163
+                            // (#532) nested a second `LazyVStack` inside this
+                            // section to carry the below-anchor min-height,
+                            // and a nested lazy stack realizes NO children:
+                            // Today rendered as one viewport of blank space
+                            // for every install from 2026-08-01 (Dave's
+                            // fresh-install screenshot; the smoke suite went
+                            // red on that push and stayed red for six days —
+                            // ui-test isn't required and its tracking issue
+                            // was already open, so nothing said so). Do not
+                            // reintroduce an inner lazy stack to scope a
+                            // frame; a frame that has to wrap a subrange of
+                            // these rows has to wrap them EAGERLY, and eager
+                            // is what the perf finding above forbids.
                             LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
                                 // ONE section holds the whole timeline, and
                                 // the week band is its HEADER — which is what
@@ -285,50 +309,7 @@ struct TodayView: View {
                                 // below the landing lives in this section so
                                 // the band stays pinned the whole way down.
                                 Section {
-                                    // The week ahead is INSIDE the band's
-                                    // section (build 163, Dave: the bar
-                                    // "should always sit fully above the
-                                    // timeline, including future items").
-                                    // A section header renders where its
-                                    // section BEGINS, so while the future
-                                    // block sat above the section the band
-                                    // drew between the week ahead and
-                                    // today — chrome wedged into the middle
-                                    // of the rail. (Its eagerness and its
-                                    // anchor are load-bearing — see
-                                    // `weekAheadBlock`.)
-                                    weekAheadBlock
-                                    // ⚠️ The min-height binds the BELOW-ANCHOR
-                                    // region ONLY, which is why it moved off
-                                    // the outer stack (review): with the band
-                                    // header and the week ahead now inside
-                                    // that stack, a min-height there is eaten
-                                    // by content ABOVE the anchor and stops
-                                    // guaranteeing today can reach the top.
-                                    // Nested and LAZY — an eager stack here
-                                    // would reinstate the O(sessions) render
-                                    // the bug hunt killed; as the section's
-                                    // last child its size only feeds the
-                                    // outer stack's estimate.
-                                    LazyVStack(spacing: 0) {
-                                        presentEntries(viewportHeight: viewport.size.height)
-                                        committedHistory
-                                    // Once real history exists the interactive
-                                    // scaffold is gone, but the finished setup
-                                    // steps stay as permanent "origin"
-                                    // milestones at the very bottom (Dave,
-                                    // 2026-07-24): the done steps read as
-                                    // committed cards, and any step left
-                                    // unfinished stays actionable so setup is
-                                    // still reachable. The onboarding anchors
-                                    // it carries are inert here (the
-                                    // reveal-scroll only runs while setup is
-                                    // active).
-                                        if !setupActive {
-                                            setupSection(viewportHeight: viewport.size.height)
-                                        }
-                                    }
-                                    .frame(minHeight: viewport.size.height, alignment: .top)
+                                    timelineEntries(viewportHeight: viewport.size.height)
                                 } header: {
                                     weekStripBand
                                 }
@@ -347,6 +328,24 @@ struct TodayView: View {
                                 // the first logged session.
                             }
                             .padding(.horizontal, 16)
+                            // Pad the timeline to at least a screen so the
+                            // opening `scrollTo` has somewhere to go (see the
+                            // GeometryReader note); taller timelines make it a
+                            // no-op. ⚠️ It sits on the WHOLE stack, which is
+                            // the only place a frame can sit now that every
+                            // row is a direct child of the one lazy container
+                            // (the law above). #532 wanted it to bind the
+                            // BELOW-anchor region alone — with the week ahead
+                            // inside the section, a tall week can eat this
+                            // padding and leave today short of the very top.
+                            // That is a landing imperfection on one state (a
+                            // full week scheduled, almost no history); the
+                            // shape that fixed it exactly rendered nothing at
+                            // all, which is not a trade. Anything better than
+                            // this needs the below-anchor height, and probing
+                            // for it writes state during layout — banned
+                            // anywhere in the TabView subtree (navigation.md).
+                            .frame(minHeight: viewport.size.height, alignment: .top)
                         }
                         // ⚠️ The 16 pt content column stays per-child, NOT on
                         // this stack: the pinned band above is full-width
@@ -455,8 +454,9 @@ struct TodayView: View {
                         // has not created yet is a SILENT no-op — which,
                         // with the one-shot flag already burned, would skip
                         // the landing permanently for that appearance.
+                        guard let target = openingScrollTarget else { return }
                         Task { @MainActor in
-                            proxy.scrollTo(openingScrollTarget, anchor: .top)
+                            proxy.scrollTo(target, anchor: .top)
                         }
                     }
                     .onChange(of: viewport.size.height) { _, height in
@@ -469,8 +469,9 @@ struct TodayView: View {
                         guard !hasAnchoredToday, height > 0 else { return }
                         hasAnchoredToday = true
                         // Deferred for the same reason as onAppear's.
+                        guard let target = openingScrollTarget else { return }
                         Task { @MainActor in
-                            proxy.scrollTo(openingScrollTarget, anchor: .top)
+                            proxy.scrollTo(target, anchor: .top)
                         }
                     }
                     .onChange(of: isTodayRootVisible) { _, visible in
@@ -495,6 +496,11 @@ struct TodayView: View {
                         // dayChangeToken). Next runloop, not mid-update:
                         // the new day's content must lay out before the
                         // anchor frame it scrolls to is real.
+                        // ⚠️ Gated on the week ahead like the landing: the
+                        // anchor only exists while that block does, and with
+                        // nothing above today there is nothing to re-anchor
+                        // past.
+                        guard showsFutureSection else { return }
                         Task { @MainActor in
                             proxy.scrollTo(Self.todayAnchorID, anchor: .top)
                         }
@@ -1222,6 +1228,38 @@ struct TodayView: View {
         return runs
     }
 
+    /// The band's section, top to bottom: the week ahead, the present
+    /// entries, committed history, and — once history exists — the finished
+    /// setup steps as permanent origin milestones (Dave, 2026-07-24: the
+    /// done steps read as committed cards, and any step left unfinished
+    /// stays actionable, so setup is still reachable; the onboarding anchors
+    /// they carry are inert there, the reveal-scroll only runs while setup
+    /// is active).
+    ///
+    /// ⚠️ Every one of these is a DIRECT child of the single lazy stack —
+    /// this is a `@ViewBuilder` boundary, not a container. Wrapping any
+    /// subrange in a second `LazyVStack` is what blanked the surface (the
+    /// law at the mount site); wrapping it eagerly is what the O(sessions)
+    /// perf finding forbids. It is its OWN builder for the reason
+    /// `committedHistory` below gives — this stack sits at the
+    /// type-checker's budget, and four members inline is what tips it.
+    @ViewBuilder
+    private func timelineEntries(viewportHeight: CGFloat) -> some View {
+        // The week ahead is INSIDE the band's section (build 163, Dave: the
+        // bar "should always sit fully above the timeline, including future
+        // items"). A section header renders where its section BEGINS, so
+        // while the future block sat above the section the band drew between
+        // the week ahead and today — chrome wedged into the middle of the
+        // rail. (Its eagerness and its anchor are load-bearing — see
+        // `weekAheadBlock`.)
+        weekAheadBlock
+        presentEntries(viewportHeight: viewportHeight)
+        committedHistory
+        if !setupActive {
+            setupSection(viewportHeight: viewportHeight)
+        }
+    }
+
     /// The committed run, in month sections (#506, Q11-A).
     ///
     /// ⚠️ EXTRACTED, not inlined in the timeline stack: nesting a
@@ -1910,22 +1948,39 @@ struct TodayView: View {
     /// section used to BEGIN at the anchor, which made the band the first
     /// thing on screen by construction rather than by intent. An overlay
     /// reserves no space, so nothing moves at rest.
+    ///
+    /// ⚠️ **The whole block is GATED, and that gate is what makes Today
+    /// render at all** (2026-08-07). It used to be an unconditional
+    /// `VStack` holding an `if` — so with nothing scheduled it was a
+    /// ZERO-HEIGHT first child of the lazy section, and a `LazyVStack`
+    /// stops realizing after one: every row below it went missing and
+    /// Today drew as blank space. That is every fresh install, and every
+    /// install whose routines carry no schedule. It shipped from
+    /// 2026-08-01 to 2026-08-07 (build 163 / #532, which moved this block
+    /// inside the section — correctly — without noticing that an empty
+    /// view is fine as a scroll SIBLING and fatal as a lazy CHILD).
+    /// ⚠️ So the anchor exists only when there IS a week ahead, which is
+    /// the only state that needs it: with nothing above today, the resting
+    /// offset already IS the landing, and `scrollTo` against a missing id
+    /// is a no-op that leaves it there. `openingScrollTarget` says so out
+    /// loud rather than relying on that no-op.
     @ViewBuilder
     private var weekAheadBlock: some View {
-        VStack(spacing: 0) {
-            if showsFutureSection {
+        if showsFutureSection {
+            VStack(spacing: 0) {
                 futureSection
             }
-        }
-        // ⚠️ No horizontal padding here: the enclosing stack already carries
-        // the 16 pt column. It needed its own while it was a SIBLING of that
-        // stack; inside it, a second pad insets the week ahead by 32 and jogs
-        // the rail's spine 16 pt at the anytime boundary (review).
-        .overlay(alignment: .bottom) {
-            Color.clear
-                .frame(height: bandHeight)
-                .allowsHitTesting(false)
-                .id(Self.todayAnchorID)
+            // ⚠️ No horizontal padding here: the enclosing stack already
+            // carries the 16 pt column. It needed its own while it was a
+            // SIBLING of that stack; inside it, a second pad insets the week
+            // ahead by 32 and jogs the rail's spine 16 pt at the anytime
+            // boundary (review).
+            .overlay(alignment: .bottom) {
+                Color.clear
+                    .frame(height: bandHeight)
+                    .allowsHitTesting(false)
+                    .id(Self.todayAnchorID)
+            }
         }
     }
 

@@ -229,7 +229,7 @@ final class SmokeTests: XCTestCase {
         app.launch()
 
         let equipCTA = app.buttons["setupEquipmentStep"]
-        XCTAssertTrue(equipCTA.waitForExistence(timeout: 10))
+        XCTAssertTrue(equipCTA.waitForExistence(timeout: 10), "setup step 1 on Today · \(todayInventory())")
         equipCTA.tap()
 
         let setEquipment = app.buttons["setEquipmentButton"]
@@ -538,7 +538,7 @@ final class SmokeTests: XCTestCase {
         // auto-landing.
         XCTAssertTrue(
             app.buttons["quickStartEditButton"].waitForExistence(timeout: 10),
-            "closing the recap must land on the Today screen"
+            "closing the recap must land on the Today screen · \(todayInventory())"
         )
 
         // Snapshot the list before asserting, so a failure here leaves
@@ -644,7 +644,7 @@ final class SmokeTests: XCTestCase {
 
         XCTAssertTrue(
             app.buttons["quickStartEditButton"].waitForExistence(timeout: 10),
-            "closing the recap lands on Today — the landing this door used to skip"
+            "closing the recap lands on Today — the landing this door used to skip · \(todayInventory())"
         )
     }
 
@@ -687,7 +687,7 @@ final class SmokeTests: XCTestCase {
         // Fresh install: equipment is the only ready step; the ones
         // above it are gated.
         let equipCTA = app.buttons["setupEquipmentStep"]
-        XCTAssertTrue(equipCTA.waitForExistence(timeout: 10))
+        XCTAssertTrue(equipCTA.waitForExistence(timeout: 10), "setup step 1 on Today · \(todayInventory())")
         XCTAssertTrue(app.staticTexts["Needs your equipment first"].exists)
         snap("setup-fresh")
         equipCTA.tap()
@@ -916,6 +916,33 @@ final class SmokeTests: XCTestCase {
 
     private func textInventory(_ limit: Int = 10) -> String {
         inventory(app.staticTexts, limit: limit)
+    }
+
+    /// What Today's timeline is actually showing, for the assertions that
+    /// wait on a rail element.
+    ///
+    /// ⚠️ It exists because four of them waited BLIND. Today's whole
+    /// timeline rendered as one viewport of blank space from 2026-08-01
+    /// (a `LazyVStack` nested inside the pinned-header one realizes no
+    /// children), and all four failures read `XCTAssertTrue failed` with
+    /// no message — six days of red that named a missing button and never
+    /// said the surface behind it was empty. Texts first: a blank rail is
+    /// legible as the ABSENCE of the datelines every entry prints.
+    ///
+    /// ⚠️ It also reports the timeline SCROLL VIEW's frame and descendant
+    /// count, because "no rail elements" has two very different causes and
+    /// the first round of this fix guessed the wrong one: content that was
+    /// never realized (count ~0 — a lazy-stack realization failure) versus
+    /// content realized and scrolled out of the visible band (count high,
+    /// which points at the landing `scrollTo` instead). One integer
+    /// separates them; a screenshot would too, and the artifact holding it
+    /// is unreachable from a remote session.
+    private func todayInventory() -> String {
+        let scroll = app.scrollViews.firstMatch
+        let scope = scroll.exists
+            ? "scroll \(rect(scroll.frame)) descendants=\(scroll.descendants(matching: .any).count)"
+            : "NO scrollView"
+        return "\(scope) · \(textInventory(6)) | \(buttonInventory(6))"
     }
 
     /// A frame as four integers, short enough to survive the annotation's
