@@ -146,8 +146,8 @@ struct SheetHeader: View {
 /// "Cancel" to abandon edits, "Done"/"Close" to leave a view-only sheet.
 /// Retires the circular ✕ close so every top-of-sheet button reads the
 /// same, and so ✕ can mean ONLY "collapse the expanded search". Matches
-/// `SheetHeader`'s cancel styling; reused by the hand-built trays
-/// (GitHub and its kin) so they stop drifting.
+/// `SheetHeader`'s cancel styling; reused by the one hand-built tray left
+/// (`GitHubSyncTray`) so it can't drift from the sheets around it.
 struct SheetDismissKey: View {
     var label: String = "Done"
     var identifier: String?

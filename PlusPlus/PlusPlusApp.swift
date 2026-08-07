@@ -19,6 +19,28 @@ struct PlusPlusApp: App {
             || ProcessInfo.processInfo.environment["XCTestSessionIdentifier"] != nil
             || NSClassFromString("XCTestCase") != nil
 
+    /// Operator (removed 2026-08-07) kept its rolling chat transcript at
+    /// `Application Support/Operator/thread.json` — up to 120 messages,
+    /// deliberately NOT backup-excluded, because a conversation was user
+    /// state rather than a rebuildable cache. Deleting the code left that
+    /// file stranded: nothing can read it, nothing can show it, and it
+    /// rides into every iCloud backup forever. Removing the feature has to
+    /// mean removing its data too.
+    ///
+    /// Deliberately UNCONDITIONAL rather than a `UserDefaults` one-shot.
+    /// A flag would be set on this device and then be wrong the moment a
+    /// restore from an older backup brings the file back — and the flag
+    /// itself would outlive the thing it guards. One `removeItem` against
+    /// a path that almost never exists costs nothing and self-heals.
+    private static func removeRetiredOperatorThread() {
+        guard let support = try? FileManager.default.url(
+            for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: false
+        ) else { return }
+        try? FileManager.default.removeItem(
+            at: support.appendingPathComponent("Operator", isDirectory: true)
+        )
+    }
+
     /// Appearance (#97): system by default; the setting lives in the
     /// Settings sheet.
     @AppStorage(AppAppearance.storageKey) private var appearanceRaw: String = AppAppearance.system.rawValue
@@ -118,6 +140,7 @@ struct PlusPlusApp: App {
         // has both "Stationary Bike" and "Indoor Cycling" in its catalog, and
         // dropping a definition never removes a row that already exists.
         SeedData.mergeIndoorBikeExercises(context: modelContainer.mainContext)
+        Self.removeRetiredOperatorThread()
         // A routine tall enough to overflow every simulator screen, for
         // the scroll regression test. Only meaningful with --uitest-reset.
         if inMemory && CommandLine.arguments.contains("--uitest-bigworkout") {
