@@ -149,8 +149,16 @@ struct TodayView: View {
 
     /// The opening scroll target: the active setup step during onboarding,
     /// else today's content. Keeps the returning-user path (#267) unchanged.
-    private var openingScrollTarget: String {
-        activeSetupAnchor ?? Self.todayAnchorID
+    ///
+    /// ⚠️ Nil when there is nothing to scroll to — no setup step running and
+    /// no week ahead above today, so the resting offset already IS the
+    /// landing. The anchor only exists while the week-ahead block does
+    /// (`weekAheadBlock`), and a `scrollTo` against an id that isn't in the
+    /// tree is a silent no-op; saying so here means the call site reads as
+    /// intent instead of depending on that.
+    private var openingScrollTarget: String? {
+        if let anchor = activeSetupAnchor { return anchor }
+        return showsFutureSection ? Self.todayAnchorID : nil
     }
 
     /// True only when Today's own timeline is the visible surface — no
@@ -446,8 +454,9 @@ struct TodayView: View {
                         // has not created yet is a SILENT no-op — which,
                         // with the one-shot flag already burned, would skip
                         // the landing permanently for that appearance.
+                        guard let target = openingScrollTarget else { return }
                         Task { @MainActor in
-                            proxy.scrollTo(openingScrollTarget, anchor: .top)
+                            proxy.scrollTo(target, anchor: .top)
                         }
                     }
                     .onChange(of: viewport.size.height) { _, height in
@@ -460,8 +469,9 @@ struct TodayView: View {
                         guard !hasAnchoredToday, height > 0 else { return }
                         hasAnchoredToday = true
                         // Deferred for the same reason as onAppear's.
+                        guard let target = openingScrollTarget else { return }
                         Task { @MainActor in
-                            proxy.scrollTo(openingScrollTarget, anchor: .top)
+                            proxy.scrollTo(target, anchor: .top)
                         }
                     }
                     .onChange(of: isTodayRootVisible) { _, visible in
@@ -486,6 +496,11 @@ struct TodayView: View {
                         // dayChangeToken). Next runloop, not mid-update:
                         // the new day's content must lay out before the
                         // anchor frame it scrolls to is real.
+                        // ⚠️ Gated on the week ahead like the landing: the
+                        // anchor only exists while that block does, and with
+                        // nothing above today there is nothing to re-anchor
+                        // past.
+                        guard showsFutureSection else { return }
                         Task { @MainActor in
                             proxy.scrollTo(Self.todayAnchorID, anchor: .top)
                         }
@@ -1933,22 +1948,39 @@ struct TodayView: View {
     /// section used to BEGIN at the anchor, which made the band the first
     /// thing on screen by construction rather than by intent. An overlay
     /// reserves no space, so nothing moves at rest.
+    ///
+    /// ⚠️ **The whole block is GATED, and that gate is what makes Today
+    /// render at all** (2026-08-07). It used to be an unconditional
+    /// `VStack` holding an `if` — so with nothing scheduled it was a
+    /// ZERO-HEIGHT first child of the lazy section, and a `LazyVStack`
+    /// stops realizing after one: every row below it went missing and
+    /// Today drew as blank space. That is every fresh install, and every
+    /// install whose routines carry no schedule. It shipped from
+    /// 2026-08-01 to 2026-08-07 (build 163 / #532, which moved this block
+    /// inside the section — correctly — without noticing that an empty
+    /// view is fine as a scroll SIBLING and fatal as a lazy CHILD).
+    /// ⚠️ So the anchor exists only when there IS a week ahead, which is
+    /// the only state that needs it: with nothing above today, the resting
+    /// offset already IS the landing, and `scrollTo` against a missing id
+    /// is a no-op that leaves it there. `openingScrollTarget` says so out
+    /// loud rather than relying on that no-op.
     @ViewBuilder
     private var weekAheadBlock: some View {
-        VStack(spacing: 0) {
-            if showsFutureSection {
+        if showsFutureSection {
+            VStack(spacing: 0) {
                 futureSection
             }
-        }
-        // ⚠️ No horizontal padding here: the enclosing stack already carries
-        // the 16 pt column. It needed its own while it was a SIBLING of that
-        // stack; inside it, a second pad insets the week ahead by 32 and jogs
-        // the rail's spine 16 pt at the anytime boundary (review).
-        .overlay(alignment: .bottom) {
-            Color.clear
-                .frame(height: bandHeight)
-                .allowsHitTesting(false)
-                .id(Self.todayAnchorID)
+            // ⚠️ No horizontal padding here: the enclosing stack already
+            // carries the 16 pt column. It needed its own while it was a
+            // SIBLING of that stack; inside it, a second pad insets the week
+            // ahead by 32 and jogs the rail's spine 16 pt at the anytime
+            // boundary (review).
+            .overlay(alignment: .bottom) {
+                Color.clear
+                    .frame(height: bandHeight)
+                    .allowsHitTesting(false)
+                    .id(Self.todayAnchorID)
+            }
         }
     }
 

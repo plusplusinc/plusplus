@@ -928,8 +928,21 @@ final class SmokeTests: XCTestCase {
     /// no message — six days of red that named a missing button and never
     /// said the surface behind it was empty. Texts first: a blank rail is
     /// legible as the ABSENCE of the datelines every entry prints.
+    ///
+    /// ⚠️ It also reports the timeline SCROLL VIEW's frame and descendant
+    /// count, because "no rail elements" has two very different causes and
+    /// the first round of this fix guessed the wrong one: content that was
+    /// never realized (count ~0 — a lazy-stack realization failure) versus
+    /// content realized and scrolled out of the visible band (count high,
+    /// which points at the landing `scrollTo` instead). One integer
+    /// separates them; a screenshot would too, and the artifact holding it
+    /// is unreachable from a remote session.
     private func todayInventory() -> String {
-        "\(textInventory(6)) | \(buttonInventory(6))"
+        let scroll = app.scrollViews.firstMatch
+        let scope = scroll.exists
+            ? "scroll \(rect(scroll.frame)) descendants=\(scroll.descendants(matching: .any).count)"
+            : "NO scrollView"
+        return "\(scope) · \(textInventory(6)) | \(buttonInventory(6))"
     }
 
     /// A frame as four integers, short enough to survive the annotation's
