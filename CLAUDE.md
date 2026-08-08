@@ -63,7 +63,7 @@ No third-party dependencies without discussion first.
 > certain files → **.claude/rules/** (`paths:` frontmatter); a procedure → **.claude/skills/**.
 > The test for living here: would a session need it BEFORE knowing what it was about to touch?
 
-**Last updated:** 2026-08-05 · **Latest TestFlight build:** 192, from main (191's wheel geometry fixups, #555; 191 was the three-tab bar + scope wheel, #554). ⚠️ 170–190 were dispatched from feature branches by parallel sessions, NOT main — the 169 line here was 21 builds stale when caught.
+**Last updated:** 2026-08-07 · **Latest TestFlight build:** 196, from main (Today's timeline renders again, #559 — 191 through 195 all shipped it BLANK on a fresh install). ⚠️ This line was reading 192 when 195 had already gone out: 193/194 came from a feature branch, 195 from main, none of them through this file. Read `actions_list` on testflight.yml, never this line, before writing a build number.
 ⚠️ Build number = workflow RUN number, not last-build+1 — check `actions_list` before writing a What's-New entry. It moves on a PARALLEL SESSION's dispatch from any branch, so a number read an hour ago is already stale (2026-08-02: 165–168 landed from a feature branch mid-round).
 
 **On main, awaiting Dave's device pass:** the queue lives in
