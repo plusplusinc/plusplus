@@ -30,6 +30,26 @@ WorkoutCore   ──> Foundation only
 `WorkoutCore` and `Features` are currently empty placeholders. The packages exist because the
 layering is the decision; the contents are not.
 
+## Branching
+
+**`main` only moves through pull requests. Never commit to it directly**, not even for a one-line
+fix. Branch protection enforces this server-side, so a direct push is rejected rather than
+merely discouraged.
+
+```sh
+git switch -c <topic>
+# ...work...
+git push -u origin <topic>
+gh pr create --fill
+```
+
+CI must be green before a PR can merge.
+
+**Merges are squashed** — one PR becomes exactly one commit on `main`, and the PR's title and
+body become that commit's message. So write the body as a commit message, not as a note to a
+reviewer: anything about stacking, review order, or "as discussed" belongs in a PR comment,
+where it will not end up in `git log` forever.
+
 ## Working in this project
 
 **Never hand-edit `project.pbxproj`.** It is ~41 lines and should stay that way. `App/` is a
