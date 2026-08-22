@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// Semantic colour tokens.
+/// Semantic color tokens.
 ///
-/// Named for the job a colour does, not the colour it is. `ppAccent` stays correct when the brand
+/// Named for the job a color does, not the color it is. `ppAccent` stays correct when the brand
 /// green becomes a brand teal; `ppGreen` would not. Call sites never reference a literal.
 ///
 /// Values carry over from the previous app's palette, including its high-contrast variants —

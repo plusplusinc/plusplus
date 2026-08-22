@@ -59,10 +59,27 @@ xcodebuild build -project PlusPlus.xcodeproj -scheme PlusPlus \
 # Formatting. swift-format ships inside Xcode; there is nothing to install.
 swift format --in-place --recursive App Packages
 swift format lint --strict --recursive App Packages
+
+# Spelling. No arguments checks everything tracked; pass paths to check those.
+./scripts/check-us-english.sh
 ```
 
 Prefer XcodeBuildMCP tools over raw `xcodebuild` when available — structured errors, simulator
 control, UI automation.
+
+## Writing
+
+**US English throughout** — code, comments, documentation, commit messages. Prefer `-or` to
+`-our`, `-er` to `-re`, `-ize` to `-ise`, and `-ed` to `-t` on past tenses.
+
+`scripts/check-us-english.sh` holds the wordlist and prints the American form for anything it
+finds. `.claude/hooks/check-us-english.sh` runs it on every file an agent edits, which is where
+these creep in. Run the script directly over the whole tree when you want to sweep. Add a pair to
+it when you meet a word it misses.
+
+The list is explicit rather than pattern-based: a blanket `-ise` → `-ize` rule would flag
+*advertise*, *exercise* and *surprise*. `cancelled` is deliberately absent because Swift's own
+`Task.isCancelled` uses it, and so does Apple's prose.
 
 ## Swift 6 concurrency
 
@@ -96,11 +113,11 @@ should degrade, not crash.
 
 ## Design system
 
-No raw colours, spacing values, font sizes, or corner radii at call sites. Use the tokens in
+No raw colors, spacing values, font sizes, or corner radii at call sites. Use the tokens in
 `Packages/DesignSystem/Sources/DesignSystem/Tokens+*.swift`. If a token is missing, add one rather
 than inlining a literal.
 
-- Colours are semantic (`ppAccent`, not `ppGreen`) and live in `Tokens.xcassets`. Values and
+- Colors are semantic (`ppAccent`, not `ppGreen`) and live in `Tokens.xcassets`. Values and
   their high-contrast variants carry over from the previous app's palette, where several
   pairs were tuned to clear WCAG AA on a specific ground — treat a hex as measured, not
   chosen.
@@ -132,7 +149,7 @@ Put a test in the cheapest tier that can hold it:
 | --- | --- | --- |
 | Pure logic | `WorkoutCoreTests` (not yet created) | ~1ms, no simulator |
 | Storage | `WorkoutStoreTests`, in-memory container | ~15ms, no simulator |
-| Feature behaviour | `FeaturesTests` (not yet created), fake repository | ~1ms, no simulator |
+| Feature behavior | `FeaturesTests` (not yet created), fake repository | ~1ms, no simulator |
 | Rendering | `DesignSystemTests` | simulator required |
 
 Never reach for a simulator-bound test when a pure one would do. Add the package to the CI matrix

@@ -5,13 +5,13 @@ import SwiftUI
 /// At rest it shows one chevron. Once running, two more emerge from behind it to the right and a
 /// lit highlight marches left→right across the trio, the others dimmed rather than hidden.
 ///
-/// **The resting chevron never moves, and the resting content still centres.** Only a single
+/// **The resting chevron never moves, and the resting content still centers.** Only a single
 /// chevron occupies layout width; the other two are drawn in an overlay that extends past the
 /// trailing edge, so they cost nothing in layout and cannot shove anything. Laying all three out
 /// normally would grow the run from one chevron wide to three as they appear, and because a key
-/// centres its contents that growth drags the label and the resting chevron leftward at the exact
+/// centers its contents that growth drags the label and the resting chevron leftward at the exact
 /// moment the eye is tracking them. Reserving all three up front fixes the drift but leaves the
-/// resting label visibly off-centre. Overflowing gets both.
+/// resting label visibly off-center. Overflowing gets both.
 ///
 /// Reduce Motion keeps the single static chevron: the emerge is positional (WCAG 2.3.3).
 public struct ChevronRun: View {
@@ -36,7 +36,7 @@ public struct ChevronRun: View {
     private static let gap: CGFloat = 3
 
     public var body: some View {
-        // The sizing element: exactly one chevron, so a key's contents centre on the resting state.
+        // The sizing element: exactly one chevron, so a key's contents center on the resting state.
         Image(systemName: "chevron.right")
             .hidden()
             .overlay(alignment: .leading) { liveRun }
@@ -68,7 +68,7 @@ public struct ChevronRun: View {
         isRunning && !reduceMotion
     }
 
-    /// The lit chevron is full; its neighbours rest dim so the two that emerged stay visible as a
+    /// The lit chevron is full; its neighbors rest dim so the two that emerged stay visible as a
     /// track for the highlight to travel. At rest, only the first shows at all.
     private func opacity(of index: Int) -> Double {
         guard marching else { return index == 0 ? 1 : 0 }
