@@ -7,7 +7,7 @@ import SwiftUI
 
 /// The launch beat: splash and welcome fused into one continuous shot.
 ///
-/// A cold open always opens on the mark — the `++` centred on the background. From there the same
+/// A cold open always opens on the mark — the `++` centered on the background. From there the same
 /// glyph glides up and shrinks into its slot above the name, and the tagline and a single
 /// "Start building" key fade in beneath it. It is one element moved and scaled with
 /// `matchedGeometryEffect`, not a splash handing off to a second screen.
@@ -32,7 +32,7 @@ public struct WelcomeView: View {
     /// Reduce Motion quiets the ignition flourish — the chevron emerge is positional (WCAG 2.3.3).
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// false = the mark rests centred (splash); true = it has settled into its slot above the name.
+    /// false = the mark rests centered (splash); true = it has settled into its slot above the name.
     @State private var atWelcome = false
     /// The name, tagline and key fade in as the mark settles.
     @State private var contentVisible = false
@@ -44,7 +44,7 @@ public struct WelcomeView: View {
     @State private var divingIn = false
     @State private var launchTask: Task<Void, Never>?
 
-    /// The mark is 72pt centred on the splash and 64pt in its welcome slot. The font stays fixed
+    /// The mark is 72pt centered on the splash and 64pt in its welcome slot. The font stays fixed
     /// because `font` cannot be interpolated; `scaleEffect` carries the size change so the move
     /// reads as one continuous glide.
     private let welcomeScale: CGFloat = 64.0 / 72.0
@@ -55,7 +55,7 @@ public struct WelcomeView: View {
 
             welcomeLayout
 
-            // The splash slot: dead centre of the screen.
+            // The splash slot: dead center of the screen.
             Color.clear
                 .frame(width: 2, height: 2)
                 .matchedGeometryEffect(
@@ -120,8 +120,8 @@ public struct WelcomeView: View {
         .allowsHitTesting(contentVisible)
         // Lay out against the full display, not the safe area. In the app this was lifted from,
         // the intro was an overlay on a TabView, whose frame already ran edge to edge — so the
-        // mark centred on the display and the key measured its inset from the physical bottom.
-        // Standing alone it has to say so, and it has to say so for BOTH edges: honouring just
+        // mark centered on the display and the key measured its inset from the physical bottom.
+        // Standing alone it has to say so, and it has to say so for BOTH edges: honoring just
         // the bottom leaves the whole content block sitting ~30pt low, because half the top
         // inset lands in the spacer above it.
         .ignoresSafeArea()
@@ -132,8 +132,8 @@ public struct WelcomeView: View {
             HStack(spacing: Spacing.sm) {
                 // Reserve the width of the LONGER label so swapping "Start building" for
                 // "let's go" cannot change the text box's width and shove the chevrons. A hidden
-                // placeholder fixes the box, and the live label rides inside it centred — so the
-                // shorter label lands on the same centre the longer one had, and the morph reads
+                // placeholder fixes the box, and the live label rides inside it centered — so the
+                // shorter label lands on the same center the longer one had, and the morph reads
                 // as one word replacing another in place rather than sliding.
                 Text(Self.restingLabel)
                     .lineLimit(1)
