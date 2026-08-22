@@ -18,14 +18,16 @@
         private static let swatches: [(String, Color)] = [
             ("background", .ppBackground),
             ("surface", .ppSurface),
-            ("surfaceElevated", .ppSurfaceElevated),
+            ("surfaceRaised", .ppSurfaceRaised),
             ("textPrimary", .ppTextPrimary),
             ("textSecondary", .ppTextSecondary),
             ("accent", .ppAccent),
-            ("positive", .ppPositive),
             ("warning", .ppWarning),
             ("danger", .ppDanger),
-            ("separator", .ppSeparator),
+            ("border", .ppBorder),
+            ("borderStrong", .ppBorderStrong),
+            ("primaryFill", .ppPrimaryFill),
+            ("onPrimary", .ppOnPrimary),
         ]
 
         private var palette: some View {
@@ -37,7 +39,7 @@
                             .frame(width: 44, height: 28)
                             .overlay(
                                 RoundedRectangle(cornerRadius: Radius.sm)
-                                    .strokeBorder(Color.ppSeparator)
+                                    .strokeBorder(Color.ppBorder)
                             )
                         Text(name)
                             .font(.ppCaption)
