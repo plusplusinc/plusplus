@@ -2,9 +2,9 @@
 
 An iOS workout tracker. Swift 6, SwiftUI, SwiftData + CloudKit, iOS 26 minimum.
 
-**There are no features yet.** The foundation is built and verified; the app renders a
-placeholder. Do not add features, screens, or domain types without being asked — the data model
-is meant to follow the first feature, not precede it.
+One feature exists: the welcome screen (`Packages/Features/.../Welcome`), ported from the
+previous app. There is still no data model. Do not add features, screens, or domain types
+without being asked — the data model follows the features, not the other way round.
 
 ## Architecture
 
@@ -100,14 +100,27 @@ No raw colours, spacing values, font sizes, or corner radii at call sites. Use t
 `Packages/DesignSystem/Sources/DesignSystem/Tokens+*.swift`. If a token is missing, add one rather
 than inlining a literal.
 
-- Colours are semantic (`ppPositive`, not `ppGreen`) and live in `Tokens.xcassets`.
+- Colours are semantic (`ppAccent`, not `ppGreen`) and live in `Tokens.xcassets`. Values and
+  their high-contrast variants carry over from the previous app's palette, where several
+  pairs were tuned to clear WCAG AA on a specific ground — treat a hex as measured, not
+  chosen.
+- Type is plain SF, not rounded. The character comes from the palette and the press grammar.
 - Any number that changes in place — weight, reps, a timer — uses `.ppMetric` or `.ppMetricSmall`,
   which are monospaced. Proportional digits visibly jitter as they increment.
 - Primary actions use `TouchTarget.primary` (60pt), not the 44pt minimum. This app gets used
   mid-set, one-handed.
 
-Components should get snapshot coverage in light, dark, and accessibility-XXXL. There are no
-components yet; `TokenSnapshotTests` covers the palette and is the template to copy.
+Components should get snapshot coverage in light, dark, and accessibility-XXXL.
+`TokenSnapshotTests` covers the palette; `ChevronRunSnapshotTests` is the template for a
+component whose contract is positional.
+
+`RaisedKeyStyle` is the press grammar for anything that commits or navigates: an opaque cap
+over a fixed plate. Flat controls stay flat. **A raised key's cap must be opaque** or the
+plate shows through it at rest.
+
+`ChevronRun` reserves the width of all three chevrons even at rest, so the leading chevron
+never moves when the other two emerge. Laying it out naturally would grow the run mid-
+animation and drag the label leftward. Same reservation trick as the button's label.
 
 ## Testing
 
