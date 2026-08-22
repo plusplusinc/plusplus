@@ -1,0 +1,67 @@
+// Settings shared by every configuration.
+//
+// Everything lives here rather than in project.pbxproj so that build configuration is a
+// reviewable text diff. If you find yourself changing a setting in Xcode's Build Settings tab,
+// move it here instead — the pbxproj is meant to stay near-static.
+
+// MARK: - Identity
+
+PRODUCT_NAME = $(TARGET_NAME)
+PRODUCT_BUNDLE_IDENTIFIER = com.plusplusinc.plusplus
+MARKETING_VERSION = 0.1.0
+CURRENT_PROJECT_VERSION = 1
+
+// MARK: - Platform
+
+IPHONEOS_DEPLOYMENT_TARGET = 26.0
+SDKROOT = iphoneos
+TARGETED_DEVICE_FAMILY = 1,2
+SUPPORTED_PLATFORMS = iphoneos iphonesimulator
+
+// MARK: - Swift
+//
+// SWIFT_VERSION 6.0 selects the Swift 6 *language mode*, which makes data-race safety a compile
+// error rather than a warning. Turning this on later, once there is real concurrent code, is
+// dramatically more painful than starting with it.
+
+SWIFT_VERSION = 6.0
+SWIFT_STRICT_CONCURRENCY = complete
+SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY = YES
+SWIFT_EMIT_LOC_STRINGS = YES
+
+// MARK: - Signing
+//
+// DEVELOPMENT_TEAM is intentionally empty. Set it in Config/Local.xcconfig (gitignored) so the
+// team ID never lands in the repo, and let CI pass it on the xcodebuild command line.
+
+CODE_SIGN_STYLE = Automatic
+CODE_SIGN_ENTITLEMENTS = App/PlusPlus.entitlements
+
+// MARK: - Info.plist
+//
+// Generated from these settings; there is no Info.plist file to drift out of sync.
+
+GENERATE_INFOPLIST_FILE = YES
+INFOPLIST_KEY_CFBundleDisplayName = PlusPlus
+INFOPLIST_KEY_UILaunchScreen_Generation = YES
+INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES
+INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait
+// Declared here so App Store Connect stops asking on every upload. Revisit if the app ever
+// ships its own cryptography beyond standard HTTPS.
+INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO
+// Merged with the generated plist. Holds only keys with no INFOPLIST_KEY_* equivalent —
+// currently just UIBackgroundModes, which CloudKit push requires.
+INFOPLIST_FILE = Config/Info.plist
+INFOPLIST_KEY_NSHealthShareUsageDescription = PlusPlus reads your workouts so your training history stays in one place.
+INFOPLIST_KEY_NSHealthUpdateUsageDescription = PlusPlus saves finished sessions to Health so they close your activity rings.
+
+// MARK: - Hygiene
+
+ENABLE_USER_SCRIPT_SANDBOXING = YES
+CLANG_ENABLE_MODULES = YES
+ENABLE_MODULE_VERIFIER = YES
+GCC_NO_COMMON_BLOCKS = YES
+ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES
+
+// Optional developer-local overrides (team ID, custom bundle id). Gitignored; absent by default.
+#include? "Local.xcconfig"

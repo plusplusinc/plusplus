@@ -1,0 +1,28 @@
+# Xcode build output
+build/
+DerivedData/
+*.xcarchive
+*.ipa
+*.dSYM
+*.dSYM.zip
+
+# Xcode per-user state. Shared schemes live in xcshareddata and ARE committed.
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+
+# Swift Package Manager. Package.resolved is committed on purpose so builds are reproducible.
+.build/
+.swiftpm/xcode/package.xcworkspace/xcuserdata/
+
+# Developer-local build settings. May contain a team ID; never commit.
+Config/Local.xcconfig
+
+# Signing material. Should only ever exist on CI, from secrets.
+*.p12
+*.p8
+*.mobileprovision
+
+# macOS
+.DS_Store

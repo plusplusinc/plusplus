@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SIMULATOR: "platform=iOS Simulator,name=iPhone 17"
+
+jobs:
+  format:
+    name: Format
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v7
+      # swift-format ships inside Xcode 26, so there is nothing to install or version-pin.
+      - name: Lint formatting
+        run: swift format lint --strict --recursive App Packages
+
+  unit-tests:
+    name: Unit tests (${{ matrix.package }})
+    runs-on: macos-26
+    strategy:
+      fail-fast: false
+      matrix:
+        # These run on macOS with no simulator, which is why they finish in seconds.
+        # Add a package here as soon as it grows a test target.
+        package: [WorkoutStore]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/cache@v6
+        with:
+          path: ~/.swiftpm/cache
+          key: spm-${{ runner.os }}-${{ hashFiles('Packages/*/Package.resolved') }}
+          restore-keys: spm-${{ runner.os }}-
+      - name: Test
+        run: swift test --package-path Packages/${{ matrix.package }}
+
+  simulator:
+    name: Snapshots and app build
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/cache@v6
+        with:
+          path: ~/.swiftpm/cache
+          key: spm-${{ runner.os }}-${{ hashFiles('Packages/*/Package.resolved') }}
+          restore-keys: spm-${{ runner.os }}-
+
+      # Logged so that a snapshot failure caused by a toolchain bump is obvious in the run output
+      # rather than looking like a design regression.
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          xcrun simctl list devices available | grep -E "iPhone 17" || true
+
+      - name: Snapshot tests
+        working-directory: Packages/DesignSystem
+        run: |
+          xcodebuild test \
+            -scheme DesignSystem \
+            -destination "$SIMULATOR" \
+            -resultBundlePath "$GITHUB_WORKSPACE/DesignSystem.xcresult"
+
+      - name: Build app
+        run: |
+          xcodebuild build \
+            -project PlusPlus.xcodeproj \
+            -scheme PlusPlus \
+            -configuration Debug \
+            -destination "$SIMULATOR" \
+            -resultBundlePath "$GITHUB_WORKSPACE/PlusPlus.xcresult"
+
+      - name: Upload results
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: xcresults
+          path: "*.xcresult"
+          retention-days: 7
