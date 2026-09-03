@@ -47,6 +47,9 @@ let package = Package(
                 "DesignSystem",
                 .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
             ],
+            // Reference images ship inside the test bundle: Xcode Cloud runs tests on a machine
+            // that has the built products but not the source checkout.
+            resources: [.copy("__Snapshots__")],
             swiftSettings: mainActorByDefault,
         ),
     ],
