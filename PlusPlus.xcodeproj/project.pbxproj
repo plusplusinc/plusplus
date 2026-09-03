@@ -166,14 +166,12 @@
 		00000000000000000000000E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				PRODUCT_NAME = "PlusPlus Workout Tracker";
 			};
 			name = Debug;
 		};
 		00000000000000000000000F /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				PRODUCT_NAME = "PlusPlus Workout Tracker";
 			};
 			name = Release;
 		};
