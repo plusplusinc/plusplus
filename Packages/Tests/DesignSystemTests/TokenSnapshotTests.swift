@@ -22,8 +22,12 @@ struct TokenSnapshotTests {
                             RoundedRectangle(cornerRadius: Radius.sm)
                                 .strokeBorder(Color.pp(.separator)),
                         )
+                    // One line, shrunk to fit: wrapped text hyphenates with on-demand system
+                    // dictionaries that CI machines may lack, which moves every line break.
                     Text(token.rawValue)
                         .font(.ppCaption)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.4)
                         .foregroundStyle(.pp(.textPrimary))
                 }
             }
