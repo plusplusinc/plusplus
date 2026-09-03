@@ -22,14 +22,14 @@ func assertThemedSnapshots(
     column: UInt = #column,
 ) {
     let appearances: [(name: String, traits: UITraitCollection)] = [
-        ("light", UITraitCollection(userInterfaceStyle: .light)),
-        ("dark", UITraitCollection(userInterfaceStyle: .dark)),
+        ("light", UITraitCollection { $0.userInterfaceStyle = .light }),
+        ("dark", UITraitCollection { $0.userInterfaceStyle = .dark }),
         (
             "xxxl",
-            UITraitCollection(traitsFrom: [
-                UITraitCollection(userInterfaceStyle: .light),
-                UITraitCollection(preferredContentSizeCategory: .accessibilityExtraExtraExtraLarge),
-            ]),
+            UITraitCollection {
+                $0.userInterfaceStyle = .light
+                $0.preferredContentSizeCategory = .accessibilityExtraExtraExtraLarge
+            },
         ),
     ]
     for appearance in appearances {
