@@ -11,8 +11,7 @@ before any build action.
    `plusplusinc` organization and grant it this repository.
 2. In Xcode, with `PlusPlus.xcodeproj` open: Product ▸ Xcode Cloud ▸ Create Workflow. Xcode
    registers the app record and bundle ID in App Store Connect if they do not exist.
-3. Signing is managed by Xcode Cloud; nothing about the team lives in the repo. Locally, put
-   `DEVELOPMENT_TEAM = XXXXXXXXXX` in `Config/Local.xcconfig` (gitignored).
+3. Signing is managed by Xcode Cloud using the `DEVELOPMENT_TEAM` in `Config/Base.xcconfig`.
 
 ## Workflows
 

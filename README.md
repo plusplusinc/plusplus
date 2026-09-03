@@ -13,7 +13,8 @@ open PlusPlus.xcodeproj
 No generation step. The project is committed, `App/` is a buildable folder, and the code lives
 in one local Swift package, so a file on disk is in the build.
 
-To run on a device, put your team ID in `Config/Local.xcconfig` (gitignored):
+The project signs with the PlusPlus team. To run on a device with your own team, override it
+in `Config/Local.xcconfig` (gitignored):
 
 ```
 DEVELOPMENT_TEAM = XXXXXXXXXX
