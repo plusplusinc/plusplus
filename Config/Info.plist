@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- Only keys that GENERATE_INFOPLIST_FILE cannot synthesise belong here. Everything else
+	<!-- Only keys that GENERATE_INFOPLIST_FILE cannot synthesize belong here. Everything else
 	     stays in Base.xcconfig as an INFOPLIST_KEY_* build setting. Xcode merges the two. -->
 
 	<!-- Lets CloudKit push remote changes to the device. Without it SwiftData only notices

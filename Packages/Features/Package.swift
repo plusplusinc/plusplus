@@ -5,7 +5,7 @@ let package = Package(
     name: "Features",
     platforms: [.iOS(.v26), .watchOS(.v26), .macOS(.v26)],
     products: [
-        .library(name: "Features", targets: ["Features"])
+        .library(name: "Features", targets: ["Features"]),
     ],
     dependencies: [
         .package(path: "../WorkoutCore"),
@@ -16,16 +16,22 @@ let package = Package(
         .target(
             name: "Features",
             dependencies: ["WorkoutCore", "WorkoutStore", "DesignSystem"],
-            swiftSettings: .shared
-        )
-    ]
+            swiftSettings: .shared,
+        ),
+    ],
 )
 
 extension [SwiftSetting] {
+    /// Applied to every target so a package can never silently drift from the app's strictness.
+    /// UI package: everything is main-actor isolated unless it says otherwise, matching the app.
     static var shared: [SwiftSetting] {
         [
             .swiftLanguageMode(.v6),
             .enableUpcomingFeature("ExistentialAny"),
+            // Approachable concurrency, as SWIFT_APPROACHABLE_CONCURRENCY does for the app.
+            .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
+            .enableUpcomingFeature("InferIsolatedConformances"),
+            .defaultIsolation(MainActor.self),
         ]
     }
 }

@@ -40,7 +40,7 @@ public enum WorkoutStoreContainer {
                     "PlusPlus",
                     schema: schema,
                     groupContainer: .identifier(appGroupID),
-                    cloudKitDatabase: .private(cloudKitContainerID)
+                    cloudKitDatabase: .private(cloudKitContainerID),
                 )
             case .local:
                 ModelConfiguration("PlusPlus", schema: schema, cloudKitDatabase: .none)
@@ -48,7 +48,7 @@ public enum WorkoutStoreContainer {
                 ModelConfiguration(
                     schema: schema,
                     isStoredInMemoryOnly: true,
-                    cloudKitDatabase: .none
+                    cloudKitDatabase: .none,
                 )
             }
 

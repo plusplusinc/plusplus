@@ -1,26 +1,64 @@
 {
   "permissions": {
     "allow": [
+      "Bash(scripts/build.sh:*)",
+      "Bash(scripts/test.sh:*)",
+      "Bash(scripts/lint.sh:*)",
+      "Bash(scripts/run.sh:*)",
+      "Bash(scripts/check-us-english.sh:*)",
       "Bash(swift build:*)",
       "Bash(swift test:*)",
-      "Bash(swift format:*)",
-      "Bash(swift package describe:*)",
+      "Bash(swift package:*)",
+      "Bash(swiftformat:*)",
+      "Bash(swiftlint:*)",
       "Bash(xcodebuild -list:*)",
       "Bash(xcodebuild -showBuildSettings:*)",
+      "Bash(xcodebuild -version:*)",
       "Bash(xcodebuild build:*)",
       "Bash(xcodebuild test:*)",
+      "Bash(xcodebuild build-for-testing:*)",
+      "Bash(xcodebuild test-without-building:*)",
+      "Bash(xcrun xcresulttool:*)",
       "Bash(xcrun simctl list:*)",
       "Bash(xcrun simctl boot:*)",
+      "Bash(xcrun simctl bootstatus:*)",
+      "Bash(xcrun simctl shutdown:*)",
       "Bash(xcrun simctl install:*)",
       "Bash(xcrun simctl launch:*)",
       "Bash(xcrun simctl terminate:*)",
+      "Bash(xcrun simctl openurl:*)",
       "Bash(xcrun simctl io:*)",
       "Bash(xcrun simctl ui:*)",
+      "Bash(xcrun simctl push:*)",
+      "Bash(xcrun simctl privacy:*)",
+      "Bash(xcrun simctl spawn:*)",
       "Bash(git status:*)",
       "Bash(git diff:*)",
       "Bash(git log:*)",
-      "Bash(git show:*)"
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(git fetch:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh pr diff:*)",
+      "Bash(gh issue list:*)",
+      "Bash(gh issue view:*)"
+    ],
+    "deny": [
+      "Bash(xcrun simctl erase:*)",
+      "Bash(xcrun simctl delete:*)",
+      "Bash(xcrun altool:*)",
+      "Bash(xcrun notarytool:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Read(./Config/Local.xcconfig)",
+      "Read(./**/*.p8)",
+      "Read(./**/*.p12)"
     ]
+  },
+  "enabledPlugins": {
+    "swift-lsp@claude-plugins-official": true
   },
   "hooks": {
     "PostToolUse": [
@@ -29,7 +67,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/format-swift.sh"
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/format-swift.sh",
+            "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/check-us-english.sh",
+            "timeout": 10
           }
         ]
       }

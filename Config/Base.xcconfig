@@ -29,6 +29,14 @@ SWIFT_STRICT_CONCURRENCY = complete
 SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY = YES
 SWIFT_EMIT_LOC_STRINGS = YES
 
+// Xcode 26's defaults for new projects, made explicit. Together they mean app code is
+// single-threaded until it says otherwise: everything is on the main actor, async functions
+// stay on the caller's actor, and leaving the main actor is a deliberate `@concurrent` or
+// `nonisolated`. UI code stops paying Sendable ceremony for work that was never concurrent.
+// The domain and storage packages opt out of the MainActor default in their Package.swift.
+SWIFT_APPROACHABLE_CONCURRENCY = YES
+SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor
+
 // MARK: - Signing
 //
 // DEVELOPMENT_TEAM is intentionally empty. Set it in Config/Local.xcconfig (gitignored) so the
@@ -56,6 +64,10 @@ INFOPLIST_KEY_NSHealthShareUsageDescription = PlusPlus reads your workouts so yo
 INFOPLIST_KEY_NSHealthUpdateUsageDescription = PlusPlus saves finished sessions to Health so they close your activity rings.
 
 // MARK: - Hygiene
+
+// App/ is a buildable folder, so anything dropped in it ships inside the app bundle, including
+// a stray README or an agent's scratch notes. Keep prose out of the bundle.
+EXCLUDED_SOURCE_FILE_NAMES = *.md *.txt *.log .gitkeep .DS_Store
 
 ENABLE_USER_SCRIPT_SANDBOXING = YES
 CLANG_ENABLE_MODULES = YES

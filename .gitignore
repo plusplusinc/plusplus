@@ -1,5 +1,5 @@
 # Xcode build output
-build/
+/build/
 DerivedData/
 *.xcarchive
 *.ipa
@@ -26,3 +26,14 @@ Config/Local.xcconfig
 
 # macOS
 .DS_Store
+
+# Scripts write builds, result bundles and screenshots here.
+.build/
+
+# Claude Code: per-developer overrides and worktrees. The shared config in .claude/ is committed.
+.claude/settings.local.json
+.claude/worktrees/
+CLAUDE.local.md
+
+# Snapshot-test failure diffs.
+**/__Snapshots__/**/*.failed.png

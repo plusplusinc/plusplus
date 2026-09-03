@@ -1,7 +1,6 @@
 import Foundation
 import SwiftData
 import Testing
-
 @testable import WorkoutStore
 
 /// A throwaway model so the container can be exercised without the app having a data model yet.
