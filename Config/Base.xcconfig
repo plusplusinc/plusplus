@@ -44,10 +44,12 @@ SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor
 
 // MARK: - Signing
 //
-// DEVELOPMENT_TEAM is intentionally absent. Set it in Config/Local.xcconfig (gitignored) so the
-// team ID never lands in the repo; Xcode Cloud manages signing itself.
+// The team ID is not a secret (it is in every shipped bundle's signature), and Xcode Cloud
+// needs it in the committed project. Building a fork with another team: override it in
+// Config/Local.xcconfig, which is included last and gitignored.
 
 CODE_SIGN_STYLE = Automatic
+DEVELOPMENT_TEAM = WK2XVYGZU9
 
 // MARK: - Info.plist
 //
