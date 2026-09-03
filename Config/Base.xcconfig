@@ -18,7 +18,8 @@ CURRENT_PROJECT_VERSION = 1
 
 IPHONEOS_DEPLOYMENT_TARGET = 26.0
 SDKROOT = iphoneos
-TARGETED_DEVICE_FAMILY = 1,2
+// iPhone only. Portrait-only apps that also target iPad need full-screen mode or all orientations.
+TARGETED_DEVICE_FAMILY = 1
 SUPPORTED_PLATFORMS = iphoneos iphonesimulator
 // Simulator builds compile only the running Mac's slice; device archives are arm64-only anyway.
 ONLY_ACTIVE_ARCH[sdk=iphonesimulator*] = YES
@@ -71,6 +72,8 @@ INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO
 EXCLUDED_SOURCE_FILE_NAMES = *.md *.txt *.log .gitkeep .DS_Store
 
 ENABLE_USER_SCRIPT_SANDBOXING = YES
+// The xcodebuild default is YES, which Xcode warns is a deprecated headermap style.
+ALWAYS_SEARCH_USER_PATHS = NO
 ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES
 
 // Optional developer-local overrides (team ID, custom bundle id). Gitignored; absent by default.

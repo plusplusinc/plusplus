@@ -2,24 +2,33 @@ import SwiftUI
 
 /// Semantic color tokens.
 ///
-/// Named for the job a color does, not the color it is. `ppPositive` stays correct when the
-/// brand green becomes a brand teal; `ppGreen` would not. Call sites never reference a literal.
-extension Color {
-    public static let ppBackground = token("ppBackground")
-    public static let ppSurface = token("ppSurface")
-    public static let ppSurfaceElevated = token("ppSurfaceElevated")
-    public static let ppTextPrimary = token("ppTextPrimary")
-    public static let ppTextSecondary = token("ppTextSecondary")
-    public static let ppAccent = token("ppAccent")
-    /// A personal record, a completed set — progress.
-    public static let ppPositive = token("ppPositive")
-    public static let ppWarning = token("ppWarning")
-    public static let ppDanger = token("ppDanger")
-    public static let ppSeparator = token("ppSeparator")
+/// Named for the job a color does, not the color it is: `positive` stays correct when the brand
+/// green becomes a brand teal. Light and dark pairs live in `Tokens.xcassets` under the raw
+/// value; a case without a colorset renders clear, which the palette snapshot makes obvious.
+public enum ColorToken: String, CaseIterable, Sendable {
+    case accent = "ppAccent"
+    case background = "ppBackground"
+    case danger = "ppDanger"
+    /// A personal record, a completed set: progress.
+    case positive = "ppPositive"
+    case separator = "ppSeparator"
+    case surface = "ppSurface"
+    case surfaceElevated = "ppSurfaceElevated"
+    case textPrimary = "ppTextPrimary"
+    case textSecondary = "ppTextSecondary"
+    case warning = "ppWarning"
+}
 
-    /// Resolved from the package's own bundle; light and dark pairs live in `Tokens.xcassets`.
-    /// Internal so the palette snapshot test can render every colorset in the catalog.
-    static func token(_ name: String) -> Color {
-        Color(name, bundle: .module)
+extension Color {
+    /// `Color.pp(.textPrimary)`. Call sites never reference a literal color.
+    public static func pp(_ token: ColorToken) -> Color {
+        Color(token.rawValue, bundle: .module)
+    }
+}
+
+extension ShapeStyle where Self == Color {
+    /// `.foregroundStyle(.pp(.textPrimary))`.
+    public static func pp(_ token: ColorToken) -> Color {
+        Color.pp(token)
     }
 }
