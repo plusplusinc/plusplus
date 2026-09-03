@@ -1,0 +1,30 @@
+# SwiftFormat (nicklockwood). Formatting only; SwiftLint handles the rest.
+# Runs on every agent edit via .claude/hooks/format-swift.sh and on CI via scripts/lint.sh.
+
+--swiftversion 6.3
+--indent 4
+--maxwidth 100
+--wraparguments before-first
+--wrapparameters before-first
+--wrapcollections before-first
+--closingparen balanced
+--commas always
+--trailingclosures
+--stripunusedargs closure-only
+--self remove
+--importgrouping testable-last
+--ifdef no-indent
+--header strip
+--extensionacl on-declarations
+--emptybraces spaced
+--semicolons never
+
+--enable wrapEnumCases
+# swiftTestingTestCaseNames would rewrite `@Test("Display name") func stableName()` into a
+# backtick raw-identifier function named after the display string. That changes `#function`,
+# which swift-snapshot-testing uses for reference file names, and turns every
+# `-only-testing` identifier into a sentence with spaces. Keep display names on the attribute
+# and stable identifiers on the function.
+--disable andOperator, preferKeyPath, opaqueGenericParameters, swiftTestingTestCaseNames
+
+--exclude .build, **/.build, **/__Snapshots__

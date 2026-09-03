@@ -1,0 +1,54 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(scripts/build.sh:*)",
+      "Bash(scripts/test.sh:*)",
+      "Bash(scripts/lint.sh:*)",
+      "Bash(scripts/run.sh:*)",
+      "Bash(scripts/check-us-english.sh:*)",
+      "Bash(scripts/xcresult.py:*)",
+      "Bash(xcodebuild -list:*)",
+      "Bash(xcodebuild -showBuildSettings:*)",
+      "Bash(xcodebuild -version:*)",
+      "Bash(xcrun xcresulttool:*)",
+      "Bash(xcrun simctl:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(git fetch:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh pr diff:*)",
+      "Bash(gh issue list:*)",
+      "Bash(gh issue view:*)"
+    ],
+    "deny": [
+      "Bash(xcrun simctl erase:*)",
+      "Bash(xcrun simctl delete:*)",
+      "Bash(xcrun altool:*)",
+      "Bash(xcrun notarytool:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)"
+    ]
+  },
+  "enabledPlugins": {
+    "swift-lsp@claude-plugins-official": true
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/on-edit.sh",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}
