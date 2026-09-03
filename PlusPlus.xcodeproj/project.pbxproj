@@ -5,7 +5,7 @@
 	};
 	objectVersion = 77;
 	objects = {
-		000000000000000000000001 = {isa = PBXProject; attributes = {BuildIndependentTargetsInParallel = 1; LastSwiftUpdateCheck = 2660; LastUpgradeCheck = 2660; TargetAttributes = {000000000000000000000010 = {CreatedOnToolsVersion = 26.6; }; }; }; buildConfigurationList = 00000000000000000000000A; compatibilityVersion = "Xcode 15.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, Base, ); mainGroup = 000000000000000000000002; minimizedProjectReferenceProxies = 1; packageReferences = (000000000000000000000014, 000000000000000000000017, 00000000000000000000001A, 00000000000000000000001D, ); preferredProjectObjectVersion = 77; productRefGroup = 000000000000000000000003; projectDirPath = ""; projectRoot = ""; targets = (000000000000000000000010, ); };
+		000000000000000000000001 = {isa = PBXProject; attributes = {BuildIndependentTargetsInParallel = 1; LastSwiftUpdateCheck = 2660; LastUpgradeCheck = 2660; TargetAttributes = {000000000000000000000010 = {CreatedOnToolsVersion = 26.6; }; }; }; buildConfigurationList = 00000000000000000000000A; compatibilityVersion = "Xcode 15.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, Base, ); mainGroup = 000000000000000000000002; minimizedProjectReferenceProxies = 1; packageReferences = (000000000000000000000014, ); preferredProjectObjectVersion = 77; productRefGroup = 000000000000000000000003; projectDirPath = ""; projectRoot = ""; targets = (000000000000000000000010, ); };
 		000000000000000000000002 = {isa = PBXGroup; children = (000000000000000000000005, 000000000000000000000024, 000000000000000000000004, 000000000000000000000003, ); sourceTree = "<group>"; };
 		000000000000000000000003 = {isa = PBXGroup; children = (000000000000000000000006, ); name = Products; sourceTree = "<group>"; };
 		000000000000000000000004 = {isa = PBXGroup; children = (000000000000000000000007, 000000000000000000000008, 000000000000000000000009, ); path = Config; sourceTree = "<group>"; };
@@ -24,23 +24,16 @@
 		000000000000000000000011 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 		000000000000000000000012 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (000000000000000000000016, 000000000000000000000019, 00000000000000000000001C, 00000000000000000000001F, ); runOnlyForDeploymentPostprocessing = 0; };
 		000000000000000000000013 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
-		000000000000000000000014 = {isa = XCLocalSwiftPackageReference; relativePath = Packages/WorkoutCore; };
+		000000000000000000000014 = {isa = XCLocalSwiftPackageReference; relativePath = Packages; };
 		000000000000000000000015 = {isa = XCSwiftPackageProductDependency; productName = WorkoutCore; };
 		000000000000000000000016 = {isa = PBXBuildFile; productRef = 000000000000000000000015; };
-		000000000000000000000017 = {isa = XCLocalSwiftPackageReference; relativePath = Packages/WorkoutStore; };
 		000000000000000000000018 = {isa = XCSwiftPackageProductDependency; productName = WorkoutStore; };
 		000000000000000000000019 = {isa = PBXBuildFile; productRef = 000000000000000000000018; };
-		00000000000000000000001A = {isa = XCLocalSwiftPackageReference; relativePath = Packages/DesignSystem; };
 		00000000000000000000001B = {isa = XCSwiftPackageProductDependency; productName = DesignSystem; };
 		00000000000000000000001C = {isa = PBXBuildFile; productRef = 00000000000000000000001B; };
-		00000000000000000000001D = {isa = XCLocalSwiftPackageReference; relativePath = Packages/Features; };
 		00000000000000000000001E = {isa = XCSwiftPackageProductDependency; productName = Features; };
 		00000000000000000000001F = {isa = PBXBuildFile; productRef = 00000000000000000000001E; };
-		000000000000000000000020 = {isa = PBXFileReference; lastKnownFileType = wrapper; path = WorkoutCore; sourceTree = "<group>"; };
-		000000000000000000000021 = {isa = PBXFileReference; lastKnownFileType = wrapper; path = WorkoutStore; sourceTree = "<group>"; };
-		000000000000000000000022 = {isa = PBXFileReference; lastKnownFileType = wrapper; path = DesignSystem; sourceTree = "<group>"; };
-		000000000000000000000023 = {isa = PBXFileReference; lastKnownFileType = wrapper; path = Features; sourceTree = "<group>"; };
-		000000000000000000000024 = {isa = PBXGroup; children = (000000000000000000000020, 000000000000000000000021, 000000000000000000000022, 000000000000000000000023, ); path = Packages; sourceTree = "<group>"; };
+		000000000000000000000024 = {isa = PBXFileReference; lastKnownFileType = wrapper; path = Packages; sourceTree = "<group>"; };
 	};
 	rootObject = 000000000000000000000001;
 }

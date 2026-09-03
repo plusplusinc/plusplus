@@ -31,7 +31,7 @@
                BlueprintIdentifier = "WorkoutStoreTests"
                BuildableName = "WorkoutStoreTests"
                BlueprintName = "WorkoutStoreTests"
-               ReferencedContainer = "container:Packages/WorkoutStore">
+               ReferencedContainer = "container:Packages">
             </BuildableReference>
          </BuildActionEntry>
          <BuildActionEntry
@@ -45,7 +45,7 @@
                BlueprintIdentifier = "DesignSystemTests"
                BuildableName = "DesignSystemTests"
                BlueprintName = "DesignSystemTests"
-               ReferencedContainer = "container:Packages/DesignSystem">
+               ReferencedContainer = "container:Packages">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -54,8 +54,7 @@
       buildConfiguration = "Debug"
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
-      shouldUseLaunchSchemeArgsEnv = "YES"
-      codeCoverageEnabled = "YES">
+      shouldUseLaunchSchemeArgsEnv = "YES">
       <Testables>
          <TestableReference
             skipped = "NO">
@@ -64,7 +63,7 @@
                BlueprintIdentifier = "WorkoutStoreTests"
                BuildableName = "WorkoutStoreTests"
                BlueprintName = "WorkoutStoreTests"
-               ReferencedContainer = "container:Packages/WorkoutStore">
+               ReferencedContainer = "container:Packages">
             </BuildableReference>
          </TestableReference>
          <TestableReference
@@ -74,7 +73,7 @@
                BlueprintIdentifier = "DesignSystemTests"
                BuildableName = "DesignSystemTests"
                BlueprintName = "DesignSystemTests"
-               ReferencedContainer = "container:Packages/DesignSystem">
+               ReferencedContainer = "container:Packages">
             </BuildableReference>
          </TestableReference>
       </Testables>

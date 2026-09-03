@@ -1,5 +1,5 @@
 ---
-paths: ["**/Tests/**", "**/*Tests.swift", "**/*Tests/**"]
+paths: ["Packages/Tests/**"]
 ---
 
 # Testing
@@ -14,19 +14,16 @@ Put a test in the cheapest tier that can hold it:
 | Pure logic | `WorkoutCoreTests` | ~1ms, no simulator |
 | Storage | `WorkoutStoreTests`, in-memory container | ~15ms, no simulator |
 | Feature behavior | `FeaturesTests`, fake stores | ~1ms, no simulator |
-| Rendering | snapshot tests in the owning package | simulator |
+| Rendering | snapshot tests in `DesignSystemTests` or `FeaturesTests` | simulator |
 | Core flows | `PlusPlusUITests` (XCUITest) | simulator, slow |
 
 - Tests that need UIKit are wrapped in `#if canImport(UIKit) && !os(watchOS)` so `swift test`
-  on macOS compiles them out and stays fast; the simulator run exercises them.
-- Snapshots: always give the view an explicit width; `.sizeThatFits` proposes zero width and
-  `Text` truncates to nothing. Compare with `perceptualPrecision: 0.98`. Record light, dark, and
-  accessibility XXXL. Re-record by deleting the file under `__Snapshots__/` and re-running.
+  on macOS compiles them out; the simulator run exercises them.
+- Snapshots go through `assertThemedSnapshots(of:width:)` in `DesignSystemTests`, which owns
+  the explicit width, the perceptual precision, and the light, dark, and XXXL appearances. Do
+  not call `assertSnapshot` directly. Re-record by deleting the files under `__Snapshots__/`.
 - Display name on the attribute, stable identifier on the function:
-  `@Test("An in-memory container round-trips a model") func inMemoryRoundTrip()`. Never
-  backtick raw-identifier test names: `#function` feeds snapshot file names and `-only-testing`
-  identifiers, and both become unusable when the function is a sentence.
+  `@Test("An in-memory container round-trips a model") func inMemoryRoundTrip()`. The
+  formatter is configured to keep it that way (see `.swiftformat`).
 - No sleeping in tests. Use clocks, confirmations, or injected schedulers.
 - A bug fix comes with a test that failed before the fix.
-- Take `-only-testing` identifiers verbatim from the result bundle or `xcodebuild
-  -enumerate-tests`; a misspelled identifier silently runs zero tests and exits 0.

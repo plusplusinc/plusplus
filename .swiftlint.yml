@@ -1,5 +1,6 @@
-# SwiftLint. Style is SwiftFormat's job, so the rules here are about correctness and hygiene.
-# Runs on every agent edit (with --fix) via .claude/hooks/format-swift.sh and strictly on CI.
+# SwiftLint. Style is SwiftFormat's job, so the rules here are about correctness, hygiene, and
+# the architecture rules from CLAUDE.md that a regex can enforce. Scope is declared here only.
+# Runs on every agent edit (with --fix) via .claude/hooks/on-edit.sh and strictly on CI.
 
 included:
   - App
@@ -22,7 +23,6 @@ disabled_rules:
   - statement_position
   - switch_case_alignment
   - void_return
-  - unused_optional_binding
 
 opt_in_rules:
   - force_unwrapping
@@ -45,19 +45,13 @@ opt_in_rules:
   - closure_spacing
   - multiline_arguments
   - multiline_parameters
-  - private_action
-  - private_outlet
-  - prohibited_super_call
-  - overridden_super_call
   - identical_operands
   - yoda_condition
   - lower_acl_than_parent
   - legacy_multiple
   - prefer_self_in_static_references
   - static_operator
-  - test_case_accessibility
   - unavailable_function
-  - weak_delegate
   - period_spacing
 
 analyzer_rules:
@@ -69,7 +63,6 @@ line_length:
   error: 140
   ignores_comments: true
   ignores_urls: true
-  ignores_function_declarations: false
 
 identifier_name:
   min_length: 2
@@ -93,6 +86,43 @@ cyclomatic_complexity:
   warning: 12
   error: 20
 
-force_cast: error
-force_try: error
 force_unwrapping: error
+
+# Architecture rules from CLAUDE.md that are pure pattern matches. The compiler enforces the
+# dependency graph between targets; these catch the imports and idioms it cannot.
+custom_rules:
+  observable_object:
+    name: "ObservableObject"
+    regex: '(\bObservableObject\b|@Published\b|@StateObject\b|@EnvironmentObject\b)'
+    message: "State is @Observable; see .claude/rules/swift.md"
+    severity: error
+  workout_core_imports:
+    name: "WorkoutCore imports"
+    included: "Packages/Sources/WorkoutCore/.*"
+    regex: '^import (SwiftUI|SwiftData|UIKit|Combine)\b'
+    message: "WorkoutCore imports only Foundation"
+    severity: error
+  workout_store_imports:
+    name: "WorkoutStore imports"
+    included: "Packages/Sources/WorkoutStore/.*"
+    regex: '^import (SwiftUI|UIKit)\b'
+    message: "WorkoutStore has no UI dependencies"
+    severity: error
+  design_system_imports:
+    name: "DesignSystem imports"
+    included: "Packages/Sources/DesignSystem/.*"
+    regex: '^import (WorkoutCore|WorkoutStore|Features)\b'
+    message: "DesignSystem never imports domain code; components take strings and numbers"
+    severity: error
+  fixed_font_size:
+    name: "Fixed font size"
+    included: "(Packages/Sources/Features|App)/.*"
+    regex: '\.font\(\.system\(size:'
+    message: "Use a Font.pp* token so Dynamic Type works"
+    severity: error
+  literal_color:
+    name: "Literal color"
+    included: "(Packages/Sources/Features|App)/.*"
+    regex: 'Color\((red|hue|white|uiColor|\.sRGB|#)'
+    message: "Use a Color.pp* token from DesignSystem"
+    severity: error

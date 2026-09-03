@@ -12,11 +12,10 @@ import subprocess
 import sys
 
 
-def load(kind, bundle):
-    args = ["xcrun", "xcresulttool", "get", kind, "--path", bundle, "--compact"]
+def load(*subcommand, bundle):
+    args = ["xcrun", "xcresulttool", "get", *subcommand, "--path", bundle, "--compact"]
     try:
-        out = subprocess.run(args, capture_output=True, text=True, check=True).stdout
-        return json.loads(out)
+        return json.loads(subprocess.run(args, capture_output=True, text=True, check=True).stdout)
     except (subprocess.CalledProcessError, json.JSONDecodeError):
         return None
 
@@ -26,38 +25,29 @@ def location(issue):
     if not url:
         return ""
     path = url.split("file://")[-1].split("#")[0]
-    line = ""
-    if "StartingLineNumber=" in url:
-        raw = url.split("StartingLineNumber=")[1].split("&")[0]
-        line = ":" + str(int(raw) + 1)
-    return path + line
+    if "StartingLineNumber=" not in url:
+        return path
+    line = int(url.split("StartingLineNumber=")[1].split("&")[0]) + 1
+    return f"{path}:{line}"
 
 
 def build(bundle):
-    data = load("build-results", bundle)
-    if not data:
-        return
+    data = load("build-results", bundle=bundle) or {}
     for kind in ("errors", "warnings"):
         for issue in data.get(kind) or []:
             print(f"{kind[:-1]}: {location(issue)}: {issue.get('message', '')}")
 
 
 def tests(bundle):
-    args = ["xcrun", "xcresulttool", "get", "test-results", "summary", "--path", bundle, "--compact"]
-    try:
-        summary = json.loads(subprocess.run(args, capture_output=True, text=True, check=True).stdout)
-    except (subprocess.CalledProcessError, json.JSONDecodeError):
+    s = load("test-results", "summary", bundle=bundle)
+    if not s:
         return
     print(
-        "tests: {result} total={totalTestCount} passed={passedTests} "
-        "failed={failedTests} skipped={skippedTests}".format(**{
-            k: summary.get(k) for k in
-            ("result", "totalTestCount", "passedTests", "failedTests", "skippedTests")
-        })
+        f"tests: {s.get('result')} total={s.get('totalTestCount')} "
+        f"passed={s.get('passedTests')} failed={s.get('failedTests')} skipped={s.get('skippedTests')}"
     )
-    for failure in summary.get("testFailures") or []:
-        text = (failure.get("failureText") or "").strip()
-        print(f"  FAIL {failure.get('testName')}: {text}")
+    for failure in s.get("testFailures") or []:
+        print(f"  FAIL {failure.get('testName')}: {(failure.get('failureText') or '').strip()}")
 
 
 if __name__ == "__main__":

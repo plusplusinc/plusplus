@@ -12,7 +12,8 @@ xcuserdata/
 *.xcscmblueprint
 *.xccheckout
 
-# Swift Package Manager. Package.resolved is committed on purpose so builds are reproducible.
+# Swift Package Manager output, and where scripts/ write builds, result bundles, and screenshots.
+# Package.resolved is committed on purpose so builds are reproducible.
 .build/
 .swiftpm/xcode/package.xcworkspace/xcuserdata/
 
@@ -27,8 +28,6 @@ Config/Local.xcconfig
 # macOS
 .DS_Store
 
-# Scripts write builds, result bundles and screenshots here.
-.build/
 
 # Claude Code: per-developer overrides and worktrees. The shared config in .claude/ is committed.
 .claude/settings.local.json

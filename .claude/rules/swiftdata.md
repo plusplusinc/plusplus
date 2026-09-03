@@ -1,5 +1,5 @@
 ---
-paths: ["Packages/WorkoutStore/**", "Packages/WorkoutCore/**"]
+paths: ["Packages/Sources/WorkoutStore/**", "Packages/Sources/WorkoutCore/**"]
 ---
 
 # Persistence: SwiftData + CloudKit

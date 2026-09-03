@@ -1,5 +1,5 @@
 ---
-paths: ["App/**", "Packages/Features/**", "Packages/DesignSystem/**"]
+paths: ["App/**", "Packages/Sources/Features/**", "Packages/Sources/DesignSystem/**"]
 ---
 
 # SwiftUI and design system

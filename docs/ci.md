@@ -2,8 +2,8 @@
 
 Xcode Cloud builds and tests every pull request and ships `main` to TestFlight. Workflow
 definitions live in App Store Connect, not in the repo; the repo contributes only
-`ci_scripts/ci_post_clone.sh`, which installs SwiftFormat and SwiftLint and runs
-`scripts/lint.sh` before any build action.
+`ci_scripts/ci_post_clone.sh`, which installs the `Brewfile` tools and runs `scripts/lint.sh`
+before any build action.
 
 ## One-time setup
 

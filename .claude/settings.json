@@ -6,32 +6,12 @@
       "Bash(scripts/lint.sh:*)",
       "Bash(scripts/run.sh:*)",
       "Bash(scripts/check-us-english.sh:*)",
-      "Bash(swift build:*)",
-      "Bash(swift test:*)",
-      "Bash(swift package:*)",
-      "Bash(swiftformat:*)",
-      "Bash(swiftlint:*)",
+      "Bash(scripts/xcresult.py:*)",
       "Bash(xcodebuild -list:*)",
       "Bash(xcodebuild -showBuildSettings:*)",
       "Bash(xcodebuild -version:*)",
-      "Bash(xcodebuild build:*)",
-      "Bash(xcodebuild test:*)",
-      "Bash(xcodebuild build-for-testing:*)",
-      "Bash(xcodebuild test-without-building:*)",
       "Bash(xcrun xcresulttool:*)",
-      "Bash(xcrun simctl list:*)",
-      "Bash(xcrun simctl boot:*)",
-      "Bash(xcrun simctl bootstatus:*)",
-      "Bash(xcrun simctl shutdown:*)",
-      "Bash(xcrun simctl install:*)",
-      "Bash(xcrun simctl launch:*)",
-      "Bash(xcrun simctl terminate:*)",
-      "Bash(xcrun simctl openurl:*)",
-      "Bash(xcrun simctl io:*)",
-      "Bash(xcrun simctl ui:*)",
-      "Bash(xcrun simctl push:*)",
-      "Bash(xcrun simctl privacy:*)",
-      "Bash(xcrun simctl spawn:*)",
+      "Bash(xcrun simctl:*)",
       "Bash(git status:*)",
       "Bash(git diff:*)",
       "Bash(git log:*)",
@@ -51,10 +31,7 @@
       "Bash(xcrun altool:*)",
       "Bash(xcrun notarytool:*)",
       "Bash(git push --force:*)",
-      "Bash(git push -f:*)",
-      "Read(./Config/Local.xcconfig)",
-      "Read(./**/*.p8)",
-      "Read(./**/*.p12)"
+      "Bash(git push -f:*)"
     ]
   },
   "enabledPlugins": {
@@ -67,13 +44,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/format-swift.sh",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/on-edit.sh",
             "timeout": 30
-          },
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/check-us-english.sh",
-            "timeout": 10
           }
         ]
       }

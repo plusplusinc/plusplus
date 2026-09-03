@@ -6,12 +6,12 @@ SwiftData + CloudKit, iOS 26 and up.
 ## Getting started
 
 ```sh
-brew install swiftformat swiftlint xcbeautify   # formatting, lint, readable build output
+brew bundle              # formatting, lint, readable build output
 open PlusPlus.xcodeproj
 ```
 
-No generation step, no bootstrap script. The project is committed, `App/` is a buildable folder,
-and the code lives in local Swift packages, so a file on disk is in the build.
+No generation step. The project is committed, `App/` is a buildable folder, and the code lives
+in one local Swift package, so a file on disk is in the build.
 
 To run on a device, put your team ID in `Config/Local.xcconfig` (gitignored):
 
@@ -34,10 +34,10 @@ scripts/lint.sh --fix    # SwiftFormat, SwiftLint, US English
 | Path | What lives there |
 | --- | --- |
 | `App/` | Entry point and entitlements. Deliberately thin. |
-| `Packages/WorkoutCore` | Domain types and pure logic. Foundation only. Currently empty. |
-| `Packages/WorkoutStore` | Storage wiring: App Group container, CloudKit, storage modes. |
-| `Packages/DesignSystem` | Design tokens, and soon components. SwiftUI only. |
-| `Packages/Features` | Screens. Currently empty. |
+| `Packages/Sources/WorkoutCore` | Domain types and pure logic. Foundation only. Currently empty. |
+| `Packages/Sources/WorkoutStore` | Storage wiring: App Group container, CloudKit, storage modes. |
+| `Packages/Sources/DesignSystem` | Design tokens, and soon components. SwiftUI only. |
+| `Packages/Sources/Features` | Screens. Currently empty. |
 | `Config/` | Every build setting, as xcconfig. Nothing lives in the pbxproj. |
 | `scripts/` | Build, test, lint, and run, shared by humans, agents, and CI. |
 | `ci_scripts/` | Xcode Cloud hooks. |
@@ -46,17 +46,7 @@ scripts/lint.sh --fix    # SwiftFormat, SwiftLint, US English
 The dependency rules between the packages are the architecture; they are spelled out in
 [CLAUDE.md](CLAUDE.md), which is also what agents read first.
 
-## Status
+## Status and contributing
 
-Foundation only. The app builds, runs, and renders a placeholder. There are no features and no
-data model yet, by design. What exists is the scaffolding: project and build configuration,
-module layering, design tokens, storage wiring, test harness, tooling, and CI.
-
-Not built yet: Watch app, Live Activity, HealthKit, widgets. The App Group and CloudKit
-container are configured already because they determine where the database lives, which is
-expensive to change once real data exists.
-
-## Contributing
-
-`main` only moves through pull requests, squash-merged, with Xcode Cloud green. See
-[docs/ci.md](docs/ci.md).
+Foundation only: no features, no data model yet, by design. Status, architecture, and the
+branching rules are in [CLAUDE.md](CLAUDE.md); CI and releases in [docs/ci.md](docs/ci.md).

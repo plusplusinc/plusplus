@@ -131,27 +131,22 @@ rasterisation:rasterization
 synthesise:synthesize
 '
 
-status=0
-for pair in $WORDLIST; do
-    british=${pair%%:*}
-    american=${pair##*:}
-
-    if [ "$#" -eq 0 ]; then
-        hits=$(git grep -nIwi -- "$british" ':!'"$SELF" 2>/dev/null || true)
-    else
-        hits=$(grep -HnIwi -e "$british" "$@" 2>/dev/null || true)
-    fi
-
-    if [ -n "$hits" ]; then
-        printf '%s\n' "$hits" | while IFS= read -r line; do
-            printf '%s\n    use "%s" instead of "%s"\n' "$line" "$american" "$british"
-        done
-        status=1
-    fi
-done
-
-if [ "$status" -ne 0 ]; then
-    echo ""
-    echo "This codebase writes US English. Fix the spellings above."
-    exit 1
+# One grep with every British form as an alternation; the wordlist is consulted only for
+# the (rare) hits, to print the American form.
+pattern=$(printf '%s\n' $WORDLIST | cut -d: -f1 | paste -sd '|' -)
+if [ "$#" -eq 0 ]; then
+    hits=$(git grep -nIwioE -- "$pattern" ':!'"$SELF" || true)
+else
+    hits=$(grep -HnIwioE -e "$pattern" "$@" 2> /dev/null || true)
 fi
+
+[ -z "$hits" ] && exit 0
+
+printf '%s\n' "$hits" | while IFS=: read -r file line word; do
+    lower=$(printf '%s' "$word" | tr '[:upper:]' '[:lower:]')
+    american=$(printf '%s\n' $WORDLIST | grep "^$lower:" | cut -d: -f2)
+    printf '%s:%s: use "%s" instead of "%s"\n' "$file" "$line" "$american" "$word"
+done
+echo ""
+echo "This codebase writes US English. Fix the spellings above."
+exit 1

@@ -39,12 +39,27 @@ struct WorkoutStoreContainerTests {
         #expect(try ModelContext(second).fetch(FetchDescriptor<ProbeItem>()).isEmpty)
     }
 
-    /// These strings decide which container on disk the app opens. A typo would not fail to
-    /// build — it would silently point at a different, empty database, and the widget and Watch
-    /// app would never see the user's data.
-    @Test("Container identifiers match the entitlements")
-    func identifiersAreStable() {
-        #expect(WorkoutStoreContainer.appGroupID == "group.com.plusplusinc.plusplus")
-        #expect(WorkoutStoreContainer.cloudKitContainerID == "iCloud.com.plusplusinc.plusplus")
+    /// These strings decide which container on disk the app opens. A mismatch with the
+    /// entitlements would not fail to build; it would silently point at a different, empty
+    /// database, and the widget and Watch app would never see the user's data.
+    @Test("Container identifiers match the app's entitlements")
+    func identifiersMatchEntitlements() throws {
+        let entitlements = try #require(
+            PropertyListSerialization.propertyList(
+                from: Data(contentsOf: Self.entitlementsFile), format: nil,
+            ) as? [String: Any],
+        )
+        let appGroups = entitlements["com.apple.security.application-groups"] as? [String]
+        let containers =
+            entitlements["com.apple.developer.icloud-container-identifiers"] as? [String]
+        #expect(appGroups == [WorkoutStoreContainer.appGroupID])
+        #expect(containers == [WorkoutStoreContainer.cloudKitContainerID])
     }
+
+    private static let entitlementsFile = URL(filePath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .appending(path: "App/PlusPlus.entitlements")
 }

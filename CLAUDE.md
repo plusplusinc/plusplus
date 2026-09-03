@@ -13,7 +13,9 @@ or domain types without being asked.
 
 ## Architecture
 
-The Xcode project is a thin shell. Code lives in local Swift packages under `Packages/`.
+The Xcode project is a thin shell. Code lives in one local Swift package, `Packages/`, whose
+targets are the layers. A target cannot import what it does not list, so the compiler enforces
+the arrows; SwiftLint custom rules catch the imports and idioms it cannot.
 
 ```
 App ──> Features ──> DesignSystem
@@ -52,14 +54,13 @@ nonisolated so they run anywhere, including the Watch.
 
 ## Working in the project
 
-- **Never hand-edit `project.pbxproj`.** It is under fifty lines and should stay that way. Build
-  settings live in `Config/*.xcconfig`. Dependencies go in the relevant `Package.swift`.
+- **Never hand-edit `project.pbxproj`.** It is under fifty lines and `scripts/lint.sh` fails if
+  it grows. Build settings live in `Config/*.xcconfig`; dependencies in `Packages/Package.swift`.
 - `App/` is a buildable folder: a file on disk is in the target. Anything in it ships inside the
   app bundle, so never leave notes or scratch files there.
-- Local packages appear in the project both as package references and as folder references.
-  The folder references are what let the app scheme run the packages' test targets; remove them
-  and `xcodebuild test` finds no test bundles.
-- `Config/Info.plist` holds only keys with no `INFOPLIST_KEY_*` equivalent.
+- The package appears in the project both as a package reference and as a folder reference. The
+  folder reference is what lets the app scheme run the package's test targets; remove it and
+  `xcodebuild test` finds no test bundles.
 
 ## Commands
 
@@ -69,7 +70,7 @@ skills wrap them, and Xcode Cloud runs the same lint script.
 ```sh
 scripts/test.sh              # package tests on macOS, no simulator, seconds
 scripts/build.sh             # app for the simulator, compact diagnostics
-scripts/test.sh sim          # app scheme on the simulator: package, snapshot, and UI tests
+scripts/test.sh sim          # everything on the simulator, including snapshots
 scripts/run.sh [name]        # build, install, launch, screenshot to .build/screenshots/
 scripts/lint.sh [--fix]      # SwiftFormat, SwiftLint, US English, as CI runs them
 ```
@@ -93,26 +94,14 @@ CI must be green before a PR merges. **Merges are squashed**: the PR title and b
 one commit on `main`, so write the body as a commit message. Notes about review order or "as
 discussed" belong in a PR comment, not the body.
 
-## Persistence
+## Rules files
 
-`WorkoutStoreContainer` owns where and how data is stored, not what. `StorageMode` is explicit
-(`.shared`, `.local`, `.inMemory`) because the modes point at different database files. The
-CloudKit schema rules, and the fact that aggregates are computed in Swift, are in
-`.claude/rules/swiftdata.md`.
+Loaded automatically when you touch matching files; read them before working in that area.
 
-## Design system
-
-No raw colors, spacing, font sizes, or corner radii at call sites; use the tokens in
-`Packages/DesignSystem`. Numbers that change in place use monospaced digits. Primary actions are
-60pt and pinned, not 44pt inside a scrolling row. Liquid Glass stays in the functional layer.
-Details in `.claude/rules/swiftui.md`.
-
-## Testing
-
-Swift Testing, cheapest tier first: pure logic in `WorkoutCore`, storage against an in-memory
-container, snapshots for components, XCUITest only for core flows. Tests that need UIKit are
-wrapped in `#if canImport(UIKit)` so `swift test` on macOS stays fast. Details in
-`.claude/rules/testing.md`.
+- `.claude/rules/swift.md`: concurrency defaults, `@Observable`, no force unwraps.
+- `.claude/rules/swiftui.md`: plain SwiftUI, Liquid Glass layers, tokens, accessibility.
+- `.claude/rules/swiftdata.md`: `StorageMode`, CloudKit schema constraints, aggregates in Swift.
+- `.claude/rules/testing.md`: test tiers, the snapshot helper, naming.
 
 ## Gotchas
 
@@ -122,7 +111,6 @@ wrapped in `#if canImport(UIKit)` so `swift test` on macOS stays fast. Details i
 - `.shared` storage works on the simulator even without provisioning, because the simulator
   does not enforce App Group or iCloud entitlements. A working simulator is not evidence that
   entitlements are set up.
-- `-only-testing` with a misspelled identifier runs zero tests and exits 0. Check the total.
 - `plutil -extract` rewrites the file in place. Use `plutil -p` to inspect.
 
 ## Not yet built

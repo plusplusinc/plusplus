@@ -18,7 +18,8 @@ extension Color {
     public static let ppSeparator = token("ppSeparator")
 
     /// Resolved from the package's own bundle; light and dark pairs live in `Tokens.xcassets`.
-    private static func token(_ name: String) -> Color {
+    /// Internal so the palette snapshot test can render every colorset in the catalog.
+    static func token(_ name: String) -> Color {
         Color(name, bundle: .module)
     }
 }

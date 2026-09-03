@@ -13,11 +13,9 @@ human, and CI cannot disagree about what "clean" means.
 
 ## Hooks
 
-Two `PostToolUse` hooks in `.claude/settings.json` run on every file an agent edits:
-
-- `format-swift.sh`: SwiftFormat, then SwiftLint `--fix`. Remaining violations are returned to
-  the agent to fix immediately. Under a second per file.
-- `check-us-english.sh`: flags British spellings using the same wordlist as CI.
+One `PostToolUse` hook, `.claude/hooks/on-edit.sh`, runs `scripts/lint.sh --fix` on every file
+an agent edits and returns remaining findings to the agent. Because it is the same script CI
+runs, nothing the hook accepts can fail later.
 
 There is deliberately no build in a `Stop` hook. `Stop` fires after every response, so a build
 there taxes "what does this function do?" with a minute of compiling. The `/pr` skill and CI
@@ -31,10 +29,9 @@ SwiftData and CloudKit constraints, testing.
 
 ## Subagents
 
-- `architecture-guardian`: read-only. Checks layering, concurrency annotations, tokens, and the
-  pbxproj against the rules, with file:line evidence. Run before a PR.
-- `accessibility-auditor`: fixes mechanical accessibility gaps (labels, traits, hit sizes,
-  fixed fonts) and reports the judgment calls. Run after any new screen or component.
+`.claude/agents/` holds two reviewers, `architecture-guardian` and `accessibility-auditor`.
+Mechanical checks live in `.swiftlint.yml` custom rules and run on every edit; the subagents
+cover the judgment calls a regex cannot.
 
 ## MCP servers (`.mcp.json`)
 
@@ -72,6 +69,7 @@ a dedicated simulator per worktree with `xcrun simctl create` and set `PLUSPLUS_
 
 ## Permissions
 
-`.claude/settings.json` pre-approves the scripts, `xcodebuild`, `swift`, most `simctl`
-subcommands, and read-only `git` and `gh` commands. It denies `simctl erase` and `delete`,
-`altool`, `notarytool`, force pushes, and reading `Config/Local.xcconfig` or signing material.
+`.claude/settings.json` pre-approves the scripts, read-only `xcodebuild`, `git`, and `gh`
+commands, and `simctl`, with the destructive `simctl` subcommands, notarization, force pushes,
+and local signing config denied. The scripts are the gate for building, testing, and linting,
+so raw `xcodebuild build`, `swiftlint`, and friends prompt.

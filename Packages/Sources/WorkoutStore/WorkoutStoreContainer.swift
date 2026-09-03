@@ -30,6 +30,8 @@ public enum WorkoutStoreContainer {
     public static let appGroupID = "group.com.plusplusinc.plusplus"
     public static let cloudKitContainerID = "iCloud.com.plusplusinc.plusplus"
 
+    private static let storeName = "PlusPlus"
+
     private static let logger = Logger(subsystem: "com.plusplusinc.plusplus", category: "storage")
 
     public static func make(mode: StorageMode, schema: Schema) throws -> ModelContainer {
@@ -37,13 +39,13 @@ public enum WorkoutStoreContainer {
             switch mode {
             case .shared:
                 ModelConfiguration(
-                    "PlusPlus",
+                    storeName,
                     schema: schema,
                     groupContainer: .identifier(appGroupID),
                     cloudKitDatabase: .private(cloudKitContainerID),
                 )
             case .local:
-                ModelConfiguration("PlusPlus", schema: schema, cloudKitDatabase: .none)
+                ModelConfiguration(storeName, schema: schema, cloudKitDatabase: .none)
             case .inMemory:
                 ModelConfiguration(
                     schema: schema,
