@@ -7,15 +7,8 @@ paths: ["Packages/Tests/**"]
 Swift Testing (`@Test`, `#expect`, `#require`) for everything except UI automation and
 performance, which stay on XCTest by Apple's own guidance.
 
-Put a test in the cheapest tier that can hold it:
-
-| Tier | Where | Cost |
-| --- | --- | --- |
-| Pure logic | `WorkoutCoreTests` | ~1ms, no simulator |
-| Storage | `WorkoutStoreTests`, in-memory container | ~15ms, no simulator |
-| Feature behavior | `FeaturesTests`, fake stores | ~1ms, no simulator |
-| Rendering | snapshot tests in `DesignSystemTests` or `FeaturesTests` | simulator |
-| Core flows | `PlusPlusUITests` (XCUITest) | simulator, slow |
+Put a test in the cheapest tier that can hold it: package tests on macOS (milliseconds, no
+simulator) before anything that needs UIKit, and snapshots before XCUITest.
 
 - Tests that need UIKit are wrapped in `#if canImport(UIKit) && !os(watchOS)` so `swift test`
   on macOS compiles them out; the simulator run exercises them.

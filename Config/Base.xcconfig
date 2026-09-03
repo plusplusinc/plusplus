@@ -48,15 +48,12 @@ SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor
 // team ID never lands in the repo; Xcode Cloud manages signing itself.
 
 CODE_SIGN_STYLE = Automatic
-CODE_SIGN_ENTITLEMENTS = App/PlusPlus.entitlements
 
 // MARK: - Info.plist
 //
-// Generated from these settings and merged with Config/Info.plist, which holds only keys that
-// have no INFOPLIST_KEY_* form (currently just UIBackgroundModes).
+// Generated from these settings; there is no Info.plist file to drift out of sync.
 
 GENERATE_INFOPLIST_FILE = YES
-INFOPLIST_FILE = Config/Info.plist
 INFOPLIST_KEY_CFBundleDisplayName = PlusPlus
 INFOPLIST_KEY_UILaunchScreen_Generation = YES
 INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES
@@ -64,8 +61,6 @@ INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait
 // Declared here so App Store Connect stops asking on every upload. Revisit if the app ever
 // ships its own cryptography beyond standard HTTPS.
 INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO
-INFOPLIST_KEY_NSHealthShareUsageDescription = PlusPlus reads your workouts so your training history stays in one place.
-INFOPLIST_KEY_NSHealthUpdateUsageDescription = PlusPlus saves finished sessions to Health so they close your activity rings.
 
 // MARK: - Hygiene
 

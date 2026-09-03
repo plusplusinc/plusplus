@@ -27,12 +27,6 @@ are the gates.
 loads only when a matching file is read: Swift conventions, SwiftUI and the design system,
 SwiftData and CloudKit constraints, testing.
 
-## Subagents
-
-`.claude/agents/` holds two reviewers, `architecture-guardian` and `accessibility-auditor`.
-Mechanical checks live in `.swiftlint.yml` custom rules and run on every edit; the subagents
-cover the judgment calls a regex cannot.
-
 ## MCP servers (`.mcp.json`)
 
 - **sosumi** (`https://sosumi.ai/mcp`): Apple documentation, HIG, and WWDC transcripts as
@@ -44,14 +38,8 @@ cover the judgment calls a regex cannot.
   external agents to use Xcode tools". It only serves tools while Xcode has this project open;
   with Xcode closed the server shows as failed at startup, which is harmless.
 
-Optional, not configured: [XcodeBuildMCP](https://github.com/getsentry/XcodeBuildMCP) adds
-accessibility-tree UI automation (`snapshot_ui`, `tap`, `type_text`) that is cheaper than
-screenshot loops. Add it per developer when you want the agent driving the UI:
-
-```sh
-claude mcp add XcodeBuildMCP -s user -e XCODEBUILDMCP_SENTRY_DISABLED=true \
-  -- npx -y xcodebuildmcp@latest mcp
-```
+Not configured: [XcodeBuildMCP](https://github.com/getsentry/XcodeBuildMCP), which adds
+accessibility-tree UI automation. Add it per developer if and when the agent needs to drive the UI.
 
 ## Plugins
 

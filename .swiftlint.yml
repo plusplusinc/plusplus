@@ -96,12 +96,6 @@ custom_rules:
     regex: '(\bObservableObject\b|@Published\b|@StateObject\b|@EnvironmentObject\b)'
     message: "State is @Observable; see .claude/rules/swift.md"
     severity: error
-  workout_core_imports:
-    name: "WorkoutCore imports"
-    included: "Packages/Sources/WorkoutCore/.*"
-    regex: '^import (SwiftUI|SwiftData|UIKit|Combine)\b'
-    message: "WorkoutCore imports only Foundation"
-    severity: error
   workout_store_imports:
     name: "WorkoutStore imports"
     included: "Packages/Sources/WorkoutStore/.*"
@@ -111,18 +105,18 @@ custom_rules:
   design_system_imports:
     name: "DesignSystem imports"
     included: "Packages/Sources/DesignSystem/.*"
-    regex: '^import (WorkoutCore|WorkoutStore|Features)\b'
+    regex: '^import WorkoutStore\b'
     message: "DesignSystem never imports domain code; components take strings and numbers"
     severity: error
   fixed_font_size:
     name: "Fixed font size"
-    included: "(Packages/Sources/Features|App)/.*"
+    included: "App/.*"
     regex: '\.font\(\.system\(size:'
     message: "Use a Font.pp* token so Dynamic Type works"
     severity: error
   literal_color:
     name: "Literal color"
-    included: "(Packages/Sources/Features|App)/.*"
+    included: "App/.*"
     regex: 'Color\((red|hue|white|uiColor|\.sRGB|#)'
     message: "Use a Color.pp* token from DesignSystem"
     severity: error

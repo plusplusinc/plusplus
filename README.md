@@ -33,15 +33,13 @@ scripts/lint.sh --fix    # SwiftFormat, SwiftLint, US English
 
 | Path | What lives there |
 | --- | --- |
-| `App/` | Entry point and entitlements. Deliberately thin. |
-| `Packages/Sources/WorkoutCore` | Domain types and pure logic. Foundation only. Currently empty. |
-| `Packages/Sources/WorkoutStore` | Storage wiring: App Group container, CloudKit, storage modes. |
-| `Packages/Sources/DesignSystem` | Design tokens, and soon components. SwiftUI only. |
-| `Packages/Sources/Features` | Screens. Currently empty. |
+| `App/` | Entry point. Deliberately thin. |
+| `Packages/Sources/WorkoutStore` | Storage wiring: SwiftData container and storage modes. |
+| `Packages/Sources/DesignSystem` | Design tokens. SwiftUI only, no domain knowledge. |
 | `Config/` | Every build setting, as xcconfig. Nothing lives in the pbxproj. |
 | `scripts/` | Build, test, lint, and run, shared by humans, agents, and CI. |
 | `ci_scripts/` | Xcode Cloud hooks. |
-| `.claude/` | Agent rules, skills, hooks, and subagents. See `docs/agent-tooling.md`. |
+| `.claude/` | Agent rules, skills, and hooks. See `docs/agent-tooling.md`. |
 
 The dependency rules between the packages are the architecture; they are spelled out in
 [CLAUDE.md](CLAUDE.md), which is also what agents read first.
