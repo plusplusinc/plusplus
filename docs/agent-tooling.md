@@ -34,9 +34,11 @@ SwiftData and CloudKit constraints, testing.
   nothing to a plain fetch, which is why this exists.
 - **xcode** (`xcrun mcpbridge`): Apple's MCP server, shipped in Xcode 26.3+. Live diagnostics,
   symbol lookup, build settings, and SwiftUI preview rendering without booting a simulator.
-  One-time setup: Xcode ▸ Settings ▸ Intelligence ▸ Model Context Protocol ▸ enable "Allow
-  external agents to use Xcode tools". It only serves tools while Xcode has this project open;
-  with Xcode closed the server shows as failed at startup, which is harmless.
+  One-time setup: Xcode ▸ Settings ▸ Intelligence ▸ Model Context Protocol ▸ turn on Xcode
+  Tools. It serves tools only while that switch is on and Xcode has this project open. In any
+  other state the bridge still starts and completes the MCP handshake but never answers a tool
+  request, which Claude Code reports as a failed server at startup; harmless unless you want
+  RenderPreview, which the `/run` skill uses for single-view checks.
 
 Not configured: [XcodeBuildMCP](https://github.com/getsentry/XcodeBuildMCP), which adds
 accessibility-tree UI automation. Add it per developer if and when the agent needs to drive the UI.

@@ -5,6 +5,7 @@
       "Bash(scripts/test.sh:*)",
       "Bash(scripts/lint.sh:*)",
       "Bash(scripts/run.sh:*)",
+      "Bash(scripts/sim.sh:*)",
       "Bash(scripts/check-us-english.sh:*)",
       "Bash(scripts/xcresult.py:*)",
       "Bash(scripts/xcode-cloud.py:*)",

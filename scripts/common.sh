@@ -55,3 +55,14 @@ run_xcodebuild() {
     fi
     return "$status"
 }
+
+# The bundle identifier of the last Debug simulator build, read from the built product so the
+# scripts never hard-code it. Fails with a pointer to run.sh when nothing has been built yet.
+app_bundle_id() {
+    local plist="$DERIVED_DATA/Build/Products/Debug-iphonesimulator/$SCHEME.app/Info.plist"
+    if [ ! -f "$plist" ]; then
+        echo "no built app at $plist; run scripts/run.sh first" >&2
+        return 1
+    fi
+    plutil -extract CFBundleIdentifier raw -o - "$plist"
+}
