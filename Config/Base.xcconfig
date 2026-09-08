@@ -58,7 +58,8 @@ DEVELOPMENT_TEAM = WK2XVYGZU9
 
 GENERATE_INFOPLIST_FILE = YES
 // App Store Connect refuses a build with no app icon, so this is required for TestFlight. The
-// catalog is App/Assets.xcassets; the icon in it is a placeholder until there is a brand.
+// icon is App/AppIcon.icon, an Icon Composer document: vector layers plus Liquid Glass settings,
+// rendered by the asset compiler for every platform and appearance.
 ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon
 INFOPLIST_KEY_CFBundleDisplayName = PlusPlus
 INFOPLIST_KEY_UILaunchScreen_Generation = YES
