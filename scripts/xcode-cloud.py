@@ -65,11 +65,14 @@ def der_to_raw(der: bytes) -> bytes:
     return out
 
 
+TOKEN_LIFETIME = 600  # seconds; App Store Connect allows at most 20 minutes
+
+
 def token() -> str:
     key_id, issuer, key_path = credentials()
     now = int(time.time())
     header = b64url(json.dumps({"alg": "ES256", "kid": key_id, "typ": "JWT"}).encode())
-    payload = b64url(json.dumps({"iss": issuer, "iat": now, "exp": now + 600, "aud": "appstoreconnect-v1"}).encode())
+    payload = b64url(json.dumps({"iss": issuer, "iat": now, "exp": now + TOKEN_LIFETIME, "aud": "appstoreconnect-v1"}).encode())
     signing_input = f"{header}.{payload}".encode()
     der = subprocess.run(
         ["openssl", "dgst", "-sha256", "-sign", str(key_path)],
@@ -78,16 +81,22 @@ def token() -> str:
     return f"{header}.{payload}.{b64url(der_to_raw(der))}"
 
 
-_token = None
+_token, _token_expires = None, 0.0
+
+
+def current_token() -> str:
+    """One token per process, re-signed a minute before it expires so a long poll keeps working."""
+    global _token, _token_expires
+    if time.time() > _token_expires - 60:
+        _token, _token_expires = token(), time.time() + TOKEN_LIFETIME
+    return _token
 
 
 def request(method: str, path: str, body=None, **params):
-    global _token
-    _token = _token or token()
     url = path if path.startswith("http") else f"{API}{path}"
     if params:
         url += ("&" if "?" in url else "?") + urllib.parse.urlencode(params)
-    headers = {"Authorization": f"Bearer {_token}"}
+    headers = {"Authorization": f"Bearer {current_token()}"}
     data = None
     if body is not None:
         headers["Content-Type"] = "application/json"
@@ -95,7 +104,8 @@ def request(method: str, path: str, body=None, **params):
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     try:
         with urllib.request.urlopen(req) as r:
-            return json.load(r)
+            raw = r.read()
+            return json.loads(raw) if raw else None  # relationship writes answer 204 with no body
     except urllib.error.HTTPError as e:
         sys.exit(f"{method} {url}: HTTP {e.code}\n{e.read().decode()[:800]}")
 
