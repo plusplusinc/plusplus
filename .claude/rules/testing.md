@@ -13,8 +13,10 @@ simulator) before anything that needs UIKit, and snapshots before XCUITest.
 - Tests that need UIKit are wrapped in `#if canImport(UIKit) && !os(watchOS)` so `swift test`
   on macOS compiles them out; the simulator run exercises them.
 - Snapshots go through `assertThemedSnapshots(of:width:)` in `DesignSystemTests`, which owns
-  the explicit width, the perceptual precision, and the light, dark, and XXXL appearances. Do
-  not call `assertSnapshot` directly. Re-record by deleting the files under `__Snapshots__/`.
+  the explicit width, the perceptual precision, and the light and dark appearances. Do not call
+  `assertSnapshot` directly. Re-record by deleting the files under `__Snapshots__/`.
+- No snapshots at accessibility text sizes: their line heights proved to depend on the host
+  macOS version, not just the simulator runtime. Check Dynamic Type in previews and on device.
 - Display name on the attribute, stable identifier on the function:
   `@Test("An in-memory container round-trips a model") func inMemoryRoundTrip()`. The
   formatter is configured to keep it that way (see `.swiftformat`).
