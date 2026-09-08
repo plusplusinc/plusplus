@@ -4,11 +4,17 @@ description: Open or update a pull request for the current branch the way this r
 allowed-tools: Bash(scripts/lint.sh:*), Bash(scripts/test.sh:*), Bash(git:*), Bash(gh pr:*)
 ---
 
-Branching and merge rules are in CLAUDE.md. Before pushing:
-1. `scripts/lint.sh` is clean.
-2. `scripts/test.sh sim` passes. For a change touching only docs or config, `scripts/test.sh`
+Branching and merge rules are in CLAUDE.md. Before pushing, in this order, because the first
+two change code and the rest verify it:
+1. `/simplify` has run over the diff and its cleanups are applied.
+2. `/code-review` has run over the diff and every confirmed finding is fixed or explained in
+   the PR body.
+3. `scripts/lint.sh` is clean.
+4. `scripts/test.sh sim` passes. For a change touching only docs or config, `scripts/test.sh`
    is enough.
-3. For UI changes, a screenshot from `/run` has been looked at.
+5. For UI changes, a screenshot from `/run` has been looked at.
+
+Steps 1 and 2 are skipped for a diff with no Swift in it.
 
 Then:
 ```sh
