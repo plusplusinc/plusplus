@@ -5,12 +5,8 @@ import SnapshotTesting
 import SwiftUI
 import Testing
 
-/// Snapshots a view in light and dark.
-///
-/// Not at accessibility text sizes: with the same iOS 26.5 simulator runtime, a macOS 26.6 host
-/// and a macOS 26.6.2 host laid out XXXL text with different line heights, so those references
-/// depend on the host and break on every point update. Dynamic Type is checked in previews and
-/// on device instead.
+/// Snapshots a view in the three appearances every component must survive: light, dark, and
+/// the largest accessibility content size.
 ///
 /// The width is explicit because `.sizeThatFits` proposes zero width and `Text` truncates to
 /// nothing, producing a silently wrong reference image. Comparison is perceptual so text
@@ -32,6 +28,13 @@ func assertThemedSnapshots(
     let appearances: [(name: String, traits: UITraitCollection)] = [
         ("light", UITraitCollection { $0.userInterfaceStyle = .light }),
         ("dark", UITraitCollection { $0.userInterfaceStyle = .dark }),
+        (
+            "xxxl",
+            UITraitCollection {
+                $0.userInterfaceStyle = .light
+                $0.preferredContentSizeCategory = .accessibilityExtraExtraExtraLarge
+            },
+        ),
     ]
     let directory = snapshotDirectory(forTestFile: file)
     for appearance in appearances {
@@ -66,13 +69,13 @@ private func snapshotDirectory(forTestFile file: StaticString) -> String {
     let testFile = URL(filePath: "\(file)")
     let name = testFile.deletingPathExtension().lastPathComponent
     let inSourceTree = testFile.deletingLastPathComponent().appending(path: "__Snapshots__/\(name)")
-    if FileManager.default.fileExists(atPath: inSourceTree.path()) {
-        return inSourceTree.path()
+    if FileManager.default.fileExists(atPath: inSourceTree.path(percentEncoded: false)) {
+        return inSourceTree.path(percentEncoded: false)
     }
     guard let bundled = Bundle.module.url(forResource: "__Snapshots__", withExtension: nil) else {
         fatalError("__Snapshots__ is neither next to \(file) nor bundled in the test target")
     }
-    return bundled.appending(path: name).path()
+    return bundled.appending(path: name).path(percentEncoded: false)
 }
 
 #endif
