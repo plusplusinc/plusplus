@@ -3,33 +3,218 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 70;
 	objects = {
-		000000000000000000000001 = {isa = PBXProject; attributes = {BuildIndependentTargetsInParallel = 1; LastSwiftUpdateCheck = 2660; LastUpgradeCheck = 2660; TargetAttributes = {000000000000000000000010 = {CreatedOnToolsVersion = 26.6; }; }; }; buildConfigurationList = 00000000000000000000000A; compatibilityVersion = "Xcode 15.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, Base, ); mainGroup = 000000000000000000000002; minimizedProjectReferenceProxies = 1; packageReferences = (000000000000000000000014, ); preferredProjectObjectVersion = 77; productRefGroup = 000000000000000000000003; projectDirPath = ""; projectRoot = ""; targets = (000000000000000000000010, ); };
-		000000000000000000000002 = {isa = PBXGroup; children = (000000000000000000000005, 000000000000000000000024, 000000000000000000000004, 000000000000000000000003, ); sourceTree = "<group>"; };
-		000000000000000000000003 = {isa = PBXGroup; children = (000000000000000000000006, ); name = Products; sourceTree = "<group>"; };
-		000000000000000000000004 = {isa = PBXGroup; children = (000000000000000000000007, 000000000000000000000008, 000000000000000000000009, ); path = Config; sourceTree = "<group>"; };
-		000000000000000000000005 = {isa = PBXFileSystemSynchronizedRootGroup; path = App; sourceTree = "<group>"; };
-		000000000000000000000006 = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PlusPlus.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		000000000000000000000007 = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
-		000000000000000000000008 = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
-		000000000000000000000009 = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
-		00000000000000000000000A = {isa = XCConfigurationList; buildConfigurations = (00000000000000000000000B, 00000000000000000000000C, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
-		00000000000000000000000B = {isa = XCBuildConfiguration; baseConfigurationReference = 000000000000000000000008; buildSettings = {}; name = Debug; };
-		00000000000000000000000C = {isa = XCBuildConfiguration; baseConfigurationReference = 000000000000000000000009; buildSettings = {}; name = Release; };
-		00000000000000000000000D = {isa = XCConfigurationList; buildConfigurations = (00000000000000000000000E, 00000000000000000000000F, ); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
-		00000000000000000000000E = {isa = XCBuildConfiguration; buildSettings = {}; name = Debug; };
-		00000000000000000000000F = {isa = XCBuildConfiguration; buildSettings = {}; name = Release; };
-		000000000000000000000010 = {isa = PBXNativeTarget; buildConfigurationList = 00000000000000000000000D; buildPhases = (000000000000000000000011, 000000000000000000000012, 000000000000000000000013, ); buildRules = (); dependencies = (); fileSystemSynchronizedGroups = (000000000000000000000005, ); name = PlusPlus; packageProductDependencies = (000000000000000000000018, 00000000000000000000001B, ); productName = PlusPlus; productReference = 000000000000000000000006; productType = "com.apple.product-type.application"; };
-		000000000000000000000011 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
-		000000000000000000000012 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (000000000000000000000019, 00000000000000000000001C, ); runOnlyForDeploymentPostprocessing = 0; };
-		000000000000000000000013 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
-		000000000000000000000014 = {isa = XCLocalSwiftPackageReference; relativePath = Packages; };
-		000000000000000000000018 = {isa = XCSwiftPackageProductDependency; productName = WorkoutStore; };
-		000000000000000000000019 = {isa = PBXBuildFile; productRef = 000000000000000000000018; };
-		00000000000000000000001B = {isa = XCSwiftPackageProductDependency; productName = DesignSystem; };
-		00000000000000000000001C = {isa = PBXBuildFile; productRef = 00000000000000000000001B; };
-		000000000000000000000024 = {isa = PBXFileReference; lastKnownFileType = wrapper; path = Packages; sourceTree = "<group>"; };
+
+/* Begin PBXBuildFile section */
+		000000000000000000000019 /* WorkoutStore in Frameworks */ = {isa = PBXBuildFile; productRef = 000000000000000000000018 /* WorkoutStore */; };
+		00000000000000000000001C /* DesignSystem in Frameworks */ = {isa = PBXBuildFile; productRef = 00000000000000000000001B /* DesignSystem */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		000000000000000000000006 /* PlusPlus Workout Tracker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "PlusPlus Workout Tracker.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		000000000000000000000007 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
+		000000000000000000000008 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
+		000000000000000000000009 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
+		000000000000000000000024 /* Packages */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = Packages; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		000000000000000000000005 /* App */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = App; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		000000000000000000000012 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				000000000000000000000019 /* WorkoutStore in Frameworks */,
+				00000000000000000000001C /* DesignSystem in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		000000000000000000000002 = {
+			isa = PBXGroup;
+			children = (
+				000000000000000000000005 /* App */,
+				000000000000000000000024 /* Packages */,
+				000000000000000000000004 /* Config */,
+				000000000000000000000003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		000000000000000000000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				000000000000000000000006 /* PlusPlus Workout Tracker.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		000000000000000000000004 /* Config */ = {
+			isa = PBXGroup;
+			children = (
+				000000000000000000000007 /* Base.xcconfig */,
+				000000000000000000000008 /* Debug.xcconfig */,
+				000000000000000000000009 /* Release.xcconfig */,
+			);
+			path = Config;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		000000000000000000000010 /* PlusPlus */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 00000000000000000000000D /* Build configuration list for PBXNativeTarget "PlusPlus" */;
+			buildPhases = (
+				000000000000000000000011 /* Sources */,
+				000000000000000000000012 /* Frameworks */,
+				000000000000000000000013 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				000000000000000000000005 /* App */,
+			);
+			name = PlusPlus;
+			packageProductDependencies = (
+				000000000000000000000018 /* WorkoutStore */,
+				00000000000000000000001B /* DesignSystem */,
+			);
+			productName = PlusPlus;
+			productReference = 000000000000000000000006 /* PlusPlus Workout Tracker.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		000000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2660;
+				LastUpgradeCheck = 2660;
+				TargetAttributes = {
+					000000000000000000000010 = {
+						CreatedOnToolsVersion = 26.6;
+					};
+				};
+			};
+			buildConfigurationList = 00000000000000000000000A /* Build configuration list for PBXProject "PlusPlus" */;
+			compatibilityVersion = "Xcode 15.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 000000000000000000000002;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				000000000000000000000014 /* XCLocalSwiftPackageReference "Packages" */,
+			);
+			productRefGroup = 000000000000000000000003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				000000000000000000000010 /* PlusPlus */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		000000000000000000000013 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		000000000000000000000011 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		00000000000000000000000B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 000000000000000000000008 /* Debug.xcconfig */;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		00000000000000000000000C /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 000000000000000000000009 /* Release.xcconfig */;
+			buildSettings = {
+			};
+			name = Release;
+		};
+		00000000000000000000000E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		00000000000000000000000F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		00000000000000000000000A /* Build configuration list for PBXProject "PlusPlus" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				00000000000000000000000B /* Debug */,
+				00000000000000000000000C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		00000000000000000000000D /* Build configuration list for PBXNativeTarget "PlusPlus" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				00000000000000000000000E /* Debug */,
+				00000000000000000000000F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		000000000000000000000014 /* XCLocalSwiftPackageReference "Packages" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Packages;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		000000000000000000000018 /* WorkoutStore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = WorkoutStore;
+		};
+		00000000000000000000001B /* DesignSystem */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = DesignSystem;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
-	rootObject = 000000000000000000000001;
+	rootObject = 000000000000000000000001 /* Project object */;
 }

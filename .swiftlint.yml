@@ -118,5 +118,5 @@ custom_rules:
     name: "Literal color"
     included: "App/.*"
     regex: 'Color\((red|hue|white|uiColor|\.sRGB|#)'
-    message: "Use a Color.pp* token from DesignSystem"
+    message: "Use Color.pp(.token) from DesignSystem"
     severity: error

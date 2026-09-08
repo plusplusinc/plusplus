@@ -50,8 +50,9 @@ state, stateless services hold side effects, free functions hold the math. The a
 
 ## Working in the project
 
-- **Never hand-edit `project.pbxproj`.** It is under fifty lines and `scripts/lint.sh` fails if
-  it grows. Build settings live in `Config/*.xcconfig`; dependencies in `Packages/Package.swift`.
+- **Never hand-edit `project.pbxproj`, and keep it free of build settings.** Settings live in
+  `Config/*.xcconfig` and `scripts/lint.sh` fails if one lands in the project, which Xcode's
+  wizards occasionally do. Dependencies go in `Packages/Package.swift`.
 - `App/` is a buildable folder: a file on disk is in the target. Anything in it ships inside the
   app bundle, so never leave notes or scratch files there.
 - The package appears in the project both as a package reference and as a folder reference. The

@@ -1,55 +1,44 @@
 // Runs only where UIKit exists, so `swift test` on macOS compiles it away and stays fast.
 #if canImport(UIKit) && !os(watchOS)
 
+import DesignSystem
 import SwiftUI
 import Testing
-@testable import DesignSystem
 
 /// Visual regression coverage for the token palette.
 ///
-/// A wrong light/dark pair is invisible in code review and obvious in an image. The list of
-/// tokens is read from the asset catalog on disk, so a token added there cannot be missing here.
+/// A wrong light/dark pair is invisible in code review and obvious in an image, and a token
+/// with no colorset behind it renders clear.
 @Suite("Design tokens")
 struct TokenSnapshotTests {
-    private static let catalog = URL(filePath: #filePath)
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .appending(path: "Sources/DesignSystem/Resources/Tokens.xcassets")
-
-    private static func tokenNames() throws -> [String] {
-        try FileManager.default.contentsOfDirectory(at: catalog, includingPropertiesForKeys: nil)
-            .filter { $0.pathExtension == "colorset" }
-            .map { $0.deletingPathExtension().lastPathComponent }
-            .sorted()
-    }
-
-    private func palette(_ names: [String]) -> some View {
+    private var paletteView: some View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
-            ForEach(names, id: \.self) { name in
+            ForEach(ColorToken.allCases, id: \.self) { token in
                 HStack(spacing: Spacing.sm) {
                     RoundedRectangle(cornerRadius: Radius.sm)
-                        .fill(Color.token(name))
+                        .fill(Color.pp(token))
                         .frame(width: 44, height: 28)
                         .overlay(
                             RoundedRectangle(cornerRadius: Radius.sm)
-                                .strokeBorder(Color.ppSeparator),
+                                .strokeBorder(Color.pp(.separator)),
                         )
-                    Text(name)
+                    // One line, shrunk to fit: wrapped text hyphenates with on-demand system
+                    // dictionaries that CI machines may lack, which moves every line break.
+                    Text(token.rawValue)
                         .font(.ppCaption)
-                        .foregroundStyle(Color.ppTextPrimary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.4)
+                        .foregroundStyle(.pp(.textPrimary))
                 }
             }
         }
         .padding(Spacing.md)
-        .background(Color.ppBackground)
+        .background(Color.pp(.background))
     }
 
-    @Test("Every token in the catalog renders in light, dark, and XXXL")
-    func palette() throws {
-        let names = try Self.tokenNames()
-        try #require(!names.isEmpty, "no colorsets found at \(Self.catalog.path())")
-        assertThemedSnapshots(of: palette(names), width: 260)
+    @Test("Every token renders in light, dark, and XXXL")
+    func palette() {
+        assertThemedSnapshots(of: paletteView, width: 260)
     }
 }
 

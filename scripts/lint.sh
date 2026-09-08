@@ -39,11 +39,12 @@ fi
 scripts/check-us-english.sh "$@" || status=1
 
 if $whole_tree; then
-    # The project file is meant to stay tiny: App/ is a buildable folder and every build
-    # setting lives in Config/*.xcconfig. Growth here means someone bypassed both.
+    # Every build setting lives in Config/*.xcconfig; the project file carries none. Xcode's
+    # wizards sometimes write one in (the Xcode Cloud setup wrote PRODUCT_NAME); move it out.
     pbxproj="PlusPlus.xcodeproj/project.pbxproj"
-    if [ "$(wc -l < "$pbxproj")" -gt 60 ] || grep -q 'buildSettings = {[^}]' "$pbxproj"; then
-        echo "$pbxproj: build settings or file lists belong in xcconfig or buildable folders" >&2
+    if grep -qE '^\s*[A-Z_]+ = .*;$' "$pbxproj"; then
+        echo "$pbxproj: build settings belong in Config/*.xcconfig" >&2
+        grep -nE '^\s*[A-Z_]+ = .*;$' "$pbxproj" >&2
         status=1
     fi
 fi

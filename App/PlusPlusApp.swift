@@ -20,13 +20,13 @@ private struct PlaceholderView: View {
         VStack(spacing: Spacing.sm) {
             Text("PlusPlus")
                 .font(.ppScreenTitle)
-                .foregroundStyle(Color.ppTextPrimary)
+                .foregroundStyle(.pp(.textPrimary))
             Text("No features yet.")
                 .font(.ppBody)
-                .foregroundStyle(Color.ppTextSecondary)
+                .foregroundStyle(.pp(.textSecondary))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.ppBackground)
+        .background(Color.pp(.background))
     }
 }
 
