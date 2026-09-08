@@ -12,7 +12,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		000000000000000000000006 /* PlusPlus Workout Tracker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "PlusPlus Workout Tracker.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		000000000000000000000006 /* PlusPlus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PlusPlus.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		000000000000000000000007 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
 		000000000000000000000008 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		000000000000000000000009 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
@@ -49,7 +49,7 @@
 		000000000000000000000003 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				000000000000000000000006 /* PlusPlus Workout Tracker.app */,
+				000000000000000000000006 /* PlusPlus.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -88,7 +88,7 @@
 				00000000000000000000001B /* DesignSystem */,
 			);
 			productName = PlusPlus;
-			productReference = 000000000000000000000006 /* PlusPlus Workout Tracker.app */;
+			productReference = 000000000000000000000006 /* PlusPlus.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
