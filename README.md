@@ -27,6 +27,7 @@ scripts/test.sh          # package tests on macOS, no simulator, seconds
 scripts/build.sh         # app for the simulator, compact diagnostics
 scripts/test.sh sim      # everything on the simulator, including snapshots
 scripts/run.sh           # build, install, launch, screenshot
+scripts/sim.sh shots     # light, dark, and XXXL screenshots of the running app
 scripts/lint.sh --fix    # SwiftFormat, SwiftLint, US English
 ```
 
