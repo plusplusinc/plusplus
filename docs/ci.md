@@ -28,6 +28,15 @@ manually.
 Bump `MARKETING_VERSION` in `Config/Base.xcconfig` for a release; `CURRENT_PROJECT_VERSION` is
 overridden by Xcode Cloud's build number.
 
+## From the command line
+
+`scripts/xcode-cloud.py` talks to Xcode Cloud through the App Store Connect API: `builds` lists
+recent runs, `artifacts <n>` and `download <n> [substring]` fetch a run's result bundles, logs,
+and test products into `.build/xcode-cloud/`, and `start <workflow> pr <n>` starts a run. It
+needs an API key with the Developer role: the `.p8` in `~/.appstoreconnect/private_keys/` and
+`ASC_KEY_ID` and `ASC_ISSUER_ID` in `~/.appstoreconnect/plusplus.env`. Nothing of that is in the
+repo.
+
 ## Branch protection
 
 On `main`: require a pull request, require the Xcode Cloud status check, squash merges only,

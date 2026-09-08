@@ -6,6 +6,8 @@
     scripts/xcode-cloud.py download <build-number> [substring ...]
         downloads artifacts whose file name contains any substring (all when none given)
         into .build/xcode-cloud/<build-number>/ and unzips them
+    scripts/xcode-cloud.py start <workflow-name> pr <number>|branch <name>
+        starts a build of that workflow for a pull request or a branch
 
 Credentials: an App Store Connect API key with the Developer role. The key file lives in
 ~/.appstoreconnect/private_keys/AuthKey_<KEY ID>.p8, where Apple's own tools look, and the ids
@@ -79,15 +81,27 @@ def token() -> str:
 _token = None
 
 
-def get(path: str, **params):
+def request(method: str, path: str, body=None, **params):
     global _token
     _token = _token or token()
     url = path if path.startswith("http") else f"{API}{path}"
     if params:
         url += ("&" if "?" in url else "?") + urllib.parse.urlencode(params)
-    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {_token}"})
-    with urllib.request.urlopen(req) as r:
-        return json.load(r)
+    headers = {"Authorization": f"Bearer {_token}"}
+    data = None
+    if body is not None:
+        headers["Content-Type"] = "application/json"
+        data = json.dumps(body).encode()
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    try:
+        with urllib.request.urlopen(req) as r:
+            return json.load(r)
+    except urllib.error.HTTPError as e:
+        sys.exit(f"{method} {url}: HTTP {e.code}\n{e.read().decode()[:800]}")
+
+
+def get(path: str, **params):
+    return request("GET", path, **params)
 
 
 def bundle_id() -> str:
@@ -122,6 +136,35 @@ def artifacts_for(run):
     for action in actions:
         for artifact in get(f"/ciBuildActions/{action['id']}/artifacts")["data"]:
             yield action["attributes"], artifact["attributes"]
+
+
+def workflow_id(name: str) -> str:
+    for w in get(f"/ciProducts/{product_id()}/workflows", **{"fields[ciWorkflows]": "name"})["data"]:
+        if w["attributes"]["name"].lower() == name.lower():
+            return w["id"]
+    sys.exit(f"no workflow named {name}")
+
+
+def cmd_start(argv):
+    if len(argv) != 3 or argv[1] not in ("pr", "branch"):
+        sys.exit("usage: start <workflow-name> pr <number>|branch <name>")
+    name, kind, ref = argv
+    repo = get(f"/ciProducts/{product_id()}/primaryRepositories")["data"][0]["id"]
+    relationships = {"workflow": {"data": {"type": "ciWorkflows", "id": workflow_id(name)}}}
+    if kind == "pr":
+        pulls = get(f"/scmRepositories/{repo}/pullRequests", limit=50)["data"]
+        match = [p for p in pulls if str(p["attributes"].get("number")) == ref]
+        if not match:
+            sys.exit(f"no open pull request #{ref} known to Xcode Cloud")
+        relationships["pullRequest"] = {"data": {"type": "scmPullRequests", "id": match[0]["id"]}}
+    else:
+        refs = get(f"/scmRepositories/{repo}/gitReferences", limit=200)["data"]
+        match = [r for r in refs if r["attributes"].get("name") == ref and r["attributes"].get("kind") == "BRANCH"]
+        if not match:
+            sys.exit(f"no branch named {ref} known to Xcode Cloud")
+        relationships["sourceBranchOrTag"] = {"data": {"type": "scmGitReferences", "id": match[0]["id"]}}
+    run = request("POST", "/ciBuildRuns", {"data": {"type": "ciBuildRuns", "relationships": relationships}})
+    print(f"started build #{run['data']['attributes']['number']}")
 
 
 def cmd_builds(argv):
@@ -162,7 +205,7 @@ def cmd_download(argv):
 
 
 if __name__ == "__main__":
-    commands = {"builds": cmd_builds, "artifacts": cmd_artifacts, "download": cmd_download}
+    commands = {"builds": cmd_builds, "artifacts": cmd_artifacts, "download": cmd_download, "start": cmd_start}
     if len(sys.argv) < 2 or sys.argv[1] not in commands:
         print(__doc__, file=sys.stderr)
         sys.exit(64)

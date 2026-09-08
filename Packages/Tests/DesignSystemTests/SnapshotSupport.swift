@@ -6,7 +6,8 @@ import SwiftUI
 import Testing
 
 /// Snapshots a view in the three appearances every component must survive: light, dark, and
-/// the largest accessibility content size.
+/// the largest accessibility content size. The scheme pins the test language so the system
+/// font's line height, which follows the device's preferred languages, is the same everywhere.
 ///
 /// The width is explicit because `.sizeThatFits` proposes zero width and `Text` truncates to
 /// nothing, producing a silently wrong reference image. Comparison is perceptual so text

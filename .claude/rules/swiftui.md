@@ -17,5 +17,4 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
 - Every tappable element that is not a `Button` gets `.accessibilityAddTraits(.isButton)`;
   icon-only controls get `.accessibilityLabel`; decorative images get
   `.accessibilityHidden(true)`.
-- Every new component gets a `#Preview`, checked at an accessibility text size, and goes
-  through `assertThemedSnapshots`.
+- Every new component gets a `#Preview` and goes through `assertThemedSnapshots`.
