@@ -1,7 +1,7 @@
 ---
 name: run
 description: Build, install, launch, and drive the app on the iOS simulator. Use to run the app, take screenshots, switch dark mode or Dynamic Type, relaunch without rebuilding, or read the app's log, and to verify UI work visually before calling it done.
-allowed-tools: Bash(scripts/run.sh:*), Bash(scripts/sim.sh:*), Bash(xcrun simctl:*), Read
+allowed-tools: Bash(scripts/run.sh:*), Bash(scripts/sim.sh:*), Bash(xcrun simctl:*), Read, mcp__xcode__XcodeListWindows, mcp__xcode__RenderPreview
 ---
 
 Two scripts, run from the repo root. `scripts/run.sh` gets the app on screen; `scripts/sim.sh`
@@ -35,6 +35,16 @@ scripts/sim.sh log [minutes]            # the app's own log lines plus errors an
 after `simctl ui` has already exited, and a capture taken straight after the raw command shows
 the old state.
 
+## One view, no simulator
+
+While iterating on a single view that has a `#Preview`, the `xcode` MCP server's RenderPreview
+renders it to a PNG without a simulator. Get the tab identifier from XcodeListWindows, pass the
+file's project-navigator path (`PlusPlus/App/PlusPlusApp.swift`, project name first), and set
+`previewVariantOverrides` to `{"Color Scheme": "Dark Appearance", "Dynamic Type": "AX 5"}` for
+the dark and largest-type checks; the result lists every supported variant. It needs Xcode open
+with the project loaded and Xcode Tools enabled (see `docs/agent-tooling.md`). The scripts above
+remain the check for the app as a whole.
+
 What to check in the light, dark, and XXXL images before declaring UI work done:
 - Touch targets look at least 44pt, nothing important hidden under system bars.
 - No placeholder text, no labels clipped or truncated at XXXL, no glass stacked on glass.
@@ -52,8 +62,9 @@ What to check in the light, dark, and XXXL images before declaring UI work done:
   connections, not a bug.
 - Only the iOS app exists. watchOS is in the plan and the package platforms, but there is no
   watch target or scheme yet.
-- The `xcode` MCP server serves tools only while Xcode has this project open; otherwise it
-  fails at session start. Nothing here needs it.
+- The `xcode` MCP server serves tools only while Xcode has this project open and Xcode Tools
+  is switched on in its Intelligence settings; otherwise it fails at session start. The scripts
+  do not need it; RenderPreview does.
 
 ## Troubleshooting
 
