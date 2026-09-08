@@ -12,6 +12,9 @@ before any build action.
 2. In Xcode, with `PlusPlus.xcodeproj` open: Product ▸ Xcode Cloud ▸ Create Workflow. Xcode
    registers the app record and bundle ID in App Store Connect if they do not exist.
 3. Signing is managed by Xcode Cloud using the `DEVELOPMENT_TEAM` in `Config/Base.xcconfig`.
+4. Both workflows below exist in App Store Connect. `scripts/xcode-cloud.py` can read and change
+   them through the API (the `Main` distribution audience was set that way), and it created the
+   `Internal` beta group.
 
 ## Workflows
 
@@ -19,14 +22,15 @@ before any build action.
 simulator iPhone 17. The scheme's test action includes the package test targets, so this covers
 storage, snapshot, and UI tests in one run. Post-actions: none.
 
-**Main**: start on push to `main`. Actions: Archive, iOS, TestFlight (Internal Testing). Adds a
-build to the internal group on every merge.
+**Main**: start on push to `main`. Actions: Archive, iOS, with distribution to TestFlight
+internal testing. Every merge becomes a build for the `Internal` group, which has access to all
+builds; its members are added in App Store Connect (TestFlight ▸ Internal Testing), since the
+API does not let a team member be added to an internal group. Internal builds skip Beta App
+Review, and `ITSAppUsesNonExemptEncryption` in `Config/Base.xcconfig` answers the export
+compliance question so the build is available as soon as processing finishes.
 
-**Release**: start on tag `v*`. Archive with TestFlight and App Store distribution, submitted
-manually.
-
-Bump `MARKETING_VERSION` in `Config/Base.xcconfig` for a release; `CURRENT_PROJECT_VERSION` is
-overridden by Xcode Cloud's build number.
+There is no App Store workflow yet. `CURRENT_PROJECT_VERSION` is overridden by Xcode Cloud's
+build number; `MARKETING_VERSION` in `Config/Base.xcconfig` is bumped by hand.
 
 ## From the command line
 
