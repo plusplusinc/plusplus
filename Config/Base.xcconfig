@@ -57,6 +57,9 @@ DEVELOPMENT_TEAM = WK2XVYGZU9
 // Generated from these settings; there is no Info.plist file to drift out of sync.
 
 GENERATE_INFOPLIST_FILE = YES
+// App Store Connect refuses a build with no app icon, so this is required for TestFlight. The
+// catalog is App/Assets.xcassets; the icon in it is a placeholder until there is a brand.
+ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon
 INFOPLIST_KEY_CFBundleDisplayName = PlusPlus
 INFOPLIST_KEY_UILaunchScreen_Generation = YES
 INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES
