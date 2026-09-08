@@ -28,7 +28,6 @@
     ],
     "deny": [
       "Bash(xcrun simctl erase:*)",
-      "Bash(xcrun simctl delete:*)",
       "Bash(xcrun altool:*)",
       "Bash(xcrun notarytool:*)",
       "Bash(git push --force:*)",
