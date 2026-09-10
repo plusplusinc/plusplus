@@ -9,8 +9,8 @@ No branch, no code, no spike until the card is in In Progress.
 
 ## 1. Classify
 
-- **Feature**: something the user cannot do today. Argue the problem first: say what is hard
-  or missing, for whom, and why now. If the kernel looks like a solution ("add a timer"), find
+- **Feature**: something the user cannot do today. Argue the problem first, from
+  `docs/principles.md`: say what is hard or missing, for whom, and why now. If the kernel looks like a solution ("add a timer"), find
   the problem behind it ("rest between sets is guessed") and check it is the right one to solve
   before the one after it. Push back in the brief itself, with an alternative, when it is not.
 - **Bug**: something does not do what it already promises. Reproduce it first (`/run`, tests,
