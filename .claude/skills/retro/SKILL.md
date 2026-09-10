@@ -9,14 +9,16 @@ short report, and when there is something to fix, one PR.
 
 ## Stopping rules, read first
 
-- **A PR that came out of a retro does not get a retro.** Its body says "Retro of #N". The
-  loop ends there.
+- **A PR that came out of a retro does not get a retro.** Its title starts with "Retro of".
+  The loop ends there.
 - **Nothing found means nothing written.** A one-line report, no PR, no memory note.
 - **One fix per recurring finding.** If the previous retro already fixed it, the fix did not
   work; say that instead of fixing it again.
 - **One mistake is noise.** A mistake that happened once is reported, not fixed, unless the
   fix is a deletion. Twice, it gets a check that makes it impossible. The record of past
-  findings is the bodies of earlier retro PRs: `gh pr list --search "Retro of in:title"`.
+  findings is the bodies of earlier retro PRs:
+  `gh pr list --state all --search "Retro of in:title"` (without `--state all` only open
+  PRs are searched).
 - **One retro per merge.** Before starting, check that no retro PR, open or merged, already
   names the PR number. The cloud routine and a local session can both run this.
 
@@ -55,7 +57,8 @@ memory, not the repo (see the repo-may-become-public rule).
 
 ## 4. Land it
 
-One branch, one PR titled "Retro of #N: <the main change>", body listing each finding and
+One branch, one PR titled "Retro of #N: <the main change>", every number listed in the title
+(a range is not searchable), body listing each finding and
 where its fix went, with the fixes the retro decided not to make and why. Repo changes go
 through `/pr` like any other; the body is the record the next retro reads, so list findings
 one per line. Anything about how the maintainer prefers to work goes to agent memory instead
