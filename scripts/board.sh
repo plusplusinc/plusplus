@@ -26,8 +26,15 @@ status_field() {
 }
 
 usage() {
-    sed -n '2,/^$/p' "$0" | sed 's/^# \{0,1\}//' >&2
+    sed -n '2,/^[^#]/{/^#/p;}' "$0" | sed 's/^# \{0,1\}//' >&2
     exit 64
+}
+
+# gh edits a draft's title and body through the draft issue's own id (DI_...), not the project
+# item's id (PVTI_...) that every other subcommand takes.
+draft_id() {
+    gh project item-list "$NUMBER" --owner "$OWNER" --format json \
+        --jq ".items[] | select(.id == \"$1\") | .content.id"
 }
 
 command="${1:-}"
@@ -51,7 +58,7 @@ case "$command" in
         ;;
     body)
         [ $# -eq 2 ] || usage
-        gh project item-edit --id "$1" --body "$(cat "$2")" > /dev/null
+        gh project item-edit --id "$(draft_id "$1")" --body "$(cat "$2")" > /dev/null
         ;;
     status)
         [ $# -eq 2 ] || usage
