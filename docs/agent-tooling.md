@@ -56,8 +56,9 @@ lives in packages.
 
 The retro (`.claude/skills/retro/SKILL.md`) runs in Anthropic's cloud, not on a developer
 machine: a routine at https://claude.ai/code/routines clones `main`, is fired by a GitHub
-webhook when a PR merges and by a nightly cron as a fallback, and opens at most one PR. It
-never merges. The routine's prompt only points at the skill, so changing the retro means
+webhook on every pull request event (the webhook cannot filter, so the routine exits at once
+unless a merge is waiting for its retro) and by a nightly cron as a fallback, and opens at most
+one PR. It never merges. The routine's prompt only points at the skill, so changing the retro means
 changing the skill, not the routine.
 
 ## Parallel work
