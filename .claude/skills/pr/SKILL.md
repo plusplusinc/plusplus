@@ -26,7 +26,8 @@ gh pr checks --watch                                # Xcode Cloud reports back a
 The body follows `.github/pull_request_template.md`: one paragraph on what and why, short
 sections only if the change has distinct parts, a "Verified" line stating exactly what was run,
 a "Friction" line saying what was retried, what the maintainer corrected, and what took longer
-than it should have, and a "Card" line naming the board card. The retro runs in a cloud session
+than it should have, and a "Card" line naming the board card, written as "Closes #N" when the
+card was published as an issue so the merge closes it. The retro runs in a cloud session
 that never saw this work and reads only the PR, so write Friction from the session, not from
 the diff, and put any decision the diff does not explain in the body. `--fill` skips the
 template; write the body to a file under `.build/`.
