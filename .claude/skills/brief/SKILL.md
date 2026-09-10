@@ -43,7 +43,11 @@ every heading present even when its answer is one line:
   (before and after for any UI). For a hunch, the spike and what answer would end it.
 
 Write the body to a file under `.build/` and `scripts/board.sh add "<title>" <file>`. Draft
-items are private even when the repo is not.
+items are private; the repo is not. A bug any user of a shipped build could hit is published
+at once (`scripts/board.sh publish`); everything else stays a draft until a PR is about to
+implement it (see "Private card or public issue" in `docs/process.md`). Before publishing,
+delete from the body what must not be public: strategy and why-now reasoning, personal or
+health data, unreleased design work, anything about other apps.
 
 ## 4. Hand off
 
