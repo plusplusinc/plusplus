@@ -16,15 +16,18 @@ short report, and when there is something to fix, one PR.
   work; say that instead of fixing it again.
 - **One mistake is noise.** A mistake that happened once is reported, not fixed, unless the
   fix is a deletion. Twice, it gets a check that makes it impossible. The record of past
-  findings is the agent memory file named `retro-log`.
+  findings is the bodies of earlier retro PRs: `gh pr list --search "Retro of in:title"`.
+- **One retro per merge.** Before starting, check that no retro PR, open or merged, already
+  names the PR number. The cloud routine and a local session can both run this.
 
 ## 1. Collect
 
 For each PR: `gh pr view` for commits, review threads, and how long it took from open to
 merge; `gh api repos/{owner}/{repo}/pulls/N/comments` for inline review; the diff; the Xcode
-Cloud runs it caused (`scripts/xcode-cloud.py builds`) and why any failed; the board card, if
-there was one. From the session that did the work: what was retried, what the maintainer
-corrected, what took longer than it should have.
+Cloud runs it caused (`gh pr checks`, and `scripts/xcode-cloud.py builds` when the App Store
+Connect key is available) and why any failed; the board card, if there was one; the Friction
+line in the PR body, which is where the session that did the work recorded what was retried,
+what the maintainer corrected, and what took longer than it should have.
 
 ## 2. Ask three questions
 
