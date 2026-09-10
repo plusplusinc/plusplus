@@ -4,7 +4,7 @@ and why; short sections only when the change has distinct parts. Review notes go
 The retro runs in a cloud session that never saw this work, so the body has to carry what it
 needs: the three lines below, and any decision the diff does not explain. -->
 
-Card: <!-- the board card this PR came from, or "none" and why -->
+Card: <!-- the board card this PR came from; "Closes #N" when it was published as an issue; or "none" and why -->
 
 Verified: <!-- exactly what was run: lint, which test tier, which screenshots were looked at -->
 
