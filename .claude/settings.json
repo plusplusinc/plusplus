@@ -9,6 +9,7 @@
       "Bash(scripts/check-us-english.sh:*)",
       "Bash(scripts/xcresult.py:*)",
       "Bash(scripts/xcode-cloud.py:*)",
+      "Bash(scripts/board.sh:*)",
       "Bash(xcodebuild -list:*)",
       "Bash(xcodebuild -showBuildSettings:*)",
       "Bash(xcodebuild -version:*)",
