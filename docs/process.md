@@ -24,6 +24,15 @@ A brief is a draft item on the private project board. One screen, in this order:
 The maintainer approves by moving the card from Todo to In Progress. A change to the brief is
 an edit to the card, not a chat message; draft cards have no comment thread.
 
+**Private card or public issue.** The repo is public and the board is not. Every brief starts
+as a draft card. It becomes a repo issue (`scripts/board.sh publish`, which keeps the card on
+the board) at one of two moments: when a PR is about to implement it, so the PR can close it
+and the reasoning ships with the code; or at once, when it is a bug any user of a shipped build
+could hit. Before publishing, trim the body rather than move it: product strategy and why-now
+reasoning, personal or health data, unreleased design work, and anything about other apps are
+deleted. If trimming leaves nothing useful, the card stays private and the PR names it by
+title.
+
 ## 3. Build
 
 One branch per card, in its own worktree when more than one is in flight (see
