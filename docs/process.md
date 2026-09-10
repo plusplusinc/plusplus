@@ -21,8 +21,8 @@ A brief is a draft item on the private project board. One screen, in this order:
   rest name a criterion, what gets measured, and when to check.
 - **Plan.** Model changes, views, tests, and the screenshots the PR will carry.
 
-The maintainer approves by moving the card from Todo to In Progress. Discussion that changes
-the brief goes on the card, not in chat.
+The maintainer approves by moving the card from Todo to In Progress. A change to the brief is
+an edit to the card, not a chat message; draft cards have no comment thread.
 
 ## 3. Build
 
