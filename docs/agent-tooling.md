@@ -52,6 +52,14 @@ indexes the Swift packages with no configuration, giving go-to-definition, refer
 diagnostics. It does not understand the `.xcodeproj`, which is fine because nearly all code
 lives in packages.
 
+## Routines
+
+The retro (`.claude/skills/retro/SKILL.md`) runs in Anthropic's cloud, not on a developer
+machine: a routine at https://claude.ai/code/routines clones `main`, is fired by a GitHub
+webhook when a PR merges and by a nightly cron as a fallback, and opens at most one PR. It
+never merges. The routine's prompt only points at the skill, so changing the retro means
+changing the skill, not the routine.
+
 ## Parallel work
 
 `claude --worktree <name>` gives an agent its own checkout under `.claude/worktrees/`.
