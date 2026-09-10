@@ -40,8 +40,10 @@ SwiftData and CloudKit constraints, testing.
   request, which Claude Code reports as a failed server at startup; harmless unless you want
   RenderPreview, which the `/run` skill uses for single-view checks.
 
-Not configured: [XcodeBuildMCP](https://github.com/getsentry/XcodeBuildMCP), which adds
-accessibility-tree UI automation. Add it per developer if and when the agent needs to drive the UI.
+Not configured: [XcodeBuildMCP](https://github.com/getsentry/XcodeBuildMCP). It was assessed
+and rejected: it duplicates the scripts for the agent only, needs Node, and costs about sixty
+tools of context. When the first tappable control lands, the tap-and-describe layer is
+[AXe](https://github.com/cameroncooke/AXe), added to the `Brewfile` in that PR.
 
 ## Plugins
 
@@ -49,6 +51,15 @@ accessibility-tree UI automation. Add it per developer if and when the agent nee
 indexes the Swift packages with no configuration, giving go-to-definition, references, and
 diagnostics. It does not understand the `.xcodeproj`, which is fine because nearly all code
 lives in packages.
+
+## Routines
+
+The retro (`.claude/skills/retro/SKILL.md`) runs in Anthropic's cloud, not on a developer
+machine: a routine at https://claude.ai/code/routines clones `main`, is fired by a GitHub
+webhook on every pull request event (the webhook cannot filter, so the routine exits at once
+unless a merge is waiting for its retro) and by a nightly cron as a fallback, and opens at most
+one PR. It never merges. The routine's prompt only points at the skill, so changing the retro means
+changing the skill, not the routine.
 
 ## Parallel work
 
