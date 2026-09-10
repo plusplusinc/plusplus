@@ -77,6 +77,10 @@ Apple documentation: the `sosumi` MCP server works with Xcode closed. The `xcode
 gives live diagnostics and preview rendering but needs Xcode open with the project loaded. See
 `docs/agent-tooling.md`.
 
+## Process
+
+How a kernel becomes a brief, a PR, a TestFlight build, and a retro: `docs/process.md`.
+
 ## Branching
 
 **`main` only moves through pull requests. Never commit to it directly**, not even a one-line
