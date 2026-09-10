@@ -57,6 +57,17 @@ memory, not the repo (see the repo-may-become-public rule).
 
 One branch, one PR titled "Retro of #N: <the main change>", body listing each finding and
 where its fix went, with the fixes the retro decided not to make and why. Repo changes go
-through `/pr` like any other. Append one line per finding to the `retro-log` memory so the
-next retro can see recurrences. Then report to the maintainer: findings, fixes, and anything
-that needs their decision.
+through `/pr` like any other; the body is the record the next retro reads, so list findings
+one per line. Anything about how the maintainer prefers to work goes to agent memory instead
+and is mentioned in the body without its content. Then report to the maintainer: findings,
+fixes, and anything that needs their decision.
+
+## How it runs
+
+A cloud routine runs this skill on every pull request event (GitHub webhook) and once nightly
+as a fallback, exiting at once unless a merge to `main` is waiting for its retro; see
+`docs/agent-tooling.md`. That session never saw the work: it has only what the PR carries,
+which is why the template asks for Verified, Friction, and Card lines. It has no local state,
+no App Store Connect key, and cannot run the Mac lint, so its PR relies on CI for that. A
+local session may run the skill too, for a merge it made, and the one-retro-per-merge rule
+keeps the two from colliding.
