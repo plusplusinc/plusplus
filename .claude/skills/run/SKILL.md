@@ -55,8 +55,9 @@ What to check in the light, dark, and XXXL images before declaring UI work done:
   the simulator. A session that ended in dark mode makes the next `run.sh` screenshot dark.
   Use `shots`, or `reset` when finished.
 - The default content size is `large`, not `medium`.
-- There is no tap layer. The app has no controls yet; when one lands, its automation belongs in
-  an XCUITest target in the `sim` test tier (see `.claude/rules/testing.md`), not in `sim.sh`.
+- There is no tap layer. The app has no controls yet; when one lands, AXe joins the `Brewfile`
+  for tapping and reading the accessibility tree (see `docs/agent-tooling.md`), and end-to-end
+  checks belong in an XCUITest target in the `sim` test tier, not in `sim.sh`.
 - `log` is empty today: the placeholder creates no store and logs nothing. Errors reading
   "Connection interrupted" timestamped at a simulator shutdown are the app losing its XPC
   connections, not a bug.

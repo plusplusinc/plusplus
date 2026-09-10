@@ -40,8 +40,10 @@ SwiftData and CloudKit constraints, testing.
   request, which Claude Code reports as a failed server at startup; harmless unless you want
   RenderPreview, which the `/run` skill uses for single-view checks.
 
-Not configured: [XcodeBuildMCP](https://github.com/getsentry/XcodeBuildMCP), which adds
-accessibility-tree UI automation. Add it per developer if and when the agent needs to drive the UI.
+Not configured: [XcodeBuildMCP](https://github.com/getsentry/XcodeBuildMCP). It was assessed
+and rejected: it duplicates the scripts for the agent only, needs Node, and costs about sixty
+tools of context. When the first tappable control lands, the tap-and-describe layer is
+[AXe](https://github.com/cameroncooke/AXe), added to the `Brewfile` in that PR.
 
 ## Plugins
 
