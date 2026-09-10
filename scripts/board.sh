@@ -6,14 +6,17 @@
 #   scripts/board.sh add <title> [body-file]           # a draft item in Todo; prints its id
 #   scripts/board.sh body <item-id> <body-file>        # replace a draft item's body
 #   scripts/board.sh status <item-id> Todo|"In Progress"|Done
+#   scripts/board.sh publish <item-id>                # convert the draft to a repo issue, in place
 #
-# Draft items keep the board private while the repo may be public; convert one to an issue in
-# the GitHub UI when the work can be discussed publicly. The Status field's option ids are
+# Draft items keep the board private while the repo is public; `publish` converts one to an
+# issue when docs/process.md says so, keeping its place and status on the board. Trim the body
+# first: the issue is public. The Status field's option ids are
 # looked up each run rather than committed, so the board can be reshaped without a code change.
 # `gh` needs the `project` scope: `gh auth refresh -s project`.
 set -euo pipefail
 
 OWNER="plusplusinc"
+REPO="plusplus"
 NUMBER=2
 
 project_id() {
@@ -70,6 +73,18 @@ case "$command" in
         fi
         gh project item-edit --project-id "$(project_id)" --id "$1" \
             --field-id "$(jq -r .id <<< "$field")" --single-select-option-id "$option" > /dev/null
+        ;;
+    publish)
+        [ $# -eq 1 ] || usage
+        gh api graphql -f query='
+            mutation($item: ID!, $repo: ID!) {
+                convertProjectV2DraftIssueItemToIssue(input: {itemId: $item, repositoryId: $repo}) {
+                    item { content { ... on Issue { url } } }
+                }
+            }' \
+            -f item="$1" \
+            -f repo="$(gh repo view "$OWNER/$REPO" --json id --jq .id)" \
+            --jq .data.convertProjectV2DraftIssueItemToIssue.item.content.url
         ;;
     *) usage ;;
 esac
