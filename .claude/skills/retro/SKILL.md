@@ -1,7 +1,7 @@
 ---
 name: retro
 description: Over the merges to main since the last retro, find what slowed the work or went wrong, check that the brief was useful, and delete or fix anything in the rules, skills, and docs that no longer describes the code. Applies fixes at the lowest altitude, in a PR the maintainer reviews. Runs nightly in the cloud; use locally on request over a merge or a range of merges.
-allowed-tools: Bash(git log:*), Bash(git diff:*), Bash(git show:*), Bash(gh pr view:*), Bash(gh pr list:*), Bash(gh pr checks:*), Bash(gh api:*), Bash(scripts/xcode-cloud.py:*), Bash(scripts/board.sh:*), Read, Glob, Grep
+allowed-tools: Bash(git log:*), Bash(git diff:*), Bash(git show:*), Bash(gh pr view:*), Bash(gh pr list:*), Bash(gh pr checks:*), Bash(gh api:*), Bash(asc xcode-cloud build-runs:*), Bash(asc xcode-cloud status:*), Bash(asc xcode-cloud doctor:*), Bash(asc xcode-cloud issues:*), Bash(asc xcode-cloud test-results:*), Bash(scripts/board.sh:*), Read, Glob, Grep
 ---
 
 Input: the merges to `main` that have no retro yet, or a PR number or range on request.
@@ -27,8 +27,8 @@ Output: a short report, and when there is something to fix, one PR.
 
 For each PR: `gh pr view` for commits, review threads, and how long it took from open to
 merge; `gh api repos/{owner}/{repo}/pulls/N/comments` for inline review; the diff; the Xcode
-Cloud runs it caused (`gh pr checks`, and `scripts/xcode-cloud.py builds` when the App Store
-Connect key is available) and why any failed; the board card, if there was one; the Friction
+Cloud runs it caused (`gh pr checks`, and `asc xcode-cloud doctor` when `asc` and the App Store
+Connect key are available) and why any failed; the board card, if there was one; the Friction
 line in the PR body, which is where the session that did the work recorded what was retried,
 what the maintainer corrected, and what took longer than it should have.
 
