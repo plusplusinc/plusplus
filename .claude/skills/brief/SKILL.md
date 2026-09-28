@@ -4,8 +4,8 @@ description: Turn a kernel (a sentence, a screenshot, a design prototype, a memo
 allowed-tools: Bash(scripts/board.sh:*), Bash(git log:*), Bash(gh pr list:*), Bash(gh pr view:*), Read, Glob, Grep
 ---
 
-The loop is in `docs/process.md`. This skill produces step 2, the brief, and nothing after it.
-No branch, no code, no spike until the card is in In Progress.
+This skill produces the brief and nothing after it. No branch, no code, no spike until the
+card is in In Progress.
 
 ## 1. Classify
 
@@ -45,9 +45,10 @@ every heading present even when its answer is one line:
 Write the body to a file under `.build/` and `scripts/board.sh add "<title>" <file>`. Draft
 items are private; the repo is not. A bug any user of a shipped build could hit is published
 at once (`scripts/board.sh publish`); everything else stays a draft until a PR is about to
-implement it (see "Private card or public issue" in `docs/process.md`). Before publishing,
+implement it, so the PR can close it and the reasoning ships with the code. Before publishing,
 delete from the body what must not be public: strategy and why-now reasoning, personal or
-health data, unreleased design work, anything about other apps.
+health data, unreleased design work, anything about other apps. If that leaves nothing useful,
+the card stays private and the PR names it by title.
 
 ## 4. Hand off
 

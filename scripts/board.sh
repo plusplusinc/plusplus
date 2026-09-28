@@ -1,5 +1,5 @@
 #!/bin/bash
-# The private project board, where briefs live. See docs/process.md.
+# The private project board, where briefs live. See the /brief skill.
 #
 #   scripts/board.sh list                              # every item: id, status, title
 #   scripts/board.sh show <item-id>                    # title, status, and body
@@ -9,9 +9,9 @@
 #   scripts/board.sh publish <item-id>                # convert the draft to a repo issue, in place
 #
 # Draft items keep the board private while the repo is public; `publish` converts one to an
-# issue when docs/process.md says so, keeping its place and status on the board. Trim the body
-# first: the issue is public. The Status field's option ids are
-# looked up each run rather than committed, so the board can be reshaped without a code change.
+# issue when the /brief skill says so, keeping its place and status on the board. Trim the
+# body first: the issue is public. The Status field's option ids are looked up each run
+# rather than committed, so the board can be reshaped without a code change.
 # `gh` needs the `project` scope: `gh auth refresh -s project`.
 set -euo pipefail
 
