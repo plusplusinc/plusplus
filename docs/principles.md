@@ -51,5 +51,6 @@ disagree, the principle wins or gets changed here, on purpose.
 6. **Reasonable defaults.** The first workout is minutes away without any setup, and every
    default is something the user can change. A default is a starting point, not a decision made
    for them.
-7. **Your data is yours.** It lives on the device and syncs through the user's own iCloud. No
-   account to create, nothing held hostage, nothing sent anywhere the user did not choose.
+7. **Your data is yours.** Workouts and health data stay on the user's devices and in their own
+   iCloud. No account to create, nothing held hostage. The one exception is anonymous usage
+   analytics, which the user can turn off.
