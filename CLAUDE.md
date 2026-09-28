@@ -1,7 +1,8 @@
 # PlusPlus
 
 A native iOS and watchOS workout tracker. Swift 6, SwiftUI, SwiftData + CloudKit. iOS 26 is the
-minimum and new platform APIs are adopted freely. It gets used mid-set, one-handed.
+minimum and new platform APIs are adopted freely. It gets used mid-set, one-handed. What the
+product believes is in `docs/principles.md`.
 
 This file is the constitution: loaded every session, kept short. Detail lives in
 `.claude/rules/*.md`, which load when you touch matching files, and in `docs/`. If this file and a
