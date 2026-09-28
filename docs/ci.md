@@ -44,6 +44,15 @@ needs an API key with the Developer role: the `.p8` in `~/.appstoreconnect/priva
 `ASC_KEY_ID` and `ASC_ISSUER_ID` in `~/.appstoreconnect/plusplus.env`. Nothing of that is in the
 repo.
 
+## Agents
+
+An agent uses the least access that answers its question. Pass or fail comes from GitHub, where
+Xcode Cloud reports every run as a check (`gh pr checks`); that needs no key and is all a cloud
+agent such as the retro gets. Local agents that operate CI use `scripts/xcode-cloud.py`, and a
+new need becomes a subcommand rather than an ad hoc API call. The API cannot cancel a running
+build or edit a workflow's post-actions, so those two go through App Store Connect in the
+browser. The Xcode MCP server has no Xcode Cloud tools.
+
 ## Branch protection
 
 On `main`: require a pull request, require the Xcode Cloud status check, squash merges only,
