@@ -1,17 +1,18 @@
 ---
 name: retro
-description: After a merge, find what slowed the work or went wrong, check that the brief was useful, and delete or fix anything in the rules, skills, and docs that no longer describes the code. Applies fixes at the lowest altitude, in a PR the maintainer reviews. Use after each merge to main, or on request over a range of merges.
+description: Over the merges to main since the last retro, find what slowed the work or went wrong, check that the brief was useful, and delete or fix anything in the rules, skills, and docs that no longer describes the code. Applies fixes at the lowest altitude, in a PR the maintainer reviews. Runs nightly in the cloud; use locally on request over a merge or a range of merges.
 allowed-tools: Bash(git log:*), Bash(git diff:*), Bash(git show:*), Bash(gh pr view:*), Bash(gh pr list:*), Bash(gh pr checks:*), Bash(gh api:*), Bash(scripts/xcode-cloud.py:*), Bash(scripts/board.sh:*), Read, Glob, Grep
 ---
 
-Step 6 of `docs/process.md`. Input: a merged PR number, or a range for a catch-up. Output: a
-short report, and when there is something to fix, one PR.
+Input: the merges to `main` that have no retro yet, or a PR number or range on request.
+Output: a short report, and when there is something to fix, one PR.
 
 ## Stopping rules, read first
 
 - **A PR that came out of a retro does not get a retro.** Its title starts with "Retro of".
   The loop ends there.
-- **Nothing found means nothing written.** A one-line report, no PR, no memory note.
+- **Nothing found means nothing written.** A one-line report, no PR, no memory note, no
+  notification. A night with no merge waiting is the common case and stays silent.
 - **One fix per recurring finding.** If the previous retro already fixed it, the fix did not
   work; say that instead of fixing it again.
 - **One mistake is noise.** A mistake that happened once is reported, not fixed, unless the
@@ -67,10 +68,9 @@ fixes, and anything that needs their decision.
 
 ## How it runs
 
-A cloud routine runs this skill on every pull request event (GitHub webhook) and once nightly
-as a fallback, exiting at once unless a merge to `main` is waiting for its retro; see
-`docs/agent-tooling.md`. That session never saw the work: it has only what the PR carries,
-which is why the template asks for Verified, Friction, and Card lines. It has no local state,
-no App Store Connect key, and cannot run the Mac lint, so its PR relies on CI for that. A
-local session may run the skill too, for a merge it made, and the one-retro-per-merge rule
-keeps the two from colliding.
+A cloud routine runs this skill once a night over every merge to `main` since the last retro,
+in one PR, exiting at once when none is waiting; see `docs/agent-tooling.md`. That session
+never saw the work: it has only what the PR carries, which is why the template asks for
+Verified, Friction, and Card lines. It has no local state, no App Store Connect key, and
+cannot run the Mac lint, so its PR relies on CI for that. A local session may run the skill
+too, for a merge it made, and the one-retro-per-merge rule keeps the two from colliding.

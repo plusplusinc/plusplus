@@ -55,11 +55,10 @@ lives in packages.
 ## Routines
 
 The retro (`.claude/skills/retro/SKILL.md`) runs in Anthropic's cloud, not on a developer
-machine: a routine at https://claude.ai/code/routines clones `main`, is fired by a GitHub
-webhook on every pull request event (the webhook cannot filter, so the routine exits at once
-unless a merge is waiting for its retro) and by a nightly cron as a fallback, and opens at most
-one PR. It never merges. The routine's prompt only points at the skill, so changing the retro means
-changing the skill, not the routine.
+machine: a routine at https://claude.ai/code/routines clones `main` at 10:00 UTC each day,
+exits at once unless a merge is waiting for its retro, and opens at most one PR covering every
+merge since the last one. It never merges. The routine's prompt only picks the merges and
+hands them to the skill, so changing the retro means changing the skill, not the routine.
 
 ## Parallel work
 
