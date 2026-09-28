@@ -12,9 +12,8 @@ before any build action.
 2. In Xcode, with `PlusPlus.xcodeproj` open: Product ▸ Xcode Cloud ▸ Create Workflow. Xcode
    registers the app record and bundle ID in App Store Connect if they do not exist.
 3. Signing is managed by Xcode Cloud using the `DEVELOPMENT_TEAM` in `Config/Base.xcconfig`.
-4. Both workflows below exist in App Store Connect. `scripts/xcode-cloud.py` can read and change
-   them through the API (the `Main` distribution audience was set that way), and it created the
-   `Internal` beta group.
+4. Both workflows below exist in App Store Connect. The `Main` distribution audience and the
+   `Internal` beta group were set through the API, which `asc` reaches (see below).
 
 ## Workflows
 
@@ -37,19 +36,32 @@ build number; `MARKETING_VERSION` in `Config/Base.xcconfig` is bumped by hand.
 
 ## From the command line
 
-`scripts/xcode-cloud.py` talks to Xcode Cloud through the App Store Connect API: `builds` lists
-recent runs, `artifacts <n>` and `download <n> [substring]` fetch a run's result bundles, logs,
-and test products into `.build/xcode-cloud/`, and `start <workflow> pr <n>` starts a run. It
-needs an API key with the Developer role: the `.p8` in `~/.appstoreconnect/private_keys/` and
-`ASC_KEY_ID` and `ASC_ISSUER_ID` in `~/.appstoreconnect/plusplus.env`. Nothing of that is in the
-repo.
+[`asc`](https://asccli.sh) (in the `Brewfile`) talks to the App Store Connect API. The commands
+used here:
+
+```sh
+asc xcode-cloud workflows list --app 6808082840            # workflow ids
+asc xcode-cloud build-runs --workflow-id <id> --sort -number --limit 10 --output table
+asc xcode-cloud status --run-id <id> --wait               # block until a run finishes
+asc xcode-cloud doctor --run-id <id> --save-logs .build/asc/<n>   # status, issues, logs
+asc xcode-cloud artifacts download --id <artifact-id> --path .build/asc/<file>.zip
+asc xcode-cloud run --workflow-id <id> --branch <name>     # start a run
+asc builds add-groups --app 6808082840 --latest --group Internal     # attach a TestFlight build
+```
+
+It needs an API key with the Developer role, registered once per machine with `asc auth login
+--bypass-keychain --name plusplus --key-id <id> --issuer-id <id> --private-key <path to .p8>`.
+That writes `~/.asc/config.json`, which points at the `.p8` rather than copying it; the keychain
+is bypassed because its access is tied to the binary and a Homebrew upgrade would prompt again.
+The `.p8` lives in `~/.appstoreconnect/private_keys/`. Nothing of that is in the repo.
 
 ## Agents
 
 An agent uses the least access that answers its question. Pass or fail comes from GitHub, where
 Xcode Cloud reports every run as a check (`gh pr checks`); that needs no key and is all a cloud
-agent such as the retro gets. Local agents that operate CI use `scripts/xcode-cloud.py`, and a
-new need becomes a subcommand rather than an ad hoc API call. The API cannot cancel a running
+agent such as the retro gets. Local agents that operate CI use `asc` rather than ad hoc API
+calls. Reading runs and starting one are allowed without a prompt (`.claude/settings.json`);
+anything else that changes App Store Connect asks first. The API cannot cancel a running
 build or edit a workflow's post-actions, so those two go through App Store Connect in the
 browser. The Xcode MCP server has no Xcode Cloud tools.
 
