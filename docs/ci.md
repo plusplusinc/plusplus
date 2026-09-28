@@ -23,9 +23,12 @@ simulator iPhone 17. The scheme's test action includes the package test targets,
 storage, snapshot, and UI tests in one run. Post-actions: none.
 
 **Main**: start on push to `main`. Actions: Archive, iOS, with distribution to TestFlight
-internal testing. Every merge becomes a build for the `Internal` group, which has access to all
-builds; its members are added in App Store Connect (TestFlight ▸ Internal Testing), since the
-API does not let a team member be added to an internal group. Internal builds skip Beta App
+internal testing. Post-actions: TestFlight Internal Testing, group `Internal`. The post-action is
+what puts each build in the group: the group's "access to all builds" does not pull in Xcode
+Cloud uploads, and without it a build uploads and waits unassigned. The API does not expose
+post-actions; edit them in Xcode or in App Store Connect ▸ Xcode Cloud ▸ Workflows. Members of
+`Internal` are added in App Store Connect (TestFlight ▸ Internal Testing), since the API does
+not let a team member be added to an internal group. Internal builds skip Beta App
 Review, and `ITSAppUsesNonExemptEncryption` in `Config/Base.xcconfig` answers the export
 compliance question so the build is available as soon as processing finishes.
 
