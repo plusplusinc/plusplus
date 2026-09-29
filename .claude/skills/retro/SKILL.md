@@ -25,6 +25,10 @@ Output: a short report, and when there is something to fix, one PR.
 
 ## 1. Collect
 
+The commands below are written for `gh`. The cloud session has neither `gh` nor `asc`
+installed; it reads the same pull requests, checks, and diffs through the GitHub MCP tools
+(`mcp__github__*`) and opens its PR with them too.
+
 For each PR: `gh pr view` for commits, review threads, and how long it took from open to
 merge; `gh api repos/{owner}/{repo}/pulls/N/comments` for inline review; the diff; the Xcode
 Cloud runs it caused (`gh pr checks`, and `asc xcode-cloud doctor` when `asc` and the App Store
@@ -71,6 +75,7 @@ fixes, and anything that needs their decision.
 A cloud routine runs this skill once a night over every merge to `main` since the last retro,
 in one PR, exiting at once when none is waiting; see `docs/agent-tooling.md`. That session
 never saw the work: it has only what the PR carries, which is why the template asks for
-Verified, Friction, and Card lines. It has no local state, no App Store Connect key, and
-cannot run the Mac lint, so its PR relies on CI for that. A local session may run the skill
-too, for a merge it made, and the one-retro-per-merge rule keeps the two from colliding.
+Verified, Friction, and Card lines. It has no local state, no `gh`, no App Store Connect key,
+and no Homebrew, so it cannot run SwiftFormat or SwiftLint and its PR relies on CI for those.
+A local session may run the skill too, for a merge it made, and the one-retro-per-merge rule
+keeps the two from colliding.

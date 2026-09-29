@@ -69,7 +69,8 @@ a dedicated simulator per worktree with `xcrun simctl create` and set `PLUSPLUS_
 
 ## Permissions
 
-`.claude/settings.json` pre-approves the scripts, read-only `xcodebuild`, `git`, and `gh`
-commands, and `simctl`, with the destructive `simctl` subcommands, notarization, force pushes,
-and local signing config denied. The scripts are the gate for building, testing, and linting,
-so raw `xcodebuild build`, `swiftlint`, and friends prompt.
+`.claude/settings.json` pre-approves the scripts, read-only `xcodebuild`, `git`, `gh`, and `asc`
+commands (plus `asc xcode-cloud run`; see `docs/ci.md`), and `simctl`, with the destructive
+`simctl` subcommands, notarization, force pushes, and local signing config denied. The scripts
+are the gate for building, testing, and linting, so raw `xcodebuild build`, `swiftlint`, and
+friends prompt.
