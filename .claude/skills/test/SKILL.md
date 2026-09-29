@@ -6,8 +6,8 @@ allowed-tools: Bash(scripts/test.sh:*), Bash(xcrun xcresulttool:*)
 
 - `scripts/test.sh`: the package on macOS, no simulator. Seconds. Run after any change to
   `WorkoutStore`, and before every commit.
-- `scripts/test.sh sim`: the app scheme on the simulator, which includes the package tests plus
-  snapshot and UI tests. Run before opening or updating a PR, and after any change to
+- `scripts/test.sh sim`: the app scheme on the simulator, which includes the package tests
+  plus the snapshots. Run before opening or updating a PR, and after any change to
   `DesignSystem` or the app.
 - `scripts/test.sh sim Target/Suite/testName()`: one test. The identifier must be verbatim; a
   typo runs zero tests and still exits 0, so check the printed total.

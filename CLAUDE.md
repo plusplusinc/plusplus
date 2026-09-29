@@ -62,8 +62,8 @@ state, stateless services hold side effects, free functions hold the math. The a
 
 ## Commands
 
-The scripts are the single source of truth; the `/build`, `/test`, `/lint`, `/run`, and `/pr`
-skills wrap them, and Xcode Cloud runs the same lint script.
+The scripts are the single source of truth; the `/build`, `/test`, `/lint`, `/run`, `/brief`,
+`/pr`, and `/retro` skills wrap them, and Xcode Cloud runs the same lint script.
 
 ```sh
 scripts/test.sh              # package tests on macOS, no simulator, seconds
@@ -72,6 +72,7 @@ scripts/test.sh sim          # everything on the simulator, including snapshots
 scripts/run.sh [name]        # build, install, launch, screenshot to .build/screenshots/
 scripts/sim.sh <command>     # drive the running app: shots, appearance, content-size, log
 scripts/lint.sh [--fix]      # SwiftFormat, SwiftLint, US English, as CI runs them
+scripts/board.sh <command>   # the private board: list, show, add, body, status, publish
 ```
 
 Apple documentation: the `sosumi` MCP server works with Xcode closed. The `xcode` MCP server
@@ -86,7 +87,7 @@ fix. Branch protection enforces this server-side.
 ```sh
 git switch -c <topic>
 git push -u origin <topic>
-gh pr create --fill
+gh pr create --title "<title>" --body-file <file>   # --fill skips the PR template
 ```
 
 CI must be green before a PR merges. **Merges are squashed**: the PR title and body become the
