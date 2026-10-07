@@ -65,6 +65,8 @@ INFOPLIST_KEY_CFBundleDisplayName = PlusPlus
 INFOPLIST_KEY_UILaunchScreen_Generation = YES
 INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES
 INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait
+// Dark by default, launch screen included; the light palette stays for when this is a choice.
+INFOPLIST_KEY_UIUserInterfaceStyle = Dark
 // Declared here so App Store Connect stops asking on every upload. Revisit if the app ever
 // ships its own cryptography beyond standard HTTPS.
 INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO

@@ -15,11 +15,13 @@ public struct EditableTitle: View {
     private let hint: LocalizedStringKey
 
     @State private var draft: String
+    @State private var editingSince = Date.now
     @FocusState private var isEditing: Bool
     @ObserveHotReload private var hotReload
 
     /// Matches the 1.06s cycle of a text cursor: on half, off half, no fade.
     private static let blinkInterval: TimeInterval = 0.53
+    private static let minimumTouchTarget: CGFloat = 44
 
     public init(
         text: Binding<String>,
@@ -51,14 +53,15 @@ public struct EditableTitle: View {
             cursor
         }
         .font(.ppScreenTitle)
-        // The field is only as tall as its text; the padding makes a 44pt target around it,
-        // and a tap there focuses the field just as a tap on the text does.
-        .padding(.vertical, Spacing.sm)
+        // The field is only as tall as its text. A tap anywhere in the full-size target
+        // focuses it just as a tap on the text does.
+        .frame(minHeight: Self.minimumTouchTarget, alignment: .leading)
         .contentShape(.rect)
         .onTapGesture { isEditing = true }
         .onChange(of: isEditing) { _, editing in
             if editing {
                 draft = Self.draft(forEditing: text, defaultText: defaultText)
+                editingSince = .now
             } else {
                 commit()
             }
@@ -93,35 +96,43 @@ public struct EditableTitle: View {
             isEditing = false
             return .handled
         }
-        // The on-screen keyboard's Return reaches it as a newline.
+        // The on-screen keyboard's Return reaches it as a trailing newline. Newlines inside
+        // pasted text become spaces, since a title is one paragraph.
         .onChange(of: draft) { _, newDraft in
             guard newDraft.contains(where: \.isNewline) else { return }
-            draft = newDraft.filter { !$0.isNewline }
-            isEditing = false
+            draft = String(newDraft.map { $0.isNewline ? " " : $0 })
+            if newDraft.last?.isNewline == true {
+                isEditing = false
+            }
         }
         .accessibilityLabel(Text(label))
-        .accessibilityValue(Text(text))
         .accessibilityHint(Text(hint))
     }
 
-    /// A clear copy of the shown text followed by the `_`, so the `_` wraps with the text and
-    /// lands right after its last glyph. A thin space keeps the `_` from tucking under a
-    /// letter with an overhang, like a final "e".
+    /// The `_`: blinking from the moment editing starts, still at rest.
     private var cursor: some View {
-        TimelineView(.periodic(from: .now, by: Self.blinkInterval)) { context in
-            let shown = draft.isEmpty ? defaultText : draft
-            let visible = !isEditing || Self.isBlinkOn(at: context.date)
-            let mark = Text(verbatim: "\u{2009}_")
-                .foregroundStyle(isEditing ? .pp(.textPrimary) : .pp(.borderStrong))
-            Text("\(Text(shown).foregroundStyle(.clear))\(mark)")
-                .opacity(visible ? 1 : 0)
+        Group {
+            if isEditing {
+                TimelineView(.periodic(from: editingSince, by: Self.blinkInterval)) { context in
+                    let ticks = context.date.timeIntervalSince(editingSince) / Self.blinkInterval
+                    cursorText(.pp(.textPrimary))
+                        .opacity(Int(ticks.rounded()).isMultiple(of: 2) ? 1 : 0)
+                }
+            } else {
+                cursorText(.pp(.borderStrong))
+            }
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }
 
-    private static func isBlinkOn(at date: Date) -> Bool {
-        Int(date.timeIntervalSinceReferenceDate / blinkInterval).isMultiple(of: 2)
+    /// A clear copy of the shown text followed by the `_`, so the `_` wraps with the text and
+    /// lands right after its last glyph. A thin space keeps the `_` from tucking under a letter
+    /// with an overhang, like a final "e".
+    private func cursorText(_ color: Color) -> Text {
+        let shown = draft.isEmpty ? defaultText : draft
+        let mark = Text(verbatim: "\u{2009}_").foregroundStyle(color)
+        return Text("\(Text(shown).foregroundStyle(.clear))\(mark)")
     }
 
     private func commit() {

@@ -11,10 +11,11 @@ struct RoutineScreen: View {
     @ObserveHotReload private var hotReload
 
     private static let markWidth: CGFloat = 20
+    /// A plus sits on the font's math axis, about a point below the middle of its line, so the
+    /// mark is lifted to look centered in the round button.
+    private static let markLift: CGFloat = 1
 
-    static var defaultName: String {
-        String(localized: "New routine")
-    }
+    private static let defaultName = String(localized: "New routine")
 
     var body: some View {
         NavigationStack {
@@ -45,6 +46,7 @@ struct RoutineScreen: View {
                             // the mark's advance draws the mark large in a compact button.
                             .fixedSize()
                             .frame(width: Self.markWidth)
+                            .offset(y: -Self.markLift)
                     }
                     .accessibilityLabel("Menu")
                 }

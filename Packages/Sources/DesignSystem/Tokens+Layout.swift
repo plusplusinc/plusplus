@@ -13,5 +13,4 @@ public enum Radius {
     public static let sm: CGFloat = 8
     /// A key-shaped button.
     public static let key: CGFloat = 11
-    public static let md: CGFloat = 14
 }

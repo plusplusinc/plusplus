@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Summarizes PlusPlus crash reports: time, simulator, exception, and the crashed thread's top
+"""Summarizes an app's crash reports: time, simulator, exception, and the crashed thread's top
 frames, one block per report. Other apps' reports are skipped.
 
-    crash-summary.py <file.ips>...
+    crash-summary.py <bundle id> <file.ips>...
 
 An .ips file is a JSON header line followed by the JSON report.
 """
@@ -11,14 +11,13 @@ import json
 import re
 import sys
 
-BUNDLE_ID = "com.plusplusinc.plusplus"
 FRAMES = 8
 
 
-def summarize(path):
+def summarize(path, bundle_id):
     with open(path, encoding="utf-8") as file:
         header = json.loads(file.readline())
-        if header.get("bundleID") != BUNDLE_ID:
+        if header.get("bundleID") != bundle_id:
             return None
         report = json.loads(file.read())
     simulator = re.search(r"/Devices/([0-9A-F-]{36})/", report.get("procPath", ""))
@@ -41,10 +40,11 @@ def summarize(path):
 
 
 def main():
+    bundle_id, paths = sys.argv[1], sys.argv[2:]
     blocks = []
-    for path in sys.argv[1:]:
+    for path in paths:
         try:
-            block = summarize(path)
+            block = summarize(path, bundle_id)
         except (OSError, ValueError) as error:
             block = f"unreadable crash report {path}: {error}"
         if block:
