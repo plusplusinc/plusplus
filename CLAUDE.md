@@ -49,6 +49,16 @@ state, stateless services hold side effects, free functions hold the math. The a
   outside the repo.
 - **US English** in code, comments, docs, and commits. A hook checks every edit.
 
+## Building features
+
+The main session leads a slice: it writes the spec and acceptance criteria, makes technical
+calls, and hands each phase, in order, to a subagent defined in `.claude/agents/`: planner,
+builder, verifier, then a builder again for anything the verifier found. It reads their
+summaries and screenshots, not their work, and goes to the maintainer only for a product call or
+when a slice is ready to try; the maintainer tries every slice before it merges. A subagent
+follows its definition, answers only to the lead, never merges, and when it runs long writes a
+handoff note so a fresh one can continue in the same worktree.
+
 ## Working in the project
 
 - **Never hand-edit `project.pbxproj`, and keep it free of build settings.** Settings live in
