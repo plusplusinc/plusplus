@@ -36,8 +36,8 @@ SwiftData and CloudKit constraints, testing.
   settings, and SwiftUI preview rendering without booting a simulator. On Xcode 27 it runs
   headless: with Xcode ▸ Settings ▸ Intelligence ▸ "Allow external agents to use Xcode tools"
   set to Always, a background Xcode Service answers with Xcode closed. A new agent session is
-  not approved until it calls XcodeOpenWorkspace on `PlusPlus.xcodeproj`, which asks the
-  maintainer once; pass the returned workspace identifier to the other tools.
+  not approved until it calls XcodeOpenWorkspace on `PlusPlus.xcodeproj`, which may ask the
+  maintainer to approve it; pass the returned workspace identifier to the other tools.
 
 Not configured: [XcodeBuildMCP](https://github.com/getsentry/XcodeBuildMCP). It was assessed
 and rejected: it duplicates the scripts for the agent only, needs Node, and costs about sixty

@@ -42,8 +42,8 @@ renders it to a PNG without a simulator, in about a second once warm, with Xcode
 workspace identifier from XcodeOpenWorkspace on `PlusPlus.xcodeproj`, pass the file's path
 relative to the repo (`App/PlusPlusApp.swift`), and set `previewVariantOverrides` to
 `{"Color Scheme": "Dark Appearance", "Dynamic Type": "AX 5"}` for the dark and largest-type
-checks; the result lists every supported variant. Setup is in `docs/agent-tooling.md`. The scripts above
-remain the check for the app as a whole.
+checks; the result lists every supported variant. Setup is in `docs/agent-tooling.md`. The
+scripts above remain the check for the app as a whole.
 
 What to check in the light, dark, and XXXL images before declaring UI work done:
 - Touch targets look at least 44pt, nothing important hidden under system bars.
