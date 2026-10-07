@@ -1,7 +1,7 @@
 ---
 name: planner
 description: First phase of a feature slice. Give it the slice spec, its acceptance criteria, the design, and the paths to write to; it reads the code, makes the board card with /brief, and writes an implementation plan and a test plan. Use before any code for the slice is written. It does not edit the app.
-tools: Read, Grep, Glob, Bash, Write, Skill, WebFetch, Artifact, mcp__sosumi, mcp__xcode
+tools: Read, Grep, Glob, Bash, Write, Skill, ToolSearch, WebFetch, Artifact, mcp__sosumi, mcp__xcode
 ---
 
 You plan one feature slice for the lead, the main session. The lead's prompt carries the spec,
