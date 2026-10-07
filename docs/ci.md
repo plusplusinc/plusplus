@@ -1,6 +1,6 @@
 # CI and releases: Xcode Cloud
 
-Xcode Cloud builds and tests every pull request and ships `main` to TestFlight. Workflow
+Xcode Cloud builds and tests every pull request and ships each `v*` tag to TestFlight. Workflow
 definitions live in App Store Connect, not in the repo; the repo contributes only
 `ci_scripts/ci_post_clone.sh`, which installs the `Brewfile` tools and runs `scripts/lint.sh`
 before any build action.
@@ -12,7 +12,7 @@ before any build action.
 2. In Xcode, with `PlusPlus.xcodeproj` open: Product ▸ Xcode Cloud ▸ Create Workflow. Xcode
    registers the app record and bundle ID in App Store Connect if they do not exist.
 3. Signing is managed by Xcode Cloud using the `DEVELOPMENT_TEAM` in `Config/Base.xcconfig`.
-4. Both workflows below exist in App Store Connect. The `Main` distribution audience and the
+4. Both workflows below exist in App Store Connect. The `Release` distribution audience and the
    `Internal` beta group were set through the API, which `asc` reaches (see below).
 
 ## Workflows
@@ -21,8 +21,8 @@ before any build action.
 simulator iPhone 17. The scheme's test action includes the package test targets, so this covers
 storage, snapshot, and UI tests in one run. Post-actions: none.
 
-**Main**: start on push to `main`. Actions: Archive, iOS, with distribution to TestFlight
-internal testing. Post-actions: TestFlight Internal Testing, group `Internal`. The post-action is
+**Release**: start on a tag beginning with `v`. Actions: Archive, iOS, with distribution to
+TestFlight internal testing. Post-actions: TestFlight Internal Testing, group `Internal`. The post-action is
 what puts each build in the group: the group's "access to all builds" does not pull in Xcode
 Cloud uploads, and without it a build uploads and waits unassigned. The API does not expose
 post-actions; edit them in Xcode or in App Store Connect ▸ Xcode Cloud ▸ Workflows. Members of
@@ -30,6 +30,14 @@ post-actions; edit them in Xcode or in App Store Connect ▸ Xcode Cloud ▸ Wor
 not let a team member be added to an internal group. Internal builds skip Beta App
 Review, and `ITSAppUsesNonExemptEncryption` in `Config/Base.xcconfig` answers the export
 compliance question so the build is available as soon as processing finishes.
+
+Merges to `main` do not build; the PR run already tested that code, since branch protection
+requires a branch to be up to date before it merges. Builds reach TestFlight only when a release
+is cut, one build per tag.
+
+## Cutting a release
+
+Tag `main` and push the tag: `git tag v0.2.0 origin/main && git push origin v0.2.0`.
 
 There is no App Store workflow yet. `CURRENT_PROJECT_VERSION` is overridden by Xcode Cloud's
 build number; `MARKETING_VERSION` in `Config/Base.xcconfig` is bumped by hand.
