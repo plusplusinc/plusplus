@@ -18,3 +18,5 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   icon-only controls get `.accessibilityLabel`; decorative images get
   `.accessibilityHidden(true)`.
 - Every new component gets a `#Preview` and goes through `assertThemedSnapshots`.
+- Every view (and `ButtonStyle`) declares `@ObserveHotReload private var hotReload` and ends its
+  body with `.hotReloadable()`, so hot reload redraws it. Both compile away in Release.

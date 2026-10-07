@@ -8,8 +8,8 @@ This file is the constitution: loaded every session, kept short. Detail lives in
 `.claude/rules/*.md`, which load when you touch matching files, and in `docs/`. If this file and a
 rules file disagree, this file wins.
 
-**Status: foundation only.** The app builds, runs, and renders a placeholder. There are no
-features and no data model; the model follows the first feature.
+**Status: first screen.** The app launches into a new, empty routine whose name lives in
+memory only. There is no data model yet; the model follows the first feature that saves.
 
 ## Architecture
 

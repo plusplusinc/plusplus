@@ -1,0 +1,31 @@
+import DesignSystem
+import Testing
+
+@Suite("Editable title rules")
+struct EditableTitleTests {
+    private let defaultText = "New routine"
+
+    @Test("Editing the default starts empty, so typing replaces it")
+    func draftForDefault() {
+        #expect(EditableTitle.draft(forEditing: defaultText, defaultText: defaultText).isEmpty)
+    }
+
+    @Test("Editing a chosen name starts from that name")
+    func draftForCustomName() {
+        #expect(EditableTitle.draft(forEditing: "Legs", defaultText: defaultText) == "Legs")
+    }
+
+    @Test(
+        "An empty or blank edit restores the default",
+        arguments: ["", "   ", "\n", " \t\n "],
+    )
+    func committedBlank(draft: String) {
+        #expect(EditableTitle.committed(draft, defaultText: defaultText) == defaultText)
+    }
+
+    @Test("A real name is kept, trimmed")
+    func committedName() {
+        #expect(EditableTitle.committed("Legs", defaultText: defaultText) == "Legs")
+        #expect(EditableTitle.committed("  Push day \n", defaultText: defaultText) == "Push day")
+    }
+}

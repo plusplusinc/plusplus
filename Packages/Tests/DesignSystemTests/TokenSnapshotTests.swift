@@ -20,7 +20,7 @@ struct TokenSnapshotTests {
                         .frame(width: 44, height: 28)
                         .overlay(
                             RoundedRectangle(cornerRadius: Radius.sm)
-                                .strokeBorder(Color.pp(.separator)),
+                                .strokeBorder(Color.pp(.borderStrong)),
                         )
                     // One line, shrunk to fit: wrapped text hyphenates with on-demand system
                     // dictionaries that CI machines may lack, which moves every line break.

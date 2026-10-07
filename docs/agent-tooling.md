@@ -17,9 +17,18 @@ One `PostToolUse` hook, `.claude/hooks/on-edit.sh`, runs `scripts/lint.sh --fix`
 an agent edits and returns remaining findings to the agent. Because it is the same script CI
 runs, nothing the hook accepts can fail later.
 
-There is deliberately no build in a `Stop` hook. `Stop` fires after every response, so a build
-there taxes "what does this function do?" with a minute of compiling. The `/pr` skill and CI
-are the gates.
+A second `PostToolUse` hook, `.claude/hooks/refresh-sim.sh`, runs in the background and keeps
+the simulator's app matching the checkout: when the app's sources differ from what is installed,
+it rebuilds, reinstalls, and relaunches. With hot reload set up (see the README) and the app
+running, an edit that only changes code inside existing Swift files is left to the app to
+reload, so the screen keeps its state; a new or deleted file, a stored property, a resource, or
+a setting still relaunches. It records what is installed as a git tree in `.build/`.
+
+The same script runs at `Stop` and `SubagentStop` with `--report`, asynchronously, so it costs
+the turn nothing. It wakes the agent when the app no longer builds, and once for each app crash
+since the last turn, with the crash's time, simulator, exception, and top frames
+(`.claude/hooks/crash-summary.py` reads the `.ips` reports in
+`~/Library/Logs/DiagnosticReports`). The `/pr` skill and CI are still the gates.
 
 ## Rules
 
