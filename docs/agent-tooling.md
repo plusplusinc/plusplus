@@ -32,13 +32,12 @@ SwiftData and CloudKit constraints, testing.
 - **sosumi** (`https://sosumi.ai/mcp`): Apple documentation, HIG, and WWDC transcripts as
   Markdown. Works with Xcode closed. Apple's own docs site renders client-side and returns
   nothing to a plain fetch, which is why this exists.
-- **xcode** (`xcrun mcpbridge`): Apple's MCP server, shipped in Xcode 26.3+. Live diagnostics,
-  symbol lookup, build settings, and SwiftUI preview rendering without booting a simulator.
-  One-time setup: Xcode ▸ Settings ▸ Intelligence ▸ Model Context Protocol ▸ turn on Xcode
-  Tools. It serves tools only while that switch is on and Xcode has this project open. In any
-  other state the bridge still starts and completes the MCP handshake but never answers a tool
-  request, which Claude Code reports as a failed server at startup; harmless unless you want
-  RenderPreview, which the `/run` skill uses for single-view checks.
+- **xcode** (`xcrun mcpbridge`): Apple's MCP server. Live diagnostics, symbol lookup, build
+  settings, and SwiftUI preview rendering without booting a simulator. On Xcode 27 it runs
+  headless: with Xcode ▸ Settings ▸ Intelligence ▸ "Allow external agents to use Xcode tools"
+  set to Always, a background Xcode Service answers with Xcode closed. A new agent session is
+  not approved until it calls XcodeOpenWorkspace on `PlusPlus.xcodeproj`, which asks the
+  maintainer once; pass the returned workspace identifier to the other tools.
 
 Not configured: [XcodeBuildMCP](https://github.com/getsentry/XcodeBuildMCP). It was assessed
 and rejected: it duplicates the scripts for the agent only, needs Node, and costs about sixty

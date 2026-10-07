@@ -75,8 +75,8 @@ scripts/lint.sh [--fix]      # SwiftFormat, SwiftLint, US English, as CI runs th
 ```
 
 Apple documentation: the `sosumi` MCP server works with Xcode closed. The `xcode` MCP server
-gives live diagnostics and preview rendering but needs Xcode open with the project loaded. See
-`docs/agent-tooling.md`.
+gives live diagnostics and preview rendering, and on Xcode 27 runs headless with Xcode closed.
+See `docs/agent-tooling.md`.
 
 ## Branching
 
