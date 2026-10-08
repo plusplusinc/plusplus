@@ -45,8 +45,8 @@ state, stateless services hold side effects, free functions hold the math. The a
   UI a screenshot was looked at. Say exactly what was run.
 - **The repo may become public.** No secrets, personal data, or scratch notes in tracked
   files. The team ID is not a secret and lives in `Config/Base.xcconfig`; `Config/Local.xcconfig`
-  is the gitignored place for per-developer overrides. Temporary files go in `.build/` or
-  outside the repo.
+  is the gitignored place for per-developer overrides. Build output and other regenerable files go in `.build/`;
+  agents' slice working files (plans, handoffs, evidence) go in the gitignored `.slices/`.
 - **US English** in code, comments, docs, and commits. A hook checks every edit.
 
 ## Building features
@@ -59,7 +59,7 @@ when a slice is ready to try; the maintainer tries every slice before it merges.
 follows its definition, answers only to the lead, never merges, and when it runs long writes a
 handoff note so a fresh one can continue in the same worktree.
 The maintainer clears the lead's context between slices; `/slice` starts or resumes one from
-`.build/slices/roadmap.md`.
+the project board, whose cards hold each slice and its state; working files go in `.slices/`.
 
 ## Working in the project
 
