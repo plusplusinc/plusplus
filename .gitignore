@@ -15,6 +15,9 @@ xcuserdata/
 # Swift Package Manager output, and where scripts/ write builds, result bundles, and screenshots.
 # Package.resolved is committed on purpose so builds are reproducible.
 .build/
+
+# Agents' per-slice working files: plans, handoff notes, verification evidence. See /slice.
+.slices/
 .swiftpm/xcode/package.xcworkspace/xcuserdata/
 
 # Developer-local build settings. May contain a team ID; never commit.
