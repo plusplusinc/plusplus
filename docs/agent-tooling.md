@@ -18,8 +18,9 @@ an agent edits and returns remaining findings to the agent. Because it is the sa
 runs, nothing the hook accepts can fail later.
 
 A second `PostToolUse` hook, `.claude/hooks/refresh-sim.sh`, runs in the background and keeps
-the simulator's app matching the checkout, leaving edits that hot reload can apply to the app
-(its header says which). At `Stop` and `SubagentStop` it runs again with `--report`,
+the simulator's app matching the main checkout, leaving edits that hot reload can apply to the
+app (its header says which). In a linked worktree it does nothing, so an agent never installs on
+the maintainer's simulator. At `Stop` and `SubagentStop` it runs again with `--report`,
 asynchronously, and wakes the agent when the app no longer builds or crashed since the last
 turn, once per crash. The `/pr` skill and CI are still the gates.
 

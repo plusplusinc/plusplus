@@ -25,6 +25,11 @@ LOG="$ROOT/.build/installed-source.log"
 CRASH_MARK="$ROOT/.build/crashes-reported"
 SOURCES=(App Packages Config PlusPlus.xcodeproj)
 
+# Only the main checkout drives the maintainer's simulator. A linked worktree is an agent's, and
+# an agent runs its build on its own simulator by hand, so here the hook does nothing.
+[ "$(git -C "$ROOT" rev-parse --absolute-git-dir)" \
+    = "$(git -C "$ROOT" rev-parse --path-format=absolute --git-common-dir)" ] || exit 0
+
 # One refresh at a time. lockf holds a kernel lock that dies with the process, so a refresh
 # killed mid-build (by the hook timeout, or the session ending) cannot leave a stale lock behind.
 # Whoever holds it keeps going until the code stops changing, so an edit that lands mid-build is
