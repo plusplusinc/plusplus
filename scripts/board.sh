@@ -1,21 +1,21 @@
 #!/bin/bash
 # The private project board, where briefs live. See the /brief skill.
 #
-#   scripts/board.sh list                              # every item, in Order: id, order, status, feature, title
+#   scripts/board.sh list                              # every item, in board order: id, status, feature, title
 #   scripts/board.sh show <item-id>                    # title, status, and body
 #   scripts/board.sh add <title> [body-file]           # a draft item in Todo; prints its id
 #   scripts/board.sh body <item-id> <body-file>        # replace a draft item's body
 #   scripts/board.sh status <item-id> Todo|"In Progress"|Done
-#   scripts/board.sh order <item-id> <number>|-        # place it in the queue /onward works through; - removes it
+#   scripts/board.sh move <item-id> top|<after-item-id>  # place it in the queue /onward works through
 #   scripts/board.sh feature <item-id> <name>|-        # group it under a feature's design; - for a standalone task
 #   scripts/board.sh publish <item-id>                # convert the draft to a repo issue, in place
 #
 # Draft items keep the board private while the repo is public; `publish` converts one to an
 # issue when the /brief skill says so, keeping its place and status on the board. Trim the
 # body first: the issue is public. The Status field's option ids are looked up each run
-# rather than committed, so the board can be reshaped without a code change. Order is one
-# queue across the whole board: /onward takes the lowest-Order Todo card, feature or not, and a
-# card without an Order is backlog that nothing picks up.
+# rather than committed, so the board can be reshaped without a code change. The board's own
+# order (what dragging a card changes) is the queue: /onward takes the In Progress card, else
+# the topmost Todo card, feature or not. Backlog is parked; nothing picks it up.
 # `gh` needs the `project` scope: `gh auth refresh -s project`.
 set -euo pipefail
 
@@ -49,8 +49,7 @@ shift || true
 case "$command" in
     list)
         gh project item-list "$NUMBER" --owner "$OWNER" --format json --limit 500 \
-            --jq '.items | sort_by(.order // 1e9) | .[]
-                | "\(.id)  \(.order // "-")\t\(.status // "-")\t\(.feature // "-")\t\(.title)"'
+            --jq '.items[] | "\(.id)  \(.status // "-")\t\(.feature // "-")\t\(.title)"'
         ;;
     show)
         [ $# -eq 1 ] || usage
@@ -79,12 +78,17 @@ case "$command" in
         gh project item-edit --project-id "$(project_id)" --id "$1" \
             --field-id "$(jq -r .id <<< "$field")" --single-select-option-id "$option" > /dev/null
         ;;
-    order)
+    move)
         [ $# -eq 2 ] || usage
-        args=(--number "$2")
-        [ "$2" = - ] && args=(--clear)
-        gh project item-edit --project-id "$(project_id)" --id "$1" \
-            --field-id "$(field Order | jq -r .id)" "${args[@]}" > /dev/null
+        after=()
+        [ "$2" = top ] || after=(-f after="$2")
+        gh api graphql -f query='
+            mutation($project: ID!, $item: ID!, $after: ID) {
+                updateProjectV2ItemPosition(input: {projectId: $project, itemId: $item, afterId: $after}) {
+                    clientMutationId
+                }
+            }' \
+            -f project="$(project_id)" -f item="$1" "${after[@]+"${after[@]}"}" > /dev/null
         ;;
     feature)
         [ $# -eq 2 ] || usage

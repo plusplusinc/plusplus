@@ -11,10 +11,10 @@ project board and in `.slices/`.
 
 1. Read the board's README (`gh project view 2 --owner plusplusinc --format json --jq .readme`):
    the settled design per feature and the standing setup.
-2. Find the card: the In Progress card that has an Order, otherwise the lowest-Order Todo card
-   (`scripts/board.sh list` sorts by Order, then `scripts/board.sh show <id>`). Order is one
-   queue across the board: a card with a Feature is a slice of that feature, one without is a
-   standalone task (tooling, a bug, process), and a card with no Order is backlog, never picked.
+2. Find the card: the In Progress card, otherwise the topmost Todo card (`scripts/board.sh
+   list` prints the board's order, then `scripts/board.sh show <id>`). The board's order is
+   one queue: a card with a Feature is a slice of that feature, one without is a standalone
+   task (tooling, a bug, process), and a Backlog card is parked, never picked.
    Its body holds the scope, the acceptance criteria, and a State section with the worktree,
    branch, PR, phase, and next step.
 3. Read the `.slices/` files that State names: the newest handoff or verify report. Read

@@ -59,7 +59,8 @@ when a slice is ready to try; the maintainer tries every slice before it merges.
 follows its definition, answers only to the lead, never merges, and when it runs long writes a
 handoff note so a fresh one can continue in the same worktree.
 The maintainer clears the lead's context between slices; `/onward` starts or resumes the next
-card from the project board, whose Order is one queue of feature slices and standalone tasks.
+card from the project board, whose Todo column, in board order, is one queue of feature slices
+and standalone tasks.
 Anything the maintainer throws out becomes a card through `/brief`, which places it in that
 queue. Working files go in `.slices/`.
 

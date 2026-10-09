@@ -54,15 +54,17 @@ the card stays private and the PR names it by title.
 
 ## 4. Queue it
 
-`/onward` works through one queue: the board's Order, lowest first. Place the card with
-`scripts/board.sh order <id> <number>`, using a fraction to slot between neighbors
+`/onward` works through one queue: the Todo cards in board order, top first, the order the
+maintainer drags them into. A new card lands at the bottom; place it with
+`scripts/board.sh move <id> top` or `scripts/board.sh move <id> <card-it-follows>`
 (`scripts/board.sh list` shows the queue). Rank it yourself:
 - A bug in shipped behavior, or anything that slows every later card (build time, flaky tests),
   goes next, after the card in progress.
 - A slice goes where its feature's sequence needs it.
 - Everything else goes after the current feature's remaining slices, unless the maintainer said
   when they want it.
-- A hunch, or a card the maintainer said to park, gets no Order: backlog, never picked up.
+- A hunch, or a card the maintainer said to park, goes to Backlog
+  (`scripts/board.sh status <id> Backlog`), which nothing picks up.
 
 ## 5. Hand off
 
