@@ -145,14 +145,14 @@ public struct EditableTitle: View {
                 Text(defaultText)
                     .foregroundStyle(.pp(isEditing ? .textSecondary : .textPrimary))
                     .accessibilityHidden(true)
-                    .onGeometryChange(for: CGFloat.self, of: \.size.height) { height in
-                        defaultTextHeight = height
+                    .onGeometryChange(for: CGFloat.self, of: \.size.height) {
+                        defaultTextHeight = $0
                     }
                     .background {
                         Text(verbatim: "_")
                             .hidden()
-                            .onGeometryChange(for: CGFloat.self, of: \.size.height) { height in
-                                lineHeight = height
+                            .onGeometryChange(for: CGFloat.self, of: \.size.height) {
+                                lineHeight = $0
                             }
                     }
             }
