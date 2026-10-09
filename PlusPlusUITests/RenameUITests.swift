@@ -28,7 +28,7 @@ final nonisolated class RenameUITests: XCTestCase {
         let addExercise = app.buttons["Add exercise"]
         let frameAtRest = title.frame
         let buttonAtRest = addExercise.frame
-        let atRest = try XCTUnwrap(TitleInk(title.screenshot().image))
+        let atRest = try XCTUnwrap(titleImage(title).flatMap(TitleInk.init))
         title.tap()
         XCTAssertTrue(app.keyboards.element.waitForExistence(timeout: 2))
         XCTAssertEqual(title.frame, frameAtRest)
@@ -87,6 +87,25 @@ final nonisolated class RenameUITests: XCTestCase {
         return (app, title)
     }
 
+    /// The screen under the title's field, and the strip just below it where the `_` hangs.
+    @MainActor
+    private func titleImage(_ title: XCUIElement) -> CGImage? {
+        let screen = XCUIScreen.main.screenshot().image
+        guard let image = screen.cgImage else { return nil }
+        let scale = CGFloat(image.width) / screen.size.width
+        let frame = title.frame
+        let strip = CGRect(
+            x: frame.minX * scale,
+            y: frame.minY * scale,
+            width: frame.width * scale,
+            height: (frame.height + Self.cursorDrop) * scale,
+        )
+        return image.cropping(to: strip.integral)
+    }
+
+    /// Room below the field for the `_`, which hangs past it, but not as far as the next view.
+    private static let cursorDrop: CGFloat = 12
+
     /// Taps the title, types, and checks that the Return at the end of `text` ended editing and
     /// left `expected` behind.
     @MainActor
@@ -113,7 +132,7 @@ final nonisolated class RenameUITests: XCTestCase {
     private func cursorShown(in title: XCUIElement) throws -> TitleInk {
         let deadline = Date.now.addingTimeInterval(2.2)
         while Date.now < deadline {
-            if let ink = TitleInk(title.screenshot().image), ink.cursor != nil {
+            if let image = titleImage(title), let ink = TitleInk(image), ink.cursor != nil {
                 return ink
             }
         }
@@ -131,8 +150,7 @@ private struct TitleInk {
     /// The columns of the `_`.
     let cursor: ClosedRange<Int>?
 
-    init?(_ image: UIImage) {
-        guard let cgImage = image.cgImage else { return nil }
+    init?(_ cgImage: CGImage) {
         let width = cgImage.width
         let height = cgImage.height
         var pixels = [UInt8](repeating: 0, count: width * height * 4)

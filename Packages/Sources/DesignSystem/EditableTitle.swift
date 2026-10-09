@@ -244,6 +244,10 @@ private struct TitleCursor: View {
     /// A character cell of the title, a little over: room past the trailing edge for a `_` that
     /// hangs after a full line.
     @ScaledMetric(relativeTo: .title2) private var spareCell: CGFloat = 16
+    /// How far the `_` sits below the font's own underscore, so it reads as a cursor under the
+    /// letter rather than a typed character: just past the tails of g, p, and y. Scaled with the
+    /// title.
+    @ScaledMetric(relativeTo: .title2) private var drop: CGFloat = 4.5
     @ObserveHotReload private var hotReload
 
     /// Matches the 1.06s cycle of a text cursor: on half, off half, no fade.
@@ -262,6 +266,7 @@ private struct TitleCursor: View {
             }
         }
         .padding(.trailing, -spareCell)
+        .padding(.bottom, -drop)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
         .onChange(of: caret.selection) {
@@ -312,7 +317,7 @@ private struct TitleCursor: View {
             let place = EditableTitle.cursorCell(at: offset, in: shown, columns: columns)
             let origin = CGPoint(
                 x: CGFloat(place.column) * cell.width,
-                y: CGFloat(place.line) * cell.height,
+                y: CGFloat(place.line) * cell.height + drop,
             )
             context.draw(mark, at: origin, anchor: .topLeading)
         }
