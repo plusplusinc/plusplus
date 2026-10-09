@@ -25,10 +25,20 @@ public struct EditableTitle: View {
     /// The field's selection lives outside this view's state, so a moving caret redraws only the
     /// cursor and never updates the field while the keyboard is moving it.
     @State private var caret = Caret()
+    /// The default text's height where it is drawn, wrapped, in place of an empty field, and
+    /// the height of one of its lines.
+    @State private var defaultTextHeight: CGFloat = 0
+    @State private var lineHeight: CGFloat = 0
     @FocusState private var isEditing: Bool
     @ObserveHotReload private var hotReload
 
     private static let minimumTouchTarget: CGFloat = 44
+
+    /// How many lines the default text wraps to.
+    private var defaultTextLines: Int {
+        guard lineHeight > 0 else { return 1 }
+        return max(1, Int((defaultTextHeight / lineHeight).rounded()))
+    }
 
     public init(
         text: Binding<String>,
@@ -134,8 +144,22 @@ public struct EditableTitle: View {
                 Text(defaultText)
                     .foregroundStyle(.pp(isEditing ? .textSecondary : .textPrimary))
                     .accessibilityHidden(true)
+                    .onGeometryChange(for: CGFloat.self, of: \.size.height) { height in
+                        defaultTextHeight = height
+                    }
+                    .background {
+                        Text(verbatim: "_")
+                            .hidden()
+                            .onGeometryChange(for: CGFloat.self, of: \.size.height) { height in
+                                lineHeight = height
+                            }
+                    }
             }
+            // An empty field is one line tall, and VoiceOver frames the field, so it reserves
+            // as many lines as the default text drawn in its place. A frame around the field
+            // would not do: the field stays as tall as its lines inside any frame.
             field
+                .lineLimit(draft.isEmpty ? defaultTextLines... : 1...)
         }
         .overlay(alignment: .top) {
             TitleCursor(caret: caret, draft: draft, defaultText: defaultText, isEditing: isEditing)
