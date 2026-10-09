@@ -16,7 +16,7 @@ xcuserdata/
 # Package.resolved is committed on purpose so builds are reproducible.
 .build/
 
-# Agents' per-slice working files: plans, handoff notes, verification evidence. See /slice.
+# Agents' per-slice working files: plans, handoff notes, verification evidence. See /onward.
 .slices/
 .swiftpm/xcode/package.xcworkspace/xcuserdata/
 

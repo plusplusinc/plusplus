@@ -1,6 +1,6 @@
 ---
-name: slice
-description: Lead the next feature slice from a fresh context, from where the last session stopped to a merged PR. Use when the maintainer says /slice, "next slice", or "pick up where we left off" on feature work.
+name: onward
+description: Lead the next feature slice from a fresh context, from where the last session stopped to a merged PR. Use when the maintainer says /onward, "next slice", or "pick up where we left off" on feature work.
 ---
 
 The main session runs this as the lead described in `CLAUDE.md` ("Building features"). The
@@ -40,4 +40,4 @@ project board and in `.slices/`.
 3. Record decisions made during the slice in the board README, and re-plan the later cards if
    they changed.
 4. Tell the maintainer the slice is merged and that it's a good moment to `/clear` and run
-   `/slice` again.
+   `/onward` again.
