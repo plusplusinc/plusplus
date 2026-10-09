@@ -43,8 +43,8 @@ state, stateless services hold side effects, free functions hold the math. The a
   workaround is genuinely right, say so and why.
 - **Done means verified.** A change is done when the build ran, the relevant tests ran, and for
   UI a screenshot was looked at. Say exactly what was run.
-- **The repo may become public.** No secrets, personal data, or scratch notes in tracked
-  files. The team ID is not a secret and lives in `Config/Base.xcconfig`; `Config/Local.xcconfig`
+- **The repo is public.** Every push publishes. No secrets, personal data, or scratch notes in
+  tracked files. The team ID is not a secret and lives in `Config/Base.xcconfig`; `Config/Local.xcconfig`
   is the gitignored place for per-developer overrides. Build output and other regenerable files go in `.build/`;
   agents' slice working files (plans, handoffs, evidence) go in the gitignored `.slices/`.
 - **US English** in code, comments, docs, and commits. A hook checks every edit.
