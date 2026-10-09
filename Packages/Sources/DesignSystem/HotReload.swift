@@ -17,8 +17,14 @@ public struct ObserveHotReload: DynamicProperty {
 
     public init() { }
 
-    public var wrappedValue: Void {
-        ()
+    /// The number of hot reloads so far, always 0 in Release. Nothing needs to read it; it is
+    /// an `Int` rather than `Void` because Swift warns about a property inferred to be `Void`.
+    public var wrappedValue: Int {
+        #if DEBUG
+        count
+        #else
+        0
+        #endif
     }
 }
 
