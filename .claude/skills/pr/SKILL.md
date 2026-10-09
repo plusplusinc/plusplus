@@ -10,8 +10,10 @@ two change code and the rest verify it:
 2. `/code-review` has run over the diff and every confirmed finding is fixed or explained in
    the PR body.
 3. `scripts/lint.sh` is clean.
-4. `scripts/test.sh sim` passes. For a change touching only docs or config, `scripts/test.sh`
-   is enough.
+4. `scripts/test.sh` passes, and so do the simulator tests the change touches
+   (`scripts/test.sh sim <Target/Class>`). The full simulator suite is Xcode Cloud's check on
+   the PR; a PR merges only when it is green. For docs or config alone, `scripts/test.sh` is
+   enough.
 5. For UI changes, a screenshot from `/run` has been looked at.
 
 Steps 1 and 2 are skipped for a diff with no Swift in it.

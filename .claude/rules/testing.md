@@ -22,4 +22,8 @@ simulator) before anything that needs UIKit, and snapshots before XCUITest.
   `@Test("An in-memory container round-trips a model") func inMemoryRoundTrip()`. The
   formatter is configured to keep it that way (see `.swiftformat`).
 - No sleeping in tests. Use clocks, confirmations, or injected schedulers.
+- While working, run `scripts/test.sh` and the simulator tests the change touches
+  (`scripts/test.sh sim <Target/Class>`, then check the total). The full simulator suite is
+  Xcode Cloud's PR check, so don't also run it locally. After re-recording snapshots, run only
+  their suite again.
 - A bug fix comes with a test that failed before the fix.
