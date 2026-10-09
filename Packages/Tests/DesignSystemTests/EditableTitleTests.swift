@@ -44,6 +44,18 @@ struct EditableTitleTests {
         #expect(EditableTitle.insertionPoint(of: selection, in: "Legs") == "Legs".endIndex)
     }
 
+    @Test("The empty field reserves as many lines as the default text drawn in its place")
+    func lineCount() {
+        // At AX5 a line of the title is 68pt; "New routine" wraps to two.
+        #expect(EditableTitle.lineCount(height: 136, lineHeight: 68) == 2)
+        // Heights measured on the pixel grid are a fraction off.
+        #expect(EditableTitle.lineCount(height: 135.33, lineHeight: 68) == 2)
+        #expect(EditableTitle.lineCount(height: 29, lineHeight: 29) == 1)
+        // Before anything is measured, the field is one line, as it was.
+        #expect(EditableTitle.lineCount(height: 0, lineHeight: 0) == 1)
+        #expect(EditableTitle.lineCount(height: 0, lineHeight: 29) == 1)
+    }
+
     @Test("On one line, the cursor's cell is its offset")
     func cellOnOneLine() {
         #expect(EditableTitle.cursorCell(at: 0, in: "New routine", columns: 20) == (0, 0))

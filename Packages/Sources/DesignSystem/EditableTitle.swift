@@ -34,12 +34,6 @@ public struct EditableTitle: View {
 
     private static let minimumTouchTarget: CGFloat = 44
 
-    /// How many lines the default text wraps to.
-    private var defaultTextLines: Int {
-        guard lineHeight > 0 else { return 1 }
-        return max(1, Int((defaultTextHeight / lineHeight).rounded()))
-    }
-
     public init(
         text: Binding<String>,
         defaultText: String,
@@ -87,6 +81,13 @@ public struct EditableTitle: View {
         default:
             nil
         }
+    }
+
+    /// How many lines a text `height` tall holds, at `lineHeight` a line: at least one, and one
+    /// before either is measured. Rounded, since measured heights land on the pixel grid.
+    public static func lineCount(height: CGFloat, lineHeight: CGFloat) -> Int {
+        guard lineHeight > 0 else { return 1 }
+        return max(1, Int((height / lineHeight).rounded()))
     }
 
     /// The line and column of the cell the cursor marks, for a cursor before the character at
@@ -159,7 +160,11 @@ public struct EditableTitle: View {
             // as many lines as the default text drawn in its place. A frame around the field
             // would not do: the field stays as tall as its lines inside any frame.
             field
-                .lineLimit(draft.isEmpty ? defaultTextLines... : 1...)
+                .lineLimit(
+                    draft.isEmpty
+                        ? Self.lineCount(height: defaultTextHeight, lineHeight: lineHeight)...
+                        : 1...,
+                )
         }
         .overlay(alignment: .top) {
             TitleCursor(caret: caret, draft: draft, defaultText: defaultText, isEditing: isEditing)
