@@ -70,14 +70,13 @@ public struct EditableTitle: View {
     {
         switch selection?.indices {
         case nil:
-            return draft.endIndex
+            draft.endIndex
         case let .selection(range) where range.isEmpty:
             // A selection can trail the draft by one change, and an index into the old string
             // may lie past the end of this one or inside one of its characters.
-            guard range.lowerBound <= draft.endIndex else { return draft.endIndex }
-            return String.Index(range.lowerBound, within: draft) ?? draft.endIndex
+            String.Index(range.lowerBound, within: draft) ?? draft.endIndex
         default:
-            return nil
+            nil
         }
     }
 
@@ -107,6 +106,10 @@ public struct EditableTitle: View {
             } else {
                 commit()
             }
+        }
+        // A moved cursor shows at once, as the system caret does.
+        .onChange(of: selection) {
+            editingSince = .now
         }
         .onChange(of: text) { _, newText in
             if !isEditing {
@@ -155,6 +158,8 @@ public struct EditableTitle: View {
             }
         }
         .accessibilityLabel(Text(label))
+        // The default is only a placeholder in the field, but it is still the name.
+        .accessibilityValue(Text(verbatim: draft.isEmpty ? defaultText : draft))
         .accessibilityHint(Text(hint))
     }
 
