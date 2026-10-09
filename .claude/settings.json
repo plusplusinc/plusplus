@@ -9,6 +9,7 @@
       "Bash(scripts/check-us-english.sh:*)",
       "Bash(scripts/xcresult.py:*)",
       "Bash(scripts/board.sh:*)",
+      "Bash(scripts/tidy.sh:*)",
       "Bash(asc xcode-cloud products:*)",
       "Bash(asc xcode-cloud workflows list:*)",
       "Bash(asc xcode-cloud build-runs:*)",
@@ -50,6 +51,18 @@
     "swift-lsp@claude-plugins-official": true
   },
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "mkdir -p \"$CLAUDE_PROJECT_DIR/.build\" && \"$CLAUDE_PROJECT_DIR/scripts/tidy.sh\" > \"$CLAUDE_PROJECT_DIR/.build/tidy.log\" 2>&1",
+            "async": true,
+            "timeout": 120
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Edit|Write",

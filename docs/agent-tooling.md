@@ -24,6 +24,11 @@ the maintainer's simulator. At `Stop` and `SubagentStop` it runs again with `--r
 asynchronously, and wakes the agent when the app no longer builds or crashed since the last
 turn, once per crash. The `/pr` skill and CI are still the gates.
 
+A `SessionStart` hook runs `scripts/tidy.sh` in the background from the main checkout, logging
+to `.build/tidy.log`. It removes worktrees and local branches whose work has landed: their tip is
+in `main` or in a merged PR. Merges are squashed, so git alone can't tell a branch is done.
+Agents' worktrees with commits outlive the agent, and nothing else removes them.
+
 ## Rules
 
 `.claude/rules/*.md` carry the detail that would bloat `CLAUDE.md`. Each has a `paths:` list and
