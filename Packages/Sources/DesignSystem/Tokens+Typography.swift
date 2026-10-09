@@ -13,7 +13,8 @@ extension Font {
 }
 
 extension View {
-    /// The screen title: 24pt bold, between `title2` and `title`, scaling as `title2` does.
+    /// The screen title: SF Mono, 24pt bold, between `title2` and `title`, scaling as `title2`
+    /// does. Monospaced so its `_` cursor is exactly one character wide.
     public func ppScreenTitleFont() -> some View {
         modifier(ScreenTitleFont())
     }
@@ -23,6 +24,6 @@ private struct ScreenTitleFont: ViewModifier {
     @ScaledMetric(relativeTo: .title2) private var size: CGFloat = 24
 
     func body(content: Content) -> some View {
-        content.font(.system(size: size, weight: .bold))
+        content.font(.system(size: size, weight: .bold, design: .monospaced))
     }
 }

@@ -36,7 +36,9 @@ struct RoutineScreen: View {
                 // below the top of the visible area. Starting there keeps the title still.
                 .padding(.top, Spacing.sm)
             }
-            .background(Color.pp(.background))
+            // A shape-style background stops at the keyboard's safe area, which left the
+            // window's black behind the keyboard's rounded top corners.
+            .background { Color.pp(.background).ignoresSafeArea() }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {

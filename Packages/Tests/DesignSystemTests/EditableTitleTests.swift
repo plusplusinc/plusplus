@@ -44,6 +44,33 @@ struct EditableTitleTests {
         #expect(EditableTitle.insertionPoint(of: selection, in: "Legs") == "Legs".endIndex)
     }
 
+    @Test("On one line, the cursor's cell is its offset")
+    func cellOnOneLine() {
+        #expect(EditableTitle.cursorCell(at: 0, in: "New routine", columns: 20) == (0, 0))
+        #expect(EditableTitle.cursorCell(at: 4, in: "New routine", columns: 20) == (0, 4))
+        #expect(EditableTitle.cursorCell(at: 11, in: "New routine", columns: 20) == (0, 11))
+    }
+
+    @Test("A word that does not fit moves to the next line, with the cursor in it")
+    func cellAfterWordWrap() {
+        // "Upper body" fills ten columns; "day" goes to the next line.
+        #expect(EditableTitle.cursorCell(at: 11, in: "Upper body day", columns: 10) == (1, 0))
+        #expect(EditableTitle.cursorCell(at: 14, in: "Upper body day", columns: 10) == (1, 3))
+        // "New " fits, "routine" does not.
+        #expect(EditableTitle.cursorCell(at: 11, in: "New routine", columns: 10) == (1, 7))
+    }
+
+    @Test("A cursor after a full line, or before a space past it, hangs past the edge")
+    func cellHanging() {
+        #expect(EditableTitle.cursorCell(at: 10, in: "Upper body", columns: 10) == (0, 10))
+        #expect(EditableTitle.cursorCell(at: 10, in: "Upper body day", columns: 10) == (0, 10))
+    }
+
+    @Test("A word longer than a line breaks between characters")
+    func cellInLongWord() {
+        #expect(EditableTitle.cursorCell(at: 5, in: "Shoulderpress", columns: 4) == (1, 1))
+    }
+
     @Test(
         "One newline anywhere is a Return",
         arguments: ["Legs\n", "\nLegs", "Le\ngs", "\n"],

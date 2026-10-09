@@ -4,15 +4,17 @@ import SwiftUI
 ///
 /// At rest it reads as a title with a faint trailing `_`. Tapping it focuses the field: the `_`
 /// becomes the blinking cursor and the keyboard rises. The `_` marks the insertion point
-/// wherever it is, under the character that typing will push along, or after the last one.
-/// The system caret is hidden, so the `_` is the only cursor there is; a range selection shows
-/// the system highlight instead.
+/// wherever it is, under the character that typing will push along, or after the last one. The
+/// system caret is hidden, so the `_` is the only cursor there is; a range selection shows the
+/// system highlight instead.
 ///
 /// The default text is the field's placeholder, never its contents: tapping it shows it gray with
 /// the `_` under its first letter, typing replaces it, and ending with nothing keeps it.
 ///
-/// The field only takes input. What shows is one `Text` drawn over it, the same view at rest and
-/// while editing, so starting an edit cannot move the title.
+/// The field draws its own text, so everything the keyboard shows in it (suggestions, inline
+/// predictions, text being composed) shows as in any field. The `_` is drawn over it by
+/// `TitleCursor`. The title is monospaced, so the `_` is one character cell wide and its place
+/// follows from the text alone: `cursorCell(at:in:columns:)` wraps the text as the field does.
 public struct EditableTitle: View {
     @Binding private var text: String
     private let defaultText: String
@@ -20,13 +22,12 @@ public struct EditableTitle: View {
     private let hint: LocalizedStringKey
 
     @State private var draft: String
-    @State private var selection: TextSelection?
-    @State private var editingSince = Date.now
+    /// The field's selection lives outside this view's state, so a moving caret redraws only the
+    /// cursor and never updates the field while the keyboard is moving it.
+    @State private var caret = Caret()
     @FocusState private var isEditing: Bool
     @ObserveHotReload private var hotReload
 
-    /// Matches the 1.06s cycle of a text cursor: on half, off half, no fade.
-    private static let blinkInterval: TimeInterval = 0.53
     private static let minimumTouchTarget: CGFloat = 44
 
     public init(
@@ -39,10 +40,7 @@ public struct EditableTitle: View {
         self.defaultText = defaultText
         label = accessibilityLabel
         hint = accessibilityHint
-        _draft = State(initialValue: Self.draft(
-            for: text.wrappedValue,
-            defaultText: defaultText,
-        ))
+        _draft = State(initialValue: Self.draft(for: text.wrappedValue, defaultText: defaultText))
     }
 
     /// What the field holds for a title: empty for the default, which shows as the placeholder,
@@ -65,9 +63,10 @@ public struct EditableTitle: View {
 
     /// Where the `_` goes in the draft: the insertion point, or nil for a range selection, which
     /// shows the system highlight instead. No selection yet is the end.
-    public static func insertionPoint(of selection: TextSelection?, in draft: String) -> String
-        .Index?
-    {
+    public static func insertionPoint(
+        of selection: TextSelection?,
+        in draft: String,
+    ) -> String.Index? {
         switch selection?.indices {
         case nil:
             draft.endIndex
@@ -80,10 +79,62 @@ public struct EditableTitle: View {
         }
     }
 
+    /// The line and column of the cell the cursor marks, for a cursor before the character at
+    /// `offset` (or after the last one), in monospaced text wrapped at `columns` cells the way the
+    /// field wraps it: a word that does not fit moves to the next line, a word longer than a line
+    /// breaks between characters, and spaces never wrap, hanging past the edge. A cursor after a
+    /// full last line hangs past the edge too, where the field puts its caret.
+    public static func cursorCell(
+        at offset: Int,
+        in text: String,
+        columns: Int,
+    ) -> (line: Int, column: Int) {
+        let characters = Array(text)
+        var cells: [(line: Int, column: Int)] = []
+        var line = 0
+        var column = 0
+        var index = 0
+        while index < characters.count {
+            if characters[index] == " " {
+                cells.append((line, column))
+                column += 1
+                index += 1
+                continue
+            }
+            let wordEnd = characters[index...].firstIndex(of: " ") ?? characters.count
+            if column > 0, column + (wordEnd - index) > columns {
+                line += 1
+                column = 0
+            }
+            for _ in index ..< wordEnd {
+                if column >= columns {
+                    line += 1
+                    column = 0
+                }
+                cells.append((line, column))
+                column += 1
+            }
+            index = wordEnd
+        }
+        if offset < cells.count {
+            return cells[offset]
+        }
+        return (line, column)
+    }
+
     public var body: some View {
         ZStack(alignment: .topLeading) {
+            // A field's own placeholder stays on one line, truncated, so the default is drawn
+            // here, wrapping like the text it stands for.
+            if draft.isEmpty {
+                Text(defaultText)
+                    .foregroundStyle(.pp(isEditing ? .textSecondary : .textPrimary))
+                    .accessibilityHidden(true)
+            }
             field
-            overlay
+        }
+        .overlay(alignment: .top) {
+            TitleCursor(caret: caret, draft: draft, defaultText: defaultText, isEditing: isEditing)
         }
         .ppScreenTitleFont()
         // The field is only as tall as its text. Behind it, a target at least 44pt tall reaches
@@ -101,15 +152,10 @@ public struct EditableTitle: View {
                 // The tap that focuses the field leaves the caret at the start or selects
                 // everything, not where it landed, so editing starts at the end. Taps once
                 // editing place the caret where they land.
-                selection = TextSelection(insertionPoint: draft.endIndex)
-                editingSince = .now
+                caret.selection = TextSelection(insertionPoint: draft.endIndex)
             } else {
                 commit()
             }
-        }
-        // A moved cursor shows at once, as the system caret does.
-        .onChange(of: selection) {
-            editingSince = .now
         }
         .onChange(of: text) { _, newText in
             if !isEditing {
@@ -119,22 +165,19 @@ public struct EditableTitle: View {
         .hotReloadable()
     }
 
-    /// The field takes taps, typing, and selection; its own text, placeholder, and caret are
-    /// clear, since `overlay` draws them. The tint is the caret's color, and the selection
-    /// highlight's, so it is clear only while there is no range to highlight.
+    /// The tint is the caret's color, and the selection highlight's, so it is clear only while
+    /// there is no range to highlight.
     private var field: some View {
         TextField(
             "",
             text: $draft,
-            selection: $selection,
-            prompt: Text(defaultText).foregroundStyle(.clear),
+            selection: $caret.selection,
             axis: .vertical,
         )
-        .foregroundStyle(.clear)
-        .tint(isEditing && Self.insertionPoint(of: selection, in: draft) == nil ? nil : .clear)
+        .foregroundStyle(.pp(.textPrimary))
+        .tint(isEditing && caret.isRange ? nil : .clear)
         .focused($isEditing)
         .submitLabel(.done)
-        .autocorrectionDisabled()
         #if os(iOS)
         .textInputAutocapitalization(.sentences)
         #endif
@@ -154,7 +197,7 @@ public struct EditableTitle: View {
             } else {
                 draft = String(newDraft.map { $0.isNewline ? " " : $0 })
                 // The old selection indexes the old string.
-                selection = TextSelection(insertionPoint: draft.endIndex)
+                caret.selection = TextSelection(insertionPoint: draft.endIndex)
             }
         }
         .accessibilityLabel(Text(label))
@@ -163,107 +206,93 @@ public struct EditableTitle: View {
         .accessibilityHint(Text(hint))
     }
 
-    /// The title as it shows, with the `_`: blinking from the moment editing starts, still at
-    /// rest. Only the `_` blinks; the text stays the same between ticks.
-    private var overlay: some View {
-        Group {
-            if isEditing {
-                let title = shownText()
-                TimelineView(.periodic(from: editingSince, by: Self.blinkInterval)) { context in
-                    let ticks = context.date.timeIntervalSince(editingSince) / Self.blinkInterval
-                    title.textRenderer(CursorRenderer(
-                        color: Int(ticks.rounded()).isMultiple(of: 2) ? .pp(.textPrimary) : .clear,
-                    ))
-                }
-            } else {
-                shownText()
-                    .textRenderer(CursorRenderer(color: .pp(.borderStrong)))
-            }
-        }
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
-    }
-
-    /// The draft, or the default as a placeholder, followed by a clear thin space and `_` that
-    /// reserve the cursor's place after the last character; the thin space keeps it from
-    /// tucking under a letter with an overhang, like a final "e". It is always laid out, so
-    /// moving the cursor never rewraps the text. With the cursor before a character, that
-    /// character is tagged instead. A range selection has no `_`.
-    private func shownText() -> Text {
-        let isPlaceholder = draft.isEmpty
-        let shown = isPlaceholder ? defaultText : draft
-        let cursor: String.Index? = if !isEditing {
-            shown.endIndex
-        } else if isPlaceholder {
-            shown.startIndex
-        } else {
-            Self.insertionPoint(of: selection, in: draft)
-        }
-        let title: Text
-        if let cursor, cursor < shown.endIndex {
-            let after = shown.index(after: cursor)
-            title = Text("""
-            \(Text(shown[..<cursor]))\
-            \(Text(shown[cursor ..< after]).customAttribute(CursorTarget()))\
-            \(Text(shown[after...]))
-            """)
-        } else {
-            title = Text(verbatim: shown)
-        }
-        let mark = Text(verbatim: "\u{2009}_")
-            .customAttribute(CursorMark(isShown: cursor != nil))
-            .foregroundStyle(.clear)
-        let color = Color.pp(isPlaceholder && isEditing ? .textSecondary : .textPrimary)
-        return Text("\(title.foregroundStyle(color))\(mark)")
-    }
-
     private func commit() {
         text = Self.committed(draft, defaultText: defaultText)
         draft = Self.draft(for: text, defaultText: defaultText)
     }
 }
 
-/// Tags the trailing thin space and `_` that reserve the cursor's place at the end; a range
-/// selection keeps the place without a cursor.
-private struct CursorMark: TextAttribute {
-    var isShown: Bool
-}
-
-/// Tags the character the cursor sits before, when that is not the end.
-private struct CursorTarget: TextAttribute { }
-
-/// Draws the shown title and its `_`: under the character tagged as the cursor's target, or else
-/// in the place reserved after the last character.
-private struct CursorRenderer: TextRenderer {
-    /// Clear for the blink's dark half.
-    var color: Color
-
-    func draw(layout: Text.Layout, in context: inout GraphicsContext) {
-        var reserved: CGPoint?
-        var target: CGPoint?
-        for line in layout {
-            for run in line {
-                if let mark = run[CursorMark.self] {
-                    // The run is the thin space and the `_`; the `_` is its last glyph.
-                    if mark.isShown, let last = run.indices.last {
-                        reserved = Text.Layout.RunSlice(run: run, indices: last ..< run.endIndex)
-                            .typographicBounds.origin
-                    }
-                    continue
-                }
-                if run[CursorTarget.self] != nil, target == nil {
-                    target = run.typographicBounds.origin
-                }
-                context.draw(run)
+/// The field's selection. `isRange` changes only between a caret and a range, so the field,
+/// which reads only that, is not updated as the caret moves.
+@Observable
+private final class Caret {
+    var selection: TextSelection? {
+        didSet {
+            let isRange = selection.map { !$0.isInsertion } ?? false
+            if isRange != self.isRange {
+                self.isRange = isRange
             }
         }
-        // A run drawn away from where it was laid out does not show, so the `_` is drawn as its
-        // own text, its baseline on the cursor's.
-        guard let baseline = target ?? reserved else { return }
-        let underscore = context.resolve(Text(verbatim: "_").foregroundStyle(color))
-        let size = underscore.measure(in: CGSize(width: CGFloat.infinity, height: .infinity))
-        let origin = CGPoint(x: baseline.x, y: baseline.y - underscore.firstBaseline(in: size))
-        context.draw(underscore, in: CGRect(origin: origin, size: size))
+    }
+
+    private(set) var isRange = false
+}
+
+/// The `_`: blinking from the moment editing starts or the caret moves, still at rest.
+private struct TitleCursor: View {
+    let caret: Caret
+    let draft: String
+    let defaultText: String
+    let isEditing: Bool
+
+    @State private var since = Date.now
+    /// A character cell of the title, a little over: room past the trailing edge for a `_` that
+    /// hangs after a full line.
+    @ScaledMetric(relativeTo: .title2) private var spareCell: CGFloat = 16
+    @ObserveHotReload private var hotReload
+
+    /// Matches the 1.06s cycle of a text cursor: on half, off half, no fade.
+    private static let blinkInterval: TimeInterval = 0.53
+
+    var body: some View {
+        Group {
+            if isEditing {
+                TimelineView(.periodic(from: since, by: Self.blinkInterval)) { context in
+                    let ticks = context.date.timeIntervalSince(since) / Self.blinkInterval
+                    let isOn = Int(ticks.rounded()).isMultiple(of: 2)
+                    underscore(isOn ? .pp(.textPrimary) : .clear)
+                }
+            } else {
+                underscore(.pp(.borderStrong))
+            }
+        }
+        .padding(.trailing, -spareCell)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+        .onChange(of: caret.selection) {
+            since = .now
+        }
+        .hotReloadable()
+    }
+
+    /// Where the cursor is in what the field shows, the draft or the placeholder, as a character
+    /// offset: under the placeholder's first letter while editing, after the text at rest, and
+    /// nowhere for a range selection.
+    private var offset: Int? {
+        if draft.isEmpty {
+            return isEditing ? 0 : defaultText.count
+        }
+        guard isEditing else { return draft.count }
+        return EditableTitle.insertionPoint(of: caret.selection, in: draft)
+            .map { draft.distance(from: draft.startIndex, to: $0) }
+    }
+
+    private func underscore(_ color: Color) -> some View {
+        let shown = draft.isEmpty ? defaultText : draft
+        let offset = offset
+        return Canvas { context, size in
+            guard let offset else { return }
+            let mark = context.resolve(Text(verbatim: "_").foregroundStyle(color))
+            // One monospaced character: its width is the cell's, its height the line's.
+            let cell = mark.measure(in: CGSize(width: CGFloat.infinity, height: .infinity))
+            let columns = max(1, Int((size.width - spareCell) / cell.width))
+            let place = EditableTitle.cursorCell(at: offset, in: shown, columns: columns)
+            let origin = CGPoint(
+                x: CGFloat(place.column) * cell.width,
+                y: CGFloat(place.line) * cell.height,
+            )
+            context.draw(mark, in: CGRect(origin: origin, size: cell))
+        }
     }
 }
 
