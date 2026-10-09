@@ -16,21 +16,17 @@ struct EditableTitleTests {
     }
 
     @Test(
-        "Return anywhere in the name is a Return",
-        arguments: [
-            ("Legs", "Legs\n"), ("Legs", "\nLegs"), ("Legs", "Le\ngs"), ("", "\n"),
-            // Deleting everything and pressing Return, reaching the field as one change.
-            ("Legs day", "\n"),
-        ],
+        "One newline anywhere is a Return",
+        arguments: ["Legs\n", "\nLegs", "Le\ngs", "\n"],
     )
-    func returnAnywhere(oldDraft: String, newDraft: String) {
-        #expect(EditableTitle.isReturn(from: oldDraft, to: newDraft))
+    func returnAnywhere(draft: String) {
+        #expect(EditableTitle.isReturn(draft))
     }
 
     @Test("Pasted lines are not a Return")
     func pasteIsNotReturn() {
-        #expect(!EditableTitle.isReturn(from: "Legs", to: "Legs\nday"))
-        #expect(!EditableTitle.isReturn(from: "Legs", to: "Legs\n\n"))
+        #expect(!EditableTitle.isReturn("Legs\nday\n"))
+        #expect(!EditableTitle.isReturn("Legs\n\n"))
     }
 
     @Test(

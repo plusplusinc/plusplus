@@ -10,7 +10,7 @@
 // normally put there (PRODUCT_NAME, CODE_SIGN_STYLE) have to be stated here.
 
 PRODUCT_NAME = $(TARGET_NAME)
-PRODUCT_BUNDLE_IDENTIFIER = com.plusplusinc.plusplus
+PRODUCT_BUNDLE_IDENTIFIER = com.plusplusinc.plusplus$(BUNDLE_ID_SUFFIX_$(TARGET_NAME))
 MARKETING_VERSION = 0.1.0
 CURRENT_PROJECT_VERSION = 1
 
@@ -78,6 +78,7 @@ INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO
 
 TEST_TARGET_NAME = $(TEST_TARGET_NAME_$(TARGET_NAME))
 TEST_TARGET_NAME_PlusPlusUITests = PlusPlus
+BUNDLE_ID_SUFFIX_PlusPlusUITests = .uitests
 
 // MARK: - Hygiene
 
