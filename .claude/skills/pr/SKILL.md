@@ -25,6 +25,11 @@ gh pr create --title "<title>" --body-file <file>   # or gh pr edit to update th
 gh pr checks --watch                                # Xcode Cloud reports back as a check
 ```
 
+If `gh pr checks` still says "no checks reported" 30 seconds after the PR opens, GitHub's
+pull request event never reached Xcode Cloud, which happens intermittently and leaves no log
+on our side. Run `gh pr close <n> && gh pr reopen <n>`; the reopen sends a fresh event, and the
+run starts within seconds.
+
 The body follows `.github/pull_request_template.md`: one paragraph on what and why, short
 sections only if the change has distinct parts, a "Verified" line stating exactly what was run,
 a "Friction" line saying what was retried, what the maintainer corrected, and what took longer
