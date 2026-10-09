@@ -11,7 +11,8 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
 - No raw colors, spacing, font sizes, or corner radii at call sites. Use `Color.pp(.token)`,
   `Font.pp*`, `Spacing`, and `Radius` from `DesignSystem`. If a token is missing, add a
   `ColorToken` case and its colorset.
-- Every font token is built on a `Font.TextStyle` so Dynamic Type works. Never a fixed size.
+- Every font token scales with Dynamic Type: built on a `Font.TextStyle`, or sized with
+  `@ScaledMetric(relativeTo:)` when the design sits between two styles. Never a fixed size.
 - Prefer stock components for navigation, toolbars, and sheets; the system applies Liquid Glass
   there. Do not set `UIDesignRequiresCompatibility`.
 - Every tappable element that is not a `Button` gets `.accessibilityAddTraits(.isButton)`;

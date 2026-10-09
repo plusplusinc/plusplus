@@ -59,7 +59,7 @@ public struct EditableTitle: View {
             field
             cursor
         }
-        .font(.ppScreenTitle)
+        .ppScreenTitleFont()
         // The field is only as tall as its text. A tap anywhere in the full-size target
         // focuses it just as a tap on the text does.
         .frame(minHeight: Self.minimumTouchTarget, alignment: .leading)
