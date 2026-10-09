@@ -25,6 +25,10 @@ public struct EditableTitle: View {
     /// The field's selection lives outside this view's state, so a moving caret redraws only the
     /// cursor and never updates the field while the keyboard is moving it.
     @State private var caret = Caret()
+    /// The default text's height where it is drawn, wrapped, in place of an empty field.
+    @State private var defaultTextHeight: CGFloat = 0
+    /// The height of one line of the title.
+    @State private var lineHeight: CGFloat = 0
     @FocusState private var isEditing: Bool
     @ObserveHotReload private var hotReload
 
@@ -77,6 +81,13 @@ public struct EditableTitle: View {
         default:
             nil
         }
+    }
+
+    /// How many lines a text `height` tall holds, at `lineHeight` a line: at least one, and one
+    /// before either is measured. Rounded, since measured heights land on the pixel grid.
+    public static func lineCount(height: CGFloat, lineHeight: CGFloat) -> Int {
+        guard lineHeight > 0 else { return 1 }
+        return max(1, Int((height / lineHeight).rounded()))
     }
 
     /// The line and column of the cell the cursor marks, for a cursor before the character at
@@ -134,8 +145,26 @@ public struct EditableTitle: View {
                 Text(defaultText)
                     .foregroundStyle(.pp(isEditing ? .textSecondary : .textPrimary))
                     .accessibilityHidden(true)
+                    .onGeometryChange(for: CGFloat.self, of: \.size.height) {
+                        defaultTextHeight = $0
+                    }
+                    .background {
+                        Text(verbatim: "_")
+                            .hidden()
+                            .onGeometryChange(for: CGFloat.self, of: \.size.height) {
+                                lineHeight = $0
+                            }
+                    }
             }
+            // An empty field is one line tall, and VoiceOver frames the field, so it reserves
+            // as many lines as the default text drawn in its place. A frame around the field
+            // would not do: the field stays as tall as its lines inside any frame.
             field
+                .lineLimit(
+                    draft.isEmpty
+                        ? Self.lineCount(height: defaultTextHeight, lineHeight: lineHeight)...
+                        : 1...,
+                )
         }
         .overlay(alignment: .top) {
             TitleCursor(caret: caret, draft: draft, defaultText: defaultText, isEditing: isEditing)
