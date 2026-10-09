@@ -58,7 +58,7 @@ summaries and screenshots, not their work, and goes to the maintainer only for a
 when a slice is ready to try; the maintainer tries every slice before it merges. A subagent
 follows its definition, answers only to the lead, never merges, and when it runs long writes a
 handoff note so a fresh one can continue in the same worktree.
-The maintainer clears the lead's context between slices; `/slice` starts or resumes one from
+The maintainer clears the lead's context between slices; `/onward` starts or resumes one from
 the project board, whose cards hold each slice and its state; working files go in `.slices/`.
 
 ## Working in the project
