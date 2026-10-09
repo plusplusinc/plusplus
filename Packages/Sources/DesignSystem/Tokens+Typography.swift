@@ -2,10 +2,28 @@ import SwiftUI
 
 /// The type ramp.
 ///
-/// Every style is built on a `Font.TextStyle`, so Dynamic Type scaling comes for free; a fixed
-/// point size would silently opt the whole app out of accessibility sizing.
+/// Every style scales with Dynamic Type: it is built on a `Font.TextStyle`, or, when the design
+/// asks for a size between two styles, scaled relative to one. A fixed point size would
+/// silently opt the whole app out of accessibility sizing.
 extension Font {
-    public static let ppScreenTitle = Font.system(.largeTitle, weight: .bold)
-    public static let ppBody = Font.system(.body)
     public static let ppCaption = Font.system(.caption)
+    public static let ppButton = Font.system(.body, weight: .semibold)
+    /// The ++ mark: monospaced so the two pluses read as one glyph.
+    public static let ppMark = Font.system(.title2, design: .monospaced, weight: .bold)
+}
+
+extension View {
+    /// The screen title: SF Mono, 24pt bold, between `title2` and `title`, scaling as `title2`
+    /// does. Monospaced so its `_` cursor is exactly one character wide.
+    public func ppScreenTitleFont() -> some View {
+        modifier(ScreenTitleFont())
+    }
+}
+
+private struct ScreenTitleFont: ViewModifier {
+    @ScaledMetric(relativeTo: .title2) private var size: CGFloat = 24
+
+    func body(content: Content) -> some View {
+        content.font(.system(size: size, weight: .bold, design: .monospaced))
+    }
 }

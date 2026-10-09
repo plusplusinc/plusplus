@@ -17,10 +17,12 @@
 		000000000000000000000008 /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		000000000000000000000009 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		000000000000000000000024 /* Packages */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = Packages; sourceTree = "<group>"; };
+		8B7F246130770B2700389AC8 /* PlusPlusUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PlusPlusUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		000000000000000000000005 /* App */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = App; sourceTree = "<group>"; };
+		8B7F246230770B2700389AC8 /* PlusPlusUITests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = PlusPlusUITests; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -33,6 +35,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		8B7F245E30770B2700389AC8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -42,6 +51,7 @@
 				000000000000000000000005 /* App */,
 				000000000000000000000024 /* Packages */,
 				000000000000000000000004 /* Config */,
+				8B7F246230770B2700389AC8 /* PlusPlusUITests */,
 				000000000000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -50,6 +60,7 @@
 			isa = PBXGroup;
 			children = (
 				000000000000000000000006 /* PlusPlus.app */,
+				8B7F246130770B2700389AC8 /* PlusPlusUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -91,6 +102,28 @@
 			productReference = 000000000000000000000006 /* PlusPlus.app */;
 			productType = "com.apple.product-type.application";
 		};
+		8B7F246030770B2700389AC8 /* PlusPlusUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8B7F246730770B2700389AC8 /* Build configuration list for PBXNativeTarget "PlusPlusUITests" */;
+			buildPhases = (
+				8B7F245D30770B2700389AC8 /* Sources */,
+				8B7F245E30770B2700389AC8 /* Frameworks */,
+				8B7F245F30770B2700389AC8 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				8B7F246230770B2700389AC8 /* PlusPlusUITests */,
+			);
+			name = PlusPlusUITests;
+			packageProductDependencies = (
+			);
+			productName = PlusPlusUITests;
+			productReference = 8B7F246130770B2700389AC8 /* PlusPlusUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -98,11 +131,14 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2660;
+				LastSwiftUpdateCheck = 2700;
 				LastUpgradeCheck = 2660;
 				TargetAttributes = {
 					000000000000000000000010 = {
 						CreatedOnToolsVersion = 26.6;
+					};
+					8B7F246030770B2700389AC8 = {
+						CreatedOnToolsVersion = 27.0;
 					};
 				};
 			};
@@ -124,6 +160,7 @@
 			projectRoot = "";
 			targets = (
 				000000000000000000000010 /* PlusPlus */,
+				8B7F246030770B2700389AC8 /* PlusPlusUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -136,10 +173,24 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		8B7F245F30770B2700389AC8 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		000000000000000000000011 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8B7F245D30770B2700389AC8 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -175,6 +226,18 @@
 			};
 			name = Release;
 		};
+		8B7F246530770B2700389AC8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Debug;
+		};
+		8B7F246630770B2700389AC8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -192,6 +255,15 @@
 			buildConfigurations = (
 				00000000000000000000000E /* Debug */,
 				00000000000000000000000F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		8B7F246730770B2700389AC8 /* Build configuration list for PBXNativeTarget "PlusPlusUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8B7F246530770B2700389AC8 /* Debug */,
+				8B7F246630770B2700389AC8 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

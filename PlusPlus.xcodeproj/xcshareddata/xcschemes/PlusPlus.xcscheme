@@ -78,6 +78,16 @@
                ReferencedContainer = "container:Packages">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "8B7F246030770B2700389AC8"
+               BuildableName = "PlusPlusUITests.xctest"
+               BlueprintName = "PlusPlusUITests"
+               ReferencedContainer = "container:PlusPlus.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction

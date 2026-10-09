@@ -10,7 +10,7 @@
 // normally put there (PRODUCT_NAME, CODE_SIGN_STYLE) have to be stated here.
 
 PRODUCT_NAME = $(TARGET_NAME)
-PRODUCT_BUNDLE_IDENTIFIER = com.plusplusinc.plusplus
+PRODUCT_BUNDLE_IDENTIFIER = com.plusplusinc.plusplus$(BUNDLE_ID_SUFFIX_$(TARGET_NAME))
 MARKETING_VERSION = 0.1.0
 CURRENT_PROJECT_VERSION = 1
 
@@ -65,9 +65,20 @@ INFOPLIST_KEY_CFBundleDisplayName = PlusPlus
 INFOPLIST_KEY_UILaunchScreen_Generation = YES
 INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES
 INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait
+// Dark by default, launch screen included; the light palette stays for when this is a choice.
+INFOPLIST_KEY_UIUserInterfaceStyle = Dark
 // Declared here so App Store Connect stops asking on every upload. Revisit if the app ever
 // ships its own cryptography beyond standard HTTPS.
 INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO
+
+// MARK: - UI tests
+//
+// The project's configurations apply to every target, so the UI test bundle's own settings are
+// keyed on its target name and stay empty for the app.
+
+TEST_TARGET_NAME = $(TEST_TARGET_NAME_$(TARGET_NAME))
+TEST_TARGET_NAME_PlusPlusUITests = PlusPlus
+BUNDLE_ID_SUFFIX_PlusPlusUITests = .uitests
 
 // MARK: - Hygiene
 

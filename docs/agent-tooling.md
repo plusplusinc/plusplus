@@ -17,9 +17,12 @@ One `PostToolUse` hook, `.claude/hooks/on-edit.sh`, runs `scripts/lint.sh --fix`
 an agent edits and returns remaining findings to the agent. Because it is the same script CI
 runs, nothing the hook accepts can fail later.
 
-There is deliberately no build in a `Stop` hook. `Stop` fires after every response, so a build
-there taxes "what does this function do?" with a minute of compiling. The `/pr` skill and CI
-are the gates.
+A second `PostToolUse` hook, `.claude/hooks/refresh-sim.sh`, runs in the background and keeps
+the simulator's app matching the main checkout, leaving edits that hot reload can apply to the
+app (its header says which). In a linked worktree it does nothing, so an agent never installs on
+the maintainer's simulator. At `Stop` and `SubagentStop` it runs again with `--report`,
+asynchronously, and wakes the agent when the app no longer builds or crashed since the last
+turn, once per crash. The `/pr` skill and CI are still the gates.
 
 ## Rules
 

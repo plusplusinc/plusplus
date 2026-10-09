@@ -2,21 +2,19 @@ import SwiftUI
 
 /// Semantic color tokens.
 ///
-/// Named for the job a color does, not the color it is: `positive` stays correct when the brand
-/// green becomes a brand teal. Light and dark pairs live in `Tokens.xcassets` under the raw
-/// value; a case without a colorset renders clear, which the palette snapshot makes obvious.
+/// Named for the job a color does, not the color it is, so a palette change touches only the
+/// asset catalog. Light and dark pairs live in `Tokens.xcassets` under the raw value; a case
+/// without a colorset renders clear, which the palette snapshot makes obvious.
 public enum ColorToken: String, CaseIterable, Sendable {
+    /// Brand and data green: the ++ mark, and later timers and progress. Never a control's fill.
     case accent = "ppAccent"
     case background = "ppBackground"
-    case danger = "ppDanger"
-    /// A personal record, a completed set: progress.
-    case positive = "ppPositive"
-    case separator = "ppSeparator"
+    /// The outline of a key-shaped button, and the title's resting cursor.
+    case borderStrong = "ppBorderStrong"
     case surface = "ppSurface"
-    case surfaceElevated = "ppSurfaceElevated"
     case textPrimary = "ppTextPrimary"
+    /// Placeholder text: the default title while it is being edited.
     case textSecondary = "ppTextSecondary"
-    case warning = "ppWarning"
 }
 
 extension Color {

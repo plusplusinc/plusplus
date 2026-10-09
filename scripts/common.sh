@@ -16,6 +16,10 @@ SIMULATOR_NAME="${PLUSPLUS_SIMULATOR:-iPhone 17}"
 
 mkdir -p "$DERIVED_DATA" "$RESULTS"
 
+# simctl passes SIMCTL_CHILD_* variables to the app it launches. InjectionNext, when linked by
+# Config/Local.xcconfig, watches this directory for edits to hot-reload; otherwise it is unused.
+export SIMCTL_CHILD_INJECTION_PROJECT_ROOT="$ROOT"
+
 beautify() {
     if command -v xcbeautify > /dev/null; then
         xcbeautify --quieter --disable-colored-output --disable-logging
