@@ -12,7 +12,7 @@ struct ComponentSnapshotTests {
     private static let screenWidth: CGFloat = 390
 
     private func content(name: String) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
+        VStack(alignment: .leading, spacing: Spacing.md) {
             EditableTitle(
                 text: .constant(name),
                 defaultText: "New routine",

@@ -17,7 +17,11 @@ struct EditableTitleTests {
 
     @Test(
         "Return anywhere in the name is a Return",
-        arguments: [("Legs", "Legs\n"), ("Legs", "\nLegs"), ("Legs", "Le\ngs"), ("", "\n")],
+        arguments: [
+            ("Legs", "Legs\n"), ("Legs", "\nLegs"), ("Legs", "Le\ngs"), ("", "\n"),
+            // Deleting everything and pressing Return, reaching the field as one change.
+            ("Legs day", "\n"),
+        ],
     )
     func returnAnywhere(oldDraft: String, newDraft: String) {
         #expect(EditableTitle.isReturn(from: oldDraft, to: newDraft))

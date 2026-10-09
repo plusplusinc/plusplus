@@ -14,30 +14,30 @@ final nonisolated class RenameUITests: XCTestCase {
         let title = app.textFields["Routine name"]
         XCTAssertTrue(title.waitForExistence(timeout: 10))
 
-        title.tap()
-        title.typeText("Legs\n")
-        XCTAssertTrue(
-            app.keyboards.element.waitForNonExistence(timeout: 2),
-            "Return should end editing",
-        )
-        XCTAssertEqual(title.value as? String, "Legs")
-
+        rename(title, in: app, typing: "Legs\n", expecting: "Legs")
         // Editing a chosen name starts with the caret at the end, where the `_` shows it.
-        title.tap()
-        title.typeText(" day\n")
-        XCTAssertTrue(
-            app.keyboards.element.waitForNonExistence(timeout: 2),
-            "Return should end editing",
-        )
-        XCTAssertEqual(title.value as? String, "Legs day")
+        rename(title, in: app, typing: " day\n", expecting: "Legs day")
+        let deletes = String(repeating: XCUIKeyboardKey.delete.rawValue, count: "Legs day".count)
+        rename(title, in: app, typing: deletes + "\n", expecting: "New routine")
+    }
 
+    /// Taps the title, types, and checks that the Return at the end of `text` ended editing and
+    /// left `expected` behind.
+    @MainActor
+    private func rename(
+        _ title: XCUIElement,
+        in app: XCUIApplication,
+        typing text: String,
+        expecting expected: String,
+        line: UInt = #line,
+    ) {
         title.tap()
-        title.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: "Legs day".count))
-        title.typeText("\n")
+        title.typeText(text)
         XCTAssertTrue(
             app.keyboards.element.waitForNonExistence(timeout: 2),
             "Return should end editing",
+            line: line,
         )
-        XCTAssertEqual(title.value as? String, "New routine")
+        XCTAssertEqual(title.value as? String, expected, line: line)
     }
 }

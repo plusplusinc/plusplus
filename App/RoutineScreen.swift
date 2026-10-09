@@ -20,9 +20,7 @@ struct RoutineScreen: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                // The title's touch target already adds space below its text, so a small gap
-                // leaves the button about 16pt under the name.
-                VStack(alignment: .leading, spacing: Spacing.sm) {
+                VStack(alignment: .leading, spacing: Spacing.md) {
                     EditableTitle(
                         text: $name,
                         defaultText: Self.defaultName,

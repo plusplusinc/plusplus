@@ -23,7 +23,8 @@ public struct EditableTitle: View {
 
     /// Matches the 1.06s cycle of a text cursor: on half, off half, no fade.
     private static let blinkInterval: TimeInterval = 0.53
-    private static let minimumTouchTarget: CGFloat = 44
+    /// With the 24pt title's line, makes a touch target over 44pt tall.
+    private static let touchOutset = Spacing.md
 
     public init(
         text: Binding<String>,
@@ -43,9 +44,14 @@ public struct EditableTitle: View {
         text == defaultText ? "" : text
     }
 
-    /// Whether an edit only inserted a newline, which is what pressing Return does.
+    /// Whether an edit is a press of Return: a newline inserted anywhere on its own, or one
+    /// newline at the end when fast typing reaches the field as a single change. Any other
+    /// newline came from pasted lines.
     public static func isReturn(from oldDraft: String, to newDraft: String) -> Bool {
-        newDraft.count == oldDraft.count + 1 && newDraft.filter { !$0.isNewline } == oldDraft
+        let kept = newDraft.filter { !$0.isNewline }
+        let insertedAlone = newDraft.count == oldDraft.count + 1 && kept == oldDraft
+        let endsOnlyLine = newDraft.last?.isNewline == true && newDraft.count == kept.count + 1
+        return insertedAlone || endsOnlyLine
     }
 
     /// The title an edit leaves behind: trimmed, and the default when nothing is left.
@@ -60,11 +66,14 @@ public struct EditableTitle: View {
             cursor
         }
         .ppScreenTitleFont()
-        // The field is only as tall as its text. A tap anywhere in the full-size target
-        // focuses it just as a tap on the text does.
-        .frame(minHeight: Self.minimumTouchTarget, alignment: .leading)
+        // The field is only as tall as its text. The touch target reaches below it to at least
+        // 44pt (above, a title usually meets the navigation bar, which takes those taps), and a
+        // tap anywhere in it focuses the field as a tap on the text does. The negative padding
+        // gives the space back, so callers space the title like any other text.
+        .padding(.bottom, Self.touchOutset)
         .contentShape(.rect)
         .onTapGesture { isEditing = true }
+        .padding(.bottom, -Self.touchOutset)
         .onChange(of: isEditing) { _, editing in
             if editing {
                 draft = Self.draft(forEditing: text, defaultText: defaultText)
@@ -111,7 +120,7 @@ public struct EditableTitle: View {
         .onChange(of: draft) { oldDraft, newDraft in
             guard newDraft.contains(where: \.isNewline) else { return }
             if Self.isReturn(from: oldDraft, to: newDraft) {
-                draft = oldDraft
+                draft = newDraft.filter { !$0.isNewline }
                 isEditing = false
             } else {
                 draft = String(newDraft.map { $0.isNewline ? " " : $0 })
