@@ -82,8 +82,9 @@ public struct EditableTitle: View {
     /// The line and column of the cell the cursor marks, for a cursor before the character at
     /// `offset` (or after the last one), in monospaced text wrapped at `columns` cells the way the
     /// field wraps it: a word that does not fit moves to the next line, a word longer than a line
-    /// breaks between characters, and spaces never wrap, hanging past the edge. A cursor after a
-    /// full last line hangs past the edge too, where the field puts its caret.
+    /// breaks between characters, a hyphen or dash ends a word, and spaces never wrap, hanging
+    /// past the edge. A cursor in those spaces, or after a full last line, stays in the cell past
+    /// the edge, where the field puts its caret.
     public static func cursorCell(
         at offset: Int,
         in text: String,
@@ -101,7 +102,8 @@ public struct EditableTitle: View {
                 index += 1
                 continue
             }
-            let wordEnd = characters[index...].firstIndex(of: " ") ?? characters.count
+            let wordEnd = characters[index...].firstIndex { $0 == " " || Self.breaksAfter($0) }
+                .map { characters[$0] == " " ? $0 : $0 + 1 } ?? characters.count
             if column > 0, column + (wordEnd - index) > columns {
                 line += 1
                 column = 0
@@ -116,10 +118,12 @@ public struct EditableTitle: View {
             }
             index = wordEnd
         }
-        if offset < cells.count {
-            return cells[offset]
-        }
-        return (line, column)
+        let cell = offset < cells.count ? cells[offset] : (line: line, column: column)
+        return (cell.line, min(cell.column, columns))
+    }
+
+    private static func breaksAfter(_ character: Character) -> Bool {
+        "-\u{2010}\u{2013}\u{2014}".contains(character)
     }
 
     public var body: some View {
@@ -218,7 +222,8 @@ public struct EditableTitle: View {
 private final class Caret {
     var selection: TextSelection? {
         didSet {
-            let isRange = selection.map { !$0.isInsertion } ?? false
+            let isRange = selection != nil && EditableTitle
+                .insertionPoint(of: selection, in: "") == nil
             if isRange != self.isRange {
                 self.isRange = isRange
             }
@@ -262,6 +267,9 @@ private struct TitleCursor: View {
         .onChange(of: caret.selection) {
             since = .now
         }
+        .onChange(of: isEditing) {
+            since = .now
+        }
         .hotReloadable()
     }
 
@@ -277,21 +285,36 @@ private struct TitleCursor: View {
             .map { draft.distance(from: draft.startIndex, to: $0) }
     }
 
+    /// One character cell of the title's monospaced font. Measured over many characters and
+    /// lines, since a single measurement is rounded to the pixel grid and the error would add up
+    /// across a line.
+    private static func cell(in context: GraphicsContext) -> CGSize {
+        let count = 50
+        let unbounded = CGSize(width: CGFloat.infinity, height: .infinity)
+        let row = context.resolve(Text(verbatim: String(repeating: "_", count: count)))
+        let column = context.resolve(Text(verbatim: Array(repeating: "_", count: count)
+                .joined(separator: "\n")))
+        let one = context.resolve(Text(verbatim: "_")).measure(in: unbounded)
+        return CGSize(
+            width: row.measure(in: unbounded).width / CGFloat(count),
+            height: (column.measure(in: unbounded).height - one.height) / CGFloat(count - 1),
+        )
+    }
+
     private func underscore(_ color: Color) -> some View {
         let shown = draft.isEmpty ? defaultText : draft
         let offset = offset
         return Canvas { context, size in
             guard let offset else { return }
             let mark = context.resolve(Text(verbatim: "_").foregroundStyle(color))
-            // One monospaced character: its width is the cell's, its height the line's.
-            let cell = mark.measure(in: CGSize(width: CGFloat.infinity, height: .infinity))
+            let cell = Self.cell(in: context)
             let columns = max(1, Int((size.width - spareCell) / cell.width))
             let place = EditableTitle.cursorCell(at: offset, in: shown, columns: columns)
             let origin = CGPoint(
                 x: CGFloat(place.column) * cell.width,
                 y: CGFloat(place.line) * cell.height,
             )
-            context.draw(mark, in: CGRect(origin: origin, size: cell))
+            context.draw(mark, at: origin, anchor: .topLeading)
         }
     }
 }

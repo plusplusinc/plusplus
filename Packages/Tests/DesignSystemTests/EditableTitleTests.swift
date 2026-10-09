@@ -66,6 +66,17 @@ struct EditableTitleTests {
         #expect(EditableTitle.cursorCell(at: 10, in: "Upper body day", columns: 10) == (0, 10))
     }
 
+    @Test("A hyphen ends a word, so a hyphenated name wraps after it")
+    func cellAfterHyphen() {
+        // "Push-" fits on the first line; "pull" goes to the next.
+        #expect(EditableTitle.cursorCell(at: 5, in: "Push-pull", columns: 6) == (1, 0))
+    }
+
+    @Test("Several spaces past a full line keep the cursor in the cell past the edge")
+    func cellInHangingSpaces() {
+        #expect(EditableTitle.cursorCell(at: 12, in: "Upper body   ", columns: 10) == (0, 10))
+    }
+
     @Test("A word longer than a line breaks between characters")
     func cellInLongWord() {
         #expect(EditableTitle.cursorCell(at: 5, in: "Shoulderpress", columns: 4) == (1, 1))
