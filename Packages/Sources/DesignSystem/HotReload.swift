@@ -17,14 +17,10 @@ public struct ObserveHotReload: DynamicProperty {
 
     public init() { }
 
-    /// The number of hot reloads so far, always 0 in Release. Nothing needs to read it; it is
-    /// an `Int` rather than `Void` because Swift warns about a property inferred to be `Void`.
+    /// Nothing reads it: the environment property above is what makes the view observe reloads.
+    /// It is an `Int` rather than `Void` because Swift warns about a property inferred as `Void`.
     public var wrappedValue: Int {
-        #if DEBUG
-        count
-        #else
         0
-        #endif
     }
 }
 

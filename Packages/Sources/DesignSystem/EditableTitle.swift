@@ -39,12 +39,15 @@ public struct EditableTitle: View {
         self.defaultText = defaultText
         label = accessibilityLabel
         hint = accessibilityHint
-        _draft = State(initialValue: Self.draft(forEditing: text.wrappedValue, defaultText: defaultText))
+        _draft = State(initialValue: Self.draft(
+            for: text.wrappedValue,
+            defaultText: defaultText,
+        ))
     }
 
     /// What the field holds for a title: empty for the default, which shows as the placeholder,
     /// so typing replaces it.
-    public static func draft(forEditing text: String, defaultText: String) -> String {
+    public static func draft(for text: String, defaultText: String) -> String {
         text == defaultText ? "" : text
     }
 
@@ -62,7 +65,9 @@ public struct EditableTitle: View {
 
     /// Where the `_` goes in the draft: the insertion point, or nil for a range selection, which
     /// shows the system highlight instead. No selection yet is the end.
-    public static func insertionPoint(of selection: TextSelection?, in draft: String) -> String.Index? {
+    public static func insertionPoint(of selection: TextSelection?, in draft: String) -> String
+        .Index?
+    {
         switch selection?.indices {
         case nil:
             return draft.endIndex
@@ -79,7 +84,7 @@ public struct EditableTitle: View {
     public var body: some View {
         ZStack(alignment: .topLeading) {
             field
-            shown
+            overlay
         }
         .ppScreenTitleFont()
         // The field is only as tall as its text. Behind it, a target at least 44pt tall reaches
@@ -105,18 +110,14 @@ public struct EditableTitle: View {
         }
         .onChange(of: text) { _, newText in
             if !isEditing {
-                draft = Self.draft(forEditing: newText, defaultText: defaultText)
+                draft = Self.draft(for: newText, defaultText: defaultText)
             }
         }
         .hotReloadable()
     }
 
-    private var insertionPoint: String.Index? {
-        isEditing ? Self.insertionPoint(of: selection, in: draft) : draft.endIndex
-    }
-
     /// The field takes taps, typing, and selection; its own text, placeholder, and caret are
-    /// clear, since `shown` draws them. The tint is the caret's color, and the selection
+    /// clear, since `overlay` draws them. The tint is the caret's color, and the selection
     /// highlight's, so it is clear only while there is no range to highlight.
     private var field: some View {
         TextField(
@@ -127,7 +128,7 @@ public struct EditableTitle: View {
             axis: .vertical,
         )
         .foregroundStyle(.clear)
-        .tint(insertionPoint == nil ? nil : .clear)
+        .tint(isEditing && Self.insertionPoint(of: selection, in: draft) == nil ? nil : .clear)
         .focused($isEditing)
         .submitLabel(.done)
         .autocorrectionDisabled()
@@ -158,36 +159,41 @@ public struct EditableTitle: View {
     }
 
     /// The title as it shows, with the `_`: blinking from the moment editing starts, still at
-    /// rest.
-    private var shown: some View {
+    /// rest. Only the `_` blinks; the text stays the same between ticks.
+    private var overlay: some View {
         Group {
             if isEditing {
+                let title = shownText()
                 TimelineView(.periodic(from: editingSince, by: Self.blinkInterval)) { context in
                     let ticks = context.date.timeIntervalSince(editingSince) / Self.blinkInterval
-                    let isOn = Int(ticks.rounded()).isMultiple(of: 2)
-                    shownText(cursor: isOn ? insertionPoint : nil, cursorColor: .pp(.textPrimary))
+                    title.textRenderer(CursorRenderer(
+                        color: Int(ticks.rounded()).isMultiple(of: 2) ? .pp(.textPrimary) : .clear,
+                    ))
                 }
             } else {
-                shownText(cursor: insertionPoint, cursorColor: .pp(.borderStrong))
+                shownText()
+                    .textRenderer(CursorRenderer(color: .pp(.borderStrong)))
             }
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }
 
-    /// The draft, or the default as a placeholder, followed by the `_` after a thin space that
-    /// keeps it from tucking under a letter with an overhang, like a final "e". The `_` is always
-    /// laid out there, so moving the cursor never rewraps the text; with the cursor before a
-    /// character, the renderer draws it under that character instead.
-    private func shownText(cursor: String.Index?, cursorColor: Color) -> some View {
+    /// The draft, or the default as a placeholder, followed by a clear thin space and `_` that
+    /// reserve the cursor's place after the last character; the thin space keeps it from
+    /// tucking under a letter with an overhang, like a final "e". It is always laid out, so
+    /// moving the cursor never rewraps the text. With the cursor before a character, that
+    /// character is tagged instead. A range selection has no `_`.
+    private func shownText() -> Text {
         let isPlaceholder = draft.isEmpty
         let shown = isPlaceholder ? defaultText : draft
-        let color = Color.pp(isPlaceholder && isEditing ? .textSecondary : .textPrimary)
-        let mark = Text(verbatim: "\u{2009}_")
-            .customAttribute(CursorMark())
-            .foregroundStyle(cursorColor)
-        // The placeholder's cursor is under its first letter while editing, after it at rest.
-        let cursor = isPlaceholder && !isEditing ? cursor.map { _ in shown.endIndex } : cursor
+        let cursor: String.Index? = if !isEditing {
+            shown.endIndex
+        } else if isPlaceholder {
+            shown.startIndex
+        } else {
+            Self.insertionPoint(of: selection, in: draft)
+        }
         let title: Text
         if let cursor, cursor < shown.endIndex {
             let after = shown.index(after: cursor)
@@ -199,37 +205,44 @@ public struct EditableTitle: View {
         } else {
             title = Text(verbatim: shown)
         }
+        let mark = Text(verbatim: "\u{2009}_")
+            .customAttribute(CursorMark(isShown: cursor != nil))
+            .foregroundStyle(.clear)
+        let color = Color.pp(isPlaceholder && isEditing ? .textSecondary : .textPrimary)
         return Text("\(title.foregroundStyle(color))\(mark)")
-            .textRenderer(CursorRenderer(isShown: cursor != nil, color: cursorColor))
     }
 
     private func commit() {
         text = Self.committed(draft, defaultText: defaultText)
-        draft = Self.draft(forEditing: text, defaultText: defaultText)
+        draft = Self.draft(for: text, defaultText: defaultText)
     }
 }
 
-/// Tags the trailing `_` in the shown title.
-private struct CursorMark: TextAttribute { }
+/// Tags the trailing thin space and `_` that reserve the cursor's place at the end; a range
+/// selection keeps the place without a cursor.
+private struct CursorMark: TextAttribute {
+    var isShown: Bool
+}
 
 /// Tags the character the cursor sits before, when that is not the end.
 private struct CursorTarget: TextAttribute { }
 
-/// Draws the shown title and its `_`: where it was laid out, after the last character, or under
-/// the character tagged as the cursor's target.
+/// Draws the shown title and its `_`: under the character tagged as the cursor's target, or else
+/// in the place reserved after the last character.
 private struct CursorRenderer: TextRenderer {
-    var isShown: Bool
+    /// Clear for the blink's dark half.
     var color: Color
 
     func draw(layout: Text.Layout, in context: inout GraphicsContext) {
-        var underscore: Text.Layout.RunSlice?
+        var reserved: CGPoint?
         var target: CGPoint?
         for line in layout {
             for run in line {
-                if run[CursorMark.self] != nil {
+                if let mark = run[CursorMark.self] {
                     // The run is the thin space and the `_`; the `_` is its last glyph.
-                    if let last = run.indices.last {
-                        underscore = Text.Layout.RunSlice(run: run, indices: last ..< run.endIndex)
+                    if mark.isShown, let last = run.indices.last {
+                        reserved = Text.Layout.RunSlice(run: run, indices: last ..< run.endIndex)
+                            .typographicBounds.origin
                     }
                     continue
                 }
@@ -239,17 +252,13 @@ private struct CursorRenderer: TextRenderer {
                 context.draw(run)
             }
         }
-        guard isShown, let underscore else { return }
-        if let target {
-            // A run drawn away from where it was laid out does not show, so the `_` is drawn
-            // again as text, its baseline on the target's.
-            let mark = context.resolve(Text(verbatim: "_").foregroundStyle(color))
-            let size = mark.measure(in: CGSize(width: CGFloat.infinity, height: .infinity))
-            let baseline = mark.firstBaseline(in: size)
-            context.draw(mark, in: CGRect(origin: CGPoint(x: target.x, y: target.y - baseline), size: size))
-        } else {
-            context.draw(underscore)
-        }
+        // A run drawn away from where it was laid out does not show, so the `_` is drawn as its
+        // own text, its baseline on the cursor's.
+        guard let baseline = target ?? reserved else { return }
+        let underscore = context.resolve(Text(verbatim: "_").foregroundStyle(color))
+        let size = underscore.measure(in: CGSize(width: CGFloat.infinity, height: .infinity))
+        let origin = CGPoint(x: baseline.x, y: baseline.y - underscore.firstBaseline(in: size))
+        context.draw(underscore, in: CGRect(origin: origin, size: size))
     }
 }
 

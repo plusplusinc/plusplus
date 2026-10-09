@@ -8,12 +8,12 @@ struct EditableTitleTests {
 
     @Test("The default is the placeholder, so typing replaces it")
     func draftForDefault() {
-        #expect(EditableTitle.draft(forEditing: defaultText, defaultText: defaultText).isEmpty)
+        #expect(EditableTitle.draft(for: defaultText, defaultText: defaultText).isEmpty)
     }
 
     @Test("Editing a chosen name starts from that name")
     func draftForCustomName() {
-        #expect(EditableTitle.draft(forEditing: "Legs", defaultText: defaultText) == "Legs")
+        #expect(EditableTitle.draft(for: "Legs", defaultText: defaultText) == "Legs")
     }
 
     @Test("With no selection yet, the cursor is at the end")
@@ -32,7 +32,8 @@ struct EditableTitleTests {
     @Test("A range selection has no cursor")
     func insertionForRange() {
         let draft = "Legs day"
-        let selection = TextSelection(range: draft.startIndex ..< draft.index(after: draft.startIndex))
+        let firstLetter = draft.startIndex ..< draft.index(after: draft.startIndex)
+        let selection = TextSelection(range: firstLetter)
         #expect(EditableTitle.insertionPoint(of: selection, in: draft) == nil)
     }
 

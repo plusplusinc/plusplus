@@ -11,10 +11,7 @@ import XCTest
 final nonisolated class RenameUITests: XCTestCase {
     @MainActor
     func testReturnCommitsAndEmptyRestoresDefault() {
-        let app = XCUIApplication()
-        app.launch()
-        let title = app.textFields["Routine name"]
-        XCTAssertTrue(title.waitForExistence(timeout: 10))
+        let (app, title) = launchToTitle()
 
         rename(title, in: app, typing: "Legs\n", expecting: "Legs")
         rename(title, in: app, typing: " day\n", expecting: "Legs day")
@@ -26,10 +23,7 @@ final nonisolated class RenameUITests: XCTestCase {
     /// placeholder with the `_` under its first letter.
     @MainActor
     func testEditingStartsInPlaceWithCursorUnderPlaceholder() throws {
-        let app = XCUIApplication()
-        app.launch()
-        let title = app.textFields["Routine name"]
-        XCTAssertTrue(title.waitForExistence(timeout: 10))
+        let (app, title) = launchToTitle()
 
         let addExercise = app.buttons["Add exercise"]
         let frameAtRest = title.frame
@@ -53,10 +47,7 @@ final nonisolated class RenameUITests: XCTestCase {
     /// the middle.
     @MainActor
     func testCursorFollowsCaretInsideName() throws {
-        let app = XCUIApplication()
-        app.launch()
-        let title = app.textFields["Routine name"]
-        XCTAssertTrue(title.waitForExistence(timeout: 10))
+        let (app, title) = launchToTitle()
 
         // No descenders, so any ink under the baseline is the `_`.
         title.tap()
@@ -73,14 +64,27 @@ final nonisolated class RenameUITests: XCTestCase {
         XCTAssertGreaterThan(cursor.lowerBound, letters.lowerBound, "The _ should be inside")
 
         title.typeText("and  " + XCUIKeyboardKey.delete.rawValue)
-        let afterTyping = try XCTUnwrap(cursorShown(in: title).cursor)
-        XCTAssertGreaterThan(afterTyping.lowerBound, cursor.lowerBound, "The _ should move on")
-        let longer = try XCTUnwrap(cursorShown(in: title).text)
-        XCTAssertLessThan(afterTyping.upperBound, longer.upperBound, "The _ should stay inside")
+        let afterTyping = try cursorShown(in: title)
+        let moved = try XCTUnwrap(afterTyping.cursor)
+        let longer = try XCTUnwrap(afterTyping.text)
+        XCTAssertGreaterThan(moved.lowerBound, cursor.lowerBound, "The _ should move on")
+        XCTAssertLessThan(moved.upperBound, longer.upperBound, "The _ should stay inside")
 
         title.typeText("\n")
-        XCTAssertTrue(app.keyboards.element.waitForNonExistence(timeout: 2))
+        XCTAssertTrue(
+            app.keyboards.element.waitForNonExistence(timeout: 2),
+            "Return should end editing",
+        )
         XCTAssertEqual(title.value as? String, "Arm and back")
+    }
+
+    @MainActor
+    private func launchToTitle() -> (XCUIApplication, XCUIElement) {
+        let app = XCUIApplication()
+        app.launch()
+        let title = app.textFields["Routine name"]
+        XCTAssertTrue(title.waitForExistence(timeout: 10))
+        return (app, title)
     }
 
     /// Taps the title, types, and checks that the Return at the end of `text` ended editing and
