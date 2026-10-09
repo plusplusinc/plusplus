@@ -69,6 +69,12 @@ DerivedData is already isolated per worktree because `scripts/common.sh` keys it
 checkout. Two or three concurrent iOS worktrees is the practical ceiling on one machine; create
 a dedicated simulator per worktree with `xcrun simctl create` and set `PLUSPLUS_SIMULATOR`.
 
+The feature subagents in `.claude/agents/` share one such simulator, "PlusPlus Team", and run
+one at a time, because each phase needs the last one's files. Agent teams, Claude Code's
+experimental parallel mode, stay off; the lead proposes one only for work that is genuinely
+parallel: a review through several lenses, debugging with competing hypotheses, or slices that
+touch disjoint files.
+
 ## Permissions
 
 `.claude/settings.json` pre-approves the scripts, read-only `xcodebuild`, `git`, and `gh`
