@@ -32,6 +32,9 @@ struct RoutineScreen: View {
                         .buttonStyle(.key)
                 }
                 .padding(.horizontal, Spacing.md)
+                // When the keyboard rises, UIKit scrolls the focused field to sit at least 5pt
+                // below the top of the visible area. Starting there keeps the title still.
+                .padding(.top, Spacing.sm)
             }
             .background(Color.pp(.background))
             .navigationBarTitleDisplayMode(.inline)
