@@ -71,6 +71,14 @@ INFOPLIST_KEY_UIUserInterfaceStyle = Dark
 // ships its own cryptography beyond standard HTTPS.
 INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO
 
+// MARK: - UI tests
+//
+// The project's configurations apply to every target, so the UI test bundle's own settings are
+// keyed on its target name and stay empty for the app.
+
+TEST_TARGET_NAME = $(TEST_TARGET_NAME_$(TARGET_NAME))
+TEST_TARGET_NAME_PlusPlusUITests = PlusPlus
+
 // MARK: - Hygiene
 
 // App/ is a buildable folder, so anything dropped in it ships inside the app bundle, including
