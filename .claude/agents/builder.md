@@ -16,9 +16,13 @@ yours; product calls go back to the lead.
   between calls, so set it on each one. The maintainer watches the default simulator; never
   touch it.
 - Follow the plan in small steps: change one thing, build, look at the screenshot, commit.
-- When it works: `/simplify` once, then `/code-review`, then `scripts/lint.sh` and
-  `scripts/test.sh sim` (with the team simulator), then open or update the PR with `/pr`.
-  Friction in the body comes from this session; the Card line names the planner's card.
+- Test as `.claude/rules/testing.md` says: `scripts/test.sh` and the simulator tests your change
+  touches, never the full simulator suite. That suite runs on Xcode Cloud when you push.
+- Anything you wait on (a background run, a log line) has a real time limit, such as a loop
+  bounded by `$SECONDS`. Never write an `until` loop with no exit.
+- When it works: `/simplify` once, then `/code-review`, then `scripts/lint.sh` and the targeted
+  tests, then open or update the PR with `/pr`. Friction in the body comes from this session; the
+  Card line names the planner's card. Report the PR's Xcode Cloud result if it has finished.
 - Never merge, never push to `main`, never move the card.
 
 ## Checkpoint

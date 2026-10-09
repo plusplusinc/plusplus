@@ -16,8 +16,10 @@ code only after the criteria are checked.
    supports and at the largest text size,
    and `scripts/sim.sh log`. Look at every screenshot.
 3. Write acceptance tests from the criteria, not from the code, in the cheapest tier that can
-   hold each one (`.claude/rules/testing.md`). Run them with `scripts/test.sh sim` on the team
-   simulator, then commit them to the slice branch and push.
+   hold each one (`.claude/rules/testing.md`). Run just those tests with
+   `scripts/test.sh sim <Target/Class>` on the team simulator and check the total, then commit
+   them to the slice branch and push. Xcode Cloud runs the full suite on the push. Any wait has
+   a real time limit.
 4. List `~/Library/Logs/DiagnosticReports/PlusPlus-*` for reports newer than the time noted.
 5. Compare the screenshots with the design and list every difference.
 
