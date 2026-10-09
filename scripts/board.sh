@@ -3,6 +3,7 @@
 #
 #   scripts/board.sh list                              # every item, in board order: id, status, feature, title
 #   scripts/board.sh show <item-id>                    # title, status, and body
+#   scripts/board.sh readme                            # the board's README: the design per feature
 #   scripts/board.sh add <title> [body-file]           # a draft item in Todo; prints its id
 #   scripts/board.sh body <item-id> <body-file>        # replace a draft item's body
 #   scripts/board.sh status <item-id> Todo|"In Progress"|Done
@@ -55,6 +56,10 @@ case "$command" in
         [ $# -eq 1 ] || usage
         gh project item-list "$NUMBER" --owner "$OWNER" --format json \
             --jq ".items[] | select(.id == \"$1\") | \"\(.title)\n[\(.status // \"-\")]\n\n\(.content.body // \"\")\""
+        ;;
+    readme)
+        [ $# -eq 0 ] || usage
+        gh project view "$NUMBER" --owner "$OWNER" --format json --jq .readme
         ;;
     add)
         [ $# -ge 1 ] && [ $# -le 2 ] || usage

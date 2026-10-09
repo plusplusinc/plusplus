@@ -9,8 +9,8 @@ project board and in `.slices/`.
 
 ## Start
 
-1. Read the board's README (`gh project view 2 --owner plusplusinc --format json --jq .readme`):
-   the settled design per feature and the standing setup.
+1. Read the board's README (`scripts/board.sh readme`): the settled design per feature and the
+   standing setup.
 2. Find the card: the In Progress card, otherwise the topmost Todo card (`scripts/board.sh
    list` prints the board's order, then `scripts/board.sh show <id>`). The board's order is
    one queue: a card with a Feature is a slice of that feature, one without is a standalone
