@@ -25,9 +25,9 @@ public struct EditableTitle: View {
     /// The field's selection lives outside this view's state, so a moving caret redraws only the
     /// cursor and never updates the field while the keyboard is moving it.
     @State private var caret = Caret()
-    /// The default text's height where it is drawn, wrapped, in place of an empty field, and
-    /// the height of one of its lines.
+    /// The default text's height where it is drawn, wrapped, in place of an empty field.
     @State private var defaultTextHeight: CGFloat = 0
+    /// The height of one line of the title.
     @State private var lineHeight: CGFloat = 0
     @FocusState private var isEditing: Bool
     @ObserveHotReload private var hotReload
