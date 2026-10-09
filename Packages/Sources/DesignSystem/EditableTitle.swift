@@ -4,7 +4,8 @@ import SwiftUI
 ///
 /// At rest it reads as a title with a faint trailing `_`. Tapping it focuses the field: the `_`
 /// becomes the blinking cursor and the keyboard rises. The system caret is hidden, so the `_`
-/// is the only cursor there is, and it always sits after the last character.
+/// is the only cursor there is. It sits after the last character, so editing always starts with
+/// the caret at the end, and Return ends editing wherever the caret is.
 ///
 /// Editing the default text starts from an empty field showing the default as its prompt, so
 /// typing replaces it the way a select-all would. Ending with nothing restores the default.
@@ -15,6 +16,7 @@ public struct EditableTitle: View {
     private let hint: LocalizedStringKey
 
     @State private var draft: String
+    @State private var selection: TextSelection?
     @State private var editingSince = Date.now
     @FocusState private var isEditing: Bool
     @ObserveHotReload private var hotReload
@@ -41,6 +43,11 @@ public struct EditableTitle: View {
         text == defaultText ? "" : text
     }
 
+    /// Whether an edit only inserted a newline, which is what pressing Return does.
+    public static func isReturn(from oldDraft: String, to newDraft: String) -> Bool {
+        newDraft.count == oldDraft.count + 1 && newDraft.filter { !$0.isNewline } == oldDraft
+    }
+
     /// The title an edit leaves behind: trimmed, and the default when nothing is left.
     public static func committed(_ draft: String, defaultText: String) -> String {
         let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -61,6 +68,8 @@ public struct EditableTitle: View {
         .onChange(of: isEditing) { _, editing in
             if editing {
                 draft = Self.draft(forEditing: text, defaultText: defaultText)
+                // Where the tap landed would put the caret, which the `_` cannot show.
+                selection = TextSelection(insertionPoint: draft.endIndex)
                 editingSince = .now
             } else {
                 commit()
@@ -78,6 +87,7 @@ public struct EditableTitle: View {
         TextField(
             "",
             text: $draft,
+            selection: $selection,
             prompt: Text(defaultText).foregroundStyle(.pp(.textPrimary)),
             axis: .vertical,
         )
@@ -96,13 +106,15 @@ public struct EditableTitle: View {
             isEditing = false
             return .handled
         }
-        // The on-screen keyboard's Return reaches it as a trailing newline. Newlines inside
-        // pasted text become spaces, since a title is one paragraph.
-        .onChange(of: draft) { _, newDraft in
+        // The on-screen keyboard's Return reaches it as an inserted newline, wherever the caret
+        // is. Newlines inside pasted text become spaces, since a title is one paragraph.
+        .onChange(of: draft) { oldDraft, newDraft in
             guard newDraft.contains(where: \.isNewline) else { return }
-            draft = String(newDraft.map { $0.isNewline ? " " : $0 })
-            if newDraft.last?.isNewline == true {
+            if Self.isReturn(from: oldDraft, to: newDraft) {
+                draft = oldDraft
                 isEditing = false
+            } else {
+                draft = String(newDraft.map { $0.isNewline ? " " : $0 })
             }
         }
         .accessibilityLabel(Text(label))

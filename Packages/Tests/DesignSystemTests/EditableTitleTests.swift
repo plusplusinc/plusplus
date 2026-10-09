@@ -16,6 +16,20 @@ struct EditableTitleTests {
     }
 
     @Test(
+        "Return anywhere in the name is a Return",
+        arguments: [("Legs", "Legs\n"), ("Legs", "\nLegs"), ("Legs", "Le\ngs"), ("", "\n")],
+    )
+    func returnAnywhere(oldDraft: String, newDraft: String) {
+        #expect(EditableTitle.isReturn(from: oldDraft, to: newDraft))
+    }
+
+    @Test("Pasted lines are not a Return")
+    func pasteIsNotReturn() {
+        #expect(!EditableTitle.isReturn(from: "Legs", to: "Legs\nday"))
+        #expect(!EditableTitle.isReturn(from: "Legs", to: "Legs\n\n"))
+    }
+
+    @Test(
         "An empty or blank edit restores the default",
         arguments: ["", "   ", "\n", " \t\n "],
     )
