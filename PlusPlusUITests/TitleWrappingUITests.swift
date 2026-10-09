@@ -7,8 +7,6 @@ import XCTest
 ///
 /// `nonisolated` because XCTestCase's initializers are; the test drives the UI on the main actor.
 final nonisolated class TitleWrappingUITests: XCTestCase {
-    /// Two lines at AX5: "Arm and" over "back".
-    private static let twoLines = "Arm and back"
     /// Three lines at AX5, with no descenders, so a thin run of ink can only be the `_`.
     private static let threeLines = "Hot beat drills and abs"
 
@@ -21,37 +19,52 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         app.launch()
         let title = app.textFields["Routine name"]
         XCTAssertTrue(title.appears(within: 10))
+        let addExercise = app.buttons["Add exercise"]
         let keyboard = app.keyboards.element
 
         try XCTContext.runActivity(named: "The field covers the wrapped default") { _ in
-            try assertLinesInsideField(title, in: app, lines: 2, "default at rest")
+            try assertLinesInsideField(title, above: addExercise, lines: 2, "default at rest")
             title.tap()
             XCTAssertTrue(keyboard.appears())
-            try assertLinesInsideField(title, in: app, lines: 2, "default, editing")
+            try assertLinesInsideField(title, above: addExercise, lines: 2, "default, editing")
         }
 
         try XCTContext.runActivity(named: "The _ draws under line 2") { _ in
-            title.typeText(Self.twoLines)
-            try assertCursorUnder(line: 1, of: 2, title, in: app, "end of a two-line name")
+            // "Arm and" over "back".
+            title.typeText("Arm and back")
+            try assertCursorUnder(
+                line: 1,
+                of: 2,
+                title,
+                above: addExercise,
+                "end of a two-line name",
+            )
+            // typeText would type an arrow's raw value as a character.
             title.typeKey(.leftArrow, modifierFlags: [])
             title.typeKey(.leftArrow, modifierFlags: [])
-            try assertCursorUnder(line: 1, of: 2, title, in: app, "inside line 2 of two")
+            try assertCursorUnder(line: 1, of: 2, title, above: addExercise, "inside line 2 of two")
 
             // Typing over everything leaves the caret at the end of the three lines. Two words
             // back is before "and", inside the middle line.
             title.typeKey("a", modifierFlags: .command)
             title.typeText(Self.threeLines)
-            try assertLinesInsideField(title, in: app, lines: 3, "long name, editing")
+            try assertLinesInsideField(title, above: addExercise, lines: 3, "long name, editing")
             title.typeKey(.leftArrow, modifierFlags: .option)
             title.typeKey(.leftArrow, modifierFlags: .option)
-            try assertCursorUnder(line: 1, of: 3, title, in: app, "inside line 2 of three")
+            try assertCursorUnder(
+                line: 1,
+                of: 3,
+                title,
+                above: addExercise,
+                "inside line 2 of three",
+            )
         }
 
         try XCTContext.runActivity(named: "The field covers a long name") { _ in
             title.typeText("\n")
             XCTAssertTrue(keyboard.disappears())
             XCTAssertEqual(title.value as? String, Self.threeLines)
-            try assertLinesInsideField(title, in: app, lines: 3, "long name at rest")
+            try assertLinesInsideField(title, above: addExercise, lines: 3, "long name at rest")
         }
 
         try XCTContext.runActivity(named: "A cleared name restores the wrapped default") { _ in
@@ -59,11 +72,11 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             XCTAssertTrue(keyboard.appears())
             title.typeKey("a", modifierFlags: .command)
             title.typeText(XCUIKeyboardKey.delete.rawValue)
-            try assertLinesInsideField(title, in: app, lines: 2, "cleared, editing")
+            try assertLinesInsideField(title, above: addExercise, lines: 2, "cleared, editing")
             title.typeText("\n")
             XCTAssertTrue(keyboard.disappears())
             XCTAssertEqual(title.value as? String, "New routine")
-            try assertLinesInsideField(title, in: app, lines: 2, "cleared, at rest")
+            try assertLinesInsideField(title, above: addExercise, lines: 2, "cleared, at rest")
         }
     }
 
@@ -71,30 +84,31 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
     @MainActor
     private func assertLinesInsideField(
         _ title: XCUIElement,
-        in app: XCUIApplication,
+        above addExercise: XCUIElement,
         lines expected: Int,
         _ label: String,
         line: UInt = #line,
     ) throws {
-        let ink = try read(title, in: app, label)
-        let frame = title.frame
+        let field = title.frame
+        let button = addExercise.frame
+        let ink = try read(field, above: button)
+        attach(ink.shot, named: label)
         XCTAssertEqual(ink.lines.count, expected, "\(label): line count", line: line)
         for (index, text) in ink.lines.enumerated() {
             XCTAssertGreaterThanOrEqual(
                 text.points.lowerBound,
-                frame.minY - 1,
-                "\(label): line \(index + 1) starts above the field \(frame)",
+                field.minY - 1,
+                "\(label): line \(index + 1) starts above the field \(field)",
                 line: line,
             )
             XCTAssertLessThanOrEqual(
                 text.points.upperBound,
-                frame.maxY + 1,
-                "\(label): line \(index + 1) ends below the field \(frame)",
+                field.maxY + 1,
+                "\(label): line \(index + 1) ends below the field \(field)",
                 line: line,
             )
         }
-        let button = app.buttons["Add exercise"].frame
-        XCTAssertLessThanOrEqual(frame.maxY, button.minY, "\(label): field overlaps the button")
+        XCTAssertLessThanOrEqual(field.maxY, button.minY, "\(label): field overlaps the button")
     }
 
     /// The `_` sits below the given line (zero-based): above the next line's glyphs, or, under
@@ -105,13 +119,14 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         line target: Int,
         of count: Int,
         _ title: XCUIElement,
-        in app: XCUIApplication,
+        above addExercise: XCUIElement,
         _ label: String,
         line: UInt = #line,
     ) throws {
-        let found = try Ink.withCursor { try read(title, in: app, label, attach: false) }
-        let ink = try XCTUnwrap(found, "\(label): no _ over two blink cycles", line: line)
-        attach(ink.shot, label)
+        let field = title.frame
+        let button = addExercise.frame
+        let ink = try Ink.withCursor { try read(field, above: button) }
+        attach(ink.shot, named: label)
         XCTAssertEqual(ink.lines.count, count, "\(label): line count", line: line)
         let cursor = try XCTUnwrap(ink.cursor, line: line).points
         let above = ink.lines[target].points
@@ -133,28 +148,9 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
     /// The ink in the field's column, from just under the bar down to "Add exercise". The strip
     /// starts above the field, on plain background.
     @MainActor
-    private func read(
-        _ title: XCUIElement,
-        in app: XCUIApplication,
-        _ label: String,
-        attach shouldAttach: Bool = true,
-    ) throws -> Ink {
-        let shot = try TitleShot()
-        if shouldAttach {
-            attach(shot, label)
-        }
-        let field = title.frame
+    private func read(_ field: CGRect, above button: CGRect) throws -> Ink {
         let top = field.minY - 16
-        let bottom = app.buttons["Add exercise"].frame.minY - 1
-        let strip = CGRect(x: field.minX, y: top, width: field.width, height: bottom - top)
-        return shot.ink(in: strip, background: strip.origin)
-    }
-
-    @MainActor
-    private func attach(_ shot: TitleShot, _ label: String) {
-        let attachment = XCTAttachment(screenshot: shot.screenshot)
-        attachment.name = label
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        let strip = CGRect(x: field.minX, y: top, width: field.width, height: button.minY - 1 - top)
+        return try TitleShot().ink(in: strip, background: strip.origin)
     }
 }

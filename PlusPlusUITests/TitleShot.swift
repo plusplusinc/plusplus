@@ -16,24 +16,31 @@ struct TitleShot {
         screenshot = XCUIScreen.main.screenshot()
         let image = try XCTUnwrap(screenshot.image.cgImage)
         scale = CGFloat(image.width) / screenshot.image.size.width
-        width = image.width
-        height = image.height
+        let width = image.width
+        let height = image.height
+        self.width = width
+        self.height = height
         var buffer = [UInt8](repeating: 0, count: width * height * 4)
         let drawn = buffer.withUnsafeMutableBytes { raw in
             guard let context = CGContext(
                 data: raw.baseAddress,
-                width: image.width,
-                height: image.height,
+                width: width,
+                height: height,
                 bitsPerComponent: 8,
-                bytesPerRow: image.width * 4,
+                bytesPerRow: width * 4,
                 space: CGColorSpaceCreateDeviceRGB(),
                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue,
             ) else { return false }
-            context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+            context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
             return true
         }
         guard drawn else { throw UnreadableScreenshot() }
         bytes = buffer
+    }
+
+    /// How far apart two colors are: the sum of their channels' differences.
+    static func distance(_ one: [Int], _ other: [Int]) -> Int {
+        zip(one, other).reduce(0) { $0 + abs($1.0 - $1.1) }
     }
 
     /// The red, green, and blue at a point on screen.
@@ -54,6 +61,7 @@ struct TitleShot {
         let columns = max(min(Int(strip.maxX * scale), width) - left, 0)
         let rows = max(min(Int(strip.maxY * scale), height) - top, 0)
         let paper = color(at: background)
+        // Inline rather than `distance`, which allocates per pixel in a Debug build.
         let inked = (0 ..< rows).map { row in
             (0 ..< columns).filter { column in
                 let index = ((top + row) * width + left + column) * 4
@@ -78,7 +86,18 @@ struct Ink {
         let rows: Range<Int>
         let points: Range<CGFloat>
         let columns: ClosedRange<Int>
+
+        /// Where character `index` of a monospaced run of `count` characters starts, and a
+        /// character's width, in pixel columns. Roughly: the ink runs from the first glyph's
+        /// left edge to the last one's right edge, not cell edge to cell edge.
+        func cell(_ index: Int, of count: Int) -> (start: Double, width: Double) {
+            let width = Double(columns.count) / Double(count)
+            return (Double(columns.lowerBound) + Double(index) * width, width)
+        }
     }
+
+    /// The `_` blinks on and off every 0.53s. Over two cycles a `_` that is there shows.
+    static let twoBlinks: TimeInterval = 2.2
 
     let shot: TitleShot
     let lines: [Run]
@@ -138,34 +157,35 @@ struct Ink {
         rows.clamped(to: inked.indices).reduce(0) { $0 + inked[$1].count }
     }
 
-    /// Reads ink until the blinking `_` is lit, which it is for half of each 1.06s cycle, so two
-    /// cycles without it means there is none. `accept` can ask for more, such as a moved `_`.
+    /// Reads ink until the `_` is lit, and fails after two blink cycles without it. With
+    /// `awayFrom`, the `_` also has to have left those columns.
     @MainActor
     static func withCursor(
+        awayFrom old: ClosedRange<Int>? = nil,
         _ read: () throws -> Self,
-        where accept: (Run) -> Bool = { _ in true },
-    ) throws -> Self? {
-        let deadline = Date.now.addingTimeInterval(2.2)
+    ) throws -> Self {
+        let deadline = Date.now.addingTimeInterval(twoBlinks)
         while Date.now < deadline {
             let ink = try read()
-            if let cursor = ink.cursor, accept(cursor) {
+            if let cursor = ink.cursor,
+               old.map({ abs($0.lowerBound - cursor.columns.lowerBound) > 6 }) ?? true
+            {
                 return ink
             }
         }
-        return nil
+        return try XCTUnwrap(nil as Self?, "No _ over two blink cycles")
     }
 }
 
 private struct UnreadableScreenshot: Error { }
 
-extension XCUIElement {
-    /// XCTest's waits first check their condition about a second after they start, even when it
-    /// already holds, which cost about a second a wait. These return at once when it holds.
-    func appears(within timeout: TimeInterval = 2) -> Bool {
-        exists || waitForExistence(timeout: timeout)
-    }
-
-    func disappears(within timeout: TimeInterval = 2) -> Bool {
-        !exists || waitForNonExistence(timeout: timeout)
+extension XCTestCase {
+    /// Keeps the screenshot in the result bundle, pass or fail.
+    @MainActor
+    func attach(_ shot: TitleShot, named name: String) {
+        let attachment = XCTAttachment(screenshot: shot.screenshot)
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 }
