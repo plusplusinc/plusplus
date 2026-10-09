@@ -7,19 +7,66 @@ struct TitleShot {
     let screenshot: XCUIScreenshot
     /// Pixels per point.
     let scale: CGFloat
-    private let width: Int
-    private let height: Int
-    private let bytes: [UInt8]
+    private let image: CGImage
 
     @MainActor
     init() throws {
         screenshot = XCUIScreen.main.screenshot()
-        let image = try XCTUnwrap(screenshot.image.cgImage)
+        image = try XCTUnwrap(screenshot.image.cgImage)
         scale = CGFloat(image.width) / screenshot.image.size.width
+    }
+
+    /// How far apart two colors are: the sum of their channels' differences.
+    static func distance(_ one: [Int], _ other: [Int]) -> Int {
+        zip(one, other).reduce(0) { $0 + abs($1.0 - $1.1) }
+    }
+
+    /// The red, green, and blue at a point on screen.
+    func color(at point: CGPoint) throws -> [Int] {
+        try pixels(in: CGRect(origin: point, size: CGSize(width: 1, height: 1))).color(0, 0)
+    }
+
+    /// The ink in a strip of the screen, both given in points: pixels that differ from the color
+    /// at `background` by more than 60, summed over the three channels.
+    func ink(in strip: CGRect, background: CGPoint) throws -> Ink {
+        let pixels = try pixels(in: strip)
+        let paper = try color(at: background)
+        // Inline rather than `distance`, which allocates per pixel in a Debug build.
+        let inked = (0 ..< pixels.height).map { row in
+            (0 ..< pixels.width).filter { column in
+                let index = (row * pixels.width + column) * 4
+                let bytes = pixels.bytes
+                return abs(Int(bytes[index]) - paper[0]) + abs(Int(bytes[index + 1]) - paper[1])
+                    + abs(Int(bytes[index + 2]) - paper[2]) > 60
+            }
+        }
+        return Ink(shot: self, pixels: pixels, inked: inked)
+    }
+
+    /// Only the pixels of a rectangle in points, since decoding the whole screen for a strip
+    /// would cost more than reading it.
+    private func pixels(in rect: CGRect) throws -> Pixels {
+        let crop = CGRect(
+            x: rect.minX * scale,
+            y: rect.minY * scale,
+            width: rect.width * scale,
+            height: rect.height * scale,
+        ).integral
+        let part = try XCTUnwrap(image.cropping(to: crop), "\(rect) is off screen")
+        return try Pixels(part, top: Int(crop.minY))
+    }
+}
+
+/// The RGBA bytes of part of a screenshot, and how far down the screen it starts, in pixels.
+struct Pixels {
+    let width: Int
+    let height: Int
+    let top: Int
+    let bytes: [UInt8]
+
+    fileprivate init(_ image: CGImage, top: Int) throws {
         let width = image.width
         let height = image.height
-        self.width = width
-        self.height = height
         var buffer = [UInt8](repeating: 0, count: width * height * 4)
         let drawn = buffer.withUnsafeMutableBytes { raw in
             guard let context = CGContext(
@@ -35,45 +82,15 @@ struct TitleShot {
             return true
         }
         guard drawn else { throw UnreadableScreenshot() }
+        self.width = width
+        self.height = height
+        self.top = top
         bytes = buffer
     }
 
-    /// How far apart two colors are: the sum of their channels' differences.
-    static func distance(_ one: [Int], _ other: [Int]) -> Int {
-        zip(one, other).reduce(0) { $0 + abs($1.0 - $1.1) }
-    }
-
-    /// The red, green, and blue at a point on screen.
-    func color(at point: CGPoint) -> [Int] {
-        color(column: Int(point.x * scale), row: Int(point.y * scale))
-    }
-
-    private func color(column: Int, row: Int) -> [Int] {
-        let index = (min(max(row, 0), height - 1) * width + min(max(column, 0), width - 1)) * 4
+    func color(_ column: Int, _ row: Int) -> [Int] {
+        let index = (row * width + column) * 4
         return bytes[index ..< index + 3].map(Int.init)
-    }
-
-    /// The ink in a strip of the screen, both given in points: pixels that differ from the color
-    /// at `background` by more than 60, summed over the three channels.
-    func ink(in strip: CGRect, background: CGPoint) -> Ink {
-        let left = Int(strip.minX * scale)
-        let top = Int(strip.minY * scale)
-        let columns = max(min(Int(strip.maxX * scale), width) - left, 0)
-        let rows = max(min(Int(strip.maxY * scale), height) - top, 0)
-        let paper = color(at: background)
-        // Inline rather than `distance`, which allocates per pixel in a Debug build.
-        let inked = (0 ..< rows).map { row in
-            (0 ..< columns).filter { column in
-                let index = ((top + row) * width + left + column) * 4
-                return abs(Int(bytes[index]) - paper[0]) + abs(Int(bytes[index + 1]) - paper[1])
-                    + abs(Int(bytes[index + 2]) - paper[2]) > 60
-            }
-        }
-        return Ink(shot: self, left: left, top: top, inked: inked)
-    }
-
-    fileprivate func brightness(column: Int, row: Int) -> Int {
-        color(column: column, row: row).reduce(0, +) / 3
     }
 }
 
@@ -102,15 +119,14 @@ struct Ink {
     let shot: TitleShot
     let lines: [Run]
     let cursor: Run?
-    private let left: Int
-    private let top: Int
+    private let pixels: Pixels
     private let inked: [[Int]]
 
-    fileprivate init(shot: TitleShot, left: Int, top: Int, inked: [[Int]]) {
+    fileprivate init(shot: TitleShot, pixels: Pixels, inked: [[Int]]) {
         self.shot = shot
-        self.left = left
-        self.top = top
+        self.pixels = pixels
         self.inked = inked
+        let top = pixels.top
         var runs: [Range<Int>] = []
         var start: Int?
         for (row, columns) in inked.enumerated() {
@@ -148,7 +164,7 @@ struct Ink {
     /// The brightest inked pixel's mean channel value within the rows.
     func brightestInk(in rows: Range<Int>) -> Int? {
         rows.flatMap { row in
-            inked[row].map { shot.brightness(column: left + $0, row: top + row) }
+            inked[row].map { pixels.color($0, row).reduce(0, +) / 3 }
         }.max()
     }
 
@@ -162,6 +178,8 @@ struct Ink {
     @MainActor
     static func withCursor(
         awayFrom old: ClosedRange<Int>? = nil,
+        file: StaticString = #filePath,
+        line: UInt = #line,
         _ read: () throws -> Self,
     ) throws -> Self {
         let deadline = Date.now.addingTimeInterval(twoBlinks)
@@ -173,7 +191,7 @@ struct Ink {
                 return ink
             }
         }
-        return try XCTUnwrap(nil as Self?, "No _ over two blink cycles")
+        return try XCTUnwrap(nil as Self?, "No _ over two blink cycles", file: file, line: line)
     }
 }
 

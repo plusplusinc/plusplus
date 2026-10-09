@@ -93,6 +93,8 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         let button = addExercise.frame
         let ink = try read(field, above: button)
         attach(ink.shot, named: label)
+        // The strip was placed by the frame read before the shot.
+        XCTAssertEqual(title.frame, field, "\(label): the field moved while read", line: line)
         XCTAssertEqual(ink.lines.count, expected, "\(label): line count", line: line)
         for (index, text) in ink.lines.enumerated() {
             XCTAssertGreaterThanOrEqual(
@@ -125,15 +127,28 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
     ) throws {
         let field = title.frame
         let button = addExercise.frame
-        let ink = try Ink.withCursor { try read(field, above: button) }
+        let ink = try Ink.withCursor(line: line) { try read(field, above: button) }
         attach(ink.shot, named: label)
-        XCTAssertEqual(ink.lines.count, count, "\(label): line count", line: line)
+        XCTAssertEqual(title.frame, field, "\(label): the field moved while read", line: line)
+        guard ink.lines.count == count else {
+            return XCTFail("\(label): \(ink.lines.count) lines, not \(count)", line: line)
+        }
         let cursor = try XCTUnwrap(ink.cursor, line: line).points
         let above = ink.lines[target].points
-        XCTAssertGreaterThan(cursor.lowerBound, above.upperBound, "\(label): _ not below")
+        XCTAssertGreaterThan(
+            cursor.lowerBound,
+            above.upperBound,
+            "\(label): _ not below",
+            line: line,
+        )
         if target + 1 < ink.lines.count {
             let below = ink.lines[target + 1].points
-            XCTAssertLessThan(cursor.upperBound, below.lowerBound, "\(label): _ hits next line")
+            XCTAssertLessThan(
+                cursor.upperBound,
+                below.lowerBound,
+                "\(label): _ hits next line",
+                line: line,
+            )
         } else {
             // Below the last line by less than a line's height: under it, not a line further.
             XCTAssertLessThan(

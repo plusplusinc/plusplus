@@ -24,7 +24,7 @@ final nonisolated class RenameUITests: XCTestCase {
         let field = title.frame
         let button = addExercise.frame
 
-        try startEditing(title, keyboard: keyboard, addExercise: addExercise)
+        try startEditing(title, keyboard: keyboard, addExercise: addExercise, at: (field, button))
 
         // No descenders, so a thin run of ink under the line can only be the `_`.
         title.typeText("Arm back")
@@ -36,10 +36,10 @@ final nonisolated class RenameUITests: XCTestCase {
             try typeInTheMiddle(of: title, in: field)
         }
         let tapped = try XCTContext.runActivity(named: "A tap puts the _ under its word") { _ in
-            try tapStartOfAnd(in: title, after: afterTyping)
+            try tapStartOfAnd(in: title, at: field, after: afterTyping)
         }
         try XCTContext.runActivity(named: "A range hides the _") { _ in
-            try assertRangeHidesCursor(in: title, from: tapped)
+            try assertRangeHidesCursor(in: title, at: field, from: tapped)
         }
 
         XCTContext.runActivity(named: "Return ends editing and keeps the name") { _ in
@@ -65,17 +65,21 @@ final nonisolated class RenameUITests: XCTestCase {
         _ title: XCUIElement,
         keyboard: XCUIElement,
         addExercise: XCUIElement,
+        at frames: (field: CGRect, button: CGRect),
     ) throws {
-        let field = title.frame
-        let button = addExercise.frame
+        let (field, button) = frames
         let atRest = try read(field)
         let restText = try XCTUnwrap(atRest.lines.first)
-        let tapped = Date.now
+        XCTContext.runActivity(named: "The default's line is inside the field at rest") { _ in
+            // The strip starts at the field's top, so ink in its first row may be cut off.
+            XCTAssertGreaterThan(restText.rows.lowerBound, 0, "The line starts above the field")
+            XCTAssertLessThanOrEqual(restText.points.upperBound, field.maxY + 1, "It ends below")
+        }
         title.tap()
         XCTAssertTrue(keyboard.appears())
 
         XCTContext.runActivity(named: "Editing starts in place") { _ in
-            let deadline = tapped.addingTimeInterval(Self.keyboardAvoidanceWindow)
+            let deadline = Date.now.addingTimeInterval(Self.keyboardAvoidanceWindow)
             var frames = (title.frame, addExercise.frame)
             while Date.now < deadline, frames == (field, button) {
                 frames = (title.frame, addExercise.frame)
@@ -102,8 +106,8 @@ final nonisolated class RenameUITests: XCTestCase {
             XCTAssertLessThan(abs(cursor.lowerBound - letters.lowerBound), 8, "_ not under N")
             XCTAssertLessThan(cursor.upperBound, letters.lowerBound + 40, "_ not under N")
         }
-        XCTContext.runActivity(named: "The background shows at the keyboard's corners") { _ in
-            assertNoBandAtCorners(of: keyboard, in: placeholder.shot)
+        try XCTContext.runActivity(named: "The background shows at the keyboard's corners") { _ in
+            try assertNoBandAtCorners(of: keyboard, in: placeholder.shot)
         }
     }
 
@@ -130,10 +134,13 @@ final nonisolated class RenameUITests: XCTestCase {
 
     /// Taps the start of "and" in "Arm and back" and checks that the `_` moved under it.
     @MainActor
-    private func tapStartOfAnd(in title: XCUIElement, after afterTyping: Ink) throws -> Ink {
+    private func tapStartOfAnd(
+        in title: XCUIElement,
+        at field: CGRect,
+        after afterTyping: Ink,
+    ) throws -> Ink {
         let and = try XCTUnwrap(afterTyping.lines.first).cell(4, of: 12)
         let point = (and.start + 0.2 * and.width) / afterTyping.shot.scale
-        let field = title.frame
         title.coordinate(withNormalizedOffset: .zero)
             .withOffset(CGVector(dx: point, dy: field.height / 2))
             .tap()
@@ -150,8 +157,11 @@ final nonisolated class RenameUITests: XCTestCase {
     /// Selects a word and checks that no `_` shows while the highlight does, then collapses the
     /// selection and checks that the `_` is back.
     @MainActor
-    private func assertRangeHidesCursor(in title: XCUIElement, from tapped: Ink) throws {
-        let field = title.frame
+    private func assertRangeHidesCursor(
+        in title: XCUIElement,
+        at field: CGRect,
+        from tapped: Ink,
+    ) throws {
         let line = try XCTUnwrap(tapped.lines.first).rows
         let unselected = tapped.differingPixels(in: line)
         title.typeKey(.rightArrow, modifierFlags: [.shift, .option])
@@ -192,10 +202,10 @@ final nonisolated class RenameUITests: XCTestCase {
     /// No hard edge or band at the keyboard's top corners: just outside its rounded glass, the
     /// screen's own background shows. The shot is taken once the keyboard has risen.
     @MainActor
-    private func assertNoBandAtCorners(of keyboard: XCUIElement, in shot: TitleShot) {
+    private func assertNoBandAtCorners(of keyboard: XCUIElement, in shot: TitleShot) throws {
         attach(shot, named: "keyboard-corners")
         let frame = keyboard.frame
-        let background = shot.color(at: CGPoint(x: 200, y: frame.minY - 60))
+        let background = try shot.color(at: CGPoint(x: 200, y: frame.minY - 60))
         // Rows just above the keyboard and the corners just inside its frame's top edge.
         let samples = [
             CGPoint(x: 4, y: frame.minY - 2),
@@ -205,7 +215,7 @@ final nonisolated class RenameUITests: XCTestCase {
             CGPoint(x: frame.maxX - 2, y: frame.minY + 2),
         ]
         for sample in samples {
-            let color = shot.color(at: sample)
+            let color = try shot.color(at: sample)
             let distance = TitleShot.distance(color, background)
             XCTAssertLessThan(distance, 24, "A band at \(sample): \(color) vs \(background)")
         }
