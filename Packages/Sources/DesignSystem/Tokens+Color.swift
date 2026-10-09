@@ -13,6 +13,8 @@ public enum ColorToken: String, CaseIterable, Sendable {
     case borderStrong = "ppBorderStrong"
     case surface = "ppSurface"
     case textPrimary = "ppTextPrimary"
+    /// Placeholder text: the default title while it is being edited.
+    case textSecondary = "ppTextSecondary"
 }
 
 extension Color {
