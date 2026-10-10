@@ -62,6 +62,44 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             XCTAssertEqual(title.value as? String, "New routine")
             try assertLinesInsideField(title, above: addExercise, lines: 2, "cleared, at rest")
         }
+
+        try XCTContext.runActivity(named: "Rows and the picker at AX5 pass the audit") { _ in
+            app.addExercise("Kneeling hip flexor stretch", searching: "kneeling")
+            XCTAssertTrue(app.buttons["Start"].appears())
+            attach(named: "rail-ax5")
+            try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
+            let search = app.openPicker()
+            attach(named: "picker-ax5")
+            // Audited in use: at rest, the system search bar reports that it cannot scale, with
+            // no element named, though it draws at this size, as the screenshot shows.
+            search.tap()
+            search.typeText("curl")
+            XCTAssertTrue(app.pickerRows["Biceps curl, Dumbbells"].appears())
+            try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
+            app.searchForNothing(replacing: "curl", in: search)
+            attach(named: "picker-no-results-ax5")
+            try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
+        }
+
+        XCTContext.runActivity(named: "At the end of a long list, Add exercise clears Start") { _ in
+            let search = app.searchFields.firstMatch
+            // While searching, the first Close ends the search; the next closes the sheet.
+            for _ in 0 ..< 2 where search.exists {
+                app.buttons["Close"].firstMatch.tap()
+                _ = keyboard.disappears()
+            }
+            app.addExercise("Dumbbell bench press, Dumbbells, bench", searching: "dumbbell bench")
+            app.swipeUp()
+            app.swipeUp()
+            let start = app.buttons["Start"]
+            XCTAssertTrue(start.appears())
+            attach(named: "rail-end-ax5")
+            // 16pt, the screen's spacing, give or take rounding.
+            XCTAssertGreaterThanOrEqual(
+                start.frame.minY - addExercise.frame.maxY, 15.5,
+                "Add exercise does not clear Start with room to spare",
+            )
+        }
     }
 
     /// Every line of text between the bar and "Add exercise" lies inside the field.
@@ -81,7 +119,7 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         while ink.lines.count != expected, Date.now < drawn {
             ink = try read(field, above: button)
         }
-        attach(ink.shot, named: label)
+        attach(ink.shot.screenshot, named: label)
         // The strip was placed by the frame read before the shot.
         XCTAssertEqual(title.frame, field, "\(label): the field moved while read", line: line)
         XCTAssertEqual(ink.lines.count, expected, "\(label): line count", line: line)

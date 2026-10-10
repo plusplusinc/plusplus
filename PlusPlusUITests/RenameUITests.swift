@@ -71,7 +71,11 @@ final nonisolated class RenameUITests: XCTestCase {
             }
             title.typeText(" day")
             XCTAssertEqual(title.value(becoming: "Arm and back day"), "Arm and back day")
+            title.typeText("\n")
+            XCTAssertTrue(keyboard.disappears())
         }
+        addAndSearchExercises(in: app, keyboard: keyboard)
+        deleteExercises(in: app)
     }
 
     /// Taps the default title: it has to stay put, by frame and by pixel, as the keyboard rises,
@@ -201,7 +205,7 @@ final nonisolated class RenameUITests: XCTestCase {
     /// screen's own background shows. The shot is taken once the keyboard has risen.
     @MainActor
     private func assertNoBandAtCorners(of keyboard: XCUIElement, in shot: TitleShot) throws {
-        attach(shot, named: "keyboard-corners")
+        attach(shot.screenshot, named: "keyboard-corners")
         let frame = keyboard.frame
         let background = try shot.color(at: CGPoint(x: 200, y: frame.minY - 60))
         // Rows just above the keyboard and the corners just inside its frame's top edge.

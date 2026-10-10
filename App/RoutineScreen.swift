@@ -1,13 +1,18 @@
 import DesignSystem
 import SwiftUI
+import WorkoutStore
 
 /// The screen the app launches into: a new, empty routine.
 ///
-/// The name lives only in memory for now. The app deliberately creates no `ModelContainer` yet:
-/// storage wiring lives in `WorkoutStoreContainer` and gets connected when there is a data model
-/// worth connecting.
+/// The name and the exercises live only in memory for now. The app deliberately creates no
+/// `ModelContainer` yet: storage wiring lives in `WorkoutStoreContainer` and gets connected when
+/// there is a data model worth connecting.
 struct RoutineScreen: View {
     @State private var name = Self.defaultName
+    @State private var exercises: [RoutineExercise] = []
+    @State private var isPicking = false
+    /// The row swiped open to show its Delete key; one at a time.
+    @State private var swipedRow: RoutineExercise.ID?
     @ObserveHotReload private var hotReload
 
     private static let markWidth: CGFloat = 20
@@ -27,19 +32,59 @@ struct RoutineScreen: View {
                         accessibilityLabel: "Routine name",
                         accessibilityHint: "Renames the routine.",
                     )
-                    // The exercise picker is a later slice.
-                    Button("Add exercise", systemImage: "plus") { }
+                    Rail {
+                        ForEach(exercises) { item in
+                            RowLabel(title: item.exercise.name, detail: item.exercise.equipmentLine)
+                                .railRow()
+                                .accessibilityIdentifier("routine.exercise")
+                                .swipeToDelete(id: item.id, openRow: $swipedRow) {
+                                    exercises.removeAll { $0.id == item.id }
+                                }
+                        }
+                    } end: {
+                        Button("Add exercise", systemImage: "plus") {
+                            swipedRow = nil
+                            isPicking = true
+                        }
                         .buttonStyle(.key)
+                    }
                 }
                 .padding(.horizontal, Spacing.md)
+                // Room under Add exercise, so at the end of a long list it clears Start.
+                .padding(.bottom, Spacing.md)
                 // When the keyboard rises, UIKit scrolls the focused field to sit at least 5pt
                 // below the top of the visible area. Starting there keeps the title still.
                 .padding(.top, Spacing.sm)
             }
+            .safeAreaBar(edge: .bottom) {
+                if !exercises.isEmpty {
+                    // Starting a workout is a later slice.
+                    Button("Start", systemImage: "play.fill") { }
+                        .buttonStyle(.primaryKey)
+                        .padding(.horizontal, Spacing.md)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+            // A tap anywhere else closes an open row, as the system's swipe actions do, and
+            // still does its own job.
+            .simultaneousGesture(
+                TapGesture().onEnded { withAnimation { swipedRow = nil } },
+                isEnabled: swipedRow != nil,
+            )
             // A shape-style background stops at the keyboard's safe area, which left the
             // window's black behind the keyboard's rounded top corners.
             .background { Color.pp(.background).ignoresSafeArea() }
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(isPresented: $isPicking) {
+                ExercisePicker { exercise in
+                    // A second tap while the sheet goes down would add the exercise again.
+                    guard isPicking else { return }
+                    withAnimation {
+                        exercises.append(RoutineExercise(exercise: exercise))
+                        isPicking = false
+                    }
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     // The drawer is a later slice.

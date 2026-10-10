@@ -9,8 +9,18 @@ public enum ColorToken: String, CaseIterable, Sendable {
     /// Brand and data green: the ++ mark, and later timers and progress. Never a control's fill.
     case accent = "ppAccent"
     case background = "ppBackground"
-    /// The outline of a key-shaped button, and the title's resting cursor.
+    /// The outline of a key-shaped button, the title's resting cursor, and a rail's nodes.
     case borderStrong = "ppBorderStrong"
+    /// The fill of the key that deletes, dark enough for `onDestructive` text at 4.5:1.
+    case destructive = "ppDestructive"
+    /// The label on the key that deletes: light in both appearances.
+    case onDestructive = "ppOnDestructive"
+    /// The label on a primary key.
+    case onPrimaryKey = "ppOnPrimaryKey"
+    /// The fill of the one primary key on a screen, such as Start.
+    case primaryKey = "ppPrimaryKey"
+    /// The line that runs down a rail, joining its nodes.
+    case rail = "ppRail"
     case surface = "ppSurface"
     case textPrimary = "ppTextPrimary"
     /// Placeholder text: the default title while it is being edited.
