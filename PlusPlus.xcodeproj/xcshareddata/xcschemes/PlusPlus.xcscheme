@@ -54,41 +54,13 @@
       buildConfiguration = "Debug"
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
-      shouldUseLaunchSchemeArgsEnv = "YES"
-      language = "en"
-      region = "US">
-      <Testables>
-         <TestableReference
-            skipped = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "WorkoutStoreTests"
-               BuildableName = "WorkoutStoreTests"
-               BlueprintName = "WorkoutStoreTests"
-               ReferencedContainer = "container:Packages">
-            </BuildableReference>
-         </TestableReference>
-         <TestableReference
-            skipped = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "DesignSystemTests"
-               BuildableName = "DesignSystemTests"
-               BlueprintName = "DesignSystemTests"
-               ReferencedContainer = "container:Packages">
-            </BuildableReference>
-         </TestableReference>
-         <TestableReference
-            skipped = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "8B7F246030770B2700389AC8"
-               BuildableName = "PlusPlusUITests.xctest"
-               BlueprintName = "PlusPlusUITests"
-               ReferencedContainer = "container:PlusPlus.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
-      </Testables>
+      shouldUseLaunchSchemeArgsEnv = "YES">
+      <TestPlans>
+         <TestPlanReference
+            reference = "container:PlusPlus.xctestplan"
+            default = "YES">
+         </TestPlanReference>
+      </TestPlans>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"

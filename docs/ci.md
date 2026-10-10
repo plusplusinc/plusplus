@@ -18,8 +18,9 @@ before any build action.
 ## Workflows
 
 **PR**: start on pull request to `main`. Actions: Build and Test, scheme `PlusPlus`, iOS
-simulator iPhone 17. The scheme's test action includes the package test targets, so this covers
-storage, snapshot, and UI tests in one run. Post-actions: none.
+simulator iPhone 17, using the scheme's settings. The scheme's test plan, `PlusPlus.xctestplan`,
+includes the package test targets, so this covers storage, snapshot, and UI tests in one run.
+Post-actions: none.
 
 **Release**: start on a tag beginning with `v`. Actions: Archive, iOS, with distribution to
 TestFlight internal testing. Post-actions: TestFlight Internal Testing, group `Internal`. The post-action is
