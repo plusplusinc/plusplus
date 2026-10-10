@@ -66,12 +66,12 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         try XCTContext.runActivity(named: "Rows and the picker at AX5 pass the audit") { _ in
             app.addExercise("Kneeling hip flexor stretch", searching: "kneeling")
             XCTAssertTrue(app.buttons["Start"].appears())
-            attachScreen(named: "rail-ax5")
+            attach(named: "rail-ax5")
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
             addExercise.tap()
             let search = app.searchFields.firstMatch
             XCTAssertTrue(search.appears())
-            attachScreen(named: "picker-ax5")
+            attach(named: "picker-ax5")
             // Audited in use: at rest, the system search bar reports that it cannot scale, with
             // no element named, though it draws at this size, as the screenshot shows.
             search.tap()
@@ -80,7 +80,7 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
             search.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 4) + "zzz")
             XCTAssertTrue(app.staticTexts["No Results for \u{201C}zzz\u{201D}"].appears())
-            attachScreen(named: "picker-no-results-ax5")
+            attach(named: "picker-no-results-ax5")
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
         }
     }
@@ -102,7 +102,7 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         while ink.lines.count != expected, Date.now < drawn {
             ink = try read(field, above: button)
         }
-        attach(ink.shot, named: label)
+        attach(ink.shot.screenshot, named: label)
         // The strip was placed by the frame read before the shot.
         XCTAssertEqual(title.frame, field, "\(label): the field moved while read", line: line)
         XCTAssertEqual(ink.lines.count, expected, "\(label): line count", line: line)
