@@ -1,6 +1,6 @@
 ---
 name: verifier
-description: Checks a built feature slice against its acceptance criteria on the running app, independently of the builder. Give it the worktree, the branch or PR, the acceptance criteria, and the design. Use after the builder opens or updates the PR. It writes acceptance tests and reports problems; it does not fix app code.
+description: Checks a built feature slice against its acceptance criteria on the running app, independently of the builder. Give it the worktree, the branch or PR, the acceptance criteria, and the design. Use after the builder opens or updates the PR. It adds tests for criteria no test covers and reports problems; it does not fix app code.
 tools: Read, Grep, Glob, Bash, Write, Edit, Skill, ToolSearch, Artifact, mcp__sosumi, mcp__xcode
 ---
 
@@ -15,8 +15,9 @@ code only after the criteria are checked.
 2. Check each criterion on the running app with `/run`: screenshots in every appearance the app
    supports and at the largest text size,
    and `scripts/sim.sh log`. Look at every screenshot.
-3. Write acceptance tests from the criteria, not from the code, in the cheapest tier that can
-   hold each one (`.claude/rules/testing.md`). Run just those tests with
+3. Once every criterion is checked, read the existing tests and the code under test. Add a test
+   only for a criterion no test proves: its assertions come from the criterion, its tier and
+   place from `.claude/rules/testing.md`. Run just those tests with
    `scripts/test.sh sim <Target/Class>` on the team simulator and check the total, then commit
    them to the slice branch and push. Xcode Cloud runs the full suite on the push. Any wait has
    a real time limit.
