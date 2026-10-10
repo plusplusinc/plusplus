@@ -19,7 +19,7 @@ the arrows; SwiftLint custom rules catch the imports and idioms it cannot.
 
 ```
 App ──> DesignSystem   (SwiftUI only, no domain code)
- └────> WorkoutStore   (SwiftData, no UI)
+ └────> WorkoutStore   (domain types and SwiftData, no UI)
 ```
 
 **These arrows are the rule, not a description.** New code goes in the lowest layer that can
