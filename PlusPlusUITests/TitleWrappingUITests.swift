@@ -45,14 +45,16 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         try XCTContext.runActivity(named: "A cleared name restores the wrapped default") { _ in
             title.tap()
             XCTAssertTrue(keyboard.appears())
-            // The app moves the caret to the end after focus lands, which can come after a key
-            // sent at once and collapse the range ⌘A selected.
+            // The app moves the caret to the end after focus lands, which can come after keys
+            // sent at once.
             let (field, button) = (title.frame, addExercise.frame)
             _ = try Ink.withCursor { try read(field, above: button) } until: { ink, cursor in
                 ink.missAtEnd(cursor)
             }
-            title.typeKey("a", modifierFlags: .command)
-            title.typeText(XCUIKeyboardKey.delete.rawValue)
+            // Deleting from the end, not ⌘A: on Xcode Cloud, ⌘A sent here hid the keyboard and
+            // selected nothing.
+            let delete = XCUIKeyboardKey.delete.rawValue
+            title.typeText(String(repeating: delete, count: Self.threeLines.count))
             XCTAssertEqual(title.value(becoming: "New routine"), "New routine")
             try assertLinesInsideField(title, above: addExercise, lines: 2, "cleared, editing")
             title.typeText("\n")
