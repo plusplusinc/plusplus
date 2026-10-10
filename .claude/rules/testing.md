@@ -34,8 +34,8 @@ another.
   on macOS compiles them out; the simulator run exercises them.
 - Snapshots go through `assertThemedSnapshots(of:width:)` in `DesignSystemTests`, which owns
   the explicit width, the perceptual precision, and the light, dark, and AX5 appearances (the
-  image named `xxxl` is `accessibilityExtraExtraExtraLarge`). Do
-  not call `assertSnapshot` directly. Re-record by deleting the files under `__Snapshots__/`.
+  image named `xxxl` is `accessibilityExtraExtraExtraLarge`). Do not call `assertSnapshot`
+  directly. Re-record by deleting a suite's files, or its whole folder, under `__Snapshots__/`.
 - The scheme's test action pins the app language to English (US). UIKit sizes the system font's
   line height to fit the fallback fonts for the device's preferred languages, and Xcode Cloud's
   simulators list 34 of them, so unpinned text lays out taller there. Keep that setting.
@@ -44,7 +44,6 @@ another.
   formatter is configured to keep it that way (see `.swiftformat`).
 - No sleeping in tests. Use clocks, confirmations, or injected schedulers.
 - While working, run `scripts/test.sh` and the simulator tests the change touches
-  (`scripts/test.sh sim <Target/Class>`, then check the total). The full simulator suite is
-  Xcode Cloud's PR check, so don't also run it locally. After re-recording snapshots, run only
-  their suite again.
+  (`scripts/test.sh sim <Target/Class>`). The full simulator suite is Xcode Cloud's PR check,
+  so don't also run it locally. After re-recording snapshots, run only their suite again.
 - A bug fix comes with a test that failed before the fix.

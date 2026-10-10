@@ -119,5 +119,4 @@ Loaded automatically when you touch matching files; read them before working in 
 
 ## Gotchas
 
-- `-only-testing` with a misspelled identifier runs zero tests and exits 0. Check the total.
 - `plutil -extract` rewrites the file in place. Use `plutil -p` to inspect, or pass `-o -`.

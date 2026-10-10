@@ -11,7 +11,7 @@ allowed-tools: Bash(scripts/test.sh:*), Bash(xcrun xcresulttool:*)
   reproduce a CI failure. After a change to `DesignSystem` or the app, run the affected
   suites instead, as in the next line.
 - `scripts/test.sh sim Target/Suite/testName()`: one test. The identifier must be verbatim; a
-  typo runs zero tests and still exits 0, so check the printed total.
+  typo matches no tests, and the run fails.
 
 The simulator run writes `.build/results/test.xcresult` and prints a one-line summary plus each
 failure's message. Snapshot failures attach the diff image inside the result bundle; open it with
