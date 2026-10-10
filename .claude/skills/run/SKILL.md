@@ -1,7 +1,7 @@
 ---
 name: run
 description: Build, install, launch, and drive the app on the iOS simulator. Use to run the app, take screenshots, switch dark mode or Dynamic Type, relaunch without rebuilding, or read the app's log, and to verify UI work visually before calling it done.
-allowed-tools: Bash(scripts/run.sh:*), Bash(scripts/sim.sh:*), Bash(xcrun simctl:*), Read, mcp__xcode__XcodeListWindows, mcp__xcode__RenderPreview
+allowed-tools: Bash(scripts/run.sh:*), Bash(scripts/sim.sh:*), Bash(xcrun simctl:*), Read, mcp__xcode__XcodeOpenWorkspace, mcp__xcode__RenderPreview
 ---
 
 Two scripts, run from the repo root. `scripts/run.sh` gets the app on screen; `scripts/sim.sh`
@@ -63,9 +63,6 @@ What to check in the light, dark, and XXXL images before declaring UI work done:
   connections, not a bug.
 - Only the iOS app exists. watchOS is in the plan and the package platforms, but there is no
   watch target or scheme yet.
-- The `xcode` MCP server serves tools only while Xcode has this project open and Xcode Tools
-  is switched on in its Intelligence settings; otherwise it fails at session start. The scripts
-  do not need it; RenderPreview does.
 
 ## Troubleshooting
 
