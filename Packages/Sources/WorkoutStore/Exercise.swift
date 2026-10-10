@@ -26,16 +26,18 @@ public struct Exercise: Identifiable, Equatable, Sendable {
 }
 
 extension [Exercise] {
-    /// The exercises whose names contain the query, ignoring case and diacritics, in order. A
-    /// blank query matches everything. Names are typeset with a curly apostrophe and keyboards
-    /// type either kind, so the two match each other.
+    /// The exercises whose names contain the query, in order, ignoring case, diacritics, and
+    /// everything but letters and digits: "pullup", "pull up", and "PULL-UP" all find Pull-up,
+    /// and an apostrophe of either kind, or none, finds Farmer’s carry. A query with nothing
+    /// left to match matches everything.
     public func matching(_ query: String) -> [Exercise] {
-        let query = Self.foldingApostrophes(query.trimmingCharacters(in: .whitespacesAndNewlines))
+        let query = Self.lettersAndDigits(query)
         guard !query.isEmpty else { return self }
-        return filter { Self.foldingApostrophes($0.name).localizedStandardContains(query) }
+        return filter { Self.lettersAndDigits($0.name).localizedStandardContains(query) }
     }
 
-    private static func foldingApostrophes(_ text: String) -> String {
-        text.replacingOccurrences(of: "\u{2019}", with: "'")
+    private static func lettersAndDigits(_ text: String) -> String {
+        let kept = text.unicodeScalars.filter(CharacterSet.alphanumerics.contains)
+        return String(String.UnicodeScalarView(kept))
     }
 }
