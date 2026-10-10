@@ -199,6 +199,8 @@ private struct HorizontalPan: UIGestureRecognizerRepresentable {
 
     func makeUIGestureRecognizer(context: Context) -> UIPanGestureRecognizer {
         let pan = UIPanGestureRecognizer()
+        // One finger: a second would move the pan's location to between the two.
+        pan.maximumNumberOfTouches = 1
         pan.delegate = context.coordinator
         return pan
     }
@@ -229,8 +231,10 @@ private struct HorizontalPan: UIGestureRecognizerRepresentable {
         /// Where the finger touched down, in the window.
         var touchDownX: CGFloat = 0
 
-        func gestureRecognizer(_: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
-            touchDownX = touch.location(in: nil).x
+        func gestureRecognizer(_ pan: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            if pan.numberOfTouches == 0 {
+                touchDownX = touch.location(in: nil).x
+            }
             return true
         }
 

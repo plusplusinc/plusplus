@@ -37,9 +37,10 @@ public struct Rail<Rows: View, End: View>: View {
                     GeometryReader { proxy in
                         if let first {
                             let center = proxy[first]
+                            let height = max(0, proxy.size.height - center.y)
                             Rectangle()
                                 .fill(.pp(.rail))
-                                .frame(width: lineWidth, height: max(0, proxy.size.height - center.y))
+                                .frame(width: lineWidth, height: height)
                                 .offset(x: center.x - lineWidth / 2, y: center.y)
                         }
                     }
@@ -79,11 +80,13 @@ private struct FirstNode: PreferenceKey {
 private struct RailRow: ViewModifier {
     @ScaledMetric(relativeTo: .body) private var inset: CGFloat = 10
     @ScaledMetric(relativeTo: .body) private var minHeight: CGFloat = 64
+    @ObserveHotReload private var hotReload
 
     func body(content: Content) -> some View {
         content
             .padding(.vertical, inset)
             .frame(minHeight: minHeight, alignment: .top)
+            .hotReloadable()
     }
 }
 
