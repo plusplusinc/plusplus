@@ -47,6 +47,35 @@ struct EditableTitleSnapshotTests {
     func caretMidWord() {
         assertThemedSnapshots(of: editing("Arm and back", caret: 9), width: Self.screenWidth)
     }
+
+    /// The xxxl image holds it: three lines, the `_` under the i of drills.
+    @Test("At AX5 the _ sits under line 2 of three, above line 3")
+    func caretOnWrappedLine() {
+        assertThemedSnapshots(
+            of: editing("Hot beat drills and abs", caret: 11),
+            width: Self.screenWidth,
+        )
+    }
+
+    @Test("The _ under a y sits below its tail")
+    func caretClearsDescenders() {
+        assertThemedSnapshots(of: editing("gym yoga", caret: 4), width: Self.screenWidth)
+    }
+
+    /// The system highlight is drawn only around a focused field, so it is the UI tests'; this
+    /// holds that no `_` is drawn with it.
+    @Test("A range selection draws no _")
+    func rangeSelection() {
+        let draft = "Arm and back"
+        let caret = Caret()
+        caret.selection = TextSelection(
+            range: draft.index(draft.startIndex, offsetBy: 4) ..< draft.index(
+                draft.startIndex,
+                offsetBy: 7,
+            ),
+        )
+        assertThemedSnapshots(of: editing(draft, caret: caret), width: Self.screenWidth)
+    }
 }
 
 #endif
