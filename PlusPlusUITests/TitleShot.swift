@@ -119,12 +119,10 @@ struct Ink {
     let shot: TitleShot
     let lines: [Run]
     let cursor: Run?
-    private let pixels: Pixels
     private let inked: [[Int]]
 
     fileprivate init(shot: TitleShot, pixels: Pixels, inked: [[Int]]) {
         self.shot = shot
-        self.pixels = pixels
         self.inked = inked
         let top = pixels.top
         var runs: [Range<Int>] = []
@@ -159,13 +157,6 @@ struct Ink {
         }
         self.lines = lines
         self.cursor = cursor
-    }
-
-    /// The brightest inked pixel's mean channel value within the rows.
-    func brightestInk(in rows: Range<Int>) -> Int? {
-        rows.flatMap { row in
-            inked[row].map { pixels.color($0, row).reduce(0, +) / 3 }
-        }.max()
     }
 
     /// How many pixels within the rows differ from the background.
