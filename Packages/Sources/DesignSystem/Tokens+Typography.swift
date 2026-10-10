@@ -8,6 +8,10 @@ import SwiftUI
 extension Font {
     public static let ppCaption = Font.system(.caption)
     public static let ppButton = Font.system(.body, weight: .semibold)
+    /// A row's name, such as an exercise's.
+    public static let ppRowTitle = Font.system(.body, weight: .semibold)
+    /// The line under a row's name.
+    public static let ppRowDetail = Font.system(.subheadline)
     /// The ++ mark: monospaced so the two pluses read as one glyph.
     public static let ppMark = Font.system(.title2, design: .monospaced, weight: .bold)
 }
