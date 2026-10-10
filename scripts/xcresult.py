@@ -3,7 +3,7 @@
 
     scripts/xcresult.py build <bundle>   one line per error and warning, 1-based line numbers
     scripts/xcresult.py tests <bundle>   one-line totals plus each failure's message; exits 1
-                                         when no tests ran
+                                         when no tests ran or there is no summary
 
 xcresulttool reports 0-based line numbers in its JSON; compilers and editors are 1-based, so
 this adds one. Everything else is passed through as-is.
@@ -42,7 +42,8 @@ def build(bundle):
 def tests(bundle):
     s = load("test-results", "summary", bundle=bundle)
     if not s:
-        return
+        print(f"no test summary in {bundle}")
+        return 1
     print(
         f"tests: {s.get('result')} total={s.get('totalTestCount')} "
         f"passed={s.get('passedTests')} failed={s.get('failedTests')} skipped={s.get('skippedTests')}"
@@ -51,7 +52,7 @@ def tests(bundle):
         print(f"  FAIL {failure.get('testName')}: {(failure.get('failureText') or '').strip()}")
     # xcodebuild reports success for an -only-testing identifier that matches nothing.
     if not s.get("totalTestCount"):
-        print("no tests ran: an -only-testing identifier must name a target, class, or test verbatim")
+        print("no tests ran; an -only-testing identifier that matches nothing does this")
         return 1
     return 0
 
