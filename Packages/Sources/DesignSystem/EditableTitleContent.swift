@@ -6,7 +6,11 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
     @Binding var draft: String
     /// The field's selection lives outside the title's state, so a moving caret redraws only the
     /// cursor and never updates the field while the keyboard is moving it.
-    @Bindable var caret: Caret
+    let caret: Caret
+    /// What the field reads and writes the selection through: the caret's, in the app. A field
+    /// that is not focused writes its own selection back as it renders, so a snapshot passes one
+    /// that ignores writes and keeps the caret it was given.
+    @Binding var selection: TextSelection?
     let defaultText: String
     let isEditing: Bool
     /// Whether the `_` blinks while editing. Snapshots hold it lit.
@@ -73,7 +77,7 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
         TextField(
             "",
             text: $draft,
-            selection: $caret.selection,
+            selection: $selection,
             axis: .vertical,
         )
         .foregroundStyle(.pp(.textPrimary))
@@ -211,6 +215,7 @@ private struct TitleCursor: View {
     EditableTitleContent(
         draft: .constant("Arm and back"),
         caret: caret,
+        selection: .constant(caret.selection),
         defaultText: "New routine",
         isEditing: true,
         blinks: true,

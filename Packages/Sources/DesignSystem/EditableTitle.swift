@@ -136,6 +136,7 @@ public struct EditableTitle: View {
         EditableTitleContent(
             draft: $draft,
             caret: caret,
+            selection: $caret.selection,
             defaultText: defaultText,
             isEditing: isEditing,
             blinks: true,
