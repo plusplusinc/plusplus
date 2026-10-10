@@ -2,7 +2,8 @@
 """Compact summaries of an .xcresult bundle for humans and agents.
 
     scripts/xcresult.py build <bundle>   one line per error and warning, 1-based line numbers
-    scripts/xcresult.py tests <bundle>   one-line totals plus each failure's message
+    scripts/xcresult.py tests <bundle>   one-line totals plus each failure's message; exits 1
+                                         when no tests ran
 
 xcresulttool reports 0-based line numbers in its JSON; compilers and editors are 1-based, so
 this adds one. Everything else is passed through as-is.
@@ -48,10 +49,15 @@ def tests(bundle):
     )
     for failure in s.get("testFailures") or []:
         print(f"  FAIL {failure.get('testName')}: {(failure.get('failureText') or '').strip()}")
+    # xcodebuild reports success for an -only-testing identifier that matches nothing.
+    if not s.get("totalTestCount"):
+        print("no tests ran: an -only-testing identifier must name a target, class, or test verbatim")
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
     if len(sys.argv) != 3 or sys.argv[1] not in ("build", "tests"):
         print(__doc__, file=sys.stderr)
         sys.exit(64)
-    {"build": build, "tests": tests}[sys.argv[1]](sys.argv[2])
+    sys.exit({"build": build, "tests": tests}[sys.argv[1]](sys.argv[2]))
