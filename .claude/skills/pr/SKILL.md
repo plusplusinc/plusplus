@@ -38,3 +38,8 @@ card was published as an issue so the merge closes it. The retro runs in a cloud
 that never saw this work and reads only the PR, so write Friction from the session, not from
 the diff, and put any decision the diff does not explain in the body. `--fill` skips the
 template; write the body to a file under `.build/`.
+
+Write the body as the commit message it becomes. The title is already the commit's subject, so
+do not repeat it in the body's first line, and leave each paragraph on a single line: GitHub
+re-wraps the body when it squashes, so prose hard-wrapped to this repo's width arrives on `main`
+with a short ragged line after every long one.
