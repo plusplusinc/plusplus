@@ -1,0 +1,91 @@
+import SwiftUI
+
+/// Rows on a rail: each row gets a solid node in the rail column beside its first line, and a
+/// line runs from the first node down to the view at the rail's end, the Add exercise key, whose
+/// icon sits in the same column.
+///
+/// Rows stack with no spacing, so their own padding sets the rhythm.
+public struct Rail<Rows: View, End: View>: View {
+    private let rows: Rows
+    private let end: End
+
+    @ScaledMetric(relativeTo: .body) private var nodeSize: CGFloat = 10
+    @ScaledMetric(relativeTo: .body) private var lineWidth: CGFloat = 2
+    @ObserveHotReload private var hotReload
+
+    public init(@ViewBuilder rows: () -> Rows, @ViewBuilder end: () -> End) {
+        self.rows = rows()
+        self.end = end()
+    }
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(subviews: rows) { row in
+                    HStack(alignment: .firstTextBaseline, spacing: 0) {
+                        node
+                        row
+                    }
+                }
+            }
+            .backgroundPreferenceValue(FirstNode.self) { first in
+                GeometryReader { proxy in
+                    if let first {
+                        let center = proxy[first]
+                        Rectangle()
+                            .fill(.pp(.rail))
+                            .frame(width: lineWidth, height: max(0, proxy.size.height - center.y))
+                            .offset(x: center.x - lineWidth / 2, y: center.y)
+                    }
+                }
+            }
+            end
+        }
+        .hotReloadable()
+    }
+
+    /// A key's icon held invisibly in the rail column gives the column the key's width and the
+    /// row's first baseline at every text size; the node is centered on it, as the key's icon is.
+    private var node: some View {
+        Image(systemName: "plus")
+            .font(.ppButton)
+            .hidden()
+            .railColumn()
+            .overlay {
+                Circle()
+                    .fill(.pp(.borderStrong))
+                    .frame(width: nodeSize, height: nodeSize)
+                    .anchorPreference(key: FirstNode.self, value: .center) { $0 }
+            }
+            .accessibilityHidden(true)
+    }
+}
+
+/// Where the first node's center is; the line starts there.
+private struct FirstNode: PreferenceKey {
+    static let defaultValue: Anchor<CGPoint>? = nil
+
+    static func reduce(value: inout Anchor<CGPoint>?, nextValue: () -> Anchor<CGPoint>?) {
+        value = value ?? nextValue()
+    }
+}
+
+extension View {
+    /// The rail column: the leading strip where rows put their nodes and a key its icon. At
+    /// large text sizes it grows with what it holds, keeping an inset, rather than clipping it.
+    func railColumn() -> some View {
+        padding(.horizontal, Spacing.sm).frame(minWidth: 44)
+    }
+}
+
+#Preview {
+    Rail {
+        RowLabel(title: "Goblet squat", detail: "Kettlebell").padding(.vertical, Spacing.sm)
+        RowLabel(title: "Push-up", detail: nil).padding(.vertical, Spacing.sm)
+    } end: {
+        Button("Add exercise", systemImage: "plus") { }
+            .buttonStyle(.key)
+    }
+    .padding()
+    .background(Color.pp(.background))
+}
