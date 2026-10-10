@@ -95,9 +95,3 @@ gh repo edit plusplusinc/plusplus --enable-squash-merge --enable-merge-commit=fa
 ```
 
 The check name is whatever Xcode Cloud reports on the first PR; adjust the context if it differs.
-
-## If GitHub Actions is ever wanted
-
-`macos-latest` runners default to the same Xcode as this project and are free for public
-repositories. The same `scripts/lint.sh` and `scripts/test.sh` would be the job steps; cache
-`~/.swiftpm/cache`, not DerivedData.

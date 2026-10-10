@@ -17,6 +17,9 @@ project board and in `.slices/`.
    task (tooling, a bug, process), and a Backlog card is parked, never picked.
    Its body holds the scope, the acceptance criteria, and a State section with the worktree,
    branch, PR, phase, and next step.
+   An open nightly retro PR (title "Retro of", `gh pr list --search "Retro of in:title"`)
+   comes before the card: rebase it, check each hunk against main, then trim, merge, or close
+   it with the maintainer's go-ahead.
 3. Read the `.slices/` files that State names: the newest handoff or verify report. Read
    summaries, not code; subagents read code.
 4. Say in two or three lines where the slice stands and what happens next, then do it. Ask only
