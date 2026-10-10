@@ -173,25 +173,26 @@ struct Ink {
         rows.clamped(to: inked.indices).reduce(0) { $0 + inked[$1].count }
     }
 
-    /// Reads ink until the `_` is lit, and fails after two blink cycles without it. With
-    /// `awayFrom`, the `_` also has to have left those columns.
+    /// Reads ink until the `_` is lit where `miss` finds nothing wrong with it. Key presses and
+    /// taps can return before the app has handled them, so a read after one waits for the state
+    /// it checks. After two blink cycles it throws with the last miss, or with none if the `_`
+    /// never lit.
     @MainActor
     static func withCursor(
-        awayFrom old: ClosedRange<Int>? = nil,
         file: StaticString = #filePath,
         line: UInt = #line,
         _ read: () throws -> Self,
+        until miss: (Self, _ cursor: Run) -> String? = { _, _ in nil },
     ) throws -> Self {
         let deadline = Date.now.addingTimeInterval(twoBlinks)
+        var last = "No _ over two blink cycles"
         while Date.now < deadline {
             let ink = try read()
-            if let cursor = ink.cursor,
-               old.map({ abs($0.lowerBound - cursor.columns.lowerBound) > 6 }) ?? true
-            {
-                return ink
-            }
+            guard let cursor = ink.cursor else { continue }
+            guard let wrong = miss(ink, cursor) else { return ink }
+            last = wrong
         }
-        return try XCTUnwrap(nil as Self?, "No _ over two blink cycles", file: file, line: line)
+        return try XCTUnwrap(nil as Self?, last, file: file, line: line)
     }
 }
 

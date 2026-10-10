@@ -16,6 +16,8 @@ final nonisolated class RenameUITests: XCTestCase {
     @MainActor
     func testRenameAtDefaultSize() throws {
         let app = XCUIApplication()
+        // The simulator keeps the last text size it was set to, so the default is pinned.
+        app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
         app.launch()
         let title = app.textFields["Routine name"]
         XCTAssertTrue(title.appears(within: 10))
@@ -28,6 +30,7 @@ final nonisolated class RenameUITests: XCTestCase {
 
         // No descenders, so a thin run of ink under the line can only be the `_`.
         title.typeText("Arm back")
+        XCTAssertEqual(title.value(becoming: "Arm back"), "Arm back")
         XCTContext.runActivity(named: "A one-line name keeps a one-line field") { _ in
             XCTAssertEqual(title.frame, field, "A one-line name resized the field")
             XCTAssertEqual(addExercise.frame, button)
@@ -50,7 +53,7 @@ final nonisolated class RenameUITests: XCTestCase {
         XCTContext.runActivity(named: "Editing a name starts at its end") { _ in
             title.tap()
             title.typeText(" day")
-            XCTAssertEqual(title.value as? String, "Arm and back day")
+            XCTAssertEqual(title.value(becoming: "Arm and back day"), "Arm and back day")
         }
         try XCTContext.runActivity(named: "The _ clears descenders") { _ in
             try assertCursorClearsDescenders(in: title, field: field)
@@ -115,21 +118,22 @@ final nonisolated class RenameUITests: XCTestCase {
     /// middle: "Arm and back".
     @MainActor
     private func typeInTheMiddle(of title: XCUIElement, in field: CGRect) throws -> Ink {
-        let atEnd = try XCTUnwrap(Ink.withCursor { try read(field) }.cursor).columns
         title.typeKey(.leftArrow, modifierFlags: .option)
-        let beforeBack = try Ink.withCursor(awayFrom: atEnd) { try read(field) }
-        let cursor = try XCTUnwrap(beforeBack.cursor).columns
-        let letters = try XCTUnwrap(beforeBack.lines.first).columns
-        XCTAssertLessThan(cursor.upperBound, atEnd.lowerBound, "The _ should leave the end")
-        XCTAssertGreaterThan(cursor.lowerBound, letters.lowerBound, "The _ should be inside")
+        let beforeBack = try Ink.withCursor { try read(field) } until: { ink, cursor in
+            Self.miss(cursor, inside: ink)
+        }
+        let cell = try Double(XCTUnwrap(beforeBack.lines.first).columns.count) / 8
 
         title.typeText("and  " + XCUIKeyboardKey.delete.rawValue)
-        let typed = try Ink.withCursor(awayFrom: cursor) { try read(field) }
-        let moved = try XCTUnwrap(typed.cursor).columns
-        let longer = try XCTUnwrap(typed.lines.first).columns
-        XCTAssertGreaterThan(moved.lowerBound, cursor.lowerBound, "The _ should move on")
-        XCTAssertLessThan(moved.upperBound, longer.upperBound, "The _ should stay inside")
-        return typed
+        XCTAssertEqual(title.value(becoming: "Arm and back"), "Arm and back")
+        // Twelve cells wide, so the shot is of "Arm and back" and not a frame of it half drawn,
+        // with the `_` moved on to the b, inside the name.
+        return try Ink.withCursor { try read(field) } until: { ink, cursor in
+            guard let name = ink.lines.first else { return "No line over the _" }
+            let wide = Double(name.columns.count) / cell
+            guard abs(wide - 12) < 0.5 else { return "The name is \(wide) cells wide, not 12" }
+            return Self.miss(cursor, under: name.cell(8, of: 12), "the b of back")
+        }
     }
 
     /// Taps the start of "and" in "Arm and back" and checks that the `_` moved under it.
@@ -144,14 +148,9 @@ final nonisolated class RenameUITests: XCTestCase {
         title.coordinate(withNormalizedOffset: .zero)
             .withOffset(CGVector(dx: point, dy: field.height / 2))
             .tap()
-        let moved = try Ink.withCursor(awayFrom: afterTyping.cursor?.columns) { try read(field) }
-        let cursor = try XCTUnwrap(moved.cursor).columns
-        XCTAssertLessThan(
-            abs(Double(cursor.lowerBound) - and.start),
-            and.width / 2,
-            "The _ should sit under the a of and",
-        )
-        return moved
+        return try Ink.withCursor { try read(field) } until: { _, cursor in
+            Self.miss(cursor, under: and, "the a of and")
+        }
     }
 
     /// Selects a word and checks that no `_` shows while the highlight does, then collapses the
@@ -165,17 +164,25 @@ final nonisolated class RenameUITests: XCTestCase {
         let line = try XCTUnwrap(tapped.lines.first).rows
         let unselected = tapped.differingPixels(in: line)
         title.typeKey(.rightArrow, modifierFlags: [.shift, .option])
+        // The highlight fills the selected cells' background, so far more of the line differs
+        // from the screen background than the glyphs alone. Until it shows, the key may not
+        // have been handled, and the `_` may still be lit.
+        let highlight = unselected + 2000
+        let shown = Date.now.addingTimeInterval(Ink.twoBlinks)
+        var selected = try read(field)
+        while selected.differingPixels(in: line) <= highlight, Date.now < shown {
+            selected = try read(field)
+        }
+        XCTAssertGreaterThan(
+            selected.differingPixels(in: line),
+            highlight,
+            "No selection highlight",
+        )
         // A `_` that is there shows within one full blink cycle.
         let deadline = Date.now.addingTimeInterval(Ink.twoBlinks / 2)
-        var selected = tapped
         while Date.now < deadline {
-            selected = try read(field)
-            XCTAssertNil(selected.cursor, "A range selection should not show the _")
+            XCTAssertNil(try read(field).cursor, "A range selection should not show the _")
         }
-        // The highlight fills the selected cells' background, so far more of the line
-        // differs from the screen background than the glyphs alone.
-        let highlighted = selected.differingPixels(in: line)
-        XCTAssertGreaterThan(highlighted, unselected + 2000, "No selection highlight")
 
         title.typeKey(.rightArrow, modifierFlags: [])
         XCTAssertNoThrow(try Ink.withCursor { try read(field) }, "A collapsed range shows no _")
@@ -186,17 +193,13 @@ final nonisolated class RenameUITests: XCTestCase {
     private func assertCursorClearsDescenders(in title: XCUIElement, field: CGRect) throws {
         title.typeKey("a", modifierFlags: .command)
         title.typeText("gym yoga")
-        let atEnd = try XCTUnwrap(Ink.withCursor { try read(field) }.cursor).columns
+        XCTAssertEqual(title.value(becoming: "gym yoga"), "gym yoga")
         title.typeKey(.leftArrow, modifierFlags: .option)
-        // Throws when the `_` merges into the y's tail, since then there is no thin run.
-        let underY = try Ink.withCursor(awayFrom: atEnd) { try read(field) }
-        let cursor = try XCTUnwrap(underY.cursor).columns
-        let y = try XCTUnwrap(underY.lines.first).cell(4, of: 8)
-        XCTAssertLessThan(
-            abs(Double(cursor.lowerBound) - y.start),
-            y.width / 2,
-            "The _ should sit under the y of yoga",
-        )
+        // A `_` merged into the y's tail is no thin run, so it never counts as under the y.
+        _ = try Ink.withCursor { try read(field) } until: { ink, cursor in
+            guard let name = ink.lines.first else { return "No line over the _" }
+            return Self.miss(cursor, under: name.cell(4, of: 8), "the y of yoga")
+        }
     }
 
     /// No hard edge or band at the keyboard's top corners: just outside its rounded glass, the
@@ -219,6 +222,29 @@ final nonisolated class RenameUITests: XCTestCase {
             let distance = TitleShot.distance(color, background)
             XCTAssertLessThan(distance, 24, "A band at \(sample): \(color) vs \(background)")
         }
+    }
+
+    /// What is wrong with a `_` that should be inside its line, before the last letter's edge
+    /// and after the first's, or nil.
+    private static func miss(_ cursor: Ink.Run, inside ink: Ink) -> String? {
+        guard let letters = ink.lines.first?.columns else { return "No line over the _" }
+        if cursor.columns.upperBound >= letters.upperBound {
+            return "The _ should leave the end: it spans \(cursor.columns), the name at \(letters)"
+        }
+        if cursor.columns.lowerBound <= letters.lowerBound {
+            return "The _ should be inside: it spans \(cursor.columns), the name at \(letters)"
+        }
+        return nil
+    }
+
+    /// What is wrong with a `_` that should start under a character's cell, or nil.
+    private static func miss(
+        _ cursor: Ink.Run,
+        under cell: (start: Double, width: Double),
+        _ name: String,
+    ) -> String? {
+        let off = abs(Double(cursor.columns.lowerBound) - cell.start)
+        return off < cell.width / 2 ? nil : "The _ should sit under \(name): \(off) columns off"
     }
 
     /// The ink in the field and a strip below it for the `_`, short of the next view, against
