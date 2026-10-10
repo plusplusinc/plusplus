@@ -1,13 +1,16 @@
 import DesignSystem
 import SwiftUI
+import WorkoutStore
 
 /// The screen the app launches into: a new, empty routine.
 ///
-/// The name lives only in memory for now. The app deliberately creates no `ModelContainer` yet:
-/// storage wiring lives in `WorkoutStoreContainer` and gets connected when there is a data model
-/// worth connecting.
+/// The name and the exercises live only in memory for now. The app deliberately creates no
+/// `ModelContainer` yet: storage wiring lives in `WorkoutStoreContainer` and gets connected when
+/// there is a data model worth connecting.
 struct RoutineScreen: View {
     @State private var name = Self.defaultName
+    @State private var exercises: [RoutineExercise] = []
+    @State private var isPicking = false
     @ObserveHotReload private var hotReload
 
     private static let markWidth: CGFloat = 20
@@ -27,8 +30,11 @@ struct RoutineScreen: View {
                         accessibilityLabel: "Routine name",
                         accessibilityHint: "Renames the routine.",
                     )
-                    // The exercise picker is a later slice.
-                    Button("Add exercise", systemImage: "plus") { }
+                    ForEach(exercises) { item in
+                        RowLabel(title: item.exercise.name, detail: item.exercise.equipmentLine)
+                            .accessibilityIdentifier("routine.exercise")
+                    }
+                    Button("Add exercise", systemImage: "plus") { isPicking = true }
                         .buttonStyle(.key)
                 }
                 .padding(.horizontal, Spacing.md)
@@ -40,6 +46,14 @@ struct RoutineScreen: View {
             // window's black behind the keyboard's rounded top corners.
             .background { Color.pp(.background).ignoresSafeArea() }
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(isPresented: $isPicking) {
+                ExercisePicker { exercise in
+                    withAnimation {
+                        exercises.append(RoutineExercise(exercise: exercise))
+                        isPicking = false
+                    }
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     // The drawer is a later slice.
