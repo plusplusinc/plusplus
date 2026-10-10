@@ -80,6 +80,26 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             attach(named: "picker-no-results-ax5")
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
         }
+
+        XCTContext.runActivity(named: "At the end of a long list, Add exercise clears Start") { _ in
+            let search = app.searchFields.firstMatch
+            // While searching, the first Close ends the search; the next closes the sheet.
+            for _ in 0 ..< 2 where search.exists {
+                app.buttons["Close"].firstMatch.tap()
+                _ = keyboard.disappears()
+            }
+            app.addExercise("Dumbbell bench press, Dumbbells, bench", searching: "dumbbell bench")
+            app.swipeUp()
+            app.swipeUp()
+            let start = app.buttons["Start"]
+            XCTAssertTrue(start.appears())
+            attach(named: "rail-end-ax5")
+            // 16pt, the screen's spacing, give or take rounding.
+            XCTAssertGreaterThanOrEqual(
+                start.frame.minY - addExercise.frame.maxY, 15.5,
+                "Add exercise does not clear Start with room to spare",
+            )
+        }
     }
 
     /// Every line of text between the bar and "Add exercise" lies inside the field.

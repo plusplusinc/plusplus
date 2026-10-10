@@ -50,6 +50,8 @@ struct RoutineScreen: View {
                     }
                 }
                 .padding(.horizontal, Spacing.md)
+                // Room under Add exercise, so at the end of a long list it clears Start.
+                .padding(.bottom, Spacing.md)
                 // When the keyboard rises, UIKit scrolls the focused field to sit at least 5pt
                 // below the top of the visible area. Starting there keeps the title still.
                 .padding(.top, Spacing.sm)
