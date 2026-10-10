@@ -24,7 +24,7 @@ case "$MODE" in
         # On any failure xcodebuild otherwise runs `simctl diagnose`, which sits until its
         # 600-second timeout. The result bundle already holds what a failure needs.
         run_xcodebuild test test -collect-test-diagnostics never ${only[@]+"${only[@]}"} || status=$?
-        # The summary also fails a run that executed no tests, which xcodebuild calls a success.
+        # The summary also fails a run that executed no tests; xcodebuild's own failure wins.
         if ! xcresult tests "$RESULTS/test.xcresult" && [ "$status" -eq 0 ]; then status=1; fi
         [ "$status" -eq 0 ] || exit "$status"
         ;;

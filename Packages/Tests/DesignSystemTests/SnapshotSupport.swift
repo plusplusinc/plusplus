@@ -73,12 +73,10 @@ private func snapshotDirectory(forTestFile file: StaticString) -> String {
     // Decided by the shared folder, not the suite's own: a new suite has no folder yet, and its
     // first recording belongs in the source tree, not in the built bundle.
     let inSourceTree = testFile.deletingLastPathComponent().appending(path: "__Snapshots__")
-    let root: URL
-    if FileManager.default.fileExists(atPath: inSourceTree.path(percentEncoded: false)) {
-        root = inSourceTree
-    } else if let bundled = Bundle.module.url(forResource: "__Snapshots__", withExtension: nil) {
-        root = bundled
-    } else {
+    let root = FileManager.default.fileExists(atPath: inSourceTree.path(percentEncoded: false))
+        ? inSourceTree
+        : Bundle.module.url(forResource: "__Snapshots__", withExtension: nil)
+    guard let root else {
         fatalError("__Snapshots__ is neither next to \(file) nor bundled in the test target")
     }
     return root.appending(path: name).path(percentEncoded: false)
