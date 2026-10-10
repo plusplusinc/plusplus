@@ -150,13 +150,20 @@ struct ExerciseTests {
         #expect(Exercise.builtIn.matching("zzz").isEmpty)
     }
 
-    @Test("Straight and curly apostrophes match each other")
-    func apostrophes() {
-        for query in ["farmer's", "farmer\u{2019}s"] {
-            #expect(Exercise.builtIn.matching(query).map(\.name) == [
-                "Farmer\u{2019}s carry",
-            ])
+    @Test("Search ignores spaces, hyphens, and apostrophes of either kind")
+    func punctuation() {
+        for query in ["pullup", "pull up", "PULL-UP", "Pull\u{2010}up"] {
+            #expect(Exercise.builtIn.matching(query).map(\.name) == ["Pull-up"])
         }
+        #expect(Exercise.builtIn.matching("push up").map(\.name) == ["Push-up", "Ring push-up"])
+        for query in ["farmer's", "farmer\u{2019}s", "farmers", "FARMERS CARRY"] {
+            #expect(Exercise.builtIn.matching(query).map(\.name) == ["Farmer\u{2019}s carry"])
+        }
+    }
+
+    @Test("A query of only punctuation matches everything, as a blank one does")
+    func punctuationOnly() {
+        #expect(Exercise.builtIn.matching(" - ") == Exercise.builtIn)
     }
 
     @Test("Each routine exercise is its own instance")
