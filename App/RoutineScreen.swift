@@ -30,17 +30,30 @@ struct RoutineScreen: View {
                         accessibilityLabel: "Routine name",
                         accessibilityHint: "Renames the routine.",
                     )
-                    ForEach(exercises) { item in
-                        RowLabel(title: item.exercise.name, detail: item.exercise.equipmentLine)
-                            .accessibilityIdentifier("routine.exercise")
+                    Rail {
+                        ForEach(exercises) { item in
+                            RowLabel(title: item.exercise.name, detail: item.exercise.equipmentLine)
+                                .padding(.vertical, Spacing.sm)
+                                .accessibilityIdentifier("routine.exercise")
+                        }
+                    } end: {
+                        Button("Add exercise", systemImage: "plus") { isPicking = true }
+                            .buttonStyle(.key)
                     }
-                    Button("Add exercise", systemImage: "plus") { isPicking = true }
-                        .buttonStyle(.key)
                 }
                 .padding(.horizontal, Spacing.md)
                 // When the keyboard rises, UIKit scrolls the focused field to sit at least 5pt
                 // below the top of the visible area. Starting there keeps the title still.
                 .padding(.top, Spacing.sm)
+            }
+            .safeAreaBar(edge: .bottom) {
+                if !exercises.isEmpty {
+                    // Starting a workout is a later slice.
+                    Button("Start", systemImage: "play.fill") { }
+                        .buttonStyle(.primaryKey)
+                        .padding(.horizontal, Spacing.md)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
             }
             // A shape-style background stops at the keyboard's safe area, which left the
             // window's black behind the keyboard's rounded top corners.

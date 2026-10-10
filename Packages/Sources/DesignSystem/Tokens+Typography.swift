@@ -24,6 +24,22 @@ extension View {
     }
 }
 
+extension View {
+    /// The primary key's label: 24pt heavy, between `title2` and `title`, scaling as `title2`
+    /// does.
+    public func ppPrimaryKeyFont() -> some View {
+        modifier(PrimaryKeyFont())
+    }
+}
+
+private struct PrimaryKeyFont: ViewModifier {
+    @ScaledMetric(relativeTo: .title2) private var size: CGFloat = 24
+
+    func body(content: Content) -> some View {
+        content.font(.system(size: size, weight: .heavy))
+    }
+}
+
 private struct ScreenTitleFont: ViewModifier {
     @ScaledMetric(relativeTo: .title2) private var size: CGFloat = 24
 

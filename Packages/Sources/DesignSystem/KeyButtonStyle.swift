@@ -32,15 +32,9 @@ public struct KeyButtonStyle: ButtonStyle {
 
 /// The icon in the rail column, the title after it.
 private struct RailIconLabelStyle: LabelStyle {
-    /// The rail column's width. At large text sizes it grows with the icon, keeping an inset,
-    /// rather than clipping it.
-    private static let railColumnWidth: CGFloat = 44
-
     func makeBody(configuration: Configuration) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 0) {
-            configuration.icon
-                .padding(.horizontal, Spacing.sm)
-                .frame(minWidth: Self.railColumnWidth)
+            configuration.icon.railColumn()
             configuration.title
         }
     }
