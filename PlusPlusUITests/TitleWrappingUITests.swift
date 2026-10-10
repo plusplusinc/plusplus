@@ -62,6 +62,27 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             XCTAssertEqual(title.value as? String, "New routine")
             try assertLinesInsideField(title, above: addExercise, lines: 2, "cleared, at rest")
         }
+
+        try XCTContext.runActivity(named: "Rows and the picker at AX5 pass the audit") { _ in
+            app.addExercise("Kneeling hip flexor stretch", searching: "kneeling")
+            XCTAssertTrue(app.buttons["Start"].appears())
+            attachScreen(named: "rail-ax5")
+            try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
+            addExercise.tap()
+            let search = app.searchFields.firstMatch
+            XCTAssertTrue(search.appears())
+            attachScreen(named: "picker-ax5")
+            // Audited in use: at rest, the system search bar reports that it cannot scale, with
+            // no element named, though it draws at this size, as the screenshot shows.
+            search.tap()
+            search.typeText("curl")
+            XCTAssertTrue(app.pickerRows["Biceps curl, Dumbbells"].appears())
+            try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
+            search.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 4) + "zzz")
+            XCTAssertTrue(app.staticTexts["No Results for \u{201C}zzz\u{201D}"].appears())
+            attachScreen(named: "picker-no-results-ax5")
+            try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
+        }
     }
 
     /// Every line of text between the bar and "Add exercise" lies inside the field.
