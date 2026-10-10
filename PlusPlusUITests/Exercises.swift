@@ -31,7 +31,6 @@ extension XCUIApplication {
         XCTAssertTrue(search.disappears(), "Picking \(label) left the picker open")
     }
 
-    /// The exercise rows' count once it is `expected`, or the last count after the timeout.
     /// Replaces the search `query` in `search` with one nothing matches, and checks that the
     /// empty state shows.
     func searchForNothing(replacing query: String, in search: XCUIElement) {
@@ -40,6 +39,7 @@ extension XCUIApplication {
         XCTAssertTrue(staticTexts["No Results for \u{201C}zzz\u{201D}"].appears())
     }
 
+    /// The exercise rows' count once it is `expected`, or the last count after the timeout.
     func exerciseCount(becoming expected: Int, within timeout: TimeInterval = 2) -> Int {
         reading(exerciseRows.count, becoming: expected, within: timeout)
     }
