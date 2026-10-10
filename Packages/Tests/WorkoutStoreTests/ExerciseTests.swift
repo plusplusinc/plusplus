@@ -1,0 +1,111 @@
+import Foundation
+import Testing
+@testable import WorkoutStore
+
+@Suite("Exercises")
+struct ExerciseTests {
+    private static func builtIn(_ name: String) throws -> Exercise {
+        try #require(Exercise.builtIn.first { $0.name == name }, "No built-in named \(name)")
+    }
+
+    @Test("There are 49 built-in exercises with unique ids and names")
+    func builtInCount() {
+        let all = Exercise.builtIn
+        #expect(all.count == 49)
+        #expect(Set(all.map(\.id)).count == all.count)
+        #expect(Set(all.map(\.name)).count == all.count)
+    }
+
+    @Test("Built-ins are sorted A to Z")
+    func builtInSorted() {
+        let names = Exercise.builtIn.map(\.name)
+        #expect(names == names.sorted { $0.localizedStandardCompare($1) == .orderedAscending })
+        #expect(names.first == "Balance board hold")
+        #expect(names.last == "World\u{2019}s greatest stretch")
+    }
+
+    @Test("Bodyweight exercises have no equipment line")
+    func bodyweightHasNoLine() throws {
+        for name in ["Push-up", "Plank", "Child\u{2019}s pose", "Glute bridge"] {
+            #expect(try Self.builtIn(name).equipmentLine == nil)
+        }
+        let bodyweight = Set(Exercise.builtIn.filter(\.equipment.isEmpty).map(\.name))
+        #expect(bodyweight == [
+            "Push-up", "Glute bridge", "Plank", "Side plank", "Dead bug",
+            "Kneeling hip flexor stretch", "Hamstring stretch", "Pigeon stretch", "Calf stretch",
+            "Child\u{2019}s pose", "Cat-cow", "World\u{2019}s greatest stretch",
+            "Thoracic rotation",
+            "Doorway chest stretch", "Cross-body shoulder stretch",
+        ])
+    }
+
+    @Test(
+        "Equipment lines follow the spec",
+        arguments: [
+            ("Dumbbell bench press", "Dumbbells, bench"),
+            ("Barbell bench press", "Barbell, bench"),
+            ("Goblet squat", "Kettlebell"),
+            ("Dead hang", "Pull-up bar"),
+            ("Balance board hold", "Balance board"),
+            ("Face pull", "Band"),
+        ],
+    )
+    func equipmentLines(name: String, line: String) throws {
+        #expect(try Self.builtIn(name).equipmentLine == line)
+    }
+
+    @Test("An equipment line orders by equipment, capitalizing only the first")
+    func lineOrder() {
+        #expect(Exercise(id: "a", name: "A", equipment: [.bench, .dumbbells]).equipmentLine
+            == "Dumbbells, bench")
+        #expect(Exercise(id: "b", name: "B", equipment: [.rings, .band, .kettlebell]).equipmentLine
+            == "Kettlebell, band, rings")
+    }
+
+    @Test("Every equipment has a display name")
+    func equipmentNames() {
+        #expect(Equipment.allCases.map(\.name) == [
+            "Dumbbells", "Kettlebell", "Barbell", "Bench", "Band", "Pull-up bar", "Rings",
+            "Balance board",
+        ])
+    }
+
+    @Test("Search is case-insensitive and matches anywhere in the name")
+    func searchMatches() {
+        #expect(Exercise.builtIn.matching("PRESS").map(\.name) == [
+            "Barbell bench press", "Barbell overhead press", "Dumbbell bench press",
+            "Incline dumbbell press", "Overhead press", "Pallof press",
+        ])
+        #expect(Exercise.builtIn.matching("curl").map(\.name) == [
+            "Biceps curl", "Hammer curl",
+        ])
+    }
+
+    @Test("An empty or blank query matches everything")
+    func emptyQuery() {
+        #expect(Exercise.builtIn.matching("") == Exercise.builtIn)
+        #expect(Exercise.builtIn.matching("  ") == Exercise.builtIn)
+    }
+
+    @Test("A query with no match finds nothing")
+    func noMatch() {
+        #expect(Exercise.builtIn.matching("zzz").isEmpty)
+    }
+
+    @Test("Straight and curly apostrophes match each other")
+    func apostrophes() {
+        for query in ["farmer's", "farmer\u{2019}s"] {
+            #expect(Exercise.builtIn.matching(query).map(\.name) == [
+                "Farmer\u{2019}s carry",
+            ])
+        }
+    }
+
+    @Test("Each routine exercise is its own instance")
+    func duplicateInstances() throws {
+        let squat = try Self.builtIn("Goblet squat")
+        let first = RoutineExercise(exercise: squat)
+        let second = RoutineExercise(exercise: squat)
+        #expect(first.id != second.id)
+    }
+}
