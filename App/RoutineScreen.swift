@@ -11,6 +11,8 @@ struct RoutineScreen: View {
     @State private var name = Self.defaultName
     @State private var exercises: [RoutineExercise] = []
     @State private var isPicking = false
+    /// The row swiped open to show its Delete key; one at a time.
+    @State private var swipedRow: RoutineExercise.ID?
     @ObserveHotReload private var hotReload
 
     private static let markWidth: CGFloat = 20
@@ -35,10 +37,16 @@ struct RoutineScreen: View {
                             RowLabel(title: item.exercise.name, detail: item.exercise.equipmentLine)
                                 .padding(.vertical, Spacing.sm)
                                 .accessibilityIdentifier("routine.exercise")
+                                .swipeToDelete(isOpen: isOpen(item)) {
+                                    exercises.removeAll { $0.id == item.id }
+                                }
                         }
                     } end: {
-                        Button("Add exercise", systemImage: "plus") { isPicking = true }
-                            .buttonStyle(.key)
+                        Button("Add exercise", systemImage: "plus") {
+                            swipedRow = nil
+                            isPicking = true
+                        }
+                        .buttonStyle(.key)
                     }
                 }
                 .padding(.horizontal, Spacing.md)
@@ -85,6 +93,18 @@ struct RoutineScreen: View {
             }
         }
         .hotReloadable()
+    }
+
+    private func isOpen(_ item: RoutineExercise) -> Binding<Bool> {
+        Binding {
+            swipedRow == item.id
+        } set: { open in
+            if open {
+                swipedRow = item.id
+            } else if swipedRow == item.id {
+                swipedRow = nil
+            }
+        }
     }
 }
 
