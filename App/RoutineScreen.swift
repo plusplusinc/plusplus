@@ -35,7 +35,7 @@ struct RoutineScreen: View {
                     Rail {
                         ForEach(exercises) { item in
                             RowLabel(title: item.exercise.name, detail: item.exercise.equipmentLine)
-                                .padding(.vertical, Spacing.sm)
+                                .railRow()
                                 .accessibilityIdentifier("routine.exercise")
                                 .swipeToDelete(id: item.id, openRow: $swipedRow) {
                                     exercises.removeAll { $0.id == item.id }

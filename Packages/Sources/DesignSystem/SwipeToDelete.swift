@@ -262,7 +262,7 @@ private struct StillTap: UIGestureRecognizerRepresentable {
 #Preview {
     @Previewable @State var openRow: Int? = 0
     RowLabel(title: "Goblet squat", detail: "Kettlebell")
-        .padding(.vertical, Spacing.sm)
+        .railRow()
         .swipeToDelete(id: 0, openRow: $openRow) { }
         .padding()
         .background(Color.pp(.background))
