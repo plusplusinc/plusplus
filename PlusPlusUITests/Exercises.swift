@@ -27,22 +27,19 @@ extension XCUIApplication {
 
     /// The exercise rows' count once it is `expected`, or the last count after the timeout.
     func exerciseCount(becoming expected: Int, within timeout: TimeInterval = 2) -> Int {
-        let deadline = Date.now.addingTimeInterval(timeout)
-        var count = exerciseRows.count
-        while count != expected, Date.now < deadline {
-            count = exerciseRows.count
-        }
-        return count
+        reading(exerciseRows.count, becoming: expected, within: timeout)
     }
 }
 
-extension XCTestCase {
-    /// Keeps a screenshot of the whole screen with the test's results.
-    @MainActor
-    func attachScreen(named name: String) {
-        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
-        attachment.name = name
-        attachment.lifetime = .keepAlways
-        add(attachment)
+extension XCUIElement {
+    /// Drags left from near the trailing edge, `distance` points at `velocity`, and lifts.
+    func dragLeft(by distance: CGFloat, velocity: XCUIGestureVelocity) {
+        let start = coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5))
+        start.press(
+            forDuration: 0.05,
+            thenDragTo: start.withOffset(CGVector(dx: -distance, dy: 0)),
+            withVelocity: velocity,
+            thenHoldForDuration: 0,
+        )
     }
 }

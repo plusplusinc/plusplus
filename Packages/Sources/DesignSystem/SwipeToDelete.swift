@@ -1,9 +1,10 @@
 import SwiftUI
 
-/// Where a row swiped left comes to rest when the finger lifts, as in Mail: dragged past half
-/// its width, or flung left, it is deleted; dragged past half the Delete key, it opens to show
-/// the key; otherwise it closes. A fling right closes it. Offsets are how far the swipe has
-/// gone, negative to the left.
+/// Where a row swiped left comes to rest when the finger lifts. A full swipe deletes, and with no
+/// undo it takes real distance, as the system's does: a drag past most of the row, or a fast swipe
+/// that has also gone well past the Delete key. Anything shorter that passes half the key, or is a
+/// fast flick, opens the row to show the key; otherwise it closes. A fling right closes it.
+/// Offsets are how far the swipe has gone, negative to the left.
 enum SwipeSettle: Equatable {
     case closed
     case open
@@ -11,6 +12,12 @@ enum SwipeSettle: Equatable {
 
     /// A fling, in points per second: faster than a deliberate drag.
     static let flingSpeed: CGFloat = 1000
+
+    /// How far a drag at any speed goes to delete: most of the row, and always well past an open
+    /// key, which at the largest text sizes covers more than half the row.
+    static func deleteDistance(width: CGFloat, keyWidth: CGFloat) -> CGFloat {
+        max(width * 0.6, keyWidth * 1.5)
+    }
 
     static func settle(
         offset: CGFloat,
@@ -22,10 +29,12 @@ enum SwipeSettle: Equatable {
         if velocity >= flingSpeed {
             return .closed
         }
-        // A flick can begin and end within a couple of touch samples, and a pan's translation
-        // starts from where it began, so a fling counts however short it reports.
-        if distance > width / 2 || velocity <= -flingSpeed {
+        if distance > deleteDistance(width: width, keyWidth: keyWidth) {
             return .delete
+        }
+        // Speed alone only opens the key: a flick by accident mid-set must not delete.
+        if velocity <= -flingSpeed {
+            return distance > keyWidth * 2 ? .delete : .open
         }
         return distance > keyWidth / 2 ? .open : .closed
     }
@@ -59,7 +68,7 @@ private struct SwipeToDelete: ViewModifier {
     }
 
     private var pastDelete: Bool {
-        -offset > width / 2
+        -offset > SwipeSettle.deleteDistance(width: width, keyWidth: keyWidth)
     }
 
     func body(content: Content) -> some View {
@@ -78,14 +87,9 @@ private struct SwipeToDelete: ViewModifier {
             .gesture(
                 HorizontalPan(
                     isOpen: isOpen,
-                    onChange: { translation in
-                        let start = isOpen ? -keyWidth : 0
-                        dragOffset = min(0, start + translation)
-                    },
-                    onEnd: { translation, velocity in
-                        let start = isOpen ? -keyWidth : 0
-                        settle(offset: min(0, start + translation), velocity: velocity)
-                    },
+                    onChange: { dragOffset = offset(after: $0) },
+                    onEnd: { settle(offset: offset(after: $0), velocity: $1) },
+                    onCancel: { withAnimation(.snappy) { dragOffset = nil } },
                 ),
             )
             #endif
@@ -114,6 +118,12 @@ private struct SwipeToDelete: ViewModifier {
             .padding(.vertical, Spacing.xs)
             .accessibilityHidden(!isOpen)
         }
+    }
+
+    /// Where the key's leading edge is after the finger has moved `translation` from where the
+    /// drag began: never right of the row's trailing edge.
+    private func offset(after translation: CGFloat) -> CGFloat {
+        min(0, (isOpen ? -keyWidth : 0) + translation)
     }
 
     private func settle(offset: CGFloat, velocity: CGFloat) {
@@ -148,6 +158,7 @@ private struct HorizontalPan: UIGestureRecognizerRepresentable {
     let isOpen: Bool
     let onChange: (CGFloat) -> Void
     let onEnd: (_ translation: CGFloat, _ velocity: CGFloat) -> Void
+    let onCancel: () -> Void
 
     func makeCoordinator(converter _: CoordinateSpaceConverter) -> Coordinator {
         Coordinator()
@@ -163,15 +174,18 @@ private struct HorizontalPan: UIGestureRecognizerRepresentable {
         context.coordinator.isOpen = isOpen
     }
 
-    func handleUIGestureRecognizerAction(_ pan: UIPanGestureRecognizer, context _: Context) {
-        let translation = pan.translation(in: pan.view).x
+    /// Reports how far the finger has moved since it touched down. The pan zeroes its translation
+    /// as it begins, dropping the travel it took to recognize the drag: all of a quick flick's,
+    /// whose every touch can arrive before it begins.
+    func handleUIGestureRecognizerAction(_ pan: UIPanGestureRecognizer, context: Context) {
+        let translation = context.coordinator.travelBeforeBegan + pan.translation(in: pan.view).x
         switch pan.state {
         case .began, .changed:
             onChange(translation)
         case .ended:
             onEnd(translation, pan.velocity(in: pan.view).x)
         case .cancelled, .failed:
-            onEnd(0, 0)
+            onCancel()
         default:
             break
         }
@@ -179,10 +193,12 @@ private struct HorizontalPan: UIGestureRecognizerRepresentable {
 
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
         var isOpen = false
+        var travelBeforeBegan: CGFloat = 0
 
         func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
             guard let pan = recognizer as? UIPanGestureRecognizer else { return false }
             let velocity = pan.velocity(in: pan.view)
+            travelBeforeBegan = pan.translation(in: pan.view).x
             return abs(velocity.x) > abs(velocity.y) && (isOpen || velocity.x < 0)
         }
     }
