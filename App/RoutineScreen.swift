@@ -37,7 +37,7 @@ struct RoutineScreen: View {
                             RowLabel(title: item.exercise.name, detail: item.exercise.equipmentLine)
                                 .padding(.vertical, Spacing.sm)
                                 .accessibilityIdentifier("routine.exercise")
-                                .swipeToDelete(isOpen: isOpen(item)) {
+                                .swipeToDelete(id: item.id, openRow: $swipedRow) {
                                     exercises.removeAll { $0.id == item.id }
                                 }
                         }
@@ -93,18 +93,6 @@ struct RoutineScreen: View {
             }
         }
         .hotReloadable()
-    }
-
-    private func isOpen(_ item: RoutineExercise) -> Binding<Bool> {
-        Binding {
-            swipedRow == item.id
-        } set: { open in
-            if open {
-                swipedRow = item.id
-            } else if swipedRow == item.id {
-                swipedRow = nil
-            }
-        }
     }
 }
 

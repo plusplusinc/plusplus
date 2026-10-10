@@ -31,7 +31,7 @@ struct ComponentSnapshotTests {
                 ForEach(rows.indices, id: \.self) { index in
                     RowLabel(title: rows[index].title, detail: rows[index].detail)
                         .padding(.vertical, Spacing.sm)
-                        .swipeToDelete(isOpen: .constant(index == openRow)) { }
+                        .swipeToDelete(id: index, openRow: .constant(openRow)) { }
                 }
             } end: {
                 Button("Add exercise", systemImage: "plus") { }
@@ -89,7 +89,7 @@ struct ComponentSnapshotTests {
         assertThemedSnapshots(of: content(rows: rows, openRow: 1), width: Self.screenWidth)
     }
 
-    /// Rows as the exercise picker shows them: no rail, the system list's insets around each.
+    /// Rows as the exercise picker lists them, without a rail. The list itself is the system's.
     @Test("Picker rows: equipment line, two equipment, bodyweight, long name")
     func pickerRows() {
         let rows = VStack(alignment: .leading, spacing: Spacing.md) {

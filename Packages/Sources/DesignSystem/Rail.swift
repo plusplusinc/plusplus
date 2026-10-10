@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// Rows on a rail: each row gets a solid node in the rail column beside its first line, and a
-/// line runs from the first node down to the view at the rail's end, the Add exercise key, whose
-/// icon sits in the same column.
+/// line runs from the first node down to the view at the rail's end, a key with a `plus` icon
+/// in the same column.
 ///
 /// Rows stack with no spacing, so their own padding sets the rhythm.
 public struct Rail<Rows: View, End: View>: View {
@@ -70,11 +70,14 @@ private struct FirstNode: PreferenceKey {
     }
 }
 
+/// The rail column's width at the default text size.
+private let railColumnWidth: CGFloat = 44
+
 extension View {
     /// The rail column: the leading strip where rows put their nodes and a key its icon. At
     /// large text sizes it grows with what it holds, keeping an inset, rather than clipping it.
     func railColumn() -> some View {
-        padding(.horizontal, Spacing.sm).frame(minWidth: 44)
+        padding(.horizontal, Spacing.sm).frame(minWidth: railColumnWidth)
     }
 }
 
