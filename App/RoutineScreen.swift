@@ -63,6 +63,12 @@ struct RoutineScreen: View {
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
+            // A tap anywhere else closes an open row, as the system's swipe actions do, and
+            // still does its own job.
+            .simultaneousGesture(
+                TapGesture().onEnded { withAnimation { swipedRow = nil } },
+                isEnabled: swipedRow != nil,
+            )
             // A shape-style background stops at the keyboard's safe area, which left the
             // window's black behind the keyboard's rounded top corners.
             .background { Color.pp(.background).ignoresSafeArea() }
