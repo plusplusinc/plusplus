@@ -17,23 +17,30 @@ struct ExercisePicker: View {
     var body: some View {
         let exercises = Exercise.builtIn.matching(query)
         NavigationStack {
-            List(exercises) { exercise in
-                Button {
-                    onPick(exercise)
-                } label: {
-                    RowLabel(title: exercise.name, detail: exercise.equipmentLine)
-                }
-                .listRowBackground(Color.pp(.background))
-                .accessibilityIdentifier("picker.exercise")
-            }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
-            .background(Color.pp(.background))
-            .overlay {
+            Group {
                 if exercises.isEmpty {
-                    ContentUnavailableView.search(text: query)
+                    // In a scroll view, which keeps clear of the search field and the keyboard
+                    // and scrolls when the text is too large for the room left. Centered over the
+                    // list, it slid under both at the largest text sizes.
+                    ScrollView {
+                        ContentUnavailableView.search(text: query)
+                    }
+                    .defaultScrollAnchor(.center, for: .alignment)
+                } else {
+                    List(exercises) { exercise in
+                        Button {
+                            onPick(exercise)
+                        } label: {
+                            RowLabel(title: exercise.name, detail: exercise.equipmentLine)
+                        }
+                        .listRowBackground(Color.pp(.background))
+                        .accessibilityIdentifier("picker.exercise")
+                    }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
                 }
             }
+            .background(Color.pp(.background))
             .navigationTitle("Add exercise")
             .navigationBarTitleDisplayMode(.inline)
             .searchable(
