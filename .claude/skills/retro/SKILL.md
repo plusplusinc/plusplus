@@ -15,6 +15,12 @@ Output: a short report, and when there is something to fix, one PR.
   notification. A night with no merge waiting is the common case and stays silent.
 - **One fix per recurring finding.** If the previous retro already fixed it, the fix did not
   work; say that instead of fixing it again.
+- **A fix counts when it is on `main`.** A retro PR still open holds a pending fix, not a made
+  one. Before deferring a finding to its hunk, read that PR's diff and check it still applies to
+  `main` and still says something true: a later merge may have overtaken it, and merging it then
+  reintroduces what that merge fixed. Report every stale hunk, so the maintainer can close the
+  PR rather than merge it. A finding two retros have already deferred to the same open PR gets
+  fixed on `main` instead, and the body names the hunk to drop.
 - **One mistake is noise.** A mistake that happened once is reported, not fixed, unless the
   fix is a deletion. Twice, it gets a check that makes it impossible. The record of past
   findings is the bodies of earlier retro PRs:

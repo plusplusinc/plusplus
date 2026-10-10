@@ -16,7 +16,10 @@ two change code and the rest verify it:
    enough.
 5. For UI changes, a screenshot from `/run` has been looked at.
 
-Steps 1 and 2 are skipped for a diff with no Swift in it.
+Steps 1 and 2 are skipped for a diff with no Swift in it. Run them from the branch's own
+checkout, and name the branch (`/code-review <branch>`): from the main checkout there is no
+branch diff, so the review lands on `main`'s last squash merge and reports findings for a pull
+request that already merged.
 
 Then:
 ```sh
