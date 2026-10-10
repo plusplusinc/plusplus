@@ -11,10 +11,13 @@ import Testing
 struct ComponentSnapshotTests {
     private static let screenWidth: CGFloat = 390
 
-    /// Rows are a name and an optional equipment line. Start shows once there is a row.
+    /// A row's name and its optional equipment line.
+    private typealias Row = (title: String, detail: String?)
+
+    /// Start shows once there is a row.
     private func content(
         name: String = "New routine",
-        rows: [(title: String, detail: String?)] = [],
+        rows: [Row] = [],
         openRow: Int? = nil,
     ) -> some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
@@ -67,7 +70,7 @@ struct ComponentSnapshotTests {
 
     @Test("Several exercises, a bodyweight row among them")
     func severalExercises() {
-        let rows: [(title: String, detail: String?)] = [
+        let rows: [Row] = [
             ("Pull-up", "Pull-up bar"),
             ("Dumbbell bench press", "Dumbbells, bench"),
             ("Push-up", nil),
@@ -79,11 +82,26 @@ struct ComponentSnapshotTests {
 
     @Test("A row swiped open shows Delete beside its name")
     func openRow() {
-        let rows: [(title: String, detail: String?)] = [
+        let rows: [Row] = [
             ("Goblet squat", "Kettlebell"),
             ("Kneeling hip flexor stretch", nil),
         ]
         assertThemedSnapshots(of: content(rows: rows, openRow: 1), width: Self.screenWidth)
+    }
+
+    /// Rows as the exercise picker shows them: no rail, the system list's insets around each.
+    @Test("Picker rows: equipment line, two equipment, bodyweight, long name")
+    func pickerRows() {
+        let rows = VStack(alignment: .leading, spacing: Spacing.md) {
+            RowLabel(title: "Goblet squat", detail: "Kettlebell")
+            RowLabel(title: "Dumbbell bench press", detail: "Dumbbells, bench")
+            RowLabel(title: "Push-up", detail: nil)
+            RowLabel(title: "Cross-body shoulder stretch", detail: nil)
+            RowLabel(title: "Bulgarian split squat", detail: "Dumbbells, bench")
+        }
+        .padding(Spacing.md)
+        .background(Color.pp(.background))
+        assertThemedSnapshots(of: rows, width: Self.screenWidth)
     }
 }
 

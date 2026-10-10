@@ -17,33 +17,25 @@ extension Font {
 }
 
 extension View {
-    /// The screen title: SF Mono, 24pt bold, between `title2` and `title`, scaling as `title2`
-    /// does. Monospaced so its `_` cursor is exactly one character wide.
+    /// The screen title: SF Mono, 24pt bold. Monospaced so its `_` cursor is exactly one character
+    /// wide.
     public func ppScreenTitleFont() -> some View {
-        modifier(ScreenTitleFont())
+        modifier(TitleSizedFont(weight: .bold, design: .monospaced))
     }
-}
 
-extension View {
-    /// The primary key's label: 24pt heavy, between `title2` and `title`, scaling as `title2`
-    /// does.
+    /// The primary key's label: 24pt heavy.
     public func ppPrimaryKeyFont() -> some View {
-        modifier(PrimaryKeyFont())
+        modifier(TitleSizedFont(weight: .heavy, design: .default))
     }
 }
 
-private struct PrimaryKeyFont: ViewModifier {
+/// 24pt, between `title2` and `title`, scaling as `title2` does.
+private struct TitleSizedFont: ViewModifier {
+    let weight: Font.Weight
+    let design: Font.Design
     @ScaledMetric(relativeTo: .title2) private var size: CGFloat = 24
 
     func body(content: Content) -> some View {
-        content.font(.system(size: size, weight: .heavy))
-    }
-}
-
-private struct ScreenTitleFont: ViewModifier {
-    @ScaledMetric(relativeTo: .title2) private var size: CGFloat = 24
-
-    func body(content: Content) -> some View {
-        content.font(.system(size: size, weight: .bold, design: .monospaced))
+        content.font(.system(size: size, weight: weight, design: design))
     }
 }

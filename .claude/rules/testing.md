@@ -31,10 +31,11 @@ What each tier holds today:
   existing test uses. Where the caret is shows in where typing lands, so they read it from the
   field's value; one check reads the drawn `_` from pixels, for the wire from the text system's
   selection to it. `TitleShot.swift` reads the `_` and the title's lines from pixels.
-  Wait with `appears()`, `disappears()`, and `value(becoming:)` from `Waits.swift`: XCTest's
-  own waits spend a second before their first check. Typing, key presses, and taps can return
-  before the app has handled them, so a read after one waits for the state it checks:
-  `value(becoming:)` for the value, and `Ink.withCursor(_:until:)` for where the `_` is.
+  Wait with `appears()`, `disappears()`, `value(becoming:)`, and, for anything else read,
+  `reading(_:becoming:within:)` from `Waits.swift`: XCTest's own waits spend a second before
+  their first check. Typing, key presses, and taps can return before the app has handled them,
+  so a read after one waits for the state it checks: `value(becoming:)` for the value, and
+  `Ink.withCursor(_:until:)` for where the `_` is.
 
 Before adding a test, find whether one already proves the guarantee. If one does, don't add
 another.
