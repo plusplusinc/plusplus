@@ -2,9 +2,10 @@ import SwiftUI
 
 /// Where a row swiped left comes to rest when the finger lifts. A full swipe deletes, and with no
 /// undo it takes real distance, as the system's does: a drag past most of the row, or a fast swipe
-/// that has also gone well past the Delete key. Anything shorter that passes half the key, or is a
-/// fast flick, opens the row to show the key; otherwise it closes. A fling right closes it.
-/// Offsets are how far the swipe has gone, negative to the left.
+/// whose finger has also traveled well past the Delete key's width. Anything shorter that passes
+/// half the key, or is a fast flick, opens the row to show the key; otherwise it closes. A fling
+/// right closes it. `offset` is where the key's leading edge is, starting at the key's width on an
+/// open row, and `travel` how far the finger moved; both negative to the left.
 enum SwipeSettle: Equatable {
     case closed
     case open
@@ -21,6 +22,7 @@ enum SwipeSettle: Equatable {
 
     static func settle(
         offset: CGFloat,
+        travel: CGFloat,
         velocity: CGFloat,
         width: CGFloat,
         keyWidth: CGFloat,
@@ -34,7 +36,7 @@ enum SwipeSettle: Equatable {
         }
         // Speed alone only opens the key: a flick by accident mid-set must not delete.
         if velocity <= -flingSpeed {
-            return distance > keyWidth * 2 ? .delete : .open
+            return -travel > keyWidth * 2 ? .delete : .open
         }
         return distance > keyWidth / 2 ? .open : .closed
     }
@@ -92,7 +94,7 @@ private struct SwipeToDelete: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .accessibilityAction(named: "Delete", onDelete)
+            .accessibilityAction(named: "Delete", delete)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
             .onTapGesture {
@@ -100,6 +102,7 @@ private struct SwipeToDelete: ViewModifier {
                     withAnimation { isOpen = false }
                 }
             }
+            .accessibilityAddTraits(isOpen ? .isButton : [])
             .overlay(alignment: .trailing) { deleteKey }
             .onGeometryChange(for: CGFloat.self, of: \.size.width) { width = $0 }
             #if os(iOS)
@@ -107,7 +110,7 @@ private struct SwipeToDelete: ViewModifier {
                 HorizontalPan(
                     isOpen: isOpen,
                     onChange: { dragOffset = offset(after: $0) },
-                    onEnd: { settle(offset: offset(after: $0), velocity: $1) },
+                    onEnd: { settle(travel: $0, velocity: $1) },
                     onCancel: { withAnimation(.snappy) { dragOffset = nil } },
                 ),
             )
@@ -145,9 +148,10 @@ private struct SwipeToDelete: ViewModifier {
         min(0, restOffset + translation)
     }
 
-    private func settle(offset: CGFloat, velocity: CGFloat) {
+    private func settle(travel: CGFloat, velocity: CGFloat) {
         let rest = SwipeSettle.settle(
-            offset: offset,
+            offset: offset(after: travel),
+            travel: travel,
             velocity: velocity,
             width: width,
             keyWidth: keyWidth,

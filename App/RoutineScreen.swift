@@ -69,6 +69,8 @@ struct RoutineScreen: View {
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $isPicking) {
                 ExercisePicker { exercise in
+                    // A second tap while the sheet goes down would add the exercise again.
+                    guard isPicking else { return }
                     withAnimation {
                         exercises.append(RoutineExercise(exercise: exercise))
                         isPicking = false

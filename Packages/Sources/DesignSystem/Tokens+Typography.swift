@@ -34,8 +34,11 @@ private struct TitleSizedFont: ViewModifier {
     let weight: Font.Weight
     let design: Font.Design
     @ScaledMetric(relativeTo: .title2) private var size: CGFloat = 24
+    @ObserveHotReload private var hotReload
 
     func body(content: Content) -> some View {
-        content.font(.system(size: size, weight: weight, design: design))
+        content
+            .font(.system(size: size, weight: weight, design: design))
+            .hotReloadable()
     }
 }

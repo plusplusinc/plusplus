@@ -4,12 +4,30 @@ import Testing
 
 @Suite("Swipe to delete")
 struct SwipeSettleTests {
+    /// A swipe on a closed row, where the finger's travel is the key's offset.
     private static func settle(
         _ offset: CGFloat,
         velocity: CGFloat = 0,
         keyWidth: CGFloat = 88,
     ) -> SwipeSettle {
-        SwipeSettle.settle(offset: offset, velocity: velocity, width: 300, keyWidth: keyWidth)
+        SwipeSettle.settle(
+            offset: offset,
+            travel: offset,
+            velocity: velocity,
+            width: 300,
+            keyWidth: keyWidth,
+        )
+    }
+
+    /// A swipe on an open row, whose key starts drawn in by its width.
+    private static func settleOpen(travel: CGFloat, velocity: CGFloat) -> SwipeSettle {
+        SwipeSettle.settle(
+            offset: -88 + travel,
+            travel: travel,
+            velocity: velocity,
+            width: 300,
+            keyWidth: 88,
+        )
     }
 
     @Test("A swipe settles closed, open, or deleted")
@@ -27,8 +45,9 @@ struct SwipeSettleTests {
         #expect(Self.settle(0, velocity: -3868) == .open)
         #expect(Self.settle(-30, velocity: -1500) == .open)
         #expect(Self.settle(-170, velocity: -5000) == .open)
-        // From an open row, whose drag starts at the key's width.
-        #expect(Self.settle(-88 - 20, velocity: -3868) == .open)
+        #expect(Self.settleOpen(travel: -20, velocity: -3868) == .open)
+        // The key and the finger together pass twice the key's width; the finger alone does not.
+        #expect(Self.settleOpen(travel: -90, velocity: -1500) == .open)
     }
 
     @Test("A fast swipe well past the key deletes")

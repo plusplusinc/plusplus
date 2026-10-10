@@ -14,11 +14,8 @@ struct ExercisePicker: View {
     @Environment(\.dismiss) private var dismiss
     @ObserveHotReload private var hotReload
 
-    private var exercises: [Exercise] {
-        Exercise.builtIn.matching(query)
-    }
-
     var body: some View {
+        let exercises = Exercise.builtIn.matching(query)
         NavigationStack {
             List(exercises) { exercise in
                 Button {
