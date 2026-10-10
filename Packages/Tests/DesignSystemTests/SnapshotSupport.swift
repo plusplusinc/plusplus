@@ -6,12 +6,14 @@ import SwiftUI
 import Testing
 
 /// Snapshots a view in the three appearances every component must survive: light, dark, and
-/// the largest accessibility content size. The scheme pins the test language so the system
+/// the largest accessibility content size. The test plan pins the language so the system
 /// font's line height, which follows the device's preferred languages, is the same everywhere.
 ///
 /// The width is explicit because `.sizeThatFits` proposes zero width and `Text` truncates to
-/// nothing, producing a silently wrong reference image. Comparison is perceptual so text
-/// rasterization differences between machines do not read as design regressions.
+/// nothing, producing a silently wrong reference image. Every pixel must match, perceptually:
+/// each may differ by a barely visible amount, so text rasterization differences between
+/// machines do not read as design regressions, but none by more. Letting even 1% of pixels
+/// differ freely would let the `_` move a cell, or vanish, unseen.
 ///
 /// References live in `__Snapshots__/<TestFile>` at the test target's root, which is where
 /// recording writes, including a new suite's first recording. When `__Snapshots__` itself is
@@ -45,7 +47,7 @@ func assertThemedSnapshots(
         let failure = verifySnapshot(
             of: view.frame(width: width).fixedSize(horizontal: false, vertical: true),
             as: .image(
-                precision: 0.99,
+                precision: 1,
                 perceptualPrecision: 0.98,
                 layout: .fixed(width: width, height: 0),
                 traits: appearance.traits,

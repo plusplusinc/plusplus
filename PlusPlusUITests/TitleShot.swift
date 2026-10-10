@@ -40,7 +40,7 @@ struct TitleShot {
                     + abs(Int(bytes[index + 2]) - paper[2]) > 60
             }
         }
-        return Ink(shot: self, pixels: pixels, inked: inked)
+        return Ink(shot: self, top: pixels.top, inked: inked)
     }
 
     /// Only the pixels of a rectangle in points, since decoding the whole screen for a strip
@@ -119,14 +119,12 @@ struct Ink {
     let shot: TitleShot
     let lines: [Run]
     let cursor: Run?
-    private let pixels: Pixels
     private let inked: [[Int]]
 
-    fileprivate init(shot: TitleShot, pixels: Pixels, inked: [[Int]]) {
+    /// `top` is how far down the screen the strip starts, in pixels.
+    fileprivate init(shot: TitleShot, top: Int, inked: [[Int]]) {
         self.shot = shot
-        self.pixels = pixels
         self.inked = inked
-        let top = pixels.top
         var runs: [Range<Int>] = []
         var start: Int?
         for (row, columns) in inked.enumerated() {
@@ -161,16 +159,20 @@ struct Ink {
         self.cursor = cursor
     }
 
-    /// The brightest inked pixel's mean channel value within the rows.
-    func brightestInk(in rows: Range<Int>) -> Int? {
-        rows.flatMap { row in
-            inked[row].map { pixels.color($0, row).reduce(0, +) / 3 }
-        }.max()
-    }
-
     /// How many pixels within the rows differ from the background.
     func differingPixels(in rows: Range<Int>) -> Int {
         rows.clamped(to: inked.indices).reduce(0) { $0 + inked[$1].count }
+    }
+
+    /// What is wrong with a `_` that should follow the last character, or nil. The `_` is a cell
+    /// wide, so it starts less than half its width short of where the last line's ink ends.
+    func missAtEnd(_ cursor: Run) -> String? {
+        guard let last = lines.last else { return "No line over the _" }
+        guard cursor.rows.lowerBound >= last.rows.upperBound else {
+            return "The _ is above the last line"
+        }
+        let short = last.columns.upperBound - cursor.columns.lowerBound
+        return short < cursor.columns.count / 2 ? nil : "The _ is \(short) columns short of the end"
     }
 
     /// Reads ink until the `_` is lit where `miss` finds nothing wrong with it. Key presses and
@@ -182,7 +184,7 @@ struct Ink {
         file: StaticString = #filePath,
         line: UInt = #line,
         _ read: () throws -> Self,
-        until miss: (Self, _ cursor: Run) -> String? = { _, _ in nil },
+        until miss: (Self, _ cursor: Run) -> String?,
     ) throws -> Self {
         let deadline = Date.now.addingTimeInterval(twoBlinks)
         var last = "No _ over two blink cycles"
