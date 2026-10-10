@@ -164,6 +164,17 @@ struct Ink {
         rows.clamped(to: inked.indices).reduce(0) { $0 + inked[$1].count }
     }
 
+    /// What is wrong with a `_` that should follow the last character, or nil. The `_` is a cell
+    /// wide, so it starts less than half its width short of where the last line's ink ends.
+    func missAtEnd(_ cursor: Run) -> String? {
+        guard let last = lines.last else { return "No line over the _" }
+        guard cursor.rows.lowerBound >= last.rows.upperBound else {
+            return "The _ is above the last line"
+        }
+        let short = last.columns.upperBound - cursor.columns.lowerBound
+        return short < cursor.columns.count / 2 ? nil : "The _ is \(short) columns short of the end"
+    }
+
     /// Reads ink until the `_` is lit where `miss` finds nothing wrong with it. Key presses and
     /// taps can return before the app has handled them, so a read after one waits for the state
     /// it checks. After two blink cycles it throws with the last miss, or with none if the `_`

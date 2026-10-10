@@ -62,8 +62,13 @@ final nonisolated class RenameUITests: XCTestCase {
             XCTAssertTrue(keyboard.disappears(), "Return should end editing")
             XCTAssertEqual(title.value as? String, "Arm and back")
         }
-        XCTContext.runActivity(named: "Editing a name starts at its end") { _ in
+        try XCTContext.runActivity(named: "Editing a name starts at its end") { _ in
             title.tap()
+            // The app moves the caret to the end after focus lands, which can come after typing
+            // sent at once.
+            _ = try Ink.withCursor { try read(field) } until: { ink, cursor in
+                ink.missAtEnd(cursor)
+            }
             title.typeText(" day")
             XCTAssertEqual(title.value(becoming: "Arm and back day"), "Arm and back day")
         }
