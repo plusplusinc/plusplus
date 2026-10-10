@@ -50,6 +50,13 @@ struct SwipeSettleTests {
         #expect(Self.settleOpen(travel: -90, velocity: -1500) == .open)
     }
 
+    @Test("A drag right on an open row closes it, however short or slow")
+    func dragRightCloses() {
+        #expect(Self.settleOpen(travel: 20, velocity: 0) == .closed)
+        #expect(Self.settleOpen(travel: 40, velocity: 150) == .closed)
+        #expect(Self.settleOpen(travel: 100, velocity: 300) == .closed)
+    }
+
     @Test("A fast swipe well past the key deletes")
     func fastSwipeDeletes() {
         #expect(Self.settle(-177, velocity: -1500) == .delete)

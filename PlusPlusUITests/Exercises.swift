@@ -7,6 +7,14 @@ extension XCUIApplication {
         descendants(matching: .any).matching(identifier: "routine.exercise")
     }
 
+    /// The bottom row. Deleting it moves only Add exercise, so the rows above are where their
+    /// frames say at once. Accessibility frames are where rows end up, not where they are drawn
+    /// mid-animation, so a swipe on the first row just after the one above went could land on
+    /// Add exercise as it rose, and open the picker.
+    var lastExerciseRow: XCUIElement {
+        exerciseRows.element(boundBy: exerciseRows.count - 1)
+    }
+
     var pickerRows: XCUIElementQuery {
         buttons.matching(identifier: "picker.exercise")
     }
@@ -48,10 +56,16 @@ extension XCUIApplication {
 extension XCUIElement {
     /// Drags left from near the trailing edge, `distance` points at `velocity`, and lifts.
     func dragLeft(by distance: CGFloat, velocity: XCUIGestureVelocity) {
-        let start = coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5))
+        drag(by: -distance, from: 0.9, velocity: velocity)
+    }
+
+    /// Drags `distance` points across, rightward when positive, from `start` of the way along
+    /// the element's width at its middle height, at `velocity`, and lifts.
+    func drag(by distance: CGFloat, from start: CGFloat, velocity: XCUIGestureVelocity) {
+        let start = coordinate(withNormalizedOffset: CGVector(dx: start, dy: 0.5))
         start.press(
             forDuration: 0.05,
-            thenDragTo: start.withOffset(CGVector(dx: -distance, dy: 0)),
+            thenDragTo: start.withOffset(CGVector(dx: distance, dy: 0)),
             withVelocity: velocity,
             thenHoldForDuration: 0,
         )

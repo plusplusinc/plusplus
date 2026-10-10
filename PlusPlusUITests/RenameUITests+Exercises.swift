@@ -79,6 +79,15 @@ extension RenameUITests {
             XCTAssertEqual(app.exerciseCount(becoming: 6), 6)
             XCTAssertTrue(delete.disappears())
         }
+        XCTContext.runActivity(named: "A drag right that starts on Delete closes the row") { _ in
+            app.exerciseRows.element(boundBy: 0).dragLeft(by: 100, velocity: .slow)
+            XCTAssertTrue(delete.appears(), "A slow drag did not open the row")
+            // It lifts still over the key, where a tap would delete.
+            delete.drag(by: 50, from: 0.2, velocity: 150)
+            XCTAssertTrue(delete.disappears(), "Dragging right from Delete left the row open")
+            let count = app.exerciseCount(becoming: 5, within: 1)
+            XCTAssertEqual(count, 6, "Dragging right from Delete deleted the row")
+        }
         XCTContext.runActivity(named: "A short fast flick opens a row, never deletes it") { _ in
             let row = app.exerciseRows.element(boundBy: 0)
             row.dragLeft(by: 60, velocity: 4000)
@@ -90,12 +99,12 @@ extension RenameUITests {
             XCTAssertTrue(delete.disappears(), "Tapping an open row did not close it")
         }
         XCTContext.runActivity(named: "A long fast swipe deletes without the tap") { _ in
-            app.exerciseRows.element(boundBy: 0).dragLeft(by: 250, velocity: 1500)
+            app.lastExerciseRow.dragLeft(by: 250, velocity: 1500)
             XCTAssertEqual(app.exerciseCount(becoming: 5), 5, "A long swipe did not delete the row")
         }
         XCTContext.runActivity(named: "Deleting the last row takes Start away") { _ in
             for left in (0 ..< 5).reversed() {
-                app.exerciseRows.element(boundBy: 0).dragLeft(by: 250, velocity: 1500)
+                app.lastExerciseRow.dragLeft(by: 250, velocity: 1500)
                 XCTAssertEqual(app.exerciseCount(becoming: left), left)
             }
             XCTAssertTrue(app.buttons["Start"].disappears(), "Start stayed with no exercises")
