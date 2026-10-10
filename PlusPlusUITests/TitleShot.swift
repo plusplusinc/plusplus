@@ -170,6 +170,8 @@ struct Ink {
     /// never lit.
     @MainActor
     static func withCursor(
+        file: StaticString = #filePath,
+        line: UInt = #line,
         _ read: () throws -> Self,
         until miss: (Self, _ cursor: Run) -> String?,
     ) throws -> Self {
@@ -181,7 +183,7 @@ struct Ink {
             guard let wrong = miss(ink, cursor) else { return ink }
             last = wrong
         }
-        return try XCTUnwrap(nil as Self?, last)
+        return try XCTUnwrap(nil as Self?, last, file: file, line: line)
     }
 }
 

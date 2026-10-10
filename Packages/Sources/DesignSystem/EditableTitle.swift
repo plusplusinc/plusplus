@@ -185,6 +185,7 @@ private struct TitleFieldBehavior: ViewModifier {
     let isEditing: FocusState<Bool>.Binding
     @Binding var draft: String
     let caret: Caret
+    @ObserveHotReload private var hotReload
 
     func body(content: Content) -> some View {
         content
@@ -212,6 +213,7 @@ private struct TitleFieldBehavior: ViewModifier {
                     caret.selection = TextSelection(insertionPoint: draft.endIndex)
                 }
             }
+            .hotReloadable()
     }
 }
 

@@ -14,8 +14,6 @@ final nonisolated class RenameUITests: XCTestCase {
     /// while the keyboard's element reports its final frame from the start. Whether the title
     /// moved shows only by watching it for longer than that.
     private static let keyboardAvoidanceWindow: TimeInterval = 2
-    /// The title the app launches with, whose width at rest gives a character's.
-    private static let defaultName = "New routine"
 
     @MainActor
     func testRenameAtDefaultSize() throws {
@@ -30,6 +28,8 @@ final nonisolated class RenameUITests: XCTestCase {
         let field = title.frame
         let button = addExercise.frame
 
+        // The default's width at rest gives a character's.
+        let defaultName = try XCTUnwrap(title.value as? String)
         let restText = try startEditing(
             title,
             keyboard: keyboard,
@@ -47,7 +47,7 @@ final nonisolated class RenameUITests: XCTestCase {
         let afterTyping = try XCTContext.runActivity(
             named: "The _ follows the caret the text system moved",
         ) { _ in
-            let cell = Double(restText.columns.count) / Double(Self.defaultName.count)
+            let cell = Double(restText.columns.count) / Double(defaultName.count)
             return try typeInTheMiddle(of: title, in: field, cell: cell)
         }
         XCTContext.runActivity(named: "A tap places the caret at its word") { _ in
@@ -179,7 +179,17 @@ final nonisolated class RenameUITests: XCTestCase {
             highlight,
             "No selection highlight",
         )
+        // Return over a range that has not collapsed yet would replace it.
         title.typeKey(.rightArrow, modifierFlags: [])
+        let collapsed = Date.now.addingTimeInterval(Ink.twoBlinks)
+        while selected.differingPixels(in: line) > highlight, Date.now < collapsed {
+            selected = try read(field)
+        }
+        XCTAssertLessThanOrEqual(
+            selected.differingPixels(in: line),
+            highlight,
+            "The range did not collapse",
+        )
     }
 
     /// No hard edge or band at the keyboard's top corners: just outside its rounded glass, the
