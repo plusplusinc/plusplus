@@ -3,9 +3,9 @@ import SwiftUI
 /// Where a row swiped left comes to rest when the finger lifts. A full swipe deletes, and with no
 /// undo it takes real distance, as the system's does: a drag past most of the row, or a fast swipe
 /// whose finger has also traveled well past the Delete key's width. Anything shorter that passes
-/// half the key, or is a fast flick, opens the row to show the key; otherwise it closes. A fling
-/// right closes it. `offset` is where the key's leading edge is, starting at the key's width on an
-/// open row, and `travel` how far the finger moved; both negative to the left.
+/// half the key, or is a fast flick, opens the row to show the key; otherwise it closes. Any drag
+/// right closes it. `offset` is where the key's leading edge is, starting at the key's width on
+/// an open row, and `travel` how far the finger moved; both negative to the left.
 enum SwipeSettle: Equatable {
     case closed
     case open
@@ -28,7 +28,8 @@ enum SwipeSettle: Equatable {
         keyWidth: CGFloat,
     ) -> Self {
         let distance = -offset
-        if velocity >= flingSpeed {
+        // Back toward where it came from, at any speed: only an open row can be dragged right.
+        if travel > 0 || velocity >= flingSpeed {
             return .closed
         }
         if distance > deleteDistance(width: width, keyWidth: keyWidth) {
@@ -122,23 +123,32 @@ private struct SwipeToDelete: ViewModifier {
     @ViewBuilder private var deleteKey: some View {
         if offset < 0 {
             let shape = RoundedRectangle(cornerRadius: Radius.key)
-            Button(role: .destructive, action: delete) {
-                // At its natural size, from the key's leading edge, so it slides in with the
-                // key rather than shrinking to fit.
-                Text("Delete")
-                    .font(.ppButton)
-                    .foregroundStyle(.pp(.textPrimary))
-                    .fixedSize()
-                    .padding(.leading, Spacing.md)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-            }
-            .buttonStyle(.plain)
-            // The key's leading edge follows the finger.
-            .frame(width: -offset)
-            .background(.pp(.destructive), in: shape)
-            .clipShape(shape)
-            .padding(.vertical, Spacing.xs)
-            .accessibilityHidden(!isOpen)
+            // At its natural size, from the key's leading edge, so it slides in with the key
+            // rather than shrinking to fit.
+            Text("Delete")
+                .font(.ppButton)
+                .foregroundStyle(.pp(.textPrimary))
+                .fixedSize()
+                .padding(.leading, Spacing.md)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                // The key's leading edge follows the finger.
+                .frame(width: -offset)
+                .background(.pp(.destructive), in: shape)
+                .clipShape(shape)
+                .contentShape(shape)
+                // A UIKit tap, not a Button: a button keeps its touch from touch-down to lift,
+                // however far the finger goes, and holds it against the row's pan, so a drag
+                // right that began on the key never moved it and deleted on lift. A SwiftUI tap
+                // held some drags the same way. A UIKit tap fails once the finger moves a few
+                // points, and the pan takes the drag.
+                #if os(iOS)
+                .gesture(StillTap(action: delete))
+                #endif
+                .accessibilityRepresentation {
+                    Button("Delete", role: .destructive, action: delete)
+                }
+                .padding(.vertical, Spacing.xs)
+                .accessibilityHidden(!isOpen)
         }
     }
 
@@ -197,11 +207,11 @@ private struct HorizontalPan: UIGestureRecognizerRepresentable {
         context.coordinator.isOpen = isOpen
     }
 
-    /// Reports how far the finger has moved since it touched down. The pan zeroes its translation
-    /// as it begins, dropping the travel it took to recognize the drag: all of a quick flick's,
-    /// whose every touch can arrive before it begins.
+    /// Reports how far the finger has moved across the screen since it touched down, rather than
+    /// the pan's translation, which counts from when the pan began. A pan held back behind other
+    /// gestures can begin late, after much or all of a quick swipe's travel.
     func handleUIGestureRecognizerAction(_ pan: UIPanGestureRecognizer, context: Context) {
-        let translation = context.coordinator.travelBeforeBegan + pan.translation(in: pan.view).x
+        let translation = pan.location(in: nil).x - context.coordinator.touchDownX
         switch pan.state {
         case .began, .changed:
             onChange(translation)
@@ -216,13 +226,34 @@ private struct HorizontalPan: UIGestureRecognizerRepresentable {
 
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
         var isOpen = false
-        var travelBeforeBegan: CGFloat = 0
+        /// Where the finger touched down, in the window.
+        var touchDownX: CGFloat = 0
+
+        func gestureRecognizer(_: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            touchDownX = touch.location(in: nil).x
+            return true
+        }
 
         func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
             guard let pan = recognizer as? UIPanGestureRecognizer else { return false }
             let velocity = pan.velocity(in: pan.view)
-            travelBeforeBegan = pan.translation(in: pan.view).x
             return abs(velocity.x) > abs(velocity.y) && (isOpen || velocity.x < 0)
+        }
+    }
+}
+
+/// A tap that fails as soon as the finger moves more than a few points, so a drag that starts on
+/// the view goes to a pan around it.
+private struct StillTap: UIGestureRecognizerRepresentable {
+    let action: () -> Void
+
+    func makeUIGestureRecognizer(context _: Context) -> UITapGestureRecognizer {
+        UITapGestureRecognizer()
+    }
+
+    func handleUIGestureRecognizerAction(_ tap: UITapGestureRecognizer, context _: Context) {
+        if tap.state == .ended {
+            action()
         }
     }
 }
