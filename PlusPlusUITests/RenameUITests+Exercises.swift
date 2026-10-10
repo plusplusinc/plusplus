@@ -9,8 +9,7 @@ extension RenameUITests {
         let search = app.searchFields.firstMatch
         XCTContext.runActivity(named: "Add exercise opens the picker") { _ in
             XCTAssertFalse(app.buttons["Start"].exists, "Start shows with no exercises")
-            app.buttons["Add exercise"].tap()
-            XCTAssertTrue(search.appears(within: 1), "The picker took over a second to open")
+            _ = app.openPicker()
             XCTAssertFalse(keyboard.exists, "Search took focus when the picker opened")
             XCTAssertEqual(app.pickerRows.firstMatch.label, "Balance board hold, Balance board")
         }
@@ -20,8 +19,7 @@ extension RenameUITests {
             let curls = ["Biceps curl, Dumbbells", "Hammer curl, Dumbbells"]
             XCTAssertTrue(app.pickerRows[curls[0]].appears())
             XCTAssertEqual(app.pickerRows.allElementsBoundByIndex.map(\.label), curls)
-            search.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 4) + "zzz")
-            XCTAssertTrue(app.staticTexts["No Results for \u{201C}zzz\u{201D}"].appears())
+            app.searchForNothing(replacing: "curl", in: search)
             XCTAssertEqual(app.pickerRows.count, 0)
             attach(named: "picker-no-results")
             // While searching, the first Close ends the search; the next closes the sheet.

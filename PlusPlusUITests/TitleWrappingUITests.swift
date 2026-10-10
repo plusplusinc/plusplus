@@ -68,9 +68,7 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             XCTAssertTrue(app.buttons["Start"].appears())
             attach(named: "rail-ax5")
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
-            addExercise.tap()
-            let search = app.searchFields.firstMatch
-            XCTAssertTrue(search.appears())
+            let search = app.openPicker()
             attach(named: "picker-ax5")
             // Audited in use: at rest, the system search bar reports that it cannot scale, with
             // no element named, though it draws at this size, as the screenshot shows.
@@ -78,8 +76,7 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             search.typeText("curl")
             XCTAssertTrue(app.pickerRows["Biceps curl, Dumbbells"].appears())
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
-            search.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 4) + "zzz")
-            XCTAssertTrue(app.staticTexts["No Results for \u{201C}zzz\u{201D}"].appears())
+            app.searchForNothing(replacing: "curl", in: search)
             attach(named: "picker-no-results-ax5")
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
         }

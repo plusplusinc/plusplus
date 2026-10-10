@@ -46,9 +46,23 @@ extension View {
     /// its leading edge, so sliding it would hide the name, and whatever sits beside it, such as
     /// a rail's node, stays on the rail. VoiceOver gets Delete as an action on the row instead.
     ///
-    /// `isOpen` is a binding so a list can keep one row open at a time.
-    public func swipeToDelete(isOpen: Binding<Bool>, onDelete: @escaping () -> Void) -> some View {
-        modifier(SwipeToDelete(isOpen: isOpen, onDelete: onDelete))
+    /// `openRow` is which of a list's rows is open, by `id`, so the list keeps one open at a
+    /// time and can close it.
+    public func swipeToDelete<ID: Hashable>(
+        id: ID,
+        openRow: Binding<ID?>,
+        onDelete: @escaping () -> Void,
+    ) -> some View {
+        let isOpen = Binding {
+            openRow.wrappedValue == id
+        } set: { open in
+            if open {
+                openRow.wrappedValue = id
+            } else if openRow.wrappedValue == id {
+                openRow.wrappedValue = nil
+            }
+        }
+        return modifier(SwipeToDelete(isOpen: isOpen, onDelete: onDelete))
     }
 }
 
@@ -63,8 +77,13 @@ private struct SwipeToDelete: ViewModifier {
     @ScaledMetric(relativeTo: .body) private var keyWidth: CGFloat = 88
     @ObserveHotReload private var hotReload
 
+    /// Where the key's leading edge rests: drawn in by its width when the row is open.
+    private var restOffset: CGFloat {
+        isOpen ? -keyWidth : 0
+    }
+
     private var offset: CGFloat {
-        dragOffset ?? (isOpen ? -keyWidth : 0)
+        dragOffset ?? restOffset
     }
 
     private var pastDelete: Bool {
@@ -123,7 +142,7 @@ private struct SwipeToDelete: ViewModifier {
     /// Where the key's leading edge is after the finger has moved `translation` from where the
     /// drag began: never right of the row's trailing edge.
     private func offset(after translation: CGFloat) -> CGFloat {
-        min(0, (isOpen ? -keyWidth : 0) + translation)
+        min(0, restOffset + translation)
     }
 
     private func settle(offset: CGFloat, velocity: CGFloat) {
@@ -206,10 +225,10 @@ private struct HorizontalPan: UIGestureRecognizerRepresentable {
 #endif
 
 #Preview {
-    @Previewable @State var isOpen = true
+    @Previewable @State var openRow: Int? = 0
     RowLabel(title: "Goblet squat", detail: "Kettlebell")
         .padding(.vertical, Spacing.sm)
-        .swipeToDelete(isOpen: $isOpen) { }
+        .swipeToDelete(id: 0, openRow: $openRow) { }
         .padding()
         .background(Color.pp(.background))
 }

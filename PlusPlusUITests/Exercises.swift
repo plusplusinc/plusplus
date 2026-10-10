@@ -11,12 +11,18 @@ extension XCUIApplication {
         buttons.matching(identifier: "picker.exercise")
     }
 
-    /// Opens the picker, checking that it is up within a second, and picks the row labeled
-    /// `label`, searching for `query` first when the row is not in the first screenful.
-    func addExercise(_ label: String, searching query: String? = nil) {
+    /// Opens the picker, checking that it is up within a second, and returns its search field.
+    func openPicker() -> XCUIElement {
         buttons["Add exercise"].tap()
         let search = searchFields.firstMatch
         XCTAssertTrue(search.appears(within: 1), "The picker took over a second to open")
+        return search
+    }
+
+    /// Opens the picker and picks the row labeled `label`, searching for `query` first when the
+    /// row is not in the first screenful.
+    func addExercise(_ label: String, searching query: String? = nil) {
+        let search = openPicker()
         if let query {
             search.tap()
             search.typeText(query)
@@ -26,6 +32,14 @@ extension XCUIApplication {
     }
 
     /// The exercise rows' count once it is `expected`, or the last count after the timeout.
+    /// Replaces the search `query` in `search` with one nothing matches, and checks that the
+    /// empty state shows.
+    func searchForNothing(replacing query: String, in search: XCUIElement) {
+        let delete = XCUIKeyboardKey.delete.rawValue
+        search.typeText(String(repeating: delete, count: query.count) + "zzz")
+        XCTAssertTrue(staticTexts["No Results for \u{201C}zzz\u{201D}"].appears())
+    }
+
     func exerciseCount(becoming expected: Int, within timeout: TimeInterval = 2) -> Int {
         reading(exerciseRows.count, becoming: expected, within: timeout)
     }
