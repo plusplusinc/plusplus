@@ -14,6 +14,8 @@ final nonisolated class RenameUITests: XCTestCase {
     /// while the keyboard's element reports its final frame from the start. Whether the title
     /// moved shows only by watching it for longer than that.
     private static let keyboardAvoidanceWindow: TimeInterval = 2
+    /// The title the app launches with, whose width at rest gives a character's.
+    private static let defaultName = "New routine"
 
     @MainActor
     func testRenameAtDefaultSize() throws {
@@ -45,7 +47,8 @@ final nonisolated class RenameUITests: XCTestCase {
         let afterTyping = try XCTContext.runActivity(
             named: "The _ follows the caret the text system moved",
         ) { _ in
-            try typeInTheMiddle(of: title, in: field, cell: Double(restText.columns.count) / 11)
+            let cell = Double(restText.columns.count) / Double(Self.defaultName.count)
+            return try typeInTheMiddle(of: title, in: field, cell: cell)
         }
         XCTContext.runActivity(named: "A tap places the caret at its word") { _ in
             tapStartOfAnd(in: title, at: field, after: afterTyping)

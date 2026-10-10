@@ -40,7 +40,7 @@ struct TitleShot {
                     + abs(Int(bytes[index + 2]) - paper[2]) > 60
             }
         }
-        return Ink(shot: self, pixels: pixels, inked: inked)
+        return Ink(shot: self, top: pixels.top, inked: inked)
     }
 
     /// Only the pixels of a rectangle in points, since decoding the whole screen for a strip
@@ -121,10 +121,10 @@ struct Ink {
     let cursor: Run?
     private let inked: [[Int]]
 
-    fileprivate init(shot: TitleShot, pixels: Pixels, inked: [[Int]]) {
+    /// `top` is how far down the screen the strip starts, in pixels.
+    fileprivate init(shot: TitleShot, top: Int, inked: [[Int]]) {
         self.shot = shot
         self.inked = inked
-        let top = pixels.top
         var runs: [Range<Int>] = []
         var start: Int?
         for (row, columns) in inked.enumerated() {
@@ -170,10 +170,8 @@ struct Ink {
     /// never lit.
     @MainActor
     static func withCursor(
-        file: StaticString = #filePath,
-        line: UInt = #line,
         _ read: () throws -> Self,
-        until miss: (Self, _ cursor: Run) -> String? = { _, _ in nil },
+        until miss: (Self, _ cursor: Run) -> String?,
     ) throws -> Self {
         let deadline = Date.now.addingTimeInterval(twoBlinks)
         var last = "No _ over two blink cycles"
@@ -183,7 +181,7 @@ struct Ink {
             guard let wrong = miss(ink, cursor) else { return ink }
             last = wrong
         }
-        return try XCTUnwrap(nil as Self?, last, file: file, line: line)
+        return try XCTUnwrap(nil as Self?, last)
     }
 }
 

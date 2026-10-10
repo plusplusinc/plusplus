@@ -15,14 +15,14 @@ struct EditableTitleSnapshotTests {
     /// The title being edited with `draft` in the field and the caret before the character at
     /// `caret`, or the end when it is nil.
     private func editing(_ draft: String, caret offset: Int? = nil) -> some View {
-        let caret = Caret()
         let index = offset.map { draft.index(draft.startIndex, offsetBy: $0) } ?? draft.endIndex
-        caret.selection = TextSelection(insertionPoint: index)
-        return editing(draft, caret: caret)
+        return editing(draft, selection: TextSelection(insertionPoint: index))
     }
 
-    private func editing(_ draft: String, caret: Caret) -> some View {
-        EditableTitleContent(
+    private func editing(_ draft: String, selection: TextSelection) -> some View {
+        let caret = Caret()
+        caret.selection = selection
+        return EditableTitleContent(
             draft: .constant(draft),
             caret: caret,
             selection: .constant(caret.selection),
@@ -67,14 +67,14 @@ struct EditableTitleSnapshotTests {
     @Test("A range selection draws no _")
     func rangeSelection() {
         let draft = "Arm and back"
-        let caret = Caret()
-        caret.selection = TextSelection(
-            range: draft.index(draft.startIndex, offsetBy: 4) ..< draft.index(
-                draft.startIndex,
-                offsetBy: 7,
-            ),
+        let and = draft.index(draft.startIndex, offsetBy: 4) ..< draft.index(
+            draft.startIndex,
+            offsetBy: 7,
         )
-        assertThemedSnapshots(of: editing(draft, caret: caret), width: Self.screenWidth)
+        assertThemedSnapshots(
+            of: editing(draft, selection: TextSelection(range: and)),
+            width: Self.screenWidth,
+        )
     }
 }
 
