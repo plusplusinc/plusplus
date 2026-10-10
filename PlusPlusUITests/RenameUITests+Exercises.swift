@@ -88,6 +88,26 @@ extension RenameUITests {
             let count = app.exerciseCount(becoming: 5, within: 1)
             XCTAssertEqual(count, 6, "Dragging right from Delete deleted the row")
         }
+        XCTContext.runActivity(named: "A tap anywhere else closes an open row") { _ in
+            let open = { app.exerciseRows.element(boundBy: 0).dragLeft(by: 100, velocity: .slow) }
+            open()
+            XCTAssertTrue(delete.appears(), "A slow drag did not open the row")
+            let addExercise = app.buttons["Add exercise"]
+            addExercise.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 1))
+                .withOffset(CGVector(dx: 0, dy: 40)).tap()
+            XCTAssertTrue(delete.disappears(), "A tap on empty screen left the row open")
+            open()
+            XCTAssertTrue(delete.appears())
+            app.exerciseRows.element(boundBy: 1).tap()
+            XCTAssertTrue(delete.disappears(), "A tap on another row left the row open")
+            open()
+            XCTAssertTrue(delete.appears())
+            _ = app.openPicker()
+            app.buttons["Close"].firstMatch.tap()
+            XCTAssertTrue(app.searchFields.firstMatch.disappears())
+            XCTAssertFalse(delete.exists, "Add exercise left the row open")
+            XCTAssertEqual(app.exerciseRows.count, 6, "A tap outside the row deleted something")
+        }
         XCTContext.runActivity(named: "A short fast flick opens a row, never deletes it") { _ in
             let row = app.exerciseRows.element(boundBy: 0)
             row.dragLeft(by: 60, velocity: 4000)
