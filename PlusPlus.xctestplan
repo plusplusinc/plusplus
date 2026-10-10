@@ -1,0 +1,40 @@
+{
+  "configurations" : [
+    {
+      "id" : "AF3BA263-0412-4423-A676-B2AB259C572E",
+      "name" : "Default",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "diagnosticCollectionPolicy" : "Never",
+    "language" : "en",
+    "region" : "US"
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:Packages",
+        "identifier" : "WorkoutStoreTests",
+        "name" : "WorkoutStoreTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:Packages",
+        "identifier" : "DesignSystemTests",
+        "name" : "DesignSystemTests"
+      }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:PlusPlus.xcodeproj",
+        "identifier" : "8B7F246030770B2700389AC8",
+        "name" : "PlusPlusUITests"
+      }
+    }
+  ],
+  "version" : 1
+}

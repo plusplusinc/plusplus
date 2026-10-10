@@ -21,9 +21,7 @@ case "$MODE" in
         only=()
         [ -n "$ONLY" ] && only=(-only-testing:"$ONLY")
         status=0
-        # On any failure xcodebuild otherwise runs `simctl diagnose`, which sits until its
-        # 600-second timeout. The result bundle already holds what a failure needs.
-        run_xcodebuild test test -collect-test-diagnostics never ${only[@]+"${only[@]}"} || status=$?
+        run_xcodebuild test test ${only[@]+"${only[@]}"} || status=$?
         # The summary also fails a run that executed no tests; xcodebuild's own failure wins.
         if ! xcresult tests "$RESULTS/test.xcresult" && [ "$status" -eq 0 ]; then status=1; fi
         [ "$status" -eq 0 ] || exit "$status"
