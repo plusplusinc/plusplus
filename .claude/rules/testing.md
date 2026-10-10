@@ -42,9 +42,12 @@ another.
   `xxxl` is `accessibilityExtraExtraExtraLarge`). Every pixel must match within perceptual
   0.98: a looser pixel share lets a `_` move a cell or vanish unseen. Do not call `assertSnapshot`
   directly. Re-record by deleting a suite's files, or its whole folder, under `__Snapshots__/`.
-- The scheme's test action pins the app language to English (US). UIKit sizes the system font's
-  line height to fit the fallback fonts for the device's preferred languages, and Xcode Cloud's
-  simulators list 34 of them, so unpinned text lays out taller there. Keep that setting.
+- The scheme's test plan, `PlusPlus.xctestplan`, holds two settings to keep, and it is the only
+  place Xcode Cloud reads them from. It pins the app language to English (US): UIKit sizes the
+  system font's line height to fit the fallback fonts for the device's preferred languages, and
+  Xcode Cloud's simulators list 34 of them, so unpinned text lays out taller there. Its
+  `diagnosticCollectionPolicy` is `Never`: otherwise every failing run ends with `simctl
+  diagnose`, which waits out its whole 600 s timeout on a simulator.
 - Display name on the attribute, stable identifier on the function:
   `@Test("An in-memory container round-trips a model") func inMemoryRoundTrip()`. The
   formatter is configured to keep it that way (see `.swiftformat`).

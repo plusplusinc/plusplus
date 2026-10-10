@@ -6,8 +6,8 @@
 #   scripts/test.sh sim WorkoutStoreTests/WorkoutStoreContainerTests   # -only-testing filter
 #
 # The package declares a macOS platform so its tests run with `swift test` and no simulator.
-# Tests that need UIKit are compiled out there and run in the simulator tier, whose scheme
-# includes the package test targets, so `sim` is a superset of `fast`.
+# Tests that need UIKit are compiled out there and run in the simulator tier, whose test
+# plan includes the package test targets, so `sim` is a superset of `fast`.
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
 MODE="${1:-fast}"
@@ -21,9 +21,7 @@ case "$MODE" in
         only=()
         [ -n "$ONLY" ] && only=(-only-testing:"$ONLY")
         status=0
-        # On any failure xcodebuild otherwise runs `simctl diagnose`, which sits until its
-        # 600-second timeout. The result bundle already holds what a failure needs.
-        run_xcodebuild test test -collect-test-diagnostics never ${only[@]+"${only[@]}"} || status=$?
+        run_xcodebuild test test ${only[@]+"${only[@]}"} || status=$?
         # The summary also fails a run that executed no tests; xcodebuild's own failure wins.
         if ! xcresult tests "$RESULTS/test.xcresult" && [ "$status" -eq 0 ]; then status=1; fi
         [ "$status" -eq 0 ] || exit "$status"
