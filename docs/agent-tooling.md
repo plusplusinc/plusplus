@@ -49,8 +49,9 @@ SwiftData and CloudKit constraints, testing.
 
 Not configured: [XcodeBuildMCP](https://github.com/getsentry/XcodeBuildMCP). It was assessed
 and rejected: it duplicates the scripts for the agent only, needs Node, and costs about sixty
-tools of context. When the first tappable control lands, the tap-and-describe layer is
-[AXe](https://github.com/cameroncooke/AXe), added to the `Brewfile` in that PR.
+tools of context. The tap-and-describe layer is [AXe](https://github.com/cameroncooke/AXe),
+installed by hand on the maintainer's Mac; it is not in the `Brewfile`, so `brew bundle` does
+not get it, and `/run` records what it is good for and where it is unreliable.
 
 ## Plugins
 

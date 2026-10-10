@@ -55,10 +55,14 @@ What to check in the light, dark, and XXXL images before declaring UI work done:
   the simulator. A session that ended in dark mode makes the next `run.sh` screenshot dark.
   Use `shots`, or `reset` when finished.
 - The default content size is `large`, not `medium`.
-- There is no tap layer. The app has no controls yet; when one lands, AXe joins the `Brewfile`
-  for tapping and reading the accessibility tree (see `docs/agent-tooling.md`), and end-to-end
-  checks belong in an XCUITest target in the `sim` test tier, not in `sim.sh`.
-- `log` is empty today: the placeholder creates no store and logs nothing. Errors reading
+- `sim.sh` has no tap layer. Taps and the accessibility tree come from
+  [AXe](https://github.com/cameroncooke/AXe) (`axe touch`, `axe type`, `axe describe-ui`), which
+  is on the maintainer's Mac but not in the `Brewfile`. Use it for a one-off tap or to read a
+  frame. Anything multi-step, or that has to come out the same twice, belongs in a
+  `PlusPlusUITests` test: `axe tap` does not always focus where `axe touch --down --up` does, a
+  capital letter in `axe type` can leave Shift held, a bare `axe key` press is dropped unless
+  held with `--duration`, and `key-combo` drops intermittently.
+- `log` is empty today: the screen creates no store, and nothing else logs. Errors reading
   "Connection interrupted" timestamped at a simulator shutdown are the app losing its XPC
   connections, not a bug.
 - Only the iOS app exists. watchOS is in the plan and the package platforms, but there is no
