@@ -20,8 +20,7 @@ before any build action.
 **PR**: start on pull request to `main`. Actions: Build and Test, scheme `PlusPlus`, iOS
 simulator iPhone 17, using the scheme's settings. The scheme's test plan, `PlusPlus.xctestplan`,
 includes the package test targets, so this covers storage, snapshot, and UI tests in one run.
-The plan is also where a run's test options live, since Xcode Cloud passes no
-`xcodebuild` flags from the repo. Post-actions: none.
+Post-actions: none.
 
 **Release**: start on a tag beginning with `v`. Actions: Archive, iOS, with distribution to
 TestFlight internal testing. Post-actions: TestFlight Internal Testing, group `Internal`. The post-action is

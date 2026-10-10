@@ -6,8 +6,8 @@
 #   scripts/test.sh sim WorkoutStoreTests/WorkoutStoreContainerTests   # -only-testing filter
 #
 # The package declares a macOS platform so its tests run with `swift test` and no simulator.
-# Tests that need UIKit are compiled out there and run in the simulator tier, whose scheme
-# includes the package test targets, so `sim` is a superset of `fast`.
+# Tests that need UIKit are compiled out there and run in the simulator tier, whose test
+# plan includes the package test targets, so `sim` is a superset of `fast`.
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
 MODE="${1:-fast}"
