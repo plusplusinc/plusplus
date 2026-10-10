@@ -30,7 +30,7 @@ struct ComponentSnapshotTests {
             Rail {
                 ForEach(rows.indices, id: \.self) { index in
                     RowLabel(title: rows[index].title, detail: rows[index].detail)
-                        .padding(.vertical, Spacing.sm)
+                        .railRow()
                         .swipeToDelete(id: index, openRow: .constant(openRow)) { }
                 }
             } end: {

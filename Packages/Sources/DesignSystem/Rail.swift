@@ -4,13 +4,16 @@ import SwiftUI
 /// line runs from the first node down to the view at the rail's end, a key with a `plus` icon
 /// in the same column.
 ///
-/// Rows stack with no spacing, so their own padding sets the rhythm.
+/// Rows stack with no spacing; each sets its own height with `railRow()`, so nodes fall at an
+/// even rhythm whether a row has one line or two.
 public struct Rail<Rows: View, End: View>: View {
     private let rows: Rows
     private let end: End
 
     @ScaledMetric(relativeTo: .body) private var nodeSize: CGFloat = 10
     @ScaledMetric(relativeTo: .body) private var lineWidth: CGFloat = 2
+    /// Between the last row and the end view, as the design has it.
+    @ScaledMetric(relativeTo: .body) private var endGap: CGFloat = 2
     @ObserveHotReload private var hotReload
 
     public init(@ViewBuilder rows: () -> Rows, @ViewBuilder end: () -> End) {
@@ -20,22 +23,25 @@ public struct Rail<Rows: View, End: View>: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 0) {
-                ForEach(subviews: rows) { row in
-                    HStack(alignment: .firstTextBaseline, spacing: 0) {
-                        node
-                        row
+            Group(subviews: rows) { rows in
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(rows) { row in
+                        HStack(alignment: .firstTextBaseline, spacing: 0) {
+                            node
+                            row
+                        }
                     }
                 }
-            }
-            .backgroundPreferenceValue(FirstNode.self) { first in
-                GeometryReader { proxy in
-                    if let first {
-                        let center = proxy[first]
-                        Rectangle()
-                            .fill(.pp(.rail))
-                            .frame(width: lineWidth, height: max(0, proxy.size.height - center.y))
-                            .offset(x: center.x - lineWidth / 2, y: center.y)
+                .padding(.bottom, rows.isEmpty ? 0 : endGap)
+                .backgroundPreferenceValue(FirstNode.self) { first in
+                    GeometryReader { proxy in
+                        if let first {
+                            let center = proxy[first]
+                            Rectangle()
+                                .fill(.pp(.rail))
+                                .frame(width: lineWidth, height: max(0, proxy.size.height - center.y))
+                                .offset(x: center.x - lineWidth / 2, y: center.y)
+                        }
                     }
                 }
             }
@@ -70,10 +76,27 @@ private struct FirstNode: PreferenceKey {
     }
 }
 
+private struct RailRow: ViewModifier {
+    @ScaledMetric(relativeTo: .body) private var inset: CGFloat = 10
+    @ScaledMetric(relativeTo: .body) private var minHeight: CGFloat = 64
+
+    func body(content: Content) -> some View {
+        content
+            .padding(.vertical, inset)
+            .frame(minHeight: minHeight, alignment: .top)
+    }
+}
+
 /// The rail column's width at the default text size.
 private let railColumnWidth: CGFloat = 44
 
 extension View {
+    /// A row on a rail: its content from the top, inset as the design has it, in a row at least
+    /// as tall as two lines, so a one-line row keeps the rhythm of a two-line one.
+    public func railRow() -> some View {
+        modifier(RailRow())
+    }
+
     /// The rail column: the leading strip where rows put their nodes and a key its icon. At
     /// large text sizes it grows with what it holds, keeping an inset, rather than clipping it.
     func railColumn() -> some View {
@@ -83,8 +106,8 @@ extension View {
 
 #Preview {
     Rail {
-        RowLabel(title: "Goblet squat", detail: "Kettlebell").padding(.vertical, Spacing.sm)
-        RowLabel(title: "Push-up", detail: nil).padding(.vertical, Spacing.sm)
+        RowLabel(title: "Goblet squat", detail: "Kettlebell").railRow()
+        RowLabel(title: "Push-up", detail: nil).railRow()
     } end: {
         Button("Add exercise", systemImage: "plus") { }
             .buttonStyle(.key)
