@@ -127,7 +127,7 @@ private struct SwipeToDelete: ViewModifier {
             // rather than shrinking to fit.
             Text("Delete")
                 .font(.ppButton)
-                .foregroundStyle(.pp(.textPrimary))
+                .foregroundStyle(.pp(.onDestructive))
                 .fixedSize()
                 .padding(.leading, Spacing.md)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
