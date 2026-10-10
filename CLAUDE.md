@@ -119,5 +119,6 @@ Loaded automatically when you touch matching files; read them before working in 
 
 ## Gotchas
 
-- `-only-testing` with a misspelled identifier runs zero tests and exits 0. Check the total.
+- `-only-testing` with a misspelled identifier runs zero tests and exits 0 in raw `xcodebuild`
+  and the xcode MCP's `RunSomeTests`. `scripts/test.sh` fails on it; run filtered tests through it.
 - `plutil -extract` rewrites the file in place. Use `plutil -p` to inspect, or pass `-o -`.

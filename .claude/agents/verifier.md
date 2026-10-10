@@ -18,9 +18,8 @@ code only after the criteria are checked.
 3. Once every criterion is checked, read the existing tests and the code under test. Add a test
    only for a criterion no test proves: its assertions come from the criterion, its tier and
    place from `.claude/rules/testing.md`. Run just those tests with
-   `scripts/test.sh sim <Target/Class>` on the team simulator and check the total, then commit
-   them to the slice branch and push. Xcode Cloud runs the full suite on the push. Any wait has
-   a real time limit.
+   `scripts/test.sh sim <Target/Class>` on the team simulator, then commit them to the slice
+   branch and push. Xcode Cloud runs the full suite on the push. Any wait has a real time limit.
 4. List `~/Library/Logs/DiagnosticReports/PlusPlus-*` for reports newer than the time noted.
 5. Compare the screenshots with the design and list every difference.
 
