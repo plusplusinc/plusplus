@@ -9,10 +9,6 @@
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 cd "$ROOT"
 
-for tool in swiftformat swiftlint; do
-    command -v "$tool" > /dev/null || { echo "$tool is not installed: run 'brew bundle'" >&2; exit 1; }
-done
-
 fix=false
 if [ "${1:-}" = "--fix" ]; then
     fix=true
@@ -27,6 +23,12 @@ whole_tree=$([ "$#" -eq 0 ] && echo true || echo false)
 
 status=0
 if $whole_tree || [ "${#swift_files[@]}" -gt 0 ]; then
+    # Required only for Swift. A docs-only path list still gets the US English check, which is
+    # all an agent without Homebrew (the cloud retro) can run anyway.
+    for tool in swiftformat swiftlint; do
+        command -v "$tool" > /dev/null ||
+            { echo "$tool is not installed: run 'brew bundle'" >&2; exit 1; }
+    done
     targets=("${swift_files[@]+"${swift_files[@]}"}")
     if $fix; then
         swiftformat --quiet ${targets[@]+"${targets[@]}"} $($whole_tree && echo .)

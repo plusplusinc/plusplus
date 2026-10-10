@@ -67,12 +67,13 @@ The `.p8` lives in `~/.appstoreconnect/private_keys/`. Nothing of that is in the
 ## Agents
 
 An agent uses the least access that answers its question. Pass or fail comes from GitHub, where
-Xcode Cloud reports every run as a check (`gh pr checks`); that needs no key and is all a cloud
-agent such as the retro gets. Local agents that operate CI use `asc` rather than ad hoc API
-calls. Reading runs and starting one are allowed without a prompt (`.claude/settings.json`);
-anything else that changes App Store Connect asks first. The API cannot cancel a running
-build or edit a workflow's post-actions, so those two go through App Store Connect in the
-browser. The Xcode MCP server has no Xcode Cloud tools.
+Xcode Cloud reports every run as a check (`gh pr checks`, or the GitHub MCP tools in the cloud
+session, whose `gh` is not logged in); that needs no key and is all a cloud agent such as the
+retro gets. Local agents that operate CI use `asc` rather than ad hoc API calls. Reading runs
+and starting one are allowed without a prompt (`.claude/settings.json`); anything else that
+changes App Store Connect asks first. The API cannot cancel a running build or edit a
+workflow's post-actions, so those two go through App Store Connect in the browser. The Xcode
+MCP server has no Xcode Cloud tools.
 
 ## Branch protection
 
