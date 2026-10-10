@@ -16,6 +16,64 @@ struct ExerciseTests {
         #expect(Set(all.map(\.name)).count == all.count)
     }
 
+    @Test("Every built-in has the spec's name and equipment line, and nothing else is built in")
+    func builtInList() {
+        // The slice's list, A to Z, with the line each row shows; nil is bodyweight, no line.
+        let expected: [(String, String?)] = [
+            ("Balance board hold", "Balance board"),
+            ("Band pull-apart", "Band"),
+            ("Band shoulder dislocate", "Band"),
+            ("Barbell back squat", "Barbell"),
+            ("Barbell bench press", "Barbell, bench"),
+            ("Barbell deadlift", "Barbell"),
+            ("Barbell overhead press", "Barbell"),
+            ("Barbell row", "Barbell"),
+            ("Biceps curl", "Dumbbells"),
+            ("Bulgarian split squat", "Dumbbells, bench"),
+            ("Calf raise", "Dumbbells"),
+            ("Calf stretch", nil),
+            ("Cat-cow", nil),
+            ("Child\u{2019}s pose", nil),
+            ("Chin-up", "Pull-up bar"),
+            ("Cross-body shoulder stretch", nil),
+            ("Dead bug", nil),
+            ("Dead hang", "Pull-up bar"),
+            ("Doorway chest stretch", nil),
+            ("Dumbbell bench press", "Dumbbells, bench"),
+            ("Dumbbell row", "Dumbbells, bench"),
+            ("Face pull", "Band"),
+            ("Farmer\u{2019}s carry", "Dumbbells"),
+            ("Glute bridge", nil),
+            ("Goblet squat", "Kettlebell"),
+            ("Hammer curl", "Dumbbells"),
+            ("Hamstring stretch", nil),
+            ("Hanging knee raise", "Pull-up bar"),
+            ("Incline dumbbell press", "Dumbbells, bench"),
+            ("Inverted row", "Rings"),
+            ("Kettlebell swing", "Kettlebell"),
+            ("Kneeling hip flexor stretch", nil),
+            ("Lateral raise", "Dumbbells"),
+            ("Overhead press", "Dumbbells"),
+            ("Pallof press", "Band"),
+            ("Pigeon stretch", nil),
+            ("Plank", nil),
+            ("Pull-up", "Pull-up bar"),
+            ("Push-up", nil),
+            ("Reverse lunge", "Dumbbells"),
+            ("Ring dip", "Rings"),
+            ("Ring push-up", "Rings"),
+            ("Romanian deadlift", "Dumbbells"),
+            ("Side plank", nil),
+            ("Step-up", "Dumbbells, bench"),
+            ("Thoracic rotation", nil),
+            ("Triceps extension", "Dumbbells"),
+            ("Turkish get-up", "Kettlebell"),
+            ("World\u{2019}s greatest stretch", nil),
+        ]
+        let actual = Exercise.builtIn.map { "\($0.name) | \($0.equipmentLine ?? "-")" }
+        #expect(actual == expected.map { "\($0.0) | \($0.1 ?? "-")" })
+    }
+
     @Test("Built-ins are sorted A to Z")
     func builtInSorted() {
         let names = Exercise.builtIn.map(\.name)
