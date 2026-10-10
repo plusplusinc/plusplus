@@ -13,9 +13,10 @@ import Testing
 /// nothing, producing a silently wrong reference image. Comparison is perceptual so text
 /// rasterization differences between machines do not read as design regressions.
 ///
-/// References live in `__Snapshots__` next to the test file, which is where recording writes.
-/// When that directory is absent, as on Xcode Cloud's test machines, which have the built
-/// products but not the source checkout, the copy bundled into the test target is used.
+/// References live in `__Snapshots__/<TestFile>` next to the test file, which is where
+/// recording writes, including a new suite's first recording. When `__Snapshots__` itself is
+/// absent, as on Xcode Cloud's test machines, which have the built products but not the source
+/// checkout, the copy bundled into the test target is used.
 @MainActor
 func assertThemedSnapshots(
     of view: some View,
@@ -69,14 +70,18 @@ func assertThemedSnapshots(
 private func snapshotDirectory(forTestFile file: StaticString) -> String {
     let testFile = URL(filePath: "\(file)")
     let name = testFile.deletingPathExtension().lastPathComponent
-    let inSourceTree = testFile.deletingLastPathComponent().appending(path: "__Snapshots__/\(name)")
+    // Decided by the shared folder, not the suite's own: a new suite has no folder yet, and its
+    // first recording belongs in the source tree, not in the built bundle.
+    let inSourceTree = testFile.deletingLastPathComponent().appending(path: "__Snapshots__")
+    let root: URL
     if FileManager.default.fileExists(atPath: inSourceTree.path(percentEncoded: false)) {
-        return inSourceTree.path(percentEncoded: false)
-    }
-    guard let bundled = Bundle.module.url(forResource: "__Snapshots__", withExtension: nil) else {
+        root = inSourceTree
+    } else if let bundled = Bundle.module.url(forResource: "__Snapshots__", withExtension: nil) {
+        root = bundled
+    } else {
         fatalError("__Snapshots__ is neither next to \(file) nor bundled in the test target")
     }
-    return bundled.appending(path: name).path(percentEncoded: false)
+    return root.appending(path: name).path(percentEncoded: false)
 }
 
 #endif
