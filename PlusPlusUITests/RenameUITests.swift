@@ -19,6 +19,7 @@ final nonisolated class RenameUITests: XCTestCase {
         // The simulator keeps the last text size it was set to, so the default is pinned.
         app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
         app.launch()
+        XCTFail("Deliberate failure to time Xcode Cloud's red run (throwaway, never merged)")
         let title = app.textFields["Routine name"]
         XCTAssertTrue(title.appears(within: 10))
         let addExercise = app.buttons["Add exercise"]
