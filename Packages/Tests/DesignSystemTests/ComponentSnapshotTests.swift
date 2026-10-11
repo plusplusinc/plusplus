@@ -35,16 +35,13 @@ struct ComponentSnapshotTests {
                 Button("Add exercise", systemImage: "plus") { }
                     .buttonStyle(.key)
             }
-            if !rows.isEmpty {
-                // Inline, with no screen corners to be concentric with, Start shows its minimum
-                // radius; on the screen it sits at the bottom edge, and its shape follows the
-                // screen's corners.
-                Button("Start", systemImage: "play.fill") { }
-                    .buttonStyle(.primaryKey)
-                    .padding(.top, Spacing.lg)
-            }
         }
         .padding(Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        // With no screen corners around it to be concentric with, Start shows its minimum radius.
+        .primaryKeyBar(isPresented: !rows.isEmpty) {
+            Button("Start", systemImage: "play.fill") { }
+        }
         .background(Color.pp(.background))
     }
 

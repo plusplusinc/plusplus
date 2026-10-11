@@ -59,18 +59,9 @@ struct RoutineScreen: View {
             }
             // One row open at a time, closed by a scroll or a tap anywhere else.
             .swipeActionsContainer()
-            .safeAreaBar(edge: .bottom) {
-                if !exercises.isEmpty {
-                    // Starting a workout is a later slice.
-                    Button("Start", systemImage: "play.fill") { }
-                        .buttonStyle(.primaryKey)
-                        // As far from the screen's bottom edge as from its sides, below the
-                        // home indicator's safe area, so its corners are concentric with the
-                        // screen's.
-                        .padding([.horizontal, .bottom], Spacing.md)
-                        .ignoresSafeArea(edges: .bottom)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
+            .primaryKeyBar(isPresented: !exercises.isEmpty) {
+                // Starting a workout is a later slice.
+                Button("Start", systemImage: "play.fill") { }
             }
             // A shape-style background stops at the keyboard's safe area, which left the
             // window's black behind the keyboard's rounded top corners.
@@ -82,7 +73,6 @@ struct RoutineScreen: View {
                     guard isPicking else { return }
                     // The row and Start go in at once, behind the sheet, which still covers them,
                     // so the sheet going down is the add's one motion: it uncovers them in place.
-                    // Animated, they moved while the sheet did, and Start rose as it fell.
                     exercises.append(RoutineExercise(exercise: exercise))
                     isPicking = false
                 }

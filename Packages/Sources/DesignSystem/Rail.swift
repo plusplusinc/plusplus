@@ -99,8 +99,6 @@ private struct RailRow: ViewModifier {
                 .padding(.vertical, Spacing.sm)
                 .frame(minHeight: minHeight, alignment: .top)
         }
-        // One element, so VoiceOver reads the row and offers its actions in one place.
-        .accessibilityElement(children: .combine)
         .hotReloadable()
     }
 }

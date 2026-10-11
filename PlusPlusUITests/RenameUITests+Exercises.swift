@@ -85,16 +85,17 @@ extension RenameUITests {
             app.buttons["Add exercise"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 1))
                 .withOffset(CGVector(dx: 0, dy: 40)).tap()
             XCTAssertTrue(delete.disappears(), "A tap on empty screen left the row open")
-            XCTAssertEqual(app.exerciseRows.count, 6, "A tap outside the row deleted it")
+            let count = app.exerciseCount(becoming: 5, within: 1)
+            XCTAssertEqual(count, 6, "A tap outside the row deleted it")
         }
-        XCTContext.runActivity(named: "A full swipe deletes without the tap") { _ in
-            app.lastExerciseRow.dragLeft(by: 300, velocity: .fast)
-            XCTAssertEqual(app.exerciseCount(becoming: 5), 5, "A full swipe did not delete the row")
-        }
-        XCTContext.runActivity(named: "Deleting the last row takes Start away") { _ in
-            for left in (0 ..< 5).reversed() {
-                app.lastExerciseRow.dragLeft(by: 300, velocity: .fast)
-                XCTAssertEqual(app.exerciseCount(becoming: left), left)
+        XCTContext.runActivity(named: "A full swipe deletes, and with no rows Start goes") { _ in
+            for left in (0 ..< 6).reversed() {
+                app.lastExerciseRow.fullSwipeLeft()
+                XCTAssertEqual(
+                    app.exerciseCount(becoming: left),
+                    left,
+                    "A full swipe did not delete",
+                )
             }
             XCTAssertTrue(app.buttons["Start"].disappears(), "Start stayed with no exercises")
         }
