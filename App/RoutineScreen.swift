@@ -57,12 +57,13 @@ struct RoutineScreen: View {
                 // below the top of the visible area. Starting there keeps the title still.
                 .padding(.top, Spacing.sm)
             }
-            // One row open at a time, closed by a scroll or a tap anywhere else.
-            .swipeActionsContainer()
             .primaryKeyBar(isPresented: !exercises.isEmpty) {
                 // Starting a workout is a later slice.
                 Button("Start", systemImage: "play.fill") { }
             }
+            // One row open at a time, closed by a scroll or a tap anywhere else, Start included,
+            // so the container holds Start's bar as well as the scroll view.
+            .swipeActionsContainer()
             // A shape-style background stops at the keyboard's safe area, which left the
             // window's black behind the keyboard's rounded top corners.
             .background { Color.pp(.background).ignoresSafeArea() }

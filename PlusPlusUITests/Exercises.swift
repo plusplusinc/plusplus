@@ -54,13 +54,23 @@ extension XCUIApplication {
 }
 
 extension XCUIElement {
-    /// Swipes left fast from near the trailing edge, far enough to delete a row outright.
+    /// Drags left slowly and a short way, which opens a row's swipe actions and never deletes.
+    func swipeOpen() {
+        dragLeft(by: 100, velocity: .slow)
+    }
+
+    /// Swipes left fast and far, which deletes a row outright.
     func fullSwipeLeft() {
+        dragLeft(by: 300, velocity: .fast)
+    }
+
+    /// Drags left from near the trailing edge, `distance` points at `velocity`, and lifts.
+    private func dragLeft(by distance: CGFloat, velocity: XCUIGestureVelocity) {
         let start = coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5))
         start.press(
             forDuration: 0.05,
-            thenDragTo: start.withOffset(CGVector(dx: -300, dy: 0)),
-            withVelocity: .fast,
+            thenDragTo: start.withOffset(CGVector(dx: -distance, dy: 0)),
+            withVelocity: velocity,
             thenHoldForDuration: 0,
         )
     }

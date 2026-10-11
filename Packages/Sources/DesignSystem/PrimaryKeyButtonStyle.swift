@@ -53,7 +53,8 @@ extension View {
                 key
                     .buttonStyle(.primaryKey)
                     .padding([.horizontal, .bottom], Spacing.md)
-                    .ignoresSafeArea(edges: .bottom)
+                    // The home indicator's area only: with the keyboard up, the key rides above it.
+                    .ignoresSafeArea(.container, edges: .bottom)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
@@ -65,4 +66,12 @@ extension View {
         .buttonStyle(.primaryKey)
         .padding()
         .background(Color.pp(.background))
+}
+
+#Preview("Bar") {
+    Color.pp(.background)
+        .ignoresSafeArea()
+        .primaryKeyBar(isPresented: true) {
+            Button("Start", systemImage: "play.fill") { }
+        }
 }

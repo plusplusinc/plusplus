@@ -66,13 +66,30 @@ extension RenameUITests {
         }
     }
 
+    /// Start rides above the keyboard while the title is edited, rather than staying behind it.
+    @MainActor
+    func startClearsKeyboard(in app: XCUIApplication, keyboard: XCUIElement) {
+        XCTContext.runActivity(named: "Start rides above the keyboard") { _ in
+            let title = app.textFields["Routine name"]
+            title.tap()
+            XCTAssertTrue(keyboard.appears())
+            let start = app.buttons["Start"]
+            XCTAssertTrue(
+                reading(start.frame.maxY <= keyboard.frame.minY, becoming: true, within: 2),
+                "Start is behind the keyboard",
+            )
+            title.typeText("\n")
+            XCTAssertTrue(keyboard.disappears())
+        }
+    }
+
     /// The system's swipe actions: a swipe opens a row's Delete, a tap elsewhere closes it, a
     /// full swipe deletes outright, and with no rows left Start goes.
     @MainActor
     func deleteExercises(in app: XCUIApplication) {
         let delete = app.buttons["Delete"]
         XCTContext.runActivity(named: "A swipe opens a row, and Delete deletes it") { _ in
-            app.exerciseRows.element(boundBy: 1).swipeLeft()
+            app.exerciseRows.element(boundBy: 1).swipeOpen()
             XCTAssertTrue(delete.appears(), "A swipe did not open the row")
             attach(named: "row-open")
             delete.tap()
@@ -80,11 +97,23 @@ extension RenameUITests {
             XCTAssertTrue(delete.disappears())
         }
         XCTContext.runActivity(named: "A tap anywhere else closes an open row") { _ in
-            app.exerciseRows.element(boundBy: 0).swipeLeft()
-            XCTAssertTrue(delete.appears(), "A swipe did not open the row")
+            let open = {
+                app.exerciseRows.element(boundBy: 0).swipeOpen()
+                XCTAssertTrue(delete.appears(), "A swipe did not open the row")
+            }
+            open()
             app.buttons["Add exercise"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 1))
                 .withOffset(CGVector(dx: 0, dy: 40)).tap()
             XCTAssertTrue(delete.disappears(), "A tap on empty screen left the row open")
+            open()
+            app.buttons["Start"].tap()
+            XCTAssertTrue(delete.disappears(), "A tap on Start left the row open")
+            open()
+            // The tap closes the row and still opens the picker.
+            _ = app.openPicker()
+            app.buttons["Close"].firstMatch.tap()
+            XCTAssertTrue(app.searchFields.firstMatch.disappears())
+            XCTAssertFalse(delete.exists, "Add exercise left the row open")
             let count = app.exerciseCount(becoming: 5, within: 1)
             XCTAssertEqual(count, 6, "A tap outside the row deleted it")
         }

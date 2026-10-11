@@ -75,6 +75,7 @@ final nonisolated class RenameUITests: XCTestCase {
             XCTAssertTrue(keyboard.disappears())
         }
         addAndSearchExercises(in: app, keyboard: keyboard)
+        startClearsKeyboard(in: app, keyboard: keyboard)
         deleteExercises(in: app)
     }
 

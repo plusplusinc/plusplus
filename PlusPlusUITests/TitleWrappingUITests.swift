@@ -89,7 +89,10 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
                 _ = keyboard.disappears()
             }
             app.addExercise("Dumbbell bench press, Dumbbells, bench", searching: "dumbbell bench")
+            app.exerciseRows.firstMatch.swipeOpen()
+            XCTAssertTrue(app.buttons["Delete"].appears(), "A swipe did not open the row")
             app.swipeUp()
+            XCTAssertTrue(app.buttons["Delete"].disappears(), "A scroll left the row open")
             app.swipeUp()
             let start = app.buttons["Start"]
             XCTAssertTrue(start.appears())
