@@ -52,7 +52,17 @@ delete from the body what must not be public: strategy and why-now reasoning, pe
 health data, unreleased design work, anything about other apps. If that leaves nothing useful,
 the card stays private and the PR names it by title.
 
-## 4. Queue it
+## 4. Align
+
+Before handing off, make sure the maintainer and the card agree. Restate it as what they will
+see and do. Settled points name where they were settled (the board README, a design board, a
+decision). Open points are listed with a recommendation each: screens with no design, content
+nobody has chosen (lists, copy, defaults), conflicts with earlier decisions, and gaps between
+this card and its neighbors. Their answers go into the body as an "Aligned with <maintainer>
+<date>" list; anything they push out of scope becomes its own card, named in Out of scope. An
+open point that doesn't change what gets built can stay open; say so in the body.
+
+## 5. Queue it
 
 `/onward` works through one queue: the Todo cards in board order, top first, the order the
 maintainer drags them into. A new card lands at the bottom; place it with
@@ -66,9 +76,10 @@ maintainer drags them into. A new card lands at the bottom; place it with
 - A hunch, or a card the maintainer said to park, goes to Backlog
   (`scripts/board.sh status <id> Backlog`), which nothing picks up.
 
-## 5. Hand off
+## 6. Hand off
 
-Reply with the card id, the classification, where it landed in the queue and why, and the one
-thing in the brief the maintainer is most likely to disagree with. The maintainer approves by
+Reply with the card id, the classification, where it landed in the queue and why, the open
+points still waiting on an answer with your recommendation for each, and the one thing in the
+brief the maintainer is most likely to disagree with. The maintainer approves by
 leaving it there and vetoes by reordering or parking it; do not move it to In Progress
 yourself.

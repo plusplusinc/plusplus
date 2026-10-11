@@ -22,8 +22,14 @@ project board and in `.slices/`.
    it with the maintainer's go-ahead.
 3. Read the `.slices/` files that State names: the newest handoff or verify report. Read
    summaries, not code; subagents read code.
-4. Say in two or three lines where the slice stands and what happens next, then do it. Ask only
-   for product calls.
+4. A card not yet started gets an alignment check before anything else (see the /brief skill's
+   "Align"). Restate it as what the maintainer will see and do, then check its Aligned list
+   against the README, what merged since it was written, and its neighbors on the board. Bring
+   anything open, contradicted, or missing (an undesigned screen, content nobody chose, a gap
+   no card covers), each with a recommendation. Record the answers in the card, make cards for
+   what lands out of scope, and start only on the maintainer's yes.
+5. Otherwise say in two or three lines where the slice stands and what happens next, then do
+   it. Ask only for product calls.
 
 ## Run the slice
 
