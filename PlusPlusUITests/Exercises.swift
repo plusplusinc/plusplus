@@ -56,16 +56,10 @@ extension XCUIApplication {
 extension XCUIElement {
     /// Drags left from near the trailing edge, `distance` points at `velocity`, and lifts.
     func dragLeft(by distance: CGFloat, velocity: XCUIGestureVelocity) {
-        drag(by: -distance, from: 0.9, velocity: velocity)
-    }
-
-    /// Drags `distance` points across, rightward when positive, from `start` of the way along
-    /// the element's width at its middle height, at `velocity`, and lifts.
-    func drag(by distance: CGFloat, from start: CGFloat, velocity: XCUIGestureVelocity) {
-        let start = coordinate(withNormalizedOffset: CGVector(dx: start, dy: 0.5))
+        let start = coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5))
         start.press(
             forDuration: 0.05,
-            thenDragTo: start.withOffset(CGVector(dx: distance, dy: 0)),
+            thenDragTo: start.withOffset(CGVector(dx: -distance, dy: 0)),
             withVelocity: velocity,
             thenHoldForDuration: 0,
         )

@@ -18,7 +18,6 @@ struct ComponentSnapshotTests {
     private func content(
         name: String = "New routine",
         rows: [Row] = [],
-        openRow: Int? = nil,
     ) -> some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             EditableTitle(
@@ -31,7 +30,6 @@ struct ComponentSnapshotTests {
                 ForEach(rows.indices, id: \.self) { index in
                     RowLabel(title: rows[index].title, detail: rows[index].detail)
                         .railRow()
-                        .swipeToDelete(id: index, openRow: .constant(openRow)) { }
                 }
             } end: {
                 Button("Add exercise", systemImage: "plus") { }
@@ -78,15 +76,6 @@ struct ComponentSnapshotTests {
             ("Farmer\u{2019}s carry", "Dumbbells"),
         ]
         assertThemedSnapshots(of: content(rows: rows), width: Self.screenWidth)
-    }
-
-    @Test("A row swiped open shows Delete beside its name")
-    func openRow() {
-        let rows: [Row] = [
-            ("Goblet squat", "Kettlebell"),
-            ("Kneeling hip flexor stretch", nil),
-        ]
-        assertThemedSnapshots(of: content(rows: rows, openRow: 1), width: Self.screenWidth)
     }
 
     /// Rows as the exercise picker lists them, without a rail. The list itself is the system's.

@@ -1,16 +1,15 @@
 import SwiftUI
 
-/// Rows on a rail: each row gets a solid node in the rail column beside its first line, and a
-/// line runs from the first node down to the view at the rail's end, a key with a `plus` icon
-/// in the same column.
+/// Rows on a rail: a line runs from the first row's node down to the view at the rail's end, a
+/// key with a `plus` icon in the rail column.
 ///
-/// Rows stack with no spacing; each sets its own height with `railRow()`, so nodes fall at an
-/// even rhythm whether a row has one line or two.
+/// Rows stack with no spacing. Each is made with `railRow()`, which gives it its node and its
+/// height, so nodes fall at an even rhythm whether a row has one line or two, and anything
+/// applied to the row, such as swipe actions, carries its node with it.
 public struct Rail<Rows: View, End: View>: View {
     private let rows: Rows
     private let end: End
 
-    @ScaledMetric(relativeTo: .body) private var nodeSize: CGFloat = 10
     @ScaledMetric(relativeTo: .body) private var lineWidth: CGFloat = 2
     /// Between the last row and the end view, as the design has it.
     @ScaledMetric(relativeTo: .body) private var endGap: CGFloat = 2
@@ -25,12 +24,7 @@ public struct Rail<Rows: View, End: View>: View {
         VStack(alignment: .leading, spacing: 0) {
             Group(subviews: rows) { rows in
                 VStack(alignment: .leading, spacing: 0) {
-                    ForEach(rows) { row in
-                        HStack(alignment: .firstTextBaseline, spacing: 0) {
-                            node
-                            row
-                        }
-                    }
+                    rows
                 }
                 .padding(.bottom, rows.isEmpty ? 0 : endGap)
                 .backgroundPreferenceValue(FirstNode.self) { first in
@@ -50,10 +44,16 @@ public struct Rail<Rows: View, End: View>: View {
         }
         .hotReloadable()
     }
+}
 
-    /// A key's icon held invisibly in the rail column gives the column the key's width and the
-    /// row's first baseline at every text size; the node is centered on it, as the key's icon is.
-    private var node: some View {
+/// A row's node: a key's icon held invisibly in the rail column gives the column the key's width
+/// and the row's first baseline at every text size; the node is centered on it, as the key's
+/// icon is.
+private struct RailNode: View {
+    @ScaledMetric(relativeTo: .body) private var size: CGFloat = 10
+    @ObserveHotReload private var hotReload
+
+    var body: some View {
         Image(systemName: "plus")
             .font(.ppButton)
             .hidden()
@@ -61,10 +61,11 @@ public struct Rail<Rows: View, End: View>: View {
             .overlay {
                 Circle()
                     .fill(.pp(.borderStrong))
-                    .frame(width: nodeSize, height: nodeSize)
+                    .frame(width: size, height: size)
                     .anchorPreference(key: FirstNode.self, value: .center) { $0 }
             }
             .accessibilityHidden(true)
+            .hotReloadable()
     }
 }
 
@@ -83,10 +84,15 @@ private struct RailRow: ViewModifier {
     @ObserveHotReload private var hotReload
 
     func body(content: Content) -> some View {
-        content
-            .padding(.vertical, inset)
-            .frame(minHeight: minHeight, alignment: .top)
-            .hotReloadable()
+        HStack(alignment: .firstTextBaseline, spacing: 0) {
+            RailNode()
+            content
+                .padding(.vertical, inset)
+                .frame(minHeight: minHeight, alignment: .top)
+        }
+        // One element, so VoiceOver reads the row and offers its actions in one place.
+        .accessibilityElement(children: .combine)
+        .hotReloadable()
     }
 }
 
@@ -94,8 +100,9 @@ private struct RailRow: ViewModifier {
 private let railColumnWidth: CGFloat = 44
 
 extension View {
-    /// A row on a rail: its content from the top, inset as the design has it, in a row at least
-    /// as tall as two lines, so a one-line row keeps the rhythm of a two-line one.
+    /// A row on a rail: its node in the rail column, then its content from the top, inset as the
+    /// design has it, in a row at least as tall as two lines, so a one-line row keeps the rhythm
+    /// of a two-line one.
     public func railRow() -> some View {
         modifier(RailRow())
     }

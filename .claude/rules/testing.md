@@ -13,13 +13,14 @@ simulator) before anything that needs UIKit, and snapshots before XCUITest.
 What each tier holds today:
 
 - **Package tests** hold rules: `EditableTitle`'s static functions, `WorkoutStoreContainer`, the
-  built-in exercises with their equipment lines and search, and where a swiped row settles.
+  built-in exercises with their equipment lines and search.
 - **Snapshots** hold how a component looks, at rest and while editing. The title's editing look,
   `_` included, is drawn from plain values through `EditableTitleContent`, reached with
   `@testable import`, so no focus or keyboard is needed; its `blinks: false` holds the `_` lit,
   and its field gets a selection that ignores writes, since an unfocused field writes its own
-  back. A snapshot cannot show a caret the text system placed. Rows on the rail, Start, and a
-  row swiped open are snapshot through the same components the routine screen composes.
+  back. A snapshot cannot show a caret the text system placed. Rows on the rail and Start are
+  snapshot through the same components the routine screen composes; a row swiped open is the
+  system's, so the UI test shows it.
 - **UI tests** hold only what needs the real keyboard, text system, or frames: typing, Return,
   arrows, taps, range selection, the keyboard's edge, scrolling as the keyboard rises, and
   VoiceOver frames; and the exercise picker, system chrome composed in the app, which has no

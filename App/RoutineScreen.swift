@@ -11,8 +11,6 @@ struct RoutineScreen: View {
     @State private var name = Self.defaultName
     @State private var exercises: [RoutineExercise] = []
     @State private var isPicking = false
-    /// The row swiped open to show its Delete key; one at a time.
-    @State private var swipedRow: RoutineExercise.ID?
     @ObserveHotReload private var hotReload
 
     private static let markWidth: CGFloat = 20
@@ -37,13 +35,14 @@ struct RoutineScreen: View {
                             RowLabel(title: item.exercise.name, detail: item.exercise.equipmentLine)
                                 .railRow()
                                 .accessibilityIdentifier("routine.exercise")
-                                .swipeToDelete(id: item.id, openRow: $swipedRow) {
-                                    exercises.removeAll { $0.id == item.id }
+                                .swipeActions(edge: .trailing) {
+                                    Button("Delete", role: .destructive) {
+                                        exercises.removeAll { $0.id == item.id }
+                                    }
                                 }
                         }
                     } end: {
                         Button("Add exercise", systemImage: "plus") {
-                            swipedRow = nil
                             isPicking = true
                         }
                         .buttonStyle(.key)
@@ -56,6 +55,8 @@ struct RoutineScreen: View {
                 // below the top of the visible area. Starting there keeps the title still.
                 .padding(.top, Spacing.sm)
             }
+            // One row open at a time, closed by a scroll or a tap anywhere else.
+            .swipeActionsContainer()
             .safeAreaBar(edge: .bottom) {
                 if !exercises.isEmpty {
                     // Starting a workout is a later slice.
@@ -65,12 +66,6 @@ struct RoutineScreen: View {
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
-            // A tap anywhere else closes an open row, as the system's swipe actions do, and
-            // still does its own job.
-            .simultaneousGesture(
-                TapGesture().onEnded { withAnimation { swipedRow = nil } },
-                isEnabled: swipedRow != nil,
-            )
             // A shape-style background stops at the keyboard's safe area, which left the
             // window's black behind the keyboard's rounded top corners.
             .background { Color.pp(.background).ignoresSafeArea() }
