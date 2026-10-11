@@ -1,7 +1,7 @@
 # PlusPlus
 
 A workout tracker for incrementing yourself. Native iOS and watchOS. Swift 6, SwiftUI,
-SwiftData + CloudKit, iOS 26 and up.
+SwiftData + CloudKit, iOS 27 and up.
 
 ## Getting started
 

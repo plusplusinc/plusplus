@@ -1,6 +1,6 @@
 # PlusPlus
 
-A native iOS and watchOS workout tracker. Swift 6, SwiftUI, SwiftData + CloudKit. iOS 26 is the
+A native iOS and watchOS workout tracker. Swift 6, SwiftUI, SwiftData + CloudKit. iOS 27 is the
 minimum and new platform APIs are adopted freely. It gets used mid-set, one-handed. What the
 product believes is in `docs/principles.md`.
 
