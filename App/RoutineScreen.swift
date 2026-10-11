@@ -37,7 +37,9 @@ struct RoutineScreen: View {
                                 .accessibilityIdentifier("routine.exercise")
                                 .swipeActions(edge: .trailing) {
                                     Button("Delete", role: .destructive) {
-                                        exercises.removeAll { $0.id == item.id }
+                                        withAnimation(.snappy) {
+                                            exercises.removeAll { $0.id == item.id }
+                                        }
                                     }
                                 }
                         }
@@ -78,10 +80,11 @@ struct RoutineScreen: View {
                 ExercisePicker { exercise in
                     // A second tap while the sheet goes down would add the exercise again.
                     guard isPicking else { return }
-                    withAnimation {
-                        exercises.append(RoutineExercise(exercise: exercise))
-                        isPicking = false
-                    }
+                    // The row and Start go in at once, behind the sheet, which still covers them,
+                    // so the sheet going down is the add's one motion: it uncovers them in place.
+                    // Animated, they moved while the sheet did, and Start rose as it fell.
+                    exercises.append(RoutineExercise(exercise: exercise))
+                    isPicking = false
                 }
             }
             .toolbar {
