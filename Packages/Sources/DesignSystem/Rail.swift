@@ -11,8 +11,6 @@ public struct Rail<Rows: View, End: View>: View {
     private let end: End
 
     @ScaledMetric(relativeTo: .body) private var lineWidth: CGFloat = 2
-    /// Between the last row and the end view, as the design has it.
-    @ScaledMetric(relativeTo: .body) private var endGap: CGFloat = 2
     @ObserveHotReload private var hotReload
 
     public init(@ViewBuilder rows: () -> Rows, @ViewBuilder end: () -> End) {
@@ -26,7 +24,8 @@ public struct Rail<Rows: View, End: View>: View {
                 VStack(alignment: .leading, spacing: 0) {
                     rows
                 }
-                .padding(.bottom, rows.isEmpty ? 0 : endGap)
+                // Between the last row and the end view, as the design has it.
+                .padding(.bottom, rows.isEmpty ? 0 : Spacing.xxs)
                 // The line has a rail column of its own and takes only its top from the first
                 // node, so a row swiped aside, node and all, leaves the line where it is.
                 .backgroundPreferenceValue(FirstNode.self) { first in
@@ -90,7 +89,6 @@ private struct FirstNode: PreferenceKey {
 }
 
 private struct RailRow: ViewModifier {
-    @ScaledMetric(relativeTo: .body) private var inset: CGFloat = 10
     @ScaledMetric(relativeTo: .body) private var minHeight: CGFloat = 64
     @ObserveHotReload private var hotReload
 
@@ -98,7 +96,7 @@ private struct RailRow: ViewModifier {
         HStack(alignment: .firstTextBaseline, spacing: 0) {
             RailNode()
             content
-                .padding(.vertical, inset)
+                .padding(.vertical, Spacing.sm)
                 .frame(minHeight: minHeight, alignment: .top)
         }
         // One element, so VoiceOver reads the row and offers its actions in one place.

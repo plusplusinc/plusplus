@@ -6,8 +6,6 @@ public struct RowLabel: View {
     private let title: String
     private let detail: String?
 
-    /// Between the name and the detail line, as the design has it.
-    @ScaledMetric(relativeTo: .subheadline) private var lineGap: CGFloat = 2
     @ObserveHotReload private var hotReload
 
     public init(title: String, detail: String?) {
@@ -16,7 +14,7 @@ public struct RowLabel: View {
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: lineGap) {
+        VStack(alignment: .leading, spacing: Spacing.xxs) {
             Text(title)
                 .font(.ppRowTitle)
                 .foregroundStyle(.pp(.textPrimary))
