@@ -62,7 +62,11 @@ struct RoutineScreen: View {
                     // Starting a workout is a later slice.
                     Button("Start", systemImage: "play.fill") { }
                         .buttonStyle(.primaryKey)
-                        .padding(.horizontal, Spacing.md)
+                        // As far from the screen's bottom edge as from its sides, below the
+                        // home indicator's safe area, so its corners are concentric with the
+                        // screen's.
+                        .padding([.horizontal, .bottom], Spacing.md)
+                        .ignoresSafeArea(edges: .bottom)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
