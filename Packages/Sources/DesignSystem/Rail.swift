@@ -27,15 +27,17 @@ public struct Rail<Rows: View, End: View>: View {
                     rows
                 }
                 .padding(.bottom, rows.isEmpty ? 0 : endGap)
+                // The line has a rail column of its own and takes only its top from the first
+                // node, so a row swiped aside, node and all, leaves the line where it is.
                 .backgroundPreferenceValue(FirstNode.self) { first in
                     GeometryReader { proxy in
                         if let first {
-                            let center = proxy[first]
-                            let height = max(0, proxy.size.height - center.y)
-                            Rectangle()
-                                .fill(.pp(.rail))
-                                .frame(width: lineWidth, height: height)
-                                .offset(x: center.x - lineWidth / 2, y: center.y)
+                            RailColumn()
+                                .frame(maxHeight: .infinity)
+                                .overlay {
+                                    Rectangle().fill(.pp(.rail)).frame(width: lineWidth)
+                                }
+                                .padding(.top, proxy[first].y)
                         }
                     }
                 }
@@ -46,11 +48,9 @@ public struct Rail<Rows: View, End: View>: View {
     }
 }
 
-/// A row's node: a key's icon held invisibly in the rail column gives the column the key's width
-/// and the row's first baseline at every text size; the node is centered on it, as the key's
-/// icon is.
-private struct RailNode: View {
-    @ScaledMetric(relativeTo: .body) private var size: CGFloat = 10
+/// The rail column, empty: a key's icon held invisibly in it gives the column the key's width,
+/// and a row's first baseline, at every text size.
+private struct RailColumn: View {
     @ObserveHotReload private var hotReload
 
     var body: some View {
@@ -58,6 +58,17 @@ private struct RailNode: View {
             .font(.ppButton)
             .hidden()
             .railColumn()
+            .hotReloadable()
+    }
+}
+
+/// A row's node, centered in the rail column on the row's first line, as the key's icon is.
+private struct RailNode: View {
+    @ScaledMetric(relativeTo: .body) private var size: CGFloat = 10
+    @ObserveHotReload private var hotReload
+
+    var body: some View {
+        RailColumn()
             .overlay {
                 Circle()
                     .fill(.pp(.borderStrong))
@@ -69,7 +80,7 @@ private struct RailNode: View {
     }
 }
 
-/// Where the first node's center is; the line starts there.
+/// Where the first node's center is; the line starts at its height.
 private struct FirstNode: PreferenceKey {
     static let defaultValue: Anchor<CGPoint>? = nil
 
