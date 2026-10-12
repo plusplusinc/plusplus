@@ -64,6 +64,29 @@ extension RenameUITests {
                 "Push-up",
             ])
         }
+        XCTContext.runActivity(named: "An add that would hide Add exercise scrolls to it") { _ in
+            // The eighth row still fits; the ninth pushes Add exercise below Start.
+            app.addExercise("Balance board hold, Balance board")
+            app.addExercise("Barbell back squat, Barbell")
+            let (addExercise, start) = (app.buttons["Add exercise"], app.buttons["Start"])
+            XCTAssertTrue(
+                reading(addExercise.frame.maxY <= start.frame.minY, becoming: true, within: 2),
+                "The add left Add exercise behind Start",
+            )
+            attach(named: "nine-exercises")
+        }
+        XCTContext.runActivity(named: "A tap on the small title scrolls back to the top") { _ in
+            let bar = app.navigationBars.firstMatch
+            let smallTitle = bar.buttons["Arm and back day"]
+            XCTAssertTrue(smallTitle.appears(), "No small title in the bar at the end of the list")
+            smallTitle.tap()
+            let title = app.textFields["Routine name"]
+            XCTAssertTrue(
+                reading(title.frame.minY >= bar.frame.maxY, becoming: true, within: 2),
+                "The title did not come back below the bar",
+            )
+            XCTAssertTrue(smallTitle.disappears(), "The small title stayed with the title in view")
+        }
     }
 
     /// Start rides above the keyboard while the title is edited, rather than staying behind it.
@@ -93,7 +116,7 @@ extension RenameUITests {
             XCTAssertTrue(delete.appears(), "A swipe did not open the row")
             attach(named: "row-open")
             delete.tap()
-            XCTAssertEqual(app.exerciseCount(becoming: 6), 6)
+            XCTAssertEqual(app.exerciseCount(becoming: 8), 8)
             XCTAssertTrue(delete.disappears())
         }
         XCTContext.runActivity(named: "A tap anywhere else closes an open row") { _ in
@@ -114,11 +137,11 @@ extension RenameUITests {
             app.buttons["Close"].firstMatch.tap()
             XCTAssertTrue(app.searchFields.firstMatch.disappears())
             XCTAssertFalse(delete.exists, "Add exercise left the row open")
-            let count = app.exerciseCount(becoming: 5, within: 1)
-            XCTAssertEqual(count, 6, "A tap outside the row deleted it")
+            let count = app.exerciseCount(becoming: 7, within: 1)
+            XCTAssertEqual(count, 8, "A tap outside the row deleted it")
         }
         XCTContext.runActivity(named: "A full swipe deletes, and with no rows Start goes") { _ in
-            for left in (0 ..< 6).reversed() {
+            for left in (0 ..< 8).reversed() {
                 app.lastExerciseRow.fullSwipeLeft()
                 XCTAssertEqual(
                     app.exerciseCount(becoming: left),

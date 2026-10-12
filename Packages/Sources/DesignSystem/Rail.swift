@@ -51,6 +51,12 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     }
 }
 
+extension Animation {
+    /// A row going onto or off a rail, and what it moves: quicker than `.snappy`'s default, which
+    /// let the rows below a deleted one drift up.
+    public static let railChange = Animation.snappy(duration: 0.25)
+}
+
 /// Where a row sits on its rail: the line starts at the first row's node and ends at the last's.
 struct RailPlace {
     var isFirst = true

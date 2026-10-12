@@ -18,9 +18,11 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
 - Every tappable element that is not a `Button` gets `.accessibilityAddTraits(.isButton)`;
   icon-only controls get `.accessibilityLabel`; decorative images get
   `.accessibilityHidden(true)`.
-- Motion is snappy: `withAnimation(.snappy)`, never a bare `withAnimation` or the default
-  spring. A change that a system motion would hide, such as a row added from a sheet, waits
-  for it to end (`onDismiss`) and then animates, so it is seen and never moves alongside it.
+- Motion is snappy: `.snappy`, never a bare `withAnimation` or the default spring, and quicker
+  than its default where it answers a tap: rows going onto and off a rail use `.railChange`,
+  and a key comes back from a press with `keyPressAnimation(isPressed:)`. A row added from a
+  sheet goes in as the sheet starts down, a beat into its slide, so it moves alongside the
+  sheet and is still seen.
 - Every new component gets a `#Preview` and goes through `assertThemedSnapshots`.
 - Every view, `ButtonStyle`, and `ViewModifier` declares `@ObserveHotReload private var
   hotReload` and ends its body with `.hotReloadable()`, so hot reload redraws it. Both compile

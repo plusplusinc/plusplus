@@ -11,8 +11,7 @@ struct RoutineScreen: View {
     @State private var name = Self.defaultName
     @State private var exercises: [RoutineExercise] = []
     @State private var isPicking = false
-    /// What was picked, held until the picker's sheet is down.
-    @State private var picked: Exercise?
+    @State private var scrollPosition = ScrollPosition()
     /// Whether the title has scrolled up under the bar, where a small copy of it shows instead.
     @State private var isTitleUnderBar = false
     @ObserveHotReload private var hotReload
@@ -45,7 +44,7 @@ struct RoutineScreen: View {
                             .accessibilityIdentifier("routine.exercise")
                             .swipeActions(edge: .trailing) {
                                 Button("Delete", role: .destructive) {
-                                    withAnimation(.snappy) {
+                                    withAnimation(.railChange) {
                                         exercises.removeAll { $0.id == item.id }
                                     }
                                 }
@@ -64,6 +63,7 @@ struct RoutineScreen: View {
                 // below the top of the visible area. Starting there keeps the title still.
                 .padding(.top, Spacing.sm)
             }
+            .scrollPosition($scrollPosition)
             .primaryKeyBar(isPresented: !exercises.isEmpty) {
                 // Starting a workout is a later slice.
                 Button("Start", systemImage: "play.fill") { }
@@ -75,25 +75,36 @@ struct RoutineScreen: View {
             // window's black behind the keyboard's rounded top corners.
             .background { Color.pp(.background).ignoresSafeArea() }
             .navigationBarTitleDisplayMode(.inline)
-            .sheet(isPresented: $isPicking, onDismiss: addPicked) {
+            .sheet(isPresented: $isPicking) {
                 ExercisePicker { exercise in
                     // A second tap while the sheet goes down keeps the first pick.
                     guard isPicking else { return }
-                    picked = exercise
                     isPicking = false
+                    add(exercise)
                 }
             }
             .toolbar {
                 // As a large title does, the title shows small in the bar once it is under it.
                 ToolbarItem(placement: .title) {
                     if isTitleUnderBar {
-                        Text(name)
-                            .font(.ppInlineTitle)
-                            .foregroundStyle(.pp(.textPrimary))
-                            .lineLimit(1)
-                            // A heading, as the system's own bar title is.
-                            .accessibilityAddTraits(.isHeader)
-                            .transition(.opacity)
+                        // As a tap on the status bar does, a tap brings the title back. At the
+                        // accessibility text sizes the bar keeps touches on its title for the large
+                        // content viewer, so there the button is reached through VoiceOver only.
+                        Button {
+                            withAnimation(.snappy) {
+                                scrollPosition.scrollTo(edge: .top)
+                            }
+                        } label: {
+                            Text(name)
+                                .font(.ppInlineTitle)
+                                .foregroundStyle(.pp(.textPrimary))
+                                .lineLimit(1)
+                        }
+                        .buttonStyle(.plain)
+                        // A heading, as the system's own bar title is.
+                        .accessibilityAddTraits(.isHeader)
+                        .accessibilityHint("Scrolls to the top.")
+                        .transition(.opacity)
                     }
                 }
                 ToolbarItem(placement: .topBarLeading) {
@@ -115,15 +126,24 @@ struct RoutineScreen: View {
         .hotReloadable()
     }
 
-    /// Adds what was picked once the sheet is down, where the row can be seen going in. Added
-    /// behind the sheet, it was already in place when the sheet uncovered it.
-    private func addPicked() {
-        guard let picked else { return }
-        // Quicker than .snappy's default, which read as mushy after the wait for the sheet.
-        withAnimation(.snappy(duration: 0.25)) {
-            exercises.append(RoutineExercise(exercise: picked))
+    /// Adds a picked exercise as its sheet starts down, so the row goes in alongside it. Then,
+    /// when the row has pushed Add exercise below the visible area, scrolls to the end so the new
+    /// row and the key both show; when everything fits, the end is already in view and nothing
+    /// moves. The scroll waits for the row: asked for while the row went in, it stopped at the
+    /// end the list had before.
+    private func add(_ exercise: Exercise) {
+        // Started a beat into the sheet's slide, as it uncovers the screen from the top, so a row
+        // low on the screen is not still covered for the whole motion.
+        withAnimation(
+            .railChange.delay(0.1),
+            completionCriteria: .logicallyComplete,
+        ) {
+            exercises.append(RoutineExercise(exercise: exercise))
+        } completion: {
+            withAnimation(.railChange) {
+                scrollPosition.scrollTo(edge: .bottom)
+            }
         }
-        self.picked = nil
     }
 }
 

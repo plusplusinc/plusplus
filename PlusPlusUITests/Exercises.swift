@@ -28,8 +28,7 @@ extension XCUIApplication {
     }
 
     /// Opens the picker and picks the row labeled `label`, searching for `query` first when the
-    /// row is not in the first screenful. Returns once the row is in: it goes in only when the
-    /// sheet is down, moving Add exercise, which a tap sooner would miss.
+    /// row is not in the first screenful. Returns once the picker is closed and the row is in.
     func addExercise(_ label: String, searching query: String? = nil) {
         let count = exerciseRows.count
         let search = openPicker()

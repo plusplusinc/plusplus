@@ -88,13 +88,20 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
                 app.buttons["Close"].firstMatch.tap()
                 _ = keyboard.disappears()
             }
+            // At this size the second row pushes Add exercise below Start, so the add scrolls to
+            // the end, where both show.
             app.addExercise("Dumbbell bench press, Dumbbells, bench", searching: "dumbbell bench")
+            let start = app.buttons["Start"]
+            XCTAssertTrue(
+                reading(addExercise.frame.maxY <= start.frame.minY, becoming: true, within: 2),
+                "The add left Add exercise behind Start",
+            )
+            attach(named: "rail-after-add-ax5")
             app.exerciseRows.firstMatch.swipeOpen()
             XCTAssertTrue(app.buttons["Delete"].appears(), "A swipe did not open the row")
             app.swipeUp()
             XCTAssertTrue(app.buttons["Delete"].disappears(), "A scroll left the row open")
             app.swipeUp()
-            let start = app.buttons["Start"]
             XCTAssertTrue(start.appears())
             attach(named: "rail-end-ax5")
             // 16pt, the screen's spacing, give or take rounding.
