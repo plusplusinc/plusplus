@@ -21,6 +21,10 @@ checkout, and name the branch (`/code-review <branch>`): from the main checkout 
 branch diff, so the review lands on `main`'s last squash merge and reports findings for a pull
 request that already merged.
 
+A diff with no Swift gets one check in their place: read it against `CLAUDE.md`, `.claude/`, and
+`docs/` for statements it contradicts. A change to a skill, a rule, or an agent usually has a
+sentence somewhere else describing the process it just replaced.
+
 Then:
 ```sh
 git push -u origin <branch>
@@ -40,7 +44,7 @@ than it should have, and a "Card" line naming the board card, written as "Closes
 card was published as an issue so the merge closes it. The retro runs in a cloud session
 that never saw this work and reads only the PR, so write Friction from the session, not from
 the diff, and put any decision the diff does not explain in the body. `--fill` skips the
-template; write the body to a file under `.build/`.
+template; write the body to a file under `.slices/`.
 
 Write the body as the commit message it becomes. The title is already the commit's subject, so
 do not repeat it in the body's first line, and leave each paragraph on a single line: GitHub

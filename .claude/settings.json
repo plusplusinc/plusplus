@@ -56,7 +56,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "mkdir -p \"$CLAUDE_PROJECT_DIR/.build\" && \"$CLAUDE_PROJECT_DIR/scripts/tidy.sh\" > \"$CLAUDE_PROJECT_DIR/.build/tidy.log\" 2>&1",
+            "command": "mkdir -p \"$CLAUDE_PROJECT_DIR/.build\" \"$CLAUDE_PROJECT_DIR/.slices\" && \"$CLAUDE_PROJECT_DIR/scripts/tidy.sh\" > \"$CLAUDE_PROJECT_DIR/.build/tidy.log\" 2>&1",
             "async": true,
             "timeout": 120
           }

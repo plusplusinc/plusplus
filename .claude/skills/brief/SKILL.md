@@ -1,7 +1,7 @@
 ---
 name: brief
 description: Turn a kernel (a sentence, a screenshot, a design prototype, a memo) into a brief on the project board, argued and scoped, ready for the maintainer to approve. Use whenever the user throws out an idea, a bug, or a hunch, before any code.
-allowed-tools: Bash(scripts/board.sh:*), Bash(git log:*), Bash(gh pr list:*), Bash(gh pr view:*), Read, Glob, Grep
+allowed-tools: Bash(scripts/board.sh:*), Bash(git log:*), Bash(gh pr list:*), Bash(gh pr view:*), Bash(gh issue edit:*), Read, Write, Glob, Grep
 ---
 
 This skill produces the brief and nothing after it. No branch, no code, no spike until the
@@ -42,7 +42,7 @@ every heading present even when its answer is one line:
 - **Plan** lists the model change, the views, the tests, and the screenshots the PR will carry
   (before and after for any UI). For a hunch, the spike and what answer would end it.
 
-Write the body to a file under `.build/` and `scripts/board.sh add "<title>" <file>`. If it
+Write the body to a file under `.slices/` and `scripts/board.sh add "<title>" <file>`. If it
 belongs to a feature in the board README, `scripts/board.sh feature <id> "<name>"`; anything
 else (tooling, a bug, process) stays a standalone task. Draft
 items are private; the repo is not. A bug any user of a shipped build could hit is published
