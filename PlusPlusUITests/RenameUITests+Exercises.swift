@@ -121,8 +121,12 @@ extension RenameUITests {
                 XCTAssertTrue(delete.appears(), "A swipe did not open the row")
             }
             open()
-            app.buttons["Add exercise"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 1))
-                .withOffset(CGVector(dx: 0, dy: 40)).tap()
+            // Halfway between Add exercise and Start: clear of both keys' touch slop, and of
+            // Start's bar, however many rows there are.
+            let addExercise = app.buttons["Add exercise"]
+            let gap = app.buttons["Start"].frame.minY - addExercise.frame.maxY
+            addExercise.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 1))
+                .withOffset(CGVector(dx: 0, dy: gap / 2)).tap()
             XCTAssertTrue(delete.disappears(), "A tap on empty screen left the row open")
             open()
             app.buttons["Start"].tap()
