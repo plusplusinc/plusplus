@@ -68,11 +68,7 @@ extension RenameUITests {
             // The eighth row still fits; the ninth pushes Add exercise below Start.
             app.addExercise("Balance board hold, Balance board")
             app.addExercise("Barbell back squat, Barbell")
-            let (addExercise, start) = (app.buttons["Add exercise"], app.buttons["Start"])
-            XCTAssertTrue(
-                reading(addExercise.frame.maxY <= start.frame.minY, becoming: true, within: 2),
-                "The add left Add exercise behind Start",
-            )
+            XCTAssertTrue(app.addExerciseClearsStart(), "The add left Add exercise behind Start")
             attach(named: "nine-exercises")
         }
         XCTContext.runActivity(named: "A tap on the small title scrolls back to the top") { _ in

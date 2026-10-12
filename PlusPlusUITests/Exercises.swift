@@ -53,6 +53,13 @@ extension XCUIApplication {
         XCTAssertTrue(staticTexts["No Results for \u{201C}zzz\u{201D}"].appears())
     }
 
+    /// Whether Add exercise shows above Start, once it does or after the timeout. An add that
+    /// would push it below scrolls to it once the row is in.
+    func addExerciseClearsStart(within timeout: TimeInterval = 2) -> Bool {
+        let (addExercise, start) = (buttons["Add exercise"], buttons["Start"])
+        return reading(addExercise.frame.maxY <= start.frame.minY, becoming: true, within: timeout)
+    }
+
     /// The exercise rows' count once it is `expected`, or the last count after the timeout.
     func exerciseCount(becoming expected: Int, within timeout: TimeInterval = 2) -> Int {
         reading(exerciseRows.count, becoming: expected, within: timeout)

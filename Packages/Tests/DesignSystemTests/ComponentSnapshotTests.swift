@@ -39,7 +39,6 @@ struct ComponentSnapshotTests {
         }
         .padding(Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        // With no screen corners around it to be concentric with, Start shows its minimum radius.
         .primaryKeyBar(isPresented: !rows.isEmpty) {
             Button("Start", systemImage: "play.fill") { }
         }
