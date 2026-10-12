@@ -70,7 +70,10 @@ case "$command" in
         ;;
     body)
         [ $# -eq 2 ] || usage
-        gh project item-edit --id "$(draft_id "$1")" --body "$(cat "$2")" > /dev/null
+        # Read the file on its own line: inside the call's arguments a failed cat is not
+        # caught by set -e, and a missing file would replace the body with nothing.
+        body=$(cat "$2")
+        gh project item-edit --id "$(draft_id "$1")" --body "$body" > /dev/null
         ;;
     status)
         [ $# -eq 2 ] || usage
