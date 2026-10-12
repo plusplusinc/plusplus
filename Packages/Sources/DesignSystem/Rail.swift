@@ -13,6 +13,8 @@ import SwiftUI
 /// The row named by `arriving` takes its place, and the end view moves down for it, but nothing
 /// of it shows and the line still ends at the node above. When `arriving` lets it go, it enters:
 /// the line grows down to where its node sits, then the node pops in, as its content fades in.
+/// The new line and node draw in `railJoin`, the color of something joining the rail, and
+/// settle to the rail's own colors; with Reduce Motion, they draw in those from the start.
 /// The entry starts `railEntryDelay` after the transaction that lets it go; a row let go in any
 /// other transaction, or added with no `arriving`, takes that transaction's animation.
 public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
@@ -50,6 +52,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                     isFirst: item.id == first,
                     isLast: isArriving || item.id == lastOnLine,
                     isArriving: isArriving,
+                    isAboveArriving: arriving != nil && !isArriving && item.id == lastOnLine,
                 )
                 row(item)
                     .environment(\.railPlace, place)
@@ -80,6 +83,8 @@ struct RailPlace {
     var isFirst = true
     var isLast = true
     var isArriving = false
+    /// Whether the row below is arriving, so this row's stretch below its node will join it.
+    var isAboveArriving = false
 }
 
 extension Transaction {
@@ -149,7 +154,7 @@ private struct RailNode: View {
             .railColumn()
             .overlay {
                 Circle()
-                    .fill(.pp(.borderStrong))
+                    .joiningRail(when: place.isArriving, settlingTo: .borderStrong)
                     .frame(width: size, height: size)
                     .anchorPreference(key: NodeCenter.self, value: .center) { $0 }
                     .scaleEffect(place.isArriving ? 0 : 1)
@@ -186,23 +191,64 @@ private struct RailRow: ViewModifier {
         }
         // The row's stretch of line, top edge to bottom edge through its node, or from the node
         // on the first row and to it on the last, drawn as part of the row so it moves with it.
+        // It is drawn in two, above and below the node, so the part an entry adds can draw in
+        // `railJoin` while the rest stays as it was.
         .backgroundPreferenceValue(NodeCenter.self) { center in
             GeometryReader { proxy in
                 if let center {
                     let node = proxy[center]
                     let top = place.isFirst ? node.y : 0
-                    let end = place.isLast ? node.y : proxy.size.height
-                    let bottom = place.isArriving ? top : end
+                    let above = place.isArriving ? top : node.y
+                    let below = place.isLast ? node.y : proxy.size.height
                     Rectangle()
-                        .fill(.pp(.rail))
-                        .frame(width: lineWidth, height: bottom - top)
-                        .position(x: node.x, y: (top + bottom) / 2)
-                        .entry(Entry.lineAbove, value: place.isLast)
+                        .joiningRail(when: place.isArriving, settlingTo: .rail)
+                        .frame(width: lineWidth, height: above - top)
+                        .position(x: node.x, y: (top + above) / 2)
                         .entry(Entry.line, value: place.isArriving)
+                    Rectangle()
+                        .joiningRail(when: place.isAboveArriving, settlingTo: .rail)
+                        .frame(width: lineWidth, height: below - node.y)
+                        .position(x: node.x, y: (node.y + below) / 2)
+                        .entry(Entry.lineAbove, value: place.isLast)
                 }
             }
         }
         .hotReloadable()
+    }
+}
+
+/// A part of the rail an entry adds: when `trigger` changes, it shows in `railJoin`, the color
+/// of something joining the rail, until the node has popped after the longest lead-in, then
+/// settles to `rest` over a little longer, since it blocks nothing. A keyframe timeline, not an
+/// animation: a shape takes its color and its ends from one transaction, and its ends move on
+/// the entry's quicker ones. With Reduce Motion, it is `rest` throughout.
+private struct JoiningRail: ViewModifier {
+    let trigger: Bool
+    let rest: ColorToken
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ObserveHotReload private var hotReload
+
+    func body(content: Content) -> some View {
+        Group {
+            if reduceMotion {
+                content.foregroundStyle(.pp(rest))
+            } else {
+                content.keyframeAnimator(initialValue: 0.0, trigger: trigger) { view, joining in
+                    view.foregroundStyle(Color.pp(rest).mix(with: .pp(.railJoin), by: joining))
+                } keyframes: { _ in
+                    MoveKeyframe(1)
+                    LinearKeyframe(1, duration: 0.45)
+                    CubicKeyframe(0, duration: 0.35)
+                }
+            }
+        }
+        .hotReloadable()
+    }
+}
+
+extension View {
+    fileprivate func joiningRail(when trigger: Bool, settlingTo rest: ColorToken) -> some View {
+        modifier(JoiningRail(trigger: trigger, rest: rest))
     }
 }
 

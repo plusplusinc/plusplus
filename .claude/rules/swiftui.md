@@ -10,7 +10,9 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
 
 - No raw colors, spacing, font sizes, or corner radii at call sites. Use `Color.pp(.token)`,
   `Font.pp*` or a `.pp*Font()` modifier, `Spacing`, and `Radius` from `DesignSystem`. If a
-  token is missing, add a `ColorToken` case and its colorset.
+  token is missing, add a `ColorToken` case and its colorset. Green (`accent`) is data only.
+  Blue (`railJoin`) marks something joining a rail, for the moment it joins, then gives way to
+  the rail's grays; nothing rests in it.
 - Every font token scales with Dynamic Type: built on a `Font.TextStyle`, or sized with
   `@ScaledMetric(relativeTo:)` when the design sits between two styles. Never a fixed size.
 - Prefer stock components for navigation, toolbars, and sheets; the system applies Liquid Glass
@@ -23,9 +25,11 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   and a key comes back from a press with `keyPressAnimation(isPressed:)`. A row added to a rail
   enters by drawing: the line grows down from the node above, then the row's node pops in with
   a small, crisp overshoot as its content fades in, about a third of a second (`Rail`'s
-  `arriving`). It enters only where it can be seen: its place opens as the picker's sheet
-  starts down, and the entry plays a moment into the sheet's slide, or, when the new row has
-  pushed the list's end out of view, after a scroll to the end.
+  `arriving`). The new line and node draw in `railJoin` and settle to gray over about a third
+  of a second more; with Reduce Motion they draw gray, and the pop does not overshoot. It
+  enters only where it can be seen: its place opens as the picker's sheet starts down, and the
+  entry plays a moment into the sheet's slide, or, when the new row has pushed the list's end
+  out of view, after a scroll to the end.
 - Every new component gets a `#Preview` and goes through `assertThemedSnapshots`.
 - Every view, `ButtonStyle`, and `ViewModifier` declares `@ObserveHotReload private var
   hotReload` and ends its body with `.hotReloadable()`, so hot reload redraws it. Both compile
