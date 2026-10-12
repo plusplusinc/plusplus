@@ -153,7 +153,11 @@ private struct RailRow: ViewModifier {
                 .frame(minHeight: minHeight, alignment: .top)
                 .opacity(place.isArriving ? 0 : 1)
                 .offset(y: place.isArriving && !reduceMotion ? -Spacing.xs : 0)
-                .entry(RailEntry.content, value: place.isArriving)
+                .entry(
+                    RailEntry.content(isFirst: place.isFirst, reduceMotion: reduceMotion),
+                    value: place.isArriving,
+                )
+                .joiningContent(when: place.isArriving)
                 .committing(when: place.isArriving)
         }
         // The row's stretch of line, top edge to bottom edge through its node, or from the node

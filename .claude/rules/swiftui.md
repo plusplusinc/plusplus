@@ -23,15 +23,13 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
 - Motion is snappy: `.snappy`, never a bare `withAnimation` or the default spring, and quicker
   than its default where it answers a tap: rows going onto and off a rail use `.railChange`,
   and a key comes back from a press with `keyPressAnimation(isPressed:)`. A row added to a rail
-  enters with its content as the moment and the rail as a flourish (`RailEntry`): the name
-  fades in with a short drop that lands firmly, with no overshoot, and a light impact haptic as
-  it lands (0.12 s); then a beat (0.15 s), so the eye settles on the name; then the line shoots
-  down from the node above to the new node (0.24 s) on a quartic ease-in from a small running
-  start, at full speed as it hits the node; as it lands, the node pops in with a small, crisp
-  overshoot, with no haptic; then the new line and node hold in `railJoin` for a beat (0.25 s)
-  and fade to gray on an ease-in (gray by about 1.05 s). The first row has no line: name and
-  haptic, beat, pop, settle. With Reduce Motion there is no shot, no blue, and no overshoot,
-  but the haptic stays, as the name appears.
+  enters in one landing (`RailEntry`): its place opens, the line shoots down from the node
+  above into it (0.24 s) on a quartic ease-in from a small running start, at full speed as it
+  hits; as it hits, the node pops in with a small, crisp overshoot and the row's text lands with
+  it, a short drop that stops cleanly with no overshoot, with a light impact haptic. The new
+  line, node, and text arrive in `railJoin`, hold (0.25 s), and fade to their own colors on an
+  ease-in (0.28 s). The first row has no line: node, text, and haptic land at once. With Reduce
+  Motion nothing is blue, there is no shot and no overshoot, but the haptic stays.
   Nothing waits on it: the key, scrolling, swiping a row, and the title all work while it plays.
   It enters only where it can be seen: its place opens as the picker's sheet starts down, and
   the entry plays a moment into the sheet's slide, or, when the new row has pushed the list's

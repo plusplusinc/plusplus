@@ -6,17 +6,16 @@ import Testing
 /// keyframes the rail plays. A simulator cannot feel a haptic, so its timing is what is tested.
 @Suite("Rail entry timeline")
 struct RailEntryTests {
-    @Test("The haptic fires once, as the name lands, before the rail's flourish")
-    func commitOnNameLanding() {
-        #expect(abs(RailEntry.commitTime(lead: 0.15) - (0.15 + RailEntry.name)) < 1e-9)
-        #expect(RailEntry.name < RailEntry.shotStart)
-        #expect(RailEntry.name < RailEntry.popStart(isFirst: true, reduceMotion: false))
+    @Test("The haptic fires as the line hits, when the node and the text land")
+    func commitOnLanding() {
+        let time = RailEntry.commitTime(lead: 0.15, isFirst: false, reduceMotion: false)
+        #expect(abs(time - (0.15 + RailEntry.shot)) < 1e-9)
+        #expect(time == 0.15 + RailEntry.popStart(isFirst: false, reduceMotion: false))
     }
 
-    @Test("The rail follows the name after a beat of about a tenth of a second")
-    func beatBeforeShot() {
-        let beat = RailEntry.shotStart - RailEntry.name
-        #expect(beat >= 0.1 && beat <= 0.17)
+    @Test("On the first row, with no line, the node, text, and haptic land at once")
+    func commitOnFirstRow() {
+        #expect(RailEntry.commitTime(lead: 0.15, isFirst: true, reduceMotion: false) == 0.15)
     }
 
     @Test("The blue holds through the pop and is gone by about 1.05 s after the row shows")
