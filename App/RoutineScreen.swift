@@ -14,6 +14,8 @@ struct RoutineScreen: View {
     @State private var scrollPosition = ScrollPosition()
     /// The row just added, holding its place until it can be seen going in.
     @State private var arriving: RoutineExercise.ID?
+    /// How long the arriving row waits, once let go, before it starts to show.
+    @State private var entryLead: TimeInterval = 0
     /// Whether the title has scrolled up under the bar, where a small copy of it shows instead.
     @State private var isTitleUnderBar = false
     @ObserveHotReload private var hotReload
@@ -40,7 +42,7 @@ struct RoutineScreen: View {
                             isTitleUnderBar = !isVisible
                         }
                     }
-                    Rail(exercises, arriving: arriving) { item in
+                    Rail(exercises, arriving: arriving, entryLead: entryLead) { item in
                         RowLabel(title: item.exercise.name, detail: item.exercise.equipmentLine)
                             .railRow()
                             .accessibilityIdentifier("routine.exercise")
@@ -162,6 +164,7 @@ struct RoutineScreen: View {
         var transaction = Transaction()
         transaction.railEntryDelay = delay
         withTransaction(transaction) {
+            entryLead = delay
             arriving = nil
         }
     }

@@ -23,6 +23,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
 {
     private let data: Data
     private let arriving: Data.Element.ID?
+    private let entryLead: TimeInterval
     private let row: (Data.Element) -> Row
     private let end: End
 
@@ -31,11 +32,13 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     public init(
         _ data: Data,
         arriving: Data.Element.ID? = nil,
+        entryLead: TimeInterval = 0,
         @ViewBuilder row: @escaping (Data.Element) -> Row,
         @ViewBuilder end: () -> End,
     ) {
         self.data = data
         self.arriving = arriving
+        self.entryLead = entryLead
         self.row = row
         self.end = end()
     }
@@ -54,6 +57,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                     isLast: isArriving || item.id == lastOnLine,
                     isArriving: isArriving,
                     isAboveArriving: arriving != nil && !isArriving && item.id == lastOnLine,
+                    entryLead: entryLead,
                 )
                 row(item)
                     .environment(\.railPlace, place)
@@ -86,82 +90,8 @@ struct RailPlace {
     var isArriving = false
     /// Whether the row below is arriving, so this row's stretch below its node will join it.
     var isAboveArriving = false
-}
-
-extension Transaction {
-    /// How long a row's entry waits after the transaction that lets it onto its rail. With none,
-    /// the transaction's own animation applies, as it does to a delete.
-    @Entry public var railEntryDelay: TimeInterval?
-}
-
-/// A row's entry, from when the rail lets it go, as a sequence of beats, each starting `lead`
-/// in: the row's name fades in with a small drop; then the line shoots down from the node above
-/// to where this row's node sits, easing in so it starts slow and lands fast; then the node pops
-/// in, with a small, crisp overshoot, as the line lands; then the new line and node settle from
-/// `railJoin` to gray (`JoiningRail`). The first row has no line above it, so its node pops
-/// after the name. With Reduce Motion, the line and node appear with the name, without a shot or
-/// an overshoot.
-private enum Entry {
-    static let name: TimeInterval = 0.12
-    static let shot: TimeInterval = 0.18
-    static let pop: TimeInterval = 0.15
-
-    static func content(after lead: TimeInterval) -> Animation {
-        .easeOut(duration: name).delay(lead)
-    }
-
-    /// When the node pops, from when the row is let go: on the line's landing.
-    static func popStart(isFirst: Bool) -> TimeInterval {
-        name + (isFirst ? 0 : shot)
-    }
-
-    static func pop(isFirst: Bool, reduceMotion: Bool) -> (_ lead: TimeInterval) -> Animation? {
-        let bounce = reduceMotion ? 0 : 0.25
-        let start = reduceMotion ? 0 : popStart(isFirst: isFirst)
-        return { .snappy(duration: pop, extraBounce: bounce).delay($0 + start) }
-    }
-
-    /// One stretch of the shot. The shot runs from the node above to this row's node, a stretch
-    /// in each row, on one quadratic ease-in: the row above's stretch takes its slow start, the
-    /// share of the time `split` of the way along, and this row's stretch the fast rest. Each
-    /// row estimates `split` from its own height and node, as rows share a rhythm.
-    static func shot(
-        from start: Double,
-        to end: Double,
-        reduceMotion: Bool,
-    ) -> (_ lead: TimeInterval) -> Animation? {
-        guard !reduceMotion, end > start else { return { _ in nil } }
-        // The arc of y = x² from x = start to x = end, rescaled to a unit square, is a quadratic
-        // Bézier with its control point halfway along, at the start's tangent; as a cubic:
-        let rise = start / (start + end)
-        let curve = UnitCurve.bezier(
-            startControlPoint: UnitPoint(x: 1 / 3, y: rise * 2 / 3),
-            endControlPoint: UnitPoint(x: 2 / 3, y: (1 + rise * 2) / 3),
-        )
-        let duration = shot * (end - start)
-        return { .timingCurve(curve, duration: duration).delay($0 + name + shot * start) }
-    }
-
-    /// How far along the shot, in time, it crosses from the row above into this one: the row
-    /// above's stretch below its node, against the whole span from node to node.
-    static func split(height: CGFloat, node: CGFloat) -> Double {
-        guard height > 0 else { return 0.5 }
-        return Double((height - node) / height).squareRoot()
-    }
-}
-
-extension View {
-    /// Animates changes to `value` with `animation`, given the transaction's entry delay.
-    fileprivate func entry(
-        _ animation: @escaping (TimeInterval) -> Animation?,
-        value: some Equatable,
-    ) -> some View {
-        transaction(value: value) { transaction in
-            if let lead = transaction.railEntryDelay {
-                transaction.animation = animation(lead)
-            }
-        }
-    }
+    /// How long an entry waits, once the row is let go, before the row starts to show.
+    var entryLead: TimeInterval = 0
 }
 
 extension EnvironmentValues {
@@ -177,7 +107,7 @@ private struct RailNode: View {
     @ObserveHotReload private var hotReload
 
     var body: some View {
-        let pop = Entry.pop(isFirst: place.isFirst, reduceMotion: reduceMotion)
+        let pop = RailEntry.pop(isFirst: place.isFirst, reduceMotion: reduceMotion)
         Image(systemName: "plus")
             .font(.ppButton)
             .hidden()
@@ -187,12 +117,13 @@ private struct RailNode: View {
                     .joiningRail(
                         when: place.isArriving,
                         settlingTo: .borderStrong,
-                        after: Entry.popStart(isFirst: place.isFirst) + Entry.pop,
+                        isFirst: place.isFirst,
                     )
                     .frame(width: size, height: size)
                     .anchorPreference(key: NodeCenter.self, value: .center) { $0 }
                     .scaleEffect(place.isArriving ? 0 : 1)
                     .entry(pop, value: place.isArriving)
+                    .committing(when: place.isArriving)
             }
             .accessibilityHidden(true)
             .hotReloadable()
@@ -223,7 +154,7 @@ private struct RailRow: ViewModifier {
                 .frame(minHeight: minHeight, alignment: .top)
                 .opacity(place.isArriving ? 0 : 1)
                 .offset(y: place.isArriving && !reduceMotion ? -Spacing.xs : 0)
-                .entry(Entry.content, value: place.isArriving)
+                .entry(RailEntry.content, value: place.isArriving)
         }
         // The row's stretch of line, top edge to bottom edge through its node, or from the node
         // on the first row and to it on the last, drawn as part of the row so it moves with it.
@@ -236,72 +167,27 @@ private struct RailRow: ViewModifier {
                     let top = place.isFirst ? node.y : 0
                     let above = place.isArriving ? top : node.y
                     let below = place.isLast ? node.y : proxy.size.height
-                    let split = Entry.split(height: proxy.size.height, node: node.y)
-                    let settle = Entry.popStart(isFirst: false) + Entry.pop
+                    let split = RailEntry.split(height: proxy.size.height, node: node.y)
                     Rectangle()
-                        .joiningRail(when: place.isArriving, settlingTo: .rail, after: settle)
+                        .joiningRail(when: place.isArriving, settlingTo: .rail, isFirst: false)
                         .frame(width: lineWidth, height: above - top)
                         .position(x: node.x, y: (top + above) / 2)
                         .entry(
-                            Entry.shot(from: split, to: 1, reduceMotion: reduceMotion),
+                            RailEntry.shot(from: split, to: 1, reduceMotion: reduceMotion),
                             value: place.isArriving,
                         )
                     Rectangle()
-                        .joiningRail(when: place.isAboveArriving, settlingTo: .rail, after: settle)
+                        .joiningRail(when: place.isAboveArriving, settlingTo: .rail, isFirst: false)
                         .frame(width: lineWidth, height: below - node.y)
                         .position(x: node.x, y: (node.y + below) / 2)
                         .entry(
-                            Entry.shot(from: 0, to: split, reduceMotion: reduceMotion),
+                            RailEntry.shot(from: 0, to: split, reduceMotion: reduceMotion),
                             value: place.isLast,
                         )
                 }
             }
         }
         .hotReloadable()
-    }
-}
-
-/// A part of the rail an entry adds: when `trigger` changes, it shows in `railJoin`, the color
-/// of something joining the rail, until the node has popped, `settleStart` after the row is let
-/// go, give or take the lead-in, then settles to `rest`. A keyframe timeline, not an animation:
-/// a shape takes its color and its ends from one transaction, and its ends move on the entry's
-/// quicker ones. With Reduce Motion, it is `rest` throughout.
-private struct JoiningRail: ViewModifier {
-    let trigger: Bool
-    let rest: ColorToken
-    let settleStart: TimeInterval
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @ObserveHotReload private var hotReload
-
-    func body(content: Content) -> some View {
-        // The tokens resolve here, on the main actor; the animator's frames only mix the two.
-        let (rest, joined) = (Color.pp(rest), Color.pp(.railJoin))
-        Group {
-            if reduceMotion {
-                content.foregroundStyle(rest)
-            } else {
-                content.keyframeAnimator(initialValue: 0.0, trigger: trigger) { view, joining in
-                    view.foregroundStyle(rest.mix(with: joined, by: joining))
-                } keyframes: { _ in
-                    MoveKeyframe(1)
-                    // The keyframes start as the row is let go, before its lead-in, which is
-                    // at most a sheet's 0.15 s.
-                    LinearKeyframe(1, duration: settleStart + 0.15)
-                    CubicKeyframe(0, duration: 0.3)
-                }
-            }
-        }
-        .hotReloadable()
-    }
-}
-
-extension View {
-    fileprivate func joiningRail(
-        when trigger: Bool,
-        settlingTo rest: ColorToken,
-        after settleStart: TimeInterval,
-    ) -> some View {
-        modifier(JoiningRail(trigger: trigger, rest: rest, settleStart: settleStart))
     }
 }
 

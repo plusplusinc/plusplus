@@ -23,15 +23,17 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
 - Motion is snappy: `.snappy`, never a bare `withAnimation` or the default spring, and quicker
   than its default where it answers a tap: rows going onto and off a rail use `.railChange`,
   and a key comes back from a press with `keyPressAnimation(isPressed:)`. A row added to a rail
-  enters as a sequence of beats (`Rail`'s `arriving`): its name fades in with a small drop
-  (0.12 s); then the line shoots down from the node above to the new node (0.18 s) on an
-  ease-in, starting slow and landing fast, a shot rather than a slide; then the node pops in
-  with a small, crisp overshoot (0.15 s) as the line lands; then the new line and node settle
-  from `railJoin` to gray (0.3 s). The first row has no line, so it is name, pop, settle. With
-  Reduce Motion there is no shot, no blue, and no overshoot: the line and node appear with the
-  name. It enters only where it can be seen: its place opens as the picker's sheet starts down,
-  and the entry plays a moment into the sheet's slide, or, when the new row has pushed the
-  list's end out of view, after a scroll to the end.
+  enters as one quick gesture in beats (`RailEntry`): its name fades in with a small drop
+  (0.12 s); as it finishes, the line shoots down from the node above to the new node (0.12 s)
+  on an ease-in from a running start, a throw rather than a pull away from a stop; as it lands,
+  the node pops in with a small, crisp overshoot and a light impact haptic, the commit (about
+  0.22 s in); then the new line and node hold in `railJoin` for a beat (0.1 s) and fade to gray
+  on an ease-in, with no long tail (gray by about 0.5 s). The first row has no line: name, pop,
+  settle. With Reduce Motion there is no shot, no blue, and no overshoot, but the haptic stays.
+  Nothing waits on it: the key, scrolling, swiping a row, and the title all work while it plays.
+  It enters only where it can be seen: its place opens as the picker's sheet starts down, and
+  the entry plays a moment into the sheet's slide, or, when the new row has pushed the list's
+  end out of view, after a scroll to the end.
 - Every new component gets a `#Preview` and goes through `assertThemedSnapshots`.
 - Every view, `ButtonStyle`, and `ViewModifier` declares `@ObserveHotReload private var
   hotReload` and ends its body with `.hotReloadable()`, so hot reload redraws it. Both compile
