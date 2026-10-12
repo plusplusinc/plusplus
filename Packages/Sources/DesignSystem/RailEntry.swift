@@ -6,13 +6,16 @@ extension Transaction {
     @Entry public var railEntryDelay: TimeInterval?
 }
 
-/// A row's entry, timed from when the row's place opens, `lead` after the rail lets it go. The
-/// line shoots first, down from the node above into the empty place, accelerating from a small
-/// running start; as it hits, the node pops in, with a small, crisp overshoot, and the row's
-/// content lands with it, a short drop that stops cleanly, with a light haptic: one landing. The
-/// new line, node, and content arrive in `railJoin`, hold, then fade to their own colors on an
-/// ease-in. The first row has no line above it, so its node and content land at once. With
-/// Reduce Motion, nothing is blue, there is no shot and no overshoot; the haptic stays.
+/// A row's entry, timed from when the row is let go onto its rail, plus `lead`. After a short
+/// start, the line grows down from the node above in the rail's gray, on a quartic ease-in from a
+/// small running start, and the row's place opens with it, so what follows moves in step. A blue
+/// pulse leads the line's tip (`Pulse`), from under the node above: it grows on a cubic ease-in
+/// and stretches with the tip's speed. After a short pause, the node pops from the pulse with a
+/// small, crisp overshoot, the row's content lands with it in `railJoin`, a short drop that stops
+/// cleanly, and a light haptic fires: one landing. After another pause, the node and content
+/// hold in blue, then fade to their own colors on an ease-in. The first row has no line or
+/// pulse: its place opens over the same time, then it lands. With Reduce Motion the place opens
+/// at once, nothing is blue, there is no shot, pulse, or overshoot; the haptic stays.
 enum RailEntry {
     /// The content's landing: short, so it settles as the node's pop does.
     static let name: TimeInterval = 0.08
@@ -29,8 +32,8 @@ enum RailEntry {
     static let hold: TimeInterval = 0.25
     static let settle: TimeInterval = 0.28
 
-    /// When the node and the content land, from when the row's place opens: as the line hits,
-    /// or at once on the first row and with Reduce Motion.
+    /// When the node and the content land, from when the row is let go: a pause after the line
+    /// lands, the first row's too, or at once with Reduce Motion.
     static func popStart(isFirst _: Bool, reduceMotion: Bool) -> TimeInterval {
         reduceMotion ? 0 : start + shot + pause
     }
@@ -67,8 +70,8 @@ enum RailEntry {
         lead + popStart(isFirst: isFirst, reduceMotion: reduceMotion)
     }
 
-    /// How much of `railJoin` the new line and node show: all of it until a beat after the pop,
-    /// then none, on an ease-in.
+    /// How much of `railJoin` the new node and content show: all of it through the landing, a
+    /// pause, and the hold, then none, on an ease-in.
     @KeyframesBuilder<Double>
     static func joining(lead: TimeInterval, isFirst: Bool) -> some Keyframes<Double> {
         MoveKeyframe(1)
@@ -149,10 +152,10 @@ extension View {
     }
 }
 
-/// A part of the rail an entry adds: when `trigger` changes, it shows in `railJoin`, the color
-/// of something joining the rail, then settles to `rest` (`RailEntry.joining`). A keyframe
-/// timeline, not an animation: a shape takes its color and its ends from one transaction, and
-/// its ends move on the entry's quicker ones. With Reduce Motion, it is `rest` throughout.
+/// A new node: when `trigger` changes, it shows in `railJoin`, the color of something joining the
+/// rail, then settles to `rest` (`RailEntry.joining`). A keyframe timeline, not an animation: a
+/// shape takes its color and its size from one transaction, and its size moves on the pop.
+/// With Reduce Motion, it is `rest` throughout.
 private struct JoiningRail: ViewModifier {
     let trigger: Bool
     let rest: ColorToken
@@ -224,8 +227,8 @@ struct Pulse: Shape {
     let end: Double
 
     /// How long the stretch is for each point a second of the tip's speed.
-    nonisolated private static let stretch: CGFloat = 0.022
-    nonisolated private static let longest: CGFloat = 0.35
+    private nonisolated static let stretch: CGFloat = 0.022
+    private nonisolated static let longest: CGFloat = 0.35
 
     nonisolated var animatableData: Double {
         get { time }

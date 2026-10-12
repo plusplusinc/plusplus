@@ -23,17 +23,19 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
 - Motion is snappy: `.snappy`, never a bare `withAnimation` or the default spring, and quicker
   than its default where it answers a tap: rows going onto and off a rail use `.railChange`,
   and a key comes back from a press with `keyPressAnimation(isPressed:)`. A row added to a rail
-  enters in one landing (`RailEntry`), each stage ending in a quick pause (0.05 s): after
-  0.1 s, the line shoots down from the node above (0.24 s) on a quartic ease-in from a small
-  running start, at full speed as it hits, and the row's place opens with it on the same curve,
-  pushing Add exercise down exactly as far as the line grows, or, past the visible area,
-  scrolling in step so the key stays put; after a pause, the node pops in with a small, crisp
-  overshoot and the row's text lands with it, a short drop that stops cleanly with no
-  overshoot, with a light impact haptic. The new line, node, and text arrive in `railJoin`;
-  once the landing has settled and a pause, they hold (0.25 s) and fade to their own colors on
-  an ease-in (0.28 s). The first row has no line: its place opens over the same time and
-  curve, then it lands. With Reduce Motion the place opens at once, nothing is blue, there is
-  no shot and no overshoot, but the haptic stays.
+  enters in one landing (`RailEntry`). After 0.1 s, the line grows down from the node above in
+  the rail's gray (0.24 s) on a quartic ease-in from a small running start, and the row's place
+  opens with it on the same curve, pushing Add exercise down exactly as far as the line grows,
+  or, past the visible area, scrolling in step so the key stays put. A solid `railJoin` pulse
+  leads the tip: it starts as a dot under the node above, grows from the line's width to twice
+  it on a cubic ease-in, and stretches with the tip's speed, to at most a third of the gap.
+  After a 0.05 s pause, in which the pulse collapses back to its dot, the node pops from it
+  with a small, crisp overshoot, and the name and equipment land with it in `railJoin`, a short
+  drop that stops cleanly, with a light impact haptic. After another 0.05 s pause, the node and
+  text hold in blue (0.25 s), then fade to their own colors on an ease-in (0.28 s); the line is
+  never blue. The first row has no line or pulse: its place opens over the same time and curve,
+  then it lands. With Reduce Motion the place opens at once, nothing is blue, there is no shot,
+  pulse, or overshoot, but the haptic stays, as the row lands.
   Nothing waits on it: the key, scrolling, swiping a row, and the title all work while it plays.
   It enters only where it can be seen: its place opens as the picker's sheet starts down, and
   the entry plays a moment into the sheet's slide, or, when the new row has pushed the list's
