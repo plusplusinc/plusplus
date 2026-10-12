@@ -26,7 +26,7 @@ enum RailEntry {
     nonisolated static let runningStart = 0.1
     static let pop: TimeInterval = 0.15
     /// How long the blue holds after the pop, so it registers, before it fades.
-    static let hold: TimeInterval = 0.1
+    static let hold: TimeInterval = 0.25
     static let settle: TimeInterval = 0.28
 
     /// When the node pops, from when the row starts to show: as the line lands, or, on the first
