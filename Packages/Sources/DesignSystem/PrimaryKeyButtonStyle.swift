@@ -25,7 +25,7 @@ public struct PrimaryKeyButtonStyle: ButtonStyle {
             .font(.ppPrimaryKey)
             .foregroundStyle(.pp(.onPrimaryKey))
             .padding(.horizontal, Spacing.lg)
-            .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: minHeight)
             .background(shape.fill(.pp(.primaryKey)))
             .contentShape(shape)
             .offset(y: configuration.isPressed ? Self.ledge : 0)
