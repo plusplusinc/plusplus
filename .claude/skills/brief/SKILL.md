@@ -60,7 +60,9 @@ decision). Open points are listed with a recommendation each: screens with no de
 nobody has chosen (lists, copy, defaults), conflicts with earlier decisions, and gaps between
 this card and its neighbors. Their answers go into the body as an "Aligned with <maintainer>
 <date>" list; anything they push out of scope becomes its own card, named in Out of scope. An
-open point that doesn't change what gets built can stay open; say so in the body.
+open point that doesn't change what gets built can stay open; say so in the body. A card
+published as an issue is public: edit it with `gh issue edit`, and keep the "Aligned" list to what
+may be published (section 3).
 
 ## 5. Queue it
 
