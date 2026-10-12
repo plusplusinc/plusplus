@@ -13,6 +13,7 @@ PACKAGE="$ROOT/Packages"
 DERIVED_DATA="$ROOT/.build/DerivedData"
 RESULTS="$ROOT/.build/results"
 SIMULATOR_NAME="${PLUSPLUS_SIMULATOR:-iPhone 17}"
+DESTINATION="platform=iOS Simulator,name=$SIMULATOR_NAME"
 
 mkdir -p "$DERIVED_DATA" "$RESULTS"
 
@@ -45,7 +46,7 @@ run_xcodebuild() {
     xcodebuild "$@" \
         -project "$PROJECT" \
         -scheme "$SCHEME" \
-        -destination "platform=iOS Simulator,name=$SIMULATOR_NAME" \
+        -destination "$DESTINATION" \
         -derivedDataPath "$DERIVED_DATA" \
         -resultBundlePath "$bundle" \
         -skipPackagePluginValidation \
