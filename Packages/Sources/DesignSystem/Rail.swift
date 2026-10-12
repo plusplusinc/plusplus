@@ -130,7 +130,7 @@ private struct RailNode: View {
                     .anchorPreference(key: NodeCenter.self, value: .center) { $0 }
                     // It pops from the size of the point that led the line, as the line lands:
                     // shown at that size and grown to its own in the same moment.
-                    .scaleEffect(place.isArriving ? lineWidth / size : 1)
+                    .scaleEffect(place.isArriving ? lineWidth * RailEntry.pointScale / size : 1)
                     .entry(pop, value: place.isArriving)
                     .scaleEffect(place.isArriving ? 0 : 1)
                     .entry(RailEntry.step(at: landing), value: place.isArriving)
@@ -210,14 +210,14 @@ private struct RailRow: ViewModifier {
 }
 
 extension RailRow {
-    /// The blue point that leads the line down to an arriving row's node, on the line's curve, the
-    /// line's width across. It starts at the node above, a row's height up, as rows share a
+    /// The blue point that leads the line down to an arriving row's node, on the line's curve, a
+    /// little wider than the line. It starts at the node above, a row's height up, as rows share a
     /// rhythm, shows from the shot's start, and gives way to the node as it pops.
     private func leadingPoint(at node: CGPoint, rowHeight: CGFloat) -> some View {
         let landing = RailEntry.popStart(isFirst: false, reduceMotion: false)
         return Circle()
             .fill(.pp(.railJoin))
-            .frame(width: lineWidth, height: lineWidth)
+            .frame(width: lineWidth * RailEntry.pointScale, height: lineWidth * RailEntry.pointScale)
             .position(node)
             .offset(y: place.isArriving ? -rowHeight : 0)
             .entry(RailEntry.space(reduceMotion: false), value: place.isArriving)

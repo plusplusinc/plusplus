@@ -35,6 +35,9 @@ enum RailEntry {
         reduceMotion ? 0 : start + shot + pause
     }
 
+    /// The blue point that leads the line, against the line's width.
+    static let pointScale: CGFloat = 1.75
+
     /// A change made all at once, `time` after the row's place starts to open.
     static func step(at time: TimeInterval) -> (_ lead: TimeInterval) -> Animation? {
         { .linear(duration: 0.001).delay($0 + time) }
