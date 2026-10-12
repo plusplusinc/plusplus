@@ -4,9 +4,7 @@ import SwiftUI
 /// centered. Pressing pushes the key down onto its ledge, which stays put, so nothing around it
 /// moves. Not green: green is for data.
 ///
-/// Its top corners are a key's, as Add exercise's are. Its bottom corners are concentric with
-/// its container's, the screen's in `primaryKeyBar`, resolved once from where the key sits.
-/// The ledge takes the same shape.
+/// A key's shape, as Add exercise's is, on a ledge of the same shape.
 public struct PrimaryKeyButtonStyle: ButtonStyle {
     /// A little taller than a key, such as Add exercise.
     @ScaledMetric(relativeTo: .title3) private var minHeight: CGFloat = 56
@@ -17,10 +15,7 @@ public struct PrimaryKeyButtonStyle: ButtonStyle {
     public init() { }
 
     public func makeBody(configuration: Configuration) -> some View {
-        let shape = ConcentricRectangle(
-            uniformTopCorners: .fixed(Radius.key),
-            uniformBottomCorners: .concentric(minimum: .fixed(Radius.key)),
-        )
+        let shape = RoundedRectangle(cornerRadius: Radius.key)
         configuration.label
             .font(.ppPrimaryKey)
             .foregroundStyle(.pp(.onPrimaryKey))
@@ -29,6 +24,7 @@ public struct PrimaryKeyButtonStyle: ButtonStyle {
             .background(shape.fill(.pp(.primaryKey)))
             .contentShape(shape)
             .offset(y: configuration.isPressed ? Self.ledge : 0)
+            .keyPressAnimation(isPressed: configuration.isPressed)
             .background(shape.fill(.pp(.borderStrong)).offset(y: Self.ledge))
             .padding(.bottom, Self.ledge)
             .hotReloadable()
@@ -44,18 +40,18 @@ extension ButtonStyle where Self == PrimaryKeyButtonStyle {
 
 extension View {
     /// A screen's primary key in a bar at its bottom while `isPresented`, rising in and dropping
-    /// out. The key sits as far from the screen's bottom edge as from its sides, below the home
-    /// indicator's safe area, so its bottom corners are concentric with the screen's, as the
-    /// system's bottom buttons are.
+    /// out. The key sits above the home indicator, inset from the screen's sides as the content
+    /// above it is, on a floor of the screen's background that runs to the bottom edge: content
+    /// scrolled under the bar shows neither beside the key nor below it.
     public func primaryKeyBar(isPresented: Bool, @ViewBuilder key: () -> some View) -> some View {
         let key = key()
         return safeAreaBar(edge: .bottom) {
             if isPresented {
                 key
                     .buttonStyle(.primaryKey)
-                    .padding([.horizontal, .bottom], Spacing.md)
-                    // The home indicator's area only: with the keyboard up, the key rides above it.
-                    .ignoresSafeArea(.container, edges: .bottom)
+                    .padding(.horizontal, Spacing.md)
+                    .padding(.top, Spacing.sm)
+                    .background { Color.pp(.background).ignoresSafeArea() }
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
