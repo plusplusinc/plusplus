@@ -26,13 +26,8 @@ enum RailEntry {
     nonisolated static let runningStart = 0.1
     static let pop: TimeInterval = 0.15
     /// How long the blue holds after the pop, so it registers, before it fades.
-    static let hold: TimeInterval = 0.1
-    /// The fade to gray: a steep ease-in, so the blue seems to sit, then drop away at the end.
-    static let settle: TimeInterval = 0.4
-    static let settleCurve = UnitCurve.bezier(
-        startControlPoint: UnitPoint(x: 0.5, y: 0),
-        endControlPoint: UnitPoint(x: 0.75, y: 0),
-    )
+    static let hold: TimeInterval = 0.25
+    static let settle: TimeInterval = 0.28
 
     /// When the node pops, from when the row starts to show: as the line lands, or, on the first
     /// row, after the beat that follows the name.
@@ -52,7 +47,7 @@ enum RailEntry {
     static func joining(lead: TimeInterval, isFirst: Bool) -> some Keyframes<Double> {
         MoveKeyframe(1)
         LinearKeyframe(1, duration: lead + popStart(isFirst: isFirst, reduceMotion: false) + hold)
-        LinearKeyframe(0, duration: settle, timingCurve: settleCurve)
+        LinearKeyframe(0, duration: settle, timingCurve: .easeIn)
     }
 
     /// The name's landing: quick, then slowing, but still moving as it arrives, so it stops
