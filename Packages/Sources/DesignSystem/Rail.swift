@@ -229,12 +229,14 @@ private struct JoiningRail: ViewModifier {
     @ObserveHotReload private var hotReload
 
     func body(content: Content) -> some View {
+        // The tokens resolve here, on the main actor; the animator's frames only mix the two.
+        let (rest, joined) = (Color.pp(rest), Color.pp(.railJoin))
         Group {
             if reduceMotion {
-                content.foregroundStyle(.pp(rest))
+                content.foregroundStyle(rest)
             } else {
                 content.keyframeAnimator(initialValue: 0.0, trigger: trigger) { view, joining in
-                    view.foregroundStyle(Color.pp(rest).mix(with: .pp(.railJoin), by: joining))
+                    view.foregroundStyle(rest.mix(with: joined, by: joining))
                 } keyframes: { _ in
                     MoveKeyframe(1)
                     LinearKeyframe(1, duration: 0.45)
