@@ -4,15 +4,15 @@
 #   scripts/board.sh list                              # every item, in board order: id, status, feature, title
 #   scripts/board.sh show <item-id>                    # title, status, and body
 #   scripts/board.sh readme                            # the board's README: the design per feature
-#   scripts/board.sh add <title> <<'EOF'               # a draft item in Todo; prints its id
-#   scripts/board.sh body <item-id> <<'EOF'            # replace a draft item's body
+#   scripts/board.sh add <title> <<'CARD'              # a draft item in Todo; prints its id
+#   scripts/board.sh body <item-id> <<'CARD'           # replace a draft item's body
 #   scripts/board.sh status <item-id> Todo|"In Progress"|Done
 #   scripts/board.sh move <item-id> top|<after-item-id>  # place it in the queue /onward works through
 #   scripts/board.sh feature <item-id> <name>|-        # group it under a feature's design; - for a standalone task
 #   scripts/board.sh publish <item-id>                # convert the draft to a repo issue, in place
 #
-# `add` and `body` read the body from stdin, usually a heredoc, so no draft file exists to drift
-# from the card or go missing. `add` with no body makes an empty-bodied card; `body` refuses an
+# `add` and `body` read the body from stdin, usually a quoted heredoc (quoted, so backticks stay
+# text), so no draft file exists to drift from the card or go missing. `add` with no body makes an empty-bodied card; `body` refuses an
 # empty body rather than blank the card.
 #
 # Draft items keep the board private while the repo is public; `publish` converts one to an
@@ -54,15 +54,19 @@ usage() {
     exit 64
 }
 
+# Item lookups list the board, and a card created seconds ago may not be listed yet.
+no_item() {
+    echo "no item $1 on the board; a new card takes a few seconds to appear" >&2
+    exit 1
+}
+
 # gh edits a draft's title and body through the draft issue's own id (DI_...), not the project
-# item's id (PVTI_...) that every other subcommand takes. A card created seconds ago may not be
-# listed yet.
+# item's id (PVTI_...) that every other subcommand takes.
 draft_id() {
     local id
     id=$(items ".items[] | select(.id == \"$1\") | .content.id")
     if [ -z "$id" ]; then
-        echo "no item $1 on the board; a new card takes a few seconds to appear" >&2
-        exit 1
+        no_item "$1"
     fi
     echo "$id"
 }
@@ -75,7 +79,11 @@ case "$command" in
         ;;
     show)
         [ $# -eq 1 ] || usage
-        items ".items[] | select(.id == \"$1\") | \"\(.title)\n[\(.status // \"-\")]\n\n\(.content.body // \"\")\""
+        card=$(items ".items[] | select(.id == \"$1\") | \"\(.title)\n[\(.status // \"-\")]\n\n\(.content.body // \"\")\"")
+        if [ -z "$card" ]; then
+            no_item "$1"
+        fi
+        echo "$card"
         ;;
     readme)
         [ $# -eq 0 ] || usage

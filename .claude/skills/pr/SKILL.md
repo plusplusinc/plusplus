@@ -24,10 +24,10 @@ request that already merged.
 Then:
 ```sh
 git push -u origin <branch>
-gh pr create --title "<title>" --body-file - <<'EOF'   # or gh pr edit to update the body
+gh pr create --title "<title>" --body-file - <<'BODY'   # or gh pr edit to update the body
 <body>
-EOF
-gh pr checks --watch                                  # Xcode Cloud reports back as a check
+BODY
+gh pr checks --watch                                   # Xcode Cloud reports back as a check
 ```
 
 If `gh pr checks` still says "no checks reported" 30 seconds after the PR opens, GitHub's

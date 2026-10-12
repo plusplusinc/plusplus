@@ -42,8 +42,8 @@ every heading present even when its answer is one line:
 - **Plan** lists the model change, the views, the tests, and the screenshots the PR will carry
   (before and after for any UI). For a hunch, the spike and what answer would end it.
 
-Pass the body on stdin, as a heredoc: `scripts/board.sh add "<title>" <<'EOF'`. The card is the
-only copy; there is no draft file. If it belongs to a feature in the board README,
+Pass the body on stdin, as a quoted heredoc: `scripts/board.sh add "<title>" <<'CARD'`. The card
+is the only copy; there is no draft file. If it belongs to a feature in the board README,
 `scripts/board.sh feature <id> "<name>"`; anything else (tooling, a bug, process) stays a
 standalone task. Draft items are private; the repo is not. A bug any user of a shipped build could
 hit is published at once (`scripts/board.sh publish`); everything else stays a draft until a PR is

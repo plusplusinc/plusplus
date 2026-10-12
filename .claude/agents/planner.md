@@ -11,7 +11,7 @@ through it.
 
 1. Read the code the slice touches, the rules in `.claude/rules/` for those areas, the design,
    and `docs/principles.md`. Note where the design and the code disagree.
-2. Run `/brief` for the slice unless the lead names an existing card. Do not move the card.
+2. Read the card with `scripts/board.sh show <id>`. Do not edit or move it.
 3. Write the implementation plan to the path the lead names: which layer each piece goes in
    (the arrows in `CLAUDE.md`), the model change, the views, the order of small steps, each one
    ending in something that builds and can be seen.
