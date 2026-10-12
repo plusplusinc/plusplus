@@ -226,6 +226,13 @@ extension RailRow {
         .entry(RailEntry.step(at: landing), value: place.isAboveArriving)
         .opacity(place.isAboveArriving ? 0 : 1)
         .entry(RailEntry.step(at: RailEntry.start), value: place.isAboveArriving)
+        // Readied as a row is added, out of sight: in the add's own animation, its shape and
+        // opacities faded through a faint blue streak.
+        .transaction(value: place.isAboveArriving) { transaction in
+            if !transaction.isRailEntry {
+                transaction.animation = nil
+            }
+        }
     }
 }
 

@@ -19,6 +19,8 @@ struct RoutineScreen: View {
     /// While an added row's place opens, the list's end stays put on screen: as the content grows
     /// past the visible area, it scrolls in step (`keepEndInView`).
     @State private var isOpeningPlace = false
+    /// Whether the list is being scrolled by hand, which the in-step scroll leaves alone.
+    @State private var isScrollingByHand = false
     /// Whether the title has scrolled up under the bar, where a small copy of it shows instead.
     @State private var isTitleUnderBar = false
     @ObserveHotReload private var hotReload
@@ -72,6 +74,9 @@ struct RoutineScreen: View {
             }
             .scrollPosition($scrollPosition)
             .onScrollGeometryChange(for: ScrollGeometry.self, of: { $0 }, action: keepEndInView)
+            .onScrollPhaseChange { _, phase in
+                isScrollingByHand = phase == .interacting || phase == .decelerating
+            }
             .onScrollGeometryChange(
                 for: Bool.self,
                 of: Self.endIsInView(of:),
@@ -167,7 +172,9 @@ struct RoutineScreen: View {
     /// time, so Add exercise stays put on screen as the line grows above it. The place opens
     /// with the list's end in view, so the end is where the scroll stays.
     private func keepEndInView(from old: ScrollGeometry, to new: ScrollGeometry) {
-        guard isOpeningPlace, new.contentSize.height > old.contentSize.height else { return }
+        guard isOpeningPlace, !isScrollingByHand,
+              new.contentSize.height > old.contentSize.height
+        else { return }
         // `scrollTo(y:)` counts from the top of the content, not from above the top inset.
         let end = new.contentSize.height - new.containerSize.height
         guard end > new.contentOffset.y + new.contentInsets.top else { return }
@@ -191,7 +198,8 @@ struct RoutineScreen: View {
         guard arriving == row.id else { return }
         var transaction = Transaction()
         transaction.isRailEntry = true
-        transaction.addAnimationCompletion { isOpeningPlace = false }
+        // A later add, its row arriving, keeps the scroll in step for its own place.
+        transaction.addAnimationCompletion { isOpeningPlace = arriving != nil }
         withTransaction(transaction) {
             arriving = nil
         }
