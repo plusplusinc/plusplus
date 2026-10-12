@@ -13,7 +13,8 @@ import SwiftUI
 /// The row named by `arriving` takes its place, and the end view moves down for it, but nothing
 /// of it shows and the line still ends at the node above. When `arriving` lets it go, it enters:
 /// the line grows down to where its node sits, then the node pops in, as its content fades in.
-/// The entry starts `railEntryDelay` after the transaction that lets it go.
+/// The entry starts `railEntryDelay` after the transaction that lets it go; a row let go in any
+/// other transaction, or added with no `arriving`, takes that transaction's animation.
 public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     where Data.Element: Identifiable
 {
@@ -54,9 +55,9 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                     .environment(\.railPlace, place)
                     // A row's swipe closes when its action runs, so a deleted row slid back to rest
                     // as it went. It fades out first instead, while the rows below close the gap.
-                    // A row comes in through its entry, drawn by `railRow()`.
+                    // An arriving row draws nothing until its entry, so its fade shows nothing.
                     .transition(.asymmetric(
-                        insertion: .identity,
+                        insertion: .opacity,
                         removal: .opacity.animation(.snappy(duration: 0.15)),
                     ))
             }
@@ -82,8 +83,9 @@ struct RailPlace {
 }
 
 extension Transaction {
-    /// How long a row's entry waits after the transaction that lets it onto its rail.
-    @Entry public var railEntryDelay: TimeInterval = 0
+    /// How long a row's entry waits after the transaction that lets it onto its rail. With none,
+    /// the transaction's own animation applies, as it does to a delete.
+    @Entry public var railEntryDelay: TimeInterval?
 }
 
 /// A row's entry, from when the rail lets it go: the line grows down, a stretch in the row above
@@ -102,8 +104,10 @@ private enum Entry {
     }
 
     /// The node's pop, as the line arrives, or at once on the first row.
-    static func pop(isFirst: Bool) -> (_ lead: TimeInterval) -> Animation {
-        { .snappy(duration: 0.2, extraBounce: 0.25).delay($0 + (isFirst ? 0 : 0.14)) }
+    /// With Reduce Motion, it grows without overshooting.
+    static func pop(isFirst: Bool, reduceMotion: Bool) -> (_ lead: TimeInterval) -> Animation {
+        let bounce = reduceMotion ? 0 : 0.25
+        return { .snappy(duration: 0.2, extraBounce: bounce).delay($0 + (isFirst ? 0 : 0.14)) }
     }
 
     static func content(after lead: TimeInterval) -> Animation {
@@ -117,7 +121,11 @@ extension View {
         _ animation: @escaping (TimeInterval) -> Animation,
         value: some Equatable,
     ) -> some View {
-        transaction(value: value) { $0.animation = animation($0.railEntryDelay) }
+        transaction(value: value) { transaction in
+            if let lead = transaction.railEntryDelay {
+                transaction.animation = animation(lead)
+            }
+        }
     }
 }
 
@@ -130,9 +138,11 @@ extension EnvironmentValues {
 private struct RailNode: View {
     @ScaledMetric(relativeTo: .body) private var size: CGFloat = 10
     @Environment(\.railPlace) private var place
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
     var body: some View {
+        let pop = Entry.pop(isFirst: place.isFirst, reduceMotion: reduceMotion)
         Image(systemName: "plus")
             .font(.ppButton)
             .hidden()
@@ -143,7 +153,7 @@ private struct RailNode: View {
                     .frame(width: size, height: size)
                     .anchorPreference(key: NodeCenter.self, value: .center) { $0 }
                     .scaleEffect(place.isArriving ? 0 : 1)
-                    .entry(Entry.pop(isFirst: place.isFirst), value: place.isArriving)
+                    .entry(pop, value: place.isArriving)
             }
             .accessibilityHidden(true)
             .hotReloadable()

@@ -66,7 +66,7 @@ struct RoutineScreen: View {
                 .padding(.top, Spacing.sm)
             }
             .scrollPosition($scrollPosition)
-            .onScrollGeometryChange(for: ScrollGeometry.self, of: { $0 }, action: placed)
+            .onScrollGeometryChange(for: ListEnd.self, of: ListEnd.init, action: placed)
             .primaryKeyBar(isPresented: !exercises.isEmpty) {
                 // Starting a workout is a later slice.
                 Button("Start", systemImage: "play.fill") { }
@@ -153,12 +153,9 @@ struct RoutineScreen: View {
 
     /// Once the arriving row has its place, it enters where everything is still in view, a
     /// moment into the sheet's slide, which uncovers the screen from the top.
-    private func placed(from old: ScrollGeometry, to new: ScrollGeometry) {
-        guard arriving != nil, new.contentSize.height > old.contentSize.height else { return }
-        let visibleEnd = new.contentOffset.y + new.contentInsets.top + new.containerSize.height
-        if new.contentSize.height <= visibleEnd.rounded(.up) {
-            letArrivingEnter(after: 0.15)
-        }
+    private func placed(from old: ListEnd, to new: ListEnd) {
+        guard arriving != nil, new.height > old.height, new.isInView else { return }
+        letArrivingEnter(after: 0.15)
     }
 
     private func letArrivingEnter(after delay: TimeInterval) {
@@ -167,6 +164,20 @@ struct RoutineScreen: View {
         withTransaction(transaction) {
             arriving = nil
         }
+    }
+}
+
+/// How far the list runs, and whether its end, Add exercise, is in view.
+private struct ListEnd: Equatable {
+    let height: CGFloat
+    let isInView: Bool
+
+    init(_ geometry: ScrollGeometry) {
+        height = geometry.contentSize.height
+        // The container is the area between the bars, and the offset counts from above the top one.
+        let visibleEnd = geometry.contentOffset.y + geometry.contentInsets.top
+            + geometry.containerSize.height
+        isInView = height <= visibleEnd.rounded(.up)
     }
 }
 
