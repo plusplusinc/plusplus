@@ -28,8 +28,10 @@ extension XCUIApplication {
     }
 
     /// Opens the picker and picks the row labeled `label`, searching for `query` first when the
-    /// row is not in the first screenful.
+    /// row is not in the first screenful. Returns once the row is in: it goes in only when the
+    /// sheet is down, moving Add exercise, which a tap sooner would miss.
     func addExercise(_ label: String, searching query: String? = nil) {
+        let count = exerciseRows.count
         let search = openPicker()
         if let query {
             search.tap()
@@ -37,6 +39,11 @@ extension XCUIApplication {
         }
         pickerRows[label].tap()
         XCTAssertTrue(search.disappears(), "Picking \(label) left the picker open")
+        XCTAssertEqual(
+            exerciseCount(becoming: count + 1),
+            count + 1,
+            "Picking \(label) added no row",
+        )
     }
 
     /// Replaces the search `query` in `search` with one nothing matches, and checks that the
