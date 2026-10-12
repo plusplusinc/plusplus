@@ -20,12 +20,12 @@ enum RailEntry {
     /// The rail's flourish starts after the name lands and a beat, so the eye settles on the
     /// name before the line draws it to the rail: rhythm, not lag.
     static let shotStart: TimeInterval = 0.27
-    static let shot: TimeInterval = 0.12
+    static let shot: TimeInterval = 0.18
     /// A tiny beat between the line reaching the node and the node popping.
     static let landing: TimeInterval = 0.06
     /// The shot's speed at its start, against its average: small, but moving from the first
     /// frame, so it never looks stalled.
-    nonisolated static let runningStart = 0.2
+    nonisolated static let runningStart = 0.1
     static let pop: TimeInterval = 0.15
     /// How long the blue holds after the pop, so it registers, before it fades.
     static let hold: TimeInterval = 0.1
@@ -70,7 +70,7 @@ enum RailEntry {
 
     /// Where along the shot, from 0 to 1, it is a share `time` of the way through it.
     /// A quartic ease-in from a running start: most of the way in the last third, at full speed,
-    /// about 3.4 times the average, as the line hits the node. Pure arithmetic, so the shot's
+    /// about 3.7 times the average, as the line hits the node. Pure arithmetic, so the shot's
     /// animation can read it on any frame, off the main actor.
     nonisolated static func distance(at time: Double) -> Double {
         runningStart * time + (1 - runningStart) * pow(time, 4)
