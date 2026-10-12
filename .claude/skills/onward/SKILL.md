@@ -5,7 +5,7 @@ description: Lead the next card on the board, a feature slice or a standalone ta
 
 The main session runs this as the lead described in `CLAUDE.md` ("Building features"). The
 maintainer clears the context between slices, so everything needed to continue lives on the
-project board and in `.slices/`.
+project board; agents' technical working files live in `.slices/`.
 
 ## Start
 
@@ -33,12 +33,13 @@ project board and in `.slices/`.
 
 ## Run the slice
 
-- Starting a slice: move its card to In Progress, sharpen its acceptance criteria into
-  `.slices/sliceN-spec.md`, then run the planner, the builder, the verifier, and a builder
-  again for what the verifier found, as `.claude/agents/` describes. Every file path you give a
+- Starting a slice: move its card to In Progress, sharpen its acceptance criteria in the card
+  itself (`scripts/board.sh body`), then run the planner, the builder, the verifier, and a
+  builder again for what the verifier found, as `.claude/agents/` describes. Give each subagent
+  the card id; it reads the criteria with `scripts/board.sh show`. Every file path you give a
   subagent is under `.slices/`. Size the team to the card: a small task with no UI can go
-  straight to a builder with the spec as its plan, and a task the maintainer can't try on the
-  phone skips the try-out.
+  straight to a builder with the card's Plan as its plan, and a task the maintainer can't try
+  on the phone skips the try-out.
 - When a subagent runs long, have it write `.slices/sliceN-handoff.md` and continue with a
   fresh one in the same worktree.
 - Rewrite the card's State section (`scripts/board.sh body`) whenever a phase ends, so a

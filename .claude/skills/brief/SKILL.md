@@ -1,7 +1,7 @@
 ---
 name: brief
 description: Turn a kernel (a sentence, a screenshot, a design prototype, a memo) into a brief on the project board, argued and scoped, ready for the maintainer to approve. Use whenever the user throws out an idea, a bug, or a hunch, before any code.
-allowed-tools: Bash(scripts/board.sh:*), Bash(git log:*), Bash(gh pr list:*), Bash(gh pr view:*), Read, Glob, Grep
+allowed-tools: Bash(scripts/board.sh:*), Bash(git log:*), Bash(gh pr list:*), Bash(gh pr view:*), Bash(gh issue edit:*), Read, Glob, Grep
 ---
 
 This skill produces the brief and nothing after it. No branch, no code, no spike until the
@@ -42,14 +42,14 @@ every heading present even when its answer is one line:
 - **Plan** lists the model change, the views, the tests, and the screenshots the PR will carry
   (before and after for any UI). For a hunch, the spike and what answer would end it.
 
-Write the body to a file under `.build/` and `scripts/board.sh add "<title>" <file>`. If it
-belongs to a feature in the board README, `scripts/board.sh feature <id> "<name>"`; anything
-else (tooling, a bug, process) stays a standalone task. Draft
-items are private; the repo is not. A bug any user of a shipped build could hit is published
-at once (`scripts/board.sh publish`); everything else stays a draft until a PR is about to
-implement it, so the PR can close it and the reasoning ships with the code. Before publishing,
-delete from the body what must not be public: strategy and why-now reasoning, personal or
-health data, unreleased design work, anything about other apps. If that leaves nothing useful,
+Pass the body on stdin, as a heredoc: `scripts/board.sh add "<title>" <<'EOF'`. The card is the
+only copy; there is no draft file. If it belongs to a feature in the board README,
+`scripts/board.sh feature <id> "<name>"`; anything else (tooling, a bug, process) stays a
+standalone task. Draft items are private; the repo is not. A bug any user of a shipped build could
+hit is published at once (`scripts/board.sh publish`); everything else stays a draft until a PR is
+about to implement it, so the PR can close it and the reasoning ships with the code. Before
+publishing, delete from the body what must not be public: strategy and why-now reasoning, personal
+or health data, unreleased design work, anything about other apps. If that leaves nothing useful,
 the card stays private and the PR names it by title.
 
 ## 4. Align
@@ -61,8 +61,8 @@ nobody has chosen (lists, copy, defaults), conflicts with earlier decisions, and
 this card and its neighbors. Their answers go into the body as an "Aligned with <maintainer>
 <date>" list; anything they push out of scope becomes its own card, named in Out of scope. An
 open point that doesn't change what gets built can stay open; say so in the body. A card
-published as an issue is public: edit it with `gh issue edit`, and keep the "Aligned" list to what
-may be published (section 3).
+published as an issue is public: edit it with `gh issue edit <n> --body-file -` from a heredoc,
+and keep the "Aligned" list to what may be published (section 3).
 
 ## 5. Queue it
 
