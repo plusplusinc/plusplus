@@ -25,11 +25,12 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   and a key comes back from a press with `keyPressAnimation(isPressed:)`. A row added to a rail
   enters as one quick gesture in beats (`RailEntry`): its name fades in with a small drop
   (0.12 s); as it finishes, the line shoots down from the node above to the new node (0.12 s)
-  on an ease-in from a running start, a throw rather than a pull away from a stop; as it lands,
-  the node pops in with a small, crisp overshoot and a light impact haptic, the commit (about
-  0.22 s in); then the new line and node hold in `railJoin` for a beat (0.1 s) and fade to gray
-  on an ease-in, with no long tail (gray by about 0.5 s). The first row has no line: name, pop,
-  settle. With Reduce Motion there is no shot, no blue, and no overshoot, but the haptic stays.
+  on a quartic ease-in from a small running start, most of the way in its last third and at
+  full speed as it hits the node, so the pop reads as the impact; as it lands, the node pops in
+  with a small, crisp overshoot and a light impact haptic, the commit (about 0.22 s in); then
+  the new line and node hold in `railJoin` for a beat (0.1 s) and fade to gray on an ease-in,
+  with no long tail (gray by about 0.5 s). The first row has no line: name, pop, settle. With
+  Reduce Motion there is no shot, no blue, and no overshoot, but the haptic stays.
   Nothing waits on it: the key, scrolling, swiping a row, and the title all work while it plays.
   It enters only where it can be seen: its place opens as the picker's sheet starts down, and
   the entry plays a moment into the sheet's slide, or, when the new row has pushed the list's

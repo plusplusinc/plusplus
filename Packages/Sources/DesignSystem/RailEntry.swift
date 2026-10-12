@@ -22,8 +22,9 @@ enum RailEntry {
     /// With no line, the first row's node pops as its name finishes.
     static let firstPop: TimeInterval = 0.08
     static let shot: TimeInterval = 0.12
-    /// The shot's speed at its start, against its average: it starts moving at once.
-    static let runningStart = 0.4
+    /// The shot's speed at its start, against its average: small, but moving from the first
+    /// frame, so it never looks stalled.
+    nonisolated static let runningStart = 0.2
     static let pop: TimeInterval = 0.15
     /// How long the blue holds after the pop, so it registers, before it fades.
     static let hold: TimeInterval = 0.1
@@ -59,31 +60,24 @@ enum RailEntry {
     }
 
     /// Where along the shot, from 0 to 1, it is a share `time` of the way through it.
-    static func distance(at time: Double) -> Double {
-        runningStart * time + (1 - runningStart) * time * time
+    /// A quartic ease-in from a running start: most of the way in the last third, at full speed,
+    /// about 3.4 times the average, as the line hits the node. Pure arithmetic, so the shot's
+    /// animation can read it on any frame, off the main actor.
+    nonisolated static func distance(at time: Double) -> Double {
+        runningStart * time + (1 - runningStart) * pow(time, 4)
     }
 
     /// One stretch of the shot. The shot runs from the node above to this row's node, a stretch
     /// in each row: the row above's stretch takes its start, up to the share of the time `split`,
-    /// and this row's stretch the faster rest. Each takes its own arc of the shot's curve,
-    /// `distance(at:)`, a parabola, which as a cubic timing curve is exact.
+    /// and this row's stretch the faster rest, each following its own arc of `distance(at:)`.
     static func shot(
         from start: Double,
         to end: Double,
         reduceMotion: Bool,
     ) -> (_ lead: TimeInterval) -> Animation? {
         guard !reduceMotion, end > start else { return { _ in nil } }
-        // A parabola's arc, rescaled to a unit square, is a quadratic Bézier with its control
-        // point halfway along, on the start's tangent.
-        let speed = runningStart + 2 * (1 - runningStart) * start
-        let slope = speed * (end - start) / (distance(at: end) - distance(at: start))
-        let rise = slope / 2
-        let curve = UnitCurve.bezier(
-            startControlPoint: UnitPoint(x: 1 / 3, y: rise * 2 / 3),
-            endControlPoint: UnitPoint(x: 2 / 3, y: (1 + rise * 2) / 3),
-        )
-        let duration = shot * (end - start)
-        return { .timingCurve(curve, duration: duration).delay($0 + shotStart + shot * start) }
+        let arc = ShotArc(duration: shot * (end - start), start: start, end: end)
+        return { Animation(arc).delay($0 + shotStart + shot * start) }
     }
 
     /// The share of the shot's time at which it crosses from the row above into this one: when
@@ -92,9 +86,17 @@ enum RailEntry {
     static func split(height: CGFloat, node: CGFloat) -> Double {
         guard height > 0 else { return 0.5 }
         let share = Double((height - node) / height)
-        let accel = 1 - runningStart
-        return (-runningStart + (runningStart * runningStart + 4 * accel * share).squareRoot())
-            / (2 * accel)
+        // `distance(at:)` rises steadily, so halving finds where it reaches `share`.
+        var (low, high) = (0.0, 1.0)
+        for _ in 0 ..< 30 {
+            let middle = (low + high) / 2
+            if distance(at: middle) < share {
+                low = middle
+            } else {
+                high = middle
+            }
+        }
+        return (low + high) / 2
     }
 }
 
@@ -139,6 +141,27 @@ private struct JoiningRail: ViewModifier {
             }
         }
         .hotReloadable()
+    }
+}
+
+/// A stretch of the shot as an animation: the part of `RailEntry.distance(at:)` from `start` to
+/// `end` of the shot's time, rescaled to run from nothing to all of the stretch. A quartic has no
+/// exact cubic timing curve, so it is computed frame by frame.
+struct ShotArc: CustomAnimation {
+    let duration: TimeInterval
+    let start: Double
+    let end: Double
+
+    func animate<V: VectorArithmetic>(
+        value: V,
+        time: TimeInterval,
+        context _: inout AnimationContext<V>,
+    ) -> V? {
+        guard time < duration else { return nil }
+        let at = start + (end - start) * time / duration
+        let from = RailEntry.distance(at: start)
+        let progress = (RailEntry.distance(at: at) - from) / (RailEntry.distance(at: end) - from)
+        return value.scaled(by: progress)
     }
 }
 
