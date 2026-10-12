@@ -26,6 +26,15 @@ lead.
   Card line names the slice's card. Report the PR's Xcode Cloud result if it has finished.
 - Never merge, never push to `main`, never move the card.
 
+## Rounds
+
+When the slice has something to see, get a first version running as soon as the maintainer's
+feedback would help, then work in rounds until the lead ends the loop. A round is one change,
+`PLUSPLUS_SIMULATOR="PlusPlus Team" scripts/run.sh <name>` so it builds and launches, a new
+commit (never amend; the lead installs by hash), and a reply with the hash and one line on what
+changed. Keep each commit to that one change. No frame captures, tests, review, or PR during the
+loop; when the lead ends it, everything under "When it works" runs as usual.
+
 ## Checkpoint
 
 When the lead asks, or when the work has gone long enough that early detail is fading, stop at
