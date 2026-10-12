@@ -10,20 +10,17 @@ import SwiftUI
 /// and its stretch of line with it. At rest the stretches abut and read as one line. A row removed
 /// fades out quickly.
 ///
-/// The row named by `arriving` takes its place, and the end view moves down for it, but nothing
-/// of it shows and the line still ends at the node above. When `arriving` lets it go, it enters
-/// in beats: its content fades in, the line shoots down to where its node sits, the node pops
-/// in as the line lands, and the new line and node, drawn in `railJoin`, the color of something
-/// joining the rail, settle to the rail's own colors. With Reduce Motion, the line and node
-/// appear in those colors with the content.
-/// The entry starts `railEntryDelay` after the transaction that lets it go; a row let go in any
-/// other transaction, or added with no `arriving`, takes that transaction's animation.
+/// The row named by `arriving` is in the rail but takes no space and draws nothing, and the line
+/// still ends at the node above. When `arriving` lets it go in a transaction marked
+/// `isRailEntry`, it enters (`RailEntry`): its place opens as the line grows down to it, led by a
+/// blue pulse, and its node and content land in `railJoin`, the color of something joining the
+/// rail, then settle to their own colors. A row let go in any other transaction, or added with
+/// no `arriving`, takes that transaction's animation.
 public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     where Data.Element: Identifiable
 {
     private let data: Data
     private let arriving: Data.Element.ID?
-    private let entryLead: TimeInterval
     private let row: (Data.Element) -> Row
     private let end: End
 
@@ -33,13 +30,11 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     public init(
         _ data: Data,
         arriving: Data.Element.ID? = nil,
-        entryLead: TimeInterval = 0,
         @ViewBuilder row: @escaping (Data.Element) -> Row,
         @ViewBuilder end: () -> End,
     ) {
         self.data = data
         self.arriving = arriving
-        self.entryLead = entryLead
         self.row = row
         self.end = end()
     }
@@ -58,7 +53,6 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                     isLast: isArriving || item.id == lastOnLine,
                     isArriving: isArriving,
                     isAboveArriving: arriving != nil && !isArriving && item.id == lastOnLine,
-                    entryLead: entryLead,
                 )
                 // An arriving row's place opens with its entry's shot, so the end view is pushed
                 // down as far as the line has grown, on every frame.
@@ -98,8 +92,6 @@ struct RailPlace {
     var isArriving = false
     /// Whether the row below is arriving, so this row's stretch below its node will join it.
     var isAboveArriving = false
-    /// How long an entry waits, once the row is let go, before the row starts to show.
-    var entryLead: TimeInterval = 0
 }
 
 extension EnvironmentValues {
@@ -116,8 +108,8 @@ private struct RailNode: View {
     @ObserveHotReload private var hotReload
 
     var body: some View {
-        let pop = RailEntry.pop(isFirst: place.isFirst, reduceMotion: reduceMotion)
-        let landing = RailEntry.popStart(isFirst: place.isFirst, reduceMotion: reduceMotion)
+        let pop = RailEntry.pop(reduceMotion: reduceMotion)
+        let landing = RailEntry.popStart(reduceMotion: reduceMotion)
         Image(systemName: "plus")
             .font(.ppButton)
             .hidden()
@@ -127,7 +119,6 @@ private struct RailNode: View {
                     .joiningRail(
                         when: place.isArriving,
                         settlingTo: .borderStrong,
-                        isFirst: place.isFirst,
                     )
                     .frame(width: size, height: size)
                     .anchorPreference(key: NodeCenter.self, value: .center) { $0 }
@@ -168,7 +159,7 @@ private struct RailRow: ViewModifier {
                 .opacity(place.isArriving ? 0 : 1)
                 .offset(y: place.isArriving && !reduceMotion ? -Spacing.xs : 0)
                 .entry(
-                    RailEntry.content(isFirst: place.isFirst, reduceMotion: reduceMotion),
+                    RailEntry.content(reduceMotion: reduceMotion),
                     value: place.isArriving,
                 )
                 .joiningContent(when: place.isArriving)
@@ -219,7 +210,7 @@ extension RailRow {
     /// it (`Pulse`), a row's height down, as rows share a rhythm. It shows from the shot's start
     /// and gives way to the arriving row's node as that pops.
     private func leadingPoint(from node: CGPoint, rowHeight: CGFloat) -> some View {
-        let landing = RailEntry.popStart(isFirst: false, reduceMotion: false)
+        let landing = RailEntry.popStart(reduceMotion: false)
         let time = place.isAboveArriving ? 0 : RailEntry.pulseEnd
         return Pulse(
             time: time,
@@ -230,7 +221,7 @@ extension RailRow {
             end: RailEntry.pulseEnd,
         )
         .fill(.pp(.railJoin))
-        .entry(RailEntry.pulse(reduceMotion: false), value: place.isAboveArriving)
+        .entry(RailEntry.pulse, value: place.isAboveArriving)
         .opacity(place.isAboveArriving ? 1 : 0)
         .entry(RailEntry.step(at: landing), value: place.isAboveArriving)
         .opacity(place.isAboveArriving ? 0 : 1)

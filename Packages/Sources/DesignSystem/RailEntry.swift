@@ -1,12 +1,12 @@
 import SwiftUI
 
 extension Transaction {
-    /// How long a row's entry waits after the transaction that lets it onto its rail. With none,
-    /// the transaction's own animation applies, as it does to a delete.
-    @Entry public var railEntryDelay: TimeInterval?
+    /// Whether this transaction lets a rail's arriving row enter, so the entry's own timing
+    /// applies. Otherwise the transaction's own animation does, as it does to a delete.
+    @Entry public var isRailEntry = false
 }
 
-/// A row's entry, timed from when the row is let go onto its rail, plus `lead`. After a short
+/// A row's entry, timed from when the row is let go onto its rail. After a short
 /// start, the line grows down from the node above in the rail's gray, on a quartic ease-in from a
 /// small running start, and the row's place opens with it, so what follows moves in step. A blue
 /// pulse leads the line's tip (`Pulse`), from under the node above: it grows on a cubic ease-in
@@ -18,7 +18,7 @@ extension Transaction {
 /// at once, nothing is blue, there is no shot, pulse, or overshoot; the haptic stays.
 enum RailEntry {
     /// The content's landing: short, so it settles as the node's pop does.
-    static let name: TimeInterval = 0.08
+    static let landing: TimeInterval = 0.08
     static let shot: TimeInterval = 0.24
     /// How long the sequence waits once the row's place opens, before the shot.
     static let start: TimeInterval = 0.1
@@ -34,67 +34,55 @@ enum RailEntry {
 
     /// When the node and the content land, from when the row is let go: a pause after the line
     /// lands, the first row's too, or at once with Reduce Motion.
-    static func popStart(isFirst _: Bool, reduceMotion: Bool) -> TimeInterval {
+    static func popStart(reduceMotion: Bool) -> TimeInterval {
         reduceMotion ? 0 : start + shot + pause
     }
 
     /// The blue point that leads the line, against the line's width: it grows from the line's
     /// width to twice it as the line extends, then pops into the node from there.
-    static let pointScale: CGFloat = 2
+    nonisolated static let pointScale: CGFloat = 2
 
     /// The pulse's time, from 0 as the shot starts to 1 as the line lands, then on through the
     /// pause, as it collapses: run at a steady rate, since `Pulse` works out its own shape.
-    static func pulse(reduceMotion: Bool) -> (_ lead: TimeInterval) -> Animation? {
-        guard !reduceMotion else { return { _ in nil } }
-        return { .linear(duration: shot + pause).delay($0 + start) }
-    }
+    static let pulse = Animation.linear(duration: shot + pause).delay(start)
 
     /// Where the pulse's time ends: past 1 by the pause, against the shot.
     static let pulseEnd = 1 + pause / shot
 
     /// A change made all at once, `time` after the row's place starts to open.
-    static func step(at time: TimeInterval) -> (_ lead: TimeInterval) -> Animation? {
-        { .linear(duration: 0.001).delay($0 + time) }
+    static func step(at time: TimeInterval) -> Animation {
+        .linear(duration: 0.001).delay(time)
     }
 
     /// The row's place opening, in step with the shot, the first row's too, which has no line:
     /// the space grows as far as the line on every frame. With Reduce Motion, it opens at once.
-    static func space(reduceMotion: Bool) -> (_ lead: TimeInterval) -> Animation? {
-        guard !reduceMotion else { return { _ in nil } }
-        let arc = ShotArc(duration: shot, start: 0, end: 1)
-        return { Animation(arc).delay($0 + start) }
-    }
-
-    /// When the haptic fires, from when the row is let go: on the landing, Reduce Motion or not.
-    static func commitTime(lead: TimeInterval, isFirst: Bool, reduceMotion: Bool) -> TimeInterval {
-        lead + popStart(isFirst: isFirst, reduceMotion: reduceMotion)
+    static func space(reduceMotion: Bool) -> Animation? {
+        reduceMotion ? nil : Animation(ShotArc(duration: shot, start: 0, end: 1)).delay(start)
     }
 
     /// How much of `railJoin` the new node and content show: all of it through the landing, a
     /// pause, and the hold, then none, on an ease-in.
     @KeyframesBuilder<Double>
-    static func joining(lead: TimeInterval, isFirst: Bool) -> some Keyframes<Double> {
+    static func joining() -> some Keyframes<Double> {
         MoveKeyframe(1)
-        let landed = popStart(isFirst: isFirst, reduceMotion: false) + pop + pause
-        LinearKeyframe(1, duration: lead + landed + hold)
+        LinearKeyframe(1, duration: popStart(reduceMotion: false) + pop + pause + hold)
         LinearKeyframe(0, duration: settle, timingCurve: .easeIn)
     }
 
     /// The content's landing, with the node's pop: quick, then slowing, but still moving as it
     /// arrives, so it stops cleanly, with no soft tail.
-    static func content(isFirst: Bool, reduceMotion: Bool) -> (_ lead: TimeInterval) -> Animation {
-        let landing = UnitCurve.bezier(
+    static func content(reduceMotion: Bool) -> Animation {
+        let curve = UnitCurve.bezier(
             startControlPoint: UnitPoint(x: 0.2, y: 0.5),
             endControlPoint: UnitPoint(x: 0.6, y: 0.9),
         )
-        let start = popStart(isFirst: isFirst, reduceMotion: reduceMotion)
-        return { .timingCurve(landing, duration: name).delay($0 + start) }
+        return .timingCurve(curve, duration: landing).delay(popStart(reduceMotion: reduceMotion))
     }
 
-    static func pop(isFirst: Bool, reduceMotion: Bool) -> (_ lead: TimeInterval) -> Animation? {
+    static func pop(reduceMotion: Bool) -> Animation {
         let bounce = reduceMotion ? 0 : 0.25
-        let start = popStart(isFirst: isFirst, reduceMotion: reduceMotion)
-        return { .snappy(duration: pop, extraBounce: bounce).delay($0 + start) }
+        let start = popStart(reduceMotion: reduceMotion)
+        return .snappy(duration: pop, extraBounce: bounce).delay(start)
     }
 
     /// Where along the shot, from 0 to 1, it is a share `time` of the way through it.
@@ -112,10 +100,10 @@ enum RailEntry {
         from start: Double,
         to end: Double,
         reduceMotion: Bool,
-    ) -> (_ lead: TimeInterval) -> Animation? {
-        guard !reduceMotion, end > start else { return { _ in nil } }
+    ) -> Animation? {
+        guard !reduceMotion, end > start else { return nil }
         let arc = ShotArc(duration: shot * (end - start), start: start, end: end)
-        return { Animation(arc).delay($0 + Self.start + shot * start) }
+        return Animation(arc).delay(Self.start + shot * start)
     }
 
     /// The share of the shot's time at which it crosses from the row above into this one: when
@@ -139,14 +127,11 @@ enum RailEntry {
 }
 
 extension View {
-    /// Animates changes to `value` with `animation`, given the transaction's entry delay.
-    func entry(
-        _ animation: @escaping (TimeInterval) -> Animation?,
-        value: some Equatable,
-    ) -> some View {
+    /// Animates changes to `value` with `animation` in a transaction that lets a row enter.
+    func entry(_ animation: Animation?, value: some Equatable) -> some View {
         transaction(value: value) { transaction in
-            if let lead = transaction.railEntryDelay {
-                transaction.animation = animation(lead)
+            if transaction.isRailEntry {
+                transaction.animation = animation
             }
         }
     }
@@ -159,8 +144,6 @@ extension View {
 private struct JoiningRail: ViewModifier {
     let trigger: Bool
     let rest: ColorToken
-    let isFirst: Bool
-    @Environment(\.railPlace) private var place
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
@@ -174,7 +157,7 @@ private struct JoiningRail: ViewModifier {
                 content.keyframeAnimator(initialValue: 0.0, trigger: trigger) { view, joining in
                     view.foregroundStyle(rest.mix(with: joined, by: joining))
                 } keyframes: { _ in
-                    RailEntry.joining(lead: place.entryLead, isFirst: isFirst)
+                    RailEntry.joining()
                 }
             }
         }
@@ -237,7 +220,7 @@ struct Pulse: Shape {
 
     nonisolated func path(in _: CGRect) -> Path {
         let shot = min(time, 1)
-        let width = lineWidth * (1 + CGFloat(shot * shot * shot))
+        let width = lineWidth * (1 + (RailEntry.pointScale - 1) * CGFloat(shot * shot * shot))
         let front = node.y - gap * CGFloat(1 - RailEntry.distance(at: shot))
         // The tip's speed, in points a second: the curve's slope across the gap, over the shot.
         let slope = RailEntry.runningStart + 4 * (1 - RailEntry.runningStart) * shot * shot * shot
@@ -281,13 +264,12 @@ struct ShotArc: CustomAnimation {
 /// every animation under it, and the content's own would hold it back.
 private struct Committing: ViewModifier {
     let isArriving: Bool
-    @Environment(\.railPlace) private var place
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var commits = 0
     @ObserveHotReload private var hotReload
 
     func body(content: Content) -> some View {
-        let (isFirst, reduceMotion, isArriving) = (place.isFirst, reduceMotion, isArriving)
+        let (time, isArriving) = (RailEntry.popStart(reduceMotion: reduceMotion), isArriving)
         content
             .background {
                 // Drawn, so that it animates, in the screen's own color at a hundredth of its
@@ -295,13 +277,8 @@ private struct Committing: ViewModifier {
                 Color.pp(.background)
                     .opacity(isArriving ? 0 : 0.01)
                     .transaction(value: isArriving) { transaction in
-                        guard !isArriving, let lead = transaction.railEntryDelay else { return }
-                        let time = RailEntry.commitTime(
-                            lead: lead,
-                            isFirst: isFirst,
-                            reduceMotion: reduceMotion,
-                        )
-                        transaction.animation = .linear(duration: 0.001).delay(time)
+                        guard !isArriving, transaction.isRailEntry else { return }
+                        transaction.animation = RailEntry.step(at: time)
                         transaction.addAnimationCompletion { commits += 1 }
                     }
             }
@@ -329,7 +306,7 @@ private struct JoiningContent: ViewModifier {
                 content.keyframeAnimator(initialValue: 0.0, trigger: trigger) { view, joining in
                     view.colorMultiply(own.mix(with: joined, by: joining))
                 } keyframes: { _ in
-                    RailEntry.joining(lead: place.entryLead, isFirst: place.isFirst)
+                    RailEntry.joining()
                 }
             }
         }
@@ -345,9 +322,8 @@ extension View {
     func joiningRail(
         when trigger: Bool,
         settlingTo rest: ColorToken,
-        isFirst: Bool,
     ) -> some View {
-        modifier(JoiningRail(trigger: trigger, rest: rest, isFirst: isFirst))
+        modifier(JoiningRail(trigger: trigger, rest: rest))
     }
 
     func committing(when isArriving: Bool) -> some View {

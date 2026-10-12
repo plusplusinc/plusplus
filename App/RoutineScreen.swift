@@ -74,7 +74,7 @@ struct RoutineScreen: View {
             .onScrollGeometryChange(for: ScrollGeometry.self, of: { $0 }, action: keepEndInView)
             .onScrollGeometryChange(
                 for: Bool.self,
-                of: { ListEnd($0).isInView },
+                of: Self.endIsInView(of:),
                 action: { _, isInView in isEndInView = isInView },
             )
             .primaryKeyBar(isPresented: !exercises.isEmpty) {
@@ -178,28 +178,23 @@ struct RoutineScreen: View {
         }
     }
 
+    /// Whether the list's end, Add exercise, is in view. The container is the area between the
+    /// bars, and the offset counts from above the top one.
+    private static func endIsInView(of geometry: ScrollGeometry) -> Bool {
+        let visibleEnd = geometry.contentOffset.y + geometry.contentInsets.top
+            + geometry.containerSize.height
+        return geometry.contentSize.height <= visibleEnd.rounded(.up)
+    }
+
     /// Lets `row` enter, unless a later add has taken its place as the arriving row.
     private func letArrivingEnter(_ row: RoutineExercise) {
         guard arriving == row.id else { return }
         var transaction = Transaction()
-        transaction.railEntryDelay = 0
+        transaction.isRailEntry = true
         transaction.addAnimationCompletion { isOpeningPlace = false }
         withTransaction(transaction) {
             arriving = nil
         }
-    }
-}
-
-/// Whether the list's end, Add exercise, is in view.
-private struct ListEnd: Equatable {
-    let isInView: Bool
-
-    init(_ geometry: ScrollGeometry) {
-        let height = geometry.contentSize.height
-        // The container is the area between the bars, and the offset counts from above the top one.
-        let visibleEnd = geometry.contentOffset.y + geometry.contentInsets.top
-            + geometry.containerSize.height
-        isInView = height <= visibleEnd.rounded(.up)
     }
 }
 

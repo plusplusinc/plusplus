@@ -7,30 +7,16 @@ import Testing
 /// tested.
 @Suite("Rail entry timeline")
 struct RailEntryTests {
-    @Test("The haptic fires as the line hits, when the node and the text land")
-    func commitOnLanding() {
-        let time = RailEntry.commitTime(lead: 0.15, isFirst: false, reduceMotion: false)
-        #expect(abs(time - (0.15 + RailEntry.start + RailEntry.shot + RailEntry.pause)) < 1e-9)
-        #expect(time == 0.15 + RailEntry.popStart(isFirst: false, reduceMotion: false))
-    }
-
-    @Test("On the first row, with no line, the place opens over the shot's time, then it lands")
-    func commitOnFirstRow() {
-        let first = RailEntry.commitTime(lead: 0.15, isFirst: true, reduceMotion: false)
-        let other = RailEntry.commitTime(lead: 0.15, isFirst: false, reduceMotion: false)
-        #expect(first == other)
-    }
-
-    @Test("With Reduce Motion, the haptic still fires, as the row lands at once")
-    func commitWithReduceMotion() {
-        #expect(RailEntry.commitTime(lead: 0.15, isFirst: false, reduceMotion: true) == 0.15)
+    @Test("With Reduce Motion, the row lands at once")
+    func landingWithReduceMotion() {
+        #expect(RailEntry.popStart(reduceMotion: true) == 0)
     }
 
     @Test("The haptic and the landing come after a short start, the shot, and a pause")
     func landingSequence() {
         #expect(RailEntry.start > 0)
         #expect(RailEntry.pause > 0)
-        let landing = RailEntry.popStart(isFirst: false, reduceMotion: false)
+        let landing = RailEntry.popStart(reduceMotion: false)
         #expect(abs(landing - (RailEntry.start + RailEntry.shot + RailEntry.pause)) < 1e-9)
     }
 
@@ -72,16 +58,14 @@ struct RailEntryTests {
         #expect(abs(end.height - end.width) < 0.01)
     }
 
-    @Test("The blue holds through the pop and is gone by about 1.15 s after the row shows")
+    @Test("The blue holds through the landing, a pause, and the hold, then fades on an ease-in")
     func joiningSettles() {
-        let lead = 0.15
-        let timeline = KeyframeTimeline(initialValue: 0.0) {
-            RailEntry.joining(lead: lead, isFirst: false)
-        }
-        let pop = lead + RailEntry.popStart(isFirst: false, reduceMotion: false)
-        #expect(timeline.value(time: pop) == 1)
-        let settled = pop + RailEntry.pop + RailEntry.pause
-        #expect(timeline.value(time: settled + RailEntry.hold) == 1)
-        #expect(timeline.value(time: lead + 1.15) == 0)
+        let timeline = KeyframeTimeline(initialValue: 0.0) { RailEntry.joining() }
+        let landing = RailEntry.popStart(reduceMotion: false)
+        let held = landing + RailEntry.pop + RailEntry.pause + RailEntry.hold
+        #expect(timeline.value(time: landing) == 1)
+        #expect(timeline.value(time: held) == 1)
+        #expect(timeline.value(time: held + RailEntry.settle / 2) > 0.5)
+        #expect(timeline.value(time: held + RailEntry.settle) == 0)
     }
 }
