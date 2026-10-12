@@ -6,14 +6,17 @@
 #   scripts/board.sh readme                            # the board's README: the design per feature
 #   scripts/board.sh add <title> <<'CARD'              # a draft item in Todo; prints its id
 #   scripts/board.sh body <item-id> <<'CARD'           # replace a draft item's body
+#   scripts/board.sh state <item-id> <<'STATE'         # replace or append its ## State section
 #   scripts/board.sh status <item-id> Todo|"In Progress"|Done
 #   scripts/board.sh move <item-id> top|<after-item-id>  # place it in the queue /onward works through
 #   scripts/board.sh feature <item-id> <name>|-        # group it under a feature's design; - for a standalone task
 #   scripts/board.sh publish <item-id>                # convert the draft to a repo issue, in place
 #
-# `add` and `body` read the body from stdin, usually a quoted heredoc (quoted, so backticks stay
-# text), so no draft file exists to drift from the card or go missing. `add` with no body makes an empty-bodied card; `body` refuses an
-# empty body rather than blank the card.
+# `add`, `body`, and `state` read from stdin, usually a quoted heredoc (quoted, so backticks stay
+# text), so no draft file exists to drift from the card or go missing. `add` with no body makes
+# an empty-bodied card; `body` and `state` refuse empty input rather than blank the card. `state`
+# takes the section's content without its heading and replaces everything from `## State` to
+# the end of the body, State being the last section, or appends the section when there is none.
 #
 # Draft items keep the board private while the repo is public; `publish` converts one to an
 # issue when the /brief skill says so, keeping its place and status on the board. Trim the
@@ -64,7 +67,8 @@ no_item() {
 # item's id (PVTI_...) that every other subcommand takes.
 draft_id() {
     local id
-    id=$(items ".items[] | select(.id == \"$1\") | .content.id")
+    # Called inside $(...), where set -e does not apply: a failed lookup has to exit itself.
+    id=$(items ".items[] | select(.id == \"$1\") | .content.id") || exit
     if [ -z "$id" ]; then
         no_item "$1"
     fi
@@ -103,6 +107,22 @@ case "$command" in
             exit 1
         fi
         draft=$(draft_id "$1")
+        gh project item-edit --id "$draft" --body "$body" > /dev/null
+        ;;
+    state)
+        [ $# -eq 1 ] || usage
+        state=$(stdin_body)
+        if [[ ! $state =~ [^[:space:]] ]]; then
+            echo "no State on stdin; $1 left unchanged" >&2
+            exit 1
+        fi
+        draft=$(draft_id "$1")
+        current=$(items ".items[] | select(.id == \"$1\") | .content.body // \"\"")
+        # The body above its State heading: the whole body when there is none.
+        above=$(jq -rn --arg body "$current" \
+            '$body | sub("(\\A|\n)## State[ \t]*(\n[\\s\\S]*)?\\z"; "")')
+        body="## State"$'\n'"$state"
+        [ -z "$above" ] || body="$above"$'\n\n'"$body"
         gh project item-edit --id "$draft" --body "$body" > /dev/null
         ;;
     status)

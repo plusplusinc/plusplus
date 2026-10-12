@@ -42,8 +42,8 @@ project board; agents' technical working files live in `.slices/`.
   on the phone skips the try-out.
 - When a subagent runs long, have it write `.slices/sliceN-handoff.md` and continue with a
   fresh one in the same worktree.
-- Rewrite the card's State section (`scripts/board.sh body <id> <<'CARD'`, quoted so backticks
-  stay text) whenever a phase ends, so a cleared context can resume mid-slice.
+- Rewrite the card's State section (`scripts/board.sh state <id> <<'STATE'`, quoted so
+  backticks stay text) whenever a phase ends, so a cleared context can resume mid-slice.
 
 ## Finish
 
