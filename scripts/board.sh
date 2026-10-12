@@ -4,6 +4,7 @@
 #   scripts/board.sh list                              # every item, in board order: id, status, feature, title
 #   scripts/board.sh show <item-id>                    # title, status, and body
 #   scripts/board.sh readme                            # the board's README: the design per feature
+#   scripts/board.sh readme <<'README'                 # replace the README with stdin
 #   scripts/board.sh add <title> <<'CARD'              # a draft item in Todo; prints its id
 #   scripts/board.sh body <item-id> <<'CARD'           # replace a draft item's body
 #   scripts/board.sh state <item-id> <<'STATE'         # replace or append its ## State section
@@ -17,6 +18,7 @@
 # an empty-bodied card; `body` and `state` refuse empty input rather than blank the card. `state`
 # takes the section's content without its heading and replaces everything from `## State` to
 # the end of the body, State being the last section, or appends the section when there is none.
+# `readme` writes the README when stdin has text and reads it otherwise.
 #
 # Draft items keep the board private while the repo is public; `publish` converts one to an
 # issue when the /brief skill says so, keeping its place and status on the board. Trim the
@@ -91,7 +93,12 @@ case "$command" in
         ;;
     readme)
         [ $# -eq 0 ] || usage
-        gh project view "$NUMBER" --owner "$OWNER" --format json --jq .readme
+        readme=$(stdin_body)
+        if [[ $readme =~ [^[:space:]] ]]; then
+            gh project edit "$NUMBER" --owner "$OWNER" --readme "$readme" > /dev/null
+        else
+            gh project view "$NUMBER" --owner "$OWNER" --format json --jq .readme
+        fi
         ;;
     add)
         [ $# -eq 1 ] || usage

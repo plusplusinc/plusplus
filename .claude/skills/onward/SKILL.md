@@ -52,7 +52,8 @@ project board; agents' technical working files live in `.slices/`.
 2. After the maintainer's go-ahead: merge once checks pass, move the card to Done, run
    `scripts/tidy.sh` (it removes the merged worktree and branch; it also runs at every session
    start), and delete the slice's `.slices/sliceN-*` files.
-3. Record decisions made during the slice in the board README, and re-plan the later cards if
-   they changed.
+3. Record decisions made during the slice in the board README (read it with `scripts/board.sh
+   readme`, then write the whole new text back with `scripts/board.sh readme <<'README'`), and
+   re-plan the later cards if they changed.
 4. Tell the maintainer the slice is merged and that it's a good moment to `/clear` and run
    `/onward` again.
