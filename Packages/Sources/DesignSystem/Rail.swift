@@ -107,12 +107,14 @@ extension EnvironmentValues {
 /// icon, held invisibly in the column, gives it the key's width and baseline at every text size.
 private struct RailNode: View {
     @ScaledMetric(relativeTo: .body) private var size: CGFloat = 10
+    @ScaledMetric(relativeTo: .body) private var lineWidth: CGFloat = 2
     @Environment(\.railPlace) private var place
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
     var body: some View {
         let pop = RailEntry.pop(isFirst: place.isFirst, reduceMotion: reduceMotion)
+        let landing = RailEntry.popStart(isFirst: place.isFirst, reduceMotion: reduceMotion)
         Image(systemName: "plus")
             .font(.ppButton)
             .hidden()
@@ -126,8 +128,12 @@ private struct RailNode: View {
                     )
                     .frame(width: size, height: size)
                     .anchorPreference(key: NodeCenter.self, value: .center) { $0 }
-                    .scaleEffect(place.isArriving ? 0 : 1)
+                    // It pops from the size of the point that led the line, as the line lands:
+                    // shown at that size and grown to its own in the same moment.
+                    .scaleEffect(place.isArriving ? lineWidth / size : 1)
                     .entry(pop, value: place.isArriving)
+                    .scaleEffect(place.isArriving ? 0 : 1)
+                    .entry(RailEntry.step(at: landing), value: place.isArriving)
             }
             .accessibilityHidden(true)
             .hotReloadable()
@@ -178,7 +184,7 @@ private struct RailRow: ViewModifier {
                     let below = place.isLast ? node.y : proxy.size.height
                     let split = RailEntry.split(height: proxy.size.height, node: node.y)
                     Rectangle()
-                        .joiningRail(when: place.isArriving, settlingTo: .rail, isFirst: false)
+                        .fill(.pp(.rail))
                         .frame(width: lineWidth, height: above - top)
                         .position(x: node.x, y: (top + above) / 2)
                         .entry(
@@ -186,17 +192,39 @@ private struct RailRow: ViewModifier {
                             value: place.isArriving,
                         )
                     Rectangle()
-                        .joiningRail(when: place.isAboveArriving, settlingTo: .rail, isFirst: false)
+                        .fill(.pp(.rail))
                         .frame(width: lineWidth, height: below - node.y)
                         .position(x: node.x, y: (node.y + below) / 2)
                         .entry(
                             RailEntry.shot(from: 0, to: split, reduceMotion: reduceMotion),
                             value: place.isLast,
                         )
+                    if !place.isFirst, !reduceMotion {
+                        leadingPoint(at: node, rowHeight: proxy.size.height)
+                    }
                 }
             }
         }
         .hotReloadable()
+    }
+}
+
+extension RailRow {
+    /// The blue point that leads the line down to an arriving row's node, on the line's curve, the
+    /// line's width across. It starts at the node above, a row's height up, as rows share a
+    /// rhythm, shows from the shot's start, and gives way to the node as it pops.
+    private func leadingPoint(at node: CGPoint, rowHeight: CGFloat) -> some View {
+        let landing = RailEntry.popStart(isFirst: false, reduceMotion: false)
+        return Circle()
+            .fill(.pp(.railJoin))
+            .frame(width: lineWidth, height: lineWidth)
+            .position(node)
+            .offset(y: place.isArriving ? -rowHeight : 0)
+            .entry(RailEntry.space(reduceMotion: false), value: place.isArriving)
+            .opacity(place.isArriving ? 1 : 0)
+            .entry(RailEntry.step(at: landing), value: place.isArriving)
+            .opacity(place.isArriving ? 0 : 1)
+            .entry(RailEntry.step(at: RailEntry.start), value: place.isArriving)
     }
 }
 

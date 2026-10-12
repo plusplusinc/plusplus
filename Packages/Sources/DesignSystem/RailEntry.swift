@@ -35,6 +35,11 @@ enum RailEntry {
         reduceMotion ? 0 : start + shot + pause
     }
 
+    /// A change made all at once, `time` after the row's place starts to open.
+    static func step(at time: TimeInterval) -> (_ lead: TimeInterval) -> Animation? {
+        { .linear(duration: 0.001).delay($0 + time) }
+    }
+
     /// The row's place opening, in step with the shot, the first row's too, which has no line:
     /// the space grows as far as the line on every frame. With Reduce Motion, it opens at once.
     static func space(reduceMotion: Bool) -> (_ lead: TimeInterval) -> Animation? {
