@@ -61,11 +61,9 @@ before it starts, for a product call, or to put a build in their hands; the main
 every slice before it merges. A subagent follows its definition, answers only to the lead, never
 merges, and when it runs long writes a handoff note so a fresh one can continue in the same
 worktree.
-A slice with something to see reaches the maintainer as soon as their feedback would help, not at
-the end: the builder gets a first version running, then works in rounds for as long as they are
-engaged, and the lead puts each round on their phone with `scripts/device.sh`. Rounds skip the
-thorough checks, so a round's build is unverified. When the maintainer says it's right, the full
-pass runs once (the builder's checks, then the verifier), and nothing merges without it.
+A slice with something to see goes on the maintainer's phone as soon as their feedback would help,
+then in rounds while they are engaged. A round is shown, not done: it skips the thorough checks,
+and the full pass (the builder's, then the verifier) runs once, when they say it's right.
 The maintainer clears the lead's context between slices; `/onward` starts or resumes the next
 card from the project board, whose Todo column, in board order, is one queue of feature slices
 and standalone tasks.

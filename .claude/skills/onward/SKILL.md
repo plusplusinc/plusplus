@@ -38,16 +38,14 @@ project board; agents' technical working files live in `.slices/`.
   builder again for what the verifier found, as `.claude/agents/` describes. Give each subagent
   the card id; it reads the criteria with `scripts/board.sh show`. Every file path you give a
   subagent is under `.slices/`. Size the team to the card: a small task with no UI can go
-  straight to a builder with the card's Plan as its plan, and a task with nothing to see on the
-  phone skips the loop.
-- A slice with something to see runs as a loop with the maintainer (see the builder's
-  "Rounds"). Install each round from the slice worktree with `scripts/device.sh`; a fresh
-  checkout is a cold build. It builds the worktree as it is, so uncommitted edits are fine for a
-  first look, but say so. Tell the maintainer in a line what changed and that the build is
-  unverified, then pass their feedback to the same builder. When `scripts/device.sh` finds no
-  iPhone, the phone is locked, away, or off the Mac's Wi-Fi: ask them to unlock it. If they are
-  away, the work goes on and the build waits. The loop ends when they say it's right; then the
-  builder runs its full pass and the verifier runs once.
+  straight to a builder with the card's Plan as its plan.
+- A slice with something to see on the phone runs as a loop with the maintainer (see the
+  builder's "Rounds"). Install each round from the slice worktree with `scripts/device.sh`; a
+  fresh checkout is a cold build. It builds the worktree as it is, so uncommitted edits are fine
+  for a first look, but say so. Tell the maintainer in a line what changed and that the build is
+  unverified, then pass their feedback to the same builder. When the script finds no iPhone, ask
+  them to unlock it; if they are away, the work goes on and the build waits. The loop ends when
+  they say it's right; then the builder runs its full pass and the verifier runs once.
 - When a subagent runs long, have it write `.slices/sliceN-handoff.md` and continue with a
   fresh one in the same worktree.
 - Rewrite the card's State section (`scripts/board.sh state <id> <<'STATE'`, quoted so
