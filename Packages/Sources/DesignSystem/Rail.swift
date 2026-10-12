@@ -65,8 +65,8 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                 OpeningSpace(progress: isArriving ? 0 : 1) {
                     row(item).environment(\.railPlace, place)
                 }
-                // Each row under the one above, so the point leading the line to a new row
-                // emerges from under the node above it.
+                // The last row under the one above, so the pulse the row above draws to it shows
+                // over the new row's stretch of line.
                 .zIndex(item.id == data.last?.id ? -1 : 0)
                 .entry(RailEntry.space(reduceMotion: reduceMotion), value: isArriving)
                 // A row's swipe closes when its action runs, so a deleted row slid back to rest
@@ -202,8 +202,10 @@ private struct RailRow: ViewModifier {
                             RailEntry.shot(from: 0, to: split, reduceMotion: reduceMotion),
                             value: place.isLast,
                         )
-                    if !place.isFirst, !reduceMotion {
-                        leadingPoint(at: node, rowHeight: proxy.size.height)
+                    // Drawn by the row above the arriving one, over the line and under this
+                    // row's node, so it emerges from under the node.
+                    if !reduceMotion {
+                        leadingPoint(from: node, rowHeight: proxy.size.height)
                     }
                 }
             }
@@ -213,26 +215,26 @@ private struct RailRow: ViewModifier {
 }
 
 extension RailRow {
-    /// The blue pulse that leads the line down to an arriving row's node (`Pulse`). It starts
-    /// at the node above, a row's height up, as rows share a rhythm, under it, shows from the
-    /// shot's start, and gives way to the node as it pops.
-    private func leadingPoint(at node: CGPoint, rowHeight: CGFloat) -> some View {
+    /// The blue pulse that leads the line down from this row's node to the arriving row's below
+    /// it (`Pulse`), a row's height down, as rows share a rhythm. It shows from the shot's start
+    /// and gives way to the arriving row's node as that pops.
+    private func leadingPoint(from node: CGPoint, rowHeight: CGFloat) -> some View {
         let landing = RailEntry.popStart(isFirst: false, reduceMotion: false)
-        let time = place.isArriving ? 0 : RailEntry.pulseEnd
+        let time = place.isAboveArriving ? 0 : RailEntry.pulseEnd
         return Pulse(
             time: time,
-            node: node,
+            node: CGPoint(x: node.x, y: node.y + rowHeight),
             gap: rowHeight,
             lineWidth: lineWidth,
             duration: RailEntry.shot,
             end: RailEntry.pulseEnd,
         )
-            .fill(.pp(.railJoin))
-            .entry(RailEntry.pulse(reduceMotion: false), value: place.isArriving)
-            .opacity(place.isArriving ? 1 : 0)
-            .entry(RailEntry.step(at: landing), value: place.isArriving)
-            .opacity(place.isArriving ? 0 : 1)
-            .entry(RailEntry.step(at: RailEntry.start), value: place.isArriving)
+        .fill(.pp(.railJoin))
+        .entry(RailEntry.pulse(reduceMotion: false), value: place.isAboveArriving)
+        .opacity(place.isAboveArriving ? 1 : 0)
+        .entry(RailEntry.step(at: landing), value: place.isAboveArriving)
+        .opacity(place.isAboveArriving ? 0 : 1)
+        .entry(RailEntry.step(at: RailEntry.start), value: place.isAboveArriving)
     }
 }
 
