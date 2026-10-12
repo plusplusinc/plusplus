@@ -35,8 +35,19 @@ enum RailEntry {
         reduceMotion ? 0 : start + shot + pause
     }
 
-    /// The blue point that leads the line, against the line's width.
-    static let pointScale: CGFloat = 1.75
+    /// The blue point that leads the line, against the line's width: it grows from the line's
+    /// width to twice it as the line extends, then pops into the node from there.
+    static let pointScale: CGFloat = 2
+
+    /// The point's growth, over the shot: a cubic ease-in, slow first, faster near the end.
+    static func pointGrowth(reduceMotion: Bool) -> (_ lead: TimeInterval) -> Animation? {
+        guard !reduceMotion else { return { _ in nil } }
+        let cubic = UnitCurve.bezier(
+            startControlPoint: UnitPoint(x: 0.32, y: 0),
+            endControlPoint: UnitPoint(x: 0.67, y: 0),
+        )
+        return { .timingCurve(cubic, duration: shot).delay($0 + start) }
+    }
 
     /// A change made all at once, `time` after the row's place starts to open.
     static func step(at time: TimeInterval) -> (_ lead: TimeInterval) -> Animation? {

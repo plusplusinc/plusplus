@@ -65,6 +65,9 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                 OpeningSpace(progress: isArriving ? 0 : 1) {
                     row(item).environment(\.railPlace, place)
                 }
+                // Each row under the one above, so the point leading the line to a new row
+                // emerges from under the node above it.
+                .zIndex(item.id == data.last?.id ? -1 : 0)
                 .entry(RailEntry.space(reduceMotion: reduceMotion), value: isArriving)
                 // A row's swipe closes when its action runs, so a deleted row slid back to rest
                 // as it went. It fades out first instead, while the rows below close the gap.
@@ -210,14 +213,16 @@ private struct RailRow: ViewModifier {
 }
 
 extension RailRow {
-    /// The blue point that leads the line down to an arriving row's node, on the line's curve, a
-    /// little wider than the line. It starts at the node above, a row's height up, as rows share a
+    /// The blue point that leads the line down to an arriving row's node, on the line's curve,
+    /// growing from the line's width to twice it. It starts at the node above, a row's height up, as rows share a
     /// rhythm, shows from the shot's start, and gives way to the node as it pops.
     private func leadingPoint(at node: CGPoint, rowHeight: CGFloat) -> some View {
         let landing = RailEntry.popStart(isFirst: false, reduceMotion: false)
         return Circle()
             .fill(.pp(.railJoin))
-            .frame(width: lineWidth * RailEntry.pointScale, height: lineWidth * RailEntry.pointScale)
+            .frame(width: lineWidth, height: lineWidth)
+            .scaleEffect(place.isArriving ? 1 : RailEntry.pointScale)
+            .entry(RailEntry.pointGrowth(reduceMotion: false), value: place.isArriving)
             .position(node)
             .offset(y: place.isArriving ? -rowHeight : 0)
             .entry(RailEntry.space(reduceMotion: false), value: place.isArriving)
