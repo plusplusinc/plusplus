@@ -31,8 +31,16 @@ enum RailEntry {
 
     /// When the node and the content land, from when the row's place opens: as the line hits,
     /// or at once on the first row and with Reduce Motion.
-    static func popStart(isFirst: Bool, reduceMotion: Bool) -> TimeInterval {
-        reduceMotion ? 0 : isFirst ? start : start + shot + pause
+    static func popStart(isFirst _: Bool, reduceMotion: Bool) -> TimeInterval {
+        reduceMotion ? 0 : start + shot + pause
+    }
+
+    /// The row's place opening, in step with the shot, the first row's too, which has no line:
+    /// the space grows as far as the line on every frame. With Reduce Motion, it opens at once.
+    static func space(reduceMotion: Bool) -> (_ lead: TimeInterval) -> Animation? {
+        guard !reduceMotion else { return { _ in nil } }
+        let arc = ShotArc(duration: shot, start: 0, end: 1)
+        return { Animation(arc).delay($0 + start) }
     }
 
     /// When the haptic fires, from when the row is let go: on the landing, Reduce Motion or not.
@@ -149,6 +157,33 @@ private struct JoiningRail: ViewModifier {
             }
         }
         .hotReloadable()
+    }
+}
+
+/// Its one subview at the subview's own height, reporting `progress` of that height, so the space
+/// it takes opens as `progress` goes from 0 to 1, pushing what follows down a frame at a time.
+/// It does not clip: what the subview draws beyond the space still shows.
+struct OpeningSpace: Layout {
+    var progress: Double
+
+    var animatableData: Double {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
+        let size = subviews.first?.sizeThatFits(proposal) ?? .zero
+        return CGSize(width: size.width, height: size.height * progress)
+    }
+
+    func placeSubviews(
+        in bounds: CGRect,
+        proposal _: ProposedViewSize,
+        subviews: Subviews,
+        cache _: inout (),
+    ) {
+        let proposal = ProposedViewSize(width: bounds.width, height: nil)
+        subviews.first?.place(at: bounds.origin, anchor: .topLeading, proposal: proposal)
     }
 }
 

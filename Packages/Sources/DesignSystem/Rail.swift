@@ -27,6 +27,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     private let row: (Data.Element) -> Row
     private let end: End
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
     public init(
@@ -59,15 +60,19 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                     isAboveArriving: arriving != nil && !isArriving && item.id == lastOnLine,
                     entryLead: entryLead,
                 )
-                row(item)
-                    .environment(\.railPlace, place)
-                    // A row's swipe closes when its action runs, so a deleted row slid back to rest
-                    // as it went. It fades out first instead, while the rows below close the gap.
-                    // An arriving row draws nothing until its entry, so its fade shows nothing.
-                    .transition(.asymmetric(
-                        insertion: .opacity,
-                        removal: .opacity.animation(.snappy(duration: 0.15)),
-                    ))
+                // An arriving row's place opens with its entry's shot, so the end view is pushed
+                // down as far as the line has grown, on every frame.
+                OpeningSpace(progress: isArriving ? 0 : 1) {
+                    row(item).environment(\.railPlace, place)
+                }
+                .entry(RailEntry.space(reduceMotion: reduceMotion), value: isArriving)
+                // A row's swipe closes when its action runs, so a deleted row slid back to rest
+                // as it went. It fades out first instead, while the rows below close the gap.
+                // An arriving row draws nothing until its entry, so its fade shows nothing.
+                .transition(.asymmetric(
+                    insertion: .opacity,
+                    removal: .opacity.animation(.snappy(duration: 0.15)),
+                ))
             }
             // Between the last row and the end view, as the design has it.
             end.padding(.top, data.isEmpty ? 0 : Spacing.xxs)

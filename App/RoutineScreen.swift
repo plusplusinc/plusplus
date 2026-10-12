@@ -14,8 +14,11 @@ struct RoutineScreen: View {
     @State private var scrollPosition = ScrollPosition()
     /// The row just added, holding its place until it can be seen going in.
     @State private var arriving: RoutineExercise.ID?
-    /// How long the arriving row waits, once let go, before it starts to show.
-    @State private var entryLead: TimeInterval = 0
+    /// Whether Add exercise, at the list's end, is fully in view.
+    @State private var isEndInView = true
+    /// While an added row's place opens, the list's end stays put on screen: as the content grows
+    /// past the visible area, it scrolls in step (`keepEndInView`).
+    @State private var isOpeningPlace = false
     /// Whether the title has scrolled up under the bar, where a small copy of it shows instead.
     @State private var isTitleUnderBar = false
     @ObserveHotReload private var hotReload
@@ -42,7 +45,7 @@ struct RoutineScreen: View {
                             isTitleUnderBar = !isVisible
                         }
                     }
-                    Rail(exercises, arriving: arriving, entryLead: entryLead) { item in
+                    Rail(exercises, arriving: arriving) { item in
                         RowLabel(title: item.exercise.name, detail: item.exercise.equipmentLine)
                             .railRow()
                             .accessibilityIdentifier("routine.exercise")
@@ -68,7 +71,12 @@ struct RoutineScreen: View {
                 .padding(.top, Spacing.sm)
             }
             .scrollPosition($scrollPosition)
-            .onScrollGeometryChange(for: ListEnd.self, of: ListEnd.init, action: placed)
+            .onScrollGeometryChange(for: ScrollGeometry.self, of: { $0 }, action: keepEndInView)
+            .onScrollGeometryChange(
+                for: Bool.self,
+                of: { ListEnd($0).isInView },
+                action: { _, isInView in isEndInView = isInView },
+            )
             .primaryKeyBar(isPresented: !exercises.isEmpty) {
                 // Starting a workout is a later slice.
                 Button("Start", systemImage: "play.fill") { }
@@ -139,44 +147,55 @@ struct RoutineScreen: View {
     private func add(_ exercise: Exercise) {
         let row = RoutineExercise(exercise: exercise)
         arriving = row.id
-        withAnimation(.railChange, completionCriteria: .logicallyComplete) {
+        isOpeningPlace = true
+        // The row goes in with no space yet, so nothing moves; its fade, of a row that draws
+        // nothing yet, times the moment the sheet has slid out of the way.
+        withAnimation(.linear(duration: 0.15)) {
             exercises.append(row)
         } completion: {
             guard arriving == row.id else { return }
+            guard !isEndInView else { return letArrivingEnter(row) }
             withAnimation(.railChange, completionCriteria: .logicallyComplete) {
                 scrollPosition.scrollTo(edge: .bottom)
             } completion: {
-                if arriving == row.id {
-                    letArrivingEnter(after: 0)
-                }
+                letArrivingEnter(row)
             }
         }
     }
 
-    /// Once the arriving row has its place, it enters where everything is still in view, a
-    /// moment into the sheet's slide, which uncovers the screen from the top.
-    private func placed(from old: ListEnd, to new: ListEnd) {
-        guard arriving != nil, new.height > old.height, new.isInView else { return }
-        letArrivingEnter(after: 0.15)
+    /// While an added row's place opens past the visible area, scrolls with it, a frame at a
+    /// time, so Add exercise stays put on screen as the line grows above it. The place opens
+    /// with the list's end in view, so the end is where the scroll stays.
+    private func keepEndInView(from old: ScrollGeometry, to new: ScrollGeometry) {
+        guard isOpeningPlace, new.contentSize.height > old.contentSize.height else { return }
+        // `scrollTo(y:)` counts from the top of the content, not from above the top inset.
+        let end = new.contentSize.height - new.containerSize.height
+        guard end > new.contentOffset.y + new.contentInsets.top else { return }
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            scrollPosition.scrollTo(y: end)
+        }
     }
 
-    private func letArrivingEnter(after delay: TimeInterval) {
+    /// Lets `row` enter, unless a later add has taken its place as the arriving row.
+    private func letArrivingEnter(_ row: RoutineExercise) {
+        guard arriving == row.id else { return }
         var transaction = Transaction()
-        transaction.railEntryDelay = delay
+        transaction.railEntryDelay = 0
+        transaction.addAnimationCompletion { isOpeningPlace = false }
         withTransaction(transaction) {
-            entryLead = delay
             arriving = nil
         }
     }
 }
 
-/// How far the list runs, and whether its end, Add exercise, is in view.
+/// Whether the list's end, Add exercise, is in view.
 private struct ListEnd: Equatable {
-    let height: CGFloat
     let isInView: Bool
 
     init(_ geometry: ScrollGeometry) {
-        height = geometry.contentSize.height
+        let height = geometry.contentSize.height
         // The container is the area between the bars, and the offset counts from above the top one.
         let visibleEnd = geometry.contentOffset.y + geometry.contentInsets.top
             + geometry.containerSize.height
