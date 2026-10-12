@@ -7,8 +7,9 @@
 # The phone is looked up each time, never stored, since the repo is public. It must be paired
 # with this Mac and reachable: devicectl marks it unavailable when it is away or off the Mac's
 # Wi-Fi, and a locked phone fails at install or launch. When it can't be reached, the fallback is
-# an install link, built as the board README's phone-testing section says. The build is incremental in the worktree's .build/device, apart from the simulator's
-# derived data so both can build at once.
+# an install link, built as the board README's phone-testing section says. The build is
+# incremental in the worktree's .build/device, apart from the simulator's derived data so both
+# can build at once.
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
 # One line per available iPhone, UDID then name, tab-separated, narrowed to PLUSPLUS_DEVICE
