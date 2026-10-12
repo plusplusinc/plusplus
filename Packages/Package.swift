@@ -1,4 +1,4 @@
-// swift-tools-version: 6.2
+// swift-tools-version: 6.4
 import PackageDescription
 
 // One package; each target is a layer. A target cannot import anything it does not list, so
@@ -21,7 +21,7 @@ let mainActorByDefault: [SwiftSetting] = strict + [.defaultIsolation(MainActor.s
 
 let package = Package(
     name: "PlusPlusKit",
-    platforms: [.iOS(.v26), .watchOS(.v26), .macOS(.v26)],
+    platforms: [.iOS(.v27), .watchOS(.v27), .macOS(.v27)],
     products: [
         .library(name: "WorkoutStore", targets: ["WorkoutStore"]),
         .library(name: "DesignSystem", targets: ["DesignSystem"]),

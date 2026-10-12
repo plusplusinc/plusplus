@@ -11,7 +11,18 @@ import Testing
 struct ComponentSnapshotTests {
     private static let screenWidth: CGFloat = 390
 
-    private func content(name: String) -> some View {
+    /// A row's name and its optional equipment line.
+    private struct Row: Identifiable {
+        let id = UUID()
+        let title: String
+        let detail: String?
+    }
+
+    /// Start shows once there is a row.
+    private func content(
+        name: String = "New routine",
+        rows: [Row] = [],
+    ) -> some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             EditableTitle(
                 text: .constant(name),
@@ -19,16 +30,24 @@ struct ComponentSnapshotTests {
                 accessibilityLabel: "Routine name",
                 accessibilityHint: "Renames the routine.",
             )
-            Button("Add exercise", systemImage: "plus") { }
-                .buttonStyle(.key)
+            Rail(rows) { row in
+                RowLabel(title: row.title, detail: row.detail).railRow()
+            } end: {
+                Button("Add exercise", systemImage: "plus") { }
+                    .buttonStyle(.key)
+            }
         }
         .padding(Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .primaryKeyBar(isPresented: !rows.isEmpty) {
+            Button("Start", systemImage: "play.fill") { }
+        }
         .background(Color.pp(.background))
     }
 
     @Test("A new routine: title at rest and Add exercise")
     func newRoutine() {
-        assertThemedSnapshots(of: content(name: "New routine"), width: Self.screenWidth)
+        assertThemedSnapshots(of: content(), width: Self.screenWidth)
     }
 
     @Test("A long name wraps, and the cursor follows its last line")
@@ -37,6 +56,41 @@ struct ComponentSnapshotTests {
             of: content(name: "Upper body strength and conditioning"),
             width: Self.screenWidth,
         )
+    }
+
+    @Test("One exercise on the rail, with Start")
+    func oneExercise() {
+        assertThemedSnapshots(
+            of: content(rows: [Row(title: "Goblet squat", detail: "Kettlebell")]),
+            width: Self.screenWidth,
+        )
+    }
+
+    @Test("Several exercises, a bodyweight row among them")
+    func severalExercises() {
+        let rows: [Row] = [
+            Row(title: "Pull-up", detail: "Pull-up bar"),
+            Row(title: "Dumbbell bench press", detail: "Dumbbells, bench"),
+            Row(title: "Push-up", detail: nil),
+            Row(title: "Kneeling hip flexor stretch", detail: nil),
+            Row(title: "Farmer\u{2019}s carry", detail: "Dumbbells"),
+        ]
+        assertThemedSnapshots(of: content(rows: rows), width: Self.screenWidth)
+    }
+
+    /// Rows as the exercise picker lists them, without a rail. The list itself is the system's.
+    @Test("Picker rows: equipment line, two equipment, bodyweight, long name")
+    func pickerRows() {
+        let rows = VStack(alignment: .leading, spacing: Spacing.md) {
+            RowLabel(title: "Goblet squat", detail: "Kettlebell")
+            RowLabel(title: "Dumbbell bench press", detail: "Dumbbells, bench")
+            RowLabel(title: "Push-up", detail: nil)
+            RowLabel(title: "Cross-body shoulder stretch", detail: nil)
+            RowLabel(title: "Bulgarian split squat", detail: "Dumbbells, bench")
+        }
+        .padding(Spacing.md)
+        .background(Color.pp(.background))
+        assertThemedSnapshots(of: rows, width: Self.screenWidth)
     }
 }
 

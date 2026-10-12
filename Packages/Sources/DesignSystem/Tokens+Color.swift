@@ -9,8 +9,17 @@ public enum ColorToken: String, CaseIterable, Sendable {
     /// Brand and data green: the ++ mark, and later timers and progress. Never a control's fill.
     case accent = "ppAccent"
     case background = "ppBackground"
-    /// The outline of a key-shaped button, and the title's resting cursor.
+    /// The outline of a key-shaped button, the title's resting cursor, and a rail's nodes.
     case borderStrong = "ppBorderStrong"
+    /// The label on a primary key.
+    case onPrimaryKey = "ppOnPrimaryKey"
+    /// The fill of the one primary key on a screen, such as Start.
+    case primaryKey = "ppPrimaryKey"
+    /// The line that runs down a rail, joining its nodes.
+    case rail = "ppRail"
+    /// Something joining a rail, for the moment it joins: an added row's new line and node draw
+    /// in it, then settle to `rail` and `borderStrong`. Never at rest.
+    case railJoin = "ppRailJoin"
     case surface = "ppSurface"
     case textPrimary = "ppTextPrimary"
     /// Placeholder text: the default title while it is being edited.

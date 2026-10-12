@@ -1,6 +1,6 @@
 # PlusPlus
 
-A native iOS and watchOS workout tracker. Swift 6, SwiftUI, SwiftData + CloudKit. iOS 26 is the
+A native iOS and watchOS workout tracker. Swift 6, SwiftUI, SwiftData + CloudKit. iOS 27 is the
 minimum and new platform APIs are adopted freely. It gets used mid-set, one-handed. What the
 product believes is in `docs/principles.md`.
 
@@ -19,7 +19,7 @@ the arrows; SwiftLint custom rules catch the imports and idioms it cannot.
 
 ```
 App ──> DesignSystem   (SwiftUI only, no domain code)
- └────> WorkoutStore   (SwiftData, no UI)
+ └────> WorkoutStore   (domain types and SwiftData, no UI)
 ```
 
 **These arrows are the rule, not a description.** New code goes in the lowest layer that can

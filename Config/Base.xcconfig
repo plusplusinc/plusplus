@@ -16,7 +16,7 @@ CURRENT_PROJECT_VERSION = 1
 
 // MARK: - Platform
 
-IPHONEOS_DEPLOYMENT_TARGET = 26.0
+IPHONEOS_DEPLOYMENT_TARGET = 27.0
 SDKROOT = iphoneos
 // iPhone only. Portrait-only apps that also target iPad need full-screen mode or all orientations.
 TARGETED_DEVICE_FAMILY = 1

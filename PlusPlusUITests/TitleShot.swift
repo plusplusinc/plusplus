@@ -201,10 +201,10 @@ struct Ink {
 private struct UnreadableScreenshot: Error { }
 
 extension XCTestCase {
-    /// Keeps the screenshot in the result bundle, pass or fail.
+    /// Keeps the screenshot, the whole screen now by default, in the result bundle, pass or fail.
     @MainActor
-    func attach(_ shot: TitleShot, named name: String) {
-        let attachment = XCTAttachment(screenshot: shot.screenshot)
+    func attach(_ screenshot: XCUIScreenshot = XCUIScreen.main.screenshot(), named name: String) {
+        let attachment = XCTAttachment(screenshot: screenshot)
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)

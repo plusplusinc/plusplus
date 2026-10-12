@@ -8,22 +8,35 @@ import SwiftUI
 extension Font {
     public static let ppCaption = Font.system(.caption)
     public static let ppButton = Font.system(.body, weight: .semibold)
+    /// The primary key's label, such as Start's.
+    public static let ppPrimaryKey = Font.system(.title3, weight: .heavy)
+    /// A row's name, such as an exercise's.
+    public static let ppRowTitle = Font.system(.body, weight: .semibold)
+    /// The line under a row's name.
+    public static let ppRowDetail = Font.system(.subheadline)
+    /// A screen's title collapsed into its bar: SF Mono, as the screen title is, at the size and
+    /// weight of the system's inline title.
+    public static let ppInlineTitle = Font.system(.headline, design: .monospaced, weight: .semibold)
     /// The ++ mark: monospaced so the two pluses read as one glyph.
     public static let ppMark = Font.system(.title2, design: .monospaced, weight: .bold)
 }
 
 extension View {
-    /// The screen title: SF Mono, 24pt bold, between `title2` and `title`, scaling as `title2`
-    /// does. Monospaced so its `_` cursor is exactly one character wide.
+    /// The screen title: SF Mono, 24pt bold. Monospaced so its `_` cursor is exactly one character
+    /// wide.
     public func ppScreenTitleFont() -> some View {
         modifier(ScreenTitleFont())
     }
 }
 
+/// 24pt, between `title2` and `title`, scaling as `title2` does.
 private struct ScreenTitleFont: ViewModifier {
     @ScaledMetric(relativeTo: .title2) private var size: CGFloat = 24
+    @ObserveHotReload private var hotReload
 
     func body(content: Content) -> some View {
-        content.font(.system(size: size, weight: .bold, design: .monospaced))
+        content
+            .font(.system(size: size, weight: .bold, design: .monospaced))
+            .hotReloadable()
     }
 }
