@@ -38,8 +38,16 @@ project board; agents' technical working files live in `.slices/`.
   builder again for what the verifier found, as `.claude/agents/` describes. Give each subagent
   the card id; it reads the criteria with `scripts/board.sh show`. Every file path you give a
   subagent is under `.slices/`. Size the team to the card: a small task with no UI can go
-  straight to a builder with the card's Plan as its plan, and a task the maintainer can't try
-  on the phone skips the try-out.
+  straight to a builder with the card's Plan as its plan.
+- A slice with something to see on the phone runs as a loop with the maintainer (see the
+  builder's "Rounds"). Install each round from the slice worktree with `scripts/device.sh`; a
+  fresh checkout is a cold build. It builds the worktree as it is, so uncommitted edits are fine
+  for a first look, but say so. Tell the maintainer in a line what changed and that the build is
+  unverified, then pass their feedback to the same builder. Wi-Fi first, link second: when the
+  script can't reach the phone, ask them to unlock it, and if it still can't, send them an
+  install link, built by hand as the board README's phone-testing section says until a card
+  scripts it. The work goes on while they are away. The loop ends when they say it's right; then
+  the builder runs its full pass and the verifier runs once.
 - When a subagent runs long, have it write `.slices/sliceN-handoff.md` and continue with a
   fresh one in the same worktree.
 - Rewrite the card's State section (`scripts/board.sh state <id> <<'STATE'`, quoted so
@@ -47,8 +55,9 @@ project board; agents' technical working files live in `.slices/`.
 
 ## Finish
 
-1. Look at the verifier's screenshots yourself, then install the build on the maintainer's
-   simulator (`scripts/run.sh`, default simulator) and tell them what to try.
+1. Look at the verifier's screenshots yourself. If the maintainer has not had the final build in
+   hand (the full pass changed what they see, or there was no round), install it with
+   `scripts/device.sh` (or a link when the phone is out of reach) and tell them what to try.
 2. After the maintainer's go-ahead: merge once checks pass, move the card to Done, run
    `scripts/tidy.sh` (it removes the merged worktree and branch; it also runs at every session
    start), and delete the slice's `.slices/sliceN-*` files.

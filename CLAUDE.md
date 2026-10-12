@@ -57,10 +57,13 @@ The main session leads a slice: it writes the spec and acceptance criteria, make
 calls, and hands each phase, in order, to a subagent defined in `.claude/agents/`: planner,
 builder, verifier, then a builder again for anything the verifier found. It reads their
 summaries and screenshots, not their work, and goes to the maintainer only to align on a card
-before it starts, for a product call, or when a slice is ready to try; the maintainer tries every
-slice before it merges. A subagent follows its definition, answers only to the lead, never
+before it starts, for a product call, or to put a build in their hands; the maintainer tries
+every slice before it merges. A subagent follows its definition, answers only to the lead, never
 merges, and when it runs long writes a handoff note so a fresh one can continue in the same
 worktree.
+A slice with something to see goes on the maintainer's phone as soon as their feedback would help,
+then in rounds while they are engaged. A round is shown, not done: it skips the thorough checks,
+which wait until they say it's right and then run once, as the phases above.
 The maintainer clears the lead's context between slices; `/onward` starts or resumes the next
 card from the project board, whose Todo column, in board order, is one queue of feature slices
 and standalone tasks.
@@ -88,6 +91,7 @@ scripts/test.sh              # package tests on macOS, no simulator, seconds
 scripts/build.sh             # app for the simulator, compact diagnostics
 scripts/test.sh sim          # everything on the simulator, including snapshots
 scripts/run.sh [name]        # build, install, launch, screenshot to .build/screenshots/
+scripts/device.sh            # build, install, launch on the one available iPhone
 scripts/sim.sh <command>     # drive the running app: shots, appearance, content-size, log
 scripts/lint.sh [--fix]      # SwiftFormat, SwiftLint, US English, as CI runs them
 scripts/board.sh <command>   # the private project board; run bare to list its commands

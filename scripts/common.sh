@@ -1,9 +1,10 @@
 #!/bin/bash
 # Shared setup for the scripts in this directory. Source it; do not run it.
 #
-# Everything funnels through one derived-data path so incremental builds stay warm across
-# invocations, and through xcbeautify (when installed) so a reader gets a few hundred bytes of
-# diagnostics instead of kilobytes of compiler invocations.
+# Builds funnel through a fixed derived-data path (.build/DerivedData for the simulator,
+# .build/device for scripts/device.sh) so incremental builds stay warm across invocations, and
+# through xcbeautify (when installed) so a reader gets a few hundred bytes of diagnostics instead
+# of kilobytes of compiler invocations.
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
@@ -13,6 +14,7 @@ PACKAGE="$ROOT/Packages"
 DERIVED_DATA="$ROOT/.build/DerivedData"
 RESULTS="$ROOT/.build/results"
 SIMULATOR_NAME="${PLUSPLUS_SIMULATOR:-iPhone 17}"
+DESTINATION="platform=iOS Simulator,name=$SIMULATOR_NAME"
 
 mkdir -p "$DERIVED_DATA" "$RESULTS"
 
@@ -45,7 +47,7 @@ run_xcodebuild() {
     xcodebuild "$@" \
         -project "$PROJECT" \
         -scheme "$SCHEME" \
-        -destination "platform=iOS Simulator,name=$SIMULATOR_NAME" \
+        -destination "$DESTINATION" \
         -derivedDataPath "$DERIVED_DATA" \
         -resultBundlePath "$bundle" \
         -skipPackagePluginValidation \
@@ -60,12 +62,14 @@ run_xcodebuild() {
     return "$status"
 }
 
-# The bundle identifier of the last Debug simulator build, read from the built product so the
-# scripts never hard-code it. Fails with a pointer to run.sh when nothing has been built yet.
+# The bundle identifier of a built app, by default the last Debug simulator build, read from the
+# built product so the scripts never hard-code it. Fails when nothing has been built yet.
+#
+#   app_bundle_id [path/to/PlusPlus.app]
 app_bundle_id() {
-    local plist="$DERIVED_DATA/Build/Products/Debug-iphonesimulator/$SCHEME.app/Info.plist"
+    local plist="${1:-$DERIVED_DATA/Build/Products/Debug-iphonesimulator/$SCHEME.app}/Info.plist"
     if [ ! -f "$plist" ]; then
-        echo "no built app at $plist; run scripts/run.sh first" >&2
+        echo "no built app at $plist; build it first, as scripts/run.sh does" >&2
         return 1
     fi
     plutil -extract CFBundleIdentifier raw -o - "$plist"
