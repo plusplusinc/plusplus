@@ -50,13 +50,6 @@ struct RoutineScreen: View {
                                     }
                                 }
                             }
-                            // A row's swipe closes when its action runs, so a deleted row slid
-                            // back to rest while it went. It fades out first instead, and the
-                            // rows below close the gap.
-                            .transition(.asymmetric(
-                                insertion: .opacity.combined(with: .offset(y: -Spacing.sm)),
-                                removal: .opacity.animation(.snappy(duration: 0.15)),
-                            ))
                     } end: {
                         Button("Add exercise", systemImage: "plus") {
                             isPicking = true
@@ -84,7 +77,7 @@ struct RoutineScreen: View {
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $isPicking, onDismiss: addPicked) {
                 ExercisePicker { exercise in
-                    // A second tap while the sheet goes down would add the exercise again.
+                    // A second tap while the sheet goes down keeps the first pick.
                     guard isPicking else { return }
                     picked = exercise
                     isPicking = false
@@ -124,6 +117,7 @@ struct RoutineScreen: View {
     /// behind the sheet, it was already in place when the sheet uncovered it.
     private func addPicked() {
         guard let picked else { return }
+        // Quicker than .snappy's default, which read as mushy after the wait for the sheet.
         withAnimation(.snappy(duration: 0.25)) {
             exercises.append(RoutineExercise(exercise: picked))
         }

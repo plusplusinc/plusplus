@@ -7,9 +7,11 @@ import SwiftUI
 /// Rows stack with no spacing. Each is made with `railRow()`, which gives it its node, its
 /// height, and its own stretch of the line, so nodes fall at an even rhythm whether a row has
 /// one line or two, and anything applied to the row, such as swipe actions, carries its node
-/// and its stretch of line with it. At rest the stretches abut and read as one line.
+/// and its stretch of line with it. At rest the stretches abut and read as one line. A row added
+/// fades in from a little above; a row removed fades out quickly.
 public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
-where Data.Element: Identifiable {
+    where Data.Element: Identifiable
+{
     private let data: Data
     private let row: (Data.Element) -> Row
     private let end: End
@@ -27,20 +29,23 @@ where Data.Element: Identifiable {
     }
 
     public var body: some View {
+        let (first, last) = (data.first?.id, data.last?.id)
         VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 0) {
-                // Each row learns its place from the rail. Rows taken as a view's subviews could
-                // not: a subview resolves in its container's environment, not one set on it.
-                ForEach(data) { item in
-                    row(item).environment(
-                        \.railPlace,
-                        RailPlace(isFirst: item.id == data.first?.id, isLast: item.id == data.last?.id),
-                    )
-                }
+            // Each row learns its place from the rail. Rows taken as a view's subviews could
+            // not: a subview resolves in its container's environment, not one set on it.
+            ForEach(data) { item in
+                let place = RailPlace(isFirst: item.id == first, isLast: item.id == last)
+                row(item)
+                    .environment(\.railPlace, place)
+                    // A row's swipe closes when its action runs, so a deleted row slid back to rest
+                    // as it went. It fades out first instead, while the rows below close the gap.
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .offset(y: -Spacing.sm)),
+                        removal: .opacity.animation(.snappy(duration: 0.15)),
+                    ))
             }
             // Between the last row and the end view, as the design has it.
-            .padding(.bottom, data.isEmpty ? 0 : Spacing.xxs)
-            end
+            end.padding(.top, data.isEmpty ? 0 : Spacing.xxs)
         }
         .hotReloadable()
     }
@@ -56,9 +61,10 @@ extension EnvironmentValues {
     @Entry var railPlace = RailPlace()
 }
 
-/// The rail column, empty: a key's icon held invisibly in it gives the column the key's width,
-/// and a row's first baseline, at every text size.
-private struct RailColumn: View {
+/// A row's node, centered in the rail column on the row's first line, as the key's icon is: the
+/// icon, held invisibly in the column, gives it the key's width and baseline at every text size.
+private struct RailNode: View {
+    @ScaledMetric(relativeTo: .body) private var size: CGFloat = 10
     @ObserveHotReload private var hotReload
 
     var body: some View {
@@ -66,17 +72,6 @@ private struct RailColumn: View {
             .font(.ppButton)
             .hidden()
             .railColumn()
-            .hotReloadable()
-    }
-}
-
-/// A row's node, centered in the rail column on the row's first line, as the key's icon is.
-private struct RailNode: View {
-    @ScaledMetric(relativeTo: .body) private var size: CGFloat = 10
-    @ObserveHotReload private var hotReload
-
-    var body: some View {
-        RailColumn()
             .overlay {
                 Circle()
                     .fill(.pp(.borderStrong))

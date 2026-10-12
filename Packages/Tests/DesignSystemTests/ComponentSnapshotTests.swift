@@ -16,11 +16,6 @@ struct ComponentSnapshotTests {
         let id = UUID()
         let title: String
         let detail: String?
-
-        init(_ title: String, _ detail: String?) {
-            self.title = title
-            self.detail = detail
-        }
     }
 
     /// Start shows once there is a row.
@@ -67,7 +62,7 @@ struct ComponentSnapshotTests {
     @Test("One exercise on the rail, with Start")
     func oneExercise() {
         assertThemedSnapshots(
-            of: content(rows: [Row("Goblet squat", "Kettlebell")]),
+            of: content(rows: [Row(title: "Goblet squat", detail: "Kettlebell")]),
             width: Self.screenWidth,
         )
     }
@@ -75,11 +70,11 @@ struct ComponentSnapshotTests {
     @Test("Several exercises, a bodyweight row among them")
     func severalExercises() {
         let rows: [Row] = [
-            Row("Pull-up", "Pull-up bar"),
-            Row("Dumbbell bench press", "Dumbbells, bench"),
-            Row("Push-up", nil),
-            Row("Kneeling hip flexor stretch", nil),
-            Row("Farmer\u{2019}s carry", "Dumbbells"),
+            Row(title: "Pull-up", detail: "Pull-up bar"),
+            Row(title: "Dumbbell bench press", detail: "Dumbbells, bench"),
+            Row(title: "Push-up", detail: nil),
+            Row(title: "Kneeling hip flexor stretch", detail: nil),
+            Row(title: "Farmer\u{2019}s carry", detail: "Dumbbells"),
         ]
         assertThemedSnapshots(of: content(rows: rows), width: Self.screenWidth)
     }

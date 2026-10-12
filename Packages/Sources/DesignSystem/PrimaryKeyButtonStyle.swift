@@ -45,8 +45,8 @@ extension ButtonStyle where Self == PrimaryKeyButtonStyle {
 extension View {
     /// A screen's primary key in a bar at its bottom while `isPresented`, rising in and dropping
     /// out. The key sits as far from the screen's bottom edge as from its sides, below the home
-    /// indicator's safe area, so its corners are concentric with the screen's, as the system's
-    /// bottom buttons are.
+    /// indicator's safe area, so its bottom corners are concentric with the screen's, as the
+    /// system's bottom buttons are.
     public func primaryKeyBar(isPresented: Bool, @ViewBuilder key: () -> some View) -> some View {
         let key = key()
         return safeAreaBar(edge: .bottom) {
