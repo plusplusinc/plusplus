@@ -23,13 +23,15 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
 - Motion is snappy: `.snappy`, never a bare `withAnimation` or the default spring, and quicker
   than its default where it answers a tap: rows going onto and off a rail use `.railChange`,
   and a key comes back from a press with `keyPressAnimation(isPressed:)`. A row added to a rail
-  enters in one landing (`RailEntry`): its place opens, the line shoots down from the node
-  above into it (0.24 s) on a quartic ease-in from a small running start, at full speed as it
-  hits; as it hits, the node pops in with a small, crisp overshoot and the row's text lands with
-  it, a short drop that stops cleanly with no overshoot, with a light impact haptic. The new
-  line, node, and text arrive in `railJoin`, hold (0.25 s), and fade to their own colors on an
-  ease-in (0.28 s). The first row has no line: node, text, and haptic land at once. With Reduce
-  Motion nothing is blue, there is no shot and no overshoot, but the haptic stays.
+  enters in one landing (`RailEntry`), each stage ending in a quick pause (0.05 s): its place
+  opens, and after 0.1 s the line shoots down from the node above into it (0.24 s) on a quartic
+  ease-in from a small running start, at full speed as it hits; after a pause, the node pops in
+  with a small, crisp overshoot and the row's text lands with it, a short drop that stops
+  cleanly with no overshoot, with a light impact haptic. The new line, node, and text arrive in
+  `railJoin`; once the landing has settled and a pause, they hold (0.25 s) and fade to their own
+  colors on an ease-in (0.28 s). The first row has no line: after 0.1 s, node, text, and haptic
+  land at once. With Reduce Motion nothing is blue, there is no shot and no overshoot, but the
+  haptic stays.
   Nothing waits on it: the key, scrolling, swiping a row, and the title all work while it plays.
   It enters only where it can be seen: its place opens as the picker's sheet starts down, and
   the entry plays a moment into the sheet's slide, or, when the new row has pushed the list's

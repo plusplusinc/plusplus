@@ -9,16 +9,17 @@ struct RailEntryTests {
     @Test("The haptic fires as the line hits, when the node and the text land")
     func commitOnLanding() {
         let time = RailEntry.commitTime(lead: 0.15, isFirst: false, reduceMotion: false)
-        #expect(abs(time - (0.15 + RailEntry.shot)) < 1e-9)
+        #expect(abs(time - (0.15 + RailEntry.start + RailEntry.shot + RailEntry.pause)) < 1e-9)
         #expect(time == 0.15 + RailEntry.popStart(isFirst: false, reduceMotion: false))
     }
 
     @Test("On the first row, with no line, the node, text, and haptic land at once")
     func commitOnFirstRow() {
-        #expect(RailEntry.commitTime(lead: 0.15, isFirst: true, reduceMotion: false) == 0.15)
+        let time = RailEntry.commitTime(lead: 0.15, isFirst: true, reduceMotion: false)
+        #expect(abs(time - (0.15 + RailEntry.start)) < 1e-9)
     }
 
-    @Test("The blue holds through the pop and is gone by about 1.05 s after the row shows")
+    @Test("The blue holds through the pop and is gone by about 1.15 s after the row shows")
     func joiningSettles() {
         let lead = 0.15
         let timeline = KeyframeTimeline(initialValue: 0.0) {
@@ -26,7 +27,8 @@ struct RailEntryTests {
         }
         let pop = lead + RailEntry.popStart(isFirst: false, reduceMotion: false)
         #expect(timeline.value(time: pop) == 1)
-        #expect(timeline.value(time: pop + RailEntry.hold) == 1)
-        #expect(timeline.value(time: lead + 1.05) == 0)
+        let settled = pop + RailEntry.pop + RailEntry.pause
+        #expect(timeline.value(time: settled + RailEntry.hold) == 1)
+        #expect(timeline.value(time: lead + 1.15) == 0)
     }
 }

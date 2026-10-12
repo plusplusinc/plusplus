@@ -17,6 +17,10 @@ enum RailEntry {
     /// The content's landing: short, so it settles as the node's pop does.
     static let name: TimeInterval = 0.08
     static let shot: TimeInterval = 0.24
+    /// How long the sequence waits once the row's place opens, before the shot.
+    static let start: TimeInterval = 0.1
+    /// A quick pause at the end of each stage: after the line lands, and after the landing settles.
+    static let pause: TimeInterval = 0.05
     /// The shot's speed at its start, against its average: small, but moving from the first
     /// frame, so it never looks stalled.
     nonisolated static let runningStart = 0.1
@@ -28,7 +32,7 @@ enum RailEntry {
     /// When the node and the content land, from when the row's place opens: as the line hits,
     /// or at once on the first row and with Reduce Motion.
     static func popStart(isFirst: Bool, reduceMotion: Bool) -> TimeInterval {
-        reduceMotion || isFirst ? 0 : shot
+        reduceMotion ? 0 : isFirst ? start : start + shot + pause
     }
 
     /// When the haptic fires, from when the row is let go: on the landing, Reduce Motion or not.
@@ -41,7 +45,8 @@ enum RailEntry {
     @KeyframesBuilder<Double>
     static func joining(lead: TimeInterval, isFirst: Bool) -> some Keyframes<Double> {
         MoveKeyframe(1)
-        LinearKeyframe(1, duration: lead + popStart(isFirst: isFirst, reduceMotion: false) + hold)
+        let landed = popStart(isFirst: isFirst, reduceMotion: false) + pop + pause
+        LinearKeyframe(1, duration: lead + landed + hold)
         LinearKeyframe(0, duration: settle, timingCurve: .easeIn)
     }
 
@@ -80,7 +85,7 @@ enum RailEntry {
     ) -> (_ lead: TimeInterval) -> Animation? {
         guard !reduceMotion, end > start else { return { _ in nil } }
         let arc = ShotArc(duration: shot * (end - start), start: start, end: end)
-        return { Animation(arc).delay($0 + shot * start) }
+        return { Animation(arc).delay($0 + Self.start + shot * start) }
     }
 
     /// The share of the shot's time at which it crosses from the row above into this one: when
