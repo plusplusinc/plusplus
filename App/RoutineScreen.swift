@@ -91,6 +91,8 @@ struct RoutineScreen: View {
                             .font(.ppInlineTitle)
                             .foregroundStyle(.pp(.textPrimary))
                             .lineLimit(1)
+                            // A heading, as the system's own bar title is.
+                            .accessibilityAddTraits(.isHeader)
                             .transition(.opacity)
                     }
                 }
