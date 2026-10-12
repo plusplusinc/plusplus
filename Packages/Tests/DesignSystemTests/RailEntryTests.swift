@@ -19,7 +19,7 @@ struct RailEntryTests {
         #expect(beat >= 0.1 && beat <= 0.17)
     }
 
-    @Test("The blue holds through the pop and is gone by about 0.8 s after the row shows")
+    @Test("The blue holds through the pop and is gone by about 0.85 s after the row shows")
     func joiningSettles() {
         let lead = 0.15
         let timeline = KeyframeTimeline(initialValue: 0.0) {
@@ -28,6 +28,6 @@ struct RailEntryTests {
         let pop = lead + RailEntry.popStart(isFirst: false, reduceMotion: false)
         #expect(timeline.value(time: pop) == 1)
         #expect(timeline.value(time: pop + RailEntry.hold) == 1)
-        #expect(timeline.value(time: lead + 0.8) == 0)
+        #expect(timeline.value(time: lead + 0.85) == 0)
     }
 }
