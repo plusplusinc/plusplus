@@ -12,7 +12,16 @@ struct ComponentSnapshotTests {
     private static let screenWidth: CGFloat = 390
 
     /// A row's name and its optional equipment line.
-    private typealias Row = (title: String, detail: String?)
+    private struct Row: Identifiable {
+        let id = UUID()
+        let title: String
+        let detail: String?
+
+        init(_ title: String, _ detail: String?) {
+            self.title = title
+            self.detail = detail
+        }
+    }
 
     /// Start shows once there is a row.
     private func content(
@@ -26,11 +35,8 @@ struct ComponentSnapshotTests {
                 accessibilityLabel: "Routine name",
                 accessibilityHint: "Renames the routine.",
             )
-            Rail {
-                ForEach(rows.indices, id: \.self) { index in
-                    RowLabel(title: rows[index].title, detail: rows[index].detail)
-                        .railRow()
-                }
+            Rail(rows) { row in
+                RowLabel(title: row.title, detail: row.detail).railRow()
             } end: {
                 Button("Add exercise", systemImage: "plus") { }
                     .buttonStyle(.key)
@@ -61,7 +67,7 @@ struct ComponentSnapshotTests {
     @Test("One exercise on the rail, with Start")
     func oneExercise() {
         assertThemedSnapshots(
-            of: content(rows: [("Goblet squat", "Kettlebell")]),
+            of: content(rows: [Row("Goblet squat", "Kettlebell")]),
             width: Self.screenWidth,
         )
     }
@@ -69,11 +75,11 @@ struct ComponentSnapshotTests {
     @Test("Several exercises, a bodyweight row among them")
     func severalExercises() {
         let rows: [Row] = [
-            ("Pull-up", "Pull-up bar"),
-            ("Dumbbell bench press", "Dumbbells, bench"),
-            ("Push-up", nil),
-            ("Kneeling hip flexor stretch", nil),
-            ("Farmer\u{2019}s carry", "Dumbbells"),
+            Row("Pull-up", "Pull-up bar"),
+            Row("Dumbbell bench press", "Dumbbells, bench"),
+            Row("Push-up", nil),
+            Row("Kneeling hip flexor stretch", nil),
+            Row("Farmer\u{2019}s carry", "Dumbbells"),
         ]
         assertThemedSnapshots(of: content(rows: rows), width: Self.screenWidth)
     }

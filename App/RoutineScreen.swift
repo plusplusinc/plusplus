@@ -30,19 +30,17 @@ struct RoutineScreen: View {
                         accessibilityLabel: "Routine name",
                         accessibilityHint: "Renames the routine.",
                     )
-                    Rail {
-                        ForEach(exercises) { item in
-                            RowLabel(title: item.exercise.name, detail: item.exercise.equipmentLine)
-                                .railRow()
-                                .accessibilityIdentifier("routine.exercise")
-                                .swipeActions(edge: .trailing) {
-                                    Button("Delete", role: .destructive) {
-                                        withAnimation(.snappy) {
-                                            exercises.removeAll { $0.id == item.id }
-                                        }
+                    Rail(exercises) { item in
+                        RowLabel(title: item.exercise.name, detail: item.exercise.equipmentLine)
+                            .railRow()
+                            .accessibilityIdentifier("routine.exercise")
+                            .swipeActions(edge: .trailing) {
+                                Button("Delete", role: .destructive) {
+                                    withAnimation(.snappy) {
+                                        exercises.removeAll { $0.id == item.id }
                                     }
                                 }
-                        }
+                            }
                     } end: {
                         Button("Add exercise", systemImage: "plus") {
                             isPicking = true
