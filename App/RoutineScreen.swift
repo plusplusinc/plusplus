@@ -12,6 +12,8 @@ struct RoutineScreen: View {
     @State private var exercises: [RoutineExercise] = []
     @State private var isPicking = false
     @State private var scrollPosition = ScrollPosition()
+    /// The row just added, holding its place until it can be seen going in.
+    @State private var arriving: RoutineExercise.ID?
     /// Whether the title has scrolled up under the bar, where a small copy of it shows instead.
     @State private var isTitleUnderBar = false
     @ObserveHotReload private var hotReload
@@ -38,7 +40,7 @@ struct RoutineScreen: View {
                             isTitleUnderBar = !isVisible
                         }
                     }
-                    Rail(exercises) { item in
+                    Rail(exercises, arriving: arriving) { item in
                         RowLabel(title: item.exercise.name, detail: item.exercise.equipmentLine)
                             .railRow()
                             .accessibilityIdentifier("routine.exercise")
@@ -64,6 +66,7 @@ struct RoutineScreen: View {
                 .padding(.top, Spacing.sm)
             }
             .scrollPosition($scrollPosition)
+            .onScrollGeometryChange(for: ScrollGeometry.self, of: { $0 }, action: placed)
             .primaryKeyBar(isPresented: !exercises.isEmpty) {
                 // Starting a workout is a later slice.
                 Button("Start", systemImage: "play.fill") { }
@@ -126,23 +129,43 @@ struct RoutineScreen: View {
         .hotReloadable()
     }
 
-    /// Adds a picked exercise as its sheet starts down, so the row goes in alongside it. Then,
-    /// when the row has pushed Add exercise below the visible area, scrolls to the end so the new
-    /// row and the key both show; when everything fits, the end is already in view and nothing
-    /// moves. The scroll waits for the row: asked for while the row went in, it stopped at the
-    /// end the list had before.
+    /// Adds a picked exercise. Its row takes its place as the sheet starts down, moving Add
+    /// exercise, but enters only where it can be seen: a moment into the sheet's slide when
+    /// everything still fits, and otherwise once a scroll to the end has brought the row and Add
+    /// exercise into view. The scroll waits for the row's place: asked for while the row went in,
+    /// it stopped at the end the list had before.
     private func add(_ exercise: Exercise) {
-        // Started a beat into the sheet's slide, as it uncovers the screen from the top, so a row
-        // low on the screen is not still covered for the whole motion.
-        withAnimation(
-            .railChange.delay(0.1),
-            completionCriteria: .logicallyComplete,
-        ) {
-            exercises.append(RoutineExercise(exercise: exercise))
+        let row = RoutineExercise(exercise: exercise)
+        arriving = row.id
+        withAnimation(.railChange, completionCriteria: .logicallyComplete) {
+            exercises.append(row)
         } completion: {
-            withAnimation(.railChange) {
+            guard arriving == row.id else { return }
+            withAnimation(.railChange, completionCriteria: .logicallyComplete) {
                 scrollPosition.scrollTo(edge: .bottom)
+            } completion: {
+                if arriving == row.id {
+                    letArrivingEnter(after: 0)
+                }
             }
+        }
+    }
+
+    /// Once the arriving row has its place, it enters where everything is still in view, a
+    /// moment into the sheet's slide, which uncovers the screen from the top.
+    private func placed(from old: ScrollGeometry, to new: ScrollGeometry) {
+        guard arriving != nil, new.contentSize.height > old.contentSize.height else { return }
+        let visibleEnd = new.contentOffset.y + new.contentInsets.top + new.containerSize.height
+        if new.contentSize.height <= visibleEnd.rounded(.up) {
+            letArrivingEnter(after: 0.15)
+        }
+    }
+
+    private func letArrivingEnter(after delay: TimeInterval) {
+        var transaction = Transaction()
+        transaction.railEntryDelay = delay
+        withTransaction(transaction) {
+            arriving = nil
         }
     }
 }

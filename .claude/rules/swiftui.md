@@ -20,9 +20,12 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   `.accessibilityHidden(true)`.
 - Motion is snappy: `.snappy`, never a bare `withAnimation` or the default spring, and quicker
   than its default where it answers a tap: rows going onto and off a rail use `.railChange`,
-  and a key comes back from a press with `keyPressAnimation(isPressed:)`. A row added from a
-  sheet goes in as the sheet starts down, a beat into its slide, so it moves alongside the
-  sheet and is still seen.
+  and a key comes back from a press with `keyPressAnimation(isPressed:)`. A row added to a rail
+  enters by drawing: the line grows down from the node above, then the row's node pops in with
+  a small, crisp overshoot as its content fades in, about a third of a second (`Rail`'s
+  `arriving`). It enters only where it can be seen: its place opens as the picker's sheet
+  starts down, and the entry plays a moment into the sheet's slide, or, when the new row has
+  pushed the list's end out of view, after a scroll to the end.
 - Every new component gets a `#Preview` and goes through `assertThemedSnapshots`.
 - Every view, `ButtonStyle`, and `ViewModifier` declares `@ObserveHotReload private var
   hotReload` and ends its body with `.hotReloadable()`, so hot reload redraws it. Both compile

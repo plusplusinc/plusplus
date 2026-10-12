@@ -7,12 +7,18 @@ import SwiftUI
 /// Rows stack with no spacing. Each is made with `railRow()`, which gives it its node, its
 /// height, and its own stretch of the line, so nodes fall at an even rhythm whether a row has
 /// one line or two, and anything applied to the row, such as swipe actions, carries its node
-/// and its stretch of line with it. At rest the stretches abut and read as one line. A row added
-/// fades in from a little above; a row removed fades out quickly.
+/// and its stretch of line with it. At rest the stretches abut and read as one line. A row removed
+/// fades out quickly.
+///
+/// The row named by `arriving` takes its place, and the end view moves down for it, but nothing
+/// of it shows and the line still ends at the node above. When `arriving` lets it go, it enters:
+/// the line grows down to where its node sits, then the node pops in, as its content fades in.
+/// The entry starts `railEntryDelay` after the transaction that lets it go.
 public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     where Data.Element: Identifiable
 {
     private let data: Data
+    private let arriving: Data.Element.ID?
     private let row: (Data.Element) -> Row
     private let end: End
 
@@ -20,27 +26,37 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
 
     public init(
         _ data: Data,
+        arriving: Data.Element.ID? = nil,
         @ViewBuilder row: @escaping (Data.Element) -> Row,
         @ViewBuilder end: () -> End,
     ) {
         self.data = data
+        self.arriving = arriving
         self.row = row
         self.end = end()
     }
 
     public var body: some View {
-        let (first, last) = (data.first?.id, data.last?.id)
+        let first = data.first?.id
+        // Until the arriving row enters, the line ends at the node above it.
+        let lastOnLine = data.last { $0.id != arriving }?.id
         VStack(alignment: .leading, spacing: 0) {
             // Each row learns its place from the rail. Rows taken as a view's subviews could
             // not: a subview resolves in its container's environment, not one set on it.
             ForEach(data) { item in
-                let place = RailPlace(isFirst: item.id == first, isLast: item.id == last)
+                let isArriving = item.id == arriving
+                let place = RailPlace(
+                    isFirst: item.id == first,
+                    isLast: isArriving || item.id == lastOnLine,
+                    isArriving: isArriving,
+                )
                 row(item)
                     .environment(\.railPlace, place)
                     // A row's swipe closes when its action runs, so a deleted row slid back to rest
                     // as it went. It fades out first instead, while the rows below close the gap.
+                    // A row comes in through its entry, drawn by `railRow()`.
                     .transition(.asymmetric(
-                        insertion: .opacity.combined(with: .offset(y: -Spacing.sm)),
+                        insertion: .identity,
                         removal: .opacity.animation(.snappy(duration: 0.15)),
                     ))
             }
@@ -58,9 +74,51 @@ extension Animation {
 }
 
 /// Where a row sits on its rail: the line starts at the first row's node and ends at the last's.
+/// An arriving row holds its place, drawn empty, until it enters.
 struct RailPlace {
     var isFirst = true
     var isLast = true
+    var isArriving = false
+}
+
+extension Transaction {
+    /// How long a row's entry waits after the transaction that lets it onto its rail.
+    @Entry public var railEntryDelay: TimeInterval = 0
+}
+
+/// A row's entry, from when the rail lets it go: the line grows down, a stretch in the row above
+/// and then one in this row, the node pops in, with a small, crisp overshoot, as the line
+/// arrives, and the content fades in alongside. About a third of a second end to end. The first
+/// row has no line above it, so its node pops at once. Each starts `lead` in.
+private enum Entry {
+    /// The row above's stretch, from its node to its bottom edge.
+    static func lineAbove(after lead: TimeInterval) -> Animation {
+        .easeIn(duration: 0.1).delay(lead)
+    }
+
+    /// This row's stretch, from its top edge to its node, picking up where the one above ends.
+    static func line(after lead: TimeInterval) -> Animation {
+        .easeOut(duration: 0.06).delay(lead + 0.1)
+    }
+
+    /// The node's pop, as the line arrives, or at once on the first row.
+    static func pop(isFirst: Bool) -> (_ lead: TimeInterval) -> Animation {
+        { .snappy(duration: 0.2, extraBounce: 0.25).delay($0 + (isFirst ? 0 : 0.14)) }
+    }
+
+    static func content(after lead: TimeInterval) -> Animation {
+        .easeOut(duration: 0.2).delay(lead + 0.08)
+    }
+}
+
+extension View {
+    /// Animates changes to `value` with `animation`, given the transaction's entry delay.
+    fileprivate func entry(
+        _ animation: @escaping (TimeInterval) -> Animation,
+        value: some Equatable,
+    ) -> some View {
+        transaction(value: value) { $0.animation = animation($0.railEntryDelay) }
+    }
 }
 
 extension EnvironmentValues {
@@ -71,6 +129,7 @@ extension EnvironmentValues {
 /// icon, held invisibly in the column, gives it the key's width and baseline at every text size.
 private struct RailNode: View {
     @ScaledMetric(relativeTo: .body) private var size: CGFloat = 10
+    @Environment(\.railPlace) private var place
     @ObserveHotReload private var hotReload
 
     var body: some View {
@@ -83,6 +142,8 @@ private struct RailNode: View {
                     .fill(.pp(.borderStrong))
                     .frame(width: size, height: size)
                     .anchorPreference(key: NodeCenter.self, value: .center) { $0 }
+                    .scaleEffect(place.isArriving ? 0 : 1)
+                    .entry(Entry.pop(isFirst: place.isFirst), value: place.isArriving)
             }
             .accessibilityHidden(true)
             .hotReloadable()
@@ -110,6 +171,8 @@ private struct RailRow: ViewModifier {
             content
                 .padding(.vertical, Spacing.sm)
                 .frame(minHeight: minHeight, alignment: .top)
+                .opacity(place.isArriving ? 0 : 1)
+                .entry(Entry.content, value: place.isArriving)
         }
         // The row's stretch of line, top edge to bottom edge through its node, or from the node
         // on the first row and to it on the last, drawn as part of the row so it moves with it.
@@ -118,11 +181,14 @@ private struct RailRow: ViewModifier {
                 if let center {
                     let node = proxy[center]
                     let top = place.isFirst ? node.y : 0
-                    let bottom = place.isLast ? node.y : proxy.size.height
+                    let end = place.isLast ? node.y : proxy.size.height
+                    let bottom = place.isArriving ? top : end
                     Rectangle()
                         .fill(.pp(.rail))
                         .frame(width: lineWidth, height: bottom - top)
                         .position(x: node.x, y: (top + bottom) / 2)
+                        .entry(Entry.lineAbove, value: place.isLast)
+                        .entry(Entry.line, value: place.isArriving)
                 }
             }
         }
