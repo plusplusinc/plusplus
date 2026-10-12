@@ -14,6 +14,9 @@ extension Font {
     public static let ppRowTitle = Font.system(.body, weight: .semibold)
     /// The line under a row's name.
     public static let ppRowDetail = Font.system(.subheadline)
+    /// A screen's title collapsed into its bar: SF Mono, as the screen title is, at the size and
+    /// weight of the system's inline title.
+    public static let ppInlineTitle = Font.system(.headline, design: .monospaced, weight: .semibold)
     /// The ++ mark: monospaced so the two pluses read as one glyph.
     public static let ppMark = Font.system(.title2, design: .monospaced, weight: .bold)
 }

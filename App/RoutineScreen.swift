@@ -13,6 +13,8 @@ struct RoutineScreen: View {
     @State private var isPicking = false
     /// What was picked, held until the picker's sheet is down.
     @State private var picked: Exercise?
+    /// Whether the title has scrolled up under the bar, where a small copy of it shows instead.
+    @State private var isTitleUnderBar = false
     @ObserveHotReload private var hotReload
 
     private static let markWidth: CGFloat = 20
@@ -32,6 +34,11 @@ struct RoutineScreen: View {
                         accessibilityLabel: "Routine name",
                         accessibilityHint: "Renames the routine.",
                     )
+                    .onScrollVisibilityChange(threshold: 0.01) { isVisible in
+                        withAnimation(.snappy) {
+                            isTitleUnderBar = !isVisible
+                        }
+                    }
                     Rail(exercises) { item in
                         RowLabel(title: item.exercise.name, detail: item.exercise.equipmentLine)
                             .railRow()
@@ -84,6 +91,16 @@ struct RoutineScreen: View {
                 }
             }
             .toolbar {
+                // As a large title does, the title shows small in the bar once it is under it.
+                ToolbarItem(placement: .title) {
+                    if isTitleUnderBar {
+                        Text(name)
+                            .font(.ppInlineTitle)
+                            .foregroundStyle(.pp(.textPrimary))
+                            .lineLimit(1)
+                            .transition(.opacity)
+                    }
+                }
                 ToolbarItem(placement: .topBarLeading) {
                     // The drawer is a later slice.
                     Button { } label: {
