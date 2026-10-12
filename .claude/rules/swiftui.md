@@ -26,9 +26,9 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   enters with its content as the moment and the rail as a flourish (`RailEntry`): the name
   fades in with a short drop that lands firmly, with no overshoot, and a light impact haptic as
   it lands (0.12 s); then a beat (0.15 s), so the eye settles on the name; then the line shoots
-  down from the node above to the new node (0.18 s) on a quartic ease-in from a small running
-  start, at full speed as it hits the node; a tiny beat later (0.06 s) the node pops in with a
-  small, crisp overshoot, with no haptic; then the new line and node hold in `railJoin` for a
+  down from the node above to the new node (0.24 s) on a quartic ease-in from a small running
+  start, at full speed as it hits the node; as it lands, the node pops in with a small, crisp
+  overshoot, with no haptic; then the new line and node hold in `railJoin` for a
   beat (0.1 s) and fade to gray on an ease-in (gray by about 0.9 s). The first row has no line: name and
   haptic, beat, pop, settle. With Reduce Motion there is no shot, no blue, and no overshoot,
   but the haptic stays, as the name appears.

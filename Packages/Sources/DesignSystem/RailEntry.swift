@@ -20,9 +20,7 @@ enum RailEntry {
     /// The rail's flourish starts after the name lands and a beat, so the eye settles on the
     /// name before the line draws it to the rail: rhythm, not lag.
     static let shotStart: TimeInterval = 0.27
-    static let shot: TimeInterval = 0.18
-    /// A tiny beat between the line reaching the node and the node popping.
-    static let landing: TimeInterval = 0.06
+    static let shot: TimeInterval = 0.24
     /// The shot's speed at its start, against its average: small, but moving from the first
     /// frame, so it never looks stalled.
     nonisolated static let runningStart = 0.1
@@ -31,10 +29,10 @@ enum RailEntry {
     static let hold: TimeInterval = 0.1
     static let settle: TimeInterval = 0.28
 
-    /// When the node pops, from when the row starts to show: a tiny beat after the line lands,
-    /// or, on the first row, after the beat that follows the name.
+    /// When the node pops, from when the row starts to show: as the line lands, or, on the first
+    /// row, after the beat that follows the name.
     static func popStart(isFirst: Bool, reduceMotion: Bool) -> TimeInterval {
-        reduceMotion ? 0 : isFirst ? shotStart : shotStart + shot + landing
+        reduceMotion ? 0 : isFirst ? shotStart : shotStart + shot
     }
 
     /// When the haptic fires, from when the row is let go: as the name lands, Reduce Motion or
