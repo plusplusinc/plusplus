@@ -213,19 +213,22 @@ private struct RailRow: ViewModifier {
 }
 
 extension RailRow {
-    /// The blue point that leads the line down to an arriving row's node, on the line's curve,
-    /// growing from the line's width to twice it. It starts at the node above, a row's height up, as rows share a
-    /// rhythm, shows from the shot's start, and gives way to the node as it pops.
+    /// The blue pulse that leads the line down to an arriving row's node (`Pulse`). It starts
+    /// at the node above, a row's height up, as rows share a rhythm, under it, shows from the
+    /// shot's start, and gives way to the node as it pops.
     private func leadingPoint(at node: CGPoint, rowHeight: CGFloat) -> some View {
         let landing = RailEntry.popStart(isFirst: false, reduceMotion: false)
-        return Circle()
+        let time = place.isArriving ? 0 : RailEntry.pulseEnd
+        return Pulse(
+            time: time,
+            node: node,
+            gap: rowHeight,
+            lineWidth: lineWidth,
+            duration: RailEntry.shot,
+            end: RailEntry.pulseEnd,
+        )
             .fill(.pp(.railJoin))
-            .frame(width: lineWidth, height: lineWidth)
-            .scaleEffect(place.isArriving ? 1 : RailEntry.pointScale)
-            .entry(RailEntry.pointGrowth(reduceMotion: false), value: place.isArriving)
-            .position(node)
-            .offset(y: place.isArriving ? -rowHeight : 0)
-            .entry(RailEntry.space(reduceMotion: false), value: place.isArriving)
+            .entry(RailEntry.pulse(reduceMotion: false), value: place.isArriving)
             .opacity(place.isArriving ? 1 : 0)
             .entry(RailEntry.step(at: landing), value: place.isArriving)
             .opacity(place.isArriving ? 0 : 1)

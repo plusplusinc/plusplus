@@ -39,15 +39,15 @@ enum RailEntry {
     /// width to twice it as the line extends, then pops into the node from there.
     static let pointScale: CGFloat = 2
 
-    /// The point's growth, over the shot: a cubic ease-in, slow first, faster near the end.
-    static func pointGrowth(reduceMotion: Bool) -> (_ lead: TimeInterval) -> Animation? {
+    /// The pulse's time, from 0 as the shot starts to 1 as the line lands, then on through the
+    /// pause, as it collapses: run at a steady rate, since `Pulse` works out its own shape.
+    static func pulse(reduceMotion: Bool) -> (_ lead: TimeInterval) -> Animation? {
         guard !reduceMotion else { return { _ in nil } }
-        let cubic = UnitCurve.bezier(
-            startControlPoint: UnitPoint(x: 0.32, y: 0),
-            endControlPoint: UnitPoint(x: 0.67, y: 0),
-        )
-        return { .timingCurve(cubic, duration: shot).delay($0 + start) }
+        return { .linear(duration: shot + pause).delay($0 + start) }
     }
+
+    /// Where the pulse's time ends: past 1 by the pause, against the shot.
+    static let pulseEnd = 1 + pause / shot
 
     /// A change made all at once, `time` after the row's place starts to open.
     static func step(at time: TimeInterval) -> (_ lead: TimeInterval) -> Animation? {
@@ -203,6 +203,50 @@ struct OpeningSpace: Layout {
     ) {
         let proposal = ProposedViewSize(width: bounds.width, height: nil)
         subviews.first?.place(at: bounds.origin, anchor: .topLeading, proposal: proposal)
+    }
+}
+
+/// The blue pulse at the front of the line as it shoots: a capsule whose front edge is the
+/// line's tip and whose tail trails behind on the gray line. It is as wide as the line at the
+/// start, twice as wide at the landing, on a cubic ease-in, and as long as its width plus a
+/// stretch for the tip's speed, so it starts as a round dot and stretches as the shot speeds
+/// up, to at most about a third of the gap. Through the pause after the landing, the stretch
+/// collapses back into the dot the node then pops from.
+struct Pulse: Shape {
+    /// The pulse's time: see `RailEntry.pulse`.
+    var time: Double
+    /// The node it lands on, and the gap from the node above.
+    let node: CGPoint
+    let gap: CGFloat
+    let lineWidth: CGFloat
+    /// The shot's length in seconds, and where the time ends, after the pause.
+    let duration: TimeInterval
+    let end: Double
+
+    /// How long the stretch is for each point a second of the tip's speed.
+    nonisolated private static let stretch: CGFloat = 0.022
+    nonisolated private static let longest: CGFloat = 0.35
+
+    nonisolated var animatableData: Double {
+        get { time }
+        set { time = newValue }
+    }
+
+    nonisolated func path(in _: CGRect) -> Path {
+        let shot = min(time, 1)
+        let width = lineWidth * (1 + CGFloat(shot * shot * shot))
+        let front = node.y - gap * CGFloat(1 - RailEntry.distance(at: shot))
+        // The tip's speed, in points a second: the curve's slope across the gap, over the shot.
+        let slope = RailEntry.runningStart + 4 * (1 - RailEntry.runningStart) * shot * shot * shot
+        let speed = CGFloat(slope) * gap / CGFloat(duration)
+        var length = min(width + Self.stretch * speed, gap * Self.longest)
+        if time > 1 {
+            // Through the pause, the stretch gives way to the dot.
+            let collapse = CGFloat((time - 1) / (end - 1))
+            length = width + (length - width) * max(0, 1 - collapse)
+        }
+        let rect = CGRect(x: node.x - width / 2, y: front - length, width: width, height: length)
+        return Path(roundedRect: rect, cornerRadius: width / 2)
     }
 }
 
