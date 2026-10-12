@@ -46,8 +46,9 @@ state, stateless services hold side effects, free functions hold the math. The a
 - **The repo is public.** Every push publishes. No secrets, personal data, or scratch notes in
   tracked files. The team ID is not a secret and lives in `Config/Base.xcconfig`;
   `Config/Local.xcconfig` is the gitignored place for per-developer overrides. Build output and
-  other regenerable files go in `.build/`; agents' slice working files (plans, handoffs,
-  evidence) go in the gitignored `.slices/`.
+  other regenerable files go in `.build/`. Product spec, acceptance criteria, and decisions live
+  on the board; the gitignored `.slices/`, in the main checkout, holds only agents' technical
+  working files (plans, handoffs, evidence).
 - **US English** in code, comments, docs, and commits. A hook checks every edit.
 
 ## Building features
@@ -104,7 +105,7 @@ fix. Branch protection enforces this server-side.
 ```sh
 git switch -c <topic>
 git push -u origin <topic>
-gh pr create --title "<title>" --body-file <file>   # --fill skips the PR template
+gh pr create --title "<title>" --body-file -   # body on stdin; --fill skips the PR template
 ```
 
 CI must be green before a PR merges. **Merges are squashed**: the PR title and body become the

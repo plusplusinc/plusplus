@@ -24,8 +24,10 @@ request that already merged.
 Then:
 ```sh
 git push -u origin <branch>
-gh pr create --title "<title>" --body-file <file>   # or gh pr edit to update the body
-gh pr checks --watch                                # Xcode Cloud reports back as a check
+gh pr create --title "<title>" --body-file - <<'BODY'   # or gh pr edit to update the body
+<body>
+BODY
+gh pr checks --watch                                   # Xcode Cloud reports back as a check
 ```
 
 If `gh pr checks` still says "no checks reported" 30 seconds after the PR opens, GitHub's
@@ -40,7 +42,7 @@ than it should have, and a "Card" line naming the board card, written as "Closes
 card was published as an issue so the merge closes it. The retro runs in a cloud session
 that never saw this work and reads only the PR, so write Friction from the session, not from
 the diff, and put any decision the diff does not explain in the body. `--fill` skips the
-template; write the body to a file under `.build/`.
+template.
 
 Write the body as the commit message it becomes. The title is already the commit's subject, so
 do not repeat it in the body's first line, and leave each paragraph on a single line: GitHub
