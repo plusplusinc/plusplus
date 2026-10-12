@@ -1,11 +1,12 @@
 import SwiftUI
 
 /// The one key a screen is for, such as Start: full width, a light fill on a ledge, label
-/// leading. Pressing pushes the key down onto its ledge, which stays put, so nothing around it
+/// centered. Pressing pushes the key down onto its ledge, which stays put, so nothing around it
 /// moves. Not green: green is for data.
 ///
-/// Its corners are concentric with its container's, the screen's in `primaryKeyBar`; the
-/// radius is resolved once, from where the key sits, and the ledge takes the same shape.
+/// Its top corners are a key's, as Add exercise's are. Its bottom corners are concentric with
+/// its container's, the screen's in `primaryKeyBar`, resolved once from where the key sits.
+/// The ledge takes the same shape.
 public struct PrimaryKeyButtonStyle: ButtonStyle {
     /// A little taller than a key, such as Add exercise.
     @ScaledMetric(relativeTo: .title3) private var minHeight: CGFloat = 56
@@ -17,8 +18,8 @@ public struct PrimaryKeyButtonStyle: ButtonStyle {
 
     public func makeBody(configuration: Configuration) -> some View {
         let shape = ConcentricRectangle(
-            corners: .concentric(minimum: .fixed(Radius.key)),
-            isUniform: true,
+            uniformTopCorners: .fixed(Radius.key),
+            uniformBottomCorners: .concentric(minimum: .fixed(Radius.key)),
         )
         configuration.label
             .font(.ppPrimaryKey)
