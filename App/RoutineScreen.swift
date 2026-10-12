@@ -11,6 +11,8 @@ struct RoutineScreen: View {
     @State private var name = Self.defaultName
     @State private var exercises: [RoutineExercise] = []
     @State private var isPicking = false
+    /// What was picked, held until the picker's sheet is down.
+    @State private var picked: Exercise?
     @ObserveHotReload private var hotReload
 
     private static let markWidth: CGFloat = 20
@@ -45,7 +47,7 @@ struct RoutineScreen: View {
                             // back to rest while it went. It fades out first instead, and the
                             // rows below close the gap.
                             .transition(.asymmetric(
-                                insertion: .identity,
+                                insertion: .opacity.combined(with: .offset(y: -Spacing.sm)),
                                 removal: .opacity.animation(.snappy(duration: 0.15)),
                             ))
                     } end: {
@@ -73,13 +75,11 @@ struct RoutineScreen: View {
             // window's black behind the keyboard's rounded top corners.
             .background { Color.pp(.background).ignoresSafeArea() }
             .navigationBarTitleDisplayMode(.inline)
-            .sheet(isPresented: $isPicking) {
+            .sheet(isPresented: $isPicking, onDismiss: addPicked) {
                 ExercisePicker { exercise in
                     // A second tap while the sheet goes down would add the exercise again.
                     guard isPicking else { return }
-                    // The row and Start go in at once, behind the sheet, which still covers them,
-                    // so the sheet going down is the add's one motion: it uncovers them in place.
-                    exercises.append(RoutineExercise(exercise: exercise))
+                    picked = exercise
                     isPicking = false
                 }
             }
@@ -101,6 +101,16 @@ struct RoutineScreen: View {
             }
         }
         .hotReloadable()
+    }
+
+    /// Adds what was picked once the sheet is down, where the row can be seen going in. Added
+    /// behind the sheet, it was already in place when the sheet uncovered it.
+    private func addPicked() {
+        guard let picked else { return }
+        withAnimation(.snappy(duration: 0.25)) {
+            exercises.append(RoutineExercise(exercise: picked))
+        }
+        self.picked = nil
     }
 }
 
