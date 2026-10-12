@@ -63,7 +63,7 @@ merges, and when it runs long writes a handoff note so a fresh one can continue 
 worktree.
 A slice with something to see goes on the maintainer's phone as soon as their feedback would help,
 then in rounds while they are engaged. A round is shown, not done: it skips the thorough checks,
-and the full pass (the builder's, then the verifier) runs once, when they say it's right.
+which wait until they say it's right and then run once, as the phases above.
 The maintainer clears the lead's context between slices; `/onward` starts or resumes the next
 card from the project board, whose Todo column, in board order, is one queue of feature slices
 and standalone tasks.

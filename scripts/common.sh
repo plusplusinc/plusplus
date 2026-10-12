@@ -1,9 +1,10 @@
 #!/bin/bash
 # Shared setup for the scripts in this directory. Source it; do not run it.
 #
-# Builds funnel through one derived-data path per destination (scripts/device.sh keeps the
-# phone's apart) so incremental builds stay warm across invocations, and through xcbeautify (when installed) so a reader gets a few hundred bytes of
-# diagnostics instead of kilobytes of compiler invocations.
+# Builds funnel through a fixed derived-data path (.build/DerivedData for the simulator,
+# .build/device for scripts/device.sh) so incremental builds stay warm across invocations, and
+# through xcbeautify (when installed) so a reader gets a few hundred bytes of diagnostics instead
+# of kilobytes of compiler invocations.
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
@@ -62,14 +63,13 @@ run_xcodebuild() {
 }
 
 # The bundle identifier of a built app, by default the last Debug simulator build, read from the
-# built product so the scripts never hard-code it. Fails with a pointer to run.sh when nothing has
-# been built yet.
+# built product so the scripts never hard-code it. Fails when nothing has been built yet.
 #
 #   app_bundle_id [path/to/PlusPlus.app]
 app_bundle_id() {
     local plist="${1:-$DERIVED_DATA/Build/Products/Debug-iphonesimulator/$SCHEME.app}/Info.plist"
     if [ ! -f "$plist" ]; then
-        echo "no built app at $plist; run scripts/run.sh first" >&2
+        echo "no built app at $plist; build it first, as scripts/run.sh does" >&2
         return 1
     fi
     plutil -extract CFBundleIdentifier raw -o - "$plist"

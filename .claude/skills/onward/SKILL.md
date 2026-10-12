@@ -53,9 +53,9 @@ project board; agents' technical working files live in `.slices/`.
 
 ## Finish
 
-1. Look at the verifier's screenshots yourself. If the full pass changed anything the
-   maintainer would see since their last round, install it again with `scripts/device.sh` and
-   tell them what changed.
+1. Look at the verifier's screenshots yourself. If the maintainer has not had the final build in
+   hand (the full pass changed what they see, or there was no round), install it with
+   `scripts/device.sh` and tell them what to try.
 2. After the maintainer's go-ahead: merge once checks pass, move the card to Done, run
    `scripts/tidy.sh` (it removes the merged worktree and branch; it also runs at every session
    start), and delete the slice's `.slices/sliceN-*` files.
