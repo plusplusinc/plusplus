@@ -23,14 +23,15 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
 - Motion is snappy: `.snappy`, never a bare `withAnimation` or the default spring, and quicker
   than its default where it answers a tap: rows going onto and off a rail use `.railChange`,
   and a key comes back from a press with `keyPressAnimation(isPressed:)`. A row added to a rail
-  enters as one quick gesture in beats (`RailEntry`): its name fades in with a small drop
-  (0.12 s); as it finishes, the line shoots down from the node above to the new node (0.12 s)
-  on a quartic ease-in from a small running start, most of the way in its last third and at
-  full speed as it hits the node, so the pop reads as the impact; as it lands, the node pops in
-  with a small, crisp overshoot and a light impact haptic, the commit (about 0.22 s in); then
-  the new line and node hold in `railJoin` for a beat (0.1 s) and fade to gray on an ease-in,
-  with no long tail (gray by about 0.5 s). The first row has no line: name, pop, settle. With
-  Reduce Motion there is no shot, no blue, and no overshoot, but the haptic stays.
+  enters with its content as the moment and the rail as a flourish (`RailEntry`): the name
+  fades in with a short drop that lands firmly, with no overshoot, and a light impact haptic as
+  it lands (0.12 s); then a beat (0.15 s), so the eye settles on the name; then the line shoots
+  down from the node above to the new node (0.12 s) on a quartic ease-in from a small running
+  start, at full speed as it hits the node; the node pops in with a small, crisp overshoot as it
+  lands, with no haptic; then the new line and node hold in `railJoin` for a beat (0.1 s) and
+  fade to gray on an ease-in (gray by about 0.75 s). The first row has no line: name and
+  haptic, beat, pop, settle. With Reduce Motion there is no shot, no blue, and no overshoot,
+  but the haptic stays, as the name appears.
   Nothing waits on it: the key, scrolling, swiping a row, and the title all work while it plays.
   It enters only where it can be seen: its place opens as the picker's sheet starts down, and
   the entry plays a moment into the sheet's slide, or, when the new row has pushed the list's

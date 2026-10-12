@@ -6,25 +6,20 @@ import Testing
 /// keyframes the rail plays. A simulator cannot feel a haptic, so its timing is what is tested.
 @Suite("Rail entry timeline")
 struct RailEntryTests {
-    @Test("The haptic fires as the line lands and the node pops", arguments: [0, 0.15])
-    func commitOnLanding(lead: TimeInterval) {
-        let time = RailEntry.commitTime(lead: lead, isFirst: false, reduceMotion: false)
-        #expect(abs(time - (lead + RailEntry.shotStart + RailEntry.shot)) < 1e-9)
+    @Test("The haptic fires once, as the name lands, before the rail's flourish")
+    func commitOnNameLanding() {
+        #expect(abs(RailEntry.commitTime(lead: 0.15) - (0.15 + RailEntry.name)) < 1e-9)
+        #expect(RailEntry.name < RailEntry.shotStart)
+        #expect(RailEntry.name < RailEntry.popStart(isFirst: true, reduceMotion: false))
     }
 
-    @Test("On the first row, with no line, the haptic fires as the name finishes")
-    func commitOnFirstRow() {
-        let time = RailEntry.commitTime(lead: 0.15, isFirst: true, reduceMotion: false)
-        #expect(abs(time - (0.15 + RailEntry.firstPop)) < 1e-9)
-        #expect(RailEntry.firstPop < RailEntry.name)
+    @Test("The rail follows the name after a beat of about a tenth of a second")
+    func beatBeforeShot() {
+        let beat = RailEntry.shotStart - RailEntry.name
+        #expect(beat >= 0.1 && beat <= 0.17)
     }
 
-    @Test("With Reduce Motion, the haptic still fires, as the row shows")
-    func commitWithReduceMotion() {
-        #expect(RailEntry.commitTime(lead: 0.15, isFirst: false, reduceMotion: true) == 0.15)
-    }
-
-    @Test("The blue holds through the pop and is gone by 0.6 s after the row shows")
+    @Test("The blue holds through the pop and is gone by about 0.8 s after the row shows")
     func joiningSettles() {
         let lead = 0.15
         let timeline = KeyframeTimeline(initialValue: 0.0) {
@@ -33,6 +28,6 @@ struct RailEntryTests {
         let pop = lead + RailEntry.popStart(isFirst: false, reduceMotion: false)
         #expect(timeline.value(time: pop) == 1)
         #expect(timeline.value(time: pop + RailEntry.hold) == 1)
-        #expect(timeline.value(time: lead + 0.6) == 0)
+        #expect(timeline.value(time: lead + 0.8) == 0)
     }
 }

@@ -123,7 +123,6 @@ private struct RailNode: View {
                     .anchorPreference(key: NodeCenter.self, value: .center) { $0 }
                     .scaleEffect(place.isArriving ? 0 : 1)
                     .entry(pop, value: place.isArriving)
-                    .committing(when: place.isArriving)
             }
             .accessibilityHidden(true)
             .hotReloadable()
@@ -155,6 +154,7 @@ private struct RailRow: ViewModifier {
                 .opacity(place.isArriving ? 0 : 1)
                 .offset(y: place.isArriving && !reduceMotion ? -Spacing.xs : 0)
                 .entry(RailEntry.content, value: place.isArriving)
+                .committing(when: place.isArriving)
         }
         // The row's stretch of line, top edge to bottom edge through its node, or from the node
         // on the first row and to it on the last, drawn as part of the row so it moves with it.

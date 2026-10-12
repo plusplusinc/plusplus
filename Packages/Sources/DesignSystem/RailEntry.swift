@@ -7,20 +7,19 @@ extension Transaction {
 }
 
 /// A row's entry, in beats timed from when the row starts to show, `lead` after the rail lets
-/// it go. The name fades in with a small drop. As it finishes, the line shoots down from the
-/// node above to this row's node, accelerating from a running start, a throw rather than a pull
-/// away from a stop. As it lands, the node pops in with a small, crisp overshoot and a light
-/// haptic: the moment the add is committed. The new line and node hold in `railJoin` for a beat,
-/// then fade to gray on an ease-in, with no long tail. The first row has no line above it, so
-/// its node pops as the name finishes. With Reduce Motion, the line and node appear with the
-/// name, gray and without a shot or an overshoot; the haptic stays.
+/// it go. The row's content is the moment, as it is what was added: it fades in with a short
+/// drop that lands firmly, with no overshoot, and a light haptic as it lands. After a beat, the
+/// rail follows as a flourish: the line shoots down from the node above to this row's node,
+/// accelerating from a small running start into the node; the node pops in, with a small, crisp
+/// overshoot, as it lands; the new line and node hold in `railJoin`, then fade to gray on an
+/// ease-in. The first row has no line above it, so its node pops after the beat. With Reduce
+/// Motion, the line and node appear with the content, gray and without a shot or an overshoot;
+/// the haptic stays.
 enum RailEntry {
     static let name: TimeInterval = 0.12
-    /// The shot starts as the name finishes, so the two read as one gesture: a shot starting
-    /// at rest shows nothing for its first frames, so it starts a little before.
-    static let shotStart: TimeInterval = 0.05
-    /// With no line, the first row's node pops as its name finishes.
-    static let firstPop: TimeInterval = 0.08
+    /// The rail's flourish starts after the name lands and a beat, so the eye settles on the
+    /// name before the line draws it to the rail: rhythm, not lag.
+    static let shotStart: TimeInterval = 0.27
     static let shot: TimeInterval = 0.12
     /// The shot's speed at its start, against its average: small, but moving from the first
     /// frame, so it never looks stalled.
@@ -30,14 +29,16 @@ enum RailEntry {
     static let hold: TimeInterval = 0.1
     static let settle: TimeInterval = 0.28
 
-    /// When the node pops and the add is committed, from when the row starts to show.
+    /// When the node pops, from when the row starts to show: as the line lands, or, on the first
+    /// row, after the beat.
     static func popStart(isFirst: Bool, reduceMotion: Bool) -> TimeInterval {
-        reduceMotion ? 0 : isFirst ? firstPop : shotStart + shot
+        reduceMotion ? 0 : isFirst ? shotStart : shotStart + shot
     }
 
-    /// When the commit's haptic fires, from when the row is let go: as the node pops.
-    static func commitTime(lead: TimeInterval, isFirst: Bool, reduceMotion: Bool) -> TimeInterval {
-        lead + popStart(isFirst: isFirst, reduceMotion: reduceMotion)
+    /// When the haptic fires, from when the row is let go: as the name lands, Reduce Motion or
+    /// not.
+    static func commitTime(lead: TimeInterval) -> TimeInterval {
+        lead + name
     }
 
     /// How much of `railJoin` the new line and node show: all of it until a beat after the pop,
@@ -49,8 +50,14 @@ enum RailEntry {
         LinearKeyframe(0, duration: settle, timingCurve: .easeIn)
     }
 
+    /// The name's landing: quick, then slowing, but still moving as it arrives, so it stops
+    /// cleanly, with no soft tail.
     static func content(after lead: TimeInterval) -> Animation {
-        .easeOut(duration: name).delay(lead)
+        let landing = UnitCurve.bezier(
+            startControlPoint: UnitPoint(x: 0.2, y: 0.5),
+            endControlPoint: UnitPoint(x: 0.6, y: 0.9),
+        )
+        return .timingCurve(landing, duration: name).delay(lead)
     }
 
     static func pop(isFirst: Bool, reduceMotion: Bool) -> (_ lead: TimeInterval) -> Animation? {
@@ -165,20 +172,18 @@ struct ShotArc: CustomAnimation {
     }
 }
 
-/// The commit of an entry: a light impact as the node pops, the tap of a small thing snapping
-/// into place, once per entry, Reduce Motion or not. It goes through `sensoryFeedback`, so silent
-/// mode and the system's haptics setting apply. A step timed to the pop, on a clear view beside
-/// the node, completes on it: the commit. Beside, not around: a completion waits for every
-/// animation under it, and the node's pop would hold it back to the pop's end.
+/// The commit of an entry: a light impact as the row's content lands, the tap of a small thing
+/// settling into place, once per entry, Reduce Motion or not. It goes through `sensoryFeedback`,
+/// so silent mode and the system's haptics setting apply. A step timed to the landing, on a view
+/// beside the content, completes on it: the commit. Beside, not around: a completion waits for
+/// every animation under it, and the content's own would hold it back.
 private struct Committing: ViewModifier {
     let isArriving: Bool
-    @Environment(\.railPlace) private var place
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var commits = 0
     @ObserveHotReload private var hotReload
 
     func body(content: Content) -> some View {
-        let (isFirst, reduceMotion, isArriving) = (place.isFirst, reduceMotion, isArriving)
+        let isArriving = isArriving
         content
             .background {
                 // Drawn, so that it animates, in the screen's own color at a hundredth of its
@@ -187,11 +192,7 @@ private struct Committing: ViewModifier {
                     .opacity(isArriving ? 0 : 0.01)
                     .transaction(value: isArriving) { transaction in
                         guard !isArriving, let lead = transaction.railEntryDelay else { return }
-                        let time = RailEntry.commitTime(
-                            lead: lead,
-                            isFirst: isFirst,
-                            reduceMotion: reduceMotion,
-                        )
+                        let time = RailEntry.commitTime(lead: lead)
                         transaction.animation = .linear(duration: 0.001).delay(time)
                         transaction.addAnimationCompletion { commits += 1 }
                     }
