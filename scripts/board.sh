@@ -12,8 +12,8 @@
 #   scripts/board.sh publish <item-id>                # convert the draft to a repo issue, in place
 #
 # `add` and `body` read the body from stdin, usually a heredoc, so no draft file exists to drift
-# from the card or go missing. `add` from a terminal makes an empty-bodied card; `body` refuses
-# an empty body rather than blank the card.
+# from the card or go missing. `add` with no body makes an empty-bodied card; `body` refuses an
+# empty body rather than blank the card.
 #
 # Draft items keep the board private while the repo is public; `publish` converts one to an
 # issue when the /brief skill says so, keeping its place and status on the board. Trim the
@@ -37,6 +37,12 @@ field() {
         --jq ".fields[] | select(.name == \"$1\")"
 }
 
+# The body on stdin, from a heredoc, a pipe, or a file. A terminal, or the socket an agent's
+# shell holds open, gives nothing rather than waiting for input that never ends.
+stdin_body() {
+    if [ -p /dev/stdin ] || [ -f /dev/stdin ]; then cat; fi
+}
+
 # Every item on the board, filtered by a jq expression. gh returns 30 items unless told
 # otherwise, and an item past that would look missing.
 items() {
@@ -49,9 +55,16 @@ usage() {
 }
 
 # gh edits a draft's title and body through the draft issue's own id (DI_...), not the project
-# item's id (PVTI_...) that every other subcommand takes.
+# item's id (PVTI_...) that every other subcommand takes. A card created seconds ago may not be
+# listed yet.
 draft_id() {
-    items ".items[] | select(.id == \"$1\") | .content.id"
+    local id
+    id=$(items ".items[] | select(.id == \"$1\") | .content.id")
+    if [ -z "$id" ]; then
+        echo "no item $1 on the board; a new card takes a few seconds to appear" >&2
+        exit 1
+    fi
+    echo "$id"
 }
 
 command="${1:-}"
@@ -70,19 +83,19 @@ case "$command" in
         ;;
     add)
         [ $# -eq 1 ] || usage
-        body=""
-        [ -t 0 ] || body=$(cat)
+        body=$(stdin_body)
         gh project item-create "$NUMBER" --owner "$OWNER" --title "$1" --body "$body" \
             --format json --jq .id
         ;;
     body)
-        [ $# -eq 1 ] && [ ! -t 0 ] || usage
-        body=$(cat)
+        [ $# -eq 1 ] || usage
+        body=$(stdin_body)
         if [[ ! $body =~ [^[:space:]] ]]; then
             echo "no body on stdin; $1 left unchanged" >&2
             exit 1
         fi
-        gh project item-edit --id "$(draft_id "$1")" --body "$body" > /dev/null
+        draft=$(draft_id "$1")
+        gh project item-edit --id "$draft" --body "$body" > /dev/null
         ;;
     status)
         [ $# -eq 2 ] || usage
