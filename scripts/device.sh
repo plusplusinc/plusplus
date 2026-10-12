@@ -6,7 +6,8 @@
 #
 # The phone is looked up each time, never stored, since the repo is public. It must be paired
 # with this Mac and reachable: devicectl marks it unavailable when it is away or off the Mac's
-# Wi-Fi, and a locked phone fails at install or launch. The build is incremental in the worktree's .build/device, apart from the simulator's
+# Wi-Fi, and a locked phone fails at install or launch. When it can't be reached, the fallback is
+# an install link, built as the board README's phone-testing section says. The build is incremental in the worktree's .build/device, apart from the simulator's
 # derived data so both can build at once.
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
@@ -37,12 +38,15 @@ for device in json.load(sys.stdin)["result"]["devices"]:
 ' "${PLUSPLUS_DEVICE:-}"
 }
 
+LINK_FALLBACK="if it stays out of reach, send an install link (board README, phone testing)"
+
 IPHONES=$(available_iphones)
 COUNT=$(grep -c . <<< "$IPHONES" || true)
 
 if [ "$COUNT" -eq 0 ]; then
     echo "no iPhone available${PLUSPLUS_DEVICE:+ matching PLUSPLUS_DEVICE=$PLUSPLUS_DEVICE}:" \
         "unlock it and put it on this Mac's Wi-Fi; xcrun devicectl list devices shows what it sees" >&2
+    echo "$LINK_FALLBACK" >&2
     exit 69
 fi
 if [ "$COUNT" -gt 1 ]; then
@@ -63,6 +67,7 @@ if ! xcrun devicectl device install app --quiet --device "$UDID" "$APP" ||
     ! xcrun devicectl device process launch --quiet --terminate-existing --device "$UDID" \
         "$BUNDLE_ID"; then
     echo "built, but could not install or launch on $NAME: is it unlocked?" >&2
+    echo "$LINK_FALLBACK" >&2
     exit 69
 fi
 echo "launched on $NAME"
