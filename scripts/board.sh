@@ -4,12 +4,16 @@
 #   scripts/board.sh list                              # every item, in board order: id, status, feature, title
 #   scripts/board.sh show <item-id>                    # title, status, and body
 #   scripts/board.sh readme                            # the board's README: the design per feature
-#   scripts/board.sh add <title> [body-file]           # a draft item in Todo; prints its id
-#   scripts/board.sh body <item-id> <body-file>        # replace a draft item's body
+#   scripts/board.sh add <title> <<'EOF'               # a draft item in Todo; prints its id
+#   scripts/board.sh body <item-id> <<'EOF'            # replace a draft item's body
 #   scripts/board.sh status <item-id> Todo|"In Progress"|Done
 #   scripts/board.sh move <item-id> top|<after-item-id>  # place it in the queue /onward works through
 #   scripts/board.sh feature <item-id> <name>|-        # group it under a feature's design; - for a standalone task
 #   scripts/board.sh publish <item-id>                # convert the draft to a repo issue, in place
+#
+# `add` and `body` read the body from stdin, usually a heredoc, so no draft file exists to drift
+# from the card or go missing. `add` from a terminal makes an empty-bodied card; `body` refuses
+# an empty body rather than blank the card.
 #
 # Draft items keep the board private while the repo is public; `publish` converts one to an
 # issue when the /brief skill says so, keeping its place and status on the board. Trim the
@@ -33,6 +37,12 @@ field() {
         --jq ".fields[] | select(.name == \"$1\")"
 }
 
+# Every item on the board, filtered by a jq expression. gh returns 30 items unless told
+# otherwise, and an item past that would look missing.
+items() {
+    gh project item-list "$NUMBER" --owner "$OWNER" --format json --limit 500 --jq "$1"
+}
+
 usage() {
     sed -n '2,/^[^#]/{/^#/p;}' "$0" | sed 's/^# \{0,1\}//' >&2
     exit 64
@@ -41,38 +51,37 @@ usage() {
 # gh edits a draft's title and body through the draft issue's own id (DI_...), not the project
 # item's id (PVTI_...) that every other subcommand takes.
 draft_id() {
-    gh project item-list "$NUMBER" --owner "$OWNER" --format json \
-        --jq ".items[] | select(.id == \"$1\") | .content.id"
+    items ".items[] | select(.id == \"$1\") | .content.id"
 }
 
 command="${1:-}"
 shift || true
 case "$command" in
     list)
-        gh project item-list "$NUMBER" --owner "$OWNER" --format json --limit 500 \
-            --jq '.items[] | "\(.id)  \(.status // "-")\t\(.feature // "-")\t\(.title)"'
+        items '.items[] | "\(.id)  \(.status // "-")\t\(.feature // "-")\t\(.title)"'
         ;;
     show)
         [ $# -eq 1 ] || usage
-        gh project item-list "$NUMBER" --owner "$OWNER" --format json \
-            --jq ".items[] | select(.id == \"$1\") | \"\(.title)\n[\(.status // \"-\")]\n\n\(.content.body // \"\")\""
+        items ".items[] | select(.id == \"$1\") | \"\(.title)\n[\(.status // \"-\")]\n\n\(.content.body // \"\")\""
         ;;
     readme)
         [ $# -eq 0 ] || usage
         gh project view "$NUMBER" --owner "$OWNER" --format json --jq .readme
         ;;
     add)
-        [ $# -ge 1 ] && [ $# -le 2 ] || usage
+        [ $# -eq 1 ] || usage
         body=""
-        [ $# -eq 2 ] && body=$(cat "$2")
+        [ -t 0 ] || body=$(cat)
         gh project item-create "$NUMBER" --owner "$OWNER" --title "$1" --body "$body" \
             --format json --jq .id
         ;;
     body)
-        [ $# -eq 2 ] || usage
-        # Read the file on its own line: inside the call's arguments a failed cat is not
-        # caught by set -e, and a missing file would replace the body with nothing.
-        body=$(cat "$2")
+        [ $# -eq 1 ] && [ ! -t 0 ] || usage
+        body=$(cat)
+        if [[ ! $body =~ [^[:space:]] ]]; then
+            echo "no body on stdin; $1 left unchanged" >&2
+            exit 1
+        fi
         gh project item-edit --id "$(draft_id "$1")" --body "$body" > /dev/null
         ;;
     status)
