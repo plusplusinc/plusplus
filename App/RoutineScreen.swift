@@ -41,6 +41,13 @@ struct RoutineScreen: View {
                                     }
                                 }
                             }
+                            // A row's swipe closes when its action runs, so a deleted row slid
+                            // back to rest while it went. It fades out first instead, and the
+                            // rows below close the gap.
+                            .transition(.asymmetric(
+                                insertion: .identity,
+                                removal: .opacity.animation(.snappy(duration: 0.15)),
+                            ))
                     } end: {
                         Button("Add exercise", systemImage: "plus") {
                             isPicking = true
