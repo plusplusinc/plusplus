@@ -13,10 +13,16 @@ struct RailEntryTests {
         #expect(time == 0.15 + RailEntry.popStart(isFirst: false, reduceMotion: false))
     }
 
-    @Test("On the first row, with no line, the node, text, and haptic land at once")
+    @Test("On the first row, with no line, the place opens over the shot's time, then it lands")
     func commitOnFirstRow() {
-        let time = RailEntry.commitTime(lead: 0.15, isFirst: true, reduceMotion: false)
-        #expect(abs(time - (0.15 + RailEntry.start)) < 1e-9)
+        let first = RailEntry.commitTime(lead: 0.15, isFirst: true, reduceMotion: false)
+        let other = RailEntry.commitTime(lead: 0.15, isFirst: false, reduceMotion: false)
+        #expect(first == other)
+    }
+
+    @Test("With Reduce Motion, the haptic still fires, as the row lands at once")
+    func commitWithReduceMotion() {
+        #expect(RailEntry.commitTime(lead: 0.15, isFirst: false, reduceMotion: true) == 0.15)
     }
 
     @Test("The blue holds through the pop and is gone by about 1.15 s after the row shows")
