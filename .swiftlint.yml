@@ -8,6 +8,10 @@ included:
 excluded:
   - "**/.build"
   - "**/__Snapshots__"
+  # Not in `included`, so a whole-tree run never reaches it. Named here as well, because
+  # `included` is ignored for a path passed on the command line and the edit hook passes one:
+  # without this, an edited UI test is held to rules CI does not check.
+  - PlusPlusUITests
 
 # Rules SwiftFormat already owns. Keeping them here would only produce duplicate noise.
 disabled_rules:

@@ -49,6 +49,12 @@ What to check in the light, dark, and XXXL images before declaring UI work done:
 - Touch targets look at least 44pt, nothing important hidden under system bars.
 - No placeholder text, no labels clipped or truncated at XXXL, no glass stacked on glass.
 
+A still says nothing about motion, and watching it play says little more: record the screen
+(`xcrun simctl io <device> recordVideo <file>.mov`) and step through the frames with `ffmpeg`
+(in the `Brewfile`). Recordings written this way have uneven frame timestamps, so find a moment
+by what its frame shows, not by counting frames. The add animation was tuned by feel over six
+rounds; the frames showed a third of a second of dead time in it at once.
+
 ## Gotchas
 
 - Appearance and content size are device settings, so they survive relaunches and reboots of
@@ -59,9 +65,16 @@ What to check in the light, dark, and XXXL images before declaring UI work done:
   [AXe](https://github.com/cameroncooke/AXe) (`axe touch`, `axe type`, `axe describe-ui`), which
   is on the maintainer's Mac but not in the `Brewfile`. Use it for a one-off tap or to read a
   frame. Anything multi-step, or that has to come out the same twice, belongs in a
-  `PlusPlusUITests` test: `axe tap` does not always focus where `axe touch --down --up` does, a
-  capital letter in `axe type` can leave Shift held, a bare `axe key` press is dropped unless
-  held with `--duration`, and `key-combo` drops intermittently.
+  `PlusPlusUITests` test, and XCUITest's taps and swipes land where AXe's do not:
+  - The routine screen, and the sheets it presents, sit inside `swipeActionsContainer()`, which
+    drops a synthetic tap that goes down and up in the same instant. `axe tap` therefore does
+    nothing at all there, on a button or a search field, and reads as a dead control; hold the
+    touch instead, with `axe touch --down --up --delay 0.06`.
+  - A capital letter in `axe type` can leave Shift held, a bare `axe key` press is dropped
+    unless held with `--duration`, and `key-combo` drops intermittently.
+  - `axe swipe` has to last about two seconds to register as a swipe, a drag that ends in a
+    full swipe holds the touch for about fifteen seconds and no other AXe command can open a
+    session until it lets go, and accessibility reads time out often.
 - `log` is empty today: the screen creates no store, and nothing else logs. Errors reading
   "Connection interrupted" timestamped at a simulator shutdown are the app losing its XPC
   connections, not a bug.
@@ -76,3 +89,8 @@ What to check in the light, dark, and XXXL images before declaring UI work done:
 - `no built app at .../PlusPlus.app/Info.plist; run scripts/run.sh first`: `relaunch` reuses the
   Debug build in `.build/DerivedData`, and there is none yet.
 - `Unknown apperance: blue` (Apple's spelling): `appearance` takes only `light` or `dark`.
+- A UI test that measures the keyboard's edge failing with a frame below the screen: `axe type`
+  sends hardware key events, after which the simulator keeps its software keyboard minimized.
+  Clearing `HardwareKeyboardLastSeen` in the device's keyboard preferences and rebooting brought
+  it back once and then stopped working; turning off `AutomaticMinimizationEnabled` there
+  brought it back for good.

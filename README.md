@@ -44,6 +44,7 @@ scripts/test.sh          # package tests on macOS, no simulator, seconds
 scripts/build.sh         # app for the simulator, compact diagnostics
 scripts/test.sh sim      # everything on the simulator, including snapshots
 scripts/run.sh           # build, install, launch, screenshot
+scripts/device.sh        # the same on the iPhone, else an install link
 scripts/sim.sh shots     # light, dark, and XXXL screenshots of the running app
 scripts/lint.sh --fix    # SwiftFormat, SwiftLint, US English
 ```
@@ -53,7 +54,7 @@ scripts/lint.sh --fix    # SwiftFormat, SwiftLint, US English
 | Path | What lives there |
 | --- | --- |
 | `App/` | Entry point and screens. |
-| `Packages/Sources/WorkoutStore` | Storage wiring: SwiftData container and storage modes. |
+| `Packages/Sources/WorkoutStore` | Exercises and other domain types; the SwiftData container and storage modes. |
 | `Packages/Sources/DesignSystem` | Design tokens and shared components. SwiftUI only, no domain knowledge. |
 | `Config/` | Every build setting, as xcconfig. Nothing lives in the pbxproj. |
 | `scripts/` | Build, test, lint, and run, shared by humans, agents, and CI. |
@@ -65,6 +66,6 @@ The dependency rules between the packages are the architecture; they are spelled
 
 ## Status and contributing
 
-Early: the app launches into an empty routine that is not saved yet, and there is no data model,
-by design. Status, architecture, and the branching rules are in [CLAUDE.md](CLAUDE.md); CI and
-releases in [docs/ci.md](docs/ci.md).
+Early: the app launches into an empty routine you can name and add built-in exercises to, all
+of it in memory, with no stored model yet, by design. Status, architecture, and the branching
+rules are in [CLAUDE.md](CLAUDE.md); CI and releases in [docs/ci.md](docs/ci.md).
