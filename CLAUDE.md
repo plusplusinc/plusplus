@@ -103,6 +103,9 @@ scripts/lint.sh [--fix]      # SwiftFormat, SwiftLint, US English, as CI runs th
 scripts/board.sh <command>   # the private project board; run bare to list its commands
 ```
 
+Reach an external service through its own CLI (`gh`, `asc`). A wrapper script or MCP server
+has to earn its place; `docs/agent-tooling.md` says when, and how to build a script agents call.
+
 Apple documentation: the `sosumi` MCP server works with Xcode closed. The `xcode` MCP server
 gives live diagnostics and preview rendering, and on Xcode 27 runs headless with Xcode closed.
 See `docs/agent-tooling.md`.

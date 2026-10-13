@@ -11,6 +11,43 @@ project skills in `.claude/skills/` wrap them with the judgment an agent needs (
 a screenshot, when `fast` is enough). Xcode Cloud runs `scripts/lint.sh` too, so the agent, a
 human, and CI cannot disagree about what "clean" means.
 
+## CLI, script, or MCP
+
+Reach an external service through its own CLI by default: `gh`, `asc`, `xcrun`, `wrangler`.
+Agents already know these, the commands show in the transcript, and there is nothing to
+maintain. A script in `scripts/` has to earn its place by holding something the CLI doesn't
+know:
+- A rule of this repo. `board.sh` knows that board order is the queue, what the State section
+  is, that cards stay drafts until `/brief` publishes them, and that an empty body must not
+  blank a card (#49).
+- A sequence that has to run the same for an agent, a human, and CI (`lint.sh`, `test.sh`).
+- A permission boundary: one allowlisted script instead of a broad grant like `gh api`.
+
+Before adding a wrapper, and whenever one breaks, ask whether an agent working from the CLI
+alone would get it right every time. If it would, don't write the wrapper, or delete it.
+
+A script that agents call is a tool for agents, so it follows [Anthropic's guidance on writing
+tools](https://www.anthropic.com/engineering/writing-tools-for-agents):
+- Few commands, each named for one job (`board.sh show`, `board.sh state`), not one per API
+  endpoint.
+- Each command costs what its name suggests. Today `board.sh show` fetches the whole board to
+  read one card. That is how an audit of every card on 2026-10-12 spent the account's hourly
+  GitHub quota, which every session shares. "Use the board without exhausting GitHub's hourly
+  quota" will fix it.
+- Output is short plain text holding what the agent needs next (title, status, the ids it
+  will pass back), with a flag for more when more is needed.
+- An error says what went wrong and what to do next. "No item" from `board.sh` already says
+  that a new card takes a few seconds to appear. A quota error should name the reset time.
+- Usage with examples, printed when the script runs bare.
+
+Use an MCP server only when there is no workable CLI, when the tool keeps state between
+calls, or when it has to run where there is no shell. `xcode` (live diagnostics and previews)
+and `sosumi` (Apple's docs render client-side) qualify. Don't wrap a CLI the agent can already
+run: every server's tool definitions take up context in every session. That cost is why
+XcodeBuildMCP was rejected (below). Mario Zechner [measured the two
+approaches](https://mariozechner.at/posts/2025-08-15-mcp-vs-cli/) and reached the same
+conclusion.
+
 ## Hooks
 
 One `PostToolUse` hook, `.claude/hooks/on-edit.sh`, runs `scripts/lint.sh --fix` on every file
