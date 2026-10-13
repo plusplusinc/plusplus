@@ -120,7 +120,8 @@ no_item() {
 }
 
 # The items with these ids, as a JSON array in the same order, each with its body. One request
-# however many ids, so reading every card costs what reading one does.
+# for up to 100 ids, GitHub's limit for nodes(ids:), so reading every card costs what reading
+# one does.
 cards() {
     local ids=("$@") args=() id response missing
     for id in "$@"; do
@@ -169,7 +170,11 @@ set_field() {
                 }
             }
         }' -f owner="$OWNER" -F number="$NUMBER" -f name="$name") || exit
-    field=$(jq '.data.organization.projectV2.field' <<< "$response")
+    field=$(jq '.data.organization.projectV2.field // empty' <<< "$response")
+    if [ -z "$field" ]; then
+        echo "no single-select field named '$name' on the board" >&2
+        exit 1
+    fi
     ids=(-f project="$(jq -r '.data.organization.projectV2.id' <<< "$response")" -f item="$item"
         -f field="$(jq -r .id <<< "$field")")
     if [ "$value" = - ]; then

@@ -55,10 +55,11 @@ answers from a second counter with another `resetAt`, so compare only readings t
 `gh api rate_limit` lags: on 2026-10-12 it showed 4,683 left when the real count was 0.
 
 Every `board.sh` command costs a point or two, measured on 2026-10-13: `list`, `show`, and
-reading `readme` one each, and `show` with every id on the board is still one request; `add`,
-`body`, `title`, `state`, `status`, `move`, and `feature` two, a lookup and a mutation. When
-the quota is spent, `board.sh` prints the reset time and exits; a retry would spend whatever
-comes back.
+reading `readme` one each, and `show` with every id on the board is still one request (up to
+100 ids); `add`, `body`, `title`, `state`, `status`, `move`, and `feature` two, a lookup and a
+mutation. Writing `readme` and `publish` make the same two requests and are not run to measure
+them, since one rewrites the README and the other makes a public issue. When the quota is
+spent, `board.sh` prints the reset time and exits; a retry would spend whatever comes back.
 
 The `/pr` skill and `docs/ci.md` wait on CI by polling once a minute: a run takes about four
 minutes, so polling faster spends quota and gains nothing.
