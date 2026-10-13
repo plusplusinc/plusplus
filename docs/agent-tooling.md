@@ -34,8 +34,8 @@ tools](https://www.anthropic.com/engineering/writing-tools-for-agents):
   the whole board (see Quotas, below).
 - Output is short plain text holding what the agent needs next (title, status, the ids it
   will pass back), with a flag for more when more is needed.
-- An error says what went wrong and what to do next. "No item" from `board.sh` says that a
-  new card takes a few seconds to appear, and a spent quota names the time it resets.
+- An error says what went wrong and what to do next. "No item" from `board.sh` says where to
+  find the right id, and a spent quota names the time it resets.
 - Usage with examples, printed when the script runs bare.
 
 Use an MCP server only when there is no workable CLI, when the tool keeps state between
@@ -54,12 +54,13 @@ on the account; spending it locks them all out until the reset. Check what is le
 answers from a second counter with another `resetAt`, so compare only readings that share one.
 `gh api rate_limit` lags: on 2026-10-12 it showed 4,683 left when the real count was 0.
 
-Every `board.sh` command costs a point or two, measured on 2026-10-13: `list`, `show`, and
-reading `readme` one each, and `show` with every id on the board is still one request (up to
-100 ids); `add`, `body`, `title`, `state`, `status`, `move`, and `feature` two, a lookup and a
-mutation. Writing `readme` and `publish` make the same two requests and are not run to measure
-them, since one rewrites the README and the other makes a public issue. When the quota is
-spent, `board.sh` prints the reset time and exits; a retry would spend whatever comes back.
+Every `board.sh` command costs a point or two, measured on 2026-10-13: `list` (per 100 items),
+`show`, and reading `readme` one each, and `show` with every id on the board is still one
+request (up to 100 ids); `add`, `body`, `title`, `state`, `status`, `move`, and `feature` two,
+a lookup and a mutation. Writing `readme` and `publish` make the same two requests and are not
+run to measure them, since one rewrites the README and the other makes a public issue. When the
+quota is spent, `board.sh` prints the reset time and exits; a retry would spend whatever comes
+back.
 
 The `/pr` skill and `docs/ci.md` wait on CI by polling once a minute: a run takes about four
 minutes, so polling faster spends quota and gains nothing.

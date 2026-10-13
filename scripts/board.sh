@@ -28,8 +28,8 @@
 # order (what dragging a card changes) is the queue: /onward takes the In Progress card, else
 # the topmost Todo card, feature or not. Backlog is parked; nothing picks it up.
 #
-# Each command makes one or two GraphQL requests against the hourly quota every session on the
-# account shares; "Quotas" in docs/agent-tooling.md has what each costs. When the quota is
+# Each command makes one or two GraphQL requests (while the board holds at most 100 items)
+# against the hourly quota every session on the account shares; "Quotas" in docs/agent-tooling.md has what each costs. When the quota is
 # spent, a command says when it resets and exits rather than retrying. `gh` needs the `project`
 # scope: `gh auth refresh -s project`.
 set -euo pipefail
@@ -41,9 +41,10 @@ NUMBER=2
 # One GraphQL request; prints the response's JSON. Every call goes through here, so a spent
 # quota stops the script with its reset time wherever it happens. With --missing-ok, ids that
 # resolve to nothing come back as nulls for the caller to report, rather than as an error.
-# Called inside $(...), where set -e does not apply, so callers exit on its failure themselves.
+# Its exit ends the script when called directly; inside $(...) it ends only the subshell, so
+# those callers add `|| exit`.
 gql() {
-    local missing_ok=false response status=0 err stderr body errors reset
+    local missing_ok=false response status=0 err stderr body errors headers after reset
     if [ "$1" = --missing-ok ]; then
         missing_ok=true
         shift
@@ -61,8 +62,15 @@ gql() {
     errors=$(jq -r '.errors[]?.message, .message? // empty' <<< "$body" 2> /dev/null || true)
     [ -n "$errors" ] || errors=$stderr
     if grep -qi 'rate limit' <<< "$errors"; then
-        reset=$(sed $'/^\r*$/q' <<< "$response" | grep -i '^x-ratelimit-reset:' | tr -dc 0-9 || true)
-        if [ -n "$reset" ]; then
+        headers=$(sed $'/^\r*$/q' <<< "$response")
+        # A secondary limit, on requests made too close together, says how long to wait in
+        # Retry-After; the hourly quota's reset would be much later than it needs.
+        after=$(grep -i '^retry-after:' <<< "$headers" | tr -dc 0-9 || true)
+        reset=$(grep -i '^x-ratelimit-reset:' <<< "$headers" | tr -dc 0-9 || true)
+        if [ -n "$after" ]; then
+            echo "GitHub is limiting requests made close together: wait $after seconds before the" \
+                "next one, rather than retrying at once." >&2
+        elif [ -n "$reset" ]; then
             reset=$(date -r "$reset" '+%H:%M %Z' 2> /dev/null || date -d "@$reset" '+%H:%M %Z')
             echo "GitHub's API quota is spent until $reset. Every session on this account shares it:" \
                 "wait for the reset rather than retrying, which spends whatever comes back." >&2
@@ -81,10 +89,12 @@ gql() {
 }
 
 # The fields `list` and `show` read from an item, so the two cannot drift: id, status, feature,
-# and content (title, the body when $bodies is true, and the draft issue's own id).
+# the project it is on, and content (title, the body when $bodies is true, and the draft
+# issue's own id).
 ITEM='
     fragment Item on ProjectV2Item {
         id
+        project { number owner { ... on Organization { login } } }
         status: fieldValueByName(name: "Status") { ... on ProjectV2ItemFieldSingleSelectValue { name } }
         feature: fieldValueByName(name: "Feature") { ... on ProjectV2ItemFieldSingleSelectValue { name } }
         content {
@@ -115,7 +125,7 @@ usage() {
 }
 
 no_item() {
-    echo "no item $1 on the board; a new card takes a few seconds to appear" >&2
+    echo "no item $1 on this board; list prints each item's id (PVTI_...)" >&2
     exit 1
 }
 
@@ -130,8 +140,11 @@ cards() {
     response=$(gql --missing-ok -f query='
         query($ids: [ID!]!, $bodies: Boolean!) { nodes(ids: $ids) { ...Item } }'"$ITEM" \
         -F bodies=true "${args[@]}") || exit
-    # An id that names nothing comes back null, and one that names something else, empty.
-    missing=$(jq '.data.nodes | map(.id == null) | index(true) // empty' <<< "$response")
+    # An id that names nothing comes back null, one that names something else, empty, and an
+    # item on another board, with that board's owner and number.
+    missing=$(jq --arg owner "$OWNER" --argjson number "$NUMBER" '.data.nodes
+        | map(.id == null or .project.owner.login != $owner or .project.number != $number)
+        | index(true) // empty' <<< "$response")
     [ -z "$missing" ] || no_item "${ids[missing]}"
     jq '.data.nodes' <<< "$response"
 }
@@ -170,7 +183,7 @@ set_field() {
                 }
             }
         }' -f owner="$OWNER" -F number="$NUMBER" -f name="$name") || exit
-    field=$(jq '.data.organization.projectV2.field // empty' <<< "$response")
+    field=$(jq '.data.organization.projectV2.field | select(.id != null)' <<< "$response")
     if [ -z "$field" ]; then
         echo "no single-select field named '$name' on the board" >&2
         exit 1
@@ -230,7 +243,7 @@ case "$command" in
         # One card prints bare; several each get a header line naming the id.
         jq -r '(length > 1) as $many
             | [.[] | (if $many then "==> \(.id) <==\n" else "" end)
-                + "\(.content.title)\n[\(.status.name // "-")]\n\n\(.content.body // "")"] | join("\n\n")' <<< "$found"
+                + "\(.content.title // "")\n[\(.status.name // "-")]\n\n\(.content.body // "")"] | join("\n\n")' <<< "$found"
         ;;
     readme)
         [ $# -eq 0 ] || usage
