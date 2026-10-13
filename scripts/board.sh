@@ -29,9 +29,10 @@
 # the topmost Todo card, feature or not. Backlog is parked; nothing picks it up.
 #
 # Each command makes one or two GraphQL requests (while the board holds at most 100 items)
-# against the hourly quota every session on the account shares; "Quotas" in docs/agent-tooling.md has what each costs. When the quota is
-# spent, a command says when it resets and exits rather than retrying. `gh` needs the `project`
-# scope: `gh auth refresh -s project`.
+# against the hourly quota every session on the account shares; "Quotas" in
+# docs/agent-tooling.md has what each costs. When the quota is spent, a command says when it
+# resets and exits rather than retrying. `gh` needs the `project` scope:
+# `gh auth refresh -s project`.
 set -euo pipefail
 
 OWNER="plusplusinc"
@@ -44,7 +45,7 @@ NUMBER=2
 # Its exit ends the script when called directly; inside $(...) it ends only the subshell, so
 # those callers add `|| exit`.
 gql() {
-    local missing_ok=false response status=0 err stderr body errors headers after reset
+    local missing_ok=false response status=0 err stderr body errors headers after remaining reset
     if [ "$1" = --missing-ok ]; then
         missing_ok=true
         shift
@@ -63,10 +64,15 @@ gql() {
     [ -n "$errors" ] || errors=$stderr
     if grep -qi 'rate limit' <<< "$errors"; then
         headers=$(sed $'/^\r*$/q' <<< "$response")
-        # A secondary limit, on requests made too close together, says how long to wait in
-        # Retry-After; the hourly quota's reset would be much later than it needs.
+        # GitHub's order: wait Retry-After when given; when nothing remains, wait for the hourly
+        # reset; otherwise it is a secondary limit, on requests made too close together, and a
+        # minute is enough.
         after=$(grep -i '^retry-after:' <<< "$headers" | tr -dc 0-9 || true)
+        remaining=$(grep -i '^x-ratelimit-remaining:' <<< "$headers" | tr -dc 0-9 || true)
         reset=$(grep -i '^x-ratelimit-reset:' <<< "$headers" | tr -dc 0-9 || true)
+        if [ -z "$after" ] && [ "${remaining:-0}" != 0 ] || grep -qi 'secondary rate limit' <<< "$errors"; then
+            after=${after:-60}
+        fi
         if [ -n "$after" ]; then
             echo "GitHub is limiting requests made close together: wait $after seconds before the" \
                 "next one, rather than retrying at once." >&2
@@ -297,8 +303,9 @@ case "$command" in
             exit 1
         fi
         draft_card "$1"
-        # The body above its State heading: the whole body when there is none.
-        above=$(jq -r '.[0].content.body // "" | sub("(\\A|\n)## State[ \t]*(\n[\\s\\S]*)?\\z"; "")' <<< "$card")
+        # The body above its State heading: the whole body when there is none. A body saved from
+        # GitHub's web editor ends its lines with \r\n.
+        above=$(jq -r '.[0].content.body // "" | sub("(\\A|\r?\n)## State[ \t\r]*(\n[\\s\\S]*)?\\z"; "")' <<< "$card")
         body="## State"$'\n'"$state"
         [ -z "$above" ] || body="$above"$'\n\n'"$body"
         edit_draft "$draft" -f body="$body"

@@ -52,7 +52,8 @@ GitHub's GraphQL API allows 5,000 points an hour, shared by every session and ev
 on the account; spending it locks them all out until the reset. Check what is left with
 `gh api graphql -f query='{rateLimit{remaining resetAt}}'`, which costs nothing. It sometimes
 answers from a second counter with another `resetAt`, so compare only readings that share one.
-`gh api rate_limit` lags: on 2026-10-12 it showed 4,683 left when the real count was 0.
+`gh api rate_limit` disagrees with it: its top-level figures are the REST quota, and on
+2026-10-13 its `resources.graphql` showed 0 used while the GraphQL query showed 1,202.
 
 Every `board.sh` command costs a point or two, measured on 2026-10-13: `list` (per 100 items),
 `show`, and reading `readme` one each, and `show` with every id on the board is still one
