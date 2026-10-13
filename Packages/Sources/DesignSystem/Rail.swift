@@ -12,10 +12,10 @@ import SwiftUI
 ///
 /// The row named by `arriving` is in the rail but takes no space and draws nothing, and the line
 /// still ends at the node above. When `arriving` lets it go in a transaction marked
-/// `isRailEntry`, it enters (`RailEntry`): its place opens as the line grows down to it, led by a
-/// blue pulse, and its node and content land in `railJoin`, the color of something joining the
-/// rail, then settle to their own colors. A row let go in any other transaction, or added with
-/// no `arriving`, takes that transaction's animation.
+/// `isRailEntry`, it enters (`RailEntry`): its place opens as the line grows down to it, and its
+/// node lands in `railJoin`, the color of something joining the rail, then settles to its own
+/// color, as its content lands in its own colors. A row let go in any other transaction, or
+/// added with no `arriving`, takes that transaction's animation.
 public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     where Data.Element: Identifiable
 {
@@ -52,16 +52,12 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                     isFirst: item.id == first,
                     isLast: isArriving || item.id == lastOnLine,
                     isArriving: isArriving,
-                    isAboveArriving: arriving != nil && !isArriving && item.id == lastOnLine,
                 )
                 // An arriving row's place opens with its entry's shot, so the end view is pushed
                 // down as far as the line has grown, on every frame.
                 OpeningSpace(progress: isArriving ? 0 : 1) {
                     row(item).environment(\.railPlace, place)
                 }
-                // The last row under the one above, so the pulse the row above draws to it shows
-                // over the new row's stretch of line.
-                .zIndex(item.id == data.last?.id ? -1 : 0)
                 .entry(RailEntry.space(reduceMotion: reduceMotion), value: isArriving)
                 // A row's swipe closes when its action runs, so a deleted row slid back to rest
                 // as it went. It fades out first instead, while the rows below close the gap.
@@ -90,8 +86,6 @@ struct RailPlace {
     var isFirst = true
     var isLast = true
     var isArriving = false
-    /// Whether the row below is arriving, so this row's stretch below its node will join it.
-    var isAboveArriving = false
 }
 
 extension EnvironmentValues {
@@ -122,9 +116,9 @@ private struct RailNode: View {
                     )
                     .frame(width: size, height: size)
                     .anchorPreference(key: NodeCenter.self, value: .center) { $0 }
-                    // It pops from the size of the point that led the line, as the line lands:
-                    // shown at that size and grown to its own in the same moment.
-                    .scaleEffect(place.isArriving ? lineWidth * RailEntry.pointScale / size : 1)
+                    // It pops from the line's tip as the line lands: shown at the line's width
+                    // and grown to its own size in the same moment.
+                    .scaleEffect(place.isArriving ? lineWidth / size : 1)
                     .entry(pop, value: place.isArriving)
                     .scaleEffect(place.isArriving ? 0 : 1)
                     .entry(RailEntry.step(at: landing), value: place.isArriving)
@@ -162,13 +156,12 @@ private struct RailRow: ViewModifier {
                     RailEntry.content(reduceMotion: reduceMotion),
                     value: place.isArriving,
                 )
-                .joiningContent(when: place.isArriving)
                 .committing(when: place.isArriving)
         }
         // The row's stretch of line, top edge to bottom edge through its node, or from the node
         // on the first row and to it on the last, drawn as part of the row so it moves with it.
-        // It is drawn in two, above and below the node, so the part an entry adds can draw in
-        // `railJoin` while the rest stays as it was.
+        // It is drawn in two, above and below the node, so the parts an entry adds can each grow
+        // on their own stretch of the shot while the rest stays as it was.
         .backgroundPreferenceValue(NodeCenter.self) { center in
             GeometryReader { proxy in
                 if let center {
@@ -193,46 +186,10 @@ private struct RailRow: ViewModifier {
                             RailEntry.shot(from: 0, to: split, reduceMotion: reduceMotion),
                             value: place.isLast,
                         )
-                    // Drawn by the row above the arriving one, over the line and under this
-                    // row's node, so it emerges from under the node.
-                    if !reduceMotion {
-                        leadingPoint(from: node, rowHeight: proxy.size.height)
-                    }
                 }
             }
         }
         .hotReloadable()
-    }
-}
-
-extension RailRow {
-    /// The blue pulse that leads the line down from this row's node to the arriving row's below
-    /// it (`Pulse`), a row's height down, as rows share a rhythm. It shows from the shot's start
-    /// and gives way to the arriving row's node as that pops.
-    private func leadingPoint(from node: CGPoint, rowHeight: CGFloat) -> some View {
-        let landing = RailEntry.popStart(reduceMotion: false)
-        let time = place.isAboveArriving ? 0 : RailEntry.pulseEnd
-        return Pulse(
-            time: time,
-            node: CGPoint(x: node.x, y: node.y + rowHeight),
-            gap: rowHeight,
-            lineWidth: lineWidth,
-            duration: RailEntry.shot,
-            end: RailEntry.pulseEnd,
-        )
-        .fill(.pp(.railJoin))
-        .entry(RailEntry.pulse, value: place.isAboveArriving)
-        .opacity(place.isAboveArriving ? 1 : 0)
-        .entry(RailEntry.step(at: landing), value: place.isAboveArriving)
-        .opacity(place.isAboveArriving ? 0 : 1)
-        .entry(RailEntry.step(at: RailEntry.start), value: place.isAboveArriving)
-        // Readied as a row is added, out of sight: in the add's own animation, its shape and
-        // opacities faded through a faint blue streak.
-        .transaction(value: place.isAboveArriving) { transaction in
-            if !transaction.isRailEntry {
-                transaction.animation = nil
-            }
-        }
     }
 }
 

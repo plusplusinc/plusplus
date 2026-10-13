@@ -6,50 +6,35 @@ extension Transaction {
     @Entry public var isRailEntry = false
 }
 
-/// A row's entry, timed from when the row is let go onto its rail. After a short
-/// start, the line grows down from the node above in the rail's gray, on a quartic ease-in from a
-/// small running start, and the row's place opens with it, so what follows moves in step. A blue
-/// pulse leads the line's tip (`Pulse`), from under the node above: it grows on a cubic ease-in
-/// and stretches with the tip's speed. After a short pause, the node pops from the pulse with a
-/// small, crisp overshoot, the row's content lands with it in `railJoin`, a short drop that stops
-/// cleanly, and a light haptic fires: one landing. After another pause, the node and content
-/// hold in blue, then fade to their own colors on an ease-in. The first row has no line or
-/// pulse: its place opens over the same time, then it lands. With Reduce Motion the place opens
-/// at once, nothing is blue, there is no shot, pulse, or overshoot; the haptic stays.
+/// A row's entry, timed from when the row is let go onto its rail. At once, the line grows down
+/// from the node above in the rail's gray, on a quartic ease-in from a running start, and the
+/// row's place opens with it, so what follows moves in step. As the line reaches it, the node pops
+/// in blue from the line's tip with a small, crisp overshoot, the row's content lands with it in
+/// its own colors, a short drop that stops cleanly, and a light haptic fires: one landing. After a
+/// brief hold, the node's blue cools to its own color on an ease-out, an afterglow mostly gone at
+/// once. The first row has no line: its place opens over the same time, then it lands. With
+/// Reduce Motion the place opens at once, nothing is blue, there is no shot or overshoot; the
+/// haptic stays.
 enum RailEntry {
     /// The content's landing: short, so it settles as the node's pop does.
     static let landing: TimeInterval = 0.08
-    static let shot: TimeInterval = 0.24
-    /// How long the sequence waits once the row's place opens, before the shot.
-    static let start: TimeInterval = 0.1
-    /// A quick pause at the end of each stage: after the line lands, and after the landing settles.
-    static let pause: TimeInterval = 0.05
+    static let shot: TimeInterval = 0.2
     /// The shot's speed at its start, against its average: small, but moving from the first
     /// frame, so it never looks stalled.
-    nonisolated static let runningStart = 0.1
+    nonisolated static let runningStart = 0.2
     static let pop: TimeInterval = 0.15
-    /// How long the blue holds after the pop, so it registers, before it fades.
-    static let hold: TimeInterval = 0.25
-    static let settle: TimeInterval = 0.28
+    /// How long the blue holds after the pop, so it registers, before it fades. Brief: a dot
+    /// that stays lit reads as a state, not an arrival.
+    static let hold: TimeInterval = 0.1
+    static let settle: TimeInterval = 0.3
 
-    /// When the node and the content land, from when the row is let go: a pause after the line
-    /// lands, the first row's too, or at once with Reduce Motion.
+    /// When the node and the content land, from when the row is let go: as the line lands, the
+    /// first row's too, or at once with Reduce Motion.
     static func popStart(reduceMotion: Bool) -> TimeInterval {
-        reduceMotion ? 0 : start + shot + pause
+        reduceMotion ? 0 : shot
     }
 
-    /// The blue point that leads the line, against the line's width: it grows from the line's
-    /// width to twice it as the line extends, then pops into the node from there.
-    nonisolated static let pointScale: CGFloat = 2
-
-    /// The pulse's time, from 0 as the shot starts to 1 as the line lands, then on through the
-    /// pause, as it collapses: run at a steady rate, since `Pulse` works out its own shape.
-    static let pulse = Animation.linear(duration: shot + pause).delay(start)
-
-    /// Where the pulse's time ends: past 1 by the pause, against the shot.
-    static let pulseEnd = 1 + pause / shot
-
-    /// A change made all at once, `time` after the row's place starts to open.
+    /// A change made all at once, `time` after the row is let go.
     static func step(at time: TimeInterval) -> Animation {
         .linear(duration: 0.001).delay(time)
     }
@@ -57,16 +42,16 @@ enum RailEntry {
     /// The row's place opening, in step with the shot, the first row's too, which has no line:
     /// the space grows as far as the line on every frame. With Reduce Motion, it opens at once.
     static func space(reduceMotion: Bool) -> Animation? {
-        reduceMotion ? nil : Animation(ShotArc(duration: shot, start: 0, end: 1)).delay(start)
+        shot(from: 0, to: 1, reduceMotion: reduceMotion)
     }
 
-    /// How much of `railJoin` the new node and content show: all of it through the landing, a
-    /// pause, and the hold, then none, on an ease-in.
+    /// How much of `railJoin` the new node shows: all of it through the landing and the hold, then
+    /// none, on an ease-out.
     @KeyframesBuilder<Double>
     static func joining() -> some Keyframes<Double> {
         MoveKeyframe(1)
-        LinearKeyframe(1, duration: popStart(reduceMotion: false) + pop + pause + hold)
-        LinearKeyframe(0, duration: settle, timingCurve: .easeIn)
+        LinearKeyframe(1, duration: popStart(reduceMotion: false) + pop + hold)
+        LinearKeyframe(0, duration: settle, timingCurve: .easeOut)
     }
 
     /// The content's landing, with the node's pop: quick, then slowing, but still moving as it
@@ -87,7 +72,7 @@ enum RailEntry {
 
     /// Where along the shot, from 0 to 1, it is a share `time` of the way through it.
     /// A quartic ease-in from a running start: most of the way in the last third, at full speed,
-    /// about 3.7 times the average, as the line hits the node. Pure arithmetic, so the shot's
+    /// about 3.4 times the average, as the line hits the node. Pure arithmetic, so the shot's
     /// animation can read it on any frame, off the main actor.
     nonisolated static func distance(at time: Double) -> Double {
         runningStart * time + (1 - runningStart) * pow(time, 4)
@@ -103,7 +88,7 @@ enum RailEntry {
     ) -> Animation? {
         guard !reduceMotion, end > start else { return nil }
         let arc = ShotArc(duration: shot * (end - start), start: start, end: end)
-        return Animation(arc).delay(Self.start + shot * start)
+        return Animation(arc).delay(shot * start)
     }
 
     /// The share of the shot's time at which it crosses from the row above into this one: when
@@ -192,50 +177,6 @@ struct OpeningSpace: Layout {
     }
 }
 
-/// The blue pulse at the front of the line as it shoots: a capsule whose front edge is the
-/// line's tip and whose tail trails behind on the gray line. It is as wide as the line at the
-/// start, twice as wide at the landing, on a cubic ease-in, and as long as its width plus a
-/// stretch for the tip's speed, so it starts as a round dot and stretches as the shot speeds
-/// up, to at most about a third of the gap. Through the pause after the landing, the stretch
-/// collapses back into the dot the node then pops from.
-struct Pulse: Shape {
-    /// The pulse's time: see `RailEntry.pulse`.
-    var time: Double
-    /// The node it lands on, and the gap from the node above.
-    let node: CGPoint
-    let gap: CGFloat
-    let lineWidth: CGFloat
-    /// The shot's length in seconds, and where the time ends, after the pause.
-    let duration: TimeInterval
-    let end: Double
-
-    /// How long the stretch is for each point a second of the tip's speed.
-    private nonisolated static let stretch: CGFloat = 0.022
-    private nonisolated static let longest: CGFloat = 0.35
-
-    nonisolated var animatableData: Double {
-        get { time }
-        set { time = newValue }
-    }
-
-    nonisolated func path(in _: CGRect) -> Path {
-        let shot = min(time, 1)
-        let width = lineWidth * (1 + (RailEntry.pointScale - 1) * CGFloat(shot * shot * shot))
-        let front = node.y - gap * CGFloat(1 - RailEntry.distance(at: shot))
-        // The tip's speed, in points a second: the curve's slope across the gap, over the shot.
-        let slope = RailEntry.runningStart + 4 * (1 - RailEntry.runningStart) * shot * shot * shot
-        let speed = CGFloat(slope) * gap / CGFloat(duration)
-        var length = min(width + Self.stretch * speed, gap * Self.longest)
-        if time > 1 {
-            // Through the pause, the stretch gives way to the dot.
-            let collapse = CGFloat((time - 1) / (end - 1))
-            length = width + (length - width) * max(0, 1 - collapse)
-        }
-        let rect = CGRect(x: node.x - width / 2, y: front - length, width: width, height: length)
-        return Path(roundedRect: rect, cornerRadius: width / 2)
-    }
-}
-
 /// A stretch of the shot as an animation: the part of `RailEntry.distance(at:)` from `start` to
 /// `end` of the shot's time, rescaled to run from nothing to all of the stretch. A quartic has no
 /// exact cubic timing curve, so it is computed frame by frame.
@@ -287,38 +228,7 @@ private struct Committing: ViewModifier {
     }
 }
 
-/// A row's content as it joins its rail: it arrives in `railJoin` with the line and node, and
-/// settles to its own colors with them (`RailEntry.joining`). Light text multiplied by the blue
-/// shows as the blue; multiplied by white, as itself. With Reduce Motion, it keeps its colors.
-private struct JoiningContent: ViewModifier {
-    let trigger: Bool
-    @Environment(\.railPlace) private var place
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @ObserveHotReload private var hotReload
-
-    func body(content: Content) -> some View {
-        // The colors resolve here, on the main actor; the animator's frames only mix the two.
-        let (own, joined) = (Color.white, Color.pp(.railJoin))
-        Group {
-            if reduceMotion {
-                content
-            } else {
-                content.keyframeAnimator(initialValue: 0.0, trigger: trigger) { view, joining in
-                    view.colorMultiply(own.mix(with: joined, by: joining))
-                } keyframes: { _ in
-                    RailEntry.joining()
-                }
-            }
-        }
-        .hotReloadable()
-    }
-}
-
 extension View {
-    func joiningContent(when trigger: Bool) -> some View {
-        modifier(JoiningContent(trigger: trigger))
-    }
-
     func joiningRail(
         when trigger: Bool,
         settlingTo rest: ColorToken,
