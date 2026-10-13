@@ -6,9 +6,9 @@ allowed-tools: Bash(scripts/lint.sh:*), Bash(scripts/test.sh:*), Bash(git:*), Ba
 
 Branching and merge rules are in CLAUDE.md. Every diff also leaves the repo's prose true: read
 it against CLAUDE.md, `.claude/`, `docs/`, and the README and fix each statement it makes false,
-the status lines in CLAUDE.md and the README included. A diff with no Swift in it gets no
-`/simplify` and no `/code-review`, so that read is its only review. Then, before pushing, in
-this order, because the first two change code and the rest verify it:
+the status lines in CLAUDE.md and the README included. For a diff with no Swift in it, which
+steps 1 and 2 below skip, that read is its only review. Then, before pushing, in this order,
+because the first two change code and the rest verify it:
 1. `/simplify` has run over the diff and its cleanups are applied.
 2. `/code-review` has run over the diff and every confirmed finding is fixed or explained in
    the PR body.
