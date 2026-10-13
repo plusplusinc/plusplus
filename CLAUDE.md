@@ -91,7 +91,7 @@ scripts/test.sh              # package tests on macOS, no simulator, seconds
 scripts/build.sh             # app for the simulator, compact diagnostics
 scripts/test.sh sim          # everything on the simulator, including snapshots
 scripts/run.sh [name]        # build, install, launch, screenshot to .build/screenshots/
-scripts/device.sh            # build, install, launch on the one available iPhone
+scripts/device.sh [--link]   # build, install, launch on the iPhone, else an install link
 scripts/sim.sh <command>     # drive the running app: shots, appearance, content-size, log
 scripts/lint.sh [--fix]      # SwiftFormat, SwiftLint, US English, as CI runs them
 scripts/board.sh <command>   # the private project board; run bare to list its commands
