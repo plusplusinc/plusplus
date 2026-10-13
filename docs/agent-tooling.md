@@ -118,15 +118,11 @@ lives in packages.
 ## The nightly retro
 
 The retro (`.claude/skills/retro/SKILL.md`) runs on the maintainer's Mac, in a Claude Code
-session in a terminal tab kept open for it, started with the one line in the skill's "How it
-runs". Claude Code's session-scoped scheduled tasks fire `/retro nightly` at midnight local
-time, while the session is open and idle; each run recreates the task, because a recurring one
-expires after seven days. The tab only picks the work since the last run, the merges and
-the conversation, and hands it to a subagent in its own worktree from `origin/main`, which
-opens at most one PR and never merges. The tab prints a private digest for the maintainer.
-The conversation comes from `scripts/conversations.py`, which prints what the maintainer typed
-and what the assistant showed, not the tool calls, so a day reads in tens of kilobytes rather
-than the tens of megabytes of transcripts. Changing the retro means changing the skill.
+session in a terminal tab kept open for it; the skill's "How it runs" has the line that starts
+it and what each night does. It reads the merges and the conversation since the last run,
+which `scripts/conversations.py` prints without the tool calls, so a day reads in tens of
+kilobytes rather than the tens of megabytes of transcripts. Changing the retro means changing
+the skill.
 
 ## Parallel work
 

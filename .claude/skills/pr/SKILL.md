@@ -44,9 +44,9 @@ The body follows `.github/pull_request_template.md`: one paragraph on what and w
 sections only if the change has distinct parts, a "Verified" line stating exactly what was run,
 a "Friction" line saying what was retried, what the maintainer corrected, and what took longer
 than it should have, and a "Card" line naming the board card, written as "Closes #N" when the
-card was published as an issue so the merge closes it. The retro runs in a session
-that never saw this work and reads the conversation's text, not what was run, so write Friction
-from the session, not from the diff, and put any decision the diff does not explain in the body. `--fill` skips the
+card was published as an issue so the merge closes it. Write Friction from the session,
+not from the diff, and put any decision the diff does not explain in the body; the template
+says why the retro needs them. `--fill` skips the
 template.
 
 Write the body as the commit message it becomes. The title is already the commit's subject, so

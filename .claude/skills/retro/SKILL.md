@@ -62,11 +62,10 @@ there was one; the Friction line in the PR body, which is where the session that
 recorded what was retried, what the maintainer corrected, and what took longer than it should
 have.
 
-The conversation since the last retro, from `scripts/conversations.py <since>`, merged or not:
-what the maintainer typed, what the lead showed them, and each session's failed tool calls. It
-holds what rarely reaches a PR: the maintainer's corrections, the lead's guesses, the questions
-it could have answered itself. Open a raw transcript
-(`~/.claude/projects/<folder>/<session id>.jsonl`) only around a specific moment, never whole.
+The conversation since the last retro, merged or not, from `scripts/conversations.py <since>`.
+It holds what rarely reaches a PR: the maintainer's corrections, the lead's guesses, the
+questions it could have answered itself. Each session's heading names its transcript; open one
+only around a specific moment, never whole.
 
 ## 2. Ask three questions
 
@@ -122,21 +121,20 @@ this, in order:
 1. **Schedule the next night.** `CronList`, `CronDelete` every task whose prompt is
    `/retro nightly`, then `CronCreate` one recurring task, `0 0 * * *` (local time), prompt
    `/retro nightly`. A recurring task expires seven days after it is created, so recreating
-   it each run keeps it a week ahead; a recurring task also survives a missed night, where a
-   chain of one-shot tasks would end at the first fire it missed. A daily task starts up to
-   30 minutes late, and the same delay every night.
+   it each run keeps it a week ahead, and it survives a missed night, where a chain of
+   one-shot tasks would end at the first fire it missed. It starts up to 30 minutes late.
 2. **Note the start.** `date -u +%Y-%m-%dT%H:%M:%SZ`, kept to save in step 6, so work that
    happens while the retro runs is covered next time.
-3. **Find the last run.** `.build/retro/last-run` in the main checkout (gitignored), else the
-   newest retro PR's creation time:
-   `gh pr list --state all --search "Retro of in:title sort:created-desc" --limit 1 --json createdAt --jq '.[0].createdAt'`.
-   A missed night leaves the file alone, so the next run covers both.
-4. **Find the work.** `git fetch --quiet origin`. The merges:
-   `gh pr list --state merged --base main --limit 20 --json number,title,mergedAt`, less PRs
-   titled "Retro of" and PRs named in any retro PR
-   (`gh pr list --state all --search "Retro of in:title" --json number,title,body`). The
-   conversation: `mkdir -p .build/retro && scripts/conversations.py <last run> > .build/retro/conversations.md`; its
-   first line says how many sessions, or "No sessions since". Read only that first line here.
+3. **Find the last run and the merges.** `git fetch --quiet origin`. The retro PRs, newest
+   first, whose titles name every PR they covered:
+   `gh pr list --state all --search "Retro of in:title sort:created-desc" --json number,title,createdAt`.
+   The last run is `.build/retro/last-run` in the main checkout (gitignored), else the newest
+   retro PR's `createdAt`. The merges are
+   `gh pr list --state merged --base main --limit 20 --json number,title`, less retro PRs and
+   PRs a retro title names.
+4. **Extract the conversation.**
+   `mkdir -p .build/retro && scripts/conversations.py <last run> > .build/retro/conversations.md`.
+   Its first line says how many sessions, or "No sessions since"; read only that line here.
 5. **Hand it to a subagent**, unless there is neither a merge nor a session, in which case
    print one line, "Nightly retro: nothing since <last run>.", and go to step 6. Start one
    `general-purpose` agent in the foreground, and pass it: the PR numbers, the last-run time,
@@ -144,8 +142,8 @@ this, in order:
    with `git worktree add -b retro/<today's date> <main checkout>/.claude/worktrees/retro-<today's date> origin/main`
    (add `-2` to both when the branch exists), work only there, with absolute paths. Follow
    `.claude/skills/retro/SKILL.md` as it is in that worktree, including "Never, in any run".
-   Open the PR with `/pr` when there is something to fix; otherwise remove the worktree and
-   the branch. Reply with the PR URL or "no PR", one line per finding, then the digest.
+   Open the PR with `/pr` when there is something to fix; otherwise leave the worktree, which
+   `scripts/tidy.sh` removes a day later. Reply with the PR URL or "no PR", one line per finding, then the digest.
 6. **Report and save.** When the subagent finished (or there was nothing), write the start
    time from step 2 to `.build/retro/last-run`. If it failed, leave the file, so the next
    night covers this one too. Print: "Nightly retro <date>: <PR URL, or no PR>", the

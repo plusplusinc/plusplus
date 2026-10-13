@@ -8,7 +8,8 @@ time with an offset (2026-10-13T04:00:00Z). Prints, per session and oldest first
 maintainer typed and the text the assistant showed, with local times. Dropped: tool calls and
 their results, thinking, system reminders, skill bodies, command output, task notifications,
 and messages from other sessions. A slash command shows as "/name args". Subagents show only
-as one line each: how many of their tool calls failed. The nightly retro's own session (named
+as one line each: how many of their tool calls failed. Each session's heading names its
+transcript, for reading around a specific moment. The nightly retro's own session (named
 "Nightly retro", see the retro skill) is skipped, so a run never reads the last run's digest.
 
 Reads the transcripts Claude Code keeps under ~/.claude/projects/: the folder for the main
@@ -27,6 +28,7 @@ RETRO_SESSION_TITLE = "Nightly retro"
 # messages, and the notice after the app quits mid-turn.
 NOT_TYPED_PREFIXES = ("Another Claude session sent a message", "The app was quit while")
 OUTPUT_TAGS = re.compile(r"^<(local-command-stdout|local-command-stderr|bash-stdout|bash-stderr)>")
+TIMESTAMP = re.compile(r'"timestamp":"([^"]+)"')
 REMINDER = re.compile(r"<system-reminder>.*?</system-reminder>", re.DOTALL)
 
 
@@ -37,7 +39,7 @@ def usage():
 
 
 def parse_since(text):
-    """The time as a UTC string comparable with transcript timestamps, which are all UTC 'Z'."""
+    """The time, in UTC."""
     try:
         moment = datetime.fromisoformat(text.strip().replace("Z", "+00:00"))
     except ValueError:
@@ -45,7 +47,17 @@ def parse_since(text):
         sys.exit(2)
     if moment.tzinfo is None:
         moment = moment.astimezone()
-    return moment.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    return moment.astimezone(timezone.utc)
+
+
+class Since:
+    """The start time in the forms the filters compare: transcript timestamps are UTC strings
+    ending in 'Z', which sort as times; file modification times are epoch seconds."""
+
+    def __init__(self, moment):
+        self.moment = moment
+        self.stamp = moment.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+        self.epoch = moment.timestamp()
 
 
 def local(timestamp, fmt="%H:%M"):
@@ -64,15 +76,17 @@ def project_folders():
     main_checkout = str(Path(git_dir).parent)
     name = re.sub(r"[^A-Za-z0-9]", "-", main_checkout)
     projects = Path.home() / ".claude" / "projects"
-    worktrees = sorted(projects.glob(name + "--claude-worktrees-*"))
-    return [(projects / name, "main checkout")] + [
-        (folder, "worktree " + folder.name[len(name) + len("--claude-worktrees-"):]) for folder in worktrees
-    ]
+    return [projects / name] + sorted(projects.glob(name + "--claude-worktrees-*"))
 
 
-def entries(path):
+def entries(path, since):
+    """The file's entries from since on, and those with no time, such as titles. Older lines
+    are skipped before parsing: a long session's file is mostly old tool output."""
     with open(path, encoding="utf-8", errors="replace") as lines:
         for line in lines:
+            stamp = TIMESTAMP.search(line)
+            if stamp and stamp.group(1) < since.stamp:
+                continue
             try:
                 entry = json.loads(line)
             except ValueError:
@@ -132,28 +146,32 @@ def shown(entry):
     return text or None
 
 
-def tool_results(entry):
-    """(results, failures) among the tool results an entry carries."""
-    content = entry.get("message", {}).get("content")
-    if entry.get("type") != "user" or not isinstance(content, list):
-        return 0, 0
-    results = [part for part in content if isinstance(part, dict) and part.get("type") == "tool_result"]
-    return len(results), sum(1 for part in results if part.get("is_error"))
+class ToolCalls:
+    """How many tool calls returned, and how many of them failed."""
+
+    def __init__(self):
+        self.total = self.failed = 0
+
+    def count(self, entry):
+        content = entry.get("message", {}).get("content")
+        if entry.get("type") != "user" or not isinstance(content, list):
+            return
+        for part in content:
+            if isinstance(part, dict) and part.get("type") == "tool_result":
+                self.total += 1
+                self.failed += bool(part.get("is_error"))
 
 
-def subagent_counts(session_dir, since, since_epoch):
+def subagent_counts(session_dir, since):
     """(label, failed, total) for each subagent of a session that made tool calls since then."""
     counts = []
     for path in sorted((session_dir / "subagents").glob("agent-*.jsonl")):
-        if path.stat().st_mtime < since_epoch:
+        if path.stat().st_mtime < since.epoch:
             continue
-        total = failed = 0
-        for entry in entries(path):
-            if entry.get("timestamp", "") >= since:
-                results, failures = tool_results(entry)
-                total += results
-                failed += failures
-        if not total:
+        calls = ToolCalls()
+        for entry in entries(path, since):
+            calls.count(entry)
+        if not calls.total:
             continue
         stem = path.name[: -len(".jsonl")]
         label = stem
@@ -164,15 +182,15 @@ def subagent_counts(session_dir, since, since_epoch):
             label = " ".join(filter(None, [info.get("agentType"), info.get("description") and f"({info['description']})"]))
         elif skill.exists():
             label = "/" + json.loads(skill.read_text()).get("skillName", stem)
-        counts.append((label, failed, total))
+        counts.append((label, calls.failed, calls.total))
     return counts
 
 
-def session(path, where, since, since_epoch):
+def session(path, since):
     custom_title = ai_title = None
     messages = []
-    total = failed = 0
-    for entry in entries(path):
+    calls = ToolCalls()
+    for entry in entries(path, since):
         kind = entry.get("type")
         if kind == "custom-title":
             if entry.get("customTitle") == RETRO_SESSION_TITLE:
@@ -180,26 +198,29 @@ def session(path, where, since, since_epoch):
             custom_title = entry.get("customTitle")
         elif kind == "ai-title":
             ai_title = entry.get("aiTitle")
-        timestamp = entry.get("timestamp", "")
-        if timestamp < since:
+        timestamp = entry.get("timestamp")
+        if not timestamp:
             continue
-        results, failures = tool_results(entry)
-        total += results
-        failed += failures
-        text = typed(entry) if kind == "user" else shown(entry) if kind == "assistant" else None
+        calls.count(entry)
+        if kind == "user":
+            who, text = "Maintainer", typed(entry)
+        elif kind == "assistant":
+            who, text = "Claude", shown(entry)
+        else:
+            continue
         if text:
-            messages.append((timestamp, "Dave" if kind == "user" else "Claude", text))
-    subagents = subagent_counts(path.with_suffix(""), since, since_epoch)
+            messages.append((timestamp, who, text))
+    subagents = subagent_counts(path.with_suffix(""), since)
     if not messages and not subagents:
         return None
-    first = messages[0][0] if messages else None
+    first = messages[0][0] if messages else ""
     title = custom_title or ai_title
-    header = f"## Session {path.stem}, {where}"
+    header = f"## ~/{path.relative_to(Path.home())}"
     if title:
         header += f": {title}"
     if first:
         header += f" ({local(first, '%a %d %b %H:%M')} to {local(messages[-1][0])})"
-    failures = f"Failed tool calls: {failed} of {total}"
+    failures = f"Failed tool calls: {calls.failed} of {calls.total}"
     if subagents:
         failing = [f"{label} {f} of {t}" for label, f, t in subagents if f]
         clean = len(subagents) - len(failing)
@@ -207,25 +228,25 @@ def session(path, where, since, since_epoch):
         failures += "; subagents: " + ", ".join(failing + rest)
     lines = [header, failures]
     lines += [f"\n[{local(timestamp)}] {who}: {text}" for timestamp, who, text in messages]
-    return first or "", "\n".join(lines)
+    return first, "\n".join(lines)
 
 
 def main():
     if len(sys.argv) != 2 or sys.argv[1].startswith("-"):
         usage()
-    since = parse_since(sys.argv[1])
-    since_epoch = datetime.strptime(since[:19], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc).timestamp()
+    since = Since(parse_since(sys.argv[1]))
     found = []
-    for folder, where in project_folders():
+    for folder in project_folders():
         for path in folder.glob("*.jsonl"):
-            if path.stat().st_mtime >= since_epoch:
-                result = session(path, where, since, since_epoch)
+            if path.stat().st_mtime >= since.epoch:
+                result = session(path, since)
                 if result:
                     found.append(result)
+    shown_since = since.moment.astimezone().strftime("%a %d %b %H:%M")
     if not found:
-        print(f"No sessions since {local(since, '%a %d %b %H:%M')}.")
+        print(f"No sessions since {shown_since}.")
         return
-    print(f"# {len(found)} sessions since {local(since, '%a %d %b %H:%M')}\n")
+    print(f"# {len(found)} sessions since {shown_since}\n")
     print("\n\n".join(text for _, text in sorted(found)))
 
 
