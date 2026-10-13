@@ -14,11 +14,11 @@
 #
 # The link is a development-signed .ipa, an install manifest, and a one-button page, deployed
 # under a fresh random path as static assets of a Cloudflare Worker on workers.dev. Opened in
-# Safari on a phone in the team's provisioning profile, Install installs the build. A deploy
-# replaces everything the Worker serves with this worktree's latest two builds, so older links,
-# and links made from other worktrees, stop working. The Worker's name and host
-# come from the environment or Config/Local.xcconfig (this worktree's, else the main
-# checkout's), never from the repo:
+# Safari on a phone in the team's provisioning profile, Install installs the build. Every
+# worktree stages its builds in the main checkout's .build/phone-link/site, and a deploy serves
+# only the latest two there, so older links stop working. The Worker's name and host come from
+# the environment or Config/Local.xcconfig (this worktree's, else the main checkout's), never
+# from the repo:
 #
 #   PLUSPLUS_BUILDS_WORKER = <worker name>
 #   PLUSPLUS_BUILDS_HOST = <worker name>.<account subdomain>.workers.dev
@@ -28,7 +28,10 @@
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
 DERIVED_DATA="$ROOT/.build/device"
+# The archive and export are this worktree's; the site deployed from is shared by all of them.
+MAIN=$(dirname "$(git -C "$ROOT" rev-parse --path-format=absolute --git-common-dir)")
 STAGING="$ROOT/.build/phone-link"
+SITE="$MAIN/.build/phone-link"
 mkdir -p "$STAGING"
 
 # One line per available iPhone, UDID then name, tab-separated, narrowed to PLUSPLUS_DEVICE
@@ -65,9 +68,8 @@ link_setting() {
         echo "${!1}"
         return
     fi
-    local main file value
-    main=$(dirname "$(git -C "$ROOT" rev-parse --path-format=absolute --git-common-dir)")
-    for file in "$ROOT/Config/Local.xcconfig" "$main/Config/Local.xcconfig"; do
+    local file value
+    for file in "$ROOT/Config/Local.xcconfig" "$MAIN/Config/Local.xcconfig"; do
         value=$(sed -n "s/^[[:space:]]*$1[[:space:]]*=[[:space:]]*\([^[:space:]]*\).*/\1/p" \
             "$file" 2> /dev/null | tail -n 1)
         if [ -n "$value" ]; then
@@ -109,7 +111,7 @@ PLIST
 
     local token build note=""
     token=$(openssl rand -hex 16)
-    build="$STAGING/site/$token"
+    build="$SITE/site/$token"
     mkdir -p "$build"
     # A build that never deploys is removed on exit, so it can't take one of the two places.
     UNDEPLOYED="$build"
@@ -163,11 +165,11 @@ PYTHON
 
     # Keep the newest two builds; the deploy replaces every asset, so the rest stop being served.
     local old
-    ls -dt "$STAGING"/site/*/ | tail -n +3 | while IFS= read -r old; do rm -rf "$old"; done
+    ls -dt "$SITE"/site/*/ | tail -n +3 | while IFS= read -r old; do rm -rf "$old"; done
 
     # Static assets get no content type for extensions the Worker doesn't know; these are the
     # ones Apple's over-the-air install expects.
-    cat > "$STAGING/site/_headers" << 'HEADERS'
+    cat > "$SITE/site/_headers" << 'HEADERS'
 /:build/manifest.plist
   Content-Type: text/xml
 /:build/*.ipa
@@ -176,7 +178,7 @@ HEADERS
 
     # Assets only: no script, no root page, a 404 for any path that isn't a file, and no
     # per-version preview URLs that would keep serving old builds.
-    cat > "$STAGING/wrangler.jsonc" << JSON
+    cat > "$SITE/wrangler.jsonc" << JSON
 {
   "name": "$worker",
   "compatibility_date": "2026-10-01",
@@ -185,8 +187,8 @@ HEADERS
   "preview_urls": false
 }
 JSON
-    if ! (cd "$STAGING" && wrangler deploy > "$STAGING/deploy.log" 2>&1); then
-        cat "$STAGING/deploy.log" >&2
+    if ! (cd "$SITE" && wrangler deploy > "$SITE/deploy.log" 2>&1); then
+        cat "$SITE/deploy.log" >&2
         echo "wrangler deploy failed" >&2
         return 1
     fi
