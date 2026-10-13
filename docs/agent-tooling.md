@@ -30,14 +30,12 @@ A script that agents call is a tool for agents, so it follows [Anthropic's guida
 tools](https://www.anthropic.com/engineering/writing-tools-for-agents):
 - Few commands, each named for one job (`board.sh show`, `board.sh state`), not one per API
   endpoint.
-- Each command costs what its name suggests. Today `board.sh show` fetches the whole board to
-  read one card. That is how an audit of every card on 2026-10-12 spent the account's hourly
-  GitHub quota, which every session shares. "Use the board without exhausting GitHub's hourly
-  quota" will fix it.
+- Each command costs what its name suggests: `board.sh show <id>` reads that one card, not
+  the whole board (see Quotas, below).
 - Output is short plain text holding what the agent needs next (title, status, the ids it
   will pass back), with a flag for more when more is needed.
-- An error says what went wrong and what to do next. "No item" from `board.sh` already says
-  that a new card takes a few seconds to appear. A quota error should name the reset time.
+- An error says what went wrong and what to do next. "No item" from `board.sh` says where to
+  find the right id, and a spent quota names the time it resets.
 - Usage with examples, printed when the script runs bare.
 
 Use an MCP server only when there is no workable CLI, when the tool keeps state between
@@ -47,6 +45,26 @@ run: every server's tool definitions take up context in every session. That cost
 XcodeBuildMCP was rejected (below). Mario Zechner [measured an MCP server against an
 equivalent CLI](https://mariozechner.at/posts/2025-08-15-mcp-vs-cli/) and found little
 difference in success or cost. He recommends a good CLI over an MCP server that wraps one.
+
+## Quotas
+
+GitHub's GraphQL API allows 5,000 points an hour, shared by every session and every `gh` call
+on the account; spending it locks them all out until the reset. Check what is left with
+`gh api graphql -f query='{rateLimit{remaining resetAt}}'`, which costs nothing. It sometimes
+answers from a second counter with another `resetAt`, so compare only readings that share one.
+`gh api rate_limit` disagrees with it: its top-level figures are the REST quota, and on
+2026-10-13 its `resources.graphql` showed 0 used while the GraphQL query showed 1,202.
+
+Every `board.sh` command costs a point or two, measured on 2026-10-13: `list` (per 100 items),
+`show`, and reading `readme` one each, and `show` with every id on the board is still one
+request (up to 100 ids); `add`, `body`, `title`, `state`, `status`, `move`, and `feature` two,
+a lookup and a mutation. Writing `readme` and `publish` make the same two requests and are not
+run to measure them, since one rewrites the README and the other makes a public issue. When the
+quota is spent, `board.sh` prints the reset time and exits; a retry would spend whatever comes
+back.
+
+The `/pr` skill and `docs/ci.md` wait on CI by polling once a minute: a run takes about four
+minutes, so polling faster spends quota and gains nothing.
 
 ## Hooks
 

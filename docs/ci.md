@@ -54,7 +54,7 @@ used here:
 ```sh
 asc xcode-cloud workflows list --app 6808082840            # workflow ids
 asc xcode-cloud build-runs --workflow-id <id> --sort -number --limit 10 --output table
-asc xcode-cloud status --run-id <id> --wait               # block until a run finishes
+asc xcode-cloud status --run-id <id> --wait --poll-interval 60s   # block until a run finishes
 asc xcode-cloud doctor --run-id <id> --save-logs .build/asc/<n>   # status, issues, logs
 asc xcode-cloud artifacts download --id <artifact-id> --path .build/asc/<file>.zip
 asc xcode-cloud run --workflow-id <id> --branch <name>     # start a run
