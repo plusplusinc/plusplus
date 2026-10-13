@@ -96,7 +96,7 @@ extension EnvironmentValues {
 /// icon, held invisibly in the column, gives it the key's width and baseline at every text size.
 private struct RailNode: View {
     @ScaledMetric(relativeTo: .body) private var size: CGFloat = 10
-    @ScaledMetric(relativeTo: .body) private var lineWidth: CGFloat = 2
+    @ScaledMetric(relativeTo: .body) private var lineWidth = railLineWidth
     @Environment(\.railPlace) private var place
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
@@ -139,7 +139,7 @@ private struct NodeCenter: PreferenceKey {
 
 private struct RailRow: ViewModifier {
     @ScaledMetric(relativeTo: .body) private var minHeight: CGFloat = 64
-    @ScaledMetric(relativeTo: .body) private var lineWidth: CGFloat = 2
+    @ScaledMetric(relativeTo: .body) private var lineWidth = railLineWidth
     @Environment(\.railPlace) private var place
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
@@ -195,6 +195,9 @@ private struct RailRow: ViewModifier {
 
 /// The rail column's width at the default text size.
 private let railColumnWidth: CGFloat = 44
+
+/// The line's width at the default text size: one value, so a new node pops from the line's tip.
+private let railLineWidth: CGFloat = 2
 
 extension View {
     /// A row on a rail: its node in the rail column, then its content from the top, inset as the

@@ -154,7 +154,8 @@ struct RoutineScreen: View {
         arriving = row.id
         isOpeningPlace = true
         // The row goes in with no space yet, so nothing moves; its fade, of a row that draws
-        // nothing yet, times the moment the sheet has slid far enough down to see the row.
+        // nothing yet, times the entry a moment into the sheet's slide: the line barely moves
+        // at first, and the sheet has cleared all but the screen's foot by the time it shows.
         withAnimation(.linear(duration: 0.1)) {
             exercises.append(row)
         } completion: {

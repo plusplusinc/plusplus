@@ -11,6 +11,11 @@ struct RailEntryTests {
         #expect(RailEntry.popStart(reduceMotion: true) == 0)
     }
 
+    @Test("The node, the content, and the haptic land as the line reaches the node")
+    func landingMeetsLine() {
+        #expect(RailEntry.popStart(reduceMotion: false) == RailEntry.shot)
+    }
+
     @Test("The blue holds through the landing and the hold, then fades on an ease-out")
     func joiningSettles() {
         let timeline = KeyframeTimeline(initialValue: 0.0) { RailEntry.joining() }
