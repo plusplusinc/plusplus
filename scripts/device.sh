@@ -29,6 +29,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
 DERIVED_DATA="$ROOT/.build/device"
 STAGING="$ROOT/.build/phone-link"
+mkdir -p "$STAGING"
 
 # One line per available iPhone, UDID then name, tab-separated, narrowed to PLUSPLUS_DEVICE
 # when it is set. devicectl also lists simulators, watches, and devices it cannot reach. Names
@@ -110,6 +111,9 @@ PLIST
     token=$(openssl rand -hex 16)
     build="$STAGING/site/$token"
     mkdir -p "$build"
+    # A build that never deploys is removed on exit, so it can't take one of the two places.
+    UNDEPLOYED="$build"
+    trap '[ -z "${UNDEPLOYED:-}" ] || rm -rf "$UNDEPLOYED"' EXIT
     mv "$exported/$SCHEME.ipa" "$build/"
     if [ -n "$(git -C "$ROOT" status --porcelain)" ]; then
         note="Includes uncommitted changes."
@@ -158,7 +162,8 @@ a {{ display: block; margin-top: 32px; padding: 16px; border-radius: 11px; backg
 PYTHON
 
     # Keep the newest two builds; the deploy replaces every asset, so the rest stop being served.
-    ls -dt "$STAGING"/site/*/ | tail -n +3 | xargs rm -rf
+    local old
+    ls -dt "$STAGING"/site/*/ | tail -n +3 | while IFS= read -r old; do rm -rf "$old"; done
 
     # Static assets get no content type for extensions the Worker doesn't know; these are the
     # ones Apple's over-the-air install expects.
@@ -185,12 +190,14 @@ JSON
         echo "wrangler deploy failed" >&2
         return 1
     fi
+    UNDEPLOYED=""
 
     # New assets can take about a minute to reach every edge.
     local manifest="https://$host/$token/manifest.plist" deadline=$((SECONDS + 120))
     until curl --silent --fail --output /dev/null "$manifest"; do
         if [ "$SECONDS" -ge "$deadline" ]; then
-            echo "deployed, but $manifest is still not served after two minutes" >&2
+            echo "deployed, but not yet served after two minutes; it may still come up at" \
+                "https://$host/$token/" >&2
             return 1
         fi
         sleep 5
