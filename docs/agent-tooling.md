@@ -44,9 +44,9 @@ Use an MCP server only when there is no workable CLI, when the tool keeps state 
 calls, or when it has to run where there is no shell. `xcode` (live diagnostics and previews)
 and `sosumi` (Apple's docs render client-side) qualify. Don't wrap a CLI the agent can already
 run: every server's tool definitions take up context in every session. That cost is why
-XcodeBuildMCP was rejected (below). Mario Zechner [measured the two
-approaches](https://mariozechner.at/posts/2025-08-15-mcp-vs-cli/) and reached the same
-conclusion.
+XcodeBuildMCP was rejected (below). Mario Zechner [measured an MCP server against an
+equivalent CLI](https://mariozechner.at/posts/2025-08-15-mcp-vs-cli/) and found little
+difference in success or cost. He recommends a good CLI over an MCP server that wraps one.
 
 ## Hooks
 
