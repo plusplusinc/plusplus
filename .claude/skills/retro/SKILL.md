@@ -31,21 +31,17 @@ Output: a short report, and when there is something to fix, one PR.
 
 ## 1. Collect
 
-The commands below are written for `gh`. In the cloud session `asc` is absent and `gh` reaches
-only GitHub's REST API: `gh api repos/{owner}/{repo}/...` and `gh pr diff` work, while GraphQL
-is refused with a 403. That rules out `gh pr list`, `gh pr checks`, most `--json` fields of
-`gh pr view`, and every `scripts/board.sh` command, so the board cannot be read there at all.
-`gh auth status` there reports the token invalid even where `gh api user` answers, so try a
-command rather than trusting it. What `gh` cannot reach, the GitHub MCP tools can, and they
-open the PR too.
+The commands below are written for `gh` and `asc`. Without the App Store Connect key, `asc` is
+out and pass or fail comes from GitHub's checks; the GitHub MCP tools stand in for whatever `gh`
+cannot reach, and can open the PR too.
 
 For each PR: `gh pr view` for commits, review threads, and how long it took from open to
-merge; `gh api repos/{owner}/{repo}/pulls/N/comments` for inline review; the diff; the Xcode
-Cloud runs it caused (`gh pr checks`, or `repos/{owner}/{repo}/commits/<sha>/check-runs` and
-`/status` over REST, and `asc xcode-cloud doctor` when `asc` and the App Store Connect key are
-available) and why any failed; the board card, if there was one; the Friction
-line in the PR body, which is where the session that did the work recorded what was retried,
-what the maintainer corrected, and what took longer than it should have.
+merge; `gh api repos/{owner}/{repo}/pulls/N/comments` for inline review; the diff
+(`gh pr diff`); the Xcode Cloud runs it caused (`gh pr checks`, and `asc xcode-cloud doctor`
+when `asc` and the App Store Connect key are available) and why any failed; the board card, if
+there was one; the Friction line in the PR body, which is where the session that did the work
+recorded what was retried, what the maintainer corrected, and what took longer than it should
+have.
 
 ## 2. Ask three questions
 
@@ -83,9 +79,10 @@ fixes, and anything that needs their decision.
 
 ## How it runs
 
-A cloud routine runs this skill once a night over every merge to `main` since the last retro, in
-one PR, exiting at once when none is waiting; see `docs/agent-tooling.md`. That session never saw
-the work: it has only what the PR carries, which is why the template asks for Verified, Friction,
-and Card lines. It has no local state, no App Store Connect key, and no Homebrew, so it cannot run
-SwiftFormat or SwiftLint and its PR relies on CI for those. A local session may run the skill too,
-for a merge it made, and the one-retro-per-merge rule keeps the two from colliding.
+A cloud routine runs this skill once a night over every merge to `main` since the last retro,
+in one PR, exiting at once when none is waiting; see `docs/agent-tooling.md`. That session
+never saw the work: it has only what the PR carries, which is why the template asks for
+Verified, Friction, and Card lines. It has no local state, no App Store Connect key, and no
+Homebrew, so it cannot run SwiftFormat or SwiftLint and its PR relies on CI for those. A local
+session may run the skill too, for a merge it made, and the one-retro-per-merge rule keeps the
+two from colliding.
