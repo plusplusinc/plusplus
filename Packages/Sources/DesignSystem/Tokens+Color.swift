@@ -17,8 +17,8 @@ public enum ColorToken: String, CaseIterable, Sendable {
     case primaryKey = "ppPrimaryKey"
     /// The line that runs down a rail, joining its nodes.
     case rail = "ppRail"
-    /// Something joining a rail, for the moment it joins: an added row's new line and node draw
-    /// in it, then settle to `rail` and `borderStrong`. Never at rest.
+    /// Something joining a rail, for the moment it joins: an added row's node draws in it, then
+    /// settles to `borderStrong`. Never at rest, and never the line.
     case railJoin = "ppRailJoin"
     case surface = "ppSurface"
     case textPrimary = "ppTextPrimary"
