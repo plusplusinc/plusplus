@@ -7,7 +7,8 @@
 time with an offset (2026-10-13T04:00:00Z). Prints, per session and oldest first, what the
 maintainer typed and the text the assistant showed, with local times. Dropped: tool calls and
 their results, thinking, system reminders, skill bodies, command output, task notifications,
-and messages from other sessions. A slash command shows as "/name args". Subagents show only
+and messages from other sessions. A slash command shows as "/name args", and AskUserQuestion
+as its questions with their option labels, then the answers and any notes. Subagents show only
 as one line each: how many of their tool calls failed. Each session's heading names its
 transcript, for reading around a specific moment. The nightly retro's own session (named
 "Nightly retro", see the retro skill) is skipped, so a run never reads the last run's digest.
@@ -136,16 +137,52 @@ def typed(entry):
     return text
 
 
-def shown(entry):
-    """The text the assistant showed, without thinking or tool calls."""
+def shown(entry, asked):
+    """The text the assistant showed, and the questions it asked with AskUserQuestion, one line
+    each with the option labels; the ids of those questions go into asked. No thinking, no
+    other tool calls."""
     message = entry.get("message", {})
     if entry.get("isSidechain") or message.get("model") == "<synthetic>":
         return None
     content = message.get("content")
     if not isinstance(content, list):
         return None
-    text = "\n".join(part.get("text", "") for part in content if part.get("type") == "text").strip()
-    return text or None
+    lines = []
+    for part in content:
+        if part.get("type") == "text":
+            lines.append(part.get("text", "").strip())
+        elif part.get("type") == "tool_use" and part.get("name") == "AskUserQuestion":
+            asked.add(part.get("id"))
+            for question in (part.get("input") or {}).get("questions", []):
+                labels = " | ".join(option.get("label", "") for option in question.get("options", []))
+                lines.append(f"Asks ({question.get('header', '')}): {question.get('question', '')} [{labels}]")
+    return "\n".join(line for line in lines if line) or None
+
+
+def answered(entry, asked):
+    """The maintainer's answers to an AskUserQuestion, one line per question, or None."""
+    content = entry.get("message", {}).get("content")
+    if not isinstance(content, list):
+        return None
+    for part in content:
+        if not isinstance(part, dict) or part.get("tool_use_id") not in asked:
+            continue
+        result = entry.get("toolUseResult")
+        if isinstance(result, dict) and result.get("answers"):
+            headers = {q.get("question"): q.get("header") for q in result.get("questions", [])}
+            notes = result.get("annotations") or {}
+            lines = []
+            for question, answer in result["answers"].items():
+                note = notes.get(question)
+                note = note.get("notes") if isinstance(note, dict) else None
+                lines.append(f"{headers.get(question) or question}: {answer}" + (f" (note: {note})" if note else ""))
+            return "\n".join(lines)
+        text = text_parts(part.get("content")) or ""
+        said = text.split("the user said:", 1)[-1].strip()
+        if said.startswith("The user wants to clarify"):
+            return "(declined the questions, to clarify first)"
+        return said.split("\n\n")[0] or None
+    return None
 
 
 def read_json(path):
@@ -200,6 +237,7 @@ def session(path, since):
     custom_title = ai_title = None
     messages = []
     calls = ToolCalls()
+    asked = set()
     for entry in entries(path, since):
         kind = entry.get("type")
         if kind == "custom-title":
@@ -213,9 +251,9 @@ def session(path, since):
             continue
         calls.count(entry)
         if kind == "user":
-            who, text = "Maintainer", typed(entry)
+            who, text = "Maintainer", typed(entry) or answered(entry, asked)
         elif kind == "assistant":
-            who, text = "Claude", shown(entry)
+            who, text = "Claude", shown(entry, asked)
         else:
             continue
         if text:
