@@ -30,10 +30,8 @@ A script that agents call is a tool for agents, so it follows [Anthropic's guida
 tools](https://www.anthropic.com/engineering/writing-tools-for-agents):
 - Few commands, each named for one job (`board.sh show`, `board.sh state`), not one per API
   endpoint.
-- Each command costs what its name suggests. `board.sh show` once fetched the whole board to
-  read one card, about 100 points, and an audit of every card on 2026-10-12 spent the
-  account's hourly GitHub quota in 20 minutes. It now reads just the cards it names (see
-  Quotas, below).
+- Each command costs what its name suggests: `board.sh show <id>` reads that one card, not
+  the whole board (see Quotas, below).
 - Output is short plain text holding what the agent needs next (title, status, the ids it
   will pass back), with a flag for more when more is needed.
 - An error says what went wrong and what to do next. "No item" from `board.sh` says that a
@@ -57,13 +55,12 @@ answers from a second counter with another `resetAt`, so compare only readings t
 `gh api rate_limit` lags: on 2026-10-12 it showed 4,683 left when the real count was 0.
 
 Every `board.sh` command costs a point or two, measured on 2026-10-13: `list`, `show`, and
-`readme` one each, and `show` with every id on the board is still one request; `add`, `body`,
-`title`, `state`, `status`, `move`, and `feature` two, a lookup and a mutation. Before, `list`
-and `show` each cost about 100. When the quota is spent, `board.sh` prints the reset time and
-exits; a retry would spend whatever comes back.
+reading `readme` one each, and `show` with every id on the board is still one request; `add`,
+`body`, `title`, `state`, `status`, `move`, and `feature` two, a lookup and a mutation. When
+the quota is spent, `board.sh` prints the reset time and exits; a retry would spend whatever
+comes back.
 
-Waiting on CI polls once a minute (`gh pr checks --watch --interval 60`, `asc xcode-cloud
-status --wait --poll-interval 60s`, on Apple's separate quota): a run takes about four
+The `/pr` skill and `docs/ci.md` wait on CI by polling once a minute: a run takes about four
 minutes, so polling faster spends quota and gains nothing.
 
 ## Hooks
