@@ -14,8 +14,9 @@
 #
 # The link is a development-signed .ipa, an install manifest, and a one-button page, deployed
 # under a fresh random path as static assets of a Cloudflare Worker on workers.dev. Opened in
-# Safari on a phone in the team's provisioning profile, Install installs the build. The Worker
-# keeps only this worktree's latest two builds, so older links stop working. Its name and host
+# Safari on a phone in the team's provisioning profile, Install installs the build. A deploy
+# replaces everything the Worker serves with this worktree's latest two builds, so older links,
+# and links made from other worktrees, stop working. The Worker's name and host
 # come from the environment or Config/Local.xcconfig (this worktree's, else the main
 # checkout's), never from the repo:
 #
@@ -37,7 +38,7 @@ available_iphones() {
 import json, sys
 
 def plain(text):
-    return text.replace("’", "\x27").replace(" ", " ").casefold()
+    return text.replace("\u2019", "\x27").replace("\u00a0", " ").casefold()
 
 wanted = plain(sys.argv[1])
 for device in json.load(sys.stdin)["result"]["devices"]:
@@ -59,20 +60,23 @@ for device in json.load(sys.stdin)["result"]["devices"]:
 # Prints a link setting from the environment, else from the last line setting it in a
 # Config/Local.xcconfig, or fails naming what to set.
 link_setting() {
-    local value="${!1:-}" main file
+    if [ -n "${!1:-}" ]; then
+        echo "${!1}"
+        return
+    fi
+    local main file value
     main=$(dirname "$(git -C "$ROOT" rev-parse --path-format=absolute --git-common-dir)")
     for file in "$ROOT/Config/Local.xcconfig" "$main/Config/Local.xcconfig"; do
-        if [ -z "$value" ] && [ -f "$file" ]; then
-            value=$(sed -n "s/^[[:space:]]*$1[[:space:]]*=[[:space:]]*\([^[:space:]]*\).*/\1/p" \
-                "$file" | tail -n 1)
+        value=$(sed -n "s/^[[:space:]]*$1[[:space:]]*=[[:space:]]*\([^[:space:]]*\).*/\1/p" \
+            "$file" 2> /dev/null | tail -n 1)
+        if [ -n "$value" ]; then
+            echo "$value"
+            return
         fi
     done
-    if [ -z "$value" ]; then
-        echo "no $1 for the install link: set it in the environment or Config/Local.xcconfig," \
-            "as the top of scripts/device.sh says" >&2
-        return 78
-    fi
-    echo "$value"
+    echo "no $1 for the install link: set it in the environment or Config/Local.xcconfig," \
+        "as the top of scripts/device.sh says" >&2
+    return 78
 }
 
 # Archives and exports a development-signed .ipa, stages it with its manifest and page under a
@@ -87,7 +91,7 @@ install_link() {
         return 69
     fi
 
-    local archive="$STAGING/$SCHEME.xcarchive" export="$STAGING/export"
+    local archive="$STAGING/$SCHEME.xcarchive" exported="$STAGING/export"
     DESTINATION="generic/platform=iOS"
     run_xcodebuild device-archive archive -configuration Debug -archivePath "$archive" \
         -allowProvisioningUpdates
@@ -97,8 +101,8 @@ install_link() {
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict><key>method</key><string>debugging</string></dict></plist>
 PLIST
-    rm -rf "$export"
-    xcodebuild -exportArchive -archivePath "$archive" -exportPath "$export" \
+    rm -rf "$exported"
+    xcodebuild -exportArchive -archivePath "$archive" -exportPath "$exported" \
         -exportOptionsPlist "$STAGING/ExportOptions.plist" -allowProvisioningUpdates 2>&1 |
         beautify
 
@@ -106,7 +110,7 @@ PLIST
     token=$(openssl rand -hex 16)
     build="$STAGING/site/$token"
     mkdir -p "$build"
-    mv "$export/$SCHEME.ipa" "$build/"
+    mv "$exported/$SCHEME.ipa" "$build/"
     if [ -n "$(git -C "$ROOT" status --porcelain)" ]; then
         note="Includes uncommitted changes."
     fi
@@ -154,8 +158,7 @@ a {{ display: block; margin-top: 32px; padding: 16px; border-radius: 11px; backg
 PYTHON
 
     # Keep the newest two builds; the deploy replaces every asset, so the rest stop being served.
-    ls -t "$STAGING/site" | grep -E '^[0-9a-f]{32}$' | tail -n +3 | sed "s|^|$STAGING/site/|" |
-        xargs rm -rf
+    ls -dt "$STAGING"/site/*/ | tail -n +3 | xargs rm -rf
 
     # Static assets get no content type for extensions the Worker doesn't know; these are the
     # ones Apple's over-the-air install expects.
