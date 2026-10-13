@@ -1,7 +1,7 @@
 ---
 name: retro
 description: Over the merges to main since the last retro, find what slowed the work or went wrong, check that the brief was useful, and delete or fix anything in the rules, skills, and docs that no longer describes the code. Applies fixes at the lowest altitude, in a PR the maintainer reviews. Runs nightly in the cloud; use locally on request over a merge or a range of merges.
-allowed-tools: Bash(git log:*), Bash(git diff:*), Bash(git show:*), Bash(gh pr view:*), Bash(gh pr list:*), Bash(gh pr checks:*), Bash(gh api:*), Bash(asc xcode-cloud build-runs:*), Bash(asc xcode-cloud status:*), Bash(asc xcode-cloud doctor:*), Bash(asc xcode-cloud issues:*), Bash(asc xcode-cloud test-results:*), Bash(scripts/board.sh:*), Read, Glob, Grep
+allowed-tools: Bash(git log:*), Bash(git diff:*), Bash(git show:*), Bash(gh pr view:*), Bash(gh pr list:*), Bash(gh pr checks:*), Bash(gh pr diff:*), Bash(gh api:*), Bash(asc xcode-cloud build-runs:*), Bash(asc xcode-cloud status:*), Bash(asc xcode-cloud doctor:*), Bash(asc xcode-cloud issues:*), Bash(asc xcode-cloud test-results:*), Bash(scripts/board.sh:*), Read, Glob, Grep
 ---
 
 Input: the merges to `main` that have no retro yet, or a PR number or range on request.
@@ -31,16 +31,17 @@ Output: a short report, and when there is something to fix, one PR.
 
 ## 1. Collect
 
-The commands below are written for `gh`. In the cloud session `gh` is installed but not logged
-in, and `asc` is absent; it reads the same pull requests, checks, and diffs through the GitHub
-MCP tools and opens its PR with them too.
+The commands below are written for `gh` and `asc`. Without the App Store Connect key, `asc` is
+out and pass or fail comes from GitHub's checks; the GitHub MCP tools stand in for whatever `gh`
+cannot reach, and can open the PR too.
 
 For each PR: `gh pr view` for commits, review threads, and how long it took from open to
-merge; `gh api repos/{owner}/{repo}/pulls/N/comments` for inline review; the diff; the Xcode
-Cloud runs it caused (`gh pr checks`, and `asc xcode-cloud doctor` when `asc` and the App Store
-Connect key are available) and why any failed; the board card, if there was one; the Friction
-line in the PR body, which is where the session that did the work recorded what was retried,
-what the maintainer corrected, and what took longer than it should have.
+merge; `gh api repos/{owner}/{repo}/pulls/N/comments` for inline review; the diff
+(`gh pr diff`); the Xcode Cloud runs it caused (`gh pr checks`, and `asc xcode-cloud doctor`
+when `asc` and the App Store Connect key are available) and why any failed; the board card, if
+there was one; the Friction line in the PR body, which is where the session that did the work
+recorded what was retried, what the maintainer corrected, and what took longer than it should
+have.
 
 ## 2. Ask three questions
 
@@ -81,7 +82,7 @@ fixes, and anything that needs their decision.
 A cloud routine runs this skill once a night over every merge to `main` since the last retro,
 in one PR, exiting at once when none is waiting; see `docs/agent-tooling.md`. That session
 never saw the work: it has only what the PR carries, which is why the template asks for
-Verified, Friction, and Card lines. It has no local state, no `gh` login, no App Store Connect
-key, and no Homebrew, so it cannot run SwiftFormat or SwiftLint and its PR relies on CI for
-those. A local session may run the skill too, for a merge it made, and the one-retro-per-merge
-rule keeps the two from colliding.
+Verified, Friction, and Card lines. It has no local state, no App Store Connect key, and no
+Homebrew, so it cannot run SwiftFormat or SwiftLint and its PR relies on CI for those. A local
+session may run the skill too, for a merge it made, and the one-retro-per-merge rule keeps the
+two from colliding.

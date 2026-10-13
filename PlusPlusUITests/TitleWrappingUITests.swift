@@ -63,6 +63,13 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             try assertLinesInsideField(title, above: addExercise, lines: 2, "cleared, at rest")
         }
 
+        try auditRowsAndPicker(in: app)
+        assertAddClearsStartAtTheEnd(in: app, keyboard: keyboard, addExercise: addExercise)
+    }
+
+    /// Rows and the picker, with and without results, pass the audit at this text size.
+    @MainActor
+    private func auditRowsAndPicker(in app: XCUIApplication) throws {
         try XCTContext.runActivity(named: "Rows and the picker at AX5 pass the audit") { _ in
             app.addExercise("Kneeling hip flexor stretch", searching: "kneeling")
             XCTAssertTrue(app.buttons["Start"].appears())
@@ -80,7 +87,16 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             attach(named: "picker-no-results-ax5")
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
         }
+    }
 
+    /// At this size the second row pushes Add exercise below Start, so an add has to scroll to
+    /// the end of the list, where the key clears Start with the screen's spacing to spare.
+    @MainActor
+    private func assertAddClearsStartAtTheEnd(
+        in app: XCUIApplication,
+        keyboard: XCUIElement,
+        addExercise: XCUIElement,
+    ) {
         XCTContext.runActivity(named: "At the end of a long list, Add exercise clears Start") { _ in
             let search = app.searchFields.firstMatch
             // While searching, the first Close ends the search; the next closes the sheet.
@@ -88,8 +104,6 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
                 app.buttons["Close"].firstMatch.tap()
                 _ = keyboard.disappears()
             }
-            // At this size the second row pushes Add exercise below Start, so the add scrolls to
-            // the end, where both show.
             app.addExercise("Dumbbell bench press, Dumbbells, bench", searching: "dumbbell bench")
             XCTAssertTrue(app.addExerciseClearsStart(), "The add left Add exercise behind Start")
             attach(named: "rail-after-add-ax5")
@@ -103,7 +117,8 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             attach(named: "rail-end-ax5")
             // 16pt, the screen's spacing, give or take rounding.
             XCTAssertGreaterThanOrEqual(
-                start.frame.minY - addExercise.frame.maxY, 15.5,
+                start.frame.minY - addExercise.frame.maxY,
+                15.5,
                 "Add exercise does not clear Start with room to spare",
             )
         }
