@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The conversation in this repo's Claude Code sessions since a given time, for the retro.
 
-    scripts/conversations.py <since>
+    scripts/conversations.py <since> [file]
 
 <since> is a local date (2026-10-13, meaning midnight), a local time (2026-10-13T21:30), or a
 time with an offset (2026-10-13T04:00:00Z). Prints, per session and oldest first, what the
@@ -14,7 +14,8 @@ transcript, for reading around a specific moment. The nightly retro's own sessio
 
 Reads the transcripts Claude Code keeps under ~/.claude/projects/: the folder for the main
 checkout and one per worktree under .claude/worktrees/, whichever checkout this runs from.
-Files not modified since <since> are not opened.
+Files not modified since <since> are not opened. With a file, writes the conversation there
+(making its folder) and prints only the first line: how many sessions, or "No sessions since".
 """
 import json
 import re
@@ -80,18 +81,19 @@ def project_folders():
 
 
 def entries(path, since):
-    """The file's entries from since on, and those with no time, such as titles. Older lines
-    are skipped before parsing: a long session's file is mostly old tool output."""
+    """The file's entries from since on, and those with no time, such as titles. A line whose
+    every timestamp, nested ones included, is older is skipped before parsing: a long session's
+    file is mostly old tool output."""
     with open(path, encoding="utf-8", errors="replace") as lines:
         for line in lines:
-            stamp = TIMESTAMP.search(line)
-            if stamp and stamp.group(1) < since.stamp:
+            stamps = TIMESTAMP.findall(line)
+            if stamps and max(stamps) < since.stamp:
                 continue
             try:
                 entry = json.loads(line)
             except ValueError:
                 continue
-            if isinstance(entry, dict):
+            if isinstance(entry, dict) and entry.get("timestamp", since.stamp) >= since.stamp:
                 yield entry
 
 
@@ -146,6 +148,14 @@ def shown(entry):
     return text or None
 
 
+def read_json(path):
+    """A small side file's contents, or None when it is missing or half-written."""
+    try:
+        return json.loads(path.read_text())
+    except (OSError, ValueError):
+        return None
+
+
 class ToolCalls:
     """How many tool calls returned, and how many of them failed."""
 
@@ -177,11 +187,11 @@ def subagent_counts(session_dir, since):
         label = stem
         meta = session_dir / "subagents" / (stem + ".meta.json")
         skill = session_dir / "subagents" / (stem + ".forked-skill.json")
-        if meta.exists():
-            info = json.loads(meta.read_text())
+        info = read_json(meta)
+        if info:
             label = " ".join(filter(None, [info.get("agentType"), info.get("description") and f"({info['description']})"]))
-        elif skill.exists():
-            label = "/" + json.loads(skill.read_text()).get("skillName", stem)
+        elif read_json(skill):
+            label = "/" + read_json(skill).get("skillName", stem)
         counts.append((label, calls.failed, calls.total))
     return counts
 
@@ -219,7 +229,9 @@ def session(path, since):
     if title:
         header += f": {title}"
     if first:
-        header += f" ({local(first, '%a %d %b %H:%M')} to {local(messages[-1][0])})"
+        last = messages[-1][0]
+        same_day = local(first, "%F") == local(last, "%F")
+        header += f" ({local(first, '%a %d %b %H:%M')} to {local(last, '%H:%M' if same_day else '%a %d %b %H:%M')})"
     failures = f"Failed tool calls: {calls.failed} of {calls.total}"
     if subagents:
         failing = [f"{label} {f} of {t}" for label, f, t in subagents if f]
@@ -232,7 +244,7 @@ def session(path, since):
 
 
 def main():
-    if len(sys.argv) != 2 or sys.argv[1].startswith("-"):
+    if len(sys.argv) not in (2, 3) or sys.argv[1].startswith("-"):
         usage()
     since = Since(parse_since(sys.argv[1]))
     found = []
@@ -243,11 +255,15 @@ def main():
                 if result:
                     found.append(result)
     shown_since = since.moment.astimezone().strftime("%a %d %b %H:%M")
-    if not found:
-        print(f"No sessions since {shown_since}.")
-        return
-    print(f"# {len(found)} sessions since {shown_since}\n")
-    print("\n\n".join(text for _, text in sorted(found)))
+    summary = f"# {len(found)} sessions since {shown_since}" if found else f"No sessions since {shown_since}."
+    text = "\n\n".join([summary] + [text for _, text in sorted(found)]) + "\n"
+    if len(sys.argv) == 3:
+        out = Path(sys.argv[2])
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(text, encoding="utf-8")
+        print(summary)
+    else:
+        print(text, end="")
 
 
 if __name__ == "__main__":

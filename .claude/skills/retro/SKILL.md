@@ -2,7 +2,7 @@
 name: retro
 description: Over the work since the last retro, the merges to main and the conversations in this repo's Claude Code sessions, find what slowed the work or went wrong, check that the brief was useful, and delete or fix anything in the rules, skills, and docs that no longer describes the code. Applies fixes at the lowest altitude, in a PR the maintainer reviews, and gives the maintainer a private digest. Runs nightly on the maintainer's Mac as `/retro nightly`; use on request over a merge or a range of merges.
 argument-hint: "nightly | <PR number or range>"
-allowed-tools: Bash(git log:*), Bash(git diff:*), Bash(git show:*), Bash(git fetch:*), Bash(git worktree add:*), Bash(git worktree remove:*), Bash(gh pr view:*), Bash(gh pr list:*), Bash(gh pr checks:*), Bash(gh pr diff:*), Bash(gh api:*), Bash(asc xcode-cloud build-runs:*), Bash(asc xcode-cloud status:*), Bash(asc xcode-cloud doctor:*), Bash(asc xcode-cloud issues:*), Bash(asc xcode-cloud test-results:*), Bash(scripts/board.sh:*), Bash(scripts/lint.sh:*), Bash(scripts/conversations.py:*), Read, Glob, Grep, Agent, CronList, CronCreate, CronDelete
+allowed-tools: Bash(git log:*), Bash(git diff:*), Bash(git show:*), Bash(git fetch:*), Bash(git worktree add:*), Bash(git worktree remove:*), Bash(gh pr view:*), Bash(gh pr list:*), Bash(gh pr checks:*), Bash(gh pr diff:*), Bash(gh api:*), Bash(asc xcode-cloud build-runs:*), Bash(asc xcode-cloud status:*), Bash(asc xcode-cloud doctor:*), Bash(asc xcode-cloud issues:*), Bash(asc xcode-cloud test-results:*), Bash(scripts/board.sh:*), Bash(scripts/lint.sh:*), Bash(scripts/conversations.py:*), Bash(date:*), Read, Write, Edit, Glob, Grep, Agent, CronList, CronCreate, CronDelete
 ---
 
 **With the argument `nightly`, this session is the retro's tab: skip to "How it runs" and do
@@ -127,14 +127,14 @@ this, in order:
    happens while the retro runs is covered next time.
 3. **Find the last run and the merges.** `git fetch --quiet origin`. The retro PRs, newest
    first, whose titles name every PR they covered:
-   `gh pr list --state all --search "Retro of in:title sort:created-desc" --json number,title,createdAt`.
+   `gh pr list --state all --search "Retro of in:title sort:created-desc" --json number,title,state,createdAt`.
    The last run is `.build/retro/last-run` in the main checkout (gitignored), else the newest
    retro PR's `createdAt`. The merges are
    `gh pr list --state merged --base main --limit 20 --json number,title`, less retro PRs and
-   PRs a retro title names.
+   PRs an open or merged retro's title names.
 4. **Extract the conversation.**
-   `mkdir -p .build/retro && scripts/conversations.py <last run> > .build/retro/conversations.md`.
-   Its first line says how many sessions, or "No sessions since"; read only that line here.
+   `scripts/conversations.py <last run> .build/retro/conversations.md` writes it there and
+   prints one line: how many sessions, or "No sessions since".
 5. **Hand it to a subagent**, unless there is neither a merge nor a session, in which case
    print one line, "Nightly retro: nothing since <last run>.", and go to step 6. Start one
    `general-purpose` agent in the foreground, and pass it: the PR numbers, the last-run time,
@@ -142,11 +142,11 @@ this, in order:
    with `git worktree add -b retro/<today's date> <main checkout>/.claude/worktrees/retro-<today's date> origin/main`
    (add `-2` to both when the branch exists), work only there, with absolute paths. Follow
    `.claude/skills/retro/SKILL.md` as it is in that worktree, including "Never, in any run".
-   Open the PR with `/pr` when there is something to fix; otherwise leave the worktree, which
-   `scripts/tidy.sh` removes a day later. Reply with the PR URL or "no PR", one line per finding, then the digest.
-6. **Report and save.** When the subagent finished (or there was nothing), write the start
-   time from step 2 to `.build/retro/last-run`. If it failed, leave the file, so the next
-   night covers this one too. Print: "Nightly retro <date>: <PR URL, or no PR>", the
+   Open the PR with `/pr` when there is something to fix; otherwise remove the worktree and
+   the branch it made. Reply with the PR URL or "no PR", one line per finding, then the digest.
+6. **Report and save.** When the extract ran and the subagent finished (or there was
+   nothing), write the start time from step 2 to `.build/retro/last-run`. If either failed,
+   leave the file, so the next night covers this one too. Print: "Nightly retro <date>: <PR URL, or no PR>", the
    findings, and the digest. Nothing more: the tab's context stays small for the week.
 
 On request, a session over one merge or a range runs sections 1 to 4 itself, in its own
