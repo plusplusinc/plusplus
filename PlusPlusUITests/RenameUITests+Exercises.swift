@@ -52,6 +52,14 @@ extension RenameUITests {
             XCTAssertEqual(app.exerciseCount(becoming: 7), 7)
             attach(named: "seven-exercises")
         }
+        readRowsAtTheListEnd(in: app)
+    }
+
+    /// The nine rows read as name and equipment, and at the end of the list both keys and the
+    /// title stay reachable. Split from `addAndSearchExercises` so each body stays inside
+    /// SwiftLint's length limit; the activities run in this order either way.
+    @MainActor
+    private func readRowsAtTheListEnd(in app: XCUIApplication) {
         XCTContext.runActivity(named: "Rows read as name and equipment") { _ in
             let labels = app.exerciseRows.allElementsBoundByIndex.map(\.label)
             XCTAssertEqual(labels, [

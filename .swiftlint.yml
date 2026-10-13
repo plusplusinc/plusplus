@@ -2,16 +2,13 @@
 # the architecture rules from CLAUDE.md that a regex can enforce. Scope is declared here only.
 # Runs on every agent edit (with --fix) via .claude/hooks/on-edit.sh and strictly on CI.
 
-included:
-  - App
-  - Packages
+# Everything not excluded, as .swiftformat does. There is no `included` list: it would be
+# ignored for a path passed on the command line, which the edit hook passes, so a directory
+# left out of it is linted on edit and never on CI, which is how PlusPlusUITests came to be
+# held to rules CI did not check.
 excluded:
   - "**/.build"
   - "**/__Snapshots__"
-  # Not in `included`, so a whole-tree run never reaches it. Named here as well, because
-  # `included` is ignored for a path passed on the command line and the edit hook passes one:
-  # without this, an edited UI test is held to rules CI does not check.
-  - PlusPlusUITests
 
 # Rules SwiftFormat already owns. Keeping them here would only produce duplicate noise.
 disabled_rules:
