@@ -19,10 +19,12 @@ this order, because the first two change code and the rest verify it:
    enough.
 5. For UI changes, a screenshot from `/run` has been looked at.
 
-Steps 1 and 2 are skipped for a diff with no Swift in it. Run them from the branch's own
-checkout, and name the branch (`/code-review <branch>`): from the main checkout there is no
-branch diff, so the review lands on `main`'s last squash merge and reports findings for a pull
-request that already merged.
+Steps 1 and 2 are skipped for a diff with no Swift in it. Give both the same target, filled in:
+`<branch> against origin/main, checked out at <worktree>; say which branch and HEAD you
+reviewed`. They, and every agent they start, begin in the session's own checkout, not in a
+worktree you `cd` into, and with no target they review whatever is checked out there: on `main`,
+its last squash merge, a pull request that already merged. Before acting on findings, check that
+the branch and HEAD they name are the worktree's; if not, run again with the target named.
 
 Then:
 ```sh

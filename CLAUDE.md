@@ -8,8 +8,9 @@ This file is the constitution: loaded every session, kept short. Detail lives in
 `.claude/rules/*.md`, which load when you touch matching files, and in `docs/`. If this file and a
 rules file disagree, this file wins.
 
-**Status: first screen.** The app launches into a new, empty routine whose name lives in
-memory only. There is no data model yet; the model follows the first feature that saves.
+**Status: first screen.** The app launches into a new, empty routine you can name and add
+built-in exercises to. All of it lives in memory only. `WorkoutStore` has plain domain types
+but no stored model; that will come with the first feature that saves.
 
 ## Architecture
 
@@ -50,6 +51,11 @@ state, stateless services hold side effects, free functions hold the math. The a
   on the board; the gitignored `.slices/`, in the main checkout, holds only agents' technical
   working files (plans, handoffs, evidence).
 - **US English** in code, comments, docs, and commits. A hook checks every edit.
+- **Tense tells the truth.** A present-tense statement says how things are on `main` today, so
+  write one only when it is. Something planned is an instruction ("Save the routine once it
+  changes") or says "will". A decision that isn't built yet says it was decided. This holds
+  for cards, the board README, plans, State sections, and docs. A PR body describes `main`
+  after the merge, because it becomes the commit.
 
 ## Building features
 
@@ -96,6 +102,9 @@ scripts/sim.sh <command>     # drive the running app: shots, appearance, content
 scripts/lint.sh [--fix]      # SwiftFormat, SwiftLint, US English, as CI runs them
 scripts/board.sh <command>   # the private project board; run bare to list its commands
 ```
+
+Reach an external service through its own CLI (`gh`, `asc`). A wrapper script or MCP server
+has to earn its place; `docs/agent-tooling.md` says when, and how to build a script agents call.
 
 Apple documentation: the `sosumi` MCP server works with Xcode closed. The `xcode` MCP server
 gives live diagnostics and preview rendering, and on Xcode 27 runs headless with Xcode closed.
