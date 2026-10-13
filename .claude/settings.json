@@ -9,6 +9,7 @@
       "Bash(scripts/sim.sh:*)",
       "Bash(scripts/check-us-english.sh:*)",
       "Bash(scripts/xcresult.py:*)",
+      "Bash(scripts/conversations.py:*)",
       "Bash(scripts/board.sh:*)",
       "Bash(scripts/tidy.sh:*)",
       "Bash(asc xcode-cloud products:*)",
