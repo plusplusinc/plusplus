@@ -7,6 +7,7 @@
 #   scripts/board.sh readme <<'README'                 # replace the README with stdin
 #   scripts/board.sh add <title> <<'CARD'              # a draft item in Todo; prints its id
 #   scripts/board.sh body <item-id> <<'CARD'           # replace a draft item's body
+#   scripts/board.sh title <item-id> <title>           # rename a draft item
 #   scripts/board.sh state <item-id> <<'STATE'         # replace or append its ## State section
 #   scripts/board.sh status <item-id> Todo|"In Progress"|Done
 #   scripts/board.sh move <item-id> top|<after-item-id>  # place it in the queue /onward works through
@@ -115,6 +116,11 @@ case "$command" in
         fi
         draft=$(draft_id "$1")
         gh project item-edit --id "$draft" --body "$body" > /dev/null
+        ;;
+    title)
+        [ $# -eq 2 ] || usage
+        draft=$(draft_id "$1")
+        gh project item-edit --id "$draft" --title "$2" > /dev/null
         ;;
     state)
         [ $# -eq 1 ] || usage
