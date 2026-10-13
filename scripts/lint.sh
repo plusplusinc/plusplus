@@ -23,8 +23,7 @@ whole_tree=$([ "$#" -eq 0 ] && echo true || echo false)
 
 status=0
 if $whole_tree || [ "${#swift_files[@]}" -gt 0 ]; then
-    # Required only for Swift. A docs-only path list still gets the US English check, which is
-    # all an agent without Homebrew (the cloud retro) can run anyway.
+    # Required only for Swift. A docs-only path list gets only the US English check.
     for tool in swiftformat swiftlint; do
         command -v "$tool" > /dev/null ||
             { echo "$tool is not installed: run 'brew bundle'" >&2; exit 1; }

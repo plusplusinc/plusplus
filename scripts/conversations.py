@@ -194,7 +194,7 @@ def session(path, where, since, since_epoch):
         return None
     first = messages[0][0] if messages else None
     title = custom_title or ai_title
-    header = f"## Session {path.stem[:8]}, {where}"
+    header = f"## Session {path.stem}, {where}"
     if title:
         header += f": {title}"
     if first:

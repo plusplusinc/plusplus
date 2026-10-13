@@ -1,8 +1,9 @@
 <!-- Merges are squashed: this body becomes the commit message on main. One paragraph on what
 and why; short sections only when the change has distinct parts. Review notes go in a comment.
 
-The retro runs in a cloud session that never saw this work, so the body has to carry what it
-needs: the three lines below, and any decision the diff does not explain. -->
+The retro runs in a session that never saw this work and reads the conversation's text, not
+what was run, so the body has to carry what it needs: the three lines below, and any decision
+the diff does not explain. -->
 
 Card: <!-- the board card this PR came from; "Closes #N" when it was published as an issue; or "none" and why -->
 

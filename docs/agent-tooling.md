@@ -115,13 +115,18 @@ indexes the Swift packages with no configuration, giving go-to-definition, refer
 diagnostics. It does not understand the `.xcodeproj`, which is fine because nearly all code
 lives in packages.
 
-## Routines
+## The nightly retro
 
-The retro (`.claude/skills/retro/SKILL.md`) runs in Anthropic's cloud, not on a developer
-machine: a routine at https://claude.ai/code/routines clones `main` at 10:00 UTC each day,
-exits at once unless a merge is waiting for its retro, and opens at most one PR covering every
-merge since the last one. It never merges. The routine's prompt only picks the merges and
-hands them to the skill, so changing the retro means changing the skill, not the routine.
+The retro (`.claude/skills/retro/SKILL.md`) runs on the maintainer's Mac, in a Claude Code
+session in a terminal tab kept open for it, started with the one line in the skill's "How it
+runs". Claude Code's session-scoped scheduled tasks fire `/retro nightly` at midnight local
+time, while the session is open and idle; each run recreates the task, because a recurring one
+expires after seven days. The tab only picks the work since the last run, the merges and
+the conversation, and hands it to a subagent in its own worktree from `origin/main`, which
+opens at most one PR and never merges. The tab prints a private digest for the maintainer.
+The conversation comes from `scripts/conversations.py`, which prints what the maintainer typed
+and what the assistant showed, not the tool calls, so a day reads in tens of kilobytes rather
+than the tens of megabytes of transcripts. Changing the retro means changing the skill.
 
 ## Parallel work
 
