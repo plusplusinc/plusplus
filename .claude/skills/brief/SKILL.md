@@ -43,7 +43,8 @@ every heading present even when its answer is one line:
   (before and after for any UI). For a hunch, the spike and what answer would end it.
 - **Tense** follows CLAUDE.md: a card is read before the work, during it, and after it, and
   every sentence has to be true whenever it is read.
-  - Problem is the only place for the present tense: "Today a routine is a list of names."
+  - Problem describes today in the present tense: "Today a routine is a list of names." Any
+    other present-tense sentence has to be just as true today.
   - Plan is instructions: "Save a routine once anything in it changes."
   - Anything else the card will change says "will".
   - Acceptance criteria and Success are checks to run once the work is done, written as
