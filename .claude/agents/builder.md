@@ -19,8 +19,12 @@ lead.
 - Follow the plan in small steps: change one thing, build, look at the screenshot, commit.
 - Test as `.claude/rules/testing.md` says: `scripts/test.sh` and the simulator tests your change
   touches, never the full simulator suite. That suite runs on Xcode Cloud when you push.
-- Anything you wait on (a background run, a log line) has a real time limit, such as a loop
-  bounded by `$SECONDS`. Never write an `until` loop with no exit.
+- Wait for everything you start before your turn ends: a builder whose turn ends while a
+  command or agent it started is still running is made to hand back, unfinished. Run long
+  commands in the foreground, and start `/simplify`'s helper agents with
+  `run_in_background: false`, all in one message so they still run in parallel. Anything you
+  wait on (a run, a log line) has a real time limit, such as a loop bounded by `$SECONDS`.
+  Never write an `until` loop with no exit.
 - When it works: `/simplify` once, commit what it changed, then `/code-review`, then
   `scripts/lint.sh` and the targeted tests, then open or update the PR with `/pr`. Friction in the
   body comes from this session; the Card line names the slice's card. Report the PR's Xcode Cloud

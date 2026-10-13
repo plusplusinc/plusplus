@@ -35,10 +35,12 @@ BODY
 gh pr checks --watch --interval 60                     # Xcode Cloud reports back as a check
 ```
 
-If `gh pr checks` still says "no checks reported" 30 seconds after the PR opens, GitHub's
-pull request event never reached Xcode Cloud, which happens intermittently and leaves no log
-on our side. Run `gh pr close <n> && gh pr reopen <n>`; the reopen sends a fresh event, and the
-run starts within seconds.
+If `gh pr checks` still says "no checks reported" a minute after the PR opens or after a push
+to it, a rebase included, GitHub's event never reached Xcode Cloud, which happens
+intermittently and leaves no log on our side. Push an empty commit
+(`git commit --allow-empty -m "Start Xcode Cloud" && git push`); the push sends a fresh event.
+If a minute later there is still no check, run `gh pr close <n> && gh pr reopen <n>`. Each has
+started a missed run, and closing and reopening has also once started nothing.
 
 The body follows `.github/pull_request_template.md`: one paragraph on what and why, short
 sections only if the change has distinct parts, a "Verified" line stating exactly what was run,
