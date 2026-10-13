@@ -32,7 +32,7 @@ git push -u origin <branch>
 gh pr create --title "<title>" --body-file - <<'BODY'   # or gh pr edit to update the body
 <body>
 BODY
-gh pr checks --watch                                   # Xcode Cloud reports back as a check
+gh pr checks --watch --interval 60                     # Xcode Cloud reports back as a check
 ```
 
 If `gh pr checks` still says "no checks reported" 30 seconds after the PR opens, GitHub's

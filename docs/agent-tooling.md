@@ -30,14 +30,14 @@ A script that agents call is a tool for agents, so it follows [Anthropic's guida
 tools](https://www.anthropic.com/engineering/writing-tools-for-agents):
 - Few commands, each named for one job (`board.sh show`, `board.sh state`), not one per API
   endpoint.
-- Each command costs what its name suggests. Today `board.sh show` fetches the whole board to
-  read one card. That is how an audit of every card on 2026-10-12 spent the account's hourly
-  GitHub quota, which every session shares. "Use the board without exhausting GitHub's hourly
-  quota" will fix it.
+- Each command costs what its name suggests. `board.sh show` once fetched the whole board to
+  read one card, about 100 points, and an audit of every card on 2026-10-12 spent the
+  account's hourly GitHub quota in 20 minutes. It now reads just the cards it names (see
+  Quotas, below).
 - Output is short plain text holding what the agent needs next (title, status, the ids it
   will pass back), with a flag for more when more is needed.
-- An error says what went wrong and what to do next. "No item" from `board.sh` already says
-  that a new card takes a few seconds to appear. A quota error should name the reset time.
+- An error says what went wrong and what to do next. "No item" from `board.sh` says that a
+  new card takes a few seconds to appear, and a spent quota names the time it resets.
 - Usage with examples, printed when the script runs bare.
 
 Use an MCP server only when there is no workable CLI, when the tool keeps state between
@@ -47,6 +47,24 @@ run: every server's tool definitions take up context in every session. That cost
 XcodeBuildMCP was rejected (below). Mario Zechner [measured an MCP server against an
 equivalent CLI](https://mariozechner.at/posts/2025-08-15-mcp-vs-cli/) and found little
 difference in success or cost. He recommends a good CLI over an MCP server that wraps one.
+
+## Quotas
+
+GitHub's GraphQL API allows 5,000 points an hour, shared by every session and every `gh` call
+on the account; spending it locks them all out until the reset. Check what is left with
+`gh api graphql -f query='{rateLimit{remaining resetAt}}'`, which costs nothing. It sometimes
+answers from a second counter with another `resetAt`, so compare only readings that share one.
+`gh api rate_limit` lags: on 2026-10-12 it showed 4,683 left when the real count was 0.
+
+Every `board.sh` command costs a point or two, measured on 2026-10-13: `list`, `show`, and
+`readme` one each, and `show` with every id on the board is still one request; `add`, `body`,
+`title`, `state`, `status`, `move`, and `feature` two, a lookup and a mutation. Before, `list`
+and `show` each cost about 100. When the quota is spent, `board.sh` prints the reset time and
+exits; a retry would spend whatever comes back.
+
+Waiting on CI polls once a minute (`gh pr checks --watch --interval 60`, `asc xcode-cloud
+status --wait --poll-interval 60s`, on Apple's separate quota): a run takes about four
+minutes, so polling faster spends quota and gains nothing.
 
 ## Hooks
 
