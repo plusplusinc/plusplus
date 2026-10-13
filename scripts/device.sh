@@ -1,13 +1,15 @@
 #!/bin/bash
-# Builds the app for a physical iPhone, installs it, and launches it, or makes an install link.
+# Builds the app for a physical iPhone, installs it, and launches it; with no iPhone in reach,
+# makes an install link instead.
 #
-#   scripts/device.sh                                  # the one available iPhone
+#   scripts/device.sh                                  # the one available iPhone, else a link
 #   PLUSPLUS_DEVICE="<name or UDID>" scripts/device.sh
-#   scripts/device.sh --link                           # an install link instead
+#   scripts/device.sh --link                           # a link, even with an iPhone in reach
 #
 # The phone is looked up each time, never stored, since the repo is public. It must be paired
 # with this Mac and reachable: devicectl marks it unavailable when it is away or off the Mac's
-# Wi-Fi, and a locked phone fails at install or launch. The build is incremental in the
+# Wi-Fi, and then the script makes a link. A locked phone that is reachable fails at install or
+# launch; unlock it and run again, or make a link. The build is incremental in the
 # worktree's .build/device, apart from the simulator's derived data so both can build at once.
 #
 # The link is a development-signed .ipa, an install manifest, and a one-button page, deployed
@@ -205,16 +207,14 @@ case "${1:-}" in
         ;;
 esac
 
-LINK_FALLBACK="if it stays out of reach, send an install link (board README, phone testing)"
-
 IPHONES=$(available_iphones)
 COUNT=$(grep -c . <<< "$IPHONES" || true)
 
 if [ "$COUNT" -eq 0 ]; then
-    echo "no iPhone available${PLUSPLUS_DEVICE:+ matching PLUSPLUS_DEVICE=$PLUSPLUS_DEVICE}:" \
-        "unlock it and put it on this Mac's Wi-Fi; xcrun devicectl list devices shows what it sees" >&2
-    echo "$LINK_FALLBACK" >&2
-    exit 69
+    echo "no iPhone available${PLUSPLUS_DEVICE:+ matching PLUSPLUS_DEVICE=$PLUSPLUS_DEVICE}," \
+        "so making an install link; xcrun devicectl list devices shows what it sees"
+    install_link
+    exit
 fi
 if [ "$COUNT" -gt 1 ]; then
     echo "more than one iPhone available; choose one with PLUSPLUS_DEVICE=\"<name or UDID>\":" >&2
@@ -232,8 +232,8 @@ BUNDLE_ID=$(app_bundle_id "$APP")
 if ! xcrun devicectl device install app --quiet --device "$UDID" "$APP" ||
     ! xcrun devicectl device process launch --quiet --terminate-existing --device "$UDID" \
         "$BUNDLE_ID"; then
-    echo "built, but could not install or launch on $NAME: is it unlocked?" >&2
-    echo "$LINK_FALLBACK" >&2
+    echo "built, but could not install or launch on $NAME: is it unlocked? If it stays out of" \
+        "reach, scripts/device.sh --link makes an install link" >&2
     exit 69
 fi
 echo "launched on $NAME"
