@@ -107,20 +107,17 @@ maintainer could do differently, and the open product questions, each with a rec
 ## How it runs
 
 On the maintainer's Mac, in a Claude Code session in a detached `screen` session named
-`nightly-retro`, in the main checkout, in auto mode. Unlike a terminal tab, it starts while the
-Mac is locked and outlives the terminal app. One command starts it, from any checkout, and
-refuses when one is already running:
+`nightly-retro`, in the main checkout, in auto mode, started from any checkout with:
 
 ```sh
 scripts/nightly-retro.sh start
 ```
 
-`scripts/nightly-retro.sh show` prints what its window shows; `screen -r nightly-retro`
-attaches, and Ctrl-a d detaches. The session runs
-`caffeinate -s claude --name "Nightly retro" --permission-mode auto "/retro nightly"`.
-`caffeinate -s` keeps the Mac awake while it runs on power with the lid open, and the name
-keeps this session out of `scripts/conversations.py`, so a run never reads the last run's
-digest. Each `/retro nightly`, the first one and every midnight after, does this, in order:
+`scripts/nightly-retro.sh show` prints its window; `screen -r nightly-retro` attaches, and
+Ctrl-a d detaches. Claude Code runs under `caffeinate -s`, which keeps the Mac awake while it
+runs on power with the lid open, and is named "Nightly retro", which keeps this session out of
+`scripts/conversations.py`, so a run never reads the last run's digest. Each `/retro nightly`,
+the first one and every midnight after, does this, in order:
 
 1. **Schedule the next night.** `CronList`, `CronDelete` every task whose prompt is
    `/retro nightly`, then `CronCreate` one recurring task, `0 0 * * *` (local time), prompt

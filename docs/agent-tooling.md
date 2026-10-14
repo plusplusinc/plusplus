@@ -125,10 +125,9 @@ kilobytes rather than the tens of megabytes of transcripts. Changing the retro m
 the skill.
 
 `scripts/nightly-retro.sh` starts the session and prints its window without attaching. It holds
-what `screen` alone gets wrong: a clean environment, since a Claude Code session's shell carries
-`CLAUDECODE` and `CLAUDE_CODE_*` variables that must not reach the retro's `claude`; refusing to
-start a second retro, which would also run at midnight; and the quirks of the `screen` 4.00 that
-macOS ships, which its header lists.
+what `screen` alone gets wrong, which its header lists: an environment free of the calling
+Claude Code session's variables, a refusal to start a second retro, and the quirks of the
+`screen` 4.00 that macOS ships.
 
 ## Parallel work
 
