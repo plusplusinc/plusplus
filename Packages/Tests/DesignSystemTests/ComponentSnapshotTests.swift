@@ -21,13 +21,14 @@ struct ComponentSnapshotTests {
     /// Start shows once there is a row.
     private func content(
         name: String = "",
-        placeholder: String = "New routine",
+        suggestion: String? = nil,
         rows: [Row] = [],
     ) -> some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             EditableTitle(
                 text: .constant(name),
-                placeholder: placeholder,
+                placeholder: "New routine",
+                suggestion: suggestion,
                 accessibilityLabel: "Routine name",
                 accessibilityHint: "Renames the routine.",
             )
@@ -63,6 +64,19 @@ struct ComponentSnapshotTests {
     func oneExercise() {
         assertThemedSnapshots(
             of: content(rows: [Row(title: "Goblet squat", detail: "Kettlebell")]),
+            width: Self.screenWidth,
+        )
+    }
+
+    /// A generated name rests in white, as a chosen one does; only New routine is gray.
+    @Test("An unnamed routine with exercises shows its generated name")
+    func generatedName() {
+        let rows: [Row] = [
+            Row(title: "Goblet squat", detail: "Kettlebell"),
+            Row(title: "Pull-up", detail: "Pull-up bar"),
+        ]
+        assertThemedSnapshots(
+            of: content(suggestion: "Back and legs", rows: rows),
             width: Self.screenWidth,
         )
     }
