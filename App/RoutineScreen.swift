@@ -55,9 +55,9 @@ struct RoutineScreen: View {
         )
     }
 
-    /// What an unnamed routine shows in place of a name.
-    private var placeholder: String {
-        routine.generatedName ?? Self.defaultName
+    /// The name the title shows: chosen, else generated, else none.
+    private var shownName: String? {
+        routine.name.isEmpty ? routine.generatedName : routine.name
     }
 
     var body: some View {
@@ -66,7 +66,8 @@ struct RoutineScreen: View {
                 VStack(alignment: .leading, spacing: Spacing.md) {
                     EditableTitle(
                         text: $routine.name,
-                        placeholder: placeholder,
+                        placeholder: Self.defaultName,
+                        suggestion: routine.generatedName,
                         isSuggesting: pendingNames > 0,
                         accessibilityLabel: "Routine name",
                         accessibilityHint: "Renames the routine.",
@@ -142,10 +143,10 @@ struct RoutineScreen: View {
                                 scrollPosition.scrollTo(edge: .top)
                             }
                         } label: {
-                            let isUnnamed = routine.name.isEmpty
-                            Text(isUnnamed ? placeholder : routine.name)
+                            // Gray only for New routine, as in the title.
+                            Text(shownName ?? Self.defaultName)
                                 .font(.ppInlineTitle)
-                                .foregroundStyle(.pp(isUnnamed ? .textSecondary : .textPrimary))
+                                .foregroundStyle(.pp(shownName == nil ? .textSecondary : .textPrimary))
                                 .lineLimit(1)
                         }
                         .buttonStyle(.plain)

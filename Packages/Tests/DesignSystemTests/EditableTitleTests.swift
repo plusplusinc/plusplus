@@ -4,49 +4,53 @@ import Testing
 
 @Suite("Editable title rules")
 struct EditableTitleTests {
-    @Test("A letter scrambles through other letters of its case")
+    @Test("A letter shuffles through the name's other letters, in its case")
     func standInLetters() throws {
+        let name = "Squat and pull"
+        let others = Set("squtndpl").subtracting(["a"])
         for swap in 0 ..< 50 {
-            let lower = try #require(EditableTitle.standIn(for: "e", at: 3, swap: swap))
-            #expect(lower.isLowercase && lower != "e")
-            let upper = try #require(EditableTitle.standIn(for: "L", at: 0, swap: swap))
-            #expect(upper.isUppercase && upper != "L")
+            let standIn = try #require(EditableTitle.standIn(for: "a", at: 3, swap: swap, in: name))
+            #expect(others.contains(standIn))
         }
+        let capital = try #require(EditableTitle.standIn(for: "P", at: 5, swap: 0, in: "Push Pull"))
+        #expect(capital.isUppercase && capital != "P")
     }
 
-    @Test("Anything but a letter lands at once", arguments: [" ", "-", "1", "\u{2019}"])
-    func standInNonLetters(character: Character) {
-        #expect(EditableTitle.standIn(for: character, at: 0, swap: 0) == nil)
+    @Test("The first character, and anything but a letter, lands at once")
+    func standInNone() {
+        #expect(EditableTitle.standIn(for: "S", at: 0, swap: 0, in: "Squat") == nil)
+        for character: Character in [" ", "-", "1", "\u{2019}"] {
+            #expect(EditableTitle.standIn(for: character, at: 2, swap: 0, in: "Squat") == nil)
+        }
+        #expect(EditableTitle.standIn(for: "a", at: 1, swap: 0, in: "Aa") == nil)
     }
 
-    @Test("The lead moves on before its letter lands, leaving a trail scrambling behind it")
+    @Test("A short trail shuffles behind the lead, and landed letters ease from blue")
     func typingTrail() {
         let lead = SuggestionTiming.leadInterval
         let start = EditableTitle.typingFrame(of: "Squat and pull", at: 0)
         #expect(start.shown == "S")
-        #expect(Set(start.standIns.keys) == [0])
+        #expect(start.standIns.isEmpty)
+        #expect(start.tints[0] == 1)
 
-        // Four leads in: five letters shown, all still scrambling.
         let trail = EditableTitle.typingFrame(of: "Squat and pull", at: lead * 4 + lead / 2)
         #expect(trail.shown == "Squat")
-        #expect(Set(trail.standIns.keys) == [0, 1, 2, 3, 4])
-
-        // The space lands at once; letters land from the left as their time is up.
-        let later = EditableTitle.typingFrame(
-            of: "Squat and pull",
-            at: SuggestionTiming.decodeDuration + lead * 2 + lead / 2,
-        )
-        #expect(later.standIns[0] == nil)
-        #expect(later.standIns[5] == nil)
-        #expect(later.standIns[6] != nil)
+        #expect(Set(trail.standIns.keys) == [3, 4])
+        #expect(trail.tints[3] == 1)
+        let landed = trail.tints[1] ?? 0
+        #expect(landed > 0 && landed < 1)
+        #expect(trail.cursorTint == 1)
     }
 
-    @Test("Once its time is up, the whole text has landed")
+    @Test("Once its time is up, the whole text has landed in gray")
     func typingEnds() {
         let text = "Squat and pull"
         let end = EditableTitle.typingFrame(of: text, at: EditableTitle.typingDuration(of: text))
         #expect(end.shown == text)
         #expect(end.standIns.isEmpty)
+        #expect(end.tints.isEmpty)
+        #expect(end.cursorTint == 0)
+        #expect(EditableTitle.typingDuration(of: text) < 0.5)
     }
 
     @Test("With no selection yet, the cursor is at the end")
@@ -147,6 +151,18 @@ struct EditableTitleTests {
     )
     func committedBlank(draft: String) {
         #expect(EditableTitle.committed(draft).isEmpty)
+    }
+
+    @Test("A suggestion committed unchanged stays a suggestion, leaving the title unnamed")
+    func committedSuggestionUnchanged() {
+        #expect(EditableTitle.committed("Leg day", from: "Leg day").isEmpty)
+        #expect(EditableTitle.committed(" Leg day ", from: "Leg day").isEmpty)
+    }
+
+    @Test("A suggestion changed is the title, and cleared leaves it unnamed")
+    func committedSuggestionChanged() {
+        #expect(EditableTitle.committed("Leg day 2", from: "Leg day") == "Leg day 2")
+        #expect(EditableTitle.committed("", from: "Leg day").isEmpty)
     }
 
     @Test("A real name is kept, trimmed")

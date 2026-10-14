@@ -16,14 +16,19 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
     let placeholder: String
     /// The placeholder as drawn, partway through typing in when it has just changed.
     let shownPlaceholder: String
+    /// Whether what an empty field shows is a suggestion rather than the placeholder.
+    let isSuggested: Bool
     /// Below 1 while the old placeholder fades out for a new one.
     let placeholderOpacity: Double
     /// The letters of `shownPlaceholder` still scrambling as it types in, by index, each drawn
     /// as its stand-in in the rail's joining blue.
     let standIns: [Int: Character]
-    /// Whether the `_` pulses at rest, in the rail's joining blue, while a new placeholder is on
-    /// its way and typing in.
-    let pulses: Bool
+    /// How far each character of `shownPlaceholder` is drawn in the rail's joining blue rather
+    /// than the placeholder's gray, by index, from 0 to 1. Missing is 0.
+    let tints: [Int: Double]
+    /// How far the `_` at rest is drawn in the joining blue, from 0 to 1, breathing in step:
+    /// while a new placeholder is on its way and typing in.
+    let cursorTint: Double
     let isEditing: Bool
     /// Whether the `_` blinks while editing, and pulses at rest. Snapshots hold it lit, however
     /// long after the view was made they render.
@@ -45,7 +50,7 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
             // here, wrapping like the text it stands for.
             if draft.isEmpty {
                 Text(drawnPlaceholder)
-                    .foregroundStyle(.pp(.textSecondary))
+                    .foregroundStyle(restingColor)
                     .opacity(placeholderOpacity)
                     // With Reduce Motion a new placeholder crossfades in rather than typing.
                     .contentTransition(.opacity)
@@ -80,7 +85,7 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
                 draft: draft,
                 placeholder: shownPlaceholder,
                 isEditing: isEditing,
-                pulses: pulses,
+                tint: cursorTint,
                 blinks: blinks,
             )
         }
@@ -88,18 +93,26 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
         .hotReloadable()
     }
 
-    /// The placeholder as drawn: each letter still scrambling as its stand-in, blue.
+    /// The placeholder as drawn: each letter still shuffling as its stand-in, and each tinted as
+    /// far toward blue as it is.
     private var drawnPlaceholder: AttributedString {
-        guard !standIns.isEmpty else { return AttributedString(shownPlaceholder) }
+        guard !standIns.isEmpty || !tints.isEmpty else { return AttributedString(shownPlaceholder) }
         var drawn = AttributedString()
         for (index, character) in shownPlaceholder.enumerated() {
             var piece = AttributedString(String(standIns[index] ?? character))
-            if standIns[index] != nil {
-                piece.foregroundColor = Color.pp(.railJoin)
+            if let tint = tints[index], tint > 0 {
+                piece.foregroundColor = restingColor.mix(with: .pp(.railJoin), by: tint)
             }
             drawn += piece
         }
         return drawn
+    }
+
+    /// White for a suggestion at rest, as a name is. Gray for the placeholder, and for a
+    /// suggestion in a field emptied while editing, where it is only a hint at what ending with
+    /// nothing brings back.
+    private var restingColor: Color {
+        .pp(isSuggested && !isEditing ? .textPrimary : .textSecondary)
     }
 
     /// The tint is the caret's color, and the selection highlight's, so it is clear only while
@@ -139,13 +152,14 @@ final class Caret {
 }
 
 /// The `_`: blinking from the moment editing starts or the caret moves, still at rest, and
-/// pulsing at rest while a new placeholder is on its way.
+/// breathing in blue at rest while a new placeholder is on its way.
 private struct TitleCursor: View {
     let caret: Caret
     let draft: String
     let placeholder: String
     let isEditing: Bool
-    let pulses: Bool
+    /// How far toward the joining blue the `_` at rest is, and how deeply it breathes.
+    let tint: Double
     let blinks: Bool
 
     @State private var since = Date.now
@@ -169,13 +183,14 @@ private struct TitleCursor: View {
                     let isOn = Int(ticks.rounded()).isMultiple(of: 2)
                     underscore(isOn ? .pp(.textPrimary) : .clear)
                 }
-            } else if pulses, !isEditing, blinks {
+            } else if tint > 0, !isEditing, blinks {
+                // The breath deepens and fades with the tint, so the `_` eases back to rest.
                 TimelineView(.animation) { context in
-                    underscore(.pp(.railJoin))
-                        .opacity(Self.pulseOpacity(at: context.date))
+                    underscore(restingColor)
+                        .opacity(1 - (1 - Self.pulseOpacity(at: context.date)) * tint)
                 }
             } else {
-                underscore(isEditing ? .pp(.textPrimary) : .pp(.borderStrong))
+                underscore(isEditing ? .pp(.textPrimary) : restingColor)
             }
         }
         .padding(.trailing, -spareCell)
@@ -189,6 +204,10 @@ private struct TitleCursor: View {
             since = .now
         }
         .hotReloadable()
+    }
+
+    private var restingColor: Color {
+        tint > 0 ? Color.pp(.borderStrong).mix(with: .pp(.railJoin), by: tint) : .pp(.borderStrong)
     }
 
     /// Full at the start of each pulse, fading smoothly to its lowest halfway through.
@@ -261,9 +280,11 @@ private struct TitleCursor: View {
         selection: .constant(caret.selection),
         placeholder: "New routine",
         shownPlaceholder: "New routine",
+        isSuggested: false,
         placeholderOpacity: 1,
         standIns: [:],
-        pulses: false,
+        tints: [:],
+        cursorTint: 0,
         isEditing: true,
         blinks: true,
         accessibilityLabel: "Routine name",

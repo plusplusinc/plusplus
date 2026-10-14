@@ -8,13 +8,18 @@ import SwiftUI
 /// system caret is hidden, so the `_` is the only cursor there is; a range selection shows the
 /// system highlight instead.
 ///
-/// An empty `text` is an unnamed title, which shows the placeholder, gray, in its place. The
-/// placeholder is never the field's contents: tapping it puts the `_` under its first letter,
-/// typing replaces it, and ending with nothing keeps it. It may change at any time, as a
-/// suggested name does. While a new one is on its way (`isSuggesting`) the `_` pulses in the
-/// rail's joining blue; when it comes, the old one fades out and the new one types in, its
-/// letters scrambling through stand-in letters in blue for a moment behind the lead before each
-/// lands in gray. Reduce Motion crossfades it instead, with no blue, and editing stops it at once.
+/// An empty `text` is an unnamed title, which shows its suggestion in its place, in white, or
+/// with none the placeholder, in gray. The placeholder is never the field's contents: tapping it
+/// puts the `_` under its first letter, typing replaces it, and ending with nothing keeps it. A
+/// suggestion opens as text to edit, the caret at its end; committed unchanged it stays a
+/// suggestion (`text` stays empty), changed it becomes the title, and cleared the title is
+/// unnamed again.
+///
+/// The suggestion may change at any time. While a new one is on its way (`isSuggesting`) the
+/// `_` breathes in the rail's joining blue; when it comes, the old title fades out and the new
+/// one types in, each letter shuffling briefly through the name's other letters in blue just
+/// behind the lead, then easing to its own color. Reduce Motion crossfades it instead, with no
+/// blue, and editing stops it at once.
 ///
 /// The field draws its own text, so everything the keyboard shows in it (suggestions, inline
 /// predictions, text being composed) shows as in any field. The `_` is drawn over it by
@@ -23,6 +28,7 @@ import SwiftUI
 public struct EditableTitle: View {
     @Binding private var text: String
     private let placeholder: String
+    private let suggestion: String?
     private let isSuggesting: Bool
     private let label: LocalizedStringKey
     private let hint: LocalizedStringKey
@@ -31,12 +37,16 @@ public struct EditableTitle: View {
     /// The field's selection, which the text system writes as the caret moves.
     @State private var caret = Caret()
     @FocusState private var isEditing: Bool
-    /// The placeholder as drawn: behind `placeholder` while a new one types in.
-    @State private var shownPlaceholder: String
-    @State private var placeholderOpacity = 1.0
-    /// When `shownPlaceholder` started typing in, while it is. The one clock every character's
+    /// What an unnamed title shows as drawn: behind `restingTitle` while a new one types in.
+    @State private var shownTitle: String
+    /// Whether `shownTitle` is a suggestion, drawn white, rather than the placeholder, gray.
+    @State private var shownIsSuggested: Bool
+    @State private var shownOpacity = 1.0
+    /// When `shownTitle` started typing in, while it is. The one clock every character's
     /// appearing and landing is read from.
     @State private var typingStart: Date?
+    /// The suggestion an edit started from, so committing it unchanged leaves it a suggestion.
+    @State private var editedSuggestion: String?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
@@ -45,57 +55,87 @@ public struct EditableTitle: View {
     public init(
         text: Binding<String>,
         placeholder: String,
+        suggestion: String? = nil,
         isSuggesting: Bool = false,
         accessibilityLabel: LocalizedStringKey,
         accessibilityHint: LocalizedStringKey,
     ) {
         _text = text
         self.placeholder = placeholder
+        self.suggestion = suggestion
         self.isSuggesting = isSuggesting
         label = accessibilityLabel
         hint = accessibilityHint
         _draft = State(initialValue: text.wrappedValue)
-        _shownPlaceholder = State(initialValue: placeholder)
+        _shownTitle = State(initialValue: suggestion ?? placeholder)
+        _shownIsSuggested = State(initialValue: suggestion != nil)
     }
 
-    /// The stand-in letter drawn for `character`, at `index`, on its `swap`th change: never
-    /// `character` itself, and in its case. Nil for anything that isn't a letter, which lands at
-    /// once. Letters only, so a monospaced title never changes width. Scrambled from its
-    /// arguments rather than random, so the same moment always draws the same.
-    public static func standIn(for character: Character, at index: Int, swap: Int) -> Character? {
-        guard character.isLetter else { return nil }
-        let letters = Array(
-            character.isUppercase ? "ABCDEFGHIJKLMNOPQRSTUVWXYZ" : "abcdefghijklmnopqrstuvwxyz",
-        ).filter { $0 != character }
-        var mix = UInt64(index) &* 0x9E37_79B9_7F4A_7C15 ^ UInt64(swap) &* 0xBF58_476D_1CE4_E5B9
+    /// What an unnamed title shows once nothing is typing in.
+    private var restingTitle: String {
+        suggestion ?? placeholder
+    }
+
+    /// The stand-in drawn for `character`, at `index`, on its `swap`th change: one of the
+    /// other letters of `text`, in `character`'s case, so the letters seem to shuffle into place.
+    /// Nil for the first character, and for anything that isn't a letter, which land at once.
+    /// Letters only, so a monospaced title never changes width. Picked from its arguments rather
+    /// than at random, so the same moment always draws the same.
+    public static func standIn(
+        for character: Character,
+        at index: Int,
+        swap: Int,
+        in text: String,
+    ) -> Character? {
+        guard index > 0, character.isLetter else { return nil }
+        let letters = Set(text.filter(\.isLetter).map { character.isUppercase
+                ? Character($0.uppercased())
+                : Character($0.lowercased())
+        })
+        .subtracting([character])
+        .sorted()
+        guard !letters.isEmpty else { return nil }
+        // SplitMix64's finalizer, so neighboring indexes and swaps pick unrelated letters.
+        var mix = (UInt64(index) << 32 | UInt64(swap)) &+ 0x9E37_79B9_7F4A_7C15
+        mix = (mix ^ (mix >> 30)) &* 0xBF58_476D_1CE4_E5B9
+        mix = (mix ^ (mix >> 27)) &* 0x94D0_49BB_1331_11EB
         mix ^= mix >> 31
         return letters[Int(mix % UInt64(letters.count))]
     }
 
-    /// How far `text` has typed in, `elapsed` seconds after it started: the characters that have
-    /// appeared, and the letters among them still scrambling, by index, with their stand-ins.
-    public static func typingFrame(
-        of text: String,
-        at elapsed: TimeInterval,
-    ) -> (shown: String, standIns: [Int: Character]) {
+    /// How far `text` has typed in, `elapsed` seconds after it started.
+    public static func typingFrame(of text: String, at elapsed: TimeInterval) -> TypingFrame {
         let characters = Array(text)
         let lead = SuggestionTiming.leadInterval
+        let decode = SuggestionTiming.decodeDuration
         let count = min(characters.count, max(0, Int(elapsed / lead) + 1))
-        var standIns: [Int: Character] = [:]
+        var frame = TypingFrame(shown: String(characters.prefix(count)))
         for index in 0 ..< count {
             let appeared = Double(index) * lead
+            let since = elapsed - appeared
+            let character = characters[index]
+            let shuffles = standIn(for: character, at: index, swap: 0, in: text) != nil
             // Compared as typingDuration(of:) adds it up, so the end is the end.
-            guard elapsed < appeared + SuggestionTiming.decodeDuration else { continue }
-            let swap = Int((elapsed - appeared) / SuggestionTiming.glyphSwapInterval)
-            standIns[index] = standIn(for: characters[index], at: index, swap: swap)
+            if shuffles, elapsed < appeared + decode {
+                let swap = Int(since / SuggestionTiming.glyphSwapInterval)
+                frame.standIns[index] = standIn(for: character, at: index, swap: swap, in: text)
+                frame.tints[index] = 1
+                continue
+            }
+            let landed = appeared + (shuffles ? decode : 0)
+            guard elapsed < landed + SuggestionTiming.tintFade else { continue }
+            // Eased out: quick to leave full blue, slow into gray.
+            let fading = (elapsed - landed) / SuggestionTiming.tintFade
+            frame.tints[index] = (1 - fading) * (1 - fading)
         }
-        return (String(characters.prefix(count)), standIns)
+        frame.cursorTint = count < characters.count ? 1 : frame.tints[characters.count - 1] ?? 0
+        return frame
     }
 
-    /// How long `text` takes to type in, until its last letter lands.
+    /// How long `text` takes to type in, until its last letter has landed and eased to gray.
     public static func typingDuration(of text: String) -> TimeInterval {
         Double(max(0, text.count - 1)) * SuggestionTiming.leadInterval
-            + SuggestionTiming.decodeDuration
+            + SuggestionTiming.decodeDuration + SuggestionTiming.tintFade
     }
 
     /// Whether a draft holds a press of Return: a single newline, wherever the caret was and
@@ -104,10 +144,11 @@ public struct EditableTitle: View {
         draft.count(where: \.isNewline) == 1
     }
 
-    /// The title an edit leaves behind: trimmed, and empty, which shows the placeholder, when
-    /// nothing is left.
-    public static func committed(_ draft: String) -> String {
-        draft.trimmingCharacters(in: .whitespacesAndNewlines)
+    /// The title an edit leaves behind: trimmed, and empty, which leaves the title unnamed, when
+    /// nothing is left or it is the suggestion the edit started from, unchanged.
+    public static func committed(_ draft: String, from suggestion: String? = nil) -> String {
+        let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed == suggestion ? "" : trimmed
     }
 
     /// Where the `_` goes in the draft: the insertion point, or nil for a range selection, which
@@ -187,19 +228,26 @@ public struct EditableTitle: View {
         // focus, as typing in starts and stops.
         TimelineView(.animation(paused: typingStart == nil)) { context in
             let frame = typingStart.map {
-                Self.typingFrame(of: shownPlaceholder, at: context.date.timeIntervalSince($0))
+                Self.typingFrame(of: shownTitle, at: context.date.timeIntervalSince($0))
             }
             EditableTitleContent(
                 draft: $draft,
                 caret: caret,
                 selection: $caret.selection,
-                placeholder: placeholder,
-                shownPlaceholder: frame?.shown ?? shownPlaceholder,
-                placeholderOpacity: placeholderOpacity,
+                placeholder: restingTitle,
+                shownPlaceholder: frame?.shown ?? shownTitle,
+                isSuggested: shownIsSuggested,
+                placeholderOpacity: shownOpacity,
                 standIns: frame?.standIns ?? [:],
-                // Through the typing too: the pulse stops once the last letter has landed.
-                pulses: !reduceMotion
-                    && (isSuggesting || shownPlaceholder != placeholder || typingStart != nil),
+                tints: frame?.tints ?? [:],
+                // Blue while a suggestion is on its way, and through the typing until the last
+                // letter has eased to its own color.
+                cursorTint: reduceMotion
+                    ? 0
+                    : max(
+                        isSuggesting || shownTitle != restingTitle ? 1 : 0,
+                        frame?.cursorTint ?? 0,
+                    ),
                 isEditing: isEditing,
                 blinks: true,
                 accessibilityLabel: label,
@@ -217,13 +265,17 @@ public struct EditableTitle: View {
                 .contentShape(.rect)
                 .onTapGesture { isEditing = true }
         }
-        .task(id: placeholder) {
-            await showPlaceholder()
+        .task(id: restingTitle) {
+            await showRestingTitle()
         }
         .onChange(of: isEditing) { _, editing in
             if editing {
-                // Editing wins over a placeholder typing in.
+                // Editing wins over a title typing in, and opens on the final one.
                 settle()
+                if draft.isEmpty, let suggestion {
+                    editedSuggestion = suggestion
+                    draft = suggestion
+                }
                 // The tap that focuses the field leaves the caret at the start or selects
                 // everything, not where it landed, so editing starts at the end. Taps once
                 // editing place the caret where they land.
@@ -240,11 +292,11 @@ public struct EditableTitle: View {
         .hotReloadable()
     }
 
-    /// Brings the drawn placeholder to the current one: typed in at rest, crossfaded with Reduce
-    /// Motion, and at once where it can't be seen or the title is being edited. A newer
-    /// placeholder cancels this one and types on from wherever it got to.
-    private func showPlaceholder() async {
-        guard shownPlaceholder != placeholder else { return }
+    /// Brings the drawn title to the resting one: typed in at rest, crossfaded with Reduce
+    /// Motion, and at once where it can't be seen or the title is being edited. A newer one
+    /// cancels this and starts over.
+    private func showRestingTitle() async {
+        guard shownTitle != restingTitle else { return }
         guard !reduceMotion, !isEditing, draft.isEmpty else {
             withAnimation(reduceMotion ? .snappy(duration: SuggestionTiming.crossfade) : nil) {
                 settle()
@@ -253,33 +305,50 @@ public struct EditableTitle: View {
         }
         typingStart = nil
         withAnimation(.snappy(duration: SuggestionTiming.fadeOut)) {
-            placeholderOpacity = 0
+            shownOpacity = 0
         }
         guard await pause(.seconds(SuggestionTiming.fadeOut)) else { return }
-        shownPlaceholder = placeholder
-        placeholderOpacity = 1
+        let title = restingTitle
+        shownTitle = title
+        shownIsSuggested = suggestion != nil
+        shownOpacity = 1
         typingStart = .now
-        guard await pause(.seconds(Self.typingDuration(of: placeholder))) else { return }
+        guard await pause(.seconds(Self.typingDuration(of: title))) else { return }
         typingStart = nil
     }
 
-    /// Waits, and says whether typing in should go on: not cancelled by a newer placeholder, and
+    /// Waits, and says whether typing in should go on: not cancelled by a newer title, and
     /// not stopped by editing, which has already settled the title.
     private func pause(_ duration: Duration) async -> Bool {
         (try? await Task.sleep(for: duration)) != nil && !isEditing
     }
 
-    /// The placeholder as it is, with nothing typing in.
+    /// The resting title as it is, with nothing typing in.
     private func settle() {
-        shownPlaceholder = placeholder
-        placeholderOpacity = 1
+        shownTitle = restingTitle
+        shownIsSuggested = suggestion != nil
+        shownOpacity = 1
         typingStart = nil
     }
 
     private func commit() {
-        text = Self.committed(draft)
+        text = Self.committed(draft, from: editedSuggestion)
+        editedSuggestion = nil
         draft = text
     }
+}
+
+/// A moment of a placeholder typing in, as plain values `EditableTitleContent` draws.
+public struct TypingFrame: Equatable {
+    /// The characters that have appeared.
+    public var shown: String
+    /// The letters still shuffling, by index, each with the letter drawn in its place.
+    public var standIns: [Int: Character] = [:]
+    /// How blue each character is, by index, from 1 while it shuffles to 0 once it has eased to
+    /// gray. Missing is 0.
+    public var tints: [Int: Double] = [:]
+    /// How blue the `_` is: 1 until the last character appears, then fading with it.
+    public var cursorTint: Double = 1
 }
 
 /// What the title's field does: takes focus, and ends editing on Return. Separate from how the
