@@ -61,9 +61,9 @@ principle wins or gets changed here, on purpose.
 Agents build the product, led by a main session, the lead (`CLAUDE.md`, "Building features"),
 for a maintainer who decides what it should be. The work aims for three things:
 
-1. **The right product.** A lead whose picture of what the maintainer intends, for the product,
-   its users, and the business if it becomes one, matches theirs, and who, where the intent is
-   not settled, brings the question with a recommendation instead of guessing.
+1. **The right product.** A lead whose picture of what the maintainer intends, for the product
+   and its users, matches theirs, and who, where the intent is not settled, brings the question
+   with a recommendation instead of guessing.
 2. **Built right.** Work that lands the first time: few failed runs, few rounds the lead caused,
    and nothing broken after a merge.
 3. **Autonomous.** A maintainer whose time goes to product calls and trying builds, not to
