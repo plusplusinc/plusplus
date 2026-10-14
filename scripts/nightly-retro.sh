@@ -59,10 +59,12 @@ is_running() {
 }
 
 start() {
-    local id pid main name
+    local id pid common main name
     id=$(session_id)
-    [ -z "$id" ] || die "$SESSION is already running ($id). $HINT"
     pid=$(pgrep -of "$RETRO_PROCESS" || true)
+    [ -z "$id" ] || [ -n "$pid" ] || die "$SESSION is open ($id), but its claude has quit. Read" \
+        "why with scripts/nightly-retro.sh show, then close it with screen -S $id -X quit and start again."
+    [ -z "$id" ] || die "$SESSION is already running ($id). $HINT"
     [ -z "$pid" ] || die "A nightly retro is already running outside screen (pid $pid). Quit it" \
         "first: two would both run at midnight."
 
@@ -70,7 +72,9 @@ start() {
     for name in HOME USER LOGNAME LANG TMPDIR SSH_AUTH_SOCK __CF_USER_TEXT_ENCODING COMMAND_MODE; do
         [ -z "${!name:-}" ] || vars+=("$name=${!name}")
     done
-    main=$(dirname "$(git -C "$ROOT" rev-parse --path-format=absolute --git-common-dir)")
+    # Two steps, so a git failure stops the script rather than leaving dirname with "".
+    common=$(git -C "$ROOT" rev-parse --path-format=absolute --git-common-dir)
+    main=$(dirname "$common")
     cd "$main"
     # -U: the window is UTF-8 whatever the caller's locale.
     env -i "${vars[@]}" "$SCREEN" -U -dmS "$SESSION" /bin/zsh -lic "$COMMAND; exec /bin/zsh -l"
@@ -79,6 +83,8 @@ start() {
         is_running
     id=$(session_id)
     "$SCREEN" -S "$id" -p 0 -X width -w 120 50
+    wait_for "$SESSION started ($id), but its claude didn't. Read why with scripts/nightly-retro.sh show." \
+        pgrep -qf "$RETRO_PROCESS"
     echo "Started $SESSION ($id) in $main."
     echo "$HINT"
 }
@@ -95,11 +101,12 @@ show() {
     "$SCREEN" -S "$id" -p 0 -X hardcopy "$dir/done"
     wait_for "$SESSION did not answer within $WAIT_SECONDS seconds. Attach with screen -r $SESSION to see why." \
         test -e "$dir/done"
-    # NULs are blank cells and box lines (U+2500's low byte is 0). Other bytes outside printable
-    # ASCII become U+FFFD; a character whose low byte is printable ASCII can't be told apart from
-    # it (Claude Code's prompt arrow, U+276F, prints as "o"). Trailing spaces and blank lines at
-    # either end go; inner runs of blank lines become one.
-    LC_ALL=C tr -d '\000' < "$dir/screen" | LC_ALL=C awk '
+    # A NUL is a character whose low byte is 0, such as the box line U+2500; it becomes a space,
+    # keeping the columns. Other bytes outside printable ASCII become U+FFFD; a character whose
+    # low byte is printable ASCII can't be told apart from it (Claude Code's prompt arrow,
+    # U+276F, prints as "o"). Trailing spaces and blank lines at either end go; inner runs of
+    # blank lines become one.
+    LC_ALL=C tr '\000' ' ' < "$dir/screen" | LC_ALL=C awk '
         { gsub(/[^[:print:]]/, "\357\277\275"); sub(/ +$/, "") }
         NF { if (gap && seen) print ""; print; seen = 1; gap = 0; next }
         { gap = 1 }'
