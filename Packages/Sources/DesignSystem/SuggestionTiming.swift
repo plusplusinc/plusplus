@@ -14,9 +14,9 @@ public enum SuggestionTiming {
     /// How long a landed letter, and the `_` once the last one lands, takes to ease from blue to
     /// its own color.
     public static let tintFade: TimeInterval = 0.16
-    /// One slow breath of the `_`, blue, while a suggestion is on its way and typing in. Slower
-    /// than the editing cursor's blink, and soft where that is on and off, so it never reads as
-    /// focus.
+    /// One slow breath of the `_`, blue, while a suggestion fades out and the next types in.
+    /// Slower than the editing cursor's blink, and soft where that is on and off, so it never
+    /// reads as focus.
     public static let pulsePeriod: TimeInterval = 1.8
     /// How far the `_` fades at the bottom of a breath.
     public static let pulseLowestOpacity = 0.4

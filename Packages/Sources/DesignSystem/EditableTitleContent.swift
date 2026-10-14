@@ -27,7 +27,7 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
     /// than the placeholder's gray, by index, from 0 to 1. Missing is 0.
     let tints: [Int: Double]
     /// How far the `_` at rest is drawn in the joining blue, from 0 to 1, breathing in step:
-    /// while a new placeholder is on its way and typing in.
+    /// while a new placeholder fades the old one out and types in.
     let cursorTint: Double
     let isEditing: Bool
     /// Whether the `_` blinks while editing, and pulses at rest. Snapshots hold it lit, however
@@ -152,7 +152,7 @@ final class Caret {
 }
 
 /// The `_`: blinking from the moment editing starts or the caret moves, still at rest, and
-/// breathing in blue at rest while a new placeholder is on its way.
+/// breathing in blue at rest while a new placeholder arrives.
 private struct TitleCursor: View {
     let caret: Caret
     let draft: String

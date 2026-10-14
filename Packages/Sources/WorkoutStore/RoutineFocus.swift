@@ -14,7 +14,6 @@ enum RoutineFocus: Equatable {
     /// Upper body, pushing and pulling about evenly.
     case upperBody
     case upperBodyAndCore
-    case legsAndCore
     case fullBody
 
     enum StretchRegion: CaseIterable {
@@ -28,7 +27,8 @@ enum RoutineFocus: Equatable {
 
     /// Stretches as a clear majority (seven in ten) is mobility. Otherwise the rest, the work,
     /// is named for the group that does three in five of it; else its two groups, unless both
-    /// are upper body; else the parts of the body it spans. Upper body alone is a push or a pull
+    /// are upper body; else the parts of the body it spans, which is then the upper body at
+    /// least, since legs and core on their own are a pair. Upper body alone is a push or a pull
     /// when two in three of it is, so push-ups and an overhead press are a push day.
     init(of exercises: [Exercise]) {
         let work = exercises.filter { !$0.isStretch }
@@ -42,14 +42,12 @@ enum RoutineFocus: Equatable {
             self = .group(main)
         } else if groups.count == 2, !Self.upper.isSuperset(of: groups) {
             self = .pair(groups[0], groups[1])
+        } else if counts[.legs] != nil {
+            self = .fullBody
+        } else if counts[.core] != nil {
+            self = .upperBodyAndCore
         } else {
-            let hasUpper = !Self.upper.isDisjoint(with: groups)
-            self = switch (hasUpper, counts[.legs] != nil, counts[.core] != nil) {
-            case (true, true, _): .fullBody
-            case (true, false, true): .upperBodyAndCore
-            case (true, false, false): Self.upperBody(work)
-            default: .legsAndCore
-            }
+            self = Self.upperBody(work)
         }
     }
 

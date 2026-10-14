@@ -76,7 +76,6 @@ extension RoutineFocus {
             )
         case .upperBody: (["Upper body", "Push and pull"], ["Top half"])
         case .upperBodyAndCore: (["Upper body and core", "Core and upper body"], ["Top half"])
-        case .legsAndCore: Self.pairNames(.legs, .core, for: work)
         case .fullBody: Self.fullBodyNames(for: work)
         case .mobility: ([], [])
         }
@@ -120,7 +119,7 @@ extension RoutineFocus {
         switch self {
         case .group(.legs), .pair(.legs, _): "legs"
         case .push, .pull, .upperBody: "upper body"
-        case .fullBody, .legsAndCore: "full body"
+        case .fullBody: "full body"
         default: nil
         }
     }

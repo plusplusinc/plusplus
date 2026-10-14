@@ -15,11 +15,10 @@ import SwiftUI
 /// suggestion (`text` stays empty), changed it becomes the title, and cleared the title is
 /// unnamed again.
 ///
-/// The suggestion may change at any time. While a new one is on its way (`isSuggesting`) the
-/// `_` breathes in the rail's joining blue; when it comes, the old title fades out and the new
-/// one types in, each letter shuffling briefly through the name's other letters in blue just
-/// behind the lead, then easing to its own color. Reduce Motion crossfades it instead, with no
-/// blue, and editing stops it at once.
+/// The suggestion may change at any time. When it does, the old title fades out and the new one
+/// types in, each letter shuffling briefly through the name's other letters in blue just behind
+/// the lead, then easing to its own color, while the `_` breathes in the rail's joining blue.
+/// Reduce Motion crossfades it instead, with no blue, and editing stops it at once.
 ///
 /// The field draws its own text, so everything the keyboard shows in it (suggestions, inline
 /// predictions, text being composed) shows as in any field. The `_` is drawn over it by
@@ -29,7 +28,6 @@ public struct EditableTitle: View {
     @Binding private var text: String
     private let placeholder: String
     private let suggestion: String?
-    private let isSuggesting: Bool
     private let label: LocalizedStringKey
     private let hint: LocalizedStringKey
 
@@ -56,14 +54,12 @@ public struct EditableTitle: View {
         text: Binding<String>,
         placeholder: String,
         suggestion: String? = nil,
-        isSuggesting: Bool = false,
         accessibilityLabel: LocalizedStringKey,
         accessibilityHint: LocalizedStringKey,
     ) {
         _text = text
         self.placeholder = placeholder
         self.suggestion = suggestion
-        self.isSuggesting = isSuggesting
         label = accessibilityLabel
         hint = accessibilityHint
         _draft = State(initialValue: text.wrappedValue)
@@ -178,12 +174,12 @@ public struct EditableTitle: View {
                 placeholderOpacity: shownOpacity,
                 standIns: frame?.standIns ?? [:],
                 tints: frame?.tints ?? [:],
-                // Blue while a suggestion is on its way, and through the typing until the last
-                // letter has eased to its own color.
+                // Blue from the moment a suggestion changes, through the old one's fade and the
+                // typing, until the last letter has eased to its own color.
                 cursorTint: reduceMotion
                     ? 0
                     : max(
-                        isSuggesting || (suggestion != nil && shownTitle != restingTitle) ? 1 : 0,
+                        suggestion != nil && shownTitle != restingTitle ? 1 : 0,
                         frame?.cursorTint ?? 0,
                     ),
                 isEditing: isEditing,
