@@ -5,7 +5,7 @@ argument-hint: "nightly | <PR number or range>"
 allowed-tools: Bash(git log:*), Bash(git diff:*), Bash(git show:*), Bash(git fetch:*), Bash(git worktree add:*), Bash(git worktree remove:*), Bash(gh pr view:*), Bash(gh pr list:*), Bash(gh pr checks:*), Bash(gh pr diff:*), Bash(gh api:*), Bash(asc xcode-cloud build-runs:*), Bash(asc xcode-cloud status:*), Bash(asc xcode-cloud doctor:*), Bash(asc xcode-cloud issues:*), Bash(asc xcode-cloud test-results:*), Bash(scripts/board.sh:*), Bash(scripts/lint.sh:*), Bash(scripts/conversations.py:*), Bash(date:*), Read, Write, Edit, Glob, Grep, Agent, CronList, CronCreate, CronDelete
 ---
 
-**With the argument `nightly`, this session is the retro's tab: skip to "How it runs" and do
+**With the argument `nightly`, this is the nightly session: skip to "How it runs" and do
 only what it says there.** The retro itself runs in a subagent.
 
 Input: the merges to `main` that have no retro yet and the conversation since the last retro
@@ -33,7 +33,7 @@ fix, one PR.
   `gh pr list --state all --search "Retro of in:title"` (without `--state all` only open
   PRs are searched).
 - **One retro per merge.** Before starting, check that no retro PR, open or merged, already
-  names the PR number. The nightly tab and a session run by hand can both run this.
+  names the PR number. The nightly session and one run by hand can both run this.
 
 ## Never, in any run
 
@@ -106,17 +106,21 @@ maintainer could do differently, and the open product questions, each with a rec
 
 ## How it runs
 
-On the maintainer's Mac, in a Claude Code session in a terminal tab kept open for it, in the
-main checkout, in auto mode. `caffeinate -s` keeps the Mac awake while it runs on power. The
-tab starts with one paste:
+On the maintainer's Mac, in a Claude Code session in a detached `screen` session named
+`nightly-retro`, in the main checkout, in auto mode. Unlike a terminal tab, it starts while the
+Mac is locked and outlives the terminal app. One command starts it, from any checkout, and
+refuses when one is already running:
 
 ```sh
-cd ~/plusplus/plusplus && caffeinate -s claude --name "Nightly retro" --permission-mode auto "/retro nightly"
+scripts/nightly-retro.sh start
 ```
 
-The name keeps the tab's own session out of `scripts/conversations.py`, so a run never reads
-the last run's digest. Each `/retro nightly`, the first one and every midnight after, does
-this, in order:
+`scripts/nightly-retro.sh show` prints what its window shows; `screen -r nightly-retro`
+attaches, and Ctrl-a d detaches. The session runs
+`caffeinate -s claude --name "Nightly retro" --permission-mode auto "/retro nightly"`.
+`caffeinate -s` keeps the Mac awake while it runs on power with the lid open, and the name
+keeps this session out of `scripts/conversations.py`, so a run never reads the last run's
+digest. Each `/retro nightly`, the first one and every midnight after, does this, in order:
 
 1. **Schedule the next night.** `CronList`, `CronDelete` every task whose prompt is
    `/retro nightly`, then `CronCreate` one recurring task, `0 0 * * *` (local time), prompt
@@ -147,7 +151,7 @@ this, in order:
 6. **Report and save.** When the extract ran and the subagent finished (or there was
    nothing), write the start time from step 2 to `.build/retro/last-run`. If either failed,
    leave the file, so the next night covers this one too. Print: "Nightly retro <date>: <PR URL, or no PR>", the
-   findings, and the digest. Nothing more: the tab's context stays small for the week.
+   findings, and the digest. Nothing more: the session's context stays small for the week.
 
 On request, a session over one merge or a range runs sections 1 to 4 itself, in its own
 worktree from `origin/main`.

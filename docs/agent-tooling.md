@@ -118,11 +118,17 @@ lives in packages.
 ## The nightly retro
 
 The retro (`.claude/skills/retro/SKILL.md`) runs on the maintainer's Mac, in a Claude Code
-session in a terminal tab kept open for it; the skill's "How it runs" has the line that starts
+session in a detached `screen` session; the skill's "How it runs" has the command that starts
 it and what each night does. It reads the merges and the conversation since the last run,
 which `scripts/conversations.py` prints without the tool calls, so a day reads in tens of
 kilobytes rather than the tens of megabytes of transcripts. Changing the retro means changing
 the skill.
+
+`scripts/nightly-retro.sh` starts the session and prints its window without attaching. It holds
+what `screen` alone gets wrong: a clean environment, since a Claude Code session's shell carries
+`CLAUDECODE` and `CLAUDE_CODE_*` variables that must not reach the retro's `claude`; refusing to
+start a second retro, which would also run at midnight; and the quirks of the `screen` 4.00 that
+macOS ships, which its header lists.
 
 ## Parallel work
 
