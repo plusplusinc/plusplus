@@ -143,10 +143,33 @@ experimental parallel mode, stay off; the lead proposes one only for work that i
 parallel: a review through several lenses, debugging with competing hypotheses, or slices that
 touch disjoint files.
 
+## When the simulator, not the app, fails a test
+
+A simulator keeps its settings across sessions, so one agent's leftovers can fail the next
+one's UI test with nothing wrong in the app. `scripts/test.sh sim` runs `scripts/sim.sh reset`
+first, which sets light appearance, large text, and the full software keyboard.
+`scripts/sim.sh erase-team` erases the team simulator and resets it in about 25 seconds, after
+which `scripts/run.sh` installs the app again; it is the only way agents erase one, since raw `xcrun simctl erase` is denied (see Permissions).
+
+- The software keyboard stays minimized after `axe type`, which sends hardware key events:
+  `reset` turns off keyboard minimization and the remembered hardware keyboard, rebooting
+  when it changed either.
+- An "AutoFill" bubble over the title fails its pixel checks: it is UIKit's edit menu, which
+  every text field shows when a tap lands in it while it is focused and empty, or on its caret
+  (Reminders' title does the same, and turning off AutoFill in Settings does not remove it).
+  Find the tap that landed on the focused field; if a test that passed before shows it,
+  `erase-team` (a reboot cleared it once).
+- A UI test hangs: the test plan fails it after three minutes ("exceeded execution time
+  allowance") and the run moves on; a run that hangs before any test starts needs `erase-team`.
+- "Failed to establish communication with the test runner (Channel disconnected)" within
+  seconds of starting: the simulator needs a reboot, so `erase-team`.
+
 ## Permissions
 
 `.claude/settings.json` pre-approves the scripts except `nightly-retro.sh`, which starts an
 unattended Claude Code session; read-only `xcodebuild`, `git`, `gh`, and `asc` commands (plus
 `asc xcode-cloud run`; see `docs/ci.md`); and `simctl`, with `simctl erase`, uploads and
-notarization, and force pushes denied. The scripts are the gate for building,
+notarization, and force pushes denied. `simctl erase` takes any device, or `all`, so a wrong
+argument would wipe a person's simulators; `scripts/sim.sh erase-team` erases only "PlusPlus
+Team". The scripts are the gate for building,
 testing, and linting, so raw `xcodebuild build`, `swiftlint`, and friends prompt.

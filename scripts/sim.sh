@@ -1,5 +1,5 @@
 #!/bin/bash
-# Drives the app that scripts/run.sh installed, without rebuilding.
+# Drives the simulator, and the app scripts/run.sh installed on it, without rebuilding.
 #
 #   scripts/sim.sh screenshot [name]        # .build/screenshots/<name>.png; prints the path
 #   scripts/sim.sh shots [name]             # <name>.light.png, .dark.png, .xxxl.png; ends light, large
@@ -12,7 +12,7 @@
 #   scripts/sim.sh log [minutes]            # the app's own log lines, plus errors and faults
 #   scripts/sim.sh erase-team               # erase "PlusPlus Team", then reset it; when its state
 #                                           # is suspect or a UI test fails with nothing wrong in
-#                                           # the app. About a minute, and the app is gone after.
+#                                           # the app. About 25 s; scripts/run.sh reinstalls the app.
 #
 # Appearance, content size, and the keyboard are simulator settings, so they survive relaunches
 # and reboots: whatever the last session left behind is what the next screenshot or UI test
