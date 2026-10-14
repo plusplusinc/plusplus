@@ -1,5 +1,5 @@
 # SwiftFormat (nicklockwood). Formatting only; SwiftLint handles the rest.
-# Runs on every agent edit via .claude/hooks/format-swift.sh and on CI via scripts/lint.sh.
+# Runs on every agent edit via .claude/hooks/on-edit.sh and on CI via scripts/lint.sh.
 
 --swiftversion 6.3
 --indent 4
