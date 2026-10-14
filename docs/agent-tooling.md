@@ -143,10 +143,31 @@ experimental parallel mode, stay off; the lead proposes one only for work that i
 parallel: a review through several lenses, debugging with competing hypotheses, or slices that
 touch disjoint files.
 
+## When the simulator, not the app, fails a test
+
+A simulator keeps its settings across sessions, so one agent's leftovers can fail the next
+one's UI test with nothing wrong in the app. On "PlusPlus Team", `scripts/test.sh sim` runs
+`scripts/sim.sh reset` first: light appearance, large text, and a keyboard that is not
+minimized. On any other simulator it leaves the settings alone, since that one is a person's. A reboot is
+`xcrun simctl shutdown "PlusPlus Team"`, and the next script boots it again;
+`scripts/sim.sh erase-team` is the last resort, and agents erase only through it.
+
+- The software keyboard stays minimized after `axe type`, which sends hardware key events:
+  `reset` turns off keyboard minimization, rebooting when it changed it.
+- An "AutoFill" bubble over the title fails its pixel checks: it is UIKit's edit menu, shown
+  when a tap lands in a focused field while it is empty or on its caret, as in Reminders; no
+  AutoFill setting removes it. Find the tap that hit the focused title; a reboot cleared it once.
+- A UI test hangs: the test plan fails it after three minutes ("exceeded execution time
+  allowance") and the run moves on.
+- "Failed to establish communication with the test runner (Channel disconnected)" within
+  seconds of starting: reboot.
+
 ## Permissions
 
 `.claude/settings.json` pre-approves the scripts except `nightly-retro.sh`, which starts an
 unattended Claude Code session; read-only `xcodebuild`, `git`, `gh`, and `asc` commands (plus
 `asc xcode-cloud run`; see `docs/ci.md`); and `simctl`, with `simctl erase`, uploads and
-notarization, and force pushes denied. The scripts are the gate for building,
+notarization, and force pushes denied. `simctl erase` takes any device, or `all`, so a wrong
+argument would wipe a person's simulators; `scripts/sim.sh erase-team` erases only "PlusPlus
+Team". The scripts are the gate for building,
 testing, and linting, so raw `xcodebuild build`, `swiftlint`, and friends prompt.

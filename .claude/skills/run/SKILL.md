@@ -25,9 +25,10 @@ scripts/sim.sh shots [name]             # <name>.light.png, .dark.png, .xxxl.png
 scripts/sim.sh screenshot [name]        # one capture of whatever is on screen now
 scripts/sim.sh appearance light|dark
 scripts/sim.sh content-size <category>  # large is the default; accessibility-extra-extra-extra-large the top
-scripts/sim.sh reset                    # light, large
+scripts/sim.sh reset                    # light, large, keyboard not minimized; scripts/test.sh sim runs it on the team's
 scripts/sim.sh relaunch                 # terminate and launch the installed build; boots the simulator if needed
 scripts/sim.sh log [minutes]            # the app's own log lines plus errors and faults; last 5 minutes by default
+scripts/sim.sh erase-team               # erase "PlusPlus Team" and reset it; the app is gone after
 ```
 
 `shots` is the whole checklist in one command and leaves the device at the defaults. Every
@@ -59,7 +60,8 @@ rounds; the frames showed a third of a second of dead time in it at once.
 
 - Appearance and content size are device settings, so they survive relaunches and reboots of
   the simulator. A session that ended in dark mode makes the next `run.sh` screenshot dark.
-  Use `shots`, or `reset` when finished.
+  Use `shots`, or `reset` when finished. A UI test that fails with nothing wrong in the app is
+  often the simulator: `docs/agent-tooling.md` lists the symptoms seen so far and their fixes.
 - The default content size is `large`, not `medium`.
 - `sim.sh` has no tap layer. Taps and the accessibility tree come from
   [AXe](https://github.com/cameroncooke/AXe) (`axe touch`, `axe type`, `axe describe-ui`), which
@@ -91,6 +93,4 @@ rounds; the frames showed a third of a second of dead time in it at once.
 - `Unknown apperance: blue` (Apple's spelling): `appearance` takes only `light` or `dark`.
 - A UI test that measures the keyboard's edge failing with a frame below the screen: `axe type`
   sends hardware key events, after which the simulator keeps its software keyboard minimized.
-  Clearing `HardwareKeyboardLastSeen` in the device's keyboard preferences and rebooting brought
-  it back once and then stopped working; turning off `AutomaticMinimizationEnabled` there
-  brought it back for good.
+  `scripts/sim.sh reset` turns that off.

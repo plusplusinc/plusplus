@@ -10,9 +10,11 @@
   ],
   "defaultOptions" : {
     "codeCoverage" : false,
+    "defaultTestExecutionTimeAllowance" : 180,
     "diagnosticCollectionPolicy" : "Never",
     "language" : "en",
-    "region" : "US"
+    "region" : "US",
+    "testTimeoutsEnabled" : true
   },
   "testTargets" : [
     {

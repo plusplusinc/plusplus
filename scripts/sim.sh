@@ -1,22 +1,28 @@
 #!/bin/bash
-# Drives the app that scripts/run.sh installed, without rebuilding.
+# Drives the simulator, and the app scripts/run.sh installed on it, without rebuilding.
 #
 #   scripts/sim.sh screenshot [name]        # .build/screenshots/<name>.png; prints the path
-#   scripts/sim.sh shots [name]             # <name>.light.png, .dark.png, .xxxl.png, then reset
+#   scripts/sim.sh shots [name]             # <name>.light.png, .dark.png, .xxxl.png; ends light, large
 #   scripts/sim.sh appearance light|dark
 #   scripts/sim.sh content-size <category>  # large (the default), extra-extra-extra-large,
 #                                           # accessibility-extra-extra-extra-large, ...
-#   scripts/sim.sh reset                    # appearance light, content size large
+#   scripts/sim.sh reset                    # light, large, keyboard not minimized
 #   scripts/sim.sh relaunch                 # terminate and launch the installed build
 #   scripts/sim.sh log [minutes]            # the app's own log lines, plus errors and faults
+#   scripts/sim.sh erase-team               # erase "PlusPlus Team" and reset it; about 25 s, and
+#                                           # scripts/run.sh reinstalls the app
 #
-# Appearance and content size are simulator settings, so they survive relaunches and reboots:
-# whatever the last session left behind is what the next screenshot shows. `reset` puts the
-# device back to the defaults, and `shots` always ends with it.
+# Appearance, content size, and the keyboard are simulator settings, so they survive relaunches
+# and reboots: whatever the last session left behind is what the next screenshot or UI test
+# sees. `reset` puts the device back to the defaults, and `shots` always ends with appearance and
+# content size back.
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
 SHOTS="$ROOT/.build/screenshots"
 SUBSYSTEM="com.plusplusinc.plusplus"
+# `erase-team` erases only $TEAM_SIMULATOR. Raw `simctl erase` is denied to agents, since it takes
+# any device, or `all`, and a wrong argument would wipe a person's simulators; this script is the
+# permission boundary.
 
 # UIKit crossfades an appearance change and re-lays out for a content size change after
 # `simctl ui` has already returned, and nothing outside the process signals when that is done.
@@ -28,6 +34,26 @@ settle() {
 
 ui() {
     xcrun simctl ui "$SIMULATOR_NAME" "$@"
+}
+
+# Runs a command inside the simulator. Each invocation prints one spurious "getpwuid_r did not
+# find a match" line on stderr; drop only that, so a real failure (the device is shut down, say)
+# still explains itself.
+device() {
+    xcrun simctl spawn "$SIMULATOR_NAME" "$@" 2> >(grep -v getpwuid_r >&2)
+}
+
+# After hardware key events (`axe type` sends them), the device keeps its software keyboard
+# minimized, and a reboot alone does not bring it back. Turning off automatic minimization and
+# rebooting did, in #47, so `reset` does the same, rebooting only when it wrote the setting.
+reset_keyboard() {
+    local domain="com.apple.keyboard.preferences" key="AutomaticMinimizationEnabled"
+    if [ "$(device defaults read "$domain" "$key" 2> /dev/null)" != 0 ]; then
+        device defaults write "$domain" "$key" -bool false
+        echo "turned off keyboard minimization; rebooting $SIMULATOR_NAME" >&2
+        xcrun simctl shutdown "$SIMULATOR_NAME"
+        xcrun simctl bootstatus "$SIMULATOR_NAME" -b > /dev/null
+    fi
 }
 
 screenshot() {
@@ -70,9 +96,28 @@ case "${1:-}" in
         settle
         ;;
     reset)
+        xcrun simctl bootstatus "$SIMULATOR_NAME" -b > /dev/null
+        reset_keyboard
         ui appearance light
         ui content_size large
         settle
+        ;;
+    erase-team)
+        # A name can match more than one device; erase only when it names exactly one.
+        read -r udid state < <(xcrun simctl list devices --json | python3 -c '
+import json, sys
+matches = [d for ds in json.load(sys.stdin)["devices"].values() for d in ds
+           if d["name"] == sys.argv[1]]
+if len(matches) != 1:
+    sys.exit(f"expected one simulator named {sys.argv[1]!r}, found {len(matches)}; "
+             "create or rename it with xcrun simctl")
+print(matches[0]["udid"], matches[0]["state"])
+' "$TEAM_SIMULATOR") || exit 1
+        if [ "$state" = Booted ]; then
+            xcrun simctl shutdown "$udid"
+        fi
+        xcrun simctl erase "$udid"
+        PLUSPLUS_SIMULATOR="$TEAM_SIMULATOR" "${BASH_SOURCE[0]}" reset
         ;;
     relaunch)
         xcrun simctl bootstatus "$SIMULATOR_NAME" -b > /dev/null
@@ -81,15 +126,11 @@ case "${1:-}" in
         xcrun simctl launch "$SIMULATOR_NAME" "$bundle_id" > /dev/null
         ;;
     log)
-        # The device's `log show`, run inside the simulator. It prints one spurious
-        # "getpwuid_r did not find a match" line on stderr per invocation; drop only that,
-        # so a real failure (the device is shut down, say) still explains itself.
-        xcrun simctl spawn "$SIMULATOR_NAME" log show --last "${2:-5}m" --style compact \
-            --predicate "process == \"$SCHEME\" AND (subsystem == \"$SUBSYSTEM\" OR messageType >= 16)" \
-            2> >(grep -v getpwuid_r >&2)
+        device log show --last "${2:-5}m" --style compact \
+            --predicate "process == \"$SCHEME\" AND (subsystem == \"$SUBSYSTEM\" OR messageType >= 16)"
         ;;
     *)
-        sed -n '2,12p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2
+        sed -n '2,14p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2
         exit 64
         ;;
 esac

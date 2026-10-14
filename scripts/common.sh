@@ -14,6 +14,9 @@ PACKAGE="$ROOT/Packages"
 DERIVED_DATA="$ROOT/.build/DerivedData"
 RESULTS="$ROOT/.build/results"
 SIMULATOR_NAME="${PLUSPLUS_SIMULATOR:-iPhone 17}"
+# The feature agents' own simulator. The default one is the maintainer's, so scripts/test.sh
+# resets, and scripts/sim.sh erases, only this one.
+TEAM_SIMULATOR="PlusPlus Team"
 DESTINATION="platform=iOS Simulator,name=$SIMULATOR_NAME"
 
 mkdir -p "$DERIVED_DATA" "$RESULTS"
