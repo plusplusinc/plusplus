@@ -25,7 +25,7 @@ scripts/sim.sh shots [name]             # <name>.light.png, .dark.png, .xxxl.png
 scripts/sim.sh screenshot [name]        # one capture of whatever is on screen now
 scripts/sim.sh appearance light|dark
 scripts/sim.sh content-size <category>  # large is the default; accessibility-extra-extra-extra-large the top
-scripts/sim.sh reset                    # light, large, full software keyboard; scripts/test.sh sim runs it
+scripts/sim.sh reset                    # light, large, keyboard not minimized; scripts/test.sh sim runs it
 scripts/sim.sh relaunch                 # terminate and launch the installed build; boots the simulator if needed
 scripts/sim.sh log [minutes]            # the app's own log lines plus errors and faults; last 5 minutes by default
 scripts/sim.sh erase-team               # erase "PlusPlus Team" and reset it; the app is gone after

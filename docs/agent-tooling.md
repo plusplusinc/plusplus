@@ -147,22 +147,19 @@ touch disjoint files.
 
 A simulator keeps its settings across sessions, so one agent's leftovers can fail the next
 one's UI test with nothing wrong in the app. `scripts/test.sh sim` runs `scripts/sim.sh reset`
-first, which sets light appearance, large text, and the full software keyboard.
-`scripts/sim.sh erase-team` erases the team simulator and resets it in about 25 seconds, after
-which `scripts/run.sh` installs the app again; it is the only way agents erase one, since raw `xcrun simctl erase` is denied (see Permissions).
+first: light appearance, large text, and a keyboard that is not minimized. A reboot is
+`xcrun simctl shutdown "PlusPlus Team"`, and the next script boots it again;
+`scripts/sim.sh erase-team` is the last resort, and agents erase only through it.
 
 - The software keyboard stays minimized after `axe type`, which sends hardware key events:
-  `reset` turns off keyboard minimization and the remembered hardware keyboard, rebooting
-  when it changed either.
-- An "AutoFill" bubble over the title fails its pixel checks: it is UIKit's edit menu, which
-  every text field shows when a tap lands in it while it is focused and empty, or on its caret
-  (Reminders' title does the same, and turning off AutoFill in Settings does not remove it).
-  Find the tap that landed on the focused field; if a test that passed before shows it,
-  `erase-team` (a reboot cleared it once).
+  `reset` turns off keyboard minimization, rebooting when it changed it.
+- An "AutoFill" bubble over the title fails its pixel checks: it is UIKit's edit menu, shown
+  when a tap lands in a focused field while it is empty or on its caret, as in Reminders; no
+  AutoFill setting removes it. Find the tap that hit the focused title; a reboot cleared it once.
 - A UI test hangs: the test plan fails it after three minutes ("exceeded execution time
-  allowance") and the run moves on; a run that hangs before any test starts needs `erase-team`.
+  allowance") and the run moves on.
 - "Failed to establish communication with the test runner (Channel disconnected)" within
-  seconds of starting: the simulator needs a reboot, so `erase-team`.
+  seconds of starting: reboot.
 
 ## Permissions
 

@@ -54,8 +54,8 @@ another.
   Xcode Cloud's simulators list 34 of them, so unpinned text lays out taller there. Its
   `diagnosticCollectionPolicy` is `Never`: otherwise every failing run ends with `simctl
   diagnose`, which waits out its whole 600 s timeout on a simulator. Its test timeout fails a test
-  after three minutes, so a hung UI test fails rather than running on; the slowest, `RenameUITests`,
-  takes about 72 s on Xcode Cloud and 50 s locally (2026-10-14).
+  after three minutes, so a hung UI test fails rather than running on; that is more than twice the
+  slowest UI test's time on Xcode Cloud.
 - Display name on the attribute, stable identifier on the function:
   `@Test("An in-memory container round-trips a model") func inMemoryRoundTrip()`. The
   formatter is configured to keep it that way (see `.swiftformat`).
