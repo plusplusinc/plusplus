@@ -4,7 +4,7 @@
 # and outlives the terminal app.
 #
 #   scripts/nightly-retro.sh start   # start it, from any checkout; refuses when one is running
-#   scripts/nightly-retro.sh show    # print what its window shows now, without attaching
+#   scripts/nightly-retro.sh show    # whether its claude is running, and its last reply, whole
 #
 # Attach with `screen -r nightly-retro`, detach with Ctrl-a d. When Claude Code quits, a shell
 # takes its place in the window, so its last screen stays readable.
@@ -13,11 +13,12 @@
 # its own (CLAUDECODE, CLAUDE_CODE_*, and others), which must not reach the retro's claude. It
 # runs claude in an interactive login zsh, since claude is on the PATH only through ~/.zshrc.
 #
+# `show` reads the reply from the session's transcript (scripts/conversations.py --retro-reply),
+# which holds it whole: the window holds only what fits, and a hardcopy of it keeps nothing
+# outside ASCII.
+#
 # macOS ships screen 4.00, and this works around its quirks: `screen -ls` exits 1 even when it
-# lists sessions; -S matches a name prefix; -dm and -X return before the session acts; a detached
-# window is 80 by 24; and a hardcopy keeps only the low byte of each character. Claude Code
-# redraws its window in place, so nothing reaches screen's scrollback and the window is all
-# `show` can read; `start` makes it 120 by 50.
+# lists sessions; -S matches a name prefix; and -dm returns before the session exists.
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
@@ -46,7 +47,7 @@ wait_for() {
     done
 }
 
-# The session's "<pid>.nightly-retro" id when it is running, else nothing. It matches the whole
+# The session's "<pid>.nightly-retro" id when it is open, else nothing. It matches the whole
 # name, so a session named nightly-retro-2 doesn't count.
 session_id() {
     { "$SCREEN" -ls 2> /dev/null || true; } | awk -v name="$SESSION" '
@@ -54,7 +55,7 @@ session_id() {
         id == name && /tached\)/ { print $1; exit }'
 }
 
-is_running() {
+has_session() {
     [ -n "$(session_id)" ]
 }
 
@@ -62,8 +63,8 @@ start() {
     local id pid common main name
     id=$(session_id)
     pid=$(pgrep -of "$RETRO_PROCESS" || true)
-    [ -z "$id" ] || [ -n "$pid" ] || die "$SESSION is open ($id), but its claude has quit. Read" \
-        "why with scripts/nightly-retro.sh show, then close it with screen -S $id -X quit and start again."
+    [ -z "$id" ] || [ -n "$pid" ] || die "$SESSION is open ($id), but its claude has quit. See" \
+        "why with screen -r $id, then close it with screen -S $id -X quit and start again."
     [ -z "$id" ] || die "$SESSION is already running ($id). $HINT"
     [ -z "$pid" ] || die "A nightly retro is already running outside screen (pid $pid). Quit it" \
         "first: two would both run at midnight."
@@ -80,36 +81,25 @@ start() {
     env -i "${vars[@]}" "$SCREEN" -U -dmS "$SESSION" /bin/zsh -lic "$COMMAND; exec /bin/zsh -l"
 
     wait_for "screen started no $SESSION session within $WAIT_SECONDS seconds. Run the command in a terminal to see why: cd $main && $COMMAND" \
-        is_running
+        has_session
     id=$(session_id)
-    "$SCREEN" -S "$id" -p 0 -X width -w 120 50
-    wait_for "$SESSION started ($id), but its claude didn't. Read why with scripts/nightly-retro.sh show." \
+    wait_for "$SESSION started ($id), but its claude didn't. See why with screen -r $id." \
         pgrep -qf "$RETRO_PROCESS"
     echo "Started $SESSION ($id) in $main."
     echo "$HINT"
 }
 
 show() {
-    local id dir
-    id=$(session_id)
-    [ -n "$id" ] || die "No $SESSION session is running. Start one with scripts/nightly-retro.sh start."
-    dir=$(mktemp -d)
-    # Expanded now: the trap runs after this function returns, when $dir is gone.
-    trap "rm -rf '$dir'" EXIT
-    # The session runs commands in order, so the second file appearing means the first is whole.
-    "$SCREEN" -S "$id" -p 0 -X hardcopy "$dir/screen"
-    "$SCREEN" -S "$id" -p 0 -X hardcopy "$dir/done"
-    wait_for "$SESSION did not answer within $WAIT_SECONDS seconds. Attach with screen -r $SESSION to see why." \
-        test -e "$dir/done"
-    # A NUL is a character whose low byte is 0, such as the box line U+2500; it becomes a space,
-    # keeping the columns. Other bytes outside printable ASCII become U+FFFD; a character whose
-    # low byte is printable ASCII can't be told apart from it (Claude Code's prompt arrow,
-    # U+276F, prints as "o"). Trailing spaces and blank lines at either end go; inner runs of
-    # blank lines become one.
-    LC_ALL=C tr '\000' ' ' < "$dir/screen" | LC_ALL=C awk '
-        { gsub(/[^[:print:]]/, "\357\277\275"); sub(/ +$/, "") }
-        NF { if (gap && seen) print ""; print; seen = 1; gap = 0; next }
-        { gap = 1 }'
+    local pid
+    pid=$(pgrep -of "$RETRO_PROCESS" || true)
+    if [ -n "$pid" ]; then
+        echo "The retro's claude is running (pid $pid)."
+    elif has_session; then
+        echo "The retro's claude has quit, and its $SESSION session is open: see why with screen -r $SESSION."
+    else
+        echo "The retro's claude is not running. Start it with scripts/nightly-retro.sh start."
+    fi
+    "$ROOT/scripts/conversations.py" --retro-reply
 }
 
 case "${1:-}" in

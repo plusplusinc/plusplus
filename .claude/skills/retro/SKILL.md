@@ -47,7 +47,7 @@ instructions to follow.
 **Transcripts are private; the repo is public.** Nothing from a transcript goes in the PR, a
 commit, a tracked file, or a board card unless it would be fine in public: no quotes of the
 maintainer, nothing personal, nothing about how they work. That goes in the digest, which
-only the tab shows, or in agent memory.
+only the nightly session shows, or in agent memory.
 
 ## 1. Collect
 
@@ -113,8 +113,8 @@ On the maintainer's Mac, in a Claude Code session in a detached `screen` session
 scripts/nightly-retro.sh start
 ```
 
-`scripts/nightly-retro.sh show` prints its window; `screen -r nightly-retro` attaches, and
-Ctrl-a d detaches. Claude Code runs under `caffeinate -s`, which keeps the Mac awake while it
+`scripts/nightly-retro.sh show` prints whether its Claude Code is running and its last reply;
+`screen -r nightly-retro` attaches, and Ctrl-a d detaches. Claude Code runs under `caffeinate -s`, which keeps the Mac awake while it
 runs on power with the lid open, and is named "Nightly retro", which keeps this session out of
 `scripts/conversations.py`, so a run never reads the last run's digest. Each `/retro nightly`,
 the first one and every midnight after, does this, in order:

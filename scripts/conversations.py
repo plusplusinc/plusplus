@@ -2,6 +2,7 @@
 """The conversation in this repo's Claude Code sessions since a given time, for the retro.
 
     scripts/conversations.py <since> [file]
+    scripts/conversations.py --retro-reply
 
 <since> is a local date (2026-10-13, meaning midnight), a local time (2026-10-13T21:30), or a
 time with an offset (2026-10-13T04:00:00Z). Prints, per session and oldest first, what the
@@ -17,6 +18,10 @@ Reads the transcripts Claude Code keeps under ~/.claude/projects/: the folder fo
 checkout and one per worktree under .claude/worktrees/, whichever checkout this runs from.
 Files not modified since <since> are not opened. With a file, writes the conversation there
 (making its folder) and prints only the first line: how many sessions, or "No sessions since".
+
+With --retro-reply, prints instead the last reply of the newest "Nightly retro" session in the
+main checkout, whole, after a line with its local time: a night's report, for
+scripts/nightly-retro.sh show.
 """
 import json
 import re
@@ -281,7 +286,46 @@ def session(path, since):
     return first, "\n".join(lines)
 
 
+def retro_reply():
+    """The newest "Nightly retro" session in the main checkout, as its transcript's path and its
+    last reply (UTC timestamp, text), the reply None before there is one; None when there is no
+    such session. Files are searched newest first, and only one that holds the title is parsed."""
+    title = f'"customTitle":{json.dumps(RETRO_SESSION_TITLE)}'.encode()
+    since = Since(datetime.fromtimestamp(0, timezone.utc))
+    paths = sorted(project_folders()[0].glob("*.jsonl"), key=lambda path: path.stat().st_mtime, reverse=True)
+    for path in paths:
+        if title not in path.read_bytes():
+            continue
+        is_retro, reply = False, None
+        for entry in entries(path, since):
+            if entry.get("type") == "custom-title":
+                is_retro |= entry.get("customTitle") == RETRO_SESSION_TITLE
+            elif entry.get("type") == "assistant" and entry.get("timestamp"):
+                text = shown(entry, set())
+                if text:
+                    reply = (entry["timestamp"], text)
+        if is_retro:
+            return path, reply
+    return None
+
+
+def print_retro_reply():
+    found = retro_reply()
+    if found is None:
+        print(f'No "{RETRO_SESSION_TITLE}" session in {project_folders()[0]}.', file=sys.stderr)
+        sys.exit(1)
+    path, reply = found
+    if reply is None:
+        print(f"No reply yet in ~/{path.relative_to(Path.home())}.")
+        return
+    timestamp, text = reply
+    print(f"Last reply, {local(timestamp, '%a %d %b %H:%M')}:\n\n{text}")
+
+
 def main():
+    if sys.argv[1:] == ["--retro-reply"]:
+        print_retro_reply()
+        return
     if len(sys.argv) not in (2, 3) or sys.argv[1].startswith("-"):
         usage()
     since = Since(parse_since(sys.argv[1]))

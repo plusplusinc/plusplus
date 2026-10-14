@@ -124,10 +124,11 @@ which `scripts/conversations.py` prints without the tool calls, so a day reads i
 kilobytes rather than the tens of megabytes of transcripts. Changing the retro means changing
 the skill.
 
-`scripts/nightly-retro.sh` starts the session and prints its window without attaching. It holds
-what `screen` alone gets wrong, which its header lists: an environment free of the calling
-Claude Code session's variables, a refusal to start a second retro, and the quirks of the
-`screen` 4.00 that macOS ships.
+`scripts/nightly-retro.sh` starts the session, and prints whether its Claude Code is running
+and its last reply, read from the transcript, without attaching. It holds what `screen` alone
+gets wrong, which its header lists: an environment free of the calling Claude Code session's
+variables, a refusal to start a second retro, and the quirks of the `screen` 4.00 that macOS
+ships.
 
 ## Parallel work
 
