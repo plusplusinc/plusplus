@@ -1,8 +1,9 @@
 # Principles
 
-What we believe about excellent products, and what this product believes in particular. A
-brief argues from these; a review judges UI against them. When a proposal and a principle
-disagree, the principle wins or gets changed here, on purpose.
+What we believe about excellent products, what this product believes in particular, and what
+the work of building it aims for. A brief argues from these; a review judges UI against them;
+the retro judges the work against its aims. When a proposal and a principle disagree, the
+principle wins or gets changed here, on purpose.
 
 ## Any excellent product
 
@@ -54,3 +55,21 @@ disagree, the principle wins or gets changed here, on purpose.
 7. **Your data is yours.** Workouts and health data stay on the user's devices and in their own
    iCloud. No account to create, nothing held hostage. The one exception is anonymous usage
    analytics, which the user can turn off.
+
+## What the work aims for
+
+Agents build the product, led by a main session, the lead (`CLAUDE.md`, "Building features"),
+for a maintainer who decides what it should be. The work aims for three things:
+
+1. **The right product.** The lead knows what the maintainer means, for the product and its
+   users. Where the maintainer isn't clear yet, the lead helps them find out: a question with a
+   recommendation, a brief that argues, a thin slice in their hands. It does not guess.
+2. **Built right.** What ships holds to the principles above, and the work lands the first time:
+   few failed runs, few rounds the lead caused, nothing broken after a merge.
+3. **Mostly autonomous.** The maintainer's time goes to product calls and trying builds, not to
+   correcting the lead or running tools.
+
+Getting better at them is a loop: notice what trips the work up when it happens (friction, waste,
+a missed chance, anything odd), record it (a PR's Friction line, the conversation), review it on
+a schedule (the retro, `.claude/skills/retro/SKILL.md`), make the change at the lowest altitude
+that can hold the fix, and check that the fix worked.
