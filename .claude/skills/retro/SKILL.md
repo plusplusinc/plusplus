@@ -1,6 +1,6 @@
 ---
 name: retro
-description: Over the work since the last retro, the merges to main and the conversations in this repo's Claude Code sessions, find where the work fell short of what it aims for (docs/principles.md: the right product, built right, autonomous), rank those findings by their evidence, fix the few that cost most at the lowest altitude in a PR the maintainer reviews, check whether the last retro's fixes worked, and correct what the merges made false in the rules, skills, and docs. Gives the maintainer a private digest. Runs nightly on the maintainer's Mac as `/retro nightly`; use on request over a merge or a range of merges.
+description: Over the work since the last retro, the merges to main and the conversations in this repo's Claude Code sessions, find where the work fell short of what it aims for (docs/principles.md: the right product, built right, autonomous), rank those findings by their evidence, fix them at the lowest altitude in a PR the maintainer reviews, check whether the last retro's fixes worked, and correct what the merges made false in the rules, skills, and docs. Gives the maintainer a private digest. Runs nightly on the maintainer's Mac as `/retro nightly`; use on request over a merge or a range of merges.
 argument-hint: "nightly | <PR number or range>"
 allowed-tools: Bash(git log:*), Bash(git diff:*), Bash(git show:*), Bash(git fetch:*), Bash(git worktree add:*), Bash(git worktree remove:*), Bash(gh pr view:*), Bash(gh pr list:*), Bash(gh pr checks:*), Bash(gh pr diff:*), Bash(gh api:*), Bash(asc xcode-cloud build-runs:*), Bash(asc xcode-cloud status:*), Bash(asc xcode-cloud doctor:*), Bash(asc xcode-cloud issues:*), Bash(asc xcode-cloud test-results:*), Bash(scripts/board.sh:*), Bash(scripts/lint.sh:*), Bash(scripts/conversations.py:*), Bash(date:*), Read, Write, Edit, Glob, Grep, Agent, CronList, CronCreate, CronDelete
 ---
@@ -58,11 +58,11 @@ never whole.
 For each PR: `gh pr diff`; `gh pr view` for commits, review threads, and time to merge;
 `gh api repos/{owner}/{repo}/pulls/N/comments` for inline review; its Xcode Cloud runs and why
 any failed (`gh pr checks`, and `asc xcode-cloud doctor` with the App Store Connect key); its
-board card; its Friction line. And the last retro PR's body, for its fixes.
+board card; its Friction line. And the last merged retro PR's body, for its fixes.
 
 ## 2. Rank the findings
 
-Rank what fell short of an aim by its evidence, in this order, and keep the few at the top:
+Rank what fell short of an aim by its evidence, in this order; the stopping rules decide the fixes:
 
 1. **The maintainer corrected the lead**: said what they meant after the lead built or proposed
    something else, or reversed a call it made.
@@ -70,11 +70,11 @@ Rank what fell short of an aim by its evidence, in this order, and keep the few 
    a question the code, the board, the docs, or memory answered, or a brief whose problem,
    criterion, or scope did not hold.
 3. **Wasted work**: failed runs, rounds the lead caused, a wrong first try, rework after a merge.
-4. **The maintainer's own friction**: their time spent on anything but product calls and trying
-   builds, such as running a tool or waiting on the lead.
+4. **The maintainer's own friction**: time they spent on what the lead could have done, such as
+   running a tool, or waiting on it.
 
-The sweep is not a finding: fix each statement in `CLAUDE.md`, `.claude/rules/`,
-`.claude/skills/`, and `docs/` that the merges since the last retro made false, deleting first.
+The sweep goes unranked: fix each statement in `CLAUDE.md`, `.claude/`, `docs/`, and the README
+that the merges it covers made false, deleting first.
 
 ## 3. Route each finding to the lowest altitude that can hold its fix
 
@@ -95,9 +95,9 @@ One branch, one PR through `/pr`, titled "Retro of #N: <the main change>" with e
 listed (a range is not searchable), or "Retro of <date>: <the main change>" when no merge was
 waiting. The body is the record the next retro reads:
 
-- The findings, ranked, a few at most, each with its evidence and where its fix went or why it
-  gets none. How the maintainer likes to work goes to memory, named here without its content.
-- One line per fix the previous retro made: worked, came back, or too early to tell.
+- The findings, ranked, each with its evidence (the PR, the run, the session, never a quote) and
+  where its fix went or why it gets none; past the first few, one line each.
+- One line per fix the last merged retro made: worked, came back, or too early to tell.
 - One line for the sweep: what it corrected, and where.
 - Card, Friction, and Verified, which names `scripts/lint.sh` at least.
 

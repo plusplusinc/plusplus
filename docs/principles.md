@@ -2,7 +2,7 @@
 
 What we believe about excellent products, what this product believes in particular, and what
 the work of building it aims for. A brief argues from these; a review judges UI against them;
-the retro judges the work against the last. When a proposal and a principle disagree, the
+the retro judges the work against its aims. When a proposal and a principle disagree, the
 principle wins or gets changed here, on purpose.
 
 ## Any excellent product
@@ -61,12 +61,12 @@ principle wins or gets changed here, on purpose.
 Agents build the product, led by a main session, the lead (`CLAUDE.md`, "Building features"),
 for a maintainer who decides what it should be. The work aims for three things:
 
-1. **The right product.** The lead's picture of what the maintainer intends, for the product,
-   its users, and the business if it becomes one, matches the maintainer's. Where the intent is
-   not settled, the lead brings the question with a recommendation instead of guessing.
-2. **Built right.** Work lands the first time: few failed runs, few rounds the lead caused, and
-   nothing broken after a merge.
-3. **Autonomous.** The maintainer's time goes to product calls and trying builds, not to
+1. **The right product.** A lead whose picture of what the maintainer intends, for the product,
+   its users, and the business if it becomes one, matches theirs, and who, where the intent is
+   not settled, brings the question with a recommendation instead of guessing.
+2. **Built right.** Work that lands the first time: few failed runs, few rounds the lead caused,
+   and nothing broken after a merge.
+3. **Autonomous.** A maintainer whose time goes to product calls and trying builds, not to
    correcting the lead or running tools.
 
 Getting better at them is a loop: notice what went wrong when it happens, record it (a PR's
