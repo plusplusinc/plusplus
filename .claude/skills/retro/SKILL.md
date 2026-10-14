@@ -137,9 +137,10 @@ the first one and every midnight after, does this, in order:
    first, whose titles name every PR they covered:
    `gh pr list --state all --search "Retro of in:title sort:created-desc" --json number,title,state,createdAt`.
    The last run is `.build/retro/last-run` in the main checkout (gitignored), else the newest
-   retro PR's `createdAt`. The merges are
-   `gh pr list --state merged --base main --limit 20 --json number,title`, less retro PRs and
-   PRs an open or merged retro's title names.
+   retro PR's `createdAt`. The merges are those since the last run,
+   `gh pr list --state merged --base main --search "merged:>=<last run>" --json number,title`,
+   less retro PRs and PRs an open or merged retro's title names. A run that finds nothing opens
+   no PR, so a merge it read counts as covered by the last run, not by a title.
 4. **Extract the conversation.**
    `scripts/conversations.py <last run> .build/retro/conversations.md` writes it there and
    prints one line: how many sessions, or "No sessions since".
