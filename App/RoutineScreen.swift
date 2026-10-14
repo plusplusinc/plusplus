@@ -12,12 +12,9 @@ struct RoutineScreen: View {
     /// Nil when the store didn't open: the screen works, and nothing saves.
     private let store: RoutineStore?
     private let namer: RoutineNamer
-    /// The exercises, by id, the generated name was made for, so a name is asked for only
-    /// when they change, and not again at every launch.
+    /// The exercises, by id, the generated name was made for, so a name is made only when they
+    /// change, and not again at every launch.
     @State private var namedFor: [Exercise.ID]?
-    /// Names asked for and not yet answered. A count, since a superseded ask can still be
-    /// waiting on the model when the next one starts.
-    @State private var pendingNames = 0
     /// Every change to the routine, saved one at a time in the order they happened, so an older
     /// version can never land last. Only the newest unsaved version waits.
     @State private var saves = AsyncStream.makeStream(
@@ -68,7 +65,6 @@ struct RoutineScreen: View {
                         text: $routine.name,
                         placeholder: Self.defaultName,
                         suggestion: routine.generatedName,
-                        isSuggesting: pendingNames > 0,
                         accessibilityLabel: "Routine name",
                         accessibilityHint: "Renames the routine.",
                     )
@@ -177,8 +173,8 @@ struct RoutineScreen: View {
         .onChange(of: routine) { _, changed in
             saves.continuation.yield(changed)
         }
-        .task(id: namingKey) {
-            await suggestName()
+        .onChange(of: namingKey, initial: true) {
+            suggestName()
         }
         .task {
             for await version in saves.stream {
@@ -198,32 +194,16 @@ struct RoutineScreen: View {
         routine.name.isEmpty ? routine.exercises.map(\.exercise.id) : nil
     }
 
-    /// Asks for a name for the unnamed routine once its exercises have settled. Until the answer
-    /// comes, the title keeps the name it shows, so it changes once.
-    private func suggestName() async {
+    /// Names the unnamed routine for its exercises as they change. The name comes at once, from
+    /// the exercises' tags, so there is nothing to wait for; the title types it in.
+    private func suggestName() {
         guard let key = namingKey, key != namedFor else { return }
-        guard !key.isEmpty else {
-            routine.generatedName = nil
-            namedFor = nil
-            return
-        }
-        // A change to the exercises in the pause cancels this ask and starts the next.
-        guard await (try? Task.sleep(for: SuggestionTiming.pause)) != nil else { return }
-        pendingNames += 1
-        defer { pendingNames -= 1 }
-        Logger.naming
-            .notice("Asked for a name for \(key.joined(separator: ", "), privacy: .public)")
-        let name = await namer.name(for: routine.exercises.map(\.exercise), of: routine.id)
-        guard !Task.isCancelled else {
-            Logger.naming
-                .notice("Dropped \(name ?? "no answer", privacy: .public): the exercises changed")
-            return
-        }
-        guard let name else { return }
+        let name = namer.name(for: routine.exercises.map(\.exercise), of: routine.id)
         let was = routine.generatedName ?? "unnamed"
-        Logger.naming.notice("Named \(name, privacy: .public), was \(was, privacy: .public)")
+        let now = name ?? "unnamed"
+        Logger.naming.notice("Named \(now, privacy: .public), was \(was, privacy: .public)")
         routine.generatedName = name
-        namedFor = key
+        namedFor = key.isEmpty ? nil : key
     }
 
     /// Adds a picked exercise. Its row takes its place as the sheet starts down, moving Add

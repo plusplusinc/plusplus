@@ -74,6 +74,17 @@ struct ExerciseTests {
         #expect(actual == expected.map { "\($0.0) | \($0.1 ?? "-")" })
     }
 
+    @Test("Every built-in works at least one muscle first, and never one muscle both ways")
+    func builtInTags() {
+        for exercise in Exercise.builtIn {
+            #expect(!exercise.tags.primary.isEmpty, "\(exercise.name)")
+            let tags = exercise.tags
+            #expect(tags.primary.isDisjoint(with: tags.secondary), "\(exercise.name)")
+        }
+        #expect(Exercise.builtIn.count { $0.tags.kind == .balance } == 1)
+        #expect(Exercise.builtIn.count { $0.tags.kind == .conditioning } == 1)
+    }
+
     @Test("Built-ins are sorted A to Z")
     func builtInSorted() {
         let names = Exercise.builtIn.map(\.name)

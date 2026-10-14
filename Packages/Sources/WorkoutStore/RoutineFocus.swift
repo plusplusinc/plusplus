@@ -1,9 +1,9 @@
-/// What a routine mostly works, worked out from its exercises, so a generated name is honest
+/// What a routine mostly works, worked out from its exercises' tags, so its name is honest
 /// about it.
 enum RoutineFocus: Equatable {
-    /// Mostly stretches.
-    case mobility
-    /// One group does most of the strength work.
+    /// Mostly stretches, over one part of the body or several.
+    case mobility(StretchRegion)
+    /// One group does most of the work.
     case group(MuscleGroup)
     /// Two groups share it, in declaration order.
     case pair(MuscleGroup, MuscleGroup)
@@ -17,22 +17,28 @@ enum RoutineFocus: Equatable {
     case legsAndCore
     case fullBody
 
+    enum StretchRegion: CaseIterable {
+        case lowerBody
+        case upperBody
+        case back
+        case wholeBody
+    }
+
     private static let upper: Set<MuscleGroup> = [.chest, .back, .shoulders, .arms]
 
-    /// Stretches as a clear majority (seven in ten) is mobility. Otherwise the strength work is
-    /// named for the group that does three in five of it; else its two groups, unless both are
-    /// upper body; else the parts of the body it spans. Upper body alone is a push or a pull when
-    /// two in three of it is, so push-ups and an overhead press are a push day.
+    /// Stretches as a clear majority (seven in ten) is mobility. Otherwise the rest, the work,
+    /// is named for the group that does three in five of it; else its two groups, unless both
+    /// are upper body; else the parts of the body it spans. Upper body alone is a push or a pull
+    /// when two in three of it is, so push-ups and an overhead press are a push day.
     init(of exercises: [Exercise]) {
-        let strength = exercises.filter { !$0.isStretch }
-        guard !strength.isEmpty, (exercises.count - strength.count) * 10 < exercises.count * 7
-        else {
-            self = .mobility
+        let work = exercises.filter { !$0.isStretch }
+        guard !work.isEmpty, (exercises.count - work.count) * 10 < exercises.count * 7 else {
+            self = .mobility(Self.region(of: exercises.filter(\.isStretch)))
             return
         }
-        let counts = Dictionary(grouping: strength, by: \.muscleGroup).mapValues(\.count)
+        let counts = Dictionary(grouping: work, by: \.muscleGroup).mapValues(\.count)
         let groups = MuscleGroup.allCases.filter { counts[$0] != nil }
-        if let main = groups.first(where: { (counts[$0] ?? 0) * 5 >= strength.count * 3 }) {
+        if let main = groups.first(where: { (counts[$0] ?? 0) * 5 >= work.count * 3 }) {
             self = .group(main)
         } else if groups.count == 2, !Self.upper.isSuperset(of: groups) {
             self = .pair(groups[0], groups[1])
@@ -41,15 +47,15 @@ enum RoutineFocus: Equatable {
             self = switch (hasUpper, counts[.legs] != nil, counts[.core] != nil) {
             case (true, true, _): .fullBody
             case (true, false, true): .upperBodyAndCore
-            case (true, false, false): Self.upperBody(strength)
+            case (true, false, false): Self.upperBody(work)
             default: .legsAndCore
             }
         }
     }
 
     private static func upperBody(_ exercises: [Exercise]) -> Self {
-        let pushes = exercises.count { $0.movement == .push }
-        let pulls = exercises.count { $0.movement == .pull }
+        let pushes = exercises.count { $0.tags.movement == .push }
+        let pulls = exercises.count { $0.tags.movement == .pull }
         if pushes * 3 >= (pushes + pulls) * 2 {
             return .push
         }
@@ -59,53 +65,78 @@ enum RoutineFocus: Equatable {
         return .upperBody
     }
 
-    /// The focus in the words the model is given.
-    var phrase: String {
-        switch self {
-        case .mobility: "mobility and stretching"
-        case let .group(group): group.name.lowercased()
-        case let .pair(first, second): "\(first.name.lowercased()) and \(second.name.lowercased())"
-        case .push: "push"
-        case .pull: "pull"
-        case .upperBody: "upper body"
-        case .upperBodyAndCore: "upper body and core"
-        case .legsAndCore: "legs and core"
-        case .fullBody: "full body"
-        }
+    /// The part of the body two in three of the stretches are for, else the whole body.
+    private static func region(of stretches: [Exercise]) -> StretchRegion {
+        let regions = stretches.map(\.stretchRegion)
+        return StretchRegion.allCases.first { region in
+            regions.count { $0 == region } * 3 >= regions.count * 2
+        } ?? .wholeBody
     }
 
-    /// A plain name for the focus, for when the model's answer won't do.
-    var name: String {
-        switch self {
-        case .mobility: "Stretch and reset"
-        case let .group(group): group.dayName
-        case let .pair(first, second): "\(first.name) and \(second.name.lowercased())"
-        case .push: "Push day"
-        case .pull: "Pull day"
-        case .upperBody: "Upper body"
-        case .upperBodyAndCore: "Upper body and core"
-        case .legsAndCore: "Legs and core"
-        case .fullBody: "Full body"
-        }
-    }
-
-    /// The model's answer, kept honest: a bare group becomes its day ("Core" is "Core day"),
-    /// and a name that mentions a group the routine doesn't strengthen gives way to the focus's
-    /// own. A stretch counts only in a mobility routine: a chest stretch after back and legs work
-    /// doesn't make it a chest routine.
+    /// The name, kept honest: a bare group becomes its day ("Core" is "Core day"), and a name
+    /// that mentions a group or muscle the routine doesn't work gives way to the muscle-group
+    /// name, or its day for one group. A stretch counts only in a mobility routine: a chest
+    /// stretch after back and legs work doesn't make it a chest routine.
     func checked(_ name: String, against exercises: [Exercise]) -> String {
         let words = Set(name.lowercased().split(whereSeparator: { !$0.isLetter }).map(String.init))
+        let worked = if case .mobility = self {
+            exercises
+        } else {
+            exercises.filter { !$0.isStretch }
+        }
+        let groups = Set(worked.map(\.muscleGroup))
+        let muscles = Set(worked.flatMap(\.tags.primary))
         let mentioned = MuscleGroup.allCases.filter { !words.isDisjoint(with: $0.words) }
-        let worked = self == .mobility ? exercises : exercises.filter { !$0.isStretch }
-        let present = Set(worked.map(\.muscleGroup))
-        if mentioned.contains(where: { !present.contains($0) }) {
-            return self.name
+        let honest = mentioned.allSatisfy(groups.contains)
+            && ExerciseTags.Muscle.words.allSatisfy { word, claimed in
+                !words.contains(word) || !muscles.isDisjoint(with: claimed)
+            }
+        guard honest else {
+            let present = Set(exercises.map(\.muscleGroup))
+            if present.count == 1, let only = present.first {
+                return only.dayName
+            }
+            return MuscleGroup.routineName(for: present) ?? name
         }
         if words.count == 1, let group = mentioned.first {
             return group.dayName
         }
         return name
     }
+}
+
+extension Exercise {
+    /// Where a stretch is felt, from the muscles it works first.
+    fileprivate var stretchRegion: RoutineFocus.StretchRegion {
+        let regions = tags.primary.map(\.region)
+        return RoutineFocus.StretchRegion.allCases.max { first, second in
+            regions.count { $0 == first } < regions.count { $0 == second }
+        } ?? .wholeBody
+    }
+}
+
+extension ExerciseTags.Muscle {
+    fileprivate var region: RoutineFocus.StretchRegion {
+        switch self {
+        case .chest, .frontDelts, .sideDelts, .rearDelts, .biceps, .triceps, .forearms: .upperBody
+        case .lats, .upperBack, .lowerBack, .abs, .obliques: .back
+        case .hipFlexors, .glutes, .quads, .hamstrings, .calves: .lowerBody
+        }
+    }
+
+    /// The finer words a name may use, and the muscles that make each one honest.
+    fileprivate static let words: [String: Set<Self>] = [
+        "biceps": [.biceps],
+        "triceps": [.triceps],
+        "grip": [.forearms],
+        "forearms": [.forearms],
+        "glutes": [.glutes],
+        "hamstrings": [.hamstrings],
+        "hips": [.glutes, .hipFlexors, .hamstrings],
+        "hip": [.glutes, .hipFlexors, .hamstrings],
+        "calves": [.calves],
+        "obliques": [.obliques],
+    ]
 }
 
 extension MuscleGroup {
@@ -115,14 +146,14 @@ extension MuscleGroup {
         case .chest: ["chest"]
         case .back: ["back"]
         case .shoulders: ["shoulder", "shoulders"]
-        case .arms: ["arm", "arms", "biceps", "triceps"]
-        case .legs: ["leg", "legs", "glute", "glutes"]
+        case .arms: ["arm", "arms"]
+        case .legs: ["leg", "legs"]
         case .core: ["core", "abs"]
         }
     }
 
     /// "Leg day", "Core day".
-    fileprivate var dayName: String {
+    var dayName: String {
         switch self {
         case .chest: "Chest day"
         case .back: "Back day"

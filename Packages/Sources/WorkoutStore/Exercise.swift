@@ -8,24 +8,32 @@ public struct Exercise: Identifiable, Equatable, Sendable {
     public let id: String
     public let name: String
     public let muscleGroup: MuscleGroup
-    /// A stretch or mobility drill rather than strength work, so a routine of them is named for
-    /// what it is.
-    public let isStretch: Bool
     /// Empty for bodyweight.
     public let equipment: Set<Equipment>
+    /// What it does, finer than its group, for naming a routine.
+    let tags: ExerciseTags
 
     public init(
         id: String,
         name: String,
         muscleGroup: MuscleGroup,
-        isStretch: Bool = false,
         equipment: Set<Equipment> = [],
+    ) {
+        self.init(id: id, name: name, muscleGroup: muscleGroup, equipment: equipment, tags: .none)
+    }
+
+    init(
+        id: String,
+        name: String,
+        muscleGroup: MuscleGroup,
+        equipment: Set<Equipment> = [],
+        tags: ExerciseTags,
     ) {
         self.id = id
         self.name = name
         self.muscleGroup = muscleGroup
-        self.isStretch = isStretch
         self.equipment = equipment
+        self.tags = tags
     }
 
     /// The equipment as a line of text in display order, "Dumbbells, bench", or nil for

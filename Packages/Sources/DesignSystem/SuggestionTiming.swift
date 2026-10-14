@@ -2,9 +2,6 @@ import Foundation
 
 /// How a suggested title arrives, in one place so the timings are tuned together.
 public enum SuggestionTiming {
-    /// How long what a suggestion is made from must stay unchanged before one is asked for, so
-    /// a burst of changes asks once.
-    public static let pause = Duration.milliseconds(750)
     /// How quickly the old suggestion fades out before the new one types in.
     public static let fadeOut: TimeInterval = 0.15
     /// How often the lead moves on to the next character of the new suggestion.

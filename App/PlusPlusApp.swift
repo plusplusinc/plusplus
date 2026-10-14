@@ -18,9 +18,9 @@ struct PlusPlusApp: App {
             store = nil
         }
         #if DEBUG
-        namer = LaunchOptions.usesFallbackNames ? .muscleGroupsOnly : .onDevice
+        namer = LaunchOptions.usesFallbackNames ? .muscleGroupsOnly : .standard
         #else
-        namer = .onDevice
+        namer = .standard
         #endif
     }
 

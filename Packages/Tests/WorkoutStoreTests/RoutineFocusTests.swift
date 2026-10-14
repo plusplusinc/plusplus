@@ -13,8 +13,8 @@ struct RoutineFocusTests {
     @Test("Seven in ten stretches is mobility, and fewer is the strength work")
     func mobility() throws {
         #expect(try Self.focus("Cat-cow", "Child\u{2019}s pose", "Pigeon stretch", "Goblet squat")
-            == .mobility)
-        #expect(try Self.focus("Pigeon stretch") == .mobility)
+            == .mobility(.back))
+        #expect(try Self.focus("Pigeon stretch") == .mobility(.lowerBody))
         let stretchesAndStrength = try Self.focus(
             "Cat-cow",
             "Child\u{2019}s pose",
@@ -66,7 +66,24 @@ struct RoutineFocusTests {
         #expect(try Self.focus("Dumbbell row", "Dumbbell bench press") == .upperBody)
     }
 
-    @Test("A bare group gets its day, and a group the strength work doesn't use gives way")
+    @Test("Mobility is named for where two in three of its stretches are felt")
+    func stretchRegions() throws {
+        #expect(try Self.focus(
+            "Doorway chest stretch",
+            "Cross-body shoulder stretch",
+            "Band shoulder dislocate",
+            "Thoracic rotation",
+        ) == .mobility(.upperBody))
+        #expect(try Self.focus(
+            "Cat-cow",
+            "Child\u{2019}s pose",
+            "Pigeon stretch",
+            "Hamstring stretch",
+            "World\u{2019}s greatest stretch",
+        ) == .mobility(.wholeBody))
+    }
+
+    @Test("A bare group gets its day, and a group or muscle the work doesn't use gives way")
     func checked() throws {
         let core = try ["Plank", "Dead bug"].map { name in
             try #require(Exercise.builtIn.first { $0.name == name })
@@ -75,21 +92,12 @@ struct RoutineFocusTests {
         #expect(focus.checked("Core", against: core) == "Core day")
         #expect(focus.checked("Steady core", against: core) == "Steady core")
         #expect(focus.checked("Legs and core", against: core) == "Core day")
-    }
-
-    @Test("Warm and plain names differ, and full body is worded by the routine's variant")
-    func candidates() {
-        let legs = RoutineFocus.group(.legs)
-        let plain = NameStyle(of: UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0)))
-        let warm = NameStyle(of: UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)))
-        #expect(legs.candidates(style: plain, endsWithStretching: false) == [
-            "Leg day",
-            "Lower body",
-        ])
-        #expect(legs.candidates(style: warm, endsWithStretching: true)
-            == ["Strong legs", "Leg power", "Legs and stretch"])
-        let other = NameStyle(of: UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0)))
-        #expect(RoutineFocus.fullBody.candidates(style: other, endsWithStretching: false).first
-            == "Total body")
+        let pushUps = try ["Push-up", "Ring dip"].map { name in
+            try #require(Exercise.builtIn.first { $0.name == name })
+        }
+        #expect(RoutineFocus(of: pushUps).checked("Chest and triceps", against: pushUps)
+            == "Chest and triceps")
+        let row = try [#require(Exercise.builtIn.first { $0.name == "Dumbbell row" })]
+        #expect(RoutineFocus(of: row).checked("Back and biceps", against: row) == "Back day")
     }
 }
