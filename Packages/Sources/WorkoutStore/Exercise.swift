@@ -1,18 +1,25 @@
 import Foundation
 
-/// What an exercise is: its name and the equipment it uses. A routine holds instances of it,
-/// as `RoutineExercise`.
+/// What an exercise is: its name, the muscle group it mostly works, and the equipment it uses.
+/// A routine holds instances of it, as `RoutineExercise`.
 public struct Exercise: Identifiable, Equatable, Sendable {
     /// A stable slug, so a routine can refer to a built-in exercise by something its display
     /// name can change without breaking.
     public let id: String
     public let name: String
+    public let muscleGroup: MuscleGroup
     /// Empty for bodyweight.
     public let equipment: Set<Equipment>
 
-    public init(id: String, name: String, equipment: Set<Equipment> = []) {
+    public init(
+        id: String,
+        name: String,
+        muscleGroup: MuscleGroup,
+        equipment: Set<Equipment> = [],
+    ) {
         self.id = id
         self.name = name
+        self.muscleGroup = muscleGroup
         self.equipment = equipment
     }
 

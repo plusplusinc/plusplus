@@ -114,10 +114,14 @@ struct ExerciseTests {
 
     @Test("An equipment line orders by equipment, capitalizing only the first")
     func lineOrder() {
-        #expect(Exercise(id: "a", name: "A", equipment: [.bench, .dumbbells]).equipmentLine
+        #expect(Exercise(id: "a", name: "A", muscleGroup: .chest, equipment: [.bench, .dumbbells]).equipmentLine
             == "Dumbbells, bench")
-        #expect(Exercise(id: "b", name: "B", equipment: [.rings, .band, .kettlebell]).equipmentLine
-            == "Kettlebell, band, rings")
+        #expect(Exercise(
+            id: "b",
+            name: "B",
+            muscleGroup: .chest,
+            equipment: [.rings, .band, .kettlebell],
+        ).equipmentLine == "Kettlebell, band, rings")
     }
 
     @Test("Every equipment has a display name")
