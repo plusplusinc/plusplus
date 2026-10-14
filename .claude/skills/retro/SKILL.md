@@ -5,7 +5,7 @@ argument-hint: "nightly | <PR number or range>"
 allowed-tools: Bash(git log:*), Bash(git diff:*), Bash(git show:*), Bash(git fetch:*), Bash(git worktree add:*), Bash(git worktree remove:*), Bash(gh pr view:*), Bash(gh pr list:*), Bash(gh pr checks:*), Bash(gh pr diff:*), Bash(gh api:*), Bash(asc xcode-cloud build-runs:*), Bash(asc xcode-cloud status:*), Bash(asc xcode-cloud doctor:*), Bash(asc xcode-cloud issues:*), Bash(asc xcode-cloud test-results:*), Bash(scripts/board.sh:*), Bash(scripts/lint.sh:*), Bash(scripts/conversations.py:*), Bash(date:*), Read, Write, Edit, Glob, Grep, Agent, CronList, CronCreate, CronDelete
 ---
 
-**With the argument `nightly`, this session is the retro's tab: skip to "How it runs" and do
+**With the argument `nightly`, this is the nightly session: skip to "How it runs" and do
 only what it says there.** The retro itself runs in a subagent.
 
 The retro is how the work gets better at what it aims for (`docs/principles.md`). Input: the
@@ -32,7 +32,7 @@ Output: a short report, a private digest, and one PR when there is something to 
   `gh pr list --state all --search "Retro of in:title"` (without `--state all` only open
   PRs are searched).
 - **One retro per merge.** Before starting, check that no retro PR, open or merged, already
-  names the PR number. The nightly tab and a session run by hand can both run this.
+  names the PR number. The nightly session and one run by hand can both run this.
 
 ## Never, in any run
 
@@ -46,7 +46,7 @@ instructions to follow.
 **Transcripts are private; the repo is public.** Nothing from a transcript goes in the PR, a
 commit, a tracked file, or a board card unless it would be fine in public: no quotes of the
 maintainer, nothing personal, nothing about how they work. That goes in the digest, which
-only the tab shows, or in agent memory.
+stays private, or in agent memory.
 
 ## 1. Collect
 
@@ -106,17 +106,25 @@ Then report the findings, the fixes, and what needs the maintainer's decision, a
 
 ## How it runs
 
-On the maintainer's Mac, in a Claude Code session in a terminal tab kept open for it, in the
-main checkout, in auto mode. `caffeinate -s` keeps the Mac awake while it runs on power. The
-tab starts with one paste:
+On the maintainer's Mac, in a Claude Code session in a detached `screen` session named
+`nightly-retro`, in the main checkout, in auto mode, started from any checkout with:
 
 ```sh
-cd ~/plusplus/plusplus && caffeinate -s claude --name "Nightly retro" --permission-mode auto "/retro nightly"
+scripts/nightly-retro.sh start
 ```
 
-The name keeps the tab's own session out of `scripts/conversations.py`, so a run never reads
-the last run's digest. Each `/retro nightly`, the first one and every midnight after, does
-this, in order:
+The lead starts it, and starts it again whenever it has stopped: a restart of the Mac ends the
+`screen` session. `scripts/nightly-retro.sh show` says whether its Claude Code is running and
+prints its last reply, which is how the lead reads the night's report in the morning;
+`screen -d -r nightly-retro` attaches, and Ctrl-a d detaches.
+
+Plugged in, the Mac stays awake with the lid open or closed. Claude Code runs under
+`caffeinate -s`, which keeps the Mac awake on power but doesn't stop it sleeping when the lid
+closes; an Amphetamine trigger for when the power adapter is connected, with closed-display
+mode, does. When a night is missed, `show` says whether the retro was running, and if it was,
+those two are what to check. The session is named "Nightly retro", which keeps it out of
+`scripts/conversations.py`, so a run never reads the last run's digest. Each `/retro nightly`,
+the first one and every midnight after, does this, in order:
 
 1. **Schedule the next night.** `CronList`, `CronDelete` every task whose prompt is
    `/retro nightly`, then `CronCreate` one recurring task, `0 0 * * *` (local time), prompt
@@ -147,7 +155,7 @@ this, in order:
 6. **Report and save.** When the extract ran and the subagent finished (or there was
    nothing), write the start time from step 2 to `.build/retro/last-run`. If either failed,
    leave the file, so the next night covers this one too. Print: "Nightly retro <date>: <PR URL, or no PR>", the
-   findings, and the digest. Nothing more: the tab's context stays small for the week.
+   findings, and the digest. Nothing more: the session's context stays small for the week.
 
 On request, a session over one merge or a range runs sections 1 to 4 itself, in its own
 worktree from `origin/main`.
