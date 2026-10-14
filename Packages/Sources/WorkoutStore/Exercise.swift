@@ -8,6 +8,9 @@ public struct Exercise: Identifiable, Equatable, Sendable {
     public let id: String
     public let name: String
     public let muscleGroup: MuscleGroup
+    /// A stretch or mobility drill rather than strength work, so a routine of them is named for
+    /// what it is.
+    public let isStretch: Bool
     /// Empty for bodyweight.
     public let equipment: Set<Equipment>
 
@@ -15,11 +18,13 @@ public struct Exercise: Identifiable, Equatable, Sendable {
         id: String,
         name: String,
         muscleGroup: MuscleGroup,
+        isStretch: Bool = false,
         equipment: Set<Equipment> = [],
     ) {
         self.id = id
         self.name = name
         self.muscleGroup = muscleGroup
+        self.isStretch = isStretch
         self.equipment = equipment
     }
 

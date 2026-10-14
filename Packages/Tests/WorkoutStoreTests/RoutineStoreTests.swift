@@ -64,7 +64,8 @@ struct RoutineStoreTests {
         routine.generatedName = "Legs"
         try await store.save(routine, at: Date(timeIntervalSince1970: 200))
 
-        let stored = try #require(try ModelContext(container).fetch(FetchDescriptor<StoredRoutine>()).first)
+        let stored = try #require(try ModelContext(container)
+            .fetch(FetchDescriptor<StoredRoutine>()).first)
         #expect(stored.editedAt == Date(timeIntervalSince1970: 100))
         #expect(try await relaunch().launchRoutine()?.generatedName == "Legs")
     }

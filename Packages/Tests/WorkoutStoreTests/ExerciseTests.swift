@@ -114,7 +114,8 @@ struct ExerciseTests {
 
     @Test("An equipment line orders by equipment, capitalizing only the first")
     func lineOrder() {
-        #expect(Exercise(id: "a", name: "A", muscleGroup: .chest, equipment: [.bench, .dumbbells]).equipmentLine
+        #expect(Exercise(id: "a", name: "A", muscleGroup: .chest, equipment: [.bench, .dumbbells])
+            .equipmentLine
             == "Dumbbells, bench")
         #expect(Exercise(
             id: "b",

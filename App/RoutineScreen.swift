@@ -146,7 +146,8 @@ struct RoutineScreen: View {
                             // Gray only for New routine, as in the title.
                             Text(shownName ?? Self.defaultName)
                                 .font(.ppInlineTitle)
-                                .foregroundStyle(.pp(shownName == nil ? .textSecondary : .textPrimary))
+                                .foregroundStyle(.pp(shownName == nil ? .textSecondary :
+                                        .textPrimary))
                                 .lineLimit(1)
                         }
                         .buttonStyle(.plain)
@@ -207,12 +208,20 @@ struct RoutineScreen: View {
             return
         }
         // A change to the exercises in the pause cancels this ask and starts the next.
-        guard (try? await Task.sleep(for: SuggestionTiming.pause)) != nil else { return }
+        guard await (try? Task.sleep(for: SuggestionTiming.pause)) != nil else { return }
         pendingNames += 1
         defer { pendingNames -= 1 }
-        guard let name = await namer.name(for: routine.exercises.map(\.exercise)),
-              !Task.isCancelled
-        else { return }
+        Logger.naming
+            .notice("Asked for a name for \(key.joined(separator: ", "), privacy: .public)")
+        let name = await namer.name(for: routine.exercises.map(\.exercise))
+        guard !Task.isCancelled else {
+            Logger.naming
+                .notice("Dropped \(name ?? "no answer", privacy: .public): the exercises changed")
+            return
+        }
+        guard let name else { return }
+        let was = routine.generatedName ?? "unnamed"
+        Logger.naming.notice("Named \(name, privacy: .public), was \(was, privacy: .public)")
         routine.generatedName = name
         namedFor = key
     }

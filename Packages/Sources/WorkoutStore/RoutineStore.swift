@@ -55,7 +55,10 @@ public actor RoutineStore {
         for row in oldRows where !kept.contains(row.id) {
             modelContext.delete(row)
         }
-        let rowsByID = Dictionary(oldRows.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let rowsByID = Dictionary(
+            oldRows.map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first },
+        )
         for (position, item) in routine.exercises.enumerated() {
             if let row = rowsByID[item.id] {
                 row.position = position
@@ -76,13 +79,13 @@ public actor RoutineStore {
     }
 
     #if DEBUG
-        /// Empties the store, so a UI test starts from a new routine.
-        public func deleteAll() throws {
-            for routine in try modelContext.fetch(FetchDescriptor<StoredRoutine>()) {
-                modelContext.delete(routine)
-            }
-            try modelContext.save()
+    /// Empties the store, so a UI test starts from a new routine.
+    public func deleteAll() throws {
+        for routine in try modelContext.fetch(FetchDescriptor<StoredRoutine>()) {
+            modelContext.delete(routine)
         }
+        try modelContext.save()
+    }
     #endif
 
     private func stored(id: UUID) throws -> StoredRoutine? {
@@ -97,7 +100,8 @@ public actor RoutineStore {
         let rows = (stored.exercises ?? []).sorted { $0.position < $1.position }
         let exercises = rows.compactMap { row -> RoutineExercise? in
             guard let exercise = builtInByID[row.exerciseID] else {
-                logger.error("Skipped a row for unknown exercise \(row.exerciseID, privacy: .public)")
+                logger
+                    .error("Skipped a row for unknown exercise \(row.exerciseID, privacy: .public)")
                 return nil
             }
             return RoutineExercise(id: row.id, exercise: exercise)

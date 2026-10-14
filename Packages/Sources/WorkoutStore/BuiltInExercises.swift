@@ -26,7 +26,12 @@ extension Exercise {
             equipment: [.barbell, .bench],
         ),
         Self(id: "ring-dip", name: "Ring dip", muscleGroup: .chest, equipment: [.rings]),
-        Self(id: "doorway-chest-stretch", name: "Doorway chest stretch", muscleGroup: .chest),
+        Self(
+            id: "doorway-chest-stretch",
+            name: "Doorway chest stretch",
+            muscleGroup: .chest,
+            isStretch: true,
+        ),
         // Back
         Self(id: "pull-up", name: "Pull-up", muscleGroup: .back, equipment: [.pullUpBar]),
         Self(id: "chin-up", name: "Chin-up", muscleGroup: .back, equipment: [.pullUpBar]),
@@ -39,9 +44,14 @@ extension Exercise {
         ),
         Self(id: "barbell-row", name: "Barbell row", muscleGroup: .back, equipment: [.barbell]),
         Self(id: "dead-hang", name: "Dead hang", muscleGroup: .back, equipment: [.pullUpBar]),
-        Self(id: "childs-pose", name: "Child\u{2019}s pose", muscleGroup: .back),
-        Self(id: "cat-cow", name: "Cat-cow", muscleGroup: .back),
-        Self(id: "thoracic-rotation", name: "Thoracic rotation", muscleGroup: .back),
+        Self(id: "childs-pose", name: "Child\u{2019}s pose", muscleGroup: .back, isStretch: true),
+        Self(id: "cat-cow", name: "Cat-cow", muscleGroup: .back, isStretch: true),
+        Self(
+            id: "thoracic-rotation",
+            name: "Thoracic rotation",
+            muscleGroup: .back,
+            isStretch: true,
+        ),
         // Shoulders
         Self(
             id: "overhead-press",
@@ -72,11 +82,13 @@ extension Exercise {
             id: "cross-body-shoulder-stretch",
             name: "Cross-body shoulder stretch",
             muscleGroup: .shoulders,
+            isStretch: true,
         ),
         Self(
             id: "band-shoulder-dislocate",
             name: "Band shoulder dislocate",
             muscleGroup: .shoulders,
+            isStretch: true,
             equipment: [.band],
         ),
         // Arms
@@ -144,14 +156,21 @@ extension Exercise {
             id: "kneeling-hip-flexor-stretch",
             name: "Kneeling hip flexor stretch",
             muscleGroup: .legs,
+            isStretch: true,
         ),
-        Self(id: "hamstring-stretch", name: "Hamstring stretch", muscleGroup: .legs),
-        Self(id: "pigeon-stretch", name: "Pigeon stretch", muscleGroup: .legs),
-        Self(id: "calf-stretch", name: "Calf stretch", muscleGroup: .legs),
+        Self(
+            id: "hamstring-stretch",
+            name: "Hamstring stretch",
+            muscleGroup: .legs,
+            isStretch: true,
+        ),
+        Self(id: "pigeon-stretch", name: "Pigeon stretch", muscleGroup: .legs, isStretch: true),
+        Self(id: "calf-stretch", name: "Calf stretch", muscleGroup: .legs, isStretch: true),
         Self(
             id: "worlds-greatest-stretch",
             name: "World\u{2019}s greatest stretch",
             muscleGroup: .legs,
+            isStretch: true,
         ),
         // Core
         Self(id: "plank", name: "Plank", muscleGroup: .core),

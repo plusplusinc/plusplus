@@ -9,8 +9,8 @@ public struct RoutineNamer: Sendable {
     private let respond: @Sendable (_ prompt: String) async throws -> String
 
     private static let logger = Logger(subsystem: "com.plusplusinc.plusplus", category: "naming")
-    /// Longer than this, an answer is more sentence than name.
-    static let longestName = 40
+    /// Longer than this, a name doesn't fit one line of the title.
+    static let longestName = 20
 
     /// The model's availability and a request, injected so tests never touch the model.
     init(
@@ -26,14 +26,17 @@ public struct RoutineNamer: Sendable {
     public static let onDevice = Self(
         isAvailable: { SystemLanguageModel.default.availability == .available },
         respond: { prompt in
-            let session = LanguageModelSession(instructions: instructions)
+            // The default guardrails refuse a routine with Dead bug or Dead hang in it as
+            // sensitive. Permissive ones apply only to text answers, so the answer is text, and
+            // `cleaned(_:)` and the length cap catch anything that isn't a name.
+            let model = SystemLanguageModel(guardrails: .permissiveContentTransformations)
+            let session = LanguageModelSession(model: model, instructions: instructions)
             let response = try await session.respond(
                 to: prompt,
-                generating: GeneratedName.self,
                 // The same exercises get the same name, rather than a new one at each ask.
                 options: GenerationOptions(samplingMode: .greedy),
             )
-            return response.content.name
+            return response.content
         },
     )
 
@@ -45,41 +48,90 @@ public struct RoutineNamer: Sendable {
     /// so a superseded ask writes nothing.
     public func name(for exercises: [Exercise]) async -> String? {
         let fallback = MuscleGroup.routineName(for: exercises.map(\.muscleGroup))
-        guard fallback != nil, isAvailable() else { return fallback }
+        guard let fallback else { return nil }
+        guard isAvailable() else {
+            Self.logger.notice("Named \(fallback, privacy: .public) from muscle groups: no model")
+            return fallback
+        }
+        let unique = Self.unique(exercises)
+        let prompt = Self.prompt(for: exercises)
+        let asked = prompt.replacingOccurrences(of: "\n", with: " ")
         do {
-            return try await Self.cleaned(respond(Self.prompt(for: exercises))) ?? fallback
+            let answer = try await respond(prompt)
+            guard let cleaned = Self.cleaned(answer) else {
+                Self.logger.notice(
+                    "Named \(fallback, privacy: .public), not \(answer, privacy: .public)",
+                )
+                return fallback
+            }
+            let name = RoutineFocus(of: unique).checked(cleaned, against: unique)
+            Self.logger.notice("Named \(name, privacy: .public) (\(cleaned, privacy: .public))")
+            Self.logger.notice("For \(asked, privacy: .public)")
+            return name
         } catch is CancellationError {
+            Self.logger.notice("Naming cancelled by a newer ask")
             return nil
         } catch {
-            Self.logger.info("Named from muscle groups; the model said: \(error)")
+            let reason = String(describing: error)
+            Self.logger.notice("Named \(fallback, privacy: .public): \(reason, privacy: .public)")
             return fallback
         }
     }
 
-    /// Tried against the model: without "don't just repeat" and examples of names a person
-    /// would give, it answered "Goblet squat legs".
+    /// Tried against the model with the naming eval in the slice's working files. The focus is
+    /// worked out here, so the name is honest about what the routine works, and the model only
+    /// words it. No example names: with them it copied the last one ("Pull and hinge") for
+    /// whatever it was given.
     static let instructions = """
-    You name workout routines. Given the exercises in a routine, each with the muscle group it \
-    works, reply with a short, natural name a lifter would give it, the way a person titles a \
-    workout in a notes app. Two to four words, sentence case, no punctuation, no emoji. Don't \
-    just repeat an exercise name with its muscle group. Good names: Leg day, Squats and \
-    pull-ups, Push day, Upper body, Legs and core, Pull and hinge.
+    You name workout routines for people who lift casually. You get the routine's exercises, \
+    each with the muscle group it works, and the routine's focus. Reply with a short name for \
+    the routine, the way a person titles a workout in a notes app.
+    Rules:
+    - One to four words, at most 20 characters, sentence case, no punctuation, no emoji.
+    - Name the focus. Mention only muscle groups that are in the routine.
+    - Use plain gym words. No technical terms.
+    - Never use an exercise's name, and never answer with only a muscle group.
+    - Sometimes, not always, start with one light positive word such as strong, steady, or \
+    solid. Never hype.
+    Names that fit each focus:
+    - legs: Leg day, Strong legs
+    - back: Pull day, Back strength
+    - chest: Push day, Chest strength
+    - shoulders: Shoulder day, Strong shoulders
+    - arms: Arm day, Strong arms
+    - core: Core work, Steady core
+    - upper body: Upper body, Upper body strength
+    - upper body and core: Upper body and core
+    - legs and core: Legs and core
+    - full body: Full body, Full body strength
+    - mobility and stretching: Stretch and reset, Mobility
+    - two groups, like chest and back: name both, Chest and back
     """
 
-    /// Each exercise once, in order, with its group: "- Goblet squat (legs)".
+    /// Each exercise once, in order, with its group, then the focus: "- Goblet squat (legs)",
+    /// and "Focus: legs".
     static func prompt(for exercises: [Exercise]) -> String {
-        var seen = Set<Exercise.ID>()
-        let lines = exercises
-            .filter { seen.insert($0.id).inserted }
-            .map { "- \($0.name) (\($0.muscleGroup.name.lowercased()))" }
-        return (["Exercises:"] + lines).joined(separator: "\n")
+        let unique = unique(exercises)
+        let lines = unique.map { exercise in
+            let kind = exercise.isStretch ? ", stretch" : ""
+            return "- \(exercise.name) (\(exercise.muscleGroup.name.lowercased())\(kind))"
+        }
+        let focus = RoutineFocus(of: unique).phrase
+        return (["Exercises:"] + lines + ["Focus: \(focus)"]).joined(separator: "\n")
     }
 
-    /// The answer as a title: trimmed of space, quotes, and trailing punctuation, and starting
-    /// with a capital, which the model sometimes leaves off. Nil when nothing is left or it runs
-    /// long.
+    private static func unique(_ exercises: [Exercise]) -> [Exercise] {
+        var seen = Set<Exercise.ID>()
+        return exercises.filter { seen.insert($0.id).inserted }
+    }
+
+    /// The answer as a title: its first line, trimmed of space, quotes, and trailing
+    /// punctuation, and starting with a capital, which the model sometimes leaves off. Nil when
+    /// nothing is left or it runs long.
     static func cleaned(_ answer: String) -> String? {
-        let trimmed = answer
+        let firstLine = answer.split(whereSeparator: \.isNewline)
+            .first { !$0.allSatisfy(\.isWhitespace) } ?? ""
+        let trimmed = firstLine
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .trimmingCharacters(
                 in: CharacterSet(charactersIn: "\"'\u{201C}\u{201D}\u{2018}\u{2019}"),
@@ -89,10 +141,4 @@ public struct RoutineNamer: Sendable {
         guard let first = name.first, name.count <= longestName else { return nil }
         return first.uppercased() + name.dropFirst()
     }
-}
-
-@Generable
-private struct GeneratedName {
-    @Guide(description: "The routine's name, two to four words")
-    var name: String
 }

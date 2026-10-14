@@ -18,9 +18,9 @@ struct PlusPlusApp: App {
             store = nil
         }
         #if DEBUG
-            namer = LaunchOptions.usesFallbackNames ? .muscleGroupsOnly : .onDevice
+        namer = LaunchOptions.usesFallbackNames ? .muscleGroupsOnly : .onDevice
         #else
-            namer = .onDevice
+        namer = .onDevice
         #endif
     }
 
@@ -34,4 +34,5 @@ struct PlusPlusApp: App {
 
 extension Logger {
     static let app = Logger(subsystem: "com.plusplusinc.plusplus", category: "app")
+    static let naming = Logger(subsystem: "com.plusplusinc.plusplus", category: "naming")
 }

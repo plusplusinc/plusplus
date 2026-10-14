@@ -57,9 +57,32 @@ struct RoutineNamerTests {
         #expect(await Self.namer(answering: .success("Leg day")).name(for: []) == nil)
     }
 
+    @Test("The model's first line is the name")
+    func firstLine() {
+        #expect(RoutineNamer.cleaned("\nleg day\nA routine for legs.") == "Leg day")
+    }
+
+    @Test("A name that runs past one title line gives the muscle-group name")
+    func overlongAnswer() async throws {
+        let namer = Self.namer(answering: .success("Lower body strength builder"))
+        #expect(try await namer.name(for: Self.exercises("Goblet squat")) == "Legs")
+    }
+
+    @Test("A bare group gets its day, and a group that isn't there gives the focus's name")
+    func answerKeptHonest() async throws {
+        let core = try Self.exercises("Plank", "Dead bug")
+        #expect(await Self.namer(answering: .success("core")).name(for: core) == "Core day")
+        #expect(await Self.namer(answering: .success("Steady core")).name(for: core)
+            == "Steady core")
+        #expect(await Self.namer(answering: .success("Legs and core")).name(for: core)
+            == "Core day")
+    }
+
     @Test("The prompt lists each exercise once, with its group")
     func prompt() throws {
         let exercises = try Self.exercises("Pull-up", "Goblet squat", "Pull-up")
-        #expect(RoutineNamer.prompt(for: exercises) == "Exercises:\n- Pull-up (back)\n- Goblet squat (legs)")
+        #expect(RoutineNamer
+            .prompt(for: exercises) ==
+            "Exercises:\n- Pull-up (back)\n- Goblet squat (legs)\nFocus: back and legs")
     }
 }

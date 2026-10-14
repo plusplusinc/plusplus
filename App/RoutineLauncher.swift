@@ -25,9 +25,9 @@ struct RoutineLauncher: View {
         guard let store else { return Routine() }
         do {
             #if DEBUG
-                if LaunchOptions.resetsStore {
-                    try await store.deleteAll()
-                }
+            if LaunchOptions.resetsStore {
+                try await store.deleteAll()
+            }
             #endif
             return try await store.launchRoutine() ?? Routine()
         } catch {
