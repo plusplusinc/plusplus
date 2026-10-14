@@ -33,7 +33,7 @@ public struct RoutineNamer: Sendable {
         }
         let name = focus.checked(picked, against: unique)
         let ids = unique.map(\.id).joined(separator: ", ")
-        let named = "\(name) (\(style.isWarm ? "warm" : "plain"))"
+        let named = "\(name) (\(style.hasCharacter ? "character" : "plain"))"
         Self.logger.notice("Named \(named, privacy: .public) for \(ids, privacy: .public)")
         if name != picked {
             Self.logger.notice(

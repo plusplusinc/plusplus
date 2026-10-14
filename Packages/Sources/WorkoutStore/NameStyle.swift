@@ -3,73 +3,116 @@ import Foundation
 /// How a routine's generated name is worded, fixed by the routine's id: the same routine keeps
 /// its style as its exercises change, and different routines differ.
 struct NameStyle: Equatable {
-    /// About one routine in three gets a lightly positive name; the rest stay plain.
-    let isWarm: Bool
-    /// Which of a focus's names the routine takes.
+    /// About one routine in three gets a name with some character; the rest get a plain label.
+    let hasCharacter: Bool
+    /// Which of a focus's names the routine takes. Up to 60, so it spreads evenly over a list of
+    /// any length up to six.
     let variant: Int
 
     init(of routine: UUID) {
         // From the id's own bytes, not `hashValue`, which changes from launch to launch.
         let bytes = withUnsafeBytes(of: routine.uuid) { Array($0.prefix(8)) }
         let seed = bytes.reduce(UInt64(0)) { $0 << 8 | UInt64($1) }
-        isWarm = seed.isMultiple(of: 3)
-        variant = Int(seed / 3 % 6)
+        hasCharacter = seed.isMultiple(of: 3)
+        variant = Int(seed / 3 % 60)
     }
 
-    /// The routine's pick of the names: warm ones when it is warm and there are any.
+    /// The routine's pick of the names: one with character when the routine has it and the
+    /// focus offers one.
     func pick(_ names: RoutineFocus.Names) -> String? {
-        let options = isWarm && !names.warm.isEmpty ? names.warm : names.plain
+        let options = hasCharacter && !names.character.isEmpty ? names.character : names.plain
         return options.isEmpty ? nil : options[variant % options.count]
     }
 }
 
 extension RoutineFocus {
-    /// A focus's names in each tone, which a routine's style picks from.
-    typealias Names = (plain: [String], warm: [String])
+    /// A focus's names: plain labels, and names with a touch of character, which a routine's
+    /// style picks from.
+    typealias Names = (plain: [String], character: [String])
 
-    /// Honest names for the routine, plain and warm. Warm names say only what the work bears
-    /// out: "Steady" for holds and balance, "Strength" for loaded work, never "power".
+    /// Honest names for the routine, in the product's voice. Character comes from the word, not
+    /// from a structure: an image ("Heavy legs"), how lifters say it ("Back and bis"), a mood
+    /// ("Unwind"), understatement ("Odds and ends"), the equipment ("Barbell day"), or the work
+    /// itself ("Hold still"). Each says only what the tags bear out: "Heavy" only under a
+    /// weight, "Under the bar" only for barbell squats.
     func names(for exercises: [Exercise]) -> Names {
         if case let .mobility(region) = self {
-            return region.names
-        }
-        // A real share of stretching, though not most of it, is named alongside the work.
-        if exercises.count(where: \.isStretch) * 5 >= exercises.count * 2 {
-            if case let .group(group) = self, group != .shoulders {
-                return (["\(group.name) and stretch"], [])
-            }
-            // "Shoulders and stretch" is a character too long.
-            return (["Stretch and strength"], [])
+            return region.names(for: exercises.filter(\.isStretch))
         }
         let work = Work(exercises.filter { !$0.isStretch })
+        // A real share of stretching, though not most of it, is named alongside the work.
+        if exercises.count(where: \.isStretch) * 5 >= exercises.count * 2 {
+            return stretchAndWorkNames(for: work)
+        }
         if let implement = work.sharedImplement, let region = implementRegion {
-            let name = implement.name
-            return region == "full body"
-                ? (["\(name) full body"], [])
-                : (["\(name) day", "\(name) \(region)"], ["\(name) strength"])
+            return Self.implementNames(implement, region, for: work)
         }
         return workNames(for: work)
+    }
+
+    private func stretchAndWorkNames(for work: Work) -> Names {
+        let lift = work.isAllLoaded ? ["Lift and stretch"] : []
+        // "Shoulders and stretch" is a character too long.
+        if case let .group(group) = self, group != .shoulders {
+            return (["\(group.name) and stretch"], lift)
+        }
+        return (["Stretch and strength"], lift + ["A bit of both"])
     }
 
     private func workNames(for work: Work) -> Names {
         switch self {
         case let .group(group): group.names(for: work)
-        case let .pair(first, second): Self.pairNames(first, second)
-        case .push: (["Push day", "Upper body push"], ["Strong push", "Push strength"])
-        case .pull: (["Pull day", "Upper body pull"], ["Strong pull", "Pull strength"])
-        case .upperBody:
-            (["Upper body", "Push and pull"], ["Solid upper body", "Strong upper body"])
-        case .upperBodyAndCore: (["Upper body and core"], [])
-        case .legsAndCore: (["Legs and core"], ["Strong legs and core"])
-        case .fullBody:
+        case let .pair(first, second): Self.pairNames(first, second, for: work)
+        case .push:
             (
-                ["Full body", "Total body", "Whole body"],
-                work.isAllLoaded
-                    ? ["Full body strength", "All-round strength"]
-                    : ["Solid full body", "Solid total body"],
+                ["Push day", "Upper body push"]
+                    + (work.spans(.chest, .shoulders) ? ["Chest and shoulders"] : []),
+                work.isShare(2 / 3, \.isPress) ? ["Press day"] : ["Push"],
             )
+        case .pull:
+            (
+                ["Pull day", "Upper body pull"],
+                work.spans(.back) && work.works(.biceps, inShare: 0) ? ["Back and bis"] : ["Pull"],
+            )
+        case .upperBody: (["Upper body", "Push and pull"], ["Top half"])
+        case .upperBodyAndCore: (["Upper body and core", "Core and upper body"], ["Top half"])
+        case .legsAndCore: Self.pairNames(.legs, .core, for: work)
+        case .fullBody: Self.fullBodyNames(for: work)
         case .mobility: ([], [])
         }
+    }
+
+    private static func fullBodyNames(for work: Work) -> Names {
+        var character = ["Head to toe"]
+        if work.isAllLoaded {
+            character.append("Lift everything")
+        } else if work.isOneOfEach {
+            character.append("Odds and ends")
+        }
+        return (["Full body", "Total body", "Whole body"], character)
+    }
+
+    /// The barbell five: squat, bench, row, press, deadlift.
+    private static let bigFive: Set<Exercise.ID> = [
+        "barbell-back-squat",
+        "barbell-bench-press",
+        "barbell-row",
+        "barbell-overhead-press",
+        "barbell-deadlift",
+    ]
+
+    private static func implementNames(
+        _ implement: Equipment,
+        _ region: String,
+        for work: Work,
+    ) -> Names {
+        let plain = ["\(implement.name) \(region)"]
+        guard implement == .barbell else { return (plain, ["\(implement.name) day"]) }
+        if Set(work.exercises.map(\.id)) == bigFive {
+            return (plain, ["The big five"])
+        }
+        let squats = region == "legs" && work.moves(.squat, inShare: 1 / 2)
+        return (plain, ["Barbell day"] + (squats ? ["Under the bar"] : []))
     }
 
     /// The region a shared implement's name goes with, where one reads well.
@@ -82,18 +125,25 @@ extension RoutineFocus {
         }
     }
 
+    /// Groups pair in declaration order, so legs come after the upper body and core after both.
     private static func pairNames(
         _ first: MuscleGroup,
         _ second: MuscleGroup,
+        for work: Work,
     ) -> Names {
-        let warm = "Strong \(first.name.lowercased()) and \(second.name.lowercased())"
-        return (
-            [
-                "\(first.name) and \(second.name.lowercased())",
-                "\(second.name) and \(first.name.lowercased())",
-            ],
-            warm.count <= RoutineNamer.longestName ? [warm] : [],
-        )
+        var plain = [
+            "\(first.name) and \(second.name.lowercased())",
+            "\(second.name) and \(first.name.lowercased())",
+        ]
+        var character: [String] = []
+        switch (first, second) {
+        case (.legs, .core): plain.append("Lower body and core")
+        case (_, .legs):
+            plain.append("Upper and lower")
+            character = work.isAllLoaded ? ["Heavy day"] : []
+        default: character = ["Top half"]
+        }
+        return (plain, character)
     }
 }
 
@@ -110,8 +160,20 @@ private struct Work {
         Double(exercises.count(where: isLike)) >= fraction * Double(exercises.count)
     }
 
+    /// Whether at least `fraction` of the work has the muscle first; a fraction of zero asks
+    /// whether any does.
     func works(_ muscle: ExerciseTags.Muscle, inShare fraction: Double) -> Bool {
-        isShare(fraction) { $0.tags.primary.contains(muscle) }
+        let count = exercises.count { $0.tags.primary.contains(muscle) }
+        return count > 0 && Double(count) >= fraction * Double(exercises.count)
+    }
+
+    func moves(_ movement: ExerciseTags.Movement, inShare fraction: Double) -> Bool {
+        isShare(fraction) { $0.tags.movement == movement }
+    }
+
+    /// Whether every one of these groups has work in it.
+    func spans(_ groups: MuscleGroup...) -> Bool {
+        groups.allSatisfy { group in exercises.contains { $0.muscleGroup == group } }
     }
 
     /// A barbell or kettlebell every one of two or more exercises uses.
@@ -122,12 +184,35 @@ private struct Work {
         }
     }
 
-    /// All strength work under a weight, so "strength" is honest.
+    /// All strength work under a weight, so "heavy" is honest.
     var isAllLoaded: Bool {
-        exercises.allSatisfy { exercise in
-            exercise.tags.kind == .strength
-                && !exercise.equipment.isDisjoint(with: [.dumbbells, .kettlebell, .barbell])
-        }
+        exercises.allSatisfy { $0.tags.kind == .strength && $0.isLoaded }
+    }
+
+    var isAllBodyweight: Bool {
+        !exercises.contains(where: \.isLoaded)
+    }
+
+    /// No two exercises for the same group: a grab bag.
+    var isOneOfEach: Bool {
+        Set(exercises.map(\.muscleGroup)).count == exercises.count
+    }
+}
+
+extension Exercise {
+    fileprivate var isLoaded: Bool {
+        !equipment.isDisjoint(with: [.dumbbells, .kettlebell, .barbell])
+    }
+
+    /// A weight pushed away with the chest or shoulders: a bench or overhead press, not a
+    /// push-up or a triceps extension.
+    fileprivate var isPress: Bool {
+        tags.movement == .push && isLoaded && !tags.primary.isDisjoint(with: [.chest, .frontDelts])
+    }
+
+    /// A pull into the upper back, not a pull-up.
+    fileprivate var isRow: Bool {
+        tags.movement == .pull && tags.primary.contains(.upperBack)
     }
 }
 
@@ -136,54 +221,96 @@ extension MuscleGroup {
         switch self {
         case .legs: Self.legNames(for: work)
         case .back: Self.backNames(for: work)
-        case .chest where work.works(.triceps, inShare: 1 / 2):
-            (["Push day", "Chest and triceps"], ["Strong chest", "Strong push"])
-        case .chest: (["Push day", "Chest day"], ["Strong chest", "Strong push"])
-        case .shoulders: (["Shoulder day"], ["Strong shoulders"])
-        case .arms
-            where work.works(.biceps, inShare: 1 / 3) && work.works(.triceps, inShare: 1 / 3):
-            (["Arm day", "Biceps and triceps"], ["Strong arms"])
-        case .arms: (["Arm day"], ["Strong arms"])
-        case .core where work.isShare(1 / 2) { $0.tags.movement == .hold }:
-            (["Core work", "Core day"], ["Steady core"])
-        case .core: (["Core work", "Core day"], ["Strong core", "Steady core"])
+        case .chest: Self.chestNames(for: work)
+        case .shoulders: (["Shoulder day"], work.moves(.push, inShare: 2 / 3) ? ["Overhead"] : [])
+        case .arms: Self.armNames(for: work)
+        case .core: Self.coreNames(for: work)
         }
     }
 
     private static func legNames(for work: Work) -> RoutineFocus.Names {
         if work.isShare(1 / 3, { $0.tags.kind == .balance }) {
-            return (["Legs and balance"], ["Steady legs"])
+            return (["Legs and balance", "Balance and legs"], ["Steady legs"])
         }
-        if work.isShare(2 / 3, { $0.tags.movement == .hinge }) {
-            return (["Hips and hamstrings"], ["Strong legs"])
+        if work.moves(.hinge, inShare: 2 / 3) {
+            // Hamstrings only when they do the work first: a glute bridge is a glute day.
+            let plain = work.works(.hamstrings, inShare: 0) ? "Hips and hamstrings" : "Glute day"
+            return ([plain, "Leg day"], ["Bend and lift"])
         }
-        return (["Leg day", "Lower body"], ["Strong legs", "Solid lower body"])
+        return (
+            ["Leg day", "Lower body"],
+            [work.isAllLoaded ? "Heavy legs" : "Stairs tomorrow", "Just legs"],
+        )
     }
 
     private static func backNames(for work: Work) -> RoutineFocus.Names {
         if work.works(.forearms, inShare: 1 / 2) {
-            return (["Back and grip"], ["Strong back and grip"])
+            return (["Back and grip"], ["Hang time"])
         }
         if work.works(.biceps, inShare: 1 / 2) {
-            return (["Back and biceps"], ["Strong back"])
+            return (["Back and biceps"], ["Back and bis"])
         }
-        return (["Pull day", "Back day"], ["Strong back", "Strong pull"])
+        let character = if work.exercises.allSatisfy({ $0.equipment.contains(.pullUpBar) }) {
+            "On the bar"
+        } else if work.exercises.allSatisfy(\.isRow) {
+            "Rows"
+        } else {
+            "Back at it"
+        }
+        return (["Back day", "Pull day"], [character])
+    }
+
+    private static func chestNames(for work: Work) -> RoutineFocus.Names {
+        if work.works(.triceps, inShare: 1 / 2) {
+            return (
+                ["Chest and triceps", "Push day", "Chest day"],
+                work.isAllBodyweight ? ["No weights"] : [],
+            )
+        }
+        let benches = work.exercises.allSatisfy { $0.isPress && $0.equipment.contains(.bench) }
+        let character = benches ? ["Bench day"] : work
+            .isShare(2 / 3, \.isPress) ? ["Press day"] : []
+        return (["Chest day", "Push day"], character)
+    }
+
+    private static func armNames(for work: Work) -> RoutineFocus.Names {
+        if work.works(.biceps, inShare: 1 / 3), work.works(.triceps, inShare: 1 / 3) {
+            return (["Arm day", "Biceps and triceps"], ["Curls and extensions"])
+        }
+        return (["Arm day"], work.works(.biceps, inShare: 2 / 3) ? ["Curls"] : [])
+    }
+
+    private static func coreNames(for work: Work) -> RoutineFocus.Names {
+        let plain = ["Core work", "Core day"]
+        if work.moves(.hold, inShare: 1 / 2) {
+            return (plain, ["Hold still", "Steady core"])
+        }
+        return (plain, ["Brace"])
     }
 }
 
 extension RoutineFocus.StretchRegion {
-    fileprivate var names: RoutineFocus.Names {
+    /// Names that say only where the stretches reach: a calf stretch opens no hips, and a chest
+    /// stretch alone is no shoulder stretch.
+    fileprivate func names(for stretches: [Exercise]) -> RoutineFocus.Names {
         switch self {
         case .lowerBody:
-            (
-                ["Hip and leg stretch", "Lower body stretch"],
-                ["Easy hip stretch", "Loose hips and legs"],
+            let hips = stretches.contains {
+                !$0.tags.primary.isDisjoint(with: [.glutes, .hipFlexors])
+            }
+            return hips
+                ? (["Hip and leg stretch", "Lower body stretch"], ["Hip opener", "Slow stretch"])
+                : (["Leg stretch", "Lower body stretch"], ["Stretch the legs"])
+        case .upperBody:
+            let shoulders = stretches.contains { $0.muscleGroup == .shoulders }
+            return (
+                ["Upper body stretch"] + (shoulders ? ["Shoulder stretch"] : []),
+                ["Open up"] + (shoulders ? ["Loose shoulders"] : []),
             )
-        case .upperBody: (["Shoulder mobility", "Upper body stretch"], ["Loose shoulders"])
         case .back:
-            (["Back stretch", "Back mobility"], ["Easy back stretch", "Gentle back stretch"])
+            return (["Back stretch", "Back mobility"], ["Loosen the back"])
         case .wholeBody:
-            (["Full body stretch", "Stretch and mobility"], ["Easy stretch", "Gentle stretch"])
+            return (["Full body stretch", "Stretch and mobility"], ["Unwind", "Stretch it out"])
         }
     }
 }

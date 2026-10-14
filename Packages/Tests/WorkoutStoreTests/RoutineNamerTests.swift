@@ -12,8 +12,9 @@ struct RoutineNamerTests {
 
     /// A routine whose seed is 1: plain, its first variant.
     private static let routine = UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0))
-    /// A routine whose seed is 0: warm, its first variant.
-    private static let warmRoutine = UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
+    /// A routine whose seed is 0: character, its first variant.
+    private static let characterRoutine =
+        UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
     /// A routine whose seed is 4: plain, its second variant.
     private static let otherRoutine = UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0))
 
@@ -38,12 +39,12 @@ struct RoutineNamerTests {
         ) == "Full body")
     }
 
-    @Test("A routine is named for what it works, plain or warm by its id")
+    @Test("A routine is named for what it works, plain or with character by its id")
     func namedForFocus() throws {
         let legs = try Self.exercises("Goblet squat", "Reverse lunge", "Romanian deadlift")
         #expect(RoutineNamer.standard.name(for: legs, of: Self.routine) == "Leg day")
         #expect(RoutineNamer.standard.name(for: legs, of: Self.otherRoutine) == "Lower body")
-        #expect(RoutineNamer.standard.name(for: legs, of: Self.warmRoutine) == "Strong legs")
+        #expect(RoutineNamer.standard.name(for: legs, of: Self.characterRoutine) == "Heavy legs")
     }
 
     @Test("Tags sharpen a name: biceps, grip, balance, a shared kettlebell")
@@ -57,7 +58,7 @@ struct RoutineNamerTests {
         #expect(try name(["Biceps curl", "Hammer curl", "Triceps extension"]) ==
             "Biceps and triceps")
         #expect(try name(["Pull-up", "Dead hang"]) == "Back and grip")
-        #expect(try name(["Balance board hold", "Step-up", "Side plank"]) == "Legs and balance")
+        #expect(try name(["Balance board hold", "Step-up", "Side plank"]) == "Balance and legs")
         #expect(try name(["Kettlebell swing", "Turkish get-up", "Goblet squat"]) ==
             "Kettlebell legs")
     }
@@ -72,12 +73,12 @@ struct RoutineNamerTests {
             "Barbell bench press",
         )
         #expect(RoutineNamer.standard.name(for: mix, of: Self.routine) == "Stretch and strength")
-        #expect(RoutineNamer.standard
-            .name(for: mix, of: Self.warmRoutine) == "Stretch and strength")
+        #expect(RoutineNamer.standard.name(for: mix, of: Self.characterRoutine)
+            == "Lift and stretch")
     }
 
-    @Test("Light or balance work is never named for power")
-    func noPower() throws {
+    @Test("Character says only what the work bears out: heavy under a weight, steady for balance")
+    func honestCharacter() throws {
         let light = try Self.exercises(
             "Hammer curl",
             "Pigeon stretch",
@@ -85,23 +86,44 @@ struct RoutineNamerTests {
             "Kettlebell swing",
         )
         let balance = try Self.exercises("Balance board hold", "Step-up", "Side plank")
-        #expect(RoutineNamer.standard.name(for: light, of: Self.warmRoutine) == "Solid full body")
-        #expect(RoutineNamer.standard.name(for: balance, of: Self.warmRoutine) == "Steady legs")
+        let barbells = try Self.exercises("Barbell back squat", "Barbell deadlift")
+        let loadedPair = try Self.exercises("Dumbbell bench press", "Goblet squat")
+        let five = try Self.exercises(
+            "Barbell back squat",
+            "Barbell bench press",
+            "Barbell row",
+            "Barbell overhead press",
+            "Barbell deadlift",
+        )
+        let name = { (exercises: [Exercise]) in
+            RoutineNamer.standard.name(for: exercises, of: Self.characterRoutine)
+        }
+        #expect(name(light) == "Head to toe")
+        #expect(name(balance) == "Steady legs")
+        #expect(name(barbells) == "Barbell day")
+        #expect(name(five) == "The big five")
+        #expect(name(loadedPair) == "Heavy day")
     }
 
-    @Test("Every routine of up to two built-ins, in any style, gets a short, honest name")
+    @Test("Every routine of up to two built-ins, in any style, gets a short name as written")
     func everyPair() {
-        let styles = (0 ..< 6).map { seed in
+        // Seeds 0 to 17 cover both styles at every variant of a list up to six long.
+        let styles = (0 ..< 18).map { seed in
             UUID(uuid: (0, 0, 0, 0, 0, 0, 0, UInt8(seed), 0, 0, 0, 0, 0, 0, 0, 0))
         }
         for first in Exercise.builtIn {
             for second in Exercise.builtIn {
-                let exercises = [first, second]
+                let exercises = first == second ? [first] : [first, second]
+                let focus = RoutineFocus(of: exercises)
+                let written = focus.names(for: exercises)
                 for style in styles {
                     let name = RoutineNamer.standard.name(for: exercises, of: style) ?? ""
                     #expect((1 ... RoutineNamer.longestName).contains(name.count), "\(name)")
-                    #expect(!name.lowercased().contains("power"))
-                    #expect(RoutineFocus(of: exercises).checked(name, against: exercises) == name)
+                    // The name was honest as written, so the check left it alone.
+                    #expect(
+                        (written.plain + written.character).contains(name),
+                        "\(name) for \(first.name), \(second.name)",
+                    )
                 }
             }
         }
@@ -115,15 +137,15 @@ struct RoutineNamerTests {
             == RoutineNamer.standard.name(for: once, of: Self.routine))
     }
 
-    @Test("A routine keeps its style, and about a third of routines are warm")
+    @Test("A routine keeps its style, and about a third of routines have character")
     func styleBySeed() {
         let routine = UUID()
         let first = NameStyle(of: routine)
         let again = NameStyle(of: routine)
         #expect(first == again)
-        let warm = (0 ..< 300).count { _ in NameStyle(of: UUID()).isWarm }
-        #expect((60 ... 140).contains(warm))
-        #expect(!NameStyle(of: Self.routine).isWarm)
-        #expect(NameStyle(of: Self.warmRoutine).isWarm)
+        let character = (0 ..< 300).count { _ in NameStyle(of: UUID()).hasCharacter }
+        #expect((60 ... 140).contains(character))
+        #expect(!NameStyle(of: Self.routine).hasCharacter)
+        #expect(NameStyle(of: Self.characterRoutine).hasCharacter)
     }
 }
