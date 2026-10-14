@@ -146,8 +146,9 @@ touch disjoint files.
 ## When the simulator, not the app, fails a test
 
 A simulator keeps its settings across sessions, so one agent's leftovers can fail the next
-one's UI test with nothing wrong in the app. `scripts/test.sh sim` runs `scripts/sim.sh reset`
-first: light appearance, large text, and a keyboard that is not minimized. A reboot is
+one's UI test with nothing wrong in the app. On "PlusPlus Team", `scripts/test.sh sim` runs
+`scripts/sim.sh reset` first: light appearance, large text, and a keyboard that is not
+minimized. On any other simulator it leaves the settings alone, since that one is a person's. A reboot is
 `xcrun simctl shutdown "PlusPlus Team"`, and the next script boots it again;
 `scripts/sim.sh erase-team` is the last resort, and agents erase only through it.
 
