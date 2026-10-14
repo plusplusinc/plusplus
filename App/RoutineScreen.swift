@@ -1,15 +1,22 @@
 import DesignSystem
+import OSLog
 import SwiftUI
 import WorkoutStore
 
-/// The screen the app launches into: a new, empty routine.
+/// The screen the app launches into: the routine being edited, or a new one.
 ///
-/// The name and the exercises live only in memory for now. The app deliberately creates no
-/// `ModelContainer` yet: storage wiring lives in `WorkoutStoreContainer` and gets connected when
-/// there is a data model worth connecting.
+/// Every change saves on its own, with no drafts. A new routine is saved once something is put
+/// in it, and deleted once it is cleared back to nothing.
 struct RoutineScreen: View {
-    @State private var name = ""
-    @State private var exercises: [RoutineExercise] = []
+    @State private var routine: Routine
+    /// Nil when the store didn't open: the screen works, and nothing saves.
+    private let store: RoutineStore?
+    /// Every change to the routine, saved one at a time in the order they happened, so an older
+    /// version can never land last. Only the newest unsaved version waits.
+    @State private var saves = AsyncStream.makeStream(
+        of: Routine.self,
+        bufferingPolicy: .bufferingNewest(1),
+    )
     @State private var isPicking = false
     @State private var scrollPosition = ScrollPosition()
     /// The row just added, holding its place until it can be seen going in.
@@ -32,13 +39,23 @@ struct RoutineScreen: View {
 
     private static let defaultName = String(localized: "New routine")
 
+    init(routine: Routine, store: RoutineStore?) {
+        _routine = State(initialValue: routine)
+        self.store = store
+    }
+
+    /// What an unnamed routine shows in place of a name.
+    private var placeholder: String {
+        routine.generatedName ?? Self.defaultName
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: Spacing.md) {
                     EditableTitle(
-                        text: $name,
-                        placeholder: Self.defaultName,
+                        text: $routine.name,
+                        placeholder: placeholder,
                         accessibilityLabel: "Routine name",
                         accessibilityHint: "Renames the routine.",
                     )
@@ -47,14 +64,14 @@ struct RoutineScreen: View {
                             isTitleUnderBar = !isVisible
                         }
                     }
-                    Rail(exercises, arriving: arriving) { item in
+                    Rail(routine.exercises, arriving: arriving) { item in
                         RowLabel(title: item.exercise.name, detail: item.exercise.equipmentLine)
                             .railRow()
                             .accessibilityIdentifier("routine.exercise")
                             .swipeActions(edge: .trailing) {
                                 Button("Delete", role: .destructive) {
                                     withAnimation(.railChange) {
-                                        exercises.removeAll { $0.id == item.id }
+                                        routine.exercises.removeAll { $0.id == item.id }
                                     }
                                 }
                             }
@@ -82,7 +99,7 @@ struct RoutineScreen: View {
                 of: Self.endIsInView(of:),
                 action: { _, isInView in isEndInView = isInView },
             )
-            .primaryKeyBar(isPresented: !exercises.isEmpty) {
+            .primaryKeyBar(isPresented: !routine.exercises.isEmpty) {
                 // Starting a workout is a later slice.
                 Button("Start", systemImage: "play.fill") { }
             }
@@ -113,9 +130,10 @@ struct RoutineScreen: View {
                                 scrollPosition.scrollTo(edge: .top)
                             }
                         } label: {
-                            Text(name.isEmpty ? Self.defaultName : name)
+                            let isUnnamed = routine.name.isEmpty
+                            Text(isUnnamed ? placeholder : routine.name)
                                 .font(.ppInlineTitle)
-                                .foregroundStyle(.pp(name.isEmpty ? .textSecondary : .textPrimary))
+                                .foregroundStyle(.pp(isUnnamed ? .textSecondary : .textPrimary))
                                 .lineLimit(1)
                         }
                         .buttonStyle(.plain)
@@ -141,6 +159,19 @@ struct RoutineScreen: View {
                 }
             }
         }
+        // `onChange` skips the first value, so a routine opened and left alone is never saved.
+        .onChange(of: routine) { _, changed in
+            saves.continuation.yield(changed)
+        }
+        .task {
+            for await version in saves.stream {
+                do {
+                    try await store?.save(version)
+                } catch {
+                    Logger.app.error("The routine didn't save: \(error)")
+                }
+            }
+        }
         .hotReloadable()
     }
 
@@ -157,7 +188,7 @@ struct RoutineScreen: View {
         // nothing yet, times the entry a moment into the sheet's slide: the line barely moves
         // at first, and the sheet has cleared all but the screen's foot by the time it shows.
         withAnimation(.linear(duration: 0.1)) {
-            exercises.append(row)
+            routine.exercises.append(row)
         } completion: {
             guard arriving == row.id else { return }
             guard !isEndInView else { return letArrivingEnter(row) }
@@ -208,5 +239,5 @@ struct RoutineScreen: View {
 }
 
 #Preview {
-    RoutineScreen()
+    RoutineScreen(routine: Routine(), store: nil)
 }

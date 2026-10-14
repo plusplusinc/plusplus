@@ -15,6 +15,8 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments += [
             "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL",
+            // Start from a new routine, not the one the last test saved.
+            "-resetStore", "YES",
         ]
         app.launch()
         let title = app.textFields["Routine name"]

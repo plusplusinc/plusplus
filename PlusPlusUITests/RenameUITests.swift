@@ -20,6 +20,8 @@ final nonisolated class RenameUITests: XCTestCase {
         let app = XCUIApplication()
         // The simulator keeps the last text size it was set to, so the default is pinned.
         app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
+        // Start from a new routine, not the one the last test saved.
+        app.launchArguments += ["-resetStore", "YES"]
         app.launch()
         let title = app.textFields["Routine name"]
         XCTAssertTrue(title.appears(within: 10))
