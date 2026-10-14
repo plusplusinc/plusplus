@@ -17,4 +17,12 @@ time. Every `@Model` follows these from the start:
 - Store enums as raw strings with computed accessors, and decode unknown values to a fallback,
   so a row written by a newer app version degrades instead of crashing.
 
+`RoutineStore` is the one `@ModelActor`, opened through `WorkoutStoreContainer.make(mode:schema:)`
+with its own schema. Its models, `StoredRoutine` and `StoredRoutineExercise`, are internal:
+`Routine`, a value, crosses the boundary, and the store diffs its rows by id rather than
+replacing them, so a row's identity, and later its sync record, is stable. A row carries its
+`position`, since a relationship is unordered. The store calls `save()` itself, since an
+actor's context does not autosave. An empty routine is deleted rather than stored, and only a
+change to the name or the rows is an edit for the launch rule's `editedAt`.
+
 SwiftData has no SQL aggregate pushdown; rollups are computed in Swift over fetched rows.

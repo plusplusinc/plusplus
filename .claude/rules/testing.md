@@ -12,26 +12,39 @@ simulator) before anything that needs UIKit, and snapshots before XCUITest.
 
 What each tier holds today:
 
-- **Package tests** hold rules: `EditableTitle`'s static functions, `WorkoutStoreContainer`, the
-  built-in exercises with their equipment lines and search.
+- **Package tests** hold rules: `EditableTitle`'s static functions, the frames of a suggestion
+  typing in included, `WorkoutStoreContainer`, the built-in exercises with their equipment
+  lines, tags, and search, `RoutineStore`'s saving and launch rule over an in-memory container
+  (a relaunch is a second store on the same container), and the names: the focus, the style, the
+  honesty check, and every routine of up to two built-ins in every style.
 - **Snapshots** hold how a component looks, at rest and while editing. The title's editing look,
   `_` included, is drawn from plain values through `EditableTitleContent`, reached with
   `@testable import`, so no focus or keyboard is needed; its `blinks: false` holds the `_` lit,
   and its field gets a selection that ignores writes, since an unfocused field writes its own
-  back. A snapshot cannot show a caret the text system placed. Rows on the rail and Start are
-  snapshot through the same components the routine screen composes; a row swiped open is the
-  system's, so the UI test shows it.
-- **UI tests** hold only what needs the real keyboard, text system, or frames: typing, Return,
-  arrows, taps, range selection, the keyboard's edge, scrolling as the keyboard rises, and
-  VoiceOver frames; and the exercise picker, system chrome composed in the app, which has no
-  test target: adding, searching, swiping to delete, and the accessibility audit at AX5. Each
-  launch costs about 9 s on CI, so there is one UI test per launch configuration:
-  `RenameUITests/testRenameAtDefaultSize` and
-  `TitleWrappingUITests/testWrappedTitleAtLargestTextSize`. A new check extends the test for
-  its launch as a named `XCTContext.runActivity`; a new test needs a launch argument no
-  existing test uses. Where the caret is shows in where typing lands, so they read it from the
-  field's value; one check reads the drawn `_` from pixels, for the wire from the text system's
-  selection to it. `TitleShot.swift` reads the `_` and the title's lines from pixels.
+  back. A snapshot cannot show a caret the text system placed. A suggestion's arrival is drawn
+  the same way from `typingFrame(of:at:)`'s values, so a moment of it is an image: the old name
+  fading, the trail shuffling in blue, the last letter easing to white. Rows on the rail and
+  Start are snapshot through the same components the routine screen composes, a generated name
+  resting white over its rows included; a row swiped open is the system's, so the UI test shows
+  it.
+- **UI tests** hold only what needs the real keyboard, text system, frames, or a relaunch:
+  typing, Return, arrows, taps, range selection, the keyboard's edge, scrolling as the keyboard
+  rises, and VoiceOver frames; the exercise picker, system chrome composed in the app, which has
+  no test target: adding, searching, swiping to delete, and the accessibility audit at AX5; and
+  what the app saved, seen only by quitting and launching again. Each launch costs about 9 s on
+  CI, so there is one UI test per launch configuration:
+  `RenameUITests/testRenameAtDefaultSize`,
+  `TitleWrappingUITests/testWrappedTitleAtLargestTextSize`, and
+  `RoutineAutosaveUITests/testRoutineSurvivesRelaunch`, which relaunches four times. A new
+  check extends the test for its launch as a named `XCTContext.runActivity`; a new test needs a
+  launch argument no existing test uses. Every test launches with `-resetStore YES`, so it
+  starts from a new routine and not the one the last test saved, and the relaunch test with
+  `-fallbackNames YES`, muscle-group names that are the same on every simulator (both are
+  `LaunchOptions`, Debug only). Where the caret is shows in where typing lands, so they read it
+  from the field's value; one check reads the drawn `_` from pixels, for the wire from the text
+  system's selection to it. `TitleShot.swift` reads the `_`, the title's lines, and its contrast
+  from pixels: a name, typed or generated, reaches further from the background than the
+  placeholder's gray.
   Wait with `appears()`, `disappears()`, `value(becoming:)`, and, for anything else read,
   `reading(_:becoming:within:)` from `Waits.swift`: XCTest's own waits spend a second before
   their first check. Typing, key presses, and taps can return before the app has handled them,

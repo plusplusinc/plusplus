@@ -11,8 +11,9 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
 - No raw colors, spacing, font sizes, or corner radii at call sites. Use `Color.pp(.token)`,
   `Font.pp*` or a `.pp*Font()` modifier, `Spacing`, and `Radius` from `DesignSystem`. If a
   token is missing, add a `ColorToken` case and its colorset. Green (`accent`) is data only.
-  Blue (`railJoin`) marks something joining a rail, for the moment it joins, then gives way to
-  the rail's grays; nothing rests in it.
+  Blue (`railJoin`) marks something arriving: a row joining a rail, and a generated name typing
+  into the title, for the moment it arrives, then gives way to the thing's own color; nothing
+  rests in it.
 - Every font token scales with Dynamic Type: built on a `Font.TextStyle`, or sized with
   `@ScaledMetric(relativeTo:)` when the design sits between two styles. Never a fixed size.
 - Prefer stock components for navigation, toolbars, and sheets; the system applies Liquid Glass
@@ -37,6 +38,15 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   It enters only where it can be seen: its place opens as the picker's sheet starts down, and
   the entry plays a moment into the sheet's slide, or, when the new row has pushed the list's
   end out of view, after a scroll to the end.
+- A generated name arrives in the title on its own clock (`SuggestionTiming`, one
+  `TimelineView`): the old name fades out (0.15 s), then the new one types in, a character
+  every 20 ms, each letter shuffling through the name's other letters in `railJoin` for 50 ms,
+  a new stand-in every 30 ms, so about two letters shuffle behind the lead, then landing and
+  easing to its own color (0.16 s, ease-out). The `_` breathes in blue (a 1.8 s breath, down to
+  0.4 opacity) from the fade until the last letter has eased. Every frame is worked out from
+  the time since typing started (`typingFrame(of:at:)`), so nothing drifts and a snapshot can
+  draw any moment. Back to New routine it crossfades (0.3 s), as does everything with Reduce
+  Motion, with no blue. Editing stops it at once and opens on the final name.
 - Every new component gets a `#Preview` and goes through `assertThemedSnapshots`.
 - Every view, `ButtonStyle`, and `ViewModifier` declares `@ObserveHotReload private var
   hotReload` and ends its body with `.hotReloadable()`, so hot reload redraws it. Both compile

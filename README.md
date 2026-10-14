@@ -66,6 +66,7 @@ The dependency rules between the packages are the architecture; they are spelled
 
 ## Status and contributing
 
-Early: the app launches into an empty routine you can name and add built-in exercises to, all
-of it in memory, with no stored model yet, by design. Status, architecture, and the branching
-rules are in [CLAUDE.md](CLAUDE.md); CI and releases in [docs/ci.md](docs/ci.md).
+Early: the app launches into the routine you last edited, or an empty one, which you can name
+and add built-in exercises to. Every change saves on the phone, an unnamed routine is named for
+its exercises, and nothing syncs yet. Status, architecture, and the branching rules are in
+[CLAUDE.md](CLAUDE.md); CI and releases in [docs/ci.md](docs/ci.md).
