@@ -71,8 +71,8 @@ picture of the maintainer's intent was wrong. The stopping rules decide the fixe
    docs, or memory answered, or a brief whose problem, criterion, or scope did not hold.
 3. **Wasted work**: failed runs, time stuck, a tool that misbehaved, rounds the lead caused, a
    wrong first try, rework after a merge.
-4. **The maintainer's own friction**: what they had to do, chase, remember, or wait on, or what
-   left them lost.
+4. **The maintainer's own friction**: what they had to chase, remember, wait on, or do beyond
+   product calls and trying builds (a go-ahead to merge among them), or what left them lost.
 
 The sweep goes unranked: fix each statement in `CLAUDE.md`, `.claude/`, `docs/`, and the README
 that the merges it covers made false, deleting first.
