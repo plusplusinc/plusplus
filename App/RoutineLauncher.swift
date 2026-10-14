@@ -7,12 +7,13 @@ import WorkoutStore
 /// routine and then the saved name.
 struct RoutineLauncher: View {
     let store: RoutineStore?
+    let namer: RoutineNamer
 
     @State private var routine: Routine?
 
     var body: some View {
         if let routine {
-            RoutineScreen(routine: routine, store: store)
+            RoutineScreen(routine: routine, store: store, namer: namer)
         } else {
             Color.pp(.background)
                 .ignoresSafeArea()

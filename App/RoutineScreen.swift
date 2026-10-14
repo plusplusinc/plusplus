@@ -11,6 +11,10 @@ struct RoutineScreen: View {
     @State private var routine: Routine
     /// Nil when the store didn't open: the screen works, and nothing saves.
     private let store: RoutineStore?
+    private let namer: RoutineNamer
+    /// The exercises, by id, the generated name was made for, so a name is asked for only
+    /// when they change, and not again at every launch.
+    @State private var namedFor: [Exercise.ID]?
     /// Every change to the routine, saved one at a time in the order they happened, so an older
     /// version can never land last. Only the newest unsaved version waits.
     @State private var saves = AsyncStream.makeStream(
@@ -39,9 +43,17 @@ struct RoutineScreen: View {
 
     private static let defaultName = String(localized: "New routine")
 
-    init(routine: Routine, store: RoutineStore?) {
+    /// How long the exercises stay unchanged before a name is asked for, so a burst of adds
+    /// asks once.
+    private static let namingPause = Duration.milliseconds(750)
+
+    init(routine: Routine, store: RoutineStore?, namer: RoutineNamer) {
         _routine = State(initialValue: routine)
         self.store = store
+        self.namer = namer
+        _namedFor = State(
+            initialValue: routine.generatedName == nil ? nil : routine.exercises.map(\.exercise.id),
+        )
     }
 
     /// What an unnamed routine shows in place of a name.
@@ -163,6 +175,9 @@ struct RoutineScreen: View {
         .onChange(of: routine) { _, changed in
             saves.continuation.yield(changed)
         }
+        .task(id: namingKey) {
+            await suggestName()
+        }
         .task {
             for await version in saves.stream {
                 do {
@@ -173,6 +188,30 @@ struct RoutineScreen: View {
             }
         }
         .hotReloadable()
+    }
+
+    /// What a generated name depends on: the exercises, in order, while the routine is unnamed.
+    /// Nil once it has a name, which is never regenerated.
+    private var namingKey: [Exercise.ID]? {
+        routine.name.isEmpty ? routine.exercises.map(\.exercise.id) : nil
+    }
+
+    /// Asks for a name for the unnamed routine once its exercises have settled. Until the answer
+    /// comes, the title keeps the name it shows, so it changes once.
+    private func suggestName() async {
+        guard let key = namingKey, key != namedFor else { return }
+        guard !key.isEmpty else {
+            routine.generatedName = nil
+            namedFor = nil
+            return
+        }
+        // A change to the exercises in the pause cancels this ask and starts the next.
+        guard (try? await Task.sleep(for: Self.namingPause)) != nil,
+              let name = await namer.name(for: routine.exercises.map(\.exercise)),
+              !Task.isCancelled
+        else { return }
+        routine.generatedName = name
+        namedFor = key
     }
 
     /// Adds a picked exercise. Its row takes its place as the sheet starts down, moving Add
@@ -239,5 +278,5 @@ struct RoutineScreen: View {
 }
 
 #Preview {
-    RoutineScreen(routine: Routine(), store: nil)
+    RoutineScreen(routine: Routine(), store: nil, namer: .muscleGroupsOnly)
 }

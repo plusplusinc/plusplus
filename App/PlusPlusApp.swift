@@ -8,6 +8,7 @@ struct PlusPlusApp: App {
     /// Nil when the store won't open: the app still works, and nothing saves. Better than a
     /// crash at every launch, or a store quietly opened somewhere else.
     private let store: RoutineStore?
+    private let namer: RoutineNamer
 
     init() {
         do {
@@ -16,11 +17,16 @@ struct PlusPlusApp: App {
             Logger.app.fault("The store didn't open, so nothing will save: \(error)")
             store = nil
         }
+        #if DEBUG
+            namer = LaunchOptions.usesFallbackNames ? .muscleGroupsOnly : .onDevice
+        #else
+            namer = .onDevice
+        #endif
     }
 
     var body: some Scene {
         WindowGroup {
-            RoutineLauncher(store: store)
+            RoutineLauncher(store: store, namer: namer)
                 .publishesHotReloads()
         }
     }
