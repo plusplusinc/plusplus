@@ -12,7 +12,7 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
     /// writes its own selection back as it renders, so a snapshot passes one that ignores writes
     /// and keeps the caret it was given.
     @Binding var selection: TextSelection?
-    let defaultText: String
+    let placeholder: String
     let isEditing: Bool
     /// Whether the `_` blinks while editing. Snapshots hold it lit, however long after the view
     /// was made they render.
@@ -22,22 +22,22 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
     /// What the field does with focus, Return, and pasted lines: the wrapper's.
     let behavior: Behavior
 
-    /// The default text's height where it is drawn, wrapped, in place of an empty field.
-    @State private var defaultTextHeight: CGFloat = 0
+    /// The placeholder's height where it is drawn, wrapped, in place of an empty field.
+    @State private var placeholderHeight: CGFloat = 0
     /// The height of one line of the title.
     @State private var lineHeight: CGFloat = 0
     @ObserveHotReload private var hotReload
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            // A field's own placeholder stays on one line, truncated, so the default is drawn
+            // A field's own placeholder stays on one line, truncated, so the placeholder is drawn
             // here, wrapping like the text it stands for.
             if draft.isEmpty {
-                Text(defaultText)
-                    .foregroundStyle(.pp(isEditing ? .textSecondary : .textPrimary))
+                Text(placeholder)
+                    .foregroundStyle(.pp(.textSecondary))
                     .accessibilityHidden(true)
                     .onGeometryChange(for: CGFloat.self, of: \.size.height) {
-                        defaultTextHeight = $0
+                        placeholderHeight = $0
                     }
                     .background {
                         Text(verbatim: "_")
@@ -48,13 +48,13 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
                     }
             }
             // An empty field is one line tall, and VoiceOver frames the field, so it reserves
-            // as many lines as the default text drawn in its place. A frame around the field
+            // as many lines as the placeholder drawn in its place. A frame around the field
             // would not do: the field stays as tall as its lines inside any frame.
             field
                 .lineLimit(
                     draft.isEmpty
                         ? EditableTitle.lineCount(
-                            height: defaultTextHeight,
+                            height: placeholderHeight,
                             lineHeight: lineHeight,
                         )...
                         : 1...,
@@ -64,7 +64,7 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
             TitleCursor(
                 caret: caret,
                 draft: draft,
-                defaultText: defaultText,
+                placeholder: placeholder,
                 isEditing: isEditing,
                 blinks: blinks,
             )
@@ -86,8 +86,8 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
         .tint(isEditing && caret.isRange ? nil : .clear)
         .modifier(behavior)
         .accessibilityLabel(Text(accessibilityLabel))
-        // The default is only a placeholder in the field, but it is still the name.
-        .accessibilityValue(Text(verbatim: draft.isEmpty ? defaultText : draft))
+        // The placeholder is not in the field, but it is still the name.
+        .accessibilityValue(Text(verbatim: draft.isEmpty ? placeholder : draft))
         .accessibilityHint(Text(accessibilityHint))
     }
 }
@@ -113,7 +113,7 @@ final class Caret {
 private struct TitleCursor: View {
     let caret: Caret
     let draft: String
-    let defaultText: String
+    let placeholder: String
     let isEditing: Bool
     let blinks: Bool
 
@@ -160,7 +160,7 @@ private struct TitleCursor: View {
     /// nowhere for a range selection.
     private var offset: Int? {
         if draft.isEmpty {
-            return isEditing ? 0 : defaultText.count
+            return isEditing ? 0 : placeholder.count
         }
         guard isEditing else { return draft.count }
         return EditableTitle.insertionPoint(of: caret.selection, in: draft)
@@ -184,7 +184,7 @@ private struct TitleCursor: View {
     }
 
     private func underscore(_ color: Color) -> some View {
-        let shown = draft.isEmpty ? defaultText : draft
+        let shown = draft.isEmpty ? placeholder : draft
         let offset = offset
         return Canvas { context, size in
             guard let offset else { return }
@@ -214,7 +214,7 @@ private struct TitleCursor: View {
         draft: .constant("Arm and back"),
         caret: caret,
         selection: .constant(caret.selection),
-        defaultText: "New routine",
+        placeholder: "New routine",
         isEditing: true,
         blinks: true,
         accessibilityLabel: "Routine name",

@@ -8,7 +8,7 @@ import WorkoutStore
 /// `ModelContainer` yet: storage wiring lives in `WorkoutStoreContainer` and gets connected when
 /// there is a data model worth connecting.
 struct RoutineScreen: View {
-    @State private var name = Self.defaultName
+    @State private var name = ""
     @State private var exercises: [RoutineExercise] = []
     @State private var isPicking = false
     @State private var scrollPosition = ScrollPosition()
@@ -38,7 +38,7 @@ struct RoutineScreen: View {
                 VStack(alignment: .leading, spacing: Spacing.md) {
                     EditableTitle(
                         text: $name,
-                        defaultText: Self.defaultName,
+                        placeholder: Self.defaultName,
                         accessibilityLabel: "Routine name",
                         accessibilityHint: "Renames the routine.",
                     )
@@ -113,9 +113,9 @@ struct RoutineScreen: View {
                                 scrollPosition.scrollTo(edge: .top)
                             }
                         } label: {
-                            Text(name)
+                            Text(name.isEmpty ? Self.defaultName : name)
                                 .font(.ppInlineTitle)
-                                .foregroundStyle(.pp(.textPrimary))
+                                .foregroundStyle(.pp(name.isEmpty ? .textSecondary : .textPrimary))
                                 .lineLimit(1)
                         }
                         .buttonStyle(.plain)

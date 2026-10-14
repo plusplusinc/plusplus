@@ -4,18 +4,6 @@ import Testing
 
 @Suite("Editable title rules")
 struct EditableTitleTests {
-    private let defaultText = "New routine"
-
-    @Test("The default is the placeholder, so typing replaces it")
-    func draftForDefault() {
-        #expect(EditableTitle.draft(for: defaultText, defaultText: defaultText).isEmpty)
-    }
-
-    @Test("Editing a chosen name starts from that name")
-    func draftForCustomName() {
-        #expect(EditableTitle.draft(for: "Legs", defaultText: defaultText) == "Legs")
-    }
-
     @Test("With no selection yet, the cursor is at the end")
     func insertionWithoutSelection() {
         #expect(EditableTitle.insertionPoint(of: nil, in: "Legs") == "Legs".endIndex)
@@ -109,16 +97,16 @@ struct EditableTitleTests {
     }
 
     @Test(
-        "An empty or blank edit restores the default",
+        "An empty or blank edit leaves the title unnamed, showing the placeholder",
         arguments: ["", "   ", "\n", " \t\n "],
     )
     func committedBlank(draft: String) {
-        #expect(EditableTitle.committed(draft, defaultText: defaultText) == defaultText)
+        #expect(EditableTitle.committed(draft).isEmpty)
     }
 
     @Test("A real name is kept, trimmed")
     func committedName() {
-        #expect(EditableTitle.committed("Legs", defaultText: defaultText) == "Legs")
-        #expect(EditableTitle.committed("  Push day \n", defaultText: defaultText) == "Push day")
+        #expect(EditableTitle.committed("Legs") == "Legs")
+        #expect(EditableTitle.committed("  Push day \n") == "Push day")
     }
 }

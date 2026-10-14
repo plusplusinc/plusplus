@@ -8,8 +8,10 @@ import SwiftUI
 /// system caret is hidden, so the `_` is the only cursor there is; a range selection shows the
 /// system highlight instead.
 ///
-/// The default text is the field's placeholder, never its contents: tapping it shows it gray with
-/// the `_` under its first letter, typing replaces it, and ending with nothing keeps it.
+/// An empty `text` is an unnamed title, which shows the placeholder, gray, in its place. The
+/// placeholder is never the field's contents: tapping it puts the `_` under its first letter,
+/// typing replaces it, and ending with nothing keeps it. It may change at any time, as a
+/// suggested name does.
 ///
 /// The field draws its own text, so everything the keyboard shows in it (suggestions, inline
 /// predictions, text being composed) shows as in any field. The `_` is drawn over it by
@@ -17,7 +19,7 @@ import SwiftUI
 /// follows from the text alone: `cursorCell(at:in:columns:)` wraps the text as the field does.
 public struct EditableTitle: View {
     @Binding private var text: String
-    private let defaultText: String
+    private let placeholder: String
     private let label: LocalizedStringKey
     private let hint: LocalizedStringKey
 
@@ -31,21 +33,15 @@ public struct EditableTitle: View {
 
     public init(
         text: Binding<String>,
-        defaultText: String,
+        placeholder: String,
         accessibilityLabel: LocalizedStringKey,
         accessibilityHint: LocalizedStringKey,
     ) {
         _text = text
-        self.defaultText = defaultText
+        self.placeholder = placeholder
         label = accessibilityLabel
         hint = accessibilityHint
-        _draft = State(initialValue: Self.draft(for: text.wrappedValue, defaultText: defaultText))
-    }
-
-    /// What the field holds for a title: empty for the default, which shows as the placeholder,
-    /// so typing replaces it.
-    public static func draft(for text: String, defaultText: String) -> String {
-        text == defaultText ? "" : text
+        _draft = State(initialValue: text.wrappedValue)
     }
 
     /// Whether a draft holds a press of Return: a single newline, wherever the caret was and
@@ -54,10 +50,10 @@ public struct EditableTitle: View {
         draft.count(where: \.isNewline) == 1
     }
 
-    /// The title an edit leaves behind: trimmed, and the default when nothing is left.
-    public static func committed(_ draft: String, defaultText: String) -> String {
-        let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? defaultText : trimmed
+    /// The title an edit leaves behind: trimmed, and empty, which shows the placeholder, when
+    /// nothing is left.
+    public static func committed(_ draft: String) -> String {
+        draft.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     /// Where the `_` goes in the draft: the insertion point, or nil for a range selection, which
@@ -137,7 +133,7 @@ public struct EditableTitle: View {
             draft: $draft,
             caret: caret,
             selection: $caret.selection,
-            defaultText: defaultText,
+            placeholder: placeholder,
             isEditing: isEditing,
             blinks: true,
             accessibilityLabel: label,
@@ -166,15 +162,15 @@ public struct EditableTitle: View {
         }
         .onChange(of: text) { _, newText in
             if !isEditing {
-                draft = Self.draft(for: newText, defaultText: defaultText)
+                draft = newText
             }
         }
         .hotReloadable()
     }
 
     private func commit() {
-        text = Self.committed(draft, defaultText: defaultText)
-        draft = Self.draft(for: text, defaultText: defaultText)
+        text = Self.committed(draft)
+        draft = text
     }
 }
 
@@ -218,10 +214,10 @@ private struct TitleFieldBehavior: ViewModifier {
 }
 
 #Preview {
-    @Previewable @State var name = "New routine"
+    @Previewable @State var name = ""
     EditableTitle(
         text: $name,
-        defaultText: "New routine",
+        placeholder: "New routine",
         accessibilityLabel: "Routine name",
         accessibilityHint: "Renames the routine.",
     )

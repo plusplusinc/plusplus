@@ -20,13 +20,14 @@ struct ComponentSnapshotTests {
 
     /// Start shows once there is a row.
     private func content(
-        name: String = "New routine",
+        name: String = "",
+        placeholder: String = "New routine",
         rows: [Row] = [],
     ) -> some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             EditableTitle(
                 text: .constant(name),
-                defaultText: "New routine",
+                placeholder: placeholder,
                 accessibilityLabel: "Routine name",
                 accessibilityHint: "Renames the routine.",
             )
