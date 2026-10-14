@@ -4,18 +4,19 @@ import Testing
 
 @Suite("Editable title rules")
 struct EditableTitleTests {
-    @Test("A new placeholder erases the old one to nothing, then types in")
-    func typingSteps() {
-        #expect(EditableTitle.typingSteps(from: "Legs", to: "Leg day") == [
-            "Leg", "Le", "L", "", "L", "Le", "Leg", "Leg ", "Leg d", "Leg da", "Leg day",
-        ])
-        #expect(EditableTitle.typingSteps(from: "", to: "Abs") == ["A", "Ab", "Abs"])
-        #expect(EditableTitle.typingSteps(from: "Abs", to: "") == ["Ab", "A", ""])
+    @Test("A letter decodes through another letter of its case")
+    func decodeGlyphLetters() throws {
+        for _ in 0 ..< 50 {
+            let lower = try #require(EditableTitle.decodeGlyph(for: "e"))
+            #expect(lower.isLowercase && lower != "e")
+            let upper = try #require(EditableTitle.decodeGlyph(for: "L"))
+            #expect(upper.isUppercase && upper != "L")
+        }
     }
 
-    @Test("The same placeholder types nothing")
-    func typingStepsUnchanged() {
-        #expect(EditableTitle.typingSteps(from: "Legs", to: "Legs").isEmpty)
+    @Test("Anything but a letter lands at once", arguments: [" ", "-", "1", "\u{2019}"])
+    func decodeGlyphNonLetters(character: Character) {
+        #expect(EditableTitle.decodeGlyph(for: character) == nil)
     }
 
     @Test("With no selection yet, the cursor is at the end")

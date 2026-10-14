@@ -11,9 +11,10 @@ import SwiftUI
 /// An empty `text` is an unnamed title, which shows the placeholder, gray, in its place. The
 /// placeholder is never the field's contents: tapping it puts the `_` under its first letter,
 /// typing replaces it, and ending with nothing keeps it. It may change at any time, as a
-/// suggested name does. While a new one is on its way (`isSuggesting`) the `_` pulses; when it
-/// comes, the old one is erased and the new one typed in, a character at a time. Reduce Motion
-/// crossfades it instead, and editing stops it at once.
+/// suggested name does. While a new one is on its way (`isSuggesting`) the `_` pulses in the
+/// rail's joining blue; when it comes, the old one fades out and the new one types in, each
+/// character flickering through a couple of stand-in letters in blue before it lands and settles
+/// to gray. Reduce Motion crossfades it instead, with no blue, and editing stops it at once.
 ///
 /// The field draws its own text, so everything the keyboard shows in it (suggestions, inline
 /// predictions, text being composed) shows as in any field. The `_` is drawn over it by
@@ -32,6 +33,11 @@ public struct EditableTitle: View {
     @FocusState private var isEditing: Bool
     /// The placeholder as drawn: behind `placeholder` while a new one types in.
     @State private var shownPlaceholder: String
+    @State private var placeholderOpacity = 1.0
+    /// The character of `shownPlaceholder` typing in, drawn blue.
+    @State private var joiningIndex: Int?
+    /// The stand-in letter drawn in the joining character's place while it decodes.
+    @State private var decodeGlyph: Character?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
@@ -53,13 +59,15 @@ public struct EditableTitle: View {
         _shownPlaceholder = State(initialValue: placeholder)
     }
 
-    /// What the placeholder shows, a keystroke at a time, on its way from `old` to `new`: `old`
-    /// erased to nothing, then `new` typed in. Ends with `new`; empty when they are the same.
-    public static func typingSteps(from old: String, to new: String) -> [String] {
-        guard old != new else { return [] }
-        let erasing = (0 ..< old.count).reversed().map { String(old.prefix($0)) }
-        let typing = (1 ... max(1, new.count)).map { String(new.prefix($0)) }
-        return erasing + (new.isEmpty ? [] : typing)
+    /// A letter to flicker through on the way to `character`, never `character` itself, in its
+    /// case. Nil for anything that isn't a letter, which lands at once. Letters only, so a
+    /// monospaced title never changes width.
+    public static func decodeGlyph(for character: Character) -> Character? {
+        guard character.isLetter else { return nil }
+        let letters = character.isUppercase
+            ? "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+            : "abcdefghijklmnopqrstuvwxyz"
+        return letters.filter { $0 != character }.randomElement()
     }
 
     /// Whether a draft holds a press of Return: a single newline, wherever the caret was and
@@ -153,8 +161,12 @@ public struct EditableTitle: View {
             selection: $caret.selection,
             placeholder: placeholder,
             shownPlaceholder: shownPlaceholder,
-            // Through the typing too: the pulse stops once the new placeholder is in.
-            pulses: !reduceMotion && (isSuggesting || shownPlaceholder != placeholder),
+            placeholderOpacity: placeholderOpacity,
+            joiningIndex: joiningIndex,
+            decodeGlyph: decodeGlyph,
+            // Through the typing too: the pulse stops once the last character has landed.
+            pulses: !reduceMotion
+                && (isSuggesting || shownPlaceholder != placeholder || joiningIndex != nil),
             isEditing: isEditing,
             blinks: true,
             accessibilityLabel: label,
@@ -177,7 +189,7 @@ public struct EditableTitle: View {
         .onChange(of: isEditing) { _, editing in
             if editing {
                 // Editing wins over a placeholder typing in.
-                shownPlaceholder = placeholder
+                settle()
                 // The tap that focuses the field leaves the caret at the start or selects
                 // everything, not where it landed, so editing starts at the end. Taps once
                 // editing place the caret where they land.
@@ -201,15 +213,45 @@ public struct EditableTitle: View {
         guard shownPlaceholder != placeholder else { return }
         guard !reduceMotion, !isEditing, draft.isEmpty else {
             withAnimation(reduceMotion ? .snappy(duration: SuggestionTiming.crossfade) : nil) {
-                shownPlaceholder = placeholder
+                settle()
             }
             return
         }
-        for step in Self.typingSteps(from: shownPlaceholder, to: placeholder) {
-            guard (try? await Task.sleep(for: SuggestionTiming.keystroke)) != nil, !isEditing
-            else { return }
-            shownPlaceholder = step
+        joiningIndex = nil
+        decodeGlyph = nil
+        withAnimation(.snappy(duration: SuggestionTiming.fadeOut)) {
+            placeholderOpacity = 0
         }
+        guard await pause(.seconds(SuggestionTiming.fadeOut)) else { return }
+        shownPlaceholder = ""
+        placeholderOpacity = 1
+        for (index, character) in placeholder.enumerated() {
+            shownPlaceholder.append(character)
+            joiningIndex = index
+            if Self.decodeGlyph(for: character) != nil {
+                for _ in 0 ..< SuggestionTiming.decodeGlyphs {
+                    decodeGlyph = Self.decodeGlyph(for: character)
+                    guard await pause(SuggestionTiming.decodeGlyph) else { return }
+                }
+                decodeGlyph = nil
+            }
+            guard await pause(SuggestionTiming.keystroke) else { return }
+        }
+        joiningIndex = nil
+    }
+
+    /// Waits, and says whether typing in should go on: not cancelled by a newer placeholder, and
+    /// not stopped by editing, which has already settled the title.
+    private func pause(_ duration: Duration) async -> Bool {
+        (try? await Task.sleep(for: duration)) != nil && !isEditing
+    }
+
+    /// The placeholder as it is, with nothing typing in.
+    private func settle() {
+        shownPlaceholder = placeholder
+        placeholderOpacity = 1
+        joiningIndex = nil
+        decodeGlyph = nil
     }
 
     private func commit() {

@@ -16,11 +16,18 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
     let placeholder: String
     /// The placeholder as drawn, partway through typing in when it has just changed.
     let shownPlaceholder: String
-    /// Whether the `_` pulses at rest, while a new placeholder is on its way.
+    /// Below 1 while the old placeholder fades out for a new one.
+    let placeholderOpacity: Double
+    /// The character of `shownPlaceholder` typing in, drawn in the rail's joining blue.
+    let joiningIndex: Int?
+    /// A stand-in letter drawn in the joining character's place while it decodes.
+    let decodeGlyph: Character?
+    /// Whether the `_` pulses at rest, in the rail's joining blue, while a new placeholder is on
+    /// its way and typing in.
     let pulses: Bool
     let isEditing: Bool
-    /// Whether the `_` blinks while editing, and pulses at rest. Snapshots hold it lit, however long after the view
-    /// was made they render.
+    /// Whether the `_` blinks while editing, and pulses at rest. Snapshots hold it lit, however
+    /// long after the view was made they render.
     let blinks: Bool
     let accessibilityLabel: LocalizedStringKey
     let accessibilityHint: LocalizedStringKey
@@ -38,8 +45,9 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
             // A field's own placeholder stays on one line, truncated, so the placeholder is drawn
             // here, wrapping like the text it stands for.
             if draft.isEmpty {
-                Text(shownPlaceholder)
+                Text(drawnPlaceholder)
                     .foregroundStyle(.pp(.textSecondary))
+                    .opacity(placeholderOpacity)
                     // With Reduce Motion a new placeholder crossfades in rather than typing.
                     .contentTransition(.opacity)
                     .accessibilityHidden(true)
@@ -79,6 +87,18 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
         }
         .ppScreenTitleFont()
         .hotReloadable()
+    }
+
+    /// The placeholder as drawn: the joining character blue, as its stand-in while it decodes.
+    private var drawnPlaceholder: AttributedString {
+        let characters = Array(shownPlaceholder)
+        guard let index = joiningIndex, characters.indices.contains(index) else {
+            return AttributedString(shownPlaceholder)
+        }
+        var joining = AttributedString(String(decodeGlyph ?? characters[index]))
+        joining.foregroundColor = Color.pp(.railJoin)
+        return AttributedString(String(characters[..<index])) + joining
+            + AttributedString(String(characters[(index + 1)...]))
     }
 
     /// The tint is the caret's color, and the selection highlight's, so it is clear only while
@@ -150,7 +170,7 @@ private struct TitleCursor: View {
                 }
             } else if pulses, !isEditing, blinks {
                 TimelineView(.animation) { context in
-                    underscore(.pp(.borderStrong))
+                    underscore(.pp(.railJoin))
                         .opacity(Self.pulseOpacity(at: context.date))
                 }
             } else {
@@ -240,6 +260,9 @@ private struct TitleCursor: View {
         selection: .constant(caret.selection),
         placeholder: "New routine",
         shownPlaceholder: "New routine",
+        placeholderOpacity: 1,
+        joiningIndex: nil,
+        decodeGlyph: nil,
         pulses: false,
         isEditing: true,
         blinks: true,
