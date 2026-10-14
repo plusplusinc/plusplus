@@ -17,7 +17,7 @@ Output: a short report, a private digest, and one PR when there is something to 
 - **A PR that came out of a retro does not get a retro.** Its title starts with "Retro of".
   The loop ends there.
 - **Nothing found means nothing written.** A one-line report, no PR, no memory note, no
-  notification. A night with no merge waiting is the common case and stays silent.
+  notification. A night with neither a merge nor a session is the common case and stays silent.
 - **One fix per recurring finding.** If the previous retro already fixed it, the fix did not
   work; say that instead of fixing it again.
 - **A fix counts when it is on `main`.** A retro PR still open holds a pending fix, not a made
