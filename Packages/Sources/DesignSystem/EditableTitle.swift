@@ -12,9 +12,9 @@ import SwiftUI
 /// placeholder is never the field's contents: tapping it puts the `_` under its first letter,
 /// typing replaces it, and ending with nothing keeps it. It may change at any time, as a
 /// suggested name does. While a new one is on its way (`isSuggesting`) the `_` pulses in the
-/// rail's joining blue; when it comes, the old one fades out and the new one types in, each
-/// character flickering through a couple of stand-in letters in blue before it lands and settles
-/// to gray. Reduce Motion crossfades it instead, with no blue, and editing stops it at once.
+/// rail's joining blue; when it comes, the old one fades out and the new one types in, its
+/// letters scrambling through stand-in letters in blue for a moment behind the lead before each
+/// lands in gray. Reduce Motion crossfades it instead, with no blue, and editing stops it at once.
 ///
 /// The field draws its own text, so everything the keyboard shows in it (suggestions, inline
 /// predictions, text being composed) shows as in any field. The `_` is drawn over it by
@@ -34,10 +34,9 @@ public struct EditableTitle: View {
     /// The placeholder as drawn: behind `placeholder` while a new one types in.
     @State private var shownPlaceholder: String
     @State private var placeholderOpacity = 1.0
-    /// The character of `shownPlaceholder` typing in, drawn blue.
-    @State private var joiningIndex: Int?
-    /// The stand-in letter drawn in the joining character's place while it decodes.
-    @State private var decodeGlyph: Character?
+    /// When `shownPlaceholder` started typing in, while it is. The one clock every character's
+    /// appearing and landing is read from.
+    @State private var typingStart: Date?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
@@ -59,15 +58,44 @@ public struct EditableTitle: View {
         _shownPlaceholder = State(initialValue: placeholder)
     }
 
-    /// A letter to flicker through on the way to `character`, never `character` itself, in its
-    /// case. Nil for anything that isn't a letter, which lands at once. Letters only, so a
-    /// monospaced title never changes width.
-    public static func decodeGlyph(for character: Character) -> Character? {
+    /// The stand-in letter drawn for `character`, at `index`, on its `swap`th change: never
+    /// `character` itself, and in its case. Nil for anything that isn't a letter, which lands at
+    /// once. Letters only, so a monospaced title never changes width. Scrambled from its
+    /// arguments rather than random, so the same moment always draws the same.
+    public static func standIn(for character: Character, at index: Int, swap: Int) -> Character? {
         guard character.isLetter else { return nil }
-        let letters = character.isUppercase
-            ? "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-            : "abcdefghijklmnopqrstuvwxyz"
-        return letters.filter { $0 != character }.randomElement()
+        let letters = Array(
+            character.isUppercase ? "ABCDEFGHIJKLMNOPQRSTUVWXYZ" : "abcdefghijklmnopqrstuvwxyz",
+        ).filter { $0 != character }
+        var mix = UInt64(index) &* 0x9E37_79B9_7F4A_7C15 ^ UInt64(swap) &* 0xBF58_476D_1CE4_E5B9
+        mix ^= mix >> 31
+        return letters[Int(mix % UInt64(letters.count))]
+    }
+
+    /// How far `text` has typed in, `elapsed` seconds after it started: the characters that have
+    /// appeared, and the letters among them still scrambling, by index, with their stand-ins.
+    public static func typingFrame(
+        of text: String,
+        at elapsed: TimeInterval,
+    ) -> (shown: String, standIns: [Int: Character]) {
+        let characters = Array(text)
+        let lead = SuggestionTiming.leadInterval
+        let count = min(characters.count, max(0, Int(elapsed / lead) + 1))
+        var standIns: [Int: Character] = [:]
+        for index in 0 ..< count {
+            let appeared = Double(index) * lead
+            // Compared as typingDuration(of:) adds it up, so the end is the end.
+            guard elapsed < appeared + SuggestionTiming.decodeDuration else { continue }
+            let swap = Int((elapsed - appeared) / SuggestionTiming.glyphSwapInterval)
+            standIns[index] = standIn(for: characters[index], at: index, swap: swap)
+        }
+        return (String(characters.prefix(count)), standIns)
+    }
+
+    /// How long `text` takes to type in, until its last letter lands.
+    public static func typingDuration(of text: String) -> TimeInterval {
+        Double(max(0, text.count - 1)) * SuggestionTiming.leadInterval
+            + SuggestionTiming.decodeDuration
     }
 
     /// Whether a draft holds a press of Return: a single newline, wherever the caret was and
@@ -155,24 +183,30 @@ public struct EditableTitle: View {
     }
 
     public var body: some View {
-        EditableTitleContent(
-            draft: $draft,
-            caret: caret,
-            selection: $caret.selection,
-            placeholder: placeholder,
-            shownPlaceholder: shownPlaceholder,
-            placeholderOpacity: placeholderOpacity,
-            joiningIndex: joiningIndex,
-            decodeGlyph: decodeGlyph,
-            // Through the typing too: the pulse stops once the last character has landed.
-            pulses: !reduceMotion
-                && (isSuggesting || shownPlaceholder != placeholder || joiningIndex != nil),
-            isEditing: isEditing,
-            blinks: true,
-            accessibilityLabel: label,
-            accessibilityHint: hint,
-            behavior: TitleFieldBehavior(isEditing: $isEditing, draft: $draft, caret: caret),
-        )
+        // Paused rather than added and removed, so the field inside keeps its identity, and its
+        // focus, as typing in starts and stops.
+        TimelineView(.animation(paused: typingStart == nil)) { context in
+            let frame = typingStart.map {
+                Self.typingFrame(of: shownPlaceholder, at: context.date.timeIntervalSince($0))
+            }
+            EditableTitleContent(
+                draft: $draft,
+                caret: caret,
+                selection: $caret.selection,
+                placeholder: placeholder,
+                shownPlaceholder: frame?.shown ?? shownPlaceholder,
+                placeholderOpacity: placeholderOpacity,
+                standIns: frame?.standIns ?? [:],
+                // Through the typing too: the pulse stops once the last letter has landed.
+                pulses: !reduceMotion
+                    && (isSuggesting || shownPlaceholder != placeholder || typingStart != nil),
+                isEditing: isEditing,
+                blinks: true,
+                accessibilityLabel: label,
+                accessibilityHint: hint,
+                behavior: TitleFieldBehavior(isEditing: $isEditing, draft: $draft, caret: caret),
+            )
+        }
         // The field is only as tall as its text. Behind it, a target at least 44pt tall reaches
         // down past a short title (above, the navigation bar takes the taps), and a tap there
         // focuses the field as a tap on the text does. A background takes no layout space, so
@@ -217,27 +251,16 @@ public struct EditableTitle: View {
             }
             return
         }
-        joiningIndex = nil
-        decodeGlyph = nil
+        typingStart = nil
         withAnimation(.snappy(duration: SuggestionTiming.fadeOut)) {
             placeholderOpacity = 0
         }
         guard await pause(.seconds(SuggestionTiming.fadeOut)) else { return }
-        shownPlaceholder = ""
+        shownPlaceholder = placeholder
         placeholderOpacity = 1
-        for (index, character) in placeholder.enumerated() {
-            shownPlaceholder.append(character)
-            joiningIndex = index
-            if Self.decodeGlyph(for: character) != nil {
-                for _ in 0 ..< SuggestionTiming.decodeGlyphs {
-                    decodeGlyph = Self.decodeGlyph(for: character)
-                    guard await pause(SuggestionTiming.decodeGlyph) else { return }
-                }
-                decodeGlyph = nil
-            }
-            guard await pause(SuggestionTiming.keystroke) else { return }
-        }
-        joiningIndex = nil
+        typingStart = .now
+        guard await pause(.seconds(Self.typingDuration(of: placeholder))) else { return }
+        typingStart = nil
     }
 
     /// Waits, and says whether typing in should go on: not cancelled by a newer placeholder, and
@@ -250,8 +273,7 @@ public struct EditableTitle: View {
     private func settle() {
         shownPlaceholder = placeholder
         placeholderOpacity = 1
-        joiningIndex = nil
-        decodeGlyph = nil
+        typingStart = nil
     }
 
     private func commit() {

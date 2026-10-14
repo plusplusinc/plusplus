@@ -18,10 +18,9 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
     let shownPlaceholder: String
     /// Below 1 while the old placeholder fades out for a new one.
     let placeholderOpacity: Double
-    /// The character of `shownPlaceholder` typing in, drawn in the rail's joining blue.
-    let joiningIndex: Int?
-    /// A stand-in letter drawn in the joining character's place while it decodes.
-    let decodeGlyph: Character?
+    /// The letters of `shownPlaceholder` still scrambling as it types in, by index, each drawn
+    /// as its stand-in in the rail's joining blue.
+    let standIns: [Int: Character]
     /// Whether the `_` pulses at rest, in the rail's joining blue, while a new placeholder is on
     /// its way and typing in.
     let pulses: Bool
@@ -89,16 +88,18 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
         .hotReloadable()
     }
 
-    /// The placeholder as drawn: the joining character blue, as its stand-in while it decodes.
+    /// The placeholder as drawn: each letter still scrambling as its stand-in, blue.
     private var drawnPlaceholder: AttributedString {
-        let characters = Array(shownPlaceholder)
-        guard let index = joiningIndex, characters.indices.contains(index) else {
-            return AttributedString(shownPlaceholder)
+        guard !standIns.isEmpty else { return AttributedString(shownPlaceholder) }
+        var drawn = AttributedString()
+        for (index, character) in shownPlaceholder.enumerated() {
+            var piece = AttributedString(String(standIns[index] ?? character))
+            if standIns[index] != nil {
+                piece.foregroundColor = Color.pp(.railJoin)
+            }
+            drawn += piece
         }
-        var joining = AttributedString(String(decodeGlyph ?? characters[index]))
-        joining.foregroundColor = Color.pp(.railJoin)
-        return AttributedString(String(characters[..<index])) + joining
-            + AttributedString(String(characters[(index + 1)...]))
+        return drawn
     }
 
     /// The tint is the caret's color, and the selection highlight's, so it is clear only while
@@ -261,8 +262,7 @@ private struct TitleCursor: View {
         placeholder: "New routine",
         shownPlaceholder: "New routine",
         placeholderOpacity: 1,
-        joiningIndex: nil,
-        decodeGlyph: nil,
+        standIns: [:],
         pulses: false,
         isEditing: true,
         blinks: true,

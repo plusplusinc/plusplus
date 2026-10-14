@@ -4,19 +4,49 @@ import Testing
 
 @Suite("Editable title rules")
 struct EditableTitleTests {
-    @Test("A letter decodes through another letter of its case")
-    func decodeGlyphLetters() throws {
-        for _ in 0 ..< 50 {
-            let lower = try #require(EditableTitle.decodeGlyph(for: "e"))
+    @Test("A letter scrambles through other letters of its case")
+    func standInLetters() throws {
+        for swap in 0 ..< 50 {
+            let lower = try #require(EditableTitle.standIn(for: "e", at: 3, swap: swap))
             #expect(lower.isLowercase && lower != "e")
-            let upper = try #require(EditableTitle.decodeGlyph(for: "L"))
+            let upper = try #require(EditableTitle.standIn(for: "L", at: 0, swap: swap))
             #expect(upper.isUppercase && upper != "L")
         }
     }
 
     @Test("Anything but a letter lands at once", arguments: [" ", "-", "1", "\u{2019}"])
-    func decodeGlyphNonLetters(character: Character) {
-        #expect(EditableTitle.decodeGlyph(for: character) == nil)
+    func standInNonLetters(character: Character) {
+        #expect(EditableTitle.standIn(for: character, at: 0, swap: 0) == nil)
+    }
+
+    @Test("The lead moves on before its letter lands, leaving a trail scrambling behind it")
+    func typingTrail() {
+        let lead = SuggestionTiming.leadInterval
+        let start = EditableTitle.typingFrame(of: "Squat and pull", at: 0)
+        #expect(start.shown == "S")
+        #expect(Set(start.standIns.keys) == [0])
+
+        // Four leads in: five letters shown, all still scrambling.
+        let trail = EditableTitle.typingFrame(of: "Squat and pull", at: lead * 4 + lead / 2)
+        #expect(trail.shown == "Squat")
+        #expect(Set(trail.standIns.keys) == [0, 1, 2, 3, 4])
+
+        // The space lands at once; letters land from the left as their time is up.
+        let later = EditableTitle.typingFrame(
+            of: "Squat and pull",
+            at: SuggestionTiming.decodeDuration + lead * 2 + lead / 2,
+        )
+        #expect(later.standIns[0] == nil)
+        #expect(later.standIns[5] == nil)
+        #expect(later.standIns[6] != nil)
+    }
+
+    @Test("Once its time is up, the whole text has landed")
+    func typingEnds() {
+        let text = "Squat and pull"
+        let end = EditableTitle.typingFrame(of: text, at: EditableTitle.typingDuration(of: text))
+        #expect(end.shown == text)
+        #expect(end.standIns.isEmpty)
     }
 
     @Test("With no selection yet, the cursor is at the end")
