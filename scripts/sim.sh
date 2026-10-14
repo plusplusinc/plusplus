@@ -114,7 +114,7 @@ if len(matches) != 1:
              "create or rename it with xcrun simctl")
 print(matches[0]["udid"], matches[0]["state"])
 ' "$TEAM_SIMULATOR") || exit 1
-        if [ "$state" != Shutdown ]; then
+        if [ "$state" = Booted ]; then
             xcrun simctl shutdown "$udid"
         fi
         xcrun simctl erase "$udid"
