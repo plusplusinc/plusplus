@@ -1,3 +1,4 @@
+import Foundation
 import Synchronization
 import Testing
 @testable import WorkoutStore
@@ -14,6 +15,11 @@ struct RoutineNamerTests {
 
     private struct ModelError: Error { }
 
+    /// A routine whose seed is 1: plain, its first variant.
+    private static let routine = UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0))
+    /// A routine whose seed is 0: warm, its first variant.
+    private static let warmRoutine = UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
+
     @Test("An unavailable model gives the muscle-group name without asking")
     func unavailable() async throws {
         let asks = Atomic(0)
@@ -21,7 +27,8 @@ struct RoutineNamerTests {
             asks.add(1, ordering: .relaxed)
             return "Leg day"
         })
-        #expect(try await namer.name(for: Self.exercises("Goblet squat")) == "Legs")
+        #expect(try await namer
+            .name(for: Self.exercises("Goblet squat"), of: Self.routine) == "Legs")
         #expect(asks.load(ordering: .relaxed) == 0)
     }
 
@@ -29,13 +36,14 @@ struct RoutineNamerTests {
     func modelError() async throws {
         let namer = Self.namer(answering: .failure(ModelError()))
         let exercises = try Self.exercises("Pull-up", "Barbell bench press")
-        #expect(await namer.name(for: exercises) == "Chest and back")
+        #expect(await namer.name(for: exercises, of: Self.routine) == "Chest and back")
     }
 
     @Test("The model's answer is used, cleaned")
     func answerUsed() async throws {
         let namer = Self.namer(answering: .success(" \"leg day.\" \n"))
-        #expect(try await namer.name(for: Self.exercises("Goblet squat")) == "Leg day")
+        #expect(try await namer
+            .name(for: Self.exercises("Goblet squat"), of: Self.routine) == "Leg day")
     }
 
     @Test("An empty or overlong answer gives the muscle-group name", arguments: [
@@ -43,18 +51,20 @@ struct RoutineNamerTests {
     ])
     func unusableAnswer(answer: String) async throws {
         let namer = Self.namer(answering: .success(answer))
-        #expect(try await namer.name(for: Self.exercises("Goblet squat")) == "Legs")
+        #expect(try await namer
+            .name(for: Self.exercises("Goblet squat"), of: Self.routine) == "Legs")
     }
 
     @Test("A cancelled ask gives nothing")
     func cancelled() async throws {
         let namer = Self.namer(answering: .failure(CancellationError()))
-        #expect(try await namer.name(for: Self.exercises("Goblet squat")) == nil)
+        #expect(try await namer.name(for: Self.exercises("Goblet squat"), of: Self.routine) == nil)
     }
 
     @Test("No exercises get no name, without asking")
     func noExercises() async {
-        #expect(await Self.namer(answering: .success("Leg day")).name(for: []) == nil)
+        #expect(await Self.namer(answering: .success("Leg day"))
+            .name(for: [], of: Self.routine) == nil)
     }
 
     @Test("The model's first line is the name")
@@ -65,24 +75,46 @@ struct RoutineNamerTests {
     @Test("A name that runs past one title line gives the muscle-group name")
     func overlongAnswer() async throws {
         let namer = Self.namer(answering: .success("Lower body strength builder"))
-        #expect(try await namer.name(for: Self.exercises("Goblet squat")) == "Legs")
+        #expect(try await namer
+            .name(for: Self.exercises("Goblet squat"), of: Self.routine) == "Legs")
     }
 
-    @Test("A bare group gets its day, and a group that isn't there gives the focus's name")
-    func answerKeptHonest() async throws {
-        let core = try Self.exercises("Plank", "Dead bug")
-        #expect(await Self.namer(answering: .success("core")).name(for: core) == "Core day")
-        #expect(await Self.namer(answering: .success("Steady core")).name(for: core)
-            == "Steady core")
-        #expect(await Self.namer(answering: .success("Legs and core")).name(for: core)
-            == "Core day")
+    @Test("An answer off the list takes the routine's first name")
+    func offListAnswer() async throws {
+        let namer = Self.namer(answering: .success("Leg grind"))
+        let squat = try Self.exercises("Goblet squat")
+        #expect(await namer.name(for: squat, of: Self.routine) == "Leg day")
+        #expect(await namer.name(for: squat, of: Self.warmRoutine) == "Strong legs")
     }
 
-    @Test("The prompt lists each exercise once, with its group")
+    @Test("The model picks from the list, in the routine's tone")
+    func pickFromList() async throws {
+        let squat = try Self.exercises("Goblet squat")
+        let namer = Self.namer(answering: .success("lower body"))
+        #expect(await namer.name(for: squat, of: Self.routine) == "Lower body")
+    }
+
+    @Test("The prompt lists each exercise once, with its group, then the names to pick from")
     func prompt() throws {
-        let exercises = try Self.exercises("Pull-up", "Goblet squat", "Pull-up")
-        #expect(RoutineNamer
-            .prompt(for: exercises) ==
-            "Exercises:\n- Pull-up (back)\n- Goblet squat (legs)\nFocus: back and legs")
+        let exercises = try Self.exercises("Pull-up", "Goblet squat", "Pull-up", "Pigeon stretch")
+        #expect(RoutineNamer.prompt(for: exercises, style: NameStyle(of: Self.routine)) == """
+        Exercises:
+        - Pull-up (back)
+        - Goblet squat (legs)
+        - Pigeon stretch (legs, stretch)
+        Names: Back and legs, Legs and back.
+        """)
+    }
+
+    @Test("A routine keeps its style, and about a third of routines are warm")
+    func styleBySeed() {
+        let routine = UUID()
+        let first = NameStyle(of: routine)
+        let again = NameStyle(of: routine)
+        #expect(first == again)
+        let warm = (0 ..< 300).count { _ in NameStyle(of: UUID()).isWarm }
+        #expect((60 ... 140).contains(warm))
+        #expect(!NameStyle(of: Self.routine).isWarm)
+        #expect(NameStyle(of: Self.warmRoutine).isWarm)
     }
 }

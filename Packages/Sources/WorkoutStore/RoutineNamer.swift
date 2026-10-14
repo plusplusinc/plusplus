@@ -46,7 +46,9 @@ public struct RoutineNamer: Sendable {
     /// A name for these exercises: the model's when it is available and answers with something
     /// usable, else the muscle-group name. Nil for no exercises, and when the ask was cancelled,
     /// so a superseded ask writes nothing.
-    public func name(for exercises: [Exercise]) async -> String? {
+    /// `routine` seeds the name's style, so each routine keeps its own as its exercises change,
+    /// and different routines differ.
+    public func name(for exercises: [Exercise], of routine: Routine.ID) async -> String? {
         let fallback = MuscleGroup.routineName(for: exercises.map(\.muscleGroup))
         guard let fallback else { return nil }
         guard isAvailable() else {
@@ -54,7 +56,8 @@ public struct RoutineNamer: Sendable {
             return fallback
         }
         let unique = Self.unique(exercises)
-        let prompt = Self.prompt(for: exercises)
+        let style = NameStyle(of: routine)
+        let prompt = Self.prompt(for: exercises, style: style)
         let asked = prompt.replacingOccurrences(of: "\n", with: " ")
         do {
             let answer = try await respond(prompt)
@@ -64,7 +67,10 @@ public struct RoutineNamer: Sendable {
                 )
                 return fallback
             }
-            let name = RoutineFocus(of: unique).checked(cleaned, against: unique)
+            // A reply off the list, or one that isn't honest, takes the routine's own first name.
+            let names = Self.candidates(for: unique, style: style)
+            let picked = names.first { $0.lowercased() == cleaned.lowercased() } ?? names[0]
+            let name = RoutineFocus(of: unique).checked(picked, against: unique)
             Self.logger.notice("Named \(name, privacy: .public) (\(cleaned, privacy: .public))")
             Self.logger.notice("For \(asked, privacy: .public)")
             return name
@@ -80,44 +86,31 @@ public struct RoutineNamer: Sendable {
 
     /// Tried against the model with the naming eval in the slice's working files. The focus is
     /// worked out here, so the name is honest about what the routine works, and the model only
-    /// words it. No example names: with them it copied the last one ("Pull and hinge") for
-    /// whatever it was given.
+    /// words it. Examples are tied to a focus or a tone: loose ones got copied whatever the
+    /// routine was ("Pull and hinge").
     static let instructions = """
     You name workout routines for people who lift casually. You get the routine's exercises, \
-    each with the muscle group it works, and the routine's focus. Reply with a short name for \
-    the routine, the way a person titles a workout in a notes app.
-    Rules:
-    - One to four words, at most 20 characters, sentence case, no punctuation, no emoji.
-    - Name the focus. Mention only muscle groups that are in the routine.
-    - Use plain gym words. No technical terms.
-    - Never use an exercise's name, and never answer with only a muscle group.
-    - Sometimes, not always, start with one light positive word such as strong, steady, or \
-    solid. Never hype.
-    Names that fit each focus:
-    - legs: Leg day, Strong legs
-    - back: Pull day, Back strength
-    - chest: Push day, Chest strength
-    - shoulders: Shoulder day, Strong shoulders
-    - arms: Arm day, Strong arms
-    - core: Core work, Steady core
-    - upper body: Upper body, Upper body strength
-    - upper body and core: Upper body and core
-    - legs and core: Legs and core
-    - full body: Full body, Full body strength
-    - mobility and stretching: Stretch and reset, Mobility
-    - two groups, like chest and back: name both, Chest and back
+    each with the muscle group it works, and a short list of names. Reply with exactly one name \
+    from the list, the one that fits the exercises best, and nothing else.
     """
 
-    /// Each exercise once, in order, with its group, then the focus: "- Goblet squat (legs)",
-    /// and "Focus: legs".
-    static func prompt(for exercises: [Exercise]) -> String {
+    /// Each exercise once, in order, with its group, then the names to pick from.
+    static func prompt(for exercises: [Exercise], style: NameStyle) -> String {
         let unique = unique(exercises)
         let lines = unique.map { exercise in
             let kind = exercise.isStretch ? ", stretch" : ""
             return "- \(exercise.name) (\(exercise.muscleGroup.name.lowercased())\(kind))"
         }
-        let focus = RoutineFocus(of: unique).phrase
-        return (["Exercises:"] + lines + ["Focus: \(focus)"]).joined(separator: "\n")
+        let names = candidates(for: unique, style: style)
+        let pick = "Names: \(names.joined(separator: ", "))."
+        return (["Exercises:"] + lines + [pick]).joined(separator: "\n")
+    }
+
+    static func candidates(for unique: [Exercise], style: NameStyle) -> [String] {
+        let focus = RoutineFocus(of: unique)
+        let stretches = unique.filter(\.isStretch).count
+        let endsWithStretching = focus != .mobility && stretches * 3 >= unique.count
+        return focus.candidates(style: style, endsWithStretching: endsWithStretching)
     }
 
     private static func unique(_ exercises: [Exercise]) -> [Exercise] {

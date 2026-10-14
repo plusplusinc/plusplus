@@ -213,7 +213,7 @@ struct RoutineScreen: View {
         defer { pendingNames -= 1 }
         Logger.naming
             .notice("Asked for a name for \(key.joined(separator: ", "), privacy: .public)")
-        let name = await namer.name(for: routine.exercises.map(\.exercise))
+        let name = await namer.name(for: routine.exercises.map(\.exercise), of: routine.id)
         guard !Task.isCancelled else {
             Logger.naming
                 .notice("Dropped \(name ?? "no answer", privacy: .public): the exercises changed")
