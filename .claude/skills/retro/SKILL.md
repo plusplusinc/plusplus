@@ -1,6 +1,6 @@
 ---
 name: retro
-description: Over the work since the last retro, the merges to main and the conversations in this repo's Claude Code sessions, find what slowed the work or went wrong, check that the brief was useful, and delete or fix anything in the rules, skills, and docs that no longer describes the code. Applies fixes at the lowest altitude, in a PR the maintainer reviews, and gives the maintainer a private digest. Runs nightly on the maintainer's Mac as `/retro nightly`; use on request over a merge or a range of merges.
+description: Over the work since the last retro, the merges to main and the conversations in this repo's Claude Code sessions, find what tripped the work up or fell short of what it aims for (docs/principles.md: the right product, built right, mostly autonomous), rank those findings by their evidence, fix them at the lowest altitude in a PR the maintainer reviews, check whether the last retro's fixes worked, and correct what the merges made false in the rules, skills, and docs. Gives the maintainer a private digest. Runs nightly on the maintainer's Mac as `/retro nightly`; use on request over a merge or a range of merges.
 argument-hint: "nightly | <PR number or range>"
 allowed-tools: Bash(git log:*), Bash(git diff:*), Bash(git show:*), Bash(git fetch:*), Bash(git worktree add:*), Bash(git worktree remove:*), Bash(gh pr view:*), Bash(gh pr list:*), Bash(gh pr checks:*), Bash(gh pr diff:*), Bash(gh api:*), Bash(asc xcode-cloud build-runs:*), Bash(asc xcode-cloud status:*), Bash(asc xcode-cloud doctor:*), Bash(asc xcode-cloud issues:*), Bash(asc xcode-cloud test-results:*), Bash(scripts/board.sh:*), Bash(scripts/lint.sh:*), Bash(scripts/conversations.py:*), Bash(date:*), Read, Write, Edit, Glob, Grep, Agent, CronList, CronCreate, CronDelete
 ---
@@ -8,17 +8,16 @@ allowed-tools: Bash(git log:*), Bash(git diff:*), Bash(git show:*), Bash(git fet
 **With the argument `nightly`, this is the nightly session: skip to "How it runs" and do
 only what it says there.** The retro itself runs in a subagent.
 
-Input: the merges to `main` that have no retro yet and the conversation since the last retro
-(`scripts/conversations.py`), or a PR number or range on request.
-Output: a short report, a private digest for the maintainer, and when there is something to
-fix, one PR.
+The retro is how the work gets better at what it aims for (`docs/principles.md`). Input: the
+merges to `main` with no retro yet and the conversation since, or a PR number or range on request.
+Output: a short report, a private digest, and one PR when there is something to fix.
 
 ## Stopping rules, read first
 
 - **A PR that came out of a retro does not get a retro.** Its title starts with "Retro of".
   The loop ends there.
 - **Nothing found means nothing written.** A one-line report, no PR, no memory note, no
-  notification. A night with no merge waiting is the common case and stays silent.
+  notification. A night with neither a merge nor a session is the common case and stays silent.
 - **One fix per recurring finding.** If the previous retro already fixed it, the fix did not
   work; say that instead of fixing it again.
 - **A fix counts when it is on `main`.** A retro PR still open holds a pending fix, not a made
@@ -51,58 +50,59 @@ stays private, or in agent memory.
 
 ## 1. Collect
 
-The commands below are written for `gh` and `asc`. Without the App Store Connect key, `asc` is
-out and pass or fail comes from GitHub's checks.
+The conversation since the last retro, merged or not (`scripts/conversations.py <since>`), holds
+the strongest evidence, most of which never reaches a PR. Each session's heading names its
+transcript; open one only around a moment, never whole. For each PR: `gh pr diff`; `gh pr view`
+for commits, review threads, and time to merge; `gh api repos/{owner}/{repo}/pulls/N/comments` for
+inline review; its Xcode Cloud runs and why any failed (`gh pr checks`, and
+`asc xcode-cloud doctor` with the App Store Connect key); its board card; its Friction line. And
+the last merged retro PR's body, for its fixes.
 
-For each PR: `gh pr view` for commits, review threads, and how long it took from open to
-merge; `gh api repos/{owner}/{repo}/pulls/N/comments` for inline review; the diff
-(`gh pr diff`); the Xcode Cloud runs it caused (`gh pr checks`, and `asc xcode-cloud doctor`
-when `asc` and the App Store Connect key are available) and why any failed; the board card, if
-there was one; the Friction line in the PR body, which is where the session that did the work
-recorded what was retried, what the maintainer corrected, and what took longer than it should
-have.
+## 2. Rank the findings
 
-The conversation since the last retro, merged or not, from `scripts/conversations.py <since>`.
-It holds what rarely reaches a PR: the maintainer's corrections, the lead's guesses, the
-questions it could have answered itself. Each session's heading names its transcript; open one
-only around a specific moment, never whole.
+A finding is what tripped the work up (friction, waste, a missed chance, anything odd) or fell
+short of an aim. Rank by evidence, in this order: highest is what says most about where the lead's
+picture of the maintainer's intent was wrong. The stopping rules decide the fixes.
 
-## 2. Ask three questions
+1. **The maintainer corrected the lead**: said what they meant after the lead built or proposed
+   something else, or reversed a call it made.
+2. **The lead guessed, or asked what it could have found**: a product call guessed where the
+   maintainer's intent was not settled and asking was cheap, a question the code, the board, the
+   docs, or memory answered, or a brief whose problem, criterion, or scope did not hold.
+3. **Wasted work**: failed runs, time stuck, a tool that misbehaved, rounds the lead caused, a
+   wrong first try, rework after a merge.
+4. **The maintainer's own friction**: what they had to chase, remember, wait on, or do beyond
+   product calls and trying builds (a go-ahead to merge among them), or what left them lost.
 
-1. **What slowed this down or went wrong?** Failed CI runs, review rounds, a wrong first
-   attempt, a rule the agent needed and did not have, a tool that misbehaved.
-2. **Was the brief useful?** Did the problem statement hold, did the criterion get checked,
-   did the scope hold. A PR with no card is itself a finding once cards exist.
-3. **Does everything still describe the code?** Sweep `CLAUDE.md`, `.claude/rules/`,
-   `.claude/skills/`, and `docs/` for statements the merge made false, or that a decision
-   recorded in memory has overtaken. Delete before rewriting.
+The sweep goes unranked: fix each statement in `CLAUDE.md`, `.claude/`, `docs/`, and the README
+that the merges it covers made false, deleting first.
 
-## 3. Route each finding
-
-The lowest altitude that can hold the fix:
+## 3. Route each finding to the lowest altitude that can hold its fix
 
 ```
 script > hook > rule > skill > agent memory > CLAUDE.md
 ```
 
-A script makes a mistake impossible; a hook catches it on every edit; a rule tells the agent
-when it reads the file; a skill tells it when it does the task; memory records what is about
-the maintainer or the project rather than the code; `CLAUDE.md` is for what every session
-must know and is the last resort. Anything about how the maintainer prefers to work goes to
-memory, not the repo (see the repo-may-become-public rule).
+A script makes a mistake impossible; a hook catches it on every edit; a rule tells the agent when
+it reads the file; a skill tells it when it does the task; memory records what is about the
+maintainer or the project rather than the code; `CLAUDE.md` is for what every session must know
+and is the last resort. The digest takes two more: the maintainer, for what they could do
+differently, and a product question, with a recommendation. A line added to a rule, a skill, or
+`CLAUDE.md` is read in every session that loads it, so deleting or tightening one comes first.
 
 ## 4. Land it
 
-One branch, one PR titled "Retro of #N: <the main change>", every number listed in the title
-(a range is not searchable), or "Retro of <date>: <the main change>" when no merge was
-waiting, body listing each finding and
-where its fix went, with the fixes the retro decided not to make and why. Repo changes go
-through `/pr` like any other; the body is the record the next retro reads, so list findings
-one per line. Anything about how the maintainer prefers to work goes to agent memory instead
-and is mentioned in the body without its content. Its Verified line says which checks ran,
-`scripts/lint.sh` (SwiftFormat, SwiftLint, US English) at least. Then report to the
-maintainer: findings, fixes, and anything that needs their decision, and the digest: what the
-maintainer could do differently, and the open product questions, each with a recommendation.
+One branch, one PR through `/pr`, titled "Retro of #N: <the main change>" with every number
+listed (a range is not searchable), or "Retro of <date>: <the main change>" when no merge was
+waiting. The body is the record the next retro reads:
+
+- The findings, ranked, each with its evidence (the PR, the run, the session, never a quote) and
+  where its fix went or why it gets none; past the first few, one line each.
+- One line per fix the last merged retro made: worked, came back, or too early to tell.
+- One line for the sweep: what it corrected, and where.
+- Card, Friction, and Verified, which names `scripts/lint.sh` at least.
+
+Then report the findings, the fixes, and what needs the maintainer's decision, and the digest.
 
 ## How it runs
 
