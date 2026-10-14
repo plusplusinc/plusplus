@@ -20,8 +20,9 @@ Files not modified since <since> are not opened. With a file, writes the convers
 (making its folder) and prints only the first line: how many sessions, or "No sessions since".
 
 With --retro-reply, prints instead the last reply of the newest "Nightly retro" session in the
-main checkout: all the text of its last turn, API errors included, after a line with its local
-time. That is a night's report, for scripts/nightly-retro.sh show.
+main checkout: all the text it showed since the last message it received (a prompt or a
+subagent's hand-back), API errors included, after a line with its local time. That is a
+night's report, for scripts/nightly-retro.sh show.
 """
 import json
 import re
@@ -302,14 +303,15 @@ def retro_session():
 
 
 def last_reply(path):
-    """All the text the assistant showed in the last turn that showed any, as (UTC timestamp of
-    its last part, text), or None. Claude Code writes each part of a reply as its own entry, and
-    its own notices, such as an API error, as synthetic ones, which count here."""
+    """All the text the assistant showed since the last message it received (a prompt or a
+    subagent's hand-back), or since the one before when it has shown nothing since, as (UTC
+    timestamp of its last part, text), or None. Claude Code writes each part of a reply as its
+    own entry, and its own notices, such as an API error, as synthetic ones, which count here."""
     turn, last = [], None
     for entry in entries(path, Since(datetime.fromtimestamp(0, timezone.utc))):
         message = entry.get("message", {})
         if entry.get("type") == "user" and text_parts(message.get("content")) is not None:
-            turn = []  # a prompt, not a tool's result
+            turn = []  # a message it received, not a tool's result
         elif entry.get("type") == "assistant" and entry.get("timestamp") and not entry.get("isSidechain"):
             synthetic = message.get("model") == "<synthetic>"
             text = text_parts(message.get("content")) if synthetic else shown(entry, set())

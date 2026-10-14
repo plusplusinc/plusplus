@@ -1,7 +1,7 @@
 #!/bin/bash
 # Runs the nightly retro (the retro skill's "How it runs") in a detached GNU screen session named
 # nightly-retro, in the main checkout. Unlike a terminal tab, it starts while the Mac is locked
-# and outlives the terminal app.
+# and outlives the terminal app; a restart of the Mac ends it, so start it again after one.
 #
 #   scripts/nightly-retro.sh start   # start it, from any checkout; refuses when one is running
 #   scripts/nightly-retro.sh show    # whether its claude is running, and its last reply, whole
@@ -73,8 +73,9 @@ start() {
     local id pid common main name
     id=$(session_id)
     pid=$(retro_pid)
-    [ -z "$id" ] || [ -n "$pid" ] || die "$SESSION is open ($id), but its claude has quit. See" \
-        "why with screen -d -r $id, then close it with screen -S $id -X quit and start again."
+    [ -z "$id" ] || [ -n "$pid" ] || die "$SESSION is open ($id), but its claude has quit." \
+        "scripts/nightly-retro.sh show prints its last reply, or attach with screen -d -r $id." \
+        "Then close it with screen -S $id -X quit and start again."
     [ -z "$id" ] || die "$SESSION is already running ($id). $HINT"
     [ -z "$pid" ] || die "A nightly retro is already running outside screen (pid $pid). Quit it" \
         "first: two would both run at midnight."
@@ -105,7 +106,8 @@ show() {
     if [ -n "$pid" ]; then
         echo "The retro's claude is running (pid $pid)."
     elif has_session; then
-        echo "The retro's claude has quit, and its $SESSION session is open: see why with screen -d -r $SESSION."
+        echo "The retro's claude has quit, and its $SESSION session is open. Its last reply follows;" \
+            "attach with screen -d -r $SESSION for its screen."
     else
         echo "The retro's claude is not running. Start it with scripts/nightly-retro.sh start."
     fi

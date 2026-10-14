@@ -113,12 +113,18 @@ On the maintainer's Mac, in a Claude Code session in a detached `screen` session
 scripts/nightly-retro.sh start
 ```
 
-`scripts/nightly-retro.sh show` prints whether its Claude Code is running and its last reply;
-`screen -d -r nightly-retro` attaches, and Ctrl-a d detaches. Claude Code runs under
-`caffeinate -s`, which keeps the Mac awake while it runs on power with the lid open, and is
-named "Nightly retro", which keeps this session out of `scripts/conversations.py`, so a run
-never reads the last run's digest. Each `/retro nightly`, the first one and every midnight
-after, does this, in order:
+The lead starts it, and starts it again whenever it has stopped: a restart of the Mac ends the
+`screen` session. `scripts/nightly-retro.sh show` says whether its Claude Code is running and
+prints its last reply, which is how the lead reads the night's report in the morning;
+`screen -d -r nightly-retro` attaches, and Ctrl-a d detaches.
+
+Plugged in, the Mac stays awake with the lid open or closed. Claude Code runs under
+`caffeinate -s`, which keeps the Mac awake on power but doesn't stop it sleeping when the lid
+closes; an Amphetamine trigger for when the power adapter is connected, with closed-display
+mode, does. When a night is missed, `show` says whether the retro was running, and if it was,
+those two are what to check. The session is named "Nightly retro", which keeps it out of
+`scripts/conversations.py`, so a run never reads the last run's digest. Each `/retro nightly`,
+the first one and every midnight after, does this, in order:
 
 1. **Schedule the next night.** `CronList`, `CronDelete` every task whose prompt is
    `/retro nightly`, then `CronCreate` one recurring task, `0 0 * * *` (local time), prompt
