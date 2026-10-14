@@ -118,11 +118,17 @@ lives in packages.
 ## The nightly retro
 
 The retro (`.claude/skills/retro/SKILL.md`) runs on the maintainer's Mac, in a Claude Code
-session in a terminal tab kept open for it; the skill's "How it runs" has the line that starts
+session in a detached `screen` session; the skill's "How it runs" has the command that starts
 it and what each night does. It reads the merges and the conversation since the last run,
 which `scripts/conversations.py` prints without the tool calls, so a day reads in tens of
 kilobytes rather than the tens of megabytes of transcripts. Changing the retro means changing
 the skill.
+
+`scripts/nightly-retro.sh` starts the session, and prints whether its Claude Code is running
+and its last reply, read from the transcript, without attaching. It exists because starting the
+session by hand gets three things wrong, which its header explains: the calling Claude Code
+session's variables leak in, a second retro can start, and the `screen` 4.00 macOS ships has
+quirks.
 
 ## Parallel work
 
@@ -139,7 +145,8 @@ touch disjoint files.
 
 ## Permissions
 
-`.claude/settings.json` pre-approves the scripts, read-only `xcodebuild`, `git`, `gh`, and `asc`
-commands (plus `asc xcode-cloud run`; see `docs/ci.md`), and `simctl`, with `simctl erase`,
-uploads and notarization, and force pushes denied. The scripts are the gate for building,
+`.claude/settings.json` pre-approves the scripts except `nightly-retro.sh`, which starts an
+unattended Claude Code session; read-only `xcodebuild`, `git`, `gh`, and `asc` commands (plus
+`asc xcode-cloud run`; see `docs/ci.md`); and `simctl`, with `simctl erase`, uploads and
+notarization, and force pushes denied. The scripts are the gate for building,
 testing, and linting, so raw `xcodebuild build`, `swiftlint`, and friends prompt.

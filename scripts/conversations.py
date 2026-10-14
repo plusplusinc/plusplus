@@ -2,6 +2,7 @@
 """The conversation in this repo's Claude Code sessions since a given time, for the retro.
 
     scripts/conversations.py <since> [file]
+    scripts/conversations.py --retro-reply
 
 <since> is a local date (2026-10-13, meaning midnight), a local time (2026-10-13T21:30), or a
 time with an offset (2026-10-13T04:00:00Z). Prints, per session and oldest first, what the
@@ -17,6 +18,11 @@ Reads the transcripts Claude Code keeps under ~/.claude/projects/: the folder fo
 checkout and one per worktree under .claude/worktrees/, whichever checkout this runs from.
 Files not modified since <since> are not opened. With a file, writes the conversation there
 (making its folder) and prints only the first line: how many sessions, or "No sessions since".
+
+With --retro-reply, prints instead the last reply of the newest "Nightly retro" session in the
+main checkout: all the text it showed since the last message it received (a prompt or a
+subagent's hand-back), API errors included, after a line with its local time. That is a
+night's report, for scripts/nightly-retro.sh show.
 """
 import json
 import re
@@ -281,7 +287,57 @@ def session(path, since):
     return first, "\n".join(lines)
 
 
+def retro_session():
+    """The newest "Nightly retro" transcript in the main checkout, or None. `claude --name`
+    writes the title as a transcript's first line, so only first lines are read."""
+    paths = sorted(project_folders()[0].glob("*.jsonl"), key=lambda path: path.stat().st_mtime, reverse=True)
+    for path in paths:
+        with open(path, encoding="utf-8", errors="replace") as lines:
+            try:
+                first = json.loads(lines.readline())
+            except ValueError:
+                continue
+        if isinstance(first, dict) and first.get("type") == "custom-title" and first.get("customTitle") == RETRO_SESSION_TITLE:
+            return path
+    return None
+
+
+def last_reply(path):
+    """All the text the assistant showed since the last message it received (a prompt or a
+    subagent's hand-back), or since the one before when it has shown nothing since, as (UTC
+    timestamp of its last part, text), or None. Claude Code writes each part of a reply as its
+    own entry, and its own notices, such as an API error, as synthetic ones, which count here."""
+    turn, last = [], None
+    for entry in entries(path, Since(datetime.fromtimestamp(0, timezone.utc))):
+        message = entry.get("message", {})
+        if entry.get("type") == "user" and text_parts(message.get("content")) is not None:
+            turn = []  # a message it received, not a tool's result
+        elif entry.get("type") == "assistant" and entry.get("timestamp") and not entry.get("isSidechain"):
+            synthetic = message.get("model") == "<synthetic>"
+            text = text_parts(message.get("content")) if synthetic else shown(entry, set())
+            if text:
+                turn.append(text.strip())
+                last = (entry["timestamp"], turn)
+    return last and (last[0], "\n\n".join(last[1]))
+
+
+def print_retro_reply():
+    path = retro_session()
+    if path is None:
+        print(f'No "{RETRO_SESSION_TITLE}" session in {project_folders()[0]}.', file=sys.stderr)
+        sys.exit(1)
+    reply = last_reply(path)
+    if reply is None:
+        print(f"No reply yet in ~/{path.relative_to(Path.home())}.")
+        return
+    timestamp, text = reply
+    print(f"Last reply, {local(timestamp, '%a %d %b %H:%M')}:\n\n{text}")
+
+
 def main():
+    if sys.argv[1:] == ["--retro-reply"]:
+        print_retro_reply()
+        return
     if len(sys.argv) not in (2, 3) or sys.argv[1].startswith("-"):
         usage()
     since = Since(parse_since(sys.argv[1]))
