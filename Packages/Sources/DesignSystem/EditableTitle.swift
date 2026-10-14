@@ -11,7 +11,9 @@ import SwiftUI
 /// An empty `text` is an unnamed title, which shows the placeholder, gray, in its place. The
 /// placeholder is never the field's contents: tapping it puts the `_` under its first letter,
 /// typing replaces it, and ending with nothing keeps it. It may change at any time, as a
-/// suggested name does.
+/// suggested name does. While a new one is on its way (`isSuggesting`) the `_` pulses; when it
+/// comes, the old one is erased and the new one typed in, a character at a time. Reduce Motion
+/// crossfades it instead, and editing stops it at once.
 ///
 /// The field draws its own text, so everything the keyboard shows in it (suggestions, inline
 /// predictions, text being composed) shows as in any field. The `_` is drawn over it by
@@ -20,6 +22,7 @@ import SwiftUI
 public struct EditableTitle: View {
     @Binding private var text: String
     private let placeholder: String
+    private let isSuggesting: Bool
     private let label: LocalizedStringKey
     private let hint: LocalizedStringKey
 
@@ -27,6 +30,9 @@ public struct EditableTitle: View {
     /// The field's selection, which the text system writes as the caret moves.
     @State private var caret = Caret()
     @FocusState private var isEditing: Bool
+    /// The placeholder as drawn: behind `placeholder` while a new one types in.
+    @State private var shownPlaceholder: String
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
     private static let minimumTouchTarget: CGFloat = 44
@@ -34,14 +40,26 @@ public struct EditableTitle: View {
     public init(
         text: Binding<String>,
         placeholder: String,
+        isSuggesting: Bool = false,
         accessibilityLabel: LocalizedStringKey,
         accessibilityHint: LocalizedStringKey,
     ) {
         _text = text
         self.placeholder = placeholder
+        self.isSuggesting = isSuggesting
         label = accessibilityLabel
         hint = accessibilityHint
         _draft = State(initialValue: text.wrappedValue)
+        _shownPlaceholder = State(initialValue: placeholder)
+    }
+
+    /// What the placeholder shows, a keystroke at a time, on its way from `old` to `new`: `old`
+    /// erased to nothing, then `new` typed in. Ends with `new`; empty when they are the same.
+    public static func typingSteps(from old: String, to new: String) -> [String] {
+        guard old != new else { return [] }
+        let erasing = (0 ..< old.count).reversed().map { String(old.prefix($0)) }
+        let typing = (1 ... max(1, new.count)).map { String(new.prefix($0)) }
+        return erasing + (new.isEmpty ? [] : typing)
     }
 
     /// Whether a draft holds a press of Return: a single newline, wherever the caret was and
@@ -134,6 +152,9 @@ public struct EditableTitle: View {
             caret: caret,
             selection: $caret.selection,
             placeholder: placeholder,
+            shownPlaceholder: shownPlaceholder,
+            // Through the typing too: the pulse stops once the new placeholder is in.
+            pulses: !reduceMotion && (isSuggesting || shownPlaceholder != placeholder),
             isEditing: isEditing,
             blinks: true,
             accessibilityLabel: label,
@@ -150,8 +171,13 @@ public struct EditableTitle: View {
                 .contentShape(.rect)
                 .onTapGesture { isEditing = true }
         }
+        .task(id: placeholder) {
+            await showPlaceholder()
+        }
         .onChange(of: isEditing) { _, editing in
             if editing {
+                // Editing wins over a placeholder typing in.
+                shownPlaceholder = placeholder
                 // The tap that focuses the field leaves the caret at the start or selects
                 // everything, not where it landed, so editing starts at the end. Taps once
                 // editing place the caret where they land.
@@ -166,6 +192,24 @@ public struct EditableTitle: View {
             }
         }
         .hotReloadable()
+    }
+
+    /// Brings the drawn placeholder to the current one: typed in at rest, crossfaded with Reduce
+    /// Motion, and at once where it can't be seen or the title is being edited. A newer
+    /// placeholder cancels this one and types on from wherever it got to.
+    private func showPlaceholder() async {
+        guard shownPlaceholder != placeholder else { return }
+        guard !reduceMotion, !isEditing, draft.isEmpty else {
+            withAnimation(reduceMotion ? .snappy(duration: SuggestionTiming.crossfade) : nil) {
+                shownPlaceholder = placeholder
+            }
+            return
+        }
+        for step in Self.typingSteps(from: shownPlaceholder, to: placeholder) {
+            guard (try? await Task.sleep(for: SuggestionTiming.keystroke)) != nil, !isEditing
+            else { return }
+            shownPlaceholder = step
+        }
     }
 
     private func commit() {

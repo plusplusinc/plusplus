@@ -12,9 +12,14 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
     /// writes its own selection back as it renders, so a snapshot passes one that ignores writes
     /// and keeps the caret it was given.
     @Binding var selection: TextSelection?
+    /// The name an empty field stands for, which VoiceOver reads.
     let placeholder: String
+    /// The placeholder as drawn, partway through typing in when it has just changed.
+    let shownPlaceholder: String
+    /// Whether the `_` pulses at rest, while a new placeholder is on its way.
+    let pulses: Bool
     let isEditing: Bool
-    /// Whether the `_` blinks while editing. Snapshots hold it lit, however long after the view
+    /// Whether the `_` blinks while editing, and pulses at rest. Snapshots hold it lit, however long after the view
     /// was made they render.
     let blinks: Bool
     let accessibilityLabel: LocalizedStringKey
@@ -33,8 +38,10 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
             // A field's own placeholder stays on one line, truncated, so the placeholder is drawn
             // here, wrapping like the text it stands for.
             if draft.isEmpty {
-                Text(placeholder)
+                Text(shownPlaceholder)
                     .foregroundStyle(.pp(.textSecondary))
+                    // With Reduce Motion a new placeholder crossfades in rather than typing.
+                    .contentTransition(.opacity)
                     .accessibilityHidden(true)
                     .onGeometryChange(for: CGFloat.self, of: \.size.height) {
                         placeholderHeight = $0
@@ -64,8 +71,9 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
             TitleCursor(
                 caret: caret,
                 draft: draft,
-                placeholder: placeholder,
+                placeholder: shownPlaceholder,
                 isEditing: isEditing,
+                pulses: pulses,
                 blinks: blinks,
             )
         }
@@ -109,12 +117,14 @@ final class Caret {
     private(set) var isRange = false
 }
 
-/// The `_`: blinking from the moment editing starts or the caret moves, still at rest.
+/// The `_`: blinking from the moment editing starts or the caret moves, still at rest, and
+/// pulsing at rest while a new placeholder is on its way.
 private struct TitleCursor: View {
     let caret: Caret
     let draft: String
     let placeholder: String
     let isEditing: Bool
+    let pulses: Bool
     let blinks: Bool
 
     @State private var since = Date.now
@@ -138,6 +148,11 @@ private struct TitleCursor: View {
                     let isOn = Int(ticks.rounded()).isMultiple(of: 2)
                     underscore(isOn ? .pp(.textPrimary) : .clear)
                 }
+            } else if pulses, !isEditing, blinks {
+                TimelineView(.animation) { context in
+                    underscore(.pp(.borderStrong))
+                        .opacity(Self.pulseOpacity(at: context.date))
+                }
             } else {
                 underscore(isEditing ? .pp(.textPrimary) : .pp(.borderStrong))
             }
@@ -153,6 +168,15 @@ private struct TitleCursor: View {
             since = .now
         }
         .hotReloadable()
+    }
+
+    /// Full at the start of each pulse, fading smoothly to its lowest halfway through.
+    private static func pulseOpacity(at date: Date) -> Double {
+        let period = SuggestionTiming.pulsePeriod
+        let phase = date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: period)
+            / period
+        let lowest = SuggestionTiming.pulseLowestOpacity
+        return lowest + (1 - lowest) * (1 + cos(2 * .pi * phase)) / 2
     }
 
     /// Where the cursor is in what the field shows, the draft or the placeholder, as a character
@@ -215,6 +239,8 @@ private struct TitleCursor: View {
         caret: caret,
         selection: .constant(caret.selection),
         placeholder: "New routine",
+        shownPlaceholder: "New routine",
+        pulses: false,
         isEditing: true,
         blinks: true,
         accessibilityLabel: "Routine name",

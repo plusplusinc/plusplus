@@ -15,6 +15,9 @@ struct RoutineScreen: View {
     /// The exercises, by id, the generated name was made for, so a name is asked for only
     /// when they change, and not again at every launch.
     @State private var namedFor: [Exercise.ID]?
+    /// Names asked for and not yet answered. A count, since a superseded ask can still be
+    /// waiting on the model when the next one starts.
+    @State private var pendingNames = 0
     /// Every change to the routine, saved one at a time in the order they happened, so an older
     /// version can never land last. Only the newest unsaved version waits.
     @State private var saves = AsyncStream.makeStream(
@@ -43,10 +46,6 @@ struct RoutineScreen: View {
 
     private static let defaultName = String(localized: "New routine")
 
-    /// How long the exercises stay unchanged before a name is asked for, so a burst of adds
-    /// asks once.
-    private static let namingPause = Duration.milliseconds(750)
-
     init(routine: Routine, store: RoutineStore?, namer: RoutineNamer) {
         _routine = State(initialValue: routine)
         self.store = store
@@ -68,6 +67,7 @@ struct RoutineScreen: View {
                     EditableTitle(
                         text: $routine.name,
                         placeholder: placeholder,
+                        isSuggesting: pendingNames > 0,
                         accessibilityLabel: "Routine name",
                         accessibilityHint: "Renames the routine.",
                     )
@@ -206,8 +206,10 @@ struct RoutineScreen: View {
             return
         }
         // A change to the exercises in the pause cancels this ask and starts the next.
-        guard (try? await Task.sleep(for: Self.namingPause)) != nil,
-              let name = await namer.name(for: routine.exercises.map(\.exercise)),
+        guard (try? await Task.sleep(for: SuggestionTiming.pause)) != nil else { return }
+        pendingNames += 1
+        defer { pendingNames -= 1 }
+        guard let name = await namer.name(for: routine.exercises.map(\.exercise)),
               !Task.isCancelled
         else { return }
         routine.generatedName = name

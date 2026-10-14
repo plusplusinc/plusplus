@@ -27,6 +27,8 @@ struct EditableTitleSnapshotTests {
             caret: caret,
             selection: .constant(caret.selection),
             placeholder: "New routine",
+            shownPlaceholder: "New routine",
+            pulses: false,
             isEditing: true,
             blinks: false,
             accessibilityLabel: "Routine name",

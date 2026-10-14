@@ -4,6 +4,20 @@ import Testing
 
 @Suite("Editable title rules")
 struct EditableTitleTests {
+    @Test("A new placeholder erases the old one to nothing, then types in")
+    func typingSteps() {
+        #expect(EditableTitle.typingSteps(from: "Legs", to: "Leg day") == [
+            "Leg", "Le", "L", "", "L", "Le", "Leg", "Leg ", "Leg d", "Leg da", "Leg day",
+        ])
+        #expect(EditableTitle.typingSteps(from: "", to: "Abs") == ["A", "Ab", "Abs"])
+        #expect(EditableTitle.typingSteps(from: "Abs", to: "") == ["Ab", "A", ""])
+    }
+
+    @Test("The same placeholder types nothing")
+    func typingStepsUnchanged() {
+        #expect(EditableTitle.typingSteps(from: "Legs", to: "Legs").isEmpty)
+    }
+
     @Test("With no selection yet, the cursor is at the end")
     func insertionWithoutSelection() {
         #expect(EditableTitle.insertionPoint(of: nil, in: "Legs") == "Legs".endIndex)
