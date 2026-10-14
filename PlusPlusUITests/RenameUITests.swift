@@ -68,7 +68,7 @@ final nonisolated class RenameUITests: XCTestCase {
             title.tap()
             // The app moves the caret to the end after focus lands, which can come after typing
             // sent at once.
-            _ = try Ink.withCursor { try read(field) } until: { ink, cursor in
+            _ = try Ink.withCursor { try Ink.ofTitle(in: field) } until: { ink, cursor in
                 ink.missAtEnd(cursor)
             }
             title.typeText(" day")
@@ -91,7 +91,7 @@ final nonisolated class RenameUITests: XCTestCase {
         at frames: (field: CGRect, button: CGRect),
     ) throws -> Ink.Run {
         let (field, button) = frames
-        let atRest = try read(field)
+        let atRest = try Ink.ofTitle(in: field)
         let restText = try XCTUnwrap(atRest.lines.first)
         XCTContext.runActivity(named: "The default's line is inside the field at rest") { _ in
             // The strip starts at the field's top, so ink in its first row may be cut off.
@@ -111,7 +111,7 @@ final nonisolated class RenameUITests: XCTestCase {
             XCTAssertEqual(frames.1, button, "Add exercise moved")
         }
         // Read once the keyboard has risen and UIKit would have scrolled.
-        let placeholder = try read(field)
+        let placeholder = try Ink.ofTitle(in: field)
         let placeholderText = try XCTUnwrap(placeholder.lines.first)
         XCTContext.runActivity(named: "The title's pixels stay put") { _ in
             XCTAssertEqual(placeholderText.columns, restText.columns, "The title moved sideways")
@@ -141,7 +141,7 @@ final nonisolated class RenameUITests: XCTestCase {
         XCTAssertEqual(title.value(becoming: "Arm and back"), "Arm and back")
         // Twelve cells wide, so the shot is of "Arm and back" and not a frame of it half drawn,
         // with the `_` moved on to the b, inside the name.
-        return try Ink.withCursor { try read(field) } until: { ink, cursor in
+        return try Ink.withCursor { try Ink.ofTitle(in: field) } until: { ink, cursor in
             guard let name = ink.lines.first else { return "No line over the _" }
             let wide = Double(name.columns.count) / cell
             guard abs(wide - 12) < 0.5 else { return "The name is \(wide) cells wide, not 12" }
@@ -182,9 +182,9 @@ final nonisolated class RenameUITests: XCTestCase {
         // have been handled.
         let highlight = unselected + 2000
         let shown = Date.now.addingTimeInterval(Ink.twoBlinks)
-        var selected = try read(field)
+        var selected = try Ink.ofTitle(in: field)
         while selected.differingPixels(in: line) <= highlight, Date.now < shown {
-            selected = try read(field)
+            selected = try Ink.ofTitle(in: field)
         }
         XCTAssertGreaterThan(
             selected.differingPixels(in: line),
@@ -195,7 +195,7 @@ final nonisolated class RenameUITests: XCTestCase {
         title.typeKey(.rightArrow, modifierFlags: [])
         let collapsed = Date.now.addingTimeInterval(Ink.twoBlinks)
         while selected.differingPixels(in: line) > highlight, Date.now < collapsed {
-            selected = try read(field)
+            selected = try Ink.ofTitle(in: field)
         }
         XCTAssertLessThanOrEqual(
             selected.differingPixels(in: line),
@@ -234,18 +234,5 @@ final nonisolated class RenameUITests: XCTestCase {
     ) -> String? {
         let off = abs(Double(cursor.columns.lowerBound) - cell.start)
         return off < cell.width / 2 ? nil : "The _ should sit under \(name): \(off) columns off"
-    }
-
-    /// The ink in the field and a strip below it for the `_`, short of the next view, against
-    /// the field's far right, which is past any short name.
-    @MainActor
-    private func read(_ field: CGRect) throws -> Ink {
-        let strip = CGRect(
-            x: field.minX,
-            y: field.minY,
-            width: field.width,
-            height: field.height + 12,
-        )
-        return try TitleShot().ink(in: strip, background: CGPoint(x: field.maxX - 1, y: field.minY))
     }
 }

@@ -189,9 +189,11 @@ struct RoutineScreen: View {
     }
 
     /// What a generated name depends on: the exercises, in order, while the routine is unnamed.
-    /// Nil once it has a name, which is never regenerated.
+    /// Nil once it has a name, which is never regenerated, except with no exercises left, where
+    /// the key is empty so a name made for rows that are gone is dropped.
     private var namingKey: [Exercise.ID]? {
-        routine.name.isEmpty ? routine.exercises.map(\.exercise.id) : nil
+        routine.name.isEmpty || routine.exercises.isEmpty ? routine.exercises
+            .map(\.exercise.id) : nil
     }
 
     /// Names the unnamed routine for its exercises as they change. The name comes at once, from

@@ -31,16 +31,20 @@ struct TitleShot {
     func ink(in strip: CGRect, background: CGPoint) throws -> Ink {
         let pixels = try pixels(in: strip)
         let paper = try color(at: background)
+        var contrast = 0
         // Inline rather than `distance`, which allocates per pixel in a Debug build.
         let inked = (0 ..< pixels.height).map { row in
             (0 ..< pixels.width).filter { column in
                 let index = (row * pixels.width + column) * 4
                 let bytes = pixels.bytes
-                return abs(Int(bytes[index]) - paper[0]) + abs(Int(bytes[index + 1]) - paper[1])
-                    + abs(Int(bytes[index + 2]) - paper[2]) > 60
+                let distance = abs(Int(bytes[index]) - paper[0])
+                    + abs(Int(bytes[index + 1]) - paper[1])
+                    + abs(Int(bytes[index + 2]) - paper[2])
+                contrast = max(contrast, distance)
+                return distance > 60
             }
         }
-        return Ink(shot: self, top: pixels.top, inked: inked)
+        return Ink(shot: self, top: pixels.top, inked: inked, contrast: contrast)
     }
 
     /// Only the pixels of a rectangle in points, since decoding the whole screen for a strip
@@ -119,12 +123,16 @@ struct Ink {
     let shot: TitleShot
     let lines: [Run]
     let cursor: Run?
+    /// How far the strongest ink is from the background: a name's primary text reaches further
+    /// than the placeholder's gray.
+    let contrast: Int
     private let inked: [[Int]]
 
     /// `top` is how far down the screen the strip starts, in pixels.
-    fileprivate init(shot: TitleShot, top: Int, inked: [[Int]]) {
+    fileprivate init(shot: TitleShot, top: Int, inked: [[Int]], contrast: Int) {
         self.shot = shot
         self.inked = inked
+        self.contrast = contrast
         var runs: [Range<Int>] = []
         var start: Int?
         for (row, columns) in inked.enumerated() {
@@ -157,6 +165,19 @@ struct Ink {
         }
         self.lines = lines
         self.cursor = cursor
+    }
+
+    /// The ink in the title's field and a strip below it for the `_`, short of the next view,
+    /// against the field's far right, which is past any short name.
+    @MainActor
+    static func ofTitle(in field: CGRect) throws -> Self {
+        let strip = CGRect(
+            x: field.minX,
+            y: field.minY,
+            width: field.width,
+            height: field.height + 12,
+        )
+        return try TitleShot().ink(in: strip, background: CGPoint(x: field.maxX - 1, y: field.minY))
     }
 
     /// How many pixels within the rows differ from the background.
