@@ -20,8 +20,8 @@ Files not modified since <since> are not opened. With a file, writes the convers
 (making its folder) and prints only the first line: how many sessions, or "No sessions since".
 
 With --retro-reply, prints instead the last reply of the newest "Nightly retro" session in the
-main checkout, whole, after a line with its local time: a night's report, for
-scripts/nightly-retro.sh show.
+main checkout: all the text of its last turn, API errors included, after a line with its local
+time. That is a night's report, for scripts/nightly-retro.sh show.
 """
 import json
 import re
@@ -286,35 +286,45 @@ def session(path, since):
     return first, "\n".join(lines)
 
 
-def retro_reply():
-    """The newest "Nightly retro" session in the main checkout, as its transcript's path and its
-    last reply (UTC timestamp, text), the reply None before there is one; None when there is no
-    such session. Files are searched newest first, and only one that holds the title is parsed."""
-    title = f'"customTitle":{json.dumps(RETRO_SESSION_TITLE)}'.encode()
-    since = Since(datetime.fromtimestamp(0, timezone.utc))
+def retro_session():
+    """The newest "Nightly retro" transcript in the main checkout, or None. `claude --name`
+    writes the title as a transcript's first line, so only first lines are read."""
     paths = sorted(project_folders()[0].glob("*.jsonl"), key=lambda path: path.stat().st_mtime, reverse=True)
     for path in paths:
-        if title not in path.read_bytes():
-            continue
-        is_retro, reply = False, None
-        for entry in entries(path, since):
-            if entry.get("type") == "custom-title":
-                is_retro |= entry.get("customTitle") == RETRO_SESSION_TITLE
-            elif entry.get("type") == "assistant" and entry.get("timestamp"):
-                text = shown(entry, set())
-                if text:
-                    reply = (entry["timestamp"], text)
-        if is_retro:
-            return path, reply
+        with open(path, encoding="utf-8", errors="replace") as lines:
+            try:
+                first = json.loads(lines.readline())
+            except ValueError:
+                continue
+        if isinstance(first, dict) and first.get("type") == "custom-title" and first.get("customTitle") == RETRO_SESSION_TITLE:
+            return path
     return None
 
 
+def last_reply(path):
+    """All the text the assistant showed in the last turn that showed any, as (UTC timestamp of
+    its last part, text), or None. Claude Code writes each part of a reply as its own entry, and
+    its own notices, such as an API error, as synthetic ones, which count here."""
+    turn, last = [], None
+    for entry in entries(path, Since(datetime.fromtimestamp(0, timezone.utc))):
+        message = entry.get("message", {})
+        if entry.get("type") == "user" and text_parts(message.get("content")) is not None:
+            turn = []  # a prompt, not a tool's result
+        elif entry.get("type") == "assistant" and entry.get("timestamp") and not entry.get("isSidechain"):
+            synthetic = message.get("model") == "<synthetic>"
+            text = text_parts(message.get("content")) if synthetic else shown(entry, set())
+            if text:
+                turn.append(text.strip())
+                last = (entry["timestamp"], turn)
+    return last and (last[0], "\n\n".join(last[1]))
+
+
 def print_retro_reply():
-    found = retro_reply()
-    if found is None:
+    path = retro_session()
+    if path is None:
         print(f'No "{RETRO_SESSION_TITLE}" session in {project_folders()[0]}.', file=sys.stderr)
         sys.exit(1)
-    path, reply = found
+    reply = last_reply(path)
     if reply is None:
         print(f"No reply yet in ~/{path.relative_to(Path.home())}.")
         return

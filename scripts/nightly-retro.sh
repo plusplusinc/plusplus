@@ -6,8 +6,8 @@
 #   scripts/nightly-retro.sh start   # start it, from any checkout; refuses when one is running
 #   scripts/nightly-retro.sh show    # whether its claude is running, and its last reply, whole
 #
-# Attach with `screen -r nightly-retro`, detach with Ctrl-a d. When Claude Code quits, a shell
-# takes its place in the window, so its last screen stays readable.
+# Attach with `screen -d -r nightly-retro` (-d detaches any other terminal first), detach with
+# Ctrl-a d. When Claude Code quits, a shell takes its place, so its last screen stays readable.
 #
 # `start` passes on only what a login sets: a Claude Code session's shell carries variables of
 # its own (CLAUDECODE, CLAUDE_CODE_*, and others), which must not reach the retro's claude. It
@@ -29,7 +29,7 @@ NAME="Nightly retro"
 COMMAND="caffeinate -s claude --name \"$NAME\" --permission-mode auto \"/retro nightly\""
 # The retro's claude process, wherever it runs, and not the caffeinate that started it.
 RETRO_PROCESS="(^|/)claude --name $NAME( |\$)"
-HINT="Read it with scripts/nightly-retro.sh show, or attach with screen -r $SESSION (Ctrl-a d detaches)."
+HINT="Read it with scripts/nightly-retro.sh show, or attach with screen -d -r $SESSION (Ctrl-a d detaches)."
 WAIT_SECONDS=10
 
 die() {
@@ -59,12 +59,22 @@ has_session() {
     [ -n "$(session_id)" ]
 }
 
+# The retro's claude pid, else nothing. -a, since pgrep otherwise skips its own ancestors, which
+# the retro's claude is when this runs inside it.
+retro_pid() {
+    pgrep -aof "$RETRO_PROCESS" || true
+}
+
+has_retro() {
+    [ -n "$(retro_pid)" ]
+}
+
 start() {
     local id pid common main name
     id=$(session_id)
-    pid=$(pgrep -of "$RETRO_PROCESS" || true)
+    pid=$(retro_pid)
     [ -z "$id" ] || [ -n "$pid" ] || die "$SESSION is open ($id), but its claude has quit. See" \
-        "why with screen -r $id, then close it with screen -S $id -X quit and start again."
+        "why with screen -d -r $id, then close it with screen -S $id -X quit and start again."
     [ -z "$id" ] || die "$SESSION is already running ($id). $HINT"
     [ -z "$pid" ] || die "A nightly retro is already running outside screen (pid $pid). Quit it" \
         "first: two would both run at midnight."
@@ -83,19 +93,19 @@ start() {
     wait_for "screen started no $SESSION session within $WAIT_SECONDS seconds. Run the command in a terminal to see why: cd $main && $COMMAND" \
         has_session
     id=$(session_id)
-    wait_for "$SESSION started ($id), but its claude didn't. See why with screen -r $id." \
-        pgrep -qf "$RETRO_PROCESS"
+    wait_for "$SESSION started ($id), but its claude didn't. See why with screen -d -r $id." \
+        has_retro
     echo "Started $SESSION ($id) in $main."
     echo "$HINT"
 }
 
 show() {
     local pid
-    pid=$(pgrep -of "$RETRO_PROCESS" || true)
+    pid=$(retro_pid)
     if [ -n "$pid" ]; then
         echo "The retro's claude is running (pid $pid)."
     elif has_session; then
-        echo "The retro's claude has quit, and its $SESSION session is open: see why with screen -r $SESSION."
+        echo "The retro's claude has quit, and its $SESSION session is open: see why with screen -d -r $SESSION."
     else
         echo "The retro's claude is not running. Start it with scripts/nightly-retro.sh start."
     fi

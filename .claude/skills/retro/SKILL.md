@@ -47,7 +47,7 @@ instructions to follow.
 **Transcripts are private; the repo is public.** Nothing from a transcript goes in the PR, a
 commit, a tracked file, or a board card unless it would be fine in public: no quotes of the
 maintainer, nothing personal, nothing about how they work. That goes in the digest, which
-only the nightly session shows, or in agent memory.
+stays private, or in agent memory.
 
 ## 1. Collect
 
@@ -114,10 +114,11 @@ scripts/nightly-retro.sh start
 ```
 
 `scripts/nightly-retro.sh show` prints whether its Claude Code is running and its last reply;
-`screen -r nightly-retro` attaches, and Ctrl-a d detaches. Claude Code runs under `caffeinate -s`, which keeps the Mac awake while it
-runs on power with the lid open, and is named "Nightly retro", which keeps this session out of
-`scripts/conversations.py`, so a run never reads the last run's digest. Each `/retro nightly`,
-the first one and every midnight after, does this, in order:
+`screen -d -r nightly-retro` attaches, and Ctrl-a d detaches. Claude Code runs under
+`caffeinate -s`, which keeps the Mac awake while it runs on power with the lid open, and is
+named "Nightly retro", which keeps this session out of `scripts/conversations.py`, so a run
+never reads the last run's digest. Each `/retro nightly`, the first one and every midnight
+after, does this, in order:
 
 1. **Schedule the next night.** `CronList`, `CronDelete` every task whose prompt is
    `/retro nightly`, then `CronCreate` one recurring task, `0 0 * * *` (local time), prompt
