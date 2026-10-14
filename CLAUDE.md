@@ -2,8 +2,8 @@
 
 A native iOS and watchOS workout tracker. Swift 6, SwiftUI, SwiftData + CloudKit. iOS 27 is the
 minimum and new platform APIs are adopted freely. It gets used mid-set, one-handed. What the
-product believes, and what the work aims for (the right product, built right, autonomous), are
-in `docs/principles.md`.
+product believes, and what the work aims for (the right product, built right, mostly
+autonomous), are in `docs/principles.md`.
 
 This file is the constitution: loaded every session, kept short. Detail lives in
 `.claude/rules/*.md`, which load when you touch matching files, and in `docs/`. If this file and a

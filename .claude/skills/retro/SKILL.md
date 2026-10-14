@@ -1,6 +1,6 @@
 ---
 name: retro
-description: Over the work since the last retro, the merges to main and the conversations in this repo's Claude Code sessions, find where the work fell short of what it aims for (docs/principles.md: the right product, built right, autonomous), rank those findings by their evidence, fix them at the lowest altitude in a PR the maintainer reviews, check whether the last retro's fixes worked, and correct what the merges made false in the rules, skills, and docs. Gives the maintainer a private digest. Runs nightly on the maintainer's Mac as `/retro nightly`; use on request over a merge or a range of merges.
+description: Over the work since the last retro, the merges to main and the conversations in this repo's Claude Code sessions, find what tripped the work up or fell short of what it aims for (docs/principles.md: the right product, built right, mostly autonomous), rank those findings by their evidence, fix them at the lowest altitude in a PR the maintainer reviews, check whether the last retro's fixes worked, and correct what the merges made false in the rules, skills, and docs. Gives the maintainer a private digest. Runs nightly on the maintainer's Mac as `/retro nightly`; use on request over a merge or a range of merges.
 argument-hint: "nightly | <PR number or range>"
 allowed-tools: Bash(git log:*), Bash(git diff:*), Bash(git show:*), Bash(git fetch:*), Bash(git worktree add:*), Bash(git worktree remove:*), Bash(gh pr view:*), Bash(gh pr list:*), Bash(gh pr checks:*), Bash(gh pr diff:*), Bash(gh api:*), Bash(asc xcode-cloud build-runs:*), Bash(asc xcode-cloud status:*), Bash(asc xcode-cloud doctor:*), Bash(asc xcode-cloud issues:*), Bash(asc xcode-cloud test-results:*), Bash(scripts/board.sh:*), Bash(scripts/lint.sh:*), Bash(scripts/conversations.py:*), Bash(date:*), Read, Write, Edit, Glob, Grep, Agent, CronList, CronCreate, CronDelete
 ---
@@ -8,7 +8,7 @@ allowed-tools: Bash(git log:*), Bash(git diff:*), Bash(git show:*), Bash(git fet
 **With the argument `nightly`, this session is the retro's tab: skip to "How it runs" and do
 only what it says there.** The retro itself runs in a subagent.
 
-The retro is the review step toward what the work aims for (`docs/principles.md`). Input: the
+The retro is how the work gets better at what it aims for (`docs/principles.md`). Input: the
 merges to `main` with no retro yet and the conversation since, or a PR number or range on request.
 Output: a short report, a private digest, and one PR when there is something to fix.
 
@@ -51,27 +51,28 @@ only the tab shows, or in agent memory.
 ## 1. Collect
 
 The conversation since the last retro, merged or not (`scripts/conversations.py <since>`), holds
-the strongest evidence: the maintainer's corrections, the lead's guesses, the questions it could
-have answered itself. Each session's heading names its transcript; open one only around a moment,
-never whole.
-
-For each PR: `gh pr diff`; `gh pr view` for commits, review threads, and time to merge;
-`gh api repos/{owner}/{repo}/pulls/N/comments` for inline review; its Xcode Cloud runs and why
-any failed (`gh pr checks`, and `asc xcode-cloud doctor` with the App Store Connect key); its
-board card; its Friction line. And the last merged retro PR's body, for its fixes.
+the strongest evidence, most of which never reaches a PR. Each session's heading names its
+transcript; open one only around a moment, never whole. For each PR: `gh pr diff`; `gh pr view`
+for commits, review threads, and time to merge; `gh api repos/{owner}/{repo}/pulls/N/comments` for
+inline review; its Xcode Cloud runs and why any failed (`gh pr checks`, and
+`asc xcode-cloud doctor` with the App Store Connect key); its board card; its Friction line. And
+the last merged retro PR's body, for its fixes.
 
 ## 2. Rank the findings
 
-Rank what fell short of an aim by its evidence, in this order; the stopping rules decide the fixes:
+A finding is what tripped the work up (friction, waste, a missed chance, anything odd) or fell
+short of an aim. Rank by evidence, in this order: highest is what says most about where the lead's
+picture of the maintainer's intent was wrong. The stopping rules decide the fixes.
 
 1. **The maintainer corrected the lead**: said what they meant after the lead built or proposed
    something else, or reversed a call it made.
-2. **The lead guessed, or asked what it could have found**: a product call made without asking,
-   a question the code, the board, the docs, or memory answered, or a brief whose problem,
-   criterion, or scope did not hold.
-3. **Wasted work**: failed runs, rounds the lead caused, a wrong first try, rework after a merge.
-4. **The maintainer's own friction**: time they spent on what the lead could have done, such as
-   running a tool, or waiting on it.
+2. **The lead guessed, or asked what it could have found**: a product call guessed where the
+   maintainer's intent was not settled and asking was cheap, a question the code, the board, the
+   docs, or memory answered, or a brief whose problem, criterion, or scope did not hold.
+3. **Wasted work**: failed runs, time stuck, a tool that misbehaved, rounds the lead caused, a
+   wrong first try, rework after a merge.
+4. **The maintainer's own friction**: what they had to do, chase, remember, or wait on, or what
+   left them lost.
 
 The sweep goes unranked: fix each statement in `CLAUDE.md`, `.claude/`, `docs/`, and the README
 that the merges it covers made false, deleting first.
@@ -101,8 +102,7 @@ waiting. The body is the record the next retro reads:
 - One line for the sweep: what it corrected, and where.
 - Card, Friction, and Verified, which names `scripts/lint.sh` at least.
 
-Then report the findings, the fixes, and what needs the maintainer's decision, and the digest:
-what they could do differently, and the open product questions, each with a recommendation.
+Then report the findings, the fixes, and what needs the maintainer's decision, and the digest.
 
 ## How it runs
 

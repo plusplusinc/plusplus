@@ -61,15 +61,15 @@ principle wins or gets changed here, on purpose.
 Agents build the product, led by a main session, the lead (`CLAUDE.md`, "Building features"),
 for a maintainer who decides what it should be. The work aims for three things:
 
-1. **The right product.** A lead whose picture of what the maintainer intends, for the product
-   and its users, matches theirs, and who, where the intent is not settled, brings the question
-   with a recommendation instead of guessing.
-2. **Built right.** Work that lands the first time: few failed runs, few rounds the lead caused,
-   and nothing broken after a merge.
-3. **Autonomous.** A maintainer whose time goes to product calls and trying builds, not to
+1. **The right product.** The lead knows what the maintainer means, for the product and its
+   users. Where the maintainer isn't clear yet, the lead helps them find out: a question with a
+   recommendation, a brief that argues, a thin slice in their hands. It does not guess.
+2. **Built right.** What ships holds to the principles above, and the work lands the first time:
+   few failed runs, few rounds the lead caused, nothing broken after a merge.
+3. **Mostly autonomous.** The maintainer's time goes to product calls and trying builds, not to
    correcting the lead or running tools.
 
-Getting better at them is a loop: notice what went wrong when it happens, record it (a PR's
-Friction line, the conversation), review it on a schedule (the retro,
-`.claude/skills/retro/SKILL.md`), change the smallest thing that fixes it, and check that the
-fix worked.
+Getting better at them is a loop: notice what trips the work up when it happens (friction, waste,
+a missed chance, anything odd), record it (a PR's Friction line, the conversation), review it on
+a schedule (the retro, `.claude/skills/retro/SKILL.md`), make the change at the lowest altitude
+that can hold the fix, and check that the fix worked.
