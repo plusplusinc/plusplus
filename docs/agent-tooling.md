@@ -144,7 +144,8 @@ touch disjoint files.
 
 ## Permissions
 
-`.claude/settings.json` pre-approves the scripts, read-only `xcodebuild`, `git`, `gh`, and `asc`
-commands (plus `asc xcode-cloud run`; see `docs/ci.md`), and `simctl`, with `simctl erase`,
-uploads and notarization, and force pushes denied. The scripts are the gate for building,
+`.claude/settings.json` pre-approves the scripts except `nightly-retro.sh`, which starts an
+unattended Claude Code session; read-only `xcodebuild`, `git`, `gh`, and `asc` commands (plus
+`asc xcode-cloud run`; see `docs/ci.md`); and `simctl`, with `simctl erase`, uploads and
+notarization, and force pushes denied. The scripts are the gate for building,
 testing, and linting, so raw `xcodebuild build`, `swiftlint`, and friends prompt.
