@@ -138,8 +138,6 @@ private struct NodeCenter: PreferenceKey {
 }
 
 private struct RailRow: ViewModifier {
-    let isHighlighted: Bool
-
     @ScaledMetric(relativeTo: .body) private var minHeight: CGFloat = 64
     @ScaledMetric(relativeTo: .body) private var lineWidth = railLineWidth
     @Environment(\.railPlace) private var place
@@ -160,7 +158,6 @@ private struct RailRow: ViewModifier {
                 )
                 .committing(when: place.isArriving)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
         // The row's stretch of line, top edge to bottom edge through its node, or from the node
         // on the first row and to it on the last, drawn as part of the row so it moves with it.
         // It is drawn in two, above and below the node, so the parts an entry adds can each grow
@@ -192,11 +189,6 @@ private struct RailRow: ViewModifier {
                 }
             }
         }
-        // Behind the line, which runs through it unbroken.
-        .background(
-            .pp(.surface).opacity(isHighlighted ? 1 : 0),
-            in: .rect(cornerRadius: Radius.card),
-        )
         .hotReloadable()
     }
 }
@@ -210,10 +202,9 @@ private let railLineWidth: CGFloat = 2
 extension View {
     /// A row on a rail: its node in the rail column, then its content from the top, inset as the
     /// design has it, in a row at least as tall as two lines, so a one-line row keeps the rhythm
-    /// of a two-line one. A highlighted row, such as the one whose sheet is open, sits on a
-    /// rounded fill, its node unchanged.
-    public func railRow(isHighlighted: Bool = false) -> some View {
-        modifier(RailRow(isHighlighted: isHighlighted))
+    /// of a two-line one.
+    public func railRow() -> some View {
+        modifier(RailRow())
     }
 
     /// The rail column: the leading strip where rows put their nodes and a key its icon. At

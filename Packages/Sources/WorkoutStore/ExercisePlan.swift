@@ -25,6 +25,14 @@ public enum WeightUnit: String, Sendable {
     public init(region locale: Locale) {
         self = locale.measurementSystem == .us ? .pounds : .kilograms
     }
+
+    /// One step of a weight: 5 lb or 2.5 kg.
+    var step: Double {
+        switch self {
+        case .pounds: 5
+        case .kilograms: 2.5
+        }
+    }
 }
 
 public struct Weight: Equatable, Sendable {
@@ -34,6 +42,14 @@ public struct Weight: Equatable, Sendable {
     public init(_ amount: Double, _ unit: WeightUnit) {
         self.amount = amount
         self.unit = unit
+    }
+
+    /// A barbell with nothing on it: 45 lb or 20 kg.
+    static func emptyBar(_ unit: WeightUnit) -> Self {
+        switch unit {
+        case .pounds: Self(45, .pounds)
+        case .kilograms: Self(20, .kilograms)
+        }
     }
 }
 
@@ -66,7 +82,7 @@ public struct ExercisePlan: Equatable, Sendable {
     }
 }
 
-/// A value a plan holds, and a row in the exercise's sheet.
+/// A value a plan holds.
 public enum PlanPart: Sendable {
     case sets
     /// Reps or time.
@@ -75,7 +91,8 @@ public enum PlanPart: Sendable {
 }
 
 extension Exercise {
-    /// The parts of a plan this exercise has, in the sheet's order: weight only with a load.
+    /// The parts of a plan this exercise has, in the order its row reads them: weight only with a
+    /// load.
     public var planParts: [PlanPart] {
         load == nil ? [.sets, .target] : [.sets, .target, .weight]
     }

@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import WorkoutStore
 
@@ -157,12 +158,19 @@ struct ExercisePartsTests {
         }
     }
 
-    @Test("A new row starts with its exercise's default plan, and a sheet shows only its parts")
+    @Test("A new row starts with its exercise's default plan, and has only its exercise's parts")
     func newRowAndParts() throws {
         let bench = try Exercise.builtIn(named: "Barbell bench press")
         #expect(RoutineExercise(exercise: bench, weightUnit: .pounds).plan == bench
             .defaultPlan(in: .pounds))
         #expect(bench.planParts == [.sets, .target, .weight])
         #expect(try Exercise.builtIn(named: "Pigeon stretch").planParts == [.sets, .target])
+    }
+
+    @Test("A new weight takes the region's unit: lb in the US, kg elsewhere")
+    func regionUnit() {
+        #expect(WeightUnit(region: Locale(identifier: "en_US")) == .pounds)
+        #expect(WeightUnit(region: Locale(identifier: "en_GB")) == .kilograms)
+        #expect(WeightUnit(region: Locale(identifier: "de_DE")) == .kilograms)
     }
 }

@@ -14,11 +14,11 @@ What each tier holds today:
 
 - **Package tests** hold rules: `EditableTitle`'s static functions, the frames of a suggestion
   typing in included, `RowLabel`'s detail line, `WorkoutStoreContainer`, the built-in exercises
-  with their equipment lines, tags, search, and plan parts, how a plan reads (row, VoiceOver,
-  sheet), and its wheels' choices, `RoutineStore`'s saving and launch rule over an in-memory container
-  (a relaunch is a second store on the same container), plans included, and on disk, a store
-  written with an older schema opening under the current one, and the names: the focus, the style, the
-  honesty check, and every routine of up to two built-ins in every style.
+  with their equipment lines, tags, search, and plan parts, how a plan reads on its row and to
+  VoiceOver, `RoutineStore`'s saving and launch rule over an in-memory container (a relaunch is
+  a second store on the same container), plans included, and on disk, a store written with an
+  older schema opening under the current one, and the names: the focus, the style, the honesty
+  check, and every routine of up to two built-ins in every style.
 - **Snapshots** hold how a component looks, at rest and while editing. The title's editing look,
   `_` included, is drawn from plain values through `EditableTitleContent`, reached with
   `@testable import`, so no focus or keyboard is needed; its `blinks: false` holds the `_` lit,
@@ -28,17 +28,12 @@ What each tier holds today:
   fading, the trail shuffling in blue, the last letter easing to white. Rows on the rail and
   Start are snapshot through the same components the routine screen composes, a generated name
   resting white over its rows included; a row swiped open is the system's, so the UI test shows
-  it. The exercise sheet's rows, each on its fill, one open, are snapshot the same way; the
-  sheet, its bar, and its wheels are the system's.
+  it.
 - **UI tests** hold only what needs the real keyboard, text system, frames, or a relaunch:
   typing, Return, arrows, taps, range selection, the keyboard's edge, scrolling as the keyboard
-  rises, and VoiceOver frames; the exercise sheet: a row's tap opening it, its wheels, one open
-  at a time, picked with `pick(_:for:)`, which opens a row's wheel with a tap, turns it with
-  `adjust(toPickerWheelValue:)` to a wheel row's text, unit included ("30 lb"), and Delete in its menu, confirmed; the exercise picker, system chrome composed in the app, which has
+  rises, and VoiceOver frames; the exercise picker, system chrome composed in the app, which has
   no test target: adding, searching, swiping to delete, and the accessibility audit at AX5; and
-  what the app saved, a row's values included, seen only by quitting and launching again. A
-  row's line takes a sheet's changes only once the sheet is down, so a test reads it with
-  `assertReads(_:)`. Each launch costs about 9 s on
+  what the app saved, seen only by quitting and launching again. Each launch costs about 9 s on
   CI, so there is one UI test per launch configuration:
   `RenameUITests/testRenameAtDefaultSize`,
   `TitleWrappingUITests/testWrappedTitleAtLargestTextSize`, and

@@ -17,11 +17,6 @@ extension Font {
     /// A screen's title collapsed into its bar: SF Mono, as the screen title is, at the size and
     /// weight of the system's inline title.
     public static let ppInlineTitle = Font.system(.headline, design: .monospaced, weight: .semibold)
-    /// A sheet's heading, such as an exercise's name over its plan.
-    public static let ppSheetTitle = Font.system(.title2, weight: .bold)
-    /// A plan's number, on its row in the sheet and on the wheel: large, its digits all one
-    /// width so it doesn't jitter as it changes.
-    public static let ppPlanValue = Font.system(.title2, weight: .bold).monospacedDigit()
     /// The L | R mark on a row done one side at a time: SF Mono, so the two letters sit evenly
     /// either side of the divider.
     public static let ppSidesMark = Font.system(.caption2, design: .monospaced, weight: .bold)

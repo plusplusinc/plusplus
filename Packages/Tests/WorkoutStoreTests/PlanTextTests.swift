@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import WorkoutStore
 
-/// How a plan reads on its row, to VoiceOver, and in its sheet. "\u{00A0}" is the no-break space
+/// How a plan reads on its row and to VoiceOver. "\u{00A0}" is the no-break space
 /// between a number and its unit.
 @Suite("Plan text")
 struct PlanTextTests {
@@ -102,28 +102,5 @@ struct PlanTextTests {
             == "Kettlebell, 3 sets of 10 reps, 35 pounds")
         #expect(try Self.row("Barbell bench press", weight: Weight(20, .kilograms))
             .spokenDetail(locale: Self.locale) == "Barbell, bench, 3 sets of 5 reps, 20 kilograms")
-    }
-
-    @Test("The sheet's labels, and values that don't repeat them")
-    func sheet() throws {
-        let row = try Self.row("Dumbbell row")
-        #expect([PlanPart.sets, .target, .weight].map(row.label(of:)) == ["Sets", "Reps", "Weight"])
-        #expect(row.value(of: .sets, locale: Self.locale) == PlanValue("3"))
-        #expect(row.value(of: .target, locale: Self.locale) == PlanValue("10", suffix: "per side"))
-        #expect(row.value(of: .weight, locale: Self.locale) == PlanValue("25", suffix: "lb"))
-        #expect(row.spokenValue(of: .target, locale: Self.locale) == "10 reps per side")
-        #expect(row.spokenValue(of: .weight, locale: Self.locale) == "25 pounds")
-        let curl = try Self.row("Biceps curl", weight: Weight(15, .pounds))
-        #expect(curl.value(of: .target, locale: Self.locale) == PlanValue("12"))
-        #expect(curl.value(of: .weight, locale: Self.locale) == PlanValue("15", suffix: "lb each"))
-        #expect(curl.spokenValue(of: .weight, locale: Self.locale) == "15 pounds each")
-        let pigeon = try Self.row("Pigeon stretch")
-        #expect(pigeon.label(of: .target) == "Time")
-        #expect(pigeon.value(of: .target, locale: Self.locale)
-            == PlanValue("60", suffix: "s per side"))
-        let bench = try Self.row("Barbell bench press", weight: Weight(135, .pounds))
-        #expect(bench.value(of: .weight, locale: Self.locale) == PlanValue("135", suffix: "lb"))
-        let long = try Self.row("Plank", target: .time(seconds: 150))
-        #expect(long.value(of: .target, locale: Self.locale) == PlanValue("2:30", suffix: "min"))
     }
 }

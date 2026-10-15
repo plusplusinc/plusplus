@@ -1,6 +1,6 @@
 import Foundation
 
-// How a plan reads: on its row, to VoiceOver, and in its sheet. Every number carries its unit
+// How a plan reads: on its row, and to VoiceOver. Every number carries its unit
 // but the sets count, joined by a no-break space so a line never breaks between them, and says
 // whether it's per side or each.
 
@@ -44,7 +44,7 @@ extension RoutineExercise {
 
     /// `text` followed by what a part's number is for, if anything: "per side" after reps or a
     /// time done one side at a time, "each" after a pair's weight.
-    private func qualified(_ text: String?, _ part: PlanPart) -> String {
+    private func qualified(_ text: String, _ part: PlanPart) -> String {
         let qualifier: String? = switch part {
         case .sets: nil
         case .target: exercise.isPerSide ? "per side" : nil
@@ -56,54 +56,6 @@ extension RoutineExercise {
     /// A weight shows only on an exercise that holds one.
     private var shownWeight: Weight? {
         exercise.load == nil ? nil : plan.weight
-    }
-
-    /// A part's name in the sheet: "Sets", "Reps" or "Time", "Weight".
-    public func label(of part: PlanPart) -> String {
-        switch part {
-        case .sets: "Sets"
-        case .target:
-            switch plan.target {
-            case .reps: "Reps"
-            case .time: "Time"
-            }
-        case .weight: "Weight"
-        }
-    }
-
-    /// A part's value in the sheet, its label not repeated, nil only for a weight on an exercise
-    /// with none: 3, 12, 10 per side, 60 s per side, 2:30 min, 15 lb each, 135 lb.
-    public func value(of part: PlanPart, locale: Locale = .current) -> PlanValue? {
-        let value: PlanValue? = switch part {
-        case .sets:
-            PlanValue(plan.sets.formatted(.number.locale(locale)))
-        case .target:
-            switch plan.target {
-            case let .reps(reps): PlanValue(reps.formatted(.number.locale(locale)))
-            case let .time(seconds): TimeText.value(seconds: seconds, locale: locale)
-            }
-        case .weight:
-            shownWeight.map { PlanValue($0.number(locale: locale), suffix: $0.unit.rawValue) }
-        }
-        return value.map { value in
-            let suffix = qualified(value.suffix, part)
-            return PlanValue(value.number, suffix: suffix.isEmpty ? nil : suffix)
-        }
-    }
-
-    /// A weight on this row's wheel, in its unit's numbers: "25", "142.5", "2,5" in Germany.
-    public func weightNumber(_ amount: Double, locale: Locale = .current) -> String {
-        Weight(amount, plan.weight?.unit ?? .pounds).number(locale: locale)
-    }
-
-    /// A part's value in words, for VoiceOver: "3 sets", "10 reps per side",
-    /// "2 minutes 30 seconds", "15 pounds each".
-    public func spokenValue(of part: PlanPart, locale: Locale = .current) -> String {
-        switch part {
-        case .sets: counted(plan.sets, "set", "sets", locale: locale)
-        case .target: qualified(plan.target.spokenText(locale: locale), part)
-        case .weight: shownWeight.map { qualified($0.spokenText(locale: locale), part) } ?? ""
-        }
     }
 }
 
@@ -156,37 +108,20 @@ extension Weight {
     }
 }
 
-/// A number as the sheet shows it, with the words after it drawn small, if it has any: its unit,
-/// and "per side" or "each" when it is.
-public struct PlanValue: Equatable, Sendable {
-    public let number: String
-    public let suffix: String?
-
-    public init(_ number: String, suffix: String? = nil) {
-        self.number = number
-        self.suffix = suffix
-    }
-}
-
 /// A time reads in seconds under two minutes, then in minutes.
 enum TimeText {
     static let minutesFrom = 120
 
     /// "30 s", "90 s", "2 min", "2:30 min".
     static func text(seconds: Int, locale: Locale) -> String {
-        let value = value(seconds: seconds, locale: locale)
-        return value.number + noBreakSpace + (value.suffix ?? "")
-    }
-
-    static func value(seconds: Int, locale: Locale) -> PlanValue {
         guard seconds >= minutesFrom else {
-            return PlanValue(seconds.formatted(.number.locale(locale)), suffix: "s")
+            return seconds.formatted(.number.locale(locale)) + noBreakSpace + "s"
         }
         let minutes = (seconds / 60).formatted(.number.locale(locale))
         let rest = seconds % 60
-        guard rest > 0 else { return PlanValue(minutes, suffix: "min") }
+        guard rest > 0 else { return minutes + noBreakSpace + "min" }
         let seconds = rest.formatted(.number.precision(.integerLength(2...)).locale(locale))
-        return PlanValue(minutes + ":" + seconds, suffix: "min")
+        return minutes + ":" + seconds + noBreakSpace + "min"
     }
 }
 

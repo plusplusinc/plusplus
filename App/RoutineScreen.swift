@@ -17,16 +17,6 @@ struct RoutineScreen: View {
     /// is spent once its task ends, and a task run again needs a new one.
     @State private var saves: AsyncStream<Routine>.Continuation?
     @State private var isPicking = false
-    /// The row whose sheet is open.
-    @State private var editing: Edited?
-    /// The row the sheet's Delete removes once the sheet is down, so its fade is seen.
-    @State private var deleting: RoutineExercise.ID?
-    /// The row as it was when its sheet opened. Its changes save as they happen, but its line
-    /// holds these numbers until the sheet is down, then rolls the changed ones to their new. The
-    /// row is highlighted until then.
-    @State private var opened: RoutineExercise?
-    /// Whether that roll counts down: the first part to change, in the line's order, went down.
-    @State private var rollsDown = false
     @State private var scrollPosition = ScrollPosition()
     /// The row just added, holding its place until it can be seen going in.
     @State private var arriving: RoutineExercise.ID?
@@ -39,10 +29,7 @@ struct RoutineScreen: View {
     @State private var isScrollingByHand = false
     /// Whether the title has scrolled up under the bar, where a small copy of it shows instead.
     @State private var isTitleUnderBar = false
-    /// The screen's height under the status bar, the most a sheet can take.
-    @State private var sheetRoom: CGFloat = 0
     @Environment(\.locale) private var locale
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
     private static let markWidth: CGFloat = 20
@@ -85,24 +72,14 @@ struct RoutineScreen: View {
                         }
                     }
                     Rail(routine.exercises, arriving: arriving) { item in
-                        let shown = opened?.id == item.id ? opened ?? item : item
-                        Button {
-                            opened = item
-                            editing = Edited(id: item.id)
-                        } label: {
-                            RowLabel(
-                                title: shown.exercise.name,
-                                detail: shown.detailParts(locale: locale),
-                                spokenDetail: shown.spokenDetail(locale: locale),
-                                showsSides: shown.exercise.isPerSide,
-                                detailCountsDown: rollsDown,
-                            )
-                            .railRow(isHighlighted: opened?.id == item.id)
-                            .contentShape(.rect)
-                        }
-                        .buttonStyle(.plain)
+                        RowLabel(
+                            title: item.exercise.name,
+                            detail: item.detailParts(locale: locale),
+                            spokenDetail: item.spokenDetail(locale: locale),
+                            showsSides: item.exercise.isPerSide,
+                        )
+                        .railRow()
                         .accessibilityIdentifier("routine.exercise")
-                        .accessibilityHint("Opens its plan.")
                         .swipeActions(edge: .trailing) {
                             Button("Delete", role: .destructive) {
                                 withAnimation(.railChange) {
@@ -144,11 +121,6 @@ struct RoutineScreen: View {
             // A shape-style background stops at the keyboard's safe area, which left the
             // window's black behind the keyboard's rounded top corners.
             .background { Color.pp(.background).ignoresSafeArea() }
-            .onGeometryChange(for: CGFloat.self) {
-                $0.size.height + $0.safeAreaInsets.bottom
-            } action: {
-                sheetRoom = $0
-            }
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $isPicking) {
                 ExercisePicker { exercise in
@@ -156,11 +128,6 @@ struct RoutineScreen: View {
                     guard isPicking else { return }
                     isPicking = false
                     add(exercise)
-                }
-            }
-            .sheet(item: $editing, onDismiss: sheetClosed) { edited in
-                if let row = row(edited.id) {
-                    ExerciseSheet(item: row, room: sheetRoom) { deleting = edited.id }
                 }
             }
             .toolbar {
@@ -227,46 +194,6 @@ struct RoutineScreen: View {
         .hotReloadable()
     }
 
-    /// The row with `id`, bound into the routine, so the sheet's changes save as they happen;
-    /// nil once it is gone.
-    private func row(_ id: RoutineExercise.ID) -> Binding<RoutineExercise>? {
-        guard let current = routine.exercises.first(where: { $0.id == id }) else { return nil }
-        return Binding {
-            routine.exercises.first { $0.id == id } ?? current
-        } set: { changed in
-            guard let index = routine.exercises.firstIndex(where: { $0.id == id }) else { return }
-            routine.exercises[index] = changed
-        }
-    }
-
-    private func sheetClosed() {
-        removeDeleted()
-        rollOpenedRow()
-    }
-
-    /// Lets the row whose sheet just closed show its numbers as they are now, rolling the ones
-    /// that changed, or with Reduce Motion, showing them at once.
-    private func rollOpenedRow() {
-        guard let opened else { return }
-        if let now = routine.exercises.first(where: { $0.id == opened.id }) {
-            let firstChange = now.exercise.planParts.lazy
-                .map { (now.amount(of: $0), opened.amount(of: $0)) }
-                .first { $0.0 != $0.1 }
-            rollsDown = firstChange.map { ($0.0 ?? 0) < ($0.1 ?? 0) } ?? false
-        }
-        withAnimation(reduceMotion ? nil : .valueChange) {
-            self.opened = nil
-        }
-    }
-
-    private func removeDeleted() {
-        guard let id = deleting else { return }
-        deleting = nil
-        withAnimation(.railChange) {
-            routine.exercises.removeAll { $0.id == id }
-        }
-    }
-
     /// Adds a picked exercise. Its row takes its place as the sheet starts down, moving Add
     /// exercise, but enters only where it can be seen: a moment into the sheet's slide when
     /// everything still fits, and otherwise once a scroll to the end has brought the row and Add
@@ -328,11 +255,6 @@ struct RoutineScreen: View {
             arriving = nil
         }
     }
-}
-
-/// The row whose sheet is open, by id, since a sheet presents an identifiable item.
-private struct Edited: Identifiable {
-    let id: RoutineExercise.ID
 }
 
 #Preview {
