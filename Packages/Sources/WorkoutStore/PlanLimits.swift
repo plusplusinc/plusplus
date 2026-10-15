@@ -1,9 +1,8 @@
-/// The values a plan can hold. They bound stepping and typing, and a stored value outside them
-/// reads as the default.
+/// The values a stored plan can hold; a stored value outside them reads as the default. Wider
+/// than the sheet's wheels, so a value saved by an earlier version still loads as it was.
 enum PlanLimits {
     static let sets = 1 ... 99
     static let reps = 1 ... 999
-    /// Up to 99:59. Typing allows 1 s; stepping stops at 5 s.
+    /// Up to 99:59.
     static let seconds = 1 ... 5999
-    static let maxWeight = 9999.0
 }

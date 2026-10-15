@@ -71,7 +71,7 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
         }
         XCTContext.runActivity(named: "One of two rows of an exercise takes a value") { _ in
             app.lastExerciseRow.tap()
-            app.planRow(.target).tapKey(.increase)
+            app.pick("7", for: .target)
             XCTAssertEqual(app.planRow(.target).value(becoming: "7 reps"), "7 reps")
             app.closeSheet()
         }

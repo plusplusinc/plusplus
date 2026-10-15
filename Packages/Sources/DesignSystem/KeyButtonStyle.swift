@@ -14,6 +14,7 @@ public struct KeyButtonStyle: ButtonStyle {
     public init() { }
 
     public func makeBody(configuration: Configuration) -> some View {
+        let shape = RoundedRectangle(cornerRadius: Radius.key)
         configuration.label
             .labelStyle(RailIconLabelStyle())
             .font(.ppButton)
@@ -21,7 +22,11 @@ public struct KeyButtonStyle: ButtonStyle {
             .padding(.vertical, Spacing.sm)
             .padding(.trailing, Spacing.md)
             .frame(maxWidth: .infinity, minHeight: Self.minHeight, alignment: .leading)
-            .keyFace(isPressed: configuration.isPressed)
+            .background(shape.fill(.pp(.surface)))
+            .overlay(shape.strokeBorder(.pp(.borderStrong)))
+            .contentShape(shape)
+            .opacity(configuration.isPressed ? 0.6 : 1)
+            .keyPressAnimation(isPressed: configuration.isPressed)
             .hotReloadable()
     }
 }
@@ -37,17 +42,6 @@ private struct RailIconLabelStyle: LabelStyle {
 }
 
 extension View {
-    /// A key's face: surface fill and strong outline, dimmed while pressed, and further when it
-    /// can't be used.
-    func keyFace(isPressed: Bool, isEnabled: Bool = true) -> some View {
-        let shape = RoundedRectangle(cornerRadius: Radius.key)
-        return background(shape.fill(.pp(.surface)))
-            .overlay(shape.strokeBorder(.pp(.borderStrong)))
-            .contentShape(shape)
-            .opacity(isEnabled ? (isPressed ? 0.6 : 1) : 0.35)
-            .keyPressAnimation(isPressed: isPressed)
-    }
-
     /// A key's press: down at once, as a finger lands, and back up quickly on release. Left to
     /// the system, the release eased back over half a second.
     func keyPressAnimation(isPressed: Bool) -> some View {

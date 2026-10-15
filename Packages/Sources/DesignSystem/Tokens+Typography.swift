@@ -19,9 +19,9 @@ extension Font {
     public static let ppInlineTitle = Font.system(.headline, design: .monospaced, weight: .semibold)
     /// A sheet's heading, such as an exercise's name over its plan.
     public static let ppSheetTitle = Font.system(.title2, weight: .bold)
-    /// A stepper's number: a row's name, its digits all one width so it doesn't jitter as it
-    /// steps.
-    public static let ppStepperValue = Font.ppRowTitle.monospacedDigit()
+    /// A plan's number in its capsule: a row's name, its digits all one width so it doesn't
+    /// jitter as it changes.
+    public static let ppPlanValue = Font.ppRowTitle.monospacedDigit()
     /// The L | R mark on a row done one side at a time: SF Mono, so the two letters sit evenly
     /// either side of the divider.
     public static let ppSidesMark = Font.system(.caption2, design: .monospaced, weight: .bold)

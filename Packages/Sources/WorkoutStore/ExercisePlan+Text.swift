@@ -94,6 +94,11 @@ extension RoutineExercise {
         }
     }
 
+    /// A weight on this row's wheel, in its unit's numbers: "25", "142.5", "2,5" in Germany.
+    public func weightNumber(_ amount: Double, locale: Locale = .current) -> String {
+        Weight(amount, plan.weight?.unit ?? .pounds).number(locale: locale)
+    }
+
     /// A part's value in words, for VoiceOver: "3 sets", "10 reps", "2 minutes 30 seconds",
     /// "50 pounds".
     public func spokenValue(of part: PlanPart, locale: Locale = .current) -> String {

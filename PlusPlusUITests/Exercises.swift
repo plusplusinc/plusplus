@@ -96,49 +96,29 @@ enum PlanPart: String {
     case weight
 }
 
-/// Where to tap in a sheet's row: its keys are hidden from VoiceOver, which steps the row as one
-/// adjustable element, so a tap finds them by where they sit at the default text size. A row ends
-/// in the value's box, then the joined − | + pair.
-enum PlanRowSpot {
-    case decrease
-    case value
-    case increase
-
-    /// A key's width, `StepKeyButtonStyle`'s `width`, and the line between the two.
-    private static let (keyWidth, line): (CGFloat, CGFloat) = (44, 1)
-    /// The gap between the value's box and the pair, `Spacing.sm`, and a reach into the box that
-    /// its smallest width, 60, takes in.
-    private static let (gap, intoValue): (CGFloat, CGFloat) = (8, 20)
-
-    /// From the row's trailing edge, where the pair ends.
-    var fromTrailingEdge: CGFloat {
-        let pair = Self.keyWidth * 2 + Self.line
-        return switch self {
-        case .increase: Self.keyWidth / 2
-        case .decrease: pair - Self.keyWidth / 2
-        case .value: pair + Self.gap + Self.intoValue
-        }
-    }
-}
-
 @MainActor
 extension XCUIApplication {
     func planRow(_ part: PlanPart) -> XCUIElement {
         descendants(matching: .any)["plan.\(part.rawValue)"]
     }
 
+    /// Opens `part`'s wheel, or for a time its two, turns each to its value in order, and closes
+    /// it again with a second tap on the row. A wheel's value is its row's text, its unit after
+    /// it: "30 lb", "1 min".
+    func pick(_ values: String..., for part: PlanPart) {
+        planRow(part).tap()
+        let wheels = pickerWheels
+        XCTAssertTrue(wheels.firstMatch.appears(), "A tap on \(part) opened no wheel")
+        for (index, value) in values.enumerated() {
+            wheels.element(boundBy: index).adjust(toPickerWheelValue: value)
+        }
+        planRow(part).tap()
+        XCTAssertTrue(wheels.firstMatch.disappears(), "A second tap left the wheel open")
+    }
+
     /// Closes the sheet with its Close button, and waits for it to go.
     func closeSheet() {
         buttons["Close"].tap()
         XCTAssertTrue(planRow(.sets).disappears(), "Close left the sheet open")
-    }
-}
-
-extension XCUIElement {
-    @MainActor
-    func tapKey(_ spot: PlanRowSpot) {
-        coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5))
-            .withOffset(CGVector(dx: -spot.fromTrailingEdge, dy: 0))
-            .tap()
     }
 }

@@ -5,8 +5,9 @@ import SwiftUI
 import Testing
 @testable import DesignSystem
 
-/// An exercise sheet's content, its steppers, built the way the app composes it. The sheet, its
-/// bar with the exercise's name, and the keyboard are the system's; the UI tests show them.
+/// An exercise sheet's content, its rows of values in capsules, built the way the app composes
+/// it. The sheet, its bar with the exercise's name, and the wheels are the system's; the UI tests
+/// show them.
 @Suite("Exercise sheet")
 struct ExerciseSheetSnapshotTests {
     private static let sheetWidth: CGFloat = 390
@@ -16,48 +17,34 @@ struct ExerciseSheetSnapshotTests {
         var note: String?
         let value: String
         var unit: String?
-        var canDecrease = true
-        var isEditing = false
+        var isOpen = false
     }
 
-    private func content(equipment: String?, parts: [Part]) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.lg) {
-            if let equipment {
-                Text(equipment)
-                    .font(.ppRowDetail)
-                    .foregroundStyle(.pp(.textSecondary))
-                    .frame(maxWidth: .infinity)
-            }
-            VStack(alignment: .leading, spacing: Spacing.md) {
-                ForEach(parts, id: \.title) { part in
-                    StepperRow(
-                        title: part.title,
-                        note: part.note,
-                        spokenValue: "",
-                        canDecrease: part.canDecrease,
-                        canIncrease: true,
-                        onDecrease: { },
-                        onIncrease: { },
-                        value: {
-                            NumberFieldContent(
-                                text: part.value,
-                                unit: part.unit,
-                                isEditing: part.isEditing,
-                                blinks: false,
-                            )
-                        },
-                    )
-                }
+    private func content(_ parts: [Part]) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            ForEach(parts, id: \.title) { part in
+                PickerRow(
+                    title: part.title,
+                    note: part.note,
+                    value: part.value,
+                    unit: part.unit,
+                    amount: nil,
+                    spokenValue: "",
+                    isOpen: part.isOpen,
+                    identifier: part.title,
+                    onToggle: { },
+                    wheel: { EmptyView() },
+                )
             }
         }
         .padding(Spacing.lg)
-        .background(Color.pp(.surface))
+        .background(Color.pp(.background))
     }
 
     @Test("A bench press: sets, reps, and the bar's total")
     func bench() {
         assertThemedSnapshots(
-            of: content(equipment: "Barbell, bench", parts: [
+            of: content([
                 Part(title: "Sets", value: "5"),
                 Part(title: "Reps", value: "5"),
                 Part(title: "Weight", note: "Bar, total", value: "135", unit: "lb"),
@@ -66,19 +53,13 @@ struct ExerciseSheetSnapshotTests {
         )
     }
 
-    @Test("A dumbbell row: reps per side, one dumbbell at its lightest, − dimmed")
+    @Test("A dumbbell row: reps per side, one dumbbell, its weight's capsule open")
     func row() {
         assertThemedSnapshots(
-            of: content(equipment: "Dumbbells, bench", parts: [
+            of: content([
                 Part(title: "Sets", value: "3"),
                 Part(title: "Reps", note: "Per side", value: "10"),
-                Part(
-                    title: "Weight",
-                    note: "One dumbbell",
-                    value: "5",
-                    unit: "lb",
-                    canDecrease: false,
-                ),
+                Part(title: "Weight", note: "One dumbbell", value: "25", unit: "lb", isOpen: true),
             ]),
             width: Self.sheetWidth,
         )
@@ -87,35 +68,9 @@ struct ExerciseSheetSnapshotTests {
     @Test("A pigeon stretch: one set, a time per side, no weight")
     func pigeon() {
         assertThemedSnapshots(
-            of: content(equipment: nil, parts: [
+            of: content([
                 Part(title: "Sets", value: "1"),
                 Part(title: "Time", note: "Per side", value: "60", unit: "s"),
-            ]),
-            width: Self.sheetWidth,
-        )
-    }
-
-    @Test("Typing a weight: the `_` after the number, the unit, the line under the slot")
-    func typingWeight() {
-        assertThemedSnapshots(
-            of: content(equipment: nil, parts: [
-                Part(
-                    title: "Weight",
-                    note: "Bar, total",
-                    value: "142.5",
-                    unit: "lb",
-                    isEditing: true,
-                ),
-            ]),
-            width: Self.sheetWidth,
-        )
-    }
-
-    @Test("Typing a time: digits fill from the right")
-    func typingTime() {
-        assertThemedSnapshots(
-            of: content(equipment: nil, parts: [
-                Part(title: "Time", note: "Per side", value: "1:30", isEditing: true),
             ]),
             width: Self.sheetWidth,
         )

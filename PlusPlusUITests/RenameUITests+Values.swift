@@ -4,7 +4,7 @@ import XCTest
 /// It starts and ends with the nine rows `addAndSearchExercises` left, the list at its top.
 extension RenameUITests {
     @MainActor
-    func setValues(in app: XCUIApplication, keyboard: XCUIElement) {
+    func setValues(in app: XCUIApplication) {
         let rows = app.exerciseRows
         app.addExercise("Dumbbell row, Dumbbells, bench", searching: "dumbbell row")
         app.addExercise("Pigeon stretch", searching: "pigeon")
@@ -22,19 +22,19 @@ extension RenameUITests {
             XCTAssertEqual(app.planRow(.weight).value as? String, "25 pounds")
             attach(named: "sheet-row")
         }
-        XCTContext.runActivity(named: "+ and − change the row's line") { _ in
-            app.planRow(.target).tapKey(.increase)
+        XCTContext.runActivity(named: "Wheels change the row's line once the sheet is down") { _ in
+            app.pick("11", for: .target)
             XCTAssertEqual(app.planRow(.target).value(becoming: "11 reps"), "11 reps")
-            app.planRow(.weight).tapKey(.increase)
+            app.pick("30 lb", for: .weight)
             XCTAssertEqual(app.planRow(.weight).value(becoming: "30 pounds"), "30 pounds")
-            app.planRow(.sets).tapKey(.decrease)
+            app.pick("2", for: .sets)
             app.closeSheet()
             dumbbellRow
                 .assertReads(
                     "Dumbbell row, Dumbbells, bench, 2 sets of 11 reps per side, 30 pounds",
                 )
         }
-        typeValues(in: app, keyboard: keyboard, pigeon: pigeon, dumbbellRow: dumbbellRow)
+        pickTimeAndWeight(in: app, pigeon: pigeon, dumbbellRow: dumbbellRow)
         XCTContext
             .runActivity(
                 named: "More, then Delete, confirmed, removes the row and closes the sheet",
@@ -67,7 +67,7 @@ extension RenameUITests {
             app.navigationBars.firstMatch.buttons["Arm and back day"].tap()
             let bands = (rows.element(boundBy: 1), rows.element(boundBy: 2))
             bands.1.tap()
-            app.planRow(.target).tapKey(.increase)
+            app.pick("16", for: .target)
             XCTAssertEqual(app.planRow(.target).value(becoming: "16 reps"), "16 reps")
             app.closeSheet()
             bands.0.assertReads("Band pull-apart, Band, 3 sets of 15 reps")
@@ -77,9 +77,13 @@ extension RenameUITests {
             XCTAssertEqual(app.planRow(.target).label, "Reps", "A bench press is per side")
             XCTAssertEqual(app.planRow(.weight).label, "Weight, Bar, total")
             XCTAssertEqual(app.planRow(.weight).value as? String, "45 pounds", "No empty bar")
-            // − stops at the empty bar.
-            app.planRow(.weight).tapKey(.decrease)
-            app.planRow(.weight).tapKey(.increase)
+            app.planRow(.weight).tap()
+            // Opening the wheel changes nothing.
+            XCTAssertTrue(app.pickerWheels.firstMatch.appears(), "No weight wheel")
+            XCTAssertEqual(app.pickerWheels.firstMatch.value as? String, "45 lb")
+            attach(named: "sheet-bench-wheel")
+            app.planRow(.weight).tap()
+            app.pick("50 lb", for: .weight)
             XCTAssertEqual(app.planRow(.weight).value(becoming: "50 pounds"), "50 pounds")
             attach(named: "sheet-bench")
             app.closeSheet()
@@ -87,49 +91,39 @@ extension RenameUITests {
         }
     }
 
-    /// Typing a number: a time fills from the right and a tap on the sheet ends it; a weight
-    /// typed takes a decimal, a tap on another number moves typing there, and the
-    /// sheet's Close keeps what is being typed.
+    /// A time picks minutes and seconds side by side; a tap on the sheet's empty space closes a
+    /// wheel.
     @MainActor
-    private func typeValues(
+    private func pickTimeAndWeight(
         in app: XCUIApplication,
-        keyboard: XCUIElement,
         pigeon: XCUIElement,
         dumbbellRow: XCUIElement,
     ) {
-        XCTContext.runActivity(named: "Typing a time fills from the right") { _ in
+        XCTContext.runActivity(named: "A time picks minutes and seconds") { _ in
             pigeon.tap()
-            app.planRow(.target).tapKey(.value)
-            XCTAssertTrue(keyboard.appears(), "A tap on the time raised no keyboard")
-            app.typeText("130")
-            XCTAssertEqual(app.textFields["Time"].value(becoming: "1:30"), "1:30")
-            attach(named: "sheet-typing-time")
-            // A tap on the sheet, here beside Sets, ends typing.
-            app.planRow(.sets).coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.5)).tap()
+            app.planRow(.target).tap()
+            let wheels = app.pickerWheels
+            XCTAssertEqual(wheels.count, 2, "A time has no minutes and seconds")
+            wheels.element(boundBy: 0).adjust(toPickerWheelValue: "1 min")
+            wheels.element(boundBy: 1).adjust(toPickerWheelValue: "30 s")
             XCTAssertEqual(app.planRow(.target).value(becoming: "90 seconds"), "90 seconds")
+            attach(named: "sheet-time-wheels")
+            // A tap on the sheet's empty space, here the gap under Sets, closes the wheel.
+            app.planRow(.sets).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 1))
+                .withOffset(CGVector(dx: 0, dy: 8)).tap()
+            XCTAssertTrue(wheels.firstMatch.disappears(), "A tap on the sheet left the wheel open")
             app.closeSheet()
             pigeon.assertReads("Pigeon stretch, 90 seconds per side")
         }
-        XCTContext.runActivity(named: "A typed weight lands on the row") { _ in
+        XCTContext.runActivity(named: "A picked weight lands on the row") { _ in
             dumbbellRow.tap()
-            app.planRow(.weight).tapKey(.value)
-            XCTAssertTrue(keyboard.appears(), "A tap on the weight raised no keyboard")
-            app.typeText("42.5")
-            XCTAssertEqual(app.textFields["Weight"].value(becoming: "42.5"), "42.5")
-            attach(named: "sheet-typing-weight")
-            // A tap on another number moves typing there, keeping the weight.
-            app.planRow(.target).tapKey(.value)
-            XCTAssertEqual(
-                app.planRow(.weight).value(becoming: "42.5 pounds"),
-                "42.5 pounds",
-            )
-            app.typeText("12")
-            XCTAssertEqual(app.textFields["Reps"].value(becoming: "12"), "12")
-            // Close keeps what is being typed.
+            app.pick("40 lb", for: .weight)
+            app.pick("12", for: .target)
+            attach(named: "sheet-weight-picked")
             app.closeSheet()
             dumbbellRow
                 .assertReads(
-                    "Dumbbell row, Dumbbells, bench, 2 sets of 12 reps per side, 42.5 pounds",
+                    "Dumbbell row, Dumbbells, bench, 2 sets of 12 reps per side, 40 pounds",
                 )
         }
     }
