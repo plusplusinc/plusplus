@@ -4,7 +4,7 @@ import XCTest
 @MainActor
 extension XCUIApplication {
     /// The routine's title.
-    var title: XCUIElement {
+    var routineTitle: XCUIElement {
         textFields["Routine name"]
     }
 
@@ -18,8 +18,8 @@ extension XCUIApplication {
         launchArguments = ["-UIPreferredContentSizeCategoryName", category]
             + ["-resetStore", "YES"] + arguments
         launch()
-        XCTAssertTrue(title.appears(within: 10), "No title after launch")
-        return title
+        XCTAssertTrue(routineTitle.appears(within: 10), "No title after launch")
+        return routineTitle
     }
 
     /// Quits the way a person does, home then gone, and launches again with the same
@@ -31,6 +31,6 @@ extension XCUIApplication {
             launchArguments.removeSubrange(reset ... reset + 1)
         }
         launch()
-        XCTAssertTrue(title.appears(within: 10), "No title after relaunch")
+        XCTAssertTrue(routineTitle.appears(within: 10), "No title after relaunch")
     }
 }
