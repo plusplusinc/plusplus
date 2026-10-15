@@ -4,9 +4,9 @@ import WorkoutStore
 
 /// An exercise row's plan, over the routine: its name centered in the bar with its equipment
 /// under it, then a stepper for each part it has. At the accessibility sizes, where the bar would
-/// cut a name short, both lead the content instead. Every step, and every typed number once typing ends, changes the row at once, so
-/// it saves as it happens; Done ends typing and closes the sheet. Delete is in the More menu, not
-/// a standing button.
+/// cut a name short, both lead the content instead. Every step, and every typed number once
+/// typing ends, changes the row at once, so it saves as it happens; Done ends typing and closes
+/// the sheet. Delete is in the More menu, not a standing button.
 struct ExerciseSheet: View {
     @Binding var item: RoutineExercise
     let onDelete: () -> Void
@@ -39,6 +39,9 @@ struct ExerciseSheet: View {
                     }
                 }
                 .padding(.horizontal, Spacing.lg)
+                // Clear of the bar: content touching it kept the app from settling once the
+                // keyboard rose.
+                .padding(.top, Spacing.sm)
                 .padding(.bottom, Spacing.lg)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 // A tap anywhere but a number or a key ends typing, as the keyboard's check does.
@@ -75,10 +78,7 @@ struct ExerciseSheet: View {
                     }
                 }
                 ToolbarItem(placement: .keyboard) {
-                    HStack {
-                        Spacer()
-                        Button("Done typing", systemImage: "checkmark") { typing = nil }
-                    }
+                    Button("Done typing", systemImage: "checkmark") { typing = nil }
                 }
             }
         }

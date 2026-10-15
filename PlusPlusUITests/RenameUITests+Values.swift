@@ -96,10 +96,7 @@ extension RenameUITests {
             app.typeText("130")
             XCTAssertEqual(app.textFields["Time"].value(becoming: "1:30"), "1:30")
             attach(named: "sheet-typing-time")
-            // The keyboard's check is out of reach here: after XCUITest's typing the simulator
-            // keeps the keypad minimized, and a tap on the check left there never arrives. A tap
-            // on the sheet, here beside Sets, ends typing as well.
-            app.planRow(.sets).coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.5)).tap()
+            app.buttons["Done typing"].tap()
             XCTAssertEqual(app.planRow(.target).value(becoming: "90 seconds"), "90 seconds")
             app.closeSheet()
             XCTAssertEqual(pigeon.label, "Pigeon stretch, 90 seconds per side")
@@ -108,6 +105,11 @@ extension RenameUITests {
             dumbbellRow.tap()
             app.planRow(.weight).tapKey(.value)
             XCTAssertTrue(keyboard.appears(), "A tap on the weight raised no keyboard")
+            app.typeText("4")
+            // A tap on the sheet, here beside Sets, ends typing as the keyboard's check does.
+            app.planRow(.sets).coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.5)).tap()
+            XCTAssertEqual(app.planRow(.weight).value(becoming: "4 pounds"), "4 pounds")
+            app.planRow(.weight).tapKey(.value)
             app.typeText("42.5")
             XCTAssertEqual(app.textFields["Weight"].value(becoming: "42.5"), "42.5")
             attach(named: "sheet-typing-weight")
