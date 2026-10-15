@@ -81,6 +81,22 @@ public struct EditableTitle: View {
         draft.count(where: \.isNewline) == 1
     }
 
+    /// Takes the newlines out of a draft the field has just changed, and says whether editing
+    /// ends: one is a Return, removed, and more came from pasted lines, which become spaces, since
+    /// a title is one paragraph. The draft is replaced, so the caret is too, at its end: the
+    /// field's own indexes the text with the newlines.
+    static func takeNewlines(in draft: inout String, caret: Caret) -> Bool {
+        guard draft.contains(where: \.isNewline) else { return false }
+        let ends = isReturn(draft)
+        caret.replace(
+            &draft,
+            with: ends
+                ? draft.filter { !$0.isNewline }
+                : String(draft.map { $0.isNewline ? " " : $0 }),
+        )
+        return ends
+    }
+
     /// The title an edit leaves behind: trimmed, and empty, which leaves the title unnamed, when
     /// nothing is left or it is the suggestion the edit started from, unchanged.
     public static func committed(_ draft: String, from suggestion: String? = nil) -> String {
@@ -89,7 +105,8 @@ public struct EditableTitle: View {
     }
 
     /// Where the `_` goes in the draft: the insertion point, or nil for a range selection, which
-    /// shows the system highlight instead. No selection yet is the end.
+    /// shows the system highlight instead. No selection yet is the end. The selection must have
+    /// been made for `draft`: an index from another string can trap.
     public static func insertionPoint(
         of selection: TextSelection?,
         in draft: String,
@@ -98,8 +115,8 @@ public struct EditableTitle: View {
         case nil:
             draft.endIndex
         case let .selection(range) where range.isEmpty:
-            // A selection can trail the draft by one change, and an index into the old string
-            // may lie past the end of this one or inside one of its characters.
+            // The selection was made for this draft (see `Caret`), but an index between the
+            // scalars of one character has no cell of its own.
             String.Index(range.lowerBound, within: draft) ?? draft.endIndex
         default:
             nil
@@ -211,19 +228,18 @@ public struct EditableTitle: View {
                 settle()
                 if draft.isEmpty, let suggestion {
                     editedSuggestion = suggestion
-                    draft = suggestion
                 }
                 // The tap that focuses the field leaves the caret at the start or selects
                 // everything, not where it landed, so editing starts at the end. Taps once
                 // editing place the caret where they land.
-                caret.selection = TextSelection(insertionPoint: draft.endIndex)
+                caret.replace(&draft, with: editedSuggestion ?? draft)
             } else {
                 commit()
             }
         }
         .onChange(of: text) { _, newText in
             if !isEditing {
-                draft = newText
+                caret.replace(&draft, with: newText)
             }
         }
         .hotReloadable()
@@ -270,7 +286,7 @@ public struct EditableTitle: View {
     private func commit() {
         text = Self.committed(draft, from: editedSuggestion)
         editedSuggestion = nil
-        draft = text
+        caret.replace(&draft, with: text)
     }
 }
 
@@ -297,16 +313,10 @@ private struct TitleFieldBehavior: ViewModifier {
                 return .handled
             }
             // The on-screen keyboard's Return reaches it as an inserted newline, wherever the
-            // caret is. Newlines inside pasted text become spaces, since a title is one paragraph.
-            .onChange(of: draft) { _, newDraft in
-                guard newDraft.contains(where: \.isNewline) else { return }
-                if EditableTitle.isReturn(newDraft) {
-                    draft = newDraft.filter { !$0.isNewline }
+            // caret is.
+            .onChange(of: draft) {
+                if EditableTitle.takeNewlines(in: &draft, caret: caret) {
                     isEditing.wrappedValue = false
-                } else {
-                    draft = String(newDraft.map { $0.isNewline ? " " : $0 })
-                    // The old selection indexes the old string.
-                    caret.selection = TextSelection(insertionPoint: draft.endIndex)
                 }
             }
             .hotReloadable()

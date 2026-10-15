@@ -1,6 +1,11 @@
-import DesignSystem
+@testable import DesignSystem
 import SwiftUI
 import Testing
+#if canImport(UIKit)
+import UIKit
+#else
+import AppKit
+#endif
 
 @Suite("Editable title rules")
 struct EditableTitleTests {
@@ -74,11 +79,45 @@ struct EditableTitleTests {
         #expect(EditableTitle.insertionPoint(of: selection, in: draft) == nil)
     }
 
-    @Test("A selection left over from a longer draft puts the cursor at the end")
-    func insertionPastEnd() {
-        let longer = "Legs day"
-        let selection = TextSelection(insertionPoint: longer.endIndex)
-        #expect(EditableTitle.insertionPoint(of: selection, in: "Legs") == "Legs".endIndex)
+    /// Text as the field holds it: in a text storage, which Swift reads as UTF-16, unlike the
+    /// UTF-8 of a string built in Swift. An index from it read past the end of a Swift string
+    /// with a character beyond ASCII traps.
+    private func fieldText(_ text: String) -> String {
+        NSTextStorage(string: text).string
+    }
+
+    @Test("Return after an autocorrection puts the cursor at the end of what is left")
+    func returnAfterAutocorrection() {
+        // Autocorrect turned "bodys" into "body’s", then Return added a newline, with the
+        // field's caret after it: one character past the end of the draft without it.
+        var draft = fieldText("Total body\u{2019}s\n")
+        let caret = Caret()
+        caret.selection = TextSelection(insertionPoint: draft.endIndex)
+
+        #expect(EditableTitle.takeNewlines(in: &draft, caret: caret))
+        #expect(draft == "Total body\u{2019}s")
+        #expect(EditableTitle.insertionPoint(of: caret.selection, in: draft) == draft.endIndex)
+    }
+
+    @Test("Pasted lines become spaces, and the cursor goes to the end")
+    func pastedLines() {
+        var draft = fieldText("Legs\nday\u{2019}s\n")
+        let caret = Caret()
+        caret.selection = TextSelection(insertionPoint: draft.endIndex)
+
+        #expect(!EditableTitle.takeNewlines(in: &draft, caret: caret))
+        #expect(draft == "Legs day\u{2019}s ")
+        #expect(EditableTitle.insertionPoint(of: caret.selection, in: draft) == draft.endIndex)
+    }
+
+    @Test("Text set from outside the field takes the caret to its end, past the old one's")
+    func replacedDraft() {
+        var draft = fieldText("Push d\u{00E9}j\u{00E0} vu")
+        let caret = Caret()
+        caret.selection = TextSelection(insertionPoint: draft.endIndex)
+
+        caret.replace(&draft, with: "D\u{00E9}j\u{00E0}")
+        #expect(EditableTitle.insertionPoint(of: caret.selection, in: draft) == draft.endIndex)
     }
 
     @Test("The empty field reserves as many lines as the default text drawn in its place")
