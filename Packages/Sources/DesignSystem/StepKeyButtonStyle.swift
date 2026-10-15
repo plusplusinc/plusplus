@@ -14,7 +14,6 @@ public struct StepKeyButtonStyle: ButtonStyle {
     public init() { }
 
     public func makeBody(configuration: Configuration) -> some View {
-        let shape = RoundedRectangle(cornerRadius: Radius.key)
         configuration.label
             .labelStyle(.iconOnly)
             .font(.ppButton)
@@ -24,11 +23,7 @@ public struct StepKeyButtonStyle: ButtonStyle {
                 minWidth: min(minWidth, Self.largest.width),
                 minHeight: min(minHeight, Self.largest.height),
             )
-            .background(shape.fill(.pp(.surface)))
-            .overlay(shape.strokeBorder(.pp(.borderStrong)))
-            .contentShape(shape)
-            .opacity(isEnabled ? (configuration.isPressed ? 0.6 : 1) : 0.35)
-            .keyPressAnimation(isPressed: configuration.isPressed)
+            .keyFace(isPressed: configuration.isPressed, isEnabled: isEnabled)
             .hotReloadable()
     }
 }

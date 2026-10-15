@@ -34,33 +34,25 @@ extension View {
     /// The screen title: SF Mono, 24pt bold. Monospaced so its `_` cursor is exactly one character
     /// wide.
     public func ppScreenTitleFont() -> some View {
-        modifier(ScreenTitleFont())
+        modifier(BoldMonoFont(size: 24))
     }
 }
 
 extension View {
     /// A stepper's number: SF Mono, 26pt bold, so digits keep their width as it steps.
     public func ppValueFont() -> some View {
-        modifier(ValueFont())
+        modifier(BoldMonoFont(size: 26))
     }
 }
 
-/// 26pt, between `title2` and `title`, scaling as `title2` does.
-private struct ValueFont: ViewModifier {
-    @ScaledMetric(relativeTo: .title2) private var size: CGFloat = 26
+/// SF Mono bold at a size between `title2` and `title`, scaling as `title2` does.
+private struct BoldMonoFont: ViewModifier {
+    @ScaledMetric private var size: CGFloat
     @ObserveHotReload private var hotReload
 
-    func body(content: Content) -> some View {
-        content
-            .font(.system(size: size, weight: .bold, design: .monospaced))
-            .hotReloadable()
+    init(size: CGFloat) {
+        _size = ScaledMetric(wrappedValue: size, relativeTo: .title2)
     }
-}
-
-/// 24pt, between `title2` and `title`, scaling as `title2` does.
-private struct ScreenTitleFont: ViewModifier {
-    @ScaledMetric(relativeTo: .title2) private var size: CGFloat = 24
-    @ObserveHotReload private var hotReload
 
     func body(content: Content) -> some View {
         content

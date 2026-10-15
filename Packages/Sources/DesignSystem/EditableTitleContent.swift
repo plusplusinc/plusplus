@@ -218,15 +218,11 @@ private struct TitleCursor: View {
     @ScaledMetric(relativeTo: .title2) private var drop: CGFloat = 4.5
     @ObserveHotReload private var hotReload
 
-    /// Matches the 1.06s cycle of a text cursor: on half, off half, no fade.
-    private static let blinkInterval: TimeInterval = 0.53
-
     var body: some View {
         Group {
             if isEditing, blinks {
-                TimelineView(.periodic(from: since, by: Self.blinkInterval)) { context in
-                    let ticks = context.date.timeIntervalSince(since) / Self.blinkInterval
-                    let isOn = Int(ticks.rounded()).isMultiple(of: 2)
+                TimelineView(.periodic(from: since, by: CursorBlink.interval)) { context in
+                    let isOn = CursorBlink.isOn(since: since, at: context.date)
                     underscore(isOn ? .pp(.textPrimary) : .clear)
                 }
             } else if tint > 0, !isEditing, blinks {

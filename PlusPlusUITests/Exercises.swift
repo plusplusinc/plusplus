@@ -88,3 +88,54 @@ extension XCUIElement {
         )
     }
 }
+
+/// A row in an exercise's sheet, by the part it sets.
+enum PlanPart: String {
+    case sets
+    case target
+    case weight
+}
+
+/// Where to tap in a sheet's row: its keys are hidden from VoiceOver, which steps the row as one
+/// adjustable element, so a tap finds them by where they sit at the default text size.
+enum PlanRowSpot {
+    case decrease
+    case value
+    case increase
+
+    /// A key's width at the default size, `StepKeyButtonStyle`'s `minWidth`.
+    private static let keyWidth: CGFloat = 50
+    /// The value slot's width at the default size, `StepperRow`'s `valueWidth`.
+    private static let valueWidth: CGFloat = 126
+
+    /// From the row's trailing edge: half a key, a key and half the value slot, and past it.
+    var fromTrailingEdge: CGFloat {
+        switch self {
+        case .increase: Self.keyWidth / 2
+        case .value: Self.keyWidth + Self.valueWidth / 2
+        case .decrease: Self.keyWidth + Self.valueWidth + Self.keyWidth / 2
+        }
+    }
+}
+
+@MainActor
+extension XCUIApplication {
+    func planRow(_ part: PlanPart) -> XCUIElement {
+        descendants(matching: .any)["plan.\(part.rawValue)"]
+    }
+
+    /// Closes the sheet with Done, and waits for it to go.
+    func closeSheet() {
+        buttons["Done"].tap()
+        XCTAssertTrue(planRow(.sets).disappears(), "Done left the sheet open")
+    }
+}
+
+extension XCUIElement {
+    @MainActor
+    func tapKey(_ spot: PlanRowSpot) {
+        coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5))
+            .withOffset(CGVector(dx: -spot.fromTrailingEdge, dy: 0))
+            .tap()
+    }
+}

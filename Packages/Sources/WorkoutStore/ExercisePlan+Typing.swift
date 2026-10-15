@@ -5,11 +5,6 @@ import Foundation
 // microwave's does), and committed when typing ends.
 
 extension RoutineExercise {
-    /// Whether `part` is typed with a decimal separator: only a weight is.
-    public func typesDecimal(_ part: PlanPart) -> Bool {
-        part == .weight
-    }
-
     /// `raw` with only what `part` accepts: digits up to its limit, and for a weight one
     /// separator ("." or ",") and two decimals.
     public func filtered(_ raw: String, for part: PlanPart) -> String {
@@ -24,7 +19,7 @@ extension RoutineExercise {
                     if fraction?.count ?? 0 < 2 {
                         fraction?.append(character)
                     }
-                } else if whole.count < 4 {
+                } else if whole.count < digits(PlanLimits.maxWeight) {
                     whole.append(character)
                 }
             } else if character == "." || character == ",", fraction == nil {
@@ -77,16 +72,22 @@ extension RoutineExercise {
         }
     }
 
+    /// As many digits as the part's largest value has; a weight's whole number is limited in
+    /// `filtered`. Time is typed as minutes and seconds, 99:59 as 4 digits.
     private func digitLimit(_ part: PlanPart) -> Int {
-        switch part {
-        case .sets: 2
-        case .target:
-            switch plan.target {
-            case .reps: 3
-            case .time: 4
-            }
-        case .weight: 4
+        switch (part, plan.target) {
+        case (.sets, _): digits(PlanLimits.sets.upperBound)
+        case (_, .reps): digits(PlanLimits.reps.upperBound)
+        case (_, .time): 4
         }
+    }
+
+    private func digits(_ value: some BinaryInteger) -> Int {
+        String(value).count
+    }
+
+    private func digits(_ value: Double) -> Int {
+        digits(Int(value))
     }
 }
 

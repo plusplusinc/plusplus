@@ -17,18 +17,9 @@ struct RoutineStorePlanTests {
         RoutineStore(modelContainer: container)
     }
 
-    private static func row(_ name: String, _ edit: (inout ExercisePlan) -> Void = { _ in })
-        throws -> RoutineExercise
-    {
-        let exercise = try Exercise.builtIn(named: name)
-        var plan = exercise.defaultPlan
-        edit(&plan)
-        return RoutineExercise(exercise: exercise, plan: plan)
-    }
-
     /// Saves a routine of one `name` row, then sets its stored fields with `edit`.
     private func storedRow(_ name: String, edit: (StoredRoutineExercise) -> Void) async throws {
-        try await relaunch().save(Routine(exercises: [Self.row(name)]))
+        try await relaunch().save(Routine(exercises: [RoutineExercise.builtIn(name)]))
         let context = ModelContext(container)
         let row = try #require(try context.fetch(FetchDescriptor<StoredRoutineExercise>()).first)
         edit(row)
@@ -38,14 +29,14 @@ struct RoutineStorePlanTests {
     @Test("Plans round-trip: reps, time, each load, both units")
     func roundTrip() async throws {
         let routine = try Routine(exercises: [
-            Self.row("Barbell bench press") {
+            RoutineExercise.builtIn("Barbell bench press") {
                 $0.sets = 5
                 $0.weight = Weight(135, .pounds)
             },
-            Self.row("Biceps curl") { $0.weight = Weight(12.5, .kilograms) },
-            Self.row("Goblet squat") { $0.target = .reps(12) },
-            Self.row("Pigeon stretch") { $0.target = .time(seconds: 90) },
-            Self.row("Farmer\u{2019}s carry") { $0.weight = Weight(50, .pounds) },
+            RoutineExercise.builtIn("Biceps curl") { $0.weight = Weight(12.5, .kilograms) },
+            RoutineExercise.builtIn("Goblet squat") { $0.target = .reps(12) },
+            RoutineExercise.builtIn("Pigeon stretch") { $0.target = .time(seconds: 90) },
+            RoutineExercise.builtIn("Farmer\u{2019}s carry") { $0.weight = Weight(50, .pounds) },
         ])
         try await relaunch().save(routine)
         #expect(try await relaunch().launchRoutine() == routine)
@@ -54,7 +45,10 @@ struct RoutineStorePlanTests {
     @Test("Two rows of one exercise keep their own values, and a kept row's change is saved")
     func rowsApart() async throws {
         let store = relaunch()
-        var routine = try Routine(exercises: [Self.row("Pull-up"), Self.row("Pull-up")])
+        var routine = try Routine(exercises: [
+            RoutineExercise.builtIn("Pull-up"),
+            RoutineExercise.builtIn("Pull-up"),
+        ])
         try await store.save(routine)
         routine.exercises[1].plan.target = .reps(8)
         try await store.save(routine)

@@ -86,11 +86,7 @@ public struct NumberField<Focus: Hashable>: View {
             }
         }
         .onChange(of: isEditing) { _, isEditing in
-            guard !isEditing else {
-                isEdited = false
-                return
-            }
-            if isEdited {
+            if !isEditing, isEdited {
                 onCommit(raw)
             }
             isEdited = false
@@ -151,21 +147,18 @@ struct NumberFieldContent: View {
     }
 }
 
-/// The `_` after a typed number, blinking as a text cursor does: on half of 1.06 s, off half.
+/// The `_` after a typed number, blinking as the title's does.
 private struct NumberCursor: View {
     let blinks: Bool
 
     @State private var since = Date.now
     @ObserveHotReload private var hotReload
 
-    private static let blinkInterval: TimeInterval = 0.53
-
     var body: some View {
         Group {
             if blinks {
-                TimelineView(.periodic(from: since, by: Self.blinkInterval)) { context in
-                    let ticks = context.date.timeIntervalSince(since) / Self.blinkInterval
-                    underscore(isOn: Int(ticks.rounded()).isMultiple(of: 2))
+                TimelineView(.periodic(from: since, by: CursorBlink.interval)) { context in
+                    underscore(isOn: CursorBlink.isOn(since: since, at: context.date))
                 }
             } else {
                 underscore(isOn: true)
@@ -190,4 +183,14 @@ private struct NumberCursor: View {
     .frame(width: 126)
     .padding()
     .background(Color.pp(.background))
+}
+
+/// How a drawn `_` blinks while typing: the 1.06 s cycle of a text cursor, on half, off half,
+/// no fade, counted from when typing started or the caret last moved.
+enum CursorBlink {
+    static let interval: TimeInterval = 0.53
+
+    static func isOn(since start: Date, at date: Date) -> Bool {
+        Int((date.timeIntervalSince(start) / interval).rounded()).isMultiple(of: 2)
+    }
 }

@@ -27,20 +27,14 @@ struct ExerciseSheet: View {
                     if dynamicTypeSize.isAccessibilitySize {
                         heading
                     } else if let equipment = item.exercise.equipmentLine {
-                        // Under the title in the bar. Not the bar's subtitle: with one, the app
-                        // never settled once the keyboard rose.
-                        Text(equipment)
-                            .font(.ppRowDetail)
-                            .foregroundStyle(.pp(.textSecondary))
-                            .frame(maxWidth: .infinity)
+                        // Under the title in the bar, quiet.
+                        equipmentLine(equipment).frame(maxWidth: .infinity)
                     }
                     VStack(alignment: .leading, spacing: Spacing.md) {
                         ForEach(item.exercise.planParts, id: \.self, content: row)
                     }
                 }
                 .padding(.horizontal, Spacing.lg)
-                // Clear of the bar: content touching it kept the app from settling once the
-                // keyboard rose.
                 .padding(.top, Spacing.sm)
                 .padding(.bottom, Spacing.lg)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -56,8 +50,7 @@ struct ExerciseSheet: View {
             .onScrollGeometryChange(for: CGFloat.self) { geometry in
                 (geometry.contentSize.height + geometry.contentInsets.top).rounded(.up)
             } action: { _, height in
-                // Held while typing: as the keyboard rises the bar's inset moves, and fitting
-                // the sheet to it kept the app from ever settling.
+                // Held while typing, so the sheet doesn't refit as the keyboard moves it.
                 guard typing == nil else { return }
                 self.height = height
             }
@@ -110,15 +103,18 @@ struct ExerciseSheet: View {
                 .font(.ppSheetTitle)
                 .foregroundStyle(.pp(.textPrimary))
             if let equipment = item.exercise.equipmentLine {
-                Text(equipment)
-                    .font(.ppRowDetail)
-                    .foregroundStyle(.pp(.textSecondary))
+                equipmentLine(equipment)
             }
         }
-        // One heading, "name, equipment", as a row reads. Read as two wrapped texts, the AX5
-        // audit reported both as clipped, though they draw in full.
+        // One heading, "name, equipment", as a row reads.
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)
+    }
+
+    private func equipmentLine(_ equipment: String) -> some View {
+        Text(equipment)
+            .font(.ppRowDetail)
+            .foregroundStyle(.pp(.textSecondary))
     }
 
     private func row(_ part: PlanPart) -> some View {
@@ -139,7 +135,7 @@ struct ExerciseSheet: View {
                     value: value?.number,
                     unit: value?.unit,
                     typingUnit: part == .weight ? (item.plan.weight?.unit ?? unit).rawValue : nil,
-                    typesDecimal: item.typesDecimal(part),
+                    typesDecimal: part == .weight,
                     accessibilityLabel: item.label(of: part),
                     focus: $typing,
                     id: part,

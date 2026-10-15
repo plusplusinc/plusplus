@@ -87,22 +87,18 @@ enum TimeSteps {
 
     static func step(_ seconds: Int, up: Bool) -> Int {
         let next: Int = if up, seconds < coarseFrom {
-            min(above(seconds, fine), coarseFrom)
+            min(snapped(seconds, fine, up: true), coarseFrom)
         } else if up {
-            above(seconds, coarse)
+            snapped(seconds, coarse, up: true)
         } else if seconds > coarseFrom {
-            max(below(seconds, coarse), coarseFrom)
+            max(snapped(seconds, coarse, up: false), coarseFrom)
         } else {
-            below(seconds, fine)
+            snapped(seconds, fine, up: false)
         }
         return min(max(next, minimum), PlanLimits.seconds.upperBound)
     }
 
-    private static func above(_ value: Int, _ step: Int) -> Int {
-        (value / step + 1) * step
-    }
-
-    private static func below(_ value: Int, _ step: Int) -> Int {
-        ((value + step - 1) / step - 1) * step
+    private static func snapped(_ seconds: Int, _ step: Int, up: Bool) -> Int {
+        Int(RoutineExercise.snapped(Double(seconds), step: Double(step), up: up))
     }
 }
