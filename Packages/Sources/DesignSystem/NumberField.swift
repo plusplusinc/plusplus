@@ -120,7 +120,7 @@ struct NumberFieldContent: View {
     /// Whether the `_` blinks while typing. Snapshots hold it lit.
     let blinks: Bool
 
-    @ScaledMetric(relativeTo: .subheadline) private var minWidth: CGFloat = 60
+    @ScaledMetric(relativeTo: .body) private var minWidth: CGFloat = 60
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
@@ -136,7 +136,7 @@ struct NumberFieldContent: View {
             HStack(alignment: .firstTextBaseline, spacing: 0) {
                 Text(verbatim: isPlaceholder ? String(localized: "Not set") : text)
                     .foregroundStyle(.pp(isPlaceholder ? .textSecondary : .textPrimary))
-                    .font(isPlaceholder ? .ppValuePlaceholder : .ppStepperValue)
+                    .font(isPlaceholder ? .ppRowDetail : .ppStepperValue)
                     .contentTransition(rolls ? .numericText(value: amount ?? 0) : .identity)
                     .animation(rolls ? .valueChange : nil, value: amount)
                 if isEditing {
@@ -146,7 +146,7 @@ struct NumberFieldContent: View {
             }
             if let unit, !isPlaceholder {
                 Text(unit)
-                    .font(.ppValueUnit)
+                    .font(.ppRowDetail)
                     .foregroundStyle(.pp(.textSecondary))
             }
         }
@@ -199,13 +199,13 @@ private struct NumberCursor: View {
 #Preview {
     VStack(spacing: Spacing.lg) {
         NumberFieldContent(text: "135", unit: "lb", isEditing: false, blinks: false)
-            .frame(height: 36)
+            .frame(height: 44)
         NumberFieldContent(text: nil, unit: nil, isEditing: false, blinks: false)
-            .frame(height: 36)
+            .frame(height: 44)
         NumberFieldContent(text: "142.5", unit: "lb", isEditing: true, blinks: true)
-            .frame(height: 36)
+            .frame(height: 44)
         NumberFieldContent(text: "1:30", unit: nil, isEditing: true, blinks: true)
-            .frame(height: 36)
+            .frame(height: 44)
     }
     .padding()
     .background(Color.pp(.surface))

@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// A compact row for a value: its name leading, with a note on what the number means under it
+/// A compact row for a value, in a rail row's type: its name leading, with a note on what the
+/// number means under it
 /// ("Reps" over "Per side", "Weight" over "Bar, total"), and trailing, the value in a small box
 /// and a joined − | + pair whose keys repeat while held, the two exactly as tall as each other.
 /// At the accessibility sizes the name sits above, and the value and the pair below it.
@@ -21,8 +22,9 @@ public struct StepperRow<Value: View>: View {
     private let onType: () -> Void
     private let value: Value
 
-    /// The value's box and the − | + pair, one height so they read as a matched pair of inputs.
-    @ScaledMetric(relativeTo: .subheadline) private var controlHeight: CGFloat = 36
+    /// The value's box and the − | + pair, one height so they read as a matched pair of inputs,
+    /// and at the default size the 44pt touch target.
+    @ScaledMetric(relativeTo: .body) private var controlHeight: CGFloat = 44
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ObserveHotReload private var hotReload
 
@@ -96,11 +98,11 @@ public struct StepperRow<Value: View>: View {
     private var label: some View {
         VStack(alignment: .leading, spacing: Spacing.xxs) {
             Text(title)
-                .font(.ppStepperLabel)
-                .foregroundStyle(.pp(.textSecondary))
+                .font(.ppRowTitle)
+                .foregroundStyle(.pp(.textPrimary))
             if let note {
                 Text(note)
-                    .font(.ppStepperNote)
+                    .font(.ppRowDetail)
                     .foregroundStyle(.pp(.textSecondary))
             }
         }

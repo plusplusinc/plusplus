@@ -121,7 +121,7 @@ struct StepKey: View {
             onIncrease: { value += 1 },
         )
     }
-    .frame(height: 36)
+    .frame(height: 44)
     .padding()
     .background(Color.pp(.surface))
 }

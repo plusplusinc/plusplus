@@ -45,7 +45,6 @@ struct ExerciseSheet: View {
                 .onTapGesture { typing = nil }
             }
             .scrollBounceBehavior(.basedOnSize)
-            .navigationTitle(dynamicTypeSize.isAccessibilitySize ? "" : item.exercise.name)
             .navigationBarTitleDisplayMode(.inline)
             // The content's height doesn't depend on the sheet's, so fitting one to the other
             // can't loop.
@@ -57,6 +56,16 @@ struct ExerciseSheet: View {
                 self.height = height
             }
             .toolbar {
+                // In the routine's bar title's font, as it plays the same part.
+                ToolbarItem(placement: .title) {
+                    if !dynamicTypeSize.isAccessibilitySize {
+                        Text(item.exercise.name)
+                            .font(.ppInlineTitle)
+                            .foregroundStyle(.pp(.textPrimary))
+                            .lineLimit(1)
+                            .accessibilityAddTraits(.isHeader)
+                    }
+                }
                 ToolbarItem(placement: .topBarLeading) {
                     Menu("More", systemImage: "ellipsis") {
                         Button("Delete", systemImage: "trash", role: .destructive) {
@@ -75,8 +84,9 @@ struct ExerciseSheet: View {
             }
         }
         .presentationDetents(detents)
-        // Opaque: through the glass, Start's bright key glowed under the last row.
-        .presentationBackground(Color.pp(.surface))
+        // Opaque: through the glass, Start's bright key glowed under the last row. The routine
+        // screen's own background, so the sheet's boxes and keys sit on it as Add exercise does.
+        .presentationBackground(Color.pp(.background))
         .hotReloadable()
     }
 

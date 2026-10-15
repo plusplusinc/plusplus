@@ -1,16 +1,14 @@
 import SwiftUI
 
-/// One cell of a stepper's joined − | + pair: its glyph in the secondary color on a cell 44 wide
-/// and as tall as its row's controls, the touch reaching a little past it, the cell darkening
-/// while pressed, the glyph dimmed when it can't step. `onPressChange` hears each press start and end, so a key can repeat while held.
+/// One cell of a stepper's joined − | + pair: its glyph as a key's content is drawn, on a cell 44
+/// wide and as tall as its row's controls, the cell darkening while pressed, the glyph dimmed
+/// when it can't step. `onPressChange` hears each press start and end, so a key can repeat while held.
 public struct StepKeyButtonStyle: ButtonStyle {
     private let onPressChange: (Bool) -> Void
 
     @ScaledMetric(relativeTo: .caption) private var width: CGFloat = 44
     /// Past this, a cell would crowd the number beside it at the largest sizes.
     private static let widest: CGFloat = 72
-    /// How far the touch reaches past the cell, taking a 36 tall cell to 44.
-    private static let reach: CGFloat = 4
     @Environment(\.isEnabled) private var isEnabled
     @ObserveHotReload private var hotReload
 
@@ -21,13 +19,13 @@ public struct StepKeyButtonStyle: ButtonStyle {
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .labelStyle(.iconOnly)
-            .font(.ppStepGlyph)
-            .foregroundStyle(.pp(.textSecondary))
+            .font(.ppButton)
+            .foregroundStyle(.pp(.textPrimary))
             .opacity(isEnabled ? 1 : 0.35)
             .frame(width: min(width, Self.widest))
             .frame(maxHeight: .infinity)
             .background(configuration.isPressed && isEnabled ? Color.pp(.background) : .clear)
-            .contentShape(Rectangle().inset(by: -Self.reach))
+            .contentShape(.rect)
             .keyPressAnimation(isPressed: configuration.isPressed)
             .onChange(of: configuration.isPressed) { _, isPressed in
                 onPressChange(isPressed)
@@ -38,7 +36,7 @@ public struct StepKeyButtonStyle: ButtonStyle {
 
 #Preview {
     StepPair(canDecrease: false, canIncrease: true, onDecrease: { }, onIncrease: { })
-        .frame(height: 36)
+        .frame(height: 44)
         .padding()
         .background(Color.pp(.surface))
 }
