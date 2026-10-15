@@ -1,5 +1,9 @@
 import SwiftUI
 
+/// How many character cells the title's cell is measured over, since a single measurement is
+/// rounded to the pixel grid and the error would add up across a line.
+private let measuredCells = 50
+
 /// The title drawn from plain values: what the field holds, whether it is being edited, and the
 /// caret. `EditableTitle` feeds it and owns focus; snapshots render it directly.
 struct EditableTitleContent<Behavior: ViewModifier>: View {
@@ -42,6 +46,9 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
     @State private var placeholderHeight: CGFloat = 0
     /// The height of one line of the title.
     @State private var lineHeight: CGFloat = 0
+    /// The title's width, and the width of one character cell of its monospaced font.
+    @State private var width: CGFloat = 0
+    @State private var cellWidth: CGFloat = 0
     @ObserveHotReload private var hotReload
 
     var body: some View {
@@ -79,11 +86,23 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
                         : 1...,
                 )
         }
+        .onGeometryChange(for: CGFloat.self, of: \.size.width) {
+            width = $0
+        }
+        .background {
+            Text(verbatim: String(repeating: "_", count: measuredCells))
+                .fixedSize()
+                .hidden()
+                .onGeometryChange(for: CGFloat.self, of: \.size.width) {
+                    cellWidth = $0 / CGFloat(measuredCells)
+                }
+        }
         .overlay(alignment: .top) {
             TitleCursor(
                 caret: caret,
                 draft: draft,
                 placeholder: shownPlaceholder,
+                columns: columns,
                 isEditing: isEditing,
                 tint: cursorTint,
                 blinks: blinks,
@@ -93,12 +112,22 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
         .hotReloadable()
     }
 
-    /// The placeholder as drawn: each letter still shuffling as its stand-in, and each tinted as
-    /// far toward blue as it is.
+    /// How many character cells fit across the title, once both are measured.
+    private var columns: Int? {
+        guard width > 0, cellWidth > 0 else { return nil }
+        return max(1, Int(width / cellWidth))
+    }
+
+    /// The placeholder as drawn: broken into lines where the field would break them, each letter
+    /// still shuffling as its stand-in, and each tinted as far toward blue as it is.
     private var drawnPlaceholder: AttributedString {
-        guard !standIns.isEmpty || !tints.isEmpty else { return AttributedString(shownPlaceholder) }
+        let breaks = Set(columns
+            .map { EditableTitle.lineBreaks(in: shownPlaceholder, columns: $0) } ?? [])
         var drawn = AttributedString()
         for (index, character) in shownPlaceholder.enumerated() {
+            if breaks.contains(index) {
+                drawn += AttributedString("\n")
+            }
             var piece = AttributedString(String(standIns[index] ?? character))
             if let tint = tints[index], tint > 0 {
                 piece.foregroundColor = restingColor.mix(with: .pp(.railJoin), by: tint)
@@ -171,6 +200,9 @@ private struct TitleCursor: View {
     let caret: Caret
     let draft: String
     let placeholder: String
+    /// How many cells fit across the title, which the `_` wraps the text at; nil, and no `_`,
+    /// until it is measured.
+    let columns: Int?
     let isEditing: Bool
     /// How far toward the joining blue the `_` at rest is, and how deeply it breathes.
     let tint: Double
@@ -245,11 +277,10 @@ private struct TitleCursor: View {
             .map { draft.distance(from: draft.startIndex, to: $0) }
     }
 
-    /// One character cell of the title's monospaced font. Measured over many characters and
-    /// lines, since a single measurement is rounded to the pixel grid and the error would add up
-    /// across a line.
+    /// One character cell of the title's monospaced font, measured over many characters and
+    /// lines.
     private static func cell(in context: GraphicsContext) -> CGSize {
-        let count = 50
+        let count = measuredCells
         let unbounded = CGSize(width: CGFloat.infinity, height: .infinity)
         let row = context.resolve(Text(verbatim: String(repeating: "_", count: count)))
         let column = context.resolve(Text(verbatim: Array(repeating: "_", count: count)
@@ -264,11 +295,10 @@ private struct TitleCursor: View {
     private func underscore(_ color: Color) -> some View {
         let shown = draft.isEmpty ? placeholder : draft
         let offset = offset
-        return Canvas { context, size in
-            guard let offset else { return }
+        return Canvas { context, _ in
+            guard let offset, let columns else { return }
             let mark = context.resolve(Text(verbatim: "_").foregroundStyle(color))
             let cell = Self.cell(in: context)
-            let columns = max(1, Int((size.width - spareCell) / cell.width))
             let place = EditableTitle.cursorCell(at: offset, in: shown, columns: columns)
             let origin = CGPoint(
                 x: CGFloat(place.column) * cell.width,

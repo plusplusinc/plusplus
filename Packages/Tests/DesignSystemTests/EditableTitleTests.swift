@@ -165,6 +165,15 @@ struct EditableTitleTests {
         #expect(EditableTitle.cursorCell(at: 12, in: "Upper body   ", columns: 10) == (0, 10))
     }
 
+    @Test("Lines break where the field breaks them, even leaving one word on the last line")
+    func lineBreaksAsTheField() {
+        // "Legs and " fits in ten columns, its space hanging; "back" goes to the next line.
+        #expect(EditableTitle.lineBreaks(in: "Legs and back", columns: 10) == [9])
+        #expect(EditableTitle.lineBreaks(in: "Legs and back", columns: 13).isEmpty)
+        #expect(EditableTitle.lineBreaks(in: "Shoulderpress", columns: 4) == [4, 8, 12])
+        #expect(EditableTitle.lineBreaks(in: "Push-pull", columns: 6) == [5])
+    }
+
     @Test("A word longer than a line breaks between characters")
     func cellInLongWord() {
         #expect(EditableTitle.cursorCell(at: 5, in: "Shoulderpress", columns: 4) == (1, 1))

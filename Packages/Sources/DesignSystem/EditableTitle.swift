@@ -24,6 +24,9 @@ import SwiftUI
 /// predictions, text being composed) shows as in any field. The `_` is drawn over it by
 /// `TitleCursor`. The title is monospaced, so the `_` is one character cell wide and its place
 /// follows from the text alone: `cursorCell(at:in:columns:)` wraps the text as the field does.
+/// A suggestion or the placeholder, drawn as `Text` in place of an empty field, breaks its lines
+/// where `lineBreaks(in:columns:)` says, since `Text` on its own avoids leaving one word on the
+/// last line, and the field does not.
 public struct EditableTitle: View {
     @Binding private var text: String
     private let placeholder: String
@@ -141,6 +144,24 @@ public struct EditableTitle: View {
         in text: String,
         columns: Int,
     ) -> (line: Int, column: Int) {
+        let (cells, end) = cells(of: text, columns: columns)
+        let cell = offset < cells.count ? cells[offset] : end
+        return (cell.line, min(cell.column, columns))
+    }
+
+    /// The character offsets that start a new line when `text` is wrapped at `columns` cells
+    /// as the field wraps it, by the same rules as `cursorCell(at:in:columns:)`. Spaces past a
+    /// line's edge stay at its end.
+    public static func lineBreaks(in text: String, columns: Int) -> [Int] {
+        let cells = cells(of: text, columns: columns).cells
+        return cells.indices.dropFirst().filter { cells[$0].line > cells[$0 - 1].line }
+    }
+
+    /// Each character's cell in `text` wrapped at `columns`, and the cell after the last one.
+    private static func cells(
+        of text: String,
+        columns: Int,
+    ) -> (cells: [(line: Int, column: Int)], end: (line: Int, column: Int)) {
         let characters = Array(text)
         var cells: [(line: Int, column: Int)] = []
         var line = 0
@@ -169,8 +190,7 @@ public struct EditableTitle: View {
             }
             index = wordEnd
         }
-        let cell = offset < cells.count ? cells[offset] : (line: line, column: column)
-        return (cell.line, min(cell.column, columns))
+        return (cells, (line, column))
     }
 
     private static func breaksAfter(_ character: Character) -> Bool {

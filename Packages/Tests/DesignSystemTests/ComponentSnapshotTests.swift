@@ -81,6 +81,26 @@ struct ComponentSnapshotTests {
         )
     }
 
+    /// The xxxl image holds it: both wrap "Legs and" / "back", the `_` after the k.
+    @Test("A generated name at rest draws exactly as the same name typed")
+    func generatedAsTyped() {
+        let titles = VStack(alignment: .leading, spacing: Spacing.md) {
+            ForEach([("", "Legs and back"), ("Legs and back", nil)], id: \.0) { name, suggestion in
+                EditableTitle(
+                    text: .constant(name),
+                    placeholder: "New routine",
+                    suggestion: suggestion,
+                    accessibilityLabel: "Routine name",
+                    accessibilityHint: "Renames the routine.",
+                )
+            }
+        }
+        .padding(Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.pp(.background))
+        assertThemedSnapshots(of: titles, width: Self.screenWidth)
+    }
+
     @Test("Several exercises, a bodyweight row among them")
     func severalExercises() {
         let rows: [Row] = [
