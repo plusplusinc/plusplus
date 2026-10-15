@@ -97,8 +97,9 @@ extension RenameUITests {
             XCTAssertEqual(app.textFields["Time"].value(becoming: "1:30"), "1:30")
             attach(named: "sheet-typing-time")
             // The keyboard's check is out of reach here: after XCUITest's typing the simulator
-            // keeps the keypad minimized, and a tap on the check left there never arrives.
-            app.staticTexts["Pigeon stretch"].firstMatch.tap()
+            // keeps the keypad minimized, and a tap on the check left there never arrives. A tap
+            // on the sheet, here beside Sets, ends typing as well.
+            app.planRow(.sets).coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.5)).tap()
             XCTAssertEqual(app.planRow(.target).value(becoming: "90 seconds"), "90 seconds")
             app.closeSheet()
             XCTAssertEqual(pigeon.label, "Pigeon stretch, 90 seconds per side")

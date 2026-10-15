@@ -2,8 +2,9 @@ import DesignSystem
 import SwiftUI
 import WorkoutStore
 
-/// An exercise row's plan, over the routine: its name and equipment, then a stepper for each
-/// part it has. Every step, and every typed number once typing ends, changes the row at once, so
+/// An exercise row's plan, over the routine: its name centered in the bar with its equipment
+/// under it, then a stepper for each part it has. At the accessibility sizes, where the bar would
+/// cut a name short, both lead the content instead. Every step, and every typed number once typing ends, changes the row at once, so
 /// it saves as it happens; Done ends typing and closes the sheet. Delete is in the More menu, not
 /// a standing button.
 struct ExerciseSheet: View {
@@ -23,7 +24,16 @@ struct ExerciseSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: Spacing.lg) {
-                    heading
+                    if dynamicTypeSize.isAccessibilitySize {
+                        heading
+                    } else if let equipment = item.exercise.equipmentLine {
+                        // Under the title in the bar. Not the bar's subtitle: with one, the app
+                        // never settled once the keyboard rose.
+                        Text(equipment)
+                            .font(.ppRowDetail)
+                            .foregroundStyle(.pp(.textSecondary))
+                            .frame(maxWidth: .infinity)
+                    }
                     VStack(alignment: .leading, spacing: Spacing.md) {
                         ForEach(item.exercise.planParts, id: \.self, content: row)
                     }
@@ -36,11 +46,16 @@ struct ExerciseSheet: View {
                 .onTapGesture { typing = nil }
             }
             .scrollBounceBehavior(.basedOnSize)
+            .navigationTitle(dynamicTypeSize.isAccessibilitySize ? "" : item.exercise.name)
+            .navigationBarTitleDisplayMode(.inline)
             // The content's height doesn't depend on the sheet's, so fitting one to the other
             // can't loop.
             .onScrollGeometryChange(for: CGFloat.self) { geometry in
-                geometry.contentSize.height + geometry.contentInsets.top
+                (geometry.contentSize.height + geometry.contentInsets.top).rounded(.up)
             } action: { _, height in
+                // Held while typing: as the keyboard rises the bar's inset moves, and fitting
+                // the sheet to it kept the app from ever settling.
+                guard typing == nil else { return }
                 self.height = height
             }
             .toolbar {
@@ -94,13 +109,16 @@ struct ExerciseSheet: View {
             Text(item.exercise.name)
                 .font(.ppSheetTitle)
                 .foregroundStyle(.pp(.textPrimary))
-                .accessibilityAddTraits(.isHeader)
             if let equipment = item.exercise.equipmentLine {
                 Text(equipment)
                     .font(.ppRowDetail)
                     .foregroundStyle(.pp(.textSecondary))
             }
         }
+        // One heading, "name, equipment", as a row reads. Read as two wrapped texts, the AX5
+        // audit reported both as clipped, though they draw in full.
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
     }
 
     private func row(_ part: PlanPart) -> some View {
