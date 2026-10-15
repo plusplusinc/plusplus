@@ -2,9 +2,9 @@ import SwiftUI
 
 /// A value in a row, in a rail row's type: its name leading, with a note on what the number means
 /// under it ("Reps" over "Per side", "Weight" over "Bar, total"), and the value trailing in a
-/// filled capsule, its unit faint after it. A tap raises the row's wheel under it from the wheel's
-/// bottom edge, and a second tap lowers it away; the capsule brightens while its
-/// wheel is open. A changed
+/// filled capsule, its unit faint after it. A line runs under it, edge to edge, to the next row.
+/// A tap widens that line into the row's wheel region, raising the wheel from its bottom edge,
+/// and a second tap narrows it back; the capsule brightens while its wheel is open. A changed
 /// number rolls its digits, up as `amount` rises and down as it falls, or with Reduce Motion
 /// swaps at once. At the accessibility sizes the capsule sits under the name.
 ///
@@ -18,9 +18,14 @@ public struct PickerRow<Wheel: View>: View {
     private let amount: Double?
     private let spokenValue: String
     private let isOpen: Bool
+    private let isSeparated: Bool
     private let identifier: String
     private let onToggle: () -> Void
     private let wheel: Wheel
+
+    /// The line between rows. A whole number of pixels on every screen, and SwiftUI places views
+    /// on whole pixels, so it stays crisp wherever the system doesn't scale the sheet.
+    private static var lineHeight: CGFloat { 1 }
 
     @ScaledMetric(relativeTo: .body) private var capsuleHeight: CGFloat = 36
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -29,6 +34,8 @@ public struct PickerRow<Wheel: View>: View {
 
     /// - Parameters:
     ///   - amount: What the value stands for, so a change rolls its digits up or down.
+    ///   - isSeparated: Whether a line runs under the row, edge to edge, as under every row but
+    ///     the last: the wheel's region, closed.
     ///   - identifier: The row's accessibility identifier, on the row and not its wheel.
     public init(
         title: String,
@@ -38,6 +45,7 @@ public struct PickerRow<Wheel: View>: View {
         amount: Double?,
         spokenValue: String,
         isOpen: Bool,
+        isSeparated: Bool = false,
         identifier: String,
         onToggle: @escaping () -> Void,
         @ViewBuilder wheel: () -> Wheel,
@@ -49,6 +57,7 @@ public struct PickerRow<Wheel: View>: View {
         self.amount = amount
         self.spokenValue = spokenValue
         self.isOpen = isOpen
+        self.isSeparated = isSeparated
         self.identifier = identifier
         self.onToggle = onToggle
         self.wheel = wheel()
@@ -72,6 +81,8 @@ public struct PickerRow<Wheel: View>: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                // The gaps to the lines are the row's own, so a tap in one opens it.
+                .padding(.vertical, Spacing.sm)
                 .contentShape(.rect)
             }
             .buttonStyle(.plain)
@@ -81,12 +92,21 @@ public struct PickerRow<Wheel: View>: View {
             .accessibilityHint(isOpen ? "Collapses the picker." : "Expands a picker.")
             .accessibilityAddTraits(.isButton)
             .accessibilityIdentifier(identifier)
-            // Always laid out and rolled up to nothing while closed, rather than inserted: an
-            // outgoing view kept its full size over the rows below until it was gone.
-            RevealLayout(fraction: isOpen ? 1 : 0) { wheel }
-                .clipShape(TopAndBottom())
-                .allowsHitTesting(isOpen)
-                .accessibilityHidden(!isOpen)
+            // The wheel's region and the line under the row are one shape: closed, the region is
+            // the line, or nothing under the last row; open, it widens by the wheel's height.
+            // Always laid out and rolled up while closed, rather than inserted: an outgoing view
+            // kept its full size over the rows below until it was gone.
+            RevealLayout(
+                fraction: isOpen ? 1 : 0,
+                closedHeight: isSeparated ? Self.lineHeight : 0,
+            ) {
+                wheel
+            }
+            // Edge to edge of the sheet, past the content's insets.
+            .background { Color.pp(.well).containerRelativeFrame(.horizontal) }
+            .clipShape(TopAndBottom())
+            .allowsHitTesting(isOpen)
+            .accessibilityHidden(!isOpen)
         }
         .hotReloadable()
     }
@@ -133,12 +153,14 @@ private nonisolated struct TopAndBottom: Shape {
     }
 }
 
-/// Lays out its one view at full size from its bottom, and takes `fraction` of its height: a
-/// wheel rising from its bottom edge as it opens, so in a sheet laid out from its bottom what's
-/// above moves up in step and what's below stays put, and, clipped, drawing nothing past the
-/// height it has.
+/// Lays out its one view at full size from its bottom, and takes `closedHeight` and `fraction` of
+/// the view's height: a wheel rising from its bottom edge as it opens, so in a sheet laid out
+/// from its bottom what's above moves up in step and what's below stays put, and, clipped,
+/// drawing nothing past the height it has.
 private struct RevealLayout: Layout {
     var fraction: CGFloat
+    /// The height it keeps while closed, such as a line's.
+    var closedHeight: CGFloat = 0
 
     var animatableData: CGFloat {
         get { fraction }
@@ -148,7 +170,7 @@ private struct RevealLayout: Layout {
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
         guard let view = subviews.first else { return .zero }
         let size = view.sizeThatFits(ProposedViewSize(width: proposal.width, height: nil))
-        return CGSize(width: size.width, height: size.height * fraction)
+        return CGSize(width: size.width, height: closedHeight + size.height * fraction)
     }
 
     func placeSubviews(
@@ -173,7 +195,7 @@ extension Animation {
 #Preview {
     @Previewable @State var isOpen = true
     @Previewable @State var weight = 25
-    VStack(spacing: Spacing.md) {
+    VStack(spacing: 0) {
         PickerRow(
             title: "Sets",
             note: nil,
@@ -182,6 +204,7 @@ extension Animation {
             amount: 3,
             spokenValue: "3 sets",
             isOpen: false,
+            isSeparated: true,
             identifier: "sets",
             onToggle: { },
             wheel: { EmptyView() },

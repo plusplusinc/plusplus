@@ -38,13 +38,14 @@ struct ExerciseSheet: View {
                         if dynamicTypeSize.isAccessibilitySize {
                             heading
                         }
-                        VStack(alignment: .leading, spacing: Spacing.md) {
+                        // Each row holds its own gaps to the lines between them.
+                        VStack(alignment: .leading, spacing: 0) {
                             ForEach(item.exercise.planParts, id: \.self, content: row)
                         }
                     }
                     .padding(.horizontal, Spacing.lg)
-                    .padding(.top, Spacing.sm)
-                    .padding(.bottom, Spacing.lg)
+                    // With the last row's own gap under it, Spacing.lg to the sheet's bottom.
+                    .padding(.bottom, Spacing.md)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     // The rows' own height: laid out from the bottom, the scroll view reports its
                     // content as tall as itself, and the sheet would have fitted that.
@@ -191,6 +192,7 @@ struct ExerciseSheet: View {
             amount: item.amount(of: part),
             spokenValue: item.spokenValue(of: part, locale: locale),
             isOpen: open == part,
+            isSeparated: part != item.exercise.planParts.last,
             identifier: "plan.\(part)",
             onToggle: { show(open == part ? nil : part) },
             wheel: { PlanWheel(item: $item, part: part) },

@@ -2,23 +2,19 @@ import DesignSystem
 import SwiftUI
 import WorkoutStore
 
-/// A part's wheel, open under its row in the exercise sheet, on a region a step darker than
-/// the sheet running edge to edge: the system's wheel picker over the part's choices, its unit
-/// beside the number in the
-/// band, and for a time, minutes and seconds side by side. The wheel takes the content's full
-/// width,
+/// A part's wheel, open under its row in the exercise sheet, in the region `PickerRow` gives it:
+/// the system's wheel picker over the part's choices, its unit beside the number in the band,
+/// and for a time, minutes and seconds side by side. The wheel takes the content's full width,
 /// so a drag anywhere across it turns the wheel rather than the sheet. Its numbers, with their
-/// unit, are centered in it. Each value it settles on
-/// is the row's at once. The row's current value is always on the wheel, so opening it changes
-/// nothing.
+/// unit, are centered in it. Each value it settles on is the row's at once. The row's current value
+/// is always on
+/// the wheel, so opening it changes nothing.
 struct PlanWheel: View {
     @Binding var item: RoutineExercise
     let part: PlanPart
 
-    /// The system wheel's own height.
-    private static let wheelHeight: CGFloat = 216
-    /// The wheel's region and the gap above it, which the sheet's open detent makes room for.
-    static let height: CGFloat = wheelHeight + Spacing.sm
+    /// The system wheel's own height, which the sheet's open detent makes room for.
+    static let height: CGFloat = 216
 
     @Environment(\.locale) private var locale
     @ObserveHotReload private var hotReload
@@ -58,10 +54,7 @@ struct PlanWheel: View {
         // The system wheel's rows keep their height at every text size, so past this its numbers
         // would overlap; the system's own wheels stop growing too.
         .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
-        .frame(height: Self.wheelHeight)
-        // Edge to edge of the sheet, past the content's insets; the wheel's band stays inset.
-        .background { Color.pp(.well).containerRelativeFrame(.horizontal) }
-        .padding(.top, Spacing.sm)
+        .frame(height: Self.height)
         .hotReloadable()
     }
 
