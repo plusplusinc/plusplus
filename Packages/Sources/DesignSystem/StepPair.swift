@@ -88,7 +88,7 @@ struct StepKey: View {
         didRepeat = false
         // A repeat's own clock, not a wait for something to settle.
         hold = Task {
-            guard (try? await Task.sleep(for: Self.threshold)) != nil else { return }
+            guard await (try? Task.sleep(for: Self.threshold)) != nil else { return }
             didRepeat = true
             while !Task.isCancelled {
                 ticks += 1

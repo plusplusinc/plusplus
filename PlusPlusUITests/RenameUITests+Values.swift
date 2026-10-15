@@ -29,14 +29,14 @@ extension RenameUITests {
             XCTAssertEqual(app.planRow(.weight).value(becoming: "5 pounds"), "5 pounds")
             app.planRow(.sets).tapKey(.decrease)
             app.closeSheet()
-            XCTAssertEqual(
-                dumbbellRow.label,
-                "Dumbbell row, Dumbbells, bench, 2 sets of 11 reps per side, 5 pounds",
-            )
+            dumbbellRow
+                .assertReads("Dumbbell row, Dumbbells, bench, 2 sets of 11 reps per side, 5 pounds")
         }
         typeValues(in: app, keyboard: keyboard, pigeon: pigeon, dumbbellRow: dumbbellRow)
         XCTContext
-            .runActivity(named: "More, then Delete, removes the row and closes the sheet") { _ in
+            .runActivity(
+                named: "More, then Delete, confirmed, removes the row and closes the sheet",
+            ) { _ in
                 for row in [pigeon, dumbbellRow] {
                     row.tap()
                     XCTAssertTrue(app.planRow(.sets).appears())
@@ -45,6 +45,11 @@ extension RenameUITests {
                     XCTAssertTrue(delete.appears(), "More has no Delete")
                     attach(named: "sheet-menu")
                     delete.tap()
+                    XCTAssertTrue(app.planRow(.sets).exists, "Delete went without asking")
+                    let confirm = app.buttons["Delete"].firstMatch
+                    XCTAssertTrue(confirm.appears(), "Delete asked nothing")
+                    attach(named: "sheet-confirm-delete")
+                    confirm.tap()
                     XCTAssertTrue(app.planRow(.sets).disappears(), "Delete left the sheet open")
                 }
                 XCTAssertEqual(app.exerciseCount(becoming: 9), 9)
@@ -63,8 +68,8 @@ extension RenameUITests {
             app.planRow(.target).tapKey(.increase)
             XCTAssertEqual(app.planRow(.target).value(becoming: "16 reps"), "16 reps")
             app.closeSheet()
-            XCTAssertEqual(bands.0.label, "Band pull-apart, Band, 3 sets of 15 reps")
-            XCTAssertEqual(bands.1.label, "Band pull-apart, Band, 3 sets of 16 reps")
+            bands.0.assertReads("Band pull-apart, Band, 3 sets of 15 reps")
+            bands.1.assertReads("Band pull-apart, Band, 3 sets of 16 reps")
             let bench = rows.element(boundBy: 0)
             bench.tap()
             XCTAssertEqual(app.planRow(.target).label, "Reps", "A bench press is per side")
@@ -73,16 +78,13 @@ extension RenameUITests {
             XCTAssertEqual(app.planRow(.weight).value(becoming: "45 pounds"), "45 pounds")
             attach(named: "sheet-bench")
             app.closeSheet()
-            XCTAssertEqual(
-                bench.label,
-                "Barbell bench press, Barbell, bench, 3 sets of 5 reps, 45 pounds",
-            )
+            bench.assertReads("Barbell bench press, Barbell, bench, 3 sets of 5 reps, 45 pounds")
         }
     }
 
     /// Typing a number: a time fills from the right and a tap on the sheet ends it; a weight
     /// typed from Not set takes a decimal, a tap on another number moves typing there, and the
-    /// sheet's Done keeps what is being typed.
+    /// sheet's Close keeps what is being typed.
     @MainActor
     private func typeValues(
         in app: XCUIApplication,
@@ -101,7 +103,7 @@ extension RenameUITests {
             app.planRow(.sets).coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.5)).tap()
             XCTAssertEqual(app.planRow(.target).value(becoming: "90 seconds"), "90 seconds")
             app.closeSheet()
-            XCTAssertEqual(pigeon.label, "Pigeon stretch, 90 seconds per side")
+            pigeon.assertReads("Pigeon stretch, 90 seconds per side")
         }
         XCTContext.runActivity(named: "A weight typed from Not set lands on the row") { _ in
             dumbbellRow.tap()
@@ -121,12 +123,12 @@ extension RenameUITests {
             )
             app.typeText("12")
             XCTAssertEqual(app.textFields["Reps"].value(becoming: "12"), "12")
-            // Done keeps what is being typed.
+            // Close keeps what is being typed.
             app.closeSheet()
-            XCTAssertEqual(
-                dumbbellRow.label,
-                "Dumbbell row, Dumbbells, bench, 2 sets of 12 reps per side, 42.5 pounds",
-            )
+            dumbbellRow
+                .assertReads(
+                    "Dumbbell row, Dumbbells, bench, 2 sets of 12 reps per side, 42.5 pounds",
+                )
         }
     }
 }

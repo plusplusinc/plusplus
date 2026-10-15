@@ -5,12 +5,14 @@ import SwiftUI
 /// words when `spokenDetail` is given.
 ///
 /// A row done one side at a time shows a small L | R mark at the end of its name's first line,
-/// up to the accessibility sizes.
+/// up to the accessibility sizes. A detail line changed in an animation rolls the digits that
+/// changed, up, or down when `detailCountsDown`.
 public struct RowLabel: View {
     private let title: String
     private let detail: [String]
     private let spokenDetail: String?
     private let showsSides: Bool
+    private let detailCountsDown: Bool
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ObserveHotReload private var hotReload
@@ -20,11 +22,13 @@ public struct RowLabel: View {
         detail: [String],
         spokenDetail: String? = nil,
         showsSides: Bool = false,
+        detailCountsDown: Bool = false,
     ) {
         self.title = title
         self.detail = detail
         self.spokenDetail = spokenDetail
         self.showsSides = showsSides
+        self.detailCountsDown = detailCountsDown
     }
 
     /// A row whose detail is one line, or none.
@@ -49,6 +53,7 @@ public struct RowLabel: View {
                 Text(detailText)
                     .font(.ppRowDetail)
                     .foregroundStyle(.pp(.textSecondary))
+                    .contentTransition(.numericText(countsDown: detailCountsDown))
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

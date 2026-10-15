@@ -18,6 +18,18 @@ extension XCUIElement {
         reading(value as? String, becoming: expected, within: timeout)
     }
 
+    /// Checks that the element's label becomes `expected` within two seconds. A row's line takes
+    /// its new numbers only once its sheet is all the way down.
+    @MainActor
+    func assertReads(_ expected: String, file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertEqual(
+            reading(label, becoming: expected, within: 2),
+            expected,
+            file: file,
+            line: line,
+        )
+    }
+
     /// Taps the title to edit it, and waits for the `_` at its end, where the app puts the caret
     /// once focus lands, which can come after keys sent at once.
     @MainActor

@@ -21,6 +21,11 @@ struct RoutineScreen: View {
     @State private var editing: Edited?
     /// The row the sheet's Delete removes once the sheet is down, so its fade is seen.
     @State private var deleting: RoutineExercise.ID?
+    /// The row as it was when its sheet opened. Its changes save as they happen, but its line
+    /// holds these numbers until the sheet is down, then rolls the changed ones to their new.
+    @State private var opened: RoutineExercise?
+    /// Whether that roll counts down: the first part to change, in the line's order, went down.
+    @State private var rollsDown = false
     @State private var scrollPosition = ScrollPosition()
     /// The row just added, holding its place until it can be seen going in.
     @State private var arriving: RoutineExercise.ID?
@@ -34,6 +39,7 @@ struct RoutineScreen: View {
     /// Whether the title has scrolled up under the bar, where a small copy of it shows instead.
     @State private var isTitleUnderBar = false
     @Environment(\.locale) private var locale
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
     private static let markWidth: CGFloat = 20
@@ -76,14 +82,17 @@ struct RoutineScreen: View {
                         }
                     }
                     Rail(routine.exercises, arriving: arriving) { item in
+                        let shown = opened?.id == item.id ? opened ?? item : item
                         Button {
+                            opened = item
                             editing = Edited(id: item.id)
                         } label: {
                             RowLabel(
-                                title: item.exercise.name,
-                                detail: item.detailParts(locale: locale),
-                                spokenDetail: item.spokenDetail(locale: locale),
-                                showsSides: item.exercise.isPerSide,
+                                title: shown.exercise.name,
+                                detail: shown.detailParts(locale: locale),
+                                spokenDetail: shown.spokenDetail(locale: locale),
+                                showsSides: shown.exercise.isPerSide,
+                                detailCountsDown: rollsDown,
                             )
                             .railRow()
                             .contentShape(.rect)
@@ -141,7 +150,7 @@ struct RoutineScreen: View {
                     add(exercise)
                 }
             }
-            .sheet(item: $editing, onDismiss: removeDeleted) { edited in
+            .sheet(item: $editing, onDismiss: sheetClosed) { edited in
                 if let row = row(edited.id) {
                     ExerciseSheet(item: row) { deleting = edited.id }
                 }
@@ -219,6 +228,26 @@ struct RoutineScreen: View {
         } set: { changed in
             guard let index = routine.exercises.firstIndex(where: { $0.id == id }) else { return }
             routine.exercises[index] = changed
+        }
+    }
+
+    private func sheetClosed() {
+        removeDeleted()
+        rollOpenedRow()
+    }
+
+    /// Lets the row whose sheet just closed show its numbers as they are now, rolling the ones
+    /// that changed, or with Reduce Motion, showing them at once.
+    private func rollOpenedRow() {
+        guard let opened else { return }
+        if let now = routine.exercises.first(where: { $0.id == opened.id }) {
+            let firstChange = now.exercise.planParts.lazy
+                .map { (now.amount(of: $0), opened.amount(of: $0)) }
+                .first { $0.0 != $0.1 }
+            rollsDown = firstChange.map { ($0.0 ?? 0) < ($0.1 ?? 0) } ?? false
+        }
+        withAnimation(reduceMotion ? nil : .valueChange) {
+            self.opened = nil
         }
     }
 

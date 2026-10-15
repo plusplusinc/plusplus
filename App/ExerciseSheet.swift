@@ -5,9 +5,9 @@ import WorkoutStore
 /// An exercise row's plan, over the routine: its name centered in the bar with its equipment
 /// under it, then a stepper for each part it has. At the accessibility sizes, where the bar would
 /// cut a name short, both lead the content instead. The parts are compact rows, their keys
-/// repeating while held. Every step, and every typed number once
-/// typing ends, changes the row at once, so it saves as it happens; Done ends typing and closes
-/// the sheet. Delete is in the More menu, not a standing button.
+/// repeating while held. Every step, and every typed number once typing ends, changes the row at
+/// once, so it saves as it happens; Close ends typing and closes the sheet, losing nothing. Delete
+/// is in the More menu, not a standing button, and asks first.
 struct ExerciseSheet: View {
     @Binding var item: RoutineExercise
     let onDelete: () -> Void
@@ -16,6 +16,7 @@ struct ExerciseSheet: View {
     @FocusState private var typing: PlanPart?
     /// The content's full height, bars included, which the sheet's detent fits.
     @State private var height: CGFloat?
+    @State private var isConfirmingDelete = false
     @Environment(\.dismiss) private var dismiss
     @Environment(\.locale) private var locale
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -66,19 +67,28 @@ struct ExerciseSheet: View {
                             .accessibilityAddTraits(.isHeader)
                     }
                 }
-                ToolbarItem(placement: .topBarLeading) {
+                // Close, not Cancel: every change has already saved, so nothing is lost.
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(role: .close) {
+                        typing = nil
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .primaryAction) {
                     Menu("More", systemImage: "ellipsis") {
                         Button("Delete", systemImage: "trash", role: .destructive) {
+                            isConfirmingDelete = true
+                        }
+                    }
+                    .confirmationDialog(
+                        "Delete \(item.exercise.name) from this routine?",
+                        isPresented: $isConfirmingDelete,
+                        titleVisibility: .visible,
+                    ) {
+                        Button("Delete", role: .destructive) {
                             onDelete()
                             dismiss()
                         }
-                    }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    // Not a confirmation action, which the system tints: green is data only.
-                    Button("Done", systemImage: "checkmark") {
-                        typing = nil
-                        dismiss()
                     }
                 }
             }

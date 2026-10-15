@@ -127,10 +127,10 @@ extension XCUIApplication {
         descendants(matching: .any)["plan.\(part.rawValue)"]
     }
 
-    /// Closes the sheet with Done, and waits for it to go.
+    /// Closes the sheet with its Close button, and waits for it to go.
     func closeSheet() {
-        buttons["Done"].tap()
-        XCTAssertTrue(planRow(.sets).disappears(), "Done left the sheet open")
+        buttons["Close"].tap()
+        XCTAssertTrue(planRow(.sets).disappears(), "Close left the sheet open")
     }
 }
 

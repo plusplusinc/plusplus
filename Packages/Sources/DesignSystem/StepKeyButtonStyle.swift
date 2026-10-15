@@ -2,7 +2,8 @@ import SwiftUI
 
 /// One cell of a stepper's joined − | + pair: its glyph as a key's content is drawn, on a cell 44
 /// wide and as tall as its row's controls, the cell darkening while pressed, the glyph dimmed
-/// when it can't step. `onPressChange` hears each press start and end, so a key can repeat while held.
+/// when it can't step. `onPressChange` hears each press start and end, so a key can repeat while
+/// held.
 public struct StepKeyButtonStyle: ButtonStyle {
     private let onPressChange: (Bool) -> Void
 

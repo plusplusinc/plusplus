@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// A stepper's number that can be typed: tap it and a number pad rises, the number gives way
-/// to what is typed with the `_` after it and the box's outline drawn strong, and when typing ends the
+/// to what is typed with the `_` after it and the box's outline drawn strong, and when typing ends
+/// the
 /// typed text is handed to `onCommit`, if anything was typed.
 ///
 /// Its own `_`, not the system caret: a number's caret is always at its end, and what is drawn
@@ -167,7 +168,7 @@ struct NumberFieldContent: View {
 
 extension Animation {
     /// A value changing in place, such as a stepper's number rolling to its next.
-    static let valueChange = Animation.snappy(duration: 0.1)
+    public static let valueChange = Animation.snappy(duration: 0.1)
 }
 
 /// The `_` after a typed number, blinking as the title's does.
