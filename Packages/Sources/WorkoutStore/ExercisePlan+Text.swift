@@ -180,7 +180,8 @@ enum TimeText {
         let minutes = (seconds / 60).formatted(.number.locale(locale))
         let rest = seconds % 60
         guard rest > 0 else { return PlanValue(minutes, unit: "min") }
-        return PlanValue(minutes + ":" + String(format: "%02d", rest), unit: "min")
+        let seconds = rest.formatted(.number.precision(.integerLength(2...)).locale(locale))
+        return PlanValue(minutes + ":" + seconds, unit: "min")
     }
 }
 

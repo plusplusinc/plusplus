@@ -61,7 +61,9 @@ extension RoutineExercise {
                 }
             }
         case .weight:
-            guard exercise.load != nil else { return }
+            // A lone separator is nothing typed; only an emptied field clears the weight.
+            guard exercise.load != nil, raw.isEmpty || raw.contains(where: \.isNumber)
+            else { return }
             let amount = Double(raw.replacingOccurrences(of: ",", with: ".")) ?? 0
             guard amount > 0 else {
                 plan.weight = nil

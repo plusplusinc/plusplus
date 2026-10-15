@@ -92,6 +92,12 @@ public struct NumberField<Focus: Hashable>: View {
             isEdited = false
             raw = ""
         }
+        // A sheet swiped away while typing can take the field with it before focus clears.
+        .onDisappear {
+            if isEdited {
+                onCommit(raw)
+            }
+        }
         .hotReloadable()
     }
 }

@@ -148,3 +148,11 @@ struct ExerciseSheet: View {
         .accessibilityIdentifier("plan.\(part)")
     }
 }
+
+#Preview {
+    @Previewable @State var item = RoutineExercise(exercise: Exercise.builtIn[0])
+    Color.pp(.background)
+        .sheet(isPresented: .constant(true)) {
+            ExerciseSheet(item: $item) { }
+        }
+}

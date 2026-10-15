@@ -57,6 +57,17 @@ struct RoutineStorePlanTests {
         #expect(reopened.exercises.map(\.plan.target) == [.reps(6), .reps(8)])
     }
 
+    @Test("A row's plan is stored even when it is the default")
+    func defaultStored() async throws {
+        try await relaunch().save(Routine(exercises: [RoutineExercise.builtIn("Push-up")]))
+        let row = try #require(
+            try ModelContext(container).fetch(FetchDescriptor<StoredRoutineExercise>()).first,
+        )
+        #expect(row.sets == 3)
+        #expect(row.reps == 10)
+        #expect(row.seconds == nil)
+    }
+
     @Test("A row stored before plans existed reads as its exercise's defaults")
     func neverStored() async throws {
         try await storedRow("Dumbbell row") { row in

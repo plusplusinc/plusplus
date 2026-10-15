@@ -71,6 +71,7 @@ struct PlanTypingTests {
         #expect(Self.committed(row, "00", into: .target) == row.plan)
         #expect(Self.committed(row, "", into: .weight).weight == nil)
         #expect(Self.committed(row, "0.0", into: .weight).weight == nil)
+        #expect(Self.committed(row, ".", into: .weight).weight == Weight(35, .pounds))
         let pigeon = try RoutineExercise.builtIn("Pigeon stretch")
         #expect(Self.committed(pigeon, "000", into: .target) == pigeon.plan)
     }

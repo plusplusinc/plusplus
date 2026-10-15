@@ -68,9 +68,7 @@ public actor RoutineStore {
             if row.position != position {
                 row.position = position
             }
-            if row.plan(for: item.exercise) != item.plan {
-                row.write(item.plan)
-            }
+            row.write(item.plan)
         }
         try modelContext.save()
     }
