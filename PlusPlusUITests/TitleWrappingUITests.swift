@@ -60,6 +60,23 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
 
         try auditRowsAndPicker(in: app)
         assertAddClearsStartAtTheEnd(in: app, keyboard: keyboard, addExercise: addExercise)
+        try auditExerciseSheet(in: app)
+    }
+
+    /// A loaded row's sheet fills the screen at this size, its rows stacked, and reads in full.
+    @MainActor
+    private func auditExerciseSheet(in app: XCUIApplication) throws {
+        try XCTContext.runActivity(named: "The exercise sheet at AX5 passes the audit") { _ in
+            app.lastExerciseRow.tap()
+            XCTAssertTrue(app.planRow(.sets).appears(), "A tap on a row opened no sheet")
+            XCTAssertEqual(app.planRow(.weight).label, "Weight, Pair, each")
+            attach(named: "sheet-ax5")
+            try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
+            app.planRow(.sets).swipeUp()
+            attach(named: "sheet-ax5-end")
+            try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
+            app.closeSheet()
+        }
     }
 
     /// Rows and the picker, with and without results, pass the audit at this text size.
@@ -102,7 +119,8 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             app.addExercise("Dumbbell bench press, Dumbbells, bench", searching: "dumbbell bench")
             XCTAssertTrue(app.addExerciseClearsStart(), "The add left Add exercise behind Start")
             attach(named: "rail-after-add-ax5")
-            app.exerciseRows.firstMatch.swipeOpen()
+            // The last row: the first, its plan making it taller, has its middle under the bar.
+            app.lastExerciseRow.swipeOpen()
             XCTAssertTrue(app.buttons["Delete"].appears(), "A swipe did not open the row")
             app.swipeUp()
             XCTAssertTrue(app.buttons["Delete"].disappears(), "A scroll left the row open")

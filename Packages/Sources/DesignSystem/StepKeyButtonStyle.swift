@@ -1,10 +1,13 @@
 import SwiftUI
 
 /// A stepper's − or + key: a small key-shaped button, its icon growing with the text, dimmed
-/// when it can't step.
+/// when it can't step. The key grows with the text only so far, leaving the number between two
+/// keys room at the largest sizes.
 public struct StepKeyButtonStyle: ButtonStyle {
     @ScaledMetric(relativeTo: .body) private var minWidth: CGFloat = 50
     @ScaledMetric(relativeTo: .body) private var minHeight: CGFloat = 48
+    /// About the board's key at AX5, and well over the 44pt touch target.
+    private static let largest = CGSize(width: 88, height: 80)
     @Environment(\.isEnabled) private var isEnabled
     @ObserveHotReload private var hotReload
 
@@ -16,7 +19,11 @@ public struct StepKeyButtonStyle: ButtonStyle {
             .labelStyle(.iconOnly)
             .font(.ppButton)
             .foregroundStyle(.pp(.textPrimary))
-            .frame(minWidth: minWidth, minHeight: minHeight)
+            .padding(Spacing.xs)
+            .frame(
+                minWidth: min(minWidth, Self.largest.width),
+                minHeight: min(minHeight, Self.largest.height),
+            )
             .background(shape.fill(.pp(.surface)))
             .overlay(shape.strokeBorder(.pp(.borderStrong)))
             .contentShape(shape)

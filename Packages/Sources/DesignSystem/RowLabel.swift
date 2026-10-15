@@ -4,7 +4,8 @@ import SwiftUI
 /// all, not an empty one. VoiceOver reads it as one element, "name, detail", with the detail in
 /// words when `spokenDetail` is given.
 ///
-/// A row done one side at a time shows a small L | R mark at the end of its name's first line.
+/// A row done one side at a time shows a small L | R mark at the end of its name's first line,
+/// up to the accessibility sizes.
 public struct RowLabel: View {
     private let title: String
     private let detail: [String]
@@ -39,7 +40,8 @@ public struct RowLabel: View {
                     .font(.ppRowTitle)
                     .foregroundStyle(.pp(.textPrimary))
                     .frame(maxWidth: .infinity, alignment: .leading)
-                if showsSides {
+                // At the accessibility sizes the words "per side", on their own line, say it.
+                if showsSides, !dynamicTypeSize.isAccessibilitySize {
                     SidesMark()
                 }
             }
@@ -75,8 +77,8 @@ public struct RowLabel: View {
 private let noBreakSpace = "\u{00A0}"
 
 /// "L | R" in a small outlined box: done one side at a time. Words on the detail line say it
-/// too, so it is hidden from VoiceOver, and it stops growing at the first accessibility size,
-/// where it would squeeze the name.
+/// too, so it is hidden from VoiceOver, and it is left out at the accessibility sizes, where it
+/// would squeeze the name.
 private struct SidesMark: View {
     @ObserveHotReload private var hotReload
 
@@ -95,7 +97,6 @@ private struct SidesMark: View {
         .padding(.horizontal, Spacing.xs + Spacing.xxs)
         .padding(.vertical, Spacing.xxs)
         .overlay(RoundedRectangle(cornerRadius: Radius.mark).strokeBorder(.pp(.borderStrong)))
-        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
         .accessibilityHidden(true)
         .hotReloadable()
     }

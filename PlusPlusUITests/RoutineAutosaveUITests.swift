@@ -2,8 +2,8 @@ import XCTest
 
 /// Saving and the launch rule across real quits and relaunches. The store, the launch rule, and
 /// the names are unit-tested in the package; this holds what only a relaunch shows: that an
-/// untouched routine is never saved, that rows come back in order with their duplicates and the
-/// name they had, and that a routine cleared to nothing is gone. Names come from the muscle
+/// untouched routine is never saved, that rows come back in order with their duplicates, each
+/// with its own values, and the name they had, and that a routine cleared to nothing is gone. Names come from the muscle
 /// groups (`-fallbackNames`), so the same name shows on any simulator. The title's color, white
 /// for a name whether typed or generated and gray for New routine, is read from pixels against
 /// the placeholder's own gray at the start.
@@ -31,10 +31,12 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
             .runActivity(named: "Rows, order, and the generated name survive a relaunch") { _ in
                 app.relaunch()
                 XCTAssertEqual(title.value as? String, "Chest and back")
-                XCTAssertEqual(
-                    app.exerciseRows.allElementsBoundByIndex.map(\.label),
-                    [Self.bench, Self.pullUp, Self.pullUp],
-                )
+                // Two rows of one exercise keep their own values.
+                XCTAssertEqual(app.exerciseRows.allElementsBoundByIndex.map(\.label), [
+                    "\(Self.bench), 3 sets of 5 reps",
+                    "\(Self.pullUp), 3 sets of 6 reps",
+                    "\(Self.pullUp), 3 sets of 7 reps",
+                ])
                 XCTAssertTrue(title.inkIsWhite(against: gray), "The generated name came back gray")
                 attach(named: "after-relaunch")
             }
@@ -65,6 +67,12 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
             app.lastExerciseRow.fullSwipeLeft()
             XCTAssertEqual(app.exerciseCount(becoming: 3), 3)
             XCTAssertEqual(title.value(becoming: "Chest and back"), "Chest and back")
+        }
+        XCTContext.runActivity(named: "One of two rows of an exercise takes a value") { _ in
+            app.lastExerciseRow.tap()
+            app.planRow(.target).tapKey(.increase)
+            XCTAssertEqual(app.planRow(.target).value(becoming: "7 reps"), "7 reps")
+            app.closeSheet()
         }
     }
 
