@@ -29,6 +29,15 @@ final class StoredRoutineExercise {
     /// A relationship is unordered, so the row carries its place.
     var position = 0
     var routine: StoredRoutine?
+    // The row's plan. Nil means never stored, read as the exercise's default: rows saved before
+    // plans existed have none. Reps and seconds are apart so a stored number never changes
+    // meaning if an exercise's measure does.
+    var sets: Int?
+    var reps: Int?
+    var seconds: Int?
+    var weight: Double?
+    /// `WeightUnit`'s raw value; set with `weight`, or both nil.
+    var weightUnit: String?
 
     init(id: UUID, exerciseID: String, position: Int) {
         self.id = id

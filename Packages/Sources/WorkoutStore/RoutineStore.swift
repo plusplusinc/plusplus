@@ -55,9 +55,7 @@ public actor RoutineStore {
             uniquingKeysWith: { first, _ in first },
         )
         for (position, item) in routine.exercises.enumerated() {
-            if let row = rowsByID[item.id] {
-                row.position = position
-            } else {
+            let row = rowsByID[item.id] ?? {
                 let row = StoredRoutineExercise(
                     id: item.id,
                     exerciseID: item.exercise.id,
@@ -65,7 +63,10 @@ public actor RoutineStore {
                 )
                 modelContext.insert(row)
                 row.routine = target
-            }
+                return row
+            }()
+            row.position = position
+            row.write(item.plan)
         }
         try modelContext.save()
     }
@@ -96,7 +97,7 @@ public actor RoutineStore {
                     .error("Skipped a row for unknown exercise \(row.exerciseID, privacy: .public)")
                 return nil
             }
-            return RoutineExercise(id: row.id, exercise: exercise)
+            return RoutineExercise(id: row.id, exercise: exercise, plan: row.plan(for: exercise))
         }
         return Routine(id: stored.id, name: stored.name, exercises: exercises)
     }
