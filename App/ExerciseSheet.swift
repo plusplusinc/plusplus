@@ -38,7 +38,8 @@ struct ExerciseSheet: View {
                 .padding(.top, Spacing.sm)
                 .padding(.bottom, Spacing.lg)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                // A tap anywhere but a number or a key ends typing, as the keyboard's check does.
+                // A tap anywhere but a number or a key ends typing; a tap on another number
+                // moves it there. The keyboard has no accessory: Done keeps what was typed.
                 .contentShape(.rect)
                 .onTapGesture { typing = nil }
             }
@@ -69,9 +70,6 @@ struct ExerciseSheet: View {
                         typing = nil
                         dismiss()
                     }
-                }
-                ToolbarItem(placement: .keyboard) {
-                    Button("Done typing", systemImage: "checkmark") { typing = nil }
                 }
             }
         }

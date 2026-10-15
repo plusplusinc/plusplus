@@ -80,8 +80,9 @@ extension RenameUITests {
         }
     }
 
-    /// Typing a number: a time fills from the right and the keyboard's check ends it; a weight
-    /// takes a decimal, and the sheet's Done keeps it.
+    /// Typing a number: a time fills from the right and a tap on the sheet ends it; a weight
+    /// typed from Not set takes a decimal, a tap on another number moves typing there, and the
+    /// sheet's Done keeps what is being typed.
     @MainActor
     private func typeValues(
         in app: XCUIApplication,
@@ -96,27 +97,35 @@ extension RenameUITests {
             app.typeText("130")
             XCTAssertEqual(app.textFields["Time"].value(becoming: "1:30"), "1:30")
             attach(named: "sheet-typing-time")
-            app.buttons["Done typing"].tap()
+            // A tap on the sheet, here beside Sets, ends typing.
+            app.planRow(.sets).coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.5)).tap()
             XCTAssertEqual(app.planRow(.target).value(becoming: "90 seconds"), "90 seconds")
             app.closeSheet()
             XCTAssertEqual(pigeon.label, "Pigeon stretch, 90 seconds per side")
         }
-        XCTContext.runActivity(named: "A typed weight is kept by the sheet's Done") { _ in
+        XCTContext.runActivity(named: "A weight typed from Not set lands on the row") { _ in
             dumbbellRow.tap()
+            // − from the smallest step clears the weight.
+            app.planRow(.weight).tapKey(.decrease)
+            XCTAssertEqual(app.planRow(.weight).value(becoming: "Not set"), "Not set")
             app.planRow(.weight).tapKey(.value)
-            XCTAssertTrue(keyboard.appears(), "A tap on the weight raised no keyboard")
-            app.typeText("4")
-            // A tap on the sheet, here beside Sets, ends typing as the keyboard's check does.
-            app.planRow(.sets).coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.5)).tap()
-            XCTAssertEqual(app.planRow(.weight).value(becoming: "4 pounds"), "4 pounds")
-            app.planRow(.weight).tapKey(.value)
+            XCTAssertTrue(keyboard.appears(), "A tap on Not set raised no keyboard")
             app.typeText("42.5")
             XCTAssertEqual(app.textFields["Weight"].value(becoming: "42.5"), "42.5")
             attach(named: "sheet-typing-weight")
+            // A tap on another number moves typing there, keeping the weight.
+            app.planRow(.target).tapKey(.value)
+            XCTAssertEqual(
+                app.planRow(.weight).value(becoming: "42.5 pounds"),
+                "42.5 pounds",
+            )
+            app.typeText("12")
+            XCTAssertEqual(app.textFields["Reps"].value(becoming: "12"), "12")
+            // Done keeps what is being typed.
             app.closeSheet()
             XCTAssertEqual(
                 dumbbellRow.label,
-                "Dumbbell row, Dumbbells, bench, 2 sets of 11 reps per side, 42.5 pounds",
+                "Dumbbell row, Dumbbells, bench, 2 sets of 12 reps per side, 42.5 pounds",
             )
         }
     }

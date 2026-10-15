@@ -38,6 +38,13 @@ extension View {
     }
 }
 
+extension Font {
+    /// SF Mono bold at `size`, which the caller scales: the screen title and a stepper's number.
+    static func ppBoldMono(size: CGFloat) -> Font {
+        .system(size: size, weight: .bold, design: .monospaced)
+    }
+}
+
 extension View {
     /// A stepper's number: SF Mono, 26pt bold, so digits keep their width as it steps.
     public func ppValueFont() -> some View {
@@ -56,7 +63,7 @@ private struct BoldMonoFont: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .font(.system(size: size, weight: .bold, design: .monospaced))
+            .font(.ppBoldMono(size: size))
             .hotReloadable()
     }
 }

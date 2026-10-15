@@ -112,31 +112,30 @@ struct NumberFieldContent: View {
     /// Whether the `_` blinks while typing. Snapshots hold it lit.
     let blinks: Bool
 
+    /// `ppValueFont`'s size, held here so the same text can switch to "Not set"'s font.
+    @ScaledMetric(relativeTo: .title2) private var valueSize: CGFloat = 26
     @ObserveHotReload private var hotReload
 
     var body: some View {
         let text = text ?? ""
-        Group {
-            if text.isEmpty, !isEditing {
-                Text("Not set")
-                    .font(.ppValuePlaceholder)
-                    .foregroundStyle(.pp(.textSecondary))
-            } else {
-                HStack(alignment: .firstTextBaseline, spacing: Spacing.xs) {
-                    HStack(alignment: .firstTextBaseline, spacing: 0) {
-                        Text(verbatim: text)
-                            .foregroundStyle(.pp(.textPrimary))
-                        if isEditing {
-                            NumberCursor(blinks: blinks)
-                        }
-                    }
-                    .ppValueFont()
-                    if let unit {
-                        Text(unit)
-                            .font(.ppValueUnit)
-                            .foregroundStyle(.pp(.textSecondary))
-                    }
+        let isPlaceholder = text.isEmpty && !isEditing
+        // One structure whether it shows a number or "Not set". Switching from one view to
+        // another here, in the same update that focus arrived, sent the field laid over it into
+        // an endless update loop.
+        HStack(alignment: .firstTextBaseline, spacing: Spacing.xs) {
+            HStack(alignment: .firstTextBaseline, spacing: 0) {
+                Text(verbatim: isPlaceholder ? String(localized: "Not set") : text)
+                    .foregroundStyle(.pp(isPlaceholder ? .textSecondary : .textPrimary))
+                    .font(isPlaceholder ? .ppValuePlaceholder : .ppBoldMono(size: valueSize))
+                if isEditing {
+                    NumberCursor(blinks: blinks)
+                        .font(.ppBoldMono(size: valueSize))
                 }
+            }
+            if let unit, !isPlaceholder {
+                Text(unit)
+                    .font(.ppValueUnit)
+                    .foregroundStyle(.pp(.textSecondary))
             }
         }
         .lineLimit(1)

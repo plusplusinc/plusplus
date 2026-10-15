@@ -39,7 +39,7 @@ What each tier holds today:
   what the app saved, a row's values included, seen only by quitting and launching again. A
   sheet's − and + keys are hidden from VoiceOver, which steps the row as one adjustable element,
   so a test taps them by where they sit (`tapKey`). After XCUITest's typing the simulator keeps
-  the keypad minimized; its keyboard toolbar still answers taps. Each launch costs about 9 s on
+  the keypad minimized, so a test ends typing with a tap on the sheet. Each launch costs about 9 s on
   CI, so there is one UI test per launch configuration:
   `RenameUITests/testRenameAtDefaultSize`,
   `TitleWrappingUITests/testWrappedTitleAtLargestTextSize`, and
