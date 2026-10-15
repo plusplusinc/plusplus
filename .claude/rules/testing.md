@@ -13,9 +13,11 @@ simulator) before anything that needs UIKit, and snapshots before XCUITest.
 What each tier holds today:
 
 - **Package tests** hold rules: `EditableTitle`'s static functions, the frames of a suggestion
-  typing in included, `WorkoutStoreContainer`, the built-in exercises with their equipment
-  lines, tags, and search, `RoutineStore`'s saving and launch rule over an in-memory container
-  (a relaunch is a second store on the same container), and the names: the focus, the style, the
+  typing in included, `RowLabel`'s detail line, `WorkoutStoreContainer`, the built-in exercises
+  with their equipment lines, tags, search, and plan parts, how a plan reads (row, VoiceOver,
+  sheet), steps, and typing, `RoutineStore`'s saving and launch rule over an in-memory container
+  (a relaunch is a second store on the same container), plans included, and on disk, a store
+  written with an older schema opening under the current one, and the names: the focus, the style, the
   honesty check, and every routine of up to two built-ins in every style.
 - **Snapshots** hold how a component looks, at rest and while editing. The title's editing look,
   `_` included, is drawn from plain values through `EditableTitleContent`, reached with
@@ -26,12 +28,18 @@ What each tier holds today:
   fading, the trail shuffling in blue, the last letter easing to white. Rows on the rail and
   Start are snapshot through the same components the routine screen composes, a generated name
   resting white over its rows included; a row swiped open is the system's, so the UI test shows
-  it.
+  it. The exercise sheet's steppers are snapshot the same way, a number being typed drawn
+  through `NumberFieldContent` with its `_` held lit; the sheet, its bar, and the keyboard are
+  the system's.
 - **UI tests** hold only what needs the real keyboard, text system, frames, or a relaunch:
   typing, Return, arrows, taps, range selection, the keyboard's edge, scrolling as the keyboard
-  rises, and VoiceOver frames; the exercise picker, system chrome composed in the app, which has
+  rises, and VoiceOver frames; the exercise sheet: a row's tap opening it, its keys, typing a
+  number, and Delete in its menu; the exercise picker, system chrome composed in the app, which has
   no test target: adding, searching, swiping to delete, and the accessibility audit at AX5; and
-  what the app saved, seen only by quitting and launching again. Each launch costs about 9 s on
+  what the app saved, a row's values included, seen only by quitting and launching again. A
+  sheet's − and + keys are hidden from VoiceOver, which steps the row as one adjustable element,
+  so a test taps them by where they sit (`tapKey`). After XCUITest's typing the simulator keeps
+  the keypad minimized; its keyboard toolbar still answers taps. Each launch costs about 9 s on
   CI, so there is one UI test per launch configuration:
   `RenameUITests/testRenameAtDefaultSize`,
   `TitleWrappingUITests/testWrappedTitleAtLargestTextSize`, and

@@ -4,6 +4,9 @@ extension Exercise {
     /// Grouped here by muscle group, for reading only. A name is plain when there is one common
     /// version; a variant carries its implement in the name, as its own exercise. Tags read
     /// movement, then primary muscles, then secondary ones, then kind when it isn't strength.
+    /// Each has only the plan parts that apply to it, set by hand rather than read from its
+    /// equipment: its measure and default sets, reps, or time, what it holds, and whether it is
+    /// done per side.
     public static let builtIn: [Self] = [
         // Chest
         Self(
