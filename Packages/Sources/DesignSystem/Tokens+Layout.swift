@@ -17,4 +17,6 @@ public enum Radius {
     public static let mark: CGFloat = 6
     /// A key-shaped button.
     public static let key: CGFloat = 11
+    /// A rounded well inset in a sheet, such as an open wheel's.
+    public static let card: CGFloat = 14
 }
