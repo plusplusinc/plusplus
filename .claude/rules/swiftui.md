@@ -25,7 +25,8 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   than its default where it answers a tap: rows going onto and off a rail use `.railChange`,
   a key comes back from a press with `keyPressAnimation(isPressed:)`, and a plan's number, on
   its row in the sheet and on the rail once the sheet is down, rolls its digits to the next
-  (`.numericText(value:)`) on `.valueChange` (0.1 s), with no roll under Reduce Motion. A row added to a rail enters in one landing (`RailEntry`). As it is let
+  (`.numericText(value:)`) on `.valueChange` (0.1 s), with no roll under Reduce Motion. A wheel
+  opens and closes in the gap under its row on `.snappy`, in a sheet of one height, and with Reduce Motion appears and goes at once. A row added to a rail enters in one landing (`RailEntry`). As it is let
   go, the line grows down from the node above in the rail's gray (0.2 s) on a quartic ease-in from a running start, and the row's place
   opens with it on the same curve, pushing Add exercise down exactly as far as the line grows,
   or, past the visible area, scrolling in step so the key stays put. As the line reaches it, the

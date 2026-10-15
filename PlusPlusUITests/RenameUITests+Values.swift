@@ -18,18 +18,17 @@ extension RenameUITests {
             attach(named: "sheet-pigeon")
             app.closeSheet()
             dumbbellRow.tap()
-            // It opens on Sets, the wheel set to it.
-            XCTAssertTrue(app.planRow(.sets).isSelected, "The sheet opened on no row")
-            XCTAssertEqual(app.pickerWheels.firstMatch.value as? String, "3")
+            XCTAssertTrue(app.planRow(.sets).appears(), "A tap on a row opened no sheet")
+            XCTAssertEqual(app.pickerWheels.count, 0, "The sheet opened with a wheel up")
             XCTAssertEqual(app.planRow(.target).label, "Reps")
             XCTAssertEqual(app.planRow(.target).value as? String, "10 reps per side")
             XCTAssertEqual(app.planRow(.weight).label, "Weight")
             XCTAssertEqual(app.planRow(.weight).value as? String, "25 pounds")
             attach(named: "sheet-row")
         }
+        openOneWheelAtATime(in: app)
         XCTContext.runActivity(named: "The wheel sets the row's line once the sheet closes") { _ in
             app.pick("11", for: .target)
-            XCTAssertFalse(app.planRow(.sets).isSelected, "Two rows are selected")
             XCTAssertEqual(
                 app.planRow(.target).value(becoming: "11 reps per side"),
                 "11 reps per side",
@@ -68,6 +67,21 @@ extension RenameUITests {
         stepTheRightRow(in: app)
     }
 
+    /// A row's tap opens its wheel, closing any other; a second tap closes it.
+    @MainActor
+    private func openOneWheelAtATime(in app: XCUIApplication) {
+        XCTContext.runActivity(named: "One wheel opens at a time") { _ in
+            app.open(.sets)
+            XCTAssertEqual(app.pickerWheels.firstMatch.value as? String, "3")
+            attach(named: "sheet-row-sets-open")
+            app.open(.target)
+            XCTAssertEqual(app.pickerWheels.count, 1, "Opening Reps left Sets open")
+            XCTAssertEqual(app.pickerWheels.firstMatch.value as? String, "10")
+            app.planRow(.target).tap()
+            XCTAssertTrue(app.pickerWheels.firstMatch.disappears(), "A second tap left it open")
+        }
+    }
+
     /// Two rows of one exercise keep their own values, and a bar starts at the empty bar.
     @MainActor
     private func stepTheRightRow(in app: XCUIApplication) {
@@ -85,11 +99,13 @@ extension RenameUITests {
             bench.tap()
             XCTAssertEqual(app.planRow(.target).value as? String, "5 reps", "Bench is per side")
             XCTAssertEqual(app.planRow(.weight).value as? String, "45 pounds", "No empty bar")
-            app.select(.weight)
-            // Selecting a row changes nothing.
+            app.open(.weight)
+            // Opening a wheel changes nothing.
             XCTAssertEqual(app.pickerWheels.firstMatch.value as? String, "45 lb")
+            XCTAssertEqual(app.planRow(.weight).value as? String, "45 pounds")
             attach(named: "sheet-bench-wheel")
-            app.pick("50 lb", for: .weight)
+            app.pickerWheels.firstMatch.adjust(toPickerWheelValue: "50 lb")
+            app.planRow(.weight).tap()
             XCTAssertEqual(app.planRow(.weight).value(becoming: "50 pounds"), "50 pounds")
             attach(named: "sheet-bench")
             app.closeSheet()
@@ -106,14 +122,15 @@ extension RenameUITests {
     ) {
         XCTContext.runActivity(named: "A time picks minutes and seconds") { _ in
             pigeon.tap()
-            app.select(.target)
+            app.open(.target)
             XCTAssertEqual(app.pickerWheels.count, 2, "A time has no minutes and seconds")
-            app.pick("1 min", "30 s", for: .target)
+            attach(named: "sheet-time-wheels")
+            app.pickerWheels.element(boundBy: 0).adjust(toPickerWheelValue: "1 min")
+            app.pickerWheels.element(boundBy: 1).adjust(toPickerWheelValue: "30 s")
             XCTAssertEqual(
                 app.planRow(.target).value(becoming: "90 seconds per side"),
                 "90 seconds per side",
             )
-            attach(named: "sheet-time-wheels")
             app.closeSheet()
             pigeon.assertReads("Pigeon stretch, 90 seconds per side")
         }

@@ -2,18 +2,16 @@ import DesignSystem
 import SwiftUI
 import WorkoutStore
 
-/// The wheel docked at the foot of the exercise sheet, setting the selected part: the system's
-/// wheel picker over the part's choices, its unit beside the number in the band, and for a time,
-/// minutes and seconds side by side. It takes the sheet's full width, so a drag anywhere across
-/// it turns the wheel rather than the sheet. Its numbers, with their unit, are centered in it.
-/// Each value it settles on is the row's at once. The row's current value is always on the
-/// wheel, so selecting a row changes nothing. VoiceOver reads it as adjustable, named for its
-/// part.
+/// A part's wheel, under its row in the exercise sheet: the system's wheel picker over the part's
+/// choices, its unit beside the number in the band, and for a time, minutes and seconds side by
+/// side. It takes the row's full width, so a drag anywhere across it turns the wheel rather than
+/// the sheet. Its numbers, with their unit, are centered in it. Each value it settles on is the
+/// row's at once. VoiceOver reads it as adjustable, named for its part.
 struct PlanWheel: View {
     @Binding var item: RoutineExercise
     let part: PlanPart
 
-    /// The system wheel's own height, which the sheet makes room for under its rows.
+    /// The system wheel's own height, which the sheet grows by while one is open.
     static let height: CGFloat = 216
 
     @Environment(\.locale) private var locale

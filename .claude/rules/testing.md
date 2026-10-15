@@ -28,13 +28,13 @@ What each tier holds today:
   fading, the trail shuffling in blue, the last letter easing to white. Rows on the rail and
   Start are snapshot through the same components the routine screen composes, a generated name
   resting white over its rows included; a row swiped open is the system's, so the UI test shows
-  it. The exercise sheet's rows, each on its fill, one selected, are snapshot the same way;
-  the sheet, its bar, and its wheel are the system's.
+  it. The exercise sheet's rows, each on its fill, one open, are snapshot the same way; the
+  sheet, its bar, and its wheels are the system's.
 - **UI tests** hold only what needs the real keyboard, text system, frames, or a relaunch:
   typing, Return, arrows, taps, range selection, the keyboard's edge, scrolling as the keyboard
-  rises, and VoiceOver frames; the exercise sheet: a row's tap opening it, its wheel, picked
-  with `pick(_:for:)`, which selects a row and turns the wheel with `adjust(toPickerWheelValue:)`
-  to a wheel row's text, unit included ("30 lb"), and Delete in its menu, confirmed; the exercise picker, system chrome composed in the app, which has
+  rises, and VoiceOver frames; the exercise sheet: a row's tap opening it, its wheels, one open
+  at a time, picked with `pick(_:for:)`, which opens a row's wheel with a tap, turns it with
+  `adjust(toPickerWheelValue:)` to a wheel row's text, unit included ("30 lb"), and Delete in its menu, confirmed; the exercise picker, system chrome composed in the app, which has
   no test target: adding, searching, swiping to delete, and the accessibility audit at AX5; and
   what the app saved, a row's values included, seen only by quitting and launching again. A
   row's line takes a sheet's changes only once the sheet is down, so a test reads it with

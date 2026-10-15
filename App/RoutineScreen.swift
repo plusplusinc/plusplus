@@ -39,6 +39,8 @@ struct RoutineScreen: View {
     @State private var isScrollingByHand = false
     /// Whether the title has scrolled up under the bar, where a small copy of it shows instead.
     @State private var isTitleUnderBar = false
+    /// The screen's height under the status bar, the most a sheet can take.
+    @State private var sheetRoom: CGFloat = 0
     @Environment(\.locale) private var locale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
@@ -142,6 +144,11 @@ struct RoutineScreen: View {
             // A shape-style background stops at the keyboard's safe area, which left the
             // window's black behind the keyboard's rounded top corners.
             .background { Color.pp(.background).ignoresSafeArea() }
+            .onGeometryChange(for: CGFloat.self) {
+                $0.size.height + $0.safeAreaInsets.bottom
+            } action: {
+                sheetRoom = $0
+            }
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $isPicking) {
                 ExercisePicker { exercise in
@@ -153,7 +160,7 @@ struct RoutineScreen: View {
             }
             .sheet(item: $editing, onDismiss: sheetClosed) { edited in
                 if let row = row(edited.id) {
-                    ExerciseSheet(item: row) { deleting = edited.id }
+                    ExerciseSheet(item: row, room: sheetRoom) { deleting = edited.id }
                 }
             }
             .toolbar {

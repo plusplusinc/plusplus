@@ -6,8 +6,8 @@ import Testing
 @testable import DesignSystem
 
 /// An exercise sheet's rows, each a value on its rounded fill, built the way the app composes
-/// them, with one selected. The sheet, its bar with the exercise's name, and the wheel are the
-/// system's; the UI tests show them.
+/// them, with one open, its fill brighter. The sheet, its bar with the exercise's name, and the
+/// wheel are the system's; the UI tests show them.
 @Suite("Exercise sheet")
 struct ExerciseSheetSnapshotTests {
     private static let sheetWidth: CGFloat = 390
@@ -16,7 +16,7 @@ struct ExerciseSheetSnapshotTests {
         let title: String
         let value: String
         var suffix: String?
-        var isSelected = false
+        var isOpen = false
     }
 
     private func content(_ parts: [Part]) -> some View {
@@ -28,9 +28,10 @@ struct ExerciseSheetSnapshotTests {
                     suffix: part.suffix,
                     amount: nil,
                     spokenValue: "",
-                    isSelected: part.isSelected,
+                    isOpen: part.isOpen,
                     identifier: part.title,
-                    action: { },
+                    onToggle: { },
+                    wheel: { EmptyView() },
                 )
             }
         }
@@ -38,11 +39,11 @@ struct ExerciseSheetSnapshotTests {
         .background(Color.pp(.background))
     }
 
-    @Test("A bench press: sets selected, reps, and the bar's weight")
+    @Test("A bench press: sets open, reps, and the bar's weight")
     func bench() {
         assertThemedSnapshots(
             of: content([
-                Part(title: "Sets", value: "5", isSelected: true),
+                Part(title: "Sets", value: "5", isOpen: true),
                 Part(title: "Reps", value: "5"),
                 Part(title: "Weight", value: "135", suffix: "lb"),
             ]),
@@ -50,24 +51,24 @@ struct ExerciseSheetSnapshotTests {
         )
     }
 
-    @Test("A dumbbell row: reps per side, one dumbbell's weight selected")
+    @Test("A dumbbell row: reps per side, one dumbbell's weight open")
     func row() {
         assertThemedSnapshots(
             of: content([
                 Part(title: "Sets", value: "3"),
                 Part(title: "Reps", value: "10", suffix: "per side"),
-                Part(title: "Weight", value: "25", suffix: "lb", isSelected: true),
+                Part(title: "Weight", value: "25", suffix: "lb", isOpen: true),
             ]),
             width: Self.sheetWidth,
         )
     }
 
-    @Test("A pigeon stretch: one set, a time per side selected, no weight")
+    @Test("A pigeon stretch: one set, a time per side open, no weight")
     func pigeon() {
         assertThemedSnapshots(
             of: content([
                 Part(title: "Sets", value: "1"),
-                Part(title: "Time", value: "60", suffix: "s per side", isSelected: true),
+                Part(title: "Time", value: "60", suffix: "s per side", isOpen: true),
             ]),
             width: Self.sheetWidth,
         )
