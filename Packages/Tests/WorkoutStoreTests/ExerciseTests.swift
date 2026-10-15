@@ -4,10 +4,6 @@ import Testing
 
 @Suite("Exercises")
 struct ExerciseTests {
-    private static func builtIn(_ name: String) throws -> Exercise {
-        try #require(Exercise.builtIn.first { $0.name == name }, "No built-in named \(name)")
-    }
-
     @Test("There are 49 built-in exercises with unique ids and names")
     func builtInCount() {
         let all = Exercise.builtIn
@@ -74,6 +70,17 @@ struct ExerciseTests {
         #expect(actual == expected.map { "\($0.0) | \($0.1 ?? "-")" })
     }
 
+    @Test("Every built-in works at least one muscle first, and never one muscle both ways")
+    func builtInTags() {
+        for exercise in Exercise.builtIn {
+            #expect(!exercise.tags.primary.isEmpty, "\(exercise.name)")
+            let tags = exercise.tags
+            #expect(tags.primary.isDisjoint(with: tags.secondary), "\(exercise.name)")
+        }
+        #expect(Exercise.builtIn.count { $0.tags.kind == .balance } == 1)
+        #expect(Exercise.builtIn.count { $0.tags.kind == .conditioning } == 1)
+    }
+
     @Test("Built-ins are sorted A to Z")
     func builtInSorted() {
         let names = Exercise.builtIn.map(\.name)
@@ -85,7 +92,7 @@ struct ExerciseTests {
     @Test("Bodyweight exercises have no equipment line")
     func bodyweightHasNoLine() throws {
         for name in ["Push-up", "Plank", "Child\u{2019}s pose", "Glute bridge"] {
-            #expect(try Self.builtIn(name).equipmentLine == nil)
+            #expect(try Exercise.builtIn(named: name).equipmentLine == nil)
         }
         let bodyweight = Set(Exercise.builtIn.filter(\.equipment.isEmpty).map(\.name))
         #expect(bodyweight == [
@@ -109,15 +116,26 @@ struct ExerciseTests {
         ],
     )
     func equipmentLines(name: String, line: String) throws {
-        #expect(try Self.builtIn(name).equipmentLine == line)
+        #expect(try Exercise.builtIn(named: name).equipmentLine == line)
     }
 
     @Test("An equipment line orders by equipment, capitalizing only the first")
     func lineOrder() {
-        #expect(Exercise(id: "a", name: "A", equipment: [.bench, .dumbbells]).equipmentLine
-            == "Dumbbells, bench")
-        #expect(Exercise(id: "b", name: "B", equipment: [.rings, .band, .kettlebell]).equipmentLine
-            == "Kettlebell, band, rings")
+        let tags = ExerciseTags(.push, [.chest])
+        #expect(Exercise(
+            id: "a",
+            name: "A",
+            muscleGroup: .chest,
+            equipment: [.bench, .dumbbells],
+            tags: tags,
+        ).equipmentLine == "Dumbbells, bench")
+        #expect(Exercise(
+            id: "b",
+            name: "B",
+            muscleGroup: .chest,
+            equipment: [.rings, .band, .kettlebell],
+            tags: tags,
+        ).equipmentLine == "Kettlebell, band, rings")
     }
 
     @Test("Every equipment has a display name")
@@ -168,7 +186,7 @@ struct ExerciseTests {
 
     @Test("Each routine exercise is its own instance")
     func duplicateInstances() throws {
-        let squat = try Self.builtIn("Goblet squat")
+        let squat = try Exercise.builtIn(named: "Goblet squat")
         let first = RoutineExercise(exercise: squat)
         let second = RoutineExercise(exercise: squat)
         #expect(first.id != second.id)

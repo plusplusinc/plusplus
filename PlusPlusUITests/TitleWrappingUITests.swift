@@ -13,12 +13,7 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
     @MainActor
     func testWrappedTitleAtLargestTextSize() throws {
         let app = XCUIApplication()
-        app.launchArguments += [
-            "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL",
-        ]
-        app.launch()
-        let title = app.textFields["Routine name"]
-        XCTAssertTrue(title.appears(within: 10))
+        let title = app.launchNewRoutine(textSize: "UICTContentSizeCategoryAccessibilityXXXL")
         let addExercise = app.buttons["Add exercise"]
         let keyboard = app.keyboards.element
 

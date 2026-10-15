@@ -9,9 +9,12 @@ This file is the constitution: loaded every session, kept short. Detail lives in
 `.claude/rules/*.md`, which load when you touch matching files, and in `docs/`. If this file and a
 rules file disagree, this file wins.
 
-**Status: first screen.** The app launches into a new, empty routine you can name and add
-built-in exercises to. All of it lives in memory only. `WorkoutStore` has plain domain types
-but no stored model; that will come with the first feature that saves.
+**Status: first screen, saved.** The app launches into the routine last edited, or a new,
+empty one, which you can name and add built-in exercises to. Every change saves on the phone
+on its own: an untouched new routine is never saved, and one cleared to nothing is deleted. An
+unnamed routine with exercises gets a name, written in code from its exercises' tags, which it
+keeps across launches and which opens as text to edit. `WorkoutStore` holds the domain types,
+the first stored models behind `RoutineStore`, and the namer. Nothing syncs yet.
 
 ## Architecture
 
@@ -21,7 +24,7 @@ the arrows; SwiftLint custom rules catch the imports and idioms it cannot.
 
 ```
 App ──> DesignSystem   (SwiftUI only, no domain code)
- └────> WorkoutStore   (domain types and SwiftData, no UI)
+ └────> WorkoutStore   (domain types, SwiftData, and routine naming; no UI)
 ```
 
 **These arrows are the rule, not a description.** New code goes in the lowest layer that can

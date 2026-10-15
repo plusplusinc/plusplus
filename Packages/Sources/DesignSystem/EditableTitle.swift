@@ -8,16 +8,29 @@ import SwiftUI
 /// system caret is hidden, so the `_` is the only cursor there is; a range selection shows the
 /// system highlight instead.
 ///
-/// The default text is the field's placeholder, never its contents: tapping it shows it gray with
-/// the `_` under its first letter, typing replaces it, and ending with nothing keeps it.
+/// An empty `text` is an unnamed title, which shows its suggestion in its place, in white, or
+/// with none the placeholder, in gray. The placeholder is never the field's contents: tapping it
+/// puts the `_` under its first letter, typing replaces it, and ending with nothing keeps it. A
+/// suggestion opens as text to edit, the caret at its end; committed unchanged it stays a
+/// suggestion (`text` stays empty), changed it becomes the title, and cleared the title is
+/// unnamed again.
+///
+/// The suggestion may change at any time. When it does, the old title fades out and the new one
+/// types in, each letter shuffling briefly through the name's other letters in blue just behind
+/// the lead, then easing to its own color, while the `_` breathes in the rail's joining blue.
+/// Reduce Motion crossfades it instead, with no blue, and editing stops it at once.
 ///
 /// The field draws its own text, so everything the keyboard shows in it (suggestions, inline
 /// predictions, text being composed) shows as in any field. The `_` is drawn over it by
 /// `TitleCursor`. The title is monospaced, so the `_` is one character cell wide and its place
 /// follows from the text alone: `cursorCell(at:in:columns:)` wraps the text as the field does.
+/// A suggestion or the placeholder, drawn as `Text` in place of an empty field, breaks its lines
+/// where `lineBreaks(in:columns:)` says, since `Text` on its own avoids leaving one word on the
+/// last line, and the field does not.
 public struct EditableTitle: View {
     @Binding private var text: String
-    private let defaultText: String
+    private let placeholder: String
+    private let suggestion: String?
     private let label: LocalizedStringKey
     private let hint: LocalizedStringKey
 
@@ -25,27 +38,44 @@ public struct EditableTitle: View {
     /// The field's selection, which the text system writes as the caret moves.
     @State private var caret = Caret()
     @FocusState private var isEditing: Bool
+    /// What an unnamed title shows as drawn: behind `restingTitle` while a new one types in.
+    @State private var shownTitle: String
+    @State private var shownOpacity = 1.0
+    /// When `shownTitle` started typing in, while it is. The one clock every character's
+    /// appearing and landing is read from.
+    @State private var typingStart: Date?
+    /// The suggestion an edit started from, so committing it unchanged leaves it a suggestion.
+    @State private var editedSuggestion: String?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
     private static let minimumTouchTarget: CGFloat = 44
 
     public init(
         text: Binding<String>,
-        defaultText: String,
+        placeholder: String,
+        suggestion: String? = nil,
         accessibilityLabel: LocalizedStringKey,
         accessibilityHint: LocalizedStringKey,
     ) {
         _text = text
-        self.defaultText = defaultText
+        self.placeholder = placeholder
+        self.suggestion = suggestion
         label = accessibilityLabel
         hint = accessibilityHint
-        _draft = State(initialValue: Self.draft(for: text.wrappedValue, defaultText: defaultText))
+        _draft = State(initialValue: text.wrappedValue)
+        _shownTitle = State(initialValue: suggestion ?? placeholder)
     }
 
-    /// What the field holds for a title: empty for the default, which shows as the placeholder,
-    /// so typing replaces it.
-    public static func draft(for text: String, defaultText: String) -> String {
-        text == defaultText ? "" : text
+    /// What an unnamed title shows once nothing is typing in.
+    private var restingTitle: String {
+        suggestion ?? placeholder
+    }
+
+    /// Whether `shownTitle` is a suggestion, drawn white, rather than the placeholder, gray. A
+    /// suggestion is never the placeholder's text.
+    private var shownIsSuggested: Bool {
+        shownTitle != placeholder
     }
 
     /// Whether a draft holds a press of Return: a single newline, wherever the caret was and
@@ -54,14 +84,32 @@ public struct EditableTitle: View {
         draft.count(where: \.isNewline) == 1
     }
 
-    /// The title an edit leaves behind: trimmed, and the default when nothing is left.
-    public static func committed(_ draft: String, defaultText: String) -> String {
+    /// Takes the newlines out of a draft the field has just changed, and says whether editing
+    /// ends: one is a Return, removed, and more came from pasted lines, which become spaces, since
+    /// a title is one paragraph. The draft is replaced, so the caret is too, at its end: the
+    /// field's own indexes the text with the newlines.
+    static func takeNewlines(in draft: inout String, caret: Caret) -> Bool {
+        guard draft.contains(where: \.isNewline) else { return false }
+        let ends = isReturn(draft)
+        caret.replace(
+            &draft,
+            with: ends
+                ? draft.filter { !$0.isNewline }
+                : String(draft.map { $0.isNewline ? " " : $0 }),
+        )
+        return ends
+    }
+
+    /// The title an edit leaves behind: trimmed, and empty, which leaves the title unnamed, when
+    /// nothing is left or it is the suggestion the edit started from, unchanged.
+    public static func committed(_ draft: String, from suggestion: String? = nil) -> String {
         let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? defaultText : trimmed
+        return trimmed == suggestion ? "" : trimmed
     }
 
     /// Where the `_` goes in the draft: the insertion point, or nil for a range selection, which
-    /// shows the system highlight instead. No selection yet is the end.
+    /// shows the system highlight instead. No selection yet is the end. The selection must have
+    /// been made for `draft`: an index from another string can trap.
     public static func insertionPoint(
         of selection: TextSelection?,
         in draft: String,
@@ -70,8 +118,8 @@ public struct EditableTitle: View {
         case nil:
             draft.endIndex
         case let .selection(range) where range.isEmpty:
-            // A selection can trail the draft by one change, and an index into the old string
-            // may lie past the end of this one or inside one of its characters.
+            // The selection was made for this draft (see `Caret`), but an index between the
+            // scalars of one character has no cell of its own.
             String.Index(range.lowerBound, within: draft) ?? draft.endIndex
         default:
             nil
@@ -96,6 +144,24 @@ public struct EditableTitle: View {
         in text: String,
         columns: Int,
     ) -> (line: Int, column: Int) {
+        let (cells, end) = cells(of: text, columns: columns)
+        let cell = offset < cells.count ? cells[offset] : end
+        return (cell.line, min(cell.column, columns))
+    }
+
+    /// The character offsets that start a new line when `text` is wrapped at `columns` cells
+    /// as the field wraps it, by the same rules as `cursorCell(at:in:columns:)`. Spaces past a
+    /// line's edge stay at its end.
+    public static func lineBreaks(in text: String, columns: Int) -> [Int] {
+        let cells = cells(of: text, columns: columns).cells
+        return cells.indices.dropFirst().filter { cells[$0].line > cells[$0 - 1].line }
+    }
+
+    /// Each character's cell in `text` wrapped at `columns`, and the cell after the last one.
+    private static func cells(
+        of text: String,
+        columns: Int,
+    ) -> (cells: [(line: Int, column: Int)], end: (line: Int, column: Int)) {
         let characters = Array(text)
         var cells: [(line: Int, column: Int)] = []
         var line = 0
@@ -124,8 +190,7 @@ public struct EditableTitle: View {
             }
             index = wordEnd
         }
-        let cell = offset < cells.count ? cells[offset] : (line: line, column: column)
-        return (cell.line, min(cell.column, columns))
+        return (cells, (line, column))
     }
 
     private static func breaksAfter(_ character: Character) -> Bool {
@@ -133,17 +198,37 @@ public struct EditableTitle: View {
     }
 
     public var body: some View {
-        EditableTitleContent(
-            draft: $draft,
-            caret: caret,
-            selection: $caret.selection,
-            defaultText: defaultText,
-            isEditing: isEditing,
-            blinks: true,
-            accessibilityLabel: label,
-            accessibilityHint: hint,
-            behavior: TitleFieldBehavior(isEditing: $isEditing, draft: $draft, caret: caret),
-        )
+        // Paused rather than added and removed, so the field inside keeps its identity, and its
+        // focus, as typing in starts and stops.
+        TimelineView(.animation(paused: typingStart == nil)) { context in
+            let frame = typingStart.map {
+                Self.typingFrame(of: shownTitle, at: context.date.timeIntervalSince($0))
+            }
+            EditableTitleContent(
+                draft: $draft,
+                caret: caret,
+                selection: $caret.selection,
+                placeholder: restingTitle,
+                shownPlaceholder: frame?.shown ?? shownTitle,
+                isSuggested: shownIsSuggested,
+                placeholderOpacity: shownOpacity,
+                standIns: frame?.standIns ?? [:],
+                tints: frame?.tints ?? [:],
+                // Blue from the moment a suggestion changes, through the old one's fade and the
+                // typing, until the last letter has eased to its own color.
+                cursorTint: reduceMotion
+                    ? 0
+                    : max(
+                        suggestion != nil && shownTitle != restingTitle ? 1 : 0,
+                        frame?.cursorTint ?? 0,
+                    ),
+                isEditing: isEditing,
+                blinks: true,
+                accessibilityLabel: label,
+                accessibilityHint: hint,
+                behavior: TitleFieldBehavior(isEditing: $isEditing, draft: $draft, caret: caret),
+            )
+        }
         // The field is only as tall as its text. Behind it, a target at least 44pt tall reaches
         // down past a short title (above, the navigation bar takes the taps), and a tap there
         // focuses the field as a tap on the text does. A background takes no layout space, so
@@ -154,27 +239,74 @@ public struct EditableTitle: View {
                 .contentShape(.rect)
                 .onTapGesture { isEditing = true }
         }
+        .task(id: restingTitle) {
+            await showRestingTitle()
+        }
         .onChange(of: isEditing) { _, editing in
             if editing {
+                // Editing wins over a title typing in, and opens on the final one.
+                settle()
+                if draft.isEmpty, let suggestion {
+                    editedSuggestion = suggestion
+                }
                 // The tap that focuses the field leaves the caret at the start or selects
                 // everything, not where it landed, so editing starts at the end. Taps once
                 // editing place the caret where they land.
-                caret.selection = TextSelection(insertionPoint: draft.endIndex)
+                caret.replace(&draft, with: editedSuggestion ?? draft)
             } else {
                 commit()
             }
         }
         .onChange(of: text) { _, newText in
             if !isEditing {
-                draft = Self.draft(for: newText, defaultText: defaultText)
+                caret.replace(&draft, with: newText)
             }
         }
         .hotReloadable()
     }
 
+    /// Brings the drawn title to the resting one: a suggestion typed in at rest, the placeholder
+    /// or anything with Reduce Motion crossfaded, and at once where it can't be seen or the title
+    /// is being edited. A newer one cancels this and starts over.
+    private func showRestingTitle() async {
+        guard shownTitle != restingTitle else { return }
+        // Only a suggestion types in. Going back to the placeholder, or with Reduce Motion, it
+        // crossfades.
+        let crossfades = reduceMotion || suggestion == nil
+        guard !crossfades, !isEditing, draft.isEmpty else {
+            withAnimation(crossfades ? .snappy(duration: SuggestionTiming.crossfade) : nil) {
+                settle()
+            }
+            return
+        }
+        typingStart = nil
+        withAnimation(.snappy(duration: SuggestionTiming.fadeOut)) {
+            shownOpacity = 0
+        }
+        guard await pause(.seconds(SuggestionTiming.fadeOut)) else { return }
+        settle()
+        typingStart = .now
+        guard await pause(.seconds(Self.typingDuration(of: shownTitle))) else { return }
+        typingStart = nil
+    }
+
+    /// Waits, and says whether typing in should go on: not cancelled by a newer title, and
+    /// not stopped by editing, which has already settled the title.
+    private func pause(_ duration: Duration) async -> Bool {
+        await (try? Task.sleep(for: duration)) != nil && !isEditing
+    }
+
+    /// The resting title as it is, with nothing typing in.
+    private func settle() {
+        shownTitle = restingTitle
+        shownOpacity = 1
+        typingStart = nil
+    }
+
     private func commit() {
-        text = Self.committed(draft, defaultText: defaultText)
-        draft = Self.draft(for: text, defaultText: defaultText)
+        text = Self.committed(draft, from: editedSuggestion)
+        editedSuggestion = nil
+        caret.replace(&draft, with: text)
     }
 }
 
@@ -201,16 +333,10 @@ private struct TitleFieldBehavior: ViewModifier {
                 return .handled
             }
             // The on-screen keyboard's Return reaches it as an inserted newline, wherever the
-            // caret is. Newlines inside pasted text become spaces, since a title is one paragraph.
-            .onChange(of: draft) { _, newDraft in
-                guard newDraft.contains(where: \.isNewline) else { return }
-                if EditableTitle.isReturn(newDraft) {
-                    draft = newDraft.filter { !$0.isNewline }
+            // caret is.
+            .onChange(of: draft) {
+                if EditableTitle.takeNewlines(in: &draft, caret: caret) {
                     isEditing.wrappedValue = false
-                } else {
-                    draft = String(newDraft.map { $0.isNewline ? " " : $0 })
-                    // The old selection indexes the old string.
-                    caret.selection = TextSelection(insertionPoint: draft.endIndex)
                 }
             }
             .hotReloadable()
@@ -218,10 +344,10 @@ private struct TitleFieldBehavior: ViewModifier {
 }
 
 #Preview {
-    @Previewable @State var name = "New routine"
+    @Previewable @State var name = ""
     EditableTitle(
         text: $name,
-        defaultText: "New routine",
+        placeholder: "New routine",
         accessibilityLabel: "Routine name",
         accessibilityHint: "Renames the routine.",
     )

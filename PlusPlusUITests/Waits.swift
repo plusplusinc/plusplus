@@ -17,6 +17,18 @@ extension XCUIElement {
     func value(becoming expected: String, within timeout: TimeInterval = 2) -> String? {
         reading(value as? String, becoming: expected, within: timeout)
     }
+
+    /// Taps the title to edit it, and waits for the `_` at its end, where the app puts the caret
+    /// once focus lands, which can come after keys sent at once.
+    @MainActor
+    func tapToEditAtEnd(keyboard: XCUIElement) throws {
+        tap()
+        XCTAssertTrue(keyboard.appears())
+        let field = frame
+        _ = try Ink.withCursor { try Ink.ofTitle(in: field) } until: { ink, cursor in
+            ink.missAtEnd(cursor)
+        }
+    }
 }
 
 /// What `read` reads once it is `expected`, or its last reading after the timeout, for

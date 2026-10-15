@@ -26,7 +26,8 @@ struct EditableTitleSnapshotTests {
             draft: .constant(draft),
             caret: caret,
             selection: .constant(caret.selection),
-            defaultText: "New routine",
+            placeholder: "New routine",
+            shownPlaceholder: "New routine",
             isEditing: true,
             blinks: false,
             accessibilityLabel: "Routine name",
@@ -37,7 +38,7 @@ struct EditableTitleSnapshotTests {
         .background(Color.pp(.background))
     }
 
-    @Test("Editing the default: gray, with the _ under the N")
+    @Test("Editing an unnamed title: the placeholder gray, with the _ under the N")
     func editingDefault() {
         assertThemedSnapshots(of: editing(""), width: Self.screenWidth)
     }

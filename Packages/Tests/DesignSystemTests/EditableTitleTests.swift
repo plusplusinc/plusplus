@@ -1,19 +1,61 @@
-import DesignSystem
 import SwiftUI
 import Testing
+@testable import DesignSystem
+#if canImport(UIKit)
+import UIKit
+#else
+import AppKit
+#endif
 
 @Suite("Editable title rules")
 struct EditableTitleTests {
-    private let defaultText = "New routine"
-
-    @Test("The default is the placeholder, so typing replaces it")
-    func draftForDefault() {
-        #expect(EditableTitle.draft(for: defaultText, defaultText: defaultText).isEmpty)
+    @Test("A letter shuffles through the name's other letters, in its case")
+    func standInLetters() throws {
+        let name = "Squat and pull"
+        let others = Set("squtndpl").subtracting(["a"])
+        for swap in 0 ..< 50 {
+            let standIn = try #require(EditableTitle.standIn(for: "a", at: 3, swap: swap, in: name))
+            #expect(others.contains(standIn))
+        }
+        let capital = try #require(EditableTitle.standIn(for: "P", at: 5, swap: 0, in: "Push Pull"))
+        #expect(capital.isUppercase && capital != "P")
     }
 
-    @Test("Editing a chosen name starts from that name")
-    func draftForCustomName() {
-        #expect(EditableTitle.draft(for: "Legs", defaultText: defaultText) == "Legs")
+    @Test("The first character, and anything but a letter, lands at once")
+    func standInNone() {
+        #expect(EditableTitle.standIn(for: "S", at: 0, swap: 0, in: "Squat") == nil)
+        for character: Character in [" ", "-", "1", "\u{2019}"] {
+            #expect(EditableTitle.standIn(for: character, at: 2, swap: 0, in: "Squat") == nil)
+        }
+        #expect(EditableTitle.standIn(for: "a", at: 1, swap: 0, in: "Aa") == nil)
+    }
+
+    @Test("A short trail shuffles behind the lead, and landed letters ease from blue")
+    func typingTrail() {
+        let lead = SuggestionTiming.leadInterval
+        let start = EditableTitle.typingFrame(of: "Squat and pull", at: 0)
+        #expect(start.shown == "S")
+        #expect(start.standIns.isEmpty)
+        #expect(start.tints[0] == 1)
+
+        let trail = EditableTitle.typingFrame(of: "Squat and pull", at: lead * 4 + lead / 2)
+        #expect(trail.shown == "Squat")
+        #expect(Set(trail.standIns.keys) == [3, 4])
+        #expect(trail.tints[3] == 1)
+        let landed = trail.tints[1] ?? 0
+        #expect(landed > 0 && landed < 1)
+        #expect(trail.cursorTint == 1)
+    }
+
+    @Test("Once its time is up, the whole text has landed in gray")
+    func typingEnds() {
+        let text = "Squat and pull"
+        let end = EditableTitle.typingFrame(of: text, at: EditableTitle.typingDuration(of: text))
+        #expect(end.shown == text)
+        #expect(end.standIns.isEmpty)
+        #expect(end.tints.isEmpty)
+        #expect(end.cursorTint == 0)
+        #expect(EditableTitle.typingDuration(of: text) < 0.5)
     }
 
     @Test("With no selection yet, the cursor is at the end")
@@ -37,11 +79,45 @@ struct EditableTitleTests {
         #expect(EditableTitle.insertionPoint(of: selection, in: draft) == nil)
     }
 
-    @Test("A selection left over from a longer draft puts the cursor at the end")
-    func insertionPastEnd() {
-        let longer = "Legs day"
-        let selection = TextSelection(insertionPoint: longer.endIndex)
-        #expect(EditableTitle.insertionPoint(of: selection, in: "Legs") == "Legs".endIndex)
+    /// Text as the field holds it: in a text storage, which Swift reads as UTF-16, unlike the
+    /// UTF-8 of a string built in Swift. An index from it read past the end of a Swift string
+    /// with a character beyond ASCII traps.
+    private func fieldText(_ text: String) -> String {
+        NSTextStorage(string: text).string
+    }
+
+    @Test("Return after an autocorrection puts the cursor at the end of what is left")
+    func returnAfterAutocorrection() {
+        // Autocorrect turned "bodys" into "body’s", then Return added a newline, with the
+        // field's caret after it: one character past the end of the draft without it.
+        var draft = fieldText("Total body\u{2019}s\n")
+        let caret = Caret()
+        caret.selection = TextSelection(insertionPoint: draft.endIndex)
+
+        #expect(EditableTitle.takeNewlines(in: &draft, caret: caret))
+        #expect(draft == "Total body\u{2019}s")
+        #expect(EditableTitle.insertionPoint(of: caret.selection, in: draft) == draft.endIndex)
+    }
+
+    @Test("Pasted lines become spaces, and the cursor goes to the end")
+    func pastedLines() {
+        var draft = fieldText("Legs\nday\u{2019}s\n")
+        let caret = Caret()
+        caret.selection = TextSelection(insertionPoint: draft.endIndex)
+
+        #expect(!EditableTitle.takeNewlines(in: &draft, caret: caret))
+        #expect(draft == "Legs day\u{2019}s ")
+        #expect(EditableTitle.insertionPoint(of: caret.selection, in: draft) == draft.endIndex)
+    }
+
+    @Test("Text set from outside the field takes the caret to its end, past the old one's")
+    func replacedDraft() {
+        var draft = fieldText("Push d\u{00E9}j\u{00E0} vu")
+        let caret = Caret()
+        caret.selection = TextSelection(insertionPoint: draft.endIndex)
+
+        caret.replace(&draft, with: "D\u{00E9}j\u{00E0}")
+        #expect(EditableTitle.insertionPoint(of: caret.selection, in: draft) == draft.endIndex)
     }
 
     @Test("The empty field reserves as many lines as the default text drawn in its place")
@@ -89,6 +165,15 @@ struct EditableTitleTests {
         #expect(EditableTitle.cursorCell(at: 12, in: "Upper body   ", columns: 10) == (0, 10))
     }
 
+    @Test("Lines break where the field breaks them, even leaving one word on the last line")
+    func lineBreaksAsTheField() {
+        // "Legs and " fits in ten columns, its space hanging; "back" goes to the next line.
+        #expect(EditableTitle.lineBreaks(in: "Legs and back", columns: 10) == [9])
+        #expect(EditableTitle.lineBreaks(in: "Legs and back", columns: 13).isEmpty)
+        #expect(EditableTitle.lineBreaks(in: "Shoulderpress", columns: 4) == [4, 8, 12])
+        #expect(EditableTitle.lineBreaks(in: "Push-pull", columns: 6) == [5])
+    }
+
     @Test("A word longer than a line breaks between characters")
     func cellInLongWord() {
         #expect(EditableTitle.cursorCell(at: 5, in: "Shoulderpress", columns: 4) == (1, 1))
@@ -109,16 +194,28 @@ struct EditableTitleTests {
     }
 
     @Test(
-        "An empty or blank edit restores the default",
+        "An empty or blank edit leaves the title unnamed, showing the placeholder",
         arguments: ["", "   ", "\n", " \t\n "],
     )
     func committedBlank(draft: String) {
-        #expect(EditableTitle.committed(draft, defaultText: defaultText) == defaultText)
+        #expect(EditableTitle.committed(draft).isEmpty)
+    }
+
+    @Test("A suggestion committed unchanged stays a suggestion, leaving the title unnamed")
+    func committedSuggestionUnchanged() {
+        #expect(EditableTitle.committed("Leg day", from: "Leg day").isEmpty)
+        #expect(EditableTitle.committed(" Leg day ", from: "Leg day").isEmpty)
+    }
+
+    @Test("A suggestion changed is the title, and cleared leaves it unnamed")
+    func committedSuggestionChanged() {
+        #expect(EditableTitle.committed("Leg day 2", from: "Leg day") == "Leg day 2")
+        #expect(EditableTitle.committed("", from: "Leg day").isEmpty)
     }
 
     @Test("A real name is kept, trimmed")
     func committedName() {
-        #expect(EditableTitle.committed("Legs", defaultText: defaultText) == "Legs")
-        #expect(EditableTitle.committed("  Push day \n", defaultText: defaultText) == "Push day")
+        #expect(EditableTitle.committed("Legs") == "Legs")
+        #expect(EditableTitle.committed("  Push day \n") == "Push day")
     }
 }
