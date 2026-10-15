@@ -84,7 +84,7 @@ public struct PickerRow<Wheel: View>: View {
             // Always laid out and rolled up to nothing while closed, rather than inserted: an
             // outgoing view kept its full size over the rows below until it was gone.
             RevealLayout(fraction: isOpen ? 1 : 0) { wheel }
-                .clipped()
+                .clipShape(TopAndBottom())
                 .allowsHitTesting(isOpen)
                 .accessibilityHidden(!isOpen)
         }
@@ -122,6 +122,14 @@ public struct PickerRow<Wheel: View>: View {
         .padding(.horizontal, Spacing.md)
         .frame(minWidth: capsuleHeight, minHeight: capsuleHeight)
         .background(.pp(isOpen ? .borderStrong : .surface), in: .capsule)
+    }
+}
+
+/// Clips what it shapes above and below its bounds only, so a background running past its sides,
+/// such as an open wheel's edge to edge of the sheet, still reaches them.
+private nonisolated struct TopAndBottom: Shape {
+    func path(in rect: CGRect) -> Path {
+        Path(rect.insetBy(dx: -rect.width, dy: 0))
     }
 }
 

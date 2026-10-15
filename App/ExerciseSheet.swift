@@ -16,6 +16,8 @@ struct ExerciseSheet: View {
 
     /// The part whose wheel is open.
     @State private var open: PlanPart?
+    /// Whether a wheel is rolling up, until it's gone.
+    @State private var isClosing = false
     /// The content's full height with every wheel closed, bars included, which the sheet's
     /// smaller detent fits; the larger fits one wheel more.
     @State private var closedHeight: CGFloat?
@@ -36,8 +38,6 @@ struct ExerciseSheet: View {
                     VStack(alignment: .leading, spacing: Spacing.md) {
                         ForEach(item.exercise.planParts, id: \.self, content: row)
                     }
-                    // With Reduce Motion a wheel appears and goes at once.
-                    .animation(reduceMotion ? nil : .snappy, value: open)
                 }
                 .padding(.horizontal, Spacing.lg)
                 .padding(.top, Spacing.sm)
@@ -45,7 +45,7 @@ struct ExerciseSheet: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 // A tap anywhere but a value or its wheel closes the wheel.
                 .contentShape(.rect)
-                .onTapGesture { open = nil }
+                .onTapGesture { show(nil) }
             }
             .scrollBounceBehavior(.basedOnSize)
             .navigationBarTitleDisplayMode(.inline)
@@ -54,8 +54,10 @@ struct ExerciseSheet: View {
             .onScrollGeometryChange(for: CGFloat.self) { geometry in
                 (geometry.contentSize.height + geometry.contentInsets.top).rounded(.up)
             } action: { _, height in
-                // Measured with no wheel open: the open detent is this and a wheel.
-                guard open == nil else { return }
+                // Measured with no wheel open or closing: the open detent is this and a wheel.
+                // Measured as a wheel rolled up, it took each height on the way, and the sheet
+                // jumped up before it came down.
+                guard open == nil, !isClosing else { return }
                 closedHeight = height
             }
             .toolbar {
@@ -101,6 +103,18 @@ struct ExerciseSheet: View {
         .hotReloadable()
     }
 
+    /// Opens `part`'s wheel, closing any other, or with nil closes the open one. With Reduce
+    /// Motion a wheel appears and goes at once.
+    private func show(_ part: PlanPart?) {
+        guard part != open else { return }
+        isClosing = part == nil
+        withAnimation(reduceMotion ? nil : .snappy) {
+            open = part
+        } completion: {
+            isClosing = false
+        }
+    }
+
     /// Sized to its rows, and to one wheel more while one is open; at the accessibility sizes
     /// the whole screen, and the content scrolls.
     private var detents: Set<PresentationDetent> {
@@ -117,7 +131,7 @@ struct ExerciseSheet: View {
             return .height(open == nil ? closedHeight : closedHeight + PlanWheel.height)
         } set: { detent in
             if let closedHeight, detent == .height(closedHeight) {
-                open = nil
+                show(nil)
             }
         }
     }
@@ -140,7 +154,7 @@ struct ExerciseSheet: View {
             spokenValue: item.spokenValue(of: part, locale: locale),
             isOpen: open == part,
             identifier: "plan.\(part)",
-            onToggle: { open = open == part ? nil : part },
+            onToggle: { show(open == part ? nil : part) },
             wheel: { PlanWheel(item: $item, part: part) },
         )
     }
