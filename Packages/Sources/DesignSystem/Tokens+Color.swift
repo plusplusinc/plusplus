@@ -24,6 +24,8 @@ public enum ColorToken: String, CaseIterable, Sendable {
     case textPrimary = "ppTextPrimary"
     /// Placeholder text: the default title while it is being edited.
     case textSecondary = "ppTextSecondary"
+    /// A region set into a sheet, a step darker than its background: an open wheel's.
+    case well = "ppWell"
 }
 
 extension Color {

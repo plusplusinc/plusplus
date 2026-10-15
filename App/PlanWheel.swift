@@ -2,10 +2,13 @@ import DesignSystem
 import SwiftUI
 import WorkoutStore
 
-/// A part's wheel, open under its row in the exercise sheet, in a rounded well a step off the
-/// sheet: the system's wheel picker over the part's choices, its unit beside the number in the
-/// band, and for a time, minutes and seconds side by side. The wheel takes the well's full width,
-/// so a drag anywhere across it turns the wheel rather than the sheet. Each value it settles on
+/// A part's wheel, open under its row in the exercise sheet, on a region a step darker than
+/// the sheet running edge to edge: the system's wheel picker over the part's choices, its unit
+/// beside the number in the
+/// band, and for a time, minutes and seconds side by side. The wheel takes the content's full
+/// width,
+/// so a drag anywhere across it turns the wheel rather than the sheet. Its numbers, with their
+/// unit, are centered in it. Each value it settles on
 /// is the row's at once. The row's current value is always on the wheel, so opening it changes
 /// nothing.
 struct PlanWheel: View {
@@ -14,13 +17,9 @@ struct PlanWheel: View {
 
     /// The system wheel's own height.
     private static let wheelHeight: CGFloat = 216
-    /// The wheel's well and the gap above it, which the sheet's open detent makes room for.
+    /// The wheel's region and the gap above it, which the sheet's open detent makes room for.
     static let height: CGFloat = wheelHeight + Spacing.sm
 
-    /// Room for a number, "142.5" the widest, its digits right-aligned beside the unit.
-    @ScaledMetric(relativeTo: .body) private var numberWidth: CGFloat = 56
-    /// Room for a unit, "min" the widest.
-    @ScaledMetric(relativeTo: .subheadline) private var unitWidth: CGFloat = 32
     @Environment(\.locale) private var locale
     @ObserveHotReload private var hotReload
 
@@ -57,7 +56,8 @@ struct PlanWheel: View {
         }
         .frame(maxWidth: .infinity)
         .frame(height: Self.wheelHeight)
-        .background(.pp(.surface), in: .rect(cornerRadius: Radius.card))
+        // Edge to edge of the sheet, past the content's insets; the wheel's band stays inset.
+        .background { Color.pp(.well).containerRelativeFrame(.horizontal) }
         .padding(.top, Spacing.sm)
         .hotReloadable()
     }
@@ -69,44 +69,48 @@ struct PlanWheel: View {
         unit: String?,
         text: @escaping (Value) -> String = { "\($0)" },
     ) -> some View {
-        // The unit sits in the wheel's band after the number, as the system's timer shows it: each
-        // row and the band's overlay lay out the same number-and-unit columns, centered.
-        Picker(title, selection: selection) {
+        // The unit sits in the wheel's band after the number, as the system's timer shows it. Each
+        // row and the band's overlay lay out the same group, the number right-aligned in room for
+        // the wheel's widest and the unit after it, centered in the wheel.
+        let widest = choices.map(text).max { $0.count < $1.count } ?? ""
+        return Picker(title, selection: selection) {
             ForEach(choices, id: \.self) { choice in
-                columns(number: Text(verbatim: text(choice)).font(.ppPlanValue), unit: unit) {
-                    Color.clear
-                }
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(unit.map { "\(text(choice)) \($0)" } ?? text(choice))
-                .tag(choice)
+                group(number: text(choice), widest: widest, unit: unit, showsUnit: false)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(unit.map { "\(text(choice)) \($0)" } ?? text(choice))
+                    .tag(choice)
             }
         }
         .pickerStyle(.wheel)
         .labelsHidden()
         .frame(maxWidth: .infinity)
         .overlay {
-            if let unit {
-                columns(number: Color.clear, unit: unit) {
-                    Text(unit)
-                        .font(.ppRowDetail)
-                        .foregroundStyle(.pp(.textSecondary))
-                }
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
+            if unit != nil {
+                group(number: nil, widest: widest, unit: unit, showsUnit: true)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
             }
         }
     }
 
-    /// A number's column, right-aligned, then, with a unit, the unit's.
-    private func columns(
-        number: some View,
-        unit: String?,
-        @ViewBuilder unitColumn: () -> some View,
-    ) -> some View {
-        HStack(spacing: Spacing.xs) {
-            number.frame(width: numberWidth, alignment: .trailing)
-            if unit != nil {
-                unitColumn().frame(width: unitWidth, alignment: .leading)
+    /// A number, right-aligned in room for `widest`, then the unit, if any, shown or holding its
+    /// place: a row draws the number, the band's overlay the unit.
+    private func group(number: String?, widest: String, unit: String?, showsUnit: Bool)
+        -> some View
+    {
+        HStack(alignment: .firstTextBaseline, spacing: Spacing.xs) {
+            ZStack(alignment: .trailing) {
+                Text(verbatim: widest).hidden()
+                if let number {
+                    Text(verbatim: number)
+                }
+            }
+            .font(.ppPlanValue)
+            if let unit {
+                Text(unit)
+                    .font(.ppRowDetail)
+                    .foregroundStyle(.pp(.textSecondary))
+                    .opacity(showsUnit ? 1 : 0)
             }
         }
     }
