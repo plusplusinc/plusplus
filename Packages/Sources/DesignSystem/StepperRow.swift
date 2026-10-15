@@ -133,12 +133,12 @@ public struct StepperRow<Value: View>: View {
         StepperRow(
             title: "Weight",
             note: "Bar, total",
-            spokenValue: "Not set",
+            spokenValue: "45 pounds",
             canDecrease: false,
             canIncrease: true,
             onDecrease: { },
             onIncrease: { },
-            value: { NumberFieldContent(text: nil, unit: nil, isEditing: false, blinks: false) },
+            value: { NumberFieldContent(text: "45", unit: "lb", isEditing: false, blinks: false) },
         )
     }
     .padding()

@@ -10,7 +10,7 @@ import SwiftUI
 /// the drawing takes the taps, focus, and keys, and `NumberFieldContent` draws from plain
 /// values, as `EditableTitleContent` does for the title.
 public struct NumberField<Focus: Hashable>: View {
-    private let value: String?
+    private let value: String
     private let amount: Double?
     private let unit: String?
     private let typingUnit: String?
@@ -29,14 +29,14 @@ public struct NumberField<Focus: Hashable>: View {
     @ObserveHotReload private var hotReload
 
     /// - Parameters:
-    ///   - value: The number at rest, or nil for "Not set".
+    ///   - value: The number at rest.
     ///   - amount: What the number stands for, so a step rolls its digits up or down.
     ///   - unit: Drawn small after the number at rest.
     ///   - typingUnit: Drawn after what is typed.
     ///   - filter: What the field keeps of the typed text.
     ///   - typedText: How the kept text reads while typing.
     public init(
-        value: String?,
+        value: String,
         amount: Double?,
         unit: String?,
         typingUnit: String?,
@@ -71,7 +71,7 @@ public struct NumberField<Focus: Hashable>: View {
             blinks: true,
         )
         .overlay {
-            // No placeholder: the drawing shows "Not set" itself.
+            // No placeholder: the drawing shows the number, or the `_` alone.
             TextField(String(), text: $raw)
                 #if os(iOS)
                 .keyboardType(typesDecimal ? .decimalPad : .numberPad)
@@ -80,7 +80,7 @@ public struct NumberField<Focus: Hashable>: View {
                 .foregroundStyle(.clear)
                 .tint(.clear)
                 .accessibilityLabel(accessibilityLabel)
-                .accessibilityValue(isEditing ? typedText(raw) : (value ?? "Not set"))
+                .accessibilityValue(isEditing ? typedText(raw) : value)
         }
         .onChange(of: raw) { _, typed in
             let kept = filter(typed)
@@ -109,12 +109,12 @@ public struct NumberField<Focus: Hashable>: View {
 }
 
 /// The number drawn from plain values, in a small outlined box as tall as its row's controls: at
-/// rest the value and its unit faint after it, or "Not set"; while typing, the typed text with
-/// the `_` after it, and the box's outline drawn strong. A stepped number rolls its digits, up as
-/// `amount` rises and down as it falls; typing, and Reduce Motion, swap it at once.
+/// rest the value and its unit faint after it; while typing, the typed text with the `_` after
+/// it, and the box's outline drawn strong. A stepped number rolls its digits, up as `amount`
+/// rises and down as it falls; typing, and Reduce Motion, swap it at once.
 struct NumberFieldContent: View {
-    /// Nil or empty at rest reads "Not set"; empty while typing shows the `_` alone.
-    let text: String?
+    /// While typing, empty shows the `_` alone.
+    let text: String
     var amount: Double?
     let unit: String?
     let isEditing: Bool
@@ -126,18 +126,13 @@ struct NumberFieldContent: View {
     @ObserveHotReload private var hotReload
 
     var body: some View {
-        let text = text ?? ""
-        let isPlaceholder = text.isEmpty && !isEditing
         let rolls = !isEditing && !reduceMotion
         let shape = RoundedRectangle(cornerRadius: Radius.sm)
-        // One structure whether it shows a number or "Not set". Switching from one view to
-        // another here, in the same update that focus arrived, sent the field laid over it into
-        // an endless update loop.
         HStack(alignment: .firstTextBaseline, spacing: Spacing.xs) {
             HStack(alignment: .firstTextBaseline, spacing: 0) {
-                Text(verbatim: isPlaceholder ? String(localized: "Not set") : text)
-                    .foregroundStyle(.pp(isPlaceholder ? .textSecondary : .textPrimary))
-                    .font(isPlaceholder ? .ppRowDetail : .ppStepperValue)
+                Text(verbatim: text)
+                    .foregroundStyle(.pp(.textPrimary))
+                    .font(.ppStepperValue)
                     .contentTransition(rolls ? .numericText(value: amount ?? 0) : .identity)
                     .animation(rolls ? .valueChange : nil, value: amount)
                 if isEditing {
@@ -145,7 +140,7 @@ struct NumberFieldContent: View {
                         .font(.ppStepperValue)
                 }
             }
-            if let unit, !isPlaceholder {
+            if let unit {
                 Text(unit)
                     .font(.ppRowDetail)
                     .foregroundStyle(.pp(.textSecondary))
@@ -200,8 +195,6 @@ private struct NumberCursor: View {
 #Preview {
     VStack(spacing: Spacing.lg) {
         NumberFieldContent(text: "135", unit: "lb", isEditing: false, blinks: false)
-            .frame(height: 44)
-        NumberFieldContent(text: nil, unit: nil, isEditing: false, blinks: false)
             .frame(height: 44)
         NumberFieldContent(text: "142.5", unit: "lb", isEditing: true, blinks: true)
             .frame(height: 44)

@@ -25,7 +25,9 @@ replacing them, so a row's identity, and later its sync record, is stable. A row
 so a stored number never changes meaning if an exercise's measure does), and `weight` with
 `weightUnit`, the unit's raw string. Each is optional, and nil means never stored: a row saved
 before plans existed reads as its exercise's default, field by field, as does a value out of
-range or for the other measure, and an unknown unit reads as not set. Every save stores every
+range or for the other measure; a weight never stored, or in an unknown unit, reads as the
+exercise's starting weight in the region's unit, which `launchRoutine(weightUnit:)` is given. A
+saved weight keeps its own unit. Every save stores every
 row's plan, default or not, setting only the fields that changed, so an unchanged row stays
 clean. The store calls `save()` itself, since an
 actor's context does not autosave. An empty routine is deleted rather than stored, and every save

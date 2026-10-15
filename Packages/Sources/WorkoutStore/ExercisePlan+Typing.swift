@@ -38,10 +38,9 @@ extension RoutineExercise {
         return "\(padded.dropLast(2)):\(padded.suffix(2))"
     }
 
-    /// Sets `part` from typed `raw` text. Sets, reps, and time keep their value when nothing or
-    /// zero was typed, and stop at their limits; a weight typed empty or zero is not set, and a
-    /// new one takes `newWeightUnit`.
-    public mutating func commit(typed raw: String, into part: PlanPart, newWeightUnit: WeightUnit) {
+    /// Sets `part` from typed `raw` text. Every part keeps its value when nothing or zero was
+    /// typed, and stops at its limits; a weight keeps its unit.
+    public mutating func commit(typed raw: String, into part: PlanPart) {
         switch part {
         case .sets:
             if let sets = Int(raw), sets > 0 {
@@ -61,16 +60,12 @@ extension RoutineExercise {
                 }
             }
         case .weight:
-            // A lone separator is nothing typed; only an emptied field clears the weight.
-            guard exercise.load != nil, raw.isEmpty || raw.contains(where: \.isNumber)
+            // A lone separator parses as nothing, and so keeps the weight.
+            guard let weight = plan.weight,
+                  let amount = Double(raw.replacingOccurrences(of: ",", with: ".")), amount > 0
             else { return }
-            let amount = Double(raw.replacingOccurrences(of: ",", with: ".")) ?? 0
-            guard amount > 0 else {
-                plan.weight = nil
-                return
-            }
             let rounded = (min(amount, PlanLimits.maxWeight) * 100).rounded() / 100
-            plan.weight = Weight(rounded, plan.weight?.unit ?? newWeightUnit)
+            plan.weight = Weight(rounded, weight.unit)
         }
     }
 

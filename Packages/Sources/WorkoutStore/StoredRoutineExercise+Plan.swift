@@ -27,9 +27,10 @@ extension StoredRoutineExercise {
     }
 
     /// The stored plan, field by field: a field never stored, out of range, or for another
-    /// measure reads as the exercise's default, and a weight only on an exercise that holds one.
-    func plan(for exercise: Exercise) -> ExercisePlan {
-        let fallback = exercise.defaultPlan
+    /// measure reads as the exercise's default, a weight in `weightUnit`, the region's. A weight
+    /// shows only on an exercise that holds one, and in the unit it was saved in.
+    func plan(for exercise: Exercise, weightUnit: WeightUnit) -> ExercisePlan {
+        let fallback = exercise.defaultPlan(in: weightUnit)
         let target: SetTarget =
             switch fallback.target {
             case .reps:
@@ -41,7 +42,7 @@ extension StoredRoutineExercise {
         return ExercisePlan(
             sets: sets.flatMap { PlanLimits.sets.contains($0) ? $0 : nil } ?? fallback.sets,
             target: target,
-            weight: exercise.load == nil ? nil : storedWeight,
+            weight: exercise.load == nil ? nil : storedWeight ?? fallback.weight,
         )
     }
 
@@ -49,7 +50,7 @@ extension StoredRoutineExercise {
         guard let weight, weight > 0, let weightUnit else { return nil }
         guard let unit = WeightUnit(rawValue: weightUnit) else {
             Logger.storage
-                .error("Read an unknown weight unit \(weightUnit, privacy: .public) as not set")
+                .error("Read an unknown weight unit \(weightUnit, privacy: .public) as the default")
             return nil
         }
         return Weight(weight, unit)

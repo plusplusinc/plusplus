@@ -15,10 +15,10 @@ struct PlanTextTests {
         weight: Weight? = nil,
     ) throws -> RoutineExercise {
         let exercise = try Exercise.builtIn(named: name)
-        var plan = exercise.defaultPlan
+        var plan = exercise.defaultPlan(in: .pounds)
         plan.sets = sets ?? plan.sets
         plan.target = target ?? plan.target
-        plan.weight = weight
+        plan.weight = weight ?? plan.weight
         return RoutineExercise(exercise: exercise, plan: plan)
     }
 
@@ -49,14 +49,15 @@ struct PlanTextTests {
             == ["Dumbbells", "3\u{00A0}×\u{00A0}12\u{00A0}reps", "25\u{00A0}lb each"])
     }
 
-    @Test("Kinds: one set, one rep, one weight, bodyweight, unset, timed with a weight")
+    @Test("Kinds: one set, one rep, one weight, bodyweight, a default weight, timed with a weight")
     func kinds() throws {
         #expect(try Self.detail(Self.row("Pigeon stretch")) == "60 s per side")
-        #expect(try Self.detail(Self.row("Turkish get-up")) == "Kettlebell · 3 × 1 rep per side")
+        #expect(try Self.detail(Self.row("Turkish get-up"))
+            == "Kettlebell · 3 × 1 rep per side · 20 lb")
         #expect(try Self.detail(Self.row("Goblet squat", weight: Weight(35, .pounds)))
             == "Kettlebell · 3 × 10 reps · 35 lb")
         #expect(try Self.detail(Self.row("Pull-up")) == "Pull-up bar · 3 × 6 reps")
-        #expect(try Self.detail(Self.row("Goblet squat")) == "Kettlebell · 3 × 10 reps")
+        #expect(try Self.detail(Self.row("Goblet squat")) == "Kettlebell · 3 × 10 reps · 35 lb")
         #expect(try Self.detail(Self.row("Farmer\u{2019}s carry", weight: Weight(50, .pounds)))
             == "Dumbbells · 3 × 30 s · 50 lb each")
         #expect(try Self.detail(Self.row("Push-up", weight: Weight(10, .pounds))) == "3 × 10 reps")
@@ -98,7 +99,7 @@ struct PlanTextTests {
         #expect(try Self.row("Plank", sets: 1, target: .time(seconds: 150))
             .spokenDetail(locale: Self.locale) == "2 minutes 30 seconds")
         #expect(try Self.row("Goblet squat").spokenDetail(locale: Self.locale)
-            == "Kettlebell, 3 sets of 10 reps")
+            == "Kettlebell, 3 sets of 10 reps, 35 pounds")
         #expect(try Self.row("Barbell bench press", weight: Weight(20, .kilograms))
             .spokenDetail(locale: Self.locale) == "Barbell, bench, 3 sets of 5 reps, 20 kilograms")
     }
@@ -116,8 +117,8 @@ struct PlanTextTests {
         let pigeon = try Self.row("Pigeon stretch")
         #expect(pigeon.label(of: .target) == "Time")
         #expect(pigeon.value(of: .target, locale: Self.locale) == PlanValue("60", unit: "s"))
-        #expect(row.value(of: .weight, locale: Self.locale) == nil)
-        #expect(row.spokenValue(of: .weight, locale: Self.locale) == "Not set")
+        #expect(row.value(of: .weight, locale: Self.locale) == PlanValue("25", unit: "lb"))
+        #expect(row.spokenValue(of: .weight, locale: Self.locale) == "25 pounds")
         let bench = try Self.row("Barbell bench press", weight: Weight(135, .pounds))
         #expect(bench.value(of: .weight, locale: Self.locale) == PlanValue("135", unit: "lb"))
         let long = try Self.row("Plank", target: .time(seconds: 150))

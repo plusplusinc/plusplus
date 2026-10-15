@@ -107,7 +107,7 @@ struct ExerciseSheet: View {
             typing = nil
             return
         }
-        item.step(part, up: up, newWeightUnit: WeightUnit(region: locale))
+        item.step(part, up: up)
     }
 
     /// Sized to its rows; at the accessibility sizes the whole screen, and the content scrolls.
@@ -138,7 +138,6 @@ struct ExerciseSheet: View {
 
     private func row(_ part: PlanPart) -> some View {
         let value = item.value(of: part, locale: locale)
-        let unit = WeightUnit(region: locale)
         return StepperRow(
             title: item.label(of: part),
             note: item.note(of: part),
@@ -151,17 +150,17 @@ struct ExerciseSheet: View {
             onType: { typing = part },
             value: {
                 NumberField(
-                    value: value?.number,
+                    value: value?.number ?? "",
                     amount: item.amount(of: part),
                     unit: value?.unit,
-                    typingUnit: part == .weight ? (item.plan.weight?.unit ?? unit).rawValue : nil,
+                    typingUnit: part == .weight ? item.plan.weight?.unit.rawValue : nil,
                     typesDecimal: part == .weight,
                     accessibilityLabel: item.label(of: part),
                     focus: $typing,
                     id: part,
                     filter: { item.filtered($0, for: part) },
                     typedText: { item.typedText($0, for: part) },
-                    onCommit: { item.commit(typed: $0, into: part, newWeightUnit: unit) },
+                    onCommit: { item.commit(typed: $0, into: part) },
                 )
             },
         )
@@ -170,7 +169,10 @@ struct ExerciseSheet: View {
 }
 
 #Preview {
-    @Previewable @State var item = RoutineExercise(exercise: Exercise.builtIn[0])
+    @Previewable @State var item = RoutineExercise(
+        exercise: Exercise.builtIn[0],
+        weightUnit: .pounds,
+    )
     Color.pp(.background)
         .sheet(isPresented: .constant(true)) {
             ExerciseSheet(item: $item) { }

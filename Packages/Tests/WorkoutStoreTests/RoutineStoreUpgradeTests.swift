@@ -78,11 +78,12 @@ struct RoutineStoreUpgradeTests {
             for: RoutineStore.schema,
             configurations: ModelConfiguration(schema: RoutineStore.schema, url: url),
         )
-        let routine = try #require(try await RoutineStore(modelContainer: current).launchRoutine())
+        let routine = try #require(try await RoutineStore(modelContainer: current)
+            .launchRoutine(weightUnit: .pounds))
         let expected = try Exercise.builtIn(named: ["Dumbbell row", "Pigeon stretch"])
         #expect(routine.id == routineID)
         #expect(routine.name == "Upper")
         #expect(routine.exercises.map(\.id) == rowIDs)
-        #expect(routine.exercises.map(\.plan) == expected.map(\.defaultPlan))
+        #expect(routine.exercises.map(\.plan) == expected.map { $0.defaultPlan(in: .pounds) })
     }
 }

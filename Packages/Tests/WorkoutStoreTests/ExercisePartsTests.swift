@@ -80,7 +80,13 @@ struct ExercisePartsTests {
     @Test("Every built-in has the defaults table's parts")
     func table() {
         let actual = Exercise.builtIn.map {
-            Parts($0.name, $0.defaultPlan.sets, $0.defaultPlan.target, $0.load, $0.isPerSide)
+            Parts(
+                $0.name,
+                $0.defaultPlan(in: .pounds).sets,
+                $0.defaultPlan(in: .pounds).target,
+                $0.load,
+                $0.isPerSide,
+            )
         }
         #expect(actual.count == Self.table.count)
         for (actual, expected) in zip(actual, Self.table) {
@@ -92,14 +98,14 @@ struct ExercisePartsTests {
     func totals() {
         let all = Exercise.builtIn
         #expect(all.count {
-            if case .reps = $0.defaultPlan.target {
+            if case .reps = $0.defaultPlan(in: .pounds).target {
                 true
             } else {
                 false
             }
         } == 37)
         #expect(all.count {
-            if case .time = $0.defaultPlan.target {
+            if case .time = $0.defaultPlan(in: .pounds).target {
                 true
             } else {
                 false
@@ -112,10 +118,31 @@ struct ExercisePartsTests {
         #expect(all.count(where: \.isPerSide) == 14)
     }
 
-    @Test("Weight starts unset, and a load goes with the kit that holds it")
+    @Test("A load goes with the kit that holds it, and starts at a weight that kit comes in")
     func loadsMatchEquipment() {
         for exercise in Exercise.builtIn {
-            #expect(exercise.defaultPlan.weight == nil, "\(exercise.name)")
+            let (pounds, kilograms) = (
+                exercise.defaultPlan(in: .pounds).weight,
+                exercise.defaultPlan(in: .kilograms).weight,
+            )
+            #expect((pounds == nil) == (exercise.load == nil), "\(exercise.name)")
+            #expect(
+                (exercise.startsAt == nil) == (exercise.load != .single && exercise.load != .pair),
+                "\(exercise.name)",
+            )
+            if exercise.load == .bar {
+                #expect(pounds == Weight(45, .pounds), "\(exercise.name)")
+                #expect(kilograms == Weight(20, .kilograms), "\(exercise.name)")
+            }
+            if let pounds, let kilograms, exercise.load != .bar {
+                #expect(pounds.amount.truncatingRemainder(dividingBy: 5) == 0, "\(exercise.name)")
+                // Dumbbells come in 2 kg steps, kettlebells in 4.
+                let kilogramStep: Double = exercise.equipment.contains(.kettlebell) ? 4 : 2
+                #expect(
+                    kilograms.amount.truncatingRemainder(dividingBy: kilogramStep) == 0,
+                    "\(exercise.name)",
+                )
+            }
             let hasBarbell = exercise.equipment.contains(.barbell)
             #expect((exercise.load == .bar) == hasBarbell, "\(exercise.name)")
             if exercise.load == .single || exercise.load == .pair {
@@ -133,7 +160,8 @@ struct ExercisePartsTests {
     @Test("A new row starts with its exercise's default plan, and a sheet shows only its parts")
     func newRowAndParts() throws {
         let bench = try Exercise.builtIn(named: "Barbell bench press")
-        #expect(RoutineExercise(exercise: bench).plan == bench.defaultPlan)
+        #expect(RoutineExercise(exercise: bench, weightUnit: .pounds).plan == bench
+            .defaultPlan(in: .pounds))
         #expect(bench.planParts == [.sets, .target, .weight])
         #expect(try Exercise.builtIn(named: "Pigeon stretch").planParts == [.sets, .target])
     }

@@ -10,11 +10,14 @@ public struct Exercise: Identifiable, Equatable, Sendable {
     public let muscleGroup: MuscleGroup
     /// Empty for bodyweight.
     public let equipment: Set<Equipment>
-    /// The values a new row starts with. Its target's case is how a set is measured, reps or
-    /// time, so the measure and its default can't disagree. Its weight is never set.
-    public let defaultPlan: ExercisePlan
+    /// The sets and target a new row starts with. Its target's case is how a set is measured,
+    /// reps or time, so the measure and its default can't disagree. Its weight is `startsAt`'s.
+    private let plan: ExercisePlan
     /// What a set holds, or nil for no weight at all.
     public let load: Load?
+    /// The weight a new row starts at, for a load other than a bar, which starts at the empty
+    /// bar.
+    let startsAt: StartingWeight?
     /// Whether each side is its own set. A move that alternates within a set is not per side.
     public let isPerSide: Bool
     /// What it does, finer than its group, for naming a routine.
@@ -27,6 +30,7 @@ public struct Exercise: Identifiable, Equatable, Sendable {
         equipment: Set<Equipment> = [],
         plan defaultPlan: ExercisePlan,
         load: Load? = nil,
+        startsAt: StartingWeight? = nil,
         perSide isPerSide: Bool = false,
         tags: ExerciseTags,
     ) {
@@ -34,10 +38,29 @@ public struct Exercise: Identifiable, Equatable, Sendable {
         self.name = name
         self.muscleGroup = muscleGroup
         self.equipment = equipment
-        self.defaultPlan = defaultPlan
+        plan = defaultPlan
         self.load = load
+        self.startsAt = startsAt
         self.isPerSide = isPerSide
         self.tags = tags
+    }
+
+    /// The values a new row starts with, a weight in `unit` included for an exercise that holds
+    /// one: the empty bar for a bar, else a light, safe start in the steps real kit comes in.
+    public func defaultPlan(in unit: WeightUnit) -> ExercisePlan {
+        var plan = plan
+        plan.weight = startingWeight(in: unit)
+        return plan
+    }
+
+    /// Nil only for an exercise with no load. A loaded one missing its start, which a test rules
+    /// out for the built-ins, starts at one step.
+    func startingWeight(in unit: WeightUnit) -> Weight? {
+        switch load {
+        case nil: nil
+        case .bar: .emptyBar(unit)
+        case .single, .pair: startsAt?.weight(in: unit) ?? Weight(unit.step, unit)
+        }
     }
 
     /// The equipment as a line of text in display order, "Dumbbells, bench", or nil for

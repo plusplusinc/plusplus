@@ -37,12 +37,26 @@ public struct Weight: Equatable, Sendable {
     }
 }
 
+/// Where a loaded exercise's weight starts, in each unit: its own value from the kit that unit
+/// comes in (dumbbells in 2 kg steps, kettlebells at 8, 12, 16 kg), not a conversion.
+struct StartingWeight: Equatable, Sendable {
+    let pounds: Double
+    let kilograms: Double
+
+    func weight(in unit: WeightUnit) -> Weight {
+        switch unit {
+        case .pounds: Weight(pounds, .pounds)
+        case .kilograms: Weight(kilograms, .kilograms)
+        }
+    }
+}
+
 /// An exercise's values in a routine: every set the same, so one sets count, one target, and one
 /// weight.
 public struct ExercisePlan: Equatable, Sendable {
     public var sets: Int
     public var target: SetTarget
-    /// Nil when not set, and always for an exercise with no load.
+    /// Nil only for an exercise with no load; one that holds a weight always has one.
     public var weight: Weight?
 
     public init(sets: Int, target: SetTarget, weight: Weight? = nil) {

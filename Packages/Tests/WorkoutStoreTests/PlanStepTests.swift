@@ -9,10 +9,9 @@ struct PlanStepTests {
         _ row: RoutineExercise,
         _ part: PlanPart,
         up: Bool,
-        unit: WeightUnit = .pounds,
     ) -> ExercisePlan {
         var row = row
-        row.step(part, up: up, newWeightUnit: unit)
+        row.step(part, up: up)
         return row.plan
     }
 
@@ -65,26 +64,31 @@ struct PlanStepTests {
             == Weight(145, .pounds))
         #expect(try Self.stepped(at(Weight(142.5, .pounds)), .weight, up: false).weight
             == Weight(140, .pounds))
-        #expect(try Self.stepped(at(Weight(20, .kilograms)), .weight, up: true, unit: .pounds)
-            .weight == Weight(22.5, .kilograms))
-        #expect(try Self.stepped(at(Weight(5, .pounds)), .weight, up: false).weight == nil)
-        #expect(try Self.stepped(at(Weight(3, .pounds)), .weight, up: false).weight == nil)
+        #expect(try Self.stepped(at(Weight(20, .kilograms)), .weight, up: true).weight
+            == Weight(22.5, .kilograms))
         #expect(try Self.stepped(at(Weight(9998, .pounds)), .weight, up: true).weight
             == Weight(9999, .pounds))
     }
 
-    @Test("From not set, + gives the empty bar for a bar and one step for anything else")
-    func fromNotSet() throws {
-        let row = try RoutineExercise.builtIn("Dumbbell row")
-        #expect(!row.canStep(.weight, up: false))
-        #expect(row.canStep(.weight, up: true))
-        #expect(Self.stepped(row, .weight, up: true).weight == Weight(5, .pounds))
-        #expect(Self.stepped(row, .weight, up: true, unit: .kilograms).weight
-            == Weight(2.5, .kilograms))
-        let bench = try RoutineExercise.builtIn("Barbell bench press")
-        #expect(Self.stepped(bench, .weight, up: true).weight == Weight(45, .pounds))
-        #expect(Self.stepped(bench, .weight, up: true, unit: .kilograms).weight
-            == Weight(20, .kilograms))
+    @Test("− stops at the lightest weight: the empty bar for a bar, one step for anything else")
+    func lightest() throws {
+        let row = { (weight: Weight) in
+            try RoutineExercise.builtIn("Dumbbell row") { $0.weight = weight }
+        }
+        #expect(try !row(Weight(5, .pounds)).canStep(.weight, up: false))
+        #expect(try Self.stepped(row(Weight(5, .pounds)), .weight, up: false).weight
+            == Weight(5, .pounds))
+        #expect(try Self.stepped(row(Weight(7, .pounds)), .weight, up: false).weight
+            == Weight(5, .pounds))
+        #expect(try !row(Weight(3, .pounds)).canStep(.weight, up: false))
+        #expect(try !row(Weight(2.5, .kilograms)).canStep(.weight, up: false))
+        let bench = { (weight: Weight) in
+            try RoutineExercise.builtIn("Barbell bench press") { $0.weight = weight }
+        }
+        #expect(try !bench(Weight(45, .pounds)).canStep(.weight, up: false))
+        #expect(try Self.stepped(bench(Weight(50, .pounds)), .weight, up: false).weight
+            == Weight(45, .pounds))
+        #expect(try !bench(Weight(20, .kilograms)).canStep(.weight, up: false))
         #expect(try !RoutineExercise.builtIn("Push-up").canStep(.weight, up: true))
     }
 

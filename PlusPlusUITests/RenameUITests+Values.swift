@@ -19,18 +19,20 @@ extension RenameUITests {
             dumbbellRow.tap()
             XCTAssertEqual(app.planRow(.target).label, "Reps, Per side")
             XCTAssertEqual(app.planRow(.weight).label, "Weight, One dumbbell")
-            XCTAssertEqual(app.planRow(.weight).value as? String, "Not set")
+            XCTAssertEqual(app.planRow(.weight).value as? String, "25 pounds")
             attach(named: "sheet-row")
         }
         XCTContext.runActivity(named: "+ and − change the row's line") { _ in
             app.planRow(.target).tapKey(.increase)
             XCTAssertEqual(app.planRow(.target).value(becoming: "11 reps"), "11 reps")
             app.planRow(.weight).tapKey(.increase)
-            XCTAssertEqual(app.planRow(.weight).value(becoming: "5 pounds"), "5 pounds")
+            XCTAssertEqual(app.planRow(.weight).value(becoming: "30 pounds"), "30 pounds")
             app.planRow(.sets).tapKey(.decrease)
             app.closeSheet()
             dumbbellRow
-                .assertReads("Dumbbell row, Dumbbells, bench, 2 sets of 11 reps per side, 5 pounds")
+                .assertReads(
+                    "Dumbbell row, Dumbbells, bench, 2 sets of 11 reps per side, 30 pounds",
+                )
         }
         typeValues(in: app, keyboard: keyboard, pigeon: pigeon, dumbbellRow: dumbbellRow)
         XCTContext
@@ -74,16 +76,19 @@ extension RenameUITests {
             bench.tap()
             XCTAssertEqual(app.planRow(.target).label, "Reps", "A bench press is per side")
             XCTAssertEqual(app.planRow(.weight).label, "Weight, Bar, total")
+            XCTAssertEqual(app.planRow(.weight).value as? String, "45 pounds", "No empty bar")
+            // − stops at the empty bar.
+            app.planRow(.weight).tapKey(.decrease)
             app.planRow(.weight).tapKey(.increase)
-            XCTAssertEqual(app.planRow(.weight).value(becoming: "45 pounds"), "45 pounds")
+            XCTAssertEqual(app.planRow(.weight).value(becoming: "50 pounds"), "50 pounds")
             attach(named: "sheet-bench")
             app.closeSheet()
-            bench.assertReads("Barbell bench press, Barbell, bench, 3 sets of 5 reps, 45 pounds")
+            bench.assertReads("Barbell bench press, Barbell, bench, 3 sets of 5 reps, 50 pounds")
         }
     }
 
     /// Typing a number: a time fills from the right and a tap on the sheet ends it; a weight
-    /// typed from Not set takes a decimal, a tap on another number moves typing there, and the
+    /// typed takes a decimal, a tap on another number moves typing there, and the
     /// sheet's Close keeps what is being typed.
     @MainActor
     private func typeValues(
@@ -105,13 +110,10 @@ extension RenameUITests {
             app.closeSheet()
             pigeon.assertReads("Pigeon stretch, 90 seconds per side")
         }
-        XCTContext.runActivity(named: "A weight typed from Not set lands on the row") { _ in
+        XCTContext.runActivity(named: "A typed weight lands on the row") { _ in
             dumbbellRow.tap()
-            // − from the smallest step clears the weight.
-            app.planRow(.weight).tapKey(.decrease)
-            XCTAssertEqual(app.planRow(.weight).value(becoming: "Not set"), "Not set")
             app.planRow(.weight).tapKey(.value)
-            XCTAssertTrue(keyboard.appears(), "A tap on Not set raised no keyboard")
+            XCTAssertTrue(keyboard.appears(), "A tap on the weight raised no keyboard")
             app.typeText("42.5")
             XCTAssertEqual(app.textFields["Weight"].value(becoming: "42.5"), "42.5")
             attach(named: "sheet-typing-weight")

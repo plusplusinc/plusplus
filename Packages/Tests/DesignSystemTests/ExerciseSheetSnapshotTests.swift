@@ -14,7 +14,7 @@ struct ExerciseSheetSnapshotTests {
     private struct Part {
         let title: String
         var note: String?
-        let value: String?
+        let value: String
         var unit: String?
         var canDecrease = true
         var isEditing = false
@@ -66,7 +66,7 @@ struct ExerciseSheetSnapshotTests {
         )
     }
 
-    @Test("A dumbbell row: reps per side, one dumbbell not set, − dimmed")
+    @Test("A dumbbell row: reps per side, one dumbbell at its lightest, − dimmed")
     func row() {
         assertThemedSnapshots(
             of: content(equipment: "Dumbbells, bench", parts: [
@@ -75,7 +75,8 @@ struct ExerciseSheetSnapshotTests {
                 Part(
                     title: "Weight",
                     note: "One dumbbell",
-                    value: nil,
+                    value: "5",
+                    unit: "lb",
                     canDecrease: false,
                 ),
             ]),

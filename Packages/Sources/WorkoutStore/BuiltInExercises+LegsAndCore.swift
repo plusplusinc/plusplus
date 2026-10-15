@@ -10,6 +10,7 @@ extension Exercise {
             equipment: [.kettlebell],
             plan: .init(sets: 3, target: .reps(10)),
             load: .single,
+            startsAt: StartingWeight(pounds: 35, kilograms: 16),
             tags: .init(.squat, [.quads, .glutes], [.abs]),
         ),
         Self(
@@ -28,6 +29,7 @@ extension Exercise {
             equipment: [.dumbbells, .bench],
             plan: .init(sets: 3, target: .reps(10)),
             load: .pair,
+            startsAt: StartingWeight(pounds: 20, kilograms: 8),
             perSide: true,
             tags: .init(.lunge, [.quads, .glutes], [.hamstrings]),
         ),
@@ -38,6 +40,7 @@ extension Exercise {
             equipment: [.dumbbells],
             plan: .init(sets: 3, target: .reps(10)),
             load: .pair,
+            startsAt: StartingWeight(pounds: 20, kilograms: 8),
             perSide: true,
             tags: .init(.lunge, [.quads, .glutes], [.hamstrings]),
         ),
@@ -48,6 +51,7 @@ extension Exercise {
             equipment: [.dumbbells, .bench],
             plan: .init(sets: 3, target: .reps(10)),
             load: .pair,
+            startsAt: StartingWeight(pounds: 15, kilograms: 6),
             perSide: true,
             tags: .init(.lunge, [.quads, .glutes], [.calves]),
         ),
@@ -58,6 +62,7 @@ extension Exercise {
             equipment: [.dumbbells],
             plan: .init(sets: 3, target: .reps(15)),
             load: .pair,
+            startsAt: StartingWeight(pounds: 25, kilograms: 10),
             tags: .init(nil, [.calves]),
         ),
         Self(
@@ -67,6 +72,7 @@ extension Exercise {
             equipment: [.dumbbells],
             plan: .init(sets: 3, target: .reps(10)),
             load: .pair,
+            startsAt: StartingWeight(pounds: 25, kilograms: 10),
             tags: .init(.hinge, [.hamstrings, .glutes], [.lowerBack]),
         ),
         Self(
@@ -89,6 +95,7 @@ extension Exercise {
             equipment: [.kettlebell],
             plan: .init(sets: 3, target: .reps(15)),
             load: .single,
+            startsAt: StartingWeight(pounds: 35, kilograms: 16),
             tags: .init(.hinge, [.glutes, .hamstrings], [.lowerBack, .abs], .conditioning),
         ),
         Self(
@@ -193,6 +200,7 @@ extension Exercise {
             equipment: [.kettlebell],
             plan: .init(sets: 3, target: .reps(1)),
             load: .single,
+            startsAt: StartingWeight(pounds: 20, kilograms: 8),
             perSide: true,
             tags: .init(nil, [.abs, .obliques, .frontDelts], [.glutes, .quads]),
         ),
@@ -203,6 +211,7 @@ extension Exercise {
             equipment: [.dumbbells],
             plan: .init(sets: 3, target: .time(seconds: 30)),
             load: .pair,
+            startsAt: StartingWeight(pounds: 25, kilograms: 12),
             tags: .init(.carry, [.forearms, .upperBack], [.abs, .obliques]),
         ),
     ]

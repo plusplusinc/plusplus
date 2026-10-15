@@ -34,6 +34,7 @@ extension Exercise {
             equipment: [.dumbbells, .bench],
             plan: .init(sets: 3, target: .reps(10)),
             load: .pair,
+            startsAt: StartingWeight(pounds: 25, kilograms: 10),
             tags: .init(.push, [.chest], [.triceps, .frontDelts]),
         ),
         Self(
@@ -43,6 +44,7 @@ extension Exercise {
             equipment: [.dumbbells, .bench],
             plan: .init(sets: 3, target: .reps(10)),
             load: .pair,
+            startsAt: StartingWeight(pounds: 20, kilograms: 8),
             tags: .init(.push, [.chest, .frontDelts], [.triceps]),
         ),
         Self(
@@ -101,6 +103,7 @@ extension Exercise {
             equipment: [.dumbbells, .bench],
             plan: .init(sets: 3, target: .reps(10)),
             load: .single,
+            startsAt: StartingWeight(pounds: 25, kilograms: 12),
             perSide: true,
             tags: .init(.pull, [.lats, .upperBack], [.biceps, .rearDelts]),
         ),
@@ -151,6 +154,7 @@ extension Exercise {
             equipment: [.dumbbells],
             plan: .init(sets: 3, target: .reps(10)),
             load: .pair,
+            startsAt: StartingWeight(pounds: 15, kilograms: 6),
             tags: .init(.push, [.frontDelts, .sideDelts], [.triceps]),
         ),
         Self(
@@ -169,6 +173,7 @@ extension Exercise {
             equipment: [.dumbbells],
             plan: .init(sets: 3, target: .reps(12)),
             load: .pair,
+            startsAt: StartingWeight(pounds: 10, kilograms: 4),
             tags: .init(nil, [.sideDelts]),
         ),
         Self(
@@ -211,6 +216,7 @@ extension Exercise {
             equipment: [.dumbbells],
             plan: .init(sets: 3, target: .reps(12)),
             load: .pair,
+            startsAt: StartingWeight(pounds: 15, kilograms: 6),
             tags: .init(.pull, [.biceps], [.forearms]),
         ),
         Self(
@@ -220,6 +226,7 @@ extension Exercise {
             equipment: [.dumbbells],
             plan: .init(sets: 3, target: .reps(12)),
             load: .pair,
+            startsAt: StartingWeight(pounds: 15, kilograms: 6),
             tags: .init(.pull, [.biceps, .forearms]),
         ),
         Self(
@@ -229,6 +236,7 @@ extension Exercise {
             equipment: [.dumbbells],
             plan: .init(sets: 3, target: .reps(12)),
             load: .single,
+            startsAt: StartingWeight(pounds: 20, kilograms: 8),
             tags: .init(.push, [.triceps]),
         ),
     ]

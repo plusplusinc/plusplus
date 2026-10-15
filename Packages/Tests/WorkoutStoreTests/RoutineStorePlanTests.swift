@@ -39,7 +39,7 @@ struct RoutineStorePlanTests {
             RoutineExercise.builtIn("Farmer\u{2019}s carry") { $0.weight = Weight(50, .pounds) },
         ])
         try await relaunch().save(routine)
-        #expect(try await relaunch().launchRoutine() == routine)
+        #expect(try await relaunch().launchRoutine(weightUnit: .pounds) == routine)
     }
 
     @Test("Two rows of one exercise keep their own values, and a kept row's change is saved")
@@ -53,7 +53,7 @@ struct RoutineStorePlanTests {
         routine.exercises[1].plan.target = .reps(8)
         try await store.save(routine)
 
-        let reopened = try #require(try await relaunch().launchRoutine())
+        let reopened = try #require(try await relaunch().launchRoutine(weightUnit: .pounds))
         #expect(reopened.exercises.map(\.plan.target) == [.reps(6), .reps(8)])
     }
 
@@ -68,7 +68,7 @@ struct RoutineStorePlanTests {
         #expect(row.seconds == nil)
     }
 
-    @Test("A row stored before plans existed reads as its exercise's defaults")
+    @Test("A row stored before plans reads as its defaults, its weight in the region's unit")
     func neverStored() async throws {
         try await storedRow("Dumbbell row") { row in
             row.sets = nil
@@ -76,20 +76,24 @@ struct RoutineStorePlanTests {
             row.weight = nil
             row.weightUnit = nil
         }
-        let reopened = try #require(try await relaunch().launchRoutine())
-        #expect(try reopened.exercises.map(\.plan) == [Exercise.builtIn(named: "Dumbbell row")
-                .defaultPlan])
+        let row = try Exercise.builtIn(named: "Dumbbell row")
+        let inPounds = try #require(try await relaunch().launchRoutine(weightUnit: .pounds))
+        #expect(inPounds.exercises.map(\.plan) == [row.defaultPlan(in: .pounds)])
+        let inKilograms = try #require(try await relaunch().launchRoutine(weightUnit: .kilograms))
+        #expect(inKilograms.exercises.map(\.plan) == [row.defaultPlan(in: .kilograms)])
+        #expect(inKilograms.exercises.first?.plan.weight == Weight(12, .kilograms))
     }
 
-    @Test("An unknown unit reads as not set, and the rest of the row loads")
+    @Test("An unknown unit reads as the default weight, and the rest of the row loads")
     func unknownUnit() async throws {
         try await storedRow("Biceps curl") { row in
             row.reps = 8
             row.weight = 20
             row.weightUnit = "stone"
         }
-        let plan = try #require(try await relaunch().launchRoutine()?.exercises.first?.plan)
-        #expect(plan == ExercisePlan(sets: 3, target: .reps(8)))
+        let plan = try #require(try await relaunch().launchRoutine(weightUnit: .pounds)?.exercises
+            .first?.plan)
+        #expect(plan == ExercisePlan(sets: 3, target: .reps(8), weight: Weight(15, .pounds)))
     }
 
     @Test("Stored seconds on a reps exercise, and zero or negative values, read as defaults")
@@ -101,8 +105,9 @@ struct RoutineStorePlanTests {
             row.weight = -5
             row.weightUnit = "lb"
         }
-        let plan = try #require(try await relaunch().launchRoutine()?.exercises.first?.plan)
-        #expect(try plan == Exercise.builtIn(named: "Goblet squat").defaultPlan)
+        let plan = try #require(try await relaunch().launchRoutine(weightUnit: .pounds)?.exercises
+            .first?.plan)
+        #expect(try plan == Exercise.builtIn(named: "Goblet squat").defaultPlan(in: .pounds))
     }
 
     @Test("A weight stored on an exercise with no load is not shown")
@@ -111,7 +116,8 @@ struct RoutineStorePlanTests {
             row.weight = 10
             row.weightUnit = "lb"
         }
-        let plan = try #require(try await relaunch().launchRoutine()?.exercises.first?.plan)
+        let plan = try #require(try await relaunch().launchRoutine(weightUnit: .pounds)?.exercises
+            .first?.plan)
         #expect(plan.weight == nil)
     }
 }

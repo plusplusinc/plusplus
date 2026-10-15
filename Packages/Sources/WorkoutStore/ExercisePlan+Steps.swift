@@ -4,8 +4,9 @@ import Foundation
 // 145 or 140, and stops at the plan's limits.
 
 extension RoutineExercise {
-    /// What `part` holds as a number, nil for a weight not set: sets, reps, seconds, or a weight's
-    /// amount. Its number in the sheet rolls up or down as this rises or falls.
+    /// What `part` holds as a number, nil for a weight on an exercise with none: sets, reps,
+    /// seconds, or a weight's amount. Its number in the sheet rolls up or down as this rises or
+    /// falls.
     public func amount(of part: PlanPart) -> Double? {
         switch part {
         case .sets: Double(plan.sets)
@@ -32,15 +33,13 @@ extension RoutineExercise {
                 return up ? seconds < PlanLimits.seconds.upperBound : seconds > TimeSteps.minimum
             }
         case .weight:
-            guard exercise.load != nil else { return false }
-            guard let weight = plan.weight else { return up }
-            return up ? weight.amount < PlanLimits.maxWeight : true
+            guard let weight = plan.weight else { return false }
+            return up ? weight.amount < PlanLimits.maxWeight : weight.amount > lightest(weight.unit)
         }
     }
 
-    /// Steps `part` up or down. A weight stepped up from not set starts in `newWeightUnit`: at the
-    /// empty bar for a bar, else at one step; stepped down from its smallest step it is not set.
-    public mutating func step(_ part: PlanPart, up: Bool, newWeightUnit: WeightUnit) {
+    /// Steps `part` up or down, no lower than the lightest weight it can hold.
+    public mutating func step(_ part: PlanPart, up: Bool) {
         guard canStep(part, up: up) else { return }
         switch part {
         case .sets:
@@ -51,14 +50,18 @@ extension RoutineExercise {
             case let .time(seconds): plan.target = .time(seconds: TimeSteps.step(seconds, up: up))
             }
         case .weight:
-            guard let weight = plan.weight else {
-                plan.weight = exercise.load == .bar ? .emptyBar(newWeightUnit) :
-                    Weight(newWeightUnit.step, newWeightUnit)
-                return
-            }
+            guard let weight = plan.weight else { return }
             let amount = Self.snapped(weight.amount, step: weight.unit.step, up: up)
-            plan.weight = amount > 0 ? Weight(min(amount, PlanLimits.maxWeight), weight.unit) : nil
+            plan.weight = Weight(
+                min(max(amount, lightest(weight.unit)), PlanLimits.maxWeight),
+                weight.unit,
+            )
         }
+    }
+
+    /// The lightest weight − reaches: the empty bar for a bar, one step for anything else.
+    private func lightest(_ unit: WeightUnit) -> Double {
+        exercise.load == .bar ? Weight.emptyBar(unit).amount : unit.step
     }
 
     /// The next multiple of `step` above `value`, or the one below.

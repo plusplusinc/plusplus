@@ -34,7 +34,7 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
                 XCTAssertEqual(title.value as? String, "Chest and back")
                 // Two rows of one exercise keep their own values.
                 XCTAssertEqual(app.exerciseRows.allElementsBoundByIndex.map(\.label), [
-                    "\(Self.bench), 3 sets of 5 reps",
+                    "\(Self.bench), 3 sets of 5 reps, 45 pounds",
                     "\(Self.pullUp), 3 sets of 6 reps",
                     "\(Self.pullUp), 3 sets of 7 reps",
                 ])

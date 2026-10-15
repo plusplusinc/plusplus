@@ -63,12 +63,12 @@ extension RenameUITests {
         XCTContext.runActivity(named: "Rows read as name, equipment, and plan") { _ in
             let labels = app.exerciseRows.allElementsBoundByIndex.map(\.label)
             XCTAssertEqual(labels, [
-                "Barbell bench press, Barbell, bench, 3 sets of 5 reps",
+                "Barbell bench press, Barbell, bench, 3 sets of 5 reps, 45 pounds",
                 "Band pull-apart, Band, 3 sets of 15 reps",
                 "Band pull-apart, Band, 3 sets of 15 reps",
                 "Balance board hold, Balance board, 3 sets of 30 seconds",
-                "Barbell back squat, Barbell, 3 sets of 5 reps",
-                "Biceps curl, Dumbbells, 3 sets of 12 reps",
+                "Barbell back squat, Barbell, 3 sets of 5 reps, 45 pounds",
+                "Biceps curl, Dumbbells, 3 sets of 12 reps, 15 pounds each",
                 "Push-up, 3 sets of 10 reps",
             ])
         }

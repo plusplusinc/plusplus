@@ -20,7 +20,7 @@ extension RoutineExercise {
         _ edit: (inout ExercisePlan) -> Void = { _ in },
     ) throws -> RoutineExercise {
         let exercise = try Exercise.builtIn(named: name)
-        var plan = exercise.defaultPlan
+        var plan = exercise.defaultPlan(in: .pounds)
         edit(&plan)
         return RoutineExercise(exercise: exercise, plan: plan)
     }

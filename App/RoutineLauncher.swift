@@ -11,6 +11,7 @@ struct RoutineLauncher: View {
     let resetsStore: Bool
 
     @State private var routine: Routine?
+    @Environment(\.locale) private var locale
     @ObserveHotReload private var hotReload
 
     var body: some View {
@@ -34,7 +35,8 @@ struct RoutineLauncher: View {
                 try await store.deleteAll()
             }
             #endif
-            return try await store.launchRoutine() ?? Routine()
+            return try await store
+                .launchRoutine(weightUnit: WeightUnit(region: locale)) ?? Routine()
         } catch {
             Logger.app.error("Opening a new routine: the saved one didn't load: \(error)")
             return Routine()

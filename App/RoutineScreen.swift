@@ -265,7 +265,7 @@ struct RoutineScreen: View {
     /// exercise into view. The scroll waits for the row's place: asked for while the row went in,
     /// it stopped at the end the list had before.
     private func add(_ exercise: Exercise) {
-        let row = RoutineExercise(exercise: exercise)
+        let row = RoutineExercise(exercise: exercise, weightUnit: WeightUnit(region: locale))
         arriving = row.id
         isOpeningPlace = true
         // The row goes in with no space yet, so nothing moves; its fade, of a row that draws

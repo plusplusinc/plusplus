@@ -8,10 +8,9 @@ struct PlanTypingTests {
         _ row: RoutineExercise,
         _ raw: String,
         into part: PlanPart,
-        unit: WeightUnit = .pounds,
     ) -> ExercisePlan {
         var row = row
-        row.commit(typed: raw, into: part, newWeightUnit: unit)
+        row.commit(typed: raw, into: part)
         return row.plan
     }
 
@@ -52,26 +51,23 @@ struct PlanTypingTests {
         #expect(row.filtered("123456", for: .weight) == "1234")
         #expect(Self.committed(row, "142.5", into: .weight).weight == Weight(142.5, .pounds))
         #expect(Self.committed(row, "142,5", into: .weight).weight == Weight(142.5, .pounds))
-        #expect(Self.committed(row, "20", into: .weight, unit: .kilograms).weight
-            == Weight(20, .kilograms))
     }
 
     @Test("A typed weight keeps the unit it had")
     func weightKeepsUnit() throws {
         let row = try RoutineExercise.builtIn("Goblet squat") { $0.weight = Weight(16, .kilograms) }
-        #expect(Self.committed(row, "20", into: .weight, unit: .pounds).weight
-            == Weight(20, .kilograms))
+        #expect(Self.committed(row, "20", into: .weight).weight == Weight(20, .kilograms))
     }
 
-    @Test("Empty or zero keeps sets, reps, and time, and makes a weight not set")
+    @Test("Empty or zero keeps every value, a weight included")
     func emptyOrZero() throws {
         let row = try RoutineExercise.builtIn("Goblet squat") { $0.weight = Weight(35, .pounds) }
         #expect(Self.committed(row, "", into: .sets) == row.plan)
         #expect(Self.committed(row, "0", into: .sets) == row.plan)
         #expect(Self.committed(row, "00", into: .target) == row.plan)
-        #expect(Self.committed(row, "", into: .weight).weight == nil)
-        #expect(Self.committed(row, "0.0", into: .weight).weight == nil)
-        #expect(Self.committed(row, ".", into: .weight).weight == Weight(35, .pounds))
+        #expect(Self.committed(row, "", into: .weight) == row.plan)
+        #expect(Self.committed(row, "0.0", into: .weight) == row.plan)
+        #expect(Self.committed(row, ".", into: .weight) == row.plan)
         let pigeon = try RoutineExercise.builtIn("Pigeon stretch")
         #expect(Self.committed(pigeon, "000", into: .target) == pigeon.plan)
     }

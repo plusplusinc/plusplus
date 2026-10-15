@@ -7,7 +7,8 @@ import Foundation
 private let noBreakSpace = "\u{00A0}"
 
 extension RoutineExercise {
-    /// The row's detail line in parts: the equipment if any, the plan, then the weight if set.
+    /// The row's detail line in parts: the equipment if any, the plan, then the weight if it
+    /// holds one.
     /// "Dumbbells, bench", "3 × 10 reps per side", "50 lb".
     public func detailParts(locale: Locale = .current) -> [String] {
         let sets = plan.sets.formatted(.number.locale(locale))
@@ -77,7 +78,8 @@ extension RoutineExercise {
         }
     }
 
-    /// A part's value in the sheet, or nil when not set: 3, 60 s, 2:30 min, 135 lb.
+    /// A part's value in the sheet, nil only for a weight on an exercise with none: 3, 60 s,
+    /// 2:30 min, 135 lb.
     public func value(of part: PlanPart, locale: Locale = .current) -> PlanValue? {
         switch part {
         case .sets:
@@ -93,12 +95,12 @@ extension RoutineExercise {
     }
 
     /// A part's value in words, for VoiceOver: "3 sets", "10 reps", "2 minutes 30 seconds",
-    /// "50 pounds", or "Not set".
+    /// "50 pounds".
     public func spokenValue(of part: PlanPart, locale: Locale = .current) -> String {
         switch part {
         case .sets: counted(plan.sets, "set", "sets", locale: locale)
         case .target: plan.target.spokenText(locale: locale)
-        case .weight: shownWeight?.spokenText(locale: locale) ?? "Not set"
+        case .weight: shownWeight?.spokenText(locale: locale) ?? ""
         }
     }
 }
