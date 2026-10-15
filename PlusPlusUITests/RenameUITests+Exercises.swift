@@ -55,21 +55,21 @@ extension RenameUITests {
         readRowsAtTheListEnd(in: app)
     }
 
-    /// The nine rows read as name and equipment, and at the end of the list both keys and the
+    /// The rows read as name, equipment, and plan, and at the end of the list both keys and the
     /// title stay reachable. Split from `addAndSearchExercises` so each body stays inside
     /// SwiftLint's length limit; the activities run in this order either way.
     @MainActor
     private func readRowsAtTheListEnd(in app: XCUIApplication) {
-        XCTContext.runActivity(named: "Rows read as name and equipment") { _ in
+        XCTContext.runActivity(named: "Rows read as name, equipment, and plan") { _ in
             let labels = app.exerciseRows.allElementsBoundByIndex.map(\.label)
             XCTAssertEqual(labels, [
-                "Barbell bench press, Barbell, bench",
-                "Band pull-apart, Band",
-                "Band pull-apart, Band",
-                "Balance board hold, Balance board",
-                "Barbell back squat, Barbell",
-                "Biceps curl, Dumbbells",
-                "Push-up",
+                "Barbell bench press, Barbell, bench, 3 sets of 5 reps",
+                "Band pull-apart, Band, 3 sets of 15 reps",
+                "Band pull-apart, Band, 3 sets of 15 reps",
+                "Balance board hold, Balance board, 3 sets of 30 seconds",
+                "Barbell back squat, Barbell, 3 sets of 5 reps",
+                "Biceps curl, Dumbbells, 3 sets of 12 reps",
+                "Push-up, 3 sets of 10 reps",
             ])
         }
         XCTContext.runActivity(named: "An add that would hide Add exercise scrolls to it") { _ in

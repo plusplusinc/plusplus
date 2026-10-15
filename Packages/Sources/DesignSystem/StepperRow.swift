@@ -5,8 +5,10 @@ import SwiftUI
 /// the accessibility sizes it sits above, and the keys take the full width either side of the
 /// value.
 ///
-/// VoiceOver reads the row as one adjustable element, "Reps, Per side", with the value in words,
-/// and swiping up or down steps it, so the keys themselves are hidden from it.
+/// VoiceOver reads the row as one adjustable element, "Reps, Per side", with the value in words:
+/// swiping up or down steps it, so the keys themselves are hidden from it, and its "Type a value"
+/// action starts typing. While its number is being typed, the row exposes what it holds, so
+/// VoiceOver reaches the field.
 public struct StepperRow<Value: View>: View {
     private let title: String
     private let note: String?
@@ -15,6 +17,8 @@ public struct StepperRow<Value: View>: View {
     private let canIncrease: Bool
     private let onDecrease: () -> Void
     private let onIncrease: () -> Void
+    private let isTyping: Bool
+    private let onType: () -> Void
     private let value: Value
 
     @ScaledMetric(relativeTo: .title2) private var valueWidth: CGFloat = 126
@@ -29,6 +33,8 @@ public struct StepperRow<Value: View>: View {
         canIncrease: Bool,
         onDecrease: @escaping () -> Void,
         onIncrease: @escaping () -> Void,
+        isTyping: Bool = false,
+        onType: @escaping () -> Void = { },
         @ViewBuilder value: () -> Value,
     ) {
         self.title = title
@@ -38,6 +44,8 @@ public struct StepperRow<Value: View>: View {
         self.canIncrease = canIncrease
         self.onDecrease = onDecrease
         self.onIncrease = onIncrease
+        self.isTyping = isTyping
+        self.onType = onType
         self.value = value()
     }
 
@@ -63,7 +71,7 @@ public struct StepperRow<Value: View>: View {
                 }
             }
         }
-        .accessibilityElement(children: .ignore)
+        .accessibilityElement(children: isTyping ? .contain : .ignore)
         .accessibilityLabel([title, note].compactMap(\.self).joined(separator: ", "))
         .accessibilityValue(spokenValue)
         .accessibilityAdjustableAction { direction in
@@ -73,6 +81,7 @@ public struct StepperRow<Value: View>: View {
             @unknown default: break
             }
         }
+        .accessibilityAction(named: "Type a value", onType)
         .hotReloadable()
     }
 
@@ -102,45 +111,6 @@ public struct StepperRow<Value: View>: View {
     }
 }
 
-/// A stepper's number with its unit drawn small after it, or "Not set" when it has none.
-public struct StepperValue: View {
-    private let number: String?
-    private let unit: String?
-    private let placeholder: String
-
-    @ObserveHotReload private var hotReload
-
-    public init(number: String?, unit: String?, placeholder: String = "Not set") {
-        self.number = number
-        self.unit = unit
-        self.placeholder = placeholder
-    }
-
-    public var body: some View {
-        Group {
-            if let number {
-                HStack(alignment: .firstTextBaseline, spacing: Spacing.xs) {
-                    Text(number)
-                        .ppValueFont()
-                        .foregroundStyle(.pp(.textPrimary))
-                    if let unit {
-                        Text(unit)
-                            .font(.ppValueUnit)
-                            .foregroundStyle(.pp(.textSecondary))
-                    }
-                }
-            } else {
-                Text(placeholder)
-                    .font(.ppValuePlaceholder)
-                    .foregroundStyle(.pp(.textSecondary))
-            }
-        }
-        .lineLimit(1)
-        .minimumScaleFactor(0.5)
-        .hotReloadable()
-    }
-}
-
 #Preview {
     VStack(spacing: Spacing.md) {
         StepperRow(
@@ -152,7 +122,7 @@ public struct StepperValue: View {
             onDecrease: { },
             onIncrease: { },
         ) {
-            StepperValue(number: "3", unit: nil)
+            Text(verbatim: "3").ppValueFont()
         }
         StepperRow(
             title: "Weight",
@@ -163,7 +133,7 @@ public struct StepperValue: View {
             onDecrease: { },
             onIncrease: { },
         ) {
-            StepperValue(number: nil, unit: nil)
+            Text(verbatim: "Not set")
         }
     }
     .padding()
