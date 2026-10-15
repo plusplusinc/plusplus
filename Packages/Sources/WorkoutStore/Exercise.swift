@@ -10,6 +10,13 @@ public struct Exercise: Identifiable, Equatable, Sendable {
     public let muscleGroup: MuscleGroup
     /// Empty for bodyweight.
     public let equipment: Set<Equipment>
+    /// The values a new row starts with. Its target's case is how a set is measured, reps or
+    /// time, so the measure and its default can't disagree. Its weight is never set.
+    public let defaultPlan: ExercisePlan
+    /// What a set holds, or nil for no weight at all.
+    public let load: Load?
+    /// Whether each side is its own set. A move that alternates within a set is not per side.
+    public let isPerSide: Bool
     /// What it does, finer than its group, for naming a routine.
     let tags: ExerciseTags
 
@@ -18,12 +25,18 @@ public struct Exercise: Identifiable, Equatable, Sendable {
         name: String,
         muscleGroup: MuscleGroup,
         equipment: Set<Equipment> = [],
+        plan defaultPlan: ExercisePlan,
+        load: Load? = nil,
+        perSide isPerSide: Bool = false,
         tags: ExerciseTags,
     ) {
         self.id = id
         self.name = name
         self.muscleGroup = muscleGroup
         self.equipment = equipment
+        self.defaultPlan = defaultPlan
+        self.load = load
+        self.isPerSide = isPerSide
         self.tags = tags
     }
 

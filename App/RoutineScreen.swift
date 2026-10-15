@@ -29,6 +29,7 @@ struct RoutineScreen: View {
     @State private var isScrollingByHand = false
     /// Whether the title has scrolled up under the bar, where a small copy of it shows instead.
     @State private var isTitleUnderBar = false
+    @Environment(\.locale) private var locale
     @ObserveHotReload private var hotReload
 
     private static let markWidth: CGFloat = 20
@@ -71,8 +72,13 @@ struct RoutineScreen: View {
                         }
                     }
                     Rail(routine.exercises, arriving: arriving) { item in
-                        RowLabel(title: item.exercise.name, detail: item.exercise.equipmentLine)
-                            .railRow()
+                        RowLabel(
+                            title: item.exercise.name,
+                            detail: item.detailParts(locale: locale),
+                            spokenDetail: item.spokenDetail(locale: locale),
+                            showsSides: item.exercise.isPerSide,
+                        )
+                        .railRow()
                             .accessibilityIdentifier("routine.exercise")
                             .swipeActions(edge: .trailing) {
                                 Button("Delete", role: .destructive) {
