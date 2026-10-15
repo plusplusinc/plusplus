@@ -11,11 +11,13 @@ import Testing
 struct ComponentSnapshotTests {
     private static let screenWidth: CGFloat = 390
 
-    /// A row's name and its optional equipment line.
+    /// A row's name, its detail line in parts (equipment, plan, weight), and whether it is done
+    /// one side at a time.
     private struct Row: Identifiable {
         let id = UUID()
         let title: String
-        let detail: String?
+        let detail: [String]
+        var showsSides = false
     }
 
     /// Start shows once there is a row.
@@ -33,7 +35,8 @@ struct ComponentSnapshotTests {
                 accessibilityHint: "Renames the routine.",
             )
             Rail(rows) { row in
-                RowLabel(title: row.title, detail: row.detail).railRow()
+                RowLabel(title: row.title, detail: row.detail, showsSides: row.showsSides)
+                    .railRow()
             } end: {
                 Button("Add exercise", systemImage: "plus") { }
                     .buttonStyle(.key)
@@ -63,7 +66,7 @@ struct ComponentSnapshotTests {
     @Test("One exercise on the rail, with Start")
     func oneExercise() {
         assertThemedSnapshots(
-            of: content(rows: [Row(title: "Goblet squat", detail: "Kettlebell")]),
+            of: content(rows: [Row(title: "Goblet squat", detail: ["Kettlebell", "3 × 10 reps"])]),
             width: Self.screenWidth,
         )
     }
@@ -72,8 +75,8 @@ struct ComponentSnapshotTests {
     @Test("An unnamed routine with exercises shows its generated name")
     func generatedName() {
         let rows: [Row] = [
-            Row(title: "Goblet squat", detail: "Kettlebell"),
-            Row(title: "Pull-up", detail: "Pull-up bar"),
+            Row(title: "Goblet squat", detail: ["Kettlebell", "3 × 10 reps"]),
+            Row(title: "Pull-up", detail: ["Pull-up bar", "3 × 6 reps"]),
         ]
         assertThemedSnapshots(
             of: content(suggestion: "Back and legs", rows: rows),
@@ -104,13 +107,33 @@ struct ComponentSnapshotTests {
     @Test("Several exercises, a bodyweight row among them")
     func severalExercises() {
         let rows: [Row] = [
-            Row(title: "Pull-up", detail: "Pull-up bar"),
-            Row(title: "Dumbbell bench press", detail: "Dumbbells, bench"),
-            Row(title: "Push-up", detail: nil),
-            Row(title: "Kneeling hip flexor stretch", detail: nil),
-            Row(title: "Farmer\u{2019}s carry", detail: "Dumbbells"),
+            Row(title: "Pull-up", detail: ["Pull-up bar", "3 × 6 reps"]),
+            Row(title: "Dumbbell bench press", detail: ["Dumbbells, bench", "3 × 10 reps"]),
+            Row(title: "Push-up", detail: ["3 × 10 reps"]),
+            Row(title: "Kneeling hip flexor stretch", detail: ["60 s per side"], showsSides: true),
+            Row(title: "Farmer\u{2019}s carry", detail: ["Dumbbells", "3 × 30 s"]),
         ]
         assertThemedSnapshots(of: content(rows: rows), width: Self.screenWidth)
+    }
+
+    /// Every kind of plan: a bar's total, one weight per side wrapping between parts, a pair's
+    /// each, bodyweight, a weight not yet set, timed per side, and a single set.
+    @Test("Rows with plans, per-side rows marked")
+    func railPlans() {
+        let rows: [Row] = [
+            Row(title: "Barbell bench press", detail: ["Barbell, bench", "5 × 5 reps", "135 lb"]),
+            Row(
+                title: "Dumbbell row",
+                detail: ["Dumbbells, bench", "3 × 10 reps per side", "50 lb"],
+                showsSides: true,
+            ),
+            Row(title: "Biceps curl", detail: ["Dumbbells", "3 × 12 reps", "25 lb each"]),
+            Row(title: "Pull-up", detail: ["Pull-up bar", "3 × 6 reps"]),
+            Row(title: "Goblet squat", detail: ["Kettlebell", "3 × 10 reps"]),
+            Row(title: "Side plank", detail: ["3 × 30 s per side"], showsSides: true),
+            Row(title: "Pigeon stretch", detail: ["60 s per side"], showsSides: true),
+        ]
+        assertThemedSnapshots(of: content(name: "Full body", rows: rows), width: Self.screenWidth)
     }
 
     /// Rows as the exercise picker lists them, without a rail. The list itself is the system's.
