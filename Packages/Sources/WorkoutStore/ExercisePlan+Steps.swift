@@ -86,15 +86,14 @@ enum TimeSteps {
     private static let coarseFrom = 60
 
     static func step(_ seconds: Int, up: Bool) -> Int {
-        let next: Int
-        if up, seconds < coarseFrom {
-            next = min(above(seconds, fine), coarseFrom)
+        let next: Int = if up, seconds < coarseFrom {
+            min(above(seconds, fine), coarseFrom)
         } else if up {
-            next = above(seconds, coarse)
+            above(seconds, coarse)
         } else if seconds > coarseFrom {
-            next = max(below(seconds, coarse), coarseFrom)
+            max(below(seconds, coarse), coarseFrom)
         } else {
-            next = below(seconds, fine)
+            below(seconds, fine)
         }
         return min(max(next, minimum), PlanLimits.seconds.upperBound)
     }

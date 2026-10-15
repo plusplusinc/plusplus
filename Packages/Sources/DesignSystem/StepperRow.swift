@@ -76,8 +76,12 @@ public struct StepperRow<Value: View>: View {
         .accessibilityValue(spokenValue)
         .accessibilityAdjustableAction { direction in
             switch direction {
-            case .increment: if canIncrease { onIncrease() }
-            case .decrement: if canDecrease { onDecrease() }
+            case .increment: if canIncrease {
+                    onIncrease()
+                }
+            case .decrement: if canDecrease {
+                    onDecrease()
+                }
             @unknown default: break
             }
         }
@@ -121,9 +125,8 @@ public struct StepperRow<Value: View>: View {
             canIncrease: true,
             onDecrease: { },
             onIncrease: { },
-        ) {
-            Text(verbatim: "3").ppValueFont()
-        }
+            value: { Text(verbatim: "3").ppValueFont() },
+        )
         StepperRow(
             title: "Weight",
             note: "One dumbbell",
@@ -132,9 +135,8 @@ public struct StepperRow<Value: View>: View {
             canIncrease: true,
             onDecrease: { },
             onIncrease: { },
-        ) {
-            Text(verbatim: "Not set")
-        }
+            value: { Text(verbatim: "Not set") },
+        )
     }
     .padding()
     .background(Color.pp(.background))

@@ -134,20 +134,21 @@ struct ExerciseSheet: View {
             onIncrease: { step(part, up: true) },
             isTyping: typing == part,
             onType: { typing = part },
-        ) {
-            NumberField(
-                value: value?.number,
-                unit: value?.unit,
-                typingUnit: part == .weight ? (item.plan.weight?.unit ?? unit).rawValue : nil,
-                typesDecimal: item.typesDecimal(part),
-                accessibilityLabel: item.label(of: part),
-                focus: $typing,
-                id: part,
-                filter: { item.filtered($0, for: part) },
-                typedText: { item.typedText($0, for: part) },
-                onCommit: { item.commit(typed: $0, into: part, newWeightUnit: unit) },
-            )
-        }
+            value: {
+                NumberField(
+                    value: value?.number,
+                    unit: value?.unit,
+                    typingUnit: part == .weight ? (item.plan.weight?.unit ?? unit).rawValue : nil,
+                    typesDecimal: item.typesDecimal(part),
+                    accessibilityLabel: item.label(of: part),
+                    focus: $typing,
+                    id: part,
+                    filter: { item.filtered($0, for: part) },
+                    typedText: { item.typedText($0, for: part) },
+                    onCommit: { item.commit(typed: $0, into: part, newWeightUnit: unit) },
+                )
+            },
+        )
         .accessibilityIdentifier("plan.\(part)")
     }
 }

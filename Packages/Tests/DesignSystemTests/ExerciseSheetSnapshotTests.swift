@@ -1,9 +1,9 @@
 // Runs only where UIKit exists, so `swift test` on macOS compiles it away and stays fast.
 #if canImport(UIKit) && !os(watchOS)
 
-@testable import DesignSystem
 import SwiftUI
 import Testing
+@testable import DesignSystem
 
 /// An exercise sheet's content, its steppers, built the way the app composes it. The sheet, its
 /// bar with the exercise's name, and the keyboard are the system's; the UI tests show them.
@@ -38,14 +38,15 @@ struct ExerciseSheetSnapshotTests {
                         canIncrease: true,
                         onDecrease: { },
                         onIncrease: { },
-                    ) {
-                        NumberFieldContent(
-                            text: part.value,
-                            unit: part.unit,
-                            isEditing: part.isEditing,
-                            blinks: false,
-                        )
-                    }
+                        value: {
+                            NumberFieldContent(
+                                text: part.value,
+                                unit: part.unit,
+                                isEditing: part.isEditing,
+                                blinks: false,
+                            )
+                        },
+                    )
                 }
             }
         }

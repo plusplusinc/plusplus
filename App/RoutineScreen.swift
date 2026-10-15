@@ -91,13 +91,13 @@ struct RoutineScreen: View {
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("routine.exercise")
                         .accessibilityHint("Opens its plan.")
-                            .swipeActions(edge: .trailing) {
-                                Button("Delete", role: .destructive) {
-                                    withAnimation(.railChange) {
-                                        routine.exercises.removeAll { $0.id == item.id }
-                                    }
+                        .swipeActions(edge: .trailing) {
+                            Button("Delete", role: .destructive) {
+                                withAnimation(.railChange) {
+                                    routine.exercises.removeAll { $0.id == item.id }
                                 }
                             }
+                        }
                     } end: {
                         Button("Add exercise", systemImage: "plus") {
                             isPicking = true
