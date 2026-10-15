@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// A stepper's number that can be typed: tap it and a number pad rises, the number gives way
-/// to what is typed with the `_` after it and a line under the slot, and when typing ends the
+/// to what is typed with the `_` after it and the box's outline drawn strong, and when typing ends the
 /// typed text is handed to `onCommit`, if anything was typed.
 ///
 /// Its own `_`, not the system caret: a number's caret is always at its end, and what is drawn
@@ -102,8 +102,9 @@ public struct NumberField<Focus: Hashable>: View {
     }
 }
 
-/// The number drawn from plain values: at rest the value and its unit, or "Not set"; while
-/// typing, the typed text with the `_` after it, and a line under the slot.
+/// The number drawn from plain values, in an outlined box the width it is given: at rest the
+/// value and its unit faint after it, or "Not set"; while typing, the typed text with the `_`
+/// after it, and the box's outline drawn strong.
 struct NumberFieldContent: View {
     /// Nil or empty at rest reads "Not set"; empty while typing shows the `_` alone.
     let text: String?
@@ -112,13 +113,15 @@ struct NumberFieldContent: View {
     /// Whether the `_` blinks while typing. Snapshots hold it lit.
     let blinks: Bool
 
-    /// `ppValueFont`'s size, held here so the same text can switch to "Not set"'s font.
-    @ScaledMetric(relativeTo: .title2) private var valueSize: CGFloat = 26
+    /// The number's size, held here so the same text can switch to "Not set"'s font.
+    @ScaledMetric(relativeTo: .largeTitle) private var valueSize: CGFloat = 40
+    @ScaledMetric(relativeTo: .largeTitle) private var minHeight: CGFloat = 64
     @ObserveHotReload private var hotReload
 
     var body: some View {
         let text = text ?? ""
         let isPlaceholder = text.isEmpty && !isEditing
+        let shape = RoundedRectangle(cornerRadius: Radius.sm)
         // One structure whether it shows a number or "Not set". Switching from one view to
         // another here, in the same update that focus arrived, sent the field laid over it into
         // an endless update loop.
@@ -140,14 +143,15 @@ struct NumberFieldContent: View {
         }
         .lineLimit(1)
         .minimumScaleFactor(0.5)
-        .frame(maxWidth: .infinity, minHeight: Spacing.xl + Spacing.md)
-        .overlay(alignment: .bottom) {
-            if isEditing {
-                Rectangle()
-                    .fill(.pp(.textPrimary))
-                    .frame(height: 2)
-            }
+        .padding(.horizontal, Spacing.md)
+        .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .leading)
+        .overlay {
+            shape.strokeBorder(
+                .pp(isEditing ? .textPrimary : .borderStrong),
+                lineWidth: isEditing ? 2 : 1,
+            )
         }
+        .contentShape(shape)
         .hotReloadable()
     }
 }
@@ -185,9 +189,8 @@ private struct NumberCursor: View {
         NumberFieldContent(text: "142.5", unit: "lb", isEditing: true, blinks: true)
         NumberFieldContent(text: "1:30", unit: nil, isEditing: true, blinks: true)
     }
-    .frame(width: 126)
     .padding()
-    .background(Color.pp(.background))
+    .background(Color.pp(.surface))
 }
 
 /// How a drawn `_` blinks while typing: the 1.06 s cycle of a text cursor, on half, off half,

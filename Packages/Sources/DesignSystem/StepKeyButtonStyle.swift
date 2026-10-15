@@ -1,29 +1,36 @@
 import SwiftUI
 
-/// A stepper's − or + key: a small key-shaped button, its icon growing with the text, dimmed
-/// when it can't step. The key grows with the text only so far, leaving the number between two
-/// keys room at the largest sizes.
+/// A stepper's − or + key: a raised key the width it is given, its label the step it takes in
+/// bold SF Mono, "−5" or "+15 s". `onPressChange` hears each press start and end, so a key can
+/// repeat while held.
 public struct StepKeyButtonStyle: ButtonStyle {
-    @ScaledMetric(relativeTo: .body) private var minWidth: CGFloat = 50
-    @ScaledMetric(relativeTo: .body) private var minHeight: CGFloat = 48
-    /// About the board's key at AX5, and well over the 44pt touch target.
-    private static let largest = CGSize(width: 88, height: 80)
+    private let onPressChange: (Bool) -> Void
+
+    @ScaledMetric(relativeTo: .body) private var minHeight: CGFloat = 52
     @Environment(\.isEnabled) private var isEnabled
     @ObserveHotReload private var hotReload
 
-    public init() { }
+    public init(onPressChange: @escaping (Bool) -> Void = { _ in }) {
+        self.onPressChange = onPressChange
+    }
 
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .labelStyle(.iconOnly)
-            .font(.ppButton)
+            .font(.ppStepKey)
             .foregroundStyle(.pp(.textPrimary))
-            .padding(Spacing.xs)
-            .frame(
-                minWidth: min(minWidth, Self.largest.width),
-                minHeight: min(minHeight, Self.largest.height),
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .padding(.horizontal, Spacing.sm)
+            .frame(maxWidth: .infinity, minHeight: minHeight)
+            .raisedKey(
+                fill: .pp(.background),
+                outlined: true,
+                isPressed: configuration.isPressed && isEnabled,
+                isEnabled: isEnabled,
             )
-            .keyFace(isPressed: configuration.isPressed, isEnabled: isEnabled)
+            .onChange(of: configuration.isPressed) { _, isPressed in
+                onPressChange(isPressed)
+            }
             .hotReloadable()
     }
 }
@@ -36,12 +43,12 @@ extension ButtonStyle where Self == StepKeyButtonStyle {
 }
 
 #Preview {
-    HStack {
-        Button("Decrease", systemImage: "minus") { }
+    HStack(spacing: Spacing.sm) {
+        Button("\u{2212}5") { }
             .disabled(true)
-        Button("Increase", systemImage: "plus") { }
+        Button("+5") { }
     }
     .buttonStyle(.stepKey)
     .padding()
-    .background(Color.pp(.background))
+    .background(Color.pp(.surface))
 }

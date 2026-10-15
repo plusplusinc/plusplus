@@ -16,6 +16,8 @@ struct ExerciseSheetSnapshotTests {
         var note: String?
         let value: String?
         var unit: String?
+        /// The keys' step: "1", "5", "15 s".
+        var step = "1"
         var canDecrease = true
         var isEditing = false
     }
@@ -34,6 +36,8 @@ struct ExerciseSheetSnapshotTests {
                         title: part.title,
                         note: part.note,
                         spokenValue: "",
+                        decreaseLabel: "\u{2212}" + part.step,
+                        increaseLabel: "+" + part.step,
                         canDecrease: part.canDecrease,
                         canIncrease: true,
                         onDecrease: { },
@@ -51,7 +55,7 @@ struct ExerciseSheetSnapshotTests {
             }
         }
         .padding(Spacing.lg)
-        .background(Color.pp(.surface))
+        .background(Color.pp(.background))
     }
 
     @Test("A bench press: sets, reps, and the bar's total")
@@ -60,7 +64,7 @@ struct ExerciseSheetSnapshotTests {
             of: content(equipment: "Barbell, bench", parts: [
                 Part(title: "Sets", value: "5"),
                 Part(title: "Reps", value: "5"),
-                Part(title: "Weight", note: "Bar, total", value: "135", unit: "lb"),
+                Part(title: "Weight", note: "Bar, total", value: "135", unit: "lb", step: "5"),
             ]),
             width: Self.sheetWidth,
         )
@@ -72,7 +76,13 @@ struct ExerciseSheetSnapshotTests {
             of: content(equipment: "Dumbbells, bench", parts: [
                 Part(title: "Sets", value: "3"),
                 Part(title: "Reps", note: "Per side", value: "10"),
-                Part(title: "Weight", note: "One dumbbell", value: nil, canDecrease: false),
+                Part(
+                    title: "Weight",
+                    note: "One dumbbell",
+                    value: nil,
+                    step: "5",
+                    canDecrease: false,
+                ),
             ]),
             width: Self.sheetWidth,
         )
@@ -83,7 +93,7 @@ struct ExerciseSheetSnapshotTests {
         assertThemedSnapshots(
             of: content(equipment: nil, parts: [
                 Part(title: "Sets", value: "1"),
-                Part(title: "Time", note: "Per side", value: "60", unit: "s"),
+                Part(title: "Time", note: "Per side", value: "60", unit: "s", step: "5\u{00A0}s"),
             ]),
             width: Self.sheetWidth,
         )

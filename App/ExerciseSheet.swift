@@ -4,7 +4,8 @@ import WorkoutStore
 
 /// An exercise row's plan, over the routine: its name centered in the bar with its equipment
 /// under it, then a stepper for each part it has. At the accessibility sizes, where the bar would
-/// cut a name short, both lead the content instead. Every step, and every typed number once
+/// cut a name short, both lead the content instead. Each part is a card, its keys repeating
+/// while held. Every step, and every typed number once
 /// typing ends, changes the row at once, so it saves as it happens; Done ends typing and closes
 /// the sheet. Delete is in the More menu, not a standing button.
 struct ExerciseSheet: View {
@@ -74,8 +75,9 @@ struct ExerciseSheet: View {
             }
         }
         .presentationDetents(detents)
-        // Opaque: through the glass, Start's bright key glowed under the last row.
-        .presentationBackground(Color.pp(.surface))
+        // Opaque: through the glass, Start's bright key glowed under the last row. The
+        // background, so each part's card stands out on it.
+        .presentationBackground(Color.pp(.background))
         .hotReloadable()
     }
 
@@ -122,6 +124,8 @@ struct ExerciseSheet: View {
             title: item.label(of: part),
             note: item.note(of: part),
             spokenValue: item.spokenValue(of: part, locale: locale),
+            decreaseLabel: item.stepLabel(of: part, up: false, newWeightUnit: unit, locale: locale),
+            increaseLabel: item.stepLabel(of: part, up: true, newWeightUnit: unit, locale: locale),
             canDecrease: item.canStep(part, up: false),
             canIncrease: item.canStep(part, up: true),
             onDecrease: { step(part, up: false) },

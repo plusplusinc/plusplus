@@ -20,9 +20,11 @@ extension Font {
     /// A sheet's heading, such as an exercise's name over its plan.
     public static let ppSheetTitle = Font.system(.title2, weight: .bold)
     /// The unit drawn small after a stepper's number.
-    public static let ppValueUnit = Font.system(.body, weight: .medium)
+    public static let ppValueUnit = Font.system(.title3, weight: .medium)
+    /// A stepper key's label, the step it takes: "+5", "−15 s".
+    public static let ppStepKey = Font.system(.body, design: .monospaced, weight: .bold)
     /// A stepper's "Not set", in place of a number.
-    public static let ppValuePlaceholder = Font.system(.body)
+    public static let ppValuePlaceholder = Font.system(.title3)
     /// The L | R mark on a row done one side at a time: SF Mono, so the two letters sit evenly
     /// either side of the divider.
     public static let ppSidesMark = Font.system(.caption2, design: .monospaced, weight: .bold)

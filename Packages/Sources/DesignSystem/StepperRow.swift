@@ -1,9 +1,8 @@
 import SwiftUI
 
-/// A value with − and + keys around it, under its name and a note on what the number means:
-/// "Reps" over "Per side", "Weight" over "Bar, total". The name leads at the default sizes; at
-/// the accessibility sizes it sits above, and the keys take the full width either side of the
-/// value.
+/// A value on a card: its name, and a note on what the number means under it ("Reps" over "Per
+/// side", "Weight" over "Bar, total"), then the value, then a − and a + key side by side, each
+/// labeled with the step it takes and repeating while held.
 ///
 /// VoiceOver reads the row as one adjustable element, "Reps, Per side", with the value in words:
 /// swiping up or down steps it, so the keys themselves are hidden from it, and its "Type a value"
@@ -13,6 +12,8 @@ public struct StepperRow<Value: View>: View {
     private let title: String
     private let note: String?
     private let spokenValue: String
+    private let decreaseLabel: String
+    private let increaseLabel: String
     private let canDecrease: Bool
     private let canIncrease: Bool
     private let onDecrease: () -> Void
@@ -21,14 +22,14 @@ public struct StepperRow<Value: View>: View {
     private let onType: () -> Void
     private let value: Value
 
-    @ScaledMetric(relativeTo: .title2) private var valueWidth: CGFloat = 126
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ObserveHotReload private var hotReload
 
     public init(
         title: String,
         note: String?,
         spokenValue: String,
+        decreaseLabel: String,
+        increaseLabel: String,
         canDecrease: Bool,
         canIncrease: Bool,
         onDecrease: @escaping () -> Void,
@@ -40,6 +41,8 @@ public struct StepperRow<Value: View>: View {
         self.title = title
         self.note = note
         self.spokenValue = spokenValue
+        self.decreaseLabel = decreaseLabel
+        self.increaseLabel = increaseLabel
         self.canDecrease = canDecrease
         self.canIncrease = canIncrease
         self.onDecrease = onDecrease
@@ -50,27 +53,19 @@ public struct StepperRow<Value: View>: View {
     }
 
     public var body: some View {
-        Group {
-            if dynamicTypeSize.isAccessibilitySize {
-                VStack(alignment: .leading, spacing: Spacing.sm) {
-                    label
-                    HStack(spacing: Spacing.sm) {
-                        decrease
-                        value.frame(maxWidth: .infinity)
-                        increase
-                    }
-                }
-            } else {
-                HStack(spacing: Spacing.sm) {
-                    label.frame(maxWidth: .infinity, alignment: .leading)
-                    HStack(spacing: 0) {
-                        decrease
-                        value.frame(width: valueWidth)
-                        increase
-                    }
-                }
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            label
+            value
+            HStack(spacing: Spacing.sm) {
+                StepKey(decreaseLabel, onStep: onDecrease)
+                    .disabled(!canDecrease)
+                StepKey(increaseLabel, onStep: onIncrease)
+                    .disabled(!canIncrease)
             }
         }
+        .padding(Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.pp(.surface), in: RoundedRectangle(cornerRadius: Radius.card))
         .accessibilityElement(children: isTyping ? .contain : .ignore)
         .accessibilityLabel([title, note].compactMap(\.self).joined(separator: ", "))
         .accessibilityValue(spokenValue)
@@ -101,18 +96,6 @@ public struct StepperRow<Value: View>: View {
             }
         }
     }
-
-    private var decrease: some View {
-        Button("Decrease", systemImage: "minus", action: onDecrease)
-            .buttonStyle(.stepKey)
-            .disabled(!canDecrease)
-    }
-
-    private var increase: some View {
-        Button("Increase", systemImage: "plus", action: onIncrease)
-            .buttonStyle(.stepKey)
-            .disabled(!canIncrease)
-    }
 }
 
 #Preview {
@@ -121,21 +104,25 @@ public struct StepperRow<Value: View>: View {
             title: "Sets",
             note: nil,
             spokenValue: "3 sets",
+            decreaseLabel: "\u{2212}1",
+            increaseLabel: "+1",
             canDecrease: true,
             canIncrease: true,
             onDecrease: { },
             onIncrease: { },
-            value: { Text(verbatim: "3").ppValueFont() },
+            value: { NumberFieldContent(text: "3", unit: nil, isEditing: false, blinks: false) },
         )
         StepperRow(
             title: "Weight",
             note: "One dumbbell",
             spokenValue: "Not set",
+            decreaseLabel: "\u{2212}5",
+            increaseLabel: "+5",
             canDecrease: false,
             canIncrease: true,
             onDecrease: { },
             onIncrease: { },
-            value: { Text(verbatim: "Not set") },
+            value: { NumberFieldContent(text: nil, unit: nil, isEditing: false, blinks: false) },
         )
     }
     .padding()
