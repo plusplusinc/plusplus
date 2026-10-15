@@ -22,7 +22,8 @@ struct RoutineScreen: View {
     /// The row the sheet's Delete removes once the sheet is down, so its fade is seen.
     @State private var deleting: RoutineExercise.ID?
     /// The row as it was when its sheet opened. Its changes save as they happen, but its line
-    /// holds these numbers until the sheet is down, then rolls the changed ones to their new.
+    /// holds these numbers until the sheet is down, then rolls the changed ones to their new. The
+    /// row is highlighted until then.
     @State private var opened: RoutineExercise?
     /// Whether that roll counts down: the first part to change, in the line's order, went down.
     @State private var rollsDown = false
@@ -94,7 +95,7 @@ struct RoutineScreen: View {
                                 showsSides: shown.exercise.isPerSide,
                                 detailCountsDown: rollsDown,
                             )
-                            .railRow()
+                            .railRow(isHighlighted: opened?.id == item.id)
                             .contentShape(.rect)
                         }
                         .buttonStyle(.plain)

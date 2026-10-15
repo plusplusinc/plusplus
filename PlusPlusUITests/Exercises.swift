@@ -102,18 +102,23 @@ extension XCUIApplication {
         descendants(matching: .any)["plan.\(part.rawValue)"]
     }
 
-    /// Opens `part`'s wheel, or for a time its two, turns each to its value in order, and closes
-    /// it again with a second tap on the row. A wheel's value is its row's text, its unit after
-    /// it: "30 lb", "1 min".
+    /// Selects `part`'s row, which moves the wheel at the sheet's foot to it, and checks that it
+    /// is selected.
+    func select(_ part: PlanPart) {
+        planRow(part).tap()
+        XCTAssertTrue(
+            reading(planRow(part).isSelected, becoming: true, within: 2),
+            "A tap on \(part) didn't select it",
+        )
+    }
+
+    /// Selects `part`'s row and turns the wheel, or for a time its two, to each value in order.
+    /// A wheel's value is its row's text, its unit after it: "30 lb", "1 min".
     func pick(_ values: String..., for part: PlanPart) {
-        planRow(part).tap()
-        let wheels = pickerWheels
-        XCTAssertTrue(wheels.firstMatch.appears(), "A tap on \(part) opened no wheel")
+        select(part)
         for (index, value) in values.enumerated() {
-            wheels.element(boundBy: index).adjust(toPickerWheelValue: value)
+            pickerWheels.element(boundBy: index).adjust(toPickerWheelValue: value)
         }
-        planRow(part).tap()
-        XCTAssertTrue(wheels.firstMatch.disappears(), "A second tap left the wheel open")
     }
 
     /// Closes the sheet with its Close button, and waits for it to go.

@@ -12,19 +12,28 @@ extension RenameUITests {
         XCTContext.runActivity(named: "A tap on a row opens its sheet with only its parts") { _ in
             pigeon.tap()
             XCTAssertTrue(app.planRow(.sets).appears(), "A tap on a row opened no sheet")
-            XCTAssertEqual(app.planRow(.target).label, "Time, Per side")
+            XCTAssertEqual(app.planRow(.target).label, "Time")
+            XCTAssertEqual(app.planRow(.target).value as? String, "60 seconds per side")
             XCTAssertFalse(app.planRow(.weight).exists, "A stretch has a weight")
             attach(named: "sheet-pigeon")
             app.closeSheet()
             dumbbellRow.tap()
-            XCTAssertEqual(app.planRow(.target).label, "Reps, Per side")
-            XCTAssertEqual(app.planRow(.weight).label, "Weight, One dumbbell")
+            // It opens on Sets, the wheel set to it.
+            XCTAssertTrue(app.planRow(.sets).isSelected, "The sheet opened on no row")
+            XCTAssertEqual(app.pickerWheels.firstMatch.value as? String, "3")
+            XCTAssertEqual(app.planRow(.target).label, "Reps")
+            XCTAssertEqual(app.planRow(.target).value as? String, "10 reps per side")
+            XCTAssertEqual(app.planRow(.weight).label, "Weight")
             XCTAssertEqual(app.planRow(.weight).value as? String, "25 pounds")
             attach(named: "sheet-row")
         }
-        XCTContext.runActivity(named: "Wheels change the row's line once the sheet is down") { _ in
+        XCTContext.runActivity(named: "The wheel sets the row's line once the sheet closes") { _ in
             app.pick("11", for: .target)
-            XCTAssertEqual(app.planRow(.target).value(becoming: "11 reps"), "11 reps")
+            XCTAssertFalse(app.planRow(.sets).isSelected, "Two rows are selected")
+            XCTAssertEqual(
+                app.planRow(.target).value(becoming: "11 reps per side"),
+                "11 reps per side",
+            )
             app.pick("30 lb", for: .weight)
             XCTAssertEqual(app.planRow(.weight).value(becoming: "30 pounds"), "30 pounds")
             app.pick("2", for: .sets)
@@ -74,15 +83,12 @@ extension RenameUITests {
             bands.1.assertReads("Band pull-apart, Band, 3 sets of 16 reps")
             let bench = rows.element(boundBy: 0)
             bench.tap()
-            XCTAssertEqual(app.planRow(.target).label, "Reps", "A bench press is per side")
-            XCTAssertEqual(app.planRow(.weight).label, "Weight, Bar, total")
+            XCTAssertEqual(app.planRow(.target).value as? String, "5 reps", "Bench is per side")
             XCTAssertEqual(app.planRow(.weight).value as? String, "45 pounds", "No empty bar")
-            app.planRow(.weight).tap()
-            // Opening the wheel changes nothing.
-            XCTAssertTrue(app.pickerWheels.firstMatch.appears(), "No weight wheel")
+            app.select(.weight)
+            // Selecting a row changes nothing.
             XCTAssertEqual(app.pickerWheels.firstMatch.value as? String, "45 lb")
             attach(named: "sheet-bench-wheel")
-            app.planRow(.weight).tap()
             app.pick("50 lb", for: .weight)
             XCTAssertEqual(app.planRow(.weight).value(becoming: "50 pounds"), "50 pounds")
             attach(named: "sheet-bench")
@@ -91,8 +97,7 @@ extension RenameUITests {
         }
     }
 
-    /// A time picks minutes and seconds side by side; a tap on the sheet's empty space closes a
-    /// wheel.
+    /// A time picks minutes and seconds side by side.
     @MainActor
     private func pickTimeAndWeight(
         in app: XCUIApplication,
@@ -101,17 +106,14 @@ extension RenameUITests {
     ) {
         XCTContext.runActivity(named: "A time picks minutes and seconds") { _ in
             pigeon.tap()
-            app.planRow(.target).tap()
-            let wheels = app.pickerWheels
-            XCTAssertEqual(wheels.count, 2, "A time has no minutes and seconds")
-            wheels.element(boundBy: 0).adjust(toPickerWheelValue: "1 min")
-            wheels.element(boundBy: 1).adjust(toPickerWheelValue: "30 s")
-            XCTAssertEqual(app.planRow(.target).value(becoming: "90 seconds"), "90 seconds")
+            app.select(.target)
+            XCTAssertEqual(app.pickerWheels.count, 2, "A time has no minutes and seconds")
+            app.pick("1 min", "30 s", for: .target)
+            XCTAssertEqual(
+                app.planRow(.target).value(becoming: "90 seconds per side"),
+                "90 seconds per side",
+            )
             attach(named: "sheet-time-wheels")
-            // A tap on the sheet's empty space, here the gap under Sets, closes the wheel.
-            app.planRow(.sets).coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 1))
-                .withOffset(CGVector(dx: 0, dy: 8)).tap()
-            XCTAssertTrue(wheels.firstMatch.disappears(), "A tap on the sheet left the wheel open")
             app.closeSheet()
             pigeon.assertReads("Pigeon stretch, 90 seconds per side")
         }

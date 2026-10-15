@@ -69,7 +69,8 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         try XCTContext.runActivity(named: "The exercise sheet at AX5 passes the audit") { _ in
             app.lastExerciseRow.tap()
             XCTAssertTrue(app.planRow(.sets).appears(), "A tap on a row opened no sheet")
-            XCTAssertEqual(app.planRow(.weight).label, "Weight, Pair, each")
+            XCTAssertEqual(app.planRow(.weight).label, "Weight")
+            XCTAssertTrue(app.pickerWheels.firstMatch.exists, "The wheel is out of reach")
             attach(named: "sheet-ax5")
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
             app.planRow(.sets).swipeUp()

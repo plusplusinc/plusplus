@@ -2,18 +2,18 @@ import DesignSystem
 import SwiftUI
 import WorkoutStore
 
-/// A part's wheel, open under its row in the exercise sheet, in the region `PickerRow` gives it:
-/// the system's wheel picker over the part's choices, its unit beside the number in the band,
-/// and for a time, minutes and seconds side by side. The wheel takes the content's full width,
-/// so a drag anywhere across it turns the wheel rather than the sheet. Its numbers, with their
-/// unit, are centered in it. Each value it settles on is the row's at once. The row's current value
-/// is always on
-/// the wheel, so opening it changes nothing.
+/// The wheel docked at the foot of the exercise sheet, setting the selected part: the system's
+/// wheel picker over the part's choices, its unit beside the number in the band, and for a time,
+/// minutes and seconds side by side. It takes the sheet's full width, so a drag anywhere across
+/// it turns the wheel rather than the sheet. Its numbers, with their unit, are centered in it.
+/// Each value it settles on is the row's at once. The row's current value is always on the
+/// wheel, so selecting a row changes nothing. VoiceOver reads it as adjustable, named for its
+/// part.
 struct PlanWheel: View {
     @Binding var item: RoutineExercise
     let part: PlanPart
 
-    /// The system wheel's own height, which the sheet's open detent makes room for.
+    /// The system wheel's own height, which the sheet makes room for under its rows.
     static let height: CGFloat = 216
 
     @Environment(\.locale) private var locale
@@ -29,9 +29,14 @@ struct PlanWheel: View {
                 case .reps:
                     wheel("Reps", selection: reps, choices: item.repChoices, unit: nil)
                 case .time:
-                    wheel("Minutes", selection: minutes, choices: item.minuteChoices, unit: "min")
                     wheel(
-                        "Seconds",
+                        "Time, minutes",
+                        selection: minutes,
+                        choices: item.minuteChoices,
+                        unit: "min",
+                    )
+                    wheel(
+                        "Time, seconds",
                         selection: seconds,
                         choices: item.secondChoices,
                         unit: "s",

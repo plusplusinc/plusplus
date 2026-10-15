@@ -35,12 +35,22 @@ extension RoutineExercise {
     /// side when it is, then the weight, each when it is a pair's.
     private func line(amount: String, sets: String, weight: String?) -> [String] {
         var parts = exercise.equipmentLine.map { [$0] } ?? []
-        let amount = plan.sets > 1 ? sets + amount : amount
-        parts.append(exercise.isPerSide ? amount + " per side" : amount)
+        parts.append(qualified(plan.sets > 1 ? sets + amount : amount, .target))
         if let weight {
-            parts.append(exercise.load == .pair ? weight + " each" : weight)
+            parts.append(qualified(weight, .weight))
         }
         return parts
+    }
+
+    /// `text` followed by what a part's number is for, if anything: "per side" after reps or a
+    /// time done one side at a time, "each" after a pair's weight.
+    private func qualified(_ text: String?, _ part: PlanPart) -> String {
+        let qualifier: String? = switch part {
+        case .sets: nil
+        case .target: exercise.isPerSide ? "per side" : nil
+        case .weight: exercise.load == .pair ? "each" : nil
+        }
+        return [text, qualifier].compactMap(\.self).joined(separator: " ")
     }
 
     /// A weight shows only on an exercise that holds one.
@@ -61,27 +71,10 @@ extension RoutineExercise {
         }
     }
 
-    /// What a part's number means, under its name in the sheet: "Per side" for reps or time,
-    /// and for a weight, what it is the weight of.
-    public func note(of part: PlanPart) -> String? {
-        switch part {
-        case .sets: nil
-        case .target: exercise.isPerSide ? "Per side" : nil
-        case .weight:
-            switch exercise.load {
-            case .single:
-                exercise.equipment.contains(.kettlebell) ? "One kettlebell" : "One dumbbell"
-            case .pair: "Pair, each"
-            case .bar: "Bar, total"
-            case nil: nil
-            }
-        }
-    }
-
-    /// A part's value in the sheet, nil only for a weight on an exercise with none: 3, 60 s,
-    /// 2:30 min, 135 lb.
+    /// A part's value in the sheet, its label not repeated, nil only for a weight on an exercise
+    /// with none: 3, 12, 10 per side, 60 s per side, 2:30 min, 15 lb each, 135 lb.
     public func value(of part: PlanPart, locale: Locale = .current) -> PlanValue? {
-        switch part {
+        let value: PlanValue? = switch part {
         case .sets:
             PlanValue(plan.sets.formatted(.number.locale(locale)))
         case .target:
@@ -90,7 +83,11 @@ extension RoutineExercise {
             case let .time(seconds): TimeText.value(seconds: seconds, locale: locale)
             }
         case .weight:
-            shownWeight.map { PlanValue($0.number(locale: locale), unit: $0.unit.rawValue) }
+            shownWeight.map { PlanValue($0.number(locale: locale), suffix: $0.unit.rawValue) }
+        }
+        return value.map { value in
+            let suffix = qualified(value.suffix, part)
+            return PlanValue(value.number, suffix: suffix.isEmpty ? nil : suffix)
         }
     }
 
@@ -99,13 +96,13 @@ extension RoutineExercise {
         Weight(amount, plan.weight?.unit ?? .pounds).number(locale: locale)
     }
 
-    /// A part's value in words, for VoiceOver: "3 sets", "10 reps", "2 minutes 30 seconds",
-    /// "50 pounds".
+    /// A part's value in words, for VoiceOver: "3 sets", "10 reps per side",
+    /// "2 minutes 30 seconds", "15 pounds each".
     public func spokenValue(of part: PlanPart, locale: Locale = .current) -> String {
         switch part {
         case .sets: counted(plan.sets, "set", "sets", locale: locale)
-        case .target: plan.target.spokenText(locale: locale)
-        case .weight: shownWeight?.spokenText(locale: locale) ?? ""
+        case .target: qualified(plan.target.spokenText(locale: locale), part)
+        case .weight: shownWeight.map { qualified($0.spokenText(locale: locale), part) } ?? ""
         }
     }
 }
@@ -159,14 +156,15 @@ extension Weight {
     }
 }
 
-/// A number as the sheet shows it, with its unit drawn small after it, if it has one.
+/// A number as the sheet shows it, with the words after it drawn small, if it has any: its unit,
+/// and "per side" or "each" when it is.
 public struct PlanValue: Equatable, Sendable {
     public let number: String
-    public let unit: String?
+    public let suffix: String?
 
-    public init(_ number: String, unit: String? = nil) {
+    public init(_ number: String, suffix: String? = nil) {
         self.number = number
-        self.unit = unit
+        self.suffix = suffix
     }
 }
 
@@ -177,18 +175,18 @@ enum TimeText {
     /// "30 s", "90 s", "2 min", "2:30 min".
     static func text(seconds: Int, locale: Locale) -> String {
         let value = value(seconds: seconds, locale: locale)
-        return value.number + noBreakSpace + (value.unit ?? "")
+        return value.number + noBreakSpace + (value.suffix ?? "")
     }
 
     static func value(seconds: Int, locale: Locale) -> PlanValue {
         guard seconds >= minutesFrom else {
-            return PlanValue(seconds.formatted(.number.locale(locale)), unit: "s")
+            return PlanValue(seconds.formatted(.number.locale(locale)), suffix: "s")
         }
         let minutes = (seconds / 60).formatted(.number.locale(locale))
         let rest = seconds % 60
-        guard rest > 0 else { return PlanValue(minutes, unit: "min") }
+        guard rest > 0 else { return PlanValue(minutes, suffix: "min") }
         let seconds = rest.formatted(.number.precision(.integerLength(2...)).locale(locale))
-        return PlanValue(minutes + ":" + seconds, unit: "min")
+        return PlanValue(minutes + ":" + seconds, suffix: "min")
     }
 }
 

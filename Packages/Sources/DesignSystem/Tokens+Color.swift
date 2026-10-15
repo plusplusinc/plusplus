@@ -9,7 +9,8 @@ public enum ColorToken: String, CaseIterable, Sendable {
     /// Brand and data green: the ++ mark, and later timers and progress. Never a control's fill.
     case accent = "ppAccent"
     case background = "ppBackground"
-    /// The outline of a key-shaped button, the title's resting cursor, and a rail's nodes.
+    /// The outline of a key-shaped button, the title's resting cursor, a rail's nodes, and the
+    /// fill of a selected row, such as the part a sheet's wheel sets.
     case borderStrong = "ppBorderStrong"
     /// The label on a primary key.
     case onPrimaryKey = "ppOnPrimaryKey"
@@ -20,12 +21,11 @@ public enum ColorToken: String, CaseIterable, Sendable {
     /// Something joining a rail, for the moment it joins: an added row's node draws in it, then
     /// settles to `borderStrong`. Never at rest, and never the line.
     case railJoin = "ppRailJoin"
+    /// A raised fill: a key's, a row's at rest in a sheet, and the open exercise's row on a rail.
     case surface = "ppSurface"
     case textPrimary = "ppTextPrimary"
     /// Placeholder text: the default title while it is being edited.
     case textSecondary = "ppTextSecondary"
-    /// A region set into a sheet, a step darker than its background: an open wheel's.
-    case well = "ppWell"
 }
 
 extension Color {
