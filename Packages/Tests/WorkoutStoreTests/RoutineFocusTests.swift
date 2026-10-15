@@ -81,11 +81,10 @@ struct RoutineFocusTests {
         ) == .mobility(.wholeBody))
     }
 
-    @Test("A bare group gets its day, and a group or muscle the work doesn't use gives way")
+    @Test("A group or muscle the work doesn't use gives way to the groups' name, or a day")
     func checked() throws {
         let core = try Exercise.builtIn(named: ["Plank", "Dead bug"])
         let focus = RoutineFocus(of: core)
-        #expect(focus.checked("Core", against: core) == "Core day")
         #expect(focus.checked("Steady core", against: core) == "Steady core")
         #expect(focus.checked("Legs and core", against: core) == "Core day")
         let pushUps = try Exercise.builtIn(named: ["Push-up", "Ring dip"])
@@ -93,5 +92,14 @@ struct RoutineFocusTests {
             == "Chest and triceps")
         let row = try Exercise.builtIn(named: ["Dumbbell row"])
         #expect(RoutineFocus(of: row).checked("Back and biceps", against: row) == "Back day")
+        // A stretch's group doesn't count in the name that takes over, either.
+        let rowAndStretch = try Exercise.builtIn(named: ["Dumbbell row", "Doorway chest stretch"])
+        #expect(RoutineFocus(of: rowAndStretch).checked("Legs", against: rowAndStretch)
+            == "Back day")
+    }
+
+    @Test("Upper body work that neither pushes nor pulls is upper body, not a push")
+    func upperBodyWithoutPushOrPull() throws {
+        #expect(try Self.focus("Lateral raise", "Dead hang") == .upperBody)
     }
 }

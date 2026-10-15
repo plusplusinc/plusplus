@@ -54,6 +54,8 @@ enum RoutineFocus: Equatable {
     private static func upperBody(_ exercises: [Exercise]) -> Self {
         let pushes = exercises.count { $0.tags.movement == .push }
         let pulls = exercises.count { $0.tags.movement == .pull }
+        // Raises and hangs are neither, and on their own are no push day.
+        guard pushes + pulls > 0 else { return .upperBody }
         if pushes * 3 >= (pushes + pulls) * 2 {
             return .push
         }
@@ -71,10 +73,10 @@ enum RoutineFocus: Equatable {
         } ?? .wholeBody
     }
 
-    /// The name, kept honest: a bare group becomes its day ("Core" is "Core day"), and a name
-    /// that mentions a group or muscle the routine doesn't work gives way to the muscle-group
-    /// name, or its day for one group. A stretch counts only in a mobility routine: a chest
-    /// stretch after back and legs work doesn't make it a chest routine.
+    /// The name, kept honest: one that mentions a group or muscle the routine doesn't work gives
+    /// way to the muscle-group name, or its day for one group. A stretch counts only in a
+    /// mobility routine: a chest stretch after back and legs work doesn't make it a chest
+    /// routine.
     func checked(_ name: String, against exercises: [Exercise]) -> String {
         let words = Set(name.lowercased().split(whereSeparator: { !$0.isLetter }).map(String.init))
         let worked = if case .mobility = self {
@@ -90,14 +92,10 @@ enum RoutineFocus: Equatable {
                 !words.contains(word) || !muscles.isDisjoint(with: claimed)
             }
         guard honest else {
-            let present = Set(exercises.map(\.muscleGroup))
-            if present.count == 1, let only = present.first {
+            if groups.count == 1, let only = groups.first {
                 return only.dayName
             }
-            return MuscleGroup.routineName(for: present) ?? name
-        }
-        if words.count == 1, let group = mentioned.first {
-            return group.dayName
+            return MuscleGroup.routineName(for: groups) ?? name
         }
         return name
     }

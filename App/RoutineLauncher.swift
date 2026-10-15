@@ -11,15 +11,19 @@ struct RoutineLauncher: View {
     let resetsStore: Bool
 
     @State private var routine: Routine?
+    @ObserveHotReload private var hotReload
 
     var body: some View {
-        if let routine {
-            RoutineScreen(routine: routine, store: store, namer: namer)
-        } else {
-            Color.pp(.background)
-                .ignoresSafeArea()
-                .task { routine = await launchRoutine() }
+        Group {
+            if let routine {
+                RoutineScreen(routine: routine, store: store, namer: namer)
+            } else {
+                Color.pp(.background)
+                    .ignoresSafeArea()
+                    .task { routine = await launchRoutine() }
+            }
         }
+        .hotReloadable()
     }
 
     private func launchRoutine() async -> Routine {
@@ -36,4 +40,8 @@ struct RoutineLauncher: View {
             return Routine()
         }
     }
+}
+
+#Preview {
+    RoutineLauncher(store: nil, namer: .muscleGroupsOnly, resetsStore: false)
 }

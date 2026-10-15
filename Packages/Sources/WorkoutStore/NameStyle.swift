@@ -117,7 +117,7 @@ extension RoutineFocus {
     /// The region a shared implement's name goes with, where one reads well.
     private var implementRegion: String? {
         switch self {
-        case .group(.legs), .pair(.legs, _): "legs"
+        case .group(.legs): "legs"
         case .push, .pull, .upperBody: "upper body"
         case .fullBody: "full body"
         default: nil

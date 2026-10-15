@@ -64,6 +64,8 @@ struct RoutineNamerTests {
         #expect(try name(["Balance board hold", "Step-up", "Side plank"]) == "Balance and legs")
         #expect(try name(["Kettlebell swing", "Turkish get-up", "Goblet squat"]) ==
             "Kettlebell legs")
+        // Half core work is not kettlebell legs.
+        #expect(try name(["Turkish get-up", "Goblet squat"]) == "Core and legs")
     }
 
     @Test("Stretches with scattered strength work read as both, not as the strength alone")

@@ -42,7 +42,7 @@ public actor RoutineStore {
             modelContext.insert(new)
             return new
         }()
-        let oldRows = (target.exercises ?? []).sorted { $0.position < $1.position }
+        let oldRows = target.exercises ?? []
         target.name = routine.name
         target.editedAt = now
         let kept = Set(routine.exercises.map(\.id))

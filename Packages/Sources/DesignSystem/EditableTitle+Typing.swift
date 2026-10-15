@@ -24,12 +24,14 @@ extension EditableTitle {
         in text: String,
     ) -> Character? {
         guard shuffles(character, at: index, in: text) else { return nil }
-        let letters = Set(text.filter(\.isLetter).map { character.isUppercase
-                ? Character($0.uppercased())
-                : Character($0.lowercased())
+        // In the character's case, where a letter has a one-character mapping to it: ß has none.
+        let letters = Set(text.filter(\.isLetter).compactMap { letter -> Character? in
+            let cased = character.isUppercase ? letter.uppercased() : letter.lowercased()
+            return cased.count == 1 ? cased.first : nil
         })
         .subtracting([character])
         .sorted()
+        guard !letters.isEmpty else { return nil }
         // SplitMix64's finalizer, so neighboring indexes and swaps pick unrelated letters.
         var mix = (UInt64(index) << 32 | UInt64(swap)) &+ 0x9E37_79B9_7F4A_7C15
         mix = (mix ^ (mix >> 30)) &* 0xBF58_476D_1CE4_E5B9

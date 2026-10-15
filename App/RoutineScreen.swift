@@ -12,12 +12,10 @@ struct RoutineScreen: View {
     /// Nil when the store didn't open: the screen works, and nothing saves.
     private let store: RoutineStore?
     private let namer: RoutineNamer
-    /// Every change to the routine, saved one at a time in the order they happened, so an older
-    /// version can never land last. Only the newest unsaved version waits.
-    @State private var saves = AsyncStream.makeStream(
-        of: Routine.self,
-        bufferingPolicy: .bufferingNewest(1),
-    )
+    /// Where every change to the routine goes, to be saved one at a time in the order they
+    /// happened, so an older version can never land last. The save task sets it, since a stream
+    /// is spent once its task ends, and a task run again needs a new one.
+    @State private var saves: AsyncStream<Routine>.Continuation?
     @State private var isPicking = false
     @State private var scrollPosition = ScrollPosition()
     /// The row just added, holding its place until it can be seen going in.
@@ -53,12 +51,10 @@ struct RoutineScreen: View {
         namer.name(for: routine.exercises.map(\.exercise), of: routine.id)
     }
 
-    /// The name the title shows: chosen, else generated, else none.
-    private var shownName: String? {
-        routine.name.isEmpty ? generatedName : routine.name
-    }
-
     var body: some View {
+        let generatedName = generatedName
+        // The name the title shows: chosen, else generated, else none.
+        let shownName = routine.name.isEmpty ? generatedName : routine.name
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: Spacing.md) {
@@ -172,10 +168,16 @@ struct RoutineScreen: View {
         }
         // `onChange` skips the first value, so a routine opened and left alone is never saved.
         .onChange(of: routine) { _, changed in
-            saves.continuation.yield(changed)
+            saves?.yield(changed)
         }
         .task {
-            for await version in saves.stream {
+            // Only the newest unsaved version waits.
+            let (stream, continuation) = AsyncStream.makeStream(
+                of: Routine.self,
+                bufferingPolicy: .bufferingNewest(1),
+            )
+            saves = continuation
+            for await version in stream {
                 do {
                     try await store?.save(version)
                 } catch {
