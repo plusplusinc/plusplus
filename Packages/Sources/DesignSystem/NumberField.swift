@@ -10,6 +10,7 @@ import SwiftUI
 /// values, as `EditableTitleContent` does for the title.
 public struct NumberField<Focus: Hashable>: View {
     private let value: String?
+    private let amount: Double?
     private let unit: String?
     private let typingUnit: String?
     private let typesDecimal: Bool
@@ -28,12 +29,14 @@ public struct NumberField<Focus: Hashable>: View {
 
     /// - Parameters:
     ///   - value: The number at rest, or nil for "Not set".
+    ///   - amount: What the number stands for, so a step rolls its digits up or down.
     ///   - unit: Drawn small after the number at rest.
     ///   - typingUnit: Drawn after what is typed.
     ///   - filter: What the field keeps of the typed text.
     ///   - typedText: How the kept text reads while typing.
     public init(
         value: String?,
+        amount: Double?,
         unit: String?,
         typingUnit: String?,
         typesDecimal: Bool,
@@ -45,6 +48,7 @@ public struct NumberField<Focus: Hashable>: View {
         onCommit: @escaping (String) -> Void,
     ) {
         self.value = value
+        self.amount = amount
         self.unit = unit
         self.typingUnit = typingUnit
         self.typesDecimal = typesDecimal
@@ -60,6 +64,7 @@ public struct NumberField<Focus: Hashable>: View {
         let isEditing = focus.wrappedValue == id
         NumberFieldContent(
             text: isEditing ? typedText(raw) : value,
+            amount: amount,
             unit: isEditing ? typingUnit : unit,
             isEditing: isEditing,
             blinks: true,
@@ -102,25 +107,27 @@ public struct NumberField<Focus: Hashable>: View {
     }
 }
 
-/// The number drawn from plain values, in a small outlined box: at rest the value and its unit
-/// faint after it, or "Not set"; while typing, the typed text with the `_` after it, and the
-/// box's outline drawn strong.
+/// The number drawn from plain values, in a small outlined box as tall as its row's controls: at
+/// rest the value and its unit faint after it, or "Not set"; while typing, the typed text with
+/// the `_` after it, and the box's outline drawn strong. A stepped number rolls its digits, up as
+/// `amount` rises and down as it falls; typing, and Reduce Motion, swap it at once.
 struct NumberFieldContent: View {
     /// Nil or empty at rest reads "Not set"; empty while typing shows the `_` alone.
     let text: String?
+    var amount: Double?
     let unit: String?
     let isEditing: Bool
     /// Whether the `_` blinks while typing. Snapshots hold it lit.
     let blinks: Bool
 
-    /// As tall as the − | + pair beside it, so the two read as a matched pair of inputs.
-    @ScaledMetric(relativeTo: .subheadline) private var minHeight: CGFloat = 36
     @ScaledMetric(relativeTo: .subheadline) private var minWidth: CGFloat = 60
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
     var body: some View {
         let text = text ?? ""
         let isPlaceholder = text.isEmpty && !isEditing
+        let rolls = !isEditing && !reduceMotion
         let shape = RoundedRectangle(cornerRadius: Radius.sm)
         // One structure whether it shows a number or "Not set". Switching from one view to
         // another here, in the same update that focus arrived, sent the field laid over it into
@@ -130,6 +137,8 @@ struct NumberFieldContent: View {
                 Text(verbatim: isPlaceholder ? String(localized: "Not set") : text)
                     .foregroundStyle(.pp(isPlaceholder ? .textSecondary : .textPrimary))
                     .font(isPlaceholder ? .ppValuePlaceholder : .ppStepperValue)
+                    .contentTransition(rolls ? .numericText(value: amount ?? 0) : .identity)
+                    .animation(rolls ? .valueChange : nil, value: amount)
                 if isEditing {
                     NumberCursor(blinks: blinks)
                         .font(.ppStepperValue)
@@ -144,7 +153,7 @@ struct NumberFieldContent: View {
         .lineLimit(1)
         .minimumScaleFactor(0.7)
         .padding(.horizontal, Spacing.sm)
-        .frame(minWidth: minWidth, minHeight: minHeight)
+        .frame(minWidth: minWidth, maxHeight: .infinity)
         .overlay {
             shape.strokeBorder(
                 .pp(isEditing ? .textPrimary : .borderStrong),
@@ -154,6 +163,11 @@ struct NumberFieldContent: View {
         .contentShape(shape)
         .hotReloadable()
     }
+}
+
+extension Animation {
+    /// A value changing in place, such as a stepper's number rolling to its next.
+    static let valueChange = Animation.snappy(duration: 0.15)
 }
 
 /// The `_` after a typed number, blinking as the title's does.
@@ -185,9 +199,13 @@ private struct NumberCursor: View {
 #Preview {
     VStack(spacing: Spacing.lg) {
         NumberFieldContent(text: "135", unit: "lb", isEditing: false, blinks: false)
+            .frame(height: 36)
         NumberFieldContent(text: nil, unit: nil, isEditing: false, blinks: false)
+            .frame(height: 36)
         NumberFieldContent(text: "142.5", unit: "lb", isEditing: true, blinks: true)
+            .frame(height: 36)
         NumberFieldContent(text: "1:30", unit: nil, isEditing: true, blinks: true)
+            .frame(height: 36)
     }
     .padding()
     .background(Color.pp(.surface))

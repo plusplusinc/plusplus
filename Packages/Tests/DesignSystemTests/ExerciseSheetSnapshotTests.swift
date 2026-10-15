@@ -28,11 +28,8 @@ struct ExerciseSheetSnapshotTests {
                     .foregroundStyle(.pp(.textSecondary))
                     .frame(maxWidth: .infinity)
             }
-            VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: Spacing.md) {
                 ForEach(parts, id: \.title) { part in
-                    if part.title != parts.first?.title {
-                        CardDivider()
-                    }
                     StepperRow(
                         title: part.title,
                         note: part.note,
@@ -52,10 +49,9 @@ struct ExerciseSheetSnapshotTests {
                     )
                 }
             }
-            .ppCard()
         }
         .padding(Spacing.lg)
-        .background(Color.pp(.background))
+        .background(Color.pp(.surface))
     }
 
     @Test("A bench press: sets, reps, and the bar's total")

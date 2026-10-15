@@ -104,19 +104,17 @@ enum PlanRowSpot {
     case value
     case increase
 
-    /// The row's trailing padding, `Spacing.md`.
-    private static let padding: CGFloat = 16
     /// A key's width, `StepKeyButtonStyle`'s `width`, and the line between the two.
     private static let (keyWidth, line): (CGFloat, CGFloat) = (44, 1)
     /// The gap between the value's box and the pair, `Spacing.sm`, and a reach into the box that
     /// its smallest width, 60, takes in.
     private static let (gap, intoValue): (CGFloat, CGFloat) = (8, 20)
 
-    /// From the row's trailing edge.
+    /// From the row's trailing edge, where the pair ends.
     var fromTrailingEdge: CGFloat {
-        let pair = Self.padding + Self.keyWidth * 2 + Self.line
+        let pair = Self.keyWidth * 2 + Self.line
         return switch self {
-        case .increase: Self.padding + Self.keyWidth / 2
+        case .increase: Self.keyWidth / 2
         case .decrease: pair - Self.keyWidth / 2
         case .value: pair + Self.gap + Self.intoValue
         }

@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// A stepper's − and + keys, joined: two cells with a hairline between them and one outline
-/// around both.
+/// around both, as tall as it is given.
 struct StepPair: View {
     let canDecrease: Bool
     let canIncrease: Bool
@@ -21,7 +21,7 @@ struct StepPair: View {
             StepKey("Increase", systemImage: "plus", onStep: onIncrease)
                 .disabled(!canIncrease)
         }
-        .fixedSize()
+        .fixedSize(horizontal: true, vertical: false)
         .clipShape(shape)
         .overlay(shape.strokeBorder(.pp(.borderStrong)))
         .hotReloadable()
@@ -107,7 +107,13 @@ struct StepKey: View {
 #Preview {
     @Previewable @State var value = 10
     HStack(spacing: Spacing.sm) {
-        NumberFieldContent(text: "\(value)", unit: nil, isEditing: false, blinks: false)
+        NumberFieldContent(
+            text: "\(value)",
+            amount: Double(value),
+            unit: nil,
+            isEditing: false,
+            blinks: false,
+        )
         StepPair(
             canDecrease: value > 0,
             canIncrease: true,
@@ -115,6 +121,7 @@ struct StepKey: View {
             onIncrease: { value += 1 },
         )
     }
+    .frame(height: 36)
     .padding()
     .background(Color.pp(.surface))
 }

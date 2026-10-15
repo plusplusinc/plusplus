@@ -1,15 +1,14 @@
 import SwiftUI
 
-/// One cell of a stepper's joined − | + pair: its glyph in the secondary color on a 44 by 36 cell,
-/// the touch carried to 44 tall, the cell darkening while pressed, the glyph dimmed when it can't
-/// step. `onPressChange` hears each press start and end, so a key can repeat while held.
+/// One cell of a stepper's joined − | + pair: its glyph in the secondary color on a cell 44 wide
+/// and as tall as its row's controls, the touch reaching a little past it, the cell darkening
+/// while pressed, the glyph dimmed when it can't step. `onPressChange` hears each press start and end, so a key can repeat while held.
 public struct StepKeyButtonStyle: ButtonStyle {
     private let onPressChange: (Bool) -> Void
 
     @ScaledMetric(relativeTo: .caption) private var width: CGFloat = 44
-    @ScaledMetric(relativeTo: .caption) private var height: CGFloat = 36
     /// Past this, a cell would crowd the number beside it at the largest sizes.
-    private static let largest = CGSize(width: 72, height: 60)
+    private static let widest: CGFloat = 72
     /// How far the touch reaches past the cell, taking a 36 tall cell to 44.
     private static let reach: CGFloat = 4
     @Environment(\.isEnabled) private var isEnabled
@@ -25,7 +24,8 @@ public struct StepKeyButtonStyle: ButtonStyle {
             .font(.ppStepGlyph)
             .foregroundStyle(.pp(.textSecondary))
             .opacity(isEnabled ? 1 : 0.35)
-            .frame(width: min(width, Self.largest.width), height: min(height, Self.largest.height))
+            .frame(width: min(width, Self.widest))
+            .frame(maxHeight: .infinity)
             .background(configuration.isPressed && isEnabled ? Color.pp(.background) : .clear)
             .contentShape(Rectangle().inset(by: -Self.reach))
             .keyPressAnimation(isPressed: configuration.isPressed)
@@ -38,6 +38,7 @@ public struct StepKeyButtonStyle: ButtonStyle {
 
 #Preview {
     StepPair(canDecrease: false, canIncrease: true, onDecrease: { }, onIncrease: { })
+        .frame(height: 36)
         .padding()
         .background(Color.pp(.surface))
 }

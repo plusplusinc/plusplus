@@ -2,9 +2,8 @@ import SwiftUI
 
 /// A compact row for a value: its name leading, with a note on what the number means under it
 /// ("Reps" over "Per side", "Weight" over "Bar, total"), and trailing, the value in a small box
-/// and a joined − | + pair whose keys repeat while held. At the accessibility sizes the name sits
-/// above, and the value and the pair below it. Rows go on a card, `ppCard()`, a divider between
-/// them.
+/// and a joined − | + pair whose keys repeat while held, the two exactly as tall as each other.
+/// At the accessibility sizes the name sits above, and the value and the pair below it.
 ///
 /// VoiceOver reads the row as one adjustable element, "Reps, Per side", with the value in words:
 /// swiping up or down steps it, so the keys themselves are hidden from it, and its "Type a value"
@@ -22,7 +21,8 @@ public struct StepperRow<Value: View>: View {
     private let onType: () -> Void
     private let value: Value
 
-    @ScaledMetric(relativeTo: .footnote) private var minHeight: CGFloat = 52
+    /// The value's box and the − | + pair, one height so they read as a matched pair of inputs.
+    @ScaledMetric(relativeTo: .subheadline) private var controlHeight: CGFloat = 36
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ObserveHotReload private var hotReload
 
@@ -60,19 +60,21 @@ public struct StepperRow<Value: View>: View {
                         Spacer(minLength: 0)
                         pair
                     }
+                    .frame(height: controlHeight)
                 }
-                .padding(.vertical, Spacing.sm)
             } else {
                 HStack(spacing: Spacing.sm) {
                     label
                     Spacer(minLength: 0)
-                    value
-                    pair
+                    HStack(spacing: Spacing.sm) {
+                        value
+                        pair
+                    }
+                    .frame(height: controlHeight)
                 }
             }
         }
-        .padding(.horizontal, Spacing.md)
-        .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: isTyping ? .contain : .ignore)
         .accessibilityLabel([title, note].compactMap(\.self).joined(separator: ", "))
         .accessibilityValue(spokenValue)
@@ -114,31 +116,8 @@ public struct StepperRow<Value: View>: View {
     }
 }
 
-extension View {
-    /// A card holding rows: surface fill, a hairline outline.
-    public func ppCard() -> some View {
-        let shape = RoundedRectangle(cornerRadius: Radius.card)
-        return background(.pp(.surface), in: shape)
-            .overlay(shape.strokeBorder(.pp(.borderStrong)))
-    }
-}
-
-/// The line between two rows on a card.
-public struct CardDivider: View {
-    @ObserveHotReload private var hotReload
-
-    public init() { }
-
-    public var body: some View {
-        Rectangle()
-            .fill(.pp(.borderStrong))
-            .frame(height: 1)
-            .hotReloadable()
-    }
-}
-
 #Preview {
-    VStack(spacing: 0) {
+    VStack(spacing: Spacing.md) {
         StepperRow(
             title: "Sets",
             note: nil,
@@ -149,7 +128,6 @@ public struct CardDivider: View {
             onIncrease: { },
             value: { NumberFieldContent(text: "3", unit: nil, isEditing: false, blinks: false) },
         )
-        CardDivider()
         StepperRow(
             title: "Weight",
             note: "Bar, total",
@@ -161,7 +139,6 @@ public struct CardDivider: View {
             value: { NumberFieldContent(text: nil, unit: nil, isEditing: false, blinks: false) },
         )
     }
-    .ppCard()
     .padding()
-    .background(Color.pp(.background))
+    .background(Color.pp(.surface))
 }

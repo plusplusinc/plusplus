@@ -4,7 +4,7 @@ import WorkoutStore
 
 /// An exercise row's plan, over the routine: its name centered in the bar with its equipment
 /// under it, then a stepper for each part it has. At the accessibility sizes, where the bar would
-/// cut a name short, both lead the content instead. The parts are rows on one card, their keys
+/// cut a name short, both lead the content instead. The parts are compact rows, their keys
 /// repeating while held. Every step, and every typed number once
 /// typing ends, changes the row at once, so it saves as it happens; Done ends typing and closes
 /// the sheet. Delete is in the More menu, not a standing button.
@@ -31,15 +31,9 @@ struct ExerciseSheet: View {
                         // Under the title in the bar, quiet.
                         equipmentLine(equipment).frame(maxWidth: .infinity)
                     }
-                    VStack(spacing: 0) {
-                        ForEach(item.exercise.planParts, id: \.self) { part in
-                            if part != item.exercise.planParts.first {
-                                CardDivider()
-                            }
-                            row(part)
-                        }
+                    VStack(alignment: .leading, spacing: Spacing.md) {
+                        ForEach(item.exercise.planParts, id: \.self, content: row)
                     }
-                    .ppCard()
                 }
                 .padding(.horizontal, Spacing.lg)
                 .padding(.top, Spacing.sm)
@@ -81,9 +75,8 @@ struct ExerciseSheet: View {
             }
         }
         .presentationDetents(detents)
-        // Opaque: through the glass, Start's bright key glowed under the last row. The
-        // background, so the card stands out on it.
-        .presentationBackground(Color.pp(.background))
+        // Opaque: through the glass, Start's bright key glowed under the last row.
+        .presentationBackground(Color.pp(.surface))
         .hotReloadable()
     }
 
@@ -139,6 +132,7 @@ struct ExerciseSheet: View {
             value: {
                 NumberField(
                     value: value?.number,
+                    amount: item.amount(of: part),
                     unit: value?.unit,
                     typingUnit: part == .weight ? (item.plan.weight?.unit ?? unit).rawValue : nil,
                     typesDecimal: part == .weight,

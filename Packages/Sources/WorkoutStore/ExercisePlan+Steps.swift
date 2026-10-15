@@ -4,6 +4,20 @@ import Foundation
 // 145 or 140, and stops at the plan's limits.
 
 extension RoutineExercise {
+    /// What `part` holds as a number, nil for a weight not set: sets, reps, seconds, or a weight's
+    /// amount. Its number in the sheet rolls up or down as this rises or falls.
+    public func amount(of part: PlanPart) -> Double? {
+        switch part {
+        case .sets: Double(plan.sets)
+        case .target:
+            switch plan.target {
+            case let .reps(reps): Double(reps)
+            case let .time(seconds): Double(seconds)
+            }
+        case .weight: exercise.load == nil ? nil : plan.weight?.amount
+        }
+    }
+
     /// Whether `part` can step up or down from where it is.
     public func canStep(_ part: PlanPart, up: Bool) -> Bool {
         switch part {
