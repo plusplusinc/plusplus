@@ -2,8 +2,9 @@ import SwiftUI
 
 /// A value in a row, in a rail row's type: its name leading, with a note on what the number means
 /// under it ("Reps" over "Per side", "Weight" over "Bar, total"), and the value trailing in a
-/// filled capsule, its unit faint after it. A tap opens the row's wheel under it, pushing the rows
-/// below down, and a second tap closes it; the capsule brightens while its wheel is open. A changed
+/// filled capsule, its unit faint after it. A tap unrolls the row's wheel under it, pushing the
+/// rows below down in step, and a second tap rolls it back up; the capsule brightens while its
+/// wheel is open. A changed
 /// number rolls its digits, up as `amount` rises and down as it falls, or with Reduce Motion
 /// swaps at once. At the accessibility sizes the capsule sits under the name.
 ///
@@ -80,9 +81,12 @@ public struct PickerRow<Wheel: View>: View {
             .accessibilityHint(isOpen ? "Collapses the picker." : "Expands a picker.")
             .accessibilityAddTraits(.isButton)
             .accessibilityIdentifier(identifier)
-            if isOpen {
-                wheel.transition(.opacity)
-            }
+            // Always laid out and rolled up to nothing while closed, rather than inserted: an
+            // outgoing view kept its full size over the rows below until it was gone.
+            RevealLayout(fraction: isOpen ? 1 : 0) { wheel }
+                .clipped()
+                .allowsHitTesting(isOpen)
+                .accessibilityHidden(!isOpen)
         }
         .hotReloadable()
     }
@@ -118,6 +122,37 @@ public struct PickerRow<Wheel: View>: View {
         .padding(.horizontal, Spacing.md)
         .frame(minWidth: capsuleHeight, minHeight: capsuleHeight)
         .background(.pp(isOpen ? .borderStrong : .surface), in: .capsule)
+    }
+}
+
+/// Lays out its one view at full size from its top, and takes `fraction` of its height: a wheel
+/// unrolling from its top as it opens, what's below moving down in step, and, clipped, drawing
+/// nothing past the height it has.
+private struct RevealLayout: Layout {
+    var fraction: CGFloat
+
+    var animatableData: CGFloat {
+        get { fraction }
+        set { fraction = newValue }
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
+        guard let view = subviews.first else { return .zero }
+        let size = view.sizeThatFits(ProposedViewSize(width: proposal.width, height: nil))
+        return CGSize(width: size.width, height: size.height * fraction)
+    }
+
+    func placeSubviews(
+        in bounds: CGRect,
+        proposal _: ProposedViewSize,
+        subviews: Subviews,
+        cache _: inout (),
+    ) {
+        subviews.first?.place(
+            at: bounds.origin,
+            anchor: .topLeading,
+            proposal: ProposedViewSize(width: bounds.width, height: nil),
+        )
     }
 }
 

@@ -23,6 +23,7 @@ struct ExerciseSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.locale) private var locale
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
     var body: some View {
@@ -35,7 +36,8 @@ struct ExerciseSheet: View {
                     VStack(alignment: .leading, spacing: Spacing.md) {
                         ForEach(item.exercise.planParts, id: \.self, content: row)
                     }
-                    .animation(.snappy, value: open)
+                    // With Reduce Motion a wheel appears and goes at once.
+                    .animation(reduceMotion ? nil : .snappy, value: open)
                 }
                 .padding(.horizontal, Spacing.lg)
                 .padding(.top, Spacing.sm)
