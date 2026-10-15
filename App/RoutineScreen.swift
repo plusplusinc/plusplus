@@ -12,9 +12,6 @@ struct RoutineScreen: View {
     /// Nil when the store didn't open: the screen works, and nothing saves.
     private let store: RoutineStore?
     private let namer: RoutineNamer
-    /// The exercises, by id, the generated name was made for, so a name is made only when they
-    /// change, and not again at every launch.
-    @State private var namedFor: [Exercise.ID]?
     /// Every change to the routine, saved one at a time in the order they happened, so an older
     /// version can never land last. Only the newest unsaved version waits.
     @State private var saves = AsyncStream.makeStream(
@@ -47,14 +44,18 @@ struct RoutineScreen: View {
         _routine = State(initialValue: routine)
         self.store = store
         self.namer = namer
-        _namedFor = State(
-            initialValue: routine.generatedName == nil ? nil : routine.exercises.map(\.exercise.id),
-        )
+    }
+
+    /// The name made for the routine from its exercises, which a chosen name hides and which
+    /// clearing it brings back. Not stored: made again from the same exercises, it is the same
+    /// name, so it is the same after a relaunch.
+    private var generatedName: String? {
+        namer.name(for: routine.exercises.map(\.exercise), of: routine.id)
     }
 
     /// The name the title shows: chosen, else generated, else none.
     private var shownName: String? {
-        routine.name.isEmpty ? routine.generatedName : routine.name
+        routine.name.isEmpty ? generatedName : routine.name
     }
 
     var body: some View {
@@ -64,7 +65,7 @@ struct RoutineScreen: View {
                     EditableTitle(
                         text: $routine.name,
                         placeholder: Self.defaultName,
-                        suggestion: routine.generatedName,
+                        suggestion: generatedName,
                         accessibilityLabel: "Routine name",
                         accessibilityHint: "Renames the routine.",
                     )
@@ -173,9 +174,6 @@ struct RoutineScreen: View {
         .onChange(of: routine) { _, changed in
             saves.continuation.yield(changed)
         }
-        .onChange(of: namingKey, initial: true) {
-            suggestName()
-        }
         .task {
             for await version in saves.stream {
                 do {
@@ -186,26 +184,6 @@ struct RoutineScreen: View {
             }
         }
         .hotReloadable()
-    }
-
-    /// What a generated name depends on: the exercises, in order, while the routine is unnamed.
-    /// Nil once it has a name, which is never regenerated, except with no exercises left, where
-    /// the key is empty so a name made for rows that are gone is dropped.
-    private var namingKey: [Exercise.ID]? {
-        routine.name.isEmpty || routine.exercises.isEmpty ? routine.exercises
-            .map(\.exercise.id) : nil
-    }
-
-    /// Names the unnamed routine for its exercises as they change. The name comes at once, from
-    /// the exercises' tags, so there is nothing to wait for; the title types it in.
-    private func suggestName() {
-        guard let key = namingKey, key != namedFor else { return }
-        let name = namer.name(for: routine.exercises.map(\.exercise), of: routine.id)
-        let was = routine.generatedName ?? "unnamed"
-        let now = name ?? "unnamed"
-        Logger.naming.notice("Named \(now, privacy: .public), was \(was, privacy: .public)")
-        routine.generatedName = name
-        namedFor = key.isEmpty ? nil : key
     }
 
     /// Adds a picked exercise. Its row takes its place as the sheet starts down, moving Add

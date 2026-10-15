@@ -19,7 +19,6 @@ public enum StorageMode: Sendable {
 /// the storage wiring stays put while the data model evolves.
 public enum WorkoutStoreContainer {
     private static let storeName = "PlusPlus"
-    private static let logger = Logger(subsystem: "com.plusplusinc.plusplus", category: "storage")
 
     public static func make(mode: StorageMode, schema: Schema) throws -> ModelContainer {
         let configuration =
@@ -30,7 +29,7 @@ public enum WorkoutStoreContainer {
                 ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
             }
 
-        logger.info("Opening store in \(String(describing: mode), privacy: .public) mode")
+        Logger.storage.info("Opening store in \(String(describing: mode), privacy: .public) mode")
         return try ModelContainer(for: schema, configurations: configuration)
     }
 }

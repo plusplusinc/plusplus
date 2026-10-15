@@ -5,9 +5,7 @@ import Testing
 @Suite("Routine focus")
 struct RoutineFocusTests {
     private static func focus(_ names: String...) throws -> RoutineFocus {
-        try RoutineFocus(of: names.map { name in
-            try #require(Exercise.builtIn.first { $0.name == name }, "No built-in \(name)")
-        })
+        try RoutineFocus(of: Exercise.builtIn(named: names))
     }
 
     @Test("Seven in ten stretches is mobility, and fewer is the strength work")
@@ -85,19 +83,15 @@ struct RoutineFocusTests {
 
     @Test("A bare group gets its day, and a group or muscle the work doesn't use gives way")
     func checked() throws {
-        let core = try ["Plank", "Dead bug"].map { name in
-            try #require(Exercise.builtIn.first { $0.name == name })
-        }
+        let core = try Exercise.builtIn(named: ["Plank", "Dead bug"])
         let focus = RoutineFocus(of: core)
         #expect(focus.checked("Core", against: core) == "Core day")
         #expect(focus.checked("Steady core", against: core) == "Steady core")
         #expect(focus.checked("Legs and core", against: core) == "Core day")
-        let pushUps = try ["Push-up", "Ring dip"].map { name in
-            try #require(Exercise.builtIn.first { $0.name == name })
-        }
+        let pushUps = try Exercise.builtIn(named: ["Push-up", "Ring dip"])
         #expect(RoutineFocus(of: pushUps).checked("Chest and triceps", against: pushUps)
             == "Chest and triceps")
-        let row = try [#require(Exercise.builtIn.first { $0.name == "Dumbbell row" })]
+        let row = try Exercise.builtIn(named: ["Dumbbell row"])
         #expect(RoutineFocus(of: row).checked("Back and biceps", against: row) == "Back day")
     }
 }

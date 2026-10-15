@@ -6,10 +6,8 @@ import SwiftData
 /// models never leave the actor.
 @ModelActor
 public actor RoutineStore {
-    private static let logger = Logger(subsystem: "com.plusplusinc.plusplus", category: "storage")
     private static let builtInByID = Dictionary(
-        Exercise.builtIn.map { ($0.id, $0) },
-        uniquingKeysWith: { first, _ in first },
+        uniqueKeysWithValues: Exercise.builtIn.map { ($0.id, $0) },
     )
 
     static let schema = Schema([StoredRoutine.self, StoredRoutineExercise.self])
@@ -29,8 +27,7 @@ public actor RoutineStore {
         return try modelContext.fetch(descriptor).first.map(Self.routine(from:))
     }
 
-    /// Saves the routine as it is now, or deletes it once it is empty. Only a change to its name
-    /// or its rows counts as an edit; a new generated name alone does not.
+    /// Saves the routine as it is now, edited at `now`, or deletes it once it is empty.
     public func save(_ routine: Routine, at now: Date = .now) throws {
         let stored = try stored(id: routine.id)
         guard !routine.isEmpty else {
@@ -46,15 +43,13 @@ public actor RoutineStore {
             return new
         }()
         let oldRows = (target.exercises ?? []).sorted { $0.position < $1.position }
-        let isEdit = stored == nil || target.name != routine.name
-            || oldRows.map(\.id) != routine.exercises.map(\.id)
-
         target.name = routine.name
-        target.generatedName = routine.generatedName
+        target.editedAt = now
         let kept = Set(routine.exercises.map(\.id))
         for row in oldRows where !kept.contains(row.id) {
             modelContext.delete(row)
         }
+        // Row ids are unique in the app's own writes; keyed leniently against a store that isn't.
         let rowsByID = Dictionary(
             oldRows.map { ($0.id, $0) },
             uniquingKeysWith: { first, _ in first },
@@ -71,9 +66,6 @@ public actor RoutineStore {
                 modelContext.insert(row)
                 row.routine = target
             }
-        }
-        if isEdit {
-            target.editedAt = now
         }
         try modelContext.save()
     }
@@ -100,17 +92,12 @@ public actor RoutineStore {
         let rows = (stored.exercises ?? []).sorted { $0.position < $1.position }
         let exercises = rows.compactMap { row -> RoutineExercise? in
             guard let exercise = builtInByID[row.exerciseID] else {
-                logger
+                Logger.storage
                     .error("Skipped a row for unknown exercise \(row.exerciseID, privacy: .public)")
                 return nil
             }
             return RoutineExercise(id: row.id, exercise: exercise)
         }
-        return Routine(
-            id: stored.id,
-            name: stored.name,
-            exercises: exercises,
-            generatedName: stored.generatedName,
-        )
+        return Routine(id: stored.id, name: stored.name, exercises: exercises)
     }
 }

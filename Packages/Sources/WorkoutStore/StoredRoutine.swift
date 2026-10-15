@@ -10,7 +10,6 @@ final class StoredRoutine {
     var id = UUID()
     /// Empty when unnamed.
     var name = ""
-    var generatedName: String?
     /// When the name or the rows last changed: the launch rule opens the latest.
     var editedAt = Date.distantPast
     @Relationship(deleteRule: .cascade, inverse: \StoredRoutineExercise.routine)

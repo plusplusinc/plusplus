@@ -17,18 +17,18 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
     /// The placeholder as drawn, partway through typing in when it has just changed.
     let shownPlaceholder: String
     /// Whether what an empty field shows is a suggestion rather than the placeholder.
-    let isSuggested: Bool
+    var isSuggested = false
     /// Below 1 while the old placeholder fades out for a new one.
-    let placeholderOpacity: Double
+    var placeholderOpacity = 1.0
     /// The letters of `shownPlaceholder` still scrambling as it types in, by index, each drawn
     /// as its stand-in in the rail's joining blue.
-    let standIns: [Int: Character]
+    var standIns: [Int: Character] = [:]
     /// How far each character of `shownPlaceholder` is drawn in the rail's joining blue rather
     /// than the placeholder's gray, by index, from 0 to 1. Missing is 0.
-    let tints: [Int: Double]
+    var tints: [Int: Double] = [:]
     /// How far the `_` at rest is drawn in the joining blue, from 0 to 1, breathing in step:
     /// while a new placeholder fades the old one out and types in.
-    let cursorTint: Double
+    var cursorTint = 0.0
     let isEditing: Bool
     /// Whether the `_` blinks while editing, and pulses at rest. Snapshots hold it lit, however
     /// long after the view was made they render.
@@ -207,7 +207,7 @@ private struct TitleCursor: View {
     }
 
     private var restingColor: Color {
-        tint > 0 ? Color.pp(.borderStrong).mix(with: .pp(.railJoin), by: tint) : .pp(.borderStrong)
+        Color.pp(.borderStrong).mix(with: .pp(.railJoin), by: tint)
     }
 
     /// Full at the start of each pulse, fading smoothly to its lowest halfway through.
@@ -280,11 +280,6 @@ private struct TitleCursor: View {
         selection: .constant(caret.selection),
         placeholder: "New routine",
         shownPlaceholder: "New routine",
-        isSuggested: false,
-        placeholderOpacity: 1,
-        standIns: [:],
-        tints: [:],
-        cursorTint: 0,
         isEditing: true,
         blinks: true,
         accessibilityLabel: "Routine name",

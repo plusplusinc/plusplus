@@ -18,13 +18,7 @@ final nonisolated class RenameUITests: XCTestCase {
     @MainActor
     func testRenameAtDefaultSize() throws {
         let app = XCUIApplication()
-        // The simulator keeps the last text size it was set to, so the default is pinned.
-        app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
-        // Start from a new routine, not the one the last test saved.
-        app.launchArguments += ["-resetStore", "YES"]
-        app.launch()
-        let title = app.textFields["Routine name"]
-        XCTAssertTrue(title.appears(within: 10))
+        let title = app.launchNewRoutine()
         let addExercise = app.buttons["Add exercise"]
         let keyboard = app.keyboards.element
         let field = title.frame
@@ -65,12 +59,7 @@ final nonisolated class RenameUITests: XCTestCase {
             XCTAssertEqual(title.value as? String, "Arm and back")
         }
         try XCTContext.runActivity(named: "Editing a name starts at its end") { _ in
-            title.tap()
-            // The app moves the caret to the end after focus lands, which can come after typing
-            // sent at once.
-            _ = try Ink.withCursor { try Ink.ofTitle(in: field) } until: { ink, cursor in
-                ink.missAtEnd(cursor)
-            }
+            try title.tapToEditAtEnd(keyboard: keyboard)
             title.typeText(" day")
             XCTAssertEqual(title.value(becoming: "Arm and back day"), "Arm and back day")
             title.typeText("\n")

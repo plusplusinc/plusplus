@@ -21,9 +21,6 @@ struct ExerciseTags: Equatable, Sendable {
         self.kind = kind
     }
 
-    /// An exercise someone made: nothing known beyond its group.
-    static let none = Self(nil, [])
-
     enum Movement: Sendable {
         case push
         case pull
@@ -35,8 +32,7 @@ struct ExerciseTags: Equatable, Sendable {
         case hold
     }
 
-    /// Declared from the top of the body down, the order a name lists them in.
-    enum Muscle: CaseIterable, Sendable {
+    enum Muscle: Sendable {
         case chest
         case lats
         case upperBack

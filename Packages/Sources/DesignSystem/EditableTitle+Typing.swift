@@ -4,25 +4,32 @@ import Foundation
 // and plain values `EditableTitleContent` draws.
 
 extension EditableTitle {
+    /// Whether `character`, at `index` of `text`, shuffles before it lands: the first character,
+    /// and anything that isn't a letter, land at once, and so does a letter with no other letter
+    /// in the text to shuffle through.
+    static func shuffles(_ character: Character, at index: Int, in text: String) -> Bool {
+        index > 0 && character.isLetter
+            && text.contains { $0.isLetter && $0.lowercased() != character.lowercased() }
+    }
+
     /// The stand-in drawn for `character`, at `index`, on its `swap`th change: one of the
     /// other letters of `text`, in `character`'s case, so the letters seem to shuffle into place.
-    /// Nil for the first character, and for anything that isn't a letter, which land at once.
-    /// Letters only, so a monospaced title never changes width. Picked from its arguments rather
-    /// than at random, so the same moment always draws the same.
+    /// Nil where it doesn't shuffle. Letters only, so a monospaced title never changes width.
+    /// Picked from its arguments rather than at random, so the same moment always draws the
+    /// same.
     public static func standIn(
         for character: Character,
         at index: Int,
         swap: Int,
         in text: String,
     ) -> Character? {
-        guard index > 0, character.isLetter else { return nil }
+        guard shuffles(character, at: index, in: text) else { return nil }
         let letters = Set(text.filter(\.isLetter).map { character.isUppercase
                 ? Character($0.uppercased())
                 : Character($0.lowercased())
         })
         .subtracting([character])
         .sorted()
-        guard !letters.isEmpty else { return nil }
         // SplitMix64's finalizer, so neighboring indexes and swaps pick unrelated letters.
         var mix = (UInt64(index) << 32 | UInt64(swap)) &+ 0x9E37_79B9_7F4A_7C15
         mix = (mix ^ (mix >> 30)) &* 0xBF58_476D_1CE4_E5B9
@@ -42,7 +49,7 @@ extension EditableTitle {
             let appeared = Double(index) * lead
             let since = elapsed - appeared
             let character = characters[index]
-            let shuffles = standIn(for: character, at: index, swap: 0, in: text) != nil
+            let shuffles = shuffles(character, at: index, in: text)
             // Compared as typingDuration(of:) adds it up, so the end is the end.
             if shuffles, elapsed < appeared + decode {
                 let swap = Int(since / SuggestionTiming.glyphSwapInterval)

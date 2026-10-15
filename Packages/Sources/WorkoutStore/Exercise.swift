@@ -13,15 +13,6 @@ public struct Exercise: Identifiable, Equatable, Sendable {
     /// What it does, finer than its group, for naming a routine.
     let tags: ExerciseTags
 
-    public init(
-        id: String,
-        name: String,
-        muscleGroup: MuscleGroup,
-        equipment: Set<Equipment> = [],
-    ) {
-        self.init(id: id, name: name, muscleGroup: muscleGroup, equipment: equipment, tags: .none)
-    }
-
     init(
         id: String,
         name: String,

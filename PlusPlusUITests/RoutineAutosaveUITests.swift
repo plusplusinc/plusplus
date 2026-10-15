@@ -17,16 +17,8 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
     @MainActor
     func testRoutineSurvivesRelaunch() throws {
         let app = XCUIApplication()
-        // The simulator keeps the last text size it was set to, so the default is pinned.
-        let arguments = ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryL"]
-            + ["-fallbackNames", "YES"]
-        app.launchArguments = arguments + ["-resetStore", "YES"]
-        app.launch()
-        let title = app.textFields["Routine name"]
-        XCTAssertTrue(title.appears(within: 10))
+        let title = app.launchNewRoutine(arguments: ["-fallbackNames", "YES"])
         XCTAssertEqual(title.value as? String, "New routine")
-        // Every relaunch from here opens whatever the last launch saved.
-        app.launchArguments = arguments
         let gray = try Ink.ofTitle(in: title.frame).contrast
 
         XCTContext.runActivity(named: "An untouched routine isn't kept") { _ in
@@ -81,15 +73,8 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
     private func typedNameStays(in app: XCUIApplication, title: XCUIElement, gray: Int) throws {
         try XCTContext.runActivity(named: "A typed name stays as exercises change") { _ in
             let keyboard = app.keyboards.element
-            title.tap()
-            XCTAssertTrue(keyboard.appears())
+            try title.tapToEditAtEnd(keyboard: keyboard)
             XCTAssertEqual(title.value(becoming: "Chest and back"), "Chest and back")
-            // The app moves the caret to the end after focus lands, which can come after keys
-            // sent at once.
-            let field = title.frame
-            _ = try Ink.withCursor { try Ink.ofTitle(in: field) } until: { ink, cursor in
-                ink.missAtEnd(cursor)
-            }
             let delete = XCUIKeyboardKey.delete.rawValue
             title.typeText(String(repeating: delete, count: "Chest and back".count) + "Push pull\n")
             XCTAssertTrue(keyboard.disappears(), "Return should end editing")
@@ -116,12 +101,7 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
             }
             XCTAssertTrue(app.buttons["Start"].disappears())
             let keyboard = app.keyboards.element
-            title.tap()
-            XCTAssertTrue(keyboard.appears())
-            let field = title.frame
-            _ = try Ink.withCursor { try Ink.ofTitle(in: field) } until: { ink, cursor in
-                ink.missAtEnd(cursor)
-            }
+            try title.tapToEditAtEnd(keyboard: keyboard)
             // Deleting from the end, not ⌘A, which has hidden the keyboard on Xcode Cloud.
             let delete = XCUIKeyboardKey.delete.rawValue
             title.typeText(String(repeating: delete, count: "Push pull".count) + "\n")
@@ -133,18 +113,6 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
             XCTAssertEqual(title.value as? String, "New routine")
             XCTAssertEqual(app.exerciseRows.count, 0)
         }
-    }
-}
-
-@MainActor
-extension XCUIApplication {
-    /// Quits the way a person does, home then gone, and launches again with the same arguments.
-    /// Returns once the title is up.
-    func relaunch() {
-        XCUIDevice.shared.press(.home)
-        terminate()
-        launch()
-        XCTAssertTrue(textFields["Routine name"].appears(within: 10), "No title after relaunch")
     }
 }
 

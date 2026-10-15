@@ -8,6 +8,7 @@ import WorkoutStore
 struct RoutineLauncher: View {
     let store: RoutineStore?
     let namer: RoutineNamer
+    let resetsStore: Bool
 
     @State private var routine: Routine?
 
@@ -25,7 +26,7 @@ struct RoutineLauncher: View {
         guard let store else { return Routine() }
         do {
             #if DEBUG
-            if LaunchOptions.resetsStore {
+            if resetsStore {
                 try await store.deleteAll()
             }
             #endif

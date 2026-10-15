@@ -84,9 +84,8 @@ extension RenameUITests {
             let smallTitle = bar.buttons["Arm and back day"]
             XCTAssertTrue(smallTitle.appears(), "No small title in the bar at the end of the list")
             smallTitle.tap()
-            let title = app.textFields["Routine name"]
             XCTAssertTrue(
-                reading(title.frame.minY >= bar.frame.maxY, becoming: true, within: 2),
+                reading(app.title.frame.minY >= bar.frame.maxY, becoming: true, within: 2),
                 "The title did not come back below the bar",
             )
             XCTAssertTrue(smallTitle.disappears(), "The small title stayed with the title in view")
@@ -97,7 +96,7 @@ extension RenameUITests {
     @MainActor
     func startClearsKeyboard(in app: XCUIApplication, keyboard: XCUIElement) {
         XCTContext.runActivity(named: "Start rides above the keyboard") { _ in
-            let title = app.textFields["Routine name"]
+            let title = app.title
             title.tap()
             XCTAssertTrue(keyboard.appears())
             let start = app.buttons["Start"]

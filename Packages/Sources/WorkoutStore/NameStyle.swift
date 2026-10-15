@@ -39,7 +39,7 @@ extension RoutineFocus {
         if case let .mobility(region) = self {
             return region.names(for: exercises.filter(\.isStretch))
         }
-        let work = Work(exercises.filter { !$0.isStretch })
+        let work = Work(exercises: exercises.filter { !$0.isStretch })
         // A real share of stretching, though not most of it, is named alongside the work.
         if exercises.count(where: \.isStretch) * 5 >= exercises.count * 2 {
             return stretchAndWorkNames(for: work)
@@ -149,10 +149,6 @@ extension RoutineFocus {
 /// The exercises that aren't stretches, with what their tags say about them as a whole.
 private struct Work {
     let exercises: [Exercise]
-
-    init(_ exercises: [Exercise]) {
-        self.exercises = exercises
-    }
 
     /// Whether at least `fraction` of the work is like this.
     func isShare(_ fraction: Double, _ isLike: (Exercise) -> Bool) -> Bool {

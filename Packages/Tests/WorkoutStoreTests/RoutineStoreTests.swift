@@ -21,8 +21,7 @@ struct RoutineStoreTests {
     }
 
     private static func row(_ name: String) throws -> RoutineExercise {
-        let exercise = try #require(Exercise.builtIn.first { $0.name == name })
-        return RoutineExercise(exercise: exercise)
+        try RoutineExercise(exercise: Exercise.builtIn(named: name))
     }
 
     @Test("An untouched store opens nothing")
@@ -45,29 +44,14 @@ struct RoutineStoreTests {
         #expect(try await relaunch().launchRoutine() == routine)
     }
 
-    @Test("Rows reopen in order, duplicates and ids kept, with the generated name")
+    @Test("Rows reopen in order, duplicates and ids kept")
     func rowsReopen() async throws {
         let pullUp = try Self.row("Pull-up")
         let routine = try Routine(
             exercises: [Self.row("Barbell bench press"), pullUp, Self.row("Pull-up")],
-            generatedName: "Chest and back",
         )
         try await relaunch().save(routine)
         #expect(try await relaunch().launchRoutine() == routine)
-    }
-
-    @Test("A generated name reopens, and setting it alone is not an edit")
-    func generatedNameIsNotAnEdit() async throws {
-        let store = relaunch()
-        var routine = try Routine(exercises: [Self.row("Goblet squat")])
-        try await store.save(routine, at: Date(timeIntervalSince1970: 100))
-        routine.generatedName = "Legs"
-        try await store.save(routine, at: Date(timeIntervalSince1970: 200))
-
-        let stored = try #require(try ModelContext(container)
-            .fetch(FetchDescriptor<StoredRoutine>()).first)
-        #expect(stored.editedAt == Date(timeIntervalSince1970: 100))
-        #expect(try await relaunch().launchRoutine()?.generatedName == "Legs")
     }
 
     @Test("A deleted row stays deleted, the rest in order, with no row left behind")
@@ -107,8 +91,6 @@ struct RoutineStoreTests {
         try await store.save(older, at: Date(timeIntervalSince1970: 100))
         #expect(try await relaunch().launchRoutine() == newer)
 
-        newer.generatedName = "Anything"
-        try await store.save(newer, at: Date(timeIntervalSince1970: 50))
         var renamed = older
         renamed.name = "Renamed"
         try await store.save(renamed, at: Date(timeIntervalSince1970: 300))
@@ -129,10 +111,9 @@ struct RoutineStoreTests {
         #expect(try await relaunch().launchRoutine()?.exercises == [plank])
     }
 
-    @Test("A routine is empty with no name and no rows; a generated name doesn't count")
+    @Test("A routine is empty with no name and no rows")
     func isEmpty() throws {
         #expect(Routine().isEmpty)
-        #expect(Routine(generatedName: "Legs").isEmpty)
         #expect(!Routine(name: "Legs").isEmpty)
         #expect(try !Routine(exercises: [Self.row("Plank")]).isEmpty)
     }

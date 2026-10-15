@@ -22,7 +22,7 @@ with its own schema. Its models, `StoredRoutine` and `StoredRoutineExercise`, ar
 `Routine`, a value, crosses the boundary, and the store diffs its rows by id rather than
 replacing them, so a row's identity, and later its sync record, is stable. A row carries its
 `position`, since a relationship is unordered. The store calls `save()` itself, since an
-actor's context does not autosave. An empty routine is deleted rather than stored, and only a
-change to the name or the rows is an edit for the launch rule's `editedAt`.
+actor's context does not autosave. An empty routine is deleted rather than stored, and every save
+marks the routine edited, since a routine saves only when its name or rows changed.
 
 SwiftData has no SQL aggregate pushdown; rollups are computed in Swift over fetched rows.

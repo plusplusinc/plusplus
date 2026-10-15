@@ -5,18 +5,21 @@ import Testing
 @Suite("Routine namer")
 struct RoutineNamerTests {
     private static func exercises(_ names: String...) throws -> [Exercise] {
-        try names.map { name in
-            try #require(Exercise.builtIn.first { $0.name == name }, "No built-in \(name)")
-        }
+        try Exercise.builtIn(named: names)
     }
 
-    /// A routine whose seed is 1: plain, its first variant.
-    private static let routine = UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0))
-    /// A routine whose seed is 0: character, its first variant.
-    private static let characterRoutine =
-        UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
-    /// A routine whose seed is 4: plain, its second variant.
-    private static let otherRoutine = UUID(uuid: (0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0))
+    /// A routine whose style seed is `seed`: a multiple of three has character, and the seed
+    /// over three picks the variant.
+    private static func routine(seed: UInt8) -> UUID {
+        UUID(uuid: (0, 0, 0, 0, 0, 0, 0, seed, 0, 0, 0, 0, 0, 0, 0, 0))
+    }
+
+    /// Plain, its first variant.
+    private static let routine = routine(seed: 1)
+    /// Character, its first variant.
+    private static let characterRoutine = routine(seed: 0)
+    /// Plain, its second variant.
+    private static let otherRoutine = routine(seed: 4)
 
     @Test("No exercises get no name")
     func noExercises() {
@@ -51,7 +54,7 @@ struct RoutineNamerTests {
     func sharpenedByTags() throws {
         let name = { (names: [String]) in
             try RoutineNamer.standard.name(
-                for: names.map { name in try #require(Exercise.builtIn.first { $0.name == name }) },
+                for: Exercise.builtIn(named: names),
                 of: Self.otherRoutine,
             )
         }
@@ -108,9 +111,7 @@ struct RoutineNamerTests {
     @Test("Every routine of up to two built-ins, in any style, gets a short name as written")
     func everyPair() {
         // Seeds 0 to 17 cover both styles at every variant of a list up to six long.
-        let styles = (0 ..< 18).map { seed in
-            UUID(uuid: (0, 0, 0, 0, 0, 0, 0, UInt8(seed), 0, 0, 0, 0, 0, 0, 0, 0))
-        }
+        let styles = (0 ..< 18).map { Self.routine(seed: UInt8($0)) }
         for first in Exercise.builtIn {
             for second in Exercise.builtIn {
                 let exercises = first == second ? [first] : [first, second]

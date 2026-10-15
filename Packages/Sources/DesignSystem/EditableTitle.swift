@@ -37,8 +37,6 @@ public struct EditableTitle: View {
     @FocusState private var isEditing: Bool
     /// What an unnamed title shows as drawn: behind `restingTitle` while a new one types in.
     @State private var shownTitle: String
-    /// Whether `shownTitle` is a suggestion, drawn white, rather than the placeholder, gray.
-    @State private var shownIsSuggested: Bool
     @State private var shownOpacity = 1.0
     /// When `shownTitle` started typing in, while it is. The one clock every character's
     /// appearing and landing is read from.
@@ -64,12 +62,17 @@ public struct EditableTitle: View {
         hint = accessibilityHint
         _draft = State(initialValue: text.wrappedValue)
         _shownTitle = State(initialValue: suggestion ?? placeholder)
-        _shownIsSuggested = State(initialValue: suggestion != nil)
     }
 
     /// What an unnamed title shows once nothing is typing in.
     private var restingTitle: String {
         suggestion ?? placeholder
+    }
+
+    /// Whether `shownTitle` is a suggestion, drawn white, rather than the placeholder, gray. A
+    /// suggestion is never the placeholder's text.
+    private var shownIsSuggested: Bool {
+        shownTitle != placeholder
     }
 
     /// Whether a draft holds a press of Return: a single newline, wherever the caret was and
@@ -245,12 +248,9 @@ public struct EditableTitle: View {
             shownOpacity = 0
         }
         guard await pause(.seconds(SuggestionTiming.fadeOut)) else { return }
-        let title = restingTitle
-        shownTitle = title
-        shownIsSuggested = suggestion != nil
-        shownOpacity = 1
+        settle()
         typingStart = .now
-        guard await pause(.seconds(Self.typingDuration(of: title))) else { return }
+        guard await pause(.seconds(Self.typingDuration(of: shownTitle))) else { return }
         typingStart = nil
     }
 
@@ -263,7 +263,6 @@ public struct EditableTitle: View {
     /// The resting title as it is, with nothing typing in.
     private func settle() {
         shownTitle = restingTitle
-        shownIsSuggested = suggestion != nil
         shownOpacity = 1
         typingStart = nil
     }

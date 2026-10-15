@@ -9,6 +9,8 @@ struct PlusPlusApp: App {
     /// crash at every launch, or a store quietly opened somewhere else.
     private let store: RoutineStore?
     private let namer: RoutineNamer
+    /// Whether to start from an empty store, as the UI tests do.
+    private let resetsStore: Bool
 
     init() {
         do {
@@ -19,14 +21,16 @@ struct PlusPlusApp: App {
         }
         #if DEBUG
         namer = LaunchOptions.usesFallbackNames ? .muscleGroupsOnly : .standard
+        resetsStore = LaunchOptions.resetsStore
         #else
         namer = .standard
+        resetsStore = false
         #endif
     }
 
     var body: some Scene {
         WindowGroup {
-            RoutineLauncher(store: store, namer: namer)
+            RoutineLauncher(store: store, namer: namer, resetsStore: resetsStore)
                 .publishesHotReloads()
         }
     }
@@ -34,5 +38,4 @@ struct PlusPlusApp: App {
 
 extension Logger {
     static let app = Logger(subsystem: "com.plusplusinc.plusplus", category: "app")
-    static let naming = Logger(subsystem: "com.plusplusinc.plusplus", category: "naming")
 }
