@@ -17,6 +17,10 @@ struct RoutineScreen: View {
     /// is spent once its task ends, and a task run again needs a new one.
     @State private var saves: AsyncStream<Routine>.Continuation?
     @State private var isPicking = false
+    /// The row whose sheet is open.
+    @State private var editing: Edited?
+    /// The row the sheet's Delete removes once the sheet is down, so its fade is seen.
+    @State private var deleting: RoutineExercise.ID?
     @State private var scrollPosition = ScrollPosition()
     /// The row just added, holding its place until it can be seen going in.
     @State private var arriving: RoutineExercise.ID?
@@ -72,14 +76,21 @@ struct RoutineScreen: View {
                         }
                     }
                     Rail(routine.exercises, arriving: arriving) { item in
-                        RowLabel(
-                            title: item.exercise.name,
-                            detail: item.detailParts(locale: locale),
-                            spokenDetail: item.spokenDetail(locale: locale),
-                            showsSides: item.exercise.isPerSide,
-                        )
-                        .railRow()
-                            .accessibilityIdentifier("routine.exercise")
+                        Button {
+                            editing = Edited(id: item.id)
+                        } label: {
+                            RowLabel(
+                                title: item.exercise.name,
+                                detail: item.detailParts(locale: locale),
+                                spokenDetail: item.spokenDetail(locale: locale),
+                                showsSides: item.exercise.isPerSide,
+                            )
+                            .railRow()
+                            .contentShape(.rect)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("routine.exercise")
+                        .accessibilityHint("Opens its plan.")
                             .swipeActions(edge: .trailing) {
                                 Button("Delete", role: .destructive) {
                                     withAnimation(.railChange) {
@@ -128,6 +139,11 @@ struct RoutineScreen: View {
                     guard isPicking else { return }
                     isPicking = false
                     add(exercise)
+                }
+            }
+            .sheet(item: $editing, onDismiss: removeDeleted) { edited in
+                if let row = row(edited.id) {
+                    ExerciseSheet(item: row) { deleting = edited.id }
                 }
             }
             .toolbar {
@@ -194,6 +210,26 @@ struct RoutineScreen: View {
         .hotReloadable()
     }
 
+    /// The row with `id`, bound into the routine, so the sheet's changes save as they happen;
+    /// nil once it is gone.
+    private func row(_ id: RoutineExercise.ID) -> Binding<RoutineExercise>? {
+        guard let current = routine.exercises.first(where: { $0.id == id }) else { return nil }
+        return Binding {
+            routine.exercises.first { $0.id == id } ?? current
+        } set: { changed in
+            guard let index = routine.exercises.firstIndex(where: { $0.id == id }) else { return }
+            routine.exercises[index] = changed
+        }
+    }
+
+    private func removeDeleted() {
+        guard let id = deleting else { return }
+        deleting = nil
+        withAnimation(.railChange) {
+            routine.exercises.removeAll { $0.id == id }
+        }
+    }
+
     /// Adds a picked exercise. Its row takes its place as the sheet starts down, moving Add
     /// exercise, but enters only where it can be seen: a moment into the sheet's slide when
     /// everything still fits, and otherwise once a scroll to the end has brought the row and Add
@@ -255,6 +291,11 @@ struct RoutineScreen: View {
             arriving = nil
         }
     }
+}
+
+/// The row whose sheet is open, by id, since a sheet presents an identifiable item.
+private struct Edited: Identifiable {
+    let id: RoutineExercise.ID
 }
 
 #Preview {

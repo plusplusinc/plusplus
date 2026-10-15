@@ -17,6 +17,12 @@ extension Font {
     /// A screen's title collapsed into its bar: SF Mono, as the screen title is, at the size and
     /// weight of the system's inline title.
     public static let ppInlineTitle = Font.system(.headline, design: .monospaced, weight: .semibold)
+    /// A sheet's heading, such as an exercise's name over its plan.
+    public static let ppSheetTitle = Font.system(.title2, weight: .bold)
+    /// The unit drawn small after a stepper's number.
+    public static let ppValueUnit = Font.system(.body, weight: .medium)
+    /// A stepper's "Not set", in place of a number.
+    public static let ppValuePlaceholder = Font.system(.body)
     /// The L | R mark on a row done one side at a time: SF Mono, so the two letters sit evenly
     /// either side of the divider.
     public static let ppSidesMark = Font.system(.caption2, design: .monospaced, weight: .bold)
@@ -29,6 +35,25 @@ extension View {
     /// wide.
     public func ppScreenTitleFont() -> some View {
         modifier(ScreenTitleFont())
+    }
+}
+
+extension View {
+    /// A stepper's number: SF Mono, 26pt bold, so digits keep their width as it steps.
+    public func ppValueFont() -> some View {
+        modifier(ValueFont())
+    }
+}
+
+/// 26pt, between `title2` and `title`, scaling as `title2` does.
+private struct ValueFont: ViewModifier {
+    @ScaledMetric(relativeTo: .title2) private var size: CGFloat = 26
+    @ObserveHotReload private var hotReload
+
+    func body(content: Content) -> some View {
+        content
+            .font(.system(size: size, weight: .bold, design: .monospaced))
+            .hotReloadable()
     }
 }
 

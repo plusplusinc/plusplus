@@ -1,0 +1,109 @@
+import Foundation
+
+// The sheet's − and + keys. Each steps to the next value on its grid, so a typed 142.5 lb goes to
+// 145 or 140, and stops at the plan's limits.
+
+extension RoutineExercise {
+    /// Whether `part` can step up or down from where it is.
+    public func canStep(_ part: PlanPart, up: Bool) -> Bool {
+        switch part {
+        case .sets:
+            return up ? plan.sets < PlanLimits.sets.upperBound :
+                plan.sets > PlanLimits.sets.lowerBound
+        case .target:
+            switch plan.target {
+            case let .reps(reps):
+                return up ? reps < PlanLimits.reps.upperBound : reps > PlanLimits.reps.lowerBound
+            case let .time(seconds):
+                return up ? seconds < PlanLimits.seconds.upperBound : seconds > TimeSteps.minimum
+            }
+        case .weight:
+            guard exercise.load != nil else { return false }
+            guard let weight = plan.weight else { return up }
+            return up ? weight.amount < PlanLimits.maxWeight : true
+        }
+    }
+
+    /// Steps `part` up or down. A weight stepped up from not set starts in `newWeightUnit`: at the
+    /// empty bar for a bar, else at one step; stepped down from its smallest step it is not set.
+    public mutating func step(_ part: PlanPart, up: Bool, newWeightUnit: WeightUnit) {
+        guard canStep(part, up: up) else { return }
+        switch part {
+        case .sets:
+            plan.sets += up ? 1 : -1
+        case .target:
+            switch plan.target {
+            case let .reps(reps): plan.target = .reps(reps + (up ? 1 : -1))
+            case let .time(seconds): plan.target = .time(seconds: TimeSteps.step(seconds, up: up))
+            }
+        case .weight:
+            guard let weight = plan.weight else {
+                plan.weight = exercise.load == .bar ? .emptyBar(newWeightUnit) :
+                    Weight(newWeightUnit.step, newWeightUnit)
+                return
+            }
+            let amount = Self.snapped(weight.amount, step: weight.unit.step, up: up)
+            plan.weight = amount > 0 ? Weight(min(amount, PlanLimits.maxWeight), weight.unit) : nil
+        }
+    }
+
+    /// The next multiple of `step` above `value`, or the one below.
+    static func snapped(_ value: Double, step: Double, up: Bool) -> Double {
+        var steps = value / step
+        // A value on the grid, give or take floating point, is on it.
+        if abs(steps - steps.rounded()) < 1e-9 {
+            steps = steps.rounded()
+        }
+        return (up ? steps.rounded(.down) + 1 : steps.rounded(.up) - 1) * step
+    }
+}
+
+extension WeightUnit {
+    /// One step of a weight: 5 lb or 2.5 kg.
+    var step: Double {
+        switch self {
+        case .pounds: 5
+        case .kilograms: 2.5
+        }
+    }
+}
+
+extension Weight {
+    /// A barbell with nothing on it: 45 lb or 20 kg.
+    static func emptyBar(_ unit: WeightUnit) -> Weight {
+        switch unit {
+        case .pounds: Weight(45, .pounds)
+        case .kilograms: Weight(20, .kilograms)
+        }
+    }
+}
+
+/// Time steps by 5 s under a minute and by 15 s from a minute up.
+enum TimeSteps {
+    static let minimum = 5
+    private static let fine = 5
+    private static let coarse = 15
+    private static let coarseFrom = 60
+
+    static func step(_ seconds: Int, up: Bool) -> Int {
+        let next: Int
+        if up, seconds < coarseFrom {
+            next = min(above(seconds, fine), coarseFrom)
+        } else if up {
+            next = above(seconds, coarse)
+        } else if seconds > coarseFrom {
+            next = max(below(seconds, coarse), coarseFrom)
+        } else {
+            next = below(seconds, fine)
+        }
+        return min(max(next, minimum), PlanLimits.seconds.upperBound)
+    }
+
+    private static func above(_ value: Int, _ step: Int) -> Int {
+        (value / step + 1) * step
+    }
+
+    private static func below(_ value: Int, _ step: Int) -> Int {
+        ((value + step - 1) / step - 1) * step
+    }
+}
