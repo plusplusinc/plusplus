@@ -167,7 +167,7 @@ struct NumberFieldContent: View {
 
 extension Animation {
     /// A value changing in place, such as a stepper's number rolling to its next.
-    static let valueChange = Animation.snappy(duration: 0.15)
+    static let valueChange = Animation.snappy(duration: 0.1)
 }
 
 /// The `_` after a typed number, blinking as the title's does.
