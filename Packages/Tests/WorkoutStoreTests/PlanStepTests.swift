@@ -88,29 +88,6 @@ struct PlanStepTests {
         #expect(try !RoutineExercise.builtIn("Push-up").canStep(.weight, up: true))
     }
 
-    @Test("A key's label is the step it takes: +1, −5 s or +15 s, +45 for a bar not set")
-    func labels() throws {
-        let us = Locale(identifier: "en_US")
-        let label = { (row: RoutineExercise, part: PlanPart, up: Bool, unit: WeightUnit) in
-            row.stepLabel(of: part, up: up, newWeightUnit: unit, locale: us)
-        }
-        let bench = try RoutineExercise.builtIn("Barbell bench press")
-        #expect(label(bench, .sets, false, .pounds) == "\u{2212}1")
-        #expect(label(bench, .target, true, .pounds) == "+1")
-        #expect(label(bench, .weight, true, .pounds) == "+45")
-        #expect(label(bench, .weight, true, .kilograms) == "+20")
-        #expect(label(bench, .weight, false, .pounds) == "\u{2212}5")
-        let row = try RoutineExercise.builtIn("Dumbbell row") { $0.weight = Weight(20, .kilograms) }
-        #expect(label(row, .weight, true, .pounds) == "+2.5")
-        let plank = { (seconds: Int) in
-            try RoutineExercise.builtIn("Plank") { $0.target = .time(seconds: seconds) }
-        }
-        #expect(try label(plank(55), .target, true, .pounds) == "+5\u{00A0}s")
-        #expect(try label(plank(60), .target, true, .pounds) == "+15\u{00A0}s")
-        #expect(try label(plank(60), .target, false, .pounds) == "\u{2212}5\u{00A0}s")
-        #expect(try label(plank(75), .target, false, .pounds) == "\u{2212}15\u{00A0}s")
-    }
-
     @Test("A new weight takes the region's unit: lb in the US, kg elsewhere")
     func regionUnit() {
         #expect(WeightUnit(region: Locale(identifier: "en_US")) == .pounds)

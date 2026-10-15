@@ -102,9 +102,9 @@ public struct NumberField<Focus: Hashable>: View {
     }
 }
 
-/// The number drawn from plain values, in an outlined box the width it is given: at rest the
-/// value and its unit faint after it, or "Not set"; while typing, the typed text with the `_`
-/// after it, and the box's outline drawn strong.
+/// The number drawn from plain values, in a small outlined box: at rest the value and its unit
+/// faint after it, or "Not set"; while typing, the typed text with the `_` after it, and the
+/// box's outline drawn strong.
 struct NumberFieldContent: View {
     /// Nil or empty at rest reads "Not set"; empty while typing shows the `_` alone.
     let text: String?
@@ -113,9 +113,9 @@ struct NumberFieldContent: View {
     /// Whether the `_` blinks while typing. Snapshots hold it lit.
     let blinks: Bool
 
-    /// The number's size, held here so the same text can switch to "Not set"'s font.
-    @ScaledMetric(relativeTo: .largeTitle) private var valueSize: CGFloat = 40
-    @ScaledMetric(relativeTo: .largeTitle) private var minHeight: CGFloat = 64
+    /// As tall as the − | + pair beside it, so the two read as a matched pair of inputs.
+    @ScaledMetric(relativeTo: .subheadline) private var minHeight: CGFloat = 36
+    @ScaledMetric(relativeTo: .subheadline) private var minWidth: CGFloat = 60
     @ObserveHotReload private var hotReload
 
     var body: some View {
@@ -129,10 +129,10 @@ struct NumberFieldContent: View {
             HStack(alignment: .firstTextBaseline, spacing: 0) {
                 Text(verbatim: isPlaceholder ? String(localized: "Not set") : text)
                     .foregroundStyle(.pp(isPlaceholder ? .textSecondary : .textPrimary))
-                    .font(isPlaceholder ? .ppValuePlaceholder : .ppBoldMono(size: valueSize))
+                    .font(isPlaceholder ? .ppValuePlaceholder : .ppStepperValue)
                 if isEditing {
                     NumberCursor(blinks: blinks)
-                        .font(.ppBoldMono(size: valueSize))
+                        .font(.ppStepperValue)
                 }
             }
             if let unit, !isPlaceholder {
@@ -142,9 +142,9 @@ struct NumberFieldContent: View {
             }
         }
         .lineLimit(1)
-        .minimumScaleFactor(0.5)
-        .padding(.horizontal, Spacing.md)
-        .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .leading)
+        .minimumScaleFactor(0.7)
+        .padding(.horizontal, Spacing.sm)
+        .frame(minWidth: minWidth, minHeight: minHeight)
         .overlay {
             shape.strokeBorder(
                 .pp(isEditing ? .textPrimary : .borderStrong),

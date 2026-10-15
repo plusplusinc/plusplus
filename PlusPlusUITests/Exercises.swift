@@ -97,36 +97,28 @@ enum PlanPart: String {
 }
 
 /// Where to tap in a sheet's row: its keys are hidden from VoiceOver, which steps the row as one
-/// adjustable element, so a tap finds them by where they sit at the default text size. A row is a
-/// card: the value's box, then − and + side by side along its bottom.
+/// adjustable element, so a tap finds them by where they sit at the default text size. A row ends
+/// in the value's box, then the joined − | + pair.
 enum PlanRowSpot {
     case decrease
     case value
     case increase
 
-    /// The card's padding, `Spacing.md`.
+    /// The row's trailing padding, `Spacing.md`.
     private static let padding: CGFloat = 16
-    /// A key's cap and the plate under it, `StepKeyButtonStyle`'s `minHeight` and
-    /// `RaisedKey.travel`.
-    private static let (keyHeight, travel): (CGFloat, CGFloat) = (52, 4)
-    /// The value's box, `NumberFieldContent`'s `minHeight`, and the gap above the keys.
-    private static let (valueHeight, gap): (CGFloat, CGFloat) = (64, 8)
+    /// A key's width, `StepKeyButtonStyle`'s `width`, and the line between the two.
+    private static let (keyWidth, line): (CGFloat, CGFloat) = (44, 1)
+    /// The gap between the value's box and the pair, `Spacing.sm`, and a reach into the box that
+    /// its smallest width, 60, takes in.
+    private static let (gap, intoValue): (CGFloat, CGFloat) = (8, 20)
 
-    /// Across the row: the left half's middle, the middle, the right half's middle.
-    var across: CGFloat {
-        switch self {
-        case .decrease: 0.25
-        case .value: 0.5
-        case .increase: 0.75
-        }
-    }
-
-    /// Up from the row's bottom edge, to the middle of the keys or of the value's box.
-    var fromBottomEdge: CGFloat {
-        let keys = Self.padding + Self.travel + Self.keyHeight / 2
+    /// From the row's trailing edge.
+    var fromTrailingEdge: CGFloat {
+        let pair = Self.padding + Self.keyWidth * 2 + Self.line
         return switch self {
-        case .decrease, .increase: keys
-        case .value: Self.padding + Self.travel + Self.keyHeight + Self.gap + Self.valueHeight / 2
+        case .increase: Self.padding + Self.keyWidth / 2
+        case .decrease: pair - Self.keyWidth / 2
+        case .value: pair + Self.gap + Self.intoValue
         }
     }
 }
@@ -147,8 +139,8 @@ extension XCUIApplication {
 extension XCUIElement {
     @MainActor
     func tapKey(_ spot: PlanRowSpot) {
-        coordinate(withNormalizedOffset: CGVector(dx: spot.across, dy: 1))
-            .withOffset(CGVector(dx: 0, dy: -spot.fromBottomEdge))
+        coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5))
+            .withOffset(CGVector(dx: -spot.fromTrailingEdge, dy: 0))
             .tap()
     }
 }

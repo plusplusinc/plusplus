@@ -47,35 +47,6 @@ extension RoutineExercise {
         }
     }
 
-    /// A key's label, the step it takes, signed: "+1", "−5", "+15 s", "−2.5". A weight not set
-    /// steps up by what it starts at, so a bar's + reads "+45".
-    public func stepLabel(
-        of part: PlanPart,
-        up: Bool,
-        newWeightUnit: WeightUnit,
-        locale: Locale = .current,
-    ) -> String {
-        let size: String = switch part {
-        case .sets:
-            1.formatted(.number.locale(locale))
-        case .target:
-            switch plan.target {
-            case .reps: 1.formatted(.number.locale(locale))
-            case let .time(seconds):
-                TimeSteps.size(from: seconds, up: up).formatted(.number.locale(locale)) + "\u{00A0}s"
-            }
-        case .weight:
-            if let weight = plan.weight {
-                Weight(weight.unit.step, weight.unit).number(locale: locale)
-            } else if up, exercise.load == .bar {
-                Weight.emptyBar(newWeightUnit).number(locale: locale)
-            } else {
-                Weight(newWeightUnit.step, newWeightUnit).number(locale: locale)
-            }
-        }
-        return (up ? "+" : "\u{2212}") + size
-    }
-
     /// The next multiple of `step` above `value`, or the one below.
     static func snapped(_ value: Double, step: Double, up: Bool) -> Double {
         var steps = value / step
@@ -125,11 +96,6 @@ enum TimeSteps {
             snapped(seconds, fine, up: false)
         }
         return min(max(next, minimum), PlanLimits.seconds.upperBound)
-    }
-
-    /// The step a key takes from `seconds`: 5 s up to a minute and down from it, else 15 s.
-    static func size(from seconds: Int, up: Bool) -> Int {
-        (up ? seconds < coarseFrom : seconds <= coarseFrom) ? fine : coarse
     }
 
     private static func snapped(_ seconds: Int, _ step: Int, up: Bool) -> Int {

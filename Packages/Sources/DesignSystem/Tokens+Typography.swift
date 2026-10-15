@@ -19,12 +19,18 @@ extension Font {
     public static let ppInlineTitle = Font.system(.headline, design: .monospaced, weight: .semibold)
     /// A sheet's heading, such as an exercise's name over its plan.
     public static let ppSheetTitle = Font.system(.title2, weight: .bold)
+    /// A stepper's name, such as "Reps", leading its row.
+    public static let ppStepperLabel = Font.system(.footnote)
+    /// What a stepper's number means, under its name: "Per side", "Bar, total".
+    public static let ppStepperNote = Font.system(.caption)
+    /// A stepper's number: SF Mono, so digits keep their width as it steps.
+    public static let ppStepperValue = Font.system(.subheadline, design: .monospaced, weight: .semibold)
     /// The unit drawn small after a stepper's number.
-    public static let ppValueUnit = Font.system(.title3, weight: .medium)
-    /// A stepper key's label, the step it takes: "+5", "−15 s".
-    public static let ppStepKey = Font.system(.body, design: .monospaced, weight: .bold)
+    public static let ppValueUnit = Font.system(.footnote, weight: .medium)
     /// A stepper's "Not set", in place of a number.
-    public static let ppValuePlaceholder = Font.system(.title3)
+    public static let ppValuePlaceholder = Font.system(.subheadline)
+    /// A stepper's − and + glyphs.
+    public static let ppStepGlyph = Font.system(.caption, weight: .medium)
     /// The L | R mark on a row done one side at a time: SF Mono, so the two letters sit evenly
     /// either side of the divider.
     public static let ppSidesMark = Font.system(.caption2, design: .monospaced, weight: .bold)
@@ -36,36 +42,18 @@ extension View {
     /// The screen title: SF Mono, 24pt bold. Monospaced so its `_` cursor is exactly one character
     /// wide.
     public func ppScreenTitleFont() -> some View {
-        modifier(BoldMonoFont(size: 24))
+        modifier(ScreenTitleFont())
     }
 }
 
-extension Font {
-    /// SF Mono bold at `size`, which the caller scales: the screen title and a stepper's number.
-    static func ppBoldMono(size: CGFloat) -> Font {
-        .system(size: size, weight: .bold, design: .monospaced)
-    }
-}
-
-extension View {
-    /// A stepper's number: SF Mono, 26pt bold, so digits keep their width as it steps.
-    public func ppValueFont() -> some View {
-        modifier(BoldMonoFont(size: 26))
-    }
-}
-
-/// SF Mono bold at a size between `title2` and `title`, scaling as `title2` does.
-private struct BoldMonoFont: ViewModifier {
-    @ScaledMetric private var size: CGFloat
+/// 24pt, between `title2` and `title`, scaling as `title2` does.
+private struct ScreenTitleFont: ViewModifier {
+    @ScaledMetric(relativeTo: .title2) private var size: CGFloat = 24
     @ObserveHotReload private var hotReload
-
-    init(size: CGFloat) {
-        _size = ScaledMetric(wrappedValue: size, relativeTo: .title2)
-    }
 
     func body(content: Content) -> some View {
         content
-            .font(.ppBoldMono(size: size))
+            .font(.system(size: size, weight: .bold, design: .monospaced))
             .hotReloadable()
     }
 }

@@ -1,5 +1,33 @@
 import SwiftUI
 
+/// A stepper's − and + keys, joined: two cells with a hairline between them and one outline
+/// around both.
+struct StepPair: View {
+    let canDecrease: Bool
+    let canIncrease: Bool
+    let onDecrease: () -> Void
+    let onIncrease: () -> Void
+
+    @ObserveHotReload private var hotReload
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: Radius.sm)
+        HStack(spacing: 0) {
+            StepKey("Decrease", systemImage: "minus", onStep: onDecrease)
+                .disabled(!canDecrease)
+            Rectangle()
+                .fill(.pp(.borderStrong))
+                .frame(width: 1)
+            StepKey("Increase", systemImage: "plus", onStep: onIncrease)
+                .disabled(!canIncrease)
+        }
+        .fixedSize()
+        .clipShape(shape)
+        .overlay(shape.strokeBorder(.pp(.borderStrong)))
+        .hotReloadable()
+    }
+}
+
 /// A stepper's key that steps once on a tap and, held, keeps stepping until it's let go: from
 /// 0.3 s into the hold, about 12 steps a second, each with a light tap of haptic. It stops when
 /// the finger lifts or slides off, when a scroll takes the touch, when the key can no longer be
@@ -7,8 +35,9 @@ import SwiftUI
 ///
 /// The hold follows the button's own pressed state rather than a long-press gesture laid on it,
 /// which the button's tap kept from ever firing.
-public struct StepKey: View {
-    private let label: String
+struct StepKey: View {
+    private let title: String
+    private let systemImage: String
     private let onStep: () -> Void
 
     /// The hold, from the press until it's let go.
@@ -23,20 +52,19 @@ public struct StepKey: View {
     private static let threshold = Duration.seconds(0.3)
     private static let interval = Duration.seconds(1.0 / 12)
 
-    public init(_ label: String, onStep: @escaping () -> Void) {
-        self.label = label
+    init(_ title: String, systemImage: String, onStep: @escaping () -> Void) {
+        self.title = title
+        self.systemImage = systemImage
         self.onStep = onStep
     }
 
-    public var body: some View {
-        Button {
+    var body: some View {
+        Button(title, systemImage: systemImage) {
             guard !didRepeat else {
                 didRepeat = false
                 return
             }
             onStep()
-        } label: {
-            Text(verbatim: label)
         }
         .buttonStyle(StepKeyButtonStyle { isPressed in
             if isPressed {
@@ -78,13 +106,14 @@ public struct StepKey: View {
 
 #Preview {
     @Previewable @State var value = 10
-    VStack(spacing: Spacing.md) {
+    HStack(spacing: Spacing.sm) {
         NumberFieldContent(text: "\(value)", unit: nil, isEditing: false, blinks: false)
-        HStack(spacing: Spacing.sm) {
-            StepKey("\u{2212}1") { value -= 1 }
-                .disabled(value <= 0)
-            StepKey("+1") { value += 1 }
-        }
+        StepPair(
+            canDecrease: value > 0,
+            canIncrease: true,
+            onDecrease: { value -= 1 },
+            onIncrease: { value += 1 },
+        )
     }
     .padding()
     .background(Color.pp(.surface))

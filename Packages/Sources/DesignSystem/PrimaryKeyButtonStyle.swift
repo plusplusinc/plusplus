@@ -1,25 +1,32 @@
 import SwiftUI
 
-/// The one key a screen is for, such as Start: full width, a light fill, label
-/// centered. Pressing pushes the key down onto its plate, which stays put, so nothing around it
+/// The one key a screen is for, such as Start: full width, a light fill on a ledge, label
+/// centered. Pressing pushes the key down onto its ledge, which stays put, so nothing around it
 /// moves. Not green: green is for data.
 ///
-/// A key's shape, as Add exercise's is, raised on a plate of the same shape.
+/// A key's shape, as Add exercise's is, on a ledge of the same shape.
 public struct PrimaryKeyButtonStyle: ButtonStyle {
     /// A little taller than a key, such as Add exercise.
     @ScaledMetric(relativeTo: .title3) private var minHeight: CGFloat = 56
+    private static let ledge: CGFloat = 4
 
     @ObserveHotReload private var hotReload
 
     public init() { }
 
     public func makeBody(configuration: Configuration) -> some View {
+        let shape = RoundedRectangle(cornerRadius: Radius.key)
         configuration.label
             .font(.ppPrimaryKey)
             .foregroundStyle(.pp(.onPrimaryKey))
             .padding(.horizontal, Spacing.lg)
             .frame(maxWidth: .infinity, minHeight: minHeight)
-            .raisedKey(fill: .pp(.primaryKey), isPressed: configuration.isPressed)
+            .background(shape.fill(.pp(.primaryKey)))
+            .contentShape(shape)
+            .offset(y: configuration.isPressed ? Self.ledge : 0)
+            .keyPressAnimation(isPressed: configuration.isPressed)
+            .background(shape.fill(.pp(.borderStrong)).offset(y: Self.ledge))
+            .padding(.bottom, Self.ledge)
             .hotReloadable()
     }
 }

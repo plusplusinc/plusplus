@@ -1,12 +1,17 @@
 import SwiftUI
 
-/// A stepper's − or + key: a raised key the width it is given, its label the step it takes in
-/// bold SF Mono, "−5" or "+15 s". `onPressChange` hears each press start and end, so a key can
-/// repeat while held.
+/// One cell of a stepper's joined − | + pair: its glyph in the secondary color on a 44 by 36 cell,
+/// the touch carried to 44 tall, the cell darkening while pressed, the glyph dimmed when it can't
+/// step. `onPressChange` hears each press start and end, so a key can repeat while held.
 public struct StepKeyButtonStyle: ButtonStyle {
     private let onPressChange: (Bool) -> Void
 
-    @ScaledMetric(relativeTo: .body) private var minHeight: CGFloat = 52
+    @ScaledMetric(relativeTo: .caption) private var width: CGFloat = 44
+    @ScaledMetric(relativeTo: .caption) private var height: CGFloat = 36
+    /// Past this, a cell would crowd the number beside it at the largest sizes.
+    private static let largest = CGSize(width: 72, height: 60)
+    /// How far the touch reaches past the cell, taking a 36 tall cell to 44.
+    private static let reach: CGFloat = 4
     @Environment(\.isEnabled) private var isEnabled
     @ObserveHotReload private var hotReload
 
@@ -16,18 +21,14 @@ public struct StepKeyButtonStyle: ButtonStyle {
 
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.ppStepKey)
-            .foregroundStyle(.pp(.textPrimary))
-            .lineLimit(1)
-            .minimumScaleFactor(0.7)
-            .padding(.horizontal, Spacing.sm)
-            .frame(maxWidth: .infinity, minHeight: minHeight)
-            .raisedKey(
-                fill: .pp(.background),
-                outlined: true,
-                isPressed: configuration.isPressed && isEnabled,
-                isEnabled: isEnabled,
-            )
+            .labelStyle(.iconOnly)
+            .font(.ppStepGlyph)
+            .foregroundStyle(.pp(.textSecondary))
+            .opacity(isEnabled ? 1 : 0.35)
+            .frame(width: min(width, Self.largest.width), height: min(height, Self.largest.height))
+            .background(configuration.isPressed && isEnabled ? Color.pp(.background) : .clear)
+            .contentShape(Rectangle().inset(by: -Self.reach))
+            .keyPressAnimation(isPressed: configuration.isPressed)
             .onChange(of: configuration.isPressed) { _, isPressed in
                 onPressChange(isPressed)
             }
@@ -35,20 +36,8 @@ public struct StepKeyButtonStyle: ButtonStyle {
     }
 }
 
-extension ButtonStyle where Self == StepKeyButtonStyle {
-    /// `.buttonStyle(.stepKey)`.
-    public static var stepKey: StepKeyButtonStyle {
-        StepKeyButtonStyle()
-    }
-}
-
 #Preview {
-    HStack(spacing: Spacing.sm) {
-        Button("\u{2212}5") { }
-            .disabled(true)
-        Button("+5") { }
-    }
-    .buttonStyle(.stepKey)
-    .padding()
-    .background(Color.pp(.surface))
+    StepPair(canDecrease: false, canIncrease: true, onDecrease: { }, onIncrease: { })
+        .padding()
+        .background(Color.pp(.surface))
 }
