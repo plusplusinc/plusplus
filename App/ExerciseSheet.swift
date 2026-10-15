@@ -18,6 +18,8 @@ struct ExerciseSheet: View {
     @State private var open: PlanPart?
     /// Whether a wheel is rolling up, until it's gone.
     @State private var isClosing = false
+    @State private var rowsHeight: CGFloat = 0
+    @State private var barHeight: CGFloat = 0
     /// The content's full height with every wheel closed, bars included, which the sheet's
     /// smaller detent fits; the larger fits one wheel more.
     @State private var closedHeight: CGFloat?
@@ -30,35 +32,62 @@ struct ExerciseSheet: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: Spacing.lg) {
-                    if dynamicTypeSize.isAccessibilitySize {
-                        heading
+            ScrollViewReader { scroller in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: Spacing.lg) {
+                        if dynamicTypeSize.isAccessibilitySize {
+                            heading
+                        }
+                        VStack(alignment: .leading, spacing: Spacing.md) {
+                            ForEach(item.exercise.planParts, id: \.self, content: row)
+                        }
                     }
-                    VStack(alignment: .leading, spacing: Spacing.md) {
-                        ForEach(item.exercise.planParts, id: \.self, content: row)
+                    .padding(.horizontal, Spacing.lg)
+                    .padding(.top, Spacing.sm)
+                    .padding(.bottom, Spacing.lg)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    // The rows' own height: laid out from the bottom, the scroll view reports its
+                    // content as tall as itself, and the sheet would have fitted that.
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
+                        rowsHeight = height
+                        measureClosedHeight()
+                    }
+                    // A tap anywhere but a value or its wheel closes the wheel.
+                    .contentShape(.rect)
+                    .onTapGesture { show(nil) }
+                }
+                // A new text size changes the rows' height, measured only with no wheel open.
+                .onChange(of: dynamicTypeSize) { show(nil) }
+                // At the accessibility sizes, where the content scrolls, an opened wheel is
+                // scrolled into view under its row.
+                .onChange(of: open) { _, part in
+                    guard dynamicTypeSize.isAccessibilitySize, let part else { return }
+                    withAnimation(reduceMotion ? nil : .snappy) {
+                        scroller.scrollTo(part, anchor: .bottom)
                     }
                 }
-                .padding(.horizontal, Spacing.lg)
-                .padding(.top, Spacing.sm)
-                .padding(.bottom, Spacing.lg)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                // A tap anywhere but a value or its wheel closes the wheel.
-                .contentShape(.rect)
-                .onTapGesture { show(nil) }
-            }
-            .scrollBounceBehavior(.basedOnSize)
-            .navigationBarTitleDisplayMode(.inline)
-            // The content's height doesn't depend on the sheet's, so fitting one to the other
-            // can't loop.
-            .onScrollGeometryChange(for: CGFloat.self) { geometry in
-                (geometry.contentSize.height + geometry.contentInsets.top).rounded(.up)
-            } action: { _, height in
-                // Measured with no wheel open or closing: the open detent is this and a wheel.
-                // Measured as a wheel rolled up, it took each height on the way, and the sheet
-                // jumped up before it came down.
-                guard open == nil, !isClosing else { return }
-                closedHeight = height
+                .scrollBounceBehavior(.basedOnSize)
+                // Laid out from the bottom, which stays put on the screen: a wheel opening or
+                // closing
+                // moves the rows above it and the sheet's top, never the rows below. At the
+                // accessibility sizes, where the content scrolls, it stays anchored at its top, so
+                // a
+                // tapped row never slides out of view.
+                .defaultScrollAnchor(
+                    dynamicTypeSize.isAccessibilitySize ? .top : .bottom,
+                    for: .alignment,
+                )
+                .defaultScrollAnchor(
+                    dynamicTypeSize.isAccessibilitySize ? .top : .bottom,
+                    for: .sizeChanges,
+                )
+                .navigationBarTitleDisplayMode(.inline)
+                // The bar's height over the content, which the sheet's height includes. Not the
+                // scroll view's content inset, which laying out from the bottom grows to fill.
+                .onGeometryChange(for: CGFloat.self) { $0.safeAreaInsets.top } action: { inset in
+                    barHeight = inset
+                    measureClosedHeight()
+                }
             }
             .toolbar {
                 // In the font the exercise's name has on its row; SF Mono is the routine's title's.
@@ -101,6 +130,15 @@ struct ExerciseSheet: View {
         // screen's own background, so the sheet's boxes and keys sit on it as Add exercise does.
         .presentationBackground(Color.pp(.background))
         .hotReloadable()
+    }
+
+    /// The sheet's closed height: the rows and the bar. The rows' height doesn't depend on the
+    /// sheet's, so fitting one to the other can't loop. Measured only with no wheel open or
+    /// closing, since the open detent is this and a wheel: measured as a wheel rolled up, it took
+    /// each height on the way, and the sheet jumped up before it came down.
+    private func measureClosedHeight() {
+        guard open == nil, !isClosing, rowsHeight > 0 else { return }
+        closedHeight = (rowsHeight + barHeight).rounded(.up)
     }
 
     /// Opens `part`'s wheel, closing any other, or with nil closes the open one. With Reduce
@@ -157,6 +195,7 @@ struct ExerciseSheet: View {
             onToggle: { show(open == part ? nil : part) },
             wheel: { PlanWheel(item: $item, part: part) },
         )
+        .id(part)
     }
 }
 

@@ -2,8 +2,8 @@ import SwiftUI
 
 /// A value in a row, in a rail row's type: its name leading, with a note on what the number means
 /// under it ("Reps" over "Per side", "Weight" over "Bar, total"), and the value trailing in a
-/// filled capsule, its unit faint after it. A tap unrolls the row's wheel under it, pushing the
-/// rows below down in step, and a second tap rolls it back up; the capsule brightens while its
+/// filled capsule, its unit faint after it. A tap raises the row's wheel under it from the wheel's
+/// bottom edge, and a second tap lowers it away; the capsule brightens while its
 /// wheel is open. A changed
 /// number rolls its digits, up as `amount` rises and down as it falls, or with Reduce Motion
 /// swaps at once. At the accessibility sizes the capsule sits under the name.
@@ -133,9 +133,10 @@ private nonisolated struct TopAndBottom: Shape {
     }
 }
 
-/// Lays out its one view at full size from its top, and takes `fraction` of its height: a wheel
-/// unrolling from its top as it opens, what's below moving down in step, and, clipped, drawing
-/// nothing past the height it has.
+/// Lays out its one view at full size from its bottom, and takes `fraction` of its height: a
+/// wheel rising from its bottom edge as it opens, so in a sheet laid out from its bottom what's
+/// above moves up in step and what's below stays put, and, clipped, drawing nothing past the
+/// height it has.
 private struct RevealLayout: Layout {
     var fraction: CGFloat
 
@@ -157,8 +158,8 @@ private struct RevealLayout: Layout {
         cache _: inout (),
     ) {
         subviews.first?.place(
-            at: bounds.origin,
-            anchor: .topLeading,
+            at: CGPoint(x: bounds.minX, y: bounds.maxY),
+            anchor: .bottomLeading,
             proposal: ProposedViewSize(width: bounds.width, height: nil),
         )
     }

@@ -55,6 +55,9 @@ struct PlanWheel: View {
             }
         }
         .frame(maxWidth: .infinity)
+        // The system wheel's rows keep their height at every text size, so past this its numbers
+        // would overlap; the system's own wheels stop growing too.
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
         .frame(height: Self.wheelHeight)
         // Edge to edge of the sheet, past the content's insets; the wheel's band stays inset.
         .background { Color.pp(.well).containerRelativeFrame(.horizontal) }
