@@ -57,11 +57,11 @@ struct ExerciseSheet: View {
                 self.height = height
             }
             .toolbar {
-                // In the routine's bar title's font, as it plays the same part.
+                // In the font the exercise's name has on its row; SF Mono is the routine's title's.
                 ToolbarItem(placement: .title) {
                     if !dynamicTypeSize.isAccessibilitySize {
                         Text(item.exercise.name)
-                            .font(.ppInlineTitle)
+                            .font(.ppRowTitle)
                             .foregroundStyle(.pp(.textPrimary))
                             .lineLimit(1)
                             .accessibilityAddTraits(.isHeader)

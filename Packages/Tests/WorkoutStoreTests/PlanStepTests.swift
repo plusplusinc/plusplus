@@ -92,6 +92,19 @@ struct PlanStepTests {
         #expect(try !RoutineExercise.builtIn("Push-up").canStep(.weight, up: true))
     }
 
+    @Test("A weight saved under the floor shows as saved, and + takes it onto the grid above it")
+    func underTheFloor() throws {
+        let bench = try RoutineExercise.builtIn("Barbell bench press") {
+            $0.weight = Weight(35, .pounds)
+        }
+        #expect(bench.value(of: .weight, locale: Locale(identifier: "en_US"))?.number == "35")
+        #expect(!bench.canStep(.weight, up: false))
+        #expect(Self.stepped(bench, .weight, up: false).weight == Weight(35, .pounds))
+        #expect(Self.stepped(bench, .weight, up: true).weight == Weight(45, .pounds))
+        let row = try RoutineExercise.builtIn("Dumbbell row") { $0.weight = Weight(2, .pounds) }
+        #expect(Self.stepped(row, .weight, up: true).weight == Weight(5, .pounds))
+    }
+
     @Test("A new weight takes the region's unit: lb in the US, kg elsewhere")
     func regionUnit() {
         #expect(WeightUnit(region: Locale(identifier: "en_US")) == .pounds)
