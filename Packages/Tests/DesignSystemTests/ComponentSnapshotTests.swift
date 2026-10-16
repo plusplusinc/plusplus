@@ -167,6 +167,8 @@ struct ComponentSnapshotTests {
                     value: values[index].1,
                     spokenValue: values[index].2,
                     isOpen: open == index,
+                    canDecrease: true,
+                    canIncrease: true,
                     onToggle: { },
                     onStep: { _ in },
                 )

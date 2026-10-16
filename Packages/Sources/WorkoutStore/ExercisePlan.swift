@@ -35,7 +35,6 @@ public enum WeightUnit: String, Sendable {
     public init(region locale: Locale) {
         self = locale.measurementSystem == .us ? .pounds : .kilograms
     }
-
 }
 
 public struct Weight: Equatable, Sendable {

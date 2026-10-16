@@ -92,7 +92,11 @@ struct PlanValueTests {
             #expect(!high.canStep(part, by: 1))
             high.step(part, by: 1)
         }
-        #expect(high.plan == ExercisePlan(sets: 99, target: .reps(999), weight: Weight(1000, .pounds)))
+        #expect(high.plan == ExercisePlan(
+            sets: 99,
+            target: .reps(999),
+            weight: Weight(1000, .pounds),
+        ))
         #expect(high.canStep(.weight, by: -1))
 
         var plank = try Self.row("Plank") { $0.target = .time(seconds: 5) }
@@ -119,7 +123,10 @@ struct PlanValueTests {
         #expect(PlanLimits.seconds.contains(5))
         for unit in [WeightUnit.pounds, .kilograms] {
             for name in ["Overhead press", "Goblet squat", "Barbell row"] {
-                var row = try RoutineExercise(exercise: Exercise.builtIn(named: name), weightUnit: unit)
+                var row = try RoutineExercise(
+                    exercise: Exercise.builtIn(named: name),
+                    weightUnit: unit,
+                )
                 while row.canStep(.weight, by: -1) {
                     row.step(.weight, by: -1)
                 }

@@ -2,13 +2,16 @@ import SwiftUI
 
 /// A value under its label on a rounded fill, the label leading and the value trailing, with
 /// numbers in SF Mono. Tapping anywhere on it opens a − / + stepper inside it, under the value,
-/// and tapping again closes it. VoiceOver reads it as one element, its value in words, and
+/// and tapping again closes it. A key that can't step is disabled. VoiceOver reads it as one
+/// element, its value in words, and
 /// steps it with a swipe up or down.
 public struct ValueRow: View {
     private let label: String
     private let value: String
     private let spokenValue: String
     private let isOpen: Bool
+    private let canDecrease: Bool
+    private let canIncrease: Bool
     private let onToggle: () -> Void
     private let onStep: (Int) -> Void
 
@@ -22,12 +25,14 @@ public struct ValueRow: View {
     private static let inset = Spacing.sm
     private static let keyHeight: CGFloat = 60
 
-    /// `onStep` gets 1 for a step up and -1 for a step down.
+    /// `onStep` gets 1 for a step up and -1 for a step down, each only while its `can` is true.
     public init(
         label: String,
         value: String,
         spokenValue: String,
         isOpen: Bool,
+        canDecrease: Bool,
+        canIncrease: Bool,
         onToggle: @escaping () -> Void,
         onStep: @escaping (Int) -> Void,
     ) {
@@ -35,6 +40,8 @@ public struct ValueRow: View {
         self.value = value
         self.spokenValue = spokenValue
         self.isOpen = isOpen
+        self.canDecrease = canDecrease
+        self.canIncrease = canIncrease
         self.onToggle = onToggle
         self.onStep = onStep
     }
@@ -84,8 +91,12 @@ public struct ValueRow: View {
         .accessibilityAction { onToggle() }
         .accessibilityAdjustableAction { direction in
             switch direction {
-            case .increment: step(by: 1)
-            case .decrement: step(by: -1)
+            case .increment: if canIncrease {
+                    step(by: 1)
+                }
+            case .decrement: if canDecrease {
+                    step(by: -1)
+                }
             @unknown default: break
             }
         }
@@ -97,7 +108,9 @@ public struct ValueRow: View {
     private var region: some View {
         HStack(spacing: Spacing.sm) {
             stepKey("Decrease", "minus", by: -1)
+                .disabled(!canDecrease)
             stepKey("Increase", "plus", by: 1)
+                .disabled(!canIncrease)
         }
         .padding([.horizontal, .bottom], Self.inset)
         .opacity(isOpen ? 1 : 0)
@@ -143,6 +156,8 @@ public struct ValueRow: View {
             value: "3",
             spokenValue: "3 sets",
             isOpen: open == 0,
+            canDecrease: false,
+            canIncrease: true,
             onToggle: { withAnimation(ValueRow.motion) { open = open == 0 ? -1 : 0 } },
             onStep: { _ in },
         )
@@ -151,6 +166,8 @@ public struct ValueRow: View {
             value: "\(reps) per side",
             spokenValue: "\(reps) reps per side",
             isOpen: open == 1,
+            canDecrease: true,
+            canIncrease: true,
             onToggle: { withAnimation(ValueRow.motion) { open = open == 1 ? -1 : 1 } },
             onStep: { reps += $0 },
         )
@@ -159,6 +176,8 @@ public struct ValueRow: View {
             value: "20 lb/side",
             spokenValue: "20 pounds per side",
             isOpen: open == 2,
+            canDecrease: true,
+            canIncrease: true,
             onToggle: { withAnimation(ValueRow.motion) { open = open == 2 ? -1 : 2 } },
             onStep: { _ in },
         )
