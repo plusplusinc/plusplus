@@ -22,6 +22,9 @@ struct PlusPlusApp: App {
         #if DEBUG
         namer = LaunchOptions.usesFallbackNames ? .muscleGroupsOnly : .standard
         resetsStore = LaunchOptions.resetsStore
+        if LaunchOptions.turnsOffUIKitAnimations {
+            UIView.setAnimationsEnabled(false)
+        }
         #else
         namer = .standard
         resetsStore = false

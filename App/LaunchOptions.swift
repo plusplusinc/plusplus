@@ -14,5 +14,14 @@ enum LaunchOptions {
     static var usesFallbackNames: Bool {
         UserDefaults.standard.bool(forKey: "fallbackNames")
     }
+
+    /// Run UIKit's animations, such as the keyboard rising and a sheet sliding up, without
+    /// motion. XCTest waits after every action until it has seen each UIKit animation it saw
+    /// start also stop. On a keyboard rise or a sheet, UIKit sometimes reports one animation's
+    /// start twice and its stop once, and every later wait in that launch then runs out its 60 s.
+    /// With no UIKit animations there is nothing to miscount. SwiftUI's own animations still run.
+    static var turnsOffUIKitAnimations: Bool {
+        UserDefaults.standard.bool(forKey: "noUIKitAnimations")
+    }
 }
 #endif
