@@ -125,7 +125,7 @@ struct ExerciseSheet: View {
         _ part: PlanPart,
         by direction: Int,
     ) -> some View {
-        StepKey {
+        Button {
             withAnimation(.snappy(duration: 0.15)) {
                 step(part, by: direction)
             }
@@ -139,6 +139,8 @@ struct ExerciseSheet: View {
                 .background(Color.pp(.background), in: .rect(cornerRadius: Radius.key))
                 .contentShape(.rect(cornerRadius: Radius.key))
         }
+        .buttonStyle(.plain)
+        .buttonRepeatBehavior(.enabled)
         .sensoryFeedback(.selection, trigger: value(of: part))
     }
 
