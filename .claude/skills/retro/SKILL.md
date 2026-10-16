@@ -66,7 +66,7 @@ picture of the maintainer's intent was wrong. The stopping rules decide the fixe
 
 1. **The maintainer corrected the lead**: said what they meant after the lead built or proposed
    something else, or reversed a call it made. A correction an agent review, the verifier, or CI
-   found is not one: check who found it in the conversation or the Friction line.
+   found does not count here: check who found it in the conversation or the Friction line.
 2. **The lead guessed, or asked what it could have found**: a product call guessed where the
    maintainer's intent was not settled and asking was cheap, a question the code, the board, the
    docs, or memory answered, or a brief whose problem, criterion, or scope did not hold.
