@@ -11,6 +11,24 @@ extension XCUIElement {
         !exists || waitForNonExistence(timeout: timeout)
     }
 
+    /// Whether the element has stopped moving: its frame unchanged for `still` seconds, within
+    /// the timeout. A row's place on the rail opens frame by frame, and where a view takes taps
+    /// moves with it, so a tap read from a frame mid-move lands where the row is going.
+    func settles(still: TimeInterval = 0.25, within timeout: TimeInterval = 2) -> Bool {
+        let deadline = Date.now.addingTimeInterval(timeout)
+        var last = frame
+        var since = Date.now
+        while Date.now < deadline {
+            let now = frame
+            if now != last {
+                (last, since) = (now, .now)
+            } else if Date.now.timeIntervalSince(since) >= still {
+                return true
+            }
+        }
+        return false
+    }
+
     /// The element's value once it is `expected`, or its last value after the timeout. Typing
     /// can return before the app has handled every key, so a check that reads the screen after
     /// typing waits for the value first.

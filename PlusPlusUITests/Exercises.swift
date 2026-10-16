@@ -19,9 +19,13 @@ extension XCUIApplication {
         buttons.matching(identifier: "picker.exercise")
     }
 
-    /// Opens the picker, checking that it is up within a second, and returns its search field.
+    /// Opens the picker once Add exercise has stopped moving, checking that it is up within a
+    /// second, and returns its search field.
     func openPicker() -> XCUIElement {
-        buttons["Add exercise"].tap()
+        let addExercise = buttons["Add exercise"]
+        // Just after an add it moves down as the new row's place opens.
+        XCTAssertTrue(addExercise.settles(), "Add exercise kept moving")
+        addExercise.tap()
         let search = searchFields.firstMatch
         XCTAssertTrue(search.appears(within: 1), "The picker took over a second to open")
         return search
