@@ -61,8 +61,9 @@ struct CardLook: ViewModifier {
 }
 
 /// A held row's card: a raised fill, with no shadow or border. Its node sits as far in from the
-/// leading edge as from the top, and its corners are concentric with the node: their radius is
-/// that inset plus the node's. It is centered on the row, so on a screen whose rows are, its
+/// leading edge as from the top, and its corners are close to concentric with the node: their
+/// radius is that inset plus the node's. It is centered on the row, so on a screen whose rows are,
+/// its
 /// edges are as far from the screen's, and the row's content stops that inset short of its
 /// trailing edge. It is as tall as the row. At rest, it is not drawn.
 struct LiftedCard: View {
@@ -78,8 +79,9 @@ struct LiftedCard: View {
             let inset = center.y - radius
             let leading = center.x - radius - inset
             let trailing = proxy.size.width - leading
-            // Circular, not continuous, so each corner's arc shares the node's center.
-            RoundedRectangle(cornerRadius: inset + radius, style: .circular)
+            // Continuous, like the app's other shapes, at the cost of sitting about a point off
+            // true concentric with the node.
+            RoundedRectangle(cornerRadius: inset + radius, style: .continuous)
                 .fill(.pp(.surfaceRaised))
                 .frame(width: trailing - leading, height: proxy.size.height)
                 .offset(x: leading)
