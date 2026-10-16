@@ -33,7 +33,8 @@ project board; agents' technical working files live in `.slices/`.
 
 ## Run the slice
 
-- Starting a slice: move its card to In Progress, sharpen its acceptance criteria in the card
+- Starting a slice: create its worktree as `CLAUDE.md`'s Branching says (the main checkout
+  stays on `main`), move its card to In Progress, sharpen its acceptance criteria in the card
   itself (`scripts/board.sh body`), then run the planner, the builder, the verifier, and a
   builder again for what the verifier found, as `.claude/agents/` describes. Give each subagent
   the card id; it reads the criteria with `scripts/board.sh show`. Every file path you give a
