@@ -3,8 +3,7 @@ import SwiftUI
 /// A value under its label on a rounded fill, the label leading and the value trailing, with
 /// numbers in SF Mono. Tapping anywhere on it opens a − / + stepper inside it, under the value,
 /// and tapping again closes it. A key that can't step is disabled. VoiceOver reads it as one
-/// element, its value in words, and
-/// steps it with a swipe up or down.
+/// element, its value in words, and steps it with a swipe up or down.
 public struct ValueRow: View {
     private let label: String
     private let value: String
@@ -91,12 +90,8 @@ public struct ValueRow: View {
         .accessibilityAction { onToggle() }
         .accessibilityAdjustableAction { direction in
             switch direction {
-            case .increment: if canIncrease {
-                    step(by: 1)
-                }
-            case .decrement: if canDecrease {
-                    step(by: -1)
-                }
+            case .increment: step(by: 1)
+            case .decrement: step(by: -1)
             @unknown default: break
             }
         }
@@ -141,6 +136,7 @@ public struct ValueRow: View {
     }
 
     private func step(by direction: Int) {
+        guard direction > 0 ? canIncrease : canDecrease else { return }
         withAnimation(.snappy(duration: 0.15)) {
             onStep(direction)
         }

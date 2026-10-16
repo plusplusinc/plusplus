@@ -119,8 +119,12 @@ struct PlanValueTests {
         var plank = try Self.row("Plank") { $0.target = .time(seconds: 10) }
         plank.step(.target, by: -1)
         plank.step(.target, by: -1)
-        #expect(plank.plan.target == .time(seconds: 5))
-        #expect(PlanLimits.seconds.contains(5))
+        guard case let .time(lowest) = plank.plan.target else {
+            Issue.record("A plank's target is a time")
+            return
+        }
+        #expect(lowest == 5)
+        #expect(PlanLimits.seconds.contains(lowest))
         for unit in [WeightUnit.pounds, .kilograms] {
             for name in ["Overhead press", "Goblet squat", "Barbell row"] {
                 var row = try RoutineExercise(

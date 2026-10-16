@@ -96,7 +96,8 @@ extension Comparable where Self: AdditiveArithmetic {
     /// The value moved by `delta` and held within `range`, or nil if it's already at the end
     /// `delta` moves toward, so a step never moves the wrong way.
     fileprivate func stepped(by delta: Self, within range: ClosedRange<Self>) -> Self? {
-        let canMove = delta > .zero ? self < range.upperBound : self > range.lowerBound
+        let canMove = delta > .zero ? self < range.upperBound
+            : delta < .zero && self > range.lowerBound
         return canMove ? min(max(self + delta, range.lowerBound), range.upperBound) : nil
     }
 }
