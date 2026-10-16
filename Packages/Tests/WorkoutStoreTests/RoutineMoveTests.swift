@@ -87,6 +87,18 @@ struct RoutineMoveTests {
         let down = try #require(moved.slotMovingDown(rows[2].id))
         #expect(moved.moving(rows[2].id, to: down) == routine)
     }
+
+    @Test("A move is announced by the row it passed")
+    func announcement() throws {
+        let upSlot = try #require(routine.slotMovingUp(rows[2].id))
+        let up = try #require(routine.moving(rows[2].id, to: upSlot))
+        #expect(up.moveAnnouncement(for: rows[2].id, wentUp: true) == "Moved above Plank")
+        let downSlot = try #require(routine.slotMovingDown(rows[0].id))
+        let down = try #require(routine.moving(rows[0].id, to: downSlot))
+        #expect(down.moveAnnouncement(for: rows[0].id, wentUp: false) == "Moved below Plank")
+        #expect(routine.moveAnnouncement(for: rows[0].id, wentUp: false) == nil)
+        #expect(routine.moveAnnouncement(for: rows[3].id, wentUp: true) == nil)
+    }
 }
 
 extension Routine {

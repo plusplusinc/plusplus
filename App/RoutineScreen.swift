@@ -95,6 +95,15 @@ struct RoutineScreen: View {
                             editing = item
                         }
                         .accessibilityAddTraits(.isButton)
+                        // None where it would do nothing: at an end, or with one row.
+                        .accessibilityActions {
+                            if let up = routine.slotMovingUp(item.id) {
+                                Button("Move up") { step(item.id, to: up, wentUp: true) }
+                            }
+                            if let down = routine.slotMovingDown(item.id) {
+                                Button("Move down") { step(item.id, to: down, wentUp: false) }
+                            }
+                        }
                         .accessibilityIdentifier("routine.exercise")
                         .swipeActions(edge: .trailing) {
                             Button("Delete", role: .destructive) { delete(item.id) }
@@ -229,6 +238,17 @@ struct RoutineScreen: View {
     /// card settles into its gap; it saves once, as any change does.
     private func move(_ id: RoutineExercise.ID, to slot: RailSlot<RoutineExercise.ID>) {
         routine.move(id, to: RoutineSlot(slot))
+    }
+
+    /// Moves a row one place with VoiceOver's Move up or Move down, and says which row it
+    /// passed.
+    private func step(_ id: RoutineExercise.ID, to slot: RoutineSlot, wentUp: Bool) {
+        withAnimation(.railChange) {
+            routine.move(id, to: slot)
+        }
+        if let announcement = routine.moveAnnouncement(for: id, wentUp: wentUp) {
+            AccessibilityNotification.Announcement(announcement).post()
+        }
     }
 
     private func delete(_ id: RoutineExercise.ID) {

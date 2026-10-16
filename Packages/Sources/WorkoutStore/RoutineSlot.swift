@@ -47,4 +47,15 @@ extension Routine {
         let twoDown = index + 2
         return twoDown < exercises.count ? .before(exercises[twoDown].id) : .end
     }
+
+    /// What VoiceOver says once `id` has moved one row up or down: the name of the row it passed,
+    /// now just below it after a move up and just above it after a move down. Nil when there is
+    /// no such row.
+    public func moveAnnouncement(for id: RoutineExercise.ID, wentUp: Bool) -> String? {
+        guard let index = exercises.firstIndex(where: { $0.id == id }) else { return nil }
+        let passed = wentUp ? index + 1 : index - 1
+        guard exercises.indices.contains(passed) else { return nil }
+        let name = exercises[passed].exercise.name
+        return wentUp ? "Moved above \(name)" : "Moved below \(name)"
+    }
 }
