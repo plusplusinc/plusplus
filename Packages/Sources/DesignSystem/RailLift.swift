@@ -53,8 +53,8 @@ struct CardLook: ViewModifier {
     }
 }
 
-/// A held row's card: a raised fill, with no shadow or border, that bleeds past the row on both
-/// sides. At rest, it is not drawn.
+/// A held row's card: a raised fill, with no shadow or border, the row's own width, so lifted and
+/// turned it stays inside the screen's edges. At rest, it is not drawn.
 struct LiftedCard: View {
     let isLifted: Bool
     @ObserveHotReload private var hotReload
@@ -62,7 +62,6 @@ struct LiftedCard: View {
     var body: some View {
         RoundedRectangle(cornerRadius: Radius.card)
             .fill(.pp(.surfaceRaised))
-            .padding(.horizontal, -Spacing.sm)
             .opacity(isLifted ? 1 : 0)
             .hotReloadable()
     }
