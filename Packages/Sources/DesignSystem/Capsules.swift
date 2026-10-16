@@ -26,7 +26,10 @@ public struct Capsules: View {
             }
         }
         // A new piece pops in, and the ones after it slide over to make room.
-        .animation(reduceMotion ? .easeOut(duration: 0.2) : .bouncy(duration: 0.4, extraBounce: 0.1), value: labels)
+        .animation(
+            reduceMotion ? .easeOut(duration: 0.2) : .bouncy(duration: 0.4, extraBounce: 0.1),
+            value: labels,
+        )
         .accessibilityElement(children: .combine)
     }
 }
@@ -42,7 +45,12 @@ struct FlowLayout: Layout {
         return CGSize(width: width, height: height)
     }
 
-    func placeSubviews(in bounds: CGRect, proposal _: ProposedViewSize, subviews: Subviews, cache _: inout ()) {
+    func placeSubviews(
+        in bounds: CGRect,
+        proposal _: ProposedViewSize,
+        subviews: Subviews,
+        cache _: inout (),
+    ) {
         for (subview, frame) in zip(subviews, frames(for: subviews, width: bounds.width)) {
             subview.place(
                 at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY + frame.minY),

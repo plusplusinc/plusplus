@@ -141,7 +141,11 @@ struct RoutineScreen: View {
             }
             .sheet(isPresented: Binding(
                 get: { editing != nil },
-                set: { if !$0 { editing = nil } },
+                set: {
+                    if !$0 {
+                        editing = nil
+                    }
+                },
             )) {
                 if let index = routine.exercises.firstIndex(where: { $0.id == editing }) {
                     let id = routine.exercises[index].id
