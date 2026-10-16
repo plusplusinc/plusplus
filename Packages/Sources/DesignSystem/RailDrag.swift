@@ -47,8 +47,9 @@ nonisolated enum RailDrag {
     static let cancel = Animation.snappy(duration: 0.25)
 
     /// The tick as the gap moves to a new slot: a step up from `.selection`, which was too faint
-    /// to feel mid-set, and unlike the lift's light impact.
-    static let slotChange = SensoryFeedback.alignment
+    /// to feel mid-set, and unlike the lift's light impact. Not `.alignment`: on iPhone it plays
+    /// nothing, as it is canvas feedback, for Apple Pencil Pro on iPad.
+    static let slotChange = SensoryFeedback.impact(flexibility: .rigid, intensity: 0.6)
 
     /// How far past a switch point the card must go to leave the slot it is in, so the gap
     /// doesn't flap, and tick, at the boundary.
