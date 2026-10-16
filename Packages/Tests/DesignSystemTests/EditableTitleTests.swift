@@ -120,6 +120,18 @@ struct EditableTitleTests {
         #expect(EditableTitle.insertionPoint(of: caret.selection, in: draft) == draft.endIndex)
     }
 
+    @Test("A measured height holds as many lines as fit, rounded to the pixel grid")
+    func lineCount() {
+        // At AX5 a line of the title is 68pt.
+        #expect(EditableTitle.lineCount(height: 136, lineHeight: 68) == 2)
+        // Heights measured on the pixel grid are a fraction off.
+        #expect(EditableTitle.lineCount(height: 135.33, lineHeight: 68) == 2)
+        #expect(EditableTitle.lineCount(height: 29, lineHeight: 29) == 1)
+        // Before anything is measured, one line.
+        #expect(EditableTitle.lineCount(height: 0, lineHeight: 0) == 1)
+        #expect(EditableTitle.lineCount(height: 0, lineHeight: 29) == 1)
+    }
+
     @Test("On one line, the cursor's cell is its offset")
     func cellOnOneLine() {
         #expect(EditableTitle.cursorCell(at: 0, in: "New routine", columns: 20) == (0, 0))

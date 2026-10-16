@@ -19,6 +19,13 @@ struct EditableTitleTextSizeTests {
     /// A named title, the placeholder, and a name that wraps at both sizes.
     nonisolated static let drafts = ["Push", "", "Hot beat drills and abs and arms"]
 
+    /// Names the cell model wraps to fewer lines than the field does: emoji and CJK are wider
+    /// than a cell of the title's font.
+    nonisolated static let wideDrafts = [
+        "Legs 💪💪💪💪💪💪💪 and back",
+        "上半身と下半身の筋力トレーニング",
+    ]
+
     /// The title on screen in a window at `category`, with the field focused when `isEditing`.
     private final class Screen {
         let window: UIWindow
@@ -77,6 +84,20 @@ struct EditableTitleTextSizeTests {
             return last
         }
 
+        /// Whether the field is tall enough for all of its text, rather than scrolling it inside.
+        var showsAllText: Bool {
+            func textViews(in view: UIView) -> [UITextView] {
+                (view as? UITextView).map { [$0] } ?? view.subviews.flatMap(textViews(in:))
+            }
+            guard let field = textViews(in: host.view).first else {
+                Issue.record("No text view in the title")
+                return false
+            }
+            field.layoutIfNeeded()
+            // Within a point, as heights land on the pixel grid.
+            return field.contentSize.height <= field.bounds.height + 1
+        }
+
         /// Whether the field's text view has the keyboard's focus.
         var isFocused: Bool {
             func focused(in view: UIView) -> Bool {
@@ -128,6 +149,23 @@ struct EditableTitleTextSizeTests {
     @Test("AX5 to Large and back: the title is as tall as fresh at each", arguments: drafts)
     func ax5ToLarge(draft: String) {
         check(draft, isEditing: false, from: Self.ax5, via: Self.large)
+    }
+
+    @Test(
+        "A name wider than its cells is never cut off, fresh or after a size change",
+        arguments: wideDrafts,
+    )
+    func wideName(draft: String) {
+        for category in [Self.large, Self.ax5] {
+            let screen = Screen(draft, isEditing: false, at: category)
+            defer { screen.window.isHidden = true }
+            _ = screen.height()
+            #expect(screen.showsAllText, "fresh at \(category.rawValue)")
+            let other = category == Self.large ? Self.ax5 : Self.large
+            screen.change(to: other)
+            _ = screen.height()
+            #expect(screen.showsAllText, "at \(other.rawValue) after \(category.rawValue)")
+        }
     }
 
     @Test("While editing, Large to AX5 and back", arguments: drafts)

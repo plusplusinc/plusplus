@@ -45,6 +45,10 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
     /// The title's width, and the width of one character cell of its monospaced font.
     @State private var width: CGFloat = 0
     @State private var cellWidth: CGFloat = 0
+    /// The height of what the field shows, laid out as `Text` at the title's width, and of one
+    /// line of the title.
+    @State private var shownHeight: CGFloat = 0
+    @State private var lineHeight: CGFloat = 0
     @ObserveHotReload private var hotReload
 
     var body: some View {
@@ -63,9 +67,8 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
             // placeholder drawn in its place: an empty field is one line, and VoiceOver frames
             // the field. A range open at the top would size the field from its own text layout,
             // which keeps the height of a larger font after the text size shrinks until the text
-            // changes; a closed range sizes it from the font. So the field's height rests on
-            // `lineBreaks(in:columns:)` matching how the field wraps, as the `_` does. A frame
-            // around the field would not do: the field stays as tall as its lines inside any frame.
+            // changes; a closed range sizes it from the font. A frame around the field would not
+            // do: the field stays as tall as its lines inside any frame.
             field
                 .lineLimit(lines ... lines)
         }
@@ -78,6 +81,26 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
                 .hidden()
                 .onGeometryChange(for: CGFloat.self, of: \.size.width) {
                     cellWidth = $0 / CGFloat(measuredCells)
+                }
+        }
+        .background(alignment: .topLeading) {
+            // What the field shows, wrapped by the text system rather than counted in cells, so
+            // characters wider than a cell, such as emoji and CJK, are counted as wide as they
+            // are. `Text` lays out again when the font changes, so the height is never a size
+            // behind.
+            Text(verbatim: shown)
+                .fixedSize(horizontal: false, vertical: true)
+                .hidden()
+                .onGeometryChange(for: CGFloat.self, of: \.size.height) {
+                    shownHeight = $0
+                }
+        }
+        .background {
+            Text(verbatim: "_")
+                .fixedSize()
+                .hidden()
+                .onGeometryChange(for: CGFloat.self, of: \.size.height) {
+                    lineHeight = $0
                 }
         }
         .overlay(alignment: .top) {
@@ -101,11 +124,18 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
         return max(1, Int(width / cellWidth))
     }
 
-    /// How many lines the field shows: its draft, or the placeholder drawn in its place, wrapped
-    /// as the field wraps it; one before the columns are measured.
+    /// What the field shows: its draft, or the placeholder drawn in its place.
+    private var shown: String {
+        draft.isEmpty ? shownPlaceholder : draft
+    }
+
+    /// How many lines the field shows: the more of the cell model's count, which is how the
+    /// placeholder is drawn, and the text system's, which sees characters wider than a cell. The
+    /// larger only ever adds room, never cuts a line off.
     private var lines: Int {
-        let shown = draft.isEmpty ? shownPlaceholder : draft
-        return columns.map { EditableTitle.lineBreaks(in: shown, columns: $0).count + 1 } ?? 1
+        let counted = columns.map { EditableTitle.lineBreaks(in: shown, columns: $0).count + 1 }
+        let measured = EditableTitle.lineCount(height: shownHeight, lineHeight: lineHeight)
+        return max(counted ?? 1, measured)
     }
 
     /// The placeholder as drawn: broken into lines where the field would break them, each letter
