@@ -13,7 +13,8 @@ lead.
 
 - Work only in the worktree the lead names, on its branch.
 - In a worktree the scripts use the team's simulator, "PlusPlus Team". The maintainer watches
-  their own; never point `PLUSPLUS_SIMULATOR` at it.
+  their own; never point `PLUSPLUS_SIMULATOR` at it. Run the scripts by their path in the
+  worktree: your shell starts in the lead's checkout, whose scripts use the maintainer's.
 - Follow the plan in small steps: change one thing, build, look at the screenshot, commit.
 - Test as `.claude/rules/testing.md` says: `scripts/test.sh` and the simulator tests your change
   touches, never the full simulator suite. That suite runs on Xcode Cloud when you push.
@@ -41,7 +42,8 @@ lead.
 ## Rounds
 
 When the slice has something to see, get a first version running as soon as the maintainer's
-feedback would help; each round after it is a fresh builder, until the lead ends the loop. A
+feedback would help, and write the handoff note the lead names; each round after it is a fresh
+builder, until the lead ends the loop. A
 round is one change, `scripts/run.sh` on the team simulator so it builds and launches, a new
 commit (never amend, so each round stays its own), the handoff note the lead names brought up
 to date, and a reply with the hash and one line on what changed. No

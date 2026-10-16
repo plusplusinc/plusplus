@@ -17,9 +17,10 @@ Output: a short report, a private digest, and one PR when there is something to 
 - **A PR that came out of a retro does not get a retro.** Its title starts with "Retro of".
   The loop ends there.
 - **Nothing found means nothing written.** A one-line report, plus the verifier's record when a
-  covered PR has one, no PR, no memory note, no notification. A night with neither a merge nor a session is the common case and stays silent.
-- **A finding back after a fix means the fix did not work.** If the previous retro already
-  fixed it, say that instead of fixing it again.
+  covered PR has one, no PR, no memory note, no notification. A night with neither a merge nor
+  a session is the common case and stays silent.
+- **A finding back after a fix means the fix did not work.** Say which fix it was, and fix it
+  another way, usually at a higher altitude or with a check.
 - **A fix counts when it is on `main`.** A retro PR still open holds a pending fix, not a made
   one. Before deferring a finding to its hunk, read that PR's diff and check it still applies to
   `main` and still says something true: a later merge may have overtaken it, and merging it then

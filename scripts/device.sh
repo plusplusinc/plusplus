@@ -10,9 +10,9 @@
 # with this Mac and reachable: devicectl marks it unavailable when it is away or off the Mac's
 # Wi-Fi, and then the script makes a link. It also makes one when devicectl lists the phone but
 # the build can't reach it, so xcodebuild finds no destination or times out waiting for one.
-# A locked phone that is reachable takes the install
-# but not the launch, and the script says to open the app there. The build is incremental in the
-# worktree's .build/device, apart from the simulator's derived data so both can build at once.
+# A locked phone that is reachable takes the install but not the launch, and the script says to
+# open the app there. The build is incremental in the worktree's .build/device, apart from the
+# simulator's derived data so both can build at once.
 #
 # The link is a development-signed .ipa, an install manifest, and a one-button page, deployed
 # under a fresh random path as static assets of a Cloudflare Worker on workers.dev. Opened in
@@ -117,7 +117,10 @@ PLIST
     mkdir -p "$build"
     # A build that never deploys is removed on exit, so it can't take one of the two places.
     UNDEPLOYED="$build"
-    trap '[ -z "${UNDEPLOYED:-}" ] || rm -rf "$UNDEPLOYED"' EXIT
+    # Builds set aside for the deploy (below) go back if the run stops before it succeeds.
+    trap '[ -z "${UNDEPLOYED:-}" ] || rm -rf "$UNDEPLOYED"
+        [ -z "${HELD:-}" ] || { for d in "$HELD"/*/; do [ -d "$d" ] && mv "$d" "$SITE/site/"; done
+            rmdir "$HELD"; }' EXIT
     mv "$exported/$SCHEME.ipa" "$build/"
     if [ -n "$(git -C "$ROOT" status --porcelain)" ]; then
         note="Includes uncommitted changes."
@@ -168,9 +171,9 @@ PYTHON
     # Keep the newest two builds; the deploy replaces every asset, so the rest stop being served.
     # The older ones are set aside, not deleted, until the deploy succeeds, so a failed deploy
     # leaves the staged builds as they were.
-    local old held
-    held=$(mktemp -d "$SITE/held.XXXXXX")
-    ls -dt "$SITE"/site/*/ | tail -n +3 | while IFS= read -r old; do mv "$old" "$held/"; done
+    local old
+    HELD=$(mktemp -d "$SITE/held.XXXXXX")
+    ls -dt "$SITE"/site/*/ | tail -n +3 | while IFS= read -r old; do mv "$old" "$HELD/"; done
 
     # Static assets get no content type for extensions the Worker doesn't know; these are the
     # ones Apple's over-the-air install expects.
@@ -195,12 +198,11 @@ JSON
     if ! (cd "$SITE" && wrangler deploy > "$SITE/deploy.log" 2>&1); then
         cat "$SITE/deploy.log" >&2
         echo "wrangler deploy failed" >&2
-        for old in "$held"/*/; do [ -d "$old" ] && mv "$old" "$SITE/site/"; done
-        rmdir "$held"
         return 1
     fi
     UNDEPLOYED=""
-    rm -rf "$held"
+    rm -rf "$HELD"
+    HELD=""
 
     # New assets can take about a minute to reach every edge.
     local manifest="https://$host/$token/manifest.plist" deadline=$((SECONDS + 120))
