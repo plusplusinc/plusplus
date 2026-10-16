@@ -17,6 +17,8 @@ struct RoutineScreen: View {
     /// is spent once its task ends, and a task run again needs a new one.
     @State private var saves: AsyncStream<Routine>.Continuation?
     @State private var isPicking = false
+    /// The row whose values are open in a sheet.
+    @State private var editing: RoutineExercise.ID?
     @State private var scrollPosition = ScrollPosition()
     /// The row just added, holding its place until it can be seen going in.
     @State private var arriving: RoutineExercise.ID?
@@ -83,6 +85,9 @@ struct RoutineScreen: View {
                             spokenDetail: item.spokenDetail(locale: locale),
                         )
                         .railRow()
+                        .contentShape(.rect)
+                        .onTapGesture { editing = item.id }
+                        .accessibilityAddTraits(.isButton)
                         .accessibilityIdentifier("routine.exercise")
                         .swipeActions(edge: .trailing) {
                             Button("Delete", role: .destructive) {
@@ -132,6 +137,19 @@ struct RoutineScreen: View {
                     guard isPicking else { return }
                     isPicking = false
                     add(exercise)
+                }
+            }
+            .sheet(isPresented: Binding(
+                get: { editing != nil },
+                set: { if !$0 { editing = nil } },
+            )) {
+                if let index = routine.exercises.firstIndex(where: { $0.id == editing }) {
+                    let id = routine.exercises[index].id
+                    ExerciseSheet(item: $routine.exercises[index]) {
+                        withAnimation(.railChange) {
+                            routine.exercises.removeAll { $0.id == id }
+                        }
+                    }
                 }
             }
             .toolbar {

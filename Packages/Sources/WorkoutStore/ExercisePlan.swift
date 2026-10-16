@@ -27,7 +27,7 @@ public enum WeightUnit: String, Sendable {
     }
 
     /// One step of a weight: 5 lb or 2.5 kg.
-    var step: Double {
+    public var step: Double {
         switch self {
         case .pounds: 5
         case .kilograms: 2.5
@@ -45,7 +45,7 @@ public struct Weight: Equatable, Sendable {
     }
 
     /// A barbell with nothing on it: 45 lb or 20 kg.
-    static func emptyBar(_ unit: WeightUnit) -> Self {
+    public static func emptyBar(_ unit: WeightUnit) -> Self {
         switch unit {
         case .pounds: Self(45, .pounds)
         case .kilograms: Self(20, .kilograms)

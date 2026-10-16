@@ -58,7 +58,7 @@ extension RoutineExercise {
 
 extension SetTarget {
     /// "1 rep", "10 reps", "30 s", "90 s", "2 min", "2:30 min".
-    func text(locale: Locale) -> String {
+    public func text(locale: Locale) -> String {
         switch self {
         case let .reps(reps):
             "\(reps.formatted(.number.locale(locale)))\(noBreakSpace)\(reps == 1 ? "rep" : "reps")"
@@ -90,7 +90,7 @@ extension Weight {
     }
 
     /// "50 lb", "2.5 kg".
-    func text(locale: Locale) -> String {
+    public func text(locale: Locale) -> String {
         number(locale: locale) + noBreakSpace + unit.rawValue
     }
 
@@ -106,11 +106,11 @@ extension Weight {
 }
 
 /// A time reads in seconds under two minutes, then in minutes.
-enum TimeText {
+public enum TimeText {
     static let minutesFrom = 120
 
     /// "30 s", "90 s", "2 min", "2:30 min".
-    static func text(seconds: Int, locale: Locale) -> String {
+    public static func text(seconds: Int, locale: Locale) -> String {
         guard seconds >= minutesFrom else {
             return seconds.formatted(.number.locale(locale)) + noBreakSpace + "s"
         }
