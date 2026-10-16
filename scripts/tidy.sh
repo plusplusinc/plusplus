@@ -3,9 +3,9 @@
 # landed. Runs in the background at the start of every session in the main checkout, and by hand.
 #
 # Finished means the branch tip is in origin/main, or is the head (or an ancestor of the head) of
-# a merged PR, or its commits' patches are all in one (the PR was rebased on GitHub). Merges are
-# squashed, so a merged branch's own commits never reach main and git alone cannot tell it is
-# done; the PR can. Kept: a worktree with uncommitted changes, a branch
+# a merged PR, or every one of its commits' patches is in a merged PR's head (the PR was rebased
+# on GitHub). Merges are squashed, so a merged branch's own commits never reach main and git
+# alone cannot tell it is done; the PR can. Kept: a worktree with uncommitted changes, a branch
 # with commits no merged PR contains, and a worktree touched in the last day whose branch has no
 # merged PR (an agent's fresh worktree starts at main with nothing committed yet). Closed but
 # unmerged PRs are never cleaned up; their work may still be wanted.
@@ -35,7 +35,7 @@ run() {
 
 # Whether a merged PR contains this tip. Fetches the PR's head when the commit is not local.
 in_merged_pr() {
-    local branch="$1" tip="$2" name head number
+    local branch="$1" tip="$2" name head number base own
     while read -r name head number; do
         [ "$name" = "$branch" ] || continue
         [ "$tip" = "$head" ] && return 0
@@ -44,9 +44,10 @@ in_merged_pr() {
         git merge-base --is-ancestor "$tip" "$head" && return 0
         # `gh pr update-branch --rebase` rewrites a PR's commits, so a worktree's older tip is no
         # ancestor of the merged head; it is still merged when each of its commits has its patch
-        # there.
-        [ -z "$(git cherry "$head" "$tip" "$(git merge-base "$tip" origin/main)" | grep '^+')" ] &&
-            return 0
+        # there. A failed git command, or a tip with no commits of its own, never counts.
+        base=$(git merge-base "$tip" origin/main) || continue
+        own=$(git cherry "$head" "$tip" "$base") || continue
+        [ -n "$own" ] && ! grep -q '^+' <<< "$own" && return 0
     done <<< "$MERGED"
     return 1
 }
