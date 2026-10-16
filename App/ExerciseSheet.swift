@@ -166,8 +166,8 @@ struct ExerciseSheet: View {
             }
             qualifier = item.exercise.isPerSide ? "per side" : nil
         case .weight:
-            text = item.plan.weight?.text(locale: locale) ?? ""
-            qualifier = item.exercise.load == .pair ? "each" : nil
+            text = (item.plan.weight?.text(locale: locale) ?? "")
+                + (item.exercise.load == .pair ? "/side" : "")
         }
         return [text, qualifier].compactMap(\.self).joined(separator: " ")
     }

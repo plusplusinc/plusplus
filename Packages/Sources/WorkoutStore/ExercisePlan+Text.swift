@@ -15,6 +15,7 @@ extension RoutineExercise {
             amount: plan.target.text(locale: locale),
             sets: "\(sets)\(noBreakSpace)×\(noBreakSpace)",
             weight: shownWeight?.text(locale: locale),
+            spoken: false,
         )
     }
 
@@ -25,29 +26,31 @@ extension RoutineExercise {
             amount: plan.target.spokenText(locale: locale),
             sets: "\(sets) sets of ",
             weight: shownWeight?.spokenText(locale: locale),
+            spoken: true,
         )
         .joined(separator: ", ")
     }
 
     /// The amount, after the sets count unless there is one set, and per side when it is, then
     /// the weight, each when it is a pair's.
-    private func line(amount: String, sets: String, weight: String?) -> [String] {
+    private func line(amount: String, sets: String, weight: String?, spoken: Bool) -> [String] {
         var parts = [qualified(plan.sets > 1 ? sets + amount : amount, .target)]
         if let weight {
-            parts.append(qualified(weight, .weight))
+            parts.append(qualified(weight, .weight, spoken: spoken))
         }
         return parts
     }
 
     /// `text` followed by what a part's number is for, if anything: "per side" after reps or a
-    /// time done one side at a time, "each" after a pair's weight.
-    private func qualified(_ text: String, _ part: PlanPart) -> String {
-        let qualifier: String? = switch part {
-        case .sets: nil
-        case .target: exercise.isPerSide ? "per side" : nil
-        case .weight: exercise.load == .pair ? "each" : nil
+    /// time done one side at a time, "/side" after a pair's weight ("20 lb/side"), spoken
+    /// "per side".
+    private func qualified(_ text: String, _ part: PlanPart, spoken: Bool = false) -> String {
+        switch part {
+        case .sets: text
+        case .target: exercise.isPerSide ? text + " per side" : text
+        case .weight:
+            exercise.load == .pair ? text + (spoken ? " per side" : "/side") : text
         }
-        return [text, qualifier].compactMap(\.self).joined(separator: " ")
     }
 
     /// A weight shows only on an exercise that holds one.
