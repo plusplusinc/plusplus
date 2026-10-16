@@ -26,6 +26,8 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     private let onMove: ((RowID, RailSlot<RowID>) -> Void)?
     private let row: (Data.Element) -> Row
     private let end: End
+    /// Drawn at a moment of a drag: how far below its gap the card is, already risen.
+    private let momentOffset: CGFloat?
 
     /// The row held and dragged, if any: the rows show in the order they would take if it were
     /// dropped now, and it draws as a card under the finger.
@@ -64,7 +66,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         arriving: RowID? = nil,
         onMove: ((RowID, RailSlot<RowID>) -> Void)? = nil,
         drag: RailDragState<RowID>?,
-        cardTop: CGFloat = 0,
+        cardOffset: CGFloat = 0,
         @ViewBuilder row: @escaping (Data.Element) -> Row,
         @ViewBuilder end: () -> End,
     ) {
@@ -72,9 +74,9 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         self.arriving = arriving
         self.onMove = onMove
         _drag = State(initialValue: drag)
-        _cardTop = State(initialValue: cardTop)
         self.row = row
         self.end = end()
+        momentOffset = drag == nil ? nil : cardOffset
     }
 
     public var body: some View {
@@ -128,7 +130,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
             if let drag {
                 DragLine(
                     nodes: nodes,
-                    cardOffset: cardTop - (gapTop(lifting: drag.lifted, at: drag.slot) ?? cardTop),
+                    cardOffset: cardOffset(drag),
                     isGapFirst: shown.first?.id == drag.lifted,
                     isGapLast: shown.last?.id == drag.lifted,
                 )
@@ -173,11 +175,21 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                 // As tall as in the rows, where the scroll view proposes no height, not as tall
                 // as the rail it is over.
                 .fixedSize(horizontal: false, vertical: true)
-                .modifier(CardLook(isReleased: drag.isReleased))
-                .offset(y: cardTop)
+                .modifier(CardLook(isReleased: drag.isReleased, hasRisen: momentOffset != nil))
+                .offset(y: gapTop(of: drag) + cardOffset(drag))
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
         }
+    }
+
+    /// The top of the gap the held row is over.
+    private func gapTop(of drag: RailDragState<RowID>) -> CGFloat {
+        gapTop(lifting: drag.lifted, at: drag.slot) ?? 0
+    }
+
+    /// How far below its gap the card is.
+    private func cardOffset(_ drag: RailDragState<RowID>) -> CGFloat {
+        momentOffset ?? cardTop - gapTop(of: drag)
     }
 
     /// The top of the gap at `slot`, where the card rests when it is let go there.

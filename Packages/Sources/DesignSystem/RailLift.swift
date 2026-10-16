@@ -37,8 +37,15 @@ extension View {
 /// its node in the color of the text. Released, it lowers to look like the row at rest.
 struct CardLook: ViewModifier {
     let isReleased: Bool
-    @State private var hasRisen = false
+    @State private var hasRisen: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ObserveHotReload private var hotReload
+
+    /// `hasRisen` draws it already risen, for a preview or a snapshot of a moment of a drag.
+    init(isReleased: Bool, hasRisen: Bool = false) {
+        self.isReleased = isReleased
+        _hasRisen = State(initialValue: hasRisen)
+    }
 
     func body(content: Content) -> some View {
         let isRaised = hasRisen && !isReleased
@@ -54,14 +61,14 @@ struct CardLook: ViewModifier {
             .onAppear {
                 withAnimation(reduceMotion ? nil : RailDrag.lift) { hasRisen = true }
             }
+            .hotReloadable()
     }
 }
 
 /// A held row's card: a raised fill, with no shadow or border. Its node sits as far in from the
 /// leading edge as from the top, and its corners are close to concentric with the node: their
 /// radius is that inset plus the node's. It is centered on the row, so on a screen whose rows are,
-/// its
-/// edges are as far from the screen's, and the row's content stops that inset short of its
+/// its edges are as far from the screen's, and the row's content stops that inset short of its
 /// trailing edge. It is as tall as the row. At rest, it is not drawn.
 struct LiftedCard: View {
     let node: Anchor<CGPoint>
