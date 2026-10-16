@@ -37,6 +37,8 @@ lead.
   against your worktree's (`git rev-parse --abbrev-ref HEAD` and `git rev-parse --short HEAD`
   there); on a mismatch, run it again with the target named, and never report what a mismatched
   run found.
+- A decision the lead sends while you work applies from then on: act on it, and write it into
+  the handoff note when there is one.
 - Never merge, never push to `main`, never move the card.
 
 ## Rounds

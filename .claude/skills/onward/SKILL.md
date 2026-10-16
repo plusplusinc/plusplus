@@ -54,6 +54,8 @@ project board; agents' technical working files live in `.slices/`.
   are away. The loop ends when they say it's right; then the builder runs its full pass and the
   verifier runs once. Their being away doesn't end it: work done while they are away is a round
   for them to try when they're back, and the full pass still waits for their word.
+- When you or the maintainer settle something while a builder works, send it to that builder
+  at once (SendMessage) and add it to the slice's handoff note, so the next builder has it too.
 - A screen with no design gets options drawn before it is built. The first is the platform's
   own control for the job (principle 4, "Native bones"), and each other option says what it
   does that the system one can't.
