@@ -42,13 +42,12 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
     /// What the field does with focus, Return, and pasted lines: the wrapper's.
     let behavior: Behavior
 
-    /// The title's width, and the width of one character cell of its monospaced font.
+    /// The title's width, and the width and height of one character cell of its monospaced font.
     @State private var width: CGFloat = 0
     @State private var cellWidth: CGFloat = 0
-    /// The height of what the field shows, laid out as `Text` at the title's width, and of one
-    /// line of the title.
-    @State private var shownHeight: CGFloat = 0
     @State private var lineHeight: CGFloat = 0
+    /// The height of what the field shows, laid out as `Text` at the title's width.
+    @State private var shownHeight: CGFloat = 0
     @ObserveHotReload private var hotReload
 
     var body: some View {
@@ -79,8 +78,9 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
             Text(verbatim: String(repeating: "_", count: measuredCells))
                 .fixedSize()
                 .hidden()
-                .onGeometryChange(for: CGFloat.self, of: \.size.width) {
-                    cellWidth = $0 / CGFloat(measuredCells)
+                .onGeometryChange(for: CGSize.self, of: \.size) {
+                    cellWidth = $0.width / CGFloat(measuredCells)
+                    lineHeight = $0.height
                 }
         }
         .background(alignment: .topLeading) {
@@ -93,14 +93,6 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
                 .hidden()
                 .onGeometryChange(for: CGFloat.self, of: \.size.height) {
                     shownHeight = $0
-                }
-        }
-        .background {
-            Text(verbatim: "_")
-                .fixedSize()
-                .hidden()
-                .onGeometryChange(for: CGFloat.self, of: \.size.height) {
-                    lineHeight = $0
                 }
         }
         .overlay(alignment: .top) {

@@ -156,15 +156,21 @@ struct EditableTitleTextSizeTests {
         arguments: wideDrafts,
     )
     func wideName(draft: String) {
-        for category in [Self.large, Self.ax5] {
-            let screen = Screen(draft, isEditing: false, at: category)
-            defer { screen.window.isHidden = true }
-            _ = screen.height()
-            #expect(screen.showsAllText, "fresh at \(category.rawValue)")
-            let other = category == Self.large ? Self.ax5 : Self.large
-            screen.change(to: other)
-            _ = screen.height()
-            #expect(screen.showsAllText, "at \(other.rawValue) after \(category.rawValue)")
+        for isEditing in [false, true] {
+            for category in [Self.large, Self.ax5] {
+                let screen = Screen(draft, isEditing: isEditing, at: category)
+                defer { screen.window.isHidden = true }
+                let state = isEditing ? "editing" : "at rest"
+                _ = screen.height()
+                #expect(screen.showsAllText, "\(state), fresh at \(category.rawValue)")
+                let other = category == Self.large ? Self.ax5 : Self.large
+                screen.change(to: other)
+                _ = screen.height()
+                #expect(
+                    screen.showsAllText,
+                    "\(state), at \(other.rawValue) after \(category.rawValue)",
+                )
+            }
         }
     }
 
