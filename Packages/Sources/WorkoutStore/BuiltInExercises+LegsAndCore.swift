@@ -226,6 +226,20 @@ extension Exercise {
             tags: .init(.lunge, [.quads, .glutes], [.hamstrings]),
         ),
         Self(
+            id: "bodyweight-squat",
+            name: "Bodyweight squat",
+            muscleGroup: .legs,
+            plan: .init(sets: 2, target: .reps(15)),
+            tags: .init(.squat, [.quads, .glutes], [.hamstrings]),
+        ),
+        Self(
+            id: "inchworm",
+            name: "Inchworm",
+            muscleGroup: .legs,
+            plan: .init(sets: 1, target: .reps(8)),
+            tags: .init(nil, [.hamstrings], [.abs, .frontDelts], .stretch),
+        ),
+        Self(
             id: "jumping-jacks",
             name: "Jumping jacks",
             muscleGroup: .legs,
