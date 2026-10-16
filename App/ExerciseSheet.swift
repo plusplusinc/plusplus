@@ -3,9 +3,9 @@ import SwiftUI
 import WorkoutStore
 
 /// A routine row's values, one row for each part its exercise has: the label leading, the value
-/// on a rounded key trailing, a hairline between rows. Tapping a value opens a stepper under its
-/// row, one at a time, as the hairline below widening into a region of its color. Changes apply
-/// as they're made; Delete is in the menu.
+/// on a rounded key trailing, each row on its own rounded fill. Tapping a value opens a stepper
+/// inside its row, under the value, one at a time. Changes apply as they're made; Delete is in
+/// the menu.
 struct ExerciseSheet: View {
     @Binding var item: RoutineExercise
     let onDelete: () -> Void
@@ -15,17 +15,24 @@ struct ExerciseSheet: View {
     @Environment(\.locale) private var locale
     @ObserveHotReload private var hotReload
 
-    private static let hairline: CGFloat = 1 / 3
+    /// The value's key and the stepper's keys sit this far inside their row on every side, so
+    /// the row's corners are concentric with theirs.
+    private static let inset = Spacing.sm
+    private static let motion = Animation.snappy(duration: 0.25)
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 0) {
-                    let parts = item.exercise.planParts
-                    ForEach(Array(parts.enumerated()), id: \.offset) { index, part in
-                        partRow(part)
-                        // The last row has no hairline under it, so its region grows from nothing.
-                        seam(part, closedHeight: index < parts.count - 1 ? Self.hairline : 0)
+                VStack(spacing: Spacing.sm) {
+                    ForEach(item.exercise.planParts, id: \.self) { part in
+                        VStack(spacing: 0) {
+                            partRow(part)
+                            region(part)
+                        }
+                        .background(
+                            Color.pp(.surface),
+                            in: .rect(cornerRadius: Self.inset + Radius.key),
+                        )
                     }
                 }
                 .padding(.horizontal, Spacing.md)
@@ -61,7 +68,7 @@ struct ExerciseSheet: View {
                 .foregroundStyle(.pp(.textPrimary))
             Spacer()
             Button {
-                withAnimation(.snappy) {
+                withAnimation(Self.motion) {
                     open = open == part ? nil : part
                 }
             } label: {
@@ -73,29 +80,27 @@ struct ExerciseSheet: View {
                     .padding(.horizontal, Spacing.md - Spacing.xs)
                     .padding(.vertical, Spacing.sm)
                     .background(
-                        Color.pp(open == part ? .borderStrong : .surface),
+                        Color.pp(open == part ? .borderStrong : .rail),
                         in: .rect(cornerRadius: Radius.key),
                     )
             }
             .buttonStyle(.plain)
             .accessibilityHint(open == part ? "Closes the stepper." : "Opens a stepper.")
         }
-        .padding(.vertical, Spacing.sm)
+        .padding(.leading, Spacing.md)
+        .padding([.vertical, .trailing], Self.inset)
     }
 
-    /// The hairline under a row, or, while its stepper is open, the region it widens into: the
-    /// stepper is always laid out, and the region shows only as much of it as its height allows,
-    /// so nothing draws past its edges.
-    private func seam(_ part: PlanPart, closedHeight: CGFloat) -> some View {
+    /// The stepper under a row's value, always laid out: the region shows only as much of it as
+    /// its height allows, so nothing draws past its edges, and the stepper rides its bottom edge.
+    private func region(_ part: PlanPart) -> some View {
         let isOpen = open == part
         return stepper(part)
-            .padding(Spacing.sm)
-            .opacity(isOpen ? 1 : 0)
+            .padding([.horizontal, .bottom], Self.inset)
             .allowsHitTesting(isOpen)
             .accessibilityHidden(!isOpen)
             .frame(maxWidth: .infinity)
-            .frame(height: isOpen ? nil : closedHeight, alignment: .top)
-            .background(Color.pp(.borderStrong))
+            .frame(height: isOpen ? nil : 0, alignment: .bottom)
             .clipped()
     }
 
