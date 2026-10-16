@@ -44,11 +44,16 @@ project board; agents' technical working files live in `.slices/`.
   builder's "Rounds"). Install each round from the slice worktree with `scripts/device.sh`; a
   fresh checkout is a cold build. It builds the worktree as it is, so uncommitted edits are fine
   for a first look, but say so. Tell the maintainer in a line what changed and that the build is
-  unverified, then pass their feedback to the same builder. Wi-Fi first, link second: when no
-  iPhone is in reach the script makes an install link instead, and when it reaches the phone
-  but can't launch, ask them to unlock it, then run it again or with `--link`. Send them the
-  link it prints. The work goes on while they are away. The loop ends when they say it's right;
-  then the builder runs its full pass and the verifier runs once.
+  unverified, then give their feedback to a fresh builder named for that round, which starts
+  from the slice's handoff note and brings it up to date before it reports; resume a builder
+  only to finish its own round. Wi-Fi first, link second: when no iPhone is in reach the script
+  makes an install link instead, and when the phone is locked the build installs but doesn't
+  open, so tell them to open PlusPlus. Send them the link it prints. The work goes on while they
+  are away. The loop ends when they say it's right; then the builder runs its full pass and the
+  verifier runs once.
+- A screen with no design gets options drawn before it is built. The first is the platform's
+  own control for the job (principle 4, "Native bones"), and each other option says what it
+  does that the system one can't.
 - When a subagent runs long, have it write `.slices/sliceN-handoff.md` and continue with a
   fresh one in the same worktree.
 - Rewrite the card's State section (`scripts/board.sh state <id> <<'STATE'`, quoted so

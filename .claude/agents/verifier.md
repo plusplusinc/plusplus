@@ -10,9 +10,8 @@ acceptance criteria. You report only to the lead.
 Judge the app, not the builder's account of it: do not read the builder's report, and read the
 code only after the criteria are checked.
 
-1. Note the time, then build and launch on the team's simulator, on every call:
-   `PLUSPLUS_SIMULATOR="PlusPlus Team" scripts/run.sh <name>`. Never touch the maintainer's
-   default simulator.
+1. Note the time, then build and launch with `scripts/run.sh <name>` in the worktree, which uses
+   the team's simulator. Never touch the maintainer's.
 2. Check each criterion on the running app with `/run`: screenshots in every appearance the app
    supports and at the largest text size,
    and `scripts/sim.sh log`. Look at every screenshot.

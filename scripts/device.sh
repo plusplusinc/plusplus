@@ -8,8 +8,8 @@
 #
 # The phone is looked up each time, never stored, since the repo is public. It must be paired
 # with this Mac and reachable: devicectl marks it unavailable when it is away or off the Mac's
-# Wi-Fi, and then the script makes a link. A locked phone that is reachable fails at install or
-# launch; unlock it and run again, or make a link. The build is incremental in the
+# Wi-Fi, and then the script makes a link. A locked phone that is reachable takes the install
+# but not the launch, and the script says to open the app there. The build is incremental in the
 # worktree's .build/device, apart from the simulator's derived data so both can build at once.
 #
 # The link is a development-signed .ipa, an install manifest, and a one-button page, deployed
@@ -241,11 +241,16 @@ run_xcodebuild device build -configuration Debug \
 
 APP="$DERIVED_DATA/Build/Products/Debug-iphoneos/$SCHEME.app"
 BUNDLE_ID=$(app_bundle_id "$APP")
-if ! xcrun devicectl device install app --quiet --device "$UDID" "$APP" ||
-    ! xcrun devicectl device process launch --quiet --terminate-existing --device "$UDID" \
-        "$BUNDLE_ID"; then
-    echo "built, but could not install or launch on $NAME: is it unlocked? If it stays out of" \
-        "reach, scripts/device.sh --link makes an install link" >&2
+if ! xcrun devicectl device install app --quiet --device "$UDID" "$APP"; then
+    echo "built, but could not install on $NAME; if it stays out of reach," \
+        "scripts/device.sh --link makes an install link" >&2
     exit 69
+fi
+# A locked phone takes the install but refuses the launch. The build is on the phone either way.
+if ! xcrun devicectl device process launch --quiet --terminate-existing --device "$UDID" \
+    "$BUNDLE_ID"; then
+    echo "installed on $NAME, but not launched (devicectl says why above; usually it is locked):" \
+        "open PlusPlus there"
+    exit 0
 fi
 echo "launched on $NAME"
