@@ -169,7 +169,7 @@ the first one and every midnight after, does this, in order:
    print one line, "Nightly retro: nothing since <last run>.", and go to step 6. Start one
    `general-purpose` agent in the foreground, and pass it: the PR numbers, the last-run time,
    the extract's absolute path, and these instructions. Create a worktree from `origin/main`
-   with `git worktree add -b retro/<today's date> <main checkout>/.claude/worktrees/retro-<today's date> origin/main`
+   with `git worktree add --no-track -b retro/<today's date> <main checkout>/.claude/worktrees/retro-<today's date> origin/main`
    (add `-2` to both when the branch exists), work only there, with absolute paths. Follow
    `.claude/skills/retro/SKILL.md` as it is in that worktree, including "Never, in any run".
    Open the PR with `/pr` when there is something to fix; otherwise remove the worktree and
