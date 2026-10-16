@@ -62,6 +62,12 @@ struct EditableTitleTextSizeTests {
             window.makeKeyAndVisible()
         }
 
+        /// Off screen once a test is done with it, so that it holds no focus while the next
+        /// window is measured.
+        isolated deinit {
+            window.isHidden = true
+        }
+
         /// The title's height once its measurements have settled: they reach the layout over a
         /// few passes, each measured geometry updating state for the next.
         func height() -> CGFloat {
@@ -106,18 +112,6 @@ struct EditableTitleTextSizeTests {
             return focused(in: host.view)
         }
 
-        /// The height fresh at `category`, the window then taken off screen so that it holds no
-        /// focus while the next one is measured.
-        static func freshHeight(
-            _ draft: String,
-            isEditing: Bool,
-            at category: UIContentSizeCategory,
-        ) -> CGFloat {
-            let screen = Screen(draft, isEditing: isEditing, at: category)
-            defer { screen.window.isHidden = true }
-            return screen.height()
-        }
-
         func change(to category: UIContentSizeCategory) {
             window.traitOverrides.preferredContentSizeCategory = category
         }
@@ -129,8 +123,8 @@ struct EditableTitleTextSizeTests {
         from start: UIContentSizeCategory,
         via other: UIContentSizeCategory,
     ) {
-        let fresh = Screen.freshHeight(draft, isEditing: isEditing, at: other)
-        let freshStart = Screen.freshHeight(draft, isEditing: isEditing, at: start)
+        let fresh = Screen(draft, isEditing: isEditing, at: other).height()
+        let freshStart = Screen(draft, isEditing: isEditing, at: start).height()
         let screen = Screen(draft, isEditing: isEditing, at: start)
         _ = screen.height()
         #expect(screen.isFocused == isEditing)
@@ -141,9 +135,13 @@ struct EditableTitleTextSizeTests {
         #expect(abs(screen.height() - freshStart) < 1, "back at \(start.rawValue)")
     }
 
-    @Test("Large to AX5 and back: the title is as tall as fresh at each", arguments: drafts)
-    func largeToAX5(draft: String) {
-        check(draft, isEditing: false, from: Self.large, via: Self.ax5)
+    @Test(
+        "Large to AX5 and back, at rest and editing: the title is as tall as fresh at each",
+        arguments: drafts,
+        [false, true],
+    )
+    func largeToAX5(draft: String, isEditing: Bool) {
+        check(draft, isEditing: isEditing, from: Self.large, via: Self.ax5)
     }
 
     @Test("AX5 to Large and back: the title is as tall as fresh at each", arguments: drafts)
@@ -159,7 +157,6 @@ struct EditableTitleTextSizeTests {
         for isEditing in [false, true] {
             for category in [Self.large, Self.ax5] {
                 let screen = Screen(draft, isEditing: isEditing, at: category)
-                defer { screen.window.isHidden = true }
                 let state = isEditing ? "editing" : "at rest"
                 _ = screen.height()
                 #expect(screen.showsAllText, "\(state), fresh at \(category.rawValue)")
@@ -172,11 +169,6 @@ struct EditableTitleTextSizeTests {
                 )
             }
         }
-    }
-
-    @Test("While editing, Large to AX5 and back", arguments: drafts)
-    func whileEditing(draft: String) {
-        check(draft, isEditing: true, from: Self.large, via: Self.ax5)
     }
 }
 

@@ -27,6 +27,10 @@ import SwiftUI
 /// A suggestion or the placeholder, drawn as `Text` in place of an empty field, breaks its lines
 /// where `lineBreaks(in:columns:)` says, since `Text` on its own avoids leaving one word on the
 /// last line, and the field does not.
+///
+/// The cell model counts every character as one cell, which holds for the Latin names it was
+/// made for. Emoji and CJK are wider: the title still grows to fit them, measured as `Text`, but
+/// the `_` can sit a cell or a line away from the caret.
 public struct EditableTitle: View {
     @Binding private var text: String
     private let placeholder: String
