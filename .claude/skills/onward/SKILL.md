@@ -10,11 +10,13 @@ project board; agents' technical working files live in `.slices/`.
 ## Start
 
 1. Read the board's README (`scripts/board.sh readme`): the settled design per feature and the
-   standing setup.
+   standing setup. Telling the maintainer a settled rule, use its words there; a paraphrase
+   drifts.
 2. Find the card: the In Progress card, otherwise the topmost Todo card (`scripts/board.sh
    list` prints the board's order, then `scripts/board.sh show <id>`). The board's order is
    one queue: a card with a Feature is a slice of that feature, one without is a standalone
-   task (tooling, a bug, process), and a Backlog card is parked, never picked.
+   task (tooling, a bug, process), and a Backlog card is parked, never picked. Once it's
+   chosen, retitle the session for it (`set_session_title`), never leaving it "Onward".
    Its body holds the scope, the acceptance criteria, and a State section with the worktree,
    branch, PR, phase, and next step.
    An open nightly retro PR (title "Retro of", `gh pr list --search "Retro of in:title"`)
@@ -50,10 +52,14 @@ project board; agents' technical working files live in `.slices/`.
   makes an install link instead, and when the phone is locked the build installs but doesn't
   open, so tell them to open PlusPlus. Send them the link it prints. The work goes on while they
   are away. The loop ends when they say it's right; then the builder runs its full pass and the
-  verifier runs once.
+  verifier runs once. Their being away doesn't end it: work done while they are away is a round
+  for them to try when they're back, and the full pass still waits for their word.
 - A screen with no design gets options drawn before it is built. The first is the platform's
   own control for the job (principle 4, "Native bones"), and each other option says what it
   does that the system one can't.
+- Before saying an agent is running, check its last activity and when it happened (its
+  transcript's last entry). An interrupt of your turn can stop background agents: after one,
+  check each, and restart a stopped one from its commits and handoff without waiting to be asked.
 - When a subagent runs long, have it write `.slices/sliceN-handoff.md` and continue with a
   fresh one in the same worktree.
 - Rewrite the card's State section (`scripts/board.sh state <id> <<'STATE'`, quoted so

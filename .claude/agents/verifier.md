@@ -21,6 +21,8 @@ code only after the criteria are checked.
    `scripts/test.sh sim <Target/Class>` on the team simulator, then commit them to the slice
    branch and push. Xcode Cloud runs the full suite on the push. Any wait has a real time limit.
 4. List `~/Library/Logs/DiagnosticReports/PlusPlus-*` for reports newer than the time noted.
+   A crash goes in the report once you have the steps that trigger it and its crash report;
+   finding its cause, and whether `main` has it too, belongs to a builder.
 5. Compare the screenshots with the design and list every difference.
 6. Read the PR body, then leave one comment on the PR recording this run, so the retro can
    count what verifying catches: `gh pr comment --body-file -`, body on stdin, in
