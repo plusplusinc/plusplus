@@ -101,3 +101,45 @@ extension XCUIElement {
         coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
     }
 }
+
+/// Holding a row and dragging it along the rail.
+@MainActor
+extension XCUIApplication {
+    /// The rows' exercise names, top to bottom.
+    var exerciseNames: [String] {
+        exerciseRows.allElementsBoundByIndex.map { String($0.label.prefix { $0 != "," }) }
+    }
+
+    /// A point on screen, as `x` and `y` in points from its top-left corner.
+    func point(x: CGFloat, y: CGFloat) -> XCUICoordinate {
+        coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: x, dy: y))
+    }
+}
+
+@MainActor
+extension XCUIElement {
+    /// The middle of a row, on its name and detail line, where a hold lifts it.
+    var liftPoint: XCUICoordinate {
+        coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+    }
+
+    /// In a row's rail column, beside its node, where a hold lifts nothing.
+    var nodePoint: XCUICoordinate {
+        coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0.5))
+            .withOffset(CGVector(dx: 22, dy: 0))
+    }
+}
+
+extension XCUICoordinate {
+    /// Holds here long enough for a row to lift, drags slowly to `target`, holds there for
+    /// `hold` seconds, and lets go.
+    @MainActor
+    func holdAndDrag(to target: XCUICoordinate, holding hold: TimeInterval = 0.3) {
+        press(forDuration: 0.8, thenDragTo: target, withVelocity: .slow, thenHoldForDuration: hold)
+    }
+
+    /// `points` further down, or up when negative.
+    func down(_ points: CGFloat) -> XCUICoordinate {
+        withOffset(CGVector(dx: 0, dy: points))
+    }
+}
