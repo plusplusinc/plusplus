@@ -23,7 +23,12 @@ struct ExerciseSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: Spacing.sm) {
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    let equipment = [item.exercise].equipment
+                    if !equipment.isEmpty {
+                        Capsules(equipment.map(\.name))
+                            .padding(.bottom, Spacing.sm)
+                    }
                     ForEach(item.exercise.planParts, id: \.self) { part in
                         VStack(spacing: 0) {
                             partRow(part)
