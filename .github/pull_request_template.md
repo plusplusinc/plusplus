@@ -1,5 +1,7 @@
 <!-- Merges are squashed: this body becomes the commit message on main. One paragraph on what
 and why; short sections only when the change has distinct parts. Review notes go in a comment.
+It is read before the merge, too: keep today and the change apart ("With this change, ..."),
+never the result in the plain present.
 
 The retro runs in a session that never saw this work and reads the conversation's text, not
 what was run, so the body has to carry what it needs: the three lines below, and any decision
