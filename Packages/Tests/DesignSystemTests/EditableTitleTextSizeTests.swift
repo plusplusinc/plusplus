@@ -90,8 +90,9 @@ struct EditableTitleTextSizeTests {
             return last
         }
 
-        /// Whether the field is tall enough for all of its text, rather than scrolling it inside.
-        var showsAllText: Bool {
+        /// Whether the field is exactly as tall as its text: nothing scrolled inside it, and no
+        /// empty line under the name. Within a point, as heights land on the pixel grid.
+        var fitsText: Bool {
             func textViews(in view: UIView) -> [UITextView] {
                 (view as? UITextView).map { [$0] } ?? view.subviews.flatMap(textViews(in:))
             }
@@ -100,8 +101,7 @@ struct EditableTitleTextSizeTests {
                 return false
             }
             field.layoutIfNeeded()
-            // Within a point, as heights land on the pixel grid.
-            return field.contentSize.height <= field.bounds.height + 1
+            return abs(field.contentSize.height - field.bounds.height) <= 1
         }
 
         /// Whether the field's text view has the keyboard's focus.
@@ -150,7 +150,7 @@ struct EditableTitleTextSizeTests {
     }
 
     @Test(
-        "A name wider than its cells is never cut off, fresh or after a size change",
+        "A name wider than its cells fits its title, fresh or after a size change",
         arguments: wideDrafts,
     )
     func wideName(draft: String) {
@@ -159,12 +159,12 @@ struct EditableTitleTextSizeTests {
                 let screen = Screen(draft, isEditing: isEditing, at: category)
                 let state = isEditing ? "editing" : "at rest"
                 _ = screen.height()
-                #expect(screen.showsAllText, "\(state), fresh at \(category.rawValue)")
+                #expect(screen.fitsText, "\(state), fresh at \(category.rawValue)")
                 let other = category == Self.large ? Self.ax5 : Self.large
                 screen.change(to: other)
                 _ = screen.height()
                 #expect(
-                    screen.showsAllText,
+                    screen.fitsText,
                     "\(state), at \(other.rawValue) after \(category.rawValue)",
                 )
             }
