@@ -62,14 +62,28 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         assertAddClearsStartAtTheEnd(in: app, keyboard: keyboard, addExercise: addExercise)
     }
 
-    /// Rows and the picker, with and without results, pass the audit at this text size.
+    /// Rows, a row's sheet with a stepper open, and the picker, with and without results, pass
+    /// the audit at this text size.
     @MainActor
     private func auditRowsAndPicker(in app: XCUIApplication) throws {
-        try XCTContext.runActivity(named: "Rows and the picker at AX5 pass the audit") { _ in
+        try XCTContext.runActivity(named: "Rows, a sheet, and the picker at AX5 pass the audit") { _ in
             app.addExercise("Kneeling hip flexor stretch", searching: "kneeling")
             XCTAssertTrue(app.buttons["Start"].appears())
             attach(named: "rail-ax5")
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
+            app.exerciseRows.firstMatch.tap()
+            let time = app.buttons["Time"]
+            XCTAssertTrue(time.appears(), "Tapping a row opened no sheet")
+            time.tap()
+            XCTAssertTrue(app.buttons["Increase"].appears(), "Tapping Time opened no stepper")
+            // Full height, so the audit sees the sheet and not the rail's text it half covers.
+            let grabber = app.buttons["Sheet Grabber"]
+            grabber.tap()
+            XCTAssertEqual(grabber.value(becoming: "Expanded"), "Expanded")
+            attach(named: "sheet-ax5")
+            try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
+            app.buttons["Close"].tap()
+            XCTAssertTrue(time.disappears(), "Close left the sheet up")
             let search = app.openPicker()
             attach(named: "picker-ax5")
             // Audited in use: at rest, the system search bar reports that it cannot scale, with

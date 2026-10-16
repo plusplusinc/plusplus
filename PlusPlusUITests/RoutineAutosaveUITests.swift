@@ -27,14 +27,16 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
             XCTAssertEqual(app.exerciseRows.count, 0)
         }
         nameFollowsTheExercises(in: app, title: title, gray: gray)
+        valuesChangeInTheSheet(in: app)
         XCTContext
             .runActivity(named: "Rows, order, and the generated name survive a relaunch") { _ in
                 app.relaunch()
                 XCTAssertEqual(title.value as? String, "Chest and back")
+                // The second pull-up keeps the reps its sheet gave it, and the first its own.
                 XCTAssertEqual(app.exerciseRows.allElementsBoundByIndex.map(\.label), [
-                    "\(Self.bench), 3 sets of 5 reps, 45 pounds",
-                    "\(Self.pullUp), 3 sets of 6 reps",
-                    "\(Self.pullUp), 3 sets of 6 reps",
+                    "Barbell bench press, 3 sets of 5 reps, 45 pounds",
+                    "Pull-up, 3 sets of 6 reps",
+                    "Pull-up, 3 sets of 8 reps",
                 ])
                 XCTAssertTrue(title.inkIsWhite(against: gray), "The generated name came back gray")
                 attach(named: "after-relaunch")
@@ -66,6 +68,34 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
             app.lastExerciseRow.fullSwipeLeft()
             XCTAssertEqual(app.exerciseCount(becoming: 3), 3)
             XCTAssertEqual(title.value(becoming: "Chest and back"), "Chest and back")
+        }
+    }
+
+    /// A row's sheet steps its values, and the row reads the result; its twin keeps its own.
+    @MainActor
+    private func valuesChangeInTheSheet(in app: XCUIApplication) {
+        XCTContext.runActivity(named: "A row's sheet changes only that row's values") { _ in
+            app.exerciseRows.element(boundBy: 2).tap()
+            let reps = app.buttons["Reps"]
+            XCTAssertTrue(reps.appears(), "Tapping a row opened no sheet")
+            XCTAssertEqual(reps.value as? String, "6 reps")
+            reps.tap()
+            let increase = app.buttons["Increase"]
+            XCTAssertTrue(increase.appears(), "Tapping Reps opened no stepper")
+            increase.tapAtCenter()
+            increase.tapAtCenter()
+            XCTAssertEqual(reps.value(becoming: "8 reps"), "8 reps")
+            attach(named: "sheet-stepped")
+            app.buttons["Close"].tap()
+            XCTAssertTrue(reps.disappears(), "Close left the sheet up")
+            XCTAssertEqual(
+                app.exerciseRows.allElementsBoundByIndex.map(\.label),
+                [
+                    "Barbell bench press, 3 sets of 5 reps, 45 pounds",
+                    "Pull-up, 3 sets of 6 reps",
+                    "Pull-up, 3 sets of 8 reps",
+                ],
+            )
         }
     }
 

@@ -88,3 +88,12 @@ extension XCUIElement {
         )
     }
 }
+
+extension XCUIElement {
+    /// Taps the middle of the element. XCTest's `tap()` went to a stepper key's top-left corner,
+    /// on the edge of the row above it, whose tap closed the stepper instead.
+    @MainActor
+    func tapAtCenter() {
+        coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+    }
+}

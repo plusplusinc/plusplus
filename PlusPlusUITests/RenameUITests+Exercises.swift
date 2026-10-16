@@ -11,7 +11,7 @@ extension RenameUITests {
             XCTAssertFalse(app.buttons["Start"].exists, "Start shows with no exercises")
             _ = app.openPicker()
             XCTAssertFalse(keyboard.exists, "Search took focus when the picker opened")
-            XCTAssertEqual(app.pickerRows.firstMatch.label, "Balance board hold, Balance board")
+            XCTAssertEqual(app.pickerRows.firstMatch.label, "Backward arm circles")
         }
         XCTContext.runActivity(named: "Search narrows and shows an empty state") { _ in
             search.tap()
@@ -38,16 +38,16 @@ extension RenameUITests {
             XCTAssertFalse(search.exists, "Start opened something")
         }
         XCTContext.runActivity(named: "Six adds in a row, one a duplicate") { _ in
-            // Each is in the first screenful: one tap to open, one to pick.
+            // The first four are in the first screenful: one tap to open, one to pick.
             for label in [
                 "Band pull-apart, Band",
                 "Band pull-apart, Band",
                 "Balance board hold, Balance board",
                 "Barbell back squat, Barbell",
-                "Biceps curl, Dumbbells",
             ] {
                 app.addExercise(label)
             }
+            app.addExercise("Biceps curl, Dumbbells", searching: "biceps")
             app.addExercise("Push-up", searching: "push-up")
             XCTAssertEqual(app.exerciseCount(becoming: 7), 7)
             attach(named: "seven-exercises")
@@ -55,20 +55,20 @@ extension RenameUITests {
         readRowsAtTheListEnd(in: app)
     }
 
-    /// The rows read as name, equipment, and plan, and at the end of the list both keys and the
+    /// The rows read as name and plan, and at the end of the list both keys and the
     /// title stay reachable. Split from `addAndSearchExercises` so each body stays inside
     /// SwiftLint's length limit; the activities run in this order either way.
     @MainActor
     private func readRowsAtTheListEnd(in app: XCUIApplication) {
-        XCTContext.runActivity(named: "Rows read as name, equipment, and plan") { _ in
+        XCTContext.runActivity(named: "Rows read as name and plan") { _ in
             let labels = app.exerciseRows.allElementsBoundByIndex.map(\.label)
             XCTAssertEqual(labels, [
-                "Barbell bench press, Barbell, bench, 3 sets of 5 reps, 45 pounds",
-                "Band pull-apart, Band, 3 sets of 15 reps",
-                "Band pull-apart, Band, 3 sets of 15 reps",
-                "Balance board hold, Balance board, 3 sets of 30 seconds",
-                "Barbell back squat, Barbell, 3 sets of 5 reps, 45 pounds",
-                "Biceps curl, Dumbbells, 3 sets of 12 reps, 15 pounds each",
+                "Barbell bench press, 3 sets of 5 reps, 45 pounds",
+                "Band pull-apart, 3 sets of 15 reps",
+                "Band pull-apart, 3 sets of 15 reps",
+                "Balance board hold, 3 sets of 30 seconds",
+                "Barbell back squat, 3 sets of 5 reps, 45 pounds",
+                "Biceps curl, 3 sets of 12 reps, 15 pounds per side",
                 "Push-up, 3 sets of 10 reps",
             ])
         }
