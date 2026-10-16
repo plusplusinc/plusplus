@@ -16,8 +16,8 @@ Output: a short report, a private digest, and one PR when there is something to 
 
 - **A PR that came out of a retro does not get a retro.** Its title starts with "Retro of".
   The loop ends there.
-- **Nothing found means nothing written.** A one-line report, no PR, no memory note, no
-  notification. A night with neither a merge nor a session is the common case and stays silent.
+- **Nothing found means nothing written.** A one-line report, plus the verifier's record when a
+  covered PR has one, no PR, no memory note, no notification. A night with neither a merge nor a session is the common case and stays silent.
 - **One fix per recurring finding.** If the previous retro already fixed it, the fix did not
   work; say that instead of fixing it again.
 - **A fix counts when it is on `main`.** A retro PR still open holds a pending fix, not a made
@@ -52,9 +52,9 @@ stays private, or in agent memory.
 
 The conversation since the last retro, merged or not (`scripts/conversations.py <since>`), holds
 the strongest evidence, most of which never reaches a PR. Each session's heading names its
-transcript; open one only around a moment, never whole. For each PR: `gh pr diff`; `gh pr view`
-for commits, review threads, and time to merge; `gh api repos/{owner}/{repo}/pulls/N/comments` for
-inline review; its Xcode Cloud runs and why any failed (`gh pr checks`, and
+transcript; open one only around a moment, never whole. For each PR: `gh pr diff`;
+`gh pr view --comments` for commits, review threads, comments, and time to merge;
+`gh api repos/{owner}/{repo}/pulls/N/comments` for inline review; its Xcode Cloud runs and why any failed (`gh pr checks`, and
 `asc xcode-cloud doctor` with the App Store Connect key); its board card; its Friction line. And
 the last merged retro PR's body, for its fixes.
 
@@ -102,7 +102,28 @@ waiting. The body is the record the next retro reads:
 - One line for the sweep: what it corrected, and where.
 - Card, Friction, and Verified, which names `scripts/lint.sh` at least.
 
-Then report the findings, the fixes, and what needs the maintainer's decision, and the digest.
+Then report the findings, the fixes, what needs the maintainer's decision, the verifier's record
+(below), and the digest.
+
+## The verifier's record
+
+Each verifier run leaves a PR comment that starts `Verifier record` (`.claude/agents/verifier.md`
+gives its shape), so its worth can be judged on evidence. The report and the digest carry it
+whenever a covered PR has one, even on a night with nothing else to say, though it is not a
+finding and opens no PR:
+
+- Per covered PR: its runs' findings counted by kind, `new` (the PR missed it) apart from
+  `known`, or "no findings".
+- The tally across every PR that has a record, recounted each time from the comments themselves,
+  which outlive the slice's `.slices/` files and need no store of their own. Fetch them in one
+  GraphQL request, not one per PR, so the cost stays flat as records pile up, and count only
+  comments that start `Verifier record`:
+
+  ```sh
+  gh api graphql -f query='{ search(type: ISSUE, first: 100,
+    query: "repo:plusplusinc/plusplus is:pr in:comments \"Verifier record\"") {
+    nodes { ... on PullRequest { number comments(last: 50) { nodes { body } } } } } }'
+  ```
 
 ## How it runs
 

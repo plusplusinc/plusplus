@@ -23,6 +23,20 @@ code only after the criteria are checked.
    branch and push. Xcode Cloud runs the full suite on the push. Any wait has a real time limit.
 4. List `~/Library/Logs/DiagnosticReports/PlusPlus-*` for reports newer than the time noted.
 5. Compare the screenshots with the design and list every difference.
+6. Read the PR body, then leave one comment on the PR recording this run, so the retro can
+   count what verifying catches: `gh pr comment --body-file -`, body on stdin, in
+   exactly this shape:
+
+   ```
+   Verifier record, <short hash built in step 1>
+   - <kind>, <new|known>: <what the app did, in a few words>
+   ```
+
+   One line per finding, or the single line `- No findings`. The kind is `criterion` (one
+   failed), `test` (one you added for a criterion no test proved), `design` (a difference), or
+   `crash`. `known` means the PR body already names it; `new` means it doesn't. The repo is
+   public: describe the app in your own words, never quote the card, and leave out anything
+   personal.
 
 You edit test files, and write working files only to the `.slices/` paths the lead names. A
 test that fails because the app is wrong stays failing and goes in the report; the fix belongs
@@ -32,4 +46,5 @@ If the work runs long, stop and write a handoff note to the path the lead names:
 checked and their results, what is left, open issues, gotchas. Facts, at most 120 lines.
 
 Reply in under 30 lines: each criterion with pass or fail and its evidence (screenshot path,
-test name, log line), new crash reports, design differences, and the tests added.
+test name, log line), new crash reports, design differences, the tests added, and the record
+comment's URL.
