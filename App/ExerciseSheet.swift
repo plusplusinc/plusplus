@@ -61,17 +61,18 @@ struct ExerciseSheet: View {
         .hotReloadable()
     }
 
+    /// The whole row is the button that opens and closes its stepper.
     private func partRow(_ part: PlanPart) -> some View {
-        HStack {
-            Text(label(of: part))
-                .font(.ppRowTitle)
-                .foregroundStyle(.pp(.textPrimary))
-            Spacer()
-            Button {
-                withAnimation(Self.motion) {
-                    open = open == part ? nil : part
-                }
-            } label: {
+        Button {
+            withAnimation(Self.motion) {
+                open = open == part ? nil : part
+            }
+        } label: {
+            HStack {
+                Text(label(of: part))
+                    .font(.ppRowTitle)
+                    .foregroundStyle(.pp(.textPrimary))
+                Spacer()
                 Text(value(of: part))
                     .font(.ppRowTitle)
                     .monospacedDigit()
@@ -80,23 +81,26 @@ struct ExerciseSheet: View {
                     .padding(.horizontal, Spacing.md - Spacing.xs)
                     .padding(.vertical, Spacing.sm)
             }
-            .buttonStyle(.plain)
-            .accessibilityHint(open == part ? "Closes the stepper." : "Opens a stepper.")
+            .padding(.leading, Spacing.md)
+            .padding([.vertical, .trailing], Self.inset)
+            .contentShape(.rect)
         }
-        .padding(.leading, Spacing.md)
-        .padding([.vertical, .trailing], Self.inset)
+        .buttonStyle(.plain)
+        .accessibilityHint(open == part ? "Closes the stepper." : "Opens a stepper.")
     }
 
     /// The stepper under a row's value, always laid out: the region shows only as much of it as
-    /// its height allows, so nothing draws past its edges, and the stepper rides its bottom edge.
+    /// its height allows, so nothing draws past its edges, and the stepper, held to its top,
+    /// fades in and out as it opens and closes.
     private func region(_ part: PlanPart) -> some View {
         let isOpen = open == part
         return stepper(part)
             .padding([.horizontal, .bottom], Self.inset)
+            .opacity(isOpen ? 1 : 0)
             .allowsHitTesting(isOpen)
             .accessibilityHidden(!isOpen)
             .frame(maxWidth: .infinity)
-            .frame(height: isOpen ? nil : 0, alignment: .bottom)
+            .frame(height: isOpen ? nil : 0, alignment: .top)
             .clipped()
     }
 
