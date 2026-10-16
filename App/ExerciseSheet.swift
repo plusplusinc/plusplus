@@ -13,6 +13,7 @@ struct ExerciseSheet: View {
     @State private var open: PlanPart?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.locale) private var locale
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
     /// The value's key and the stepper's keys sit this far inside their row on every side, so
@@ -74,11 +75,25 @@ struct ExerciseSheet: View {
                 .font(.ppRowTitle)
                 .foregroundStyle(.pp(.textPrimary))
             Spacer()
-            Text(value(of: part))
+            let shown = value(of: part)
+            // A changed value flashes in railJoin and eases back to its own color, as a
+            // generated name does arriving in the title; with Reduce Motion it doesn't.
+            Text(shown)
                 .font(.ppRowTitle)
                 .monospacedDigit()
                 .contentTransition(.numericText())
-                .foregroundStyle(.pp(.textPrimary))
+                .keyframeAnimator(initialValue: 0.0, trigger: shown) { text, blue in
+                    text.foregroundStyle(
+                        Color.pp(.textPrimary).mix(
+                            with: .pp(.railJoin),
+                            by: reduceMotion ? 0 : blue,
+                        ),
+                    )
+                } keyframes: { _ in
+                    MoveKeyframe(1)
+                    LinearKeyframe(1, duration: 0.1)
+                    CubicKeyframe(0, duration: 0.3)
+                }
                 .padding(.horizontal, Spacing.md - Spacing.xs)
                 .padding(.vertical, Spacing.sm)
         }
