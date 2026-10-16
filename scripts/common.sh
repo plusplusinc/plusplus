@@ -13,10 +13,16 @@ SCHEME="PlusPlus"
 PACKAGE="$ROOT/Packages"
 DERIVED_DATA="$ROOT/.build/DerivedData"
 RESULTS="$ROOT/.build/results"
-SIMULATOR_NAME="${PLUSPLUS_SIMULATOR:-iPhone 17}"
-# The feature agents' own simulator. The default one is the maintainer's, so scripts/test.sh
-# resets, and scripts/sim.sh erases, only this one.
+# The feature agents' own simulator. The main checkout's default, iPhone 17, is the
+# maintainer's, so scripts/test.sh resets, and scripts/sim.sh erases, only this one.
 TEAM_SIMULATOR="PlusPlus Team"
+# A linked worktree, whose .git is a file, is an agent's, so it defaults to the team's simulator
+# and an agent that leaves out PLUSPLUS_SIMULATOR cannot reach the maintainer's.
+if [ -f "$ROOT/.git" ]; then
+    SIMULATOR_NAME="${PLUSPLUS_SIMULATOR:-$TEAM_SIMULATOR}"
+else
+    SIMULATOR_NAME="${PLUSPLUS_SIMULATOR:-iPhone 17}"
+fi
 DESTINATION="platform=iOS Simulator,name=$SIMULATOR_NAME"
 
 mkdir -p "$DERIVED_DATA" "$RESULTS"

@@ -17,20 +17,25 @@ Output: a short report, a private digest, and one PR when there is something to 
 - **A PR that came out of a retro does not get a retro.** Its title starts with "Retro of".
   The loop ends there.
 - **Nothing found means nothing written.** A one-line report, plus the verifier's record when a
-  covered PR has one, no PR, no memory note, no notification. A night with neither a merge nor a session is the common case and stays silent.
-- **One fix per recurring finding.** If the previous retro already fixed it, the fix did not
-  work; say that instead of fixing it again.
+  covered PR has one, no PR, no memory note, no notification. A night with neither a merge nor
+  a session is the common case and stays silent.
+- **A finding back after a fix means the fix did not work.** Say which fix it was, and fix it
+  another way, usually at a higher altitude or with a check.
 - **A fix counts when it is on `main`.** A retro PR still open holds a pending fix, not a made
   one. Before deferring a finding to its hunk, read that PR's diff and check it still applies to
   `main` and still says something true: a later merge may have overtaken it, and merging it then
   reintroduces what that merge fixed. Report every stale hunk, so the maintainer can close the
   PR rather than merge it. A finding two retros have already deferred to the same open PR gets
   fixed on `main` instead, and the body names the hunk to drop.
-- **One mistake is noise.** A mistake that happened once is reported, not fixed, unless the
-  fix is a deletion. Twice, it gets a check that makes it impossible. The record of past
-  findings is the bodies of earlier retro PRs:
-  `gh pr list --state all --search "Retro of in:title"` (without `--state all` only open
-  PRs are searched).
+- **A verified finding is fixed the first time.** A finding is verified by clear evidence that
+  it happened (a run, a log, a moment in a session), never by how many times it happened, and
+  never by a guess that it might. It gets the fix at the lowest altitude that would have
+  prevented it (section 3): a check that makes it impossible where one can, else the script,
+  skill, agent definition, rule, or doc. Only a finding no change in the repo can prevent (a
+  session usage limit, an outage) is reported without a fix, and the body says why. The
+  record of past findings is the bodies of earlier retro PRs:
+  `gh pr list --state all --search "Retro of in:title"` (without `--state all` only open PRs
+  are searched).
 - **One retro per merge.** Before starting, check that no retro PR, open or merged, already
   names the PR number. The nightly session and one run by hand can both run this.
 
@@ -62,7 +67,8 @@ the last merged retro PR's body, for its fixes.
 
 A finding is what tripped the work up (friction, waste, a missed chance, anything odd) or fell
 short of an aim. Rank by evidence, in this order: highest is what says most about where the lead's
-picture of the maintainer's intent was wrong. The stopping rules decide the fixes.
+picture of the maintainer's intent was wrong. The rank orders the findings; it doesn't decide
+which get fixed, since every verified one does (the stopping rules).
 
 1. **The maintainer corrected the lead**: said what they meant after the lead built or proposed
    something else, or reversed a call it made. A correction an agent review, the verifier, or CI
@@ -98,7 +104,8 @@ listed (a range is not searchable), or "Retro of <date>: <the main change>" when
 waiting. The body is the record the next retro reads:
 
 - The findings, ranked, each with its evidence (the PR, the run, the session, never a quote) and
-  where its fix went or why it gets none; past the first few, one line each.
+  where its fix went, or, for one no change in the repo can prevent, why; past the first few,
+  one line each.
 - One line per fix the last merged retro made: worked, came back, or too early to tell.
 - One line for the sweep: what it corrected, and where.
 - Card, Friction, and Verified, which names `scripts/lint.sh` at least.

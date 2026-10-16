@@ -8,9 +8,11 @@
 #
 # The phone is looked up each time, never stored, since the repo is public. It must be paired
 # with this Mac and reachable: devicectl marks it unavailable when it is away or off the Mac's
-# Wi-Fi, and then the script makes a link. A locked phone that is reachable fails at install or
-# launch; unlock it and run again, or make a link. The build is incremental in the
-# worktree's .build/device, apart from the simulator's derived data so both can build at once.
+# Wi-Fi, and then the script makes a link. It also makes one when devicectl lists the phone but
+# the build can't reach it, so xcodebuild finds no destination or times out waiting for one.
+# A locked phone that is reachable takes the install but not the launch, and the script says to
+# open the app there. The build is incremental in the worktree's .build/device, apart from the
+# simulator's derived data so both can build at once.
 #
 # The link is a development-signed .ipa, an install manifest, and a one-button page, deployed
 # under a fresh random path as static assets of a Cloudflare Worker on workers.dev. Opened in
@@ -115,7 +117,10 @@ PLIST
     mkdir -p "$build"
     # A build that never deploys is removed on exit, so it can't take one of the two places.
     UNDEPLOYED="$build"
-    trap '[ -z "${UNDEPLOYED:-}" ] || rm -rf "$UNDEPLOYED"' EXIT
+    # Builds set aside for the deploy (below) go back if the run stops before it succeeds.
+    trap '[ -z "${UNDEPLOYED:-}" ] || rm -rf "$UNDEPLOYED"
+        [ -z "${HELD:-}" ] || { for d in "$HELD"/*/; do [ -d "$d" ] && mv "$d" "$SITE/site/"; done
+            rmdir "$HELD"; }' EXIT
     mv "$exported/$SCHEME.ipa" "$build/"
     if [ -n "$(git -C "$ROOT" status --porcelain)" ]; then
         note="Includes uncommitted changes."
@@ -164,8 +169,11 @@ a {{ display: block; margin-top: 32px; padding: 16px; border-radius: 11px; backg
 PYTHON
 
     # Keep the newest two builds; the deploy replaces every asset, so the rest stop being served.
+    # The older ones are set aside, not deleted, until the deploy succeeds, so a failed deploy
+    # leaves the staged builds as they were.
     local old
-    ls -dt "$SITE"/site/*/ | tail -n +3 | while IFS= read -r old; do rm -rf "$old"; done
+    HELD=$(mktemp -d "$SITE/held.XXXXXX")
+    ls -dt "$SITE"/site/*/ | tail -n +3 | while IFS= read -r old; do mv "$old" "$HELD/"; done
 
     # Static assets get no content type for extensions the Worker doesn't know; these are the
     # ones Apple's over-the-air install expects.
@@ -193,6 +201,8 @@ JSON
         return 1
     fi
     UNDEPLOYED=""
+    rm -rf "$HELD"
+    HELD=""
 
     # New assets can take about a minute to reach every edge.
     local manifest="https://$host/$token/manifest.plist" deadline=$((SECONDS + 120))
@@ -236,16 +246,32 @@ fi
 IFS=$'\t' read -r UDID NAME <<< "$IPHONES"
 
 DESTINATION="id=$UDID"
+BUILD_LOG="$STAGING/device-build.log"
+STATUS=0
 run_xcodebuild device build -configuration Debug \
-    -allowProvisioningUpdates -allowProvisioningDeviceRegistration
+    -allowProvisioningUpdates -allowProvisioningDeviceRegistration | tee "$BUILD_LOG" || STATUS=$?
+if [ "$STATUS" -ne 0 ]; then
+    if grep -q -e "Unable to find a destination matching" -e "Unable to find a device matching" \
+        -e "Timed out waiting for all destinations" "$BUILD_LOG"; then
+        echo "$NAME is listed but the build can't reach it, so making an install link"
+        install_link
+        exit
+    fi
+    exit "$STATUS"
+fi
 
 APP="$DERIVED_DATA/Build/Products/Debug-iphoneos/$SCHEME.app"
 BUNDLE_ID=$(app_bundle_id "$APP")
-if ! xcrun devicectl device install app --quiet --device "$UDID" "$APP" ||
-    ! xcrun devicectl device process launch --quiet --terminate-existing --device "$UDID" \
-        "$BUNDLE_ID"; then
-    echo "built, but could not install or launch on $NAME: is it unlocked? If it stays out of" \
-        "reach, scripts/device.sh --link makes an install link" >&2
+if ! xcrun devicectl device install app --quiet --device "$UDID" "$APP"; then
+    echo "built, but could not install on $NAME; if it stays out of reach," \
+        "scripts/device.sh --link makes an install link" >&2
     exit 69
+fi
+# A locked phone takes the install but refuses the launch. The build is on the phone either way.
+if ! xcrun devicectl device process launch --quiet --terminate-existing --device "$UDID" \
+    "$BUNDLE_ID"; then
+    echo "installed on $NAME, but not launched (devicectl says why above; usually it is locked):" \
+        "open PlusPlus there"
+    exit 0
 fi
 echo "launched on $NAME"
