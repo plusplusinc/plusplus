@@ -4,10 +4,10 @@ import Testing
 
 @Suite("Exercises")
 struct ExerciseTests {
-    @Test("There are 49 built-in exercises with unique ids and names")
+    @Test("There are 60 built-in exercises with unique ids and names")
     func builtInCount() {
         let all = Exercise.builtIn
-        #expect(all.count == 49)
+        #expect(all.count == 60)
         #expect(Set(all.map(\.id)).count == all.count)
         #expect(Set(all.map(\.name)).count == all.count)
     }
@@ -16,7 +16,10 @@ struct ExerciseTests {
     func builtInList() {
         // The slice's list, A to Z, with the line each row shows; nil is bodyweight, no line.
         let expected: [(String, String?)] = [
+            ("Backward arm circles", nil),
             ("Balance board hold", "Balance board"),
+            ("Band external rotation", "Band"),
+            ("Band internal rotation", "Band"),
             ("Band pull-apart", "Band"),
             ("Band shoulder dislocate", "Band"),
             ("Barbell back squat", "Barbell"),
@@ -25,7 +28,9 @@ struct ExerciseTests {
             ("Barbell overhead press", "Barbell"),
             ("Barbell row", "Barbell"),
             ("Biceps curl", "Dumbbells"),
+            ("Bodyweight squat", nil),
             ("Bulgarian split squat", "Dumbbells, bench"),
+            ("Burpee", nil),
             ("Calf raise", "Dumbbells"),
             ("Calf stretch", nil),
             ("Cat-cow", nil),
@@ -39,16 +44,21 @@ struct ExerciseTests {
             ("Dumbbell row", "Dumbbells, bench"),
             ("Face pull", "Band"),
             ("Farmer\u{2019}s carry", "Dumbbells"),
+            ("Forward arm circles", nil),
             ("Glute bridge", nil),
             ("Goblet squat", "Kettlebell"),
             ("Hammer curl", "Dumbbells"),
             ("Hamstring stretch", nil),
             ("Hanging knee raise", "Pull-up bar"),
+            ("Inchworm", nil),
             ("Incline dumbbell press", "Dumbbells, bench"),
+            ("Incline reverse fly", "Dumbbells, bench"),
             ("Inverted row", "Rings"),
+            ("Jumping jacks", nil),
             ("Kettlebell swing", "Kettlebell"),
             ("Kneeling hip flexor stretch", nil),
             ("Lateral raise", "Dumbbells"),
+            ("Mountain climber", nil),
             ("Overhead press", "Dumbbells"),
             ("Pallof press", "Band"),
             ("Pigeon stretch", nil),
@@ -64,6 +74,7 @@ struct ExerciseTests {
             ("Thoracic rotation", nil),
             ("Triceps extension", "Dumbbells"),
             ("Turkish get-up", "Kettlebell"),
+            ("Walking lunge", "Dumbbells"),
             ("World\u{2019}s greatest stretch", nil),
         ]
         let actual = Exercise.builtIn.map { "\($0.name) | \($0.equipmentLine ?? "-")" }
@@ -78,14 +89,14 @@ struct ExerciseTests {
             #expect(tags.primary.isDisjoint(with: tags.secondary), "\(exercise.name)")
         }
         #expect(Exercise.builtIn.count { $0.tags.kind == .balance } == 1)
-        #expect(Exercise.builtIn.count { $0.tags.kind == .conditioning } == 1)
+        #expect(Exercise.builtIn.count { $0.tags.kind == .conditioning } == 4)
     }
 
     @Test("Built-ins are sorted A to Z")
     func builtInSorted() {
         let names = Exercise.builtIn.map(\.name)
         #expect(names == names.sorted { $0.localizedStandardCompare($1) == .orderedAscending })
-        #expect(names.first == "Balance board hold")
+        #expect(names.first == "Backward arm circles")
         #expect(names.last == "World\u{2019}s greatest stretch")
     }
 
@@ -101,6 +112,8 @@ struct ExerciseTests {
             "Child\u{2019}s pose", "Cat-cow", "World\u{2019}s greatest stretch",
             "Thoracic rotation",
             "Doorway chest stretch", "Cross-body shoulder stretch",
+            "Bodyweight squat", "Inchworm", "Jumping jacks", "Burpee", "Mountain climber",
+            "Forward arm circles", "Backward arm circles",
         ])
     }
 

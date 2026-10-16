@@ -30,15 +30,15 @@ struct PlanTextTests {
     @Test("The card's four lines")
     func cardLines() throws {
         #expect(try Self.detail(Self.row("Dumbbell row", weight: Weight(50, .pounds)))
-            == "Dumbbells, bench · 3 × 10 reps per side · 50 lb")
+            == "3 × 10 reps per side · 50 lb")
         #expect(try Self.detail(Self.row("Biceps curl", weight: Weight(25, .pounds)))
-            == "Dumbbells · 3 × 12 reps · 25 lb each")
+            == "3 × 12 reps · 25 lb/side")
         #expect(try Self.detail(Self.row(
             "Barbell bench press",
             sets: 5,
             weight: Weight(135, .pounds),
         ))
-            == "Barbell, bench · 5 × 5 reps · 135 lb")
+            == "5 × 5 reps · 135 lb")
         #expect(try Self.detail(Self.row("Side plank")) == "3 × 30 s per side")
     }
 
@@ -46,20 +46,20 @@ struct PlanTextTests {
     func noBreakSpaces() throws {
         #expect(try Self.row("Biceps curl", weight: Weight(25, .pounds))
             .detailParts(locale: Self.locale)
-            == ["Dumbbells", "3\u{00A0}×\u{00A0}12\u{00A0}reps", "25\u{00A0}lb each"])
+            == ["3\u{00A0}×\u{00A0}12\u{00A0}reps", "25\u{00A0}lb/side"])
     }
 
     @Test("Kinds: one set, one rep, one weight, bodyweight, a default weight, timed with a weight")
     func kinds() throws {
         #expect(try Self.detail(Self.row("Pigeon stretch")) == "60 s per side")
         #expect(try Self.detail(Self.row("Turkish get-up"))
-            == "Kettlebell · 3 × 1 rep per side · 20 lb")
+            == "3 × 1 rep per side · 20 lb")
         #expect(try Self.detail(Self.row("Goblet squat", weight: Weight(35, .pounds)))
-            == "Kettlebell · 3 × 10 reps · 35 lb")
-        #expect(try Self.detail(Self.row("Pull-up")) == "Pull-up bar · 3 × 6 reps")
-        #expect(try Self.detail(Self.row("Goblet squat")) == "Kettlebell · 3 × 10 reps · 35 lb")
+            == "3 × 10 reps · 35 lb")
+        #expect(try Self.detail(Self.row("Pull-up")) == "3 × 6 reps")
+        #expect(try Self.detail(Self.row("Goblet squat")) == "3 × 10 reps · 35 lb")
         #expect(try Self.detail(Self.row("Farmer\u{2019}s carry", weight: Weight(50, .pounds)))
-            == "Dumbbells · 3 × 30 s · 50 lb each")
+            == "3 × 30 s · 50 lb/side")
         #expect(try Self.detail(Self.row("Push-up", weight: Weight(10, .pounds))) == "3 × 10 reps")
     }
 
@@ -81,26 +81,26 @@ struct PlanTextTests {
         let line = { (weight: Weight) in
             try Self.detail(Self.row("Goblet squat", sets: 1, target: .reps(10), weight: weight))
         }
-        #expect(try line(Weight(50, .pounds)) == "Kettlebell · 10 reps · 50 lb")
-        #expect(try line(Weight(142.5, .pounds)) == "Kettlebell · 10 reps · 142.5 lb")
-        #expect(try line(Weight(2.5, .kilograms)) == "Kettlebell · 10 reps · 2.5 kg")
-        #expect(try line(Weight(1.25, .kilograms)) == "Kettlebell · 10 reps · 1.25 kg")
+        #expect(try line(Weight(50, .pounds)) == "10 reps · 50 lb")
+        #expect(try line(Weight(142.5, .pounds)) == "10 reps · 142.5 lb")
+        #expect(try line(Weight(2.5, .kilograms)) == "10 reps · 2.5 kg")
+        #expect(try line(Weight(1.25, .kilograms)) == "10 reps · 1.25 kg")
     }
 
     @Test("VoiceOver hears the plan in words")
     func spoken() throws {
         #expect(try Self.row("Dumbbell row", weight: Weight(50, .pounds))
             .spokenDetail(locale: Self.locale)
-            == "Dumbbells, bench, 3 sets of 10 reps per side, 50 pounds")
+            == "3 sets of 10 reps per side, 50 pounds")
         #expect(try Self.row("Pigeon stretch").spokenDetail(locale: Self.locale)
             == "60 seconds per side")
         #expect(try Self.row("Biceps curl", weight: Weight(25, .pounds))
-            .spokenDetail(locale: Self.locale) == "Dumbbells, 3 sets of 12 reps, 25 pounds each")
+            .spokenDetail(locale: Self.locale) == "3 sets of 12 reps, 25 pounds per side")
         #expect(try Self.row("Plank", sets: 1, target: .time(seconds: 150))
             .spokenDetail(locale: Self.locale) == "2 minutes 30 seconds")
         #expect(try Self.row("Goblet squat").spokenDetail(locale: Self.locale)
-            == "Kettlebell, 3 sets of 10 reps, 35 pounds")
+            == "3 sets of 10 reps, 35 pounds")
         #expect(try Self.row("Barbell bench press", weight: Weight(20, .kilograms))
-            .spokenDetail(locale: Self.locale) == "Barbell, bench, 3 sets of 5 reps, 20 kilograms")
+            .spokenDetail(locale: Self.locale) == "3 sets of 5 reps, 20 kilograms")
     }
 }

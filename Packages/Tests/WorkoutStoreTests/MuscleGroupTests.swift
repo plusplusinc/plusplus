@@ -17,6 +17,8 @@ struct MuscleGroupTests {
             .shoulders: [
                 "Overhead press", "Barbell overhead press", "Lateral raise", "Face pull",
                 "Band pull-apart", "Cross-body shoulder stretch", "Band shoulder dislocate",
+                "Incline reverse fly", "Band external rotation", "Band internal rotation",
+                "Forward arm circles", "Backward arm circles",
             ],
             .arms: ["Biceps curl", "Hammer curl", "Triceps extension"],
             .legs: [
@@ -24,11 +26,12 @@ struct MuscleGroupTests {
                 "Step-up", "Calf raise", "Romanian deadlift", "Barbell deadlift",
                 "Kettlebell swing", "Glute bridge", "Balance board hold",
                 "Kneeling hip flexor stretch", "Hamstring stretch", "Pigeon stretch",
-                "Calf stretch", "World\u{2019}s greatest stretch",
+                "Calf stretch", "World\u{2019}s greatest stretch", "Walking lunge",
+                "Bodyweight squat", "Inchworm", "Jumping jacks", "Burpee",
             ],
             .core: [
                 "Plank", "Side plank", "Dead bug", "Hanging knee raise", "Pallof press",
-                "Turkish get-up", "Farmer\u{2019}s carry",
+                "Turkish get-up", "Farmer\u{2019}s carry", "Mountain climber",
             ],
         ]
         let actual = Dictionary(grouping: Exercise.builtIn, by: \.muscleGroup)

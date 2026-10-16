@@ -68,7 +68,7 @@ private let noBreakSpace = "\u{00A0}"
         RowLabel(title: "Goblet squat", detail: "Kettlebell")
         RowLabel(
             title: "Dumbbell row",
-            detail: ["Dumbbells, bench", "3 × 10 reps per side", "50 lb"],
+            detail: ["3 × 10 reps per side", "50 lb"],
         )
         RowLabel(title: "Pigeon stretch", detail: ["60 s per side"])
         RowLabel(title: "Push-up", detail: nil)

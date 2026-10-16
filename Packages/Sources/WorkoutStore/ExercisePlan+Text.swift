@@ -2,7 +2,7 @@ import Foundation
 
 // How a plan reads: on its row, and to VoiceOver. Every number carries its unit
 // but the sets count, joined by a no-break space so a line never breaks between them, and says
-// whether it's per side or each.
+// whether it's per side: the reps or time, or a pair's weight ("20 lb/side").
 
 private let noBreakSpace = "\u{00A0}"
 
@@ -32,7 +32,7 @@ extension RoutineExercise {
     }
 
     /// The amount, after the sets count unless there is one set, and per side when it is, then
-    /// the weight, each when it is a pair's.
+    /// the weight, per side when it is a pair's.
     private func line(amount: String, sets: String, weight: String?, spoken: Bool) -> [String] {
         var parts = [qualified(plan.sets > 1 ? sets + amount : amount, .target)]
         if let weight {
@@ -44,7 +44,7 @@ extension RoutineExercise {
     /// `text` followed by what a part's number is for, if anything: "per side" after reps or a
     /// time done one side at a time, "/side" after a pair's weight ("20 lb/side"), spoken
     /// "per side".
-    private func qualified(_ text: String, _ part: PlanPart, spoken: Bool = false) -> String {
+    func qualified(_ text: String, _ part: PlanPart, spoken: Bool = false) -> String {
         switch part {
         case .sets: text
         case .target: exercise.isPerSide ? text + " per side" : text
@@ -61,7 +61,7 @@ extension RoutineExercise {
 
 extension SetTarget {
     /// "1 rep", "10 reps", "30 s", "90 s", "2 min", "2:30 min".
-    public func text(locale: Locale) -> String {
+    func text(locale: Locale) -> String {
         switch self {
         case let .reps(reps):
             "\(reps.formatted(.number.locale(locale)))\(noBreakSpace)\(reps == 1 ? "rep" : "reps")"
@@ -93,7 +93,7 @@ extension Weight {
     }
 
     /// "50 lb", "2.5 kg".
-    public func text(locale: Locale) -> String {
+    func text(locale: Locale) -> String {
         number(locale: locale) + noBreakSpace + unit.rawValue
     }
 
@@ -109,11 +109,11 @@ extension Weight {
 }
 
 /// A time reads in seconds under two minutes, then in minutes.
-public enum TimeText {
+enum TimeText {
     static let minutesFrom = 120
 
     /// "30 s", "90 s", "2 min", "2:30 min".
-    public static func text(seconds: Int, locale: Locale) -> String {
+    static func text(seconds: Int, locale: Locale) -> String {
         guard seconds >= minutesFrom else {
             return seconds.formatted(.number.locale(locale)) + noBreakSpace + "s"
         }
@@ -125,6 +125,6 @@ public enum TimeText {
     }
 }
 
-private func counted(_ count: Int, _ one: String, _ many: String, locale: Locale) -> String {
+func counted(_ count: Int, _ one: String, _ many: String, locale: Locale) -> String {
     "\(count.formatted(.number.locale(locale))) \(count == 1 ? one : many)"
 }

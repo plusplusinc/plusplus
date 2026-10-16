@@ -13,8 +13,6 @@ public enum Spacing {
 
 public enum Radius {
     public static let sm: CGFloat = 8
-    /// A small outlined mark, such as a row's L | R.
-    public static let mark: CGFloat = 6
     /// A key-shaped button.
     public static let key: CGFloat = 11
 }

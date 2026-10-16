@@ -4,6 +4,7 @@ import SwiftUI
 public struct Capsules: View {
     private let labels: [String]
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ObserveHotReload private var hotReload
 
     public init(_ labels: [String]) {
         self.labels = labels
@@ -31,7 +32,18 @@ public struct Capsules: View {
             value: labels,
         )
         .accessibilityElement(children: .combine)
+        .hotReloadable()
     }
+}
+
+#Preview {
+    VStack(alignment: .leading, spacing: Spacing.md) {
+        Capsules(["Dumbbells", "Bench"])
+        Capsules(["Dumbbells", "Kettlebell", "Barbell", "Bench", "Band", "Pull-up bar", "Rings"])
+    }
+    .padding()
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .background(Color.pp(.background))
 }
 
 /// Lays its subviews out in rows, starting a new row when the next one won't fit.

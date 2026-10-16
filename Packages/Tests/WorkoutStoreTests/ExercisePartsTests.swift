@@ -27,7 +27,10 @@ struct ExercisePartsTests {
     }
 
     private static let table: [Parts] = [
+        Parts("Backward arm circles", 1, .time(seconds: 30), nil, false),
         Parts("Balance board hold", 3, .time(seconds: 30), nil, false),
+        Parts("Band external rotation", 2, .reps(15), nil, true),
+        Parts("Band internal rotation", 2, .reps(15), nil, true),
         Parts("Band pull-apart", 3, .reps(15), nil, false),
         Parts("Band shoulder dislocate", 1, .reps(10), nil, false),
         Parts("Barbell back squat", 3, .reps(5), .bar, false),
@@ -36,7 +39,9 @@ struct ExercisePartsTests {
         Parts("Barbell overhead press", 3, .reps(5), .bar, false),
         Parts("Barbell row", 3, .reps(8), .bar, false),
         Parts("Biceps curl", 3, .reps(12), .pair, false),
+        Parts("Bodyweight squat", 2, .reps(15), nil, false),
         Parts("Bulgarian split squat", 3, .reps(10), .pair, true),
+        Parts("Burpee", 3, .reps(10), nil, false),
         Parts("Calf raise", 3, .reps(15), .pair, false),
         Parts("Calf stretch", 1, .time(seconds: 30), nil, true),
         Parts("Cat-cow", 1, .reps(10), nil, false),
@@ -50,16 +55,21 @@ struct ExercisePartsTests {
         Parts("Dumbbell row", 3, .reps(10), .single, true),
         Parts("Face pull", 3, .reps(15), nil, false),
         Parts("Farmer\u{2019}s carry", 3, .time(seconds: 30), .pair, false),
+        Parts("Forward arm circles", 1, .time(seconds: 30), nil, false),
         Parts("Glute bridge", 3, .reps(12), nil, false),
         Parts("Goblet squat", 3, .reps(10), .single, false),
         Parts("Hammer curl", 3, .reps(12), .pair, false),
         Parts("Hamstring stretch", 1, .time(seconds: 60), nil, true),
         Parts("Hanging knee raise", 3, .reps(10), nil, false),
+        Parts("Inchworm", 1, .reps(8), nil, false),
         Parts("Incline dumbbell press", 3, .reps(10), .pair, false),
+        Parts("Incline reverse fly", 3, .reps(12), .pair, false),
         Parts("Inverted row", 3, .reps(10), nil, false),
+        Parts("Jumping jacks", 1, .time(seconds: 60), nil, false),
         Parts("Kettlebell swing", 3, .reps(15), .single, false),
         Parts("Kneeling hip flexor stretch", 1, .time(seconds: 60), nil, true),
         Parts("Lateral raise", 3, .reps(12), .pair, false),
+        Parts("Mountain climber", 3, .time(seconds: 30), nil, false),
         Parts("Overhead press", 3, .reps(10), .pair, false),
         Parts("Pallof press", 3, .reps(10), nil, true),
         Parts("Pigeon stretch", 1, .time(seconds: 60), nil, true),
@@ -75,6 +85,7 @@ struct ExercisePartsTests {
         Parts("Thoracic rotation", 1, .reps(10), nil, true),
         Parts("Triceps extension", 3, .reps(12), .single, false),
         Parts("Turkish get-up", 3, .reps(1), .single, true),
+        Parts("Walking lunge", 3, .reps(10), .pair, true),
         Parts("World\u{2019}s greatest stretch", 1, .reps(5), nil, true),
     ]
 
@@ -95,7 +106,7 @@ struct ExercisePartsTests {
         }
     }
 
-    @Test("The totals: 37 reps, 12 time; 5 one weight, 12 pairs, 5 bars; 14 per side")
+    @Test("The totals: 44 reps, 16 time; 5 one weight, 14 pairs, 5 bars; 17 per side")
     func totals() {
         let all = Exercise.builtIn
         #expect(all.count {
@@ -104,19 +115,19 @@ struct ExercisePartsTests {
             } else {
                 false
             }
-        } == 37)
+        } == 44)
         #expect(all.count {
             if case .time = $0.defaultPlan(in: .pounds).target {
                 true
             } else {
                 false
             }
-        } == 12)
+        } == 16)
         #expect(all.count { $0.load == .single } == 5)
-        #expect(all.count { $0.load == .pair } == 12)
+        #expect(all.count { $0.load == .pair } == 14)
         #expect(all.count { $0.load == .bar } == 5)
-        #expect(all.count { $0.load == nil } == 27)
-        #expect(all.count(where: \.isPerSide) == 14)
+        #expect(all.count { $0.load == nil } == 36)
+        #expect(all.count(where: \.isPerSide) == 17)
     }
 
     @Test("A load goes with the kit that holds it, and starts at a weight that kit comes in")
