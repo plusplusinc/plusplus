@@ -16,6 +16,11 @@ import SwiftUI
 /// node lands in `railJoin`, the color of something joining the rail, then settles to its own
 /// color, as its content lands in its own colors. A row let go in any other transaction, or
 /// added with no `arriving`, takes that transaction's animation.
+///
+/// Given `onMove`, a hold on a row's content lifts it into a card under the finger, and a drag
+/// opens a gap where it would land, the rows moving aside; a drop calls `onMove` with the slot.
+/// Inside a scroll view with `railAutoscroll`, a row held near its edges scrolls it, and one let
+/// go over a bar goes back.
 public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     where Data.Element: Identifiable
 {

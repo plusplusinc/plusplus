@@ -41,6 +41,27 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   It enters only where it can be seen: its place opens as the picker's sheet starts down, and
   the entry plays a moment into the sheet's slide, or, when the new row has pushed the list's
   end out of view, after a scroll to the end.
+- A row on a rail moves by holding and dragging (`RailDrag` holds every value). A hold of 0.4 s
+  that moves under 10 pt lifts it; a press that moves first is a scroll, and one in the rail
+  column, on the node, lifts nothing. The hold is a UIKit long press (`RailLiftGesture`), put
+  outside the row's tap and swipe actions: SwiftUI's long press stops a scroll view scrolling,
+  and inside a SwiftUI tap, which never fails during a still hold, the UIKit one never began.
+  The row rises into a card on `.snappy(0.18)` with a light impact haptic: the same row drawn
+  over the rail on `surfaceRaised`, scaled 1.03 and turned −0.6°, no shadow, border, or grip,
+  its node in the text's color. The card is centered on the row, its node inset from its top and
+  leading edges alike, the row's content ending that inset short of its trailing edge, with
+  continuous corners of that inset plus the node's radius. It follows the finger with no
+  animation. The gap moves to a new slot once the card's top passes halfway over a row, with a
+  4 pt dead band, on `.snappy(0.2)`, each move a rigid impact at 0.6 (`.alignment` plays nothing
+  on iPhone). While a row is held, the line is drawn once from the first node to the last, so
+  rows trading places never part it, and at either end it stops at the card's node rather than
+  show past the card. Within 64 pt of the top or bottom of the area between the bars the list
+  scrolls (`railAutoscroll`), rising as the square of the depth to 900 pt/s, and the card stays
+  under the finger as the rows pass. A drop settles into the gap on `.snappy(0.22)`, with no
+  haptic and no blue: nothing is arriving. A release over a bar, or a system cancel, sends it
+  back on `.snappy(0.25)`. With Reduce Motion the card shows lifted at once and the gap and the
+  drop jump, but the haptics stay. VoiceOver moves a row with Move up and Move down, none where
+  it would do nothing, and announces the row it passed ("Moved above Plank").
 - A generated name arrives in the title on its own clock (`SuggestionTiming`, one
   `TimelineView`): the old name fades out (0.15 s), then the new one types in, a character
   every 20 ms, each letter shuffling through the name's other letters in `railJoin` for 50 ms,
