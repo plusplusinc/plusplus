@@ -163,6 +163,12 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                 .hidden()
                 .onGeometryChange(for: CGFloat.self, of: \.size.width) { columnWidth = $0 }
         }
+        // Torn down mid-hold, the list stops scrolling for it.
+        .onDisappear {
+            if drag != nil {
+                letGo()
+            }
+        }
         .sensoryFeedback(.impact(weight: .light), trigger: lifts)
         .sensoryFeedback(RailDrag.slotChange, trigger: ticks)
         .hotReloadable()

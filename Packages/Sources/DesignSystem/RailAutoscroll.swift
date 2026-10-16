@@ -16,7 +16,10 @@ extension View {
 final class RailEdges {
     /// Whether a row is held, which is when the list may scroll on its own.
     @ObservationIgnored var isHeld = false {
-        didSet { updateScrolling() }
+        didSet {
+            scrolledTo = nil
+            updateScrolling()
+        }
     }
 
     /// The held finger's y on screen.
@@ -26,9 +29,12 @@ final class RailEdges {
 
     /// Whether a held row is in an edge's band, so the list scrolls a frame at a time.
     private(set) var isScrolling = false
-    /// Called with how far the list scrolled under the held finger, in the scroll's transaction,
-    /// so the card and the gap follow in the same frame.
+    /// Called with how far the list scrolled under the held finger, in the same update as the
+    /// scroll, so the card and the gap follow in the same frame.
     @ObservationIgnored var onScroll: ((CGFloat) -> Void)?
+    /// Where this hold last scrolled the list to, which the scroll view may not have reported
+    /// yet: the next step goes on from there, so no distance is counted twice.
+    @ObservationIgnored fileprivate var scrolledTo: CGFloat?
     @ObservationIgnored fileprivate var scroll: ScrollGeometry?
     /// The scroll view's top on screen.
     @ObservationIgnored fileprivate var top: CGFloat = 0
@@ -39,6 +45,11 @@ final class RailEdges {
         // between the bars; the content insets cover the bars it scrolls under.
         guard let scroll else { return nil }
         return top ... top + scroll.containerSize.height
+    }
+
+    /// Stops the frame-by-frame scroll at an end of the list, until the finger moves.
+    fileprivate func stopAtEnd() {
+        isScrolling = false
     }
 
     private func updateScrolling() {
@@ -95,14 +106,16 @@ private struct RailAutoscroll: ViewModifier {
         let speed = RailDrag.edgeSpeed(fingerY: edges.fingerY, visible: visible)
         guard speed != 0 else { return }
         // A frame that came late moves no further than one at 30 fps would.
-        let current = scroll.scrolledY
+        let current = edges.scrolledTo ?? scroll.scrolledY
         let next = min(max(current + speed * min(seconds, 1.0 / 30), 0), scroll.endY)
-        guard next != current else { return }
+        guard next != current else { return edges.stopAtEnd() }
         var transaction = Transaction()
         transaction.disablesAnimations = true
         withTransaction(transaction) {
             position.scrollTo(y: next)
-            edges.onScroll?(next - current)
         }
+        edges.scrolledTo = next
+        // Outside the scroll's transaction, so the gap still moves on its own animation.
+        edges.onScroll?(next - current)
     }
 }
