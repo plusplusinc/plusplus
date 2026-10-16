@@ -22,6 +22,10 @@ struct RoutineScreen: View {
     @State private var scrollPosition = ScrollPosition()
     /// The row just added, holding its place until it can be seen going in.
     @State private var arriving: RoutineExercise.ID?
+    /// The row just added, from the add until its entry has played. A view takes taps where it
+    /// will end up, not where it's drawn, so while its place opens a tap on Add exercise, still
+    /// drawn there, lands on it; it ignores taps until it has landed.
+    @State private var entering: RoutineExercise.ID?
     /// Whether Add exercise, at the list's end, is fully in view.
     @State private var isEndInView = true
     /// While an added row's place opens, the list's end stays put on screen: as the content grows
@@ -86,7 +90,10 @@ struct RoutineScreen: View {
                         )
                         .railRow()
                         .contentShape(.rect)
-                        .onTapGesture { editing = item }
+                        .onTapGesture {
+                            guard item.id != entering else { return }
+                            editing = item
+                        }
                         .accessibilityAddTraits(.isButton)
                         .accessibilityIdentifier("routine.exercise")
                         .swipeActions(edge: .trailing) {
@@ -231,6 +238,7 @@ struct RoutineScreen: View {
     private func add(_ exercise: Exercise) {
         let row = RoutineExercise(exercise: exercise, weightUnit: WeightUnit(region: locale))
         arriving = row.id
+        entering = row.id
         isOpeningPlace = true
         // The row goes in with no space yet, so nothing moves; its fade, of a row that draws
         // nothing yet, times the entry a moment into the sheet's slide: the line barely moves
@@ -279,7 +287,12 @@ struct RoutineScreen: View {
         var transaction = Transaction()
         transaction.isRailEntry = true
         // A later add, its row arriving, keeps the scroll in step for its own place.
-        transaction.addAnimationCompletion { isOpeningPlace = arriving != nil }
+        transaction.addAnimationCompletion {
+            isOpeningPlace = arriving != nil
+            if entering == row.id {
+                entering = nil
+            }
+        }
         withTransaction(transaction) {
             arriving = nil
         }
