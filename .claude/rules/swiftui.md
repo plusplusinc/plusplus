@@ -10,7 +10,7 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
 
 - No raw colors, spacing, font sizes, or corner radii at call sites. Use `Color.pp(.token)`,
   `Font.pp*` or a `.pp*Font()` modifier, `Spacing`, and `Radius` from `DesignSystem`. If a
-  token is missing, add a `ColorToken` case and its colorset. Green (`accent`) is data only.
+  token is missing, add a `ColorToken` case and its colorset. Green (`accent`) is what's active, and a value that went up.
   Blue (`railJoin`) marks something arriving: a row joining a rail, and a generated name typing
   into the title, for the moment it arrives, then gives way to the thing's own color; nothing
   rests in it.
