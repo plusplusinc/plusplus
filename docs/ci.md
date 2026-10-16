@@ -15,8 +15,8 @@ name, nothing secret, and nothing in the build reads it.
 2. In Xcode, with `PlusPlus.xcodeproj` open: Product ▸ Xcode Cloud ▸ Create Workflow. Xcode
    registers the app record and bundle ID in App Store Connect if they do not exist.
 3. Signing is managed by Xcode Cloud using the `DEVELOPMENT_TEAM` in `Config/Base.xcconfig`.
-4. Both workflows below exist in App Store Connect. The `Release` distribution audience and the
-   `Internal` beta group were set through the API, which `asc` reaches (see below).
+4. Both workflows below exist in App Store Connect. The `TestFlight` workflow's distribution
+   audience and the `Internal` beta group were set through the API, which `asc` reaches (see below).
 
 ## Workflows
 
@@ -25,9 +25,9 @@ simulator iPhone 17, using the scheme's settings. The scheme's test plan, `PlusP
 includes the package test targets, so this covers storage, snapshot, and UI tests in one run.
 Post-actions: none.
 
-**Release**: start on a tag beginning with `v`. Actions: Archive, iOS, with distribution to
-TestFlight internal testing. Post-actions: TestFlight Internal Testing, group `Internal`. The post-action is
-what puts each build in the group: the group's "access to all builds" does not pull in Xcode
+**TestFlight**: start on a tag beginning with `v`. Actions: Archive, iOS, with distribution to
+TestFlight internal testing; it never submits to the App Store. Post-actions: TestFlight Internal
+Testing, group `Internal`. The post-action is what puts each build in the group: the group's "access to all builds" does not pull in Xcode
 Cloud uploads, and without it a build uploads and waits unassigned. The API does not expose
 post-actions; edit them in Xcode or in App Store Connect ▸ Xcode Cloud ▸ Workflows. Members of
 `Internal` are added in App Store Connect (TestFlight ▸ Internal Testing), since the API does
@@ -36,10 +36,10 @@ Review, and `ITSAppUsesNonExemptEncryption` in `Config/Base.xcconfig` answers th
 compliance question so the build is available as soon as processing finishes.
 
 Merges to `main` do not build; the PR run already tested that code, since branch protection
-requires a branch to be up to date before it merges. Builds reach TestFlight only when a release
-is cut, one build per tag.
+requires a branch to be up to date before it merges. Builds reach TestFlight only when a `v*` tag
+is pushed, one build per tag.
 
-## Cutting a release
+## Sending a build to TestFlight
 
 Tag `main` and push the tag: `git tag v0.2.0 origin/main && git push origin v0.2.0`.
 
