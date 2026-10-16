@@ -62,8 +62,11 @@ state, stateless services hold side effects, free functions hold the math. The a
 - **Tense tells the truth.** A present-tense statement says how things are on `main` today, so
   write one only when it is. Something planned is an instruction ("Save the routine once it
   changes") or says "will". A decision that isn't built yet says it was decided. This holds
-  for cards, the board README, plans, State sections, and docs. A PR body describes `main`
-  after the merge, because it becomes the commit.
+  for cards, the board README, plans, State sections, and docs. A PR body is read before
+  the merge and becomes the commit after it, so it keeps the two states apart: what is true
+  today in the present ("Today the verifier's report goes only to the lead"), and what the
+  change brings as its result ("With this change, the verifier leaves a comment on each PR").
+  Never describe the change's result in the plain present, as if it were already on `main`.
 
 ## Building features
 

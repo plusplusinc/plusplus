@@ -51,7 +51,10 @@ not from the diff, and put any decision the diff does not explain in the body; t
 says why the retro needs them. `--fill` skips the
 template.
 
-Write the body as the commit message it becomes. The title is already the commit's subject, so
+Write the body as the commit message it becomes, read before the merge too: keep what is true
+today (present tense) apart from what the change brings, framed as its result ("With this
+change, the retro counts them"), never the result in the plain present, as if already on
+`main` (CLAUDE.md, "Tense tells the truth"). The title is already the commit's subject, so
 do not repeat it in the body's first line, and leave each paragraph on a single line: GitHub
 re-wraps the body when it squashes, so prose hard-wrapped to this repo's width arrives on `main`
 with a short ragged line after every long one.
