@@ -8,7 +8,9 @@
 #
 # The phone is looked up each time, never stored, since the repo is public. It must be paired
 # with this Mac and reachable: devicectl marks it unavailable when it is away or off the Mac's
-# Wi-Fi, and then the script makes a link. A locked phone that is reachable takes the install
+# Wi-Fi, and then the script makes a link. It also makes one when devicectl lists the phone but
+# the build can't reach it, so xcodebuild finds no destination or times out waiting for one.
+# A locked phone that is reachable takes the install
 # but not the launch, and the script says to open the app there. The build is incremental in the
 # worktree's .build/device, apart from the simulator's derived data so both can build at once.
 #
@@ -236,8 +238,19 @@ fi
 IFS=$'\t' read -r UDID NAME <<< "$IPHONES"
 
 DESTINATION="id=$UDID"
+BUILD_LOG="$STAGING/device-build.log"
+STATUS=0
 run_xcodebuild device build -configuration Debug \
-    -allowProvisioningUpdates -allowProvisioningDeviceRegistration
+    -allowProvisioningUpdates -allowProvisioningDeviceRegistration | tee "$BUILD_LOG" || STATUS=$?
+if [ "$STATUS" -ne 0 ]; then
+    if grep -q -e "Unable to find a destination matching" -e "Unable to find a device matching" \
+        -e "Timed out waiting for all destinations" "$BUILD_LOG"; then
+        echo "$NAME is listed but the build can't reach it, so making an install link"
+        install_link
+        exit
+    fi
+    exit "$STATUS"
+fi
 
 APP="$DERIVED_DATA/Build/Products/Debug-iphoneos/$SCHEME.app"
 BUNDLE_ID=$(app_bundle_id "$APP")
