@@ -33,10 +33,8 @@ public struct RowLabel: View {
                 .font(.ppRowTitle)
                 .foregroundStyle(.pp(.textPrimary))
             if let detailText {
-                Text(detailText)
+                Text(AttributedString.monoNumbers(detailText, font: .ppRowDetailNumber))
                     .font(.ppRowDetail)
-                    // Digits keep one width, so a changed number never shifts the line.
-                    .monospacedDigit()
                     .foregroundStyle(.pp(.textSecondary))
             }
         }
