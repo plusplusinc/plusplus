@@ -144,7 +144,8 @@ struct RoutineScreen: View {
                 },
             )) {
                 if let editing,
-                   let index = routine.exercises.firstIndex(where: { $0.id == editing }) {
+                   let index = routine.exercises.firstIndex(where: { $0.id == editing })
+                {
                     ExerciseSheet(item: $routine.exercises[index]) { delete(editing) }
                 }
             }
