@@ -67,8 +67,8 @@ The dependency rules between the packages are the architecture; they are spelled
 ## Status and contributing
 
 Early: the app launches into the routine you last edited, or an empty one, which you can name
-and add built-in exercises to, each with its own sets, reps or time, and weight, set in a sheet.
-Every change saves on the phone, an unnamed routine is named for its exercises, and nothing
+and add built-in exercises to, each with its own sets, reps or time, and weight, set in a sheet,
+and put in order by holding and dragging them. Every change saves on the phone, an unnamed routine is named for its exercises, and nothing
 syncs yet. Status, architecture, and the branching rules are in
 [CLAUDE.md](CLAUDE.md); Xcode Cloud, PR checks, and TestFlight builds in
 [docs/xcode-cloud.md](docs/xcode-cloud.md).
