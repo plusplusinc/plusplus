@@ -19,21 +19,21 @@ import SwiftUI
 public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     where Data.Element: Identifiable
 {
-    public typealias ID = Data.Element.ID
+    typealias RowID = Data.Element.ID
 
     private let data: Data
-    private let arriving: ID?
-    private let onMove: ((ID, RailSlot<ID>) -> Void)?
+    private let arriving: RowID?
+    private let onMove: ((RowID, RailSlot<RowID>) -> Void)?
     private let row: (Data.Element) -> Row
     private let end: End
 
     /// The row held and dragged, if any: the rows show in the order they would take if it were
     /// dropped now, and it draws as a card under the finger.
-    @State private var drag: RailDragState<ID>?
+    @State private var drag: RailDragState<RowID>?
     /// The row just dropped, which stays over the others while it settles.
-    @State private var settling: ID?
+    @State private var settling: RowID?
     /// Each row's height, read when a drag starts and as it moves, to place the gap.
-    @State private var heights: [ID: CGFloat] = [:]
+    @State private var heights: [RowID: CGFloat] = [:]
     /// The rail column's width, where a press lifts nothing.
     @State private var columnWidth: CGFloat = 0
     @State private var lifts = 0
@@ -45,8 +45,8 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     /// with the row and where it was dropped, unless that is where it started.
     public init(
         _ data: Data,
-        arriving: ID? = nil,
-        onMove: ((ID, RailSlot<ID>) -> Void)? = nil,
+        arriving: Data.Element.ID? = nil,
+        onMove: ((Data.Element.ID, RailSlot<Data.Element.ID>) -> Void)? = nil,
         @ViewBuilder row: @escaping (Data.Element) -> Row,
         @ViewBuilder end: () -> End,
     ) {
@@ -56,9 +56,9 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     /// A rail at a moment of a drag, so a preview or a snapshot can draw it.
     init(
         _ data: Data,
-        arriving: ID? = nil,
-        onMove: ((ID, RailSlot<ID>) -> Void)? = nil,
-        drag: RailDragState<ID>?,
+        arriving: RowID? = nil,
+        onMove: ((RowID, RailSlot<RowID>) -> Void)? = nil,
+        drag: RailDragState<RowID>?,
         @ViewBuilder row: @escaping (Data.Element) -> Row,
         @ViewBuilder end: () -> End,
     ) {
@@ -108,10 +108,11 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                 }
                 // The card draws over the rows it passes, and Add exercise.
                 .zIndex(isLifted || item.id == settling ? 1 : 0)
-                .liftable(isEnabled: onMove != nil && arriving == nil, columnWidth: columnWidth) {
-                    phase, fingerY in
-                    dragged(item.id, phase, at: fingerY)
-                }
+                .liftable(
+                    isEnabled: onMove != nil && arriving == nil,
+                    columnWidth: columnWidth,
+                    onPhase: { dragged(item.id, $0, at: $1) },
+                )
             }
             // Between the last row and the end view, as the design has it.
             end.padding(.top, data.isEmpty ? 0 : Spacing.xxs)
@@ -139,7 +140,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
             .compactMap { byID[$0] }
     }
 
-    private func candidates(lifting lifted: ID) -> [RailDrag.Candidate<ID>] {
+    private func candidates(lifting lifted: RowID) -> [RailDrag.Candidate<RowID>] {
         RailDrag.candidates(rows: data.map { ($0.id, heights[$0.id] ?? 0) }, lifted: lifted)
     }
 
@@ -152,7 +153,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         return drag.cardTop - gap.gapTop
     }
 
-    private func dragged(_ id: ID, _ phase: RailDrag.Phase, at fingerY: CGFloat) {
+    private func dragged(_ id: RowID, _ phase: RailDrag.Phase, at fingerY: CGFloat) {
         switch phase {
         case .began:
             guard drag == nil, let index = data.firstIndex(where: { $0.id == id }) else { return }
@@ -197,7 +198,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     /// Lets the held row go: the card settles into the gap as `move` reorders the data to match
     /// it, in one transaction, so nothing else moves. Back where it started, the gap closes.
     private func settle(
-        _ released: RailDragState<ID>,
+        _ released: RailDragState<RowID>,
         with animation: Animation,
         move: () -> Void,
     ) {
@@ -210,39 +211,6 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                 settling = nil
             }
         }
-    }
-}
-
-/// A moment of a drag on a rail.
-struct RailDragState<ID: Hashable> {
-    var lifted: ID
-    /// The slot the row was lifted from, where dropping it changes nothing.
-    var origin: RailSlot<ID>
-    /// Where the gap is open.
-    var slot: RailSlot<ID>
-    /// The card's top, in the rail's space.
-    var cardTop: CGFloat
-    /// How far below the row's top the finger holds it.
-    var grab: CGFloat
-}
-
-extension View {
-    /// A hold on this row lifts it, on iOS; a press in the rail column lifts nothing.
-    @ViewBuilder
-    fileprivate func liftable(
-        isEnabled: Bool,
-        columnWidth: CGFloat,
-        onPhase: @escaping (RailDrag.Phase, CGFloat) -> Void,
-    ) -> some View {
-        #if os(iOS)
-            gesture(RailLiftGesture(
-                isEnabled: isEnabled,
-                columnWidth: columnWidth,
-                onPhase: onPhase,
-            ))
-        #else
-            self
-        #endif
     }
 }
 
@@ -387,34 +355,6 @@ private struct RailRow: ViewModifier {
     }
 }
 
-/// A held row's card: raised off the screen, it bleeds past the row on both sides, with a grip
-/// at its trailing edge. At rest, it is not drawn.
-private struct LiftedCard: View {
-    let isLifted: Bool
-    @ObserveHotReload private var hotReload
-
-    var body: some View {
-        RoundedRectangle(cornerRadius: Radius.card)
-            .fill(.pp(.surfaceRaised))
-            .stroke(.pp(.borderStrong), lineWidth: 1)
-            .overlay(alignment: .trailing) {
-                Image(systemName: "line.2.horizontal")
-                    .font(.ppButton)
-                    .foregroundStyle(.pp(.textSecondary))
-                    .padding(.trailing, Spacing.md)
-                    .accessibilityHidden(true)
-            }
-            .padding(.horizontal, -Spacing.sm)
-            .shadow(
-                color: .pp(.shadow),
-                radius: isLifted ? RailDrag.shadowRadius : 0,
-                y: isLifted ? RailDrag.shadowY : 0,
-            )
-            .opacity(isLifted ? 1 : 0)
-            .hotReloadable()
-    }
-}
-
 /// The rail column's width at the default text size.
 private let railColumnWidth: CGFloat = 44
 
@@ -434,54 +374,4 @@ extension View {
     func railColumn() -> some View {
         padding(.horizontal, Spacing.sm).frame(minWidth: railColumnWidth)
     }
-}
-
-private let previewRows = [
-    PreviewRow(title: "Goblet squat", detail: "Kettlebell"),
-    PreviewRow(title: "Push-up", detail: nil),
-    PreviewRow(title: "Farmer\u{2019}s carry", detail: "Dumbbells"),
-    PreviewRow(title: "Plank", detail: "60 s"),
-]
-
-private func previewRail(drag: RailDragState<UUID>? = nil) -> some View {
-    Rail(previewRows, drag: drag) { exercise in
-        RowLabel(title: exercise.title, detail: exercise.detail).railRow()
-    } end: {
-        Button("Add exercise", systemImage: "plus") { }
-            .buttonStyle(.key)
-    }
-    .padding()
-    .background(Color.pp(.background))
-}
-
-#Preview {
-    previewRail()
-}
-
-#Preview("Lifted at its place") {
-    let lifted = previewRows[1]
-    previewRail(drag: RailDragState(
-        lifted: lifted.id,
-        origin: .before(previewRows[2].id),
-        slot: .before(previewRows[2].id),
-        cardTop: 64,
-        grab: 20,
-    ))
-}
-
-#Preview("Gap two rows down") {
-    let lifted = previewRows[1]
-    previewRail(drag: RailDragState(
-        lifted: lifted.id,
-        origin: .before(previewRows[2].id),
-        slot: .end,
-        cardTop: 180,
-        grab: 20,
-    ))
-}
-
-private struct PreviewRow: Identifiable {
-    let id = UUID()
-    let title: String
-    let detail: String?
 }

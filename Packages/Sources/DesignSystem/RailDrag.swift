@@ -19,7 +19,10 @@ extension RailSlot: Sendable where ID: Sendable { }
 nonisolated enum RailDrag {
     /// A step of the drag, as the gesture reports it.
     enum Phase {
-        case began, changed, ended, cancelled
+        case began
+        case changed
+        case ended
+        case cancelled
     }
 
     /// The rail's coordinate space, in which the gesture reports where the finger is.
