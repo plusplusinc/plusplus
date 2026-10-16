@@ -80,8 +80,39 @@ extension RenameUITests {
             XCTAssertEqual(reading(app.exerciseNames, becoming: expected, within: 2), expected)
             XCTAssertLessThan(first.frame.minY, top, "The list didn't scroll")
             attach(named: "reorder-edge")
-            app.scrollToTop(titled: "Arm and back day")
         }
+        holdAtTheTopEdge(in: app)
+    }
+
+    /// From the end of the list, the last row held just under the bar scrolls the list back up
+    /// to its top and lands first.
+    @MainActor
+    private func holdAtTheTopEdge(in app: XCUIApplication) {
+        XCTContext
+            .runActivity(named: "A row held at the top edge scrolls up and lands first") { _ in
+                let first = app.exerciseRows.element(boundBy: 0)
+                let bar = app.navigationBars.firstMatch
+                app.swipeUp(velocity: .fast)
+                let last = app.lastExerciseRow
+                XCTAssertTrue(last.settles(), "The list kept scrolling")
+                var expected = app.exerciseNames
+                let top = first.frame.minY
+                // Just under the bar: in the edge's band, still over the list.
+                let edge = app.point(x: last.frame.midX, y: bar.frame.maxY + 24)
+                last.center.holdAndDrag(to: edge, holding: 2.5)
+                expected.insert(expected.removeLast(), at: 0)
+                XCTAssertEqual(reading(app.exerciseNames, becoming: expected, within: 2), expected)
+                XCTAssertGreaterThan(first.frame.minY, top, "The list didn't scroll up")
+                XCTAssertTrue(
+                    reading(
+                        app.routineTitle.frame.minY >= bar.frame.maxY,
+                        becoming: true,
+                        within: 2,
+                    ),
+                    "The list didn't scroll back to its top",
+                )
+                attach(named: "reorder-top-edge")
+            }
     }
 
     /// The rows' order once it changes from `before`, or `before` if it stays for a second. A held
