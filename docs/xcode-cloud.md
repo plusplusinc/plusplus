@@ -1,4 +1,4 @@
-# CI and releases: Xcode Cloud
+# Xcode Cloud: PR checks and TestFlight builds
 
 Xcode Cloud builds and tests every pull request and ships each `v*` tag to TestFlight. Workflow
 definitions live in App Store Connect, not in the repo. Two files here belong to it:
@@ -27,8 +27,9 @@ Post-actions: none.
 
 **TestFlight**: start on a tag beginning with `v`. Actions: Archive, iOS, with distribution to
 TestFlight internal testing; it never submits to the App Store. Post-actions: TestFlight Internal
-Testing, group `Internal`. The post-action is what puts each build in the group: the group's "access to all builds" does not pull in Xcode
-Cloud uploads, and without it a build uploads and waits unassigned. The API does not expose
+Testing, group `Internal`. The post-action is what puts each build in the group: the group's
+"access to all builds" does not pull in Xcode Cloud uploads, and without it a build uploads and
+waits unassigned. The API does not expose
 post-actions; edit them in Xcode or in App Store Connect ▸ Xcode Cloud ▸ Workflows. Members of
 `Internal` are added in App Store Connect (TestFlight ▸ Internal Testing), since the API does
 not let a team member be added to an internal group. Internal builds skip Beta App
