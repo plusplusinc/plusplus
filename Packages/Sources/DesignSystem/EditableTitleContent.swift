@@ -42,10 +42,6 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
     /// What the field does with focus, Return, and pasted lines: the wrapper's.
     let behavior: Behavior
 
-    /// The placeholder's height where it is drawn, wrapped, in place of an empty field.
-    @State private var placeholderHeight: CGFloat = 0
-    /// The height of one line of the title.
-    @State private var lineHeight: CGFloat = 0
     /// The title's width, and the width of one character cell of its monospaced font.
     @State private var width: CGFloat = 0
     @State private var cellWidth: CGFloat = 0
@@ -62,29 +58,15 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
                     // With Reduce Motion a new placeholder crossfades in rather than typing.
                     .contentTransition(.opacity)
                     .accessibilityHidden(true)
-                    .onGeometryChange(for: CGFloat.self, of: \.size.height) {
-                        placeholderHeight = $0
-                    }
-                    .background {
-                        Text(verbatim: "_")
-                            .hidden()
-                            .onGeometryChange(for: CGFloat.self, of: \.size.height) {
-                                lineHeight = $0
-                            }
-                    }
             }
-            // An empty field is one line tall, and VoiceOver frames the field, so it reserves
-            // as many lines as the placeholder drawn in its place. A frame around the field
-            // would not do: the field stays as tall as its lines inside any frame.
+            // The field is exactly as many lines tall as what it shows wraps to, the draft or the
+            // placeholder drawn in its place: an empty field is one line, and VoiceOver frames
+            // the field. A range open at the top would size the field from its own text layout,
+            // which keeps the height of a larger font after the text size shrinks until the text
+            // changes; a closed range sizes it from the font. A frame around the field would not
+            // do: the field stays as tall as its lines inside any frame.
             field
-                .lineLimit(
-                    draft.isEmpty
-                        ? EditableTitle.lineCount(
-                            height: placeholderHeight,
-                            lineHeight: lineHeight,
-                        )...
-                        : 1...,
-                )
+                .lineLimit(lines ... lines)
         }
         .onGeometryChange(for: CGFloat.self, of: \.size.width) {
             width = $0
@@ -116,6 +98,12 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
     private var columns: Int? {
         guard width > 0, cellWidth > 0 else { return nil }
         return max(1, Int(width / cellWidth))
+    }
+
+    /// How many lines the field shows: its draft, or the placeholder drawn in its place, wrapped
+    /// as the field wraps it.
+    private var lines: Int {
+        EditableTitle.lineCount(of: draft.isEmpty ? shownPlaceholder : draft, columns: columns)
     }
 
     /// The placeholder as drawn: broken into lines where the field would break them, each letter

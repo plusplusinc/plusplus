@@ -126,11 +126,12 @@ public struct EditableTitle: View {
         }
     }
 
-    /// How many lines a text `height` tall holds, at `lineHeight` a line: at least one, and one
-    /// before either is measured. Rounded, since measured heights land on the pixel grid.
-    public static func lineCount(height: CGFloat, lineHeight: CGFloat) -> Int {
-        guard lineHeight > 0 else { return 1 }
-        return max(1, Int((height / lineHeight).rounded()))
+    /// How many lines `text` takes wrapped at `columns` cells as the field wraps it, by the same
+    /// rules as `cursorCell(at:in:columns:)`: at least one, and one before the columns are
+    /// measured.
+    public static func lineCount(of text: String, columns: Int?) -> Int {
+        guard let columns else { return 1 }
+        return lineBreaks(in: text, columns: columns).count + 1
     }
 
     /// The line and column of the cell the cursor marks, for a cursor before the character at
