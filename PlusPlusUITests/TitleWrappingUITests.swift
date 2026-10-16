@@ -66,7 +66,8 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
     /// the audit at this text size.
     @MainActor
     private func auditRowsAndPicker(in app: XCUIApplication) throws {
-        try XCTContext.runActivity(named: "Rows, a sheet, and the picker at AX5 pass the audit") { _ in
+        let name = "Rows, a sheet, and the picker at AX5 pass the audit"
+        try XCTContext.runActivity(named: name) { _ in
             app.addExercise("Kneeling hip flexor stretch", searching: "kneeling")
             XCTAssertTrue(app.buttons["Start"].appears())
             attach(named: "rail-ax5")
