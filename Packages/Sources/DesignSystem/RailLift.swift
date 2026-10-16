@@ -7,10 +7,10 @@ struct RailDragState<ID: Hashable> {
     var origin: RailSlot<ID>
     /// Where the gap is open.
     var slot: RailSlot<ID>
-    /// The card's top, in the rail's space.
-    var cardTop: CGFloat
     /// How far below the row's top the finger holds it.
     var grab: CGFloat
+    /// Let go, and settling into the gap.
+    var isReleased = false
 }
 
 extension View {
@@ -30,6 +30,27 @@ extension View {
         #else
         self
         #endif
+    }
+}
+
+/// The held row's card: it appears at rest over its row and rises, a little larger and turned,
+/// over a shadow, its node in the color of the text. Released, it lowers to look like the row
+/// at rest.
+struct CardLook: ViewModifier {
+    let isReleased: Bool
+    @State private var hasRisen = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        let isRaised = hasRisen && !isReleased
+        content
+            .environment(\.railPlace, RailPlace(isCard: true, isRaised: isRaised))
+            .background { LiftedCard(isLifted: isRaised) }
+            .scaleEffect(isRaised ? RailDrag.liftedScale : 1)
+            .rotationEffect(isRaised ? RailDrag.liftedRotation : .zero)
+            .onAppear {
+                withAnimation(reduceMotion ? nil : RailDrag.lift) { hasRisen = true }
+            }
     }
 }
 

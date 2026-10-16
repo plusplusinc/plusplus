@@ -115,24 +115,6 @@ nonisolated enum RailDrag {
         return order
     }
 
-    /// Where a point drawn on the card rests in its row of `size`: the card's scale and
-    /// rotation about the row's center, and its offset, undone.
-    static func resting(
-        _ point: CGPoint,
-        in size: CGSize,
-        offset: CGFloat,
-        scale: CGFloat,
-        angle: Angle,
-    ) -> CGPoint {
-        let center = CGPoint(x: size.width / 2, y: size.height / 2)
-        let (x, y) = (point.x - center.x, point.y - offset - center.y)
-        let (cos, sin) = (Foundation.cos(-angle.radians), Foundation.sin(-angle.radians))
-        return CGPoint(
-            x: center.x + (x * cos - y * sin) / scale,
-            y: center.y + (x * sin + y * cos) / scale,
-        )
-    }
-
     /// How fast to scroll, in points a second, with the finger at `fingerY` in a visible area
     /// spanning `visible`: nothing outside the bands at its ends, then rising as the square of
     /// how deep the finger is in one, slow near its inner line for precision and fast at the

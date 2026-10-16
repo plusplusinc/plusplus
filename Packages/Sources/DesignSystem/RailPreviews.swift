@@ -7,8 +7,8 @@ private let previewRows = [
     PreviewRow(title: "Plank", detail: "60 s"),
 ]
 
-private func previewRail(drag: RailDragState<UUID>? = nil) -> some View {
-    Rail(previewRows, drag: drag) { exercise in
+private func previewRail(drag: RailDragState<UUID>? = nil, cardTop: CGFloat = 0) -> some View {
+    Rail(previewRows, drag: drag, cardTop: cardTop) { exercise in
         RowLabel(title: exercise.title, detail: exercise.detail).railRow()
     } end: {
         Button("Add exercise", systemImage: "plus") { }
@@ -28,9 +28,8 @@ private func previewRail(drag: RailDragState<UUID>? = nil) -> some View {
         lifted: lifted.id,
         origin: .before(previewRows[2].id),
         slot: .before(previewRows[2].id),
-        cardTop: 64,
         grab: 20,
-    ))
+    ), cardTop: 64)
 }
 
 #Preview("Gap two rows down") {
@@ -39,9 +38,8 @@ private func previewRail(drag: RailDragState<UUID>? = nil) -> some View {
         lifted: lifted.id,
         origin: .before(previewRows[2].id),
         slot: .end,
-        cardTop: 180,
         grab: 20,
-    ))
+    ), cardTop: 180)
 }
 
 private struct PreviewRow: Identifiable {
