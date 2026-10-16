@@ -54,7 +54,7 @@ struct CardLook: ViewModifier {
 }
 
 /// A held row's card: a raised fill, with no shadow or border, that bleeds past the row on both
-/// sides, with a grip at its trailing edge. At rest, it is not drawn.
+/// sides. At rest, it is not drawn.
 struct LiftedCard: View {
     let isLifted: Bool
     @ObserveHotReload private var hotReload
@@ -62,15 +62,37 @@ struct LiftedCard: View {
     var body: some View {
         RoundedRectangle(cornerRadius: Radius.card)
             .fill(.pp(.surfaceRaised))
-            .overlay(alignment: .trailing) {
-                Image(systemName: "line.2.horizontal")
-                    .font(.ppButton)
-                    .foregroundStyle(.pp(.textSecondary))
-                    .padding(.trailing, Spacing.md)
-                    .accessibilityHidden(true)
-            }
             .padding(.horizontal, -Spacing.sm)
             .opacity(isLifted ? 1 : 0)
             .hotReloadable()
+    }
+}
+
+/// Every node's center on a rail, from the first row to the last, so the line can be drawn once
+/// from the first to the last while a row is held.
+struct RailNodes: PreferenceKey {
+    static let defaultValue: [Anchor<CGPoint>] = []
+
+    static func reduce(value: inout [Anchor<CGPoint>], nextValue: () -> [Anchor<CGPoint>]) {
+        value += nextValue()
+    }
+}
+
+/// The line from the first node to the last, drawn once under the rows while one is held. Its
+/// ends are where the nodes are once the rows settle, and they move in the gap's transaction.
+struct DragLine: View {
+    let nodes: [Anchor<CGPoint>]
+    @ScaledMetric(relativeTo: .body) private var lineWidth = railLineWidth
+
+    var body: some View {
+        GeometryReader { proxy in
+            if let first = nodes.first, let last = nodes.last {
+                let (top, bottom) = (proxy[first], proxy[last])
+                Rectangle()
+                    .fill(.pp(.rail))
+                    .frame(width: lineWidth, height: max(bottom.y - top.y, 0))
+                    .position(x: top.x, y: (top.y + bottom.y) / 2)
+            }
+        }
     }
 }

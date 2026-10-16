@@ -90,6 +90,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                     isLast: isArriving || item.id == lastOnLine,
                     isArriving: isArriving,
                     isGap: item.id == drag?.lifted,
+                    isOnDragLine: drag != nil,
                 )
                 // An arriving row's place opens with its entry's shot, so the end view is pushed
                 // down as far as the line has grown, on every frame.
@@ -116,6 +117,14 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
             // Between the last row and the end view, as the design has it.
             end.padding(.top, data.isEmpty ? 0 : Spacing.xxs)
         }
+        // While a row is held, the line is drawn once, here, under the rows: rows trading places
+        // move toward each other, so their own stretches, each moving with its row, would part at
+        // the pair's outer edges until the rows settle.
+        .backgroundPreferenceValue(RailNodes.self) { nodes in
+            if drag != nil {
+                DragLine(nodes: nodes)
+            }
+        }
         .coordinateSpace(.named(RailDrag.space))
         // The card, over the rows it passes and Add exercise. It is placed in the rail's space,
         // where the finger is, not in the row's place, which moves as the gap does.
@@ -130,7 +139,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                 .onGeometryChange(for: CGFloat.self, of: \.size.width) { columnWidth = $0 }
         }
         .sensoryFeedback(.impact(weight: .light), trigger: lifts)
-        .sensoryFeedback(.selection, trigger: ticks)
+        .sensoryFeedback(RailDrag.slotChange, trigger: ticks)
         .hotReloadable()
     }
 
@@ -244,6 +253,8 @@ struct RailPlace {
     var isArriving = false
     var isGap = false
     var isCard = false
+    /// A row is held, so the line is drawn once for the whole rail, not by each row.
+    var isOnDragLine = false
     /// The card held up off the rail, its node in the color of the text.
     var isRaised = false
 }
@@ -276,6 +287,7 @@ private struct RailNode: View {
                     )
                     .frame(width: size, height: size)
                     .anchorPreference(key: NodeCenter.self, value: .center) { $0 }
+                    .anchorPreference(key: RailNodes.self, value: .center) { [$0] }
                     // It pops from the line's tip as the line lands: shown at the line's width
                     // and grown to its own size in the same moment.
                     .scaleEffect(place.isArriving ? lineWidth / size : 1)
@@ -326,8 +338,9 @@ private struct RailRow: ViewModifier {
         // on their own stretch of the shot while the rest stays as it was.
         .backgroundPreferenceValue(NodeCenter.self) { center in
             GeometryReader { proxy in
-                // The card has no line: the gap below it has the row's.
-                if let center, !place.isCard {
+                // The card has no line: the gap below it has the row's, drawn by the rail while a
+                // row is held.
+                if let center, !place.isCard, !place.isOnDragLine {
                     let node = proxy[center]
                     let top = place.isFirst ? node.y : 0
                     let above = place.isArriving ? top : node.y
@@ -360,7 +373,7 @@ private struct RailRow: ViewModifier {
 private let railColumnWidth: CGFloat = 44
 
 /// The line's width at the default text size: one value, so a new node pops from the line's tip.
-private let railLineWidth: CGFloat = 2
+let railLineWidth: CGFloat = 2
 
 extension View {
     /// A row on a rail: its node in the rail column, then its content from the top, inset as the

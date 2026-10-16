@@ -46,6 +46,10 @@ nonisolated enum RailDrag {
     /// The card going back to its row when the drag is cancelled.
     static let cancel = Animation.snappy(duration: 0.25)
 
+    /// The tick as the gap moves to a new slot: a step up from `.selection`, which was too faint
+    /// to feel mid-set, and unlike the lift's light impact.
+    static let slotChange = SensoryFeedback.alignment
+
     /// How far past a switch point the card must go to leave the slot it is in, so the gap
     /// doesn't flap, and tick, at the boundary.
     static let deadBand: CGFloat = 4
