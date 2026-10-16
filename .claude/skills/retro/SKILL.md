@@ -31,9 +31,10 @@ Output: a short report, a private digest, and one PR when there is something to 
   never by a guess that it might. It gets the fix at the lowest altitude that would have
   prevented it (section 3): a check that makes it impossible where one can, else the script,
   skill, agent definition, rule, or doc. Only a finding no change in the repo can prevent (a
-  session usage limit, an outage) is reported without a fix, and the body says why. The record of past findings is the bodies of earlier retro PRs:
-  `gh pr list --state all --search "Retro of in:title"` (without `--state all` only open
-  PRs are searched).
+  session usage limit, an outage) is reported without a fix, and the body says why. The
+  record of past findings is the bodies of earlier retro PRs:
+  `gh pr list --state all --search "Retro of in:title"` (without `--state all` only open PRs
+  are searched).
 - **One retro per merge.** Before starting, check that no retro PR, open or merged, already
   names the PR number. The nightly session and one run by hand can both run this.
 
