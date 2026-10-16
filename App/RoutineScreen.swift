@@ -81,7 +81,6 @@ struct RoutineScreen: View {
                             title: item.exercise.name,
                             detail: item.detailParts(locale: locale),
                             spokenDetail: item.spokenDetail(locale: locale),
-                            showsSides: item.exercise.isPerSide,
                         )
                         .railRow()
                         .accessibilityIdentifier("routine.exercise")
