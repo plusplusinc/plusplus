@@ -62,13 +62,12 @@ state, stateless services hold side effects, free functions hold the math. The a
 - **Tense tells the truth.** A present-tense statement says how things are on `main` today, so
   write one only when it is. Something planned is an instruction ("Save the routine once it
   changes") or says "will". A decision that isn't built yet says it was decided. This holds
-  for cards, the board README, plans, State sections, and docs. Anything about a change that
-  hasn't landed (a PR body, a commit, a handoff, an agent's report, a message to the
-  maintainer) keeps the two states apart: what is true today in the present ("Today the
-  verifier's report goes only to the lead"), and what the change brings as its result ("With
-  this change, the verifier leaves a comment on each PR"; "On the branch, …"), never the
-  result in the plain present. A PR body is read before the merge and becomes the commit
-  after it; written this way it reads true in both. A prompt to an agent asks for the same.
+  for cards, the board README, plans, State sections, and docs. Writing about a change that
+  hasn't landed (a PR body, a commit, a handoff, a report, a message) is read before it
+  exists, so keep today and the change apart: "Today the verifier reports only to the lead";
+  "With this change, it also comments on the PR"; never the result in the plain present. Once
+  it has landed, say where ("On `main` since #70"). A prompt asking for such writing asks for
+  the same.
 
 ## Building features
 
@@ -135,7 +134,8 @@ gh pr create --title "<title>" --body-file -   # body on stdin; --fill skips the
 ```
 
 CI must be green before a PR merges. **Merges are squashed**: the PR title and body become the
-one commit on `main`, so write the body as a commit message. Notes about review order or "as
+one commit on `main`, so write the body as a commit message that is also true before the
+merge ("Tense tells the truth"). Notes about review order or "as
 discussed" belong in a PR comment, not the body.
 
 ## Rules files
