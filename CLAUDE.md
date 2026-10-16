@@ -125,10 +125,12 @@ See `docs/agent-tooling.md`.
 ## Branching
 
 **`main` only moves through pull requests. Never commit to it directly**, not even a one-line
-fix. Branch protection enforces this server-side.
+fix. Branch protection enforces this server-side. Work in a worktree; the main checkout stays on
+`main`, driving the maintainer's simulator and the nightly retro.
 
 ```sh
-git switch -c <topic>
+git fetch origin main
+git worktree add --no-track .claude/worktrees/<topic> -b <topic> origin/main
 git push -u origin <topic>
 gh pr create --title "<title>" --body-file -   # body on stdin; --fill skips the PR template
 ```
