@@ -2,7 +2,7 @@
 name: retro
 description: Over the work since the last retro, the merges to main and the conversations in this repo's Claude Code sessions, find what tripped the work up or fell short of what it aims for (docs/principles.md: the right product, built right, mostly autonomous), rank those findings by their evidence, fix them at the lowest altitude in a PR the maintainer reviews, check whether the last retro's fixes worked, and correct what the merges made false in the rules, skills, and docs. Gives the maintainer a private digest. Runs nightly on the maintainer's Mac as `/retro nightly`; use on request over a merge or a range of merges.
 argument-hint: "nightly | <PR number or range>"
-allowed-tools: Bash(git log:*), Bash(git diff:*), Bash(git show:*), Bash(git fetch:*), Bash(git worktree add:*), Bash(git worktree remove:*), Bash(gh pr view:*), Bash(gh pr list:*), Bash(gh pr checks:*), Bash(gh pr diff:*), Bash(gh search prs:*), Bash(gh api:*), Bash(asc xcode-cloud build-runs:*), Bash(asc xcode-cloud status:*), Bash(asc xcode-cloud doctor:*), Bash(asc xcode-cloud issues:*), Bash(asc xcode-cloud test-results:*), Bash(scripts/board.sh:*), Bash(scripts/lint.sh:*), Bash(scripts/conversations.py:*), Bash(date:*), Read, Write, Edit, Glob, Grep, Agent, CronList, CronCreate, CronDelete
+allowed-tools: Bash(git log:*), Bash(git diff:*), Bash(git show:*), Bash(git fetch:*), Bash(git worktree add:*), Bash(git worktree remove:*), Bash(gh pr view:*), Bash(gh pr list:*), Bash(gh pr checks:*), Bash(gh pr diff:*), Bash(gh api:*), Bash(asc xcode-cloud build-runs:*), Bash(asc xcode-cloud status:*), Bash(asc xcode-cloud doctor:*), Bash(asc xcode-cloud issues:*), Bash(asc xcode-cloud test-results:*), Bash(scripts/board.sh:*), Bash(scripts/lint.sh:*), Bash(scripts/conversations.py:*), Bash(date:*), Read, Write, Edit, Glob, Grep, Agent, CronList, CronCreate, CronDelete
 ---
 
 **With the argument `nightly`, this is the nightly session: skip to "How it runs" and do
@@ -114,9 +114,15 @@ finding and opens no PR:
 - Per covered PR: its runs' findings counted by kind, `new` (the PR missed it) apart from
   `known`, or "no findings".
 - The tally across every PR that has a record, recounted each time from the comments themselves,
-  which outlive the slice's `.slices/` files and need no store of their own:
-  `gh search prs --repo plusplusinc/plusplus --match comments "Verifier record" --json number`,
-  then each one's comments, counting only those that start `Verifier record`.
+  which outlive the slice's `.slices/` files and need no store of their own. Fetch them in one
+  GraphQL request, not one per PR, so the cost stays flat as records pile up (it reads up to
+  100 PRs; page with `after` past that), and count only comments that start `Verifier record`:
+
+  ```sh
+  gh api graphql -f query='{ search(type: ISSUE, first: 100,
+    query: "repo:plusplusinc/plusplus is:pr in:comments \"Verifier record\"") {
+    nodes { ... on PullRequest { number comments(last: 50) { nodes { body } } } } } }'
+  ```
 
 ## How it runs
 
