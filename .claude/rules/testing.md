@@ -28,12 +28,14 @@ What each tier holds today:
   fading, the trail shuffling in blue, the last letter easing to white. Rows on the rail and
   Start are snapshot through the same components the routine screen composes, a generated name
   resting white over its rows included; a row swiped open is the system's, so the UI test shows
-  it.
+  it. The exercise sheet's content, its equipment and a `ValueRow` per value, is snapshot with
+  every stepper closed and with one open; the sheet and its bar are the system's.
 - **UI tests** hold only what needs the real keyboard, text system, frames, or a relaunch:
   typing, Return, arrows, taps, range selection, the keyboard's edge, scrolling as the keyboard
   rises, and VoiceOver frames; the exercise picker, system chrome composed in the app, which has
-  no test target: adding, searching, swiping to delete, and the accessibility audit at AX5; and
-  what the app saved, seen only by quitting and launching again. Each launch costs about 9 s on
+  no test target: adding, searching, swiping to delete, and the accessibility audit at AX5,
+  the exercise sheet with a stepper open included; stepping a value in the sheet; and what the
+  app saved, seen only by quitting and launching again. Each launch costs about 9 s on
   CI, so there is one UI test per launch configuration:
   `RenameUITests/testRenameAtDefaultSize`,
   `TitleWrappingUITests/testWrappedTitleAtLargestTextSize`, and
@@ -51,7 +53,8 @@ What each tier holds today:
   `reading(_:becoming:within:)` from `Waits.swift`: XCTest's own waits spend a second before
   their first check. Typing, key presses, and taps can return before the app has handled them,
   so a read after one waits for the state it checks: `value(becoming:)` for the value, and
-  `Ink.withCursor(_:until:)` for where the `_` is.
+  `Ink.withCursor(_:until:)` for where the `_` is. Tap a stepper key with `tapAtCenter()`:
+  XCTest's `tap()` goes to its top-left corner, on the edge of the row above, which closes it.
 
 Before adding a test, find whether one already proves the guarantee. If one does, don't add
 another.

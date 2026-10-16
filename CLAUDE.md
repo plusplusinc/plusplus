@@ -15,9 +15,10 @@ on its own: an untouched new routine is never saved, and one cleared to nothing 
 unnamed routine with exercises gets a name, written in code from its exercises' tags, which it
 keeps across launches and which opens as text to edit. Each exercise in a routine carries its
 own sets, reps or time, and weight, starting at the exercise's defaults and saved with the
-routine; its row reads them, saying when it's per side and whether a weight is each or total.
-Nothing edits them yet. `WorkoutStore` holds the domain types, the first stored models behind
-`RoutineStore`, and the namer. Nothing syncs yet.
+routine; its row reads them, saying when a number is per side, and the routine's equipment
+shows under its title. Tapping a row opens its values in a sheet, a row per value with a − / +
+stepper, and Delete in its menu. `WorkoutStore` holds the domain types, the first stored models
+behind `RoutineStore`, and the namer. Nothing syncs yet.
 
 ## Architecture
 
