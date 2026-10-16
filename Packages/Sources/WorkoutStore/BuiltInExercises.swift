@@ -213,6 +213,20 @@ extension Exercise {
             tags: .init(nil, [.frontDelts], [.chest]),
         ),
         Self(
+            id: "forward-arm-circles",
+            name: "Forward arm circles",
+            muscleGroup: .shoulders,
+            plan: .init(sets: 1, target: .time(seconds: 30)),
+            tags: .init(nil, [.sideDelts, .frontDelts], [.rearDelts], .stretch),
+        ),
+        Self(
+            id: "backward-arm-circles",
+            name: "Backward arm circles",
+            muscleGroup: .shoulders,
+            plan: .init(sets: 1, target: .time(seconds: 30)),
+            tags: .init(nil, [.sideDelts, .rearDelts], [.frontDelts], .stretch),
+        ),
+        Self(
             id: "band-pull-apart",
             name: "Band pull-apart",
             muscleGroup: .shoulders,
