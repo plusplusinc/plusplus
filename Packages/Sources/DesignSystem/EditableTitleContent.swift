@@ -63,8 +63,9 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
             // placeholder drawn in its place: an empty field is one line, and VoiceOver frames
             // the field. A range open at the top would size the field from its own text layout,
             // which keeps the height of a larger font after the text size shrinks until the text
-            // changes; a closed range sizes it from the font. A frame around the field would not
-            // do: the field stays as tall as its lines inside any frame.
+            // changes; a closed range sizes it from the font. So the field's height rests on
+            // `lineBreaks(in:columns:)` matching how the field wraps, as the `_` does. A frame
+            // around the field would not do: the field stays as tall as its lines inside any frame.
             field
                 .lineLimit(lines ... lines)
         }
@@ -101,9 +102,10 @@ struct EditableTitleContent<Behavior: ViewModifier>: View {
     }
 
     /// How many lines the field shows: its draft, or the placeholder drawn in its place, wrapped
-    /// as the field wraps it.
+    /// as the field wraps it; one before the columns are measured.
     private var lines: Int {
-        EditableTitle.lineCount(of: draft.isEmpty ? shownPlaceholder : draft, columns: columns)
+        let shown = draft.isEmpty ? shownPlaceholder : draft
+        return columns.map { EditableTitle.lineBreaks(in: shown, columns: $0).count + 1 } ?? 1
     }
 
     /// The placeholder as drawn: broken into lines where the field would break them, each letter

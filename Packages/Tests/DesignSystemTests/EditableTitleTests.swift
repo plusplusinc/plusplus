@@ -120,18 +120,6 @@ struct EditableTitleTests {
         #expect(EditableTitle.insertionPoint(of: caret.selection, in: draft) == draft.endIndex)
     }
 
-    @Test("The field is as many lines as its text wraps to, and one before it is measured")
-    func lineCount() {
-        // At AX5 about 10 cells fit across; "New routine" wraps to two.
-        #expect(EditableTitle.lineCount(of: "New routine", columns: 10) == 2)
-        #expect(EditableTitle.lineCount(of: "New routine", columns: 24) == 1)
-        #expect(EditableTitle.lineCount(of: "Hot beat drills and abs", columns: 10) == 3)
-        #expect(EditableTitle.lineCount(of: "", columns: 10) == 1)
-        // Spaces past a full line hang past its edge rather than starting another.
-        #expect(EditableTitle.lineCount(of: "Push      ", columns: 4) == 1)
-        #expect(EditableTitle.lineCount(of: "New routine", columns: nil) == 1)
-    }
-
     @Test("On one line, the cursor's cell is its offset")
     func cellOnOneLine() {
         #expect(EditableTitle.cursorCell(at: 0, in: "New routine", columns: 20) == (0, 0))
@@ -172,6 +160,8 @@ struct EditableTitleTests {
         #expect(EditableTitle.lineBreaks(in: "Legs and back", columns: 13).isEmpty)
         #expect(EditableTitle.lineBreaks(in: "Shoulderpress", columns: 4) == [4, 8, 12])
         #expect(EditableTitle.lineBreaks(in: "Push-pull", columns: 6) == [5])
+        // Spaces past a full line hang past its edge rather than starting another.
+        #expect(EditableTitle.lineBreaks(in: "Push      ", columns: 4).isEmpty)
     }
 
     @Test("A word longer than a line breaks between characters")

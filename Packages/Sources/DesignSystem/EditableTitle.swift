@@ -126,14 +126,6 @@ public struct EditableTitle: View {
         }
     }
 
-    /// How many lines `text` takes wrapped at `columns` cells as the field wraps it, by the same
-    /// rules as `cursorCell(at:in:columns:)`: at least one, and one before the columns are
-    /// measured.
-    public static func lineCount(of text: String, columns: Int?) -> Int {
-        guard let columns else { return 1 }
-        return lineBreaks(in: text, columns: columns).count + 1
-    }
-
     /// The line and column of the cell the cursor marks, for a cursor before the character at
     /// `offset` (or after the last one), in monospaced text wrapped at `columns` cells the way the
     /// field wraps it: a word that does not fit moves to the next line, a word longer than a line
