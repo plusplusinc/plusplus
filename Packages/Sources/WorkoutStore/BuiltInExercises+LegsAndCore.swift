@@ -214,5 +214,37 @@ extension Exercise {
             startsAt: StartingWeight(pounds: 25, kilograms: 12),
             tags: .init(.carry, [.forearms, .upperBack], [.abs, .obliques]),
         ),
+        Self(
+            id: "walking-lunge",
+            name: "Walking lunge",
+            muscleGroup: .legs,
+            equipment: [.dumbbells],
+            plan: .init(sets: 3, target: .reps(10)),
+            load: .pair,
+            startsAt: StartingWeight(pounds: 20, kilograms: 8),
+            perSide: true,
+            tags: .init(.lunge, [.quads, .glutes], [.hamstrings]),
+        ),
+        Self(
+            id: "jumping-jacks",
+            name: "Jumping jacks",
+            muscleGroup: .legs,
+            plan: .init(sets: 1, target: .time(seconds: 60)),
+            tags: .init(nil, [.calves, .quads], [.sideDelts], .conditioning),
+        ),
+        Self(
+            id: "burpee",
+            name: "Burpee",
+            muscleGroup: .legs,
+            plan: .init(sets: 3, target: .reps(10)),
+            tags: .init(nil, [.quads, .chest], [.abs, .triceps], .conditioning),
+        ),
+        Self(
+            id: "mountain-climber",
+            name: "Mountain climber",
+            muscleGroup: .core,
+            plan: .init(sets: 3, target: .time(seconds: 30)),
+            tags: .init(nil, [.abs, .hipFlexors], [.frontDelts], .conditioning),
+        ),
     ]
 }
