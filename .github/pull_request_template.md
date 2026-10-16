@@ -11,5 +11,6 @@ Card: <!-- the board card this PR came from; "Closes #N" when it was published a
 
 Verified: <!-- exactly what was run: lint, which test tier, which screenshots were looked at -->
 
-Friction: <!-- what was retried, what the maintainer corrected, what took longer than it should
-have, what was tried and abandoned. "none" is a valid answer. -->
+Friction: <!-- what was retried, what was corrected and who found it (the maintainer, an agent
+review, the verifier, CI), what took longer than it should have, what was tried and abandoned.
+"none" is a valid answer. -->

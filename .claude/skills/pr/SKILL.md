@@ -44,12 +44,12 @@ started a missed run, and closing and reopening has also once started nothing.
 
 The body follows `.github/pull_request_template.md`: one paragraph on what and why, short
 sections only if the change has distinct parts, a "Verified" line stating exactly what was run,
-a "Friction" line saying what was retried, what the maintainer corrected, and what took longer
-than it should have, and a "Card" line naming the board card, written as "Closes #N" when the
-card was published as an issue so the merge closes it. Write Friction from the session,
-not from the diff, and put any decision the diff does not explain in the body; the template
-says why the retro needs them. `--fill` skips the
-template.
+a "Friction" line saying what was retried, what was corrected and who found it (the
+maintainer, an agent review, the verifier, CI), and what took longer than it should have, and a
+"Card" line naming the board card, written as "Closes #N" when the card was published as an
+issue so the merge closes it. Write Friction from the session, not from the diff, and put any
+decision the diff does not explain in the body; the template says why the retro needs them.
+`--fill` skips the template.
 
 Write the body as the commit message it becomes, true before the merge too: today and the
 change kept apart, as CLAUDE.md's "Tense tells the truth" says. The title is already the
