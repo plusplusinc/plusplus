@@ -120,7 +120,7 @@ struct ExerciseSheet: View {
         .labelStyle(.iconOnly)
         .font(.ppButton)
         .foregroundStyle(.pp(.textPrimary))
-        .frame(maxWidth: .infinity, minHeight: 44)
+        .frame(maxWidth: .infinity, minHeight: 60)
         .background(Color.pp(.background), in: .rect(cornerRadius: Radius.key))
         .contentShape(.rect)
         .buttonRepeatBehavior(.enabled)
