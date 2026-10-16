@@ -82,7 +82,7 @@ struct RoutineScreen: View {
                         Capsules(equipment.map(\.name))
                             .transition(.opacity)
                     }
-                    Rail(routine.exercises, arriving: arriving) { item in
+                    Rail(routine.exercises, arriving: arriving, onMove: move) { item in
                         RowLabel(
                             title: item.exercise.name,
                             detail: item.detailParts(locale: locale),
@@ -224,6 +224,12 @@ struct RoutineScreen: View {
         }
     }
 
+    /// Moves a row dropped on the rail, in the rail's transaction, so the order changes as the
+    /// card settles into its gap; it saves once, as any change does.
+    private func move(_ id: RoutineExercise.ID, to slot: RailSlot<RoutineExercise.ID>) {
+        routine.move(id, to: RoutineSlot(slot))
+    }
+
     private func delete(_ id: RoutineExercise.ID) {
         withAnimation(.railChange) {
             routine.exercises.removeAll { $0.id == id }
@@ -295,6 +301,15 @@ struct RoutineScreen: View {
         }
         withTransaction(transaction) {
             arriving = nil
+        }
+    }
+}
+
+extension RoutineSlot {
+    init(_ slot: RailSlot<RoutineExercise.ID>) {
+        switch slot {
+        case let .before(id): self = .before(id)
+        case .end: self = .end
         }
     }
 }

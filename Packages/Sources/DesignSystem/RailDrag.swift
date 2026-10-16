@@ -17,6 +17,14 @@ extension RailSlot: Sendable where ID: Sendable { }
 /// The drag never works in indices. It hit-tests the card against candidates, one per slot the
 /// lifted row could take, each at the y in the rail where its gap would open.
 nonisolated enum RailDrag {
+    /// A step of the drag, as the gesture reports it.
+    enum Phase {
+        case began, changed, ended, cancelled
+    }
+
+    /// The rail's coordinate space, in which the gesture reports where the finger is.
+    static let space = "rail"
+
     /// How long a press holds still before the row lifts: quicker than a context menu, so the
     /// thumb doesn't tire, and long enough that a slow scroll has moved off first.
     static let hold: TimeInterval = 0.4
@@ -102,6 +110,24 @@ nonisolated enum RailDrag {
             order.append(lifted)
         }
         return order
+    }
+
+    /// Where a point drawn on the card rests in its row of `size`: the card's scale and
+    /// rotation about the row's center, and its offset, undone.
+    static func resting(
+        _ point: CGPoint,
+        in size: CGSize,
+        offset: CGFloat,
+        scale: CGFloat,
+        angle: Angle,
+    ) -> CGPoint {
+        let center = CGPoint(x: size.width / 2, y: size.height / 2)
+        let (x, y) = (point.x - center.x, point.y - offset - center.y)
+        let (cos, sin) = (Foundation.cos(-angle.radians), Foundation.sin(-angle.radians))
+        return CGPoint(
+            x: center.x + (x * cos - y * sin) / scale,
+            y: center.y + (x * sin + y * cos) / scale,
+        )
     }
 
     /// How fast to scroll, in points a second, with the finger at `fingerY` in a visible area

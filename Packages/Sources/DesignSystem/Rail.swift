@@ -19,39 +19,76 @@ import SwiftUI
 public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     where Data.Element: Identifiable
 {
+    public typealias ID = Data.Element.ID
+
     private let data: Data
-    private let arriving: Data.Element.ID?
+    private let arriving: ID?
+    private let onMove: ((ID, RailSlot<ID>) -> Void)?
     private let row: (Data.Element) -> Row
     private let end: End
 
+    /// The row held and dragged, if any: the rows show in the order they would take if it were
+    /// dropped now, and it draws as a card under the finger.
+    @State private var drag: RailDragState<ID>?
+    /// The row just dropped, which stays over the others while it settles.
+    @State private var settling: ID?
+    /// Each row's height, read when a drag starts and as it moves, to place the gap.
+    @State private var heights: [ID: CGFloat] = [:]
+    /// The rail column's width, where a press lifts nothing.
+    @State private var columnWidth: CGFloat = 0
+    @State private var lifts = 0
+    @State private var ticks = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
+    /// A rail whose rows a hold lifts and a drag moves, when `onMove` is given: it is called
+    /// with the row and where it was dropped, unless that is where it started.
     public init(
         _ data: Data,
-        arriving: Data.Element.ID? = nil,
+        arriving: ID? = nil,
+        onMove: ((ID, RailSlot<ID>) -> Void)? = nil,
+        @ViewBuilder row: @escaping (Data.Element) -> Row,
+        @ViewBuilder end: () -> End,
+    ) {
+        self.init(data, arriving: arriving, onMove: onMove, drag: nil, row: row, end: end)
+    }
+
+    /// A rail at a moment of a drag, so a preview or a snapshot can draw it.
+    init(
+        _ data: Data,
+        arriving: ID? = nil,
+        onMove: ((ID, RailSlot<ID>) -> Void)? = nil,
+        drag: RailDragState<ID>?,
         @ViewBuilder row: @escaping (Data.Element) -> Row,
         @ViewBuilder end: () -> End,
     ) {
         self.data = data
         self.arriving = arriving
+        self.onMove = onMove
+        _drag = State(initialValue: drag)
         self.row = row
         self.end = end()
     }
 
     public var body: some View {
-        let first = data.first?.id
+        let shown = shownRows
+        // The lifted row is in the gap, so the line runs from the first row left on the rail to
+        // the last, through the gap where the gap is between them.
+        let first = shown.first?.id
         // Until the arriving row enters, the line ends at the node above it.
-        let lastOnLine = data.last { $0.id != arriving }?.id
+        let lastOnLine = shown.last { $0.id != arriving }?.id
+        let offset = liftOffset
         VStack(alignment: .leading, spacing: 0) {
             // Each row learns its place from the rail. Rows taken as a view's subviews could
             // not: a subview resolves in its container's environment, not one set on it.
-            ForEach(data) { item in
+            ForEach(shown) { item in
                 let isArriving = item.id == arriving
+                let isLifted = item.id == drag?.lifted
                 let place = RailPlace(
                     isFirst: item.id == first,
                     isLast: isArriving || item.id == lastOnLine,
                     isArriving: isArriving,
+                    lift: isLifted ? offset : nil,
                 )
                 // An arriving row's place opens with its entry's shot, so the end view is pushed
                 // down as far as the line has grown, on every frame.
@@ -66,11 +103,146 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                     insertion: .opacity,
                     removal: .opacity.animation(.snappy(duration: 0.15)),
                 ))
+                .onGeometryChange(for: CGFloat.self, of: \.size.height) { height in
+                    heights[item.id] = height
+                }
+                // The card draws over the rows it passes, and Add exercise.
+                .zIndex(isLifted || item.id == settling ? 1 : 0)
+                .liftable(isEnabled: onMove != nil && arriving == nil, columnWidth: columnWidth) {
+                    phase, fingerY in
+                    dragged(item.id, phase, at: fingerY)
+                }
             }
             // Between the last row and the end view, as the design has it.
             end.padding(.top, data.isEmpty ? 0 : Spacing.xxs)
         }
+        .coordinateSpace(.named(RailDrag.space))
+        .background(alignment: .topLeading) {
+            // The rail column as a row's node has it, measured at the current text size.
+            Image(systemName: "plus")
+                .font(.ppButton)
+                .railColumn()
+                .fixedSize()
+                .hidden()
+                .onGeometryChange(for: CGFloat.self, of: \.size.width) { columnWidth = $0 }
+        }
+        .sensoryFeedback(.impact(weight: .light), trigger: lifts)
+        .sensoryFeedback(.selection, trigger: ticks)
         .hotReloadable()
+    }
+
+    /// The rows in the order they show: with a row held, the order it would make if dropped now.
+    private var shownRows: [Data.Element] {
+        guard let drag else { return Array(data) }
+        let byID = Dictionary(data.map { ($0.id, $0) }) { first, _ in first }
+        return RailDrag.order(data.map(\.id), moving: drag.lifted, to: drag.slot)
+            .compactMap { byID[$0] }
+    }
+
+    private func candidates(lifting lifted: ID) -> [RailDrag.Candidate<ID>] {
+        RailDrag.candidates(rows: data.map { ($0.id, heights[$0.id] ?? 0) }, lifted: lifted)
+    }
+
+    /// How far the card is drawn from its place in the gap: wherever the gap moves, the card
+    /// stays under the finger.
+    private var liftOffset: CGFloat {
+        guard let drag,
+              let gap = candidates(lifting: drag.lifted).first(where: { $0.slot == drag.slot })
+        else { return 0 }
+        return drag.cardTop - gap.gapTop
+    }
+
+    private func dragged(_ id: ID, _ phase: RailDrag.Phase, at fingerY: CGFloat) {
+        switch phase {
+        case .began:
+            guard drag == nil, let index = data.firstIndex(where: { $0.id == id }) else { return }
+            let own = candidates(lifting: id)[data.distance(from: data.startIndex, to: index)]
+            withAnimation(reduceMotion ? nil : RailDrag.lift) {
+                drag = RailDragState(
+                    lifted: id,
+                    origin: own.slot,
+                    slot: own.slot,
+                    cardTop: own.gapTop,
+                    grab: fingerY - own.gapTop,
+                )
+            }
+            lifts += 1
+        case .changed:
+            guard var moved = drag, moved.lifted == id else { return }
+            moved.cardTop = fingerY - moved.grab
+            moved.slot = RailDrag.candidate(
+                for: moved.cardTop,
+                in: candidates(lifting: id),
+                current: moved.slot,
+            )
+            guard moved.slot != drag?.slot else {
+                drag = moved
+                return
+            }
+            withAnimation(reduceMotion ? nil : RailDrag.gap) { drag = moved }
+            ticks += 1
+        case .ended:
+            guard let dropped = drag, dropped.lifted == id else { return }
+            settle(dropped, with: RailDrag.drop) {
+                if dropped.slot != dropped.origin {
+                    onMove?(id, dropped.slot)
+                }
+            }
+        case .cancelled:
+            guard let cancelled = drag, cancelled.lifted == id else { return }
+            settle(cancelled, with: RailDrag.cancel) { }
+        }
+    }
+
+    /// Lets the held row go: the card settles into the gap as `move` reorders the data to match
+    /// it, in one transaction, so nothing else moves. Back where it started, the gap closes.
+    private func settle(
+        _ released: RailDragState<ID>,
+        with animation: Animation,
+        move: () -> Void,
+    ) {
+        settling = released.lifted
+        withAnimation(reduceMotion ? nil : animation) {
+            move()
+            drag = nil
+        } completion: {
+            if settling == released.lifted {
+                settling = nil
+            }
+        }
+    }
+}
+
+/// A moment of a drag on a rail.
+struct RailDragState<ID: Hashable> {
+    var lifted: ID
+    /// The slot the row was lifted from, where dropping it changes nothing.
+    var origin: RailSlot<ID>
+    /// Where the gap is open.
+    var slot: RailSlot<ID>
+    /// The card's top, in the rail's space.
+    var cardTop: CGFloat
+    /// How far below the row's top the finger holds it.
+    var grab: CGFloat
+}
+
+extension View {
+    /// A hold on this row lifts it, on iOS; a press in the rail column lifts nothing.
+    @ViewBuilder
+    fileprivate func liftable(
+        isEnabled: Bool,
+        columnWidth: CGFloat,
+        onPhase: @escaping (RailDrag.Phase, CGFloat) -> Void,
+    ) -> some View {
+        #if os(iOS)
+            gesture(RailLiftGesture(
+                isEnabled: isEnabled,
+                columnWidth: columnWidth,
+                onPhase: onPhase,
+            ))
+        #else
+            self
+        #endif
     }
 }
 
@@ -81,11 +253,13 @@ extension Animation {
 }
 
 /// Where a row sits on its rail: the line starts at the first row's node and ends at the last's.
-/// An arriving row holds its place, drawn empty, until it enters.
+/// An arriving row holds its place, drawn empty, until it enters. A lifted row's place is the
+/// gap, and its node and content draw as a card `lift` points below it.
 struct RailPlace {
     var isFirst = true
     var isLast = true
     var isArriving = false
+    var lift: CGFloat?
 }
 
 extension EnvironmentValues {
@@ -112,7 +286,7 @@ private struct RailNode: View {
                 Circle()
                     .joiningRail(
                         when: place.isArriving,
-                        settlingTo: .borderStrong,
+                        settlingTo: place.lift == nil ? .borderStrong : .textPrimary,
                     )
                     .frame(width: size, height: size)
                     .anchorPreference(key: NodeCenter.self, value: .center) { $0 }
@@ -145,6 +319,12 @@ private struct RailRow: ViewModifier {
     @ObserveHotReload private var hotReload
 
     func body(content: Content) -> some View {
+        let isLifted = place.lift != nil
+        let (offset, scale, angle) = (
+            place.lift ?? 0,
+            isLifted ? RailDrag.liftedScale : 1,
+            isLifted ? RailDrag.liftedRotation : .zero,
+        )
         HStack(alignment: .firstTextBaseline, spacing: 0) {
             RailNode()
             content
@@ -158,6 +338,12 @@ private struct RailRow: ViewModifier {
                 )
                 .committing(when: place.isArriving)
         }
+        .background { LiftedCard(isLifted: isLifted) }
+        // A visual effect moves the card without moving the row's geometry, so its line stays
+        // in the gap, running through where its node was.
+        .visualEffect { content, _ in
+            content.scaleEffect(scale).rotationEffect(angle).offset(y: offset)
+        }
         // The row's stretch of line, top edge to bottom edge through its node, or from the node
         // on the first row and to it on the last, drawn as part of the row so it moves with it.
         // It is drawn in two, above and below the node, so the parts an entry adds can each grow
@@ -165,7 +351,15 @@ private struct RailRow: ViewModifier {
         .backgroundPreferenceValue(NodeCenter.self) { center in
             GeometryReader { proxy in
                 if let center {
-                    let node = proxy[center]
+                    // An anchor reads where the node is drawn, on the card when lifted; the
+                    // line runs through where it rests.
+                    let node = RailDrag.resting(
+                        proxy[center],
+                        in: proxy.size,
+                        offset: offset,
+                        scale: scale,
+                        angle: angle,
+                    )
                     let top = place.isFirst ? node.y : 0
                     let above = place.isArriving ? top : node.y
                     let below = place.isLast ? node.y : proxy.size.height
@@ -193,6 +387,34 @@ private struct RailRow: ViewModifier {
     }
 }
 
+/// A held row's card: raised off the screen, it bleeds past the row on both sides, with a grip
+/// at its trailing edge. At rest, it is not drawn.
+private struct LiftedCard: View {
+    let isLifted: Bool
+    @ObserveHotReload private var hotReload
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: Radius.card)
+            .fill(.pp(.surfaceRaised))
+            .stroke(.pp(.borderStrong), lineWidth: 1)
+            .overlay(alignment: .trailing) {
+                Image(systemName: "line.2.horizontal")
+                    .font(.ppButton)
+                    .foregroundStyle(.pp(.textSecondary))
+                    .padding(.trailing, Spacing.md)
+                    .accessibilityHidden(true)
+            }
+            .padding(.horizontal, -Spacing.sm)
+            .shadow(
+                color: .pp(.shadow),
+                radius: isLifted ? RailDrag.shadowRadius : 0,
+                y: isLifted ? RailDrag.shadowY : 0,
+            )
+            .opacity(isLifted ? 1 : 0)
+            .hotReloadable()
+    }
+}
+
 /// The rail column's width at the default text size.
 private let railColumnWidth: CGFloat = 44
 
@@ -214,13 +436,15 @@ extension View {
     }
 }
 
-#Preview {
-    let exercises = [
-        PreviewRow(title: "Goblet squat", detail: "Kettlebell"),
-        PreviewRow(title: "Push-up", detail: nil),
-        PreviewRow(title: "Farmer\u{2019}s carry", detail: "Dumbbells"),
-    ]
-    Rail(exercises) { exercise in
+private let previewRows = [
+    PreviewRow(title: "Goblet squat", detail: "Kettlebell"),
+    PreviewRow(title: "Push-up", detail: nil),
+    PreviewRow(title: "Farmer\u{2019}s carry", detail: "Dumbbells"),
+    PreviewRow(title: "Plank", detail: "60 s"),
+]
+
+private func previewRail(drag: RailDragState<UUID>? = nil) -> some View {
+    Rail(previewRows, drag: drag) { exercise in
         RowLabel(title: exercise.title, detail: exercise.detail).railRow()
     } end: {
         Button("Add exercise", systemImage: "plus") { }
@@ -228,6 +452,32 @@ extension View {
     }
     .padding()
     .background(Color.pp(.background))
+}
+
+#Preview {
+    previewRail()
+}
+
+#Preview("Lifted at its place") {
+    let lifted = previewRows[1]
+    previewRail(drag: RailDragState(
+        lifted: lifted.id,
+        origin: .before(previewRows[2].id),
+        slot: .before(previewRows[2].id),
+        cardTop: 64,
+        grab: 20,
+    ))
+}
+
+#Preview("Gap two rows down") {
+    let lifted = previewRows[1]
+    previewRail(drag: RailDragState(
+        lifted: lifted.id,
+        origin: .before(previewRows[2].id),
+        slot: .end,
+        cardTop: 180,
+        grab: 20,
+    ))
 }
 
 private struct PreviewRow: Identifiable {

@@ -1,4 +1,5 @@
-import CoreGraphics
+import Foundation
+import SwiftUI
 import Testing
 @testable import DesignSystem
 
@@ -83,5 +84,25 @@ struct RailDragTests {
         #expect(speed(100 + zone / 2) == -top / 4)
         #expect(speed(0) == -top)
         #expect(speed(700 - zone / 4) > speed(700 - zone / 2))
+    }
+}
+
+extension RailDragTests {
+    @Test("A point on the lifted card maps back to where it rests in the row")
+    func resting() {
+        let size = CGSize(width: 360, height: 64)
+        let rest = CGPoint(x: 22, y: 20)
+        let center = CGPoint(x: 180, y: 32)
+        let angle = RailDrag.liftedRotation
+        let scale = RailDrag.liftedScale
+        // Drawn: scaled about the center, rotated about it, then offset.
+        let (x, y) = ((rest.x - center.x) * scale, (rest.y - center.y) * scale)
+        let drawn = CGPoint(
+            x: center.x + x * cos(angle.radians) - y * sin(angle.radians),
+            y: center.y + x * sin(angle.radians) + y * cos(angle.radians) + 90,
+        )
+        let back = RailDrag.resting(drawn, in: size, offset: 90, scale: scale, angle: angle)
+        #expect(abs(back.x - rest.x) < 0.001)
+        #expect(abs(back.y - rest.y) < 0.001)
     }
 }
