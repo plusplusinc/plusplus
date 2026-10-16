@@ -17,8 +17,8 @@ struct RoutineScreen: View {
     /// is spent once its task ends, and a task run again needs a new one.
     @State private var saves: AsyncStream<Routine>.Continuation?
     @State private var isPicking = false
-    /// The row whose values are open in a sheet.
-    @State private var editing: RoutineExercise.ID?
+    /// The row whose values are open in a sheet, as it was when opened: only its id is read.
+    @State private var editing: RoutineExercise?
     @State private var scrollPosition = ScrollPosition()
     /// The row just added, holding its place until it can be seen going in.
     @State private var arriving: RoutineExercise.ID?
@@ -86,7 +86,7 @@ struct RoutineScreen: View {
                         )
                         .railRow()
                         .contentShape(.rect)
-                        .onTapGesture { editing = item.id }
+                        .onTapGesture { editing = item }
                         .accessibilityAddTraits(.isButton)
                         .accessibilityIdentifier("routine.exercise")
                         .swipeActions(edge: .trailing) {
@@ -135,18 +135,10 @@ struct RoutineScreen: View {
                     add(exercise)
                 }
             }
-            .sheet(isPresented: Binding(
-                get: { editing != nil },
-                set: {
-                    if !$0 {
-                        editing = nil
-                    }
-                },
-            )) {
-                if let editing,
-                   let index = routine.exercises.firstIndex(where: { $0.id == editing })
-                {
-                    ExerciseSheet(item: $routine.exercises[index]) { delete(editing) }
+            // By item, so the sheet keeps its content as it slides away.
+            .sheet(item: $editing) { opened in
+                if let item = row(opened.id) {
+                    ExerciseSheet(item: item) { delete(opened.id) }
                 }
             }
             .toolbar {
@@ -211,6 +203,18 @@ struct RoutineScreen: View {
             }
         }
         .hotReloadable()
+    }
+
+    /// The row with this id, bound by id rather than by index, so a sheet still showing it
+    /// never reads past the end of the rows once it is deleted.
+    private func row(_ id: RoutineExercise.ID) -> Binding<RoutineExercise>? {
+        guard let current = routine.exercises.first(where: { $0.id == id }) else { return nil }
+        return Binding {
+            routine.exercises.first { $0.id == id } ?? current
+        } set: { item in
+            guard let index = routine.exercises.firstIndex(where: { $0.id == id }) else { return }
+            routine.exercises[index] = item
+        }
     }
 
     private func delete(_ id: RoutineExercise.ID) {

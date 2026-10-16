@@ -103,6 +103,8 @@ public struct ValueRow: View {
         .opacity(isOpen ? 1 : 0)
         .allowsHitTesting(isOpen)
         .accessibilityHidden(!isOpen)
+        // Once for the pair of keys, so a step plays one tick.
+        .sensoryFeedback(.selection, trigger: value)
         .frame(maxWidth: .infinity)
         .frame(height: isOpen ? nil : 0, alignment: .top)
         .clipped()
@@ -123,7 +125,6 @@ public struct ValueRow: View {
         }
         .buttonStyle(.plain)
         .buttonRepeatBehavior(.enabled)
-        .sensoryFeedback(.selection, trigger: value)
     }
 
     private func step(by direction: Int) {
