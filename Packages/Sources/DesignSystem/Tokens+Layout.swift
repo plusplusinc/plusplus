@@ -15,6 +15,4 @@ public enum Radius {
     public static let sm: CGFloat = 8
     /// A key-shaped button.
     public static let key: CGFloat = 11
-    /// A card, such as a row lifted off its rail.
-    public static let card: CGFloat = 14
 }

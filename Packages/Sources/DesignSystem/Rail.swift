@@ -266,7 +266,7 @@ extension EnvironmentValues {
 /// A row's node, centered in the rail column on the row's first line, as the key's icon is: the
 /// icon, held invisibly in the column, gives it the key's width and baseline at every text size.
 private struct RailNode: View {
-    @ScaledMetric(relativeTo: .body) private var size: CGFloat = 10
+    @ScaledMetric(relativeTo: .body) private var size = railNodeSize
     @ScaledMetric(relativeTo: .body) private var lineWidth = railLineWidth
     @Environment(\.railPlace) private var place
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -310,8 +310,11 @@ private struct NodeCenter: PreferenceKey {
 }
 
 private struct RailRow: ViewModifier {
+    static let space = "RailRow"
     @ScaledMetric(relativeTo: .body) private var minHeight: CGFloat = 64
     @ScaledMetric(relativeTo: .body) private var lineWidth = railLineWidth
+    @ScaledMetric(relativeTo: .body) private var nodeSize = railNodeSize
+    @State private var nodeCenterFromTop: CGFloat = 0
     @Environment(\.railPlace) private var place
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
@@ -319,8 +322,13 @@ private struct RailRow: ViewModifier {
     func body(content: Content) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 0) {
             RailNode()
+                .onGeometryChange(for: CGFloat.self) { proxy in
+                    proxy.frame(in: .named(Self.space)).midY
+                } action: { nodeCenterFromTop = $0 }
             content
                 .padding(.vertical, Spacing.sm)
+                // A lifted card ends as far past the content as its node is below its top.
+                .padding(.trailing, max(nodeCenterFromTop - nodeSize / 2 - railCardOverhang, 0))
                 .frame(minHeight: minHeight, alignment: .top)
                 .opacity(place.isArriving ? 0 : 1)
                 .offset(y: place.isArriving && !reduceMotion ? -Spacing.xs : 0)
@@ -330,6 +338,7 @@ private struct RailRow: ViewModifier {
                 )
                 .committing(when: place.isArriving)
         }
+        .coordinateSpace(.named(Self.space))
         // In the gap, the node and content are on the card.
         .opacity(place.isGap ? 0 : 1)
         // The row's stretch of line, top edge to bottom edge through its node, or from the node
