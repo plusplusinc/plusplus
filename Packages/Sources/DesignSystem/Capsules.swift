@@ -28,7 +28,7 @@ public struct Capsules: View {
         }
         // A new piece pops in, and the ones after it slide over to make room.
         .animation(
-            reduceMotion ? .easeOut(duration: 0.2) : .snappy(duration: 0.4, extraBounce: 0.15),
+            reduceMotion ? .easeOut(duration: 0.2) : .bouncy(duration: 0.4, extraBounce: 0.1),
             value: labels,
         )
         .accessibilityElement(children: .combine)
