@@ -90,11 +90,7 @@ struct RoutineScreen: View {
                         .accessibilityAddTraits(.isButton)
                         .accessibilityIdentifier("routine.exercise")
                         .swipeActions(edge: .trailing) {
-                            Button("Delete", role: .destructive) {
-                                withAnimation(.railChange) {
-                                    routine.exercises.removeAll { $0.id == item.id }
-                                }
-                            }
+                            Button("Delete", role: .destructive) { delete(item.id) }
                         }
                     } end: {
                         Button("Add exercise", systemImage: "plus") {
@@ -147,13 +143,9 @@ struct RoutineScreen: View {
                     }
                 },
             )) {
-                if let index = routine.exercises.firstIndex(where: { $0.id == editing }) {
-                    let id = routine.exercises[index].id
-                    ExerciseSheet(item: $routine.exercises[index]) {
-                        withAnimation(.railChange) {
-                            routine.exercises.removeAll { $0.id == id }
-                        }
-                    }
+                if let editing,
+                   let index = routine.exercises.firstIndex(where: { $0.id == editing }) {
+                    ExerciseSheet(item: $routine.exercises[index]) { delete(editing) }
                 }
             }
             .toolbar {
@@ -218,6 +210,12 @@ struct RoutineScreen: View {
             }
         }
         .hotReloadable()
+    }
+
+    private func delete(_ id: RoutineExercise.ID) {
+        withAnimation(.railChange) {
+            routine.exercises.removeAll { $0.id == id }
+        }
     }
 
     /// Adds a picked exercise. Its row takes its place as the sheet starts down, moving Add

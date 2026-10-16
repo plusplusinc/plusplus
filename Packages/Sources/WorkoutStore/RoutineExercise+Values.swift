@@ -24,11 +24,7 @@ extension RoutineExercise {
         case .sets:
             plan.sets.formatted(.number.locale(locale))
         case .target:
-            switch plan.target {
-            case let .reps(reps): qualified(reps.formatted(.number.locale(locale)), .target)
-            case let .time(seconds):
-                qualified(TimeText.text(seconds: seconds, locale: locale), .target)
-            }
+            qualified(plan.target.number(locale: locale), .target)
         case .weight:
             qualified(plan.weight?.text(locale: locale) ?? "", .weight)
         }
@@ -78,5 +74,15 @@ extension RoutineExercise {
 extension Comparable {
     fileprivate func clamped(to range: ClosedRange<Self>) -> Self {
         min(max(self, range.lowerBound), range.upperBound)
+    }
+}
+
+extension SetTarget {
+    /// The number alone for reps, which its label names, and a time with its unit: "10", "30 s".
+    func number(locale: Locale) -> String {
+        switch self {
+        case let .reps(reps): reps.formatted(.number.locale(locale))
+        case let .time(seconds): TimeText.text(seconds: seconds, locale: locale)
+        }
     }
 }

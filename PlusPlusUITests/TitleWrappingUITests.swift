@@ -77,11 +77,13 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             XCTAssertTrue(time.appears(), "Tapping a row opened no sheet")
             time.tap()
             XCTAssertTrue(app.buttons["Increase"].appears(), "Tapping Time opened no stepper")
-            // Full height, so the audit sees the sheet and not the rail's text it half covers.
+            // Audited expanded: at half height the audit reports the open row's value as
+            // clipped, though it draws in full, as the screenshot shows.
+            attach(named: "sheet-ax5")
             let grabber = app.buttons["Sheet Grabber"]
             grabber.tap()
             XCTAssertEqual(grabber.value(becoming: "Expanded"), "Expanded")
-            attach(named: "sheet-ax5")
+            attach(named: "sheet-expanded-ax5")
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
             app.buttons["Close"].tap()
             XCTAssertTrue(time.disappears(), "Close left the sheet up")
