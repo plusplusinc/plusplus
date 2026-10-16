@@ -63,8 +63,8 @@ run to measure them, since one rewrites the README and the other makes a public 
 quota is spent, `board.sh` prints the reset time and exits; a retry would spend whatever comes
 back.
 
-The `/pr` skill and `docs/ci.md` wait on CI by polling once a minute: a run takes about four
-minutes, so polling faster spends quota and gains nothing.
+The `/pr` skill and `docs/xcode-cloud.md` wait on CI by polling once a minute: a run takes about
+four minutes, so polling faster spends quota and gains nothing.
 
 ## Hooks
 
@@ -166,7 +166,7 @@ minimized. On any other simulator it leaves the settings alone, since that one i
 
 `.claude/settings.json` pre-approves the scripts except `nightly-retro.sh`, which starts an
 unattended Claude Code session; read-only `xcodebuild`, `git`, `gh`, and `asc` commands (plus
-`asc xcode-cloud run`; see `docs/ci.md`); and `simctl`, with `simctl erase`, uploads and
+`asc xcode-cloud run`; see `docs/xcode-cloud.md`); and `simctl`, with `simctl erase`, uploads and
 notarization, and force pushes denied. `simctl erase` takes any device, or `all`, so a wrong
 argument would wipe a person's simulators; `scripts/sim.sh erase-team` erases only "PlusPlus
 Team". The scripts are the gate for building,
