@@ -60,6 +60,18 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
 
         try auditRowsAndPicker(in: app)
         assertAddClearsStartAtTheEnd(in: app, keyboard: keyboard, addExercise: addExercise)
+        XCTContext.runActivity(named: "A row drags at the largest text size") { _ in
+            let rows = app.exerciseRows
+            let (first, last) = (rows.element(boundBy: 0), rows.element(boundBy: 1))
+            // Its card's top, half the held row's height above the finger, clears the first
+            // row's middle. Kept below the bar, where a release would put it back.
+            let bar = app.navigationBars.firstMatch.frame.maxY
+            let target = app.point(x: last.frame.midX, y: max(first.frame.midY, bar + 70))
+            last.liftPoint.holdAndDrag(to: target)
+            let moved = ["Dumbbell bench press", "Kneeling hip flexor stretch"]
+            XCTAssertEqual(reading(app.exerciseNames, becoming: moved, within: 2), moved)
+            attach(named: "reorder-ax5")
+        }
     }
 
     /// Rows, a row's sheet with a stepper open, and the picker, with and without results, pass

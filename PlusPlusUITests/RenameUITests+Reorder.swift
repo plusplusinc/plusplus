@@ -30,7 +30,7 @@ extension RenameUITests {
         XCTContext.runActivity(named: "Holding the node doesn't lift") { _ in
             let before = app.exerciseNames
             first.nodePoint.holdAndDrag(to: first.nodePoint.down(2.2 * height))
-            XCTAssertEqual(order(keeping: before, in: app), before, "A hold on the node moved the row")
+            XCTAssertEqual(order(keeping: before, in: app), before, "A hold on the node moved it")
         }
         releaseOverStartAndAtTheEdge(in: app)
         XCTContext.runActivity(named: "A press that moves first scrolls the list") { _ in

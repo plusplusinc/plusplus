@@ -41,6 +41,20 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
                 XCTAssertTrue(title.inkIsWhite(against: gray), "The generated name came back gray")
                 attach(named: "after-relaunch")
             }
+        XCTContext.runActivity(named: "A moved row keeps its place after a relaunch") { _ in
+            let rows = app.exerciseRows
+            let (first, last) = (rows.element(boundBy: 0), rows.element(boundBy: 2))
+            // Above the first row's middle, so its gap opens above the first row.
+            last.liftPoint.holdAndDrag(to: first.liftPoint.down(-0.2 * first.frame.height))
+            let moved = ["Pull-up", "Barbell bench press", "Pull-up"]
+            XCTAssertEqual(reading(app.exerciseNames, becoming: moved, within: 2), moved)
+            app.relaunch()
+            XCTAssertEqual(app.exerciseRows.allElementsBoundByIndex.map(\.label), [
+                "Pull-up, 3 sets of 8 reps",
+                "Barbell bench press, 3 sets of 5 reps, 45 pounds",
+                "Pull-up, 3 sets of 6 reps",
+            ])
+        }
         try typedNameStays(in: app, title: title, gray: gray)
         XCTContext.runActivity(named: "A typed name survives a relaunch") { _ in
             app.relaunch()
