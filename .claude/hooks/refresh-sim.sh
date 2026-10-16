@@ -23,6 +23,7 @@ BUILT="$ROOT/.build/built-source.tree"
 LOCK="$ROOT/.build/installed-source.lock"
 LOG="$ROOT/.build/installed-source.log"
 CRASH_MARK="$ROOT/.build/crashes-reported"
+FAILED="$ROOT/.build/build-failure-reported"
 SOURCES=(App Packages Config PlusPlus.xcodeproj)
 
 # Only the main checkout drives the maintainer's simulator. A linked worktree, whose .git is a
@@ -97,7 +98,18 @@ report_crashes() {
     echo "$crashes" >&2
 }
 
+# A failure is reported once for the code it failed on: the same tree failing the same way again
+# stays quiet. One that has nothing to do with the code (Xcode finishing an update, a missing
+# simulator runtime) would otherwise wake the agent at the end of every turn until it clears.
 build_failed() {
+    local failure
+    failure="$current $(tail -n 20 "$LOG" | shasum | cut -d ' ' -f 1)"
+    if [ "$failure" = "$(cat "$FAILED" 2> /dev/null || true)" ]; then
+        [ -z "$crashes" ] && exit 0
+        report_crashes
+        exit 2
+    fi
+    echo "$failure" > "$FAILED"
     echo "The app no longer builds; the simulator still runs the last code that did." >&2
     tail -n 20 "$LOG" >&2
     report_crashes
@@ -125,12 +137,14 @@ while current=$(source_tree) && installed=$(cat "$STAMP" 2> /dev/null || true) \
         if [ -n "$REPORT" ] && [ "$current" != "$(cat "$BUILT" 2> /dev/null || true)" ]; then
             "$ROOT/scripts/build.sh" > "$LOG" 2>&1 || build_failed
             echo "$current" > "$BUILT"
+            rm -f "$FAILED"
         fi
         break
     fi
     if "$ROOT/scripts/run.sh" > "$LOG" 2>&1; then
         echo "$current" > "$STAMP"
         app_pid > "$LAUNCHED"
+        rm -f "$FAILED"
     elif [ -n "$REPORT" ]; then
         build_failed
     else

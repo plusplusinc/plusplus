@@ -19,6 +19,10 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   `AttributedString.monoNumbers(_:font:)`; the words around them stay in the system font.
 - Every font token scales with Dynamic Type: built on a `Font.TextStyle`, or sized with
   `@ScaledMetric(relativeTo:)` when the design sits between two styles. Never a fixed size.
+- Let the system wrap text and measure what it laid out (a hidden copy, or the view's own
+  layout); never work wraps or line counts out from character widths, which emoji, CJK, and
+  glyphs SF Mono lacks break. The title's `_` still finds its place from a monospaced cell
+  (`cursorCell(at:in:columns:)`), assuming every character is one cell wide.
 - Prefer stock components for navigation, toolbars, and sheets; the system applies Liquid Glass
   there. Do not set `UIDesignRequiresCompatibility`.
 - Every tappable element that is not a `Button` gets `.accessibilityAddTraits(.isButton)`;

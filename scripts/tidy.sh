@@ -14,13 +14,21 @@
 #   scripts/tidy.sh --dry-run  # print what would be removed
 set -euo pipefail
 
+DRY_RUN=0
+case "${1:-}" in
+    "") ;;
+    --dry-run) DRY_RUN=1 ;;
+    *)
+        echo "usage: scripts/tidy.sh [--dry-run]" >&2
+        exit 64
+        ;;
+esac
+
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$ROOT"
 # Only the main checkout tidies. A linked worktree, whose .git is a file, may be the thing to remove.
 [ -d .git ] || exit 0
 
-DRY_RUN=0
-[ "${1:-}" = "--dry-run" ] && DRY_RUN=1
 FRESH_SECONDS=$((24 * 60 * 60))
 
 git fetch --quiet --prune origin
@@ -74,6 +82,12 @@ while IFS=$'\t' read -r path branch; do
         { in_main "$tip" && [ "$(idle_seconds "$path")" -gt "$FRESH_SECONDS" ]; }; then
         run git worktree remove "$path"
         freed+=("$branch")
+    elif prs=$(awk -v b="$branch" '$1 == b { print "#" $3 }' <<< "$MERGED" | paste -sd, -) &&
+        [ -n "$prs" ]; then
+        # A conflict resolved while GitHub rebased the PR changes a patch, so nothing here can
+        # prove the work landed. Say so rather than keep it silently.
+        echo "tidy: kept $path: $prs merged, but its head lacks a patch from here;" \
+            "compare them, then remove it by hand"
     fi
 done < <(git worktree list --porcelain |
     awk '/^worktree /{path=substr($0,10)} /^branch /{print path "\t" substr($0,19)} /^detached/{print path "\t"}')
