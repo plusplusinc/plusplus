@@ -14,6 +14,16 @@ public enum Load: Sendable {
     case pair
     /// A barbell: the weight is the total, bar included.
     case bar
+
+    /// One step of its weight: 5 lb; in kilograms, 2.5 for a bar's plates and 2 for a
+    /// dumbbell or kettlebell, the steps their starting weights come in.
+    func step(in unit: WeightUnit) -> Double {
+        switch (unit, self) {
+        case (.pounds, _): 5
+        case (.kilograms, .bar): 2.5
+        case (.kilograms, .single), (.kilograms, .pair): 2
+        }
+    }
 }
 
 /// The unit a weight was set in. Stored with every weight, so a weight never changes meaning.
@@ -26,13 +36,6 @@ public enum WeightUnit: String, Sendable {
         self = locale.measurementSystem == .us ? .pounds : .kilograms
     }
 
-    /// One step of a weight: 5 lb or 2.5 kg.
-    var step: Double {
-        switch self {
-        case .pounds: 5
-        case .kilograms: 2.5
-        }
-    }
 }
 
 public struct Weight: Equatable, Sendable {

@@ -47,7 +47,7 @@ extension StoredRoutineExercise {
     }
 
     private var storedWeight: Weight? {
-        guard let weight, weight > 0, let weightUnit else { return nil }
+        guard let weight, PlanLimits.weight.contains(weight), let weightUnit else { return nil }
         guard let unit = WeightUnit(rawValue: weightUnit) else {
             Logger.storage
                 .error("Read an unknown weight unit \(weightUnit, privacy: .public) as the default")

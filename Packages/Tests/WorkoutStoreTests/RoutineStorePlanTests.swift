@@ -110,6 +110,18 @@ struct RoutineStorePlanTests {
         #expect(try plan == Exercise.builtIn(named: "Goblet squat").defaultPlan(in: .pounds))
     }
 
+    @Test("A weight heavier than a stepper reaches reads as the default")
+    func tooHeavy() async throws {
+        try await storedRow("Goblet squat") { row in
+            row.weight = 1005
+            row.weightUnit = "lb"
+        }
+        let plan = try #require(try await relaunch().launchRoutine(weightUnit: .pounds)?.exercises
+            .first?.plan)
+        #expect(try plan.weight == Exercise.builtIn(named: "Goblet squat").defaultPlan(in: .pounds)
+            .weight)
+    }
+
     @Test("A weight stored on an exercise with no load is not shown")
     func noLoadNoWeight() async throws {
         try await storedRow("Push-up") { row in

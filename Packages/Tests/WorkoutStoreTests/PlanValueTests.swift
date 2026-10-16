@@ -41,22 +41,31 @@ struct PlanValueTests {
         #expect(stretch.spokenValue(of: .target, locale: Self.locale) == "60 seconds per side")
     }
 
-    @Test("A step moves a set or a rep by one, a time by 5 s, a weight by its unit's step")
+    @Test("A step moves a set or a rep by one, a time by 5 s, a weight by its load's step")
     func steps() throws {
         var row = try Self.row("Biceps curl")
         row.step(.sets, by: 1)
         row.step(.target, by: -1)
         row.step(.weight, by: 1)
         #expect(row.plan == ExercisePlan(sets: 4, target: .reps(11), weight: Weight(20, .pounds)))
-        var kilograms = try RoutineExercise(
-            exercise: Exercise.builtIn(named: "Goblet squat"),
-            weightUnit: .kilograms,
-        )
-        kilograms.step(.weight, by: 1)
-        #expect(kilograms.plan.weight == Weight(18.5, .kilograms))
         var plank = try Self.row("Plank")
         plank.step(.target, by: 1)
         #expect(plank.plan.target == .time(seconds: 35))
+    }
+
+    @Test("In kilograms a hand-held weight steps 2 kg, as its kit comes, and a bar 2.5 kg")
+    func kilogramSteps() throws {
+        func stepped(_ name: String) throws -> Weight? {
+            var row = try RoutineExercise(
+                exercise: Exercise.builtIn(named: name),
+                weightUnit: .kilograms,
+            )
+            row.step(.weight, by: 1)
+            return row.plan.weight
+        }
+        #expect(try stepped("Overhead press") == Weight(8, .kilograms))
+        #expect(try stepped("Goblet squat") == Weight(18, .kilograms))
+        #expect(try stepped("Barbell row") == Weight(22.5, .kilograms))
     }
 
     @Test("Steps stop at the stored limits, a time at 5 s, a weight at a step, a bar empty")
@@ -66,29 +75,57 @@ struct PlanValueTests {
             $0.target = .reps(1)
             $0.weight = Weight(5, .pounds)
         }
-        low.step(.sets, by: -1)
-        low.step(.target, by: -1)
-        low.step(.weight, by: -1)
+        for part in low.exercise.planParts {
+            #expect(!low.canStep(part, by: -1))
+            #expect(low.canStep(part, by: 1))
+            low.step(part, by: -1)
+        }
         #expect(low.plan == ExercisePlan(sets: 1, target: .reps(1), weight: Weight(5, .pounds)))
 
         var high = try Self.row("Goblet squat") {
             $0.sets = 99
             $0.target = .reps(999)
+            $0.weight = Weight(995, .pounds)
         }
-        high.step(.sets, by: 1)
-        high.step(.target, by: 1)
-        #expect(high.plan.sets == 99)
-        #expect(high.plan.target == .reps(999))
+        for part in high.exercise.planParts {
+            high.step(part, by: 1)
+            #expect(!high.canStep(part, by: 1))
+            high.step(part, by: 1)
+        }
+        #expect(high.plan == ExercisePlan(sets: 99, target: .reps(999), weight: Weight(1000, .pounds)))
+        #expect(high.canStep(.weight, by: -1))
 
         var plank = try Self.row("Plank") { $0.target = .time(seconds: 5) }
+        #expect(!plank.canStep(.target, by: -1))
         plank.step(.target, by: -1)
         #expect(plank.plan.target == .time(seconds: 5))
         plank.plan.target = .time(seconds: 5999)
+        #expect(!plank.canStep(.target, by: 1))
         plank.step(.target, by: 1)
         #expect(plank.plan.target == .time(seconds: 5999))
 
         var bar = try Self.row("Barbell row")
+        #expect(!bar.canStep(.weight, by: -1))
         bar.step(.weight, by: -1)
         #expect(bar.plan.weight == Weight(45, .pounds))
+    }
+
+    @Test("A stepper's ends are values a plan can be stored with")
+    func limitsAreStorable() throws {
+        var plank = try Self.row("Plank") { $0.target = .time(seconds: 10) }
+        plank.step(.target, by: -1)
+        plank.step(.target, by: -1)
+        #expect(plank.plan.target == .time(seconds: 5))
+        #expect(PlanLimits.seconds.contains(5))
+        for unit in [WeightUnit.pounds, .kilograms] {
+            for name in ["Overhead press", "Goblet squat", "Barbell row"] {
+                var row = try RoutineExercise(exercise: Exercise.builtIn(named: name), weightUnit: unit)
+                while row.canStep(.weight, by: -1) {
+                    row.step(.weight, by: -1)
+                }
+                let weight = try #require(row.plan.weight)
+                #expect(PlanLimits.weight.contains(weight.amount), "\(name) in \(unit)")
+            }
+        }
     }
 }

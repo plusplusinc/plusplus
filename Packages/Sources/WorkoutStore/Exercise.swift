@@ -59,7 +59,7 @@ public struct Exercise: Identifiable, Equatable, Sendable {
         switch load {
         case nil: nil
         case .bar: .emptyBar(unit)
-        case .single, .pair: startsAt?.weight(in: unit) ?? Weight(unit.step, unit)
+        case let .some(load): startsAt?.weight(in: unit) ?? Weight(load.step(in: unit), unit)
         }
     }
 
