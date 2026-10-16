@@ -3,7 +3,7 @@ import SwiftUI
 import WorkoutStore
 
 /// A routine row's values, one row for each part its exercise has: the label leading, the value
-/// on a rounded key trailing, each row on its own rounded fill. Tapping a value opens a stepper
+/// trailing, each row on its own rounded fill. Tapping a value opens a stepper
 /// inside its row, under the value, one at a time. Changes apply as they're made; Delete is in
 /// the menu.
 struct ExerciseSheet: View {
@@ -79,10 +79,6 @@ struct ExerciseSheet: View {
                     .foregroundStyle(.pp(.textPrimary))
                     .padding(.horizontal, Spacing.md - Spacing.xs)
                     .padding(.vertical, Spacing.sm)
-                    .background(
-                        Color.pp(open == part ? .borderStrong : .rail),
-                        in: .rect(cornerRadius: Radius.key),
-                    )
             }
             .buttonStyle(.plain)
             .accessibilityHint(open == part ? "Closes the stepper." : "Opens a stepper.")
