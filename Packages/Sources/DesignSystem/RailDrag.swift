@@ -38,8 +38,6 @@ nonisolated enum RailDrag {
     static let lift = Animation.snappy(duration: 0.18)
     static let liftedScale: CGFloat = 1.03
     static let liftedRotation = Angle.degrees(-0.6)
-    static let shadowRadius: CGFloat = 16
-    static let shadowY: CGFloat = 14
 
     /// The rows moving aside as the gap goes to a new slot: quicker than `.railChange`.
     static let gap = Animation.snappy(duration: 0.2)

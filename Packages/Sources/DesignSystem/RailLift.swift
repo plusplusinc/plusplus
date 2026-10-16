@@ -34,8 +34,7 @@ extension View {
 }
 
 /// The held row's card: it appears at rest over its row and rises, a little larger and turned,
-/// over a shadow, its node in the color of the text. Released, it lowers to look like the row
-/// at rest.
+/// its node in the color of the text. Released, it lowers to look like the row at rest.
 struct CardLook: ViewModifier {
     let isReleased: Bool
     @State private var hasRisen = false
@@ -54,8 +53,8 @@ struct CardLook: ViewModifier {
     }
 }
 
-/// A held row's card: raised off the screen, it bleeds past the row on both sides, with a grip
-/// at its trailing edge. At rest, it is not drawn.
+/// A held row's card: a raised fill, with no shadow or border, that bleeds past the row on both
+/// sides, with a grip at its trailing edge. At rest, it is not drawn.
 struct LiftedCard: View {
     let isLifted: Bool
     @ObserveHotReload private var hotReload
@@ -63,7 +62,6 @@ struct LiftedCard: View {
     var body: some View {
         RoundedRectangle(cornerRadius: Radius.card)
             .fill(.pp(.surfaceRaised))
-            .stroke(.pp(.borderStrong), lineWidth: 1)
             .overlay(alignment: .trailing) {
                 Image(systemName: "line.2.horizontal")
                     .font(.ppButton)
@@ -72,11 +70,6 @@ struct LiftedCard: View {
                     .accessibilityHidden(true)
             }
             .padding(.horizontal, -Spacing.sm)
-            .shadow(
-                color: .pp(.shadow),
-                radius: isLifted ? RailDrag.shadowRadius : 0,
-                y: isLifted ? RailDrag.shadowY : 0,
-            )
             .opacity(isLifted ? 1 : 0)
             .hotReloadable()
     }

@@ -20,11 +20,9 @@ public enum ColorToken: String, CaseIterable, Sendable {
     /// Something joining a rail, for the moment it joins: an added row's node draws in it, then
     /// settles to `borderStrong`. Never at rest, and never the line.
     case railJoin = "ppRailJoin"
-    /// The shadow under something lifted off the screen, such as a row held to be moved.
-    case shadow = "ppShadow"
     case surface = "ppSurface"
     /// The fill of something lifted off the screen, such as a row held to be moved: lighter
-    /// than `surface`, as if nearer the light.
+    /// than `surface`, as if nearer the light, and with no shadow or border.
     case surfaceRaised = "ppSurfaceRaised"
     case textPrimary = "ppTextPrimary"
     /// Placeholder text: the default title while it is being edited.
