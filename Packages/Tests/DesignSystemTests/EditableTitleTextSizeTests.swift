@@ -73,6 +73,7 @@ struct EditableTitleTextSizeTests {
                 }
                 last = height
             }
+            Issue.record("The title's height never settled; last \(last)")
             return last
         }
 
@@ -82,6 +83,18 @@ struct EditableTitleTextSizeTests {
                 view.isFirstResponder || view.subviews.contains(where: focused(in:))
             }
             return focused(in: host.view)
+        }
+
+        /// The height fresh at `category`, the window then taken off screen so that it holds no
+        /// focus while the next one is measured.
+        static func freshHeight(
+            _ draft: String,
+            isEditing: Bool,
+            at category: UIContentSizeCategory,
+        ) -> CGFloat {
+            let screen = Screen(draft, isEditing: isEditing, at: category)
+            defer { screen.window.isHidden = true }
+            return screen.height()
         }
 
         func change(to category: UIContentSizeCategory) {
@@ -95,8 +108,8 @@ struct EditableTitleTextSizeTests {
         from start: UIContentSizeCategory,
         via other: UIContentSizeCategory,
     ) {
-        let fresh = Screen(draft, isEditing: isEditing, at: other).height()
-        let freshStart = Screen(draft, isEditing: isEditing, at: start).height()
+        let fresh = Screen.freshHeight(draft, isEditing: isEditing, at: other)
+        let freshStart = Screen.freshHeight(draft, isEditing: isEditing, at: start)
         let screen = Screen(draft, isEditing: isEditing, at: start)
         _ = screen.height()
         #expect(screen.isFocused == isEditing)
