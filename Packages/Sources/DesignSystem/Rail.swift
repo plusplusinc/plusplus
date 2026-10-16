@@ -121,8 +121,13 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         // move toward each other, so their own stretches, each moving with its row, would part at
         // the pair's outer edges until the rows settle.
         .backgroundPreferenceValue(RailNodes.self) { nodes in
-            if drag != nil {
-                DragLine(nodes: nodes)
+            if let drag {
+                DragLine(
+                    nodes: nodes,
+                    cardOffset: cardTop - (gapTop(lifting: drag.lifted, at: drag.slot) ?? cardTop),
+                    isGapFirst: shown.first?.id == drag.lifted,
+                    isGapLast: shown.last?.id == drag.lifted,
+                )
             }
         }
         .coordinateSpace(.named(RailDrag.space))

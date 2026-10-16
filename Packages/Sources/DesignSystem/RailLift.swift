@@ -100,19 +100,30 @@ struct RailNodes: PreferenceKey {
 
 /// The line from the first node to the last, drawn once under the rows while one is held. Its
 /// ends are where the nodes are once the rows settle, and they move in the gap's transaction.
+///
+/// With the gap at an end of the rail, its node is hidden and the card is over it, a little above
+/// or below as the finger has it. Moved in from that end, the card would leave a stub of line
+/// past its edge, so the line ends at the card's node instead: it never shows past the card.
 struct DragLine: View {
     let nodes: [Anchor<CGPoint>]
+    /// How far below its gap the card is.
+    var cardOffset: CGFloat = 0
+    var isGapFirst = false
+    var isGapLast = false
     @ScaledMetric(relativeTo: .body) private var lineWidth = railLineWidth
+    @ObserveHotReload private var hotReload
 
     var body: some View {
         GeometryReader { proxy in
             if let first = nodes.first, let last = nodes.last {
-                let (top, bottom) = (proxy[first], proxy[last])
+                let top = proxy[first].y + (isGapFirst ? max(cardOffset, 0) : 0)
+                let bottom = proxy[last].y + (isGapLast ? min(cardOffset, 0) : 0)
                 Rectangle()
                     .fill(.pp(.rail))
-                    .frame(width: lineWidth, height: max(bottom.y - top.y, 0))
-                    .position(x: top.x, y: (top.y + bottom.y) / 2)
+                    .frame(width: lineWidth, height: max(bottom - top, 0))
+                    .position(x: proxy[first].x, y: (top + bottom) / 2)
             }
         }
+        .hotReloadable()
     }
 }
