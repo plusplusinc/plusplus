@@ -166,8 +166,11 @@ a {{ display: block; margin-top: 32px; padding: 16px; border-radius: 11px; backg
 PYTHON
 
     # Keep the newest two builds; the deploy replaces every asset, so the rest stop being served.
-    local old
-    ls -dt "$SITE"/site/*/ | tail -n +3 | while IFS= read -r old; do rm -rf "$old"; done
+    # The older ones are set aside, not deleted, until the deploy succeeds, so a failed deploy
+    # leaves the staged builds as they were.
+    local old held
+    held=$(mktemp -d "$SITE/held.XXXXXX")
+    ls -dt "$SITE"/site/*/ | tail -n +3 | while IFS= read -r old; do mv "$old" "$held/"; done
 
     # Static assets get no content type for extensions the Worker doesn't know; these are the
     # ones Apple's over-the-air install expects.
@@ -192,9 +195,12 @@ JSON
     if ! (cd "$SITE" && wrangler deploy > "$SITE/deploy.log" 2>&1); then
         cat "$SITE/deploy.log" >&2
         echo "wrangler deploy failed" >&2
+        for old in "$held"/*/; do [ -d "$old" ] && mv "$old" "$SITE/site/"; done
+        rmdir "$held"
         return 1
     fi
     UNDEPLOYED=""
+    rm -rf "$held"
 
     # New assets can take about a minute to reach every edge.
     local manifest="https://$host/$token/manifest.plist" deadline=$((SECONDS + 120))
