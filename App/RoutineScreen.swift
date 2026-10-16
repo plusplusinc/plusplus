@@ -114,6 +114,7 @@ struct RoutineScreen: View {
                 .padding(.top, Spacing.sm)
             }
             .scrollPosition($scrollPosition)
+            .railAutoscroll($scrollPosition)
             .onScrollGeometryChange(for: ScrollGeometry.self, of: { $0 }, action: keepEndInView)
             .onScrollPhaseChange { _, phase in
                 isScrollingByHand = phase == .interacting || phase == .decelerating

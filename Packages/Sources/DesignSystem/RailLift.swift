@@ -19,7 +19,7 @@ extension View {
     func liftable(
         isEnabled: Bool,
         columnWidth: CGFloat,
-        onPhase: @escaping (RailDrag.Phase, CGFloat) -> Void,
+        onPhase: @escaping (RailDrag.Phase, RailDrag.Finger) -> Void,
     ) -> some View {
         #if os(iOS)
         gesture(RailLiftGesture(

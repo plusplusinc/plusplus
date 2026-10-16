@@ -37,8 +37,12 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     @State private var heights: [RowID: CGFloat] = [:]
     /// The rail column's width, where a press lifts nothing.
     @State private var columnWidth: CGFloat = 0
+    /// The held finger's y in the rail's space.
+    @State private var fingerY: CGFloat = 0
     @State private var lifts = 0
     @State private var ticks = 0
+    /// The scroll view's edges, when it scrolls for a held row (`railAutoscroll`).
+    @Environment(\.railEdges) private var edges
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
@@ -181,32 +185,39 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         candidates(lifting: lifted).first { $0.slot == slot }?.gapTop
     }
 
-    private func dragged(_ id: RowID, _ phase: RailDrag.Phase, at fingerY: CGFloat) {
+    private func dragged(_ id: RowID, _ phase: RailDrag.Phase, at finger: RailDrag.Finger) {
         switch phase {
         case .began:
             guard drag == nil, let index = data.firstIndex(where: { $0.id == id }) else { return }
             let own = candidates(lifting: id)[data.distance(from: data.startIndex, to: index)]
             cardTop = own.gapTop
+            fingerY = finger.inRail
             drag = RailDragState(
                 lifted: id,
                 origin: own.slot,
                 slot: own.slot,
-                grab: fingerY - own.gapTop,
+                grab: finger.inRail - own.gapTop,
             )
             lifts += 1
+            edges?.fingerY = finger.onScreen
+            // The list scrolling under a still finger moves the finger through the rows.
+            edges?.onScroll = { distance in
+                fingerY += distance
+                follow(id)
+            }
+            edges?.isHeld = true
         case .changed:
-            guard let held = drag, held.lifted == id, !held.isReleased else { return }
-            cardTop = fingerY - held.grab
-            let slot = RailDrag.candidate(
-                for: cardTop,
-                in: candidates(lifting: id),
-                current: held.slot,
-            )
-            guard slot != held.slot else { return }
-            withAnimation(reduceMotion ? nil : RailDrag.gap) { drag?.slot = slot }
-            ticks += 1
+            guard drag?.lifted == id else { return }
+            fingerY = finger.inRail
+            edges?.fingerY = finger.onScreen
+            follow(id)
         case .ended:
             guard let dropped = drag, dropped.lifted == id, !dropped.isReleased else { return }
+            letGo()
+            // Let go over a bar, or past the screen's edge, the row goes back.
+            if edges?.isOutside(finger.onScreen) == true {
+                return settle(dropped, at: dropped.origin, with: RailDrag.cancel) { }
+            }
             settle(dropped, at: dropped.slot, with: RailDrag.drop) {
                 if dropped.slot != dropped.origin {
                     onMove?(id, dropped.slot)
@@ -215,8 +226,25 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         case .cancelled:
             guard let cancelled = drag, cancelled.lifted == id, !cancelled.isReleased
             else { return }
+            letGo()
             settle(cancelled, at: cancelled.origin, with: RailDrag.cancel) { }
         }
+    }
+
+    /// Puts the held card under the finger, and opens the gap where it would land.
+    private func follow(_ id: RowID) {
+        guard let held = drag, held.lifted == id, !held.isReleased else { return }
+        cardTop = fingerY - held.grab
+        let slot = RailDrag.candidate(for: cardTop, in: candidates(lifting: id), current: held.slot)
+        guard slot != held.slot else { return }
+        withAnimation(reduceMotion ? nil : RailDrag.gap) { drag?.slot = slot }
+        ticks += 1
+    }
+
+    /// Stops the list scrolling for the finger.
+    private func letGo() {
+        edges?.isHeld = false
+        edges?.onScroll = nil
     }
 
     /// Lets the held row go at `slot`: the card lowers into the gap there as `move` reorders the

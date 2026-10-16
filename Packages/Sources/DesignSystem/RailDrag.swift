@@ -25,6 +25,12 @@ nonisolated enum RailDrag {
         case cancelled
     }
 
+    /// Where the held finger is: its y in the rail's space, and on screen.
+    struct Finger {
+        var inRail: CGFloat
+        var onScreen: CGFloat
+    }
+
     /// The rail's coordinate space, in which the gesture reports where the finger is.
     static let space = "rail"
 

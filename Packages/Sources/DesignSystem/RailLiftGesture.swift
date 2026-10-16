@@ -16,8 +16,8 @@ struct RailLiftGesture: UIGestureRecognizerRepresentable {
     var isEnabled: Bool
     /// How wide the rail column is, where a press lifts nothing.
     var columnWidth: CGFloat
-    /// Each step of the drag, with the finger's y in the rail's space.
-    var onPhase: (RailDrag.Phase, CGFloat) -> Void
+    /// Each step of the drag, with where the finger is.
+    var onPhase: (RailDrag.Phase, RailDrag.Finger) -> Void
 
     func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator {
         Coordinator(converter: converter)
@@ -43,12 +43,15 @@ struct RailLiftGesture: UIGestureRecognizerRepresentable {
         _ recognizer: UILongPressGestureRecognizer,
         context: Context,
     ) {
-        let y = context.converter.location(in: .named(RailDrag.space)).y
+        let finger = RailDrag.Finger(
+            inRail: context.converter.location(in: .named(RailDrag.space)).y,
+            onScreen: context.converter.location(in: .global).y,
+        )
         switch recognizer.state {
-        case .began: onPhase(.began, y)
-        case .changed: onPhase(.changed, y)
-        case .ended: onPhase(.ended, y)
-        case .cancelled, .failed: onPhase(.cancelled, y)
+        case .began: onPhase(.began, finger)
+        case .changed: onPhase(.changed, finger)
+        case .ended: onPhase(.ended, finger)
+        case .cancelled, .failed: onPhase(.cancelled, finger)
         default: break
         }
     }
