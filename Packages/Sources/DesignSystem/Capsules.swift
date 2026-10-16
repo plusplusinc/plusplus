@@ -3,9 +3,14 @@ import SwiftUI
 /// Short labels on capsules, left to right, wrapping onto as many lines as they need.
 public struct Capsules: View {
     private let labels: [String]
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     public init(_ labels: [String]) {
         self.labels = labels
+    }
+
+    private var entrance: AnyTransition {
+        reduceMotion ? .opacity : .scale(scale: 0.4).combined(with: .opacity)
     }
 
     public var body: some View {
@@ -17,8 +22,11 @@ public struct Capsules: View {
                     .padding(.horizontal, Spacing.md - Spacing.xs)
                     .padding(.vertical, Spacing.xs + Spacing.xxs)
                     .background(Color.pp(.surface), in: .capsule)
+                    .transition(entrance)
             }
         }
+        // A new piece pops in, and the ones after it slide over to make room.
+        .animation(reduceMotion ? .easeOut(duration: 0.2) : .bouncy(duration: 0.4, extraBounce: 0.1), value: labels)
         .accessibilityElement(children: .combine)
     }
 }

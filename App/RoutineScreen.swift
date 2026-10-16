@@ -74,6 +74,7 @@ struct RoutineScreen: View {
                     let equipment = routine.exercises.map(\.exercise).equipment
                     if !equipment.isEmpty {
                         Capsules(equipment.map(\.name))
+                            .transition(.opacity)
                     }
                     Rail(routine.exercises, arriving: arriving) { item in
                         RowLabel(
