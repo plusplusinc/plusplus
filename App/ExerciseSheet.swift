@@ -117,17 +117,21 @@ struct ExerciseSheet: View {
         _ part: PlanPart,
         by direction: Int,
     ) -> some View {
-        Button(title, systemImage: image) {
+        Button {
             withAnimation(.snappy(duration: 0.15)) {
                 step(part, by: direction)
             }
+        } label: {
+            // The whole key is the button, not just its glyph.
+            Label(title, systemImage: image)
+                .labelStyle(.iconOnly)
+                .font(.ppButton)
+                .foregroundStyle(.pp(.textPrimary))
+                .frame(maxWidth: .infinity, minHeight: 60)
+                .background(Color.pp(.background), in: .rect(cornerRadius: Radius.key))
+                .contentShape(.rect(cornerRadius: Radius.key))
         }
-        .labelStyle(.iconOnly)
-        .font(.ppButton)
-        .foregroundStyle(.pp(.textPrimary))
-        .frame(maxWidth: .infinity, minHeight: 60)
-        .background(Color.pp(.background), in: .rect(cornerRadius: Radius.key))
-        .contentShape(.rect)
+        .buttonStyle(.plain)
         .buttonRepeatBehavior(.enabled)
         .sensoryFeedback(.selection, trigger: value(of: part))
     }
