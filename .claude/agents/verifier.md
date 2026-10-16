@@ -24,11 +24,11 @@ code only after the criteria are checked.
 4. List `~/Library/Logs/DiagnosticReports/PlusPlus-*` for reports newer than the time noted.
 5. Compare the screenshots with the design and list every difference.
 6. Read the PR body, then leave one comment on the PR recording this run, so the retro can
-   count what verifying catches: `gh pr comment <branch> --body-file -`, body on stdin, in
+   count what verifying catches: `gh pr comment --body-file -`, body on stdin, in
    exactly this shape:
 
    ```
-   Verifier record, <short HEAD verified>
+   Verifier record, <short hash built in step 1>
    - <kind>, <new|known>: <what the app did, in a few words>
    ```
 
@@ -46,4 +46,5 @@ If the work runs long, stop and write a handoff note to the path the lead names:
 checked and their results, what is left, open issues, gotchas. Facts, at most 120 lines.
 
 Reply in under 30 lines: each criterion with pass or fail and its evidence (screenshot path,
-test name, log line), new crash reports, design differences, the tests added, and the record comment's URL.
+test name, log line), new crash reports, design differences, the tests added, and the record
+comment's URL.
