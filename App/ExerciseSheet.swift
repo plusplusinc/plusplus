@@ -61,32 +61,36 @@ struct ExerciseSheet: View {
         .hotReloadable()
     }
 
-    /// The whole row is the button that opens and closes its stepper.
+    /// The whole row opens and closes its stepper. It's a tap, not a `Button`: a button's label
+    /// trailed its row's fill by a quarter second as rows above it opened or closed.
     private func partRow(_ part: PlanPart) -> some View {
-        Button {
-            withAnimation(Self.motion) {
-                open = open == part ? nil : part
-            }
-        } label: {
-            HStack {
-                Text(label(of: part))
-                    .font(.ppRowTitle)
-                    .foregroundStyle(.pp(.textPrimary))
-                Spacer()
-                Text(value(of: part))
-                    .font(.ppRowTitle)
-                    .monospacedDigit()
-                    .contentTransition(.numericText())
-                    .foregroundStyle(.pp(.textPrimary))
-                    .padding(.horizontal, Spacing.md - Spacing.xs)
-                    .padding(.vertical, Spacing.sm)
-            }
-            .padding(.leading, Spacing.md)
-            .padding([.vertical, .trailing], Self.inset)
-            .contentShape(.rect)
+        HStack {
+            Text(label(of: part))
+                .font(.ppRowTitle)
+                .foregroundStyle(.pp(.textPrimary))
+            Spacer()
+            Text(value(of: part))
+                .font(.ppRowTitle)
+                .monospacedDigit()
+                .contentTransition(.numericText())
+                .foregroundStyle(.pp(.textPrimary))
+                .padding(.horizontal, Spacing.md - Spacing.xs)
+                .padding(.vertical, Spacing.sm)
         }
-        .buttonStyle(.plain)
+        .padding(.leading, Spacing.md)
+        .padding([.vertical, .trailing], Self.inset)
+        .contentShape(.rect)
+        .onTapGesture { toggle(part) }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { toggle(part) }
         .accessibilityHint(open == part ? "Closes the stepper." : "Opens a stepper.")
+    }
+
+    private func toggle(_ part: PlanPart) {
+        withAnimation(Self.motion) {
+            open = open == part ? nil : part
+        }
     }
 
     /// The stepper under a row's value, always laid out: the region shows only as much of it as
