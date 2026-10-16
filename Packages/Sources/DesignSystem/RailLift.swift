@@ -33,9 +33,6 @@ extension View {
     }
 }
 
-/// A node's diameter at the default text size.
-let railNodeSize: CGFloat = 10
-
 /// The held row's card: it appears at rest over its row and rises, a little larger and turned,
 /// its node in the color of the text. Released, it lowers to look like the row at rest.
 struct CardLook: ViewModifier {
