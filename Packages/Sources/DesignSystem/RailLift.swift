@@ -36,11 +36,6 @@ extension View {
 /// A node's diameter at the default text size.
 let railNodeSize: CGFloat = 10
 
-/// How far a lifted card reaches past its row's trailing edge: a row's content stops short of
-/// the edge by the card's inset less this, so the card keeps that inset past the content while
-/// it stays, scaled and turned, inside the screen.
-let railCardOverhang = Spacing.xs
-
 /// The held row's card: it appears at rest over its row and rises, a little larger and turned,
 /// its node in the color of the text. Released, it lowers to look like the row at rest.
 struct CardLook: ViewModifier {
@@ -66,9 +61,10 @@ struct CardLook: ViewModifier {
 }
 
 /// A held row's card: a raised fill, with no shadow or border. Its node sits as far in from the
-/// leading edge as from the top, and the content's end as far in from the trailing edge, and its
-/// corners are concentric with the node: their radius is that inset plus the node's. It is as
-/// tall as the row. At rest, it is not drawn.
+/// leading edge as from the top, and its corners are concentric with the node: their radius is
+/// that inset plus the node's. It is centered on the row, so on a screen whose rows are, its
+/// edges are as far from the screen's, and the row's content stops that inset short of its
+/// trailing edge. It is as tall as the row. At rest, it is not drawn.
 struct LiftedCard: View {
     let node: Anchor<CGPoint>
     let isLifted: Bool
@@ -81,7 +77,7 @@ struct LiftedCard: View {
             let radius = nodeSize / 2
             let inset = center.y - radius
             let leading = center.x - radius - inset
-            let trailing = proxy.size.width + railCardOverhang
+            let trailing = proxy.size.width - leading
             // Circular, not continuous, so each corner's arc shares the node's center.
             RoundedRectangle(cornerRadius: inset + radius, style: .circular)
                 .fill(.pp(.surfaceRaised))

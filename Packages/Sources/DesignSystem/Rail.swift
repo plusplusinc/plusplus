@@ -314,7 +314,7 @@ private struct RailRow: ViewModifier {
     @ScaledMetric(relativeTo: .body) private var minHeight: CGFloat = 64
     @ScaledMetric(relativeTo: .body) private var lineWidth = railLineWidth
     @ScaledMetric(relativeTo: .body) private var nodeSize = railNodeSize
-    @State private var nodeCenterFromTop: CGFloat = 0
+    @State private var nodeLeading: CGFloat = 0
     @Environment(\.railPlace) private var place
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
@@ -323,12 +323,12 @@ private struct RailRow: ViewModifier {
         HStack(alignment: .firstTextBaseline, spacing: 0) {
             RailNode()
                 .onGeometryChange(for: CGFloat.self) { proxy in
-                    proxy.frame(in: .named(Self.space)).midY
-                } action: { nodeCenterFromTop = $0 }
+                    proxy.frame(in: .named(Self.space)).midX - nodeSize / 2
+                } action: { nodeLeading = $0 }
             content
                 .padding(.vertical, Spacing.sm)
-                // A lifted card ends as far past the content as its node is below its top.
-                .padding(.trailing, max(nodeCenterFromTop - nodeSize / 2 - railCardOverhang, 0))
+                // The lifted card is centered on the row: this ends the content a node inset in.
+                .padding(.trailing, max(nodeLeading, 0))
                 .frame(minHeight: minHeight, alignment: .top)
                 .opacity(place.isArriving ? 0 : 1)
                 .offset(y: place.isArriving && !reduceMotion ? -Spacing.xs : 0)
