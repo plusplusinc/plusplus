@@ -51,7 +51,7 @@ struct RoutineFocusTests {
             "Kneeling hip flexor stretch", "Hamstring stretch", "Pigeon stretch", "Calf stretch",
             "Child\u{2019}s pose", "Cat-cow", "World\u{2019}s greatest stretch",
             "Thoracic rotation", "Doorway chest stretch", "Cross-body shoulder stretch",
-            "Band shoulder dislocate",
+            "Band shoulder dislocate", "Inchworm", "Forward arm circles", "Backward arm circles",
         ])
     }
 

@@ -5,9 +5,17 @@ import Foundation
 public struct RoutineExercise: Identifiable, Equatable, Sendable {
     public let id: UUID
     public let exercise: Exercise
+    /// This row's values, its exercise's defaults until changed.
+    public var plan: ExercisePlan
 
-    public init(id: UUID = UUID(), exercise: Exercise) {
+    public init(id: UUID = UUID(), exercise: Exercise, plan: ExercisePlan) {
         self.id = id
         self.exercise = exercise
+        self.plan = plan
+    }
+
+    /// A new row, at its exercise's defaults, a weight in `weightUnit`, the region's.
+    public init(id: UUID = UUID(), exercise: Exercise, weightUnit: WeightUnit) {
+        self.init(id: id, exercise: exercise, plan: exercise.defaultPlan(in: weightUnit))
     }
 }

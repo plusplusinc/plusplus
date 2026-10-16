@@ -17,9 +17,15 @@ struct RoutineScreen: View {
     /// is spent once its task ends, and a task run again needs a new one.
     @State private var saves: AsyncStream<Routine>.Continuation?
     @State private var isPicking = false
+    /// The row whose values are open in a sheet, as it was when opened: only its id is read.
+    @State private var editing: RoutineExercise?
     @State private var scrollPosition = ScrollPosition()
     /// The row just added, holding its place until it can be seen going in.
     @State private var arriving: RoutineExercise.ID?
+    /// The row just added, from the add until its entry has played. A view takes taps where it
+    /// will end up, not where it's drawn, so while its place opens a tap on Add exercise, still
+    /// drawn there, lands on it; it ignores taps until it has landed.
+    @State private var entering: RoutineExercise.ID?
     /// Whether Add exercise, at the list's end, is fully in view.
     @State private var isEndInView = true
     /// While an added row's place opens, the list's end stays put on screen: as the content grows
@@ -29,6 +35,7 @@ struct RoutineScreen: View {
     @State private var isScrollingByHand = false
     /// Whether the title has scrolled up under the bar, where a small copy of it shows instead.
     @State private var isTitleUnderBar = false
+    @Environment(\.locale) private var locale
     @ObserveHotReload private var hotReload
 
     private static let markWidth: CGFloat = 20
@@ -70,17 +77,28 @@ struct RoutineScreen: View {
                             isTitleUnderBar = !isVisible
                         }
                     }
+                    let equipment = routine.exercises.map(\.exercise).equipment
+                    if !equipment.isEmpty {
+                        Capsules(equipment.map(\.name))
+                            .transition(.opacity)
+                    }
                     Rail(routine.exercises, arriving: arriving) { item in
-                        RowLabel(title: item.exercise.name, detail: item.exercise.equipmentLine)
-                            .railRow()
-                            .accessibilityIdentifier("routine.exercise")
-                            .swipeActions(edge: .trailing) {
-                                Button("Delete", role: .destructive) {
-                                    withAnimation(.railChange) {
-                                        routine.exercises.removeAll { $0.id == item.id }
-                                    }
-                                }
-                            }
+                        RowLabel(
+                            title: item.exercise.name,
+                            detail: item.detailParts(locale: locale),
+                            spokenDetail: item.spokenDetail(locale: locale),
+                        )
+                        .railRow()
+                        .contentShape(.rect)
+                        .onTapGesture {
+                            guard item.id != entering else { return }
+                            editing = item
+                        }
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityIdentifier("routine.exercise")
+                        .swipeActions(edge: .trailing) {
+                            Button("Delete", role: .destructive) { delete(item.id) }
+                        }
                     } end: {
                         Button("Add exercise", systemImage: "plus") {
                             isPicking = true
@@ -122,6 +140,12 @@ struct RoutineScreen: View {
                     guard isPicking else { return }
                     isPicking = false
                     add(exercise)
+                }
+            }
+            // By item, so the sheet keeps its content as it slides away.
+            .sheet(item: $editing) { opened in
+                if let item = row(opened.id) {
+                    ExerciseSheet(item: item) { delete(opened.id) }
                 }
             }
             .toolbar {
@@ -188,14 +212,33 @@ struct RoutineScreen: View {
         .hotReloadable()
     }
 
+    /// The row with this id, bound by id rather than by index, so a sheet still showing it
+    /// never reads past the end of the rows once it is deleted.
+    private func row(_ id: RoutineExercise.ID) -> Binding<RoutineExercise>? {
+        guard let current = routine.exercises.first(where: { $0.id == id }) else { return nil }
+        return Binding {
+            routine.exercises.first { $0.id == id } ?? current
+        } set: { item in
+            guard let index = routine.exercises.firstIndex(where: { $0.id == id }) else { return }
+            routine.exercises[index] = item
+        }
+    }
+
+    private func delete(_ id: RoutineExercise.ID) {
+        withAnimation(.railChange) {
+            routine.exercises.removeAll { $0.id == id }
+        }
+    }
+
     /// Adds a picked exercise. Its row takes its place as the sheet starts down, moving Add
     /// exercise, but enters only where it can be seen: a moment into the sheet's slide when
     /// everything still fits, and otherwise once a scroll to the end has brought the row and Add
     /// exercise into view. The scroll waits for the row's place: asked for while the row went in,
     /// it stopped at the end the list had before.
     private func add(_ exercise: Exercise) {
-        let row = RoutineExercise(exercise: exercise)
+        let row = RoutineExercise(exercise: exercise, weightUnit: WeightUnit(region: locale))
         arriving = row.id
+        entering = row.id
         isOpeningPlace = true
         // The row goes in with no space yet, so nothing moves; its fade, of a row that draws
         // nothing yet, times the entry a moment into the sheet's slide: the line barely moves
@@ -244,7 +287,12 @@ struct RoutineScreen: View {
         var transaction = Transaction()
         transaction.isRailEntry = true
         // A later add, its row arriving, keeps the scroll in step for its own place.
-        transaction.addAnimationCompletion { isOpeningPlace = arriving != nil }
+        transaction.addAnimationCompletion {
+            isOpeningPlace = arriving != nil
+            if entering == row.id {
+                entering = nil
+            }
+        }
         withTransaction(transaction) {
             arriving = nil
         }

@@ -19,9 +19,13 @@ extension XCUIApplication {
         buttons.matching(identifier: "picker.exercise")
     }
 
-    /// Opens the picker, checking that it is up within a second, and returns its search field.
+    /// Opens the picker once Add exercise has stopped moving, checking that it is up within a
+    /// second, and returns its search field.
     func openPicker() -> XCUIElement {
-        buttons["Add exercise"].tap()
+        let addExercise = buttons["Add exercise"]
+        // Just after an add it moves down as the new row's place opens.
+        XCTAssertTrue(addExercise.settles(), "Add exercise kept moving")
+        addExercise.tap()
         let search = searchFields.firstMatch
         XCTAssertTrue(search.appears(within: 1), "The picker took over a second to open")
         return search
@@ -86,5 +90,14 @@ extension XCUIElement {
             withVelocity: velocity,
             thenHoldForDuration: 0,
         )
+    }
+}
+
+extension XCUIElement {
+    /// Taps the middle of the element. XCTest's `tap()` went to a stepper key's top-left corner,
+    /// on the edge of the row above it, whose tap closed the stepper instead.
+    @MainActor
+    func tapAtCenter() {
+        coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
     }
 }

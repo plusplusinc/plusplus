@@ -17,6 +17,10 @@ extension Font {
     /// A screen's title collapsed into its bar: SF Mono, as the screen title is, at the size and
     /// weight of the system's inline title.
     public static let ppInlineTitle = Font.system(.headline, design: .monospaced, weight: .semibold)
+    /// The numbers in a row's detail line: SF Mono at the detail's size.
+    public static let ppRowDetailNumber = Font.system(.subheadline, design: .monospaced)
+    /// The numbers in a value at the row title's size and weight: SF Mono.
+    public static let ppRowTitleNumber = Font.system(.body, design: .monospaced, weight: .semibold)
     /// The ++ mark: monospaced so the two pluses read as one glyph.
     public static let ppMark = Font.system(.title2, design: .monospaced, weight: .bold)
 }

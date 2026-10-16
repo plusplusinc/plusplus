@@ -18,13 +18,15 @@ public actor RoutineStore {
 
     /// The routine the app opens with, or nil for a new one: the last one edited. Every stored
     /// routine has been edited, since an untouched one is never saved and a cleared one is
-    /// deleted.
-    public func launchRoutine() throws -> Routine? {
+    /// deleted. A weight never saved reads as its exercise's default in `weightUnit`.
+    public func launchRoutine(weightUnit: WeightUnit) throws -> Routine? {
         var descriptor = FetchDescriptor<StoredRoutine>(
             sortBy: [SortDescriptor(\.editedAt, order: .reverse)],
         )
         descriptor.fetchLimit = 1
-        return try modelContext.fetch(descriptor).first.map(Self.routine(from:))
+        return try modelContext.fetch(descriptor).first.map {
+            Self.routine(from: $0, weightUnit: weightUnit)
+        }
     }
 
     /// Saves the routine as it is now, edited at `now`, or deletes it once it is empty.
@@ -55,9 +57,7 @@ public actor RoutineStore {
             uniquingKeysWith: { first, _ in first },
         )
         for (position, item) in routine.exercises.enumerated() {
-            if let row = rowsByID[item.id] {
-                row.position = position
-            } else {
+            let row = rowsByID[item.id] ?? {
                 let row = StoredRoutineExercise(
                     id: item.id,
                     exerciseID: item.exercise.id,
@@ -65,7 +65,12 @@ public actor RoutineStore {
                 )
                 modelContext.insert(row)
                 row.routine = target
+                return row
+            }()
+            if row.position != position {
+                row.position = position
             }
+            row.write(item.plan)
         }
         try modelContext.save()
     }
@@ -88,7 +93,7 @@ public actor RoutineStore {
 
     /// A row whose exercise isn't built in, from a newer version or a renamed slug, is left out
     /// rather than failing the routine.
-    private static func routine(from stored: StoredRoutine) -> Routine {
+    private static func routine(from stored: StoredRoutine, weightUnit: WeightUnit) -> Routine {
         let rows = (stored.exercises ?? []).sorted { $0.position < $1.position }
         let exercises = rows.compactMap { row -> RoutineExercise? in
             guard let exercise = builtInByID[row.exerciseID] else {
@@ -96,7 +101,11 @@ public actor RoutineStore {
                     .error("Skipped a row for unknown exercise \(row.exerciseID, privacy: .public)")
                 return nil
             }
-            return RoutineExercise(id: row.id, exercise: exercise)
+            return RoutineExercise(
+                id: row.id,
+                exercise: exercise,
+                plan: row.plan(for: exercise, weightUnit: weightUnit),
+            )
         }
         return Routine(id: stored.id, name: stored.name, exercises: exercises)
     }

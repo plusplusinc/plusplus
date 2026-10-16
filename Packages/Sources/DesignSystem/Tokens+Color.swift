@@ -6,7 +6,7 @@ import SwiftUI
 /// asset catalog. Light and dark pairs live in `Tokens.xcassets` under the raw value; a case
 /// without a colorset renders clear, which the palette snapshot makes obvious.
 public enum ColorToken: String, CaseIterable, Sendable {
-    /// Brand and data green: the ++ mark, and later timers and progress. Never a control's fill.
+    /// Green: what's active, and a value that went up; also the ++ mark. Never a control's fill.
     case accent = "ppAccent"
     case background = "ppBackground"
     /// The outline of a key-shaped button, the title's resting cursor, and a rail's nodes.

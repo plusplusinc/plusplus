@@ -12,3 +12,16 @@ extension Exercise {
         try names.map(builtIn(named:))
     }
 }
+
+extension RoutineExercise {
+    /// A row of the built-in exercise named `name`, its default plan changed by `edit`.
+    static func builtIn(
+        _ name: String,
+        _ edit: (inout ExercisePlan) -> Void = { _ in },
+    ) throws -> RoutineExercise {
+        let exercise = try Exercise.builtIn(named: name)
+        var plan = exercise.defaultPlan(in: .pounds)
+        edit(&plan)
+        return RoutineExercise(exercise: exercise, plan: plan)
+    }
+}
