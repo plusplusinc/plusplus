@@ -15,9 +15,17 @@ extension View {
 @Observable
 final class RailEdges {
     /// Whether a row is held, which is when the list may scroll on its own.
-    var isHeld = false
+    @ObservationIgnored var isHeld = false {
+        didSet { updateScrolling() }
+    }
+
     /// The held finger's y on screen.
-    @ObservationIgnored var fingerY: CGFloat = 0
+    @ObservationIgnored var fingerY: CGFloat = 0 {
+        didSet { updateScrolling() }
+    }
+
+    /// Whether a held row is in an edge's band, so the list scrolls a frame at a time.
+    private(set) var isScrolling = false
     /// Called with how far the list scrolled under the held finger, in the scroll's transaction,
     /// so the card and the gap follow in the same frame.
     @ObservationIgnored var onScroll: ((CGFloat) -> Void)?
@@ -31,6 +39,14 @@ final class RailEdges {
         // between the bars; the content insets cover the bars it scrolls under.
         guard let scroll else { return nil }
         return top ... top + scroll.containerSize.height
+    }
+
+    private func updateScrolling() {
+        let scrolls = isHeld
+            && visible.map { RailDrag.edgeSpeed(fingerY: fingerY, visible: $0) != 0 } == true
+        if scrolls != isScrolling {
+            isScrolling = scrolls
+        }
     }
 
     /// Whether `y` on screen is outside the list, over a bar or past the screen's edge.
@@ -60,8 +76,8 @@ private struct RailAutoscroll: ViewModifier {
                 edges.scroll = scroll
             }
             .background {
-                // A frame at a time, only while a row is held.
-                if edges.isHeld {
+                // A frame at a time, only while a held row is in an edge's band.
+                if edges.isScrolling {
                     TimelineView(.animation) { timeline in
                         Color.clear.onChange(of: timeline.date) { old, new in
                             step(by: new.timeIntervalSince(old))
@@ -78,11 +94,9 @@ private struct RailAutoscroll: ViewModifier {
         guard let scroll = edges.scroll, let visible = edges.visible else { return }
         let speed = RailDrag.edgeSpeed(fingerY: edges.fingerY, visible: visible)
         guard speed != 0 else { return }
-        // `scrollTo(y:)` counts from the top of the content, not from above the top inset. A
-        // frame that came late moves no further than one at 30 fps would.
-        let current = scroll.contentOffset.y + scroll.contentInsets.top
-        let end = max(scroll.contentSize.height - scroll.containerSize.height, 0)
-        let next = min(max(current + speed * min(seconds, 1.0 / 30), 0), end)
+        // A frame that came late moves no further than one at 30 fps would.
+        let current = scroll.scrolledY
+        let next = min(max(current + speed * min(seconds, 1.0 / 30), 0), scroll.endY)
         guard next != current else { return }
         var transaction = Transaction()
         transaction.disablesAnimations = true

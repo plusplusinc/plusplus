@@ -14,7 +14,7 @@ extension RenameUITests {
             var expected = app.exerciseNames
             attach(named: "reorder-before")
             // Past the halfway point of the second row below it.
-            first.liftPoint.holdAndDrag(to: first.liftPoint.down(2.2 * height))
+            first.center.holdAndDrag(to: first.center.down(2.2 * height))
             expected.insert(expected.removeFirst(), at: 2)
             XCTAssertEqual(reading(app.exerciseNames, becoming: expected, within: 2), expected)
             XCTAssertFalse(app.buttons["Sets"].exists, "The drag opened the row's sheet")
@@ -24,7 +24,7 @@ extension RenameUITests {
         XCTContext.runActivity(named: "Dropping where it started changes nothing") { _ in
             let before = app.exerciseNames
             let row = rows.element(boundBy: 1)
-            row.liftPoint.holdAndDrag(to: row.liftPoint.down(0.3 * height))
+            row.center.holdAndDrag(to: row.center.down(0.3 * height))
             XCTAssertEqual(order(keeping: before, in: app), before, "A drop in place moved the row")
         }
         XCTContext.runActivity(named: "Holding the node doesn't lift") { _ in
@@ -36,9 +36,9 @@ extension RenameUITests {
         XCTContext.runActivity(named: "A press that moves first scrolls the list") { _ in
             let before = (app.exerciseNames, first.frame.minY)
             let row = rows.element(boundBy: 3)
-            row.liftPoint.press(
+            row.center.press(
                 forDuration: 0.05,
-                thenDragTo: row.liftPoint.down(-200),
+                thenDragTo: row.center.down(-200),
                 withVelocity: .default,
                 thenHoldForDuration: 0,
             )
@@ -47,7 +47,7 @@ extension RenameUITests {
                 "A moving press didn't scroll the list",
             )
             XCTAssertEqual(app.exerciseNames, before.0, "A moving press moved a row")
-            scrollToTop(in: app)
+            app.scrollToTop(titled: "Arm and back day")
         }
         XCTContext.runActivity(named: "A tap after a drag still opens the row") { _ in
             first.tap()
@@ -66,50 +66,31 @@ extension RenameUITests {
         let start = app.buttons["Start"]
         XCTContext.runActivity(named: "Releasing over Start cancels") { _ in
             let before = app.exerciseNames
-            first.liftPoint.holdAndDrag(to: start.coordinate(
-                withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5),
-            ))
+            first.center.holdAndDrag(to: start.center)
             XCTAssertEqual(order(keeping: before, in: app), before, "A release over Start moved it")
-            scrollToTop(in: app)
+            app.scrollToTop(titled: "Arm and back day")
         }
         XCTContext.runActivity(named: "A row held at the bottom edge scrolls and lands last") { _ in
             var expected = app.exerciseNames
             let top = first.frame.minY
             // Just above Start's bar: in the edge's band, still over the list.
             let edge = app.point(x: first.frame.midX, y: start.frame.minY - 24)
-            first.liftPoint.holdAndDrag(to: edge, holding: 2.5)
+            first.center.holdAndDrag(to: edge, holding: 2.5)
             expected.append(expected.removeFirst())
             XCTAssertEqual(reading(app.exerciseNames, becoming: expected, within: 2), expected)
             XCTAssertLessThan(first.frame.minY, top, "The list didn't scroll")
             attach(named: "reorder-edge")
-            scrollToTop(in: app)
+            app.scrollToTop(titled: "Arm and back day")
         }
     }
 
-    /// The rows' order once it changes from `before`, or `before` if it stays for a second. As
-    /// the card settles, a read can miss a row offscreen, so a read of fewer rows is skipped.
+    /// The rows' order once it changes from `before`, or `before` if it stays for a second. A held
+    /// row's gap draws nothing until it has settled, so it is out of the accessibility tree: a
+    /// read of fewer rows is from before the drag has settled, and doesn't count.
     @MainActor
     private func order(keeping before: [String], in app: XCUIApplication) -> [String] {
-        let deadline = Date.now.addingTimeInterval(1)
-        while Date.now < deadline {
-            let names = app.exerciseNames
-            if names.count == before.count, names != before {
-                return names
-            }
-        }
-        return before
-    }
-
-    /// Brings the title back below the bar, with a tap on its small copy in the bar.
-    @MainActor
-    private func scrollToTop(in app: XCUIApplication) {
-        let bar = app.navigationBars.firstMatch
-        let smallTitle = bar.buttons["Arm and back day"]
-        guard smallTitle.appears(within: 1) else { return }
-        smallTitle.tap()
-        XCTAssertTrue(
-            reading(app.routineTitle.frame.minY >= bar.frame.maxY, becoming: true, within: 2),
-            "The title did not come back below the bar",
-        )
+        let changed = { (names: [String]) in names.count == before.count && names != before }
+        let names = reading(app.exerciseNames, until: changed, within: 1)
+        return names.count == before.count ? names : before
     }
 }

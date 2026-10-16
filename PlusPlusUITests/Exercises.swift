@@ -98,7 +98,14 @@ extension XCUIElement {
     /// on the edge of the row above it, whose tap closed the stepper instead.
     @MainActor
     func tapAtCenter() {
-        coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        center.tap()
+    }
+
+    /// The middle of the element. On a row, that is on its name and detail line, where a hold
+    /// lifts it.
+    @MainActor
+    var center: XCUICoordinate {
+        coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
     }
 }
 
@@ -110,6 +117,19 @@ extension XCUIApplication {
         exerciseRows.allElementsBoundByIndex.map { String($0.label.prefix { $0 != "," }) }
     }
 
+    /// Taps the small copy of the title `name` in the bar, and waits for the title to come back
+    /// below the bar.
+    func scrollToTop(titled name: String) {
+        let bar = navigationBars.firstMatch
+        let smallTitle = bar.buttons[name]
+        XCTAssertTrue(smallTitle.appears(), "No small title in the bar")
+        smallTitle.tap()
+        XCTAssertTrue(
+            reading(routineTitle.frame.minY >= bar.frame.maxY, becoming: true, within: 2),
+            "The title did not come back below the bar",
+        )
+    }
+
     /// A point on screen, as `x` and `y` in points from its top-left corner.
     func point(x: CGFloat, y: CGFloat) -> XCUICoordinate {
         coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: x, dy: y))
@@ -118,11 +138,6 @@ extension XCUIApplication {
 
 @MainActor
 extension XCUIElement {
-    /// The middle of a row, on its name and detail line, where a hold lifts it.
-    var liftPoint: XCUICoordinate {
-        coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-    }
-
     /// In a row's rail column, beside its node, where a hold lifts nothing.
     var nodePoint: XCUICoordinate {
         coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0.5))

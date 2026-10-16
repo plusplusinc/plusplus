@@ -80,14 +80,8 @@ extension RenameUITests {
             attach(named: "nine-exercises")
         }
         XCTContext.runActivity(named: "A tap on the small title scrolls back to the top") { _ in
-            let bar = app.navigationBars.firstMatch
-            let smallTitle = bar.buttons["Arm and back day"]
-            XCTAssertTrue(smallTitle.appears(), "No small title in the bar at the end of the list")
-            smallTitle.tap()
-            XCTAssertTrue(
-                reading(app.routineTitle.frame.minY >= bar.frame.maxY, becoming: true, within: 2),
-                "The title did not come back below the bar",
-            )
+            app.scrollToTop(titled: "Arm and back day")
+            let smallTitle = app.navigationBars.firstMatch.buttons["Arm and back day"]
             XCTAssertTrue(smallTitle.disappears(), "The small title stayed with the title in view")
         }
     }

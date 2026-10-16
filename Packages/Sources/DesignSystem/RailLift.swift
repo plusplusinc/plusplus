@@ -50,7 +50,7 @@ struct CardLook: ViewModifier {
     func body(content: Content) -> some View {
         let isRaised = hasRisen && !isReleased
         content
-            .environment(\.railPlace, RailPlace(isCard: true, isRaised: isRaised))
+            .environment(\.railPlace, RailPlace(drawsOwnLine: false, isRaised: isRaised))
             .backgroundPreferenceValue(RailNodes.self) { nodes in
                 if let node = nodes.first {
                     LiftedCard(node: node, isLifted: isRaised)
@@ -114,9 +114,9 @@ struct RailNodes: PreferenceKey {
 struct DragLine: View {
     let nodes: [Anchor<CGPoint>]
     /// How far below its gap the card is.
-    var cardOffset: CGFloat = 0
-    var isGapFirst = false
-    var isGapLast = false
+    let cardOffset: CGFloat
+    let isGapFirst: Bool
+    let isGapLast: Bool
     @ScaledMetric(relativeTo: .body) private var lineWidth = railLineWidth
     @ObserveHotReload private var hotReload
 

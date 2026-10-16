@@ -290,22 +290,18 @@ struct RoutineScreen: View {
         guard isOpeningPlace, !isScrollingByHand,
               new.contentSize.height > old.contentSize.height
         else { return }
-        // `scrollTo(y:)` counts from the top of the content, not from above the top inset.
-        let end = new.contentSize.height - new.containerSize.height
-        guard end > new.contentOffset.y + new.contentInsets.top else { return }
+        guard new.endY > new.scrolledY else { return }
         var transaction = Transaction()
         transaction.disablesAnimations = true
         withTransaction(transaction) {
-            scrollPosition.scrollTo(y: end)
+            scrollPosition.scrollTo(y: new.endY)
         }
     }
 
-    /// Whether the list's end, Add exercise, is in view. The container is the area between the
-    /// bars, and the offset counts from above the top one.
+    /// Whether the list's end, Add exercise, is in view, below the area between the bars.
     private static func endIsInView(of geometry: ScrollGeometry) -> Bool {
-        let visibleEnd = geometry.contentOffset.y + geometry.contentInsets.top
-            + geometry.containerSize.height
-        return geometry.contentSize.height <= visibleEnd.rounded(.up)
+        geometry.contentSize.height
+            <= (geometry.scrolledY + geometry.containerSize.height).rounded(.up)
     }
 
     /// Lets `row` enter, unless a later add has taken its place as the arriving row.

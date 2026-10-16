@@ -8,9 +8,9 @@ struct RailPlace {
     var isLast = true
     var isArriving = false
     var isGap = false
-    var isCard = false
-    /// A row is held, so the line is drawn once for the whole rail, not by each row.
-    var isOnDragLine = false
+    /// Whether the row draws its own stretch of line: not on the card, and not while a row is
+    /// held, when the rail draws the line once for all of them.
+    var drawsOwnLine = true
     /// The card held up off the rail, its node in the color of the text.
     var isRaised = false
 }
@@ -105,7 +105,7 @@ private struct RailRow: ViewModifier {
             GeometryReader { proxy in
                 // The card has no line: the gap below it has the row's, drawn by the rail while a
                 // row is held.
-                if let center, !place.isCard, !place.isOnDragLine {
+                if let center, place.drawsOwnLine {
                     let node = proxy[center]
                     let top = place.isFirst ? node.y : 0
                     let above = place.isArriving ? top : node.y

@@ -67,7 +67,7 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             // row's middle. Kept below the bar, where a release would put it back.
             let bar = app.navigationBars.firstMatch.frame.maxY
             let target = app.point(x: last.frame.midX, y: max(first.frame.midY, bar + 70))
-            last.liftPoint.holdAndDrag(to: target)
+            last.center.holdAndDrag(to: target)
             let moved = ["Dumbbell bench press", "Kneeling hip flexor stretch"]
             XCTAssertEqual(reading(app.exerciseNames, becoming: moved, within: 2), moved)
             attach(named: "reorder-ax5")

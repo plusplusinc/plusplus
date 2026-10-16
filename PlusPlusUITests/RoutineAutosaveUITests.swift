@@ -45,7 +45,7 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
             let rows = app.exerciseRows
             let (first, last) = (rows.element(boundBy: 0), rows.element(boundBy: 2))
             // Above the first row's middle, so its gap opens above the first row.
-            last.liftPoint.holdAndDrag(to: first.liftPoint.down(-0.2 * first.frame.height))
+            last.center.holdAndDrag(to: first.center.down(-0.2 * first.frame.height))
             let moved = ["Pull-up", "Barbell bench press", "Pull-up"]
             XCTAssertEqual(reading(app.exerciseNames, becoming: moved, within: 2), moved)
             app.relaunch()
