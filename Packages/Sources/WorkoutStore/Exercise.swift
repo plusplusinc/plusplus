@@ -73,6 +73,11 @@ public struct Exercise: Identifiable, Equatable, Sendable {
 }
 
 extension [Exercise] {
+    /// Every piece of equipment these exercises use, once each, in display order.
+    public var equipment: [Equipment] {
+        Equipment.allCases.filter { piece in contains { $0.equipment.contains(piece) } }
+    }
+
     /// The exercises whose names contain the query, in order, ignoring case, diacritics, and
     /// everything but letters and digits: "pullup", "pull up", and "PULL-UP" all find Pull-up,
     /// and an apostrophe of either kind, or none, finds Farmer’s carry. A query with nothing

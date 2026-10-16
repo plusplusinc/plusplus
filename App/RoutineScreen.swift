@@ -71,6 +71,10 @@ struct RoutineScreen: View {
                             isTitleUnderBar = !isVisible
                         }
                     }
+                    let equipment = routine.exercises.map(\.exercise).equipment
+                    if !equipment.isEmpty {
+                        Capsules(equipment.map(\.name))
+                    }
                     Rail(routine.exercises, arriving: arriving) { item in
                         RowLabel(
                             title: item.exercise.name,

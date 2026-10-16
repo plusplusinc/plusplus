@@ -7,9 +7,8 @@ import Foundation
 private let noBreakSpace = "\u{00A0}"
 
 extension RoutineExercise {
-    /// The row's detail line in parts: the equipment if any, the plan, then the weight if it
-    /// holds one.
-    /// "Dumbbells, bench", "3 × 10 reps per side", "50 lb".
+    /// The row's detail line in parts: the plan, then the weight if it holds one.
+    /// "3 × 10 reps per side", "50 lb".
     public func detailParts(locale: Locale = .current) -> [String] {
         let sets = plan.sets.formatted(.number.locale(locale))
         return line(
@@ -19,8 +18,7 @@ extension RoutineExercise {
         )
     }
 
-    /// The detail line in words, for VoiceOver: "Dumbbells, bench, 3 sets of 10 reps per side,
-    /// 50 pounds".
+    /// The detail line in words, for VoiceOver: "3 sets of 10 reps per side, 50 pounds".
     public func spokenDetail(locale: Locale = .current) -> String {
         let sets = plan.sets.formatted(.number.locale(locale))
         return line(
@@ -31,11 +29,10 @@ extension RoutineExercise {
         .joined(separator: ", ")
     }
 
-    /// The equipment, then the amount, after the sets count unless there is one set, and per
-    /// side when it is, then the weight, each when it is a pair's.
+    /// The amount, after the sets count unless there is one set, and per side when it is, then
+    /// the weight, each when it is a pair's.
     private func line(amount: String, sets: String, weight: String?) -> [String] {
-        var parts = exercise.equipmentLine.map { [$0] } ?? []
-        parts.append(qualified(plan.sets > 1 ? sets + amount : amount, .target))
+        var parts = [qualified(plan.sets > 1 ? sets + amount : amount, .target)]
         if let weight {
             parts.append(qualified(weight, .weight))
         }
