@@ -8,7 +8,9 @@
 # alone cannot tell it is done; the PR can. Kept: a worktree with uncommitted changes, a branch
 # with commits no merged PR contains, and a worktree touched in the last day whose branch has no
 # merged PR (an agent's fresh worktree starts at main with nothing committed yet). Closed but
-# unmerged PRs are never cleaned up; their work may still be wanted.
+# unmerged PRs are never cleaned up; their work may still be wanted. A removed worktree's own
+# simulator, "PlusPlus <worktree>" (see scripts/common.sh), is shut down and deleted with it; this
+# is the only script that deletes a simulator.
 #
 #   scripts/tidy.sh            # remove, and print each thing removed
 #   scripts/tidy.sh --dry-run  # print what would be removed
@@ -28,6 +30,7 @@ ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$ROOT"
 # Only the main checkout tidies. A linked worktree, whose .git is a file, may be the thing to remove.
 [ -d .git ] || exit 0
+source "$ROOT/scripts/common.sh"
 
 FRESH_SECONDS=$((24 * 60 * 60))
 
@@ -39,6 +42,19 @@ MERGED=$(gh pr list --state merged --limit 500 --json headRefName,headRefOid,num
 run() {
     echo "tidy: $*"
     [ "$DRY_RUN" -eq 1 ] || "$@" > /dev/null
+}
+
+# Shuts down and deletes a worktree's own simulator, when it has one.
+delete_simulator() {
+    local name udid state
+    name=$(worktree_simulator "$1")
+    read -r udid state < <(simulator_udid "$name") || return 0
+    echo "tidy: delete simulator \"$name\""
+    [ "$DRY_RUN" -eq 1 ] && return 0
+    # The worktree is already gone, so a failure here says so and lets the rest of the run go on.
+    if ! { [ "$state" != Booted ] || xcrun simctl shutdown "$udid"; } || ! xcrun simctl delete "$udid"; then
+        echo "tidy: could not delete simulator \"$name\" ($udid); agents are denied simctl delete, so ask the maintainer to delete it" >&2
+    fi
 }
 
 # Whether a merged PR contains this tip. Fetches the PR's head when the commit is not local.
@@ -81,6 +97,7 @@ while IFS=$'\t' read -r path branch; do
     if { [ -n "$branch" ] && in_merged_pr "$branch" "$tip"; } ||
         { in_main "$tip" && [ "$(idle_seconds "$path")" -gt "$FRESH_SECONDS" ]; }; then
         run git worktree remove "$path"
+        delete_simulator "$path"
         freed+=("$branch")
     elif prs=$(awk -v b="$branch" '$1 == b { print "#" $3 }' <<< "$MERGED" | paste -sd, -) &&
         [ -n "$prs" ]; then

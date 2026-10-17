@@ -6,5 +6,6 @@
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
 CONFIGURATION="${1:-Debug}"
+ensure_simulator
 run_xcodebuild build build -configuration "$CONFIGURATION"
 echo "build ok ($CONFIGURATION, $SIMULATOR_NAME)"

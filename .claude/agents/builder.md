@@ -12,8 +12,8 @@ lead.
 ## Work
 
 - Work only in the worktree the lead names, on its branch.
-- In a worktree the scripts use the team's simulator, "PlusPlus Team". The maintainer watches
-  their own; never point `PLUSPLUS_SIMULATOR` at it. Run the scripts by their path in the
+- In a worktree the scripts use its own simulator, "PlusPlus <worktree>", which they create on
+  first use. The maintainer watches their own; never point `PLUSPLUS_SIMULATOR` at it. Run the scripts by their path in the
   worktree: your shell starts in the lead's checkout, whose scripts use the maintainer's.
 - Follow the plan in small steps: change one thing, build, look at the screenshot, commit.
 - Before an `axe` command, read `/run`'s notes on AXe (`.claude/skills/run/SKILL.md`): which
@@ -49,7 +49,7 @@ lead.
 When the slice has something to see, get a first version running as soon as the maintainer's
 feedback would help, and write the handoff note the lead names; each round after it is a fresh
 builder, until the lead ends the loop. A
-round is one change, `scripts/run.sh` on the team simulator so it builds and launches, a new
+round is one change, `scripts/run.sh` on the worktree's simulator so it builds and launches, a new
 commit (never amend, so each round stays its own), the handoff note the lead names brought up
 to date, and a reply with the hash and one line on what changed. No
 frame-by-frame captures, tests, review, or PR during the loop; when the lead ends it, everything

@@ -134,23 +134,27 @@ quirks.
 
 `claude --worktree <name>` gives an agent its own checkout under `.claude/worktrees/`.
 DerivedData is already isolated per worktree because `scripts/common.sh` keys it to the
-checkout. Two or three concurrent iOS worktrees is the practical ceiling on one machine; create
-a dedicated simulator per worktree with `xcrun simctl create` and set `PLUSPLUS_SIMULATOR`.
+checkout. Each worktree also builds and tests on a simulator of its own, "PlusPlus <worktree>":
+`scripts/common.sh` creates it on first use, an iPhone 17 on the newest installed iOS runtime
+that runs it, so two sessions never share an app, its data, or its settings. `PLUSPLUS_SIMULATOR`
+still overrides it. `scripts/tidy.sh`
+shuts it down and deletes it when it removes the worktree, and is the only script that deletes a
+simulator. Each booted simulator adds about 250 processes, so two or three concurrent iOS
+worktrees is the practical ceiling on one machine.
 
-The feature subagents in `.claude/agents/` share one such simulator, "PlusPlus Team", which the
-scripts default to in any worktree, and run one at a time, because each phase needs the last
-one's files. Agent teams, Claude Code's experimental parallel mode, stay off; the lead proposes one only for work that is genuinely
+The feature subagents in `.claude/agents/` run one at a time in a slice's worktree, because
+each phase needs the last one's files. Agent teams, Claude Code's experimental parallel mode, stay off; the lead proposes one only for work that is genuinely
 parallel: a review through several lenses, debugging with competing hypotheses, or slices that
 touch disjoint files.
 
 ## When the simulator, not the app, fails a test
 
 A simulator keeps its settings across sessions, so one agent's leftovers can fail the next
-one's UI test with nothing wrong in the app. On "PlusPlus Team", `scripts/test.sh sim` runs
+one's UI test with nothing wrong in the app. On a worktree's own simulator, `scripts/test.sh sim` runs
 `scripts/sim.sh reset` first: light appearance, large text, and a keyboard that is not
 minimized. On any other simulator it leaves the settings alone, since that one is a person's. A reboot is
-`xcrun simctl shutdown "PlusPlus Team"`, and the next script boots it again;
-`scripts/sim.sh erase-team` is the last resort, and agents erase only through it.
+`xcrun simctl shutdown "PlusPlus <worktree>"`, and the next script boots it again;
+`scripts/sim.sh erase` is the last resort, and agents erase only through it.
 
 - The software keyboard stays minimized after `axe type`, which sends hardware key events:
   `reset` turns off keyboard minimization, rebooting when it changed it.
@@ -168,6 +172,6 @@ minimized. On any other simulator it leaves the settings alone, since that one i
 unattended Claude Code session; read-only `xcodebuild`, `git`, `gh`, and `asc` commands (plus
 `asc xcode-cloud run`; see `docs/xcode-cloud.md`); and `simctl`, with `simctl erase`, uploads and
 notarization, and force pushes denied. `simctl erase` takes any device, or `all`, so a wrong
-argument would wipe a person's simulators; `scripts/sim.sh erase-team` erases only "PlusPlus
-Team". The scripts are the gate for building,
+argument would wipe a person's simulators; `scripts/sim.sh erase` erases only the
+worktree's own simulator. The scripts are the gate for building,
 testing, and linting, so raw `xcodebuild build`, `swiftlint`, and friends prompt.

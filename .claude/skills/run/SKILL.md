@@ -13,8 +13,9 @@ drives it once it is there. Neither needs Xcode open.
 scripts/run.sh [name]
 ```
 
-Builds Debug, boots the default simulator (iPhone 17 in the main checkout, "PlusPlus Team" in a
-worktree; override with `PLUSPLUS_SIMULATOR="iPhone 17 Pro"`), installs and launches the app,
+Builds Debug, boots the default simulator (iPhone 17 in the main checkout; in a worktree, its own
+"PlusPlus <worktree>", created on first use; override with
+`PLUSPLUS_SIMULATOR="iPhone 17 Pro"`), installs and launches the app,
 waits two seconds for the first frame, and writes `.build/screenshots/<name>.png`. The path is printed last; Read it.
 About 15 seconds on a warm build from a shut-down simulator.
 
@@ -25,10 +26,10 @@ scripts/sim.sh shots [name]             # <name>.light.png, .dark.png, .xxxl.png
 scripts/sim.sh screenshot [name]        # one capture of whatever is on screen now
 scripts/sim.sh appearance light|dark
 scripts/sim.sh content-size <category>  # large is the default; accessibility-extra-extra-extra-large the top
-scripts/sim.sh reset                    # light, large, keyboard not minimized; scripts/test.sh sim runs it on the team's
+scripts/sim.sh reset                    # light, large, keyboard not minimized; scripts/test.sh sim runs it on the worktree's
 scripts/sim.sh relaunch                 # terminate and launch the installed build; boots the simulator if needed
 scripts/sim.sh log [minutes]            # the app's own log lines plus errors and faults; last 5 minutes by default
-scripts/sim.sh erase-team               # erase "PlusPlus Team" and reset it; the app is gone after
+scripts/sim.sh erase                    # in a worktree, erase its own simulator and reset it; the app is gone after
 ```
 
 `shots` is the whole checklist in one command and leaves the device at the defaults. Every

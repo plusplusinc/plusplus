@@ -9,8 +9,8 @@
 #   scripts/sim.sh reset                    # light, large, keyboard not minimized
 #   scripts/sim.sh relaunch                 # terminate and launch the installed build
 #   scripts/sim.sh log [minutes]            # the app's own log lines, plus errors and faults
-#   scripts/sim.sh erase-team               # erase "PlusPlus Team" and reset it; about 25 s, and
-#                                           # scripts/run.sh reinstalls the app
+#   scripts/sim.sh erase                    # in a worktree, erase its own simulator and reset it;
+#                                           # about 25 s, and scripts/run.sh reinstalls the app
 #
 # Appearance, content size, and the keyboard are simulator settings, so they survive relaunches
 # and reboots: whatever the last session left behind is what the next screenshot or UI test
@@ -20,9 +20,9 @@ source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
 SHOTS="$ROOT/.build/screenshots"
 SUBSYSTEM="com.plusplusinc.plusplus"
-# `erase-team` erases only $TEAM_SIMULATOR. Raw `simctl erase` and `simctl delete` are denied to
-# agents, since they take any device, or `all`, and a wrong argument would wipe a person's
-# simulators; this script is the permission boundary.
+# `erase` erases only the worktree's own simulator, $OWN_SIMULATOR. Raw `simctl erase` and
+# `simctl delete` are denied to agents, since they take any device, or `all`, and a wrong argument
+# would wipe a person's simulators; this script is the permission boundary.
 
 # UIKit crossfades an appearance change and re-lays out for a content size change after
 # `simctl ui` has already returned, and nothing outside the process signals when that is done.
@@ -96,30 +96,28 @@ case "${1:-}" in
         settle
         ;;
     reset)
+        ensure_simulator
         xcrun simctl bootstatus "$SIMULATOR_NAME" -b > /dev/null
         reset_keyboard
         ui appearance light
         ui content_size large
         settle
         ;;
-    erase-team)
-        # A name can match more than one device; erase only when it names exactly one.
-        read -r udid state < <(xcrun simctl list devices --json | python3 -c '
-import json, sys
-matches = [d for ds in json.load(sys.stdin)["devices"].values() for d in ds
-           if d["name"] == sys.argv[1]]
-if len(matches) != 1:
-    sys.exit(f"expected one simulator named {sys.argv[1]!r}, found {len(matches)}; "
-             "create or rename it with xcrun simctl")
-print(matches[0]["udid"], matches[0]["state"])
-' "$TEAM_SIMULATOR") || exit 1
+    erase)
+        if ! is_own_simulator; then
+            echo "erase acts only on a worktree's own simulator, not \"$SIMULATOR_NAME\"" >&2
+            exit 1
+        fi
+        ensure_simulator
+        read -r udid state < <(simulator_udid "$OWN_SIMULATOR")
         if [ "$state" = Booted ]; then
             xcrun simctl shutdown "$udid"
         fi
         xcrun simctl erase "$udid"
-        PLUSPLUS_SIMULATOR="$TEAM_SIMULATOR" "${BASH_SOURCE[0]}" reset
+        "${BASH_SOURCE[0]}" reset
         ;;
     relaunch)
+        ensure_simulator
         xcrun simctl bootstatus "$SIMULATOR_NAME" -b > /dev/null
         bundle_id=$(app_bundle_id)
         xcrun simctl terminate "$SIMULATOR_NAME" "$bundle_id" 2> /dev/null || true
