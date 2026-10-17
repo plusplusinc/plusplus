@@ -84,17 +84,29 @@ extension RenameUITests {
         holdAtTheTopEdge(in: app)
     }
 
-    /// From the end of the list, the last row held just under the bar scrolls the list back up
-    /// to its top and lands first.
+    /// From the end of the list, a row lifted just under the bar and held still stays put; the
+    /// last row dragged up to there scrolls the list back up to its top and lands first.
     @MainActor
     private func holdAtTheTopEdge(in app: XCUIApplication) {
+        let first = app.exerciseRows.element(boundBy: 0)
+        let bar = app.navigationBars.firstMatch
+        app.swipeUp(velocity: .fast)
+        let last = app.lastExerciseRow
+        XCTAssertTrue(last.settles(), "The list kept scrolling")
+        XCTContext.runActivity(named: "A row held still at the top edge stays put") { _ in
+            let before = (app.exerciseNames, first.frame.minY)
+            // Just under the bar, in the edge's band, on whichever row is there.
+            let edge = app.point(x: last.frame.midX, y: bar.frame.maxY + 24)
+            edge.press(forDuration: 2.5)
+            XCTAssertEqual(
+                order(keeping: before.0, in: app),
+                before.0,
+                "A still hold moved the row",
+            )
+            XCTAssertEqual(first.frame.minY, before.1, "A still hold scrolled the list")
+        }
         XCTContext
-            .runActivity(named: "A row held at the top edge scrolls up and lands first") { _ in
-                let first = app.exerciseRows.element(boundBy: 0)
-                let bar = app.navigationBars.firstMatch
-                app.swipeUp(velocity: .fast)
-                let last = app.lastExerciseRow
-                XCTAssertTrue(last.settles(), "The list kept scrolling")
+            .runActivity(named: "A row dragged to the top edge scrolls up and lands first") { _ in
                 var expected = app.exerciseNames
                 let top = first.frame.minY
                 // Just under the bar: in the edge's band, still over the list.

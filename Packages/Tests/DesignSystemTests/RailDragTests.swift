@@ -73,8 +73,12 @@ struct RailDragTests {
         let visible: ClosedRange<CGFloat> = 100 ... 700
         let zone = RailDrag.edgeZone
         let top = RailDrag.edgeTopSpeed
+        // A finger that has gone both ways since the lift, so both bands are armed.
+        var travel = RailDrag.Travel(from: 400)
+        travel.pass(100)
+        travel.pass(700)
         func speed(_ y: CGFloat) -> CGFloat {
-            RailDrag.edgeSpeed(fingerY: y, visible: visible)
+            RailDrag.edgeSpeed(fingerY: y, visible: visible, travel: travel)
         }
         #expect(speed(400) == 0)
         #expect(speed(700 - zone) == 0)
@@ -84,5 +88,33 @@ struct RailDragTests {
         #expect(speed(100 + zone / 2) == -top / 4)
         #expect(speed(0) == -top)
         #expect(speed(700 - zone / 4) > speed(700 - zone / 2))
+    }
+
+    @Test("An edge's band scrolls only once the finger has gone toward that edge since the lift")
+    func edgeArming() {
+        let visible: ClosedRange<CGFloat> = 100 ... 700
+        let move = RailDrag.allowableMovement
+        func speed(_ y: CGFloat, _ travel: RailDrag.Travel) -> CGFloat {
+            RailDrag.edgeSpeed(fingerY: y, visible: visible, travel: travel)
+        }
+        // Lifted in the top band and held still: nothing.
+        var still = RailDrag.Travel(from: 120)
+        still.pass(120 - move / 2)
+        #expect(speed(120 - move / 2, still) == 0)
+        // Gone up far enough: it scrolls, and keeps on if the finger eases back down.
+        var up = still
+        up.pass(120 - move)
+        #expect(speed(120 - move, up) < 0)
+        up.pass(125)
+        #expect(speed(125, up) < 0)
+        // Gone down only: the top band stays still, the bottom one scrolls.
+        var down = RailDrag.Travel(from: 120)
+        down.pass(140)
+        #expect(speed(120, down) == 0)
+        var across = RailDrag.Travel(from: 300)
+        across.pass(690)
+        #expect(speed(690, across) > 0)
+        // Lifted in the bottom band and held still: nothing.
+        #expect(speed(690, RailDrag.Travel(from: 690)) == 0)
     }
 }

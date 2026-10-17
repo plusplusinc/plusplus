@@ -1,8 +1,9 @@
 import SwiftUI
 
 extension View {
-    /// Lets a row held on a rail inside this scroll view scroll it: held near the top or bottom
-    /// of the area the list shows in, the list scrolls, faster the nearer the edge, and the card
+    /// Lets a row held on a rail inside this scroll view scroll it: dragged toward the top or
+    /// bottom of the area the list shows in, into the band at that edge, the list scrolls, faster
+    /// the nearer the edge, and the card
     /// stays under the finger as the rows pass under it. Let go outside that area, over a bar,
     /// the row goes back where it was.
     public func railAutoscroll(_ position: Binding<ScrollPosition>) -> some View {
@@ -18,16 +19,24 @@ final class RailEdges {
     @ObservationIgnored var isHeld = false {
         didSet {
             scrolledTo = nil
+            travel = RailDrag.Travel(from: fingerY)
             updateScrolling()
         }
     }
 
     /// The held finger's y on screen.
     @ObservationIgnored var fingerY: CGFloat = 0 {
-        didSet { updateScrolling() }
+        didSet {
+            travel.pass(fingerY)
+            updateScrolling()
+        }
     }
 
-    /// Whether a held row is in an edge's band, so the list scrolls a frame at a time.
+    /// Where the finger has been since the row lifted, which arms an edge's band.
+    @ObservationIgnored private var travel = RailDrag.Travel(from: 0)
+
+    /// Whether a held row is in an edge's band it has gone toward, so the list scrolls a frame at
+    /// a time.
     private(set) var isScrolling = false
     /// Called with how far the list scrolled under the held finger, in the same update as the
     /// scroll, so the card and the gap follow in the same frame.
@@ -54,10 +63,15 @@ final class RailEdges {
 
     private func updateScrolling() {
         let scrolls = isHeld
-            && visible.map { RailDrag.edgeSpeed(fingerY: fingerY, visible: $0) != 0 } == true
+            && visible.map { speed(in: $0) != 0 } == true
         if scrolls != isScrolling {
             isScrolling = scrolls
         }
+    }
+
+    /// How fast the finger asks the list to scroll, in points a second.
+    fileprivate func speed(in visible: ClosedRange<CGFloat>) -> CGFloat {
+        RailDrag.edgeSpeed(fingerY: fingerY, visible: visible, travel: travel)
     }
 
     /// Whether `y` on screen is outside the list, over a bar or past the screen's edge.
@@ -103,7 +117,7 @@ private struct RailAutoscroll: ViewModifier {
     /// at either end of the list.
     private func step(by seconds: TimeInterval) {
         guard let scroll = edges.scroll, let visible = edges.visible else { return }
-        let speed = RailDrag.edgeSpeed(fingerY: edges.fingerY, visible: visible)
+        let speed = edges.speed(in: visible)
         guard speed != 0 else { return }
         // A frame that came late moves no further than one at 30 fps would.
         let current = edges.scrolledTo ?? scroll.scrolledY

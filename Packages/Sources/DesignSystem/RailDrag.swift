@@ -124,20 +124,50 @@ nonisolated enum RailDrag {
         return order
     }
 
+    /// Where the held finger has been on screen since the row lifted. An edge's band scrolls the
+    /// list only once the finger has gone toward that edge since the lift, as far as turns a press
+    /// into a scroll, so a row lifted in a band and held still stays put, and lands where it was.
+    struct Travel {
+        let start: CGFloat
+        private(set) var span: ClosedRange<CGFloat>
+
+        init(from y: CGFloat) {
+            start = y
+            span = y ... y
+        }
+
+        mutating func pass(_ y: CGFloat) {
+            span = min(span.lowerBound, y) ... max(span.upperBound, y)
+        }
+
+        var hasGoneUp: Bool {
+            start - span.lowerBound >= allowableMovement
+        }
+
+        var hasGoneDown: Bool {
+            span.upperBound - start >= allowableMovement
+        }
+    }
+
     /// How fast to scroll, in points a second, with the finger at `fingerY` in a visible area
-    /// spanning `visible`: nothing outside the bands at its ends, then rising as the square of
-    /// how deep the finger is in one, slow near its inner line for precision and fast at the
-    /// edge to cross a long list. Up is negative. A finger past the edge counts as at it.
-    static func edgeSpeed(fingerY: CGFloat, visible: ClosedRange<CGFloat>) -> CGFloat {
+    /// spanning `visible`: nothing outside the bands at its ends, or in a band the finger hasn't
+    /// gone toward since the lift, then rising as the square of how deep the finger is in one,
+    /// slow near its inner line for precision and fast at the edge to cross a long list. Up is
+    /// negative. A finger past the edge counts as at it.
+    static func edgeSpeed(
+        fingerY: CGFloat,
+        visible: ClosedRange<CGFloat>,
+        travel: Travel,
+    ) -> CGFloat {
         let zone = min(edgeZone, (visible.upperBound - visible.lowerBound) / 2)
         guard zone > 0 else { return 0 }
         let intoTop = (visible.lowerBound + zone - fingerY) / zone
         let intoBottom = (fingerY - (visible.upperBound - zone)) / zone
         if intoTop > 0 {
-            return -edgeTopSpeed * pow(min(intoTop, 1), 2)
+            return travel.hasGoneUp ? -edgeTopSpeed * pow(min(intoTop, 1), 2) : 0
         }
         if intoBottom > 0 {
-            return edgeTopSpeed * pow(min(intoBottom, 1), 2)
+            return travel.hasGoneDown ? edgeTopSpeed * pow(min(intoBottom, 1), 2) : 0
         }
         return 0
     }
