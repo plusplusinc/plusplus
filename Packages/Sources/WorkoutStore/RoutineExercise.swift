@@ -7,11 +7,20 @@ public struct RoutineExercise: Identifiable, Equatable, Sendable {
     public let exercise: Exercise
     /// This row's values, its exercise's defaults until changed.
     public var plan: ExercisePlan
+    /// The superset the row is in, shared by the rows next to it in the same one; nil for a
+    /// plain row. `Routine` keeps supersets whole and at least two rows long.
+    public var supersetID: UUID?
 
-    public init(id: UUID = UUID(), exercise: Exercise, plan: ExercisePlan) {
+    public init(
+        id: UUID = UUID(),
+        exercise: Exercise,
+        plan: ExercisePlan,
+        supersetID: UUID? = nil,
+    ) {
         self.id = id
         self.exercise = exercise
         self.plan = plan
+        self.supersetID = supersetID
     }
 
     /// A new row, at its exercise's defaults, a weight in `weightUnit`, the region's.
