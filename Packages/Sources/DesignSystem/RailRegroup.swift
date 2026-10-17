@@ -39,6 +39,14 @@ struct RailRegroupState<ID: Hashable> {
     /// The finger's y in the rail's space.
     var fingerY: CGFloat
     var grouping: RailGrouping<ID>?
+    /// The finger is over a bar, or past the screen's edge, where letting go changes nothing.
+    var isOverBar = false
+
+    /// What the rail draws: the preview, or, over a bar, the rows as they are, since a drop there
+    /// makes nothing.
+    var shown: RailGrouping<ID>? {
+        isOverBar ? nil : grouping
+    }
 }
 
 /// The field behind the rows a drag is joining: `railJoin`, faint, edged in it, a little past the

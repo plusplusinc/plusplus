@@ -129,7 +129,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         // Until the arriving row enters, the line ends at the node above it.
         let lastOnLine = shown.last { $0.id != arriving }?.id
         let shownLinks = RailLink.links(shown.map(\.id), joined: shownJoined)
-        let joining = regrouping?.grouping?.joining ?? []
+        let joining = regrouping?.shown?.joining ?? []
         VStack(alignment: .leading, spacing: 0) {
             // Each row learns its place from the rail. Rows taken as a view's subviews could
             // not: a subview resolves in its container's environment, not one set on it.
@@ -292,9 +292,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
             }
         case .changed:
             if regrouping?.held == id {
-                regrouping?.fingerY = finger.inRail
-                edges?.move(to: finger.inScrollView)
-                return reachFinger()
+                return moveNodeFinger(to: finger)
             }
             guard let held = drag, held.lifted == id else { return }
             cardTop = finger.inRail - held.grab

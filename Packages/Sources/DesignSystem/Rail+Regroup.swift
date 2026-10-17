@@ -7,7 +7,7 @@ extension Rail {
     /// The rows joined to the next as they show: a regroup's preview, the held row's slot, or
     /// `links`.
     var shownJoined: Set<RowID> {
-        if let grouping = regrouping?.grouping {
+        if let grouping = regrouping?.shown {
             return grouping.links
         }
         guard let drag else { return links }
@@ -51,6 +51,20 @@ extension Rail {
         }
     }
 
+    /// Follows the finger holding a node: over a bar, where a drop makes nothing, the preview
+    /// fades, and comes back as the finger returns over the rows.
+    func moveNodeFinger(to finger: RailDrag.Finger) {
+        regrouping?.fingerY = finger.inRail
+        edges?.move(to: finger.inScrollView)
+        let isOverBar = edges?.isOutside(finger.inScrollView) == true
+        if isOverBar != regrouping?.isOverBar {
+            withAnimation(reduceMotion ? nil : RailDrag.gap) {
+                regrouping?.isOverBar = isOverBar
+            }
+        }
+        reachFinger()
+    }
+
     /// Previews what a drop on the row under the finger would make, with a tick when it changes.
     func reachFinger() {
         guard let held = regrouping, let regroup,
@@ -66,7 +80,8 @@ extension Rail {
             regrouping?.reach = reach
             regrouping?.grouping = grouping
         }
-        if grouping != held.grouping {
+        // Over a bar the preview isn't shown, so its changes aren't felt either.
+        if grouping != held.grouping, !held.isOverBar {
             ticks += 1
         }
     }
