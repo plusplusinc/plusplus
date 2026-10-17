@@ -3,7 +3,7 @@
 #
 #   scripts/test.sh          # fast: the package on macOS, no simulator. Seconds.
 #   scripts/test.sh sim      # the app scheme on the simulator: package, snapshot, and UI tests;
-#                            # on "PlusPlus Team", after scripts/sim.sh reset
+#                            # in a worktree, on its own simulator after scripts/sim.sh reset
 #   scripts/test.sh sim WorkoutStoreTests/WorkoutStoreContainerTests   # -only-testing filter
 #
 # The package declares a macOS platform so its tests run with `swift test` and no simulator.
@@ -20,12 +20,13 @@ case "$MODE" in
         ;;
     sim)
         # Whatever the last session left on the simulator (dark mode, a minimized keyboard) is
-        # what the UI tests would see. Only the team's is reset: the reset can reboot, and any
-        # other simulator is a person's.
-        if [ "$SIMULATOR_NAME" = "$TEAM_SIMULATOR" ]; then
+        # what the UI tests would see. Only a worktree's own simulator is reset: the reset can
+        # reboot, and any other simulator is a person's.
+        ensure_simulator
+        if [ "$SIMULATOR_NAME" = "$OWN_SIMULATOR" ]; then
             "$ROOT/scripts/sim.sh" reset
         else
-            echo "not resetting \"$SIMULATOR_NAME\": only \"$TEAM_SIMULATOR\" is reset" >&2
+            echo "not resetting \"$SIMULATOR_NAME\": only a worktree's own simulator is reset" >&2
         fi
         only=()
         [ -n "$ONLY" ] && only=(-only-testing:"$ONLY")

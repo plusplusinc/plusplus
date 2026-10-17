@@ -13,14 +13,24 @@ SCHEME="PlusPlus"
 PACKAGE="$ROOT/Packages"
 DERIVED_DATA="$ROOT/.build/DerivedData"
 RESULTS="$ROOT/.build/results"
-# The feature agents' own simulator. The main checkout's default, iPhone 17, is the
-# maintainer's, so scripts/test.sh resets, and scripts/sim.sh erases, only this one.
-TEAM_SIMULATOR="PlusPlus Team"
-# A linked worktree, whose .git is a file, is an agent's, so it defaults to the team's simulator
-# and an agent that leaves out PLUSPLUS_SIMULATOR cannot reach the maintainer's.
+# Each linked worktree, whose .git is a file, is an agent's, and builds and tests on a simulator
+# of its own, "PlusPlus <worktree>", so two worktrees never share an app, its data, or its
+# settings. ensure_simulator creates it on first use, and scripts/tidy.sh deletes it with the
+# worktree. The main checkout defaults to iPhone 17, the maintainer's. scripts/test.sh resets, and
+# scripts/sim.sh erases, only the worktree's own simulator, so an agent that leaves out
+# PLUSPLUS_SIMULATOR never reaches a person's.
+TEMPLATE_SIMULATOR="PlusPlus Team"
+
+#   worktree_simulator <worktree path>
+worktree_simulator() {
+    echo "PlusPlus $(basename "$1")"
+}
+
 if [ -f "$ROOT/.git" ]; then
-    SIMULATOR_NAME="${PLUSPLUS_SIMULATOR:-$TEAM_SIMULATOR}"
+    OWN_SIMULATOR=$(worktree_simulator "$ROOT")
+    SIMULATOR_NAME="${PLUSPLUS_SIMULATOR:-$OWN_SIMULATOR}"
 else
+    OWN_SIMULATOR=""
     SIMULATOR_NAME="${PLUSPLUS_SIMULATOR:-iPhone 17}"
 fi
 DESTINATION="platform=iOS Simulator,name=$SIMULATOR_NAME"
@@ -37,6 +47,49 @@ beautify() {
     else
         cat
     fi
+}
+
+# Prints "<udid> <state>" of the one simulator with this name, nothing when there is none, and
+# fails when the name matches more than one, since acting on the wrong one could hit a person's.
+#
+#   simulator_udid <name>
+simulator_udid() {
+    xcrun simctl list devices --json | python3 -c '
+import json, sys
+matches = [d for ds in json.load(sys.stdin)["devices"].values() for d in ds
+           if d["name"] == sys.argv[1]]
+if len(matches) > 1:
+    sys.exit(f"{len(matches)} simulators are named {sys.argv[1]!r}; delete or rename the extras with xcrun simctl")
+for d in matches:
+    print(d["udid"], d["state"])
+' "$1"
+}
+
+# Creates the worktree's own simulator when it does not exist yet: the device type of
+# $TEMPLATE_SIMULATOR (an iPhone 17 when there is none) on the newest installed iOS runtime that
+# runs it (a beta runtime can carry only a new device).
+# Does nothing in the main checkout or when PLUSPLUS_SIMULATOR names another simulator.
+ensure_simulator() {
+    [ "$SIMULATOR_NAME" = "$OWN_SIMULATOR" ] || return 0
+    local found
+    found=$(simulator_udid "$SIMULATOR_NAME") || return 1
+    [ -z "$found" ] || return 0
+    local device_type runtime
+    read -r device_type runtime < <(xcrun simctl list --json devices runtimes | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+types = [d["deviceTypeIdentifier"] for ds in data["devices"].values() for d in ds
+         if d["name"] == sys.argv[1]]
+device_type = types[0] if types else "com.apple.CoreSimulator.SimDeviceType.iPhone-17"
+runtimes = [r for r in data["runtimes"] if r["platform"] == "iOS" and r["isAvailable"]
+            and any(t["identifier"] == device_type for t in r["supportedDeviceTypes"])]
+if not runtimes:
+    sys.exit(f"no installed iOS runtime runs {device_type}; install one in Xcode > Settings > Components")
+newest = max(runtimes, key=lambda r: [int(p) for p in r["version"].split(".")])
+print(device_type, newest["identifier"])
+' "$TEMPLATE_SIMULATOR") || return 1
+    echo "creating simulator \"$SIMULATOR_NAME\" ($device_type, $runtime)" >&2
+    xcrun simctl create "$SIMULATOR_NAME" "$device_type" "$runtime" > /dev/null
 }
 
 # Compact summaries of a result bundle; see scripts/xcresult.py.
