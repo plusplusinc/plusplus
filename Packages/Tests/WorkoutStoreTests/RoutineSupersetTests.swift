@@ -53,6 +53,7 @@ struct RoutineSupersetTests {
         #expect(shape(regrouped("A-B C-D", holding: "B", reaching: "C")?.routine) == "A B-C D")
         #expect(shape(regrouped("A-B-C D-E", holding: "B", reaching: "D")?.routine) == "A B-C-D E")
         #expect(shape(regrouped("A-B C", holding: "B", reaching: "C")?.routine) == "A B-C")
+        #expect(shape(regrouped("A B-C-D", holding: "A", reaching: "B")?.routine) == "A-B C-D")
     }
 
     @Test("Rows cut off keep the round count they shared")
