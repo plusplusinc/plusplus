@@ -19,7 +19,10 @@ project board; agents' technical working files live in `.slices/`.
    chosen, retitle the session for it, never leaving it "Onward": `set_session_title` needs
    this session's `session_id`, which `get_session` with no arguments returns.
    Its body holds the scope, the acceptance criteria, and a State section with the worktree,
-   branch, PR, phase, and next step.
+   branch, PR, phase, next step, and the leading session's id. An In Progress card can still
+   belong to another running session, its wrap-up after the merge included: before acting on
+   one, check that session (`get_session` with that id) and its worktree's processes, and
+   when it is active, leave the card to it and say so.
    An open nightly retro PR (title "Retro of", `gh pr list --search "Retro of in:title"`)
    comes before the card: rebase it, check each hunk against main, then trim, merge, or close
    it with the maintainer's go-ahead.
@@ -50,7 +53,8 @@ project board; agents' technical working files live in `.slices/`.
   unverified, then give their feedback to a fresh builder named for that round, which starts
   from the slice's handoff note and brings it up to date before it reports; resume a builder
   only to finish its own round. Wi-Fi first, link second: when no iPhone is in reach the script
-  makes an install link instead, and when the phone is locked the build installs but doesn't
+  makes an install link instead, printing why each paired iPhone was out of reach (say that,
+  not a guess), and when the phone is locked the build installs but doesn't
   open, so tell them to open PlusPlus. Send them the link it prints. The work goes on while they
   are away. The loop ends when they say it's right; then the builder runs its full pass and the
   verifier runs once. Their being away doesn't end it: work done while they are away is a round
@@ -59,7 +63,13 @@ project board; agents' technical working files live in `.slices/`.
   at once (SendMessage) and add it to the slice's handoff note, so the next builder has it too.
 - A screen with no design gets options drawn before it is built. The first is the platform's
   own control for the job (principle 4, "Native bones"), and each other option says what it
-  does that the system one can't.
+  does that the system one can't. An API offered as an option is one whose Apple doc (sosumi)
+  says it works on iPhone.
+- Starting a phase, tell the maintainer how long it should take and what takes the time, and
+  give the subagent that budget. Ask for the proof the change needs and leave repeat runs to
+  Xcode Cloud; when a phase runs past its budget, say why before they ask.
+- A test that fails on a PR's CI is diagnosed, never just rerun. A flake that is on `main` too
+  gets fixed, as its own card ahead of the PR, before the PR merges.
 - Before saying what state anything is in, read it at that moment, even mid-summary: an agent
   running (its transcript's last entry and when it happened), a PR open or merged
   (`gh pr view`), a run passed. What you read earlier in the turn may have changed. An interrupt of your turn can stop background agents: after one,
@@ -67,14 +77,18 @@ project board; agents' technical working files live in `.slices/`.
 - When a subagent runs long, have it write `.slices/sliceN-handoff.md` and continue with a
   fresh one in the same worktree.
 - Rewrite the card's State section (`scripts/board.sh state <id> <<'STATE'`, quoted so
-  backticks stay text) whenever a phase ends, so a cleared context can resume mid-slice.
+  backticks stay text) whenever a phase ends, so a cleared context can resume mid-slice. It
+  names this session's id, so another session can tell whether the card is still led.
 
 ## Finish
 
 1. Look at the verifier's screenshots yourself. If the maintainer has not had the final build in
    hand (the full pass changed what they see, or there was no round), install it with
-   `scripts/device.sh` (a link when the phone is out of reach) and tell them what to try.
-2. After the maintainer's go-ahead: merge once checks pass, move the card to Done, run
+   `scripts/device.sh` (a link when the phone is out of reach) and tell them what to try: what
+   to do and what they should see, never what a check looks for.
+2. After the maintainer's go-ahead: merge once checks pass (a wait for that also ends when
+   `gh pr view --json mergeable` reads `CONFLICTING`, since auto-merge waits on a conflict
+   without a word; after any merge to `main`, check every PR that waits), move the card to Done, run
    `scripts/tidy.sh` (it removes the merged worktree and branch; it also runs at every session
    start), and delete the slice's `.slices/sliceN-*` files.
 3. Record decisions made during the slice in the board README (read it with `scripts/board.sh
