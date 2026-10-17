@@ -28,9 +28,9 @@ struct RailGroupDragTests {
         let candidates = RailDrag.candidates(rows: rows, lifted: "a", groups: groups)
         #expect(candidates == [
             .init(slot: .before("b"), gapTop: 0),
-            .init(slot: .before("b", joining: .below), gapTop: 0, switchY: spread),
+            .init(slot: .before("b", joining: .below), gapTop: 0),
             .init(slot: .before("c", joining: .above), gapTop: 64),
-            .init(slot: .before("d", joining: .above), gapTop: 128, switchY: 128 - spread),
+            .init(slot: .before("d", joining: .above), gapTop: 128),
             .init(slot: .before("d"), gapTop: 128),
             .init(slot: .before("e"), gapTop: 192),
             .init(slot: .end, gapTop: 256),
@@ -43,27 +43,69 @@ struct RailGroupDragTests {
         let candidates = RailDrag.candidates(rows: rows, lifted: "e", groups: groups)
             .filter { $0.slot.place == .before("c") }
         #expect(candidates.map(\.slot.joining) == [.above, nil, .below])
-        #expect(candidates.map(\.switchY) == [128 - spread, 128, 128 + spread])
     }
 
     @Test("Plain rows keep one slot per boundary")
     func plainUnchanged() {
         let candidates = RailDrag.candidates(rows: rows, lifted: "a", groups: [:])
         #expect(candidates.count == 5)
-        #expect(candidates.allSatisfy { $0.slot.joining == nil && $0.switchY == $0.gapTop })
+        #expect(candidates.allSatisfy { $0.slot.joining == nil })
     }
 
-    @Test("Crossing a group's edge goes outside, then inside, halfway between the switch points")
+    @Test("Crossing a group's edge switches inside and outside at the edge itself")
     func crossingEdge() {
         let groups = RailDrag.groups(ids, joined: ["b"])
         let candidates = RailDrag.candidates(rows: rows, lifted: "a", groups: groups)
         func slot(_ top: CGFloat) -> RailSlot<String> {
             RailDrag.candidate(for: top, in: candidates, current: nil)
         }
-        #expect(slot(spread / 2 - 1) == .before("b"))
-        #expect(slot(spread / 2 + 1) == .before("b", joining: .below))
-        #expect(slot(128 - spread / 2 - 1) == .before("d", joining: .above))
-        #expect(slot(128 - spread / 2 + 1) == .before("d"))
+        #expect(slot(-1) == .before("b"))
+        #expect(slot(1) == .before("b", joining: .below))
+        #expect(slot(127) == .before("d", joining: .above))
+        #expect(slot(129) == .before("d"))
+    }
+
+    @Test("Leaving a slot at a group's edge for the other takes the spread past the edge, either way")
+    func edgeHysteresis() {
+        let groups = RailDrag.groups(ids, joined: ["b"])
+        let candidates = RailDrag.candidates(rows: rows, lifted: "a", groups: groups)
+        func slot(_ top: CGFloat, from current: RailSlot<String>) -> RailSlot<String> {
+            RailDrag.candidate(for: top, in: candidates, current: current)
+        }
+        let (inside, outside) = (RailSlot.before("d", joining: .above), RailSlot.before("d"))
+        // A member held at its group's bottom edge, nudged out, stays in.
+        #expect(slot(128 + 3, from: inside) == inside)
+        #expect(slot(128 + spread - 1, from: inside) == inside)
+        #expect(slot(128 + spread + 1, from: inside) == outside)
+        // A plain row comes in as far past the edge, the other way.
+        #expect(slot(128 - 3, from: outside) == outside)
+        #expect(slot(128 - spread + 1, from: outside) == outside)
+        #expect(slot(128 - spread - 1, from: outside) == inside)
+        // The top edge, mirrored.
+        let (top, above) = (RailSlot.before("b", joining: .below), RailSlot.before("b"))
+        #expect(slot(-spread + 1, from: top) == top)
+        #expect(slot(-spread - 1, from: top) == above)
+        #expect(slot(spread - 1, from: above) == above)
+        #expect(slot(spread + 1, from: above) == top)
+    }
+
+    @Test("Between two groups, the plain slot is reached from either side")
+    func betweenGroupsHysteresis() {
+        // a-b and c-d, e lifted: the boundary above c is at 128.
+        let groups = RailDrag.groups(ids, joined: ["a", "c"])
+        let candidates = RailDrag.candidates(rows: rows, lifted: "e", groups: groups)
+        func slot(_ top: CGFloat, from current: RailSlot<String>) -> RailSlot<String> {
+            RailDrag.candidate(for: top, in: candidates, current: current)
+        }
+        let upper = RailSlot.before("c", joining: .above)
+        let plain = RailSlot.before("c")
+        let lower = RailSlot.before("c", joining: .below)
+        #expect(slot(128 + 3, from: upper) == upper)
+        #expect(slot(128 + spread, from: upper) == plain)
+        #expect(slot(128 + spread / 2, from: plain) == plain)
+        #expect(slot(128 + spread + 2 * RailDrag.deadBand, from: plain) == lower)
+        #expect(slot(128 - 3, from: lower) == lower)
+        #expect(slot(128 - spread, from: lower) == plain)
     }
 
     @Test("A member lifted from a pair starts in the slot inside, beside its partner")

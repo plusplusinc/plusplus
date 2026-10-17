@@ -100,23 +100,16 @@ nonisolated enum RailDrag {
     /// How fast the list scrolls with the finger at the very edge, in points a second.
     static let edgeTopSpeed: CGFloat = 900
 
-    /// How far either side of a group's edge its two slots switch: just inside, where the group
-    /// wraps the gap, and just outside, where it lets go.
-    static let edgeSlotSpread: CGFloat = 20
+    /// How far past a group's edge the card must go to switch between the slot inside the group
+    /// and the one outside it, either way, so a member lifted to look at it, or a wobble near the
+    /// edge, doesn't leave the group, and a row joins one only on a deliberate move.
+    static let edgeSlotSpread: CGFloat = 24
 
-    /// A place the lifted row could land, the top of its gap in the rail's space, and the y the
-    /// card's top is measured against to reach it: the gap's top, or, at a group's edge, a little
-    /// above or below it for the slot inside the group.
+    /// A place the lifted row could land, and the top of its gap in the rail's space. At a
+    /// group's edge, the slots inside and outside the group share a gap.
     struct Candidate<ID: Hashable>: Equatable {
         var slot: RailSlot<ID>
         var gapTop: CGFloat
-        var switchY: CGFloat
-
-        init(slot: RailSlot<ID>, gapTop: CGFloat, switchY: CGFloat? = nil) {
-            self.slot = slot
-            self.gapTop = gapTop
-            self.switchY = switchY ?? gapTop
-        }
     }
 
     /// The candidates at each boundary between the rows other than the lifted one, top to
@@ -140,19 +133,11 @@ nonisolated enum RailDrag {
                 return
             }
             if upper != nil {
-                candidates.append(Candidate(
-                    slot: RailSlot(place, joining: .above),
-                    gapTop: top,
-                    switchY: top - edgeSlotSpread,
-                ))
+                candidates.append(Candidate(slot: RailSlot(place, joining: .above), gapTop: top))
             }
             candidates.append(Candidate(slot: RailSlot(place), gapTop: top))
             if lower != nil {
-                candidates.append(Candidate(
-                    slot: RailSlot(place, joining: .below),
-                    gapTop: top,
-                    switchY: top + edgeSlotSpread,
-                ))
+                candidates.append(Candidate(slot: RailSlot(place, joining: .below), gapTop: top))
             }
         }
         for row in rows where row.id != lifted {
@@ -260,26 +245,46 @@ nonisolated enum RailDrag {
 
     /// The slot whose gap is nearest the card's top. The gap moves past a row once the card has
     /// traveled half that row's height, the same felt point for one line, two, or the largest
-    /// text, and leaving `current` takes `deadBand` more. At a group's edge it moves between the
-    /// slots inside and outside halfway between their switch points.
+    /// text, and leaving `current` takes `deadBand` more. At a group's edge, where the slots
+    /// inside and outside share a gap, the card switches between them at the gap's top, but
+    /// leaving `current` there takes `edgeSlotSpread` more: a member lifted from its group's edge
+    /// stays in it until the card goes that far out, and a row comes in from outside only as far
+    /// past the edge.
     static func candidate<ID: Hashable>(
         for cardTop: CGFloat,
         in candidates: [Candidate<ID>],
         current: RailSlot<ID>?,
     ) -> RailSlot<ID> {
         guard !candidates.isEmpty else { return .end }
-        func midpoint(_ index: Int) -> CGFloat {
-            (candidates[index].switchY + candidates[index + 1].switchY) / 2
-        }
-        let nearest = (0 ..< candidates.count - 1).first { cardTop < midpoint($0) }
-            ?? candidates.count - 1
-        guard let current, let held = candidates.firstIndex(where: { $0.slot == current }),
-              held != nearest
+        let lines = candidates.indices.dropLast().map { switchLine(after: $0, in: candidates) }
+        let nearest = lines.firstIndex { cardTop < $0.y } ?? candidates.count - 1
+        guard let current, var index = candidates.firstIndex(where: { $0.slot == current })
         else { return candidates[nearest].slot }
-        let stays = nearest > held
-            ? cardTop < midpoint(held) + deadBand
-            : cardTop > midpoint(held - 1) - deadBand
-        return candidates[stays ? held : nearest].slot
+        // Step toward the nearest across each line the card is far enough past.
+        while index < nearest, cardTop >= lines[index].y + lines[index].margin {
+            index += 1
+        }
+        while index > nearest, cardTop <= lines[index - 1].y - lines[index - 1].margin {
+            index -= 1
+        }
+        return candidates[index].slot
+    }
+
+    /// Where the card's top switches from `candidates[index]` to the next, and how far past it
+    /// the card must go to leave the one it is in. Between boundaries, halfway between their
+    /// gaps. At one boundary, at its gap: between two groups, where a plain slot sits between the
+    /// slots inside each, `deadBand` either side of it, so the plain slot can be reached.
+    private static func switchLine<ID: Hashable>(
+        after index: Int,
+        in candidates: [Candidate<ID>],
+    ) -> (y: CGFloat, margin: CGFloat) {
+        let (upper, lower) = (candidates[index], candidates[index + 1])
+        guard upper.slot.place == lower.slot.place else {
+            return ((upper.gapTop + lower.gapTop) / 2, deadBand)
+        }
+        let isBetweenGroups = candidates.count(where: { $0.slot.place == upper.slot.place }) > 2
+        let offset = isBetweenGroups ? (lower.slot.joining == .below ? deadBand : -deadBand) : 0
+        return (upper.gapTop + offset, edgeSlotSpread)
     }
 
     /// `ids` as they show while `lifted` is held over `slot`: the lifted row in the gap.
