@@ -115,15 +115,7 @@ struct RoutineScreen: View {
                             if let down = routine.slotMovingDown(item.id) {
                                 Button("Move down") { step(item.id, to: down, wentUp: false) }
                             }
-                            if routine.canJoin(item.id, .above) {
-                                Button("Superset with exercise above") { join(item.id, .above) }
-                            }
-                            if routine.canJoin(item.id, .below) {
-                                Button("Superset with exercise below") { join(item.id, .below) }
-                            }
-                            if routine.isInSuperset(item.id) {
-                                Button("Move out of superset") { leaveSuperset(item.id) }
-                            }
+                            supersetActions(item.id)
                         }
                         .accessibilityIdentifier("routine.exercise")
                         .swipeActions(edge: .trailing) {
@@ -257,20 +249,6 @@ struct RoutineScreen: View {
         }
     }
 
-    /// Joining and parting rows by a drag from a row's node, by the routine's rules.
-    private var regroup: RailRegroup<RoutineExercise.ID> {
-        RailRegroup { held, reach in
-            routine.regrouped(holding: held, reaching: reach).map { regrouping in
-                RailGrouping(
-                    links: regrouping.routine.joinedToNext,
-                    joining: Set(regrouping.joined),
-                )
-            }
-        } commit: { held, reach in
-            routine.regroup(holding: held, reaching: reach)
-        }
-    }
-
     /// Moves a row dropped on the rail, in the rail's transaction, so the order changes as the
     /// card settles into its gap; it saves once, as any change does.
     private func move(_ id: RoutineExercise.ID, to slot: RailSlot<RoutineExercise.ID>) {
@@ -292,24 +270,6 @@ struct RoutineScreen: View {
         withAnimation(.railChange) {
             routine.remove(id)
         }
-    }
-
-    /// Joins a row with its neighbor with VoiceOver, and says whom it's with.
-    private func join(_ id: RoutineExercise.ID, _ side: RoutineNeighbor) {
-        withAnimation(.railChange) {
-            routine.join(id, side)
-        }
-        let names = routine.partners(of: id).map(\.exercise.name)
-        AccessibilityNotification.Announcement(
-            "In a superset with \(names.formatted(.list(type: .and)))",
-        ).post()
-    }
-
-    private func leaveSuperset(_ id: RoutineExercise.ID) {
-        withAnimation(.railChange) {
-            routine.leaveSuperset(id)
-        }
-        AccessibilityNotification.Announcement("Out of the superset").post()
     }
 
     /// Adds a picked exercise. Its row takes its place as the sheet starts down, moving Add
@@ -377,18 +337,52 @@ struct RoutineScreen: View {
     }
 }
 
-extension RoutineSlot {
-    init(_ slot: RailSlot<RoutineExercise.ID>) {
-        let place: Place = switch slot.place {
-        case let .before(id): .before(id)
-        case .end: .end
+// Supersets: joining and parting rows by a node, and with VoiceOver.
+extension RoutineScreen {
+    /// VoiceOver's superset actions on a row, none where it would do nothing.
+    @ViewBuilder
+    private func supersetActions(_ id: RoutineExercise.ID) -> some View {
+        if routine.canJoin(id, .above) {
+            Button("Superset with exercise above") { join(id, .above) }
         }
-        let joining: RoutineNeighbor? = switch slot.joining {
-        case .above: .above
-        case .below: .below
-        case nil: nil
+        if routine.canJoin(id, .below) {
+            Button("Superset with exercise below") { join(id, .below) }
         }
-        self.init(place, joining: joining)
+        if routine.isInSuperset(id) {
+            Button("Move out of superset") { leaveSuperset(id) }
+        }
+    }
+
+    /// Joining and parting rows by a drag from a row's node, by the routine's rules.
+    private var regroup: RailRegroup<RoutineExercise.ID> {
+        RailRegroup { held, reach in
+            routine.regrouped(holding: held, reaching: reach).map { regrouping in
+                RailGrouping(
+                    links: regrouping.routine.joinedToNext,
+                    joining: Set(regrouping.joined),
+                )
+            }
+        } commit: { held, reach in
+            routine.regroup(holding: held, reaching: reach)
+        }
+    }
+
+    /// Joins a row with its neighbor with VoiceOver, and says whom it's with.
+    private func join(_ id: RoutineExercise.ID, _ side: RoutineNeighbor) {
+        withAnimation(.railChange) {
+            routine.join(id, side)
+        }
+        let names = routine.partners(of: id).map(\.exercise.name)
+        AccessibilityNotification.Announcement(
+            "In a superset with \(names.formatted(.list(type: .and)))",
+        ).post()
+    }
+
+    private func leaveSuperset(_ id: RoutineExercise.ID) {
+        withAnimation(.railChange) {
+            routine.leaveSuperset(id)
+        }
+        AccessibilityNotification.Announcement("Out of the superset").post()
     }
 }
 

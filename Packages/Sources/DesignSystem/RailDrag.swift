@@ -245,18 +245,17 @@ nonisolated enum RailDrag {
         rows: [(id: ID, height: CGFloat)],
         current: ID?,
     ) -> ID? {
-        var top: CGFloat = 0
-        var spans: [(id: ID, top: CGFloat, bottom: CGFloat)] = []
-        for row in rows {
-            spans.append((row.id, top, top + row.height))
-            top += row.height
+        // Each row's top, and the bottom of the last.
+        let edges = rows.reduce(into: [CGFloat(0)]) { edges, row in
+            edges.append((edges.last ?? 0) + row.height)
         }
-        if let held = spans.first(where: { $0.id == current }),
-           fingerY >= held.top - deadBand, fingerY < held.bottom + deadBand
+        if let held = rows.firstIndex(where: { $0.id == current }),
+           fingerY >= edges[held] - deadBand, fingerY < edges[held + 1] + deadBand
         {
-            return held.id
+            return rows[held].id
         }
-        return spans.first { fingerY < $0.bottom }?.id ?? spans.last?.id
+        let under = rows.indices.first { fingerY < edges[$0 + 1] } ?? rows.indices.last
+        return under.map { rows[$0].id }
     }
 
     /// The slot whose gap is nearest the card's top. The gap moves past a row once the card has

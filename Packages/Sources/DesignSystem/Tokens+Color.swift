@@ -21,7 +21,8 @@ public enum ColorToken: String, CaseIterable, Sendable {
     /// where its strokes cross they don't darken.
     case railGroup = "ppRailGroup"
     /// Something joining a rail, for the moment it joins: an added row's node draws in it, then
-    /// settles to `borderStrong`; a group's loop and the field behind it while a drag joins rows, the
+    /// settles to `borderStrong`; a group's loop and the field behind it while a drag joins rows,
+    /// the
     /// loop then settling to `railGroup`. Never at rest, and never the line.
     case railJoin = "ppRailJoin"
     case surface = "ppSurface"
