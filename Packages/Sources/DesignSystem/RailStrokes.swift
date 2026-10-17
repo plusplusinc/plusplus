@@ -75,10 +75,8 @@ nonisolated struct LoopPen {
     }
 }
 
-/// The rail's strokes while a row is held, drawn once for every row: the line from the first
-/// node to the last, and every superset's loop, as the rows show, the gap's row among them. The
-/// held row's card draws the same drawing again over its fill, cut to its shape, so card and rail
-/// line up wherever the card is.
+/// The rail's strokes while a row's node is held, drawn once for every row: the line from the
+/// first node to the last, and every superset's loop, as the rows show.
 ///
 /// The loops change in the transaction that moves the rows, stretching, shrinking, growing out of
 /// a node, or drawing back into one, on its animation; with Reduce Motion, where the rows jump,
@@ -92,10 +90,6 @@ struct RailDrawing: View {
     let joined: [Bool]
     /// The line's top and bottom.
     let spine: ClosedRange<CGFloat>
-    /// Whether an end of the line is at the card's node, which the finger moves with no
-    /// animation: the line follows it the same way, so it neither falls short of the card's node
-    /// nor runs past it while the rows move.
-    let followsCard: Bool
     /// What the drawing shows, the rows' order and how they are joined: a change of it crossfades
     /// with Reduce Motion.
     let shape: AnyHashable
@@ -129,11 +123,6 @@ struct RailDrawing: View {
                 .fill(.pp(.rail))
                 .frame(width: lineWidth, height: max(spine.upperBound - spine.lowerBound, 0))
                 .position(x: nodeX, y: (spine.lowerBound + spine.upperBound) / 2)
-                .transaction(value: spine) {
-                    if followsCard {
-                        $0.animation = nil
-                    }
-                }
             RailLoops(
                 nodeX: nodeX,
                 nodes: RailVector(nodes.map(Double.init)),

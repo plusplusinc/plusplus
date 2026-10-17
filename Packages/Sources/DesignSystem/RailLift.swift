@@ -13,6 +13,9 @@ struct RailDragState<ID: Hashable> {
     var isReleased = false
     /// The finger is over a bar, or past the screen's edge, where letting go sends the row back.
     var isOverBar = false
+    /// The rows in order when it was lifted, which name each row's node in the rail's drawing
+    /// through the drop, as the rows change order.
+    var rows: [ID] = []
 
     /// The slot the rows show: the gap's, or, over a bar, where the row started, since a drop
     /// there sends it back.
@@ -52,14 +55,19 @@ extension View {
 struct CardLook: ViewModifier {
     let isReleased: Bool
     /// The rail's drawing, and the card's top in the rail's space, which places it.
-    let strokes: RailDrawing?
+    let strokes: HeldRailDrawing?
     let top: CGFloat
     @State private var hasRisen: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
     /// `hasRisen` draws it already risen, for a preview or a snapshot of a moment of a drag.
-    init(isReleased: Bool, hasRisen: Bool = false, strokes: RailDrawing? = nil, top: CGFloat = 0) {
+    init(
+        isReleased: Bool,
+        hasRisen: Bool = false,
+        strokes: HeldRailDrawing? = nil,
+        top: CGFloat = 0,
+    ) {
         self.isReleased = isReleased
         self.strokes = strokes
         self.top = top
@@ -87,7 +95,7 @@ struct CardLook: ViewModifier {
 struct LiftedCard: View {
     let node: Anchor<CGPoint>
     let isLifted: Bool
-    var strokes: RailDrawing?
+    var strokes: HeldRailDrawing?
     /// The card's top in the rail's space. The drawing is moved up by it rather than drawn from
     /// moved nodes, so the finger moving the card leaves the drawing's own animation running.
     var top: CGFloat = 0

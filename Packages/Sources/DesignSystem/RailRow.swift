@@ -9,7 +9,7 @@ struct RailPlace {
     var isArriving = false
     var isGap = false
     /// Whether the row draws its own stretch of line and loop: not while a row or its node is
-    /// held, when the rail draws every stroke once (`RailDrawing`).
+    /// held, when the rail draws every stroke once (`HeldRailDrawing`, `RailDrawing`).
     var drawsOwnLine = true
     /// The card held up off the rail, its node in the color of the text.
     var isRaised = false

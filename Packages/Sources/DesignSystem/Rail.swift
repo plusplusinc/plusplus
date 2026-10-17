@@ -177,6 +177,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                         remeasured += 1
                     }
                 }
+                .reportingFrame { heights.frames[item.id] = $0 }
                 .liftable(
                     isEnabled: (onMove != nil || regroup != nil) && arriving == nil,
                     columnWidth: columnWidth,
@@ -187,6 +188,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
             }
             // Between the last row and the end view, as the design has it.
             end.padding(.top, data.isEmpty ? 0 : Spacing.xxs)
+                .reportingFrame { heights.end = $0 }
         }
         .onPreferenceChange(RowTextFrames.self) { textFrames = $0 }
         .onPreferenceChange(RowNodeInsets.self) { noteNodeInsets($0) }
@@ -196,10 +198,8 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         // in one drawing as the rows move. It gives way to the rows' own at once.
         .backgroundPreferenceValue(RowNodes.self) { nodes in
             if isHeld {
-                GeometryReader { proxy in
-                    drawing(nodes, in: proxy, cardY: cardY)
-                }
-                .transition(.identity)
+                GeometryReader { strokes(nodes, in: $0, cardY: cardY) }
+                    .transition(.identity)
             }
         }
         .backgroundPreferenceValue(RailNodes.self) { nodes in
@@ -214,7 +214,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                     card(
                         drag,
                         at: cardY,
-                        strokes: drawing(nodes, in: proxy, cardY: cardY),
+                        strokes: heldDrawing(drag, nodes, in: proxy, cardY: cardY),
                     )
                 }
                 .allowsHitTesting(false)
@@ -273,6 +273,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                 origin: own.slot,
                 slot: own.slot,
                 grab: finger.inRail - own.gapTop,
+                rows: data.map(\.id),
             )
             lifts += 1
             // The list scrolling under a still finger carries the card through the rows.
@@ -347,6 +348,9 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
 /// Rows' heights by id, in a box, so writing one doesn't redraw the rail.
 final nonisolated class RowHeights<ID: Hashable> {
     var byID: [ID: CGFloat] = [:]
+    /// Each row's frame, and the end view's, in the rail's space.
+    var frames: [ID: CGRect] = [:]
+    var end: CGRect = .zero
 }
 
 extension Animation {

@@ -88,8 +88,7 @@ struct RailDragSnapshotTests {
     }
 
     /// The rail draws the pair as the drop would leave it, B then the held row, its loop running
-    /// to the gap's node; the card, off its gap, shows that loop's stretch behind it and no loop of
-    /// its own.
+    /// to the card's node, not the empty gap's; the card shows that loop's stretch over its fill.
     @Test("A pair's first row held inside its bottom edge, the card below its gap")
     func pairMemberInsideBottomEdge() {
         let rows = Self.rows
