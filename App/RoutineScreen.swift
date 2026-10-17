@@ -88,6 +88,11 @@ struct RoutineScreen: View {
                             detail: item.detailParts(locale: locale),
                             spokenDetail: item.spokenDetail(locale: locale),
                         )
+                        // An arriving row draws nothing and takes no space until it enters, so
+                        // VoiceOver and the UI tests find it only then: before, its frame is
+                        // where it will be, not anything to swipe. On the label, the row's one
+                        // element: on the row, `false` would show its node to VoiceOver too.
+                        .accessibilityHidden(item.id == arriving)
                         .railRow()
                         .contentShape(.rect)
                         .onTapGesture {
