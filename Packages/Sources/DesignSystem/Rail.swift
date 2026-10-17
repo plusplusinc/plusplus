@@ -230,12 +230,14 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                 .hidden()
                 .onGeometryChange(for: CGFloat.self, of: \.size.width) { columnWidth = $0 }
         }
-        // Torn down mid-hold, the list stops scrolling for it.
+        // Torn down mid-hold, by a row or its node, the list stops scrolling for it.
         .onDisappear {
-            if drag != nil {
+            if drag != nil || regrouping != nil {
                 edges?.letGo()
             }
         }
+        // A row deleted while swiped open, or after its loop flashed, reports nothing more.
+        .onChange(of: data.map(\.id)) { _, ids in forget(rowsNotIn: Set(ids)) }
         .sensoryFeedback(.impact(weight: .light), trigger: lifts)
         .sensoryFeedback(RailDrag.slotChange, trigger: ticks)
         .hotReloadable()

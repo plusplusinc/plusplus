@@ -45,6 +45,14 @@ extension Rail {
         })
     }
 
+    /// Drops what the rail keeps for rows no longer in it, so a deleted row swiped open cuts
+    /// nothing out of the line.
+    func forget(rowsNotIn ids: Set<RowID>) {
+        swiped.formIntersection(ids)
+        flashes = flashes.filter { ids.contains($0.key) }
+        heights.frames = heights.frames.filter { ids.contains($0.key) }
+    }
+
     func noteSwipe(_ id: RowID, _ isSwiped: Bool) {
         if isSwiped {
             swiped.insert(id)
