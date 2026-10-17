@@ -36,8 +36,9 @@ extension View {
     }
 }
 
-/// The held row's card: it appears at rest over its row and rises, a little larger and turned,
-/// its node in the color of the text. Released, it lowers to look like the row at rest.
+/// The held row's card: it appears at rest over its row and rises, turned a little but its own
+/// size, so its loop stays on the rail's, its node in the color of the text. Released, it lowers to
+/// look like the row at rest.
 struct CardLook: ViewModifier {
     let isReleased: Bool
     /// Where its gap is in a group, whose loop it draws.
@@ -65,7 +66,6 @@ struct CardLook: ViewModifier {
                     LiftedCard(node: node, isLifted: isRaised)
                 }
             }
-            .scaleEffect(isRaised ? RailDrag.liftedScale : 1)
             .rotationEffect(isRaised ? RailDrag.liftedRotation : .zero)
             .onAppear {
                 withAnimation(reduceMotion ? nil : RailDrag.lift) { hasRisen = true }
@@ -74,7 +74,8 @@ struct CardLook: ViewModifier {
     }
 }
 
-/// A held row's card: `CardFill` behind the row, as tall as it. At rest, it is not drawn.
+/// A held row's card: `CardFill` behind the row, as tall as it, with a soft shadow all around
+/// that fades in and out with it. At rest, it is not drawn.
 struct LiftedCard: View {
     let node: Anchor<CGPoint>
     let isLifted: Bool
@@ -83,6 +84,7 @@ struct LiftedCard: View {
     var body: some View {
         GeometryReader { proxy in
             CardFill(node: proxy[node], size: proxy.size)
+                .shadow(color: .pp(.shadow), radius: RailDrag.liftedShadow)
         }
         .opacity(isLifted ? 1 : 0)
         .hotReloadable()

@@ -202,11 +202,13 @@ struct RailRowSwiped: PreferenceKey {
 }
 
 /// A group's loop, drawn by each of its rows for its own stretch: a line beside the rail on its
-/// leading side, from the last row's node back up to the first's, as a superset goes round. It
-/// curves out of the last row's node, runs straight up past the rows between, which it leaves
-/// alone, and curves into the first row's node, a pointed head where the run ends showing the way.
-/// The node draws over its strokes. Each change of `flashes` flashes it in `railJoin`, as a new
-/// node does, then it settles back to the rail's group gray.
+/// leading side, from the last row's node back up to the first's, as a superset goes round, in
+/// the rail's own gray. It curves out of the last row's node and into the first's on the corner of
+/// a continuous rounded rectangle, and runs straight up past the rows between, which it leaves
+/// alone. A pointed head at the foot of every row but the last shows the way up between each row
+/// and the next, with a clear gap cut around its point so the line ahead never runs into it. The
+/// node draws over its strokes. Each change of `flashes` flashes it in `railJoin`, as a new node
+/// does, then it settles back to the rail's gray.
 private struct GroupLoop: View {
     let node: CGPoint
     let height: CGFloat
@@ -218,13 +220,20 @@ private struct GroupLoop: View {
     @ObserveHotReload private var hotReload
 
     var body: some View {
-        let (rest, joined) = (Color.pp(.railGroup), Color.pp(.railJoin))
-        let style = StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round)
+        let (rest, joined) = (Color.pp(.rail), Color.pp(.railJoin))
         KeyframeAnimator(initialValue: 0.0, trigger: flashes) { joining in
             let color = rest.mix(with: joined, by: joining)
-            ZStack {
-                path.stroke(color, style: style)
-                head.fill(color)
+            Canvas { context, _ in
+                context.fill(run, with: .color(color))
+                guard link == .first || link == .middle else { return }
+                // The gap: the head's pointed edges, stroked wider than the head, cut out of the
+                // line ahead of and beside it, whatever is behind the row then showing through.
+                var cut = context
+                cut.blendMode = .destinationOut
+                cut.stroke(headEdges, with: .color(.black), style: StrokeStyle(lineWidth: 2 * gap))
+                var head = headEdges
+                head.closeSubpath()
+                context.fill(head, with: .color(color))
             }
         } keyframes: { _ in
             RailEntry.groupFlash()
@@ -232,49 +241,57 @@ private struct GroupLoop: View {
         .hotReloadable()
     }
 
-    /// How far out the line runs, never so far that it or its head leaves the row.
+    /// How wide the head is either side of the line, and how long.
+    private var half: CGFloat {
+        3.5 * scale
+    }
+
+    private var length: CGFloat {
+        7 * scale
+    }
+
+    /// How far the cut reaches out from the head's edges.
+    private var gap: CGFloat {
+        1.5 * scale
+    }
+
+    /// How far out the line runs, never so far that it, its head, or the cut around it leaves the
+    /// row.
     private var x: CGFloat {
-        max(node.x - offset, 3.5 * scale + lineWidth)
+        max(node.x - offset, half + gap)
     }
 
+    /// The corner's radius, its curve, as a continuous corner's does, reaching about half as far
+    /// again along each side: here short of the node's center, so it meets the node level.
     private var radius: CGFloat {
-        6 * scale
+        7 * scale
     }
 
-    private var path: Path {
-        Path { path in
-            switch link {
-            case .solo:
-                return
-            case .first:
-                path.move(to: node)
-                path.addQuadCurve(
-                    to: CGPoint(x: x, y: node.y + radius),
-                    control: CGPoint(x: x, y: node.y),
-                )
-                path.addLine(to: CGPoint(x: x, y: height))
-            case .middle:
-                path.move(to: CGPoint(x: x, y: 0))
-                path.addLine(to: CGPoint(x: x, y: height))
-            case .last:
-                path.move(to: CGPoint(x: x, y: 0))
-                path.addLine(to: CGPoint(x: x, y: node.y - radius))
-                path.addQuadCurve(to: node, control: CGPoint(x: x, y: node.y))
-            }
+    /// The row's stretch of line: part of a continuous rounded rectangle's border, the rest of it
+    /// outside the row or past the node, so the curves are exactly a `RoundedRectangle`'s with
+    /// `.continuous` corners. Cut square at the row's edges, it meets the next row's stretch with
+    /// no overlap.
+    private var run: Path {
+        let far = height + node.x + radius * 4
+        let border: CGRect = switch link {
+        case .solo: .null
+        case .first: CGRect(x: x, y: node.y, width: far, height: far)
+        case .middle: CGRect(x: x, y: -far, width: far, height: height + 2 * far)
+        case .last: CGRect(x: x, y: node.y - far, width: far, height: far)
         }
+        guard !border.isNull else { return Path() }
+        return Path(roundedRect: border, cornerRadius: radius, style: .continuous)
+            .strokedPath(StrokeStyle(lineWidth: lineWidth))
+            .intersection(Path(CGRect(x: 0, y: 0, width: node.x, height: height)))
     }
 
-    /// The head, on the first row, where the run up from the last row ends at the curve into the
-    /// node: a small filled triangle pointing up, its edges sharp.
-    private var head: Path {
+    /// The head's two pointed edges, at the foot of the row, where the line comes up into it from
+    /// the next row: a small triangle pointing up, its edges sharp, open at its base.
+    private var headEdges: Path {
         Path { path in
-            guard link == .first else { return }
-            let (half, length) = (3.5 * scale, 7 * scale)
-            let tip = node.y + radius
-            path.move(to: CGPoint(x: x, y: tip))
-            path.addLine(to: CGPoint(x: x + half, y: tip + length))
-            path.addLine(to: CGPoint(x: x - half, y: tip + length))
-            path.closeSubpath()
+            path.move(to: CGPoint(x: x + half, y: height))
+            path.addLine(to: CGPoint(x: x, y: height - length))
+            path.addLine(to: CGPoint(x: x - half, y: height))
         }
     }
 }

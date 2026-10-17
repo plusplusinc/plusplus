@@ -15,19 +15,18 @@ public enum ColorToken: String, CaseIterable, Sendable {
     case onPrimaryKey = "ppOnPrimaryKey"
     /// The fill of the one primary key on a screen, such as Start.
     case primaryKey = "ppPrimaryKey"
-    /// The line that runs down a rail, joining its nodes.
+    /// The line that runs down a rail, joining its nodes, and at rest the loop beside it that
+    /// marks a group of rows, a superset.
     case rail = "ppRail"
-    /// The loop beside a rail's line that marks a group of rows, a superset, at rest. Opaque, so
-    /// where its strokes cross they don't darken.
-    case railGroup = "ppRailGroup"
     /// Something joining a rail, for the moment it joins: an added row's node draws in it, then
-    /// settles to `borderStrong`; a group's loop and the field behind it while a drag joins rows,
-    /// the
-    /// loop then settling to `railGroup`. Never at rest, and never the line.
+    /// settles to `borderStrong`; a group's loop as a drop makes the group, then settling to
+    /// `rail`. Never at rest, and never the line.
     case railJoin = "ppRailJoin"
+    /// The soft shadow all around something lifted off the screen, such as a held row's card.
+    case shadow = "ppShadow"
     case surface = "ppSurface"
     /// The fill of something lifted off the screen, such as a row held to be moved: lighter
-    /// than `surface`, as if nearer the light, and with no shadow or border.
+    /// than `surface`, as if nearer the light, with no border.
     case surfaceRaised = "ppSurfaceRaised"
     case textPrimary = "ppTextPrimary"
     /// Placeholder text: the default title while it is being edited.

@@ -76,8 +76,10 @@ nonisolated enum RailDrag {
 
     /// The card's lift, and its settling back.
     static let lift = Animation.snappy(duration: 0.18)
-    static let liftedScale: CGFloat = 1.03
     static let liftedRotation = Angle.degrees(-0.6)
+    /// The blur of the card's shadow: soft and centered, with no offset, so it reads as lifted
+    /// without moving the card off the rail.
+    static let liftedShadow: CGFloat = 8
 
     /// The rows moving aside as the gap goes to a new slot: quicker than `.railChange`.
     static let gap = Animation.snappy(duration: 0.2)

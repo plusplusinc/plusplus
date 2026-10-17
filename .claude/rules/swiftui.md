@@ -53,7 +53,8 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   outside the row's tap and swipe actions: SwiftUI's long press stops a scroll view scrolling,
   and inside a SwiftUI tap, which never fails during a still hold, the UIKit one never began.
   The row rises into a card on `.snappy(0.18)` with a light impact haptic: the same row drawn
-  over the rail on `surfaceRaised`, scaled 1.03 and turned −0.6°, no shadow, border, or grip,
+  over the rail on `surfaceRaised`, unscaled and turned −0.6°, a soft centered `shadow` all
+  around it (blur 8, fading with the lift), no border or grip,
   its node in the text's color. The card is centered on the row, its node inset from its top and
   leading edges alike, the row's content ending that inset short of its trailing edge, with
   continuous corners of that inset plus the node's radius. It follows the finger with no
