@@ -16,6 +16,9 @@ lead.
   their own; never point `PLUSPLUS_SIMULATOR` at it. Run the scripts by their path in the
   worktree: your shell starts in the lead's checkout, whose scripts use the maintainer's.
 - Follow the plan in small steps: change one thing, build, look at the screenshot, commit.
+- Before an `axe` command, read `/run`'s notes on AXe (`.claude/skills/run/SKILL.md`): which
+  taps, swipes, and drags land and which don't (`axe tap` does nothing on the routine screen or
+  its sheets). A gesture that did nothing is the tool's until those notes rule it out.
 - Test as `.claude/rules/testing.md` says: `scripts/test.sh` and the simulator tests your change
   touches, never the full simulator suite. That suite runs on Xcode Cloud when you push.
 - Wait for everything you start before your turn ends: a builder whose turn ends while a

@@ -68,6 +68,10 @@ What each tier holds today:
   so a read after one waits for the state it checks: `value(becoming:)` for the value, and
   `Ink.withCursor(_:until:)` for where the `_` is. Tap a stepper key with `tapAtCenter()`:
   XCTest's `tap()` goes to its top-left corner, on the edge of the row above, which closes it.
+  Tap anything that may still be moving, such as Add exercise just after an add, once it
+  `settles()`: a view takes taps where it is laid out mid-move, so a tap read from a moving
+  frame can land on the row arriving there. Passing locally proves nothing about this; on
+  Xcode Cloud it failed six runs of #70.
 
 Before adding a test, find whether one already proves the guarantee. If one does, don't add
 another.

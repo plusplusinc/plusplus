@@ -20,9 +20,9 @@ source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
 SHOTS="$ROOT/.build/screenshots"
 SUBSYSTEM="com.plusplusinc.plusplus"
-# `erase-team` erases only $TEAM_SIMULATOR. Raw `simctl erase` is denied to agents, since it takes
-# any device, or `all`, and a wrong argument would wipe a person's simulators; this script is the
-# permission boundary.
+# `erase-team` erases only $TEAM_SIMULATOR. Raw `simctl erase` and `simctl delete` are denied to
+# agents, since they take any device, or `all`, and a wrong argument would wipe a person's
+# simulators; this script is the permission boundary.
 
 # UIKit crossfades an appearance change and re-lays out for a content size change after
 # `simctl ui` has already returned, and nothing outside the process signals when that is done.

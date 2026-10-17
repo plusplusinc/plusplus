@@ -62,6 +62,9 @@ asc xcode-cloud run --workflow-id <id> --branch <name>     # start a run
 asc builds add-groups --app 6808082840 --latest --group Internal     # attach a TestFlight build
 ```
 
+A run started with `run` still has to match one of the workflow's start conditions: Xcode
+Cloud refuses a TestFlight run on `main`, since that workflow starts only on a `v*` tag.
+
 It needs an API key with the Developer role, registered once per machine with `asc auth login
 --bypass-keychain --name plusplus --key-id <id> --issuer-id <id> --private-key <path to .p8>`.
 That writes `~/.asc/config.json`, which points at the `.p8` rather than copying it; the keychain
