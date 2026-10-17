@@ -37,20 +37,31 @@ extension View {
 }
 
 /// The held row's card: it appears at rest over its row and rises, turned a little but its own
-/// size, so its loop stays on the rail's, its node in the color of the text. Released, it lowers to
-/// look like the row at rest.
+/// size, so its stretch of line and its loop stay on the rail's, its node in the color of the
+/// text. Released, it lowers to look like the row at rest.
 struct CardLook: ViewModifier {
     let isReleased: Bool
     /// Where its gap is in a group, whose loop it draws.
     let link: RailLink
+    /// Whether its gap is at the rail's top or bottom, where its stretch of line ends at its node.
+    let isFirst: Bool
+    let isLast: Bool
     @State private var hasRisen: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
     /// `hasRisen` draws it already risen, for a preview or a snapshot of a moment of a drag.
-    init(isReleased: Bool, hasRisen: Bool = false, link: RailLink = .solo) {
+    init(
+        isReleased: Bool,
+        hasRisen: Bool = false,
+        link: RailLink = .solo,
+        isFirst: Bool = false,
+        isLast: Bool = false,
+    ) {
         self.isReleased = isReleased
         self.link = link
+        self.isFirst = isFirst
+        self.isLast = isLast
         _hasRisen = State(initialValue: hasRisen)
     }
 
@@ -59,7 +70,7 @@ struct CardLook: ViewModifier {
         content
             .environment(
                 \.railPlace,
-                RailPlace(drawsOwnLine: false, isRaised: isRaised, link: link),
+                RailPlace(isFirst: isFirst, isLast: isLast, isRaised: isRaised, link: link),
             )
             .backgroundPreferenceValue(RailNodes.self) { nodes in
                 if let node = nodes.first {
@@ -132,8 +143,9 @@ struct RailNodes: PreferenceKey {
 /// ends are where the nodes are once the rows settle, and they move in the gap's transaction.
 ///
 /// With the gap at an end of the rail, its node is hidden and the card is over it, a little above
-/// or below as the finger has it. Moved in from that end, the card would leave a stub of line
-/// past its edge, so the line ends at the card's node instead: it never shows past the card.
+/// or below as the finger has it. The line ends at the card's node instead, which the card's own
+/// stretch of line meets: moved in from that end, the card leaves no stub past its edge, and moved
+/// out past it, no break between its edge and the gap's node.
 struct DragLine: View {
     let nodes: [Anchor<CGPoint>]
     /// How far below its gap the card is.
@@ -146,8 +158,8 @@ struct DragLine: View {
     var body: some View {
         GeometryReader { proxy in
             if let first = nodes.first, let last = nodes.last {
-                let top = proxy[first].y + (isGapFirst ? max(cardOffset, 0) : 0)
-                let bottom = proxy[last].y + (isGapLast ? min(cardOffset, 0) : 0)
+                let top = proxy[first].y + (isGapFirst ? cardOffset : 0)
+                let bottom = proxy[last].y + (isGapLast ? cardOffset : 0)
                 Rectangle()
                     .fill(.pp(.rail))
                     .frame(width: lineWidth, height: max(bottom - top, 0))

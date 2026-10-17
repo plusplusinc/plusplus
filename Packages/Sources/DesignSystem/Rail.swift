@@ -41,10 +41,10 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     private let onMove: ((RowID, RailSlot<RowID>) -> Void)?
     let links: Set<RowID>
     let regroup: RailRegroup<RowID>?
-    private let row: (Data.Element) -> Row
+    let row: (Data.Element) -> Row
     private let end: End
     /// Drawn at a moment of a drag: how far below its gap the card is, already risen.
-    private let momentOffset: CGFloat?
+    let momentOffset: CGFloat?
 
     // State and inputs the node hold reads are internal, not private, so it can live in its own
     // files (`Rail+Regroup.swift`, `Rail+Rows.swift`).
@@ -199,7 +199,13 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         // where the finger is, not in the row's place, which moves as the gap does.
         .overlay(alignment: .top) {
             if let drag, let cardY {
-                card(drag, at: cardY, link: shownLinks[drag.lifted] ?? .solo)
+                card(
+                    drag,
+                    at: cardY,
+                    link: shownLinks[drag.lifted] ?? .solo,
+                    isFirst: shown.first?.id == drag.lifted,
+                    isLast: shown.last?.id == drag.lifted,
+                )
             }
         }
         .background(alignment: .topLeading) {
@@ -220,32 +226,6 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         .sensoryFeedback(.impact(weight: .light), trigger: lifts)
         .sensoryFeedback(RailDrag.slotChange, trigger: ticks)
         .hotReloadable()
-    }
-
-    /// The held row drawn again as a card, its top at `y`. It rises as it appears and lowers as
-    /// it settles; while held, it follows the finger with no animation, whatever animation moves
-    /// the rows. Over a slot in a group, it draws the group's loop as its gap's row would, over the
-    /// stretch it hides.
-    @ViewBuilder
-    private func card(
-        _ drag: RailDragState<RowID>,
-        at y: CGFloat,
-        link: RailLink,
-    ) -> some View {
-        if let item = data.first(where: { $0.id == drag.lifted }) {
-            row(item)
-                // As tall as in the rows, where the scroll view proposes no height, not as tall
-                // as the rail it is over.
-                .fixedSize(horizontal: false, vertical: true)
-                .modifier(CardLook(
-                    isReleased: drag.isReleased,
-                    hasRisen: momentOffset != nil,
-                    link: link,
-                ))
-                .offset(y: y)
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
-        }
     }
 
     /// Where the card's top is: under the finger, or, for a moment drawn, placed from its gap.

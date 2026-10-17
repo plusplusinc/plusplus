@@ -2,14 +2,15 @@ import SwiftUI
 
 /// Where a row sits on its rail: the line starts at the first row's node and ends at the last's.
 /// An arriving row holds its place, drawn empty, until it enters. A held row's place is the gap,
-/// where only its line draws, and the row draws again over the rail as the card, with no line.
+/// where only its line draws, and the row draws again over the rail as the card, with its own
+/// stretch of line, which lines up with the rail's behind it.
 struct RailPlace {
     var isFirst = true
     var isLast = true
     var isArriving = false
     var isGap = false
-    /// Whether the row draws its own stretch of line: not on the card, and not while a row is
-    /// held, when the rail draws the line once for all of them.
+    /// Whether the row draws its own stretch of line: not while a row is held, when the rail draws
+    /// the line once for all of them under the card, which draws its own over its fill.
     var drawsOwnLine = true
     /// The card held up off the rail, its node in the color of the text.
     var isRaised = false
@@ -137,8 +138,8 @@ private struct RailRow: ViewModifier {
         // on their own stretch of the shot while the rest stays as it was.
         .backgroundPreferenceValue(NodeCenter.self) { center in
             GeometryReader { proxy in
-                // The card has no line: the gap below it has the row's, drawn by the rail while a
-                // row is held.
+                // While a row is held, only the card draws its own stretch of line, over its fill;
+                // the rail draws the rest once, under the rows.
                 if let center, place.link != .solo {
                     GroupLoop(
                         node: proxy[center],

@@ -1,6 +1,6 @@
 import SwiftUI
 
-// What the rows show, where a held row's gap opens, and which loops hide.
+// What the rows show, where a held row's gap opens, which loops hide, and the held row's card.
 
 extension Rail {
     /// The rows in the order they show: with a row held, the order it would make if dropped now.
@@ -34,6 +34,36 @@ extension Rail {
             swiped.insert(id)
         } else {
             swiped.remove(id)
+        }
+    }
+
+    /// The held row drawn again as a card, its top at `y`. It rises as it appears and lowers as
+    /// it settles; while held, it follows the finger with no animation, whatever animation moves
+    /// the rows. Over a slot in a group, it draws the group's loop as its gap's row would, over the
+    /// stretch it hides.
+    @ViewBuilder
+    func card(
+        _ drag: RailDragState<RowID>,
+        at y: CGFloat,
+        link: RailLink,
+        isFirst: Bool,
+        isLast: Bool,
+    ) -> some View {
+        if let item = data.first(where: { $0.id == drag.lifted }) {
+            row(item)
+                // As tall as in the rows, where the scroll view proposes no height, not as tall
+                // as the rail it is over.
+                .fixedSize(horizontal: false, vertical: true)
+                .modifier(CardLook(
+                    isReleased: drag.isReleased,
+                    hasRisen: momentOffset != nil,
+                    link: link,
+                    isFirst: isFirst,
+                    isLast: isLast,
+                ))
+                .offset(y: y)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
         }
     }
 }
