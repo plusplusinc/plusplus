@@ -45,12 +45,13 @@ enum RailEntry {
         shot(from: 0, to: 1, reduceMotion: reduceMotion)
     }
 
-    /// How much of `railJoin` the new node shows: all of it through the landing and the hold, then
-    /// none, on an ease-out.
+    /// How much of `railJoin` something joining the rail shows, from `start`, when it lands: all
+    /// of it through the landing and the hold, then none, on an ease-out. A new node lands as the
+    /// line reaches it; a group a node's drag made, at once.
     @KeyframesBuilder<Double>
-    static func joining() -> some Keyframes<Double> {
+    static func joining(after start: TimeInterval) -> some Keyframes<Double> {
         MoveKeyframe(1)
-        LinearKeyframe(1, duration: popStart(reduceMotion: false) + pop + hold)
+        LinearKeyframe(1, duration: start + pop + hold)
         LinearKeyframe(0, duration: settle, timingCurve: .easeOut)
     }
 
@@ -142,7 +143,7 @@ private struct JoiningRail: ViewModifier {
                 content.keyframeAnimator(initialValue: 0.0, trigger: trigger) { view, joining in
                     view.foregroundStyle(rest.mix(with: joined, by: joining))
                 } keyframes: { _ in
-                    RailEntry.joining()
+                    RailEntry.joining(after: RailEntry.popStart(reduceMotion: false))
                 }
             }
         }

@@ -337,7 +337,7 @@ struct RoutineScreen: View {
     }
 }
 
-// Supersets: joining and parting rows by a node, and with VoiceOver.
+// Supersets: drawn by a row's node, and joined and left with VoiceOver.
 extension RoutineScreen {
     /// VoiceOver's superset actions on a row, none where it would do nothing.
     @ViewBuilder
@@ -358,13 +358,13 @@ extension RoutineScreen {
         return names.isEmpty ? "" : "In a superset with \(names.formatted(.list(type: .and)))"
     }
 
-    /// Joining and parting rows by a drag from a row's node, by the routine's rules.
+    /// Drawing a superset by a drag from a row's node, by the routine's rules.
     private var regroup: RailRegroup<RoutineExercise.ID> {
         RailRegroup { held, reach in
             routine.regrouped(holding: held, reaching: reach).map { regrouping in
                 RailGrouping(
                     links: regrouping.routine.joinedToNext,
-                    joining: Set(regrouping.joined),
+                    superset: Set(regrouping.superset),
                 )
             }
         } commit: { held, reach in

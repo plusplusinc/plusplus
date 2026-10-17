@@ -12,83 +12,68 @@ struct RoutineSupersetTests {
             .map { index, name in try .builtIn(name) { $0.sets = index + 1 } }
     }
 
-    // MARK: Join
+    // MARK: Drawing a superset by its node
 
-    @Test("A node dragged onto the next row joins the two, both with the held row's rounds")
-    func joinPair() {
+    @Test("A node dragged onto the next row makes the two a superset, with the held row's rounds")
+    func pair() {
         let result = regrouped("A B C", holding: "A", reaching: "B")
         #expect(shape(result?.routine) == "A-B C")
-        #expect(result?.kind == .join)
         #expect(sets(result?.routine) == [1, 1, 3])
-        #expect(result?.joined == [id("A"), id("B")])
+        #expect(result?.superset == [id("A"), id("B")])
     }
 
-    @Test("A join spans every row passed, and shrinks from the held end as the drag comes back")
-    func joinSpanAndShrink() {
+    @Test("The span runs from the held row to the row reached, and shrinks as the drag comes back")
+    func spanAndShrink() {
         #expect(shape(regrouped("A B C D E", holding: "A", reaching: "D")?.routine) == "A-B-C-D E")
         #expect(shape(regrouped("A B C D E", holding: "A", reaching: "C")?.routine) == "A-B-C D E")
         #expect(shape(regrouped("A B C D E", holding: "A", reaching: "B")?.routine) == "A-B C D E")
         #expect(regrouped("A B C D E", holding: "A", reaching: "A") == nil)
+        #expect(regrouped("A-B C", holding: "A", reaching: "A") == nil)
     }
 
-    @Test("A join goes upward too")
-    func joinUpward() {
+    @Test("A span drawn upward takes the held row's rounds too")
+    func upward() {
         let result = regrouped("A B C D", holding: "D", reaching: "B")
         #expect(shape(result?.routine) == "A B-C-D")
         #expect(sets(result?.routine) == [1, 4, 4, 4])
+        #expect(result?.superset == [id("B"), id("C"), id("D")])
     }
 
-    @Test("A superset's edge member joins the plain row next to it; the other member parts")
-    func memberJoinsNeighbor() {
-        let joined = regrouped("A-B C", holding: "B", reaching: "C")
-        #expect(shape(joined?.routine) == "A-B-C")
-        #expect(joined?.kind == .join)
-        #expect(sets(joined?.routine) == [1, 1, 1])
-        let parted = regrouped("A-B C", holding: "A", reaching: "C")
-        #expect(shape(parted?.routine) == "A B C")
-        #expect(parted?.kind == .part)
+    @Test("A span inside a superset cuts it, and a lone row left over goes plain")
+    func cut() {
+        #expect(shape(regrouped("A-B-C-D", holding: "C", reaching: "B")?.routine) == "A B-C D")
+        #expect(shape(regrouped("A-B-C-D", holding: "A", reaching: "B")?.routine) == "A-B C-D")
+        #expect(shape(regrouped("A-B-C-D-E", holding: "B", reaching: "C")?.routine) == "A B-C D-E")
+        #expect(shape(regrouped("A-B-C-D E", holding: "D", reaching: "E")?.routine) == "A-B-C D-E")
     }
 
-    @Test("A join reaching into another superset merges both whole, with the held row's rounds")
-    func merge() {
-        let start = routine("A-B C-D E")
-        let result = start.regrouped(holding: id("B"), reaching: id("C"))
-        #expect(shape(result?.routine) == "A-B-C-D E")
-        #expect(sets(result?.routine) == [1, 1, 1, 1, 5])
-        #expect(result?.routine.exercises.first?.supersetID == start.exercises.first?.supersetID)
+    @Test("A span across two supersets takes the rows it covers, whole or not")
+    func across() {
+        #expect(shape(regrouped("A-B C-D", holding: "A", reaching: "D")?.routine) == "A-B-C-D")
+        #expect(shape(regrouped("A-B C-D", holding: "B", reaching: "C")?.routine) == "A B-C D")
+        #expect(shape(regrouped("A-B-C D-E", holding: "B", reaching: "D")?.routine) == "A B-C-D E")
+        #expect(shape(regrouped("A-B C", holding: "B", reaching: "C")?.routine) == "A B-C")
     }
 
-    @Test("A fresh join gives every member one id")
-    func freshID() throws {
-        let result = try #require(regrouped("A B C", holding: "C", reaching: "A"))
-        let ids = Set(result.routine.exercises.map(\.supersetID))
-        #expect(ids.count == 1)
-        #expect(ids.first.flatMap(\.self) != nil)
-    }
-
-    // MARK: Part
-
-    @Test("A part opens each joined gap the drag spans, up to the superset's end")
-    func part() {
-        #expect(shape(regrouped("A-B-C-D E", holding: "C", reaching: "B")?.routine) == "A-B C-D E")
-        #expect(shape(regrouped("A-B-C-D E", holding: "A", reaching: "C")?.routine) == "A B C-D E")
-        #expect(shape(regrouped("A-B-C-D E", holding: "A", reaching: "E")?.routine) == "A B C D E")
-        #expect(regrouped("A-B-C-D E", holding: "C", reaching: "B")?.kind == .part)
-        #expect(regrouped("A-B-C-D E", holding: "C", reaching: "B")?.joined == [])
-    }
-
-    @Test("Parts keep the shared round count, and the held row's part keeps its id")
-    func partKeepsRounds() throws {
-        let start = routine("A-B-C-D")
-        var joined = start
-        joined.exercises = joined.exercises.map { var row = $0
+    @Test("Rows cut off keep the round count they shared")
+    func cutKeepsRounds() throws {
+        var start = routine("A-B-C-D")
+        start.exercises = start.exercises.map { var row = $0
             row.plan.sets = 3
             return row
         }
-        let result = try #require(joined.regrouped(holding: id("C"), reaching: id("B")))
+        let result = try #require(start.regrouped(holding: id("C"), reaching: id("B")))
         #expect(sets(result.routine) == [3, 3, 3, 3])
-        #expect(result.routine.exercises[2].supersetID == start.exercises[2].supersetID)
-        #expect(result.routine.exercises[0].supersetID != start.exercises[0].supersetID)
+        let split = try #require(start.regrouped(holding: id("A"), reaching: id("B")))
+        #expect(split.routine.exercises[0].supersetID != split.routine.exercises[2].supersetID)
+    }
+
+    @Test("Drawn over a superset just as it is, nothing changes, its id neither")
+    func sameSuperset() {
+        let start = routine("A-B C")
+        let result = start.regrouped(holding: id("B"), reaching: id("A"))
+        #expect(result?.routine == start)
+        #expect(result?.superset == [id("A"), id("B")])
     }
 
     @Test("Regroup applies the rule, and refuses a drag onto the held row")

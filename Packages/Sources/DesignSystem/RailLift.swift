@@ -74,33 +74,45 @@ struct CardLook: ViewModifier {
     }
 }
 
-/// A held row's card: a raised fill, with no shadow or border. Its node sits as far in from the
-/// leading edge as from the top, and its corners are close to concentric with the node: their
-/// radius is that inset plus the node's. It is centered on the row, so on a screen whose rows are,
-/// its edges are as far from the screen's, and the row's content stops that inset short of its
-/// trailing edge. It is as tall as the row. At rest, it is not drawn.
+/// A held row's card: `CardFill` behind the row, as tall as it. At rest, it is not drawn.
 struct LiftedCard: View {
     let node: Anchor<CGPoint>
     let isLifted: Bool
-    @ScaledMetric(relativeTo: .body) private var nodeSize = railNodeSize
     @ObserveHotReload private var hotReload
 
     var body: some View {
         GeometryReader { proxy in
-            let center = proxy[node]
-            let radius = nodeSize / 2
-            let inset = center.y - radius
-            let leading = center.x - radius - inset
-            let trailing = proxy.size.width - leading
-            // Continuous, like the app's other shapes, at the cost of sitting about a point off
-            // true concentric with the node.
-            RoundedRectangle(cornerRadius: inset + radius, style: .continuous)
-                .fill(.pp(.surfaceRaised))
-                .frame(width: trailing - leading, height: proxy.size.height)
-                .offset(x: leading)
+            CardFill(node: proxy[node], size: proxy.size)
         }
         .opacity(isLifted ? 1 : 0)
         .hotReloadable()
+    }
+}
+
+/// The raised fill of a held row's card, with no shadow or border, behind a row or a stretch of
+/// rows, `size` big, whose first node is at `node`, from its top leading corner. The node sits as
+/// far in from the fill's leading edge as from its top, and its corners are close to concentric
+/// with the node: their radius is that inset plus the node's. It is centered across `size`, so on
+/// a screen whose rows are, its edges are as far from the screen's, and a row's content stops that
+/// inset short of its trailing edge.
+struct CardFill: View {
+    let node: CGPoint
+    let size: CGSize
+    @ScaledMetric(relativeTo: .body) private var nodeSize = railNodeSize
+    @ObserveHotReload private var hotReload
+
+    var body: some View {
+        let radius = nodeSize / 2
+        let inset = node.y - radius
+        let leading = node.x - radius - inset
+        // Continuous, like the app's other shapes, at the cost of sitting about a point off true
+        // concentric with the node.
+        RoundedRectangle(cornerRadius: inset + radius, style: .continuous)
+            .fill(.pp(.surfaceRaised))
+            .frame(width: max(size.width - 2 * leading, 0), height: size.height)
+            .frame(width: size.width, height: size.height, alignment: .leading)
+            .offset(x: leading)
+            .hotReloadable()
     }
 }
 

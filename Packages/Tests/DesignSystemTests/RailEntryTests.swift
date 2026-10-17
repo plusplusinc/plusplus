@@ -18,12 +18,24 @@ struct RailEntryTests {
 
     @Test("The blue holds through the landing and the hold, then fades on an ease-out")
     func joiningSettles() {
-        let timeline = KeyframeTimeline(initialValue: 0.0) { RailEntry.joining() }
         let landing = RailEntry.popStart(reduceMotion: false)
+        let timeline = KeyframeTimeline(initialValue: 0.0) { RailEntry.joining(after: landing) }
         let held = landing + RailEntry.pop + RailEntry.hold
         #expect(timeline.value(time: landing) == 1)
         #expect(timeline.value(time: held) == 1)
         #expect(timeline.value(time: held + RailEntry.settle / 2) < 0.5)
         #expect(timeline.value(time: held + RailEntry.settle) == 0)
+    }
+
+    @Test("A group a node's drag made flashes as a node lands, from the drop")
+    func groupFlash() {
+        let node = KeyframeTimeline(initialValue: 0.0) {
+            RailEntry.joining(after: RailEntry.popStart(reduceMotion: false))
+        }
+        let group = KeyframeTimeline(initialValue: 0.0) { RailEntry.joining(after: 0) }
+        #expect(group.duration == node.duration - RailEntry.popStart(reduceMotion: false))
+        #expect(group.value(time: 0) == 1)
+        let fade = RailEntry.pop + RailEntry.hold + RailEntry.settle / 2
+        #expect(group.value(time: fade) == node.value(time: RailEntry.shot + fade))
     }
 }

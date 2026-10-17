@@ -4,26 +4,12 @@ import Foundation
 // superset is at least two rows long and in one piece, and its rows share one round count, their
 // `plan.sets`, since rounds alternate. Every rule here keeps that true.
 
-/// What a drag from one row's node to another's makes of the routine's supersets: a join, or a
-/// part.
+/// What a drag from one row's node to another's makes of the routine's supersets: the rows it
+/// spans, one superset.
 public struct Regrouping: Equatable, Sendable {
-    public enum Kind: Equatable, Sendable {
-        /// Every gap the drag spans joins: the held row and every row it passed are one superset.
-        case join
-        /// Every joined gap the drag spans opens, up to the end of the held row's superset.
-        case part
-    }
-
     public var routine: Routine
-    public var kind: Kind
-
-    /// The rows of the superset a join made, the held row's; none for a part.
-    public var joined: [RoutineExercise.ID] {
-        guard kind == .join else { return [] }
-        return routine.exercises.filter { $0.supersetID == heldSuperset }.map(\.id)
-    }
-
-    fileprivate let heldSuperset: UUID?
+    /// The rows of the superset the drag draws, from the held row's end to the other.
+    public var superset: [RoutineExercise.ID]
 }
 
 extension Routine {
@@ -44,14 +30,13 @@ extension Routine {
         return exercises.filter { $0.supersetID == superset && $0.id != id }
     }
 
-    /// What holding `held`'s node and dragging it to `reach`'s would make, decided by the first
-    /// gap the drag crosses, the one next to the held row: open, it is a join; joined, a part.
+    /// What holding `held`'s node and dragging it to `reach`'s would make: the rows from one to
+    /// the other, both included, become one superset, with the held row's round count.
     ///
-    /// A join joins every gap from the held row to `reach`, and any superset it touches comes
-    /// along whole, so supersets merge; every row takes the held row's round count. A part opens
-    /// every joined gap from the held row to `reach`, stopping at the end of the held row's
-    /// superset, and leaves round counts as they were. Nil when either row is missing or they
-    /// are the same row.
+    /// Rows in the span leave whatever superset they were in. What remains of a superset the span
+    /// cut through stays one where two or more rows remain next to each other, and a lone row goes
+    /// plain. Nil when either row is missing or they are the same row: a drop there changes
+    /// nothing.
     public func regrouped(
         holding held: RoutineExercise.ID,
         reaching reach: RoutineExercise.ID,
@@ -59,45 +44,24 @@ extension Routine {
         guard let from = exercises.firstIndex(where: { $0.id == held }),
               let to = exercises.firstIndex(where: { $0.id == reach }), from != to
         else { return nil }
-        let step = to > from ? 1 : -1
+        let span = min(from, to) ... max(from, to)
+        // Its own id, so it never runs on into a superset its ends were cut from.
+        let superset = UUID()
+        let rounds = exercises[from].plan.sets
         var rows = exercises
-        let kind: Regrouping.Kind
-        if isJoined(from, from + step) {
-            kind = .part
-            var gap = from
-            while gap != to, isJoined(gap, gap + step) {
-                // Everything past this gap, in the held row's superset, goes on as its own.
-                let split = UUID()
-                var row = gap + step
-                while exercises.indices.contains(row), isJoined(row - step, row) {
-                    rows[row].supersetID = split
-                    row += step
-                }
-                gap += step
-            }
-        } else {
-            kind = .join
-            var first = min(from, to)
-            var last = max(from, to)
-            while first > 0, isJoined(first - 1, first) {
-                first -= 1
-            }
-            while last < exercises.count - 1, isJoined(last, last + 1) {
-                last += 1
-            }
-            let superset = exercises[from].supersetID
-                ?? exercises[first ... last].lazy.compactMap(\.supersetID).first
-                ?? UUID()
-            let rounds = exercises[from].plan.sets
-            for row in first ... last {
-                rows[row].supersetID = superset
-                rows[row].plan.sets = rounds
-            }
+        for row in span {
+            rows[row].supersetID = superset
+            rows[row].plan.sets = rounds
         }
         rows.normalizeSupersets()
         var routine = self
-        routine.exercises = rows
-        return Regrouping(routine: routine, kind: kind, heldSuperset: rows[from].supersetID)
+        // Drawn over a superset just as it is, it stays as it was, its id too.
+        if Routine(exercises: rows).joinedToNext != joinedToNext
+            || rows.map(\.plan) != exercises.map(\.plan)
+        {
+            routine.exercises = rows
+        }
+        return Regrouping(routine: routine, superset: span.map { exercises[$0].id })
     }
 
     /// Applies `regrouped(holding:reaching:)`. Returns false when it changes nothing.
@@ -140,10 +104,21 @@ extension Routine {
         neighborIndices(of: id, side).map { exercises[$0.other] }
     }
 
-    /// Joins `id` with its neighbor on `side`, as a drag of its node onto the neighbor's would.
+    /// Joins `id` with its neighbor on `side`: the supersets either is in, or the plain row, become
+    /// one superset, with `id`'s round count. Unlike a drag, which draws a superset of just the
+    /// rows it spans, a join takes nothing out of a superset.
     public mutating func join(_ id: RoutineExercise.ID, _ side: RoutineNeighbor) {
         guard canJoin(id, side), let pair = neighborIndices(of: id, side) else { return }
-        regroup(holding: id, reaching: exercises[pair.other].id)
+        let (mine, theirs) = (supersetRun(at: pair.index), supersetRun(at: pair.other))
+        let first = min(mine?.lowerBound ?? pair.index, theirs?.lowerBound ?? pair.other)
+        let last = max(mine?.upperBound ?? pair.index, theirs?.upperBound ?? pair.other)
+        let superset = exercises[pair.index].supersetID ?? exercises[pair.other].supersetID
+            ?? UUID()
+        let rounds = exercises[pair.index].plan.sets
+        for row in first ... last {
+            exercises[row].supersetID = superset
+            exercises[row].plan.sets = rounds
+        }
     }
 
     /// Takes `id` out of its superset as a plain row: in place at either end of it, and from the

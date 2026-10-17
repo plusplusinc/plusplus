@@ -36,17 +36,16 @@ struct RoutineStoreSupersetTests {
         #expect(reopened?.joinedToNext == [rows[1].id, rows[3].id, rows[4].id])
     }
 
-    @Test("A parted superset reopens plain")
-    func partedReopensPlain() async throws {
+    @Test("A cut superset reopens as it was cut, the row left over plain")
+    func cutReopens() async throws {
         let store = relaunch()
         var routine = try grouped()
         try await store.save(routine)
-        routine = try #require(routine.regrouped(holding: rows[1].id, reaching: rows[2].id)).routine
+        routine = try #require(routine.regrouped(holding: rows[4].id, reaching: rows[3].id)).routine
         try await store.save(routine)
         let reopened = try #require(try await relaunch().launchRoutine(weightUnit: .pounds))
-        #expect(!reopened.isInSuperset(rows[1].id))
-        #expect(!reopened.isInSuperset(rows[2].id))
-        #expect(reopened.isInSuperset(rows[3].id))
+        #expect(reopened.joinedToNext == [rows[1].id, rows[3].id])
+        #expect(!reopened.isInSuperset(rows[5].id))
     }
 
     @Test("A broken superset in the store reopens whole, and one of one plain")

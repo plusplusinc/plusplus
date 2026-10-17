@@ -26,9 +26,11 @@ import SwiftUI
 /// the line marks. A row dragged by its content to a group's edge can land just inside it, the
 /// loop wrapping the gap, or just outside; the slot `onMove` gets says which.
 ///
-/// Given `regroup`, a hold on a row's node starts a drag that joins or parts rows instead, the
-/// rows staying put: as the finger passes over rows, `regroup` previews what a drop would make,
-/// and the rail draws it, a join in `railJoin` over a field behind its rows; a drop commits it.
+/// Given `regroup`, a hold on a row's node starts a drag that draws a group instead, the rows
+/// staying put: the rows from the held one to the one under the finger sit in one raised field,
+/// the held row's card stretched over them, and the loops show what a drop would make, all in
+/// their own colors. A drop commits it, and the new group's loop flashes in `railJoin`, as a new
+/// node does.
 public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     where Data.Element: Identifiable
 {
@@ -50,10 +52,10 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     /// The row held and dragged, if any: the rows show in the order they would take if it were
     /// dropped now, and it draws as a card under the finger.
     @State var drag: RailDragState<RowID>?
-    /// The row whose node is held, joining or parting rows, if any.
+    /// The row whose node is held, drawing a group, if any.
     @State var regrouping: RailRegroupState<RowID>?
-    /// The rows a join just made, their loop still in `railJoin` as it settles to its own color.
-    @State var settling: Set<RowID> = []
+    /// Counts each row's group made by a node's drop, which flashes its loop in `railJoin`.
+    @State var flashes: [RowID: Int] = [:]
     /// The rows swiped open, whose groups hide their loops.
     @State var swiped: Set<RowID> = []
     /// The card's top, in the rail's space. It is its own state, so the finger moves it with no
@@ -66,7 +68,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     @State var remeasured = 0
     /// The rail column's width, where a press lifts nothing.
     @State private var columnWidth: CGFloat = 0
-    /// A light impact: a row lifted or a node held, and a join dropped.
+    /// A light impact: a row lifted or a node held, and a group dropped.
     @State var lifts = 0
     @State var ticks = 0
     /// The scroll view's edges, when it scrolls for a held row (`railAutoscroll`).
@@ -131,7 +133,6 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         // Until the arriving row enters, the line ends at the node above it.
         let lastOnLine = shown.last { $0.id != arriving }?.id
         let shownLinks = RailLink.links(shown.map(\.id), joined: shownJoined)
-        let joining = regrouping?.shown?.joining ?? []
         let hiddenLoops = loopsHidden(shown.map(\.id))
         VStack(alignment: .leading, spacing: 0) {
             // Each row learns its place from the rail. Rows taken as a view's subviews could
@@ -145,7 +146,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                     isGap: item.id == drag?.lifted,
                     drawsOwnLine: drag == nil,
                     link: shownLinks[item.id] ?? .solo,
-                    isJoining: isJoining(item.id, joining),
+                    flashes: flashes[item.id] ?? 0,
                     isLoopHidden: hiddenLoops.contains(item.id),
                 )
                 // An arriving row's place opens with its entry's shot, so the end view is pushed
@@ -182,8 +183,8 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         // While a row is held, the line is drawn once, here, under the rows: rows trading places
         // move toward each other, so their own stretches, each moving with its row, would part at
         // the pair's outer edges until the rows settle.
-        .background(alignment: .top) { joinField(joining) }
         .backgroundPreferenceValue(RailNodes.self) { nodes in
+            spanField(nodes)
             if let drag, let cardY {
                 DragLine(
                     nodes: nodes,
@@ -216,7 +217,6 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                 edges?.letGo()
             }
         }
-        .onChange(of: settling) { _, rows in cool(rows) }
         .sensoryFeedback(.impact(weight: .light), trigger: lifts)
         .sensoryFeedback(RailDrag.slotChange, trigger: ticks)
         .hotReloadable()

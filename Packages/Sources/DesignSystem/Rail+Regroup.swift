@@ -1,7 +1,8 @@
 import SwiftUI
 
-// A hold on a row's node: the rows stay put while the finger passes over them, the rail drawing
-// what a drop would make, and a drop joins or parts them.
+// A hold on a row's node: the rows stay put while the finger passes over them, the rows from the
+// held one to the one under the finger sitting in one raised field, and a drop makes them one
+// group, its loop flashing in `railJoin`.
 
 extension Rail {
     /// The rows joined to the next as they show: a regroup's preview, the held row's slot, or
@@ -25,22 +26,22 @@ extension Rail {
         return data.map { ($0.id, heights.byID[$0.id] ?? 0) }
     }
 
-    /// The top and bottom, in the rail's space, of the rows a join would make, which a field
-    /// marks behind them.
-    func joinSpan(_ joining: Set<RowID>) -> ClosedRange<CGFloat>? {
-        guard !joining.isEmpty else { return nil }
+    /// The rows' stretch on the rail: the first row's index, and the stretch's top and bottom in
+    /// the rail's space.
+    func stretch(_ rows: Set<RowID>) -> RowStretch? {
         var top: CGFloat = 0
-        var span: ClosedRange<CGFloat>?
-        for row in measuredRows {
-            if joining.contains(row.id) {
-                span = (span?.lowerBound ?? top) ... top + row.height
+        var stretch: RowStretch?
+        for (index, row) in measuredRows.enumerated() {
+            if rows.contains(row.id) {
+                let bounds = (stretch?.bounds.lowerBound ?? top) ... top + row.height
+                stretch = RowStretch(first: stretch?.first ?? index, bounds: bounds)
             }
             top += row.height
         }
-        return span
+        return stretch
     }
 
-    /// Holds a row's node: the rows stay put, and the drag joins or parts them.
+    /// Holds a row's node: the rows stay put, and the drag draws a group.
     func holdNode(_ id: RowID, at finger: RailDrag.Finger) {
         regrouping = RailRegroupState(held: id, reach: id, fingerY: finger.inRail)
         lifts += 1
@@ -86,8 +87,9 @@ extension Rail {
         }
     }
 
-    /// Lets go of a held node: a drop commits what it previewed, and a join's loop settles from
-    /// `railJoin` to its own color, with a light impact. Going back, nothing changes.
+    /// Lets go of a held node: a drop commits what it previewed, with a light impact, and the
+    /// group's loop flashes in `railJoin` as a new node does, but not with Reduce Motion. Going
+    /// back, nothing changes, and the field fades.
     func letGoOfNode(_ held: RailRegroupState<RowID>, goingBack: Bool) {
         guard !goingBack, let grouping = held.grouping else {
             withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) { regrouping = nil }
@@ -96,32 +98,43 @@ extension Rail {
         withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) {
             regroup?.commit(held.held, held.reach)
             regrouping = nil
-            settling = grouping.joining
         }
-        if !grouping.joining.isEmpty {
-            lifts += 1
+        if !reduceMotion {
+            for id in grouping.superset {
+                flashes[id, default: 0] += 1
+            }
         }
+        lifts += 1
     }
 
-    /// Whether a row's loop draws in `railJoin`: a join's rows while it is previewed, and as it
-    /// settles after the drop. Never with Reduce Motion.
-    func isJoining(_ id: RowID, _ joining: Set<RowID>) -> Bool {
-        !reduceMotion && (joining.contains(id) || settling.contains(id))
-    }
-
+    /// The raised field behind the rows a held node spans, a held row's card stretched over them,
+    /// the first row's node inset in it as the card's is. Over a bar it fades, as a drop there
+    /// makes nothing.
     @ViewBuilder
-    func joinField(_ joining: Set<RowID>) -> some View {
-        if !reduceMotion, let span = joinSpan(joining) {
-            JoinField(span: span)
-                .transition(.opacity.animation(.snappy(duration: 0.2)))
+    func spanField(_ nodes: [Anchor<CGPoint>]) -> some View {
+        if let held = regrouping, let superset = held.grouping?.superset,
+           let stretch = stretch(superset), nodes.indices.contains(stretch.first)
+        {
+            GeometryReader { proxy in
+                let node = proxy[nodes[stretch.first]]
+                let (top, bottom) = (stretch.bounds.lowerBound, stretch.bounds.upperBound)
+                CardFill(
+                    node: CGPoint(x: node.x, y: node.y - top),
+                    size: CGSize(width: proxy.size.width, height: bottom - top),
+                )
+                .offset(y: top)
+            }
+            .opacity(held.isOverBar ? 0 : 1)
+            .transition(.opacity.animation(reduceMotion ? nil : .snappy(duration: 0.2)))
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
         }
     }
+}
 
-    /// A join's loop holds in `railJoin` a moment after the drop, then settles to its own color.
-    func cool(_ rows: Set<RowID>) {
-        guard !rows.isEmpty else { return }
-        withAnimation(.easeOut(duration: RailEntry.settle).delay(RailEntry.hold)) {
-            settling = []
-        }
-    }
+/// Rows next to each other on a rail: the first one's index, and their top and bottom in the
+/// rail's space.
+struct RowStretch {
+    var first: Int
+    var bounds: ClosedRange<CGFloat>
 }

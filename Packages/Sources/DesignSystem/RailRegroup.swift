@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// How a rail joins and parts its rows when a row's node is held and dragged to another row's:
-/// the rule lives with the caller, and the rail asks it, so what it previews is what the drop
+/// How a rail groups its rows when a row's node is held and dragged to another row's: the rule
+/// lives with the caller, and the rail asks it, so what it previews is what the drop
 /// makes.
 public struct RailRegroup<ID: Hashable> {
     /// What holding the first row's node and dropping it on the second's would make, or nil for
@@ -19,15 +19,16 @@ public struct RailRegroup<ID: Hashable> {
     }
 }
 
-/// The groups a drop would leave: the rows joined to the next, and, for a join, the rows of the
-/// group it makes, which draw in `railJoin` until the drop has settled.
+/// The groups a drop would leave: the rows joined to the next, and the rows of the group the drag
+/// draws, which sit in one raised field while it is held, and whose loop flashes in `railJoin` as
+/// it drops.
 public struct RailGrouping<ID: Hashable>: Equatable {
     public var links: Set<ID>
-    public var joining: Set<ID>
+    public var superset: Set<ID>
 
-    public init(links: Set<ID>, joining: Set<ID> = []) {
+    public init(links: Set<ID>, superset: Set<ID>) {
         self.links = links
-        self.joining = joining
+        self.superset = superset
     }
 }
 
@@ -46,32 +47,5 @@ struct RailRegroupState<ID: Hashable> {
     /// makes nothing.
     var shown: RailGrouping<ID>? {
         isOverBar ? nil : grouping
-    }
-}
-
-/// The field behind the rows a drag is joining: `railJoin`, faint, edged in it, a little past the
-/// rows on every side.
-struct JoinField: View {
-    /// Its rows' top and bottom in the rail's space.
-    let span: ClosedRange<CGFloat>
-    @ScaledMetric(relativeTo: .body) private var lineWidth = railLineWidth
-    @ObserveHotReload private var hotReload
-
-    private static let outset = Spacing.sm
-    private static let overhang: CGFloat = 6
-    private static let fill = 0.1
-
-    var body: some View {
-        let shape = RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
-        shape
-            .fill(.pp(.railJoin).opacity(Self.fill))
-            .strokeBorder(.pp(.railJoin), lineWidth: lineWidth)
-            .frame(height: span.upperBound - span.lowerBound + 2 * Self.overhang)
-            .padding(.horizontal, -Self.outset)
-            .offset(y: span.lowerBound - Self.overhang)
-            .animation(RailDrag.gap, value: span)
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
-            .hotReloadable()
     }
 }

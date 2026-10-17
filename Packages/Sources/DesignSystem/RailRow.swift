@@ -15,8 +15,9 @@ struct RailPlace {
     var isRaised = false
     /// Where the row is in a group of rows on the rail, which a loop beside the line marks.
     var link = RailLink.solo
-    /// Whether the row's stretch of loop draws in `railJoin`: the group it marks is joining.
-    var isJoining = false
+    /// Counts the drops that made the row's group, each flashing its stretch of loop in
+    /// `railJoin`.
+    var flashes = 0
     /// Whether the row's stretch of loop is hidden: a row of its group is swiped open, which
     /// slides that row's stretch away from the rest.
     var isLoopHidden = false
@@ -143,7 +144,7 @@ private struct RailRow: ViewModifier {
                         node: proxy[center],
                         height: proxy.size.height,
                         link: place.link,
-                        joining: place.isJoining ? 1 : 0,
+                        flashes: place.flashes,
                     )
                     .opacity(place.isLoopHidden ? 0 : 1)
                     .animation(.snappy(duration: 0.2), value: place.isLoopHidden)
@@ -206,30 +207,27 @@ struct RailRowSwiped: PreferenceKey {
 /// in each middle row's node on a short stroke, and curves into the last row's node. An up
 /// chevron just above each later row's node points the way back, a gap in front of its tip and
 /// one behind it, so it reads on its own and never as the tip of a curve. The node draws over its
-/// strokes. `joining` mixes it from the rail's group gray into `railJoin`.
-private struct GroupLoop: View, Animatable {
+/// strokes. Each change of `flashes` flashes it in `railJoin`, as a new node does, then it settles
+/// back to the rail's group gray.
+private struct GroupLoop: View {
     let node: CGPoint
     let height: CGFloat
     let link: RailLink
-    var joining: Double
+    let flashes: Int
     @ScaledMetric(relativeTo: .body) private var offset: CGFloat = 12
     @ScaledMetric(relativeTo: .body) private var lineWidth = railLineWidth
     @ScaledMetric(relativeTo: .body) private var scale: CGFloat = 1
     @ObserveHotReload private var hotReload
 
-    var animatableData: Double {
-        get { joining }
-        set { joining = newValue }
-    }
-
     var body: some View {
         let (rest, joined) = (Color.pp(.railGroup), Color.pp(.railJoin))
-        path
-            .stroke(
-                rest.mix(with: joined, by: joining),
-                style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round),
-            )
-            .hotReloadable()
+        let style = StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round)
+        KeyframeAnimator(initialValue: 0.0, trigger: flashes) { joining in
+            path.stroke(rest.mix(with: joined, by: joining), style: style)
+        } keyframes: { _ in
+            RailEntry.joining(after: 0)
+        }
+        .hotReloadable()
     }
 
     private var path: Path {
