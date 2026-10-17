@@ -7,8 +7,8 @@ import WorkoutStore
 /// the menu.
 struct ExerciseSheet: View {
     @Binding var item: RoutineExercise
-    /// The exercises in a superset with it, which share its round count.
-    let partners: [String]
+    /// The names of the exercises in a superset with it, which share its round count, or nil.
+    let partners: String?
     let onDelete: () -> Void
 
     @State private var open: PlanPart?
@@ -69,20 +69,24 @@ struct ExerciseSheet: View {
     }
 
     /// In a superset, sets are rounds, shared with its partners.
+    private func isRounds(_ part: PlanPart) -> Bool {
+        part == .sets && partners != nil
+    }
+
     private func label(of part: PlanPart) -> String {
-        part == .sets && !partners.isEmpty ? "Rounds" : item.label(of: part)
+        isRounds(part) ? "Rounds" : item.label(of: part)
     }
 
     /// Rounds read as the bare count under their label, "Rounds, 3", not "3 sets".
     private func spokenValue(of part: PlanPart) -> String {
-        part == .sets && !partners.isEmpty
+        isRounds(part)
             ? item.value(of: part, locale: locale)
             : item.spokenValue(of: part, locale: locale)
     }
 
     private func note(on part: PlanPart) -> String? {
-        guard part == .sets, !partners.isEmpty else { return nil }
-        return "Shared with \(partners.formatted(.list(type: .and)))"
+        guard isRounds(part), let partners else { return nil }
+        return "Shared with \(partners)"
     }
 
     /// Opens or closes a part's stepper. Once one has opened, the sheet scrolls only as far as
@@ -109,6 +113,6 @@ struct ExerciseSheet: View {
     )
     Color.pp(.background)
         .sheet(isPresented: .constant(true)) {
-            ExerciseSheet(item: $item, partners: ["Pull-up"]) { }
+            ExerciseSheet(item: $item, partners: "Pull-up") { }
         }
 }

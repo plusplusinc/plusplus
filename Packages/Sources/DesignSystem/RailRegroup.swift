@@ -30,12 +30,15 @@ public struct RailRegroup<ID: Hashable> {
 public struct RailGrouping<ID: Hashable>: Equatable {
     public var links: Set<ID>
     public var span: Set<ID>
-    public var superset: Set<ID>
 
-    public init(links: Set<ID>, span: Set<ID>, superset: Set<ID>) {
+    public init(links: Set<ID>, span: Set<ID>) {
         self.links = links
         self.span = span
-        self.superset = superset
+    }
+
+    /// The rows of the group a drop makes: the span's, or none when it is one row.
+    public var superset: Set<ID> {
+        span.count > 1 ? span : []
     }
 }
 

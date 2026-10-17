@@ -290,23 +290,28 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
             cardTop = finger.inRail - held.grab
             edges?.move(to: finger.inScrollView)
             // Over a bar, where a drop sends the row back, the rows show it back where it was.
-            let isOverBar = edges?.isOutside(finger.inScrollView) == true
-            if isOverBar != held.isOverBar {
-                withAnimation(reduceMotion ? nil : RailDrag.gap) { drag?.isOverBar = isOverBar }
+            let overBar = isOverBar(finger)
+            if overBar != held.isOverBar {
+                withAnimation(reduceMotion ? nil : RailDrag.gap) { drag?.isOverBar = overBar }
             }
             follow(id)
         case .ended, .cancelled:
             if let held = regrouping, held.held == id {
                 edges?.letGo()
-                let goesBack = phase == .cancelled || edges?.isOutside(finger.inScrollView) == true
+                let goesBack = phase == .cancelled || isOverBar(finger)
                 return letGoOfNode(held, goingBack: goesBack)
             }
             guard let released = drag, released.lifted == id, !released.isReleased else { return }
             edges?.letGo()
             // Let go over a bar, or past the screen's edge, the row goes back.
-            let goesBack = phase == .cancelled || edges?.isOutside(finger.inScrollView) == true
+            let goesBack = phase == .cancelled || isOverBar(finger)
             settle(released, goingBack: goesBack)
         }
+    }
+
+    /// Whether the finger is over a bar, or past the screen's edge, where a drop changes nothing.
+    func isOverBar(_ finger: RailDrag.Finger) -> Bool {
+        edges?.isOutside(finger.inScrollView) == true
     }
 
     /// Opens the gap where the card would land.

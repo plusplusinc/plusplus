@@ -69,7 +69,7 @@ struct RailSupersetSnapshotTests {
             held: id(0),
             reach: id(2),
             fingerY: 0,
-            grouping: RailGrouping(links: [id(0), id(1), id(4)], span: span, superset: span),
+            grouping: RailGrouping(links: [id(0), id(1), id(4)], span: span),
         )
         assertThemedSnapshots(
             of: rail(links: [id(1), id(4)], regrouping: held),

@@ -67,10 +67,10 @@ extension Rail {
     func moveNodeFinger(to finger: RailDrag.Finger) {
         regrouping?.fingerY = finger.inRail
         edges?.move(to: finger.inScrollView)
-        let isOverBar = edges?.isOutside(finger.inScrollView) == true
-        if isOverBar != regrouping?.isOverBar {
+        let overBar = isOverBar(finger)
+        if overBar != regrouping?.isOverBar {
             withAnimation(reduceMotion ? nil : RailDrag.gap) {
-                regrouping?.isOverBar = isOverBar
+                regrouping?.isOverBar = overBar
             }
         }
         reachFinger()
@@ -194,9 +194,11 @@ private struct FieldLabel: View {
     /// Where it goes: inset from the field's trailing edge as the node is from its leading one,
     /// level with the first row's node, or else the highest place down that edge clear of text.
     private var place: CGRect? {
-        // As `CardFill` sets the node in: as far from the fill's top as from its leading edge.
-        let inset = node.y - field.minY - nodeSize / 2
-        let edge = node.x - nodeSize / 2 - inset
+        // Inset as `CardFill` sets the node in.
+        let (inset, edge) = CardFill.insets(
+            node: CGPoint(x: node.x, y: node.y - field.minY),
+            nodeSize: nodeSize,
+        )
         let trailing = field.maxX - edge - inset - size.width
         let spot = { (y: CGFloat) in
             CGRect(x: trailing, y: y, width: size.width, height: size.height)

@@ -19,7 +19,7 @@ struct RailEntryTests {
     @Test("The blue holds through the landing and the hold, then fades on an ease-out")
     func joiningSettles() {
         let landing = RailEntry.popStart(reduceMotion: false)
-        let timeline = KeyframeTimeline(initialValue: 0.0) { RailEntry.joining(after: landing) }
+        let timeline = KeyframeTimeline(initialValue: 0.0) { RailEntry.joining() }
         let held = landing + RailEntry.pop + RailEntry.hold
         #expect(timeline.value(time: landing) == 1)
         #expect(timeline.value(time: held) == 1)
@@ -29,9 +29,7 @@ struct RailEntryTests {
 
     @Test("A group a node's drag made flashes as a node lands, once the field has faded")
     func groupFlash() {
-        let node = KeyframeTimeline(initialValue: 0.0) {
-            RailEntry.joining(after: RailEntry.popStart(reduceMotion: false))
-        }
+        let node = KeyframeTimeline(initialValue: 0.0) { RailEntry.joining() }
         let group = KeyframeTimeline(initialValue: 0.0) { RailEntry.groupFlash() }
         let wait = RailEntry.fieldFade
         let lag = wait - RailEntry.popStart(reduceMotion: false)

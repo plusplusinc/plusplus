@@ -10,8 +10,11 @@ public struct Regrouping: Equatable, Sendable {
     public var routine: Routine
     /// The rows the drag spans, from its anchor to the row reached, in order.
     public var span: [RoutineExercise.ID]
+
     /// The rows of the superset the drag makes, the span's; none when it spans one row.
-    public var superset: [RoutineExercise.ID]
+    public var superset: [RoutineExercise.ID] {
+        span.count > 1 ? span : []
+    }
 }
 
 extension Routine {
@@ -30,6 +33,13 @@ extension Routine {
     public func partners(of id: RoutineExercise.ID) -> [RoutineExercise] {
         guard let superset = exercises.first(where: { $0.id == id })?.supersetID else { return [] }
         return exercises.filter { $0.supersetID == superset && $0.id != id }
+    }
+
+    /// The names of the other rows in `id`'s superset as a list ("Bench press and Plank"), or nil
+    /// for a plain row.
+    public func partnerNames(of id: RoutineExercise.ID) -> String? {
+        let names = partners(of: id).map(\.exercise.name)
+        return names.isEmpty ? nil : names.formatted(.list(type: .and))
     }
 
     /// What holding `held`'s node and dragging it to `reach`'s would make. A superset's first or
@@ -69,7 +79,7 @@ extension Routine {
         var routine = self
         routine.exercises = rows
         let members = span.map { exercises[$0].id }
-        return Regrouping(routine: routine, span: members, superset: superset == nil ? [] : members)
+        return Regrouping(routine: routine, span: members)
     }
 
     /// What holding `held`'s node picks up, before the finger moves: its whole superset when it is

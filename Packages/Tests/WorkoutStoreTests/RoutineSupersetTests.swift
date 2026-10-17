@@ -197,6 +197,14 @@ struct RoutineSupersetTests {
         #expect(start.partners(of: id("C")).isEmpty)
     }
 
+    @Test("A member's partners read as a list of names; a plain row has none")
+    func partnerNames() {
+        let start = routine("A-B-C D")
+        let (bName, cName) = (row("B").exercise.name, row("C").exercise.name)
+        #expect(start.partnerNames(of: id("A")) == "\(bName) and \(cName)")
+        #expect(start.partnerNames(of: id("D")) == nil)
+    }
+
     @Test("Normalizing splits a broken run, drops a run of one, and evens rounds")
     func normalize() {
         let superset = UUID()

@@ -170,7 +170,7 @@ struct RoutineScreen: View {
                 if let item = row(opened.id) {
                     ExerciseSheet(
                         item: item,
-                        partners: routine.partners(of: opened.id).map(\.exercise.name),
+                        partners: routine.partnerNames(of: opened.id),
                     ) { delete(opened.id) }
                 }
             }
@@ -354,8 +354,7 @@ extension RoutineScreen {
 
     /// A member's partners, by name, so two supersets next to each other read apart.
     private func supersetValue(_ id: RoutineExercise.ID) -> String {
-        let names = routine.partners(of: id).map(\.exercise.name)
-        return names.isEmpty ? "" : "In a superset with \(names.formatted(.list(type: .and)))"
+        routine.partnerNames(of: id).map { "In a superset with \($0)" } ?? ""
     }
 
     /// Drawing a superset by a drag from a row's node, by the routine's rules.
@@ -365,7 +364,6 @@ extension RoutineScreen {
                 RailGrouping(
                     links: regrouping.routine.joinedToNext,
                     span: Set(regrouping.span),
-                    superset: Set(regrouping.superset),
                 )
             }
         } pickUp: { held in

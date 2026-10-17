@@ -3,8 +3,21 @@ import SwiftUI
 /// How a superset's loop is drawn at the current text size: a line beside the rail on its leading
 /// side, curving into a node at each end on the corner of a continuous rounded rectangle, with a
 /// pointed head between each node and the next. A row at rest draws its own stretch of it
-/// (`GroupLoop`), and while a row is held the rail draws every loop at once (`RailLoops`), both
-/// with this pen, so the two are the same strokes.
+/// (`GroupLoop`), and while a row or a node is held the rail draws every loop at once
+/// (`HeldLoop`, `RailLoops`), all with this pen, read through `ScaledLoopPen`, so they are the
+/// same strokes.
+/// The loop's pen at the current text size, the one source of its widths.
+@propertyWrapper
+struct ScaledLoopPen: DynamicProperty {
+    @ScaledMetric(relativeTo: .body) private var offset: CGFloat = 12
+    @ScaledMetric(relativeTo: .body) private var lineWidth = railLineWidth
+    @ScaledMetric(relativeTo: .body) private var scale: CGFloat = 1
+
+    var wrappedValue: LoopPen {
+        LoopPen(lineWidth: lineWidth, scale: scale, offset: offset)
+    }
+}
+
 nonisolated struct LoopPen {
     var lineWidth: CGFloat
     /// The text size's scale against the default.
@@ -93,9 +106,7 @@ struct RailDrawing: View {
     /// What the drawing shows, the rows' order and how they are joined: a change of it crossfades
     /// with Reduce Motion.
     let shape: AnyHashable
-    @ScaledMetric(relativeTo: .body) private var offset: CGFloat = 12
-    @ScaledMetric(relativeTo: .body) private var lineWidth = railLineWidth
-    @ScaledMetric(relativeTo: .body) private var scale: CGFloat = 1
+    @ScaledLoopPen private var pen
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
@@ -121,7 +132,7 @@ struct RailDrawing: View {
         ZStack(alignment: .topLeading) {
             Rectangle()
                 .fill(.pp(.rail))
-                .frame(width: lineWidth, height: max(spine.upperBound - spine.lowerBound, 0))
+                .frame(width: pen.lineWidth, height: max(spine.upperBound - spine.lowerBound, 0))
                 .position(x: nodeX, y: (spine.lowerBound + spine.upperBound) / 2)
             RailLoops(
                 nodeX: nodeX,
@@ -132,7 +143,7 @@ struct RailDrawing: View {
                     let below = index + 1 < joined.count && joined[index + 1]
                     return !above && below
                 },
-                pen: LoopPen(lineWidth: lineWidth, scale: scale, offset: offset),
+                pen: pen,
             )
             .fill(.pp(.rail))
         }

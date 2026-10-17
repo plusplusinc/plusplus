@@ -218,9 +218,7 @@ private struct GroupLoop: View {
     let height: CGFloat
     let link: RailLink
     let flashes: Int
-    @ScaledMetric(relativeTo: .body) private var offset: CGFloat = 12
-    @ScaledMetric(relativeTo: .body) private var lineWidth = railLineWidth
-    @ScaledMetric(relativeTo: .body) private var scale: CGFloat = 1
+    @ScaledLoopPen private var pen
     @ObserveHotReload private var hotReload
 
     var body: some View {
@@ -241,7 +239,6 @@ private struct GroupLoop: View {
     /// to the next node. Rows stack with no spacing and every row's node sits as far down it, so
     /// the next node is a row's height below this one.
     private var run: Path {
-        let pen = LoopPen(lineWidth: lineWidth, scale: scale, offset: offset)
         let far = height + node.x + pen.radius * 4
         let ends: (top: CGFloat, bottom: CGFloat)? = switch link {
         case .solo: nil

@@ -23,22 +23,19 @@ struct HeldRailDrawing: View {
     let isHeldOnLine: Bool
     /// Every superset, and every row the held one could join, without the held row.
     let groups: [HeldGroup]
-    @ScaledMetric(relativeTo: .body) private var offset: CGFloat = 12
-    @ScaledMetric(relativeTo: .body) private var lineWidth = railLineWidth
-    @ScaledMetric(relativeTo: .body) private var scale: CGFloat = 1
+    @ScaledLoopPen private var pen
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
     var body: some View {
         let ys = RailNodeVector(nodes.mapValues(Double.init))
-        let pen = LoopPen(lineWidth: lineWidth, scale: scale, offset: offset)
         ZStack(alignment: .topLeading) {
             HeldSpine(
                 nodeX: nodeX,
                 ys: ys,
                 held: held,
                 onLine: isHeldOnLine ? 1 : 0,
-                width: lineWidth,
+                width: pen.lineWidth,
             )
             .fill(.pp(.rail))
             ForEach(groups) { group in

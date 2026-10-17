@@ -3,8 +3,8 @@ import SwiftUI
 /// A value under its label on a rounded fill, the label leading and the value trailing, with
 /// numbers in SF Mono, and an optional note under the label. Tapping anywhere on it opens a − / +
 /// stepper inside it, under the value, and tapping again closes it. A key that can't step is
-/// disabled. VoiceOver reads it as one
-/// element, its value in words, and steps it with a swipe up or down.
+/// disabled. VoiceOver reads it as one element, its value in words, and steps it with a swipe up
+/// or down.
 public struct ValueRow: View {
     private let label: String
     private let note: String?

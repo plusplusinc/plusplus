@@ -69,12 +69,21 @@ extension Rail {
         }
     }
 
+    /// The rows as they show, and their nodes, or nil until every row has reported its node.
+    private func shownNodes(
+        _ nodes: [AnyHashable: Anchor<CGPoint>],
+        in proxy: GeometryProxy,
+    ) -> ([RowID], [CGPoint])? {
+        let ids = shownRows.map(\.id)
+        let points = ids.compactMap { nodes[AnyHashable($0)].map { proxy[$0] } }
+        return points.count == ids.count ? (ids, points) : nil
+    }
+
     /// The rail's strokes drawn once, while a row's node is held, from the rows' nodes as they
     /// show.
     func drawing(_ nodes: [AnyHashable: Anchor<CGPoint>], in proxy: GeometryProxy) -> RailDrawing? {
-        let ids = shownRows.map(\.id)
-        let points = ids.compactMap { nodes[AnyHashable($0)].map { proxy[$0] } }
-        guard points.count == ids.count, let first = points.first, let last = points.last
+        guard let (ids, points) = shownNodes(nodes, in: proxy), let first = points.first,
+              let last = points.last
         else { return nil }
         let joined = shownJoined
         let flags = ids.dropLast().map(joined.contains)
@@ -96,9 +105,7 @@ extension Rail {
         in proxy: GeometryProxy,
         cardY: CGFloat,
     ) -> HeldRailDrawing? {
-        let ids = shownRows.map(\.id)
-        let points = ids.compactMap { nodes[AnyHashable($0)].map { proxy[$0] } }
-        guard points.count == ids.count, let first = points.first,
+        guard let (ids, points) = shownNodes(nodes, in: proxy), let first = points.first,
               let inset = nodeInset(of: drag, at: points, ids)
         else { return nil }
         let order = drag.rows.isEmpty ? data.map(\.id) : drag.rows
@@ -130,15 +137,15 @@ extension Rail {
         let atRest = groups
         let shown = RailDrag.groups(ids, joined: shownJoined)
         let hidden = loopsHidden(ids)
-        let partners: Set<Int> = drag.isOverBar ? [] : Set(ids.compactMap { id in
-            id != drag
-                .lifted && shown[id] != nil && shown[id] == shown[drag.lifted] ? keys[id] : nil
+        let heldGroup = shown[drag.lifted]
+        let partners: Set<Int> = drag.isOverBar || heldGroup == nil ? [] : Set(ids.compactMap {
+            $0 != drag.lifted && shown[$0] == heldGroup ? keys[$0] : nil
         })
-        var order: [AnyHashable] = []
-        var members: [AnyHashable: [Int]] = [:]
+        var order: [HeldGroupKey<RowID>] = []
+        var members: [HeldGroupKey<RowID>: [Int]] = [:]
         for id in ids where id != drag.lifted && !hidden.contains(id) {
             guard let node = keys[id] else { continue }
-            let group = atRest[id].map { AnyHashable(RestGroup(start: $0)) } ?? AnyHashable(id)
+            let group = atRest[id].map(HeldGroupKey.superset) ?? .row(id)
             if members[group] == nil {
                 order.append(group)
             }
@@ -196,9 +203,11 @@ extension Rail {
     }
 }
 
-/// A superset at rest, by where it starts, as the key of its loop while a row is held.
-private struct RestGroup: Hashable {
-    let start: Int
+/// The key of a loop while a row is held: a superset at rest, by where it starts, or a row on its
+/// own.
+private enum HeldGroupKey<RowID: Hashable>: Hashable {
+    case superset(Int)
+    case row(RowID)
 }
 
 extension View {

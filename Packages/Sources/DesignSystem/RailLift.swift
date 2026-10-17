@@ -127,17 +127,22 @@ struct CardFill: View {
     @ObserveHotReload private var hotReload
 
     var body: some View {
-        let radius = nodeSize / 2
-        let inset = node.y - radius
-        let leading = node.x - radius - inset
+        let (inset, leading) = Self.insets(node: node, nodeSize: nodeSize)
         // Continuous, like the app's other shapes, at the cost of sitting about a point off true
         // concentric with the node.
-        RoundedRectangle(cornerRadius: inset + radius, style: .continuous)
+        RoundedRectangle(cornerRadius: inset + nodeSize / 2, style: .continuous)
             .fill(.pp(.surfaceRaised))
             .frame(width: max(size.width - 2 * leading, 0), height: size.height)
             .frame(width: size.width, height: size.height, alignment: .leading)
             .offset(x: leading)
             .hotReloadable()
+    }
+
+    /// How far the node, at `node` from the fill's top leading corner, is in from its top, and
+    /// where the fill's leading edge is: as far in from it as from the top.
+    static func insets(node: CGPoint, nodeSize: CGFloat) -> (top: CGFloat, leading: CGFloat) {
+        let top = node.y - nodeSize / 2
+        return (top, node.x - nodeSize / 2 - top)
     }
 }
 
