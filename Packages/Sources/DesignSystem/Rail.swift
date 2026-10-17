@@ -59,6 +59,8 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     /// Where the rows' text is, in the rail's space, so the regroup field's label keeps clear of
     /// it.
     @State var textFrames: [CGRect] = []
+    /// How far down each row its node is, at rest.
+    @State var nodeInsets: [RowID: CGFloat] = [:]
     /// The rows swiped open, whose groups hide their loops.
     @State var swiped: Set<RowID> = []
     /// The card's top, in the rail's space. It is its own state, so the finger moves it with no
@@ -137,6 +139,8 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         let lastOnLine = shown.last { $0.id != arriving }?.id
         let shownLinks = RailLink.links(shown.map(\.id), joined: shownJoined)
         let hiddenLoops = loopsHidden(shown.map(\.id))
+        // Held, the rail draws every stroke once, under the rows, rather than each row its own.
+        let isHeld = drag != nil || regrouping != nil
         VStack(alignment: .leading, spacing: 0) {
             // Each row learns its place from the rail. Rows taken as a view's subviews could
             // not: a subview resolves in its container's environment, not one set on it.
@@ -147,7 +151,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                     isLast: isArriving || item.id == lastOnLine,
                     isArriving: isArriving,
                     isGap: item.id == drag?.lifted,
-                    drawsOwnLine: drag == nil,
+                    drawsOwnLine: !isHeld,
                     link: shownLinks[item.id] ?? .solo,
                     flashes: flashes[item.id] ?? 0,
                     isLoopHidden: hiddenLoops.contains(item.id),
@@ -179,37 +183,41 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                     allowsColumn: regroup != nil,
                     onPhase: { dragged(item.id, $0, at: $1) },
                 )
+                .reportingNode(of: item.id)
             }
             // Between the last row and the end view, as the design has it.
             end.padding(.top, data.isEmpty ? 0 : Spacing.xxs)
         }
         .onPreferenceChange(RowTextFrames.self) { textFrames = $0 }
-        // While a row is held, the line is drawn once, here, under the rows: rows trading places
-        // move toward each other, so their own stretches, each moving with its row, would part at
-        // the pair's outer edges until the rows settle.
+        .onPreferenceChange(RowNodeInsets.self) { noteNodeInsets($0) }
+        // While a row or its node is held, the rail's strokes are drawn once, here, under the
+        // rows: rows trading places move toward each other, so their own stretches, each moving
+        // with its row, would part or overlap until the rows settle, and the loops change shape
+        // in one drawing as the rows move. It gives way to the rows' own at once.
+        .backgroundPreferenceValue(RowNodes.self) { nodes in
+            if isHeld {
+                GeometryReader { proxy in
+                    drawing(nodes, in: proxy, cardY: cardY)
+                }
+                .transition(.identity)
+            }
+        }
         .backgroundPreferenceValue(RailNodes.self) { nodes in
             spanField(nodes)
-            if let drag, let cardY {
-                DragLine(
-                    nodes: nodes,
-                    cardOffset: cardY - gapTop(of: drag),
-                    isGapFirst: shown.first?.id == drag.lifted,
-                    isGapLast: shown.last?.id == drag.lifted,
-                )
-            }
         }
         .coordinateSpace(.named(RailDrag.space))
         // The card, over the rows it passes and Add exercise. It is placed in the rail's space,
         // where the finger is, not in the row's place, which moves as the gap does.
-        .overlay(alignment: .top) {
+        .overlayPreferenceValue(RowNodes.self) { nodes in
             if let drag, let cardY {
-                card(
-                    drag,
-                    at: cardY,
-                    link: shownLinks[drag.lifted] ?? .solo,
-                    isFirst: shown.first?.id == drag.lifted,
-                    isLast: shown.last?.id == drag.lifted,
-                )
+                GeometryReader { proxy in
+                    card(
+                        drag,
+                        at: cardY,
+                        strokes: drawing(nodes, in: proxy, cardY: cardY),
+                    )
+                }
+                .allowsHitTesting(false)
             }
         }
         .background(alignment: .topLeading) {
@@ -279,6 +287,11 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
             guard let held = drag, held.lifted == id else { return }
             cardTop = finger.inRail - held.grab
             edges?.move(to: finger.inScrollView)
+            // Over a bar, where a drop sends the row back, the rows show it back where it was.
+            let isOverBar = edges?.isOutside(finger.inScrollView) == true
+            if isOverBar != held.isOverBar {
+                withAnimation(reduceMotion ? nil : RailDrag.gap) { drag?.isOverBar = isOverBar }
+            }
             follow(id)
         case .ended, .cancelled:
             if let held = regrouping, held.held == id {
@@ -300,7 +313,10 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         let slot = RailDrag.candidate(for: cardTop, in: candidates(lifting: id), current: held.slot)
         guard slot != held.slot else { return }
         withAnimation(reduceMotion ? nil : RailDrag.gap) { drag?.slot = slot }
-        ticks += 1
+        // Over a bar the rows don't show the slot, so its changes aren't felt either.
+        if !held.isOverBar {
+            ticks += 1
+        }
     }
 
     /// Lets the held row go, into its gap or, `goingBack`, back where it started: the card lowers
@@ -312,6 +328,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         var settling = released
         settling.slot = slot
         settling.isReleased = true
+        settling.isOverBar = false
         let animation = goingBack ? RailDrag.cancel : RailDrag.drop
         withAnimation(reduceMotion ? nil : animation) {
             if slot != released.origin {

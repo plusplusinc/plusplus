@@ -28,6 +28,7 @@ struct RailDragSnapshotTests {
     /// `rows` with the row at `lifted` held over `slot`, its card `offset` below the gap.
     private func rail(
         _ rows: [Row] = Self.rows,
+        links: Set<UUID> = [],
         lifting lifted: Int,
         origin: RailSlot<UUID>,
         over slot: RailSlot<UUID>,
@@ -35,6 +36,7 @@ struct RailDragSnapshotTests {
     ) -> some View {
         Rail(
             rows,
+            links: links,
             drag: RailDragState(lifted: rows[lifted].id, origin: origin, slot: slot, grab: 20),
             cardOffset: offset,
         ) { row in
@@ -81,6 +83,24 @@ struct RailDragSnapshotTests {
         let own = RailSlot.before(rows[1].id)
         assertThemedSnapshots(
             of: rail(lifting: 0, origin: own, over: own, offset: 30),
+            width: Self.screenWidth,
+        )
+    }
+
+    /// The rail draws the pair as the drop would leave it, B then the held row, its loop running
+    /// to the gap's node; the card, off its gap, shows that loop's stretch behind it and no loop of
+    /// its own.
+    @Test("A pair's first row held inside its bottom edge, the card below its gap")
+    func pairMemberInsideBottomEdge() {
+        let rows = Self.rows
+        assertThemedSnapshots(
+            of: rail(
+                links: [rows[1].id],
+                lifting: 1,
+                origin: .before(rows[2].id, joining: .below),
+                over: .before(rows[3].id, joining: .above),
+                offset: 24,
+            ),
             width: Self.screenWidth,
         )
     }

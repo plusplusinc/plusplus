@@ -2,15 +2,14 @@ import SwiftUI
 
 /// Where a row sits on its rail: the line starts at the first row's node and ends at the last's.
 /// An arriving row holds its place, drawn empty, until it enters. A held row's place is the gap,
-/// where only its line draws, and the row draws again over the rail as the card, with its own
-/// stretch of line, which lines up with the rail's behind it.
+/// and the row draws again over the rail as the card.
 struct RailPlace {
     var isFirst = true
     var isLast = true
     var isArriving = false
     var isGap = false
-    /// Whether the row draws its own stretch of line: not while a row is held, when the rail draws
-    /// the line once for all of them under the card, which draws its own over its fill.
+    /// Whether the row draws its own stretch of line and loop: not while a row or its node is
+    /// held, when the rail draws every stroke once (`RailDrawing`).
     var drawsOwnLine = true
     /// The card held up off the rail, its node in the color of the text.
     var isRaised = false
@@ -138,9 +137,10 @@ private struct RailRow: ViewModifier {
         // on their own stretch of the shot while the rest stays as it was.
         .backgroundPreferenceValue(NodeCenter.self) { center in
             GeometryReader { proxy in
-                // While a row is held, only the card draws its own stretch of line, over its fill;
-                // the rail draws the rest once, under the rows.
-                if let center, place.link != .solo {
+                // While a row is held, the rail draws every stroke once, under the rows, and the
+                // card draws it again over its fill.
+                // Kept while a row is held, only hidden, so a group a drop makes flashes.
+                if let center {
                     GroupLoop(
                         node: proxy[center],
                         height: proxy.size.height,
@@ -149,6 +149,9 @@ private struct RailRow: ViewModifier {
                     )
                     .opacity(place.isLoopHidden ? 0 : 1)
                     .animation(.snappy(duration: 0.2), value: place.isLoopHidden)
+                    // The rail's drawing gives way to it at once, the two drawn alike.
+                    .opacity(place.drawsOwnLine ? 1 : 0)
+                    .transaction(value: place.drawsOwnLine) { $0.animation = nil }
                 }
                 if let center, place.drawsOwnLine {
                     let node = proxy[center]
@@ -233,73 +236,26 @@ private struct GroupLoop: View {
         .hotReloadable()
     }
 
-    /// How wide the head is either side of the line, and how long.
-    private var half: CGFloat {
-        3.5 * scale
-    }
-
-    private var length: CGFloat {
-        7 * scale
-    }
-
-    /// The open space between the head's tip and the line's round end ahead of it.
-    private var gap: CGFloat {
-        3 * scale
-    }
-
-    /// How far out the line runs, never so far that it or its head leaves the row.
-    private var x: CGFloat {
-        max(node.x - offset, half)
-    }
-
-    /// The corner's radius, its curve, as a continuous corner's does, reaching about half as far
-    /// again along each side: here short of the node's center, so it meets the node level.
-    private var radius: CGFloat {
-        7 * scale
-    }
-
-    /// Where the head's middle is: halfway from this row's node to the next row's. Rows stack with
-    /// no spacing and every row's node sits as far down it, so the next node is a row's height
-    /// below this one.
-    private var headMiddle: CGFloat {
-        node.y + height / 2
-    }
-
-    /// The row's stretch of loop: part of a continuous rounded rectangle's border, the rest of it
-    /// outside the row or past the node, so the curves are exactly a `RoundedRectangle`'s with
-    /// `.continuous` corners, cut square at the row's edges, so it meets the next row's stretch
-    /// with no overlap. Then, on every row but the last, the head.
+    /// The row's stretch of loop, the loop's line cut square at the row's edges, so it meets the
+    /// next row's stretch with no overlap, and, on every row but the last, the head halfway down
+    /// to the next node. Rows stack with no spacing and every row's node sits as far down it, so
+    /// the next node is a row's height below this one.
     private var run: Path {
-        let far = height + node.x + radius * 4
-        let border: CGRect = switch link {
-        case .solo: .null
-        case .first: CGRect(x: x, y: node.y, width: far, height: far)
-        case .middle: CGRect(x: x, y: -far, width: far, height: height + 2 * far)
-        case .last: CGRect(x: x, y: node.y - far, width: far, height: far)
+        let pen = LoopPen(lineWidth: lineWidth, scale: scale, offset: offset)
+        let far = height + node.x + pen.radius * 4
+        let ends: (top: CGFloat, bottom: CGFloat)? = switch link {
+        case .solo: nil
+        case .first: (node.y, node.y + far)
+        case .middle: (-far, height + far)
+        case .last: (node.y - far, node.y)
         }
-        guard !border.isNull else { return Path() }
-        let line = Path(roundedRect: border, cornerRadius: radius, style: .continuous)
-            .strokedPath(StrokeStyle(lineWidth: lineWidth))
+        guard let ends else { return Path() }
+        let x = pen.runX(nodeX: node.x)
+        let line = pen.line(top: ends.top, bottom: ends.bottom, nodeX: node.x, x: x)
             .intersection(Path(CGRect(x: 0, y: 0, width: node.x, height: height)))
         guard link == .first || link == .middle else { return line }
-        let tip = headMiddle - length / 2
-        let base = headMiddle + length / 2
-        // The line's end ahead of the tip, its round cap reaching to `gap` short of it.
-        let end = tip - gap - lineWidth / 2
-        let cap = Path(ellipseIn: CGRect(
-            x: x - lineWidth / 2, y: end - lineWidth / 2, width: lineWidth, height: lineWidth,
-        ))
-        let head = Path { path in
-            path.move(to: CGPoint(x: x + half, y: base))
-            path.addLine(to: CGPoint(x: x, y: tip))
-            path.addLine(to: CGPoint(x: x - half, y: base))
-            path.closeSubpath()
-        }
-        let open = CGRect(x: x - lineWidth, y: end, width: 2 * lineWidth, height: base - end)
-        return line
-            .subtracting(Path(open))
-            .union(cap)
-            .union(head)
+        let head = pen.head(middle: node.y + height / 2, x: x)
+        return line.subtracting(head.opening).union(head.added)
     }
 }
 

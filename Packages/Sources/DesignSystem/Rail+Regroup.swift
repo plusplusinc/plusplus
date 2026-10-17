@@ -12,7 +12,12 @@ extension Rail {
             return grouping.links
         }
         guard let drag else { return links }
-        return RailDrag.joined(data.map(\.id), joined: links, moving: drag.lifted, to: drag.slot)
+        return RailDrag.joined(
+            data.map(\.id),
+            joined: links,
+            moving: drag.lifted,
+            to: drag.shownSlot,
+        )
     }
 
     var groups: [RowID: Int] {
