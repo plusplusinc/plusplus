@@ -19,7 +19,6 @@ RESULTS="$ROOT/.build/results"
 # worktree. The main checkout defaults to iPhone 17, the maintainer's. scripts/test.sh resets, and
 # scripts/sim.sh erases, only the worktree's own simulator, so an agent that leaves out
 # PLUSPLUS_SIMULATOR never reaches a person's.
-TEMPLATE_SIMULATOR="PlusPlus Team"
 
 #   worktree_simulator <worktree path>
 worktree_simulator() {
@@ -71,28 +70,26 @@ is_own_simulator() {
     [ -n "$OWN_SIMULATOR" ] && [ "$SIMULATOR_NAME" = "$OWN_SIMULATOR" ]
 }
 
-# Creates the worktree's own simulator when it does not exist yet: the device type of
-# $TEMPLATE_SIMULATOR (an iPhone 17 when there is none) on the newest installed iOS runtime that
-# runs it (a beta runtime can carry only a new device). Does nothing for any other simulator.
+# Creates the worktree's own simulator when it does not exist yet: an iPhone 17 on the newest
+# installed iOS runtime that runs it (a beta runtime can carry only a new device). Does nothing
+# for any other simulator.
 ensure_simulator() {
     is_own_simulator || return 0
     local plan
     plan=$(xcrun simctl list --json devices runtimes | python3 -c '
 import json, sys
-own, template = sys.argv[1:]
+own = sys.argv[1]
+device_type = "com.apple.CoreSimulator.SimDeviceType.iPhone-17"
 data = json.load(sys.stdin)
-devices = [d for ds in data["devices"].values() for d in ds]
-if any(d["name"] == own for d in devices):
+if any(d["name"] == own for ds in data["devices"].values() for d in ds):
     sys.exit()
-types = [d["deviceTypeIdentifier"] for d in devices if d["name"] == template]
-device_type = types[0] if types else "com.apple.CoreSimulator.SimDeviceType.iPhone-17"
 runtimes = [r for r in data["runtimes"] if r["platform"] == "iOS" and r["isAvailable"]
             and any(t["identifier"] == device_type for t in r["supportedDeviceTypes"])]
 if not runtimes:
     sys.exit(f"no installed iOS runtime runs {device_type}; install one in Xcode > Settings > Components")
 newest = max(runtimes, key=lambda r: [int(p) for p in r["version"].split(".")])
 print(device_type, newest["identifier"])
-' "$SIMULATOR_NAME" "$TEMPLATE_SIMULATOR") || return 1
+' "$SIMULATOR_NAME") || return 1
     [ -n "$plan" ] || return 0
     local device_type runtime
     read -r device_type runtime <<< "$plan"

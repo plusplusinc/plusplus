@@ -135,9 +135,9 @@ quirks.
 `claude --worktree <name>` gives an agent its own checkout under `.claude/worktrees/`.
 DerivedData is already isolated per worktree because `scripts/common.sh` keys it to the
 checkout. Each worktree also builds and tests on a simulator of its own, "PlusPlus <worktree>":
-`scripts/common.sh` creates it on first use, from the device type of "PlusPlus Team" (a template
-nothing builds on) and the newest installed iOS runtime that runs it, so two sessions never share
-an app, its data, or its settings. `PLUSPLUS_SIMULATOR` still overrides it. `scripts/tidy.sh`
+`scripts/common.sh` creates it on first use, an iPhone 17 on the newest installed iOS runtime
+that runs it, so two sessions never share an app, its data, or its settings. `PLUSPLUS_SIMULATOR`
+still overrides it. `scripts/tidy.sh`
 shuts it down and deletes it when it removes the worktree, and is the only script that deletes a
 simulator. Each booted simulator adds about 250 processes, so two or three concurrent iOS
 worktrees is the practical ceiling on one machine.
