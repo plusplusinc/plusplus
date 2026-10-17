@@ -23,7 +23,7 @@ case "$MODE" in
         # what the UI tests would see. Only a worktree's own simulator is reset: the reset can
         # reboot, and any other simulator is a person's.
         ensure_simulator
-        if [ "$SIMULATOR_NAME" = "$OWN_SIMULATOR" ]; then
+        if is_own_simulator; then
             "$ROOT/scripts/sim.sh" reset
         else
             echo "not resetting \"$SIMULATOR_NAME\": only a worktree's own simulator is reset" >&2

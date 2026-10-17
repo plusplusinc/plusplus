@@ -70,10 +70,6 @@ screenshot() {
 }
 
 case "${1:-}" in
-    screenshot | shots | appearance | content-size | reset | relaunch | log | erase) ensure_simulator ;;
-esac
-
-case "${1:-}" in
     screenshot)
         screenshot "${2:-app}"
         ;;
@@ -101,6 +97,7 @@ case "${1:-}" in
         settle
         ;;
     reset)
+        ensure_simulator
         xcrun simctl bootstatus "$SIMULATOR_NAME" -b > /dev/null
         reset_keyboard
         ui appearance light
@@ -108,10 +105,11 @@ case "${1:-}" in
         settle
         ;;
     erase)
-        if [ -z "$OWN_SIMULATOR" ] || [ "$SIMULATOR_NAME" != "$OWN_SIMULATOR" ]; then
+        if ! is_own_simulator; then
             echo "erase acts only on a worktree's own simulator, not \"$SIMULATOR_NAME\"" >&2
             exit 1
         fi
+        ensure_simulator
         read -r udid state < <(simulator_udid "$OWN_SIMULATOR")
         if [ "$state" = Booted ]; then
             xcrun simctl shutdown "$udid"
@@ -120,6 +118,7 @@ case "${1:-}" in
         "${BASH_SOURCE[0]}" reset
         ;;
     relaunch)
+        ensure_simulator
         xcrun simctl bootstatus "$SIMULATOR_NAME" -b > /dev/null
         bundle_id=$(app_bundle_id)
         xcrun simctl terminate "$SIMULATOR_NAME" "$bundle_id" 2> /dev/null || true

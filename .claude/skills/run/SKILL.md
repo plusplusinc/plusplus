@@ -14,7 +14,7 @@ scripts/run.sh [name]
 ```
 
 Builds Debug, boots the default simulator (iPhone 17 in the main checkout; in a worktree, its own
-"PlusPlus <worktree>", created on first use from "PlusPlus Team"'s device type; override with
+"PlusPlus <worktree>", created on first use; override with
 `PLUSPLUS_SIMULATOR="iPhone 17 Pro"`), installs and launches the app,
 waits two seconds for the first frame, and writes `.build/screenshots/<name>.png`. The path is printed last; Read it.
 About 15 seconds on a warm build from a shut-down simulator.
