@@ -66,34 +66,6 @@ struct RoutineSupersetTests {
         #expect(shape(regrouped("A-B-C", holding: "C", reaching: "A")?.routine) == "A B C")
     }
 
-    @Test("The card's examples, each as Dave settled it")
-    func cardExamples() {
-        #expect(shape(regrouped("A-B", holding: "A", reaching: "B")?.routine) == "A B")
-        #expect(shape(regrouped("A-B-C-D", holding: "A", reaching: "B")?.routine) == "A B-C-D")
-        #expect(shape(regrouped("A-B C-D", holding: "B", reaching: "D")?.routine) == "A-B-C-D")
-        #expect(shape(regrouped("A-B C-D", holding: "B", reaching: "C")?.routine) == "A-B-C D")
-        #expect(shape(regrouped("A-B-C-D", holding: "C", reaching: "B")?.routine) == "A B-C D")
-        #expect(shape(regrouped("A B-C-D", holding: "A", reaching: "B")?.routine) == "A-B C-D")
-    }
-
-    @Test("The span runs from the anchor to the row reached, a lone row when it collapses")
-    func span() {
-        #expect(regrouped("A-B C", holding: "A", reaching: "B")?.span == [id("B")])
-        #expect(regrouped("A-B C-D", holding: "B", reaching: "C")?.span == [id("A"), id("B"), id("C")])
-        #expect(regrouped("A-B-C-D", holding: "C", reaching: "B")?.span == [id("B"), id("C")])
-    }
-
-    @Test("A press picks up an end's whole superset, and a middle or plain row alone")
-    func pickedUp() {
-        let start = routine("A-B-C D-E")
-        #expect(start.pickedUp(holding: id("A")) == [id("A"), id("B"), id("C")])
-        #expect(start.pickedUp(holding: id("C")) == [id("A"), id("B"), id("C")])
-        #expect(start.pickedUp(holding: id("B")) == [id("B")])
-        #expect(start.pickedUp(holding: id("D")) == [id("D"), id("E")])
-        #expect(start.pickedUp(holding: id("E")) == [id("D"), id("E")])
-        #expect(routine("A B").pickedUp(holding: id("A")) == [id("A")])
-    }
-
     @Test("An end's superset keeps its round count; rows it takes in take it too")
     func endKeepsRounds() {
         let result = regrouped("A B-C D", holding: "C", reaching: "D")
@@ -361,5 +333,38 @@ extension RoutineSupersetTests {
         reaching reach: String,
     ) -> Regrouping? {
         routine(shape).regrouped(holding: id(held), reaching: id(reach))
+    }
+}
+
+// MARK: An end, a middle, and a press
+
+extension RoutineSupersetTests {
+    @Test("The card's examples, each as Dave settled it")
+    func cardExamples() {
+        #expect(shape(regrouped("A-B", holding: "A", reaching: "B")?.routine) == "A B")
+        #expect(shape(regrouped("A-B-C-D", holding: "A", reaching: "B")?.routine) == "A B-C-D")
+        #expect(shape(regrouped("A-B C-D", holding: "B", reaching: "D")?.routine) == "A-B-C-D")
+        #expect(shape(regrouped("A-B C-D", holding: "B", reaching: "C")?.routine) == "A-B-C D")
+        #expect(shape(regrouped("A-B-C-D", holding: "C", reaching: "B")?.routine) == "A B-C D")
+        #expect(shape(regrouped("A B-C-D", holding: "A", reaching: "B")?.routine) == "A-B C-D")
+    }
+
+    @Test("The span runs from the anchor to the row reached, a lone row when it collapses")
+    func span() {
+        #expect(regrouped("A-B C", holding: "A", reaching: "B")?.span == [id("B")])
+        let across = regrouped("A-B C-D", holding: "B", reaching: "C")
+        #expect(across?.span == [id("A"), id("B"), id("C")])
+        #expect(regrouped("A-B-C-D", holding: "C", reaching: "B")?.span == [id("B"), id("C")])
+    }
+
+    @Test("A press picks up an end's whole superset, and a middle or plain row alone")
+    func pickedUp() {
+        let start = routine("A-B-C D-E")
+        #expect(start.pickedUp(holding: id("A")) == [id("A"), id("B"), id("C")])
+        #expect(start.pickedUp(holding: id("C")) == [id("A"), id("B"), id("C")])
+        #expect(start.pickedUp(holding: id("B")) == [id("B")])
+        #expect(start.pickedUp(holding: id("D")) == [id("D"), id("E")])
+        #expect(start.pickedUp(holding: id("E")) == [id("D"), id("E")])
+        #expect(routine("A B").pickedUp(holding: id("A")) == [id("A")])
     }
 }

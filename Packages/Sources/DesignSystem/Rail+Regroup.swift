@@ -131,7 +131,9 @@ extension Rail {
             }
             .opacity(held.isOverBar ? 0 : 1)
             // Gone before the new group's loop flashes.
-            .transition(.opacity.animation(reduceMotion ? nil : .easeOut(duration: RailEntry.fieldFade)))
+            .transition(.opacity.animation(
+                reduceMotion ? nil : .easeOut(duration: RailEntry.fieldFade),
+            ))
             .allowsHitTesting(false)
             .accessibilityHidden(true)
         }
