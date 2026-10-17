@@ -22,8 +22,7 @@ SHOTS="$ROOT/.build/screenshots"
 SUBSYSTEM="com.plusplusinc.plusplus"
 # `erase` erases only the worktree's own simulator, $OWN_SIMULATOR. Raw `simctl erase` and
 # `simctl delete` are denied to agents, since they take any device, or `all`, and a wrong argument
-# would wipe a person's
-# simulators; this script is the permission boundary.
+# would wipe a person's simulators; this script is the permission boundary.
 
 # UIKit crossfades an appearance change and re-lays out for a content size change after
 # `simctl ui` has already returned, and nothing outside the process signals when that is done.

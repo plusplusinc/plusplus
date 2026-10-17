@@ -53,7 +53,7 @@ delete_simulator() {
     [ "$DRY_RUN" -eq 1 ] && return 0
     # The worktree is already gone, so a failure here says so and lets the rest of the run go on.
     if ! { [ "$state" != Booted ] || xcrun simctl shutdown "$udid"; } || ! xcrun simctl delete "$udid"; then
-        echo "tidy: could not delete simulator \"$name\" ($udid); delete it with xcrun simctl" >&2
+        echo "tidy: could not delete simulator \"$name\" ($udid); agents are denied simctl delete, so ask the maintainer to delete it" >&2
     fi
 }
 
