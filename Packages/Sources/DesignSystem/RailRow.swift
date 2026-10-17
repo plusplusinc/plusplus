@@ -17,6 +17,9 @@ struct RailPlace {
     var link = RailLink.solo
     /// Whether the row's stretch of loop draws in `railJoin`: the group it marks is joining.
     var isJoining = false
+    /// Whether the row's stretch of loop is hidden: a row of its group is swiped open, which
+    /// slides that row's stretch away from the rest.
+    var isLoopHidden = false
 }
 
 /// Where a row is in a group of rows next to each other on a rail, a superset: on its own, or
@@ -100,6 +103,7 @@ private struct RailRow: ViewModifier {
     @ScaledMetric(relativeTo: .body) private var lineWidth = railLineWidth
     @ScaledMetric(relativeTo: .body) private var nodeSize = railNodeSize
     @State private var nodeLeading: CGFloat = 0
+    @State private var isSwiped = false
     @Environment(\.railPlace) private var place
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
@@ -124,6 +128,11 @@ private struct RailRow: ViewModifier {
                 .committing(when: place.isArriving)
         }
         .coordinateSpace(.named(Self.space))
+        // A row's swipe slides it sideways, off the rail's leading edge.
+        .onGeometryChange(for: Bool.self) { proxy in
+            abs(proxy.frame(in: .named(RailDrag.space)).minX) > 0.5
+        } action: { isSwiped = $0 }
+        .preference(key: RailRowSwiped.self, value: isSwiped)
         // In the gap, the node and content are on the card.
         .opacity(place.isGap ? 0 : 1)
         // The row's stretch of line, top edge to bottom edge through its node, or from the node
@@ -141,6 +150,8 @@ private struct RailRow: ViewModifier {
                         link: place.link,
                         joining: place.isJoining ? 1 : 0,
                     )
+                    .opacity(place.isLoopHidden ? 0 : 1)
+                    .animation(.snappy(duration: 0.2), value: place.isLoopHidden)
                 }
                 if let center, place.drawsOwnLine {
                     let node = proxy[center]
@@ -171,18 +182,28 @@ private struct RailRow: ViewModifier {
     }
 }
 
+/// Whether a row is swiped open, slid sideways off the rail's leading edge.
+struct RailRowSwiped: PreferenceKey {
+    static let defaultValue = false
+
+    static func reduce(value: inout Bool, nextValue: () -> Bool) {
+        value = value || nextValue()
+    }
+}
+
 /// A row's stretch of the loop that marks a group on the rail: a line beside the rail's, on its
-/// leading side, that leaves the first row's node, runs down past its rows, and returns into the
-/// last row's node, read from the bottom back to the top, as a superset goes round. An up chevron
-/// at the top of each later row points the way back, its tip just short of the row above's line.
-/// The node draws over its curves. `joining` mixes it from the rail's group gray into `railJoin`.
+/// leading side, a bracket round the group's nodes, read from the bottom back to the top, as a
+/// superset goes round. It leaves the first row's node on a curve, runs down past its rows, takes
+/// in each middle row's node on a short stroke, and curves into the last row's node. An up
+/// chevron just above each later row's node points the way back, a gap in front of its tip and
+/// one behind it, so it reads on its own and never as the tip of a curve. The node draws over its
+/// strokes. `joining` mixes it from the rail's group gray into `railJoin`.
 private struct GroupLoop: View, Animatable {
     let node: CGPoint
     let height: CGFloat
     let link: RailLink
     var joining: Double
     @ScaledMetric(relativeTo: .body) private var offset: CGFloat = 12
-    @ScaledMetric(relativeTo: .body) private var radius: CGFloat = 10
     @ScaledMetric(relativeTo: .body) private var lineWidth = railLineWidth
     @ScaledMetric(relativeTo: .body) private var scale: CGFloat = 1
     @ObserveHotReload private var hotReload
@@ -203,12 +224,19 @@ private struct GroupLoop: View, Animatable {
     }
 
     private var path: Path {
-        // The row above's line stops this far above its bottom, and the chevron's tip this far
-        // below the top, a gap in front of the tip.
-        let (end, tip) = (3.5 * scale, 0.5 * scale)
+        // The chevron: half its width and its height. The gap in front of its tip, and the one
+        // between it and the curve or stroke into the node.
         let (half, rise) = (2.5 * scale, 4.5 * scale)
+        let (front, behind) = (3.5 * scale, 5 * scale)
+        let radius = 6 * scale
         // Never so far out that the chevron leaves the row.
         let x = max(node.x - offset, half + lineWidth)
+        // The chevron's tip, above a later row's node. Every row's node sits as far below its top,
+        // on the first line, so where the node is near the top, at the largest text sizes, the
+        // chevron reaches up into the row above, and the row above, knowing where, ends its
+        // stretch short of the gap in front of the tip.
+        let tip = node.y - radius - behind - rise
+        let bottom = height + min(tip - front, 0)
         return Path { path in
             switch link {
             case .solo:
@@ -219,16 +247,24 @@ private struct GroupLoop: View, Animatable {
                     to: CGPoint(x: x, y: node.y + radius),
                     control: CGPoint(x: x, y: node.y),
                 )
-                path.addLine(to: CGPoint(x: x, y: height - end))
+                path.addLine(to: CGPoint(x: x, y: bottom))
             case .middle, .last:
+                // On from the row above's stretch, which runs to the row's top, where the gap
+                // in front of the tip leaves room.
+                if tip - front > 1 {
+                    path.move(to: CGPoint(x: x, y: 0))
+                    path.addLine(to: CGPoint(x: x, y: tip - front))
+                }
                 path.move(to: CGPoint(x: x - half, y: tip + rise))
                 path.addLine(to: CGPoint(x: x, y: tip))
                 path.addLine(to: CGPoint(x: x + half, y: tip + rise))
                 path.move(to: CGPoint(x: x, y: tip))
                 if link == .middle {
-                    path.addLine(to: CGPoint(x: x, y: height - end))
+                    path.addLine(to: CGPoint(x: x, y: bottom))
+                    path.move(to: CGPoint(x: x, y: node.y))
+                    path.addLine(to: node)
                 } else {
-                    path.addLine(to: CGPoint(x: x, y: max(node.y - radius, tip)))
+                    path.addLine(to: CGPoint(x: x, y: node.y - radius))
                     path.addQuadCurve(to: node, control: CGPoint(x: x, y: node.y))
                 }
             }

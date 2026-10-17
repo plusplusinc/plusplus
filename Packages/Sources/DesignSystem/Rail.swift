@@ -54,6 +54,8 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     @State var regrouping: RailRegroupState<RowID>?
     /// The rows a join just made, their loop still in `railJoin` as it settles to its own color.
     @State var settling: Set<RowID> = []
+    /// The rows swiped open, whose groups hide their loops.
+    @State private var swiped: Set<RowID> = []
     /// The card's top, in the rail's space. It is its own state, so the finger moves it with no
     /// animation even as the same move sends the gap, and the rows, on an animated one.
     @State private var cardTop: CGFloat = 0
@@ -130,6 +132,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         let lastOnLine = shown.last { $0.id != arriving }?.id
         let shownLinks = RailLink.links(shown.map(\.id), joined: shownJoined)
         let joining = regrouping?.shown?.joining ?? []
+        let hiddenLoops = loopsHidden(shown.map(\.id))
         VStack(alignment: .leading, spacing: 0) {
             // Each row learns its place from the rail. Rows taken as a view's subviews could
             // not: a subview resolves in its container's environment, not one set on it.
@@ -143,11 +146,20 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                     drawsOwnLine: drag == nil,
                     link: shownLinks[item.id] ?? .solo,
                     isJoining: isJoining(item.id, joining),
+                    isLoopHidden: hiddenLoops.contains(item.id),
                 )
                 // An arriving row's place opens with its entry's shot, so the end view is pushed
                 // down as far as the line has grown, on every frame.
                 OpeningSpace(progress: isArriving ? 0 : 1) {
-                    row(item).environment(\.railPlace, place)
+                    row(item)
+                        .environment(\.railPlace, place)
+                        .onPreferenceChange(RailRowSwiped.self) { isSwiped in
+                            if isSwiped {
+                                swiped.insert(item.id)
+                            } else {
+                                swiped.remove(item.id)
+                            }
+                        }
                 }
                 .entry(RailEntry.space(reduceMotion: reduceMotion), value: isArriving)
                 // A row's swipe closes when its action runs, so a deleted row slid back to rest
@@ -192,7 +204,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         // where the finger is, not in the row's place, which moves as the gap does.
         .overlay(alignment: .top) {
             if let drag, let cardY {
-                card(drag, at: cardY)
+                card(drag, at: cardY, link: shownLinks[drag.lifted] ?? .solo)
             }
         }
         .background(alignment: .topLeading) {
@@ -224,21 +236,39 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
             .compactMap { byID[$0] }
     }
 
+    /// The rows whose loops hide: those of a group with a row swiped open, which would otherwise
+    /// leave its partners' stretches hanging.
+    private func loopsHidden(_ ids: [RowID]) -> Set<RowID> {
+        guard !swiped.isEmpty else { return [] }
+        let groups = RailDrag.groups(ids, joined: shownJoined)
+        let open = Set(swiped.compactMap { groups[$0] })
+        return Set(ids.filter { groups[$0].map(open.contains) ?? false })
+    }
+
     private func candidates(lifting lifted: RowID) -> [RailDrag.Candidate<RowID>] {
         RailDrag.candidates(rows: measuredRows, lifted: lifted, groups: groups)
     }
 
     /// The held row drawn again as a card, its top at `y`. It rises as it appears and lowers as
     /// it settles; while held, it follows the finger with no animation, whatever animation moves
-    /// the rows.
+    /// the rows. Over a slot in a group, it draws the group's loop as its gap's row would, over the
+    /// stretch it hides.
     @ViewBuilder
-    private func card(_ drag: RailDragState<RowID>, at y: CGFloat) -> some View {
+    private func card(
+        _ drag: RailDragState<RowID>,
+        at y: CGFloat,
+        link: RailLink,
+    ) -> some View {
         if let item = data.first(where: { $0.id == drag.lifted }) {
             row(item)
                 // As tall as in the rows, where the scroll view proposes no height, not as tall
                 // as the rail it is over.
                 .fixedSize(horizontal: false, vertical: true)
-                .modifier(CardLook(isReleased: drag.isReleased, hasRisen: momentOffset != nil))
+                .modifier(CardLook(
+                    isReleased: drag.isReleased,
+                    hasRisen: momentOffset != nil,
+                    link: link,
+                ))
                 .offset(y: y)
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)

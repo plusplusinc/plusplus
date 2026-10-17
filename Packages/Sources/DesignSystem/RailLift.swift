@@ -40,20 +40,26 @@ extension View {
 /// its node in the color of the text. Released, it lowers to look like the row at rest.
 struct CardLook: ViewModifier {
     let isReleased: Bool
+    /// Where its gap is in a group, whose loop it draws.
+    let link: RailLink
     @State private var hasRisen: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
     /// `hasRisen` draws it already risen, for a preview or a snapshot of a moment of a drag.
-    init(isReleased: Bool, hasRisen: Bool = false) {
+    init(isReleased: Bool, hasRisen: Bool = false, link: RailLink = .solo) {
         self.isReleased = isReleased
+        self.link = link
         _hasRisen = State(initialValue: hasRisen)
     }
 
     func body(content: Content) -> some View {
         let isRaised = hasRisen && !isReleased
         content
-            .environment(\.railPlace, RailPlace(drawsOwnLine: false, isRaised: isRaised))
+            .environment(
+                \.railPlace,
+                RailPlace(drawsOwnLine: false, isRaised: isRaised, link: link),
+            )
             .backgroundPreferenceValue(RailNodes.self) { nodes in
                 if let node = nodes.first {
                     LiftedCard(node: node, isLifted: isRaised)
