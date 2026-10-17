@@ -4,11 +4,11 @@ import Foundation
 // superset is at least two rows long and in one piece, and its rows share one round count, their
 // `plan.sets`, since rounds alternate. Every rule here keeps that true.
 
-/// What a drag from one row's node to another's makes of the routine's supersets: the rows it
-/// spans, one superset.
+/// What a drag from one row's node to another's makes of the routine's supersets: one superset of
+/// the rows it spans.
 public struct Regrouping: Equatable, Sendable {
     public var routine: Routine
-    /// The rows of the superset the drag draws, from the held row's end to the other.
+    /// The rows of the superset the drag makes, in order; none when it spans one row.
     public var superset: [RoutineExercise.ID]
 }
 
@@ -30,13 +30,16 @@ extension Routine {
         return exercises.filter { $0.supersetID == superset && $0.id != id }
     }
 
-    /// What holding `held`'s node and dragging it to `reach`'s would make: the rows from one to
-    /// the other, both included, become one superset, with the held row's round count.
+    /// What holding `held`'s node and dragging it to `reach`'s would make. A superset's first or
+    /// last row is one of its ends: held, it moves that end, and the superset becomes the rows from
+    /// its other end to `reach`, its rows left out going plain. Any other row draws a new superset,
+    /// from itself to `reach`. Either way the rows spanned take the held row's round count, which
+    /// for an end is its superset's.
     ///
     /// Rows in the span leave whatever superset they were in. What remains of a superset the span
     /// cut through stays one where two or more rows remain next to each other, and a lone row goes
-    /// plain. Nil when either row is missing or they are the same row: a drop there changes
-    /// nothing.
+    /// plain, as does a span of one row. Nil when either row is missing or they are the same row: a
+    /// drop there changes nothing.
     public func regrouped(
         holding held: RoutineExercise.ID,
         reaching reach: RoutineExercise.ID,
@@ -44,24 +47,29 @@ extension Routine {
         guard let from = exercises.firstIndex(where: { $0.id == held }),
               let to = exercises.firstIndex(where: { $0.id == reach }), from != to
         else { return nil }
-        let span = min(from, to) ... max(from, to)
-        // Its own id, so it never runs on into a superset its ends were cut from.
-        let superset = UUID()
-        let rounds = exercises[from].plan.sets
         var rows = exercises
+        var anchor = from
+        if let run = supersetRun(at: from), from == run.lowerBound || from == run.upperBound {
+            anchor = from == run.lowerBound ? run.upperBound : run.lowerBound
+            for row in run {
+                rows[row].supersetID = nil
+            }
+        }
+        let span = min(anchor, to) ... max(anchor, to)
+        // Its own id, so it never runs on into a superset its ends were cut from.
+        let superset = span.count > 1 ? UUID() : nil
+        let rounds = exercises[from].plan.sets
         for row in span {
             rows[row].supersetID = superset
-            rows[row].plan.sets = rounds
+            if superset != nil {
+                rows[row].plan.sets = rounds
+            }
         }
         rows.normalizeSupersets()
         var routine = self
-        // Drawn over a superset just as it is, it stays as it was, its id too.
-        if Routine(exercises: rows).joinedToNext != joinedToNext
-            || rows.map(\.plan) != exercises.map(\.plan)
-        {
-            routine.exercises = rows
-        }
-        return Regrouping(routine: routine, superset: span.map { exercises[$0].id })
+        routine.exercises = rows
+        let members = superset == nil ? [] : span.map { exercises[$0].id }
+        return Regrouping(routine: routine, superset: members)
     }
 
     /// Applies `regrouped(holding:reaching:)`. Returns false when it changes nothing.
