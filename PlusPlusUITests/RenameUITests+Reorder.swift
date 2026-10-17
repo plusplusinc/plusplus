@@ -93,24 +93,19 @@ extension RenameUITests {
         app.swipeUp(velocity: .fast)
         let last = app.lastExerciseRow
         XCTAssertTrue(last.settles(), "The list kept scrolling")
+        // Just under the bar: in the edge's band, still over the list.
+        let edge = app.point(x: last.frame.midX, y: bar.frame.maxY + 24)
         XCTContext.runActivity(named: "A row held still at the top edge stays put") { _ in
-            let before = (app.exerciseNames, first.frame.minY)
-            // Just under the bar, in the edge's band, on whichever row is there.
-            let edge = app.point(x: last.frame.midX, y: bar.frame.maxY + 24)
+            let (names, top) = (app.exerciseNames, first.frame.minY)
+            // On whichever row is there.
             edge.press(forDuration: 2.5)
-            XCTAssertEqual(
-                order(keeping: before.0, in: app),
-                before.0,
-                "A still hold moved the row",
-            )
-            XCTAssertEqual(first.frame.minY, before.1, "A still hold scrolled the list")
+            XCTAssertEqual(order(keeping: names, in: app), names, "A still hold moved the row")
+            XCTAssertEqual(first.frame.minY, top, "A still hold scrolled the list")
         }
         XCTContext
             .runActivity(named: "A row dragged to the top edge scrolls up and lands first") { _ in
                 var expected = app.exerciseNames
                 let top = first.frame.minY
-                // Just under the bar: in the edge's band, still over the list.
-                let edge = app.point(x: last.frame.midX, y: bar.frame.maxY + 24)
                 last.center.holdAndDrag(to: edge, holding: 2.5)
                 expected.insert(expected.removeLast(), at: 0)
                 XCTAssertEqual(reading(app.exerciseNames, becoming: expected, within: 2), expected)

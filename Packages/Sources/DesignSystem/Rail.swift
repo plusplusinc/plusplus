@@ -19,8 +19,8 @@ import SwiftUI
 ///
 /// Given `onMove`, a hold on a row's content lifts it into a card under the finger, and a drag
 /// opens a gap where it would land, the rows moving aside; a drop calls `onMove` with the slot.
-/// Inside a scroll view with `railAutoscroll`, a row held near its edges scrolls it, and one let
-/// go over a bar goes back.
+/// Inside a scroll view with `railAutoscroll`, a row dragged toward its edges scrolls it, and one
+/// let go over a bar goes back.
 public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     where Data.Element: Identifiable
 {
@@ -234,17 +234,15 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                 grab: finger.inRail - own.gapTop,
             )
             lifts += 1
-            edges?.fingerY = finger.inScrollView
             // The list scrolling under a still finger carries the card through the rows.
-            edges?.onScroll = { distance in
+            edges?.lift(at: finger.inScrollView) { distance in
                 cardTop += distance
                 follow(id)
             }
-            edges?.isHeld = true
         case .changed:
             guard let held = drag, held.lifted == id else { return }
             cardTop = finger.inRail - held.grab
-            edges?.fingerY = finger.inScrollView
+            edges?.move(to: finger.inScrollView)
             follow(id)
         case .ended, .cancelled:
             guard let released = drag, released.lifted == id, !released.isReleased else { return }
@@ -266,8 +264,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
 
     /// Stops the list scrolling for the finger.
     private func letGo() {
-        edges?.isHeld = false
-        edges?.onScroll = nil
+        edges?.letGo()
     }
 
     /// Lets the held row go, into its gap or, `goingBack`, back where it started: the card lowers
