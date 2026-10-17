@@ -203,12 +203,12 @@ private struct GroupLoop: View, Animatable {
     }
 
     private var path: Path {
-        // Never so far out that the stroke leaves the row.
-        let x = max(node.x - offset, lineWidth)
         // The row above's line stops this far above its bottom, and the chevron's tip this far
         // below the top, a gap in front of the tip.
         let (end, tip) = (3.5 * scale, 0.5 * scale)
         let (half, rise) = (2.5 * scale, 4.5 * scale)
+        // Never so far out that the chevron leaves the row.
+        let x = max(node.x - offset, half + lineWidth)
         return Path { path in
             switch link {
             case .solo:
