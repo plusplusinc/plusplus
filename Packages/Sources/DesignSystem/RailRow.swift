@@ -201,14 +201,12 @@ struct RailRowSwiped: PreferenceKey {
     }
 }
 
-/// A row's stretch of the loop that marks a group on the rail: a line beside the rail's, on its
-/// leading side, a bracket round the group's nodes, read from the bottom back to the top, as a
-/// superset goes round. It leaves the first row's node on a curve, runs down past its rows, takes
-/// in each middle row's node on a short stroke, and curves into the last row's node. An up
-/// chevron just above each later row's node points the way back, a gap in front of its tip and
-/// one behind it, so it reads on its own and never as the tip of a curve. The node draws over its
-/// strokes. Each change of `flashes` flashes it in `railJoin`, as a new node does, then it settles
-/// back to the rail's group gray.
+/// A group's loop, drawn by each of its rows for its own stretch: a line beside the rail on its
+/// leading side, from the last row's node back up to the first's, as a superset goes round. It
+/// curves out of the last row's node, runs straight up past the rows between, which it leaves
+/// alone, and curves into the first row's node, a pointed head where the run ends showing the way.
+/// The node draws over its strokes. Each change of `flashes` flashes it in `railJoin`, as a new
+/// node does, then it settles back to the rail's group gray.
 private struct GroupLoop: View {
     let node: CGPoint
     let height: CGFloat
@@ -223,28 +221,28 @@ private struct GroupLoop: View {
         let (rest, joined) = (Color.pp(.railGroup), Color.pp(.railJoin))
         let style = StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round)
         KeyframeAnimator(initialValue: 0.0, trigger: flashes) { joining in
-            path.stroke(rest.mix(with: joined, by: joining), style: style)
+            let color = rest.mix(with: joined, by: joining)
+            ZStack {
+                path.stroke(color, style: style)
+                head.fill(color)
+            }
         } keyframes: { _ in
             RailEntry.groupFlash()
         }
         .hotReloadable()
     }
 
+    /// How far out the line runs, never so far that it or its head leaves the row.
+    private var x: CGFloat {
+        max(node.x - offset, 3.5 * scale + lineWidth)
+    }
+
+    private var radius: CGFloat {
+        6 * scale
+    }
+
     private var path: Path {
-        // The chevron: half its width and its height. The gap in front of its tip, and the one
-        // between it and the curve or stroke into the node.
-        let (half, rise) = (2.5 * scale, 4.5 * scale)
-        let (front, behind) = (3.5 * scale, 5 * scale)
-        let radius = 6 * scale
-        // Never so far out that the chevron leaves the row.
-        let x = max(node.x - offset, half + lineWidth)
-        // The chevron's tip, above a later row's node. Every row's node sits as far below its top,
-        // on the first line, so where the node is near the top, at the largest text sizes, the
-        // chevron reaches up into the row above, and the row above, knowing where, ends its
-        // stretch short of the gap in front of the tip.
-        let tip = node.y - radius - behind - rise
-        let bottom = height + min(tip - front, 0)
-        return Path { path in
+        Path { path in
             switch link {
             case .solo:
                 return
@@ -254,27 +252,29 @@ private struct GroupLoop: View {
                     to: CGPoint(x: x, y: node.y + radius),
                     control: CGPoint(x: x, y: node.y),
                 )
-                path.addLine(to: CGPoint(x: x, y: bottom))
-            case .middle, .last:
-                // On from the row above's stretch, which runs to the row's top, where the gap
-                // in front of the tip leaves room.
-                if tip - front > 1 {
-                    path.move(to: CGPoint(x: x, y: 0))
-                    path.addLine(to: CGPoint(x: x, y: tip - front))
-                }
-                path.move(to: CGPoint(x: x - half, y: tip + rise))
-                path.addLine(to: CGPoint(x: x, y: tip))
-                path.addLine(to: CGPoint(x: x + half, y: tip + rise))
-                path.move(to: CGPoint(x: x, y: tip))
-                if link == .middle {
-                    path.addLine(to: CGPoint(x: x, y: bottom))
-                    path.move(to: CGPoint(x: x, y: node.y))
-                    path.addLine(to: node)
-                } else {
-                    path.addLine(to: CGPoint(x: x, y: node.y - radius))
-                    path.addQuadCurve(to: node, control: CGPoint(x: x, y: node.y))
-                }
+                path.addLine(to: CGPoint(x: x, y: height))
+            case .middle:
+                path.move(to: CGPoint(x: x, y: 0))
+                path.addLine(to: CGPoint(x: x, y: height))
+            case .last:
+                path.move(to: CGPoint(x: x, y: 0))
+                path.addLine(to: CGPoint(x: x, y: node.y - radius))
+                path.addQuadCurve(to: node, control: CGPoint(x: x, y: node.y))
             }
+        }
+    }
+
+    /// The head, on the first row, where the run up from the last row ends at the curve into the
+    /// node: a small filled triangle pointing up, its edges sharp.
+    private var head: Path {
+        Path { path in
+            guard link == .first else { return }
+            let (half, length) = (3.5 * scale, 7 * scale)
+            let tip = node.y + radius
+            path.move(to: CGPoint(x: x, y: tip))
+            path.addLine(to: CGPoint(x: x + half, y: tip + length))
+            path.addLine(to: CGPoint(x: x - half, y: tip + length))
+            path.closeSubpath()
         }
     }
 }
