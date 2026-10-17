@@ -71,6 +71,9 @@ public actor RoutineStore {
                 row.position = position
             }
             row.write(item.plan)
+            if row.supersetID != item.supersetID {
+                row.supersetID = item.supersetID
+            }
         }
         try modelContext.save()
     }
@@ -92,10 +95,10 @@ public actor RoutineStore {
     }
 
     /// A row whose exercise isn't built in, from a newer version or a renamed slug, is left out
-    /// rather than failing the routine.
+    /// rather than failing the routine. Supersets come back whole, as the rules keep them.
     private static func routine(from stored: StoredRoutine, weightUnit: WeightUnit) -> Routine {
         let rows = (stored.exercises ?? []).sorted { $0.position < $1.position }
-        let exercises = rows.compactMap { row -> RoutineExercise? in
+        var exercises = rows.compactMap { row -> RoutineExercise? in
             guard let exercise = builtInByID[row.exerciseID] else {
                 Logger.storage
                     .error("Skipped a row for unknown exercise \(row.exerciseID, privacy: .public)")
@@ -105,8 +108,11 @@ public actor RoutineStore {
                 id: row.id,
                 exercise: exercise,
                 plan: row.plan(for: exercise, weightUnit: weightUnit),
+                supersetID: row.supersetID,
             )
         }
+        // A row left out, or a store written elsewhere, can leave a superset broken or of one.
+        exercises.normalizeSupersets()
         return Routine(id: stored.id, name: stored.name, exercises: exercises)
     }
 }
