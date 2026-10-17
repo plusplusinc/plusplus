@@ -10,13 +10,14 @@ extension XCUIApplication {
 
     /// Launches into a new routine, not the one the last test saved, at the text size
     /// `category`, since the simulator keeps the last size it was set to, and with `arguments`
-    /// besides. Returns the title once it is up.
+    /// besides. Returns the title once it is up. UIKit's animations are off
+    /// (`LaunchOptions.turnsOffUIKitAnimations`).
     func launchNewRoutine(
         textSize category: String = "UICTContentSizeCategoryL",
         arguments: [String] = [],
     ) -> XCUIElement {
         launchArguments = ["-UIPreferredContentSizeCategoryName", category]
-            + ["-resetStore", "YES"] + arguments
+            + ["-resetStore", "YES", "-noUIKitAnimations", "YES"] + arguments
         launch()
         XCTAssertTrue(routineTitle.appears(within: 10), "No title after launch")
         return routineTitle
