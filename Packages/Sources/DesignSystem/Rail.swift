@@ -234,7 +234,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                 grab: finger.inRail - own.gapTop,
             )
             lifts += 1
-            edges?.fingerY = finger.onScreen
+            edges?.fingerY = finger.inScrollView
             // The list scrolling under a still finger carries the card through the rows.
             edges?.onScroll = { distance in
                 cardTop += distance
@@ -244,13 +244,13 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         case .changed:
             guard let held = drag, held.lifted == id else { return }
             cardTop = finger.inRail - held.grab
-            edges?.fingerY = finger.onScreen
+            edges?.fingerY = finger.inScrollView
             follow(id)
         case .ended, .cancelled:
             guard let released = drag, released.lifted == id, !released.isReleased else { return }
             letGo()
             // Let go over a bar, or past the screen's edge, the row goes back.
-            let goesBack = phase == .cancelled || edges?.isOutside(finger.onScreen) == true
+            let goesBack = phase == .cancelled || edges?.isOutside(finger.inScrollView) == true
             settle(released, goingBack: goesBack)
         }
     }

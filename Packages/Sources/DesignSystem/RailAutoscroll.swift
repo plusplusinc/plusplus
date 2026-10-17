@@ -11,8 +11,8 @@ extension View {
     }
 }
 
-/// What a held row and the scroll view around it share: where the finger is, where the list
-/// shows on screen, and how far the list has scrolled under the finger.
+/// What a held row and the scroll view around it share: where the finger is in the scroll view,
+/// where the list shows in it, and how far the list has scrolled under the finger.
 @Observable
 final class RailEdges {
     /// Whether a row is held, which is when the list may scroll on its own.
@@ -24,7 +24,7 @@ final class RailEdges {
         }
     }
 
-    /// The held finger's y on screen.
+    /// The held finger's y in the scroll view's space.
     @ObservationIgnored var fingerY: CGFloat = 0 {
         didSet {
             travel.pass(fingerY)
@@ -45,15 +45,13 @@ final class RailEdges {
     /// yet: the next step goes on from there, so no distance is counted twice.
     @ObservationIgnored fileprivate var scrolledTo: CGFloat?
     @ObservationIgnored fileprivate var scroll: ScrollGeometry?
-    /// The scroll view's top on screen.
-    @ObservationIgnored fileprivate var top: CGFloat = 0
 
-    /// The part of the screen the list shows in, between the bars.
+    /// The part of the scroll view the list shows in, between the bars.
     fileprivate var visible: ClosedRange<CGFloat>? {
         // The scroll view's frame starts under the top bar, and its container is the area
         // between the bars; the content insets cover the bars it scrolls under.
         guard let scroll else { return nil }
-        return top ... top + scroll.containerSize.height
+        return 0 ... scroll.containerSize.height
     }
 
     /// Stops the frame-by-frame scroll at an end of the list, until the finger moves.
@@ -74,7 +72,8 @@ final class RailEdges {
         RailDrag.edgeSpeed(fingerY: fingerY, visible: visible, travel: travel)
     }
 
-    /// Whether `y` on screen is outside the list, over a bar or past the screen's edge.
+    /// Whether `y` in the scroll view's space is outside the list, over a bar or past the screen's
+    /// edge.
     func isOutside(_ y: CGFloat) -> Bool {
         visible.map { !$0.contains(y) } ?? false
     }
@@ -92,11 +91,10 @@ private struct RailAutoscroll: ViewModifier {
     func body(content: Content) -> some View {
         content
             .environment(\.railEdges, edges)
-            .onGeometryChange(for: CGFloat.self) { proxy in
-                proxy.frame(in: .global).minY
-            } action: { top in
-                edges.top = top
-            }
+            // The finger is read in the scroll view's own space, so nothing measures where the
+            // scroll view is on screen: an `onGeometryChange` here made the scroll geometry
+            // update more than once a frame at launch.
+            .coordinateSpace(.named(RailDrag.scrollSpace))
             .onScrollGeometryChange(for: ScrollGeometry.self) { $0 } action: { _, scroll in
                 edges.scroll = scroll
             }

@@ -25,14 +25,17 @@ nonisolated enum RailDrag {
         case cancelled
     }
 
-    /// Where the held finger is: its y in the rail's space, and on screen.
+    /// Where the held finger is: its y in the rail's space, and in the scroll view's.
     struct Finger {
         var inRail: CGFloat
-        var onScreen: CGFloat
+        var inScrollView: CGFloat
     }
 
     /// The rail's coordinate space, in which the gesture reports where the finger is.
     static let space = "rail"
+    /// The space of the scroll view the rail scrolls in, whose frame is the area the list shows
+    /// in, between the bars.
+    static let scrollSpace = "railScrollView"
 
     /// How long a press holds still before the row lifts: quicker than a context menu, so the
     /// thumb doesn't tire, and long enough that a slow scroll has moved off first.
@@ -124,7 +127,7 @@ nonisolated enum RailDrag {
         return order
     }
 
-    /// Where the held finger has been on screen since the row lifted. An edge's band scrolls the
+    /// Where the held finger has been since the row lifted. An edge's band scrolls the
     /// list only once the finger has gone toward that edge since the lift, as far as turns a press
     /// into a scroll, so a row lifted in a band and held still stays put, and lands where it was.
     struct Travel {

@@ -45,7 +45,7 @@ struct RailLiftGesture: UIGestureRecognizerRepresentable {
     ) {
         let finger = RailDrag.Finger(
             inRail: context.converter.location(in: .named(RailDrag.space)).y,
-            onScreen: context.converter.location(in: .global).y,
+            inScrollView: context.converter.location(in: .named(RailDrag.scrollSpace)).y,
         )
         switch recognizer.state {
         case .began: onPhase(.began, finger)
