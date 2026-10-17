@@ -65,9 +65,10 @@ project board; agents' technical working files live in `.slices/`.
   own control for the job (principle 4, "Native bones"), and each other option says what it
   does that the system one can't. An API offered as an option is one whose Apple doc (sosumi)
   says it works on iPhone.
-- Starting a phase, tell the maintainer how long it should take and what takes the time, and
-  give the subagent that budget. Ask for the proof the change needs and leave repeat runs to
-  Xcode Cloud; when a phase runs past its budget, say why before they ask.
+- No time estimates. While a phase runs, tell the maintainer in a line now and then what it is
+  doing and why that still serves the card, without being asked. Before each new attempt or
+  extra run, by you or a subagent, check that it is still worth doing for the card's goal; ask
+  for the proof the change needs and leave repeat runs to Xcode Cloud.
 - A test that fails on a PR's CI is diagnosed, never just rerun. A flake that is on `main` too
   gets fixed, as its own card ahead of the PR, before the PR merges.
 - Before saying what state anything is in, read it at that moment, even mid-summary: an agent
