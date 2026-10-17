@@ -109,12 +109,19 @@ extension RenameUITests {
     func deleteExercises(in app: XCUIApplication) {
         let delete = app.buttons["Delete"]
         XCTContext.runActivity(named: "A swipe opens a row, and Delete deletes it") { _ in
+            // The superset checks leave the first two rows a pair.
+            XCTAssertEqual(app.supersets, "AA.......")
             app.exerciseRows.element(boundBy: 1).swipeOpen()
             XCTAssertTrue(delete.appears(), "A swipe did not open the row")
             attach(named: "row-open")
             delete.tap()
             XCTAssertEqual(app.exerciseCount(becoming: 8), 8)
             XCTAssertTrue(delete.disappears())
+            XCTAssertEqual(
+                app.supersets(becoming: "........"),
+                "........",
+                "Deleting one of a pair left the other in a superset",
+            )
         }
         XCTContext.runActivity(named: "A tap anywhere else closes an open row") { _ in
             let open = {
