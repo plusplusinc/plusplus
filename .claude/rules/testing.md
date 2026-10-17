@@ -53,10 +53,9 @@ What each tier holds today:
   YES`, and the relaunch test with `-fallbackNames YES`, muscle-group names, which a test can
   predict where the standard names follow the routine's fresh id (all `LaunchOptions`, Debug
   only). With UIKit's animations off, the keyboard and sheets appear at once, and XCTest's wait
-  for animations has nothing to miscount: UIKit sometimes reports a keyboard rise's or a sheet's
-  animation starting twice and stopping once, and every later wait in that launch ran out its
-  60 s. SwiftUI's animations still run, so a test that reads what one moves waits for its end
-  state; an added row is in the accessibility tree only once it starts to enter. Where the caret is shows in where typing lands, so they read it
+  for animations can't stall (`LaunchOptions.turnsOffUIKitAnimations` says why). SwiftUI's
+  animations still run, so a test that reads what one moves waits for its end
+  state; an added row is in the accessibility tree only once it has entered. Where the caret is shows in where typing lands, so they read it
   from the field's value; one check reads the drawn `_` from pixels, for the wire from the text
   system's selection to it. `TitleShot.swift` reads the `_`, the title's lines, and its contrast
   from pixels: a name, typed or generated, reaches further from the background than the

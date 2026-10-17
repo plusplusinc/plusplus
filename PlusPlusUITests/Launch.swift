@@ -10,8 +10,8 @@ extension XCUIApplication {
 
     /// Launches into a new routine, not the one the last test saved, at the text size
     /// `category`, since the simulator keeps the last size it was set to, and with `arguments`
-    /// besides. Returns the title once it is up. UIKit's animations are off, so XCTest's wait for
-    /// them to finish can't stall on one UIKit miscounts (`LaunchOptions.turnsOffUIKitAnimations`).
+    /// besides. Returns the title once it is up. UIKit's animations are off
+    /// (`LaunchOptions.turnsOffUIKitAnimations`).
     func launchNewRoutine(
         textSize category: String = "UICTContentSizeCategoryL",
         arguments: [String] = [],
