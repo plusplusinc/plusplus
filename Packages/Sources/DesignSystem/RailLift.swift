@@ -14,17 +14,20 @@ struct RailDragState<ID: Hashable> {
 }
 
 extension View {
-    /// A hold on this row lifts it, on iOS; a press in the rail column lifts nothing.
+    /// A hold on this row lifts it, on iOS. A press in the rail column, on the node, holds the
+    /// node when `allowsColumn`, and otherwise does nothing.
     @ViewBuilder
     func liftable(
         isEnabled: Bool,
         columnWidth: CGFloat,
+        allowsColumn: Bool,
         onPhase: @escaping (RailDrag.Phase, RailDrag.Finger) -> Void,
     ) -> some View {
         #if os(iOS)
         gesture(RailLiftGesture(
             isEnabled: isEnabled,
             columnWidth: columnWidth,
+            allowsColumn: allowsColumn,
             onPhase: onPhase,
         ))
         #else

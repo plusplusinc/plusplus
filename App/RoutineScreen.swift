@@ -82,7 +82,13 @@ struct RoutineScreen: View {
                         Capsules(equipment.map(\.name))
                             .transition(.opacity)
                     }
-                    Rail(routine.exercises, arriving: arriving, onMove: move) { item in
+                    Rail(
+                        routine.exercises,
+                        links: routine.joinedToNext,
+                        arriving: arriving,
+                        onMove: move,
+                        regroup: regroup,
+                    ) { item in
                         RowLabel(
                             title: item.exercise.name,
                             detail: item.detailParts(locale: locale),
@@ -100,6 +106,7 @@ struct RoutineScreen: View {
                             editing = item
                         }
                         .accessibilityAddTraits(.isButton)
+                        .accessibilityValue(routine.isInSuperset(item.id) ? "In a superset" : "")
                         // None where it would do nothing: at an end, or with one row.
                         .accessibilityActions {
                             if let up = routine.slotMovingUp(item.id) {
@@ -107,6 +114,15 @@ struct RoutineScreen: View {
                             }
                             if let down = routine.slotMovingDown(item.id) {
                                 Button("Move down") { step(item.id, to: down, wentUp: false) }
+                            }
+                            if routine.canJoin(item.id, .above) {
+                                Button("Superset with exercise above") { join(item.id, .above) }
+                            }
+                            if routine.canJoin(item.id, .below) {
+                                Button("Superset with exercise below") { join(item.id, .below) }
+                            }
+                            if routine.isInSuperset(item.id) {
+                                Button("Move out of superset") { leaveSuperset(item.id) }
                             }
                         }
                         .accessibilityIdentifier("routine.exercise")
@@ -160,7 +176,10 @@ struct RoutineScreen: View {
             // By item, so the sheet keeps its content as it slides away.
             .sheet(item: $editing) { opened in
                 if let item = row(opened.id) {
-                    ExerciseSheet(item: item) { delete(opened.id) }
+                    ExerciseSheet(
+                        item: item,
+                        partners: routine.partners(of: opened.id).map(\.exercise.name),
+                    ) { delete(opened.id) }
                 }
             }
             .toolbar {
@@ -234,8 +253,21 @@ struct RoutineScreen: View {
         return Binding {
             routine.exercises.first { $0.id == id } ?? current
         } set: { item in
-            guard let index = routine.exercises.firstIndex(where: { $0.id == id }) else { return }
-            routine.exercises[index] = item
+            routine.update(item)
+        }
+    }
+
+    /// Joining and parting rows by a drag from a row's node, by the routine's rules.
+    private var regroup: RailRegroup<RoutineExercise.ID> {
+        RailRegroup { held, reach in
+            routine.regrouped(holding: held, reaching: reach).map { regrouping in
+                RailGrouping(
+                    links: regrouping.routine.joinedToNext,
+                    joining: Set(regrouping.joined),
+                )
+            }
+        } commit: { held, reach in
+            routine.regroup(holding: held, reaching: reach)
         }
     }
 
@@ -258,8 +290,26 @@ struct RoutineScreen: View {
 
     private func delete(_ id: RoutineExercise.ID) {
         withAnimation(.railChange) {
-            routine.exercises.removeAll { $0.id == id }
+            routine.remove(id)
         }
+    }
+
+    /// Joins a row with its neighbor with VoiceOver, and says whom it's with.
+    private func join(_ id: RoutineExercise.ID, _ side: RoutineNeighbor) {
+        withAnimation(.railChange) {
+            routine.join(id, side)
+        }
+        let names = routine.partners(of: id).map(\.exercise.name)
+        AccessibilityNotification.Announcement(
+            "In a superset with \(names.formatted(.list(type: .and)))",
+        ).post()
+    }
+
+    private func leaveSuperset(_ id: RoutineExercise.ID) {
+        withAnimation(.railChange) {
+            routine.leaveSuperset(id)
+        }
+        AccessibilityNotification.Announcement("Out of the superset").post()
     }
 
     /// Adds a picked exercise. Its row takes its place as the sheet starts down, moving Add
@@ -329,10 +379,16 @@ struct RoutineScreen: View {
 
 extension RoutineSlot {
     init(_ slot: RailSlot<RoutineExercise.ID>) {
-        switch slot {
-        case let .before(id): self = .before(id)
-        case .end: self = .end
+        let place: Place = switch slot.place {
+        case let .before(id): .before(id)
+        case .end: .end
         }
+        let joining: RoutineNeighbor? = switch slot.joining {
+        case .above: .above
+        case .below: .below
+        case nil: nil
+        }
+        self.init(place, joining: joining)
     }
 }
 

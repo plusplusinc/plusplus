@@ -2,14 +2,43 @@ import SwiftUI
 
 /// Where a row dragged on a rail lands. A slot names a row by id, not an index, so it still means
 /// the same place if the rows change under it.
-public nonisolated enum RailSlot<ID: Hashable>: Hashable {
-    /// Just above this row.
-    case before(ID)
+public nonisolated struct RailSlot<ID: Hashable>: Hashable {
+    public enum Place: Hashable {
+        /// Just above this row.
+        case before(ID)
+        /// After the last row.
+        case end
+    }
+
+    public var place: Place
+    /// The neighbor whose group the row joins there, or nil to land on its own. Between two rows
+    /// of one group a row always joins it.
+    public var joining: RailNeighbor?
+
+    public init(_ place: Place, joining: RailNeighbor? = nil) {
+        self.place = place
+        self.joining = joining
+    }
+
+    /// Just above `id`.
+    public static func before(_ id: ID, joining: RailNeighbor? = nil) -> Self {
+        Self(.before(id), joining: joining)
+    }
+
     /// After the last row.
-    case end
+    public static var end: Self {
+        Self(.end)
+    }
 }
 
 extension RailSlot: Sendable where ID: Sendable { }
+extension RailSlot.Place: Sendable where ID: Sendable { }
+
+/// The row next to a slot: the one above it, or below.
+public nonisolated enum RailNeighbor: Hashable, Sendable {
+    case above
+    case below
+}
 
 /// A row held and dragged along its rail: the timings and sizes of the lift, the gap, and the
 /// drop, and the pure arithmetic of where the gap goes, so it is tested without a touch.
@@ -29,6 +58,8 @@ nonisolated enum RailDrag {
     struct Finger {
         var inRail: CGFloat
         var inScrollView: CGFloat
+        /// In the rail column, on the node, rather than on the row's content.
+        var inColumn = false
     }
 
     /// The rail's coordinate space, in which the gesture reports where the finger is.
@@ -69,31 +100,169 @@ nonisolated enum RailDrag {
     /// How fast the list scrolls with the finger at the very edge, in points a second.
     static let edgeTopSpeed: CGFloat = 900
 
-    /// A place the lifted row could land, and the top of its gap in the rail's space.
+    /// How far either side of a group's edge its two slots switch: just inside, where the group
+    /// wraps the gap, and just outside, where it lets go.
+    static let edgeSlotSpread: CGFloat = 20
+
+    /// A place the lifted row could land, the top of its gap in the rail's space, and the y the
+    /// card's top is measured against to reach it: the gap's top, or, at a group's edge, a little
+    /// above or below it for the slot inside the group.
     struct Candidate<ID: Hashable>: Equatable {
         var slot: RailSlot<ID>
         var gapTop: CGFloat
+        var switchY: CGFloat
+
+        init(slot: RailSlot<ID>, gapTop: CGFloat, switchY: CGFloat? = nil) {
+            self.slot = slot
+            self.gapTop = gapTop
+            self.switchY = switchY ?? gapTop
+        }
     }
 
-    /// One candidate per boundary between the rows other than the lifted one, top to bottom: a
-    /// gap opens above each in turn, and after the last.
+    /// The candidates at each boundary between the rows other than the lifted one, top to
+    /// bottom: a gap opens above each row in turn, and after the last. Between plain rows, or two
+    /// rows of one group, there is one; at a group's edge, one inside the group and one outside,
+    /// and between two groups, one inside each and one between. `groups` names each grouped row's
+    /// group, as `groups(_:joined:)` gives it.
     static func candidates<ID: Hashable>(
         rows: [(id: ID, height: CGFloat)],
         lifted: ID,
+        groups: [ID: Int] = [:],
     ) -> [Candidate<ID>] {
         var top: CGFloat = 0
         var candidates: [Candidate<ID>] = []
+        var above: ID?
+        func boundary(_ place: RailSlot<ID>.Place, below: ID?) {
+            let upper = above.flatMap { groups[$0] }
+            let lower = below.flatMap { groups[$0] }
+            if let upper, upper == lower {
+                candidates.append(Candidate(slot: RailSlot(place, joining: .above), gapTop: top))
+                return
+            }
+            if upper != nil {
+                candidates.append(Candidate(
+                    slot: RailSlot(place, joining: .above),
+                    gapTop: top,
+                    switchY: top - edgeSlotSpread,
+                ))
+            }
+            candidates.append(Candidate(slot: RailSlot(place), gapTop: top))
+            if lower != nil {
+                candidates.append(Candidate(
+                    slot: RailSlot(place, joining: .below),
+                    gapTop: top,
+                    switchY: top + edgeSlotSpread,
+                ))
+            }
+        }
         for row in rows where row.id != lifted {
-            candidates.append(Candidate(slot: .before(row.id), gapTop: top))
+            boundary(.before(row.id), below: row.id)
+            top += row.height
+            above = row.id
+        }
+        boundary(.end, below: nil)
+        return candidates
+    }
+
+    /// The slot the lifted row was lifted from, where dropping it changes nothing: its own place,
+    /// in its own group, or none.
+    static func origin<ID: Hashable>(
+        of lifted: ID,
+        in ids: [ID],
+        candidates: [Candidate<ID>],
+        groups: [ID: Int],
+    ) -> RailSlot<ID>? {
+        guard let index = ids.firstIndex(of: lifted) else { return nil }
+        let place: RailSlot<ID>.Place = index + 1 < ids.count ? .before(ids[index + 1]) : .end
+        let rest = ids.filter { $0 != lifted }
+        return candidates.first { candidate in
+            candidate.slot.place == place
+                && group(joinedAt: candidate.slot, in: rest, groups: groups) == groups[lifted]
+        }?.slot
+    }
+
+    /// The group a row dropped at `slot` among `rest` joins, or nil for none.
+    static func group<ID: Hashable>(
+        joinedAt slot: RailSlot<ID>,
+        in rest: [ID],
+        groups: [ID: Int],
+    ) -> Int? {
+        let index = switch slot.place {
+        case let .before(id): rest.firstIndex(of: id) ?? rest.endIndex
+        case .end: rest.endIndex
+        }
+        let above = index > 0 ? groups[rest[index - 1]] : nil
+        let below = index < rest.count ? groups[rest[index]] : nil
+        switch slot.joining {
+        case .above: return above
+        case .below: return below
+        case nil: return above != nil && above == below ? above : nil
+        }
+    }
+
+    /// Each grouped row's group, numbered by where it starts in `ids`: a row joined to the next,
+    /// as `joined` has it, is in a group with it.
+    static func groups<ID: Hashable>(_ ids: [ID], joined: Set<ID>) -> [ID: Int] {
+        var groups: [ID: Int] = [:]
+        var start: Int?
+        for (index, id) in ids.enumerated() {
+            let fromAbove = index > 0 && joined.contains(ids[index - 1])
+            let toBelow = index + 1 < ids.count && joined.contains(id)
+            if !fromAbove {
+                start = toBelow ? index : nil
+            }
+            if let start {
+                groups[id] = start
+            }
+        }
+        return groups
+    }
+
+    /// The rows joined to the next in `ids`, by `groups`: each row whose next row is in its group.
+    static func joined<ID: Hashable>(_ ids: [ID], groups: [ID: Int]) -> Set<ID> {
+        Set(zip(ids, ids.dropFirst()).compactMap { row, next in
+            groups[row] != nil && groups[row] == groups[next] ? row : nil
+        })
+    }
+
+    /// The rows joined to the next while `lifted` is held over `slot`: as at rest, the lifted row
+    /// out of its own group and in the one the slot joins.
+    static func joined<ID: Hashable>(
+        _ ids: [ID],
+        joined: Set<ID>,
+        moving lifted: ID,
+        to slot: RailSlot<ID>,
+    ) -> Set<ID> {
+        var groups = groups(ids, joined: joined)
+        groups[lifted] = group(joinedAt: slot, in: ids.filter { $0 != lifted }, groups: groups)
+        return Self.joined(order(ids, moving: lifted, to: slot), groups: groups)
+    }
+
+    /// The row the finger is over, from `rows`' heights stacked from 0: the first above them and
+    /// the last below them. Leaving `current` takes `deadBand` past its edge.
+    static func reach<ID: Hashable>(
+        fingerY: CGFloat,
+        rows: [(id: ID, height: CGFloat)],
+        current: ID?,
+    ) -> ID? {
+        var top: CGFloat = 0
+        var spans: [(id: ID, top: CGFloat, bottom: CGFloat)] = []
+        for row in rows {
+            spans.append((row.id, top, top + row.height))
             top += row.height
         }
-        candidates.append(Candidate(slot: .end, gapTop: top))
-        return candidates
+        if let held = spans.first(where: { $0.id == current }),
+           fingerY >= held.top - deadBand, fingerY < held.bottom + deadBand
+        {
+            return held.id
+        }
+        return spans.first { fingerY < $0.bottom }?.id ?? spans.last?.id
     }
 
     /// The slot whose gap is nearest the card's top. The gap moves past a row once the card has
     /// traveled half that row's height, the same felt point for one line, two, or the largest
-    /// text, and leaving `current` takes `deadBand` more.
+    /// text, and leaving `current` takes `deadBand` more. At a group's edge it moves between the
+    /// slots inside and outside halfway between their switch points.
     static func candidate<ID: Hashable>(
         for cardTop: CGFloat,
         in candidates: [Candidate<ID>],
@@ -101,7 +270,7 @@ nonisolated enum RailDrag {
     ) -> RailSlot<ID> {
         guard !candidates.isEmpty else { return .end }
         func midpoint(_ index: Int) -> CGFloat {
-            (candidates[index].gapTop + candidates[index + 1].gapTop) / 2
+            (candidates[index].switchY + candidates[index + 1].switchY) / 2
         }
         let nearest = (0 ..< candidates.count - 1).first { cardTop < midpoint($0) }
             ?? candidates.count - 1
@@ -118,7 +287,7 @@ nonisolated enum RailDrag {
     static func order<ID: Hashable>(_ ids: [ID], moving lifted: ID, to slot: RailSlot<ID>) -> [ID] {
         guard ids.contains(lifted) else { return ids }
         var order = ids.filter { $0 != lifted }
-        switch slot {
+        switch slot.place {
         case let .before(target):
             order.insert(lifted, at: order.firstIndex(of: target) ?? order.endIndex)
         case .end:

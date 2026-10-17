@@ -1,11 +1,12 @@
 import SwiftUI
 
 /// A value under its label on a rounded fill, the label leading and the value trailing, with
-/// numbers in SF Mono. Tapping anywhere on it opens a − / + stepper inside it, under the value,
+/// numbers in SF Mono, and an optional note under the label. Tapping anywhere on it opens a − / + stepper inside it, under the value,
 /// and tapping again closes it. A key that can't step is disabled. VoiceOver reads it as one
 /// element, its value in words, and steps it with a swipe up or down.
 public struct ValueRow: View {
     private let label: String
+    private let note: String?
     private let value: String
     private let spokenValue: String
     private let isOpen: Bool
@@ -27,6 +28,7 @@ public struct ValueRow: View {
     /// `onStep` gets 1 for a step up and -1 for a step down, each only while its `can` is true.
     public init(
         label: String,
+        note: String? = nil,
         value: String,
         spokenValue: String,
         isOpen: Bool,
@@ -36,6 +38,7 @@ public struct ValueRow: View {
         onStep: @escaping (Int) -> Void,
     ) {
         self.label = label
+        self.note = note
         self.value = value
         self.spokenValue = spokenValue
         self.isOpen = isOpen
@@ -62,10 +65,17 @@ public struct ValueRow: View {
         let layout = stacked ? AnyLayout(VStackLayout(alignment: .leading, spacing: 0))
             : AnyLayout(HStackLayout())
         return layout {
-            Text(label)
-                .font(.ppRowTitle)
-                .foregroundStyle(.pp(.textPrimary))
-                .padding(.top, stacked ? Spacing.sm : 0)
+            VStack(alignment: .leading, spacing: Spacing.xxs) {
+                Text(label)
+                    .font(.ppRowTitle)
+                    .foregroundStyle(.pp(.textPrimary))
+                if let note {
+                    Text(note)
+                        .font(.ppRowDetail)
+                        .foregroundStyle(.pp(.textSecondary))
+                }
+            }
+            .padding(.top, stacked ? Spacing.sm : 0)
             if !stacked {
                 Spacer()
             }
@@ -83,7 +93,7 @@ public struct ValueRow: View {
         .contentShape(.rect)
         .onTapGesture(perform: onToggle)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(label)
+        .accessibilityLabel(note.map { "\(label), \($0)" } ?? label)
         .accessibilityValue(spokenValue)
         .accessibilityHint(isOpen ? "Closes its stepper." : "Opens a stepper.")
         .accessibilityAddTraits(.isButton)
@@ -148,7 +158,8 @@ public struct ValueRow: View {
     @Previewable @State var reps = 10
     VStack(spacing: Spacing.sm) {
         ValueRow(
-            label: "Sets",
+            label: "Rounds",
+            note: "Shared with Pull-up",
             value: "3",
             spokenValue: "3 sets",
             isOpen: open == 0,

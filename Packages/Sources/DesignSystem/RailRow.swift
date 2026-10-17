@@ -13,6 +13,35 @@ struct RailPlace {
     var drawsOwnLine = true
     /// The card held up off the rail, its node in the color of the text.
     var isRaised = false
+    /// Where the row is in a group of rows on the rail, which a loop beside the line marks.
+    var link = RailLink.solo
+    /// Whether the row's stretch of loop draws in `railJoin`: the group it marks is joining.
+    var isJoining = false
+}
+
+/// Where a row is in a group of rows next to each other on a rail, a superset: on its own, or
+/// first, in the middle, or last of its group.
+enum RailLink: Equatable {
+    case solo
+    case first
+    case middle
+    case last
+
+    /// Each row's link in `ids`, as `joined`, the rows joined to the next, makes them.
+    static func links<ID: Hashable>(_ ids: [ID], joined: Set<ID>) -> [ID: Self] {
+        var links: [ID: Self] = [:]
+        for (index, id) in ids.enumerated() {
+            let fromAbove = index > 0 && joined.contains(ids[index - 1])
+            let toBelow = index + 1 < ids.count && joined.contains(id)
+            links[id] = switch (fromAbove, toBelow) {
+            case (false, false): .solo
+            case (false, true): .first
+            case (true, true): .middle
+            case (true, false): .last
+            }
+        }
+        return links
+    }
 }
 
 extension EnvironmentValues {
@@ -105,6 +134,14 @@ private struct RailRow: ViewModifier {
             GeometryReader { proxy in
                 // The card has no line: the gap below it has the row's, drawn by the rail while a
                 // row is held.
+                if let center, place.link != .solo {
+                    GroupLoop(
+                        node: proxy[center],
+                        height: proxy.size.height,
+                        link: place.link,
+                        joining: place.isJoining ? 1 : 0,
+                    )
+                }
                 if let center, place.drawsOwnLine {
                     let node = proxy[center]
                     let top = place.isFirst ? node.y : 0
@@ -131,6 +168,71 @@ private struct RailRow: ViewModifier {
             }
         }
         .hotReloadable()
+    }
+}
+
+/// A row's stretch of the loop that marks a group on the rail: a line beside the rail's, on its
+/// leading side, that leaves the first row's node, runs down past its rows, and returns into the
+/// last row's node, read from the bottom back to the top, as a superset goes round. An up chevron
+/// at the top of each later row points the way back, its tip just short of the row above's line.
+/// The node draws over its curves. `joining` mixes it from the rail's group gray into `railJoin`.
+private struct GroupLoop: View, Animatable {
+    let node: CGPoint
+    let height: CGFloat
+    let link: RailLink
+    var joining: Double
+    @ScaledMetric(relativeTo: .body) private var offset: CGFloat = 12
+    @ScaledMetric(relativeTo: .body) private var radius: CGFloat = 10
+    @ScaledMetric(relativeTo: .body) private var lineWidth = railLineWidth
+    @ScaledMetric(relativeTo: .body) private var scale: CGFloat = 1
+    @ObserveHotReload private var hotReload
+
+    var animatableData: Double {
+        get { joining }
+        set { joining = newValue }
+    }
+
+    var body: some View {
+        let (rest, joined) = (Color.pp(.railGroup), Color.pp(.railJoin))
+        path
+            .stroke(
+                rest.mix(with: joined, by: joining),
+                style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round),
+            )
+            .hotReloadable()
+    }
+
+    private var path: Path {
+        // Never so far out that the stroke leaves the row.
+        let x = max(node.x - offset, lineWidth)
+        // The row above's line stops this far above its bottom, and the chevron's tip this far
+        // below the top, a gap in front of the tip.
+        let (end, tip) = (3.5 * scale, 0.5 * scale)
+        let (half, rise) = (2.5 * scale, 4.5 * scale)
+        return Path { path in
+            switch link {
+            case .solo:
+                return
+            case .first:
+                path.move(to: node)
+                path.addQuadCurve(
+                    to: CGPoint(x: x, y: node.y + radius),
+                    control: CGPoint(x: x, y: node.y),
+                )
+                path.addLine(to: CGPoint(x: x, y: height - end))
+            case .middle, .last:
+                path.move(to: CGPoint(x: x - half, y: tip + rise))
+                path.addLine(to: CGPoint(x: x, y: tip))
+                path.addLine(to: CGPoint(x: x + half, y: tip + rise))
+                path.move(to: CGPoint(x: x, y: tip))
+                if link == .middle {
+                    path.addLine(to: CGPoint(x: x, y: height - end))
+                } else {
+                    path.addLine(to: CGPoint(x: x, y: max(node.y - radius, tip)))
+                    path.addQuadCurve(to: node, control: CGPoint(x: x, y: node.y))
+                }
+            }
+        }
     }
 }
 

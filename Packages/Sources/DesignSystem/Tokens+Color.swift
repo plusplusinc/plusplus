@@ -17,8 +17,12 @@ public enum ColorToken: String, CaseIterable, Sendable {
     case primaryKey = "ppPrimaryKey"
     /// The line that runs down a rail, joining its nodes.
     case rail = "ppRail"
+    /// The loop beside a rail's line that marks a group of rows, a superset, at rest. Opaque, so
+    /// where its strokes cross they don't darken.
+    case railGroup = "ppRailGroup"
     /// Something joining a rail, for the moment it joins: an added row's node draws in it, then
-    /// settles to `borderStrong`. Never at rest, and never the line.
+    /// settles to `borderStrong`; a group's loop and the field behind it while a drag joins rows, the
+    /// loop then settling to `railGroup`. Never at rest, and never the line.
     case railJoin = "ppRailJoin"
     case surface = "ppSurface"
     /// The fill of something lifted off the screen, such as a row held to be moved: lighter
