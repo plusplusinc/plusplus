@@ -26,6 +26,7 @@ struct HeldRailDrawing: View {
     @ScaledMetric(relativeTo: .body) private var offset: CGFloat = 12
     @ScaledMetric(relativeTo: .body) private var lineWidth = railLineWidth
     @ScaledMetric(relativeTo: .body) private var scale: CGFloat = 1
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
     var body: some View {
@@ -49,6 +50,9 @@ struct HeldRailDrawing: View {
                         .fill(.pp(.rail))
                         .opacity(group.hasHeld ? 1 : 0)
                 }
+                // The slot's own animation; with Reduce Motion the rows move with none, and the
+                // loops still crossfade.
+                .animation(reduceMotion ? .snappy(duration: 0.2) : RailDrag.gap, value: group.hasHeld)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
