@@ -56,10 +56,11 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   on iPhone). While a row is held, the line is drawn once from the first node to the last, so
   rows trading places never part it, and at either end it stops at the card's node rather than
   show past the card. Within 64 pt of the top or bottom of the area between the bars the list
-  scrolls (`railAutoscroll`), rising as the square of the depth to 900 pt/s, and the card stays
-  under the finger as the rows pass. A drop settles into the gap on `.snappy(0.22)`, with no
-  haptic and no blue: nothing is arriving. A release over a bar, or a system cancel, sends it
-  back on `.snappy(0.25)`. With Reduce Motion the card shows lifted at once and the gap and the
+  scrolls (`railAutoscroll`), once the finger has gone 10 pt toward that edge since the lift (or
+  to the edge, lifted nearer it), so a row held still there stays put; the speed rises as the
+  square of the depth to 900 pt/s, and the card stays under the finger as the rows pass. A drop
+  settles into the gap on `.snappy(0.22)`, with no haptic and no blue: nothing is arriving. A
+  release over a bar, or a system cancel, sends it back on `.snappy(0.25)`. With Reduce Motion the card shows lifted at once and the gap and the
   drop jump, but the haptics stay. VoiceOver moves a row with Move up and Move down, none where
   it would do nothing, and announces the row it passed ("Moved above Plank").
 - A generated name arrives in the title on its own clock (`SuggestionTiming`, one

@@ -93,24 +93,30 @@ struct RailDragTests {
     @Test("An edge's band scrolls only once the finger has gone toward that edge since the lift")
     func edgeArming() {
         let visible: ClosedRange<CGFloat> = 100 ... 700
-        let move = RailDrag.allowableMovement
+        let arming = RailDrag.edgeArming
         func speed(_ y: CGFloat, _ travel: RailDrag.Travel) -> CGFloat {
             RailDrag.edgeSpeed(fingerY: y, visible: visible, travel: travel)
         }
         // Lifted in the top band and held still: nothing.
-        var still = RailDrag.Travel(from: 120)
-        still.pass(120 - move / 2)
-        #expect(speed(120 - move / 2, still) == 0)
+        var still = RailDrag.Travel(from: 140)
+        still.pass(140 - arming / 2)
+        #expect(speed(140 - arming / 2, still) == 0)
         // Gone up far enough: it scrolls, and keeps on if the finger eases back down.
         var up = still
-        up.pass(120 - move)
-        #expect(speed(120 - move, up) < 0)
-        up.pass(125)
-        #expect(speed(125, up) < 0)
+        up.pass(140 - arming)
+        #expect(speed(140 - arming, up) < 0)
+        up.pass(145)
+        #expect(speed(145, up) < 0)
+        // Lifted nearer the edge than that: reaching the edge arms it, not going over the bar.
+        var nearEdge = RailDrag.Travel(from: 104)
+        nearEdge.pass(103)
+        #expect(speed(103, nearEdge) == 0)
+        nearEdge.pass(100)
+        #expect(speed(100, nearEdge) < 0)
         // Gone down only: the top band stays still, the bottom one scrolls.
-        var down = RailDrag.Travel(from: 120)
-        down.pass(140)
-        #expect(speed(120, down) == 0)
+        var down = RailDrag.Travel(from: 140)
+        down.pass(160)
+        #expect(speed(140, down) == 0)
         var across = RailDrag.Travel(from: 300)
         across.pass(690)
         #expect(speed(690, across) > 0)

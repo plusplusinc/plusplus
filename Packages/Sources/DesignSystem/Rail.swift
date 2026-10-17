@@ -166,7 +166,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         // Torn down mid-hold, the list stops scrolling for it.
         .onDisappear {
             if drag != nil {
-                letGo()
+                edges?.letGo()
             }
         }
         .sensoryFeedback(.impact(weight: .light), trigger: lifts)
@@ -246,7 +246,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
             follow(id)
         case .ended, .cancelled:
             guard let released = drag, released.lifted == id, !released.isReleased else { return }
-            letGo()
+            edges?.letGo()
             // Let go over a bar, or past the screen's edge, the row goes back.
             let goesBack = phase == .cancelled || edges?.isOutside(finger.inScrollView) == true
             settle(released, goingBack: goesBack)
@@ -260,11 +260,6 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         guard slot != held.slot else { return }
         withAnimation(reduceMotion ? nil : RailDrag.gap) { drag?.slot = slot }
         ticks += 1
-    }
-
-    /// Stops the list scrolling for the finger.
-    private func letGo() {
-        edges?.letGo()
     }
 
     /// Lets the held row go, into its gap or, `goingBack`, back where it started: the card lowers

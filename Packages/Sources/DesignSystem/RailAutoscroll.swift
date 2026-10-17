@@ -72,7 +72,7 @@ final class RailEdges {
     }
 
     private func updateScrolling() {
-        let scrolls = isHeld && speed != 0
+        let scrolls = speed != 0
         if scrolls != isScrolling {
             isScrolling = scrolls
         }
@@ -80,7 +80,9 @@ final class RailEdges {
 
     /// How fast the finger asks the list to scroll, in points a second.
     fileprivate var speed: CGFloat {
-        visible.map { RailDrag.edgeSpeed(fingerY: fingerY, visible: $0, travel: travel) } ?? 0
+        guard isHeld else { return 0 }
+        return visible
+            .map { RailDrag.edgeSpeed(fingerY: fingerY, visible: $0, travel: travel) } ?? 0
     }
 
     /// Whether `y` in the scroll view's space is outside the list, over a bar or past the screen's

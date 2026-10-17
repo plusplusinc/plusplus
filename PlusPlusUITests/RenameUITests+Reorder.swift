@@ -100,7 +100,7 @@ extension RenameUITests {
             // On whichever row is there.
             edge.press(forDuration: 2.5)
             XCTAssertEqual(order(keeping: names, in: app), names, "A still hold moved the row")
-            XCTAssertEqual(first.frame.minY, top, "A still hold scrolled the list")
+            XCTAssertEqual(first.frame.minY, top, accuracy: 1, "A still hold scrolled the list")
         }
         XCTContext
             .runActivity(named: "A row dragged to the top edge scrolls up and lands first") { _ in

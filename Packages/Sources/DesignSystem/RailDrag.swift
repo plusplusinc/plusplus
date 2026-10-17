@@ -127,9 +127,14 @@ nonisolated enum RailDrag {
         return order
     }
 
-    /// Where the held finger has been since the row lifted. An edge's band scrolls the
-    /// list only once the finger has gone toward that edge since the lift, as far as turns a press
-    /// into a scroll, so a row lifted in a band and held still stays put, and lands where it was.
+    /// How far the held finger must go toward an edge, since the lift, before that edge's band
+    /// scrolls the list: as far as turns a press into a scroll, or, lifted nearer the edge than
+    /// that, to the edge, so the band arms without the finger going over a bar.
+    static let edgeArming: CGFloat = 10
+
+    /// Where the held finger has been since the row lifted. An edge's band scrolls the list only
+    /// once the finger has gone `edgeArming` toward that edge, so a row lifted in a band and held
+    /// still stays put, and lands where it was.
     struct Travel {
         let start: CGFloat
         private(set) var span: ClosedRange<CGFloat>
@@ -143,12 +148,14 @@ nonisolated enum RailDrag {
             span = min(span.lowerBound, y) ... max(span.upperBound, y)
         }
 
-        var hasGoneUp: Bool {
-            start - span.lowerBound >= allowableMovement
+        /// Whether the finger has gone far enough toward the edge at `top`, at least a point.
+        func hasGoneUp(toward top: CGFloat) -> Bool {
+            start - span.lowerBound >= min(edgeArming, max(start - top, 1))
         }
 
-        var hasGoneDown: Bool {
-            span.upperBound - start >= allowableMovement
+        /// Whether the finger has gone far enough toward the edge at `bottom`, at least a point.
+        func hasGoneDown(toward bottom: CGFloat) -> Bool {
+            span.upperBound - start >= min(edgeArming, max(bottom - start, 1))
         }
     }
 
@@ -167,10 +174,12 @@ nonisolated enum RailDrag {
         let intoTop = (visible.lowerBound + zone - fingerY) / zone
         let intoBottom = (fingerY - (visible.upperBound - zone)) / zone
         if intoTop > 0 {
-            return travel.hasGoneUp ? -edgeTopSpeed * pow(min(intoTop, 1), 2) : 0
+            guard travel.hasGoneUp(toward: visible.lowerBound) else { return 0 }
+            return -edgeTopSpeed * pow(min(intoTop, 1), 2)
         }
         if intoBottom > 0 {
-            return travel.hasGoneDown ? edgeTopSpeed * pow(min(intoBottom, 1), 2) : 0
+            guard travel.hasGoneDown(toward: visible.upperBound) else { return 0 }
+            return edgeTopSpeed * pow(min(intoBottom, 1), 2)
         }
         return 0
     }

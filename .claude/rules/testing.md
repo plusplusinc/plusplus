@@ -20,7 +20,7 @@ What each tier holds today:
   older schema opening under the current one, and the names: the focus, the style, the honesty
   check, and every routine of up to two built-ins in every style; moving a row to a slot, its
   Move up and Move down neighbors, and the announcement; and a rail drag's arithmetic
-  (`RailDrag`): the slots, where the gap goes, the dead band, and the edge scroll's speed.
+  (`RailDrag`): the slots, where the gap goes, the dead band, and the edge scroll's speed and arming.
 - **Snapshots** hold how a component looks, at rest and while editing. The title's editing look,
   `_` included, is drawn from plain values through `EditableTitleContent`, reached with
   `@testable import`, so no focus or keyboard is needed; its `blinks: false` holds the `_` lit,
