@@ -7,27 +7,34 @@ public struct RailRegroup<ID: Hashable> {
     /// What holding the first row's node and dropping it on the second's would make, or nil for
     /// nothing.
     public var preview: (ID, ID) -> RailGrouping<ID>?
+    /// The rows a press on a row's node picks up, before the finger moves, which sit in the raised
+    /// field until it does.
+    public var pickUp: (ID) -> Set<ID>
     /// Makes it.
     public var commit: (ID, ID) -> Void
 
     public init(
         preview: @escaping (ID, ID) -> RailGrouping<ID>?,
+        pickUp: @escaping (ID) -> Set<ID>,
         commit: @escaping (ID, ID) -> Void,
     ) {
         self.preview = preview
+        self.pickUp = pickUp
         self.commit = commit
     }
 }
 
-/// The groups a drop would leave: the rows joined to the next, and the rows of the group the drag
-/// draws, which sit in one raised field while it is held, and whose loop flashes in `railJoin` as
-/// it drops.
+/// The groups a drop would leave: the rows joined to the next; the rows the drag spans, which sit
+/// in one raised field while it is held; and the rows of the group it makes, the span's or none,
+/// whose loop flashes in `railJoin` as it drops.
 public struct RailGrouping<ID: Hashable>: Equatable {
     public var links: Set<ID>
+    public var span: Set<ID>
     public var superset: Set<ID>
 
-    public init(links: Set<ID>, superset: Set<ID>) {
+    public init(links: Set<ID>, span: Set<ID>, superset: Set<ID>) {
         self.links = links
+        self.span = span
         self.superset = superset
     }
 }
@@ -40,6 +47,8 @@ struct RailRegroupState<ID: Hashable> {
     /// The finger's y in the rail's space.
     var fingerY: CGFloat
     var grouping: RailGrouping<ID>?
+    /// The rows the press picked up, in the field until the finger reaches another row.
+    var pickedUp: Set<ID> = []
     /// The finger is over a bar, or past the screen's edge, where letting go changes nothing.
     var isOverBar = false
 
@@ -47,5 +56,10 @@ struct RailRegroupState<ID: Hashable> {
     /// makes nothing.
     var shown: RailGrouping<ID>? {
         isOverBar ? nil : grouping
+    }
+
+    /// The rows in the raised field: the span, or, over the held row, what the press picked up.
+    var field: Set<ID> {
+        grouping?.span ?? (reach == held ? pickedUp : [])
     }
 }

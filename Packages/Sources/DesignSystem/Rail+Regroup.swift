@@ -43,7 +43,12 @@ extension Rail {
 
     /// Holds a row's node: the rows stay put, and the drag draws a group.
     func holdNode(_ id: RowID, at finger: RailDrag.Finger) {
-        regrouping = RailRegroupState(held: id, reach: id, fingerY: finger.inRail)
+        regrouping = RailRegroupState(
+            held: id,
+            reach: id,
+            fingerY: finger.inRail,
+            pickedUp: regroup?.pickUp(id) ?? [id],
+        )
         lifts += 1
         // The list scrolling under a still finger carries it over the rows.
         edges?.lift(at: finger.inScrollView) { distance in
@@ -112,8 +117,8 @@ extension Rail {
     /// makes nothing.
     @ViewBuilder
     func spanField(_ nodes: [Anchor<CGPoint>]) -> some View {
-        if let held = regrouping, let superset = held.grouping?.superset,
-           let stretch = stretch(superset), nodes.indices.contains(stretch.first)
+        if let held = regrouping, let stretch = stretch(held.field),
+           nodes.indices.contains(stretch.first)
         {
             GeometryReader { proxy in
                 let node = proxy[nodes[stretch.first]]
@@ -125,7 +130,8 @@ extension Rail {
                 .offset(y: top)
             }
             .opacity(held.isOverBar ? 0 : 1)
-            .transition(.opacity.animation(reduceMotion ? nil : .snappy(duration: 0.2)))
+            // Gone before the new group's loop flashes.
+            .transition(.opacity.animation(reduceMotion ? nil : .easeOut(duration: RailEntry.fieldFade)))
             .allowsHitTesting(false)
             .accessibilityHidden(true)
         }

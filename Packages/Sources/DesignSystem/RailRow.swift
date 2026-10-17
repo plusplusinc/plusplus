@@ -225,7 +225,7 @@ private struct GroupLoop: View {
         KeyframeAnimator(initialValue: 0.0, trigger: flashes) { joining in
             path.stroke(rest.mix(with: joined, by: joining), style: style)
         } keyframes: { _ in
-            RailEntry.joining(after: 0)
+            RailEntry.groupFlash()
         }
         .hotReloadable()
     }

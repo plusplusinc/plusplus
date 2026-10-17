@@ -364,9 +364,12 @@ extension RoutineScreen {
             routine.regrouped(holding: held, reaching: reach).map { regrouping in
                 RailGrouping(
                     links: regrouping.routine.joinedToNext,
+                    span: Set(regrouping.span),
                     superset: Set(regrouping.superset),
                 )
             }
+        } pickUp: { held in
+            Set(routine.pickedUp(holding: held))
         } commit: { held, reach in
             routine.regroup(holding: held, reaching: reach)
         }

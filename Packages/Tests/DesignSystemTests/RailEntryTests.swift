@@ -27,15 +27,18 @@ struct RailEntryTests {
         #expect(timeline.value(time: held + RailEntry.settle) == 0)
     }
 
-    @Test("A group a node's drag made flashes as a node lands, from the drop")
+    @Test("A group a node's drag made flashes as a node lands, once the field has faded")
     func groupFlash() {
         let node = KeyframeTimeline(initialValue: 0.0) {
             RailEntry.joining(after: RailEntry.popStart(reduceMotion: false))
         }
-        let group = KeyframeTimeline(initialValue: 0.0) { RailEntry.joining(after: 0) }
-        #expect(group.duration == node.duration - RailEntry.popStart(reduceMotion: false))
-        #expect(group.value(time: 0) == 1)
+        let group = KeyframeTimeline(initialValue: 0.0) { RailEntry.groupFlash() }
+        let wait = RailEntry.fieldFade
+        let lag = wait - RailEntry.popStart(reduceMotion: false)
+        #expect(abs(group.duration - node.duration - lag) < 1e-9)
+        #expect(group.value(time: wait / 2) == 0)
+        #expect(group.value(time: wait + 0.01) == 1)
         let fade = RailEntry.pop + RailEntry.hold + RailEntry.settle / 2
-        #expect(group.value(time: fade) == node.value(time: RailEntry.shot + fade))
+        #expect(group.value(time: wait + fade) == node.value(time: RailEntry.shot + fade))
     }
 }
