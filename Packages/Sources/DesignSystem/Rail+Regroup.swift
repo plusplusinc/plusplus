@@ -118,8 +118,8 @@ extension Rail {
     }
 
     /// The raised field behind the rows a held node spans, a held row's card stretched over them,
-    /// shadow and all, the first row's node inset in it as the card's is. Over a bar it fades, as a drop there
-    /// makes nothing.
+    /// shadow and all, the first row's node inset in it as the card's is. Over a bar it fades, as
+    /// a drop there makes nothing.
     @ViewBuilder
     func spanField(_ nodes: [Anchor<CGPoint>]) -> some View {
         if let held = regrouping, let stretch = stretch(held.field),

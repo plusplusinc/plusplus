@@ -52,7 +52,10 @@ struct HeldRailDrawing: View {
                 }
                 // The slot's own animation; with Reduce Motion the rows move with none, and the
                 // loops still crossfade.
-                .animation(reduceMotion ? .snappy(duration: 0.2) : RailDrag.gap, value: group.hasHeld)
+                .animation(
+                    reduceMotion ? .snappy(duration: 0.2) : RailDrag.gap,
+                    value: group.hasHeld,
+                )
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

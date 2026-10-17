@@ -3,7 +3,8 @@ import XCTest
 /// Saving and the launch rule across real quits and relaunches. The store, the launch rule, and
 /// the names are unit-tested in the package; this holds what only a relaunch shows: that an
 /// untouched routine is never saved, that rows come back in order with their duplicates and the
-/// name they had, and that a routine cleared to nothing is gone. Names come from the muscle
+/// name they had, that a superset comes back with its shared rounds, and that a routine cleared
+/// to nothing is gone. Names come from the muscle
 /// groups (`-fallbackNames`), so the same name shows on any simulator. The title's color, white
 /// for a name whether typed or generated and gray for New routine, is read from pixels against
 /// the placeholder's own gray at the start.

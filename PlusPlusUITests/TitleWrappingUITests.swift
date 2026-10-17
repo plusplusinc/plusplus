@@ -72,14 +72,19 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             XCTAssertEqual(reading(app.exerciseNames, becoming: moved, within: 2), moved)
             attach(named: "reorder-ax5")
         }
-        try XCTContext.runActivity(named: "A node joins two rows at AX5, and passes the audit") { _ in
+        try supersetAtAX5(in: app)
+    }
+
+    /// Two rows joined by a node's drag at this size, and the audit with a superset on screen.
+    @MainActor
+    private func supersetAtAX5(in app: XCUIApplication) throws {
+        let name = "A node joins two rows at AX5, and passes the audit"
+        try XCTContext.runActivity(named: name) { _ in
             let rows = app.exerciseRows
             let (first, last) = (rows.element(boundBy: 0), rows.element(boundBy: 1))
             // The first row's middle is under the bar here, so the drag goes up from the last.
             let bar = app.navigationBars.firstMatch.frame.maxY
-            let node = last.nodePoint
-            let target = app.point(x: 22, y: max(first.frame.midY, bar + 40))
-            node.holdAndDrag(to: target)
+            last.nodePoint.holdAndDrag(to: app.point(x: 22, y: max(first.frame.midY, bar + 40)))
             XCTAssertEqual(app.supersets(becoming: "AA"), "AA")
             // Back at the top, as the rows' audit above was: the bar's small title, shown only
             // scrolled, doesn't scale, which the audit reports.

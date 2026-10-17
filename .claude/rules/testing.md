@@ -19,8 +19,12 @@ What each tier holds today:
   a second store on the same container), plans included, and on disk, a store written with an
   older schema opening under the current one, and the names: the focus, the style, the honesty
   check, and every routine of up to two built-ins in every style; moving a row to a slot, its
-  Move up and Move down neighbors, and the announcement; and a rail drag's arithmetic
-  (`RailDrag`): the slots, where the gap goes, the dead band, and the edge scroll's speed and arming.
+  Move up and Move down neighbors, and the announcement; supersets: a node's drag (ends,
+  middles, the card's examples, what a press picks up), moving into and out of one, delete,
+  shared rounds, VoiceOver's join and leave, normalizing, saving, and the order of sets
+  (`setOrder`); and a rail drag's arithmetic (`RailDrag`): the slots, a superset's two edge
+  slots included, where the gap goes, the dead band, the row a node's finger reaches, and the
+  edge scroll's speed and arming.
 - **Snapshots** hold how a component looks, at rest and while editing. The title's editing look,
   `_` included, is drawn from plain values through `EditableTitleContent`, reached with
   `@testable import`, so no focus or keyboard is needed; its `blinks: false` holds the `_` lit,
@@ -33,8 +37,10 @@ What each tier holds today:
   it. The exercise sheet's content, its equipment and a `ValueRow` per value, is snapshot with
   every stepper closed and with one open; the sheet and its bar are the system's. A held row is
   drawn at a moment of its drag through `Rail`'s internal initializer, its card placed relative
-  to its gap and already risen: over its own gap, with the gap moved, first in the rail, and
-  alone. A snapshot draws each text size fresh, so the title's height after a live text size
+  to its gap and already risen: over its own gap, with the gap moved, first in the rail,
+  alone, and a pair's member inside and outside its edge. Supersets are drawn the same way: at
+  rest, and a node's drag, its field and label, held over a span and pressed on an end; and a
+  member's shared rounds in its sheet. A snapshot draws each text size fresh, so the title's height after a live text size
   change is held by `EditableTitleTextSizeTests`, which hosts `EditableTitleContent` in a window
   and changes the window's content size category, the field focused and not.
 - **UI tests** hold only what needs the real keyboard, text system, frames, or a relaunch:
@@ -42,13 +48,15 @@ What each tier holds today:
   rises, and VoiceOver frames; the exercise picker, system chrome composed in the app, which has
   no test target: adding, searching, swiping to delete, and the accessibility audit at AX5,
   the exercise sheet with a stepper open included; stepping a value in the sheet; dragging a row, which needs
-  real touches and the scroll view: a drag, a drop in place, a hold on the node, a release over
-  Start, the edge scroll, a press that scrolls, and at AX5; and what the app saved, seen only by
-  quitting and launching again, a dragged row's place included. Each launch costs about 9 s on
+  real touches and the scroll view: a drag, a drop in place, a release over Start, the edge
+  scroll, a press that scrolls, and at AX5; a node's drag drawing, shrinking, parting, and
+  merging supersets, a body's carrying a row into and out of one, and a join at AX5 under the
+  audit, read from each row's VoiceOver value; and what the app saved, seen only by
+  quitting and launching again, a dragged row's place and a superset's shared rounds included. Each launch costs about 9 s on
   CI, so there is one UI test per launch configuration:
   `RenameUITests/testRenameAtDefaultSize`,
   `TitleWrappingUITests/testWrappedTitleAtLargestTextSize`, and
-  `RoutineAutosaveUITests/testRoutineSurvivesRelaunch`, which relaunches four times. A new
+  `RoutineAutosaveUITests/testRoutineSurvivesRelaunch`, which relaunches six times. A new
   check extends the test for its launch as a named `XCTContext.runActivity`; a new test needs a
   launch argument no existing test uses. Every test launches with `-resetStore YES`, so it
   starts from a new routine and not the one the last test saved, and with `-noUIKitAnimations
