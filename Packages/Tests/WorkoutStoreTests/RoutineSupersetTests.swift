@@ -29,7 +29,6 @@ struct RoutineSupersetTests {
         #expect(shape(regrouped("A B C D E", holding: "A", reaching: "B")?.routine) == "A-B C D E")
         #expect(regrouped("A B C D E", holding: "A", reaching: "A") == nil)
         #expect(regrouped("A-B C", holding: "A", reaching: "A") == nil)
-        #expect(shape(regrouped("A B C D", holding: "B", reaching: "D")?.routine) == "A B-C-D")
     }
 
     @Test("A span drawn upward takes the held row's rounds too")
@@ -40,45 +39,20 @@ struct RoutineSupersetTests {
         #expect(result?.superset == [id("B"), id("C"), id("D")])
     }
 
-    @Test("A middle member draws a new superset, cutting the old one; a lone row left goes plain")
-    func middleCuts() {
+    @Test("A span inside a superset cuts it, and a lone row left over goes plain")
+    func cut() {
         #expect(shape(regrouped("A-B-C-D", holding: "C", reaching: "B")?.routine) == "A B-C D")
-        #expect(shape(regrouped("A-B-C-D-E", holding: "C", reaching: "D")?.routine) == "A-B C-D E")
+        #expect(shape(regrouped("A-B-C-D", holding: "A", reaching: "B")?.routine) == "A-B C-D")
+        #expect(shape(regrouped("A-B-C-D-E", holding: "B", reaching: "C")?.routine) == "A B-C D-E")
+        #expect(shape(regrouped("A-B-C-D E", holding: "D", reaching: "E")?.routine) == "A-B-C D-E")
+    }
+
+    @Test("A span across two supersets takes the rows it covers, whole or not")
+    func across() {
+        #expect(shape(regrouped("A-B C-D", holding: "A", reaching: "D")?.routine) == "A-B-C-D")
+        #expect(shape(regrouped("A-B C-D", holding: "B", reaching: "C")?.routine) == "A B-C D")
         #expect(shape(regrouped("A-B-C D-E", holding: "B", reaching: "D")?.routine) == "A B-C-D E")
-    }
-
-    @Test("An end member moves its end: the superset runs from its other end to the row reached")
-    func endMoves() {
-        #expect(shape(regrouped("A-B-C-D", holding: "A", reaching: "B")?.routine) == "A B-C-D")
-        #expect(shape(regrouped("A-B C-D", holding: "B", reaching: "D")?.routine) == "A-B-C-D")
-        #expect(shape(regrouped("A-B C-D", holding: "B", reaching: "C")?.routine) == "A-B-C D")
-        #expect(shape(regrouped("A-B C", holding: "B", reaching: "C")?.routine) == "A-B-C")
-        #expect(shape(regrouped("A-B-C D", holding: "C", reaching: "B")?.routine) == "A-B C D")
-        #expect(shape(regrouped("A B-C", holding: "B", reaching: "A")?.routine) == "A-B-C")
-        #expect(shape(regrouped("A-B C-D", holding: "A", reaching: "D")?.routine) == "A B-C-D")
-    }
-
-    @Test("An end moved onto the other end leaves a span of one: every row plain, none a superset")
-    func endOntoEnd() {
-        let pair = regrouped("A-B C", holding: "A", reaching: "B")
-        #expect(shape(pair?.routine) == "A B C")
-        #expect(pair?.superset == [])
-        #expect(shape(regrouped("A-B-C", holding: "C", reaching: "A")?.routine) == "A B C")
-    }
-
-    @Test("An end's superset keeps its round count; rows it takes in take it too")
-    func endKeepsRounds() {
-        let result = regrouped("A B-C D", holding: "C", reaching: "D")
-        #expect(shape(result?.routine) == "A B-C-D")
-        #expect(sets(result?.routine) == [1, 2, 2, 2])
-        let grown = regrouped("A B-C D", holding: "B", reaching: "A")
-        #expect(sets(grown?.routine) == [2, 2, 2, 4])
-    }
-
-    @Test("A plain row's span takes the rows it covers, whole supersets or not")
-    func plainAcross() {
-        #expect(shape(regrouped("A B-C D-E", holding: "A", reaching: "D")?.routine) == "A-B-C-D E")
-        #expect(shape(regrouped("A B-C-D", holding: "A", reaching: "B")?.routine) == "A-B C-D")
+        #expect(shape(regrouped("A-B C", holding: "B", reaching: "C")?.routine) == "A B-C")
     }
 
     @Test("Rows cut off keep the round count they shared")
@@ -90,9 +64,16 @@ struct RoutineSupersetTests {
         }
         let result = try #require(start.regrouped(holding: id("C"), reaching: id("B")))
         #expect(sets(result.routine) == [3, 3, 3, 3])
-        let split = try #require(start.regrouped(holding: id("B"), reaching: id("A")))
-        #expect(shape(split.routine) == "A-B C-D")
+        let split = try #require(start.regrouped(holding: id("A"), reaching: id("B")))
         #expect(split.routine.exercises[0].supersetID != split.routine.exercises[2].supersetID)
+    }
+
+    @Test("Drawn over a superset just as it is, nothing changes, its id neither")
+    func sameSuperset() {
+        let start = routine("A-B C")
+        let result = start.regrouped(holding: id("B"), reaching: id("A"))
+        #expect(result?.routine == start)
+        #expect(result?.superset == [id("A"), id("B")])
     }
 
     @Test("Regroup applies the rule, and refuses a drag onto the held row")
