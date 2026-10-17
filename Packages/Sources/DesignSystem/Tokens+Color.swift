@@ -9,17 +9,17 @@ public enum ColorToken: String, CaseIterable, Sendable {
     /// Green: what's active, and a value that went up; also the ++ mark. Never a control's fill.
     case accent = "ppAccent"
     case background = "ppBackground"
-    /// The outline of a key-shaped button, the title's resting cursor, and a rail's nodes.
+    /// The outline of a key-shaped button, and the title's resting cursor.
     case borderStrong = "ppBorderStrong"
     /// The label on a primary key.
     case onPrimaryKey = "ppOnPrimaryKey"
     /// The fill of the one primary key on a screen, such as Start.
     case primaryKey = "ppPrimaryKey"
-    /// The line that runs down a rail, joining its nodes, and at rest the loop beside it that
-    /// marks a group of rows, a superset.
+    /// The line that runs down a rail and its nodes at rest, one gray, and the loop beside it
+    /// that marks a group of rows, a superset.
     case rail = "ppRail"
     /// Something joining a rail, for the moment it joins: an added row's node draws in it, then
-    /// settles to `borderStrong`; a group's loop as a drop makes the group, then settling to
+    /// settles to `rail`; a group's loop as a drop makes the group, then settling to
     /// `rail`. Never at rest, and never the line.
     case railJoin = "ppRailJoin"
     /// The soft shadow all around something lifted off the screen, such as a held row's card.

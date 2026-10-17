@@ -73,7 +73,7 @@ private struct RailNode: View {
                 Circle()
                     .joiningRail(
                         when: place.isArriving,
-                        settlingTo: place.isRaised ? .textPrimary : .borderStrong,
+                        settlingTo: place.isRaised ? .textPrimary : .rail,
                     )
                     .frame(width: size, height: size)
                     .anchorPreference(key: NodeCenter.self, value: .center) { $0 }
@@ -206,10 +206,10 @@ struct RailRowSwiped: PreferenceKey {
 /// leading side, from the last row's node back up to the first's, as a superset goes round, in
 /// the rail's own gray. It curves out of the last row's node and into the first's on the corner of
 /// a continuous rounded rectangle, and runs straight up past the rows between, which it leaves
-/// alone. A pointed head at the foot of every row but the last shows the way up between each row
-/// and the next, with a clear gap cut around its point so the line ahead never runs into it. The
-/// node draws over its strokes. Each change of `flashes` flashes it in `railJoin`, as a new node
-/// does, then it settles back to the rail's gray.
+/// alone. A pointed head halfway between each row's node and the next's shows the way up; the
+/// line stops a little short of its tip and picks up again beyond it with a round end, as a dashed
+/// line would. The node draws over its strokes. Each change of `flashes` flashes it in
+/// `railJoin`, as a new node does, then it settles back to the rail's gray.
 private struct GroupLoop: View {
     let node: CGPoint
     let height: CGFloat
@@ -226,15 +226,6 @@ private struct GroupLoop: View {
             let color = rest.mix(with: joined, by: joining)
             Canvas { context, _ in
                 context.fill(run, with: .color(color))
-                guard link == .first || link == .middle else { return }
-                // The gap: the head's pointed edges, stroked wider than the head, cut out of the
-                // line ahead of and beside it, whatever is behind the row then showing through.
-                var cut = context
-                cut.blendMode = .destinationOut
-                cut.stroke(headEdges, with: .color(.black), style: StrokeStyle(lineWidth: 2 * gap))
-                var head = headEdges
-                head.closeSubpath()
-                context.fill(head, with: .color(color))
             }
         } keyframes: { _ in
             RailEntry.groupFlash()
@@ -251,15 +242,14 @@ private struct GroupLoop: View {
         7 * scale
     }
 
-    /// How far the cut reaches out from the head's edges.
+    /// The open space between the head's tip and the line's round end ahead of it.
     private var gap: CGFloat {
-        1.5 * scale
+        3 * scale
     }
 
-    /// How far out the line runs, never so far that it, its head, or the cut around it leaves the
-    /// row.
+    /// How far out the line runs, never so far that it or its head leaves the row.
     private var x: CGFloat {
-        max(node.x - offset, half + gap)
+        max(node.x - offset, half)
     }
 
     /// The corner's radius, its curve, as a continuous corner's does, reaching about half as far
@@ -268,10 +258,17 @@ private struct GroupLoop: View {
         7 * scale
     }
 
-    /// The row's stretch of line: part of a continuous rounded rectangle's border, the rest of it
+    /// Where the head's middle is: halfway from this row's node to the next row's. Rows stack with
+    /// no spacing and every row's node sits as far down it, so the next node is a row's height
+    /// below this one.
+    private var headMiddle: CGFloat {
+        node.y + height / 2
+    }
+
+    /// The row's stretch of loop: part of a continuous rounded rectangle's border, the rest of it
     /// outside the row or past the node, so the curves are exactly a `RoundedRectangle`'s with
-    /// `.continuous` corners. Cut square at the row's edges, it meets the next row's stretch with
-    /// no overlap.
+    /// `.continuous` corners, cut square at the row's edges, so it meets the next row's stretch
+    /// with no overlap. Then, on every row but the last, the head.
     private var run: Path {
         let far = height + node.x + radius * 4
         let border: CGRect = switch link {
@@ -281,19 +278,28 @@ private struct GroupLoop: View {
         case .last: CGRect(x: x, y: node.y - far, width: far, height: far)
         }
         guard !border.isNull else { return Path() }
-        return Path(roundedRect: border, cornerRadius: radius, style: .continuous)
+        let line = Path(roundedRect: border, cornerRadius: radius, style: .continuous)
             .strokedPath(StrokeStyle(lineWidth: lineWidth))
             .intersection(Path(CGRect(x: 0, y: 0, width: node.x, height: height)))
-    }
-
-    /// The head's two pointed edges, at the foot of the row, where the line comes up into it from
-    /// the next row: a small triangle pointing up, its edges sharp, open at its base.
-    private var headEdges: Path {
-        Path { path in
-            path.move(to: CGPoint(x: x + half, y: height))
-            path.addLine(to: CGPoint(x: x, y: height - length))
-            path.addLine(to: CGPoint(x: x - half, y: height))
+        guard link == .first || link == .middle else { return line }
+        let tip = headMiddle - length / 2
+        let base = headMiddle + length / 2
+        // The line's end ahead of the tip, its round cap reaching to `gap` short of it.
+        let end = tip - gap - lineWidth / 2
+        let cap = Path(ellipseIn: CGRect(
+            x: x - lineWidth / 2, y: end - lineWidth / 2, width: lineWidth, height: lineWidth,
+        ))
+        let head = Path { path in
+            path.move(to: CGPoint(x: x + half, y: base))
+            path.addLine(to: CGPoint(x: x, y: tip))
+            path.addLine(to: CGPoint(x: x - half, y: base))
+            path.closeSubpath()
         }
+        let open = CGRect(x: x - lineWidth, y: end, width: 2 * lineWidth, height: base - end)
+        return line
+            .subtracting(Path(open))
+            .union(cap)
+            .union(head)
     }
 }
 

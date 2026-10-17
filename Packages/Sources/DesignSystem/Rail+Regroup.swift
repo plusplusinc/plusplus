@@ -128,6 +128,12 @@ extension Rail {
                     size: CGSize(width: proxy.size.width, height: bottom - top),
                 )
                 .offset(y: top)
+                FieldLabel(
+                    field: CGRect(x: 0, y: top, width: proxy.size.width, height: bottom - top),
+                    node: node,
+                    texts: textFrames,
+                    isShown: held.field.count > 1,
+                )
             }
             .opacity(held.isOverBar ? 0 : 1)
             // Gone before the new group's loop flashes.
@@ -145,4 +151,63 @@ extension Rail {
 struct RowStretch {
     var first: Int
     var bounds: ClosedRange<CGFloat>
+}
+
+/// "Superset" in the regroup field's top trailing corner, while letting go would leave the rows
+/// in it a superset: two rows or more. Where a row's text reaches that corner, as it can at the
+/// largest text sizes, it goes further down the trailing edge, to the first place the rows' text
+/// leaves clear, and where there is none, it doesn't show. VoiceOver reads the rows' own values
+/// instead.
+private struct FieldLabel: View {
+    /// The field's rows' stretch, the rail's width, in the rail's space.
+    let field: CGRect
+    /// The first row's node, in the rail's space.
+    let node: CGPoint
+    let texts: [CGRect]
+    let isShown: Bool
+    @State private var size = CGSize.zero
+    @ScaledMetric(relativeTo: .body) private var nodeSize = railNodeSize
+
+    var body: some View {
+        let place = place
+        Text("Superset")
+            .font(.ppCaption)
+            .foregroundStyle(.pp(.textSecondary))
+            // It grows with the text up to the first accessibility size, past which it would
+            // crowd the rows' own names out of their room.
+            .dynamicTypeSize(...DynamicTypeSize.accessibility1)
+            .fixedSize()
+            .onGeometryChange(for: CGSize.self, of: \.size) { size = $0 }
+            .position(x: place?.midX ?? 0, y: place?.midY ?? 0)
+            .opacity(isShown && place != nil ? 1 : 0)
+            .animation(.snappy(duration: 0.15), value: isShown)
+            .accessibilityHidden(true)
+    }
+
+    /// Where it goes: inset from the field's trailing edge as the node is from its leading one,
+    /// level with the first row's node, or else the highest place down that edge clear of text.
+    private var place: CGRect? {
+        // As `CardFill` sets the node in: as far from the fill's top as from its leading edge.
+        let inset = node.y - field.minY - nodeSize / 2
+        let edge = node.x - nodeSize / 2 - inset
+        let trailing = field.maxX - edge - inset - size.width
+        let spot = { (y: CGFloat) in
+            CGRect(x: trailing, y: y, width: size.width, height: size.height)
+        }
+        let lowest = field.maxY - inset - size.height
+        let downTheEdge = stride(from: field.minY + inset, through: lowest, by: Spacing.xxs)
+        return ([node.y - size.height / 2] + downTheEdge).lazy.map(spot).first { spot in
+            !texts.contains { $0.intersects(spot.insetBy(dx: -Spacing.xs, dy: -Spacing.xxs)) }
+        }
+    }
+}
+
+/// Where each row's text is, in the rail's space: its name and detail as laid out, not the
+/// row's width.
+struct RowTextFrames: PreferenceKey {
+    static let defaultValue: [CGRect] = []
+
+    static func reduce(value: inout [CGRect], nextValue: () -> [CGRect]) {
+        value += nextValue()
+    }
 }

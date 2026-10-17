@@ -76,9 +76,6 @@ nonisolated enum RailDrag {
 
     /// The card's lift, and its settling back.
     static let lift = Animation.snappy(duration: 0.18)
-    /// The card's turn while lifted, its only one: it tilts the card's line and loop a little off
-    /// the rail's behind them. `.zero` lifts it straight.
-    static let liftedRotation = Angle.degrees(-0.6)
     /// The blur of the card's shadow: soft and centered, with no offset, so it reads as lifted
     /// without moving the card off the rail.
     static let liftedShadow: CGFloat = 8

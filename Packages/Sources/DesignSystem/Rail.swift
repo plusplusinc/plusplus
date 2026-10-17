@@ -56,6 +56,9 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     @State var regrouping: RailRegroupState<RowID>?
     /// Counts each row's group made by a node's drop, which flashes its loop in `railJoin`.
     @State var flashes: [RowID: Int] = [:]
+    /// Where the rows' text is, in the rail's space, so the regroup field's label keeps clear of
+    /// it.
+    @State var textFrames: [CGRect] = []
     /// The rows swiped open, whose groups hide their loops.
     @State var swiped: Set<RowID> = []
     /// The card's top, in the rail's space. It is its own state, so the finger moves it with no
@@ -180,6 +183,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
             // Between the last row and the end view, as the design has it.
             end.padding(.top, data.isEmpty ? 0 : Spacing.xxs)
         }
+        .onPreferenceChange(RowTextFrames.self) { textFrames = $0 }
         // While a row is held, the line is drawn once, here, under the rows: rows trading places
         // move toward each other, so their own stretches, each moving with its row, would part at
         // the pair's outer edges until the rows settle.

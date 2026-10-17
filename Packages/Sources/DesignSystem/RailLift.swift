@@ -77,7 +77,6 @@ struct CardLook: ViewModifier {
                     LiftedCard(node: node, isLifted: isRaised)
                 }
             }
-            .rotationEffect(isRaised ? RailDrag.liftedRotation : .zero)
             .onAppear {
                 withAnimation(reduceMotion ? nil : RailDrag.lift) { hasRisen = true }
             }
