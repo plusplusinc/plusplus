@@ -36,6 +36,20 @@ extension RenameUITests {
             XCTAssertEqual(app.supersets(becoming: "AA..BB..."), "AA..BB...")
             attach(named: "superset-parted")
         }
+        XCTContext.runActivity(named: "A node held and let go where it was changes nothing") { _ in
+            let (names, groups) = (app.exerciseNames, app.supersets)
+            // An end's node, which picks up its whole superset, then a plain row's.
+            for index in [4, 2] {
+                let node = row(index).nodePoint
+                node.holdAndDrag(to: node)
+                XCTAssertFalse(
+                    app.buttons["Close"].appears(within: 1),
+                    "Letting go of row \(index)'s node opened its sheet",
+                )
+                XCTAssertEqual(app.supersets, groups, "Letting go in place regrouped")
+                XCTAssertEqual(app.exerciseNames, names, "Letting go in place moved a row")
+            }
+        }
         XCTContext.runActivity(named: "An end's node dragged onto another superset merges") { _ in
             row(1).nodePoint.holdAndDrag(to: row(5).nodePoint)
             XCTAssertEqual(app.supersets(becoming: "AAAAAA..."), "AAAAAA...")
