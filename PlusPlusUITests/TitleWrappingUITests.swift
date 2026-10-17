@@ -72,6 +72,21 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             XCTAssertEqual(reading(app.exerciseNames, becoming: moved, within: 2), moved)
             attach(named: "reorder-ax5")
         }
+        try XCTContext.runActivity(named: "A node joins two rows at AX5, and passes the audit") { _ in
+            let rows = app.exerciseRows
+            let (first, last) = (rows.element(boundBy: 0), rows.element(boundBy: 1))
+            // The first row's middle is under the bar here, so the drag goes up from the last.
+            let bar = app.navigationBars.firstMatch.frame.maxY
+            let node = last.nodePoint
+            let target = app.point(x: 22, y: max(first.frame.midY, bar + 40))
+            node.holdAndDrag(to: target)
+            XCTAssertEqual(app.supersets(becoming: "AA"), "AA")
+            // Back at the top, as the rows' audit above was: the bar's small title, shown only
+            // scrolled, doesn't scale, which the audit reports.
+            app.scrollToTop(titled: app.routineTitle.value as? String ?? "")
+            attach(named: "superset-ax5")
+            try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
+        }
     }
 
     /// Rows, a row's sheet with a stepper open, and the picker, with and without results, pass

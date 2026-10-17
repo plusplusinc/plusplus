@@ -55,6 +55,7 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
                 "Pull-up, 3 sets of 6 reps",
             ])
         }
+        supersetSurvivesRelaunch(in: app)
         try typedNameStays(in: app, title: title, gray: gray)
         XCTContext.runActivity(named: "A typed name survives a relaunch") { _ in
             app.relaunch()
@@ -110,6 +111,36 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
                     "Pull-up, 3 sets of 8 reps",
                 ],
             )
+        }
+    }
+
+    /// Two rows joined by a node share their rounds, which a member's sheet says and steps for
+    /// both, and come back joined, rounds and all.
+    @MainActor
+    private func supersetSurvivesRelaunch(in app: XCUIApplication) {
+        XCTContext.runActivity(named: "A superset and its shared rounds survive a relaunch") { _ in
+            let rows = app.exerciseRows
+            rows.element(boundBy: 0).nodePoint.holdAndDrag(to: rows.element(boundBy: 1).nodePoint)
+            XCTAssertEqual(app.supersets(becoming: "AA."), "AA.")
+            rows.element(boundBy: 1).tap()
+            let rounds = app.buttons["Rounds, Shared with Pull-up"]
+            XCTAssertTrue(rounds.appears(), "A member's sheet doesn't say its rounds are shared")
+            rounds.tap()
+            app.buttons["Increase"].tapAtCenter()
+            XCTAssertEqual(rounds.value(becoming: "4"), "4")
+            attach(named: "sheet-shared-rounds")
+            app.buttons["Close"].tap()
+            XCTAssertTrue(rounds.disappears(), "Close left the sheet up")
+            let joined = [
+                "Pull-up, 4 sets of 8 reps",
+                "Barbell bench press, 4 sets of 5 reps, 45 pounds",
+                "Pull-up, 3 sets of 6 reps",
+            ]
+            let labels = { app.exerciseRows.allElementsBoundByIndex.map(\.label) }
+            XCTAssertEqual(reading(labels(), becoming: joined, within: 2), joined)
+            app.relaunch()
+            XCTAssertEqual(labels(), joined)
+            XCTAssertEqual(app.supersets, "AA.")
         }
     }
 
