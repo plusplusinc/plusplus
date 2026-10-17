@@ -12,14 +12,15 @@ code only after the criteria are checked.
 
 1. Note the time, then build and launch with the worktree's `scripts/run.sh <name>`, by its path
    there (your shell starts in the lead's checkout, whose scripts use the maintainer's
-   simulator), which uses the team's simulator. Never touch the maintainer's.
+   simulator), which uses the worktree's own simulator, "PlusPlus <worktree>". Never touch the
+   maintainer's.
 2. Check each criterion on the running app with `/run`: screenshots in every appearance the app
    supports and at the largest text size,
    and `scripts/sim.sh log`. Look at every screenshot.
 3. Once every criterion is checked, read the existing tests and the code under test. Add a test
    only for a criterion no test proves: its assertions come from the criterion, its tier and
    place from `.claude/rules/testing.md`. Run just those tests with
-   `scripts/test.sh sim <Target/Class>` on the team simulator, then commit them to the slice
+   `scripts/test.sh sim <Target/Class>` on the worktree's simulator, then commit them to the slice
    branch and push. Xcode Cloud runs the full suite on the push. Any wait has a real time limit.
 4. List `~/Library/Logs/DiagnosticReports/PlusPlus-*` for reports newer than the time noted.
    A crash goes in the report once you have the steps that trigger it and its crash report;
