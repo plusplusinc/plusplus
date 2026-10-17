@@ -2,23 +2,51 @@ import Foundation
 
 /// Where a moved row lands in its routine. A slot names a row by id, not an index, so it still
 /// means the same place if the rows change under it.
-public enum RoutineSlot: Hashable, Sendable {
-    /// Just above this row.
-    case before(RoutineExercise.ID)
+public struct RoutineSlot: Hashable, Sendable {
+    public enum Place: Hashable, Sendable {
+        /// Just above this row.
+        case before(RoutineExercise.ID)
+        /// After the last row.
+        case end
+    }
+
+    public var place: Place
+    /// The neighbor whose superset the row joins there, or nil to land plain. Between two rows of
+    /// one superset a row always joins it, since no plain row sits inside one.
+    public var joining: RoutineNeighbor?
+
+    public init(_ place: Place, joining: RoutineNeighbor? = nil) {
+        self.place = place
+        self.joining = joining
+    }
+
+    /// Just above `id`.
+    public static func before(_ id: RoutineExercise.ID, joining: RoutineNeighbor? = nil) -> Self {
+        Self(.before(id), joining: joining)
+    }
+
     /// After the last row.
-    case end
+    public static let end = Self(.end)
+}
+
+/// The row next to a slot or a row: the one above it, or below.
+public enum RoutineNeighbor: Hashable, Sendable {
+    case above
+    case below
 }
 
 extension Routine {
-    /// Moves the row `id` to `slot`. Returns false, and changes nothing, when the row or the
-    /// row the slot names is missing, or when the slot is the row's own place.
+    /// Moves the row `id` to `slot`, into the superset the slot joins or out as a plain row; a
+    /// row that joins one takes its round count. Returns false, and changes nothing, when the row
+    /// or the row the slot names is missing, or when the slot is the row's own place in its own
+    /// superset, or none.
     @discardableResult
     public mutating func move(_ id: RoutineExercise.ID, to slot: RoutineSlot) -> Bool {
         guard let from = exercises.firstIndex(where: { $0.id == id }) else { return false }
         var rest = exercises
-        let row = rest.remove(at: from)
+        var row = rest.remove(at: from)
         let to: Int
-        switch slot {
+        switch slot.place {
         case let .before(target):
             guard target != id, let index = rest.firstIndex(where: { $0.id == target })
             else { return false }
@@ -26,26 +54,47 @@ extension Routine {
         case .end:
             to = rest.endIndex
         }
-        guard to != from else { return false }
+        let above = to > rest.startIndex ? rest[to - 1] : nil
+        let below = to < rest.endIndex ? rest[to] : nil
+        let joined: RoutineExercise? = switch slot.joining {
+        case .above: above
+        case .below: below
+        case nil: above?.supersetID != nil && above?.supersetID == below?.supersetID ? above : nil
+        }
+        row.supersetID = joined?.supersetID
+        if let joined, joined.supersetID != nil {
+            row.plan.sets = joined.plan.sets
+        }
         rest.insert(row, at: to)
+        rest.normalizeSupersets()
+        guard rest != exercises else { return false }
         exercises = rest
         return true
     }
 
-    /// The slot one row up from `id`'s, or nil when it is first, alone, or missing.
+    /// The slot one row up from `id`'s, or nil when there is none. A row in a superset moves only
+    /// among its members, so it is nil at the superset's top; a plain row moves past a whole
+    /// superset above it, staying plain.
     public func slotMovingUp(_ id: RoutineExercise.ID) -> RoutineSlot? {
         guard let index = exercises.firstIndex(where: { $0.id == id }), index > 0
         else { return nil }
-        return .before(exercises[index - 1].id)
+        if let run = supersetRun(at: index) {
+            return index > run.lowerBound ? .before(exercises[index - 1].id, joining: .below) : nil
+        }
+        let passed = supersetRun(at: index - 1)?.lowerBound ?? index - 1
+        return .before(exercises[passed].id)
     }
 
-    /// The slot one row down from `id`'s, or nil when it is last, alone, or missing.
+    /// The slot one row down from `id`'s, or nil when there is none: as `slotMovingUp`, the other
+    /// way.
     public func slotMovingDown(_ id: RoutineExercise.ID) -> RoutineSlot? {
         guard let index = exercises.firstIndex(where: { $0.id == id }),
               index < exercises.count - 1
         else { return nil }
-        let twoDown = index + 2
-        return twoDown < exercises.count ? .before(exercises[twoDown].id) : .end
+        if let run = supersetRun(at: index) {
+            return index < run.upperBound ? slot(after: index + 1, joining: .above) : nil
+        }
+        return slot(after: supersetRun(at: index + 1)?.upperBound ?? index + 1)
     }
 
     /// What VoiceOver says once `id` has moved one row up or down: the name of the row it passed,
@@ -57,5 +106,12 @@ extension Routine {
         guard exercises.indices.contains(passed) else { return nil }
         let name = exercises[passed].exercise.name
         return wentUp ? "Moved above \(name)" : "Moved below \(name)"
+    }
+
+    /// The slot just after the row at `index`.
+    func slot(after index: Int, joining: RoutineNeighbor? = nil) -> RoutineSlot {
+        index + 1 < exercises.count
+            ? .before(exercises[index + 1].id, joining: joining)
+            : RoutineSlot(.end, joining: joining)
     }
 }

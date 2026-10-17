@@ -21,65 +21,104 @@ import SwiftUI
 /// opens a gap where it would land, the rows moving aside; a drop calls `onMove` with the slot.
 /// Inside a scroll view with `railAutoscroll`, a row dragged toward its edges scrolls it, and one
 /// let go over a bar goes back.
+///
+/// Rows in `links` are joined to the row after them, into a group, a superset, which a loop beside
+/// the line marks. A row dragged by its content to a group's edge can land just inside it, the
+/// loop wrapping the gap, or just outside; the slot `onMove` gets says which.
+///
+/// Given `regroup`, a hold on a row's node starts a drag that draws a group instead, the rows
+/// staying put: the rows from the held one to the one under the finger sit in one raised field,
+/// the held row's card stretched over them, and the loops show what a drop would make, all in
+/// their own colors. A drop commits it, and the new group's loop flashes in `railJoin`, as a new
+/// node does.
 public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     where Data.Element: Identifiable
 {
     typealias RowID = Data.Element.ID
 
-    private let data: Data
+    let data: Data
     private let arriving: RowID?
     private let onMove: ((RowID, RailSlot<RowID>) -> Void)?
-    private let row: (Data.Element) -> Row
+    let links: Set<RowID>
+    let regroup: RailRegroup<RowID>?
+    let row: (Data.Element) -> Row
     private let end: End
     /// Drawn at a moment of a drag: how far below its gap the card is, already risen.
-    private let momentOffset: CGFloat?
+    let momentOffset: CGFloat?
+
+    // State and inputs the node hold reads are internal, not private, so it can live in its own
+    // files (`Rail+Regroup.swift`, `Rail+Rows.swift`).
 
     /// The row held and dragged, if any: the rows show in the order they would take if it were
     /// dropped now, and it draws as a card under the finger.
-    @State private var drag: RailDragState<RowID>?
+    @State var drag: RailDragState<RowID>?
+    /// The row whose node is held, drawing a group, if any.
+    @State var regrouping: RailRegroupState<RowID>?
+    /// Counts each row's group made by a node's drop, which flashes its loop in `railJoin`.
+    @State var flashes: [RowID: Int] = [:]
+    /// The rows swiped open, whose groups hide their loops.
+    @State var swiped: Set<RowID> = []
     /// The card's top, in the rail's space. It is its own state, so the finger moves it with no
     /// animation even as the same move sends the gap, and the rows, on an animated one.
     @State private var cardTop: CGFloat = 0
     /// Each row's height, read when a drag starts and as it moves, to place the gap. Kept out of
     /// the view's state, so a row's place opening, frame by frame, doesn't redraw the rail.
-    @State private var heights = RowHeights<RowID>()
+    @State var heights = RowHeights<RowID>()
     /// Counts heights measured while a row is held, which move its gap and card.
-    @State private var remeasured = 0
+    @State var remeasured = 0
     /// The rail column's width, where a press lifts nothing.
     @State private var columnWidth: CGFloat = 0
-    @State private var lifts = 0
-    @State private var ticks = 0
+    /// A light impact: a row lifted or a node held, and a group dropped.
+    @State var lifts = 0
+    @State var ticks = 0
     /// The scroll view's edges, when it scrolls for a held row (`railAutoscroll`).
-    @Environment(\.railEdges) private var edges
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.railEdges) var edges
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
     @ObserveHotReload private var hotReload
 
     /// A rail whose rows a hold lifts and a drag moves, when `onMove` is given: it is called
     /// with the row and where it was dropped, unless that is where it started.
     public init(
         _ data: Data,
+        links: Set<Data.Element.ID> = [],
         arriving: Data.Element.ID? = nil,
         onMove: ((Data.Element.ID, RailSlot<Data.Element.ID>) -> Void)? = nil,
+        regroup: RailRegroup<Data.Element.ID>? = nil,
         @ViewBuilder row: @escaping (Data.Element) -> Row,
         @ViewBuilder end: () -> End,
     ) {
-        self.init(data, arriving: arriving, onMove: onMove, drag: nil, row: row, end: end)
+        self.init(
+            data,
+            links: links,
+            arriving: arriving,
+            onMove: onMove,
+            regroup: regroup,
+            drag: nil,
+            row: row,
+            end: end,
+        )
     }
 
     /// A rail at a moment of a drag, so a preview or a snapshot can draw it.
     init(
         _ data: Data,
+        links: Set<RowID> = [],
         arriving: RowID? = nil,
         onMove: ((RowID, RailSlot<RowID>) -> Void)? = nil,
+        regroup: RailRegroup<RowID>? = nil,
         drag: RailDragState<RowID>?,
+        regrouping: RailRegroupState<RowID>? = nil,
         cardOffset: CGFloat = 0,
         @ViewBuilder row: @escaping (Data.Element) -> Row,
         @ViewBuilder end: () -> End,
     ) {
         self.data = data
+        self.links = links
         self.arriving = arriving
         self.onMove = onMove
+        self.regroup = regroup
         _drag = State(initialValue: drag)
+        _regrouping = State(initialValue: regrouping)
         self.row = row
         self.end = end()
         momentOffset = drag == nil ? nil : cardOffset
@@ -93,6 +132,8 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         let first = shown.first?.id
         // Until the arriving row enters, the line ends at the node above it.
         let lastOnLine = shown.last { $0.id != arriving }?.id
+        let shownLinks = RailLink.links(shown.map(\.id), joined: shownJoined)
+        let hiddenLoops = loopsHidden(shown.map(\.id))
         VStack(alignment: .leading, spacing: 0) {
             // Each row learns its place from the rail. Rows taken as a view's subviews could
             // not: a subview resolves in its container's environment, not one set on it.
@@ -104,11 +145,16 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                     isArriving: isArriving,
                     isGap: item.id == drag?.lifted,
                     drawsOwnLine: drag == nil,
+                    link: shownLinks[item.id] ?? .solo,
+                    flashes: flashes[item.id] ?? 0,
+                    isLoopHidden: hiddenLoops.contains(item.id),
                 )
                 // An arriving row's place opens with its entry's shot, so the end view is pushed
                 // down as far as the line has grown, on every frame.
                 OpeningSpace(progress: isArriving ? 0 : 1) {
-                    row(item).environment(\.railPlace, place)
+                    row(item)
+                        .environment(\.railPlace, place)
+                        .onPreferenceChange(RailRowSwiped.self) { noteSwipe(item.id, $0) }
                 }
                 .entry(RailEntry.space(reduceMotion: reduceMotion), value: isArriving)
                 // A row's swipe closes when its action runs, so a deleted row slid back to rest
@@ -125,8 +171,9 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                     }
                 }
                 .liftable(
-                    isEnabled: onMove != nil && arriving == nil,
+                    isEnabled: (onMove != nil || regroup != nil) && arriving == nil,
                     columnWidth: columnWidth,
+                    allowsColumn: regroup != nil,
                     onPhase: { dragged(item.id, $0, at: $1) },
                 )
             }
@@ -137,6 +184,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         // move toward each other, so their own stretches, each moving with its row, would part at
         // the pair's outer edges until the rows settle.
         .backgroundPreferenceValue(RailNodes.self) { nodes in
+            spanField(nodes)
             if let drag, let cardY {
                 DragLine(
                     nodes: nodes,
@@ -151,7 +199,13 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         // where the finger is, not in the row's place, which moves as the gap does.
         .overlay(alignment: .top) {
             if let drag, let cardY {
-                card(drag, at: cardY)
+                card(
+                    drag,
+                    at: cardY,
+                    link: shownLinks[drag.lifted] ?? .solo,
+                    isFirst: shown.first?.id == drag.lifted,
+                    isLast: shown.last?.id == drag.lifted,
+                )
             }
         }
         .background(alignment: .topLeading) {
@@ -174,38 +228,6 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         .hotReloadable()
     }
 
-    /// The rows in the order they show: with a row held, the order it would make if dropped now.
-    private var shownRows: [Data.Element] {
-        guard let drag else { return Array(data) }
-        let byID = Dictionary(data.map { ($0.id, $0) }) { first, _ in first }
-        return RailDrag.order(data.map(\.id), moving: drag.lifted, to: drag.slot)
-            .compactMap { byID[$0] }
-    }
-
-    private func candidates(lifting lifted: RowID) -> [RailDrag.Candidate<RowID>] {
-        // Read so heights measured while a row is held redraw its gap and card.
-        _ = remeasured
-        let rows = data.map { ($0.id, heights.byID[$0.id] ?? 0) }
-        return RailDrag.candidates(rows: rows, lifted: lifted)
-    }
-
-    /// The held row drawn again as a card, its top at `y`. It rises as it appears and lowers as
-    /// it settles; while held, it follows the finger with no animation, whatever animation moves
-    /// the rows.
-    @ViewBuilder
-    private func card(_ drag: RailDragState<RowID>, at y: CGFloat) -> some View {
-        if let item = data.first(where: { $0.id == drag.lifted }) {
-            row(item)
-                // As tall as in the rows, where the scroll view proposes no height, not as tall
-                // as the rail it is over.
-                .fixedSize(horizontal: false, vertical: true)
-                .modifier(CardLook(isReleased: drag.isReleased, hasRisen: momentOffset != nil))
-                .offset(y: y)
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
-        }
-    }
-
     /// Where the card's top is: under the finger, or, for a moment drawn, placed from its gap.
     private func cardY(_ drag: RailDragState<RowID>) -> CGFloat {
         momentOffset.map { gapTop(of: drag) + $0 } ?? cardTop
@@ -216,16 +238,23 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         gapTop(lifting: drag.lifted, at: drag.slot) ?? 0
     }
 
-    /// The top of the gap at `slot`, where the card rests when it is let go there.
-    private func gapTop(lifting lifted: RowID, at slot: RailSlot<RowID>) -> CGFloat? {
-        candidates(lifting: lifted).first { $0.slot == slot }?.gapTop
-    }
-
     private func dragged(_ id: RowID, _ phase: RailDrag.Phase, at finger: RailDrag.Finger) {
         switch phase {
         case .began:
-            guard drag == nil, let index = data.firstIndex(where: { $0.id == id }) else { return }
-            let own = candidates(lifting: id)[data.distance(from: data.startIndex, to: index)]
+            guard drag == nil, regrouping == nil else { return }
+            if finger.inColumn, regroup != nil {
+                return holdNode(id, at: finger)
+            }
+            guard onMove != nil else { return }
+            let candidates = candidates(lifting: id)
+            guard let origin = RailDrag.origin(
+                of: id,
+                in: data.map(\.id),
+                candidates: candidates,
+                groups: groups,
+            ),
+                let own = candidates.first(where: { $0.slot == origin })
+            else { return }
             cardTop = own.gapTop
             drag = RailDragState(
                 lifted: id,
@@ -240,11 +269,19 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                 follow(id)
             }
         case .changed:
+            if regrouping?.held == id {
+                return moveNodeFinger(to: finger)
+            }
             guard let held = drag, held.lifted == id else { return }
             cardTop = finger.inRail - held.grab
             edges?.move(to: finger.inScrollView)
             follow(id)
         case .ended, .cancelled:
+            if let held = regrouping, held.held == id {
+                edges?.letGo()
+                let goesBack = phase == .cancelled || edges?.isOutside(finger.inScrollView) == true
+                return letGoOfNode(held, goingBack: goesBack)
+            }
             guard let released = drag, released.lifted == id, !released.isReleased else { return }
             edges?.letGo()
             // Let go over a bar, or past the screen's edge, the row goes back.
@@ -287,7 +324,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
 }
 
 /// Rows' heights by id, in a box, so writing one doesn't redraw the rail.
-private final nonisolated class RowHeights<ID: Hashable> {
+final nonisolated class RowHeights<ID: Hashable> {
     var byID: [ID: CGFloat] = [:]
 }
 

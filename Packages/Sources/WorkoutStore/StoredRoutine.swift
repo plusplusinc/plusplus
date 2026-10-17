@@ -38,6 +38,9 @@ final class StoredRoutineExercise {
     var weight: Double?
     /// `WeightUnit`'s raw value; set with `weight`, or both nil.
     var weightUnit: String?
+    /// The superset the row is in, shared with the rows next to it in it; nil for a plain row,
+    /// and for every row saved before supersets.
+    var supersetID: UUID?
 
     init(id: UUID, exerciseID: String, position: Int) {
         self.id = id

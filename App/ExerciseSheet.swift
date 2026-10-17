@@ -7,6 +7,8 @@ import WorkoutStore
 /// the menu.
 struct ExerciseSheet: View {
     @Binding var item: RoutineExercise
+    /// The exercises in a superset with it, which share its round count.
+    let partners: [String]
     let onDelete: () -> Void
 
     @State private var open: PlanPart?
@@ -26,9 +28,10 @@ struct ExerciseSheet: View {
                         }
                         ForEach(item.exercise.planParts, id: \.self) { part in
                             ValueRow(
-                                label: item.label(of: part),
+                                label: label(of: part),
+                                note: note(on: part),
                                 value: item.value(of: part, locale: locale),
-                                spokenValue: item.spokenValue(of: part, locale: locale),
+                                spokenValue: spokenValue(of: part),
                                 isOpen: open == part,
                                 canDecrease: item.canStep(part, by: -1),
                                 canIncrease: item.canStep(part, by: 1),
@@ -65,6 +68,23 @@ struct ExerciseSheet: View {
         .hotReloadable()
     }
 
+    /// In a superset, sets are rounds, shared with its partners.
+    private func label(of part: PlanPart) -> String {
+        part == .sets && !partners.isEmpty ? "Rounds" : item.label(of: part)
+    }
+
+    /// Rounds read as the bare count under their label, "Rounds, 3", not "3 sets".
+    private func spokenValue(of part: PlanPart) -> String {
+        part == .sets && !partners.isEmpty
+            ? item.value(of: part, locale: locale)
+            : item.spokenValue(of: part, locale: locale)
+    }
+
+    private func note(on part: PlanPart) -> String? {
+        guard part == .sets, !partners.isEmpty else { return nil }
+        return "Shared with \(partners.formatted(.list(type: .and)))"
+    }
+
     /// Opens or closes a part's stepper. Once one has opened, the sheet scrolls only as far as
     /// it takes to show the whole row, its keys below its edge included, so a row in view stays
     /// put.
@@ -89,6 +109,6 @@ struct ExerciseSheet: View {
     )
     Color.pp(.background)
         .sheet(isPresented: .constant(true)) {
-            ExerciseSheet(item: $item) { }
+            ExerciseSheet(item: $item, partners: ["Pull-up"]) { }
         }
 }
