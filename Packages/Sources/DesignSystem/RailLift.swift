@@ -11,20 +11,34 @@ struct RailDragState<ID: Hashable> {
     var grab: CGFloat
     /// Let go, and settling into the gap.
     var isReleased = false
+    /// The finger is over a bar, or past the screen's edge, where letting go sends the row back.
+    var isOverBar = false
+    /// The rows in order when it was lifted, which name each row's node in the rail's drawing
+    /// through the drop, as the rows change order.
+    var rows: [ID] = []
+
+    /// The slot the rows show: the gap's, or, over a bar, where the row started, since a drop
+    /// there sends it back.
+    var shownSlot: RailSlot<ID> {
+        isOverBar ? origin : slot
+    }
 }
 
 extension View {
-    /// A hold on this row lifts it, on iOS; a press in the rail column lifts nothing.
+    /// A hold on this row lifts it, on iOS. A press in the rail column, on the node, holds the
+    /// node when `allowsColumn`, and otherwise does nothing.
     @ViewBuilder
     func liftable(
         isEnabled: Bool,
         columnWidth: CGFloat,
+        allowsColumn: Bool,
         onPhase: @escaping (RailDrag.Phase, RailDrag.Finger) -> Void,
     ) -> some View {
         #if os(iOS)
         gesture(RailLiftGesture(
             isEnabled: isEnabled,
             columnWidth: columnWidth,
+            allowsColumn: allowsColumn,
             onPhase: onPhase,
         ))
         #else
@@ -33,17 +47,30 @@ extension View {
     }
 }
 
-/// The held row's card: it appears at rest over its row and rises, a little larger and turned,
-/// its node in the color of the text. Released, it lowers to look like the row at rest.
+/// The held row's card: it appears at rest over its row and rises, its own size, its node in the
+/// color of the text. Over its fill it draws the rail's strokes behind it, `strokes`, cut to its
+/// shape, as though it were clear, so whatever the card's offset from its gap, card and rail line
+/// up and nothing shows twice; it draws no stroke of its own. Released, it lowers to look like the
+/// row at rest.
 struct CardLook: ViewModifier {
     let isReleased: Bool
+    /// The rail's drawing, and the card's top in the rail's space, which places it.
+    let strokes: HeldRailDrawing?
+    let top: CGFloat
     @State private var hasRisen: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
     /// `hasRisen` draws it already risen, for a preview or a snapshot of a moment of a drag.
-    init(isReleased: Bool, hasRisen: Bool = false) {
+    init(
+        isReleased: Bool,
+        hasRisen: Bool = false,
+        strokes: HeldRailDrawing? = nil,
+        top: CGFloat = 0,
+    ) {
         self.isReleased = isReleased
+        self.strokes = strokes
+        self.top = top
         _hasRisen = State(initialValue: hasRisen)
     }
 
@@ -53,11 +80,9 @@ struct CardLook: ViewModifier {
             .environment(\.railPlace, RailPlace(drawsOwnLine: false, isRaised: isRaised))
             .backgroundPreferenceValue(RailNodes.self) { nodes in
                 if let node = nodes.first {
-                    LiftedCard(node: node, isLifted: isRaised)
+                    LiftedCard(node: node, isLifted: isRaised, strokes: strokes, top: top)
                 }
             }
-            .scaleEffect(isRaised ? RailDrag.liftedScale : 1)
-            .rotationEffect(isRaised ? RailDrag.liftedRotation : .zero)
             .onAppear {
                 withAnimation(reduceMotion ? nil : RailDrag.lift) { hasRisen = true }
             }
@@ -65,72 +90,92 @@ struct CardLook: ViewModifier {
     }
 }
 
-/// A held row's card: a raised fill, with no shadow or border. Its node sits as far in from the
-/// leading edge as from the top, and its corners are close to concentric with the node: their
-/// radius is that inset plus the node's. It is centered on the row, so on a screen whose rows are,
-/// its edges are as far from the screen's, and the row's content stops that inset short of its
-/// trailing edge. It is as tall as the row. At rest, it is not drawn.
+/// A held row's card: `CardFill` behind the row, as tall as it, with a soft shadow all around
+/// that fades in and out with it. At rest, it is not drawn.
 struct LiftedCard: View {
     let node: Anchor<CGPoint>
     let isLifted: Bool
-    @ScaledMetric(relativeTo: .body) private var nodeSize = railNodeSize
+    var strokes: HeldRailDrawing?
+    /// The card's top in the rail's space. The drawing is moved up by it rather than drawn from
+    /// moved nodes, so the finger moving the card leaves the drawing's own animation running.
+    var top: CGFloat = 0
     @ObserveHotReload private var hotReload
 
     var body: some View {
         GeometryReader { proxy in
-            let center = proxy[node]
-            let radius = nodeSize / 2
-            let inset = center.y - radius
-            let leading = center.x - radius - inset
-            let trailing = proxy.size.width - leading
-            // Continuous, like the app's other shapes, at the cost of sitting about a point off
-            // true concentric with the node.
-            RoundedRectangle(cornerRadius: inset + radius, style: .continuous)
-                .fill(.pp(.surfaceRaised))
-                .frame(width: trailing - leading, height: proxy.size.height)
-                .offset(x: leading)
+            CardFill(node: proxy[node], size: proxy.size)
+                .shadow(color: .pp(.shadow), radius: RailDrag.liftedShadow)
+            strokes?
+                .offset(y: -top)
+                .mask { CardFill(node: proxy[node], size: proxy.size) }
         }
         .opacity(isLifted ? 1 : 0)
         .hotReloadable()
     }
 }
 
-/// Every node's center on a rail, from the first row to the last, so the line can be drawn once
-/// from the first to the last while a row is held.
+/// The raised fill of a held row's card, with no shadow or border, behind a row or a stretch of
+/// rows, `size` big, whose first node is at `node`, from its top leading corner. The node sits as
+/// far in from the fill's leading edge as from its top, and its corners are close to concentric
+/// with the node: their radius is that inset plus the node's. It is centered across `size`, so on
+/// a screen whose rows are, its edges are as far from the screen's, and a row's content stops that
+/// inset short of its trailing edge.
+struct CardFill: View {
+    let node: CGPoint
+    let size: CGSize
+    @ScaledMetric(relativeTo: .body) private var nodeSize = railNodeSize
+    @ObserveHotReload private var hotReload
+
+    var body: some View {
+        let (inset, leading) = Self.insets(node: node, nodeSize: nodeSize)
+        // Continuous, like the app's other shapes, at the cost of sitting about a point off true
+        // concentric with the node.
+        RoundedRectangle(cornerRadius: inset + nodeSize / 2, style: .continuous)
+            .fill(.pp(.surfaceRaised))
+            .frame(width: max(size.width - 2 * leading, 0), height: size.height)
+            .frame(width: size.width, height: size.height, alignment: .leading)
+            .offset(x: leading)
+            .hotReloadable()
+    }
+
+    /// How far the node, at `node` from the fill's top leading corner, is in from its top, and
+    /// where the fill's leading edge is: as far in from it as from the top.
+    static func insets(node: CGPoint, nodeSize: CGFloat) -> (top: CGFloat, leading: CGFloat) {
+        let top = node.y - nodeSize / 2
+        return (top, node.x - nodeSize / 2 - top)
+    }
+}
+
+/// Each row's node's center on a rail, by the row's id.
+struct RowNodes: PreferenceKey {
+    static let defaultValue: [AnyHashable: Anchor<CGPoint>] = [:]
+
+    static func reduce(
+        value: inout [AnyHashable: Anchor<CGPoint>],
+        nextValue: () -> [AnyHashable: Anchor<CGPoint>],
+    ) {
+        value.merge(nextValue()) { first, _ in first }
+    }
+}
+
+/// How far down each row its node is, by the row's id.
+struct RowNodeInsets: PreferenceKey {
+    static let defaultValue: [AnyHashable: CGFloat] = [:]
+
+    static func reduce(
+        value: inout [AnyHashable: CGFloat],
+        nextValue: () -> [AnyHashable: CGFloat],
+    ) {
+        value.merge(nextValue()) { first, _ in first }
+    }
+}
+
+/// Every node's center in a view, in order: on a rail, the rows', which place the regroup field,
+/// and each row's own, read by id (`RowNodes`); on a card, its own.
 struct RailNodes: PreferenceKey {
     static let defaultValue: [Anchor<CGPoint>] = []
 
     static func reduce(value: inout [Anchor<CGPoint>], nextValue: () -> [Anchor<CGPoint>]) {
         value += nextValue()
-    }
-}
-
-/// The line from the first node to the last, drawn once under the rows while one is held. Its
-/// ends are where the nodes are once the rows settle, and they move in the gap's transaction.
-///
-/// With the gap at an end of the rail, its node is hidden and the card is over it, a little above
-/// or below as the finger has it. Moved in from that end, the card would leave a stub of line
-/// past its edge, so the line ends at the card's node instead: it never shows past the card.
-struct DragLine: View {
-    let nodes: [Anchor<CGPoint>]
-    /// How far below its gap the card is.
-    let cardOffset: CGFloat
-    let isGapFirst: Bool
-    let isGapLast: Bool
-    @ScaledMetric(relativeTo: .body) private var lineWidth = railLineWidth
-    @ObserveHotReload private var hotReload
-
-    var body: some View {
-        GeometryReader { proxy in
-            if let first = nodes.first, let last = nodes.last {
-                let top = proxy[first].y + (isGapFirst ? max(cardOffset, 0) : 0)
-                let bottom = proxy[last].y + (isGapLast ? min(cardOffset, 0) : 0)
-                Rectangle()
-                    .fill(.pp(.rail))
-                    .frame(width: lineWidth, height: max(bottom - top, 0))
-                    .position(x: proxy[first].x, y: (top + bottom) / 2)
-            }
-        }
-        .hotReloadable()
     }
 }

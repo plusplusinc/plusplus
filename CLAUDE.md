@@ -18,9 +18,12 @@ own sets, reps or time, and weight, starting at the exercise's defaults and save
 routine; its row reads them, saying when a number is per side, and the routine's equipment
 shows under its title. Tapping a row opens its values in a sheet, a row per value with a − / +
 stepper, and Delete in its menu. Holding a row lifts it, and dragging moves it to a new place,
-scrolling the list near its edges; VoiceOver moves it with Move up and Move down.
-`WorkoutStore` holds the domain types, the first stored models behind `RoutineStore`, and the
-namer. Nothing syncs yet.
+scrolling the list near its edges; VoiceOver moves it with Move up and Move down. Holding a
+row's dot and dragging over other rows joins them into a superset, which a loop beside the rail
+marks and whose rows share one round count; an end's dot moves that end, a body drag carries a
+row in or out, and VoiceOver joins and leaves with actions. `WorkoutStore` holds the domain
+types, the first stored models behind `RoutineStore`, the namer, and the order a superset's sets
+go in. Nothing syncs yet.
 
 ## Architecture
 

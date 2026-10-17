@@ -10,12 +10,14 @@ import UIKit
 /// cancelled. It goes outside a row's tap and swipe actions: inside a SwiftUI tap, which has no
 /// time limit and so never fails during a still hold, it never began.
 ///
-/// A press on the node, in the rail column, fails as the hold fires, so it lifts nothing and
-/// can still scroll.
+/// A press on the node, in the rail column, holds the node when `allowsColumn`; otherwise it
+/// fails as the hold fires, so it lifts nothing and can still scroll. Either way a press that
+/// moves first scrolls.
 struct RailLiftGesture: UIGestureRecognizerRepresentable {
     var isEnabled: Bool
-    /// How wide the rail column is, where a press lifts nothing.
+    /// How wide the rail column is, where a press holds the node rather than lifting the row.
     var columnWidth: CGFloat
+    var allowsColumn: Bool
     /// Each step of the drag, with where the finger is.
     var onPhase: (RailDrag.Phase, RailDrag.Finger) -> Void
 
@@ -37,15 +39,18 @@ struct RailLiftGesture: UIGestureRecognizerRepresentable {
     ) {
         recognizer.isEnabled = isEnabled
         context.coordinator.columnWidth = columnWidth
+        context.coordinator.allowsColumn = allowsColumn
     }
 
     func handleUIGestureRecognizerAction(
         _ recognizer: UILongPressGestureRecognizer,
         context: Context,
     ) {
+        let inRail = context.converter.location(in: .named(RailDrag.space))
         let finger = RailDrag.Finger(
-            inRail: context.converter.location(in: .named(RailDrag.space)).y,
+            inRail: inRail.y,
             inScrollView: context.converter.location(in: .named(RailDrag.scrollSpace)).y,
+            inColumn: inRail.x <= context.coordinator.columnWidth,
         )
         switch recognizer.state {
         case .began: onPhase(.began, finger)
@@ -59,13 +64,14 @@ struct RailLiftGesture: UIGestureRecognizerRepresentable {
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
         private let converter: CoordinateSpaceConverter
         var columnWidth: CGFloat = 0
+        var allowsColumn = false
 
         init(converter: CoordinateSpaceConverter) {
             self.converter = converter
         }
 
         func gestureRecognizerShouldBegin(_: UIGestureRecognizer) -> Bool {
-            converter.location(in: .named(RailDrag.space)).x > columnWidth
+            allowsColumn || converter.location(in: .named(RailDrag.space)).x > columnWidth
         }
     }
 }

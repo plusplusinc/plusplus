@@ -27,6 +27,9 @@ enum RailEntry {
     /// that stays lit reads as a state, not an arrival.
     static let hold: TimeInterval = 0.1
     static let settle: TimeInterval = 0.3
+    /// How long the raised field a node's drag drew takes to fade on the drop, before the new
+    /// group's loop flashes, so the two never show at once.
+    static let fieldFade: TimeInterval = 0.1
 
     /// When the node and the content land, from when the row is let go: as the line lands, the
     /// first row's too, or at once with Reduce Motion.
@@ -43,6 +46,16 @@ enum RailEntry {
     /// the space grows as far as the line on every frame. With Reduce Motion, it opens at once.
     static func space(reduceMotion: Bool) -> Animation? {
         shot(from: 0, to: 1, reduceMotion: reduceMotion)
+    }
+
+    /// How much of `railJoin` a group a node's drag made shows: none while the field fades, then
+    /// all of it at once, through the pop and the hold, as a new node does, then none.
+    @KeyframesBuilder<Double>
+    static func groupFlash() -> some Keyframes<Double> {
+        LinearKeyframe(0, duration: fieldFade)
+        MoveKeyframe(1)
+        LinearKeyframe(1, duration: pop + hold)
+        LinearKeyframe(0, duration: settle, timingCurve: .easeOut)
     }
 
     /// How much of `railJoin` the new node shows: all of it through the landing and the hold, then

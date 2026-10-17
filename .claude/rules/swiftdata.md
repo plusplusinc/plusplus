@@ -29,7 +29,10 @@ range or for the other measure; a weight never stored, or in an unknown unit, re
 exercise's starting weight in the region's unit, which `launchRoutine(weightUnit:)` is given. A
 saved weight keeps its own unit. Every save stores every
 row's plan, default or not, setting only the fields that changed, so an unchanged row stays
-clean. The store calls `save()` itself, since an
+clean. A row's `supersetID`, optional, joins it to the rows next to it with the same id; a
+routine is normalized as it loads (`normalizeSupersets()`): a split run gets a second id, a run
+of one goes plain, and a superset's rows take its first row's sets, so a routine saved before
+supersets opens with every row plain. The store calls `save()` itself, since an
 actor's context does not autosave. An empty routine is deleted rather than stored, and every save
 marks the routine edited, since a routine saves only when its name or rows changed.
 

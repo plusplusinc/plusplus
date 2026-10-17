@@ -12,8 +12,8 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   `Font.pp*` or a `.pp*Font()` modifier, `Spacing`, and `Radius` from `DesignSystem`. If a
   token is missing, add a `ColorToken` case and its colorset. Green (`accent`) is what's
   active, and a value that went up.
-  Blue (`railJoin`) marks something arriving: a row joining a rail, and a generated name typing
-  into the title, for the moment it arrives, then gives way to the thing's own color; nothing
+  Blue (`railJoin`) marks something arriving: a row joining a rail, a superset a node's drag
+  just made, and a generated name typing into the title, for the moment it arrives, then gives way to the thing's own color; nothing
   rests in it.
 - Numbers on a row's detail line and in a sheet's values are SF Mono, set with
   `AttributedString.monoNumbers(_:font:)`; the words around them stay in the system font.
@@ -48,12 +48,13 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   the entry plays a moment into the sheet's slide, or, when the new row has pushed the list's
   end out of view, after a scroll to the end.
 - A row on a rail moves by holding and dragging (`RailDrag` holds every value). A hold of 0.4 s
-  that moves under 10 pt lifts it; a press that moves first is a scroll, and one in the rail
-  column, on the node, lifts nothing. The hold is a UIKit long press (`RailLiftGesture`), put
+  that moves under 10 pt lifts it; a press that moves first is a scroll, and a hold in the rail
+  column, on the node, draws a superset instead (below). The hold is a UIKit long press (`RailLiftGesture`), put
   outside the row's tap and swipe actions: SwiftUI's long press stops a scroll view scrolling,
   and inside a SwiftUI tap, which never fails during a still hold, the UIKit one never began.
   The row rises into a card on `.snappy(0.18)` with a light impact haptic: the same row drawn
-  over the rail on `surfaceRaised`, scaled 1.03 and turned −0.6°, no shadow, border, or grip,
+  over the rail on `surfaceRaised`, level and unscaled, a soft centered `shadow` all
+  around it (blur 8, fading with the lift), no border or grip,
   its node in the text's color. The card is centered on the row, its node inset from its top and
   leading edges alike, the row's content ending that inset short of its trailing edge, with
   continuous corners of that inset plus the node's radius. It follows the finger with no
@@ -69,6 +70,26 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   release over a bar, or a system cancel, sends it back on `.snappy(0.25)`. With Reduce Motion the card shows lifted at once and the gap and the
   drop jump, but the haptics stay. VoiceOver moves a row with Move up and Move down, none where
   it would do nothing, and announces the row it passed ("Moved above Plank").
+- A superset on a rail is a loop beside the line (`GroupLoop`, `LoopPen`): one stroke from its
+  last node back up to its first, in the line's gray (`rail`, the resting nodes' gray, at least
+  3:1 on the background), continuous corners, with a filled head in each gap between members,
+  halfway between their nodes, the stroke stopping short of its tip. A superset's top and bottom
+  edges are each two slots for a row moved by its body, inside (the loop wraps the gap) and,
+  `edgeSlotSpread` (24 pt) further, outside, each with the reorder's tick. A hold on a node
+  draws a superset (`Rail+Regroup.swift`, the rule in `RailRegroup`, the caller's): the press
+  shows what it picked up in a field, the held card's `CardFill` and shadow stretched over the
+  rows, an end's whole superset or the row alone; the drag spans from the anchor to the row
+  under the finger, with "Superset" at the field's top trailing corner while the drop would
+  make one, and the reorder's tick at each change. A drop commits it with a light impact; the
+  field fades (0.1 s), then the new loop shows `railJoin` and cools as a new node does
+  (`RailEntry.groupFlash()`). While anything is held, rows draw no strokes: the rail draws the
+  line and every loop once, as the drop would leave them (`RailDrawing` for a node's drag,
+  `HeldRailDrawing` for a body's), every end and head on a real node, the held row's at the
+  card, and the card draws the same drawing over its fill. Shapes animate their nodes and joins
+  on the moving transaction; with Reduce Motion the rows jump, the loops crossfade (0.2 s),
+  there is no flash, and the haptics stay. A row swiped open hides its superset's loop. VoiceOver
+  reads a member's value as "In a superset with" its partners, and offers "Superset with" each
+  neighbor it isn't joined to, and "Move out of superset" on a member.
 - A generated name arrives in the title on its own clock (`SuggestionTiming`, one
   `TimelineView`): the old name fades out (0.15 s), then the new one types in, a character
   every 20 ms, each letter shuffling through the name's other letters in `railJoin` for 50 ms,

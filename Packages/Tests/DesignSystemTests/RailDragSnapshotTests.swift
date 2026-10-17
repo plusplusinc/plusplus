@@ -28,6 +28,7 @@ struct RailDragSnapshotTests {
     /// `rows` with the row at `lifted` held over `slot`, its card `offset` below the gap.
     private func rail(
         _ rows: [Row] = Self.rows,
+        links: Set<UUID> = [],
         lifting lifted: Int,
         origin: RailSlot<UUID>,
         over slot: RailSlot<UUID>,
@@ -35,6 +36,7 @@ struct RailDragSnapshotTests {
     ) -> some View {
         Rail(
             rows,
+            links: links,
             drag: RailDragState(lifted: rows[lifted].id, origin: origin, slot: slot, grab: 20),
             cardOffset: offset,
         ) { row in
@@ -81,6 +83,40 @@ struct RailDragSnapshotTests {
         let own = RailSlot.before(rows[1].id)
         assertThemedSnapshots(
             of: rail(lifting: 0, origin: own, over: own, offset: 30),
+            width: Self.screenWidth,
+        )
+    }
+
+    /// The rail draws the pair as the drop would leave it, B then the held row, its loop running
+    /// to the card's node, not the empty gap's; the card shows that loop's stretch over its fill.
+    @Test("A pair's first row held inside its bottom edge, the card below its gap")
+    func pairMemberInsideBottomEdge() {
+        let rows = Self.rows
+        assertThemedSnapshots(
+            of: rail(
+                links: [rows[1].id],
+                lifting: 1,
+                origin: .before(rows[2].id, joining: .below),
+                over: .before(rows[3].id, joining: .above),
+                offset: 24,
+            ),
+            width: Self.screenWidth,
+        )
+    }
+
+    /// Past the inside slot, the pair lets go of the held row: the partner below draws plain, no
+    /// loop on the rail or the card.
+    @Test("A pair's first row held outside its bottom edge, plain")
+    func pairMemberOutsideBottomEdge() {
+        let rows = Self.rows
+        assertThemedSnapshots(
+            of: rail(
+                links: [rows[1].id],
+                lifting: 1,
+                origin: .before(rows[2].id, joining: .below),
+                over: .before(rows[3].id),
+                offset: 40,
+            ),
             width: Self.screenWidth,
         )
     }
