@@ -21,8 +21,7 @@ case "$MODE" in
     sim)
         # Whatever the last session left on the simulator (dark mode, a minimized keyboard) is
         # what the UI tests would see. Only a worktree's own simulator is reset: the reset can
-        # reboot, and any other simulator is a person's.
-        ensure_simulator
+        # reboot, and any other simulator is a person's. The reset creates it on first use.
         if is_own_simulator; then
             "$ROOT/scripts/sim.sh" reset
         else

@@ -51,10 +51,10 @@ delete_simulator() {
     read -r udid state < <(simulator_udid "$name") || return 0
     echo "tidy: delete simulator \"$name\""
     [ "$DRY_RUN" -eq 1 ] && return 0
-    if [ "$state" = Booted ]; then
-        xcrun simctl shutdown "$udid"
+    # The worktree is already gone, so a failure here says so and lets the rest of the run go on.
+    if ! { [ "$state" != Booted ] || xcrun simctl shutdown "$udid"; } || ! xcrun simctl delete "$udid"; then
+        echo "tidy: could not delete simulator \"$name\" ($udid); delete it with xcrun simctl" >&2
     fi
-    xcrun simctl delete "$udid"
 }
 
 # Whether a merged PR contains this tip. Fetches the PR's head when the commit is not local.
