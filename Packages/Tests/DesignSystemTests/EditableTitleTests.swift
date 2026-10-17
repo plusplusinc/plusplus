@@ -120,14 +120,14 @@ struct EditableTitleTests {
         #expect(EditableTitle.insertionPoint(of: caret.selection, in: draft) == draft.endIndex)
     }
 
-    @Test("The empty field reserves as many lines as the default text drawn in its place")
+    @Test("A measured height holds as many lines as fit, rounded to the pixel grid")
     func lineCount() {
-        // At AX5 a line of the title is 68pt; "New routine" wraps to two.
+        // At AX5 a line of the title is 68pt.
         #expect(EditableTitle.lineCount(height: 136, lineHeight: 68) == 2)
         // Heights measured on the pixel grid are a fraction off.
         #expect(EditableTitle.lineCount(height: 135.33, lineHeight: 68) == 2)
         #expect(EditableTitle.lineCount(height: 29, lineHeight: 29) == 1)
-        // Before anything is measured, the field is one line, as it was.
+        // Before anything is measured, one line.
         #expect(EditableTitle.lineCount(height: 0, lineHeight: 0) == 1)
         #expect(EditableTitle.lineCount(height: 0, lineHeight: 29) == 1)
     }
@@ -172,6 +172,8 @@ struct EditableTitleTests {
         #expect(EditableTitle.lineBreaks(in: "Legs and back", columns: 13).isEmpty)
         #expect(EditableTitle.lineBreaks(in: "Shoulderpress", columns: 4) == [4, 8, 12])
         #expect(EditableTitle.lineBreaks(in: "Push-pull", columns: 6) == [5])
+        // Spaces past a full line hang past its edge rather than starting another.
+        #expect(EditableTitle.lineBreaks(in: "Push      ", columns: 4).isEmpty)
     }
 
     @Test("A word longer than a line breaks between characters")

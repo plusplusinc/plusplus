@@ -34,7 +34,9 @@ What each tier holds today:
   every stepper closed and with one open; the sheet and its bar are the system's. A held row is
   drawn at a moment of its drag through `Rail`'s internal initializer, its card placed relative
   to its gap and already risen: over its own gap, with the gap moved, first in the rail, and
-  alone.
+  alone. A snapshot draws each text size fresh, so the title's height after a live text size
+  change is held by `EditableTitleTextSizeTests`, which hosts `EditableTitleContent` in a window
+  and changes the window's content size category, the field focused and not.
 - **UI tests** hold only what needs the real keyboard, text system, frames, or a relaunch:
   typing, Return, arrows, taps, range selection, the keyboard's edge, scrolling as the keyboard
   rises, and VoiceOver frames; the exercise picker, system chrome composed in the app, which has
