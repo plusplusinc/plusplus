@@ -138,47 +138,55 @@ private struct RailRow: ViewModifier {
         .backgroundPreferenceValue(NodeCenter.self) { center in
             GeometryReader { proxy in
                 // While a row is held, the rail draws every stroke once, under the rows, and the
-                // card draws it again over its fill.
-                // Kept while a row is held, only hidden, so a group a drop makes flashes.
+                // card draws it again over its fill. The row's own strokes are kept then, only
+                // hidden, so a group a drop makes flashes, and so they show again at once, in the
+                // frame the rail's drawing goes: added back, they would fade in on the
+                // transaction that lets go, and the line would go missing for a moment.
                 if let center {
-                    GroupLoop(
-                        node: proxy[center],
-                        height: proxy.size.height,
-                        link: place.link,
-                        flashes: place.flashes,
-                    )
-                    .opacity(place.isLoopHidden ? 0 : 1)
-                    .animation(.snappy(duration: 0.2), value: place.isLoopHidden)
-                    // The rail's drawing gives way to it at once, the two drawn alike.
+                    let node = proxy[center]
+                    Group {
+                        GroupLoop(
+                            node: node,
+                            height: proxy.size.height,
+                            link: place.link,
+                            flashes: place.flashes,
+                        )
+                        .opacity(place.isLoopHidden ? 0 : 1)
+                        .animation(.snappy(duration: 0.2), value: place.isLoopHidden)
+                        spine(node: node, height: proxy.size.height)
+                    }
+                    // The rail's drawing gives way to them at once, the two drawn alike.
                     .opacity(place.drawsOwnLine ? 1 : 0)
                     .transaction(value: place.drawsOwnLine) { $0.animation = nil }
-                }
-                if let center, place.drawsOwnLine {
-                    let node = proxy[center]
-                    let top = place.isFirst ? node.y : 0
-                    let above = place.isArriving ? top : node.y
-                    let below = place.isLast ? node.y : proxy.size.height
-                    let split = RailEntry.split(height: proxy.size.height, node: node.y)
-                    Rectangle()
-                        .fill(.pp(.rail))
-                        .frame(width: lineWidth, height: above - top)
-                        .position(x: node.x, y: (top + above) / 2)
-                        .entry(
-                            RailEntry.shot(from: split, to: 1, reduceMotion: reduceMotion),
-                            value: place.isArriving,
-                        )
-                    Rectangle()
-                        .fill(.pp(.rail))
-                        .frame(width: lineWidth, height: below - node.y)
-                        .position(x: node.x, y: (node.y + below) / 2)
-                        .entry(
-                            RailEntry.shot(from: 0, to: split, reduceMotion: reduceMotion),
-                            value: place.isLast,
-                        )
                 }
             }
         }
         .hotReloadable()
+    }
+
+    /// The row's stretch of line, above its node and below it.
+    @ViewBuilder
+    private func spine(node: CGPoint, height: CGFloat) -> some View {
+        let top = place.isFirst ? node.y : 0
+        let above = place.isArriving ? top : node.y
+        let below = place.isLast ? node.y : height
+        let split = RailEntry.split(height: height, node: node.y)
+        Rectangle()
+            .fill(.pp(.rail))
+            .frame(width: lineWidth, height: above - top)
+            .position(x: node.x, y: (top + above) / 2)
+            .entry(
+                RailEntry.shot(from: split, to: 1, reduceMotion: reduceMotion),
+                value: place.isArriving,
+            )
+        Rectangle()
+            .fill(.pp(.rail))
+            .frame(width: lineWidth, height: below - node.y)
+            .position(x: node.x, y: (node.y + below) / 2)
+            .entry(
+                RailEntry.shot(from: 0, to: split, reduceMotion: reduceMotion),
+                value: place.isLast,
+            )
     }
 }
 
