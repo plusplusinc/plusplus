@@ -31,7 +31,7 @@ struct ExerciseSheet: View {
                                 label: label(of: part),
                                 note: note(on: part),
                                 value: item.value(of: part, locale: locale),
-                                spokenValue: item.spokenValue(of: part, locale: locale),
+                                spokenValue: spokenValue(of: part),
                                 isOpen: open == part,
                                 canDecrease: item.canStep(part, by: -1),
                                 canIncrease: item.canStep(part, by: 1),
@@ -71,6 +71,13 @@ struct ExerciseSheet: View {
     /// In a superset, sets are rounds, shared with its partners.
     private func label(of part: PlanPart) -> String {
         part == .sets && !partners.isEmpty ? "Rounds" : item.label(of: part)
+    }
+
+    /// Rounds read as the bare count under their label, "Rounds, 3", not "3 sets".
+    private func spokenValue(of part: PlanPart) -> String {
+        part == .sets && !partners.isEmpty
+            ? item.value(of: part, locale: locale)
+            : item.spokenValue(of: part, locale: locale)
     }
 
     private func note(on part: PlanPart) -> String? {

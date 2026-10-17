@@ -226,6 +226,8 @@ struct RoutineSupersetTests {
         #expect(!start.canJoin(id("B"), .below))
         #expect(start.canJoin(id("C"), .below))
         #expect(!start.canJoin(id("D"), .below))
+        #expect(start.neighbor(of: id("A"), .below)?.id == id("B"))
+        #expect(start.neighbor(of: id("A"), .above) == nil)
         var joined = start
         joined.join(id("D"), .above)
         #expect(shape(joined) == "A B-C-D")

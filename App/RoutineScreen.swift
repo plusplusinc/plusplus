@@ -106,7 +106,7 @@ struct RoutineScreen: View {
                             editing = item
                         }
                         .accessibilityAddTraits(.isButton)
-                        .accessibilityValue(routine.isInSuperset(item.id) ? "In a superset" : "")
+                        .accessibilityValue(supersetValue(item.id))
                         // None where it would do nothing: at an end, or with one row.
                         .accessibilityActions {
                             if let up = routine.slotMovingUp(item.id) {
@@ -342,15 +342,20 @@ extension RoutineScreen {
     /// VoiceOver's superset actions on a row, none where it would do nothing.
     @ViewBuilder
     private func supersetActions(_ id: RoutineExercise.ID) -> some View {
-        if routine.canJoin(id, .above) {
-            Button("Superset with exercise above") { join(id, .above) }
-        }
-        if routine.canJoin(id, .below) {
-            Button("Superset with exercise below") { join(id, .below) }
+        ForEach([RoutineNeighbor.above, .below], id: \.self) { side in
+            if routine.canJoin(id, side), let other = routine.neighbor(of: id, side) {
+                Button("Superset with \(other.exercise.name)") { join(id, side) }
+            }
         }
         if routine.isInSuperset(id) {
             Button("Move out of superset") { leaveSuperset(id) }
         }
+    }
+
+    /// A member's partners, by name, so two supersets next to each other read apart.
+    private func supersetValue(_ id: RoutineExercise.ID) -> String {
+        let names = routine.partners(of: id).map(\.exercise.name)
+        return names.isEmpty ? "" : "In a superset with \(names.formatted(.list(type: .and)))"
     }
 
     /// Joining and parting rows by a drag from a row's node, by the routine's rules.
@@ -372,10 +377,7 @@ extension RoutineScreen {
         withAnimation(.railChange) {
             routine.join(id, side)
         }
-        let names = routine.partners(of: id).map(\.exercise.name)
-        AccessibilityNotification.Announcement(
-            "In a superset with \(names.formatted(.list(type: .and)))",
-        ).post()
+        AccessibilityNotification.Announcement(supersetValue(id)).post()
     }
 
     private func leaveSuperset(_ id: RoutineExercise.ID) {

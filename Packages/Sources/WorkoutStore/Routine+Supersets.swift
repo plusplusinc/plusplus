@@ -132,12 +132,17 @@ extension Routine {
     /// Whether `id` and its neighbor on `side` could be joined: there is one, and they aren't in
     /// one superset yet.
     public func canJoin(_ id: RoutineExercise.ID, _ side: RoutineNeighbor) -> Bool {
-        neighbor(of: id, side).map { !isJoined($0.index, $0.other) } ?? false
+        neighborIndices(of: id, side).map { !isJoined($0.index, $0.other) } ?? false
+    }
+
+    /// The row next to `id` on `side`, if there is one.
+    public func neighbor(of id: RoutineExercise.ID, _ side: RoutineNeighbor) -> RoutineExercise? {
+        neighborIndices(of: id, side).map { exercises[$0.other] }
     }
 
     /// Joins `id` with its neighbor on `side`, as a drag of its node onto the neighbor's would.
     public mutating func join(_ id: RoutineExercise.ID, _ side: RoutineNeighbor) {
-        guard canJoin(id, side), let pair = neighbor(of: id, side) else { return }
+        guard canJoin(id, side), let pair = neighborIndices(of: id, side) else { return }
         regroup(holding: id, reaching: exercises[pair.other].id)
     }
 
@@ -178,7 +183,7 @@ extension Routine {
         return exercises[second].supersetID == superset
     }
 
-    private func neighbor(
+    private func neighborIndices(
         of id: RoutineExercise.ID,
         _ side: RoutineNeighbor,
     ) -> (index: Int, other: Int)? {
