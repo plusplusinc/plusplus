@@ -49,9 +49,14 @@ What each tier holds today:
   `RoutineAutosaveUITests/testRoutineSurvivesRelaunch`, which relaunches four times. A new
   check extends the test for its launch as a named `XCTContext.runActivity`; a new test needs a
   launch argument no existing test uses. Every test launches with `-resetStore YES`, so it
-  starts from a new routine and not the one the last test saved, and the relaunch test with
-  `-fallbackNames YES`, muscle-group names, which a test can predict where the standard names
-  follow the routine's fresh id (both are `LaunchOptions`, Debug only). Where the caret is shows in where typing lands, so they read it
+  starts from a new routine and not the one the last test saved, and with `-noUIKitAnimations
+  YES`, and the relaunch test with `-fallbackNames YES`, muscle-group names, which a test can
+  predict where the standard names follow the routine's fresh id (all `LaunchOptions`, Debug
+  only). With UIKit's animations off, the keyboard and sheets appear at once, and XCTest's wait
+  for animations has nothing to miscount: UIKit sometimes reports a keyboard rise's or a sheet's
+  animation starting twice and stopping once, and every later wait in that launch ran out its
+  60 s. SwiftUI's animations still run, so a test that reads what one moves waits for its end
+  state; an added row is in the accessibility tree only once it starts to enter. Where the caret is shows in where typing lands, so they read it
   from the field's value; one check reads the drawn `_` from pixels, for the wire from the text
   system's selection to it. `TitleShot.swift` reads the `_`, the title's lines, and its contrast
   from pixels: a name, typed or generated, reaches further from the background than the
