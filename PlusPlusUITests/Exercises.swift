@@ -98,6 +98,63 @@ extension XCUIElement {
     /// on the edge of the row above it, whose tap closed the stepper instead.
     @MainActor
     func tapAtCenter() {
-        coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        center.tap()
+    }
+
+    /// The middle of the element. On a row, that is on its name and detail line, where a hold
+    /// lifts it.
+    @MainActor
+    var center: XCUICoordinate {
+        coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+    }
+}
+
+/// Holding a row and dragging it along the rail.
+@MainActor
+extension XCUIApplication {
+    /// The rows' exercise names, top to bottom.
+    var exerciseNames: [String] {
+        exerciseRows.allElementsBoundByIndex.map { String($0.label.prefix { $0 != "," }) }
+    }
+
+    /// Taps the small copy of the title `name` in the bar, and waits for the title to come back
+    /// below the bar.
+    func scrollToTop(titled name: String) {
+        let bar = navigationBars.firstMatch
+        let smallTitle = bar.buttons[name]
+        XCTAssertTrue(smallTitle.appears(), "No small title in the bar")
+        smallTitle.tap()
+        XCTAssertTrue(
+            reading(routineTitle.frame.minY >= bar.frame.maxY, becoming: true, within: 2),
+            "The title did not come back below the bar",
+        )
+    }
+
+    /// A point on screen, as `x` and `y` in points from its top-left corner.
+    func point(x: CGFloat, y: CGFloat) -> XCUICoordinate {
+        coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: x, dy: y))
+    }
+}
+
+@MainActor
+extension XCUIElement {
+    /// In a row's rail column, beside its node, where a hold lifts nothing.
+    var nodePoint: XCUICoordinate {
+        coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0.5))
+            .withOffset(CGVector(dx: 22, dy: 0))
+    }
+}
+
+extension XCUICoordinate {
+    /// Holds here long enough for a row to lift, drags slowly to `target`, holds there for
+    /// `hold` seconds, and lets go.
+    @MainActor
+    func holdAndDrag(to target: XCUICoordinate, holding hold: TimeInterval = 0.3) {
+        press(forDuration: 0.8, thenDragTo: target, withVelocity: .slow, thenHoldForDuration: hold)
+    }
+
+    /// `points` further down, or up when negative.
+    func down(_ points: CGFloat) -> XCUICoordinate {
+        withOffset(CGVector(dx: 0, dy: points))
     }
 }

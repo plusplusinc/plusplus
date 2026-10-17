@@ -18,7 +18,9 @@ What each tier holds today:
   VoiceOver, `RoutineStore`'s saving and launch rule over an in-memory container (a relaunch is
   a second store on the same container), plans included, and on disk, a store written with an
   older schema opening under the current one, and the names: the focus, the style, the honesty
-  check, and every routine of up to two built-ins in every style.
+  check, and every routine of up to two built-ins in every style; moving a row to a slot, its
+  Move up and Move down neighbors, and the announcement; and a rail drag's arithmetic
+  (`RailDrag`): the slots, where the gap goes, the dead band, and the edge scroll's speed and arming.
 - **Snapshots** hold how a component looks, at rest and while editing. The title's editing look,
   `_` included, is drawn from plain values through `EditableTitleContent`, reached with
   `@testable import`, so no focus or keyboard is needed; its `blinks: false` holds the `_` lit,
@@ -29,13 +31,18 @@ What each tier holds today:
   Start are snapshot through the same components the routine screen composes, a generated name
   resting white over its rows included; a row swiped open is the system's, so the UI test shows
   it. The exercise sheet's content, its equipment and a `ValueRow` per value, is snapshot with
-  every stepper closed and with one open; the sheet and its bar are the system's.
+  every stepper closed and with one open; the sheet and its bar are the system's. A held row is
+  drawn at a moment of its drag through `Rail`'s internal initializer, its card placed relative
+  to its gap and already risen: over its own gap, with the gap moved, first in the rail, and
+  alone.
 - **UI tests** hold only what needs the real keyboard, text system, frames, or a relaunch:
   typing, Return, arrows, taps, range selection, the keyboard's edge, scrolling as the keyboard
   rises, and VoiceOver frames; the exercise picker, system chrome composed in the app, which has
   no test target: adding, searching, swiping to delete, and the accessibility audit at AX5,
-  the exercise sheet with a stepper open included; stepping a value in the sheet; and what the
-  app saved, seen only by quitting and launching again. Each launch costs about 9 s on
+  the exercise sheet with a stepper open included; stepping a value in the sheet; dragging a row, which needs
+  real touches and the scroll view: a drag, a drop in place, a hold on the node, a release over
+  Start, the edge scroll, a press that scrolls, and at AX5; and what the app saved, seen only by
+  quitting and launching again, a dragged row's place included. Each launch costs about 9 s on
   CI, so there is one UI test per launch configuration:
   `RenameUITests/testRenameAtDefaultSize`,
   `TitleWrappingUITests/testWrappedTitleAtLargestTextSize`, and

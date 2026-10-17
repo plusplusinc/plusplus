@@ -68,6 +68,20 @@ struct RoutineStoreTests {
         #expect(try count(StoredRoutineExercise.self) == 2)
     }
 
+    @Test("A reordered routine reopens in its new order")
+    func reorderedReopens() async throws {
+        let store = relaunch()
+        let last = try Self.row("Pull-up")
+        var routine = try Routine(exercises: [Self.row("Push-up"), Self.row("Plank"), last])
+        try await store.save(routine)
+        let first = try #require(routine.exercises.first)
+        routine.move(last.id, to: .before(first.id))
+        try await store.save(routine)
+
+        #expect(try await relaunch().launchRoutine(weightUnit: .pounds) == routine)
+        #expect(try count(StoredRoutineExercise.self) == 3)
+    }
+
     @Test("A routine cleared to nothing is deleted, rows and all")
     func clearedIsDeleted() async throws {
         let store = relaunch()

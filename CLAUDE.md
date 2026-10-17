@@ -17,8 +17,10 @@ keeps across launches and which opens as text to edit. Each exercise in a routin
 own sets, reps or time, and weight, starting at the exercise's defaults and saved with the
 routine; its row reads them, saying when a number is per side, and the routine's equipment
 shows under its title. Tapping a row opens its values in a sheet, a row per value with a − / +
-stepper, and Delete in its menu. `WorkoutStore` holds the domain types, the first stored models
-behind `RoutineStore`, and the namer. Nothing syncs yet.
+stepper, and Delete in its menu. Holding a row lifts it, and dragging moves it to a new place,
+scrolling the list near its edges; VoiceOver moves it with Move up and Move down.
+`WorkoutStore` holds the domain types, the first stored models behind `RoutineStore`, and the
+namer. Nothing syncs yet.
 
 ## Architecture
 

@@ -57,9 +57,19 @@ func reading<Value: Equatable>(
     becoming expected: Value,
     within timeout: TimeInterval,
 ) -> Value {
+    reading(read(), until: { $0 == expected }, within: timeout)
+}
+
+/// What `read` reads once `done` holds for it, or its last reading after the timeout.
+@MainActor
+func reading<Value>(
+    _ read: @autoclosure () -> Value,
+    until done: (Value) -> Bool,
+    within timeout: TimeInterval,
+) -> Value {
     let deadline = Date.now.addingTimeInterval(timeout)
     var last = read()
-    while last != expected, Date.now < deadline {
+    while !done(last), Date.now < deadline {
         last = read()
     }
     return last

@@ -21,6 +21,9 @@ public enum ColorToken: String, CaseIterable, Sendable {
     /// settles to `borderStrong`. Never at rest, and never the line.
     case railJoin = "ppRailJoin"
     case surface = "ppSurface"
+    /// The fill of something lifted off the screen, such as a row held to be moved: lighter
+    /// than `surface`, as if nearer the light, and with no shadow or border.
+    case surfaceRaised = "ppSurfaceRaised"
     case textPrimary = "ppTextPrimary"
     /// Placeholder text: the default title while it is being edited.
     case textSecondary = "ppTextSecondary"
