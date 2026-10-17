@@ -45,7 +45,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     private let momentOffset: CGFloat?
 
     // State and inputs the node hold reads are internal, not private, so it can live in its own
-    // file (`Rail+Regroup.swift`).
+    // files (`Rail+Regroup.swift`, `Rail+Rows.swift`).
 
     /// The row held and dragged, if any: the rows show in the order they would take if it were
     /// dropped now, and it draws as a card under the finger.
@@ -55,7 +55,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     /// The rows a join just made, their loop still in `railJoin` as it settles to its own color.
     @State var settling: Set<RowID> = []
     /// The rows swiped open, whose groups hide their loops.
-    @State private var swiped: Set<RowID> = []
+    @State var swiped: Set<RowID> = []
     /// The card's top, in the rail's space. It is its own state, so the finger moves it with no
     /// animation even as the same move sends the gap, and the rows, on an animated one.
     @State private var cardTop: CGFloat = 0
@@ -153,13 +153,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                 OpeningSpace(progress: isArriving ? 0 : 1) {
                     row(item)
                         .environment(\.railPlace, place)
-                        .onPreferenceChange(RailRowSwiped.self) { isSwiped in
-                            if isSwiped {
-                                swiped.insert(item.id)
-                            } else {
-                                swiped.remove(item.id)
-                            }
-                        }
+                        .onPreferenceChange(RailRowSwiped.self) { noteSwipe(item.id, $0) }
                 }
                 .entry(RailEntry.space(reduceMotion: reduceMotion), value: isArriving)
                 // A row's swipe closes when its action runs, so a deleted row slid back to rest
@@ -228,27 +222,6 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         .hotReloadable()
     }
 
-    /// The rows in the order they show: with a row held, the order it would make if dropped now.
-    private var shownRows: [Data.Element] {
-        guard let drag else { return Array(data) }
-        let byID = Dictionary(data.map { ($0.id, $0) }) { first, _ in first }
-        return RailDrag.order(data.map(\.id), moving: drag.lifted, to: drag.slot)
-            .compactMap { byID[$0] }
-    }
-
-    /// The rows whose loops hide: those of a group with a row swiped open, which would otherwise
-    /// leave its partners' stretches hanging.
-    private func loopsHidden(_ ids: [RowID]) -> Set<RowID> {
-        guard !swiped.isEmpty else { return [] }
-        let groups = RailDrag.groups(ids, joined: shownJoined)
-        let open = Set(swiped.compactMap { groups[$0] })
-        return Set(ids.filter { groups[$0].map(open.contains) ?? false })
-    }
-
-    private func candidates(lifting lifted: RowID) -> [RailDrag.Candidate<RowID>] {
-        RailDrag.candidates(rows: measuredRows, lifted: lifted, groups: groups)
-    }
-
     /// The held row drawn again as a card, its top at `y`. It rises as it appears and lowers as
     /// it settles; while held, it follows the finger with no animation, whatever animation moves
     /// the rows. Over a slot in a group, it draws the group's loop as its gap's row would, over the
@@ -283,11 +256,6 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     /// The top of the gap the held row is over.
     private func gapTop(of drag: RailDragState<RowID>) -> CGFloat {
         gapTop(lifting: drag.lifted, at: drag.slot) ?? 0
-    }
-
-    /// The top of the gap at `slot`, where the card rests when it is let go there.
-    private func gapTop(lifting lifted: RowID, at slot: RailSlot<RowID>) -> CGFloat? {
-        candidates(lifting: lifted).first { $0.slot == slot }?.gapTop
     }
 
     private func dragged(_ id: RowID, _ phase: RailDrag.Phase, at finger: RailDrag.Finger) {

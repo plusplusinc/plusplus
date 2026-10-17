@@ -103,7 +103,6 @@ private struct RailRow: ViewModifier {
     @ScaledMetric(relativeTo: .body) private var lineWidth = railLineWidth
     @ScaledMetric(relativeTo: .body) private var nodeSize = railNodeSize
     @State private var nodeLeading: CGFloat = 0
-    @State private var isSwiped = false
     @Environment(\.railPlace) private var place
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
@@ -128,11 +127,7 @@ private struct RailRow: ViewModifier {
                 .committing(when: place.isArriving)
         }
         .coordinateSpace(.named(Self.space))
-        // A row's swipe slides it sideways, off the rail's leading edge.
-        .onGeometryChange(for: Bool.self) { proxy in
-            abs(proxy.frame(in: .named(RailDrag.space)).minX) > 0.5
-        } action: { isSwiped = $0 }
-        .preference(key: RailRowSwiped.self, value: isSwiped)
+        .modifier(SwipeReport())
         // In the gap, the node and content are on the card.
         .opacity(place.isGap ? 0 : 1)
         // The row's stretch of line, top edge to bottom edge through its node, or from the node
@@ -179,6 +174,20 @@ private struct RailRow: ViewModifier {
             }
         }
         .hotReloadable()
+    }
+}
+
+/// Tells the rail whether the row is swiped open: its swipe slides it sideways, off the rail's
+/// leading edge.
+private struct SwipeReport: ViewModifier {
+    @State private var isSwiped = false
+
+    func body(content: Content) -> some View {
+        content
+            .onGeometryChange(for: Bool.self) { proxy in
+                abs(proxy.frame(in: .named(RailDrag.space)).minX) > 0.5
+            } action: { isSwiped = $0 }
+            .preference(key: RailRowSwiped.self, value: isSwiped)
     }
 }
 

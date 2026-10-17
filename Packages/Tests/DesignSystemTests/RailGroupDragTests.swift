@@ -65,7 +65,7 @@ struct RailGroupDragTests {
         #expect(slot(129) == .before("d"))
     }
 
-    @Test("Leaving a slot at a group's edge for the other takes the spread past the edge, either way")
+    @Test("Leaving a slot at a group's edge for the other takes the spread past it, either way")
     func edgeHysteresis() {
         let groups = RailDrag.groups(ids, joined: ["b"])
         let candidates = RailDrag.candidates(rows: rows, lifted: "a", groups: groups)
