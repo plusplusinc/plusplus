@@ -118,7 +118,7 @@ extension Rail {
     }
 
     /// The raised field behind the rows a held node spans, a held row's card stretched over them,
-    /// the first row's node inset in it as the card's is. Over a bar it fades, as a drop there
+    /// shadow and all, the first row's node inset in it as the card's is. Over a bar it fades, as a drop there
     /// makes nothing.
     @ViewBuilder
     func spanField(_ nodes: [Anchor<CGPoint>]) -> some View {
@@ -132,6 +132,8 @@ extension Rail {
                     node: CGPoint(x: node.x, y: node.y - top),
                     size: CGSize(width: proxy.size.width, height: bottom - top),
                 )
+                // The held card's shadow: in light mode its fill is the background's white.
+                .shadow(color: .pp(.shadow), radius: RailDrag.liftedShadow)
                 .offset(y: top)
                 FieldLabel(
                     field: CGRect(x: 0, y: top, width: proxy.size.width, height: bottom - top),

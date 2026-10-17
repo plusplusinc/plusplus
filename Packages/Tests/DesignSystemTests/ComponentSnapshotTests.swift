@@ -152,9 +152,9 @@ struct ComponentSnapshotTests {
     /// The exercise sheet's content, as the app composes it under its bar: the exercise's
     /// equipment, then a row for each value. The sheet and its bar are the system's, seen on the
     /// simulator.
-    private func sheetContent(open: Int?) -> some View {
+    private func sheetContent(open: Int?, sharedWith partner: String? = nil) -> some View {
         let values = [
-            ("Sets", "3", "3 sets"),
+            (partner == nil ? "Sets" : "Rounds", "3", partner == nil ? "3 sets" : "3"),
             ("Reps", "10 per side", "10 reps per side"),
             ("Weight", "20 lb/side", "20 pounds per side"),
         ]
@@ -164,6 +164,7 @@ struct ComponentSnapshotTests {
             ForEach(values.indices, id: \.self) { index in
                 ValueRow(
                     label: values[index].0,
+                    note: index == 0 ? partner.map { "Shared with \($0)" } : nil,
                     value: values[index].1,
                     spokenValue: values[index].2,
                     isOpen: open == index,
@@ -187,6 +188,20 @@ struct ComponentSnapshotTests {
     @Test("A sheet's values with one stepper open")
     func sheetOpen() {
         assertThemedSnapshots(of: sheetContent(open: 1), width: Self.screenWidth)
+    }
+
+    /// A superset member's sheet: its sets are rounds, with a note naming whom they're shared
+    /// with, under the label, at rest and open.
+    @Test("A member's rounds, shared, closed and open")
+    func sheetSharedRounds() {
+        let partner = "Barbell bench press"
+        assertThemedSnapshots(
+            of: VStack(spacing: Spacing.lg) {
+                sheetContent(open: nil, sharedWith: partner)
+                sheetContent(open: 0, sharedWith: partner)
+            },
+            width: Self.screenWidth,
+        )
     }
 
     /// Rows as the exercise picker lists them, without a rail. The list itself is the system's.

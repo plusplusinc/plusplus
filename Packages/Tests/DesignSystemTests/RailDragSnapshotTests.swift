@@ -104,6 +104,23 @@ struct RailDragSnapshotTests {
         )
     }
 
+    /// Past the inside slot, the pair lets go of the held row: the partner below draws plain, no
+    /// loop on the rail or the card.
+    @Test("A pair's first row held outside its bottom edge, plain")
+    func pairMemberOutsideBottomEdge() {
+        let rows = Self.rows
+        assertThemedSnapshots(
+            of: rail(
+                links: [rows[1].id],
+                lifting: 1,
+                origin: .before(rows[2].id, joining: .below),
+                over: .before(rows[3].id),
+                offset: 40,
+            ),
+            width: Self.screenWidth,
+        )
+    }
+
     @Test("A routine of one row lifts it, with nowhere to move")
     func oneRowLifted() {
         let one = [Self.rows[0]]

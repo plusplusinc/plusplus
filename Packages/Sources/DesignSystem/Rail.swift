@@ -69,7 +69,8 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     /// Each row's height, read when a drag starts and as it moves, to place the gap. Kept out of
     /// the view's state, so a row's place opening, frame by frame, doesn't redraw the rail.
     @State var heights = RowHeights<RowID>()
-    /// Counts heights measured while a row is held, which move its gap and card.
+    /// Counts heights measured while a row or a node is held, which move its gap and card, or
+    /// its field.
     @State var remeasured = 0
     /// The rail column's width, where a press lifts nothing.
     @State private var columnWidth: CGFloat = 0
@@ -173,7 +174,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                 ))
                 .onGeometryChange(for: CGFloat.self, of: \.size.height) { height in
                     heights.byID[item.id] = height
-                    if drag != nil {
+                    if isHeld {
                         remeasured += 1
                     }
                 }
