@@ -1,6 +1,6 @@
 import XCTest
 
-/// Holding a row and dragging it to a new place, run within `testRenameAtDefaultSize` on its
+/// Holding a row and dragging it to a new place, run within `testDragAndDeleteRows` on its
 /// nine rows, which run past one screen. Where the gap goes is unit-tested in the package, and
 /// the card and gap are snapshot-tested; this checks what needs real touches and the scroll view.
 extension RenameUITests {

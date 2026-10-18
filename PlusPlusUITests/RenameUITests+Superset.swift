@@ -1,7 +1,7 @@
 import XCTest
 
 /// Supersets drawn by a row's node and moved into and out of by a row's body, run within
-/// `testRenameAtDefaultSize` on its nine rows, after the reorder checks. What a drag makes is the
+/// `testDragAndDeleteRows` on its nine rows, after the reorder checks. What a drag makes is the
 /// routine's rule, unit-tested in the package, and the field and loops are snapshot-tested; this
 /// checks that real touches on the node reach the rule, and a row's VoiceOver value reads it.
 /// XCTest drags in one straight move, so a drag that turns back before its drop, the span

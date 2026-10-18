@@ -62,7 +62,9 @@ What each tier holds today:
   `TitleWrappingUITests/testWrappedTitleAtLargestTextSize`, and
   `RoutineAutosaveUITests/testRoutineSurvivesRelaunch`, which relaunches six times. A new
   check extends the test for its launch as a named `XCTContext.runActivity`; a new test needs a
-  launch argument no existing test uses. Every test launches with `-resetStore YES`, so it
+  launch argument no existing test uses, or a test that would run past XCTest's three-minute
+  allowance on CI (about 1.2 times its local time), which is why the drag and delete checks
+  are `RenameUITests/testDragAndDeleteRows`. Every test launches with `-resetStore YES`, so it
   starts from a new routine and not the one the last test saved, and with `-noUIKitAnimations
   YES`, and the relaunch test with `-fallbackNames YES`, muscle-group names, which a test can
   predict where the standard names follow the routine's fresh id (all `LaunchOptions`, Debug
