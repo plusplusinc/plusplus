@@ -27,14 +27,15 @@ import SwiftUI
 /// is laid out by a second text view set up as the field is, so it wraps as the field would.
 public struct EditableTitle: View {
     @Binding private var text: String
+    /// Whether the field has focus: set by a tap, by the field as it starts and ends editing,
+    /// and by the caller, which ends an edit by setting it false.
+    @Binding private var isEditing: Bool
     private let placeholder: String
     private let suggestion: String?
     private let label: LocalizedStringResource
     private let hint: LocalizedStringResource
 
     @State private var draft: String
-    /// Whether the field has focus: set by a tap, and by the field as it starts and ends editing.
-    @State private var isEditing = false
     /// What an unnamed title shows as drawn: behind `restingTitle` while a new one types in.
     @State private var shownTitle: String
     @State private var shownOpacity = 1.0
@@ -50,12 +51,14 @@ public struct EditableTitle: View {
 
     public init(
         text: Binding<String>,
+        isEditing: Binding<Bool>,
         placeholder: String,
         suggestion: String? = nil,
         accessibilityLabel: LocalizedStringResource,
         accessibilityHint: LocalizedStringResource,
     ) {
         _text = text
+        _isEditing = isEditing
         self.placeholder = placeholder
         self.suggestion = suggestion
         label = accessibilityLabel
@@ -318,8 +321,10 @@ public struct EditableTitle: View {
 
 #Preview {
     @Previewable @State var name = ""
+    @Previewable @State var isEditing = false
     EditableTitle(
         text: $name,
+        isEditing: $isEditing,
         placeholder: "New routine",
         accessibilityLabel: "Routine name",
         accessibilityHint: "Renames the routine.",

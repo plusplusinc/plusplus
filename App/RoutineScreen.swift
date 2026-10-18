@@ -33,6 +33,8 @@ struct RoutineScreen: View {
     @State private var isOpeningPlace = false
     /// Whether the list is being scrolled by hand, which the in-step scroll leaves alone.
     @State private var isScrollingByHand = false
+    /// Whether the title's field has focus. A scroll by hand ends the edit.
+    @State private var isEditingTitle = false
     /// Whether the title has scrolled up under the bar, where a small copy of it shows instead.
     @State private var isTitleUnderBar = false
     @Environment(\.locale) private var locale
@@ -67,6 +69,7 @@ struct RoutineScreen: View {
                 VStack(alignment: .leading, spacing: Spacing.md) {
                     EditableTitle(
                         text: $routine.name,
+                        isEditing: $isEditingTitle,
                         placeholder: Self.defaultName,
                         suggestion: generatedName,
                         accessibilityLabel: "Routine name",
@@ -135,14 +138,19 @@ struct RoutineScreen: View {
                 // below the top of the visible area. Starting there keeps the title still.
                 .padding(.top, Spacing.sm)
             }
-            // A scroll by hand closes the keyboard, which ends the title's edit, as in any iOS
-            // list with a text field. Only a drag does: the rail's autoscroll does not.
-            .scrollDismissesKeyboard(.immediately)
             .scrollPosition($scrollPosition)
             .railAutoscroll($scrollPosition)
             .onScrollGeometryChange(for: ScrollGeometry.self, of: { $0 }, action: keepEndInView)
             .onScrollPhaseChange { _, phase in
                 isScrollingByHand = phase == .interacting || phase == .decelerating
+                // A scroll by hand ends the title's edit, as in any iOS list with a text field;
+                // the rail's autoscroll does not. Ended here rather than by
+                // `.scrollDismissesKeyboard(.immediately)`, whose UIKit dismissal moves the
+                // keyboard off screen in one frame: ending the edit resigns the field, and the
+                // keyboard slides down as it does on Return.
+                if phase == .interacting {
+                    isEditingTitle = false
+                }
             }
             .onScrollGeometryChange(
                 for: Bool.self,
