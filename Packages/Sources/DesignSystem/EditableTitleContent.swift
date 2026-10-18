@@ -34,10 +34,7 @@ struct EditableTitleContent: View {
     let accessibilityHint: LocalizedStringResource
 
     @ScaledMetric(relativeTo: ScreenTitle.textStyle) private var fontSize = ScreenTitle.size
-    /// How far the `_` sits below the font's own underscore, so it reads as a cursor under the
-    /// letter rather than a typed character: just past the tails of g, p, and y. Scaled with the
-    /// title.
-    @ScaledMetric(relativeTo: ScreenTitle.textStyle) private var drop: CGFloat = 4.5
+    @ScaledMetric(relativeTo: ScreenTitle.textStyle) private var drop = ScreenTitle.cursorDrop
     @ObserveHotReload private var hotReload
 
     var body: some View {
@@ -59,7 +56,6 @@ struct EditableTitleContent: View {
             selection: selection,
             fontSize: fontSize,
             drop: drop,
-            textColor: .pp(.textPrimary),
             placeholder: String(shownPlaceholder.enumerated().map { standIns[$0] ?? $1 }),
             placeholderColors: (0 ..< shownPlaceholder.count).map { index in
                 guard let tint = tints[index], tint > 0 else { return restingColor }

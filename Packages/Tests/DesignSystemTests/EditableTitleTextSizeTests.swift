@@ -45,10 +45,6 @@ struct EditableTitleTextSizeTests {
                     // Focused as a tap focuses it, so the text system lays it out as it does
                     // while editing.
                     isFocused: .constant(isEditing),
-                    selection: offset.map {
-                        let index = draft.index(draft.startIndex, offsetBy: $0)
-                        return NSRange(index ..< index, in: draft)
-                    },
                     placeholder: "New routine",
                     shownPlaceholder: "New routine",
                     isEditing: isEditing,
@@ -67,6 +63,20 @@ struct EditableTitleTextSizeTests {
             window.traitOverrides.preferredContentSizeCategory = category
             window.rootViewController = host
             window.makeKeyAndVisible()
+            // Once focused, where the text system put the caret as editing began.
+            if let offset {
+                window.layoutIfNeeded()
+                let index = draft.index(draft.startIndex, offsetBy: offset)
+                field?.selectedRange = NSRange(index ..< index, in: draft)
+            }
+        }
+
+        /// The title's text view.
+        var field: UITextView? {
+            func textViews(in view: UIView) -> [UITextView] {
+                (view as? UITextView).map { [$0] } ?? view.subviews.flatMap(textViews(in:))
+            }
+            return textViews(in: host.view).first
         }
 
         /// Off screen once a test is done with it, so that it holds no focus while the next
@@ -99,10 +109,7 @@ struct EditableTitleTextSizeTests {
         /// Whether the field is exactly as tall as its text: nothing scrolled inside it, and no
         /// empty line under the name. Within a point, as heights land on the pixel grid.
         var fitsText: Bool {
-            func textViews(in view: UIView) -> [UITextView] {
-                (view as? UITextView).map { [$0] } ?? view.subviews.flatMap(textViews(in:))
-            }
-            guard let field = textViews(in: host.view).first else {
+            guard let field else {
                 Issue.record("No text view in the title")
                 return false
             }

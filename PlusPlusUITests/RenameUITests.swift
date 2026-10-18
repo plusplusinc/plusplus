@@ -94,13 +94,9 @@ final nonisolated class RenameUITests: XCTestCase {
         XCTAssertTrue(keyboard.appears())
 
         XCTContext.runActivity(named: "Editing starts in place") { _ in
-            let deadline = Date.now.addingTimeInterval(Self.keyboardAvoidanceWindow)
-            var frames = (title.frame, addExercise.frame)
-            while Date.now < deadline, frames == (field, button) {
-                frames = (title.frame, addExercise.frame)
-            }
-            XCTAssertEqual(frames.0, field, "The title's frame moved")
-            XCTAssertEqual(frames.1, button, "Add exercise moved")
+            let watched = watchFrames(of: [title, addExercise], for: Self.keyboardAvoidanceWindow)
+            XCTAssertEqual(watched[0], field, "The title's frame moved")
+            XCTAssertEqual(watched[1], button, "Add exercise moved")
         }
         // Read once the keyboard has risen and UIKit would have scrolled.
         let placeholder = try Ink.ofTitle(in: field)

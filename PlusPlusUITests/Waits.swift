@@ -79,7 +79,7 @@ func reading<Value>(
 /// something stays put after a change shows only by watching it for a while: UIKit can move a
 /// view a moment later, as it scrolls a focused field once the keyboard has risen.
 @MainActor
-func frames(of elements: [XCUIElement], watchedFor duration: TimeInterval) -> [CGRect] {
+func watchFrames(of elements: [XCUIElement], for duration: TimeInterval) -> [CGRect] {
     let start = elements.map(\.frame)
     return reading(elements.map(\.frame), until: { $0 != start }, within: duration)
 }

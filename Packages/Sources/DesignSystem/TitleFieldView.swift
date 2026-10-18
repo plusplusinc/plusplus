@@ -8,8 +8,9 @@ final class TitleFieldView: UITextView {
     let placeholderView = UITextView()
     let cursorView = CursorMark()
     var drop: CGFloat = 0
-    var isEmptyDraft = true {
-        didSet { placeholderView.isHidden = !isEmptyDraft }
+    /// Whether the placeholder shows in the field's place.
+    var isEmptyDraft: Bool {
+        text.isEmpty
     }
 
     var isEditingLook = false {
@@ -103,6 +104,7 @@ final class TitleFieldView: UITextView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        placeholderView.isHidden = !isEmptyDraft
         placeholderView.frame = CGRect(
             origin: .zero,
             size: placeholderView.fittingSize(

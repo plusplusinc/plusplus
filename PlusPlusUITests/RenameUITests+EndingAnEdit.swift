@@ -6,8 +6,7 @@ import XCTest
 extension RenameUITests {
     @MainActor
     func endEditsWithoutMoving(in app: XCUIApplication, keyboard: XCUIElement) {
-        let capsules = app.descendants(matching: .any)
-            .matching(identifier: "routine.equipment").firstMatch
+        let capsules = app.equipment
         XCTContext.runActivity(named: "Return leaves everything in place") { _ in
             endEditWithoutMoving(in: app, keyboard: keyboard) {
                 app.routineTitle.typeText("\n")
@@ -48,7 +47,7 @@ extension RenameUITests {
     ) {
         let elements = [
             app.routineTitle,
-            app.descendants(matching: .any).matching(identifier: "routine.equipment").firstMatch,
+            app.equipment,
             app.exerciseRows.firstMatch,
         ]
         // A scroll back to the top can still be easing in.
@@ -59,7 +58,7 @@ extension RenameUITests {
         end()
         XCTAssertTrue(keyboard.disappears(), "The edit did not end")
         XCTAssertEqual(
-            frames(of: elements, watchedFor: Self.keyboardAvoidanceWindow),
+            watchFrames(of: elements, for: Self.keyboardAvoidanceWindow),
             atRest,
             "The title, the capsules, or the first row moved",
         )

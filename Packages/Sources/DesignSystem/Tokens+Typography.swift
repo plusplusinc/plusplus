@@ -38,6 +38,10 @@ extension View {
 enum ScreenTitle {
     static let size: CGFloat = 24
     static let textStyle = Font.TextStyle.title2
+    /// How far the title's `_` sits below the font's own underscore, so it reads as a cursor
+    /// under the letter rather than a typed character: just past the tails of g, p, and y.
+    /// Scaled with the title.
+    static let cursorDrop: CGFloat = 4.5
 }
 
 private struct ScreenTitleFont: ViewModifier {

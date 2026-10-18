@@ -191,7 +191,7 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         title.typeText("\n")
         XCTAssertTrue(keyboard.disappears(), "Return did not end the edit", line: line)
         XCTAssertEqual(
-            frames(of: [title, addExercise], watchedFor: 2),
+            watchFrames(of: [title, addExercise], for: RenameUITests.keyboardAvoidanceWindow),
             before,
             "Ending the edit moved the title or Add exercise",
             line: line,

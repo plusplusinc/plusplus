@@ -108,7 +108,7 @@ struct EditableTitleCaretTests {
     /// How far the `_` sits below the top of its line at `category`, as the title scales it.
     private static func drop(at category: UIContentSizeCategory) -> CGFloat {
         UIFontMetrics(forTextStyle: .title2).scaledValue(
-            for: 4.5,
+            for: ScreenTitle.cursorDrop,
             compatibleWith: UITraitCollection(preferredContentSizeCategory: category),
         )
     }
@@ -116,7 +116,7 @@ struct EditableTitleCaretTests {
     /// One cell of the title's font at `category`.
     private static func cell(at category: UIContentSizeCategory) -> CGFloat {
         let size = UIFontMetrics(forTextStyle: .title2).scaledValue(
-            for: 24,
+            for: ScreenTitle.size,
             compatibleWith: UITraitCollection(preferredContentSizeCategory: category),
         )
         return ("_" as NSString)
@@ -125,13 +125,13 @@ struct EditableTitleCaretTests {
     }
 
     /// Checks the `_` at every place of the caret in `draft`: under each character, spanning
-    /// it, then one cell after the last. Returns CoreText's layout, for more checks.
+    /// it, then one cell after the last. Returns the screen and CoreText's layout, for more checks.
     @discardableResult
     private func check(
         _ draft: String,
         width: CGFloat,
         at category: UIContentSizeCategory,
-    ) throws -> Layout {
+    ) throws -> (screen: Screen, layout: Layout) {
         let screen = try Screen(draft, width: width, at: category)
         let layout = Layout(screen.field.attributedText, width: width)
         let drop = Self.drop(at: category)
@@ -167,7 +167,7 @@ struct EditableTitleCaretTests {
             }
             location = atEnd ? location + 1 : NSMaxRange(range)
         }
-        return layout
+        return (screen, layout)
     }
 
     @Test(
@@ -187,12 +187,11 @@ struct EditableTitleCaretTests {
         let draft = "Push/pull day"
         // Room for "Push/" and "pull day", and not "Push/pull".
         let cell = Self.cell(at: category)
-        let layout = try check(draft, width: cell * 8.5, at: category)
+        let (screen, layout) = try check(draft, width: cell * 8.5, at: category)
         try #require(layout.lines.count == 2, "the name does not wrap")
         try #require(layout.lines[1].range.location == 5, "the name does not wrap at the /")
         // In SF Mono every character is a cell, so the `_` is a whole number of cells along
         // its line, as main drew it: "Push/" on line 1, "pull day" on line 2.
-        let screen = try Screen(draft, width: cell * 8.5, at: category)
         for location in 0 ... 13 {
             let column = location < 5 ? location : location - 5
             let cursor = screen.cursor(at: location)

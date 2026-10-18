@@ -5,8 +5,8 @@ import UIKit
 /// The title's field: a `UITextView`, with the placeholder and the `_` as subviews.
 ///
 /// UIKit rather than SwiftUI's `TextField`, for two things the text system knows and SwiftUI
-/// does not say: where the caret is drawn, which places the `_` (`caretRect(for:)`), however
-/// wide the characters before it are; and Return, which arrives here as a change the field can
+/// does not say: where each character is drawn, which places the `_` under the one after the
+/// caret, however wide it is; and Return, which arrives here as a change the field can
 /// refuse, so a newline never reaches the draft and never adds a line for a moment.
 ///
 /// One text view, never swapped, sized in `sizeThatFits` from its own layout: what it shows,
@@ -23,7 +23,6 @@ struct TitleTextView: UIViewRepresentable {
     let fontSize: CGFloat
     /// How far the `_` sits below the top of its line's own underscore.
     let drop: CGFloat
-    let textColor: Color
     /// What an empty field shows, as drawn, with a color for each character.
     let placeholder: String
     let placeholderColors: [Color]
@@ -54,17 +53,22 @@ struct TitleTextView: UIViewRepresentable {
         context.coordinator.parent = self
         let environment = context.environment
         let font = UIFont.monospacedSystemFont(ofSize: fontSize, weight: .bold)
-        let color = textColor.uiColor(in: environment)
+        let color = Color.pp(.textPrimary).uiColor(in: environment)
+        // Only what changes the text's size asks SwiftUI to measure again: the cursor's color
+        // and the breath change every frame while a suggestion arrives.
+        var resized = view.font != font
         view.font = font
         view.textColor = color
         view.typingAttributes = [.font: font, .foregroundColor: color]
         view.placeholderView.font = font
         if view.text != draft, view.markedTextRange == nil {
             view.text = draft
+            resized = true
         }
-        view.isEmptyDraft = draft.isEmpty
 
+        let shownPlaceholder = view.placeholderView.text
         updatePlaceholder(of: view, font: font, context: context)
+        resized = resized || view.placeholderView.text != shownPlaceholder
         context.animate {
             view.placeholderView.alpha = placeholderOpacity
         }
@@ -91,8 +95,10 @@ struct TitleTextView: UIViewRepresentable {
             view.selectedRange = selection
         }
         view.updateCursor(restartsBlink: false)
-        view.invalidateIntrinsicContentSize()
-        view.setNeedsLayout()
+        if resized {
+            view.invalidateIntrinsicContentSize()
+            view.setNeedsLayout()
+        }
     }
 
     /// Draws the placeholder: each character in its own color, crossfaded to new text when the
@@ -176,7 +182,6 @@ struct TitleTextView: UIViewRepresentable {
             if parent.draft != view.text {
                 parent.draft = view.text
             }
-            view.isEmptyDraft = view.text.isEmpty
             view.invalidateIntrinsicContentSize()
             view.setNeedsLayout()
         }
@@ -186,14 +191,9 @@ struct TitleTextView: UIViewRepresentable {
         }
 
         func textViewDidBeginEditing(_ textView: UITextView) {
-            // Editing starts at the end, wherever the focusing tap landed, or where a test puts
-            // it.
-            if let selection = parent.selection {
-                textView.selectedRange = selection
-            } else {
-                let end = textView.endOfDocument
-                textView.selectedTextRange = textView.textRange(from: end, to: end)
-            }
+            // Editing starts at the end of the name.
+            let end = textView.endOfDocument
+            textView.selectedTextRange = textView.textRange(from: end, to: end)
             if let isFocused = parent.isFocused, !isFocused.wrappedValue {
                 isFocused.wrappedValue = true
             }
