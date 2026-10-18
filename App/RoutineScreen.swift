@@ -135,6 +135,9 @@ struct RoutineScreen: View {
                 // below the top of the visible area. Starting there keeps the title still.
                 .padding(.top, Spacing.sm)
             }
+            // A scroll by hand closes the keyboard, which ends the title's edit, as in any iOS
+            // list with a text field. Only a drag does: the rail's autoscroll does not.
+            .scrollDismissesKeyboard(.immediately)
             .scrollPosition($scrollPosition)
             .railAutoscroll($scrollPosition)
             .onScrollGeometryChange(for: ScrollGeometry.self, of: { $0 }, action: keepEndInView)
