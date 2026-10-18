@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// The type ramp.
 ///
@@ -26,8 +29,7 @@ extension Font {
 }
 
 extension View {
-    /// The screen title: SF Mono, 24pt bold. Monospaced so its `_` cursor is exactly one character
-    /// wide.
+    /// The screen title: SF Mono, 24pt bold, so a title that can be edited reads as typed text.
     public func ppScreenTitleFont() -> some View {
         modifier(ScreenTitleFont())
     }
@@ -42,6 +44,15 @@ enum ScreenTitle {
     /// under the letter rather than a typed character: just past the tails of g, p, and y.
     /// Scaled with the title.
     static let cursorDrop: CGFloat = 4.5
+    /// How tall the title takes taps, reaching down past a short title.
+    static let touchTarget: CGFloat = 44
+
+    #if canImport(UIKit)
+    /// The title's font at `size`, for the UIKit views that draw it.
+    static func uiFont(ofSize size: CGFloat) -> UIFont {
+        .monospacedSystemFont(ofSize: size, weight: .bold)
+    }
+    #endif
 }
 
 private struct ScreenTitleFont: ViewModifier {

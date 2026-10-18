@@ -52,15 +52,19 @@ struct TitleTextView: UIViewRepresentable {
     func updateUIView(_ view: TitleFieldView, context: Context) {
         context.coordinator.parent = self
         let environment = context.environment
-        let font = UIFont.monospacedSystemFont(ofSize: fontSize, weight: .bold)
+        let font = ScreenTitle.uiFont(ofSize: fontSize)
         let color = Color.pp(.textPrimary).uiColor(in: environment)
         // Only what changes the text's size asks SwiftUI to measure again: the cursor's color
         // and the breath change every frame while a suggestion arrives.
         var resized = view.font != font
-        view.font = font
-        view.textColor = color
-        view.typingAttributes = [.font: font, .foregroundColor: color]
-        view.placeholderView.font = font
+        // Written only when they change: each rewrites the whole text's attributes, which
+        // would disturb text being composed.
+        if resized || view.textColor?.cgColor != color.cgColor {
+            view.font = font
+            view.textColor = color
+            view.typingAttributes = [.font: font, .foregroundColor: color]
+            view.placeholderView.font = font
+        }
         if view.text != draft, view.markedTextRange == nil {
             view.text = draft
             resized = true

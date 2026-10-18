@@ -40,14 +40,21 @@ private struct TouchDownOutsideTitle: UIGestureRecognizerRepresentable {
 
         override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
             super.touchesBegan(touches, with: event)
+            // On the field, or on the target behind a short title, which is SwiftUI's and so no
+            // view of the field's.
+            let fields = view.map(Self.titleFields(in:)) ?? []
             let onTitle = touches.contains { touch in
-                guard let view = touch.view else { return false }
-                return sequence(first: view, next: \.superview).contains { $0 is TitleFieldView }
+                let point = touch.location(in: nil)
+                return fields.contains { $0.touchTargetInWindow.contains(point) }
             }
             if !onTitle {
                 onTouchDown()
             }
             state = .failed
+        }
+
+        private static func titleFields(in view: UIView) -> [TitleFieldView] {
+            (view as? TitleFieldView).map { [$0] } ?? view.subviews.flatMap(titleFields(in:))
         }
     }
 }

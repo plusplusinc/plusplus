@@ -8,6 +8,20 @@ final class TitleFieldView: UITextView {
     let placeholderView = UITextView()
     let cursorView = CursorMark()
     var drop: CGFloat = 0
+    /// Where a touch counts as on the title, in the window: the field, and at least
+    /// `ScreenTitle.touchTarget` tall, as `EditableTitle`'s target behind a short title is.
+    var touchTargetInWindow: CGRect {
+        convert(
+            CGRect(
+                x: 0,
+                y: 0,
+                width: bounds.width,
+                height: max(bounds.height, ScreenTitle.touchTarget),
+            ),
+            to: nil,
+        )
+    }
+
     /// Whether the placeholder shows in the field's place.
     var isEmptyDraft: Bool {
         text.isEmpty
@@ -176,7 +190,7 @@ final class TitleFieldView: UITextView {
 /// The `_`, drawn as the text is, at a fractional place when that is where the character is:
 /// a label rounds its size and its text's place to whole pixels, a third of a point off.
 final class CursorMark: UIView {
-    var font = UIFont.monospacedSystemFont(ofSize: ScreenTitle.size, weight: .bold) {
+    var font = ScreenTitle.uiFont(ofSize: ScreenTitle.size) {
         didSet {
             if font != oldValue {
                 setNeedsDisplay()

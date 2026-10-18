@@ -68,6 +68,8 @@ struct EditableTitleTests {
     func newlinePastedLines() {
         #expect(EditableTitle.newlineEdit("Legs\nday\n") == ("Legs day ", false))
         #expect(EditableTitle.newlineEdit("Legs\n\n") == ("Legs  ", false))
+        // One newline with text after it is a paste too, not a Return.
+        #expect(EditableTitle.newlineEdit("Push\nday") == ("Push day", false))
     }
 
     @Test("Text with no newline is inserted as it is", arguments: ["", "Legs", "上半身", "💪"])

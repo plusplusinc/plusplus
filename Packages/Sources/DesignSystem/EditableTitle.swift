@@ -47,8 +47,6 @@ public struct EditableTitle: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
-    private static let minimumTouchTarget: CGFloat = 44
-
     public init(
         text: Binding<String>,
         isEditing: Binding<Bool>,
@@ -79,15 +77,16 @@ public struct EditableTitle: View {
     }
 
     /// What the field inserts for a change that types or pastes `replacement`, and whether
-    /// editing ends: a single newline is a Return, which ends editing and inserts the rest
-    /// without it (autocorrect can send a word with it), and more came from pasted lines, which
-    /// become spaces, since a title is one paragraph.
+    /// editing ends. A newline at its end and nowhere else is a Return, which ends editing and
+    /// inserts the rest without it (autocorrect can send a word with it). Any other newline came
+    /// from pasted lines and becomes a space, since a title is one paragraph.
     static func newlineEdit(_ replacement: String) -> (insert: String, endsEditing: Bool) {
-        switch replacement.count(where: \.isNewline) {
-        case 0: (replacement, false)
-        case 1: (replacement.filter { !$0.isNewline }, true)
-        default: (String(replacement.map { $0.isNewline ? " " : $0 }), false)
+        if replacement.last?.isNewline == true,
+           !replacement.dropLast().contains(where: \.isNewline)
+        {
+            return (String(replacement.dropLast()), true)
         }
+        return (String(replacement.map { $0.isNewline ? " " : $0 }), false)
     }
 
     /// The title an edit leaves behind: trimmed, and empty, which leaves the title unnamed, when
@@ -133,7 +132,7 @@ public struct EditableTitle: View {
         // callers space the title like any other text.
         .background(alignment: .top) {
             Color.clear
-                .frame(minHeight: Self.minimumTouchTarget)
+                .frame(minHeight: ScreenTitle.touchTarget)
                 .contentShape(.rect)
                 .onTapGesture { isEditing = true }
         }

@@ -221,7 +221,7 @@ struct RoutineScreen: View {
             }
         }
         // A touch anywhere outside the title, bars included, ends its edit and still acts. The
-        // keyboard slides down as on Return; `.scrollDismissesKeyboard` drops it in one frame.
+        // keyboard slides down as on Return, where `.scrollDismissesKeyboard` drops it at once.
         .onTouchDownOutsideTitle { isEditingTitle = false }
         // `onChange` skips the first value, so a routine opened and left alone is never saved.
         .onChange(of: routine) { _, changed in
