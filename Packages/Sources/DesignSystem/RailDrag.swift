@@ -167,22 +167,37 @@ nonisolated enum RailDrag {
         }?.slot
     }
 
-    /// The group a row dropped at `slot` among `rest` joins, or nil for none.
+    /// The group a row dropped at `slot` among `rest` joins, or nil for none: `newGroup` when it
+    /// pairs with a plain row.
     static func group<ID: Hashable>(
         joinedAt slot: RailSlot<ID>,
         in rest: [ID],
         groups: [ID: Int],
     ) -> Int? {
+        guard let neighbor = neighbor(joinedAt: slot, in: rest, groups: groups) else { return nil }
+        return groups[neighbor] ?? newGroup
+    }
+
+    /// The row a row dropped at `slot` among `rest` joins: the neighbor the slot names, or,
+    /// between two rows of one group, the one above. Nil for none.
+    static func neighbor<ID: Hashable>(
+        joinedAt slot: RailSlot<ID>,
+        in rest: [ID],
+        groups: [ID: Int],
+    ) -> ID? {
         let index = switch slot.place {
         case let .before(id): rest.firstIndex(of: id) ?? rest.endIndex
         case .end: rest.endIndex
         }
-        let above = index > 0 ? groups[rest[index - 1]] : nil
-        let below = index < rest.count ? groups[rest[index]] : nil
+        let above = index > 0 ? rest[index - 1] : nil
+        let below = index < rest.count ? rest[index] : nil
         switch slot.joining {
         case .above: return above
         case .below: return below
-        case nil: return above != nil && above == below ? above : nil
+        case nil:
+            guard let above, let below, let group = groups[above], groups[below] == group
+            else { return nil }
+            return above
         }
     }
 
@@ -220,7 +235,15 @@ nonisolated enum RailDrag {
         to slot: RailSlot<ID>,
     ) -> Set<ID> {
         var groups = groups(ids, joined: joined)
-        groups[lifted] = group(joinedAt: slot, in: ids.filter { $0 != lifted }, groups: groups)
+        let rest = ids.filter { $0 != lifted }
+        groups[lifted] = group(joinedAt: slot, in: rest, groups: groups)
+        if groups[lifted] == newGroup, let neighbor = neighbor(
+            joinedAt: slot,
+            in: rest,
+            groups: groups,
+        ) {
+            groups[neighbor] = newGroup
+        }
         return Self.joined(order(ids, moving: lifted, to: slot), groups: groups)
     }
 

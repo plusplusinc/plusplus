@@ -88,6 +88,7 @@ extension RenameUITests {
             XCTAssertEqual(reading(app.exerciseNames, becoming: expected, within: 2), expected)
             XCTAssertEqual(app.supersets(becoming: "AA......."), "AA.......")
         }
+        pairPlainRows(in: app)
         XCTContext
             .runActivity(named: "A press that moves at once on a node scrolls the list") { _ in
                 let before = (app.supersets, row(0).frame.minY)
@@ -105,6 +106,41 @@ extension RenameUITests {
                 XCTAssertEqual(app.supersets, before.0, "A moving press on a node regrouped")
                 app.scrollToTop(titled: "Arm and back day")
             }
+    }
+
+    /// A row's card resting over a plain row pairs the two in a new superset; one that only
+    /// passes over it, or pauses briefly, moves the row and pairs nothing.
+    @MainActor
+    private func pairPlainRows(in app: XCUIApplication) {
+        let rows = app.exerciseRows
+        let row = { rows.element(boundBy: $0) }
+        let height = row(1).frame.minY - row(0).frame.minY
+        XCTContext.runActivity(named: "A row dropped over a plain row without resting moves") { _ in
+            var expected = app.exerciseNames
+            // Past the row below, a third of the way over the one after it, let go at once.
+            row(5).center.holdAndDrag(to: row(5).center.down(1.3 * height), holding: 0.1)
+            expected.insert(expected.remove(at: 5), at: 6)
+            XCTAssertEqual(reading(app.exerciseNames, becoming: expected, within: 2), expected)
+            XCTAssertEqual(app.supersets, "AA.......", "A drop without a rest paired")
+        }
+        XCTContext.runActivity(named: "A row resting over a plain row pairs with it") { _ in
+            var expected = app.exerciseNames
+            row(2).center.holdAndDrag(to: row(2).center.down(1.3 * height), holding: 1.2)
+            expected.insert(expected.remove(at: 2), at: 3)
+            XCTAssertEqual(reading(app.exerciseNames, becoming: expected, within: 2), expected)
+            XCTAssertEqual(app.supersets(becoming: "AA.BB...."), "AA.BB....")
+        }
+        XCTContext.runActivity(named: "A row nudged up and resting pairs with the row above") { _ in
+            let names = app.exerciseNames
+            row(7).center.holdAndDrag(to: row(7).center.down(-0.4 * height), holding: 1.2)
+            XCTAssertEqual(app.supersets(becoming: "AA.BB.CC."), "AA.BB.CC.")
+            XCTAssertEqual(app.exerciseNames, names, "A nudge to pair moved a row")
+            attach(named: "superset-paired-by-rest")
+        }
+        // Back to the one pair the checks after these expect: an end's node on the other end.
+        row(4).nodePoint.holdAndDrag(to: row(3).nodePoint)
+        row(7).nodePoint.holdAndDrag(to: row(6).nodePoint)
+        XCTAssertEqual(app.supersets(becoming: "AA......."), "AA.......")
     }
 }
 

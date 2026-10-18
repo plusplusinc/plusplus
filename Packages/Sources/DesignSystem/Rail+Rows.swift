@@ -15,9 +15,10 @@ extension Rail {
         RailDrag.candidates(rows: measuredRows, lifted: lifted, groups: groups)
     }
 
-    /// The top of the gap at `slot`, where the card rests when it is let go there.
+    /// The top of the gap at `slot`, where the card rests when it is let go there. Every slot at
+    /// one place shares its gap, a pair's included, which is no candidate.
     func gapTop(lifting lifted: RowID, at slot: RailSlot<RowID>) -> CGFloat? {
-        candidates(lifting: lifted).first { $0.slot == slot }?.gapTop
+        candidates(lifting: lifted).first { $0.slot.place == slot.place }?.gapTop
     }
 
     /// The rows whose loops hide: those of a group with a row swiped open, which would otherwise

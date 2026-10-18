@@ -65,7 +65,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     @State var swiped: Set<RowID> = []
     /// The card's top, in the rail's space. It is its own state, so the finger moves it with no
     /// animation even as the same move sends the gap, and the rows, on an animated one.
-    @State private var cardTop: CGFloat = 0
+    @State var cardTop: CGFloat = 0
     /// Each row's height, read when a drag starts and as it moves, to place the gap. Kept out of
     /// the view's state, so a row's place opening, frame by frame, doesn't redraw the rail.
     @State var heights = RowHeights<RowID>()
@@ -77,6 +77,10 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     /// A light impact: a row lifted or a node held, and a group dropped.
     @State var lifts = 0
     @State var ticks = 0
+    /// The card resting over a plain neighbor, counting down to pairing with it.
+    @State var dwell: RailDwell<RowID>?
+    /// A firmer impact: a held row paired with its neighbor.
+    @State var pairs = 0
     /// The scroll view's edges, when it scrolls for a held row (`railAutoscroll`).
     @Environment(\.railEdges) var edges
     @Environment(\.accessibilityReduceMotion) var reduceMotion
@@ -240,6 +244,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         .onChange(of: data.map(\.id)) { _, ids in forget(rowsNotIn: Set(ids)) }
         .sensoryFeedback(.impact(weight: .light), trigger: lifts)
         .sensoryFeedback(RailDrag.slotChange, trigger: ticks)
+        .sensoryFeedback(RailDrag.pairFormed, trigger: pairs)
         .hotReloadable()
     }
 
@@ -305,6 +310,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
             }
             guard let released = drag, released.lifted == id, !released.isReleased else { return }
             edges?.letGo()
+            endDwell()
             // Let go over a bar, or past the screen's edge, the row goes back.
             let goesBack = phase == .cancelled || isOverBar(finger)
             settle(released, goingBack: goesBack)
@@ -314,18 +320,6 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     /// Whether the finger is over a bar, or past the screen's edge, where a drop changes nothing.
     func isOverBar(_ finger: RailDrag.Finger) -> Bool {
         edges?.isOutside(finger.inScrollView) == true
-    }
-
-    /// Opens the gap where the card would land.
-    private func follow(_ id: RowID) {
-        guard let held = drag, held.lifted == id, !held.isReleased else { return }
-        let slot = RailDrag.candidate(for: cardTop, in: candidates(lifting: id), current: held.slot)
-        guard slot != held.slot else { return }
-        withAnimation(reduceMotion ? nil : RailDrag.gap) { drag?.slot = slot }
-        // Over a bar the rows don't show the slot, so its changes aren't felt either.
-        if !held.isOverBar {
-            ticks += 1
-        }
     }
 
     /// Lets the held row go, into its gap or, `goingBack`, back where it started: the card lowers

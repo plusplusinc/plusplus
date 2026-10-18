@@ -7,6 +7,8 @@ struct RailDragState<ID: Hashable> {
     var origin: RailSlot<ID>
     /// Where the gap is open.
     var slot: RailSlot<ID>
+    /// The card rested over a plain neighbor, and `slot` pairs the two.
+    var isPaired = false
     /// How far below the row's top the finger holds it.
     var grab: CGFloat
     /// Let go, and settling into the gap.

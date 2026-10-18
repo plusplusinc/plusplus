@@ -11,8 +11,9 @@ public struct RoutineSlot: Hashable, Sendable {
     }
 
     public var place: Place
-    /// The neighbor whose superset the row joins there, or nil to land plain. Between two rows of
-    /// one superset a row always joins it, since no plain row sits inside one.
+    /// The neighbor whose superset the row joins there, or nil to land plain; a plain neighbor
+    /// pairs with the row in a new superset. Between two rows of one superset a row always joins
+    /// it, since no plain row sits inside one.
     public var joining: RoutineNeighbor?
 
     public init(_ place: Place, joining: RoutineNeighbor? = nil) {
@@ -36,10 +37,10 @@ public enum RoutineNeighbor: Hashable, Sendable {
 }
 
 extension Routine {
-    /// Moves the row `id` to `slot`, into the superset the slot joins or out as a plain row; a
-    /// row that joins one takes its round count. Returns false, and changes nothing, when the row
-    /// or the row the slot names is missing, or when the slot is the row's own place in its own
-    /// superset, or none.
+    /// Moves the row `id` to `slot`, into the superset the slot joins, a new one with the plain
+    /// row it joins, or out as a plain row; a row that joins one takes its round count. Returns
+    /// false, and changes nothing, when the row or the row the slot names is missing, or when the
+    /// slot is the row's own place in its own superset, or none.
     @discardableResult
     public mutating func move(_ id: RoutineExercise.ID, to slot: RoutineSlot) -> Bool {
         guard let from = exercises.firstIndex(where: { $0.id == id }) else { return false }
@@ -61,8 +62,13 @@ extension Routine {
         case .below: below
         case nil: above?.supersetID != nil && above?.supersetID == below?.supersetID ? above : nil
         }
-        row.supersetID = joined?.supersetID
-        if let joined, joined.supersetID != nil {
+        // Joining a plain row pairs the two in a new superset.
+        if let joined, joined.supersetID == nil, let index = rest.firstIndex(of: joined) {
+            rest[index].supersetID = UUID()
+        }
+        let superset = joined.flatMap { joined in rest.first { $0.id == joined.id }?.supersetID }
+        row.supersetID = superset
+        if let joined, superset != nil {
             row.plan.sets = joined.plan.sets
         }
         rest.insert(row, at: to)
