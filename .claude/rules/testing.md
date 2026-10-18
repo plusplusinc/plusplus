@@ -28,8 +28,8 @@ What each tier holds today:
 - **Snapshots** hold how a component looks, at rest and while editing. The title's editing look,
   `_` included, is drawn from plain values through `EditableTitleContent`, reached with
   `@testable import`, so no focus or keyboard is needed; its `blinks: false` holds the `_` lit,
-  and its field gets a selection that ignores writes, since an unfocused field writes its own
-  back. A snapshot cannot show a caret the text system placed. A suggestion's arrival is drawn
+  a nil focus binding leaves it unfocused, and a forced `selection` (an `NSRange`) puts the
+  caret. A snapshot cannot show a caret the text system placed. A suggestion's arrival is drawn
   the same way from `typingFrame(of:at:)`'s values, so a moment of it is an image: the old name
   fading, the trail shuffling in blue, the last letter easing to white. Rows on the rail and
   Start are snapshot through the same components the routine screen composes, a generated name
@@ -42,10 +42,14 @@ What each tier holds today:
   rest, and a node's drag, its field and label, held over a span and pressed on an end; and a
   member's shared rounds in its sheet. A snapshot draws each text size fresh, so the title's height after a live text size
   change is held by `EditableTitleTextSizeTests`, which hosts `EditableTitleContent` in a window
-  and changes the window's content size category, the field focused and not.
+  and changes the window's content size category, the field focused and not. Hosted the same
+  way, `EditableTitleCaretTests` reads the `_` at every place of the caret against CoreText's
+  layout of the same text (emoji, Chinese, a wrap at a /), and `EditableTitleFocusTests` sees
+  every layout pass of the view under the title as an edit ends by Return or by giving up focus.
 - **UI tests** hold only what needs the real keyboard, text system, frames, or a relaunch:
   typing, Return, arrows, taps, range selection, the keyboard's edge, scrolling as the keyboard
-  rises, and VoiceOver frames; the exercise picker, system chrome composed in the app, which has
+  rises, nothing moving as an edit ends by Return or a touch outside the title, and VoiceOver
+  frames; the exercise picker, system chrome composed in the app, which has
   no test target: adding, searching, swiping to delete, and the accessibility audit at AX5,
   the exercise sheet with a stepper open included; stepping a value in the sheet; dragging a row, which needs
   real touches and the scroll view: a drag, a drop in place, a release over Start, the edge
