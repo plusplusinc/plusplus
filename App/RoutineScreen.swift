@@ -33,6 +33,8 @@ struct RoutineScreen: View {
     @State private var isOpeningPlace = false
     /// Whether the list is being scrolled by hand, which the in-step scroll leaves alone.
     @State private var isScrollingByHand = false
+    /// Whether the title's field has focus. Any touch outside the title ends the edit.
+    @State private var isEditingTitle = false
     /// Whether the title has scrolled up under the bar, where a small copy of it shows instead.
     @State private var isTitleUnderBar = false
     @Environment(\.locale) private var locale
@@ -67,6 +69,7 @@ struct RoutineScreen: View {
                 VStack(alignment: .leading, spacing: Spacing.md) {
                     EditableTitle(
                         text: $routine.name,
+                        isEditing: $isEditingTitle,
                         placeholder: Self.defaultName,
                         suggestion: generatedName,
                         accessibilityLabel: "Routine name",
@@ -80,6 +83,7 @@ struct RoutineScreen: View {
                     let equipment = routine.exercises.map(\.exercise).equipment
                     if !equipment.isEmpty {
                         Capsules(equipment.map(\.name))
+                            .accessibilityIdentifier("routine.equipment")
                             .transition(.opacity)
                     }
                     Rail(
@@ -216,6 +220,9 @@ struct RoutineScreen: View {
                 }
             }
         }
+        // A touch anywhere outside the title, bars included, ends its edit and still acts. The
+        // keyboard slides down as on Return, where `.scrollDismissesKeyboard` drops it at once.
+        .onTouchDownOutsideTitle { isEditingTitle = false }
         // `onChange` skips the first value, so a routine opened and left alone is never saved.
         .onChange(of: routine) { _, changed in
             saves?.yield(changed)
@@ -306,9 +313,7 @@ struct RoutineScreen: View {
               new.contentSize.height > old.contentSize.height
         else { return }
         guard new.endY > new.scrolledY else { return }
-        var transaction = Transaction()
-        transaction.disablesAnimations = true
-        withTransaction(transaction) {
+        withTransaction(\.disablesAnimations, true) {
             scrollPosition.scrollTo(y: new.endY)
         }
     }
