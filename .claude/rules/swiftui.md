@@ -28,7 +28,7 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   fragments, under the character after the caret and as wide as it. Colors, the breath, and
   the typing-in stay in SwiftUI and arrive as plain values. A touch anywhere outside it ends
   its edit as the finger comes down and still does its own thing (`onTouchDownOutsideTitle`).
-  Until it has focus it takes touches whole: a tap or a long press starts an edit at the end of
+  Until it has focus it takes touches whole: a tap or a long press on it starts an edit at the end of
   the name, the long press with the edit menu, as a `TextField` does; UIKit's own long press on
   a text view only moves the caret.
 - Prefer stock components for navigation, toolbars, and sheets; the system applies Liquid Glass

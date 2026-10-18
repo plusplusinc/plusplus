@@ -105,6 +105,7 @@ extension RenameUITests {
             // Two lines, so the title is taller than its 44pt target.
             title.typeText(String(longer.dropFirst(name.count)))
             XCTAssertEqual(title.value(becoming: longer), longer)
+            XCTAssertGreaterThan(title.frame.height, 44, "The longer name did not wrap")
         }
         XCTContext.runActivity(named: "A tap just below a two-line title ends the edit") { _ in
             // Outside the field, where SwiftUI still gives a tap to the target behind it, which

@@ -131,14 +131,16 @@ public struct EditableTitle: View {
         // focuses the field as a tap on the text does. A background takes no layout space, so
         // callers space the title like any other text.
         .background(alignment: .top) {
-            Color.clear
-                .frame(minHeight: ScreenTitle.touchTarget)
-                .contentShape(.rect)
-                .onTapGesture { isEditing = true }
-                // Only to start an edit. SwiftUI gives a tap a few points outside it to it, where
-                // a touch outside the title has already ended the edit, and focus coming back in
-                // the same tap leaves the keyboard up with its safe area gone.
-                .allowsHitTesting(!isEditing)
+            // While editing, the target takes a tap and does nothing, so the tap keeps the edit
+            // and reaches nothing behind. SwiftUI also gives it a tap a few points outside, where
+            // a touch outside the title has already ended the edit: the edit's target goes as
+            // the edit ends, cancelling that tap, which would otherwise start the edit again and
+            // leave the keyboard up with its safe area gone.
+            if isEditing {
+                touchTarget.onTapGesture { }
+            } else {
+                touchTarget.onTapGesture { isEditing = true }
+            }
         }
         .task(id: restingTitle) {
             await showRestingTitle()
@@ -163,6 +165,12 @@ public struct EditableTitle: View {
             }
         }
         .hotReloadable()
+    }
+
+    private var touchTarget: some View {
+        Color.clear
+            .frame(minHeight: ScreenTitle.touchTarget)
+            .contentShape(.rect)
     }
 
     /// Brings the drawn title to the resting one: a suggestion typed in at rest, the placeholder

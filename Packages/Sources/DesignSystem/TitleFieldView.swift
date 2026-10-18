@@ -96,6 +96,12 @@ final class TitleFieldView: UITextView, UIEditMenuInteractionDelegate {
         ))
     }
 
+    /// Hides the menu a long press showed, as the caret moves or the edit ends: it is not the
+    /// text view's own, which UIKit hides itself.
+    func dismissEditMenu() {
+        editMenu.dismissMenu()
+    }
+
     /// The menu sits clear of the caret's line, as a text field's does.
     func editMenuInteraction(
         _: UIEditMenuInteraction,
@@ -129,6 +135,7 @@ final class TitleFieldView: UITextView, UIEditMenuInteractionDelegate {
 
     override func resignFirstResponder() -> Bool {
         let resigned = super.resignFirstResponder()
+        dismissEditMenu()
         focusTap.isEnabled = !isFirstResponder
         focusPress.isEnabled = !isFirstResponder
         return resigned

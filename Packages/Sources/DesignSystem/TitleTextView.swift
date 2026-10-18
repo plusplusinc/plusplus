@@ -191,7 +191,9 @@ struct TitleTextView: UIViewRepresentable {
         }
 
         func textViewDidChangeSelection(_ textView: UITextView) {
-            (textView as? TitleFieldView)?.updateCursor(restartsBlink: true)
+            guard let view = textView as? TitleFieldView else { return }
+            view.dismissEditMenu()
+            view.updateCursor(restartsBlink: true)
         }
 
         func textViewDidBeginEditing(_ textView: UITextView) {
