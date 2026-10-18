@@ -86,18 +86,59 @@ extension RenameUITests {
         }
     }
 
-    /// Start rides above the keyboard while the title is edited, rather than staying behind it.
+    /// Start rides above the keyboard while the title is edited, rather than staying behind it,
+    /// and goes back down with the keyboard when a tap just outside a two-line title ends the
+    /// edit. A long press on the title shows the edit menu.
     @MainActor
-    func startClearsKeyboard(in app: XCUIApplication, keyboard: XCUIElement) {
-        XCTContext.runActivity(named: "Start rides above the keyboard") { _ in
-            let title = app.routineTitle
-            title.tap()
-            XCTAssertTrue(keyboard.appears())
-            let start = app.buttons["Start"]
+    func startClearsKeyboard(in app: XCUIApplication, keyboard: XCUIElement) throws {
+        let title = app.routineTitle
+        let start = app.buttons["Start"]
+        let atRest = start.frame
+        let name = try XCTUnwrap(title.value as? String)
+        let longer = name + " and core and arms"
+        try XCTContext.runActivity(named: "Start rides above the keyboard") { _ in
+            try title.tapToEditAtEnd(keyboard: keyboard)
             XCTAssertTrue(
                 reading(start.frame.maxY <= keyboard.frame.minY, becoming: true, within: 2),
                 "Start is behind the keyboard",
             )
+            // Two lines, so the title is taller than its 44pt target.
+            title.typeText(String(longer.dropFirst(name.count)))
+            XCTAssertEqual(title.value(becoming: longer), longer)
+        }
+        XCTContext.runActivity(named: "A tap just below a two-line title ends the edit") { _ in
+            // Outside the field, where SwiftUI still gives a tap to the target behind it, which
+            // once started the edit again in the same tap and left Start behind the keyboard.
+            title.coordinate(withNormalizedOffset: CGVector(dx: 0.75, dy: 1))
+                .withOffset(CGVector(dx: 0, dy: 8)).tap()
+            XCTAssertTrue(keyboard.disappears(), "The tap below the title kept the edit")
+            XCTAssertEqual(
+                reading(start.frame, becoming: atRest, within: 2),
+                atRest,
+                "Start did not go back down with the keyboard",
+            )
+            XCTAssertEqual(
+                watchFrames(of: [start], for: Self.keyboardAvoidanceWindow),
+                [atRest],
+                "Start moved after the edit ended",
+            )
+        }
+        XCTContext.runActivity(named: "A long press on the title shows the edit menu") { _ in
+            title.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.25))
+                .press(forDuration: 1)
+            XCTAssertTrue(keyboard.appears(), "A long press did not start an edit")
+            XCTAssertTrue(
+                app.menuItems["Select All"].appears(),
+                "A long press showed no edit menu",
+            )
+            title.typeText("\n")
+            XCTAssertTrue(keyboard.disappears())
+        }
+        try XCTContext.runActivity(named: "The name goes back to one line") { _ in
+            try title.tapToEditAtEnd(keyboard: keyboard)
+            let delete = XCUIKeyboardKey.delete.rawValue
+            title.typeText(String(repeating: delete, count: longer.count - name.count))
+            XCTAssertEqual(title.value(becoming: name), name)
             title.typeText("\n")
             XCTAssertTrue(keyboard.disappears())
         }

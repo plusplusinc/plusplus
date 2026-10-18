@@ -2,7 +2,7 @@
 import UIKit
 
 /// The field, with the placeholder under its text and the `_` over it.
-final class TitleFieldView: UITextView {
+final class TitleFieldView: UITextView, UIEditMenuInteractionDelegate {
     /// Laid out as the field is, so moving between the two keeps the height when the strings
     /// match.
     let placeholderView = UITextView()
@@ -62,32 +62,75 @@ final class TitleFieldView: UITextView {
         // The `_` hangs past the trailing edge after a full line, and below the last line.
         clipsToBounds = false
         addGestureRecognizer(focusTap)
+        addGestureRecognizer(focusPress)
+        addInteraction(editMenu)
     }
 
     /// The tap that starts an edit. UIKit's own tap would place the caret where it lands, after
     /// editing has begun and put it at the end, where an edit starts.
     private lazy var focusTap = UITapGestureRecognizer(target: self, action: #selector(focus))
 
+    /// The long press that starts an edit, the caret at the end as for a tap, and shows the edit
+    /// menu, as a text field does. UIKit's own long press on a text view only moves the caret.
+    private lazy var focusPress = UILongPressGestureRecognizer(
+        target: self,
+        action: #selector(focusWithMenu),
+    )
+
+    /// The edit menu a long press shows. Its items are the field's own: what it can do with its
+    /// text and the clipboard.
+    private lazy var editMenu = UIEditMenuInteraction(delegate: self)
+
     @objc private func focus() {
         _ = becomeFirstResponder()
     }
 
-    /// Until the field has focus, only `focusTap` acts on it; once it has, only UIKit's own text
-    /// gestures do, to move the caret or select. Disabled, `focusTap` takes no part in them.
+    @objc private func focusWithMenu(_ press: UILongPressGestureRecognizer) {
+        guard press.state == .began else { return }
+        focus()
+        guard isFirstResponder, let caret = selectedTextRange?.end else { return }
+        let rect = caretRect(for: caret)
+        editMenu.presentEditMenu(with: UIEditMenuConfiguration(
+            identifier: nil,
+            sourcePoint: CGPoint(x: rect.midX, y: rect.midY),
+        ))
+    }
+
+    /// The menu sits clear of the caret's line, as a text field's does.
+    func editMenuInteraction(
+        _: UIEditMenuInteraction,
+        targetRectFor _: UIEditMenuConfiguration,
+    ) -> CGRect {
+        selectedTextRange.map { caretRect(for: $0.end) } ?? .null
+    }
+
+    /// Until the field has focus it takes a touch as a whole, so only `focusTap` and
+    /// `focusPress` see it, and not the text interaction on its subviews, which would put the
+    /// caret under the finger.
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        let hit = super.hitTest(point, with: event)
+        return hit != nil && !isFirstResponder ? self : hit
+    }
+
+    /// Until the field has focus, only `focusTap` and `focusPress` act on it; once it has, only
+    /// UIKit's own text gestures do, to move the caret or select. Disabled, the two take no part
+    /// in them.
     override func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
-        recognizer === focusTap || isFirstResponder && super
+        recognizer === focusTap || recognizer === focusPress || isFirstResponder && super
             .gestureRecognizerShouldBegin(recognizer)
     }
 
     override func becomeFirstResponder() -> Bool {
         let became = super.becomeFirstResponder()
         focusTap.isEnabled = !isFirstResponder
+        focusPress.isEnabled = !isFirstResponder
         return became
     }
 
     override func resignFirstResponder() -> Bool {
         let resigned = super.resignFirstResponder()
         focusTap.isEnabled = !isFirstResponder
+        focusPress.isEnabled = !isFirstResponder
         return resigned
     }
 

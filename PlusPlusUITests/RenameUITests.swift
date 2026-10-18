@@ -69,7 +69,7 @@ final nonisolated class RenameUITests: XCTestCase {
         endEditsWithoutMoving(in: app, keyboard: keyboard)
         reorderExercises(in: app)
         supersetExercises(in: app)
-        startClearsKeyboard(in: app, keyboard: keyboard)
+        try startClearsKeyboard(in: app, keyboard: keyboard)
         deleteExercises(in: app)
     }
 

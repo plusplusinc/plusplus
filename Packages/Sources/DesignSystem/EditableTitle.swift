@@ -135,6 +135,10 @@ public struct EditableTitle: View {
                 .frame(minHeight: ScreenTitle.touchTarget)
                 .contentShape(.rect)
                 .onTapGesture { isEditing = true }
+                // Only to start an edit. SwiftUI gives a tap a few points outside it to it, where
+                // a touch outside the title has already ended the edit, and focus coming back in
+                // the same tap leaves the keyboard up with its safe area gone.
+                .allowsHitTesting(!isEditing)
         }
         .task(id: restingTitle) {
             await showRestingTitle()
