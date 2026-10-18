@@ -139,7 +139,9 @@ checkout. Each worktree also builds and tests on a simulator of its own, "PlusPl
 that runs it, so two sessions never share an app, its data, or its settings. `PLUSPLUS_SIMULATOR`
 still overrides it. `scripts/tidy.sh`
 shuts it down and deletes it when it removes the worktree, and is the only script that deletes a
-simulator. Each booted simulator adds about 250 processes, so two or three concurrent iOS
+simulator. `scripts/common.sh` records each worktree simulator in the clone's `.git`, so a worktree
+removed with `git worktree remove` (one of `main`, added to compare with) has its simulator
+deleted at the next `scripts/tidy.sh`. Each booted simulator adds about 250 processes, so two or three concurrent iOS
 worktrees is the practical ceiling on one machine.
 
 The feature subagents in `.claude/agents/` run one at a time in a slice's worktree, because
@@ -173,5 +175,5 @@ unattended Claude Code session; read-only `xcodebuild`, `git`, `gh`, and `asc` c
 `asc xcode-cloud run`; see `docs/xcode-cloud.md`); and `simctl`, with `simctl erase` and
 `simctl delete`, uploads and notarization, and force pushes denied. Both take any device, or
 `all`, so a wrong argument would wipe a person's simulators; `scripts/sim.sh erase` erases only
-the worktree's own simulator, and `scripts/tidy.sh` deletes it with the worktree. The scripts are the gate for building,
+the worktree's own simulator, and `scripts/tidy.sh` deletes it with the worktree or after it. The scripts are the gate for building,
 testing, and linting, so raw `xcodebuild build`, `swiftlint`, and friends prompt.

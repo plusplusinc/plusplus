@@ -94,7 +94,9 @@ A script makes a mistake impossible; a hook catches it on every edit; a rule tel
 it reads the file; a skill tells it when it does the task; memory records what is about the
 maintainer or the project rather than the code; `CLAUDE.md` is for what every session must know
 and is the last resort. The digest takes two more: the maintainer, for what they could do
-differently, and a product question, with a recommendation. A line added to a rule, a skill, or
+differently, and a product question, with a recommendation. A fix for what the maintainer said
+was wrong answers what they said, in their terms; a remedy they did not name is a question in
+the digest, not a fix. A line added to a rule, a skill, or
 `CLAUDE.md` is read in every session that loads it, so deleting or tightening one comes first.
 
 ## 4. Land it
