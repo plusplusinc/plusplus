@@ -13,7 +13,7 @@ final nonisolated class RenameUITests: XCTestCase {
     /// UIKit scrolls the focused field once the keyboard has risen, about 0.8s after the tap,
     /// while the keyboard's element reports its final frame from the start. Whether the title
     /// moved shows only by watching it for longer than that.
-    private static let keyboardAvoidanceWindow: TimeInterval = 2
+    static let keyboardAvoidanceWindow: TimeInterval = 2
 
     @MainActor
     func testRenameAtDefaultSize() throws {
@@ -66,6 +66,7 @@ final nonisolated class RenameUITests: XCTestCase {
             XCTAssertTrue(keyboard.disappears())
         }
         addAndSearchExercises(in: app, keyboard: keyboard)
+        endEditsWithoutMoving(in: app, keyboard: keyboard)
         reorderExercises(in: app)
         supersetExercises(in: app)
         startClearsKeyboard(in: app, keyboard: keyboard)

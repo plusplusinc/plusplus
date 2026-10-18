@@ -3,9 +3,9 @@ import XCTest
 /// Launching into the routine screen, and relaunching into what it saved.
 @MainActor
 extension XCUIApplication {
-    /// The routine's title.
+    /// The routine's title, a text view, since a name wraps.
     var routineTitle: XCUIElement {
-        textFields["Routine name"]
+        textViews["Routine name"]
     }
 
     /// Launches into a new routine, not the one the last test saved, at the text size

@@ -29,10 +29,20 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             XCTAssertEqual(title.value(becoming: Self.threeLines), Self.threeLines)
             try assertLinesInsideField(title, above: addExercise, lines: 3, "long name, editing")
         }
+        XCTContext.runActivity(named: "A tap on line 2 puts the caret there") { _ in
+            // "Hot beat" / "drills and" / "abs": a tap at the start of line 2 is before drills.
+            let field = title.frame
+            title.coordinate(withNormalizedOffset: .zero)
+                .withOffset(CGVector(dx: 4, dy: field.height / 2)).tap()
+            title.typeText("X")
+            let moved = "Hot beat Xdrills and abs"
+            XCTAssertEqual(title.value(becoming: moved), moved)
+            title.typeText(XCUIKeyboardKey.delete.rawValue)
+            XCTAssertEqual(title.value(becoming: Self.threeLines), Self.threeLines)
+        }
 
         try XCTContext.runActivity(named: "The field covers a long name") { _ in
-            title.typeText("\n")
-            XCTAssertTrue(keyboard.disappears())
+            returnLeavesEverythingInPlace(title, addExercise: addExercise, keyboard: keyboard)
             XCTAssertEqual(title.value as? String, Self.threeLines)
             try assertLinesInsideField(title, above: addExercise, lines: 3, "long name at rest")
         }
@@ -52,8 +62,7 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             title.typeText(String(repeating: delete, count: Self.threeLines.count))
             XCTAssertEqual(title.value(becoming: "New routine"), "New routine")
             try assertLinesInsideField(title, above: addExercise, lines: 2, "cleared, editing")
-            title.typeText("\n")
-            XCTAssertTrue(keyboard.disappears())
+            returnLeavesEverythingInPlace(title, addExercise: addExercise, keyboard: keyboard)
             XCTAssertEqual(title.value as? String, "New routine")
             try assertLinesInsideField(title, above: addExercise, lines: 2, "cleared, at rest")
         }
@@ -167,6 +176,26 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
                 "Add exercise does not clear Start with room to spare",
             )
         }
+    }
+
+    /// Return ends the edit, and the title and Add exercise stay where they were: only the
+    /// keyboard moves.
+    @MainActor
+    private func returnLeavesEverythingInPlace(
+        _ title: XCUIElement,
+        addExercise: XCUIElement,
+        keyboard: XCUIElement,
+        line: UInt = #line,
+    ) {
+        let before = [title.frame, addExercise.frame]
+        title.typeText("\n")
+        XCTAssertTrue(keyboard.disappears(), "Return did not end the edit", line: line)
+        XCTAssertEqual(
+            frames(of: [title, addExercise], watchedFor: 2),
+            before,
+            "Ending the edit moved the title or Add exercise",
+            line: line,
+        )
     }
 
     /// Every line of text between the bar and "Add exercise" lies inside the field.

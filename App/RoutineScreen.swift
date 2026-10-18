@@ -83,6 +83,7 @@ struct RoutineScreen: View {
                     let equipment = routine.exercises.map(\.exercise).equipment
                     if !equipment.isEmpty {
                         Capsules(equipment.map(\.name))
+                            .accessibilityIdentifier("routine.equipment")
                             .transition(.opacity)
                     }
                     Rail(

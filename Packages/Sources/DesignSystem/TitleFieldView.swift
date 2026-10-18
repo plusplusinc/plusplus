@@ -46,6 +46,34 @@ final class TitleFieldView: UITextView {
         addSubview(cursorView)
         // The `_` hangs past the trailing edge after a full line, and below the last line.
         clipsToBounds = false
+        addGestureRecognizer(focusTap)
+    }
+
+    /// The tap that starts an edit. UIKit's own tap would place the caret where it lands, after
+    /// editing has begun and put it at the end, where an edit starts.
+    private lazy var focusTap = UITapGestureRecognizer(target: self, action: #selector(focus))
+
+    @objc private func focus() {
+        _ = becomeFirstResponder()
+    }
+
+    /// Until the field has focus, only `focusTap` acts on it; once it has, only UIKit's own text
+    /// gestures do, to move the caret or select. Disabled, `focusTap` takes no part in them.
+    override func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
+        recognizer === focusTap || isFirstResponder && super
+            .gestureRecognizerShouldBegin(recognizer)
+    }
+
+    override func becomeFirstResponder() -> Bool {
+        let became = super.becomeFirstResponder()
+        focusTap.isEnabled = !isFirstResponder
+        return became
+    }
+
+    override func resignFirstResponder() -> Bool {
+        let resigned = super.resignFirstResponder()
+        focusTap.isEnabled = !isFirstResponder
+        return resigned
     }
 
     @available(*, unavailable)
