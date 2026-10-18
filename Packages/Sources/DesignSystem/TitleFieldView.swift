@@ -85,6 +85,9 @@ final class TitleFieldView: UITextView {
         view.textContainerInset = .zero
         view.textContainer.lineFragmentPadding = 0
         view.isScrollEnabled = false
+        // Never scrolled, so no indicators, which VoiceOver would list as empty sliders.
+        view.showsVerticalScrollIndicator = false
+        view.showsHorizontalScrollIndicator = false
         view.backgroundColor = .clear
     }
 
