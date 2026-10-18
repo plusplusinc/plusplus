@@ -321,8 +321,35 @@ final class TitleFieldView: UITextView {
             return
         }
         cursorView.isHidden = false
-        cursorView.sizeToFit()
-        cursorView.frame.origin = CGPoint(x: caret.minX, y: caret.minY + drop)
+        // The width follows the caret at once, never animated with whatever layout is moving.
+        UIView.performWithoutAnimation {
+            cursorView.transform = .identity
+            cursorView.sizeToFit()
+            // The `_` is one SF Mono cell, the width of every character the font has.
+            let cell = cursorView.bounds.size
+            let width = isEditingLook && !isEmptyDraft ? widthOfCharacter(at: position) : 0
+            let scale = max(1, width / cell.width)
+            cursorView.transform = CGAffineTransform(scaleX: scale, y: 1)
+            cursorView.center = CGPoint(
+                x: caret.minX + cell.width * scale / 2,
+                y: caret.minY + drop + cell.height / 2,
+            )
+        }
+    }
+
+    /// How wide the character after `position` is drawn, the whole grapheme cluster, so the
+    /// `_` under an emoji or a CJK character spans it; 0 at the end of the text.
+    private func widthOfCharacter(at position: UITextPosition) -> CGFloat {
+        let location = offset(from: beginningOfDocument, to: position)
+        let string = text as NSString
+        guard location < string.length else { return 0 }
+        let characterRange = string.rangeOfComposedCharacterSequence(at: location)
+        guard let start = self.position(from: beginningOfDocument, offset: characterRange.location),
+              let end = self.position(from: start, offset: characterRange.length),
+              let range = textRange(from: start, to: end)
+        else { return 0 }
+        let rect = firstRect(for: range)
+        return rect.width.isFinite ? rect.width : 0
     }
 }
 
