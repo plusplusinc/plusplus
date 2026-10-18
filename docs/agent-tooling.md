@@ -174,8 +174,8 @@ minimized. On any other simulator it leaves the settings alone, since that one i
 
 `.claude/settings.json` pre-approves the scripts except `nightly-retro.sh`, which starts an
 unattended Claude Code session; read-only `xcodebuild`, `git`, `gh`, and `asc` commands (plus
-`asc xcode-cloud run`; see `docs/xcode-cloud.md`); and `simctl`, with `simctl erase`, uploads and
-notarization, and force pushes denied. `simctl erase` takes any device, or `all`, so a wrong
-argument would wipe a person's simulators; `scripts/sim.sh erase` erases only the
-worktree's own simulator. The scripts are the gate for building,
+`asc xcode-cloud run`; see `docs/xcode-cloud.md`); and `simctl`, with `simctl erase` and
+`simctl delete`, uploads and notarization, and force pushes denied. Both take any device, or
+`all`, so a wrong argument would wipe a person's simulators; `scripts/sim.sh erase` erases only
+the worktree's own simulator, and `scripts/tidy.sh` deletes it with the worktree. The scripts are the gate for building,
 testing, and linting, so raw `xcodebuild build`, `swiftlint`, and friends prompt.

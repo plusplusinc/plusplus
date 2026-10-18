@@ -5,6 +5,7 @@
 #   scripts/device.sh                                  # the one available iPhone, else a link
 #   PLUSPLUS_DEVICE="<name or UDID>" scripts/device.sh
 #   scripts/device.sh --link                           # a link, even with an iPhone in reach
+#   scripts/device.sh --list                           # the iPhone it would use, and why others not
 #
 # The phone is looked up each time, never stored, since the repo is public. It must be paired
 # with this Mac and reachable: devicectl marks it unavailable when it is away or off the Mac's
@@ -37,8 +38,12 @@ SITE="$MAIN/.build/phone-link"
 mkdir -p "$STAGING"
 
 # One line per available iPhone, UDID then name, tab-separated, narrowed to PLUSPLUS_DEVICE
-# when it is set. devicectl also lists simulators, watches, and devices it cannot reach. Names
-# are compared with typographic apostrophes and spaces made plain, so a typed name matches.
+# when it is set; each paired iPhone out of reach goes to stderr with why. devicectl also lists
+# simulators, watches, and devices it cannot reach. It reads devicectl's `properties`, which
+# replaces the deprecated hardwareProperties, connectionProperties, and deviceProperties, and
+# fails, rather than falling back to a link, when the devices it lists lack the fields it reads:
+# a silent fallback once hid a broken filter for nine installs. Names are compared with
+# typographic apostrophes and spaces made plain, so a typed name matches.
 available_iphones() {
     xcrun devicectl list devices --quiet --json-output - | python3 -c '
 import json, sys
@@ -47,23 +52,32 @@ def plain(text):
     return text.replace("\u2019", "\x27").replace("\u00a0", " ").casefold()
 
 wanted = plain(sys.argv[1])
-for device in json.load(sys.stdin)["result"]["devices"]:
-    hardware = device.get("hardwareProperties", {})
-    connection = device.get("connectionProperties", {})
-    name = device.get("deviceProperties", {}).get("name", "")
-    # A phone in reach is on a cable or the local network; one away from the Mac has no
-    # transport and its tunnel reads "unavailable". The tunnel itself opens on demand, so
-    # "disconnected" still means reachable. Simulators say reality "simulated"; a phone may
-    # leave reality out.
+devices = json.load(sys.stdin)["result"]["devices"]
+if devices and not any(d.get("properties", {}).get("hardware", {}).get("deviceType")
+                       for d in devices):
+    sys.exit("devicectl lists devices without properties.hardware.deviceType; its JSON has "
+             "changed, so update the filter in scripts/device.sh (xcrun devicectl list devices "
+             "--json-output - shows the fields)")
+for device in devices:
+    properties = device.get("properties", {})
+    hardware = properties.get("hardware", {})
+    connection = properties.get("connection", {})
+    name = properties.get("state", {}).get("name", "")
     if (
-        hardware.get("reality") != "simulated"
-        and hardware.get("deviceType") == "iPhone"
-        and connection.get("pairingState") == "paired"
-        and connection.get("transportType") in ("wired", "localNetwork")
-        and connection.get("tunnelState") != "unavailable"
-        and wanted in ("", plain(hardware.get("udid", "")), plain(name))
+        hardware.get("reality") == "simulated"
+        or hardware.get("deviceType") != "iPhone"
+        or connection.get("pairingState") != "paired"
+        or wanted not in ("", plain(hardware.get("udid", "")), plain(name))
     ):
+        continue
+    # A phone in reach is on a cable or the local network; one away from the Mac has no
+    # transport and its state reads "unavailable". The tunnel opens on demand, so
+    # "disconnected" still means reachable.
+    transport, state = connection.get("transportType"), connection.get("state")
+    if transport in ("wired", "localNetwork") and state != "unavailable":
         print(hardware["udid"], name, sep="\t")
+    else:
+        print(f"{name}: out of reach (transport {transport}, state {state})", file=sys.stderr)
 ' "${PLUSPLUS_DEVICE:-}"
 }
 
@@ -223,12 +237,16 @@ JSON
 
 case "${1:-}" in
     "") ;;
+    --list)
+        available_iphones
+        exit
+        ;;
     --link)
         install_link
         exit
         ;;
     *)
-        echo "usage: scripts/device.sh [--link]" >&2
+        echo "usage: scripts/device.sh [--link | --list]" >&2
         exit 64
         ;;
 esac
@@ -238,7 +256,7 @@ COUNT=$(grep -c . <<< "$IPHONES" || true)
 
 if [ "$COUNT" -eq 0 ]; then
     echo "no iPhone available${PLUSPLUS_DEVICE:+ matching PLUSPLUS_DEVICE=$PLUSPLUS_DEVICE}," \
-        "so making an install link; xcrun devicectl list devices shows what it sees"
+        "so making an install link"
     install_link
     exit
 fi
