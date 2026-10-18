@@ -33,7 +33,7 @@ struct RoutineScreen: View {
     @State private var isOpeningPlace = false
     /// Whether the list is being scrolled by hand, which the in-step scroll leaves alone.
     @State private var isScrollingByHand = false
-    /// Whether the title's field has focus. A scroll by hand ends the edit.
+    /// Whether the title's field has focus. Any touch outside the title ends the edit.
     @State private var isEditingTitle = false
     /// Whether the title has scrolled up under the bar, where a small copy of it shows instead.
     @State private var isTitleUnderBar = false
@@ -143,14 +143,6 @@ struct RoutineScreen: View {
             .onScrollGeometryChange(for: ScrollGeometry.self, of: { $0 }, action: keepEndInView)
             .onScrollPhaseChange { _, phase in
                 isScrollingByHand = phase == .interacting || phase == .decelerating
-                // A scroll by hand ends the title's edit, as in any iOS list with a text field;
-                // the rail's autoscroll does not. Ended here rather than by
-                // `.scrollDismissesKeyboard(.immediately)`, whose UIKit dismissal moves the
-                // keyboard off screen in one frame: ending the edit resigns the field, and the
-                // keyboard slides down as it does on Return.
-                if phase == .interacting {
-                    isEditingTitle = false
-                }
             }
             .onScrollGeometryChange(
                 for: Bool.self,
@@ -227,6 +219,12 @@ struct RoutineScreen: View {
                 }
             }
         }
+        // Any touch outside the title ends its edit as the finger comes down, and still does its
+        // own thing: a row's tap opens it, a hold lifts it, a drag scrolls, Start and ++ act.
+        // On the whole stack, so the bars count too. Ending the edit resigns the field, so the
+        // keyboard slides down as on Return; `.scrollDismissesKeyboard` would take it off screen
+        // in one frame. The rail's autoscroll touches nothing, so it leaves the edit alone.
+        .onTouchDownOutsideTitle { isEditingTitle = false }
         // `onChange` skips the first value, so a routine opened and left alone is never saved.
         .onChange(of: routine) { _, changed in
             saves?.yield(changed)
