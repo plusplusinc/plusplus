@@ -33,9 +33,15 @@ extension View {
     }
 }
 
-/// 24pt, between `title2` and `title`, scaling as `title2` does.
+/// The screen title's size: 24pt, between `title2` and `title`, scaling as `title2` does. Read
+/// with `@ScaledMetric(relativeTo: ScreenTitle.textStyle) var size = ScreenTitle.size`.
+enum ScreenTitle {
+    static let size: CGFloat = 24
+    static let textStyle = Font.TextStyle.title2
+}
+
 private struct ScreenTitleFont: ViewModifier {
-    @ScaledMetric(relativeTo: .title2) private var size: CGFloat = 24
+    @ScaledMetric(relativeTo: ScreenTitle.textStyle) private var size = ScreenTitle.size
     @ObserveHotReload private var hotReload
 
     func body(content: Content) -> some View {

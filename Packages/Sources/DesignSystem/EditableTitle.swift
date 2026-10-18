@@ -20,28 +20,21 @@ import SwiftUI
 /// the lead, then easing to its own color, while the `_` breathes in the rail's joining blue.
 /// Reduce Motion crossfades it instead, with no blue, and editing stops it at once.
 ///
-/// The field draws its own text, so everything the keyboard shows in it (suggestions, inline
-/// predictions, text being composed) shows as in any field. The `_` is drawn over it by
-/// `TitleCursor`. The title is monospaced, so the `_` is one character cell wide and its place
-/// follows from the text alone: `cursorCell(at:in:columns:)` wraps the text as the field does.
-/// A suggestion or the placeholder, drawn as `Text` in place of an empty field, breaks its lines
-/// where `lineBreaks(in:columns:)` says, since `Text` on its own avoids leaving one word on the
-/// last line, and the field does not.
-///
-/// The cell model counts every character as one cell, which holds for the Latin names it was
-/// made for. Emoji and CJK are wider: the title still grows to fit them, measured as `Text`, but
-/// the `_` can sit a cell or a line away from the caret.
+/// The field is a `UITextView` (`TitleTextView`), which draws its own text, so everything the
+/// keyboard shows in it (suggestions, inline predictions, text being composed) shows as in any
+/// field. The `_` sits where the text system draws its caret, so it is under the right
+/// character whatever the name holds, emoji and CJK included. The placeholder or a suggestion
+/// is laid out by a second text view set up as the field is, so it wraps as the field would.
 public struct EditableTitle: View {
     @Binding private var text: String
     private let placeholder: String
     private let suggestion: String?
-    private let label: LocalizedStringKey
-    private let hint: LocalizedStringKey
+    private let label: LocalizedStringResource
+    private let hint: LocalizedStringResource
 
     @State private var draft: String
-    /// The field's selection, which the text system writes as the caret moves.
-    @State private var caret = Caret()
-    @FocusState private var isEditing: Bool
+    /// Whether the field has focus: set by a tap, and by the field as it starts and ends editing.
+    @State private var isEditing = false
     /// What an unnamed title shows as drawn: behind `restingTitle` while a new one types in.
     @State private var shownTitle: String
     @State private var shownOpacity = 1.0
@@ -59,8 +52,8 @@ public struct EditableTitle: View {
         text: Binding<String>,
         placeholder: String,
         suggestion: String? = nil,
-        accessibilityLabel: LocalizedStringKey,
-        accessibilityHint: LocalizedStringKey,
+        accessibilityLabel: LocalizedStringResource,
+        accessibilityHint: LocalizedStringResource,
     ) {
         _text = text
         self.placeholder = placeholder
@@ -102,6 +95,18 @@ public struct EditableTitle: View {
                 : String(draft.map { $0.isNewline ? " " : $0 }),
         )
         return ends
+    }
+
+    /// What the field inserts for a change that types or pastes `replacement`, and whether
+    /// editing ends: a single newline is a Return, which ends editing and inserts the rest
+    /// without it (autocorrect can send a word with it), and more came from pasted lines, which
+    /// become spaces, since a title is one paragraph.
+    static func newlineEdit(_ replacement: String) -> (insert: String, endsEditing: Bool) {
+        guard replacement.contains(where: \.isNewline) else { return (replacement, false) }
+        if isReturn(replacement) {
+            return (replacement.filter { !$0.isNewline }, true)
+        }
+        return (String(replacement.map { $0.isNewline ? " " : $0 }), false)
     }
 
     /// The title an edit leaves behind: trimmed, and empty, which leaves the title unnamed, when
@@ -210,8 +215,7 @@ public struct EditableTitle: View {
             }
             EditableTitleContent(
                 draft: $draft,
-                caret: caret,
-                selection: $caret.selection,
+                isFocused: $isEditing,
                 placeholder: restingTitle,
                 shownPlaceholder: frame?.shown ?? shownTitle,
                 isSuggested: shownIsSuggested,
@@ -230,7 +234,6 @@ public struct EditableTitle: View {
                 blinks: true,
                 accessibilityLabel: label,
                 accessibilityHint: hint,
-                behavior: TitleFieldBehavior(isEditing: $isEditing, draft: $draft, caret: caret),
             )
         }
         // The field is only as tall as its text. Behind it, a target at least 44pt tall reaches
@@ -253,17 +256,16 @@ public struct EditableTitle: View {
                 if draft.isEmpty, let suggestion {
                     editedSuggestion = suggestion
                 }
-                // The tap that focuses the field leaves the caret at the start or selects
-                // everything, not where it landed, so editing starts at the end. Taps once
-                // editing place the caret where they land.
-                caret.replace(&draft, with: editedSuggestion ?? draft)
+                // A suggestion opens as text to edit, the caret at its end, where the field
+                // puts it as editing starts.
+                draft = editedSuggestion ?? draft
             } else {
                 commit()
             }
         }
         .onChange(of: text) { _, newText in
             if !isEditing {
-                caret.replace(&draft, with: newText)
+                draft = newText
             }
         }
         .hotReloadable()
@@ -310,40 +312,7 @@ public struct EditableTitle: View {
     private func commit() {
         text = Self.committed(draft, from: editedSuggestion)
         editedSuggestion = nil
-        caret.replace(&draft, with: text)
-    }
-}
-
-/// What the title's field does: takes focus, and ends editing on Return. Separate from how the
-/// title is drawn, since only a view's own `@FocusState` can focus a field, so a snapshot can
-/// draw the editing title without focusing anything.
-private struct TitleFieldBehavior: ViewModifier {
-    let isEditing: FocusState<Bool>.Binding
-    @Binding var draft: String
-    let caret: Caret
-    @ObserveHotReload private var hotReload
-
-    func body(content: Content) -> some View {
-        content
-            .focused(isEditing)
-            .submitLabel(.done)
-            #if os(iOS)
-            .textInputAutocapitalization(.sentences)
-            #endif
-            .onSubmit { isEditing.wrappedValue = false }
-            // A hardware keyboard's Return reaches a vertical field as a key press.
-            .onKeyPress(.return) {
-                isEditing.wrappedValue = false
-                return .handled
-            }
-            // The on-screen keyboard's Return reaches it as an inserted newline, wherever the
-            // caret is.
-            .onChange(of: draft) {
-                if EditableTitle.takeNewlines(in: &draft, caret: caret) {
-                    isEditing.wrappedValue = false
-                }
-            }
-            .hotReloadable()
+        draft = text
     }
 }
 
