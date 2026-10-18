@@ -129,10 +129,13 @@ struct TitleTextView: UIViewRepresentable {
     func sizeThatFits(
         _ proposal: ProposedViewSize,
         uiView view: TitleFieldView,
-        context _: Context,
+        context: Context,
     ) -> CGSize? {
         let width = proposal.width ?? .greatestFiniteMagnitude
-        let size = view.shownTextView.fittingSize(width: width)
+        let size = view.shownTextView.fittingSize(
+            width: width,
+            scale: context.environment.displayScale,
+        )
         return CGSize(width: proposal.width ?? size.width, height: size.height)
     }
 
@@ -183,9 +186,14 @@ struct TitleTextView: UIViewRepresentable {
         }
 
         func textViewDidBeginEditing(_ textView: UITextView) {
-            // Editing starts at the end, wherever the focusing tap landed.
-            let end = textView.endOfDocument
-            textView.selectedTextRange = textView.textRange(from: end, to: end)
+            // Editing starts at the end, wherever the focusing tap landed, or where a test puts
+            // it.
+            if let selection = parent.selection {
+                textView.selectedRange = selection
+            } else {
+                let end = textView.endOfDocument
+                textView.selectedTextRange = textView.textRange(from: end, to: end)
+            }
             if let isFocused = parent.isFocused, !isFocused.wrappedValue {
                 isFocused.wrappedValue = true
             }
@@ -196,177 +204,6 @@ struct TitleTextView: UIViewRepresentable {
                 isFocused.wrappedValue = false
             }
         }
-    }
-}
-
-/// The field, with the placeholder under its text and the `_` over it.
-final class TitleFieldView: UITextView {
-    /// Laid out as the field is, so moving between the two keeps the height when the strings
-    /// match.
-    let placeholderView = UITextView()
-    let cursorView = UILabel()
-    var drop: CGFloat = 0
-    var isEmptyDraft = true {
-        didSet { placeholderView.isHidden = !isEmptyDraft }
-    }
-
-    var isEditingLook = false {
-        didSet {
-            if isEditingLook != oldValue {
-                updateCursor(restartsBlink: true)
-            }
-        }
-    }
-
-    var blinks = true
-    var accessibilityPlaceholder = ""
-
-    private static let blinkInterval: CFTimeInterval = 0.53
-    private static let blinkKey = "blink"
-
-    init() {
-        super.init(frame: .zero, textContainer: nil)
-        Self.configure(self)
-        Self.configure(placeholderView)
-        placeholderView.isEditable = false
-        placeholderView.isSelectable = false
-        placeholderView.isUserInteractionEnabled = false
-        placeholderView.isAccessibilityElement = false
-        placeholderView.accessibilityElementsHidden = true
-        insertSubview(placeholderView, at: 0)
-
-        cursorView.text = "_"
-        cursorView.isUserInteractionEnabled = false
-        cursorView.isAccessibilityElement = false
-        cursorView.accessibilityElementsHidden = true
-        addSubview(cursorView)
-        // The `_` hangs past the trailing edge after a full line, and below the last line.
-        clipsToBounds = false
-    }
-
-    @available(*, unavailable)
-    required init?(coder _: NSCoder) {
-        fatalError("init(coder:) is not supported")
-    }
-
-    private static func configure(_ view: UITextView) {
-        view.textContainerInset = .zero
-        view.textContainer.lineFragmentPadding = 0
-        view.isScrollEnabled = false
-        view.backgroundColor = .clear
-    }
-
-    /// The text view whose text shows: the field, or the placeholder in its place.
-    var shownTextView: UITextView {
-        isEmptyDraft ? placeholderView : self
-    }
-
-    override var accessibilityValue: String? {
-        get { text.isEmpty ? accessibilityPlaceholder : text }
-        set { super.accessibilityValue = newValue }
-    }
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        placeholderView.frame = CGRect(
-            origin: .zero,
-            size: placeholderView.fittingSize(width: bounds.width),
-        )
-        placeCursor()
-    }
-
-    /// The caret's color is clear while there is no range, so the `_` is the only cursor; a
-    /// range shows the system highlight. The `_` blinks, lit again from every move
-    /// (`restartsBlink`).
-    func updateCursor(restartsBlink: Bool) {
-        let isRange = isFirstResponder && selectedRange.length > 0
-        tintColor = isRange ? nil : .clear
-        placeCursor()
-        let layer = cursorView.layer
-        guard isEditingLook, blinks, !isRange else {
-            layer.removeAnimation(forKey: Self.blinkKey)
-            return
-        }
-        guard restartsBlink || layer.animation(forKey: Self.blinkKey) == nil else { return }
-        // Discrete: lit for the first half of each cycle, dark for the second, no fade.
-        let blink = CAKeyframeAnimation(keyPath: "opacity")
-        blink.values = [1, 0]
-        blink.keyTimes = [0, 0.5, 1]
-        blink.calculationMode = .discrete
-        blink.duration = Self.blinkInterval * 2
-        blink.repeatCount = .infinity
-        layer.add(blink, forKey: Self.blinkKey)
-    }
-
-    /// Under the character typing will push along, or after the last one: where the text system
-    /// draws its caret. Under the placeholder's first letter while editing an empty field, and
-    /// after the text at rest. Hidden for a range.
-    private func placeCursor() {
-        let shown = shownTextView
-        shown.ensureLayout()
-        let position: UITextPosition
-        if !isEditingLook {
-            position = shown.endOfDocument
-        } else if isEmptyDraft {
-            position = beginningOfDocument
-        } else if let range = selectedTextRange, range.isEmpty {
-            position = range.start
-        } else {
-            cursorView.isHidden = true
-            return
-        }
-        let caret = (isEditingLook ? self : shown).caretRect(for: position)
-        guard caret.minX.isFinite, caret.minY.isFinite else {
-            cursorView.isHidden = true
-            return
-        }
-        cursorView.isHidden = false
-        // The width follows the caret at once, never animated with whatever layout is moving.
-        UIView.performWithoutAnimation {
-            cursorView.transform = .identity
-            cursorView.sizeToFit()
-            // The `_` is one SF Mono cell, the width of every character the font has.
-            let cell = cursorView.bounds.size
-            let width = isEditingLook && !isEmptyDraft ? widthOfCharacter(at: position) : 0
-            let scale = max(1, width / cell.width)
-            cursorView.transform = CGAffineTransform(scaleX: scale, y: 1)
-            cursorView.center = CGPoint(
-                x: caret.minX + cell.width * scale / 2,
-                y: caret.minY + drop + cell.height / 2,
-            )
-        }
-    }
-
-    /// How wide the character after `position` is drawn, the whole grapheme cluster, so the
-    /// `_` under an emoji or a CJK character spans it; 0 at the end of the text.
-    private func widthOfCharacter(at position: UITextPosition) -> CGFloat {
-        let location = offset(from: beginningOfDocument, to: position)
-        let string = text as NSString
-        guard location < string.length else { return 0 }
-        let characterRange = string.rangeOfComposedCharacterSequence(at: location)
-        guard let start = self.position(from: beginningOfDocument, offset: characterRange.location),
-              let end = self.position(from: start, offset: characterRange.length),
-              let range = textRange(from: start, to: end)
-        else { return 0 }
-        let rect = firstRect(for: range)
-        return rect.width.isFinite ? rect.width : 0
-    }
-}
-
-extension UITextView {
-    /// Lays out the whole text, so sizes and caret rects read from it are final. The title is
-    /// short, so this is cheap.
-    fileprivate func ensureLayout() {
-        if let layout = textLayoutManager {
-            layout.ensureLayout(for: layout.documentRange)
-        }
-    }
-
-    /// The height its text takes at `width`.
-    fileprivate func fittingSize(width: CGFloat) -> CGSize {
-        ensureLayout()
-        let size = sizeThatFits(CGSize(width: width, height: .greatestFiniteMagnitude))
-        return CGSize(width: min(width, size.width), height: size.height)
     }
 }
 

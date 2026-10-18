@@ -61,7 +61,7 @@ struct EditableTitleContent: View {
             drop: drop,
             textColor: .pp(.textPrimary),
             placeholder: String(shownPlaceholder.enumerated().map { standIns[$0] ?? $1 }),
-            placeholderColors: shownPlaceholder.indices.enumerated().map { index, _ in
+            placeholderColors: (0 ..< shownPlaceholder.count).map { index in
                 guard let tint = tints[index], tint > 0 else { return restingColor }
                 return restingColor.mix(with: .pp(.railJoin), by: tint)
             },

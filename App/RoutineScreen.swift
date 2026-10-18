@@ -219,11 +219,8 @@ struct RoutineScreen: View {
                 }
             }
         }
-        // Any touch outside the title ends its edit as the finger comes down, and still does its
-        // own thing: a row's tap opens it, a hold lifts it, a drag scrolls, Start and ++ act.
-        // On the whole stack, so the bars count too. Ending the edit resigns the field, so the
-        // keyboard slides down as on Return; `.scrollDismissesKeyboard` would take it off screen
-        // in one frame. The rail's autoscroll touches nothing, so it leaves the edit alone.
+        // A touch anywhere outside the title, bars included, ends its edit and still acts. The
+        // keyboard slides down as on Return; `.scrollDismissesKeyboard` drops it in one frame.
         .onTouchDownOutsideTitle { isEditingTitle = false }
         // `onChange` skips the first value, so a routine opened and left alone is never saved.
         .onChange(of: routine) { _, changed in
@@ -315,9 +312,7 @@ struct RoutineScreen: View {
               new.contentSize.height > old.contentSize.height
         else { return }
         guard new.endY > new.scrolledY else { return }
-        var transaction = Transaction()
-        transaction.disablesAnimations = true
-        withTransaction(transaction) {
+        withTransaction(\.disablesAnimations, true) {
             scrollPosition.scrollTo(y: new.endY)
         }
     }

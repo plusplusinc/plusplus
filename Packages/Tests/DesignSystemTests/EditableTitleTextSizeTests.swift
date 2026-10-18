@@ -1,6 +1,7 @@
 // Runs only where UIKit exists, so `swift test` on macOS compiles it away and stays fast.
 #if canImport(UIKit) && !os(watchOS)
 
+import Foundation
 import SwiftUI
 import Testing
 import UIKit
@@ -19,8 +20,7 @@ struct EditableTitleTextSizeTests {
     /// A named title, the placeholder, and a name that wraps at both sizes.
     nonisolated static let drafts = ["Push", "", "Hot beat drills and abs and arms"]
 
-    /// Names the cell model wraps to fewer lines than the field does: emoji and CJK are wider
-    /// than a cell of the title's font.
+    /// Names wider than a cell of the title's font: emoji and CJK.
     nonisolated static let wideDrafts = [
         "Legs 💪💪💪💪💪💪💪 and back",
         "上半身と下半身の筋力トレーニング",
@@ -39,23 +39,22 @@ struct EditableTitleTextSizeTests {
             at category: UIContentSizeCategory,
             caretAt offset: Int? = nil,
         ) {
-            let caret = Caret()
-            caret.selection = offset.map {
-                TextSelection(insertionPoint: draft.index(draft.startIndex, offsetBy: $0))
-            }
             host = UIHostingController(rootView: AnyView(
                 EditableTitleContent(
                     draft: .constant(draft),
-                    caret: caret,
-                    // Ignores writes, as in the snapshots, so the caret stays where it was put.
-                    selection: .constant(caret.selection),
+                    // Focused as a tap focuses it, so the text system lays it out as it does
+                    // while editing.
+                    isFocused: .constant(isEditing),
+                    selection: offset.map {
+                        let index = draft.index(draft.startIndex, offsetBy: $0)
+                        return NSRange(index ..< index, in: draft)
+                    },
                     placeholder: "New routine",
                     shownPlaceholder: "New routine",
                     isEditing: isEditing,
                     blinks: false,
                     accessibilityLabel: "Routine name",
                     accessibilityHint: "Renames the routine.",
-                    behavior: FocusOnAppear(isOn: isEditing),
                 )
                 // The routine screen scrolls, so the title is as tall as it asks to be.
                 .fixedSize(horizontal: false, vertical: true)
@@ -76,8 +75,7 @@ struct EditableTitleTextSizeTests {
             window.isHidden = true
         }
 
-        /// The title's height once its measurements have settled: they reach the layout over a
-        /// few passes, each measured geometry updating state for the next.
+        /// The title's height once layout has settled.
         func height() -> CGFloat {
             var last = -1.0
             for _ in 0 ..< 50 {
@@ -170,7 +168,12 @@ struct EditableTitleTextSizeTests {
     }
 
     /// Names whose caret sits mid-word, on line 1 at Large and on a later line at AX5.
-    nonisolated static let carets = [("Arm and back", 9), ("Hot beat drills and abs", 11)]
+    /// The emoji name's caret is mid-way through its run of emoji.
+    nonisolated static let carets = [
+        ("Arm and back", 9),
+        ("Hot beat drills and abs", 11),
+        ("Legs 💪💪💪💪💪💪💪 and back", 8),
+    ]
 
     @Test(
         "Editing, the _ is drawn where it is fresh, under the caret, after a size change each way",
@@ -243,19 +246,6 @@ struct EditableTitleTextSizeTests {
                 )
             }
         }
-    }
-}
-
-/// Focuses the field as it appears, as a tap does, so the text system lays it out as it does
-/// while editing.
-private struct FocusOnAppear: ViewModifier {
-    let isOn: Bool
-    @FocusState private var isFocused: Bool
-
-    func body(content: Content) -> some View {
-        content
-            .focused($isFocused)
-            .onAppear { isFocused = isOn }
     }
 }
 

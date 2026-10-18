@@ -1,6 +1,7 @@
 // Runs only where UIKit exists, so `swift test` on macOS compiles it away and stays fast.
 #if canImport(UIKit) && !os(watchOS)
 
+import Foundation
 import SwiftUI
 import Testing
 @testable import DesignSystem
@@ -16,23 +17,19 @@ struct EditableTitleSnapshotTests {
     /// `caret`, or the end when it is nil.
     private func editing(_ draft: String, caret offset: Int? = nil) -> some View {
         let index = offset.map { draft.index(draft.startIndex, offsetBy: $0) } ?? draft.endIndex
-        return editing(draft, selection: TextSelection(insertionPoint: index))
+        return editing(draft, selection: NSRange(index ..< index, in: draft))
     }
 
-    private func editing(_ draft: String, selection: TextSelection) -> some View {
-        let caret = Caret()
-        caret.selection = selection
-        return EditableTitleContent(
+    private func editing(_ draft: String, selection: NSRange) -> some View {
+        EditableTitleContent(
             draft: .constant(draft),
-            caret: caret,
-            selection: .constant(caret.selection),
+            selection: selection,
             placeholder: "New routine",
             shownPlaceholder: "New routine",
             isEditing: true,
             blinks: false,
             accessibilityLabel: "Routine name",
             accessibilityHint: "Renames the routine.",
-            behavior: EmptyModifier(),
         )
         .padding(Spacing.md)
         .background(Color.pp(.background))
@@ -67,15 +64,25 @@ struct EditableTitleSnapshotTests {
     /// holds that no `_` is drawn with it.
     @Test("A range selection draws no _")
     func rangeSelection() {
-        let draft = "Arm and back"
-        let and = draft.index(draft.startIndex, offsetBy: 4) ..< draft.index(
-            draft.startIndex,
-            offsetBy: 7,
-        )
         assertThemedSnapshots(
-            of: editing(draft, selection: TextSelection(range: and)),
+            of: editing("Arm and back", selection: NSRange(location: 4, length: 3)),
             width: Self.screenWidth,
         )
+    }
+
+    /// Before an emoji the `_` spans it, as wide as the emoji is drawn.
+    @Test("Mid-way through a run of emoji, the _ is under the emoji after the caret")
+    func caretInEmoji() {
+        assertThemedSnapshots(
+            of: editing("Legs 💪💪💪💪💪💪💪 and back", caret: 8),
+            width: Self.screenWidth,
+        )
+    }
+
+    /// Before a CJK character the `_` spans it, as wide as the character is drawn.
+    @Test("Mid-way through a Chinese name, the _ is under the character after the caret")
+    func caretInChinese() {
+        assertThemedSnapshots(of: editing("上半身和下半身力量训练", caret: 4), width: Self.screenWidth)
     }
 }
 
