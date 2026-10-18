@@ -57,12 +57,7 @@ struct EditableTitleTextSizeTests {
                 .frame(width: EditableTitleTextSizeTests.width),
             ))
             host.safeAreaRegions = []
-            // The package's tests run with no host app, so there is no scene for a window to
-            // join; a window without one still lays out, takes traits, and focuses a field.
-            window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
-            window.traitOverrides.preferredContentSizeCategory = category
-            window.rootViewController = host
-            window.makeKeyAndVisible()
+            window = .sceneless(hosting: host, at: category)
             // Once focused, where the text system put the caret as editing began.
             if let offset {
                 window.layoutIfNeeded()

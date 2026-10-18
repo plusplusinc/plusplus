@@ -67,9 +67,18 @@ final nonisolated class RenameUITests: XCTestCase {
         }
         addAndSearchExercises(in: app, keyboard: keyboard)
         endEditsWithoutMoving(in: app, keyboard: keyboard)
+        try startClearsKeyboard(in: app, keyboard: keyboard)
+    }
+
+    /// Reordering, supersets, and deleting, on the nine rows `testRenameAtDefaultSize` adds, in a
+    /// launch of their own: in one test they ran past XCTest's three-minute allowance on Xcode
+    /// Cloud.
+    @MainActor
+    func testDragAndDeleteRows() {
+        let app = XCUIApplication()
+        app.launchNineExercises(named: "Arm and back day")
         reorderExercises(in: app)
         supersetExercises(in: app)
-        try startClearsKeyboard(in: app, keyboard: keyboard)
         deleteExercises(in: app)
     }
 
@@ -98,6 +107,8 @@ final nonisolated class RenameUITests: XCTestCase {
             XCTAssertEqual(watched[0], field, "The title's frame moved")
             XCTAssertEqual(watched[1], button, "Add exercise moved")
         }
+        // The watch above gives the tip time to show.
+        XCUIApplication().dismissKeyboardTip()
         // Read once the keyboard has risen and UIKit would have scrolled.
         let placeholder = try Ink.ofTitle(in: field)
         let placeholderText = try XCTUnwrap(placeholder.lines.first)

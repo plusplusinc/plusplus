@@ -90,9 +90,9 @@ struct TitleTextView: UIViewRepresentable {
 
         if let isFocused {
             if isFocused.wrappedValue, !view.isFirstResponder {
-                view.becomeFirstResponder()
+                _ = view.becomeFirstResponder()
             } else if !isFocused.wrappedValue, view.isFirstResponder {
-                view.resignFirstResponder()
+                _ = view.resignFirstResponder()
             }
         }
         if let selection, view.selectedRange != selection {

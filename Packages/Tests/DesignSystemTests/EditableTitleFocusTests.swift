@@ -68,10 +68,7 @@ struct EditableTitleFocusTests {
                 log: log,
             ))
             host.safeAreaRegions = []
-            window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
-            window.traitOverrides.preferredContentSizeCategory = category
-            window.rootViewController = host
-            window.makeKeyAndVisible()
+            window = .sceneless(hosting: host, at: category)
             window.layoutIfNeeded()
             func field(in view: UIView) -> UITextView? {
                 view as? UITextView ?? view.subviews.lazy.compactMap(field(in:)).first
