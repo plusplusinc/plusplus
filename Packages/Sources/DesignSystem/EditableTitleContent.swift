@@ -106,37 +106,6 @@ struct EditableTitleContent: View {
     }
 }
 
-/// The field's selection. `isRange` changes only between a caret and a range, so the field,
-/// which reads only that, is not updated as the caret moves.
-///
-/// The selection indexes the text it was made for, and the `_` reads it in the draft drawn with
-/// it, so the two must always hold the same text. The field writes both together, its selection
-/// and then its text, before anything is drawn. Anything else that sets the draft goes through
-/// `replace(_:with:)`. An index read in a different string is invalid: Swift returns nil for
-/// one past the end of an ASCII string, but traps on one from the field's UTF-16 text past the
-/// end of a native string with any other character, such as autocorrect's curly apostrophe.
-@Observable
-final class Caret {
-    var selection: TextSelection? {
-        didSet {
-            let isRange = selection != nil && EditableTitle
-                .insertionPoint(of: selection, in: "") == nil
-            if isRange != self.isRange {
-                self.isRange = isRange
-            }
-        }
-    }
-
-    private(set) var isRange = false
-
-    /// Sets `draft` to `text` from outside the field, with the caret at its end, where the field
-    /// puts its own when its text is replaced.
-    func replace(_ draft: inout String, with text: String) {
-        draft = text
-        selection = TextSelection(insertionPoint: draft.endIndex)
-    }
-}
-
 #Preview("Editing") {
     EditableTitleContent(
         draft: .constant("Arm and back"),

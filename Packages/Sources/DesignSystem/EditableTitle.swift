@@ -78,38 +78,16 @@ public struct EditableTitle: View {
         shownTitle != placeholder
     }
 
-    /// Whether a draft holds a press of Return: a single newline, wherever the caret was and
-    /// whatever else the same change typed or replaced. More than one came from pasted lines.
-    public static func isReturn(_ draft: String) -> Bool {
-        draft.count(where: \.isNewline) == 1
-    }
-
-    /// Takes the newlines out of a draft the field has just changed, and says whether editing
-    /// ends: one is a Return, removed, and more came from pasted lines, which become spaces, since
-    /// a title is one paragraph. The draft is replaced, so the caret is too, at its end: the
-    /// field's own indexes the text with the newlines.
-    static func takeNewlines(in draft: inout String, caret: Caret) -> Bool {
-        guard draft.contains(where: \.isNewline) else { return false }
-        let ends = isReturn(draft)
-        caret.replace(
-            &draft,
-            with: ends
-                ? draft.filter { !$0.isNewline }
-                : String(draft.map { $0.isNewline ? " " : $0 }),
-        )
-        return ends
-    }
-
     /// What the field inserts for a change that types or pastes `replacement`, and whether
     /// editing ends: a single newline is a Return, which ends editing and inserts the rest
     /// without it (autocorrect can send a word with it), and more came from pasted lines, which
     /// become spaces, since a title is one paragraph.
     static func newlineEdit(_ replacement: String) -> (insert: String, endsEditing: Bool) {
-        guard replacement.contains(where: \.isNewline) else { return (replacement, false) }
-        if isReturn(replacement) {
-            return (replacement.filter { !$0.isNewline }, true)
+        switch replacement.count(where: \.isNewline) {
+        case 0: (replacement, false)
+        case 1: (replacement.filter { !$0.isNewline }, true)
+        default: (String(replacement.map { $0.isNewline ? " " : $0 }), false)
         }
-        return (String(replacement.map { $0.isNewline ? " " : $0 }), false)
     }
 
     /// The title an edit leaves behind: trimmed, and empty, which leaves the title unnamed, when
@@ -117,96 +95,6 @@ public struct EditableTitle: View {
     public static func committed(_ draft: String, from suggestion: String? = nil) -> String {
         let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed == suggestion ? "" : trimmed
-    }
-
-    /// Where the `_` goes in the draft: the insertion point, or nil for a range selection, which
-    /// shows the system highlight instead. No selection yet is the end. The selection must have
-    /// been made for `draft`: an index from another string can trap.
-    public static func insertionPoint(
-        of selection: TextSelection?,
-        in draft: String,
-    ) -> String.Index? {
-        switch selection?.indices {
-        case nil:
-            draft.endIndex
-        case let .selection(range) where range.isEmpty:
-            // The selection was made for this draft (see `Caret`), but an index between the
-            // scalars of one character has no cell of its own.
-            String.Index(range.lowerBound, within: draft) ?? draft.endIndex
-        default:
-            nil
-        }
-    }
-
-    /// How many lines a text `height` tall holds, at `lineHeight` a line: at least one, and one
-    /// before either is measured. Rounded, since measured heights land on the pixel grid.
-    public static func lineCount(height: CGFloat, lineHeight: CGFloat) -> Int {
-        guard lineHeight > 0 else { return 1 }
-        return max(1, Int((height / lineHeight).rounded()))
-    }
-
-    /// The line and column of the cell the cursor marks, for a cursor before the character at
-    /// `offset` (or after the last one), in monospaced text wrapped at `columns` cells the way the
-    /// field wraps it: a word that does not fit moves to the next line, a word longer than a line
-    /// breaks between characters, a hyphen or dash ends a word, and spaces never wrap, hanging
-    /// past the edge. A cursor in those spaces, or after a full last line, stays in the cell past
-    /// the edge, where the field puts its caret.
-    public static func cursorCell(
-        at offset: Int,
-        in text: String,
-        columns: Int,
-    ) -> (line: Int, column: Int) {
-        let (cells, end) = cells(of: text, columns: columns)
-        let cell = offset < cells.count ? cells[offset] : end
-        return (cell.line, min(cell.column, columns))
-    }
-
-    /// The character offsets that start a new line when `text` is wrapped at `columns` cells
-    /// as the field wraps it, by the same rules as `cursorCell(at:in:columns:)`. Spaces past a
-    /// line's edge stay at its end.
-    public static func lineBreaks(in text: String, columns: Int) -> [Int] {
-        let cells = cells(of: text, columns: columns).cells
-        return cells.indices.dropFirst().filter { cells[$0].line > cells[$0 - 1].line }
-    }
-
-    /// Each character's cell in `text` wrapped at `columns`, and the cell after the last one.
-    private static func cells(
-        of text: String,
-        columns: Int,
-    ) -> (cells: [(line: Int, column: Int)], end: (line: Int, column: Int)) {
-        let characters = Array(text)
-        var cells: [(line: Int, column: Int)] = []
-        var line = 0
-        var column = 0
-        var index = 0
-        while index < characters.count {
-            if characters[index] == " " {
-                cells.append((line, column))
-                column += 1
-                index += 1
-                continue
-            }
-            let wordEnd = characters[index...].firstIndex { $0 == " " || Self.breaksAfter($0) }
-                .map { characters[$0] == " " ? $0 : $0 + 1 } ?? characters.count
-            if column > 0, column + (wordEnd - index) > columns {
-                line += 1
-                column = 0
-            }
-            for _ in index ..< wordEnd {
-                if column >= columns {
-                    line += 1
-                    column = 0
-                }
-                cells.append((line, column))
-                column += 1
-            }
-            index = wordEnd
-        }
-        return (cells, (line, column))
-    }
-
-    private static func breaksAfter(_ character: Character) -> Bool {
-        "-\u{2010}\u{2013}\u{2014}".contains(character)
     }
 
     public var body: some View {
