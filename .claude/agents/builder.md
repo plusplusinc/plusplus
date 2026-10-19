@@ -53,9 +53,11 @@ feedback would help, and write the handoff note the lead names; each round after
 builder, until the lead ends the loop. A
 round is one change, `scripts/run.sh` on the worktree's simulator so it builds and launches, a new
 commit (never amend, so each round stays its own), the handoff note the lead names brought up
-to date, and a reply with the hash and one line on what changed. No
-frame-by-frame captures, tests, review, or PR during the loop; when the lead ends it, everything
-under "When it works" runs as usual.
+to date, and a reply with the hash and one line on what changed. No tests, review, or PR during
+the loop; when the lead ends it, everything under "When it works" runs as usual. A round that
+changes motion (a drag, an animation, a transition) still records it and steps through the
+frames, as `/run` says, and fixes what jumps before it reports: a still says nothing about
+motion.
 
 ## Checkpoint
 
