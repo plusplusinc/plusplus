@@ -137,7 +137,17 @@ extension RenameUITests {
             XCTAssertEqual(app.exerciseNames, names, "A nudge to pair moved a row")
             attach(named: "superset-paired-by-rest")
         }
+        XCTContext.runActivity(
+            named: "A member dragged just out of its superset and resting leaves it, pairing nothing",
+        ) { _ in
+            let names = app.exerciseNames
+            // Past the pair's bottom edge, into its outer slot, lying over the plain row below.
+            row(1).center.holdAndDrag(to: row(1).center.down(0.4 * height), holding: 1.2)
+            XCTAssertEqual(app.supersets(becoming: "...AA.BB."), "...AA.BB.")
+            XCTAssertEqual(app.exerciseNames, names, "A member dragged just out moved past a row")
+        }
         // Back to the one pair the checks after these expect: an end's node on the other end.
+        row(0).nodePoint.holdAndDrag(to: row(1).nodePoint)
         row(4).nodePoint.holdAndDrag(to: row(3).nodePoint)
         row(7).nodePoint.holdAndDrag(to: row(6).nodePoint)
         XCTAssertEqual(app.supersets(becoming: "AA......."), "AA.......")
