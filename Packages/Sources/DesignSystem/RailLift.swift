@@ -56,9 +56,8 @@ extension View {
 /// The held row's card: it appears at rest over its row and rises, its own size, its node in the
 /// color of the text. Over its fill it draws the rail's strokes behind it, `strokes`, cut to its
 /// shape, as though it were clear, so whatever the card's offset from its gap, card and rail line
-/// up and nothing shows twice; it draws no stroke of its own. Over its shadow it draws them again
-/// as the rail under it shows them, cut at `holes`, so the shadow never shades them. Released, it
-/// lowers to look like the row at rest.
+/// up and nothing shows twice; it draws no stroke of its own. Past its edges they cover its
+/// shadow, as `LiftedCard` says. Released, it lowers to look like the row at rest.
 struct CardLook: ViewModifier {
     let isReleased: Bool
     /// The rail's drawing, and the card's top in the rail's space, which places it.
@@ -139,28 +138,27 @@ struct LiftedCard: View, Animatable {
         GeometryReader { proxy in
             CardFill(node: proxy[node], size: proxy.size)
                 .shadow(color: .pp(.shadow), radius: RailDrag.liftedShadow)
-        }
-        .opacity(max(lifted, away))
-        // Not faded with the card: they are the rail's own strokes, so they look the same at any
-        // lift, where faded, the fill and the shadow fading under them would shade them.
-        .overlay {
-            GeometryReader { proxy in
-                // Over the fill, uncut: the rail's cutouts don't reach a card held over them.
-                strokes?
-                    .offset(y: -top)
-                    .mask { CardFill(node: proxy[node], size: proxy.size) }
-                // Over the shadow, as the rail under it draws them.
-                strokes?
-                    .mask { RailCutouts(holes: holes).fill(style: FillStyle(eoFill: true)) }
-                    .offset(y: -top)
-                    .mask {
+                .opacity(max(lifted, away))
+            // Not faded with the card: they are the rail's own strokes, so they look the same at
+            // any lift, where faded, the fill and the shadow fading under them would shade them.
+            // Drawn once, over the fill uncut, since the rail's cutouts don't reach a card held
+            // over them, and over the shadow as the rail under it draws them.
+            strokes?
+                .offset(y: -top)
+                .mask {
+                    ZStack(alignment: .topLeading) {
+                        CardFill(node: proxy[node], size: proxy.size)
                         CardShadowReach(
                             card: CardOutline(node: proxy[node], nodeSize: nodeSize),
                             reach: 3 * RailDrag.liftedShadow,
                         )
                         .fill(style: FillStyle(eoFill: true))
+                        .mask {
+                            RailCutouts(holes: holes.map { $0.offsetBy(dx: 0, dy: -top) })
+                                .fill(style: FillStyle(eoFill: true))
+                        }
                     }
-            }
+                }
         }
         .hotReloadable()
     }
