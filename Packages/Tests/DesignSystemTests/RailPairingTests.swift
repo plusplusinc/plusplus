@@ -59,4 +59,61 @@ struct RailPairingTests {
         #expect(RailDrag.joined(ids, joined: ["c"], moving: "a", to: .before("c", joining: .above))
             == ["b", "c"])
     }
+
+    @Test("A rest goes on within the slop over the same slot, and starts again otherwise")
+    func dwellRestarts() {
+        let below = RailSlot<String>.before("c", joining: .below)
+        let above = RailSlot<String>.before("c", joining: .above)
+        let resting = RailDwell(target: below, anchor: 100)
+        let slop = RailDrag.pairSlop
+        #expect(RailDrag.dwell(nil, over: below, cardTop: 100) == resting)
+        #expect(RailDrag.dwell(resting, over: below, cardTop: 100 + slop) == resting)
+        #expect(RailDrag.dwell(resting, over: below, cardTop: 100 - slop) == resting)
+        #expect(RailDrag.dwell(resting, over: below, cardTop: 101 + slop)
+            == RailDwell(target: below, anchor: 101 + slop))
+        #expect(RailDrag.dwell(resting, over: above, cardTop: 100)
+            == RailDwell(target: above, anchor: 100))
+        #expect(RailDrag.dwell(resting, over: nil, cardTop: 100) == nil)
+    }
+
+    @Test("A paired card, eased back short of the release, is no longer over its partner")
+    func releases() {
+        let release = RailDrag.pairRelease
+        func held(_ offset: CGFloat) -> RailSlot<String>? {
+            RailDrag.pairing(
+                cardTop: 100 + offset,
+                gapTop: 100,
+                slot: RailSlot(.before("c")),
+                rest: ["b", "c", "d"],
+                groups: [:],
+                lean: release,
+            )
+        }
+        #expect(held(release) == .before("c", joining: .below))
+        #expect(held(release - 1) == nil)
+    }
+
+    @Test("Just outside the superset the row was lifted from, a rest doesn't pair")
+    func leavingOwnSuperset() {
+        /// a lifted from a-b, b-c-d plain below: the slot below b is b's edge's outer slot.
+        func pairing(_ offset: CGFloat, at place: RailSlot<String>.Place) -> RailSlot<String>? {
+            RailDrag.pairing(
+                cardTop: 100 + offset,
+                gapTop: 100,
+                slot: RailSlot(place),
+                rest: ["b", "c", "d"],
+                groups: ["b": 0],
+                leaving: ["b"],
+            )
+        }
+        #expect(pairing(lean, at: .before("c")) == nil)
+        #expect(pairing(-lean, at: .before("c")) == nil)
+        // One slot further on, it pairs.
+        #expect(pairing(lean, at: .before("d")) == .before("d", joining: .below))
+        #expect(pairing(-lean, at: .before("d")) == .before("d", joining: .above))
+        // Above the superset, its top edge's outer slot.
+        #expect(RailDrag.isOutside(0, of: ["b"], in: ["b", "c", "d"]))
+        #expect(!RailDrag.isOutside(2, of: ["b"], in: ["b", "c", "d"]))
+        #expect(!RailDrag.isOutside(1, of: ["b", "c"], in: ["b", "c", "d"]))
+    }
 }

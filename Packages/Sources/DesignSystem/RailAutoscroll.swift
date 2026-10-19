@@ -32,6 +32,21 @@ final class RailEdges {
     /// yet: the next step goes on from there, so no distance is counted twice.
     @ObservationIgnored fileprivate var scrolledTo: CGFloat?
     @ObservationIgnored fileprivate var scroll: ScrollGeometry?
+    /// Scrolls the list to a `scrollTo(y:)` value, in the transaction it is called in.
+    @ObservationIgnored fileprivate var scrollTo: ((CGFloat) -> Void)?
+
+    /// Room added below the list's end, so it can scroll as far as a held row's room above the
+    /// rail asks even when it is shorter than the screen. It goes once the row is let go.
+    private(set) var roomBelow: CGFloat = 0
+    /// The room this hold has opened above the rail, and how far it has scrolled the list for
+    /// it (`makeRoom`).
+    @ObservationIgnored private var madeRoom: CGFloat = 0
+    @ObservationIgnored private var roomScroll: CGFloat = 0
+    /// How far the list scrolled past its end, short of none, before any room: negative where
+    /// the list is shorter than the area it shows in.
+    @ObservationIgnored private var realEnd: CGFloat?
+    /// The animation room was last made on, which letting go scrolls back on.
+    @ObservationIgnored private var roomAnimation: Animation?
 
     /// The part of the scroll view the list shows in, between the bars.
     private var visible: ClosedRange<CGFloat>? {
@@ -47,6 +62,9 @@ final class RailEdges {
         fingerY = y
         travel = RailDrag.Travel(from: y)
         scrolledTo = nil
+        madeRoom = 0
+        roomScroll = 0
+        realEnd = nil
         self.onScroll = onScroll
         isHeld = true
         updateScrolling()
@@ -59,11 +77,47 @@ final class RailEdges {
         updateScrolling()
     }
 
-    /// The row let go: the list stops scrolling for it.
+    /// The row let go: the list stops scrolling for it, and scrolls back by the room it made
+    /// above the rail, which closes as it does.
     func letGo() {
         isHeld = false
         onScroll = nil
         updateScrolling()
+        let made = roomScroll
+        madeRoom = 0
+        roomScroll = 0
+        realEnd = nil
+        guard made != 0, let scrollTo else { return }
+        let current = scrolledTo ?? scroll?.scrolledY ?? 0
+        scrolledTo = nil
+        withAnimation(roomAnimation) {
+            scrollTo(max(current - made, 0))
+        } completion: {
+            self.roomBelow = 0
+        }
+    }
+
+    /// Scrolls the list by `change` in the room above the rail, on `animation`, as the rail opens
+    /// or closes that room in the same moment, so the rows stay put on the screen: never above
+    /// the list's top, and past its end only as far as `roomBelow` lets it. Returns how far it
+    /// scrolled.
+    func makeRoom(_ change: CGFloat, animation: Animation?) -> CGFloat {
+        guard isHeld, let scroll, let scrollTo else { return 0 }
+        let current = scrolledTo ?? scroll.scrolledY
+        let end = realEnd ?? scroll.contentSize.height - scroll.containerSize.height
+        realEnd = end
+        madeRoom += change
+        let next = max(current + change, 0)
+        guard next != current else { return 0 }
+        roomAnimation = animation
+        withAnimation(animation) {
+            // The list's end moves down by the room the rail adds.
+            roomBelow = max(roomBelow, next - (end + madeRoom))
+            scrollTo(next)
+        }
+        scrolledTo = next
+        roomScroll += next - current
+        return next - current
     }
 
     /// Stops the frame-by-frame scroll at an end of the list, until the finger moves.
@@ -103,11 +157,16 @@ private struct RailAutoscroll: ViewModifier {
 
     func body(content: Content) -> some View {
         content
+            .contentMargins(.bottom, edges.roomBelow, for: .scrollContent)
             .environment(\.railEdges, edges)
             // The scroll view's frame, which `visible` and the finger are measured in.
             .coordinateSpace(.named(RailDrag.scrollSpace))
             .onScrollGeometryChange(for: ScrollGeometry.self) { $0 } action: { _, scroll in
                 edges.scroll = scroll
+            }
+            .onAppear {
+                let position = $position
+                edges.scrollTo = { position.wrappedValue.scrollTo(y: $0) }
             }
             .background {
                 // A frame at a time, only while a held row is in an edge's band.

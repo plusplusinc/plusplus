@@ -3,14 +3,6 @@ import SwiftUI
 // A held row's gap following the card, and the card resting over a plain neighbor to pair with
 // it (`RailPairing.swift` holds the rule and its values).
 
-/// The card resting over a plain neighbor: the slot that pairs the two, where the card was when
-/// it came to rest, and the countdown to pairing.
-struct RailDwell<ID: Hashable> {
-    var target: RailSlot<ID>
-    var anchor: CGFloat
-    var countdown: Task<Void, Never>
-}
-
 extension Rail {
     /// Opens the gap where the card would land, and pairs the held row with a plain neighbor the
     /// card rests over. A pair holds while the card stays over its partner, and comes apart, with
@@ -18,6 +10,7 @@ extension Rail {
     func follow(_ id: RowID) {
         guard let held = drag, held.lifted == id, !held.isReleased else { return }
         let rest = data.map(\.id).filter { $0 != id }
+        let leaving = restGroup(of: id).subtracting([id])
         let plain = held.isPaired ? RailSlot(held.slot.place) : held.slot
         let slot = RailDrag.candidate(for: cardTop, in: candidates(lifting: id), current: plain)
         let gap = gapTop(lifting: id, at: slot) ?? cardTop
@@ -28,6 +21,7 @@ extension Rail {
                 slot: slot,
                 rest: rest,
                 groups: groups,
+                leaving: leaving,
                 lean: lean,
             )
         }
@@ -44,30 +38,20 @@ extension Rail {
                 ticks += 1
             }
         }
-        countDown(over: held.isOverBar ? nil : pairing(lean: RailDrag.pairLean))
+        dwell = RailDrag.dwell(
+            dwell,
+            over: held.isOverBar ? nil : pairing(lean: RailDrag.pairLean),
+            cardTop: cardTop,
+        )
     }
 
-    /// Counts down to pairing with `target` while the card rests over it, starting again when the
-    /// card wanders more than `pairSlop`, and stopping when it leaves. A timer, not a wait for
-    /// something else to finish: the pair forms because time passed with the card still.
-    private func countDown(over target: RailSlot<RowID>?) {
-        guard let target else { return endDwell() }
-        if let dwell, dwell.target == target, abs(cardTop - dwell.anchor) <= RailDrag.pairSlop {
-            return
-        }
-        endDwell()
-        let countdown = Task {
-            try? await Task.sleep(for: RailDrag.pairDwell)
-            guard !Task.isCancelled else { return }
-            pair(target)
-        }
-        dwell = RailDwell(target: target, anchor: cardTop, countdown: countdown)
-    }
-
-    /// Stops any countdown to a pair.
-    func endDwell() {
-        dwell?.countdown.cancel()
-        dwell = nil
+    /// Waits out the card's rest over a plain neighbor, then pairs the two. Run as the rail's
+    /// `.task(id: dwell)`, so a new rest, or none, cancels it, as does the rail going away. A
+    /// timer, not a wait for something else to finish: the pair forms because time passed with
+    /// the card still, and a still finger sends no event to check against.
+    func countDown() async {
+        guard let dwell, await (try? Task.sleep(for: RailDrag.pairDwell)) != nil else { return }
+        pair(dwell.target)
     }
 
     /// Pairs the held row with the neighbor `target` joins: the loop draws around the two, with a
@@ -77,10 +61,88 @@ extension Rail {
         guard let held = drag, !held.isReleased, !held.isOverBar,
               held.slot == RailSlot(target.place)
         else { return }
+        let gap = gapTop(lifting: held.lifted, at: target) ?? cardTop
         withAnimation(reduceMotion ? nil : RailDrag.gap) {
             drag?.slot = target
             drag?.isPaired = true
+            drag?.shift = abs(cardTop - gap)
         }
         pairs += 1
     }
+
+    /// While a rest has paired the held row with a neighbor, the pair as it shows.
+    private var shownPair: ShownPair<RowID>? {
+        guard let drag, drag.isPaired, !drag.isReleased, !drag.isOverBar,
+              let joining = drag.slot.joining
+        else { return nil }
+        let rows = RailDrag.order(data.map(\.id), moving: drag.lifted, to: drag.slot)
+        guard let gap = rows.firstIndex(of: drag.lifted) else { return nil }
+        let partner = joining == .below ? gap + 1 : gap - 1
+        guard rows.indices.contains(partner) else { return nil }
+        return ShownPair(joining: joining, partner: rows[partner])
+    }
+
+    /// How far each row moves, and the end view, so the partner of a pair sits clear of the card
+    /// and its name reads in full: the partner and every row past it, by the drag's `shift`,
+    /// down for a partner below, with the end view, and up for one above.
+    func pairShifts(_ ids: [RowID]) -> (rows: [RowID: CGFloat], end: CGFloat) {
+        guard let drag, let pair = shownPair else { return ([:], 0) }
+        guard let gap = ids.firstIndex(of: drag.lifted) else { return ([:], 0) }
+        let moved = pair.joining == .below ? ids.suffix(from: gap + 1) : ids.prefix(gap)
+        let shift = pair.joining == .below ? drag.shift : -drag.shift
+        let rows = Dictionary(moved.map { ($0, shift) }) { first, _ in first }
+        return (rows, pair.joining == .below ? shift : 0)
+    }
+
+    /// While dropping the held row would leave it in a superset, that superset as it shows: its
+    /// rows where they are drawn, the held row's at the card's top, `cardY`, not at its gap, so
+    /// the well wraps the card with no empty strip beside it, reaching past the card where it is
+    /// an end. It stays as the card settles, so the rows' own wells take over from it unchanged.
+    /// Nil over a bar, when the drop would leave the row on its own, or until the rows have
+    /// reported their nodes.
+    func heldWell(_ drag: RailDragState<RowID>, cardY: CGFloat) -> HeldWell? {
+        guard !drag.isOverBar else { return nil }
+        let rows = shownRows.map(\.id)
+        let groups = RailDrag.groups(rows, joined: shownJoined)
+        guard let group = groups[drag.lifted] else { return nil }
+        let shifts = pairShifts(rows).rows
+        let heights = Dictionary(measuredRows.map { ($0.id, $0.height) }) { first, _ in first }
+        var tops: [RowID: CGFloat] = [:]
+        var y: CGFloat = 0
+        for id in rows {
+            tops[id] = y
+            y += heights[id] ?? 0
+        }
+        let others = rows.filter { groups[$0] == group && $0 != drag.lifted }
+        let top = { (id: RowID) in (tops[id] ?? 0) + (shifts[id] ?? 0) }
+        let cardBottom = cardY + (heights[drag.lifted] ?? 0)
+        guard let key = others.first,
+              let first = others.map(top).min(),
+              let last = others.map({ top($0) + (heights[$0] ?? 0) }).max()
+        else { return nil }
+        // Let go, the card settles into its gap as a row, and the well into its look at rest, which
+        // the rows' own wells then draw unchanged.
+        let card = drag.isReleased ? WellCard() : WellCard(
+            top: cardY <= first ? cardY : nil,
+            bottom: cardBottom >= last ? cardBottom : nil,
+        )
+        guard let outline = wellOutline(rows: min(first, cardY) ... max(last, cardBottom), card: card)
+        else { return nil }
+        return HeldWell(key: key, outline: outline)
+    }
+}
+
+/// A held row paired with a neighbor by a rest, as the rows show: which side the partner is on,
+/// and the partner.
+private struct ShownPair<RowID: Hashable> {
+    let joining: RailNeighbor
+    let partner: RowID
+}
+
+/// The well around the held row's superset, as it shows.
+struct HeldWell {
+    /// Its first row other than the held one, which names its well as the rows draw at rest, so
+    /// one well changes shape as the held row comes into its superset or leaves it.
+    let key: AnyHashable
+    let outline: WellOutline
 }

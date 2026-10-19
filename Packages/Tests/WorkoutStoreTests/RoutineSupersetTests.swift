@@ -378,7 +378,7 @@ extension RoutineSupersetTests {
 }
 
 extension RoutineSupersetTests {
-    @Test("A row moved to a plain row's edge, joining it, pairs the two with that row's rounds")
+    @Test("A row moved to a plain row's edge, joining it, pairs the two at the larger set count")
     func moveToPair() {
         var below = routine("A B C")
         let changed = below.move(id("A"), to: .before(id("C"), joining: .below))
@@ -390,11 +390,21 @@ extension RoutineSupersetTests {
         let changedAgain = above.move(id("C"), to: .before(id("B"), joining: .above))
         #expect(changedAgain)
         #expect(shape(above) == "A-C B")
-        #expect(sets(above) == [1, 1, 2])
+        #expect(sets(above) == [3, 3, 2])
         // Its own neighbor, without moving.
         var inPlace = routine("A B C")
         let changedThird = inPlace.move(id("B"), to: .before(id("C"), joining: .below))
         #expect(changedThird)
         #expect(shape(inPlace) == "A B-C")
+        #expect(sets(inPlace) == [1, 3, 3])
+    }
+
+    @Test("A row moved into an existing superset still takes its rounds, fewer or more")
+    func moveIntoSupersetTakesItsRounds() {
+        var routine = routine("A-B C")
+        let changed = routine.move(id("C"), to: .before(id("B"), joining: .above))
+        #expect(changed)
+        #expect(shape(routine) == "A-C-B")
+        #expect(sets(routine) == [1, 1, 1])
     }
 }

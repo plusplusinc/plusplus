@@ -21,6 +21,9 @@ struct RailPlace {
     /// Whether the row's stretch of loop is hidden: a row of its group is swiped open, which
     /// slides that row's stretch away from the rest.
     var isLoopHidden = false
+    /// Whether the row's stretch of well is hidden: the rail draws its superset's well itself,
+    /// while a row or a node is held.
+    var isWellHidden = false
 }
 
 /// Where a row is in a group of rows next to each other on a rail, a superset: on its own, or
@@ -104,6 +107,8 @@ private struct RailRow: ViewModifier {
     @ScaledMetric(relativeTo: .body) private var lineWidth = railLineWidth
     @ScaledMetric(relativeTo: .body) private var nodeSize = railNodeSize
     @State private var nodeLeading: CGFloat = 0
+    /// The node's center in the row, which its stretch of well is set from.
+    @State private var nodeCenter = CGPoint.zero
     @Environment(\.railPlace) private var place
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
@@ -111,9 +116,13 @@ private struct RailRow: ViewModifier {
     func body(content: Content) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 0) {
             RailNode()
-                .onGeometryChange(for: CGFloat.self) { proxy in
-                    proxy.frame(in: .named(Self.space)).midX - nodeSize / 2
-                } action: { nodeLeading = $0 }
+                .onGeometryChange(for: CGPoint.self) { proxy in
+                    let frame = proxy.frame(in: .named(Self.space))
+                    return CGPoint(x: frame.midX, y: frame.midY)
+                } action: { center in
+                    nodeLeading = center.x - nodeSize / 2
+                    nodeCenter = center
+                }
             content
                 .padding(.vertical, Spacing.sm)
                 // The lifted card is centered on the row: this ends the content a node inset in.
@@ -159,6 +168,12 @@ private struct RailRow: ViewModifier {
                     .opacity(place.drawsOwnLine ? 1 : 0)
                     .transaction(value: place.drawsOwnLine) { $0.animation = nil }
                 }
+            }
+        }
+        // Under the strokes; while a row or node is held, the rail draws every well instead.
+        .background {
+            GeometryReader { proxy in
+                RowWell(node: nodeCenter, size: proxy.size)
             }
         }
         .hotReloadable()

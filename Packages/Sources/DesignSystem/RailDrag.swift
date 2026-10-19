@@ -79,6 +79,9 @@ nonisolated enum RailDrag {
     /// The blur of the card's shadow: soft and centered, with no offset, so it reads as lifted
     /// without moving the card off the rail.
     static let liftedShadow: CGFloat = 8
+    /// How far from where it settles a card let go starts to fade, so it stays opaque while it
+    /// crosses another row's text: within it, the card is nearly over its own gap.
+    static let settleReach: CGFloat = 16
 
     /// The rows moving aside as the gap goes to a new slot: quicker than `.railChange`.
     static let gap = Animation.snappy(duration: 0.2)

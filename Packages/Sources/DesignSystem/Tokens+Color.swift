@@ -31,6 +31,9 @@ public enum ColorToken: String, CaseIterable, Sendable {
     case textPrimary = "ppTextPrimary"
     /// Placeholder text: the default title while it is being edited.
     case textSecondary = "ppTextSecondary"
+    /// A region sunk into the screen, flat, with no shadow: the rows of a superset. Darker than
+    /// `background` in both appearances, as if further from the light.
+    case well = "ppWell"
 }
 
 extension Color {

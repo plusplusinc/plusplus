@@ -37,12 +37,20 @@ extension Rail {
         [heights.end] + swiped.compactMap { heights.frames[$0] }
     }
 
-    /// Keeps how far down each row its node is, read at rest: as rows move, where their nodes are
-    /// drawn runs ahead of their layout.
-    func noteNodeInsets(_ insets: [AnyHashable: CGFloat]) {
-        guard drag == nil, regrouping == nil else { return }
+    /// Keeps how far down each row its node is, and where a row's node is, which places the
+    /// wells and is the same on every row, the furthest across, a row swiped open having slid its
+    /// node to the left. Both are read at rest: while rows move, a row reports its node where it
+    /// is drawn against its frame where it will end up, up to a row's height out.
+    func noteNodeInsets(_ insets: [AnyHashable: CGPoint]) {
+        let isHeld = drag != nil || regrouping != nil
+        if !isHeld || railNode == nil, let x = insets.values.map(\.x).max(),
+           let y = insets.values.map(\.y).min(), railNode != CGPoint(x: x, y: y)
+        {
+            railNode = CGPoint(x: x, y: y)
+        }
+        guard !isHeld else { return }
         nodeInsets = Dictionary(uniqueKeysWithValues: data.compactMap { item in
-            insets[AnyHashable(item.id)].map { (item.id, $0) }
+            insets[AnyHashable(item.id)].map { (item.id, $0.y) }
         })
     }
 
@@ -229,7 +237,7 @@ extension View {
         )
     }
 
-    /// Reports a rail row's node by the row's id (`RowNodes`), and how far down the row it is
+    /// Reports a rail row's node by the row's id (`RowNodes`), and where it is in the row
     /// (`RowNodeInsets`), so the rail finds each row's node however the rows are ordered as they
     /// move.
     func reportingNode(of id: some Hashable) -> some View {
@@ -242,7 +250,7 @@ extension View {
                     )
                     .preference(
                         key: RowNodeInsets.self,
-                        value: anchors.first.map { [AnyHashable(id): proxy[$0].y] } ?? [:],
+                        value: anchors.first.map { [AnyHashable(id): proxy[$0]] } ?? [:],
                     )
             }
         }

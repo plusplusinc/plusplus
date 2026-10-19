@@ -38,7 +38,9 @@ public enum RoutineNeighbor: Hashable, Sendable {
 
 extension Routine {
     /// Moves the row `id` to `slot`, into the superset the slot joins, a new one with the plain
-    /// row it joins, or out as a plain row; a row that joins one takes its round count. Returns
+    /// row it joins, or out as a plain row. A row that joins a superset takes its round count; a
+    /// new pair takes the larger of the two rows' set counts, so pairing never cuts a row's sets.
+    /// Returns
     /// false, and changes nothing, when the row or the row the slot names is missing, or when the
     /// slot is the row's own place in its own superset, or none.
     @discardableResult
@@ -65,11 +67,12 @@ extension Routine {
         // Joining a plain row pairs the two in a new superset.
         if let joined, joined.supersetID == nil, let index = rest.firstIndex(of: joined) {
             rest[index].supersetID = UUID()
+            rest[index].plan.sets = max(joined.plan.sets, row.plan.sets)
         }
-        let superset = joined.flatMap { joined in rest.first { $0.id == joined.id }?.supersetID }
-        row.supersetID = superset
-        if let joined, superset != nil {
-            row.plan.sets = joined.plan.sets
+        let partner = joined.flatMap { joined in rest.first { $0.id == joined.id } }
+        row.supersetID = partner?.supersetID
+        if let partner, partner.supersetID != nil {
+            row.plan.sets = partner.plan.sets
         }
         rest.insert(row, at: to)
         rest.normalizeSupersets()

@@ -9,6 +9,10 @@ struct RailDragState<ID: Hashable> {
     var slot: RailSlot<ID>
     /// The card rested over a plain neighbor, and `slot` pairs the two.
     var isPaired = false
+    /// While paired, how far the partner, and the rows past it, move out from under the card: as
+    /// far as the card lay over it when the pair formed, fixed while the pair holds, so they stay
+    /// still as the thumb settles.
+    var shift: CGFloat = 0
     /// How far below the row's top the finger holds it.
     var grab: CGFloat
     /// Let go, and settling into the gap.
@@ -82,7 +86,13 @@ struct CardLook: ViewModifier {
             .environment(\.railPlace, RailPlace(drawsOwnLine: false, isRaised: isRaised))
             .backgroundPreferenceValue(RailNodes.self) { nodes in
                 if let node = nodes.first {
-                    LiftedCard(node: node, isLifted: isRaised, strokes: strokes, top: top)
+                    LiftedCard(
+                        node: node,
+                        lifted: isRaised ? 1 : 0,
+                        strokes: strokes,
+                        top: top,
+                        rest: isReleased ? top : nil,
+                    )
                 }
             }
             .onAppear {
@@ -93,17 +103,29 @@ struct CardLook: ViewModifier {
 }
 
 /// A held row's card: `CardFill` behind the row, as tall as it, with a soft shadow all around
-/// that fades in and out with it. At rest, it is not drawn.
-struct LiftedCard: View {
+/// that fades in and out with it. At rest, it is not drawn. Let go, it fades as it settles, but
+/// not while it is still a row's height or so from where it settles, `rest`: sent back from under
+/// a bar, it crosses rows on its way, and a card already faded would show their text through its
+/// own.
+struct LiftedCard: View, Animatable {
     let node: Anchor<CGPoint>
-    let isLifted: Bool
+    /// How far risen it is, from 0 at rest to 1 held.
+    var lifted: Double
     var strokes: HeldRailDrawing?
     /// The card's top in the rail's space. The drawing is moved up by it rather than drawn from
     /// moved nodes, so the finger moving the card leaves the drawing's own animation running.
     var top: CGFloat = 0
+    /// Where the card's top settles, once let go.
+    var rest: CGFloat?
     @ObserveHotReload private var hotReload
 
+    var animatableData: AnimatablePair<Double, CGFloat> {
+        get { AnimatablePair(lifted, top) }
+        set { (lifted, top) = (newValue.first, newValue.second) }
+    }
+
     var body: some View {
+        let away = rest.map { min(abs(top - $0) / RailDrag.settleReach, 1) } ?? 0
         GeometryReader { proxy in
             CardFill(node: proxy[node], size: proxy.size)
                 .shadow(color: .pp(.shadow), radius: RailDrag.liftedShadow)
@@ -111,7 +133,7 @@ struct LiftedCard: View {
                 .offset(y: -top)
                 .mask { CardFill(node: proxy[node], size: proxy.size) }
         }
-        .opacity(isLifted ? 1 : 0)
+        .opacity(max(lifted, away))
         .hotReloadable()
     }
 }
@@ -160,13 +182,13 @@ struct RowNodes: PreferenceKey {
     }
 }
 
-/// How far down each row its node is, by the row's id.
+/// Where each row's node is from the row's top leading corner, by the row's id.
 struct RowNodeInsets: PreferenceKey {
-    static let defaultValue: [AnyHashable: CGFloat] = [:]
+    static let defaultValue: [AnyHashable: CGPoint] = [:]
 
     static func reduce(
-        value: inout [AnyHashable: CGFloat],
-        nextValue: () -> [AnyHashable: CGFloat],
+        value: inout [AnyHashable: CGPoint],
+        nextValue: () -> [AnyHashable: CGPoint],
     ) {
         value.merge(nextValue()) { first, _ in first }
     }

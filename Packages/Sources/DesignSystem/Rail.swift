@@ -22,15 +22,18 @@ import SwiftUI
 /// Inside a scroll view with `railAutoscroll`, a row dragged toward its edges scrolls it, and one
 /// let go over a bar goes back.
 ///
-/// Rows in `links` are joined to the row after them, into a group, a superset, which a loop beside
-/// the line marks. A row dragged by its content to a group's edge can land just inside it, the
-/// loop wrapping the gap, or just outside; the slot `onMove` gets says which.
+/// Rows in `links` are joined to the row after them, into a group, a superset, which sits in a
+/// well, sunk into the screen, with a loop beside the line. A row dragged by its content to a
+/// group's edge can land just inside it, the loop wrapping the gap, or just outside; the slot
+/// `onMove` gets says which. Held still over a plain neighbor, it pairs with it. While a drop
+/// would leave the held row in a superset, the well shows it as the drop would leave it, the card
+/// over it; with `railAutoscroll`, the list scrolls to make room for it where the rail has none
+/// above.
 ///
 /// Given `regroup`, a hold on a row's node starts a drag that draws a group instead, the rows
-/// staying put: the rows from the held one to the one under the finger sit in one raised field,
-/// the held row's card stretched over them, and the loops show what a drop would make, all in
-/// their own colors. A drop commits it, and the new group's loop flashes in `railJoin`, as a new
-/// node does.
+/// staying put: the rows from the held one to the one under the finger sit in one well, and the
+/// loops show what a drop would make, all in their own colors. A drop commits it, and the new
+/// group's loop flashes in `railJoin`, as a new node does.
 public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     where Data.Element: Identifiable
 {
@@ -56,11 +59,11 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     @State var regrouping: RailRegroupState<RowID>?
     /// Counts each row's group made by a node's drop, which flashes its loop in `railJoin`.
     @State var flashes: [RowID: Int] = [:]
-    /// Where the rows' text is, in the rail's space, so the regroup field's label keeps clear of
-    /// it.
-    @State var textFrames: [CGRect] = []
     /// How far down each row its node is, at rest.
     @State var nodeInsets: [RowID: CGFloat] = [:]
+    /// Where a row's node is from its top leading corner, as the rows report it, the same on
+    /// every row: what places a superset's well.
+    @State var railNode: CGPoint?
     /// The rows swiped open, whose groups hide their loops.
     @State var swiped: Set<RowID> = []
     /// The card's top, in the rail's space. It is its own state, so the finger moves it with no
@@ -84,6 +87,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     /// The scroll view's edges, when it scrolls for a held row (`railAutoscroll`).
     @Environment(\.railEdges) var edges
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @ScaledLoopPen var pen
     @ObserveHotReload private var hotReload
 
     /// A rail whose rows a hold lifts and a drag moves, when `onMove` is given: it is called
@@ -137,6 +141,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     public var body: some View {
         let shown = shownRows
         let cardY = drag.map(cardY)
+        let well = drag.flatMap { drag in cardY.flatMap { heldWell(drag, cardY: $0) } }
         // The lifted row is in the gap, so the line runs from the first row left on the rail to
         // the last, through the gap where the gap is between them.
         let first = shown.first?.id
@@ -144,6 +149,8 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         let lastOnLine = shown.last { $0.id != arriving }?.id
         let shownLinks = RailLink.links(shown.map(\.id), joined: shownJoined)
         let hiddenLoops = loopsHidden(shown.map(\.id))
+        let shifts = pairShifts(shown.map(\.id))
+        let room = drag.map(roomAbove) ?? 0
         // Held, the rail draws every stroke once, under the rows, rather than each row its own.
         let isHeld = drag != nil || regrouping != nil
         VStack(alignment: .leading, spacing: 0) {
@@ -160,6 +167,8 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                     link: shownLinks[item.id] ?? .solo,
                     flashes: flashes[item.id] ?? 0,
                     isLoopHidden: hiddenLoops.contains(item.id),
+                    // Held, the rail draws every well, under the strokes it draws.
+                    isWellHidden: isHeld,
                 )
                 // An arriving row's place opens with its entry's shot, so the end view is pushed
                 // down as far as the line has grown, on every frame.
@@ -169,6 +178,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                         .onPreferenceChange(RailRowSwiped.self) { noteSwipe(item.id, $0) }
                 }
                 .entry(RailEntry.space(reduceMotion: reduceMotion), value: isArriving)
+                .offset(y: shifts.rows[item.id] ?? 0)
                 // A row's swipe closes when its action runs, so a deleted row slid back to rest
                 // as it went. It fades out first instead, while the rows below close the gap.
                 // An arriving row draws nothing until its entry, so its fade shows nothing.
@@ -193,9 +203,9 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
             }
             // Between the last row and the end view, as the design has it.
             end.padding(.top, data.isEmpty ? 0 : Spacing.xxs)
+                .offset(y: shifts.end)
                 .reportingFrame { heights.end = $0 }
         }
-        .onPreferenceChange(RowTextFrames.self) { textFrames = $0 }
         .onPreferenceChange(RowNodeInsets.self) { noteNodeInsets($0) }
         // While a row or its node is held, the rail's strokes are drawn once, here, under the
         // rows: rows trading places move toward each other, so their own stretches, each moving
@@ -207,9 +217,8 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                     .transition(.identity)
             }
         }
-        .backgroundPreferenceValue(RailNodes.self) { nodes in
-            spanField(nodes)
-        }
+        .background { spanField() }
+        .backgroundPreferenceValue(RowNodes.self) { drawnWells($0, held: well) }
         .coordinateSpace(.named(RailDrag.space))
         // The card, over the rows it passes and Add exercise. It is placed in the rail's space,
         // where the finger is, not in the row's place, which moves as the gap does.
@@ -225,6 +234,9 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                 .allowsHitTesting(false)
             }
         }
+        // Room above the rows for what a held row's superset shows past the rail's top, which
+        // the list scrolls by, so the rows stay put and what is above the rail moves up.
+        .padding(.top, room)
         .background(alignment: .topLeading) {
             // The rail column as a row's node has it, measured at the current text size.
             Image(systemName: "plus")
@@ -240,6 +252,9 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                 edges?.letGo()
             }
         }
+        .task(id: dwell) { await countDown() }
+        // Read from the drag's state, so it scrolls as a pair forms, not as the finger wobbles.
+        .onChange(of: room) { old, new in makeRoom(new - old) }
         // A row deleted while swiped open, or after its loop flashed, reports nothing more.
         .onChange(of: data.map(\.id)) { _, ids in forget(rowsNotIn: Set(ids)) }
         .sensoryFeedback(.impact(weight: .light), trigger: lifts)
@@ -254,7 +269,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     }
 
     /// The top of the gap the held row is over.
-    private func gapTop(of drag: RailDragState<RowID>) -> CGFloat {
+    func gapTop(of drag: RailDragState<RowID>) -> CGFloat {
         gapTop(lifting: drag.lifted, at: drag.slot) ?? 0
     }
 
@@ -310,7 +325,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
             }
             guard let released = drag, released.lifted == id, !released.isReleased else { return }
             edges?.letGo()
-            endDwell()
+            dwell = nil
             // Let go over a bar, or past the screen's edge, the row goes back.
             let goesBack = phase == .cancelled || isOverBar(finger)
             settle(released, goingBack: goesBack)
