@@ -69,8 +69,21 @@ project board; agents' technical working files live in `.slices/`.
   doing and why that still serves the card, without being asked. Before each new attempt or
   extra run, by you or a subagent, check that it is still worth doing for the card's goal; ask
   for the proof the change needs and leave repeat runs to Xcode Cloud.
+- After every push to the PR, yours or a subagent's, watch its Xcode Cloud run to the end
+  yourself: once a check is listed (see `/pr`), `gh pr checks <n> --watch --interval 60` with
+  `run_in_background: true`, which notifies you when it exits. A subagent's "still queued" is
+  not a result. A failed run (its check concludes `action_required`) goes to a builder before
+  anything else reaches the maintainer, and the go-ahead you ask for names the commit CI is
+  green at.
 - A test that fails on a PR's CI is diagnosed, never just rerun. A flake that is on `main` too
   gets fixed, as its own card ahead of the PR, before the PR merges.
+- A round builds what the card's criteria cover. Feedback that reaches past them (a new look, a
+  rename, a new rule) gets its own card through `/brief`, and you recommend that; the card grows
+  only when the maintainer picks that over a card, and then you say how far past its starting
+  criteria it now reaches.
+- Telling the maintainer what a round or a change will do before it's built, keep today and the
+  change apart ("Today …; with this round, …"); in the plain present it reads as how the app
+  works now.
 - Before saying what state anything is in, read it at that moment, even mid-summary: an agent
   running (its transcript's last entry and when it happened), a PR open or merged
   (`gh pr view`), a run passed. What you read earlier in the turn may have changed. An interrupt of your turn can stop background agents: after one,
