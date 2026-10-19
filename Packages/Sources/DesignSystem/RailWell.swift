@@ -13,6 +13,23 @@ nonisolated let wellEndGap = Spacing.xxs
 /// `Spacing.md` on every screen with a rail, keeping a little of it clear.
 private nonisolated let wellReach = Spacing.md - Spacing.xs
 
+nonisolated extension RailDrag {
+    /// Where a row's node sits, which places the wells: the same on every row, so the furthest
+    /// across of `insets`, each row's node in its row, a row swiped open having slid its node to
+    /// the left, and the highest. Read at rest; while a row or node is held it stays `known`, as
+    /// a moving row reports its node up to a row's height out, and is read only while unknown,
+    /// as at a snapshot's moment.
+    static func railNode(
+        _ insets: some Collection<CGPoint>,
+        isHeld: Bool,
+        known: CGPoint?,
+    ) -> CGPoint? {
+        guard !isHeld || known == nil, let x = insets.map(\.x).max(), let y = insets.map(\.y).min()
+        else { return known }
+        return CGPoint(x: x, y: y)
+    }
+}
+
 /// The held card's ends where they are its well's: its top when it leads the superset, its
 /// bottom when it ends it.
 nonisolated struct WellCard {

@@ -38,15 +38,13 @@ extension Rail {
     }
 
     /// Keeps how far down each row its node is, and where a row's node is, which places the
-    /// wells and is the same on every row, the furthest across, a row swiped open having slid its
-    /// node to the left. Both are read at rest: while rows move, a row reports its node where it
-    /// is drawn against its frame where it will end up, up to a row's height out.
+    /// wells (`RailDrag.railNode`). Both are read at rest: while rows move, a row reports its node
+    /// where it is drawn against its frame where it will end up, up to a row's height out.
     func noteNodeInsets(_ insets: [AnyHashable: CGPoint]) {
         let isHeld = drag != nil || regrouping != nil
-        if !isHeld || railNode == nil, let x = insets.values.map(\.x).max(),
-           let y = insets.values.map(\.y).min(), railNode != CGPoint(x: x, y: y)
-        {
-            railNode = CGPoint(x: x, y: y)
+        let node = RailDrag.railNode(insets.values, isHeld: isHeld, known: railNode)
+        if node != railNode {
+            railNode = node
         }
         guard !isHeld else { return }
         nodeInsets = Dictionary(uniqueKeysWithValues: data.compactMap { item in
