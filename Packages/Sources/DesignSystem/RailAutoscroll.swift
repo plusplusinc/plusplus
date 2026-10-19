@@ -57,14 +57,20 @@ final class RailEdges {
     }
 
     /// A row lifted with the finger at `y`, in the scroll view's space; `onScroll` is told how
-    /// far the list scrolls under it.
-    func lift(at y: CGFloat, onScroll: @escaping (CGFloat) -> Void) {
+    /// far the list scrolls under it. `room` is the most room above the rail the hold can ask
+    /// for (`makeRoom`): where the list is too short to scroll that far, its end moves down now
+    /// so it can. Moved in the same moment as the scroll, the end would not yet be laid out
+    /// where the scroll goes, and the scroll would stop short of it.
+    func lift(at y: CGFloat, room: CGFloat = 0, onScroll: @escaping (CGFloat) -> Void) {
         fingerY = y
         travel = RailDrag.Travel(from: y)
         scrolledTo = nil
         madeRoom = 0
         roomScroll = 0
         realEnd = nil
+        if let scroll {
+            roomBelow = max(0, room - (scroll.contentSize.height - scroll.containerSize.height))
+        }
         self.onScroll = onScroll
         isHeld = true
         updateScrolling()
@@ -87,7 +93,10 @@ final class RailEdges {
         madeRoom = 0
         roomScroll = 0
         realEnd = nil
-        guard made != 0, let scrollTo else { return }
+        guard made != 0, let scrollTo else {
+            roomBelow = 0
+            return
+        }
         let current = scrolledTo ?? scroll?.scrolledY ?? 0
         scrolledTo = nil
         withAnimation(roomAnimation) {
@@ -99,20 +108,19 @@ final class RailEdges {
 
     /// Scrolls the list by `change` in the room above the rail, on `animation`, as the rail opens
     /// or closes that room in the same moment, so the rows stay put on the screen: never above
-    /// the list's top, and past its end only as far as `roomBelow` lets it. Returns how far it
-    /// scrolled.
+    /// the list's top, and past its end only as far as `roomBelow`, set on the lift, lets it.
+    /// Returns how far it scrolled.
     func makeRoom(_ change: CGFloat, animation: Animation?) -> CGFloat {
         guard isHeld, let scroll, let scrollTo else { return 0 }
         let current = scrolledTo ?? scroll.scrolledY
         let end = realEnd ?? scroll.contentSize.height - scroll.containerSize.height
         realEnd = end
         madeRoom += change
-        let next = max(current + change, 0)
+        // The list's end moves down by the room the rail adds, and by `roomBelow`.
+        let next = min(max(current + change, 0), end + madeRoom + roomBelow)
         guard next != current else { return 0 }
         roomAnimation = animation
         withAnimation(animation) {
-            // The list's end moves down by the room the rail adds.
-            roomBelow = max(roomBelow, next - (end + madeRoom))
             scrollTo(next)
         }
         scrolledTo = next

@@ -300,7 +300,8 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
             )
             lifts += 1
             // The list scrolling under a still finger carries the card through the rows.
-            edges?.lift(at: finger.inScrollView) { distance in
+            // The most room above the rail a pair can ask for: the card's own height.
+            edges?.lift(at: finger.inScrollView, room: heights.byID[id] ?? 0) { distance in
                 cardTop += distance
                 follow(id)
             }
@@ -331,7 +332,9 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
             settle(released, goingBack: goesBack)
         }
     }
+}
 
+extension Rail {
     /// Whether the finger is over a bar, or past the screen's edge, where a drop changes nothing.
     func isOverBar(_ finger: RailDrag.Finger) -> Bool {
         edges?.isOutside(finger.inScrollView) == true

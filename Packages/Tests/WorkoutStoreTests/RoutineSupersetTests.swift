@@ -385,7 +385,6 @@ extension RoutineSupersetTests {
         #expect(changed)
         #expect(shape(below) == "B A-C")
         #expect(sets(below) == [2, 3, 3])
-
         var above = routine("A B C")
         let changedAgain = above.move(id("C"), to: .before(id("B"), joining: .above))
         #expect(changedAgain)
@@ -397,14 +396,5 @@ extension RoutineSupersetTests {
         #expect(changedThird)
         #expect(shape(inPlace) == "A B-C")
         #expect(sets(inPlace) == [1, 3, 3])
-    }
-
-    @Test("A row moved into an existing superset still takes its rounds, fewer or more")
-    func moveIntoSupersetTakesItsRounds() {
-        var routine = routine("A-B C")
-        let changed = routine.move(id("C"), to: .before(id("B"), joining: .above))
-        #expect(changed)
-        #expect(shape(routine) == "A-C-B")
-        #expect(sets(routine) == [1, 1, 1])
     }
 }

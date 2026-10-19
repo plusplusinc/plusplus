@@ -138,7 +138,7 @@ extension RenameUITests {
             attach(named: "superset-paired-by-rest")
         }
         XCTContext.runActivity(
-            named: "A member dragged just out of its superset and resting leaves it, pairing nothing",
+            named: "A member dragged just out of its superset and resting leaves it unpaired",
         ) { _ in
             let names = app.exerciseNames
             // Past the pair's bottom edge, into its outer slot, lying over the plain row below.

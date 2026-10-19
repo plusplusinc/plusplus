@@ -126,8 +126,8 @@ extension Rail {
             top: cardY <= first ? cardY : nil,
             bottom: cardBottom >= last ? cardBottom : nil,
         )
-        guard let outline = wellOutline(rows: min(first, cardY) ... max(last, cardBottom), card: card)
-        else { return nil }
+        let span = min(first, cardY) ... max(last, cardBottom)
+        guard let outline = wellOutline(rows: span, card: card) else { return nil }
         return HeldWell(key: key, outline: outline)
     }
 }
