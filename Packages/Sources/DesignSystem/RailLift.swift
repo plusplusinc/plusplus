@@ -54,10 +54,10 @@ extension View {
 }
 
 /// The held row's card: it appears at rest over its row and rises, its own size, its node in the
-/// color of the text. Over its fill it draws the rail's strokes behind it, `strokes`, cut to its
-/// shape, as though it were clear, so whatever the card's offset from its gap, card and rail line
-/// up and nothing shows twice; it draws no stroke of its own. Past its edges they cover its
-/// shadow, as `LiftedCard` says. Released, it lowers to look like the row at rest.
+/// color of the text. Over its fill it draws the rail's strokes behind it, `strokes`, as though it
+/// were clear, so whatever the card's offset from its gap, card and rail line up and nothing shows
+/// twice; it draws no stroke of its own. Past its edges it draws them over its shadow too, as
+/// `LiftedCard` says. Released, it lowers to look like the row at rest.
 struct CardLook: ViewModifier {
     let isReleased: Bool
     /// The rail's drawing, and the card's top in the rail's space, which places it.
@@ -150,6 +150,7 @@ struct LiftedCard: View, Animatable {
                         CardFill(node: proxy[node], size: proxy.size)
                         CardShadowReach(
                             card: CardOutline(node: proxy[node], nodeSize: nodeSize),
+                            // The shadow fades out within about 1.8 times its radius, measured.
                             reach: 3 * RailDrag.liftedShadow,
                         )
                         .fill(style: FillStyle(eoFill: true))
