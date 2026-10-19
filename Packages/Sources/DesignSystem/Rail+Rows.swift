@@ -210,6 +210,7 @@ extension Rail {
                     hasRisen: momentOffset != nil,
                     strokes: strokes,
                     top: y,
+                    holes: cutouts,
                 ))
                 .offset(y: y)
                 .allowsHitTesting(false)

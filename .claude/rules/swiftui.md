@@ -106,7 +106,8 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   and cools as a new node does (`RailEntry.groupFlash()`). While anything is held, rows draw no strokes: the rail draws the
   line and every loop once, as the drop would leave them (`RailDrawing` for a node's drag,
   `HeldRailDrawing` for a body's), every end and head on a real node, the held row's at the
-  card, and the card draws the same drawing over its fill. Shapes animate their nodes and joins
+  card, and the card draws the same drawing over its fill and over its shadow, so the shadow never
+  shades the line or a loop. Shapes animate their nodes and joins
   on the moving transaction; with Reduce Motion the rows jump, the loops crossfade (0.2 s),
   wells and room come and go at once, there is no flash, and the haptics stay. A row swiped open hides its superset's loop. VoiceOver
   reads a member's value as "In a superset with" its partners, and offers "Superset with" each

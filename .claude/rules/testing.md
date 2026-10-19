@@ -43,7 +43,8 @@ What each tier holds today:
   to its gap and already risen: over its own gap, with the gap moved, first in the rail,
   alone, a pair's member inside and outside its edge, a plain row inside a pair's top edge in
   its well, resting over a plain row before it pairs, paired with it in a well, and paired
-  first in the list with the room above the rail. Supersets are drawn the same way: at rest,
+  first in the list with the room above the rail; in each, the line and loops keep one shade
+  past the card's edges, under its shadow. Supersets are drawn the same way: at rest,
   one alone and two next to each other, and a node's drag, its field the well, held over a span
   and pressed on an end; and a member's shared rounds in its sheet. A snapshot draws each text size fresh, so the title's height after a live text size
   change is held by `EditableTitleTextSizeTests`, which hosts `EditableTitleContent` in a window
@@ -61,7 +62,8 @@ What each tier holds today:
   scroll, a press that scrolls, and at AX5; a node's drag drawing, shrinking, parting, and
   merging supersets, a body's carrying a row into and out of one, a drop without a rest only
   moving, a rest pairing, a nudge and rest pairing in place, a member dragged just out and
-  resting leaving unpaired, and a join at AX5 under the audit, read from each row's VoiceOver value; and what the app saved, seen only by
+  resting leaving unpaired, a rest-made pair taking the larger set count (and keeping it across
+  a relaunch, in `RoutineAutosaveUITests`), and a join at AX5 under the audit, read from each row's VoiceOver value; and what the app saved, seen only by
   quitting and launching again, a dragged row's place and a superset's shared rounds included. Each launch costs about 9 s on
   CI, so there is one UI test per launch configuration:
   `RenameUITests/testRenameAtDefaultSize`,
