@@ -112,6 +112,7 @@ final class RailEdges {
     /// `RailDrag.roomSpring`, or, not `animated`, at once.
     func aim(room target: CGFloat, animated: Bool) {
         guard scroll != nil, scrollTo != nil else {
+            roomMove.jump(to: target)
             room = target
             return
         }

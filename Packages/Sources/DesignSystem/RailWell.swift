@@ -151,3 +151,19 @@ struct HeldWellFill: View {
             .hotReloadable()
     }
 }
+
+#Preview {
+    HeldWellFill(
+        // A two-row superset's well at the default text size.
+        outline: WellOutline(
+            rows: 0 ... 120,
+            node: CGPoint(x: 28, y: 22),
+            pen: LoopPen(lineWidth: railLineWidth, scale: 1, offset: 12),
+        ),
+        width: 360,
+        isReleased: false,
+        hasRisen: true,
+    )
+    .padding()
+    .background(Color.pp(.background))
+}

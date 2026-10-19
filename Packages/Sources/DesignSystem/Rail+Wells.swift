@@ -44,8 +44,7 @@ extension Rail {
     /// where a superset first in the list would have its well's top in its rows' place: the held
     /// row's superset's well where the card leads it, or the first row, moved up out of a pair's
     /// way. Read from the drag's state, the card placed where its slot puts it, not where the
-    /// finger has it, so it
-    /// changes only as a pair forms or comes apart, not as the finger wobbles.
+    /// finger has it, so it changes only as a pair forms or comes apart, not as the finger wobbles.
     func roomAbove(_ drag: RailDragState<RowID>) -> CGFloat {
         guard !drag.isReleased, !drag.isOverBar, let rest = wellOutline(rows: 0 ... 0)?.top
         else { return 0 }
