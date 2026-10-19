@@ -97,7 +97,13 @@ final class RailEdges {
         isHeld = false
         onScroll = nil
         updateScrolling()
-        if !isMakingRoom, room == 0 {
+        clearRoomBelow()
+    }
+
+    /// Gives back the room reserved below the rows once the room above has closed with nothing
+    /// held.
+    private func clearRoomBelow() {
+        if !isMakingRoom, !isHeld, room == 0 {
             roomBelow = 0
         }
     }
@@ -171,9 +177,7 @@ final class RailEdges {
             }
         }
         scrolledTo = made.to
-        if !isMakingRoom, !isHeld, room == 0 {
-            roomBelow = 0
-        }
+        clearRoomBelow()
         // Outside the scroll's transaction, so the gap still moves on its own animation.
         onScroll?(edge - made.railMoves, edge != 0)
     }

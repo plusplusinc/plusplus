@@ -40,10 +40,7 @@ nonisolated extension RailDrag {
         lean: CGFloat = pairLean,
     ) -> RailSlot<ID>? {
         guard slot.joining == nil else { return nil }
-        let index = switch slot.place {
-        case let .before(id): rest.firstIndex(of: id) ?? rest.endIndex
-        case .end: rest.endIndex
-        }
+        let index = index(of: slot.place, in: rest)
         guard !isOutside(index, of: leaving, in: rest) else { return nil }
         let offset = cardTop - gapTop
         if offset <= -lean, index > 0, groups[rest[index - 1]] == nil {

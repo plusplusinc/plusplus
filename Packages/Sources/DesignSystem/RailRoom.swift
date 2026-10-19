@@ -25,7 +25,7 @@ nonisolated extension RailDrag {
 /// `RailDrag.roomSpring`: from where it is, at the speed it has, so a new size asked mid-move
 /// carries on with no jump.
 nonisolated struct RailRoomMove {
-    private(set) var target: CGFloat = 0
+    private var target: CGFloat = 0
     private var from: CGFloat = 0
     private var velocity: CGFloat = 0
     /// Time since it set off for `target`.

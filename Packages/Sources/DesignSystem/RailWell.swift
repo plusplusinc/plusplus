@@ -119,23 +119,8 @@ nonisolated struct WellShape: Shape {
     }
 }
 
-/// A whole well, as `outline` places it in the rail's space, across a rail `width` wide: a held
-/// superset's, or the regroup field's.
-struct WellFill: View {
-    let outline: WellOutline
-    let width: CGFloat
-    @ObserveHotReload private var hotReload
-
-    var body: some View {
-        WellShape(outline: outline)
-            .fill(.pp(.well))
-            // From the rail's top, where the outline's ys start, so it lies where they put it.
-            .frame(width: width, height: max(outline.bottom, 0), alignment: .topLeading)
-            .hotReloadable()
-    }
-}
-
-/// The well a hold shows, the held row's superset's or a node's field: it fades in as the hold
+/// The well a hold shows, as `outline` places it in the rail's space, across a rail `width` wide:
+/// the held row's superset's or a node's field. It fades in as the hold
 /// lands, and, `isReleased`, out as the card settles, on the drop's transaction, so it is gone by
 /// the time the row draws in its place again. With Reduce Motion it comes and goes at once.
 struct HeldWellFill: View {
@@ -155,7 +140,10 @@ struct HeldWellFill: View {
     }
 
     var body: some View {
-        WellFill(outline: outline, width: width)
+        WellShape(outline: outline)
+            .fill(.pp(.well))
+            // From the rail's top, where the outline's ys start, so it lies where they put it.
+            .frame(width: width, height: max(outline.bottom, 0), alignment: .topLeading)
             .opacity(isShown && !isReleased ? 1 : 0)
             .onAppear {
                 withAnimation(reduceMotion ? nil : RailDrag.lift) { isShown = true }

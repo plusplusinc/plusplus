@@ -188,10 +188,7 @@ nonisolated enum RailDrag {
         in rest: [ID],
         groups: [ID: Int],
     ) -> ID? {
-        let index = switch slot.place {
-        case let .before(id): rest.firstIndex(of: id) ?? rest.endIndex
-        case .end: rest.endIndex
-        }
+        let index = index(of: slot.place, in: rest)
         let above = index > 0 ? rest[index - 1] : nil
         let below = index < rest.count ? rest[index] : nil
         switch slot.joining {
@@ -201,6 +198,14 @@ nonisolated enum RailDrag {
             guard let above, let below, let group = groups[above], groups[below] == group
             else { return nil }
             return above
+        }
+    }
+
+    /// Where a row at `place` goes among `rest`: before the row it names, or at the end.
+    static func index<ID: Hashable>(of place: RailSlot<ID>.Place, in rest: [ID]) -> Int {
+        switch place {
+        case let .before(id): rest.firstIndex(of: id) ?? rest.endIndex
+        case .end: rest.endIndex
         }
     }
 
@@ -239,13 +244,10 @@ nonisolated enum RailDrag {
     ) -> Set<ID> {
         var groups = groups(ids, joined: joined)
         let rest = ids.filter { $0 != lifted }
-        groups[lifted] = group(joinedAt: slot, in: rest, groups: groups)
-        if groups[lifted] == newGroup, let neighbor = neighbor(
-            joinedAt: slot,
-            in: rest,
-            groups: groups,
-        ) {
-            groups[neighbor] = newGroup
+        let neighbor = neighbor(joinedAt: slot, in: rest, groups: groups)
+        groups[lifted] = neighbor.map { groups[$0] ?? newGroup }
+        if let neighbor {
+            groups[neighbor] = groups[lifted]
         }
         return Self.joined(order(ids, moving: lifted, to: slot), groups: groups)
     }
@@ -318,12 +320,7 @@ nonisolated enum RailDrag {
     static func order<ID: Hashable>(_ ids: [ID], moving lifted: ID, to slot: RailSlot<ID>) -> [ID] {
         guard ids.contains(lifted) else { return ids }
         var order = ids.filter { $0 != lifted }
-        switch slot.place {
-        case let .before(target):
-            order.insert(lifted, at: order.firstIndex(of: target) ?? order.endIndex)
-        case .end:
-            order.append(lifted)
-        }
+        order.insert(lifted, at: index(of: slot.place, in: order))
         return order
     }
 

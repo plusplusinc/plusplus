@@ -70,28 +70,22 @@ extension Rail {
         pairs += 1
     }
 
-    /// While a rest has paired the held row with a neighbor, the pair as it shows.
-    private var shownPair: ShownPair<RowID>? {
-        guard let drag, drag.isPaired, !drag.isReleased, !drag.isOverBar,
-              let joining = drag.slot.joining
-        else { return nil }
-        let rows = RailDrag.order(data.map(\.id), moving: drag.lifted, to: drag.slot)
-        guard let gap = rows.firstIndex(of: drag.lifted) else { return nil }
-        let partner = joining == .below ? gap + 1 : gap - 1
-        guard rows.indices.contains(partner) else { return nil }
-        return ShownPair(joining: joining, partner: rows[partner])
+    /// While a rest has paired the held row with a neighbor, which side the partner shows on.
+    private var shownPair: RailNeighbor? {
+        guard let drag, drag.isPaired, !drag.isReleased, !drag.isOverBar else { return nil }
+        return drag.slot.joining
     }
 
     /// How far each row moves, and the end view, so the partner of a pair sits clear of the card
     /// and its name reads in full: the partner and every row past it, by the drag's `shift`,
     /// down for a partner below, with the end view, and up for one above.
     func pairShifts(_ ids: [RowID]) -> (rows: [RowID: CGFloat], end: CGFloat) {
-        guard let drag, let pair = shownPair else { return ([:], 0) }
+        guard let drag, let joining = shownPair else { return ([:], 0) }
         guard let gap = ids.firstIndex(of: drag.lifted) else { return ([:], 0) }
-        let moved = pair.joining == .below ? ids.suffix(from: gap + 1) : ids.prefix(gap)
-        let shift = pair.joining == .below ? drag.shift : -drag.shift
+        let moved = joining == .below ? ids.suffix(from: gap + 1) : ids.prefix(gap)
+        let shift = joining == .below ? drag.shift : -drag.shift
         let rows = Dictionary(moved.map { ($0, shift) }) { first, _ in first }
-        return (rows, pair.joining == .below ? shift : 0)
+        return (rows, joining == .below ? shift : 0)
     }
 
     /// While dropping the held row would leave it in a superset, that superset as it shows: its
@@ -106,7 +100,7 @@ extension Rail {
         let groups = RailDrag.groups(rows, joined: shownJoined)
         guard let group = groups[drag.lifted] else { return nil }
         let shifts = pairShifts(rows).rows
-        let heights = Dictionary(measuredRows.map { ($0.id, $0.height) }) { first, _ in first }
+        let heights = heights.byID
         var tops: [RowID: CGFloat] = [:]
         var y: CGFloat = 0
         for id in rows {
@@ -130,13 +124,6 @@ extension Rail {
         guard let outline = wellOutline(rows: span, card: card) else { return nil }
         return HeldWell(key: key, outline: outline)
     }
-}
-
-/// A held row paired with a neighbor by a rest, as the rows show: which side the partner is on,
-/// and the partner.
-private struct ShownPair<RowID: Hashable> {
-    let joining: RailNeighbor
-    let partner: RowID
 }
 
 /// The well around the held row's superset, as it shows.

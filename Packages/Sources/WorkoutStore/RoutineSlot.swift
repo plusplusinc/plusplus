@@ -40,8 +40,8 @@ extension Routine {
     /// Moves the row `id` to `slot`, into the superset the slot joins, a new one with the plain
     /// row it joins, or out as a plain row. A row that joins a superset takes its round count; a
     /// new pair takes the larger of the two rows' set counts, so pairing never cuts a row's sets.
-    /// Returns
-    /// false, and changes nothing, when the row or the row the slot names is missing, or when the
+    /// Returns false, and changes nothing, when the row or the row the slot names is missing, or
+    /// when the
     /// slot is the row's own place in its own superset, or none.
     @discardableResult
     public mutating func move(_ id: RoutineExercise.ID, to slot: RoutineSlot) -> Bool {
@@ -65,11 +65,12 @@ extension Routine {
         case nil: above?.supersetID != nil && above?.supersetID == below?.supersetID ? above : nil
         }
         // Joining a plain row pairs the two in a new superset.
-        if let joined, joined.supersetID == nil, let index = rest.firstIndex(of: joined) {
+        let index = joined.flatMap { rest.firstIndex(of: $0) }
+        if let index, rest[index].supersetID == nil {
             rest[index].supersetID = UUID()
-            rest[index].plan.sets = max(joined.plan.sets, row.plan.sets)
+            rest[index].plan.sets = max(rest[index].plan.sets, row.plan.sets)
         }
-        let partner = joined.flatMap { joined in rest.first { $0.id == joined.id } }
+        let partner = index.map { rest[$0] }
         row.supersetID = partner?.supersetID
         if let partner, partner.supersetID != nil {
             row.plan.sets = partner.plan.sets
