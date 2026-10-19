@@ -78,7 +78,7 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   it would do nothing, and announces the row it passed ("Moved above Plank").
 - A superset on a rail is a loop beside the line (`GroupLoop`, `LoopPen`): one stroke from its
   last node back up to its first, in the line's gray (`rail`, the resting nodes' gray, at least
-  3:1 on the background), continuous corners, with a filled head in each gap between members,
+  3:1 on the background and on `well`), continuous corners, with a filled head in each gap between members,
   halfway between their nodes, the stroke stopping short of its tip. A superset's top and bottom
   edges are each two slots for a row moved by its body, inside (the loop wraps the gap) and,
   `edgeSlotSpread` (24 pt) further, outside, each with the reorder's tick. A row held still
