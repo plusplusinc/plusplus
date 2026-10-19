@@ -15,8 +15,8 @@ DERIVED_DATA="$ROOT/.build/DerivedData"
 RESULTS="$ROOT/.build/results"
 # Each linked worktree, whose .git is a file, is an agent's, and builds and tests on a simulator
 # of its own, "PlusPlus <worktree>", so two worktrees never share an app, its data, or its
-# settings. ensure_simulator creates it on first use, and scripts/tidy.sh deletes it with the
-# worktree. The main checkout defaults to iPhone 17, the maintainer's. scripts/test.sh resets, and
+# settings. ensure_simulator creates it on first use and records it in the clone's shared git
+# directory, and scripts/tidy.sh deletes it with the worktree, or after one removed by hand. The main checkout defaults to iPhone 17, the maintainer's. scripts/test.sh resets, and
 # scripts/sim.sh erases, only the worktree's own simulator, so an agent that leaves out
 # PLUSPLUS_SIMULATOR never reaches a person's.
 
@@ -75,6 +75,11 @@ is_own_simulator() {
 # for any other simulator.
 ensure_simulator() {
     is_own_simulator || return 0
+    # The record outlives the worktree, so scripts/tidy.sh can delete the simulator of a worktree
+    # removed with `git worktree remove`.
+    local records
+    records="$(git -C "$ROOT" rev-parse --path-format=absolute --git-common-dir)/plusplus-simulators"
+    mkdir -p "$records" && touch "$records/$(basename "$ROOT")"
     local plan
     plan=$(xcrun simctl list --json devices runtimes | python3 -c '
 import json, sys

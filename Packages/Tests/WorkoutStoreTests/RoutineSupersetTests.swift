@@ -376,3 +376,25 @@ extension RoutineSupersetTests {
         #expect(routine("A B").pickedUp(holding: id("A")) == [id("A")])
     }
 }
+
+extension RoutineSupersetTests {
+    @Test("A row moved to a plain row's edge, joining it, pairs the two at the larger set count")
+    func moveToPair() {
+        var below = routine("A B C")
+        let changed = below.move(id("A"), to: .before(id("C"), joining: .below))
+        #expect(changed)
+        #expect(shape(below) == "B A-C")
+        #expect(sets(below) == [2, 3, 3])
+        var above = routine("A B C")
+        let changedAgain = above.move(id("C"), to: .before(id("B"), joining: .above))
+        #expect(changedAgain)
+        #expect(shape(above) == "A-C B")
+        #expect(sets(above) == [3, 3, 2])
+        // Its own neighbor, without moving.
+        var inPlace = routine("A B C")
+        let changedThird = inPlace.move(id("B"), to: .before(id("C"), joining: .below))
+        #expect(changedThird)
+        #expect(shape(inPlace) == "A B-C")
+        #expect(sets(inPlace) == [1, 3, 3])
+    }
+}

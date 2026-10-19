@@ -78,22 +78,38 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   it would do nothing, and announces the row it passed ("Moved above Plank").
 - A superset on a rail is a loop beside the line (`GroupLoop`, `LoopPen`): one stroke from its
   last node back up to its first, in the line's gray (`rail`, the resting nodes' gray, at least
-  3:1 on the background), continuous corners, with a filled head in each gap between members,
+  3:1 on the background and on `well`), continuous corners, with a filled head in each gap between members,
   halfway between their nodes, the stroke stopping short of its tip. A superset's top and bottom
   edges are each two slots for a row moved by its body, inside (the loop wraps the gap) and,
-  `edgeSlotSpread` (24 pt) further, outside, each with the reorder's tick. A hold on a node
-  draws a superset (`Rail+Regroup.swift`, the rule in `RailRegroup`, the caller's): the press
-  shows what it picked up in a field, the held card's `CardFill` and shadow stretched over the
-  rows, an end's whole superset or the row alone; the drag spans from the anchor to the row
-  under the finger, with "Superset" at the field's top trailing corner while the drop would
-  make one, and the reorder's tick at each change. A drop commits it with a light impact; the
-  field fades (0.1 s), then the new loop shows `railJoin` and cools as a new node does
-  (`RailEntry.groupFlash()`). While anything is held, rows draw no strokes: the rail draws the
+  `edgeSlotSpread` (24 pt) further, outside, each with the reorder's tick. A row held still
+  over a plain neighbor pairs with it, as an app held on another makes a folder (`RailPairing`):
+  with the gap in a plain slot, the card 16 pt or more past it over the neighbor, above or
+  below, staying within 6 pt for 0.5 s, the two pair with a medium impact, and the partner and
+  the rows past it move out from under the card by as far as it lies over it. The pair holds
+  while the card stays 8 pt or more over it, and comes apart with the reorder's tick once it
+  eases back toward its gap or the gap moves. A neighbor in a superset never pairs, nor does a
+  rest at the slot just outside the superset the row was lifted from, so a member dragged out
+  leaves it; over a bar nothing pairs. Dropped, a rest-made pair takes the larger of its rows'
+  set counts. While a row or a node is held, the superset the hold changes sits in a well
+  (`RailWell.swift`), flat in `well` with no shadow, drawn by the rail under its strokes: for a
+  body's drag, the one the held row is in or would be in if dropped now, wrapping the card
+  where it is an end; for a node's, its field. Its top corners are concentric with the loop's
+  top curve, its sides as far out from the loop's line; it fades in with the lift and out on
+  the drop's transaction, and every other superset keeps its loop alone. At rest there is no
+  well. Where a well first in the list would reach nearer what is above the rail than one at
+  rest, the rail pads its top a frame at a time (`RailRoom`) as the list scrolls by as much,
+  so the card stays under the finger while the title and tags move up. A hold on a node draws a
+  superset (`Rail+Regroup.swift`, the rule in `RailRegroup`, the caller's): the press shows
+  what it picked up in the well, an end's whole superset or the row alone; the drag spans from
+  the anchor to the row under the finger, with the reorder's tick at each change. A drop
+  commits it with a light impact; the well fades (0.1 s), then the new loop shows `railJoin`
+  and cools as a new node does (`RailEntry.groupFlash()`). While anything is held, rows draw no strokes: the rail draws the
   line and every loop once, as the drop would leave them (`RailDrawing` for a node's drag,
   `HeldRailDrawing` for a body's), every end and head on a real node, the held row's at the
-  card, and the card draws the same drawing over its fill. Shapes animate their nodes and joins
+  card, and the card draws the same drawing over its fill and over its shadow, so the shadow never
+  shades the line or a loop. Shapes animate their nodes and joins
   on the moving transaction; with Reduce Motion the rows jump, the loops crossfade (0.2 s),
-  there is no flash, and the haptics stay. A row swiped open hides its superset's loop. VoiceOver
+  wells and room come and go at once, there is no flash, and the haptics stay. A row swiped open hides its superset's loop. VoiceOver
   reads a member's value as "In a superset with" its partners, and offers "Superset with" each
   neighbor it isn't joined to, and "Move out of superset" on a member.
 - A generated name arrives in the title on its own clock (`SuggestionTiming`, one

@@ -25,7 +25,7 @@ public struct RailRegroup<ID: Hashable> {
 }
 
 /// The groups a drop would leave: the rows joined to the next; the rows the drag spans, which sit
-/// in one raised field while it is held; and the rows of the group it makes, the span's or none,
+/// in one well while it is held; and the rows of the group it makes, the span's or none,
 /// whose loop flashes in `railJoin` as it drops.
 public struct RailGrouping<ID: Hashable>: Equatable {
     public var links: Set<ID>
@@ -61,7 +61,7 @@ struct RailRegroupState<ID: Hashable> {
         isOverBar ? nil : grouping
     }
 
-    /// The rows in the raised field: the span, or, over the held row, what the press picked up.
+    /// The rows in the well: the span, or, over the held row, what the press picked up.
     var field: Set<ID> {
         grouping?.span ?? (reach == held ? pickedUp : [])
     }

@@ -49,8 +49,9 @@ project board; agents' technical working files live in `.slices/`.
 - A slice with something to see on the phone runs as a loop with the maintainer (see the
   builder's "Rounds"). Install each round from the slice worktree with `scripts/device.sh`; a
   fresh checkout is a cold build. It builds the worktree as it is, so uncommitted edits are fine
-  for a first look, but say so. Tell the maintainer in a line what changed and that the build is
-  unverified, then give their feedback to a fresh builder named for that round, which starts
+  for a first look, but say so. Tell the maintainer in a line what changed, that the build is
+  unverified, and what to try: what to do and what they should see, never a check's name or what
+  it looks for. Then give their feedback to a fresh builder named for that round, which starts
   from the slice's handoff note and brings it up to date before it reports; resume a builder
   only to finish its own round. Wi-Fi first, link second: when no iPhone is in reach the script
   makes an install link instead, printing why each paired iPhone was out of reach (say that,
@@ -61,6 +62,13 @@ project board; agents' technical working files live in `.slices/`.
   for them to try when they're back, and the full pass still waits for their word.
 - When you or the maintainer settle something while a builder works, send it to that builder
   at once (SendMessage) and add it to the slice's handoff note, so the next builder has it too.
+  A change the maintainer proposes and you agree with is settled: build it, never ask again.
+- While the maintainer is still weighing a rule (asking whether it holds together, or offering
+  another), send no builder any of the candidates: show them side by side as a table of the
+  cases where they differ, and send the one they pick.
+- A problem found outside the card, by the verifier or anyone, gets checked on `main` before
+  the merge (its code, or a worktree of `main`), and becomes a card when `main` has it too,
+  the slice's to fix when it doesn't; never leave it as a question for the maintainer.
 - A screen with no design gets options drawn before it is built. The first is the platform's
   own control for the job (principle 4, "Native bones"), and each other option says what it
   does that the system one can't. An API offered as an option is one whose Apple doc (sosumi)
@@ -98,8 +106,8 @@ project board; agents' technical working files live in `.slices/`.
 
 1. Look at the verifier's screenshots yourself. If the maintainer has not had the final build in
    hand (the full pass changed what they see, or there was no round), install it with
-   `scripts/device.sh` (a link when the phone is out of reach) and tell them what to try: what
-   to do and what they should see, never what a check looks for.
+   `scripts/device.sh` (a link when the phone is out of reach) and tell them what to try, as for
+   a round.
 2. After the maintainer's go-ahead: merge once checks pass (a wait for that also ends when
    `gh pr view --json mergeable` reads `CONFLICTING`, since auto-merge waits on a conflict
    without a word; after any merge to `main`, check every PR that waits), move the card to Done, run

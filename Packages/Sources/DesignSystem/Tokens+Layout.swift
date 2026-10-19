@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// The spacing ramp. Anything not on this scale is a bug, not a refinement.
-public enum Spacing {
+public nonisolated enum Spacing {
     /// A hairline gap, such as between a row's name and its detail line.
     public static let xxs: CGFloat = 2
     public static let xs: CGFloat = 4

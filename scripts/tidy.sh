@@ -9,8 +9,9 @@
 # with commits no merged PR contains, and a worktree touched in the last day whose branch has no
 # merged PR (an agent's fresh worktree starts at main with nothing committed yet). Closed but
 # unmerged PRs are never cleaned up; their work may still be wanted. A removed worktree's own
-# simulator, "PlusPlus <worktree>" (see scripts/common.sh), is shut down and deleted with it; this
-# is the only script that deletes a simulator.
+# simulator, "PlusPlus <worktree>" (see scripts/common.sh), is shut down and deleted with it, and
+# so is the recorded simulator of a worktree removed by hand; this is the only script that deletes
+# a simulator.
 #
 #   scripts/tidy.sh            # remove, and print each thing removed
 #   scripts/tidy.sh --dry-run  # print what would be removed
@@ -44,7 +45,8 @@ run() {
     [ "$DRY_RUN" -eq 1 ] || "$@" > /dev/null
 }
 
-# Shuts down and deletes a worktree's own simulator, when it has one.
+# Shuts down and deletes a worktree's own simulator, when it has one. Fails only when it could not
+# delete one.
 delete_simulator() {
     local name udid state
     name=$(worktree_simulator "$1")
@@ -54,6 +56,7 @@ delete_simulator() {
     # The worktree is already gone, so a failure here says so and lets the rest of the run go on.
     if ! { [ "$state" != Booted ] || xcrun simctl shutdown "$udid"; } || ! xcrun simctl delete "$udid"; then
         echo "tidy: could not delete simulator \"$name\" ($udid); agents are denied simctl delete, so ask the maintainer to delete it" >&2
+        return 1
     fi
 }
 
@@ -97,7 +100,7 @@ while IFS=$'\t' read -r path branch; do
     if { [ -n "$branch" ] && in_merged_pr "$branch" "$tip"; } ||
         { in_main "$tip" && [ "$(idle_seconds "$path")" -gt "$FRESH_SECONDS" ]; }; then
         run git worktree remove "$path"
-        delete_simulator "$path"
+        delete_simulator "$path" || true
         freed+=("$branch")
     elif prs=$(awk -v b="$branch" '$1 == b { print "#" $3 }' <<< "$MERGED" | paste -sd, -) &&
         [ -n "$prs" ]; then
@@ -108,6 +111,23 @@ while IFS=$'\t' read -r path branch; do
     fi
 done < <(git worktree list --porcelain |
     awk '/^worktree /{path=substr($0,10)} /^branch /{print path "\t" substr($0,19)} /^detached/{print path "\t"}')
+
+# A worktree removed with `git worktree remove`, such as one of main added to compare with, leaves
+# its simulator. scripts/common.sh records each worktree simulator it uses; delete the recorded
+# ones whose worktree is gone, and drop their records.
+RECORDS="$ROOT/.git/plusplus-simulators"
+if [ -d "$RECORDS" ]; then
+    live=$(git worktree list --porcelain | awk '/^worktree /{print substr($0,10)}' |
+        while read -r path; do basename "$path"; done)
+    for record in "$RECORDS"/*; do
+        [ -e "$record" ] || continue
+        name=$(basename "$record")
+        grep -qxF "$name" <<< "$live" && continue
+        if delete_simulator "$name" && [ "$DRY_RUN" -eq 0 ]; then
+            rm "$record"
+        fi
+    done
+fi
 
 checked_out=$(git worktree list --porcelain | awk '/^branch /{print substr($0,19)}')
 while read -r branch; do

@@ -79,6 +79,9 @@ nonisolated enum RailDrag {
     /// The blur of the card's shadow: soft and centered, with no offset, so it reads as lifted
     /// without moving the card off the rail.
     static let liftedShadow: CGFloat = 8
+    /// How far from where it settles a card let go starts to fade, so it stays opaque while it
+    /// crosses another row's text: within it, the card is nearly over its own gap.
+    static let settleReach: CGFloat = 16
 
     /// The rows moving aside as the gap goes to a new slot: quicker than `.railChange`.
     static let gap = Animation.snappy(duration: 0.2)
@@ -167,22 +170,42 @@ nonisolated enum RailDrag {
         }?.slot
     }
 
-    /// The group a row dropped at `slot` among `rest` joins, or nil for none.
+    /// The group a row dropped at `slot` among `rest` joins, or nil for none: `newGroup` when it
+    /// pairs with a plain row.
     static func group<ID: Hashable>(
         joinedAt slot: RailSlot<ID>,
         in rest: [ID],
         groups: [ID: Int],
     ) -> Int? {
-        let index = switch slot.place {
-        case let .before(id): rest.firstIndex(of: id) ?? rest.endIndex
-        case .end: rest.endIndex
-        }
-        let above = index > 0 ? groups[rest[index - 1]] : nil
-        let below = index < rest.count ? groups[rest[index]] : nil
+        guard let neighbor = neighbor(joinedAt: slot, in: rest, groups: groups) else { return nil }
+        return groups[neighbor] ?? newGroup
+    }
+
+    /// The row a row dropped at `slot` among `rest` joins: the neighbor the slot names, or,
+    /// between two rows of one group, the one above. Nil for none.
+    static func neighbor<ID: Hashable>(
+        joinedAt slot: RailSlot<ID>,
+        in rest: [ID],
+        groups: [ID: Int],
+    ) -> ID? {
+        let index = index(of: slot.place, in: rest)
+        let above = index > 0 ? rest[index - 1] : nil
+        let below = index < rest.count ? rest[index] : nil
         switch slot.joining {
         case .above: return above
         case .below: return below
-        case nil: return above != nil && above == below ? above : nil
+        case nil:
+            guard let above, let below, let group = groups[above], groups[below] == group
+            else { return nil }
+            return above
+        }
+    }
+
+    /// Where a row at `place` goes among `rest`: before the row it names, or at the end.
+    static func index<ID: Hashable>(of place: RailSlot<ID>.Place, in rest: [ID]) -> Int {
+        switch place {
+        case let .before(id): rest.firstIndex(of: id) ?? rest.endIndex
+        case .end: rest.endIndex
         }
     }
 
@@ -220,7 +243,12 @@ nonisolated enum RailDrag {
         to slot: RailSlot<ID>,
     ) -> Set<ID> {
         var groups = groups(ids, joined: joined)
-        groups[lifted] = group(joinedAt: slot, in: ids.filter { $0 != lifted }, groups: groups)
+        let rest = ids.filter { $0 != lifted }
+        let neighbor = neighbor(joinedAt: slot, in: rest, groups: groups)
+        groups[lifted] = neighbor.map { groups[$0] ?? newGroup }
+        if let neighbor {
+            groups[neighbor] = groups[lifted]
+        }
         return Self.joined(order(ids, moving: lifted, to: slot), groups: groups)
     }
 
@@ -292,12 +320,7 @@ nonisolated enum RailDrag {
     static func order<ID: Hashable>(_ ids: [ID], moving lifted: ID, to slot: RailSlot<ID>) -> [ID] {
         guard ids.contains(lifted) else { return ids }
         var order = ids.filter { $0 != lifted }
-        switch slot.place {
-        case let .before(target):
-            order.insert(lifted, at: order.firstIndex(of: target) ?? order.endIndex)
-        case .end:
-            order.append(lifted)
-        }
+        order.insert(lifted, at: index(of: slot.place, in: order))
         return order
     }
 

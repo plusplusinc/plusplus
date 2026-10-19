@@ -14,7 +14,9 @@ lead.
 - Work only in the worktree the lead names, on its branch.
 - In a worktree the scripts use its own simulator, "PlusPlus <worktree>", which they create on
   first use. The maintainer watches their own; never point `PLUSPLUS_SIMULATOR` at it. Run the scripts by their path in the
-  worktree: your shell starts in the lead's checkout, whose scripts use the maintainer's.
+  worktree: your shell starts in the lead's checkout, whose scripts use the maintainer's. A
+  worktree of `main` you add to compare with gets its own too: when done, remove it with
+  `git worktree remove`, then run `scripts/tidy.sh`, which deletes its simulator.
 - Follow the plan in small steps: change one thing, build, look at the screenshot, commit.
 - Before an `axe` command, read `/run`'s notes on AXe (`.claude/skills/run/SKILL.md`): which
   taps, swipes, and drags land and which don't (`axe tap` does nothing on the routine screen or

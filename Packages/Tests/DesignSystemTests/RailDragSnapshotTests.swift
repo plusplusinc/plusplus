@@ -33,11 +33,19 @@ struct RailDragSnapshotTests {
         origin: RailSlot<UUID>,
         over slot: RailSlot<UUID>,
         offset: CGFloat,
+        isPaired: Bool = false,
     ) -> some View {
         Rail(
             rows,
             links: links,
-            drag: RailDragState(lifted: rows[lifted].id, origin: origin, slot: slot, grab: 20),
+            drag: RailDragState(
+                lifted: rows[lifted].id,
+                origin: origin,
+                slot: slot,
+                isPaired: isPaired,
+                shift: isPaired ? abs(offset) : 0,
+                grab: 20,
+            ),
             cardOffset: offset,
         ) { row in
             RowLabel(title: row.title, detail: row.detail)
@@ -89,6 +97,8 @@ struct RailDragSnapshotTests {
 
     /// The rail draws the pair as the drop would leave it, B then the held row, its loop running
     /// to the card's node, not the empty gap's; the card shows that loop's stretch over its fill.
+    /// The pair's well wraps B and the card, reaching past the card's bottom as far as its sides
+    /// are out from the card.
     @Test("A pair's first row held inside its bottom edge, the card below its gap")
     func pairMemberInsideBottomEdge() {
         let rows = Self.rows
@@ -116,6 +126,71 @@ struct RailDragSnapshotTests {
                 origin: .before(rows[2].id, joining: .below),
                 over: .before(rows[3].id),
                 offset: 40,
+            ),
+            width: Self.screenWidth,
+        )
+    }
+
+    /// A plain row held just inside a pair's top edge, the card a little above its gap: the well
+    /// wraps the card and the pair below it, reaching above the card as far as its sides are out
+    /// from it.
+    @Test("A plain row held inside a pair's top edge, in its well")
+    func plainRowInsideTopEdge() {
+        let rows = Self.rows
+        assertThemedSnapshots(
+            of: rail(
+                links: [rows[2].id],
+                lifting: 0,
+                origin: .before(rows[1].id),
+                over: .before(rows[2].id, joining: .below),
+                offset: -10,
+            ),
+            width: Self.screenWidth,
+        )
+    }
+
+    /// Resting over the plain row below, before the countdown ends: the card only lies over it,
+    /// no loop joins the two, and there is no well. It is also how a paired card eased back looks.
+    @Test("A held row resting over a plain row, before it pairs")
+    func restingBeforePair() {
+        let rows = Self.rows
+        let own = RailSlot.before(rows[2].id)
+        assertThemedSnapshots(
+            of: rail(lifting: 1, origin: own, over: own, offset: 22),
+            width: Self.screenWidth,
+        )
+    }
+
+    /// The rest has paired the held row with the plain row below: the partner has moved out from
+    /// under the card, a well wraps the card and the partner, from the card's top, and the loop
+    /// wraps the card's node and its partner's. The card is the only thing with a shadow.
+    @Test("A held row paired with the plain row it rests on, in a well")
+    func paired() {
+        let rows = Self.rows
+        assertThemedSnapshots(
+            of: rail(
+                lifting: 1,
+                origin: .before(rows[2].id),
+                over: .before(rows[2].id, joining: .below),
+                offset: 22,
+                isPaired: true,
+            ),
+            width: Self.screenWidth,
+        )
+    }
+
+    /// The first row paired with the one below: the rail takes room above its top, so the well,
+    /// reaching above the card, comes no nearer what is above the rail than one at rest.
+    @Test("The first row paired with the row below, the well's room above the rail")
+    func pairedAtTop() {
+        let rows = Self.rows
+        assertThemedSnapshots(
+            of: rail(
+                lifting: 0,
+                origin: .before(rows[1].id),
+                over: .before(rows[1].id, joining: .below),
+                offset: 22,
+                isPaired: true,
             ),
             width: Self.screenWidth,
         )
