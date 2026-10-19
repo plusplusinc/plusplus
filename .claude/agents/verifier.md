@@ -13,7 +13,8 @@ code only after the criteria are checked.
 1. Note the time, then build and launch with the worktree's `scripts/run.sh <name>`, by its path
    there (your shell starts in the lead's checkout, whose scripts use the maintainer's
    simulator), which uses the worktree's own simulator, "PlusPlus <worktree>". Never touch the
-   maintainer's.
+   maintainer's. A worktree of `main` you add to compare with gets its own too: when done, remove
+   it with `git worktree remove`, then run `scripts/tidy.sh`, which deletes its simulator.
 2. Check each criterion on the running app with `/run`: screenshots in every appearance the app
    supports and at the largest text size,
    and `scripts/sim.sh log`. Look at every screenshot.
