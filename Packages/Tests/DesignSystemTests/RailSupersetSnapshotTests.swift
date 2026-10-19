@@ -49,8 +49,8 @@ struct RailSupersetSnapshotTests {
         .background(Color.pp(.background))
     }
 
-    /// A plain row, a pair, a plain row, and a triple: each superset's loop runs from its last
-    /// node up to its first, with a head in each gap between members.
+    /// A plain row, a pair, a plain row, and a triple: each superset is its loop alone, no well,
+    /// running from its last node up to its first, with a head in each gap between members.
     @Test("A pair and a triple at rest, between plain rows")
     func atRest() {
         assertThemedSnapshots(
@@ -59,10 +59,10 @@ struct RailSupersetSnapshotTests {
         )
     }
 
-    /// The first row's node held over the third row's: the three sit in one raised field labeled
-    /// Superset, their loop drawn as the drop would leave it, in the rail's gray, beside the pair
-    /// below that the drag leaves alone.
-    @Test("A node held over two rows down: the span's field, its label, and its loop")
+    /// The first row's node held over the third row's: the three sit in one well, their loop
+    /// drawn as the drop would leave it, in the rail's gray. The pair below, which the drag leaves
+    /// alone, keeps its loop alone, with no well.
+    @Test("A node held over two rows down: the span's well and its loop")
     func nodeHeldOverSpan() {
         let span: Set = [id(0), id(1), id(2)]
         let held = RailRegroupState(
@@ -77,14 +77,23 @@ struct RailSupersetSnapshotTests {
         )
     }
 
-    /// A press on a superset's end node, before the finger moves: the field wraps the whole
-    /// superset, whose end the drag moves, and its loop stays as it is.
+    /// A press on a superset's end node, before the finger moves: the field, the superset's well,
+    /// wraps the whole superset, whose end the drag moves, and its loop stays as it is.
     @Test("An end node pressed: the field wraps its whole superset")
     func endNodePressed() {
         let pair: Set = [id(1), id(2)]
         let held = RailRegroupState(held: id(1), reach: id(1), fingerY: 0, pickedUp: pair)
         assertThemedSnapshots(
             of: rail(links: [id(1)], regrouping: held),
+            width: Self.screenWidth,
+        )
+    }
+
+    /// A pair first in the list and a triple right below it: two loops, reading as two.
+    @Test("Two supersets next to each other at rest, the first leading the list")
+    func adjacentAtRest() {
+        assertThemedSnapshots(
+            of: rail(links: [id(0), id(2), id(3)]),
             width: Self.screenWidth,
         )
     }

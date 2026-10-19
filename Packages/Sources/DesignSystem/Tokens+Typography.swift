@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// The type ramp.
 ///
@@ -26,16 +29,34 @@ extension Font {
 }
 
 extension View {
-    /// The screen title: SF Mono, 24pt bold. Monospaced so its `_` cursor is exactly one character
-    /// wide.
+    /// The screen title: SF Mono, 24pt bold, so a title that can be edited reads as typed text.
     public func ppScreenTitleFont() -> some View {
         modifier(ScreenTitleFont())
     }
 }
 
-/// 24pt, between `title2` and `title`, scaling as `title2` does.
+/// The screen title's size: 24pt, between `title2` and `title`, scaling as `title2` does. Read
+/// with `@ScaledMetric(relativeTo: ScreenTitle.textStyle) var size = ScreenTitle.size`.
+enum ScreenTitle {
+    static let size: CGFloat = 24
+    static let textStyle = Font.TextStyle.title2
+    /// How far the title's `_` sits below the font's own underscore, so it reads as a cursor
+    /// under the letter rather than a typed character: just past the tails of g, p, and y.
+    /// Scaled with the title.
+    static let cursorDrop: CGFloat = 4.5
+    /// How tall the title takes taps, reaching down past a short title.
+    static let touchTarget: CGFloat = 44
+
+    #if canImport(UIKit)
+    /// The title's font at `size`, for the UIKit views that draw it.
+    static func uiFont(ofSize size: CGFloat) -> UIFont {
+        .monospacedSystemFont(ofSize: size, weight: .bold)
+    }
+    #endif
+}
+
 private struct ScreenTitleFont: ViewModifier {
-    @ScaledMetric(relativeTo: .title2) private var size: CGFloat = 24
+    @ScaledMetric(relativeTo: ScreenTitle.textStyle) private var size = ScreenTitle.size
     @ObserveHotReload private var hotReload
 
     func body(content: Content) -> some View {

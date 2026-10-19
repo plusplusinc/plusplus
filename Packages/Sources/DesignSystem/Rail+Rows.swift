@@ -15,9 +15,10 @@ extension Rail {
         RailDrag.candidates(rows: measuredRows, lifted: lifted, groups: groups)
     }
 
-    /// The top of the gap at `slot`, where the card rests when it is let go there.
+    /// The top of the gap at `slot`, where the card rests when it is let go there. Every slot at
+    /// one place shares its gap, a pair's included, which is no candidate.
     func gapTop(lifting lifted: RowID, at slot: RailSlot<RowID>) -> CGFloat? {
-        candidates(lifting: lifted).first { $0.slot == slot }?.gapTop
+        candidates(lifting: lifted).first { $0.slot.place == slot.place }?.gapTop
     }
 
     /// The rows whose loops hide: those of a group with a row swiped open, which would otherwise
@@ -36,12 +37,18 @@ extension Rail {
         [heights.end] + swiped.compactMap { heights.frames[$0] }
     }
 
-    /// Keeps how far down each row its node is, read at rest: as rows move, where their nodes are
-    /// drawn runs ahead of their layout.
-    func noteNodeInsets(_ insets: [AnyHashable: CGFloat]) {
-        guard drag == nil, regrouping == nil else { return }
+    /// Keeps how far down each row its node is, and where a row's node is, which places the
+    /// wells (`RailDrag.railNode`). Both are read at rest: while rows move, a row reports its node
+    /// where it is drawn against its frame where it will end up, up to a row's height out.
+    func noteNodeInsets(_ insets: [AnyHashable: CGPoint]) {
+        let isHeld = drag != nil || regrouping != nil
+        let node = RailDrag.railNode(insets.values, isHeld: isHeld, known: railNode)
+        if node != railNode {
+            railNode = node
+        }
+        guard !isHeld else { return }
         nodeInsets = Dictionary(uniqueKeysWithValues: data.compactMap { item in
-            insets[AnyHashable(item.id)].map { (item.id, $0) }
+            insets[AnyHashable(item.id)].map { (item.id, $0.y) }
         })
     }
 
@@ -203,6 +210,7 @@ extension Rail {
                     hasRisen: momentOffset != nil,
                     strokes: strokes,
                     top: y,
+                    holes: cutouts,
                 ))
                 .offset(y: y)
                 .allowsHitTesting(false)
@@ -228,7 +236,7 @@ extension View {
         )
     }
 
-    /// Reports a rail row's node by the row's id (`RowNodes`), and how far down the row it is
+    /// Reports a rail row's node by the row's id (`RowNodes`), and where it is in the row
     /// (`RowNodeInsets`), so the rail finds each row's node however the rows are ordered as they
     /// move.
     func reportingNode(of id: some Hashable) -> some View {
@@ -241,7 +249,7 @@ extension View {
                     )
                     .preference(
                         key: RowNodeInsets.self,
-                        value: anchors.first.map { [AnyHashable(id): proxy[$0].y] } ?? [:],
+                        value: anchors.first.map { [AnyHashable(id): proxy[$0]] } ?? [:],
                     )
             }
         }

@@ -13,7 +13,7 @@ final nonisolated class RenameUITests: XCTestCase {
     /// UIKit scrolls the focused field once the keyboard has risen, about 0.8s after the tap,
     /// while the keyboard's element reports its final frame from the start. Whether the title
     /// moved shows only by watching it for longer than that.
-    private static let keyboardAvoidanceWindow: TimeInterval = 2
+    static let keyboardAvoidanceWindow: TimeInterval = 2
 
     @MainActor
     func testRenameAtDefaultSize() throws {
@@ -66,9 +66,19 @@ final nonisolated class RenameUITests: XCTestCase {
             XCTAssertTrue(keyboard.disappears())
         }
         addAndSearchExercises(in: app, keyboard: keyboard)
+        endEditsWithoutMoving(in: app, keyboard: keyboard)
+        try startClearsKeyboard(in: app, keyboard: keyboard)
+    }
+
+    /// Reordering, supersets, and deleting, on the nine rows `testRenameAtDefaultSize` adds, in a
+    /// launch of their own: in one test they ran past XCTest's three-minute allowance on Xcode
+    /// Cloud.
+    @MainActor
+    func testDragAndDeleteRows() {
+        let app = XCUIApplication()
+        app.launchNineExercises(named: "Arm and back day")
         reorderExercises(in: app)
         supersetExercises(in: app)
-        startClearsKeyboard(in: app, keyboard: keyboard)
         deleteExercises(in: app)
     }
 
@@ -93,14 +103,12 @@ final nonisolated class RenameUITests: XCTestCase {
         XCTAssertTrue(keyboard.appears())
 
         XCTContext.runActivity(named: "Editing starts in place") { _ in
-            let deadline = Date.now.addingTimeInterval(Self.keyboardAvoidanceWindow)
-            var frames = (title.frame, addExercise.frame)
-            while Date.now < deadline, frames == (field, button) {
-                frames = (title.frame, addExercise.frame)
-            }
-            XCTAssertEqual(frames.0, field, "The title's frame moved")
-            XCTAssertEqual(frames.1, button, "Add exercise moved")
+            let watched = watchFrames(of: [title, addExercise], for: Self.keyboardAvoidanceWindow)
+            XCTAssertEqual(watched[0], field, "The title's frame moved")
+            XCTAssertEqual(watched[1], button, "Add exercise moved")
         }
+        // The watch above gives the tip time to show.
+        XCUIApplication().dismissKeyboardTip()
         // Read once the keyboard has risen and UIKit would have scrolled.
         let placeholder = try Ink.ofTitle(in: field)
         let placeholderText = try XCTUnwrap(placeholder.lines.first)

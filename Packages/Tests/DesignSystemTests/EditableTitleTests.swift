@@ -1,11 +1,6 @@
 import SwiftUI
 import Testing
 @testable import DesignSystem
-#if canImport(UIKit)
-import UIKit
-#else
-import AppKit
-#endif
 
 @Suite("Editable title rules")
 struct EditableTitleTests {
@@ -58,141 +53,28 @@ struct EditableTitleTests {
         #expect(EditableTitle.typingDuration(of: text) < 0.5)
     }
 
-    @Test("With no selection yet, the cursor is at the end")
-    func insertionWithoutSelection() {
-        #expect(EditableTitle.insertionPoint(of: nil, in: "Legs") == "Legs".endIndex)
+    @Test("Return ends editing and inserts nothing")
+    func newlineReturn() {
+        #expect(EditableTitle.newlineEdit("\n") == ("", true))
     }
 
-    @Test("The cursor follows an insertion point into the middle")
-    func insertionInMiddle() {
-        let draft = "Legs day"
-        let index = draft.index(draft.startIndex, offsetBy: 4)
-        let selection = TextSelection(insertionPoint: index)
-        #expect(EditableTitle.insertionPoint(of: selection, in: draft) == index)
+    @Test("A word arriving with Return, as autocorrect sends it, is inserted, and editing ends")
+    func newlineWordWithReturn() {
+        #expect(EditableTitle.newlineEdit("back\n") == ("back", true))
+        #expect(EditableTitle.newlineEdit("body\u{2019}s\n") == ("body\u{2019}s", true))
     }
 
-    @Test("A range selection has no cursor")
-    func insertionForRange() {
-        let draft = "Legs day"
-        let firstLetter = draft.startIndex ..< draft.index(after: draft.startIndex)
-        let selection = TextSelection(range: firstLetter)
-        #expect(EditableTitle.insertionPoint(of: selection, in: draft) == nil)
+    @Test("Pasted lines become spaces, and editing goes on")
+    func newlinePastedLines() {
+        #expect(EditableTitle.newlineEdit("Legs\nday\n") == ("Legs day ", false))
+        #expect(EditableTitle.newlineEdit("Legs\n\n") == ("Legs  ", false))
+        // One newline with text after it is a paste too, not a Return.
+        #expect(EditableTitle.newlineEdit("Push\nday") == ("Push day", false))
     }
 
-    /// Text as the field holds it: in a text storage, which Swift reads as UTF-16, unlike the
-    /// UTF-8 of a string built in Swift. An index from it read past the end of a Swift string
-    /// with a character beyond ASCII traps.
-    private func fieldText(_ text: String) -> String {
-        NSTextStorage(string: text).string
-    }
-
-    @Test("Return after an autocorrection puts the cursor at the end of what is left")
-    func returnAfterAutocorrection() {
-        // Autocorrect turned "bodys" into "body’s", then Return added a newline, with the
-        // field's caret after it: one character past the end of the draft without it.
-        var draft = fieldText("Total body\u{2019}s\n")
-        let caret = Caret()
-        caret.selection = TextSelection(insertionPoint: draft.endIndex)
-
-        #expect(EditableTitle.takeNewlines(in: &draft, caret: caret))
-        #expect(draft == "Total body\u{2019}s")
-        #expect(EditableTitle.insertionPoint(of: caret.selection, in: draft) == draft.endIndex)
-    }
-
-    @Test("Pasted lines become spaces, and the cursor goes to the end")
-    func pastedLines() {
-        var draft = fieldText("Legs\nday\u{2019}s\n")
-        let caret = Caret()
-        caret.selection = TextSelection(insertionPoint: draft.endIndex)
-
-        #expect(!EditableTitle.takeNewlines(in: &draft, caret: caret))
-        #expect(draft == "Legs day\u{2019}s ")
-        #expect(EditableTitle.insertionPoint(of: caret.selection, in: draft) == draft.endIndex)
-    }
-
-    @Test("Text set from outside the field takes the caret to its end, past the old one's")
-    func replacedDraft() {
-        var draft = fieldText("Push d\u{00E9}j\u{00E0} vu")
-        let caret = Caret()
-        caret.selection = TextSelection(insertionPoint: draft.endIndex)
-
-        caret.replace(&draft, with: "D\u{00E9}j\u{00E0}")
-        #expect(EditableTitle.insertionPoint(of: caret.selection, in: draft) == draft.endIndex)
-    }
-
-    @Test("A measured height holds as many lines as fit, rounded to the pixel grid")
-    func lineCount() {
-        // At AX5 a line of the title is 68pt.
-        #expect(EditableTitle.lineCount(height: 136, lineHeight: 68) == 2)
-        // Heights measured on the pixel grid are a fraction off.
-        #expect(EditableTitle.lineCount(height: 135.33, lineHeight: 68) == 2)
-        #expect(EditableTitle.lineCount(height: 29, lineHeight: 29) == 1)
-        // Before anything is measured, one line.
-        #expect(EditableTitle.lineCount(height: 0, lineHeight: 0) == 1)
-        #expect(EditableTitle.lineCount(height: 0, lineHeight: 29) == 1)
-    }
-
-    @Test("On one line, the cursor's cell is its offset")
-    func cellOnOneLine() {
-        #expect(EditableTitle.cursorCell(at: 0, in: "New routine", columns: 20) == (0, 0))
-        #expect(EditableTitle.cursorCell(at: 4, in: "New routine", columns: 20) == (0, 4))
-        #expect(EditableTitle.cursorCell(at: 11, in: "New routine", columns: 20) == (0, 11))
-    }
-
-    @Test("A word that does not fit moves to the next line, with the cursor in it")
-    func cellAfterWordWrap() {
-        // "Upper body" fills ten columns; "day" goes to the next line.
-        #expect(EditableTitle.cursorCell(at: 11, in: "Upper body day", columns: 10) == (1, 0))
-        #expect(EditableTitle.cursorCell(at: 14, in: "Upper body day", columns: 10) == (1, 3))
-        // "New " fits, "routine" does not.
-        #expect(EditableTitle.cursorCell(at: 11, in: "New routine", columns: 10) == (1, 7))
-    }
-
-    @Test("A cursor after a full line, or before a space past it, hangs past the edge")
-    func cellHanging() {
-        #expect(EditableTitle.cursorCell(at: 10, in: "Upper body", columns: 10) == (0, 10))
-        #expect(EditableTitle.cursorCell(at: 10, in: "Upper body day", columns: 10) == (0, 10))
-    }
-
-    @Test("A hyphen ends a word, so a hyphenated name wraps after it")
-    func cellAfterHyphen() {
-        // "Push-" fits on the first line; "pull" goes to the next.
-        #expect(EditableTitle.cursorCell(at: 5, in: "Push-pull", columns: 6) == (1, 0))
-    }
-
-    @Test("Several spaces past a full line keep the cursor in the cell past the edge")
-    func cellInHangingSpaces() {
-        #expect(EditableTitle.cursorCell(at: 12, in: "Upper body   ", columns: 10) == (0, 10))
-    }
-
-    @Test("Lines break where the field breaks them, even leaving one word on the last line")
-    func lineBreaksAsTheField() {
-        // "Legs and " fits in ten columns, its space hanging; "back" goes to the next line.
-        #expect(EditableTitle.lineBreaks(in: "Legs and back", columns: 10) == [9])
-        #expect(EditableTitle.lineBreaks(in: "Legs and back", columns: 13).isEmpty)
-        #expect(EditableTitle.lineBreaks(in: "Shoulderpress", columns: 4) == [4, 8, 12])
-        #expect(EditableTitle.lineBreaks(in: "Push-pull", columns: 6) == [5])
-        // Spaces past a full line hang past its edge rather than starting another.
-        #expect(EditableTitle.lineBreaks(in: "Push      ", columns: 4).isEmpty)
-    }
-
-    @Test("A word longer than a line breaks between characters")
-    func cellInLongWord() {
-        #expect(EditableTitle.cursorCell(at: 5, in: "Shoulderpress", columns: 4) == (1, 1))
-    }
-
-    @Test(
-        "One newline anywhere is a Return",
-        arguments: ["Legs\n", "\nLegs", "Le\ngs", "\n"],
-    )
-    func returnAnywhere(draft: String) {
-        #expect(EditableTitle.isReturn(draft))
-    }
-
-    @Test("Pasted lines are not a Return")
-    func pasteIsNotReturn() {
-        #expect(!EditableTitle.isReturn("Legs\nday\n"))
-        #expect(!EditableTitle.isReturn("Legs\n\n"))
+    @Test("Text with no newline is inserted as it is", arguments: ["", "Legs", "上半身", "💪"])
+    func newlineNone(text: String) {
+        #expect(EditableTitle.newlineEdit(text) == (text, false))
     }
 
     @Test(

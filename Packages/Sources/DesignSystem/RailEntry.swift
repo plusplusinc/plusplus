@@ -27,7 +27,7 @@ enum RailEntry {
     /// that stays lit reads as a state, not an arrival.
     static let hold: TimeInterval = 0.1
     static let settle: TimeInterval = 0.3
-    /// How long the raised field a node's drag drew takes to fade on the drop, before the new
+    /// How long the well a node's drag drew takes to fade on the drop, before the new
     /// group's loop flashes, so the two never show at once.
     static let fieldFade: TimeInterval = 0.1
 

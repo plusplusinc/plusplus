@@ -74,3 +74,12 @@ func reading<Value>(
     }
     return last
 }
+
+/// The frames of `elements` once any of them moves, or as they are after `duration`. Whether
+/// something stays put after a change shows only by watching it for a while: UIKit can move a
+/// view a moment later, as it scrolls a focused field once the keyboard has risen.
+@MainActor
+func watchFrames(of elements: [XCUIElement], for duration: TimeInterval) -> [CGRect] {
+    let start = elements.map(\.frame)
+    return reading(elements.map(\.frame), until: { $0 != start }, within: duration)
+}

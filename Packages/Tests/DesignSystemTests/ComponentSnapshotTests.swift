@@ -28,6 +28,7 @@ struct ComponentSnapshotTests {
         VStack(alignment: .leading, spacing: Spacing.md) {
             EditableTitle(
                 text: .constant(name),
+                isEditing: .constant(false),
                 placeholder: "New routine",
                 suggestion: suggestion,
                 accessibilityLabel: "Routine name",
@@ -100,6 +101,7 @@ struct ComponentSnapshotTests {
             ForEach([("", "Legs and back"), ("Legs and back", nil)], id: \.0) { name, suggestion in
                 EditableTitle(
                     text: .constant(name),
+                    isEditing: .constant(false),
                     placeholder: "New routine",
                     suggestion: suggestion,
                     accessibilityLabel: "Routine name",

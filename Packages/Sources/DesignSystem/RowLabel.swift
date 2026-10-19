@@ -38,15 +38,6 @@ public struct RowLabel: View {
                     .foregroundStyle(.pp(.textSecondary))
             }
         }
-        // Where its text is on a rail, before it takes the row's width.
-        .background {
-            GeometryReader { proxy in
-                Color.clear.preference(
-                    key: RowTextFrames.self,
-                    value: [proxy.frame(in: .named(RailDrag.space))],
-                )
-            }
-        }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(

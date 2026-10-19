@@ -1,8 +1,8 @@
 import SwiftUI
 
 // A hold on a row's node: the rows stay put while the finger passes over them, the rows from the
-// held one to the one under the finger sitting in one raised field, and a drop makes them one
-// group, its loop flashing in `railJoin`.
+// held one to the one under the finger sitting in one well, and a drop makes them one group, its
+// loop flashing in `railJoin`.
 
 extension Rail {
     /// The rows joined to the next as they show: a regroup's preview, the held row's slot, or
@@ -31,15 +31,14 @@ extension Rail {
         return data.map { ($0.id, heights.byID[$0.id] ?? 0) }
     }
 
-    /// The rows' stretch on the rail: the first row's index, and the stretch's top and bottom in
-    /// the rail's space.
-    func stretch(_ rows: Set<RowID>) -> RowStretch? {
+    /// The rows' stretch on the rail: from the first one's top to the last one's bottom, in the
+    /// rail's space.
+    func stretch(_ rows: Set<RowID>) -> ClosedRange<CGFloat>? {
         var top: CGFloat = 0
-        var stretch: RowStretch?
-        for (index, row) in measuredRows.enumerated() {
+        var stretch: ClosedRange<CGFloat>?
+        for row in measuredRows {
             if rows.contains(row.id) {
-                let bounds = (stretch?.bounds.lowerBound ?? top) ... top + row.height
-                stretch = RowStretch(first: stretch?.first ?? index, bounds: bounds)
+                stretch = (stretch?.lowerBound ?? top) ... top + row.height
             }
             top += row.height
         }
@@ -56,7 +55,7 @@ extension Rail {
         )
         lifts += 1
         // The list scrolling under a still finger carries it over the rows.
-        edges?.lift(at: finger.inScrollView) { distance in
+        edges?.lift(at: finger.inScrollView) { distance, _ in
             regrouping?.fingerY += distance
             reachFinger()
         }
@@ -117,106 +116,32 @@ extension Rail {
         lifts += 1
     }
 
-    /// The raised field behind the rows a held node spans, a held row's card stretched over them,
-    /// shadow and all, the first row's node inset in it as the card's is. Over a bar it fades, as
-    /// a drop there makes nothing.
+    /// The well behind the rows a held node spans, as a superset's rows sit in, the one well that
+    /// shows while a node is held. It fades in as the press lands (`HeldWellFill`), as the held
+    /// row's well does as its card rises. Over a bar it fades, as a drop there makes nothing, and
+    /// it fades as the node is let go, before the new group's loop flashes.
     @ViewBuilder
-    func spanField(_ nodes: [Anchor<CGPoint>]) -> some View {
-        if let held = regrouping, let stretch = stretch(held.field),
-           nodes.indices.contains(stretch.first)
+    func spanField() -> some View {
+        if let held = regrouping, let rows = stretch(held.field),
+           let outline = wellOutline(rows: rows)
         {
             GeometryReader { proxy in
-                let node = proxy[nodes[stretch.first]]
-                let (top, bottom) = (stretch.bounds.lowerBound, stretch.bounds.upperBound)
-                CardFill(
-                    node: CGPoint(x: node.x, y: node.y - top),
-                    size: CGSize(width: proxy.size.width, height: bottom - top),
-                )
-                // The held card's shadow: in light mode its fill is the background's white.
-                .shadow(color: .pp(.shadow), radius: RailDrag.liftedShadow)
-                .offset(y: top)
-                FieldLabel(
-                    field: CGRect(x: 0, y: top, width: proxy.size.width, height: bottom - top),
-                    node: node,
-                    texts: textFrames,
-                    isShown: held.field.count > 1,
+                HeldWellFill(
+                    outline: outline,
+                    width: proxy.size.width,
+                    isReleased: false,
+                    hasRisen: isMoment,
                 )
             }
             .opacity(held.isOverBar ? 0 : 1)
-            // Gone before the new group's loop flashes.
-            .transition(.opacity.animation(
-                reduceMotion ? nil : .easeOut(duration: RailEntry.fieldFade),
+            .transition(.asymmetric(
+                insertion: .identity,
+                removal: .opacity.animation(
+                    reduceMotion ? nil : .easeOut(duration: RailEntry.fieldFade),
+                ),
             ))
             .allowsHitTesting(false)
             .accessibilityHidden(true)
         }
-    }
-}
-
-/// Rows next to each other on a rail: the first one's index, and their top and bottom in the
-/// rail's space.
-struct RowStretch {
-    var first: Int
-    var bounds: ClosedRange<CGFloat>
-}
-
-/// "Superset" in the regroup field's top trailing corner, while letting go would leave the rows
-/// in it a superset: two rows or more. Where a row's text reaches that corner, as it can at the
-/// largest text sizes, it goes further down the trailing edge, to the first place the rows' text
-/// leaves clear, and where there is none, it doesn't show. VoiceOver reads the rows' own values
-/// instead.
-private struct FieldLabel: View {
-    /// The field's rows' stretch, the rail's width, in the rail's space.
-    let field: CGRect
-    /// The first row's node, in the rail's space.
-    let node: CGPoint
-    let texts: [CGRect]
-    let isShown: Bool
-    @State private var size = CGSize.zero
-    @ScaledMetric(relativeTo: .body) private var nodeSize = railNodeSize
-
-    var body: some View {
-        let place = place
-        Text("Superset")
-            .font(.ppCaption)
-            .foregroundStyle(.pp(.textSecondary))
-            // It grows with the text up to the first accessibility size, past which it would
-            // crowd the rows' own names out of their room.
-            .dynamicTypeSize(...DynamicTypeSize.accessibility1)
-            .fixedSize()
-            .onGeometryChange(for: CGSize.self, of: \.size) { size = $0 }
-            .position(x: place?.midX ?? 0, y: place?.midY ?? 0)
-            .opacity(isShown && place != nil ? 1 : 0)
-            .animation(.snappy(duration: 0.15), value: isShown)
-            .accessibilityHidden(true)
-    }
-
-    /// Where it goes: inset from the field's trailing edge as the node is from its leading one,
-    /// level with the first row's node, or else the highest place down that edge clear of text.
-    private var place: CGRect? {
-        // Inset as `CardFill` sets the node in.
-        let (inset, edge) = CardFill.insets(
-            node: CGPoint(x: node.x, y: node.y - field.minY),
-            nodeSize: nodeSize,
-        )
-        let trailing = field.maxX - edge - inset - size.width
-        let spot = { (y: CGFloat) in
-            CGRect(x: trailing, y: y, width: size.width, height: size.height)
-        }
-        let lowest = field.maxY - inset - size.height
-        let downTheEdge = stride(from: field.minY + inset, through: lowest, by: Spacing.xxs)
-        return ([node.y - size.height / 2] + downTheEdge).lazy.map(spot).first { spot in
-            !texts.contains { $0.intersects(spot.insetBy(dx: -Spacing.xs, dy: -Spacing.xxs)) }
-        }
-    }
-}
-
-/// Where each row's text is, in the rail's space: its name and detail as laid out, not the
-/// row's width.
-struct RowTextFrames: PreferenceKey {
-    static let defaultValue: [CGRect] = []
-
-    static func reduce(value: inout [CGRect], nextValue: () -> [CGRect]) {
-        value += nextValue()
     }
 }

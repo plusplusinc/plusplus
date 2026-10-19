@@ -23,8 +23,6 @@ struct SuggestionSnapshotTests {
     ) -> some View {
         EditableTitleContent(
             draft: .constant(""),
-            caret: Caret(),
-            selection: .constant(nil),
             placeholder: Self.name,
             shownPlaceholder: frame?.shown ?? shown,
             isSuggested: true,
@@ -36,7 +34,6 @@ struct SuggestionSnapshotTests {
             blinks: false,
             accessibilityLabel: "Routine name",
             accessibilityHint: "Renames the routine.",
-            behavior: EmptyModifier(),
         )
         .padding(Spacing.md)
         .background(Color.pp(.background))

@@ -3,8 +3,8 @@ import XCTest
 /// Saving and the launch rule across real quits and relaunches. The store, the launch rule, and
 /// the names are unit-tested in the package; this holds what only a relaunch shows: that an
 /// untouched routine is never saved, that rows come back in order with their duplicates and the
-/// name they had, that a superset comes back with its shared rounds, and that a routine cleared
-/// to nothing is gone. Names come from the muscle
+/// name they had, that a superset comes back with its shared rounds, a rest-made pair at the
+/// larger set count, and that a routine cleared to nothing is gone. Names come from the muscle
 /// groups (`-fallbackNames`), so the same name shows on any simulator. The title's color, white
 /// for a name whether typed or generated and gray for New routine, is read from pixels against
 /// the placeholder's own gray at the start.
@@ -63,6 +63,7 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
             XCTAssertEqual(title.value as? String, "Push pull")
             XCTAssertEqual(app.exerciseCount(becoming: 4), 4)
         }
+        restPairSurvivesRelaunch(in: app)
         try clearedRoutineIsGone(in: app, title: title, gray: gray)
     }
 
@@ -142,6 +143,47 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
             app.relaunch()
             XCTAssertEqual(labels(), joined)
             XCTAssertEqual(app.supersets, "AA.")
+        }
+    }
+
+    /// A row with fewer sets, nudged onto the plain row below and resting there, pairs with it
+    /// at the larger set count, which neither the held row nor the upper one has alone, and
+    /// both come back so.
+    @MainActor
+    private func restPairSurvivesRelaunch(in app: XCUIApplication) {
+        XCTContext.runActivity(named: "A rest-made pair takes the larger set count") { _ in
+            let rows = app.exerciseRows
+            rows.element(boundBy: 3).tap()
+            let sets = app.buttons["Sets"]
+            XCTAssertTrue(sets.appears(), "Tapping a row opened no sheet")
+            sets.tap()
+            app.buttons["Increase"].tapAtCenter()
+            app.buttons["Close"].tap()
+            XCTAssertTrue(sets.disappears(), "Close left the sheet up")
+            let goblet = "Goblet squat, 4 sets of 10 reps, 35 pounds"
+            XCTAssertEqual(rows.element(boundBy: 3).label, goblet)
+            let pullUp = rows.element(boundBy: 2)
+            let nudge = pullUp.center.down(0.4 * pullUp.frame.height)
+            pullUp.center.holdAndDrag(to: nudge, holding: 1.2)
+            let paired = [
+                "Pull-up, 4 sets of 8 reps",
+                "Barbell bench press, 4 sets of 5 reps, 45 pounds",
+                "Pull-up, 4 sets of 6 reps",
+                goblet,
+            ]
+            let labels = { app.exerciseRows.allElementsBoundByIndex.map(\.label) }
+            XCTAssertEqual(reading(labels(), becoming: paired, within: 2), paired)
+            // Two supersets side by side, which `supersets` would read as one.
+            let values = [
+                "In a superset with Barbell bench press",
+                "In a superset with Pull-up",
+                "In a superset with Goblet squat",
+                "In a superset with Pull-up",
+            ]
+            XCTAssertEqual(reading(app.supersetValues, becoming: values, within: 2), values)
+            app.relaunch()
+            XCTAssertEqual(labels(), paired)
+            XCTAssertEqual(app.supersetValues, values)
         }
     }
 

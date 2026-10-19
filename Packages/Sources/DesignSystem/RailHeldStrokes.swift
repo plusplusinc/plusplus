@@ -10,7 +10,7 @@ import SwiftUI
 /// Each node moves with its row, on the transaction that moves the rows; the card's moves with
 /// the finger's, with none. As the held row goes into a superset or out of it, the loop with it
 /// and the loop without it crossfade, both drawn to the nodes as they are, so neither ever ends
-/// short of one. The held row's card draws the same drawing again over its fill, cut to its shape.
+/// short of one. The held row's card draws the same drawing again over its fill and its shadow.
 struct HeldRailDrawing: View {
     /// The nodes' column.
     let nodeX: CGFloat

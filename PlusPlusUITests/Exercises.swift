@@ -7,6 +7,11 @@ extension XCUIApplication {
         descendants(matching: .any).matching(identifier: "routine.exercise")
     }
 
+    /// The routine's equipment, the capsules under its title.
+    var equipment: XCUIElement {
+        descendants(matching: .any).matching(identifier: "routine.equipment").firstMatch
+    }
+
     /// The bottom row. Deleting it moves only Add exercise, so the rows above are where their
     /// frames say at once. Accessibility frames are where rows end up, not where they are drawn
     /// mid-animation, so a swipe on the first row just after the one above went could land on

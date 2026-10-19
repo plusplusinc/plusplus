@@ -20,8 +20,10 @@ shows under its title. Tapping a row opens its values in a sheet, a row per valu
 stepper, and Delete in its menu. Holding a row lifts it, and dragging moves it to a new place,
 scrolling the list near its edges; VoiceOver moves it with Move up and Move down. Holding a
 row's dot and dragging over other rows joins them into a superset, which a loop beside the rail
-marks and whose rows share one round count; an end's dot moves that end, a body drag carries a
-row in or out, and VoiceOver joins and leaves with actions. `WorkoutStore` holds the domain
+marks and whose rows share one round count; a held row resting half a second over a plain
+neighbor pairs with it, at the larger set count; an end's dot moves that end, a body drag
+carries a row in or out, and VoiceOver joins and leaves with actions. While a row or dot is
+held, the superset the drag affects sits in a sunken area. `WorkoutStore` holds the domain
 types, the first stored models behind `RoutineStore`, the namer, and the order a superset's sets
 go in. Nothing syncs yet.
 

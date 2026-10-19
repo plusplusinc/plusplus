@@ -21,15 +21,18 @@ What each tier holds today:
   check, and every routine of up to two built-ins in every style; moving a row to a slot, its
   Move up and Move down neighbors, and the announcement; supersets: a node's drag (ends,
   middles, the card's examples, what a press picks up), moving into and out of one, delete,
-  shared rounds, VoiceOver's join and leave, normalizing, saving, and the order of sets
-  (`setOrder`); and a rail drag's arithmetic (`RailDrag`): the slots, a superset's two edge
-  slots included, where the gap goes, the dead band, the row a node's finger reaches, and the
-  edge scroll's speed and arming.
+  shared rounds, VoiceOver's join and leave, normalizing, saving, the order of sets
+  (`setOrder`), and a rest-made pair at the larger set count; and a rail drag's arithmetic
+  (`RailDrag`): the slots, a superset's two edge slots included, where the gap goes, the dead
+  band, the row a node's finger reaches, the edge scroll's speed and arming, which neighbor a
+  resting card pairs with, the rest's countdown, the pair's release, a member dragged just out
+  of its superset not pairing, where a row's node is read only at rest, and the room above the
+  rail scrolling the list and moving to the size asked.
 - **Snapshots** hold how a component looks, at rest and while editing. The title's editing look,
   `_` included, is drawn from plain values through `EditableTitleContent`, reached with
   `@testable import`, so no focus or keyboard is needed; its `blinks: false` holds the `_` lit,
-  and its field gets a selection that ignores writes, since an unfocused field writes its own
-  back. A snapshot cannot show a caret the text system placed. A suggestion's arrival is drawn
+  a nil focus binding leaves it unfocused, and a forced `selection` (an `NSRange`) puts the
+  caret. A snapshot cannot show a caret the text system placed. A suggestion's arrival is drawn
   the same way from `typingFrame(of:at:)`'s values, so a moment of it is an image: the old name
   fading, the trail shuffling in blue, the last letter easing to white. Rows on the rail and
   Start are snapshot through the same components the routine screen composes, a generated name
@@ -38,27 +41,38 @@ What each tier holds today:
   every stepper closed and with one open; the sheet and its bar are the system's. A held row is
   drawn at a moment of its drag through `Rail`'s internal initializer, its card placed relative
   to its gap and already risen: over its own gap, with the gap moved, first in the rail,
-  alone, and a pair's member inside and outside its edge. Supersets are drawn the same way: at
-  rest, and a node's drag, its field and label, held over a span and pressed on an end; and a
-  member's shared rounds in its sheet. A snapshot draws each text size fresh, so the title's height after a live text size
+  alone, a pair's member inside and outside its edge, a plain row inside a pair's top edge in
+  its well, resting over a plain row before it pairs, paired with it in a well, and paired
+  first in the list with the room above the rail; in each, the line and loops keep one shade
+  past the card's edges, under its shadow. Supersets are drawn the same way: at rest,
+  one alone and two next to each other, and a node's drag, its field the well, held over a span
+  and pressed on an end; and a member's shared rounds in its sheet. A snapshot draws each text size fresh, so the title's height after a live text size
   change is held by `EditableTitleTextSizeTests`, which hosts `EditableTitleContent` in a window
-  and changes the window's content size category, the field focused and not.
+  and changes the window's content size category, the field focused and not. Hosted the same
+  way, `EditableTitleCaretTests` reads the `_` at every place of the caret against CoreText's
+  layout of the same text (emoji, Chinese, a wrap at a /), and `EditableTitleFocusTests` sees
+  every layout pass of the view under the title as an edit ends by Return or by giving up focus.
 - **UI tests** hold only what needs the real keyboard, text system, frames, or a relaunch:
   typing, Return, arrows, taps, range selection, the keyboard's edge, scrolling as the keyboard
-  rises, and VoiceOver frames; the exercise picker, system chrome composed in the app, which has
+  rises, nothing moving as an edit ends by Return or a touch outside the title, and VoiceOver
+  frames; the exercise picker, system chrome composed in the app, which has
   no test target: adding, searching, swiping to delete, and the accessibility audit at AX5,
   the exercise sheet with a stepper open included; stepping a value in the sheet; dragging a row, which needs
   real touches and the scroll view: a drag, a drop in place, a release over Start, the edge
   scroll, a press that scrolls, and at AX5; a node's drag drawing, shrinking, parting, and
-  merging supersets, a body's carrying a row into and out of one, and a join at AX5 under the
-  audit, read from each row's VoiceOver value; and what the app saved, seen only by
+  merging supersets, a body's carrying a row into and out of one, a drop without a rest only
+  moving, a rest pairing, a nudge and rest pairing in place, a member dragged just out and
+  resting leaving unpaired, a rest-made pair taking the larger set count (and keeping it across
+  a relaunch, in `RoutineAutosaveUITests`), and a join at AX5 under the audit, read from each row's VoiceOver value; and what the app saved, seen only by
   quitting and launching again, a dragged row's place and a superset's shared rounds included. Each launch costs about 9 s on
   CI, so there is one UI test per launch configuration:
   `RenameUITests/testRenameAtDefaultSize`,
   `TitleWrappingUITests/testWrappedTitleAtLargestTextSize`, and
   `RoutineAutosaveUITests/testRoutineSurvivesRelaunch`, which relaunches six times. A new
   check extends the test for its launch as a named `XCTContext.runActivity`; a new test needs a
-  launch argument no existing test uses. Every test launches with `-resetStore YES`, so it
+  launch argument no existing test uses, or a test that would run past XCTest's three-minute
+  allowance on CI (about 1.2 times its local time), which is why the drag and delete checks
+  are `RenameUITests/testDragAndDeleteRows`. Every test launches with `-resetStore YES`, so it
   starts from a new routine and not the one the last test saved, and with `-noUIKitAnimations
   YES`, and the relaunch test with `-fallbackNames YES`, muscle-group names, which a test can
   predict where the standard names follow the routine's fresh id (all `LaunchOptions`, Debug

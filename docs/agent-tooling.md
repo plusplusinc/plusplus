@@ -163,6 +163,10 @@ minimized. On any other simulator it leaves the settings alone, since that one i
 - An "AutoFill" bubble over the title fails its pixel checks: it is UIKit's edit menu, shown
   when a tap lands in a focused field while it is empty or on its caret, as in Reminders; no
   AutoFill setting removes it. Find the tap that hit the focused title; a reboot cleared it once.
+- A gray panel over the keys reading "Speed up your typing by sliding your finger" fails a check
+  of the keyboard's edge on Xcode Cloud only: a freshly erased simulator, as each CI run's is,
+  shows that one-time tip a second or so after the keyboard first rises. `scripts/sim.sh erase`
+  reproduces it; `dismissKeyboardTip()` in the UI tests taps its Continue.
 - A UI test hangs: the test plan fails it after three minutes ("exceeded execution time
   allowance") and the run moves on.
 - "Failed to establish communication with the test runner (Channel disconnected)" within
