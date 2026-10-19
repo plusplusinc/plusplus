@@ -55,7 +55,7 @@ extension Rail {
         )
         lifts += 1
         // The list scrolling under a still finger carries it over the rows.
-        edges?.lift(at: finger.inScrollView) { distance in
+        edges?.lift(at: finger.inScrollView) { distance, _ in
             regrouping?.fingerY += distance
             reachFinger()
         }
@@ -116,17 +116,22 @@ extension Rail {
         lifts += 1
     }
 
-    /// The well behind the rows a held node spans, as a superset's rows sit in. It shows at once,
-    /// the rows' own wells giving way to it, so a press on a superset's node changes nothing on
-    /// the screen. Over a bar it fades, as a drop there makes nothing, and it fades as the node is
-    /// let go, over the rows' own wells, before the new group's loop flashes.
+    /// The well behind the rows a held node spans, as a superset's rows sit in, the one well that
+    /// shows while a node is held. It fades in as the press lands (`HeldWellFill`), as the held
+    /// row's well does as its card rises. Over a bar it fades, as a drop there makes nothing, and
+    /// it fades as the node is let go, before the new group's loop flashes.
     @ViewBuilder
     func spanField() -> some View {
         if let held = regrouping, let rows = stretch(held.field),
            let outline = wellOutline(rows: rows)
         {
             GeometryReader { proxy in
-                WellFill(outline: outline, width: proxy.size.width)
+                HeldWellFill(
+                    outline: outline,
+                    width: proxy.size.width,
+                    isReleased: false,
+                    hasRisen: isMoment,
+                )
             }
             .opacity(held.isOverBar ? 0 : 1)
             .transition(.asymmetric(

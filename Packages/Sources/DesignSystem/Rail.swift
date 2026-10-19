@@ -22,13 +22,13 @@ import SwiftUI
 /// Inside a scroll view with `railAutoscroll`, a row dragged toward its edges scrolls it, and one
 /// let go over a bar goes back.
 ///
-/// Rows in `links` are joined to the row after them, into a group, a superset, which sits in a
-/// well, sunk into the screen, with a loop beside the line. A row dragged by its content to a
-/// group's edge can land just inside it, the loop wrapping the gap, or just outside; the slot
-/// `onMove` gets says which. Held still over a plain neighbor, it pairs with it. While a drop
-/// would leave the held row in a superset, the well shows it as the drop would leave it, the card
-/// over it; with `railAutoscroll`, the list scrolls to make room for it where the rail has none
-/// above.
+/// Rows in `links` are joined to the row after them, into a group, a superset, with a loop beside
+/// the line. A row dragged by its content to a group's edge can land just inside it, the loop
+/// wrapping the gap, or just outside; the slot `onMove` gets says which. Held still over a plain
+/// neighbor, it pairs with it. While a drop would leave the held row in a superset, a well, sunk
+/// into the screen, shows that superset as the drop would leave it, the card over it, where the
+/// thumb covers its loop; with `railAutoscroll`, the list scrolls to make room for it where the
+/// rail has none above, the rail and the card staying still on the screen.
 ///
 /// Given `regroup`, a hold on a row's node starts a drag that draws a group instead, the rows
 /// staying put: the rows from the held one to the one under the finger sit in one well, and the
@@ -48,6 +48,8 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     private let end: End
     /// Drawn at a moment of a drag: how far below its gap the card is, already risen.
     let momentOffset: CGFloat?
+    /// Drawn at a moment of a drag or a node's hold, its well already shown.
+    let isMoment: Bool
 
     // State and inputs the node hold reads are internal, not private, so it can live in its own
     // files (`Rail+Regroup.swift`, `Rail+Rows.swift`).
@@ -136,6 +138,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         self.row = row
         self.end = end()
         momentOffset = drag == nil ? nil : cardOffset
+        isMoment = drag != nil || regrouping != nil
     }
 
     public var body: some View {
@@ -167,8 +170,6 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                     link: shownLinks[item.id] ?? .solo,
                     flashes: flashes[item.id] ?? 0,
                     isLoopHidden: hiddenLoops.contains(item.id),
-                    // Held, the rail draws every well, under the strokes it draws.
-                    isWellHidden: isHeld,
                 )
                 // An arriving row's place opens with its entry's shot, so the end view is pushed
                 // down as far as the line has grown, on every frame.
@@ -218,7 +219,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
             }
         }
         .background { spanField() }
-        .backgroundPreferenceValue(RowNodes.self) { drawnWells($0, held: well) }
+        .background { drawnWells(held: well) }
         .coordinateSpace(.named(RailDrag.space))
         // The card, over the rows it passes and Add exercise. It is placed in the rail's space,
         // where the finger is, not in the row's place, which moves as the gap does.
@@ -236,7 +237,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         }
         // Room above the rows for what a held row's superset shows past the rail's top, which
         // the list scrolls by, so the rows stay put and what is above the rail moves up.
-        .padding(.top, room)
+        .padding(.top, edges?.room ?? room)
         .background(alignment: .topLeading) {
             // The rail column as a row's node has it, measured at the current text size.
             Image(systemName: "plus")
@@ -251,10 +252,11 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
             if drag != nil || regrouping != nil {
                 edges?.letGo()
             }
+            edges?.aim(room: 0, animated: false)
         }
         .task(id: dwell) { await countDown() }
         // Read from the drag's state, so it scrolls as a pair forms, not as the finger wobbles.
-        .onChange(of: room) { old, new in makeRoom(new - old) }
+        .onChange(of: room) { _, new in edges?.aim(room: new, animated: !reduceMotion) }
         // A row deleted while swiped open, or after its loop flashed, reports nothing more.
         .onChange(of: data.map(\.id)) { _, ids in forget(rowsNotIn: Set(ids)) }
         .sensoryFeedback(.impact(weight: .light), trigger: lifts)
@@ -301,9 +303,8 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
             lifts += 1
             // The list scrolling under a still finger carries the card through the rows.
             // The most room above the rail a pair can ask for: the card's own height.
-            edges?.lift(at: finger.inScrollView, room: heights.byID[id] ?? 0) { distance in
-                cardTop += distance
-                follow(id)
+            edges?.lift(at: finger.inScrollView, room: heights.byID[id] ?? 0) { distance, byEdge in
+                railMoved(distance, carrying: id, byEdge: byEdge)
             }
         case .changed:
             if regrouping?.held == id {
@@ -335,6 +336,17 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
 }
 
 extension Rail {
+    /// The rail moved `distance` up the screen under the held finger: the card moves down it as
+    /// far, staying under the finger. Only the finger moves the gap, or a pair: the list scrolling
+    /// for it in an edge's band, `byEdge`, carries it through the rows; the room above the rail
+    /// doesn't.
+    private func railMoved(_ distance: CGFloat, carrying id: RowID, byEdge: Bool) {
+        cardTop += distance
+        if byEdge {
+            follow(id)
+        }
+    }
+
     /// Whether the finger is over a bar, or past the screen's edge, where a drop changes nothing.
     func isOverBar(_ finger: RailDrag.Finger) -> Bool {
         edges?.isOutside(finger.inScrollView) == true

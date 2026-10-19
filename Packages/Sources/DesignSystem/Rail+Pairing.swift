@@ -97,7 +97,7 @@ extension Rail {
     /// While dropping the held row would leave it in a superset, that superset as it shows: its
     /// rows where they are drawn, the held row's at the card's top, `cardY`, not at its gap, so
     /// the well wraps the card with no empty strip beside it, reaching past the card where it is
-    /// an end. It stays as the card settles, so the rows' own wells take over from it unchanged.
+    /// an end. As the card settles, it takes the look of the rows' place, fading as it goes.
     /// Nil over a bar, when the drop would leave the row on its own, or until the rows have
     /// reported their nodes.
     func heldWell(_ drag: RailDragState<RowID>, cardY: CGFloat) -> HeldWell? {
@@ -141,8 +141,8 @@ private struct ShownPair<RowID: Hashable> {
 
 /// The well around the held row's superset, as it shows.
 struct HeldWell {
-    /// Its first row other than the held one, which names its well as the rows draw at rest, so
-    /// one well changes shape as the held row comes into its superset or leaves it.
+    /// Its first row other than the held one, so one well changes shape as the held row moves in
+    /// its superset.
     let key: AnyHashable
     let outline: WellOutline
 }

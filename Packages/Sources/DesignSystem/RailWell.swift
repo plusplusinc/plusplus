@@ -1,9 +1,9 @@
 import SwiftUI
 
-// A superset's well: the area its rows sit in, sunk into the screen, flat, with no shadow. At
-// rest each row draws its own stretch of it (`RowWell`), so it moves with the rows on whatever
-// moves them; while a row or a node is held, the rail draws every well itself, under its strokes
-// (`Rail.drawnWells`, `Rail.spanField`), the same shape.
+// A superset's well: the area its rows sit in, sunk into the screen, flat, with no shadow. It
+// shows only while a row or a node is held, for the superset the hold changes, where the thumb
+// covers the loop: the rail draws it under its strokes (`Rail.drawnWells`, `Rail.spanField`). At
+// rest a superset shows its loop alone.
 
 /// How far in from its first row's top and its last row's bottom a well is drawn, so two
 /// supersets next to each other read as two wells.
@@ -103,7 +103,7 @@ nonisolated struct WellShape: Shape {
 }
 
 /// A whole well, as `outline` places it in the rail's space, across a rail `width` wide: a held
-/// superset's, the regroup field's, or one the rail draws while a row or node is held.
+/// superset's, or the regroup field's.
 struct WellFill: View {
     let outline: WellOutline
     let width: CGFloat
@@ -118,48 +118,31 @@ struct WellFill: View {
     }
 }
 
-/// A row's stretch of its superset's well: the well's top on the first row, its bottom on the
-/// last, run past the row's edges in between and cut there, so the stretches meet as one well. A
-/// row on its own draws none. It hides as the loop does, while a row of the superset is swiped
-/// open, and while the rail draws the wells itself, a row or node being held.
-struct RowWell: View {
-    /// The row's node, from its top leading corner.
-    let node: CGPoint
-    let size: CGSize
-    @ScaledLoopPen private var pen
-    @Environment(\.railPlace) private var place
+/// The well a hold shows, the held row's superset's or a node's field: it fades in as the hold
+/// lands, and, `isReleased`, out as the card settles, on the drop's transaction, so it is gone by
+/// the time the row draws in its place again. With Reduce Motion it comes and goes at once.
+struct HeldWellFill: View {
+    let outline: WellOutline
+    let width: CGFloat
+    let isReleased: Bool
+    @State private var isShown: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
+    /// `hasRisen` draws it already shown, for a preview or a snapshot of a moment of a drag.
+    init(outline: WellOutline, width: CGFloat, isReleased: Bool, hasRisen: Bool) {
+        self.outline = outline
+        self.width = width
+        self.isReleased = isReleased
+        _isShown = State(initialValue: hasRisen)
+    }
+
     var body: some View {
-        let isShown = place.link != .solo && !place.isLoopHidden && !place.isWellHidden
-        // Past the row's edges far enough that a corner never shows there.
-        let past = size.height + node.y
-        var outline = WellOutline(rows: 0 ... size.height, node: node, pen: pen)
-        switch place.link {
-        case .solo: break
-        case .first: outline.bottom = size.height + past
-        case .middle: (outline.top, outline.bottom) = (-past, size.height + past)
-        case .last: outline.top = -past
-        }
-        return WellShape(outline: outline)
-            .fill(.pp(.well))
-            .frame(width: size.width, height: size.height, alignment: .topLeading)
-            // A half point past its bottom, under the next row, which draws after it, so two rows'
-            // stretches overlap rather than leave a hairline between them, and none is drawn over
-            // the row above's strokes. Out past its sides, where the well reaches.
-            .clipShape(Rectangle().path(in: CGRect(
-                x: -size.width,
-                y: 0,
-                width: 3 * size.width,
-                height: size.height + 0.5,
-            )))
-            .opacity(isShown ? 1 : 0)
-            // Swiped open, it fades as the loop does; held, the rail's well stands in for it at
-            // once.
-            .animation(.snappy(duration: 0.2), value: place.isLoopHidden)
-            .transaction(value: place.isWellHidden) { $0.animation = nil }
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
+        WellFill(outline: outline, width: width)
+            .opacity(isShown && !isReleased ? 1 : 0)
+            .onAppear {
+                withAnimation(reduceMotion ? nil : RailDrag.lift) { isShown = true }
+            }
             .hotReloadable()
     }
 }
