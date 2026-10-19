@@ -120,8 +120,8 @@ extension Rail {
               let first = others.map(top).min(),
               let last = others.map({ top($0) + (heights[$0] ?? 0) }).max()
         else { return nil }
-        // Let go, the card settles into its gap as a row, and the well into its look at rest, which
-        // the rows' own wells then draw unchanged.
+        // Let go, the card settles into its gap as a row, and the well into the rows' place as it
+        // fades.
         let card = drag.isReleased ? WellCard() : WellCard(
             top: cardY <= first ? cardY : nil,
             bottom: cardBottom >= last ? cardBottom : nil,

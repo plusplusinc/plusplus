@@ -49,9 +49,8 @@ struct RailSupersetSnapshotTests {
         .background(Color.pp(.background))
     }
 
-    /// A plain row, a pair, a plain row, and a triple: each superset sits in its well, flat, its
-    /// top corners concentric with the loop's top curve, and its loop runs from its last node up
-    /// to its first, with a head in each gap between members.
+    /// A plain row, a pair, a plain row, and a triple: each superset is its loop alone, no well,
+    /// running from its last node up to its first, with a head in each gap between members.
     @Test("A pair and a triple at rest, between plain rows")
     func atRest() {
         assertThemedSnapshots(
@@ -62,7 +61,7 @@ struct RailSupersetSnapshotTests {
 
     /// The first row's node held over the third row's: the three sit in one well, their loop
     /// drawn as the drop would leave it, in the rail's gray. The pair below, which the drag leaves
-    /// alone, sits in its own well with the rail's line and its loop drawn over it.
+    /// alone, keeps its loop alone, with no well.
     @Test("A node held over two rows down: the span's well and its loop")
     func nodeHeldOverSpan() {
         let span: Set = [id(0), id(1), id(2)]
@@ -90,7 +89,7 @@ struct RailSupersetSnapshotTests {
         )
     }
 
-    /// A pair first in the list and a triple right below it: two wells, a gap between them.
+    /// A pair first in the list and a triple right below it: two loops, reading as two.
     @Test("Two supersets next to each other at rest, the first leading the list")
     func adjacentAtRest() {
         assertThemedSnapshots(
