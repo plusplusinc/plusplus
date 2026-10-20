@@ -30,6 +30,8 @@ struct RoutineScreen: View {
     @State private var isScrollingByHand = false
     /// Whether the title's field has focus. Any touch outside the title ends the edit.
     @State private var isEditingTitle = false
+    /// VoiceOver's focus on ++, given back to it as the drawer closes.
+    @AccessibilityFocusState private var isMenuFocused: Bool
     /// Whether the title has scrolled up under the bar, where a small copy of it shows instead.
     @State private var isTitleUnderBar = false
     @Environment(\.locale) private var locale
@@ -213,12 +215,18 @@ struct RoutineScreen: View {
                             .offset(y: -Self.markLift)
                     }
                     .accessibilityLabel("Menu")
+                    .accessibilityFocused($isMenuFocused)
                 }
             }
         }
         // A touch anywhere outside the title, bars included, ends its edit and still acts. The
         // keyboard slides down as on Return, where `.scrollDismissesKeyboard` drops it at once.
         .onTouchDownOutsideTitle { isEditingTitle = false }
+        .onChange(of: session.isDrawerOpen) { _, isOpen in
+            if !isOpen {
+                isMenuFocused = true
+            }
+        }
         // `onChange` skips the first value, so a routine opened and left alone is never saved.
         .onChange(of: routine) { _, changed in
             session.save(changed)
