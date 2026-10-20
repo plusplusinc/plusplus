@@ -8,9 +8,9 @@ extension XCUIApplication {
         textViews["Routine name"]
     }
 
-    /// The ++ drawer's title, there only while the drawer shows.
+    /// The ++ drawer's title, a button that closes it, there only while the drawer shows.
     var drawerTitle: XCUIElement {
-        staticTexts["PlusPlus"]
+        buttons["PlusPlus"]
     }
 
     /// Launches into a new routine, not the one the last test saved, at the text size

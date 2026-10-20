@@ -82,6 +82,24 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             attach(named: "reorder-ax5")
         }
         try supersetAtAX5(in: app)
+        try drawerAtAX5(in: app)
+    }
+
+    /// The drawer, its places kept whole, and the Routines screen pass the audit at this size.
+    @MainActor
+    private func drawerAtAX5(in app: XCUIApplication) throws {
+        try XCTContext.runActivity(named: "The drawer and the Routines screen at AX5") { _ in
+            app.buttons["Menu"].tap()
+            XCTAssertTrue(app.drawerTitle.appears(), "++ did not open the drawer")
+            attach(named: "drawer-ax5")
+            try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
+            app.buttons["Routines"].tap()
+            XCTAssertTrue(app.drawerTitle.disappears(), "Routines did not close the drawer")
+            let row = app.buttons.matching(identifier: "routines.row").firstMatch
+            XCTAssertTrue(row.appears(), "The routine isn't listed")
+            attach(named: "routines-ax5")
+            try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
+        }
     }
 
     /// Two rows joined by a node's drag at this size, and the audit with a superset on screen.
