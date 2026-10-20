@@ -112,12 +112,11 @@ project board; agents' technical working files live in `.slices/`.
    hand (the full pass changed what they see, or there was no round), install it with
    `scripts/device.sh` (a link when the phone is out of reach) and tell them what to try, as for
    a round.
-2. After the maintainer's go-ahead: wait for the checks as above (the wait also ends when
-   `gh pr view --json mergeable` reads `CONFLICTING`), then `gh pr merge <n> --squash`; never
-   `--auto`, which the auto-mode classifier can refuse even after a go-ahead and which waits on a
-   conflict without a word. After any merge to `main`, check every PR that waits. Move the card
-   to Done, run `scripts/tidy.sh` (it removes the merged worktree and branch; it also runs at
-   every session start), and delete the slice's `.slices/sliceN-*` files.
+2. After the maintainer's go-ahead: merge once checks pass (a wait for that also ends when
+   `gh pr view --json mergeable` reads `CONFLICTING`, since auto-merge waits on a conflict
+   without a word; after any merge to `main`, check every PR that waits), move the card to Done, run
+   `scripts/tidy.sh` (it removes the merged worktree and branch; it also runs at every session
+   start), and delete the slice's `.slices/sliceN-*` files.
 3. Record decisions made during the slice in the board README (read it with `scripts/board.sh
    readme`, then write the whole new text back with `scripts/board.sh readme <<'README'`), and
    re-plan the later cards if they changed.
