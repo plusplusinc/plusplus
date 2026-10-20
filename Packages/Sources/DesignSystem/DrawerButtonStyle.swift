@@ -59,24 +59,16 @@ private struct DrawerLabel<Icon: View, Title: View>: View {
     @ScaledMetric(relativeTo: .body) private var iconColumn: CGFloat = 26
 
     var body: some View {
-        Group {
-            if isNested {
-                // On the name's first line, as the rail's nodes are, when a long name wraps.
-                HStack(alignment: .firstTextBaseline, spacing: 0) {
-                    markedIcon
-                    title.padding(.leading, drawerInset)
-                }
-            } else {
-                HStack(spacing: 0) {
-                    markedIcon
-                    // A place is one word, which at the largest sizes would break mid-word
-                    // beside its icon; it shrinks a little to stay whole instead.
-                    title
-                        .lineLimit(1)
-                        .minimumScaleFactor(placeNameScale)
-                        .padding(.leading, drawerInset)
-                }
-            }
+        // A nested place's icon sits on the name's first line, as the rail's nodes do, when a
+        // long name wraps.
+        HStack(alignment: isNested ? .firstTextBaseline : .center, spacing: 0) {
+            markedIcon
+            // A top-level place is one word, which at the largest sizes would break mid-word
+            // beside its icon; it shrinks a little to stay whole instead.
+            title
+                .lineLimit(isNested ? nil : 1)
+                .minimumScaleFactor(isNested ? 1 : placeNameScale)
+                .padding(.leading, drawerInset)
         }
         .padding(.leading, iconLead)
         .padding(.trailing, fillTrailingInset + drawerInset)

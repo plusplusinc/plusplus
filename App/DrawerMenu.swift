@@ -23,6 +23,8 @@ struct DrawerMenu: View {
     @ObserveHotReload private var hotReload
 
     var body: some View {
+        // Built once a pass: each build reads the session's routines and sorts them.
+        let contents = held ?? Contents(session)
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.lg) {
                 // Tapping the title closes the drawer, as a tap on the screen beside it does.
@@ -43,7 +45,7 @@ struct DrawerMenu: View {
                         session.showRoutines()
                     }
                     .buttonStyle(.drawer(isSelected: contents.showing == .routines))
-                    routines
+                    routines(contents)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -52,14 +54,14 @@ struct DrawerMenu: View {
         }
         // The drawer is built as it starts to show, so these run each time it does, before its
         // first frame.
-        .onAppear { held = contents }
+        .onAppear { held = Contents(session) }
         .task { isTitleFocused = true }
         .hotReloadable()
     }
 
     /// The new routine showing, if one is, then the routines last opened or edited, three in
     /// all, then New.
-    private var routines: some View {
+    private func routines(_ contents: Contents) -> some View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
             // A later card will put the upcoming scheduled routine at the top of these.
             if contents.showing == .new {
@@ -72,10 +74,10 @@ struct DrawerMenu: View {
                     Label {
                         Text(namer.listedName(of: routine))
                     } icon: {
-                        DrawerNode(isLit: isShowing(routine))
+                        DrawerNode(isLit: contents.isShowing(routine))
                     }
                 }
-                .buttonStyle(.drawer(isSelected: isShowing(routine), isNested: true))
+                .buttonStyle(.drawer(isSelected: contents.isShowing(routine), isNested: true))
             }
             // An action, never marked: what it makes shows as the row above.
             Button("New", systemImage: "plus") {
@@ -101,15 +103,6 @@ struct DrawerMenu: View {
         .buttonStyle(.drawer(isSelected: true, isNested: true))
     }
 
-    /// What the drawer draws: as it started to show, or, before then, as the session is now.
-    private var contents: Contents {
-        held ?? Contents(session)
-    }
-
-    private func isShowing(_ routine: Routine) -> Bool {
-        contents.showing == .routine && routine.id == contents.openID
-    }
-
     /// The drawer's routines and its mark, taken from the session at one moment.
     private struct Contents {
         let showing: RoutineSession.Showing
@@ -121,6 +114,10 @@ struct DrawerMenu: View {
             showing = session.showing
             openID = session.current.id
             routines = session.recentByEdit(first: showing == .new ? 2 : 3)
+        }
+
+        func isShowing(_ routine: Routine) -> Bool {
+            showing == .routine && routine.id == openID
         }
     }
 

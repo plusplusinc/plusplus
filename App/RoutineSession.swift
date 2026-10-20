@@ -81,9 +81,10 @@ final class RoutineSession {
     func refreshRecent(weightUnit: WeightUnit) async {
         guard let store else { return }
         do {
-            saved = try await store.routinesByRecency(weightUnit: weightUnit)
+            let read = try await store.routinesByRecency(weightUnit: weightUnit)
+            saved = read.routines
             // An edit still on its way to the store is newer than what it read.
-            try await editedAt.merge(store.editDates(), uniquingKeysWith: max)
+            editedAt.merge(read.editedAt, uniquingKeysWith: max)
         } catch {
             Logger.app.error("The recent routines didn't load: \(error)")
         }

@@ -26,7 +26,7 @@ struct RoutineStoreRecencyTests {
     }
 
     private func listed() async throws -> [String] {
-        try await relaunch().routinesByRecency(weightUnit: .pounds).map(\.name)
+        try await relaunch().routinesByRecency(weightUnit: .pounds).routines.map(\.name)
     }
 
     @Test("Routines list by when they were last opened or edited")
@@ -146,10 +146,8 @@ struct RoutineStoreRecencyTests {
 
     /// The drawer's three, as a relaunch reads them.
     private func drawerThree() async throws -> [String] {
-        let store = relaunch()
-        return try await store.routinesByRecency(weightUnit: .pounds)
-            .lastEdited(first: 3, editedAt: store.editDates())
-            .map(\.name)
+        let read = try await relaunch().routinesByRecency(weightUnit: .pounds)
+        return read.routines.lastEdited(first: 3, editedAt: read.editedAt).map(\.name)
     }
 
     /// Four routines edited in turn, A first and D last.

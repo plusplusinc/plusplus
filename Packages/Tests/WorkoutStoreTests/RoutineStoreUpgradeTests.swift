@@ -239,7 +239,7 @@ struct RoutineStoreUpgradeTests {
         )
         let store = RoutineStore(modelContainer: current)
         #expect(try await store.launchRoutine(weightUnit: .pounds)?.name == "Newer")
-        #expect(try await store.routinesByRecency(weightUnit: .pounds).map(\.name)
+        #expect(try await store.routinesByRecency(weightUnit: .pounds).routines.map(\.name)
             == ["Newer", "Older"])
     }
 }
