@@ -72,7 +72,11 @@ project board; agents' technical working files live in `.slices/`.
 - A screen with no design gets options drawn before it is built. The first is the platform's
   own control for the job (principle 4, "Native bones"), and each other option says what it
   does that the system one can't. An API offered as an option is one whose Apple doc (sosumi)
-  says it works on iPhone.
+  says it works on iPhone. Draw them as a page on the feature's design board, the claude.ai
+  artifact the board README links (Artifact `read`, add the page, `publish` to its `url`; a
+  feature with none gets one, linked there), and send its link: the maintainer chooses on the
+  phone, where a file on the Mac never reaches them and `SendUserFile` fails in a session with
+  no project thread.
 - No time estimates. While a phase runs, tell the maintainer in a line now and then what it is
   doing and why that still serves the card, without being asked. Before each new attempt or
   extra run, by you or a subagent, check that it is still worth doing for the card's goal; ask

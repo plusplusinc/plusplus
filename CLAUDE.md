@@ -29,9 +29,10 @@ row's dot and dragging over other rows joins them into a superset, which a loop 
 marks and whose rows share one round count; a held row resting half a second over a plain
 neighbor pairs with it, at the larger set count; an end's dot moves that end, a body drag
 carries a row in or out, and VoiceOver joins and leaves with actions. While a row or dot is
-held, the superset the drag affects sits in a sunken area. `WorkoutStore` holds the domain
-types, the first stored models behind `RoutineStore`, the namer, the order a superset's sets
-go in, and the routines' recency. Nothing syncs yet.
+held, the superset the drag affects sits in a sunken area. The app shows only in dark
+appearance (`Config/Base.xcconfig`); the light palette is seen only in snapshots.
+`WorkoutStore` holds the domain types, the first stored models behind `RoutineStore`, the
+namer, the order a superset's sets go in, and the routines' recency. Nothing syncs yet.
 
 ## Architecture
 

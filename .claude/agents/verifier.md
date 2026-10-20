@@ -38,9 +38,9 @@ code only after the criteria are checked.
 
    One line per finding, or the single line `- No findings`. The kind is `criterion` (one
    failed), `test` (one you added for a criterion no test proved), `design` (a difference), or
-   `crash`. `known` means the PR body already names it; `new` means it doesn't. The repo is
-   public: describe the app in your own words, never quote the card, and leave out anything
-   personal.
+   `crash`. `known` means the PR body or the lead's prompt already names it; `new` means
+   neither does. The repo is public: describe the app in your own words, never quote the card,
+   and leave out anything personal.
 
 You edit test files, and write working files only to the `.slices/` paths the lead names. A
 test that fails because the app is wrong stays failing and goes in the report; the fix belongs
