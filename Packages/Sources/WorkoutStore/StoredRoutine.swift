@@ -19,6 +19,7 @@ final class StoredRoutine {
     var recency: Date {
         max(editedAt, openedAt)
     }
+
     @Relationship(deleteRule: .cascade, inverse: \StoredRoutineExercise.routine)
     var exercises: [StoredRoutineExercise]? = []
 

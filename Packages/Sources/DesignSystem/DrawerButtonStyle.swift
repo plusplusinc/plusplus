@@ -51,9 +51,14 @@ private struct DrawerLabel<Icon: View, Title: View>: View {
     let isNested: Bool
 
     /// Comfortably above the 44pt minimum touch target at the default text size.
-    private static var minHeight: CGFloat { 48 }
+    private static var minHeight: CGFloat {
+        48
+    }
+
     /// A nested place's smaller text needs less, but never under the 44pt minimum.
-    private static var nestedMinHeight: CGFloat { 44 }
+    private static var nestedMinHeight: CGFloat {
+        44
+    }
 
     private var minHeight: CGFloat {
         isNested ? Self.nestedMinHeight : Self.minHeight
