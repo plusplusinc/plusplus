@@ -1,0 +1,87 @@
+// Runs only where UIKit exists, so `swift test` on macOS compiles it away and stays fast.
+#if canImport(UIKit) && !os(watchOS)
+
+import DesignSystem
+import SwiftUI
+import Testing
+import UIKit
+
+/// A rail row takes its size in the layout pass that first places it. A row that measured itself
+/// and then narrowed its text grew taller a pass later, in the same frame, and a scroll view
+/// around a list of them reported its geometry twice in that frame, which SwiftUI logs as a fault.
+@MainActor
+@Suite("Rail rows lay out once")
+struct RailRowLayoutTests {
+    private nonisolated static let large = UIContentSizeCategory.large
+    private nonisolated static let ax5 = UIContentSizeCategory.accessibilityExtraExtraExtraLarge
+
+    /// Every size each row was laid out at, and every content height the scroll view reported.
+    private final class Log {
+        var rows: [Int: [CGSize]] = [:]
+        var contentHeights: [CGFloat] = []
+    }
+
+    private struct Host: View {
+        let log: Log
+        var name = "Dumbbell bench press"
+
+        var body: some View {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(0 ..< 4, id: \.self) { index in
+                        RowLabel(title: name, detail: "3 × 10 reps · 20 kg")
+                            .railRow()
+                            .onGeometryChange(for: CGSize.self, of: \.size) {
+                                log.rows[index, default: []].append($0)
+                            }
+                    }
+                }
+                .padding(.horizontal, Spacing.md)
+            }
+            .onScrollGeometryChange(for: CGFloat.self, of: \.contentSize.height) { _, height in
+                log.contentHeights.append(height)
+            }
+        }
+    }
+
+    /// Names from a few letters long to past a line at the default size, so that one of them
+    /// ends in the strip the content leaves free at its trailing edge, where only that inset
+    /// makes it wrap.
+    private nonisolated static let widths = (8 ... 40).map { String(repeating: "m", count: $0) }
+
+    @Test("A list of rail rows is laid out once, at its final size", arguments: [large, ax5])
+    func laidOutOnce(category: UIContentSizeCategory) throws {
+        try expectLaidOutOnce(Host(log: Log()), at: category)
+    }
+
+    @Test(
+        "At the default size, a row whose name wraps only for the trailing inset is laid out once",
+        arguments: widths,
+    )
+    func laidOutOnceAtTheInset(name: String) throws {
+        try expectLaidOutOnce(Host(log: Log(), name: name), at: Self.large)
+    }
+
+    private func expectLaidOutOnce(_ root: Host, at category: UIContentSizeCategory) throws {
+        let log = root.log
+        let host = UIHostingController(rootView: root)
+        let window = UIWindow.sceneless(hosting: host, at: category)
+        defer { window.isHidden = true }
+        window.settle()
+        try #require(log.rows.count == 4)
+        for (index, sizes) in log.rows.sorted(by: { $0.key < $1.key }) {
+            #expect(
+                sizes.count == 1,
+                "row \(index), \(root.name), \(category.rawValue): laid out at \(sizes)",
+            )
+        }
+        // Whether the scroll view reports its first value is its own business; a second, different
+        // one is the rows growing after they were placed.
+        #expect(
+            Set(log.contentHeights).count <= 1,
+            "\(category.rawValue): content heights \(log.contentHeights)",
+        )
+    }
+}
+
+#endif

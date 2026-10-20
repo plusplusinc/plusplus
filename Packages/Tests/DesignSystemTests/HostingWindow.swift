@@ -5,7 +5,7 @@ import UIKit
 
 extension UIWindow {
     /// A key window of a phone's size showing `host` at the text size `category`, for the
-    /// suites that need a field to take focus or a size to change live.
+    /// suites that need a field to take focus, a size to change live, or every layout pass seen.
     ///
     /// The package's tests run with no host app, so there is no scene for
     /// `init(windowScene:)`; this is the one place that uses the deprecated `init(frame:)`, which
@@ -19,6 +19,14 @@ extension UIWindow {
         window.rootViewController = host
         window.makeKeyAndVisible()
         return window
+    }
+
+    /// Lets every update the last step started reach the layout.
+    func settle() {
+        for _ in 0 ..< 10 {
+            layoutIfNeeded()
+            RunLoop.main.run(mode: .default, before: .now)
+        }
     }
 }
 
