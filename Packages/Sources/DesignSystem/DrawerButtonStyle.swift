@@ -32,7 +32,11 @@ public struct DrawerButtonStyle: ButtonStyle {
                 minHeight: isNested ? Self.nestedMinHeight : Self.minHeight,
                 alignment: .leading,
             )
-            .background { if isSelected { shape.fill(.pp(.surface)) } }
+            .background {
+                if isSelected {
+                    shape.fill(.pp(.surface))
+                }
+            }
             .contentShape(shape)
             .opacity(configuration.isPressed ? 0.6 : 1)
             .keyPressAnimation(isPressed: configuration.isPressed)

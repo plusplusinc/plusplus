@@ -3,11 +3,14 @@ import SwiftUI
 import WorkoutStore
 
 /// Every saved routine, most recently opened or edited first, each its name over its equipment.
-/// Tapping one opens it on the routine screen; + opens a new one.
+/// Tapping one pushes it on the routine screen; + pushes a new one.
 struct RoutinesScreen: View {
-    let session: RoutineSession
+    @Bindable var session: RoutineSession
     let namer: RoutineNamer
 
+    /// The order the rows are drawn in, taken only while the list is out of sight or as it
+    /// shows, so a routine opened from it moves to the top unseen, not as it slides away.
+    @State private var order: [Routine.ID] = []
     @Environment(\.locale) private var locale
     @ObserveHotReload private var hotReload
 
@@ -20,8 +23,9 @@ struct RoutinesScreen: View {
                         .foregroundStyle(.pp(.textPrimary))
                         .accessibilityAddTraits(.isHeader)
                         .padding(.bottom, Spacing.md)
-                    ForEach(session.recent) { routine in
-                        if routine.id != session.recent.first?.id {
+                    let routines = shown
+                    ForEach(routines) { routine in
+                        if routine.id != routines.first?.id {
                             Hairline()
                         }
                         row(routine)
@@ -33,6 +37,13 @@ struct RoutinesScreen: View {
             }
             .accessibilityHidden(session.isDrawerOpen)
             .background { Color.pp(.background).ignoresSafeArea() }
+            .onAppear(perform: takeOrder)
+            .onDisappear(perform: takeOrder)
+            .navigationDestination(isPresented: $session.isRoutinePushed) {
+                // Each routine opened gives a fresh screen: scroll, sheets, and title.
+                RoutineScreen(session: session, namer: namer, isPushed: true)
+                    .id(session.opened.id)
+            }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -40,18 +51,21 @@ struct RoutinesScreen: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("New routine", systemImage: "plus") {
-                        Task { await session.startNew() }
+                        Task { await session.startNew(pushed: true) }
                     }
                 }
             }
         }
-        .task { await session.refreshRecent(weightUnit: weightUnit) }
+        .task {
+            await session.refreshRecent(weightUnit: weightUnit)
+            takeOrder()
+        }
         .hotReloadable()
     }
 
     private func row(_ routine: Routine) -> some View {
         Button {
-            Task { await session.open(routine.id, weightUnit: weightUnit) }
+            Task { await session.open(routine.id, weightUnit: weightUnit, pushed: true) }
         } label: {
             VStack(alignment: .leading, spacing: Spacing.sm) {
                 // A later card puts the routine's schedule trailing, beside the name.
@@ -71,6 +85,20 @@ struct RoutinesScreen: View {
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("routines.row")
+    }
+
+    /// The routines as they are now, in the order taken; one not in it yet goes first.
+    private var shown: [Routine] {
+        let place = Dictionary(uniqueKeysWithValues: order.enumerated().map { ($1, $0) })
+        return session.recent.enumerated()
+            .sorted { (place[$0.element.id] ?? $0.offset - order.count)
+                < (place[$1.element.id] ?? $1.offset - order.count)
+            }
+            .map(\.element)
+    }
+
+    private func takeOrder() {
+        order = session.recent.map(\.id)
     }
 
     private var weightUnit: WeightUnit {

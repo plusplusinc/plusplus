@@ -10,6 +10,8 @@ import SwiftUI
 /// included, starts fresh each time it opens.
 public struct SideDrawer<Drawer: View, Content: View>: View {
     @Binding private var isOpen: Bool
+    /// Whether a swipe in from the left edge opens the drawer, off where the edge goes back.
+    private let swipeOpens: Bool
     private let drawer: Drawer
     private let content: Content
     /// How far open, 0 to 1, fixed for a snapshot; nil follows `isOpen` and the finger.
@@ -31,19 +33,24 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
 
     public init(
         isOpen: Binding<Bool>,
+        swipeOpens: Bool = true,
         @ViewBuilder drawer: () -> Drawer,
         @ViewBuilder content: () -> Content,
     ) {
-        self.init(isOpen: isOpen, progress: nil, drawer: drawer, content: content)
+        self.init(
+            isOpen: isOpen, swipeOpens: swipeOpens, progress: nil, drawer: drawer, content: content,
+        )
     }
 
     init(
         isOpen: Binding<Bool>,
+        swipeOpens: Bool = true,
         progress: CGFloat?,
         @ViewBuilder drawer: () -> Drawer,
         @ViewBuilder content: () -> Content,
     ) {
         _isOpen = isOpen
+        self.swipeOpens = swipeOpens
         fixedProgress = progress
         let open = isOpen.wrappedValue || (progress ?? 0) > 0
         _shown = State(initialValue: progress ?? (isOpen.wrappedValue ? 1 : 0))
@@ -101,7 +108,7 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
                     .offset(x: progress * drawerWidth)
             }
             #if os(iOS)
-            .gesture(DrawerSwipe(opens: true, isEnabled: !isOpen) { phase in
+            .gesture(DrawerSwipe(opens: true, isEnabled: swipeOpens && !isOpen) { phase in
                 follow(phase, width: drawerWidth)
             })
             .gesture(DrawerSwipe(opens: false, isEnabled: isOpen) { phase in

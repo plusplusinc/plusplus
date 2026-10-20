@@ -18,7 +18,8 @@ struct RoutineLauncher: View {
         Group {
             if let session {
                 @Bindable var session = session
-                SideDrawer(isOpen: $session.isDrawerOpen) {
+                // A routine pushed onto the Routines screen takes the edge swipe back to the list.
+                SideDrawer(isOpen: $session.isDrawerOpen, swipeOpens: !session.isRoutinePushed) {
                     DrawerMenu(session: session, namer: namer)
                 } content: {
                     switch session.screen {

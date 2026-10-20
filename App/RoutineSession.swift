@@ -16,6 +16,9 @@ final class RoutineSession {
     var isDrawerOpen = false
     /// The screen the drawer slides aside: the routine, or the list of routines.
     private(set) var screen = Screen.routine
+    /// Whether the open routine is pushed onto the Routines screen, opened from its list. Its
+    /// back button and back swipe set this false, showing the list again.
+    var isRoutinePushed = false
     /// The saved routines, latest first, as of the last read, with each routine left since.
     private var saved: [Routine] = []
     private var isSwitching = false
@@ -52,10 +55,10 @@ final class RoutineSession {
 
     /// What the drawer marks as showing: the Routines screen, the open routine, or a new one.
     var showing: Showing {
-        switch screen {
-        case .routines: .routines
-        case .routine: current.isEmpty ? .new : .routine
+        if screen == .routines, !isRoutinePushed {
+            return .routines
         }
+        return current.isEmpty ? .new : .routine
     }
 
     enum Showing {
@@ -77,14 +80,15 @@ final class RoutineSession {
     /// Shows the Routines screen and closes the drawer.
     func showRoutines() {
         screen = .routines
+        isRoutinePushed = false
         closeDrawer()
     }
 
-    /// Opens a saved routine on the routine screen and closes the drawer. The open one shows
-    /// as it is now, edits included.
-    func open(_ id: Routine.ID, weightUnit: WeightUnit) async {
+    /// Opens a saved routine on the routine screen and closes the drawer, or, `pushed`, pushes
+    /// it onto the Routines screen. The open one shows as it is now, edits included.
+    func open(_ id: Routine.ID, weightUnit: WeightUnit, pushed: Bool = false) async {
         guard id != current.id else {
-            show(current)
+            show(current, pushed: pushed)
             return closeDrawer()
         }
         guard let store, !isSwitching else { return }
@@ -93,7 +97,7 @@ final class RoutineSession {
         await finishSaving()
         do {
             if let routine = try await store.openRoutine(id, weightUnit: weightUnit) {
-                show(routine)
+                show(routine, pushed: pushed)
             }
         } catch {
             Logger.app.error("The routine didn't open: \(error)")
@@ -102,28 +106,30 @@ final class RoutineSession {
         closeDrawer()
     }
 
-    /// Opens a new, empty routine on the routine screen and closes the drawer; an empty one
-    /// open already is shown as it is. Nothing is saved for the new routine until it changes.
-    func startNew() async {
+    /// Opens a new, empty routine on the routine screen and closes the drawer, or, `pushed`,
+    /// pushes it onto the Routines screen; an empty one open already is shown as it is. Nothing
+    /// is saved for the new routine until it changes.
+    func startNew(pushed: Bool = false) async {
         guard !current.isEmpty else {
-            show(current)
+            show(current, pushed: pushed)
             return closeDrawer()
         }
         guard !isSwitching else { return }
         isSwitching = true
         defer { isSwitching = false }
         await finishSaving()
-        show(Routine())
+        show(Routine(), pushed: pushed)
         (saves, saving) = Self.startSaving(to: store)
         closeDrawer()
     }
 
-    private func show(_ routine: Routine) {
+    private func show(_ routine: Routine, pushed: Bool) {
         // The routine left stays in the list at its place, before its last save reads back.
         saved = recent
         opened = routine
         current = routine
-        screen = .routine
+        screen = pushed ? .routines : .routine
+        isRoutinePushed = pushed
     }
 
     private func closeDrawer() {
