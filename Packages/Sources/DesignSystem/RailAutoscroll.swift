@@ -35,6 +35,9 @@ final class RailEdges {
     @ObservationIgnored fileprivate var scroll: ScrollGeometry?
     /// Scrolls the list to a `scrollTo(y:)` value, in the transaction it is called in.
     @ObservationIgnored fileprivate var scrollTo: ((CGFloat) -> Void)?
+    /// Told each time the frame clock that steps the list is read, so a test can see it is read
+    /// once a frame.
+    @ObservationIgnored var frameRead: ((Date) -> Void)?
 
     /// The room above the rail a held row asks for (`Rail.roomAbove`), as the rail pads by it
     /// now. It moves toward what is asked a frame at a time, and each frame the list scrolls by
@@ -230,13 +233,30 @@ private struct RailAutoscroll: ViewModifier {
                 // A frame at a time, only while a held row is in an edge's band, or the room
                 // above the rail moves.
                 if edges.isStepping {
-                    TimelineView(.animation) { timeline in
-                        Color.clear.onChange(of: timeline.date) { old, new in
-                            edges.step(by: new.timeIntervalSince(old))
-                        }
-                    }
+                    RailFrames(edges: edges)
                 }
             }
             .hotReloadable()
+    }
+}
+
+/// Steps the list once a frame. Its own view, with nothing to change but `edges`, so a step,
+/// which scrolls the list and so re-runs the body around it, doesn't read the frame clock again:
+/// read again later in the same frame, it can give the next frame's date, and the list would
+/// step twice in one frame, which SwiftUI logs as a fault.
+private struct RailFrames: View {
+    let edges: RailEdges
+
+    var body: some View {
+        TimelineView(.animation) { timeline in
+            frame(at: timeline.date)
+        }
+    }
+
+    private func frame(at date: Date) -> some View {
+        edges.frameRead?(date)
+        return Color.clear.onChange(of: date) { old, new in
+            edges.step(by: new.timeIntervalSince(old))
+        }
     }
 }
