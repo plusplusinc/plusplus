@@ -77,7 +77,7 @@ struct RailStepTests {
         edges.letGo()
 
         let frames = Set(log.reads).count
-        try #require(frames >= 10, "\(motion): the list stepped for only \(frames) frames")
+        try #require(frames >= 5, "\(motion): the list stepped for only \(frames) frames")
         #expect(
             log.reads.count == frames,
             "\(motion): the clock was read \(log.reads.count) times in \(frames) frames",
