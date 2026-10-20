@@ -113,7 +113,7 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   reads a member's value as "In a superset with" its partners, and offers "Superset with" each
   neighbor it isn't joined to, and "Move out of superset" on a member.
 - The ++ drawer (`SideDrawer`) lies under the screen, which slides right on
-  `Spring(duration: 0.25, bounce: 0)`, leaving a 78 pt sliver with a shadow on the drawer, and
+  `Spring(duration: 0.25, bounce: 0)`, leaving a 78 pt sliver with a light shadow on the drawer (radius 10, offset -6 pt), and
   darkens with `dim` as far as it is open. A swipe starting within 24 pt of the left edge opens
   it and a swipe left closes it, following the finger (`DrawerSwipe`, a plain pan, since the
   screen-edge recognizer never begins on synthetic touches); let go, it settles the way a flick
@@ -129,8 +129,10 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   `accessibilityHidden`, so behind the open drawer each leaves VoiceOver through
   `hiddenBehindDrawer()`, which `primaryKeyBar` applies and a toolbar item applies itself; the
   drawer hides the screen's scroll bars. The drawer is in the hierarchy only while it shows. Its places (`DrawerButtonStyle`) have no outline; the one showing sits on a `selectionFill`
-  fill with continuous corners (`Radius.key`) that takes the whole row, icon and name, inset
-  around the icon as around the name, and one always does. New is an action and is never
+  fill, a `RoundedRectangle(cornerRadius: Radius.key, style: .continuous)`, under icon and
+  name, with as much space to the icon's left as above and below it (the dot, for a routine,
+  marked with `DrawerIconBounds`), ending 16 pt short of the drawer's trailing edge, and one
+  always does. New is an action and is never
   marked: while an untouched new routine shows, it has its own row at the top of the three,
   New routine in the title's placeholder gray (`textSecondary`), its node lit and marked, above
   the two routines last opened or edited. A nested place's icon, a routine's `DrawerNode` or

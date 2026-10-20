@@ -234,9 +234,9 @@ extension EnvironmentValues {
 enum DrawerMetrics {
     /// How much of the screen stays in view beside the open drawer.
     static let sliver: CGFloat = 78
-    /// The shadow the screen casts on the drawer, from the design.
-    static let shadowRadius: CGFloat = 18
-    static let shadowOffset: CGFloat = -14
+    /// The shadow the screen casts on the drawer: a hint of depth at its trailing edge.
+    static let shadowRadius: CGFloat = 10
+    static let shadowOffset: CGFloat = -6
     /// Opening and closing: quick and without bounce, as a key answers a tap.
     static let slide = Spring(duration: 0.25, bounce: 0)
     /// The drawer fading in or out, with Reduce Motion.
