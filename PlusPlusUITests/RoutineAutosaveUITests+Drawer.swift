@@ -53,10 +53,9 @@ extension RoutineAutosaveUITests {
             app.buttons["Routines"].tap()
             XCTAssertTrue(app.drawerTitle.disappears(), "Routines did not close the drawer")
             let rows = app.buttons.matching(identifier: "routines.row")
-            XCTAssertEqual(
-                reading(rows.allElementsBoundByIndex.map(\.label), becoming: ["Chest", "Back"], within: 2),
-                ["Chest", "Back"],
-            )
+            let listed = ["Chest", "Back"]
+            let labels = { rows.allElementsBoundByIndex.map(\.label) }
+            XCTAssertEqual(reading(labels(), becoming: listed, within: 2), listed)
             attach(named: "routines-screen")
             openDrawer(in: app)
             XCTAssertTrue(app.buttons["Routines"].isSelected, "Routines isn't marked")
