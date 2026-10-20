@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// A place the drawer goes: its icon and name, with no outline, taking taps across the drawer's
-/// width. The place showing sits on a rounded fill, icon and name, with as much space to the
+/// width. Every place, nested or not, sets its name in one font, so each reads as equally a
+/// thing to tap. The place showing sits on a rounded fill, icon and name, with as much space to the
 /// icon's left as above and below it. Pressing dims it, as a key does.
 ///
 /// A nested place, under another, puts its icon (a `DrawerNode`, or a symbol) in the column of
@@ -20,7 +21,7 @@ public struct DrawerButtonStyle: ButtonStyle {
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .labelStyle(DrawerLabelStyle(isSelected: isSelected, isNested: isNested))
-            .font(isNested ? .ppDrawerSubitem : .ppDrawerItem)
+            .font(.ppDrawerItem)
             .foregroundStyle(.pp(.textPrimary))
             .multilineTextAlignment(.leading)
             .contentShape(.rect)
@@ -51,14 +52,11 @@ private struct DrawerLabel<Icon: View, Title: View>: View {
     let isSelected: Bool
     let isNested: Bool
 
-    /// Comfortably above the 44pt minimum touch target at the default text size; a nested
-    /// place's smaller text needs less, but never under the minimum.
-    private var minHeight: CGFloat {
-        isNested ? 44 : 48
-    }
+    /// The minimum touch target, for every place alike.
+    private let minHeight: CGFloat = 44
 
     /// Wide enough for a top-level place's symbol, and scaled with its text.
-    @ScaledMetric(relativeTo: .title3) private var iconColumn: CGFloat = 26
+    @ScaledMetric(relativeTo: .body) private var iconColumn: CGFloat = 26
 
     var body: some View {
         Group {
@@ -161,7 +159,7 @@ public struct DrawerNode: View {
 
 extension ButtonStyle where Self == DrawerButtonStyle {
     /// `.buttonStyle(.drawer(isSelected: true))`: marked as the place showing; nested, it sits
-    /// under another place in smaller text.
+    /// under another place, its icon in that place's column.
     public static func drawer(isSelected: Bool, isNested: Bool = false) -> DrawerButtonStyle {
         DrawerButtonStyle(isSelected: isSelected, isNested: isNested)
     }

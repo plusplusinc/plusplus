@@ -128,7 +128,7 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   fade out, and the screen goes back once it has. The controls in the screen's bars, hosted apart from it, ignore
   `accessibilityHidden`, so behind the open drawer each leaves VoiceOver through
   `hiddenBehindDrawer()`, which `primaryKeyBar` applies and a toolbar item applies itself; the
-  drawer hides the screen's scroll bars. The drawer is in the hierarchy only while it shows. Its places (`DrawerButtonStyle`) have no outline; the one showing sits on a `selectionFill`
+  drawer hides the screen's scroll bars. The drawer is in the hierarchy only while it shows. Its places (`DrawerButtonStyle`) have no outline, and all, Routines and the rows under it, set their names in one font (`ppDrawerItem`) at one minimum height (44 pt), so none reads as a heading; the one showing sits on a `selectionFill`
   fill, a `RoundedRectangle(cornerRadius: Radius.key, style: .continuous)`, under icon and
   name, with as much space to the icon's left as above and below it (the dot, for a routine,
   marked with `DrawerIconBounds`), ending 16 pt short of the drawer's trailing edge, and one
