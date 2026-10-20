@@ -121,7 +121,7 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   (`DrawerDrag`). A tap on the sliver, on the drawer's title, or VoiceOver's escape closes it.
   The haptics play the moment the drawer starts toward open or closed, as its target changes: on
   a tap, on VoiceOver's escape, or as a swipe is let go, never while the finger drags: rigid at
-  0.7 opening, rigid at 1.0 shutting; a swipe that springs back to where it began plays
+  0.5 opening, rigid at 0.7 shutting; a swipe that springs back to where it began plays
   nothing. With Reduce Motion nothing follows the finger: a 30 pt swipe decides, and only
   opacity animates: opening, the screen and its dim take their place at once, with the haptic,
   and the drawer fades in beside them (0.2 s); closing, the haptic plays as the drawer starts to
