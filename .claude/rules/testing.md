@@ -56,9 +56,9 @@ What each tier holds today:
   and changes the window's content size category, the field focused and not. Hosted the same
   way, `EditableTitleCaretTests` reads the `_` at every place of the caret against CoreText's
   layout of the same text (emoji, Chinese, a wrap at a /), and `EditableTitleFocusTests` sees
-  every layout pass of the view under the title as an edit ends by Return or by giving up focus, `RailRowLayoutTests` every size a list of rail rows is laid out at, which is one, and
-  `RailStepTests` every read of the frame clock that steps the list for a held row, which is one a
-  frame.
+  every layout pass of the view under the title as an edit ends by Return or by giving up focus, `RailRowLayoutTests` every size a list of rail rows is laid out at, which is one.
+  `RailStepTests` counts every read of the frame clock that steps the list for a held row: one
+  a frame.
 - **UI tests** hold only what needs the real keyboard, text system, frames, or a relaunch:
   typing, Return, arrows, taps, range selection, the keyboard's edge, scrolling as the keyboard
   rises, nothing moving as an edit ends by Return or a touch outside the title, and VoiceOver
