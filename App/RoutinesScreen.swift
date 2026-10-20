@@ -81,14 +81,8 @@ struct RoutinesScreen: View {
         .accessibilityIdentifier("routines.row")
     }
 
-    /// The routines as they are now, in the order taken; one not in it yet goes first.
     private var shown: [Routine] {
-        let place = Dictionary(uniqueKeysWithValues: order.enumerated().map { ($1, $0) })
-        return session.recent.enumerated()
-            .sorted { (place[$0.element.id] ?? $0.offset - order.count)
-                < (place[$1.element.id] ?? $1.offset - order.count)
-            }
-            .map(\.element)
+        session.recent.held(in: order)
     }
 
     private func takeOrder() {
@@ -97,6 +91,19 @@ struct RoutinesScreen: View {
 
     private var weightUnit: WeightUnit {
         WeightUnit(region: locale)
+    }
+}
+
+extension [Routine] {
+    /// The routines as they are now, in an order taken earlier, so a list doesn't reorder in
+    /// view; one not in it yet goes first.
+    func held(in order: [Routine.ID]) -> [Routine] {
+        let place = Dictionary(uniqueKeysWithValues: order.enumerated().map { ($1, $0) })
+        return enumerated()
+            .sorted { (place[$0.element.id] ?? $0.offset - order.count)
+                < (place[$1.element.id] ?? $1.offset - order.count)
+            }
+            .map(\.element)
     }
 }
 

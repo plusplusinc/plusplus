@@ -9,6 +9,9 @@ struct DrawerMenu: View {
     let session: RoutineSession
     let namer: RoutineNamer
 
+    /// The order the routines are drawn in, taken as the drawer opens, so the one tapped moves
+    /// to the top on the next opening, not as the drawer slides shut.
+    @State private var order: [Routine.ID] = []
     @AccessibilityFocusState private var isTitleFocused: Bool
     @Environment(\.locale) private var locale
     @ObserveHotReload private var hotReload
@@ -38,7 +41,11 @@ struct DrawerMenu: View {
         .background { Color.pp(.background).ignoresSafeArea() }
         // The drawer is built as it opens, so these run on each opening.
         .task { isTitleFocused = true }
-        .task { await session.refreshRecent(weightUnit: weightUnit) }
+        .task {
+            order = session.recent.map(\.id)
+            await session.refreshRecent(weightUnit: weightUnit)
+            order = session.recent.map(\.id)
+        }
         .hotReloadable()
     }
 
@@ -46,7 +53,7 @@ struct DrawerMenu: View {
     private var routines: some View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
             // A later card makes the last of these the upcoming scheduled routine.
-            ForEach(session.recent.prefix(Self.recentCount)) { routine in
+            ForEach(session.recent.held(in: order).prefix(Self.recentCount)) { routine in
                 Button(namer.shownName(of: routine) ?? String(localized: "New routine")) {
                     Task { await session.open(routine.id, weightUnit: weightUnit) }
                 }
