@@ -142,7 +142,6 @@ final class RoutineSession {
         isDrawerOpen = false
     }
 
-    /// Lets the last edit land: a finished stream still hands over what it holds.
     /// Lets the last edit land: a finished stream still hands over what it holds. An edit made
     /// while it lands reaches only `current`, so it is saved after.
     private func finishSaving() async {

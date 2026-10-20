@@ -62,7 +62,8 @@ private struct DrawerLabel<Icon: View, Title: View>: View {
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Radius.key, style: .continuous)
         if isNested {
-            HStack(spacing: 0) {
+            // On the name's first line, as the rail's nodes are, when a long name wraps.
+            HStack(alignment: .firstTextBaseline, spacing: 0) {
                 icon.frame(width: iconColumn)
                 title
                     .padding(.horizontal, drawerInset)
@@ -103,7 +104,8 @@ private let placeNameScale: CGFloat = 0.7
 /// How far a place's icon sits from the drawer's edge, and its name from the icon.
 private let drawerInset = Spacing.sm + Spacing.xs
 
-/// A nested place's node, the rail's dot: brighter for the place showing.
+/// A nested place's node, the rail's dot: brighter for the place showing. A plus, held
+/// invisibly, gives it New's baseline, so it sits on its name's first line as New's plus does.
 public struct DrawerNode: View {
     private let isLit: Bool
     @ScaledMetric(relativeTo: .body) private var size = railNodeSize
@@ -113,9 +115,13 @@ public struct DrawerNode: View {
     }
 
     public var body: some View {
-        Circle()
-            .fill(.pp(isLit ? .textPrimary : .rail))
-            .frame(width: size, height: size)
+        Image(systemName: "plus")
+            .hidden()
+            .overlay {
+                Circle()
+                    .fill(.pp(isLit ? .textPrimary : .rail))
+                    .frame(width: size, height: size)
+            }
             .accessibilityHidden(true)
     }
 }
