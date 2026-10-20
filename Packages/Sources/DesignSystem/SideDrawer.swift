@@ -3,8 +3,9 @@ import SwiftUI
 /// A drawer under the screen: opening it slides the screen right, leaving a sliver of it in
 /// view. A swipe in from the left edge opens it, following the finger; a tap on the sliver, a
 /// swipe left, or VoiceOver's escape closes it. With Reduce Motion it fades rather than slides.
-/// The screen darkens as the drawer opens, and a haptic plays each time it comes to rest open or
-/// closed; a swipe that springs back to where it began plays none.
+/// The screen darkens as the drawer opens. A haptic plays the moment the drawer visibly arrives
+/// open, and another, firmer, the moment it shuts; a swipe that springs back to where it began
+/// plays none.
 ///
 /// The drawer is in the hierarchy only while it shows, so what it holds, a pushed screen
 /// included, starts fresh each time it opens.
@@ -26,8 +27,6 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
     @State private var swipeStart: CGFloat?
     /// The screen faded out, with Reduce Motion, while it moves unseen.
     @State private var isContentFaded = false
-    /// Where the drawer last came to rest, which the haptics follow.
-    @State private var restsOpen: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
@@ -55,7 +54,6 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
         let open = isOpen.wrappedValue || (progress ?? 0) > 0
         _shown = State(initialValue: progress ?? (isOpen.wrappedValue ? 1 : 0))
         _target = State(initialValue: isOpen.wrappedValue)
-        _restsOpen = State(initialValue: isOpen.wrappedValue)
         _isDrawerInView = State(initialValue: open)
         self.drawer = drawer()
         self.content = content()
@@ -107,6 +105,7 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
                     .opacity(isContentFaded ? 0 : 1)
                     .offset(x: progress * drawerWidth)
             }
+            .modifier(ArrivalFeedback(progress: progress, width: drawerWidth))
             #if os(iOS)
             .gesture(DrawerSwipe(opens: true, isEnabled: swipeOpens && !isOpen) { phase in
                 follow(phase, width: drawerWidth)
@@ -120,9 +119,6 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
             if open != target {
                 settle(open: open)
             }
-        }
-        .sensoryFeedback(trigger: restsOpen) { _, open in
-            open ? DrawerMetrics.opened : DrawerMetrics.closed
         }
         .hotReloadable()
     }
@@ -180,10 +176,61 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
     /// drawer is at rest, and leaves the hierarchy if closed.
     private func rest(open: Bool) {
         guard open == target, swipeStart == nil else { return }
-        restsOpen = open
         if !open {
             isDrawerInView = false
         }
+    }
+}
+
+/// The haptics, played on the frame the drawer comes within `DrawerMetrics.arrival` of open or
+/// closed, which is where the eye sees it stop: a spring's completion comes later, in its long
+/// tail. Being animatable, it reads each frame's progress, not only where the slide ends.
+private struct ArrivalFeedback: ViewModifier, Animatable {
+    var progress: CGFloat
+    let width: CGFloat
+
+    /// Where the drawer was last seen to arrive; a swipe that comes back to it plays nothing.
+    @State private var arrived = Rest.unknown
+
+    enum Rest {
+        /// Before the drawer first shows, so showing it plays nothing.
+        case unknown
+        case open
+        case closed
+    }
+
+    var animatableData: CGFloat {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    /// Where the drawer is seen to be at this frame's progress; nil between.
+    private var place: Rest? {
+        let near = width > 0 ? DrawerMetrics.arrival / width : 0
+        if progress >= 1 - near {
+            return .open
+        }
+        if progress <= near {
+            return .closed
+        }
+        return nil
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear { arrived = place ?? .unknown }
+            .onChange(of: place) { _, place in
+                if let place {
+                    arrived = place
+                }
+            }
+            .sensoryFeedback(trigger: arrived) { old, new in
+                switch (old, new) {
+                case (.unknown, _), (_, .unknown): nil
+                case (_, .open): DrawerMetrics.opened
+                case (_, .closed): DrawerMetrics.closed
+                }
+            }
     }
 }
 
@@ -193,13 +240,17 @@ enum DrawerMetrics {
     /// The shadow the screen casts on the drawer, from the design.
     static let shadowRadius: CGFloat = 18
     static let shadowOffset: CGFloat = -14
-    /// Opening and closing: quick, as it answers a tap.
-    static let slide = Spring.snappy(duration: 0.3)
+    /// Opening and closing: quick and without bounce, as a key answers a tap.
+    static let slide = Spring(duration: 0.25, bounce: 0)
     /// Each half of the Reduce Motion cross-fade, out and back in.
     static let fade = Animation.snappy(duration: 0.1)
-    /// Coming to rest open, and closed: soft, as a panel settling, with closing the lighter.
+    /// How near open or closed, in points, the drawer is seen to have arrived: from there to
+    /// rest it moves about a point a frame at 60 Hz, half that at 120 Hz.
+    static let arrival: CGFloat = 3
+    /// Arriving open: soft, as a panel settling.
     static let opened = SensoryFeedback.impact(flexibility: .soft, intensity: 0.8)
-    static let closed = SensoryFeedback.impact(flexibility: .soft, intensity: 0.5)
+    /// Shutting: rigid and full, so it's felt as the drawer closes.
+    static let closed = SensoryFeedback.impact(flexibility: .rigid, intensity: 1)
 }
 
 #Preview {
