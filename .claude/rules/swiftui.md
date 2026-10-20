@@ -128,8 +128,9 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   fade out, and the screen goes back once it has. The controls in the screen's bars, hosted apart from it, ignore
   `accessibilityHidden`, so behind the open drawer each leaves VoiceOver through
   `hiddenBehindDrawer()`, which `primaryKeyBar` applies and a toolbar item applies itself; the
-  drawer hides the screen's scroll bars. The drawer is in the hierarchy only while it shows. Its places (`DrawerButtonStyle`) have no outline; the one showing sits on a `surface`
-  fill with continuous corners (`Radius.key`), and one always does. A nested place's icon, a
+  drawer hides the screen's scroll bars. The drawer is in the hierarchy only while it shows. Its places (`DrawerButtonStyle`) have no outline; the one showing sits on a `surfaceRaised`
+  fill with continuous corners (`Radius.key`) that takes the whole row, icon and name, inset
+  around the icon as around the name, and one always does. A nested place's icon, a
   routine's `DrawerNode` or New's plus, sits in the column of the place above's icon, on the
   name's first line.
 - A generated name arrives in the title on its own clock (`SuggestionTiming`, one

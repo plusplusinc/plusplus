@@ -1,10 +1,11 @@
 import SwiftUI
 
 /// A place the drawer goes: its icon and name, with no outline, taking taps across the drawer's
-/// width. The place showing sits on a soft rounded fill. Pressing dims it, as a key does.
+/// width. The place showing sits on a rounded raised fill, icon and name. Pressing dims it, as a
+/// key does.
 ///
 /// A nested place, under another, puts its icon (a `DrawerNode`, or a symbol) in the column of
-/// the place above's icon, and its name under that place's name; its fill takes the name alone.
+/// the place above's icon, and its name under that place's name.
 public struct DrawerButtonStyle: ButtonStyle {
     private let isSelected: Bool
     private let isNested: Bool
@@ -61,38 +62,32 @@ private struct DrawerLabel<Icon: View, Title: View>: View {
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: Radius.key, style: .continuous)
-        if isNested {
-            // On the name's first line, as the rail's nodes are, when a long name wraps.
-            HStack(alignment: .firstTextBaseline, spacing: 0) {
-                icon.frame(width: iconColumn)
-                title
-                    .padding(.horizontal, drawerInset)
-                    .padding(.vertical, Spacing.xs)
-                    .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .leading)
-                    .background {
-                        if isSelected {
-                            shape.fill(.pp(.surface))
-                        }
-                    }
-            }
-            .padding(.leading, drawerInset)
-        } else {
-            HStack(spacing: 0) {
-                icon.frame(width: iconColumn)
-                // A place is one word, which at the largest sizes would break mid-word beside
-                // its icon; it shrinks a little to stay whole instead.
-                title
-                    .lineLimit(1)
-                    .minimumScaleFactor(placeNameScale)
-                    .padding(.leading, drawerInset)
-            }
-            .padding(.horizontal, drawerInset)
-            .padding(.vertical, Spacing.xs)
-            .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .leading)
-            .background {
-                if isSelected {
-                    shape.fill(.pp(.surface))
+        Group {
+            if isNested {
+                // On the name's first line, as the rail's nodes are, when a long name wraps.
+                HStack(alignment: .firstTextBaseline, spacing: 0) {
+                    icon.frame(width: iconColumn)
+                    title.padding(.leading, drawerInset)
                 }
+            } else {
+                HStack(spacing: 0) {
+                    icon.frame(width: iconColumn)
+                    // A place is one word, which at the largest sizes would break mid-word
+                    // beside its icon; it shrinks a little to stay whole instead.
+                    title
+                        .lineLimit(1)
+                        .minimumScaleFactor(placeNameScale)
+                        .padding(.leading, drawerInset)
+                }
+            }
+        }
+        .padding(.horizontal, drawerInset)
+        .padding(.vertical, Spacing.xs)
+        .frame(maxWidth: .infinity, minHeight: minHeight, alignment: .leading)
+        // The whole row, icon and name, so what's marked reads as one place.
+        .background {
+            if isSelected {
+                shape.fill(.pp(.surfaceRaised))
             }
         }
     }
