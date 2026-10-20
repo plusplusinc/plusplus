@@ -21,13 +21,10 @@ public actor RoutineStore {
     /// cleared one is deleted. A weight never saved reads as its exercise's default in
     /// `weightUnit`.
     public func launchRoutine(weightUnit: WeightUnit) throws -> Routine? {
-        // The most recent is the latest edited or the latest opened, so two rows decide it.
-        let latest = try [\StoredRoutine.editedAt, \StoredRoutine.openedAt].compactMap {
-            try latest(by: SortDescriptor($0, order: .reverse))
-        }
-        return latest.min(by: Self.isMoreRecent(_:than:)).map {
-            Self.routine(from: $0, weightUnit: weightUnit)
-        }
+        // Picked here, as the list sorts, so launch opens the routine the list puts first.
+        try modelContext.fetch(FetchDescriptor<StoredRoutine>())
+            .min(by: Self.isMoreRecent(_:than:))
+            .map { Self.routine(from: $0, weightUnit: weightUnit) }
     }
 
     /// Marks the routine opened at `now` and returns it, or nil, storing nothing, if there is
@@ -116,12 +113,6 @@ public actor RoutineStore {
     private static func isMoreRecent(_ one: StoredRoutine, than other: StoredRoutine) -> Bool {
         let (oneRecency, otherRecency) = (one.recency, other.recency)
         return oneRecency != otherRecency ? oneRecency > otherRecency : one.id < other.id
-    }
-
-    private func latest(by order: SortDescriptor<StoredRoutine>) throws -> StoredRoutine? {
-        var descriptor = FetchDescriptor<StoredRoutine>(sortBy: [order])
-        descriptor.fetchLimit = 1
-        return try modelContext.fetch(descriptor).first
     }
 
     private func stored(id: UUID) throws -> StoredRoutine? {

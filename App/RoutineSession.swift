@@ -87,6 +87,7 @@ final class RoutineSession {
     /// Opens a saved routine on the routine screen and closes the drawer, or, `pushed`, pushes
     /// it onto the Routines screen. The open one shows as it is now, edits included.
     func open(_ id: Routine.ID, weightUnit: WeightUnit, pushed: Bool = false) async {
+        guard !isSwitching else { return }
         guard id != current.id else {
             show(current, pushed: pushed)
             return closeDrawer()
@@ -106,6 +107,7 @@ final class RoutineSession {
     /// pushes it onto the Routines screen; an empty one open already is shown as it is. Nothing
     /// is saved for the new routine until it changes.
     func startNew(pushed: Bool = false) async {
+        guard !isSwitching else { return }
         guard !current.isEmpty else {
             show(current, pushed: pushed)
             return closeDrawer()
@@ -141,9 +143,20 @@ final class RoutineSession {
     }
 
     /// Lets the last edit land: a finished stream still hands over what it holds.
+    /// Lets the last edit land: a finished stream still hands over what it holds. An edit made
+    /// while it lands reaches only `current`, so it is saved after.
     private func finishSaving() async {
+        var landed = current
         saves.finish()
         await saving.value
+        while current != landed {
+            landed = current
+            do {
+                try await store?.save(landed)
+            } catch {
+                Logger.app.error("The routine didn't save: \(error)")
+            }
+        }
     }
 
     private static func startSaving(

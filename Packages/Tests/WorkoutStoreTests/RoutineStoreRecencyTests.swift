@@ -63,6 +63,16 @@ struct RoutineStoreRecencyTests {
         #expect(try await relaunch().launchRoutine(weightUnit: .pounds)?.name == "B")
     }
 
+    @Test("Launch opens the routine listed first, whatever ties")
+    func launchMatchesList() async throws {
+        let store = relaunch()
+        for name in ["A", "B", "C", "D"] {
+            try await store.save(Self.routine(name), at: Self.at(1))
+        }
+        let first = try await listed().first
+        #expect(try await relaunch().launchRoutine(weightUnit: .pounds)?.name == first)
+    }
+
     @Test("Opening a routine returns it whole: name, rows, plans, and supersets")
     func openReturnsWhole() async throws {
         let rows = try ["Push-up", "Plank", "Pull-up"].map { try RoutineExercise.builtIn($0) }
@@ -130,6 +140,8 @@ struct RoutineStoreRecencyTests {
         let newer = Self.routine("Newer")
         let newest = Self.routine("Newest")
         #expect([newest, newer, old].held(in: order).map(\.name) == ["Newest", "Newer", "Old"])
+        // Read before the saved routines arrived, the order holds only the open one.
+        #expect([old, newer, newest].held(in: order).map(\.name) == ["Newer", "Newest", "Old"])
     }
 
     @Test("The drawer's three: the latest, the open one first, held as the drawer opened")

@@ -12,7 +12,7 @@ public struct NameRow: View {
     }
 
     public var body: some View {
-        // A later card puts the routine's schedule trailing, beside the name.
+        // A later card will put the routine's schedule trailing, beside the name.
         Text(name)
             .font(.ppRoutineName)
             .foregroundStyle(.pp(.textPrimary))

@@ -13,8 +13,9 @@ extension [Routine] {
     public func held(in order: [Routine.ID]) -> [Routine] {
         let place = Dictionary(uniqueKeysWithValues: order.enumerated().map { ($1, $0) })
         return enumerated()
-            .sorted { (place[$0.element.id] ?? $0.offset - order.count)
-                < (place[$1.element.id] ?? $1.offset - order.count)
+            // A routine not in the order keeps its place among the new, all before the rest.
+            .sorted { (place[$0.element.id] ?? $0.offset - count)
+                < (place[$1.element.id] ?? $1.offset - count)
             }
             .map(\.element)
     }

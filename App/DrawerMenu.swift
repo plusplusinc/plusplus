@@ -49,7 +49,10 @@ struct DrawerMenu: View {
         .task {
             order = session.recent.map(\.id)
             await session.refreshRecent(weightUnit: weightUnit)
-            order = session.recent.map(\.id)
+            // Unless a tap has already switched and closed the drawer, moving its routine up.
+            if session.isDrawerOpen {
+                order = session.recent.map(\.id)
+            }
         }
         .hotReloadable()
     }
@@ -57,7 +60,7 @@ struct DrawerMenu: View {
     /// The routines last opened or edited, up to three, then New.
     private var routines: some View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
-            // A later card makes the last of these the upcoming scheduled routine.
+            // A later card will make the last of these the upcoming scheduled routine.
             ForEach(session.recent.held(in: order).prefix(Self.recentCount)) { routine in
                 Button {
                     Task { await session.open(routine.id, weightUnit: weightUnit) }
