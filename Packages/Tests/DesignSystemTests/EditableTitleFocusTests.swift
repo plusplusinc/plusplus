@@ -74,19 +74,11 @@ struct EditableTitleFocusTests {
                 view as? UITextView ?? view.subviews.lazy.compactMap(field(in:)).first
             }
             self.field = try #require(field(in: host.view))
-            settle()
+            window.settle()
         }
 
         isolated deinit {
             window.isHidden = true
-        }
-
-        /// Lets every update the last step started reach the layout.
-        func settle() {
-            for _ in 0 ..< 10 {
-                window.layoutIfNeeded()
-                RunLoop.main.run(mode: .default, before: .now)
-            }
         }
     }
 
@@ -100,10 +92,10 @@ struct EditableTitleFocusTests {
     ) throws {
         let screen = try Screen(title.0, suggestion: title.1, at: category)
         try #require(screen.field.becomeFirstResponder())
-        screen.settle()
+        screen.window.settle()
         try #require(screen.field.isFirstResponder)
         end(screen.field)
-        screen.settle()
+        screen.window.settle()
         #expect(!screen.field.isFirstResponder, "\(ending) did not end the edit")
         let first = try #require(screen.log.tops.first)
         #expect(

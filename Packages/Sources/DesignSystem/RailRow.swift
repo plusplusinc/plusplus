@@ -202,10 +202,12 @@ private struct RailRowLayout: Layout {
         cache _: inout (),
     ) {
         let frames = frames(proposal, subviews)
-        for (subview, frame) in zip(subviews, [frames.column, frames.content]) {
+        // Offered what each was measured at, so neither is measured again.
+        let placed = [(frames.column, ProposedViewSize.unspecified), (frames.content, frames.offer)]
+        for (subview, (frame, offer)) in zip(subviews, placed) {
             subview.place(
                 at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY + frame.minY),
-                proposal: ProposedViewSize(frame.size),
+                proposal: offer,
             )
         }
     }
@@ -217,13 +219,16 @@ private struct RailRowLayout: Layout {
         _ proposal: ProposedViewSize,
         _ subviews: Subviews,
     ) -> Frames {
-        guard subviews.count == 2 else { return Frames(column: .zero, content: .zero, size: .zero) }
+        guard subviews.count == 2 else {
+            return Frames(column: .zero, content: .zero, offer: .zero, size: .zero)
+        }
         let column = subviews[0].dimensions(in: .unspecified)
         let inset = max((column.width - nodeSize) / 2, 0)
-        let content = subviews[1].dimensions(in: ProposedViewSize(
+        let offer = ProposedViewSize(
             width: proposal.width.map { max($0 - column.width - inset, 0) },
             height: proposal.height,
-        ))
+        )
+        let content = subviews[1].dimensions(in: offer)
         let baseline = max(column[.firstTextBaseline], content[.firstTextBaseline])
         let columnTop = baseline - column[.firstTextBaseline]
         let contentTop = baseline - content[.firstTextBaseline]
@@ -235,6 +240,7 @@ private struct RailRowLayout: Layout {
                 width: content.width,
                 height: content.height,
             ),
+            offer: offer,
             size: CGSize(
                 width: column.width + content.width + inset,
                 height: max(columnTop + column.height, contentTop + content.height),
@@ -245,6 +251,8 @@ private struct RailRowLayout: Layout {
     private struct Frames {
         var column: CGRect
         var content: CGRect
+        /// What the content was offered.
+        var offer: ProposedViewSize
         var size: CGSize
     }
 }

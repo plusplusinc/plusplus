@@ -49,10 +49,7 @@ struct RailRowLayoutTests {
         let host = UIHostingController(rootView: Host(log: log))
         let window = UIWindow.sceneless(hosting: host, at: category)
         defer { window.isHidden = true }
-        for _ in 0 ..< 10 {
-            window.layoutIfNeeded()
-            RunLoop.main.run(mode: .default, before: .now)
-        }
+        window.settle()
         try #require(log.rows.count == 4)
         for (index, sizes) in log.rows.sorted(by: { $0.key < $1.key }) {
             #expect(sizes.count == 1, "row \(index), \(category.rawValue): laid out at \(sizes)")

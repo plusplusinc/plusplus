@@ -20,6 +20,14 @@ extension UIWindow {
         window.makeKeyAndVisible()
         return window
     }
+
+    /// Lets every update the last step started reach the layout.
+    func settle() {
+        for _ in 0 ..< 10 {
+            layoutIfNeeded()
+            RunLoop.main.run(mode: .default, before: .now)
+        }
+    }
 }
 
 #endif
