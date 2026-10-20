@@ -57,8 +57,7 @@ struct DrawerMenu: View {
             if isNewShowing {
                 newRoutine
             }
-            ForEach(session.recentByEdit(first: Self.recentCount - (isNewShowing ? 1 : 0))) {
-                routine in
+            ForEach(session.recentByEdit(first: savedCount)) { routine in
                 Button {
                     Task { await session.open(routine.id, weightUnit: weightUnit) }
                 } label: {
@@ -96,6 +95,11 @@ struct DrawerMenu: View {
 
     private var isNewShowing: Bool {
         session.showing == .new
+    }
+
+    /// Three rows in all: the new one showing takes the place of the third.
+    private var savedCount: Int {
+        isNewShowing ? Self.recentCount - 1 : Self.recentCount
     }
 
     private static let recentCount = 3

@@ -50,7 +50,7 @@ What each tier holds today:
   one alone and two next to each other, and a node's drag, its field the well, held over a span
   and pressed on an end; and a member's shared rounds in its sheet. The drawer is drawn open
   through `SideDrawer`'s internal `progress:` initializer, its places composed as `DrawerMenu`
-  composes them, with a routine, Routines, and New each marked; the Routines screen's list is
+  composes them, with a routine, Routines, and an untouched new routine's own row each marked; the Routines screen's list is
   drawn from `NameRow` and `Hairline`. Their bars are the system's. A snapshot draws each text size fresh, so the title's height after a live text size
   change is held by `EditableTitleTextSizeTests`, which hosts `EditableTitleContent` in a window
   and changes the window's content size category, the field focused and not. Hosted the same
@@ -70,7 +70,7 @@ What each tier holds today:
   resting leaving unpaired, a rest-made pair taking the larger set count (and keeping it across
   a relaunch, in `RoutineAutosaveUITests`), and a join at AX5 under the audit; the drawer opened
   by ++ and the edge swipe and closed by the sliver and a swipe left, switching routines with the
-  one showing marked, opening counting across a relaunch, and the Routines screen's list and
+  one showing marked, a new one's row included, opening counting across a relaunch, and the Routines screen's list and
   drill-in, popped by the chevron and the edge swipe, and both under the audit at AX5, read from each row's VoiceOver value; and what the app saved, seen only by
   quitting and launching again, a dragged row's place and a superset's shared rounds included. Each launch costs about 9 s on
   CI, so there is one UI test per launch configuration:

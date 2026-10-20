@@ -83,7 +83,7 @@ final class RoutineSession {
         do {
             saved = try await store.routinesByRecency(weightUnit: weightUnit)
             // An edit still on its way to the store is newer than what it read.
-            editedAt.merge(try await store.editDates(), uniquingKeysWith: max)
+            try await editedAt.merge(store.editDates(), uniquingKeysWith: max)
         } catch {
             Logger.app.error("The recent routines didn't load: \(error)")
         }
