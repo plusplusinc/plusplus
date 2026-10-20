@@ -10,7 +10,9 @@ import WorkoutStore
 ///
 /// Nothing in it changes while any of it shows: its rows and the mark are taken as it starts to
 /// show and held until it has fully closed, so a tap that switches routines, or a swipe, never
-/// moves a row under the finger. The next opening shows them as they are then.
+/// moves a row under the finger. The next opening shows them as they are then: once fully
+/// closed, it reads the saved routines again, so a launch read that failed or landed late is
+/// made good by the next close.
 struct DrawerMenu: View {
     let session: RoutineSession
     let namer: RoutineNamer
@@ -55,6 +57,11 @@ struct DrawerMenu: View {
         // The drawer is built as it starts to show, so these run each time it does, before its
         // first frame.
         .onAppear { held = Contents(session) }
+        // It leaves the hierarchy only once fully closed, so the read never reaches a drawer
+        // that shows: the next opening takes it.
+        .onDisappear {
+            Task { await session.refreshRecent(weightUnit: weightUnit) }
+        }
         .task { isTitleFocused = true }
         .hotReloadable()
     }
