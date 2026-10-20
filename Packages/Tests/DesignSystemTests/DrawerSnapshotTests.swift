@@ -132,12 +132,7 @@ struct DrawerSnapshotTests {
                 .ppFixedTitleFont()
                 .foregroundStyle(.pp(.textPrimary))
                 .padding(.bottom, Spacing.md)
-            ForEach(names, id: \.self) { name in
-                if name != names.first {
-                    Hairline()
-                }
-                NameRow(name)
-            }
+            ForEach(names, id: \.self, content: NameRow.init)
         }
         .padding(.horizontal, Spacing.md)
         .padding(.top, Spacing.sm)
@@ -146,7 +141,7 @@ struct DrawerSnapshotTests {
         .background(Color.pp(.background))
     }
 
-    @Test("The Routines screen: a name per row, between hairlines, a long one wrapping")
+    @Test("The Routines screen: a name per row, a long one wrapping")
     func routinesScreen() {
         assertThemedSnapshots(
             of: routinesList([

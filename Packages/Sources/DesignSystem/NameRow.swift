@@ -24,26 +24,9 @@ public struct NameRow: View {
     }
 }
 
-/// The thinnest line the screen can draw, between rows.
-public struct Hairline: View {
-    @Environment(\.displayScale) private var displayScale
-    @ObserveHotReload private var hotReload
-
-    public init() { }
-
-    public var body: some View {
-        Rectangle()
-            .fill(.pp(.borderStrong))
-            .frame(height: 1 / displayScale)
-            .accessibilityHidden(true)
-            .hotReloadable()
-    }
-}
-
 #Preview {
     VStack(spacing: 0) {
         NameRow("Leg day")
-        Hairline()
         NameRow("Upper body strength and conditioning")
     }
     .padding()

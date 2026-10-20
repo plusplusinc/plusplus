@@ -51,7 +51,7 @@ What each tier holds today:
   and pressed on an end; and a member's shared rounds in its sheet. The drawer is drawn open
   through `SideDrawer`'s internal `progress:` initializer, its places composed as `DrawerMenu`
   composes them, with a routine, Routines, and an untouched new routine's own row each marked; the Routines screen's list is
-  drawn from `NameRow` and `Hairline`. Their bars are the system's. A snapshot draws each text size fresh, so the title's height after a live text size
+  drawn from `NameRow`. Their bars are the system's. A snapshot draws each text size fresh, so the title's height after a live text size
   change is held by `EditableTitleTextSizeTests`, which hosts `EditableTitleContent` in a window
   and changes the window's content size category, the field focused and not. Hosted the same
   way, `EditableTitleCaretTests` reads the `_` at every place of the caret against CoreText's
