@@ -140,7 +140,7 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   New's plus, sits in the column of the place above's icon, on the name's first line.
   Nothing in the drawer changes while any of it shows: `DrawerMenu` takes its rows and its mark
   from the session as it enters the hierarchy and holds them until it leaves, so a tap that
-  switches routines, or a swipe, never moves or re-marks a row; the next opening once it has fully closed reads afresh.
+  switches routines, or a swipe, never moves or re-marks a row; the next opening once it has fully closed reads afresh. As it leaves, it reads the saved routines from the store again, so a launch read that failed or landed late is made good by the next opening.
   The Routines screen lists each routine as a `NameRow`, its name in the drawer's font
   (`ppRoutineName`, SF Pro, as it can't be edited there), with no lines between rows.
 - A generated name arrives in the title on its own clock (`SuggestionTiming`, one

@@ -70,7 +70,7 @@ What each tier holds today:
   resting leaving unpaired, a rest-made pair taking the larger set count (and keeping it across
   a relaunch, in `RoutineAutosaveUITests`), and a join at AX5 under the audit; the drawer opened
   by ++ and the edge swipe and closed by the sliver and a swipe left, switching routines with the
-  one showing marked, a new one's row included, opening counting across a relaunch, and the Routines screen's list and
+  one showing marked, a new one's row included, opening counting across a relaunch, the order kept in one session after opening one from the drawer and an edit moving it to the top, and the Routines screen's list and
   drill-in, popped by the chevron and the edge swipe, and both under the audit at AX5, read from each row's VoiceOver value; and what the app saved, seen only by
   quitting and launching again, a dragged row's place and a superset's shared rounds included. Each launch costs about 9 s on
   CI, so there is one UI test per launch configuration:
