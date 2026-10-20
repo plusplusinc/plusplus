@@ -149,8 +149,6 @@ struct RoutineScreen: View {
             // below the top of the visible area. Starting there keeps the title still.
             .padding(.top, Spacing.sm)
         }
-        // UIKit lists scroll bars for VoiceOver apart from the content.
-        .scrollIndicators(session.isDrawerOpen ? .hidden : .automatic)
         .scrollPosition($scrollPosition)
         .railAutoscroll($scrollPosition)
         .onScrollGeometryChange(for: ScrollGeometry.self, of: { $0 }, action: keepEndInView)
@@ -165,7 +163,6 @@ struct RoutineScreen: View {
         .primaryKeyBar(isPresented: !routine.exercises.isEmpty) {
             // Starting a workout is a later slice.
             Button("Start", systemImage: "play.fill") { }
-                .hiddenBehindDrawer(session.isDrawerOpen)
         }
         // One row open at a time, closed by a scroll or a tap anywhere else, Start included,
         // so the container holds Start's bar as well as the scroll view.
@@ -217,7 +214,7 @@ struct RoutineScreen: View {
                     // A heading, as the system's own bar title is.
                     .accessibilityAddTraits(.isHeader)
                     .accessibilityHint("Scrolls to the top.")
-                    .hiddenBehindDrawer(session.isDrawerOpen)
+                    .hiddenBehindDrawer()
                     .transition(.opacity)
                 }
             }

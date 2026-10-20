@@ -26,7 +26,8 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
     @State private var isDrawerInView: Bool
     /// How far open the drawer was as the swipe following the finger began; nil with none.
     @State private var swipeStart: CGFloat?
-    /// The drawer faded out, with Reduce Motion, before it fades in or once it has faded out.
+    /// The drawer faded out, with Reduce Motion, before it fades in or once it has faded out:
+    /// an opacity transition faded it in but, on removal, dropped it in one frame.
     @State private var isDrawerFaded = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
@@ -79,6 +80,10 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
                     .frame(width: proxy.size.width)
                     .allowsHitTesting(!isOpen && swipeStart == nil)
                     .accessibilityHidden(isOpen)
+                    // The screen's bars, hosted apart from it, take their part from here.
+                    .environment(\.isBehindOpenDrawer, isOpen)
+                    // UIKit lists scroll bars for VoiceOver apart from the content.
+                    .scrollIndicators(isOpen ? .hidden : .automatic)
                     .background {
                         Color.pp(.background)
                             .shadow(
@@ -171,7 +176,7 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
             }
             withAnimation(DrawerMetrics.fade) { isDrawerFaded = !open } completion: {
                 if open == target {
-                    withTransaction(Transaction(animation: nil)) { shown = end }
+                    shown = end
                 }
                 rest(open: open)
             }
@@ -193,17 +198,31 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
 }
 
 extension View {
-    /// Leaves VoiceOver while `isOpen`, for a control in a bar of the screen beside an open
-    /// `SideDrawer`: the navigation bar and a `safeAreaBar` are hosted apart from the screen,
-    /// out of reach of the drawer's modal trait and of `accessibilityHidden` on the screen, and
-    /// they ignore `accessibilityHidden` on the control too. An empty representation they keep.
-    public func hiddenBehindDrawer(_ isOpen: Bool) -> some View {
-        accessibilityRepresentation {
-            if !isOpen {
-                self
+    /// Leaves VoiceOver while a `SideDrawer` is open beside it, for a control in a bar of the
+    /// screen: the navigation bar and a `safeAreaBar` are hosted apart from the screen, out of
+    /// reach of the drawer's modal trait and of `accessibilityHidden` on the screen, and they
+    /// ignore `accessibilityHidden` on the control too. An empty representation they keep.
+    /// `primaryKeyBar` applies it; a toolbar item has to itself.
+    public func hiddenBehindDrawer() -> some View {
+        modifier(HiddenBehindDrawer())
+    }
+}
+
+private struct HiddenBehindDrawer: ViewModifier {
+    @Environment(\.isBehindOpenDrawer) private var isBehindOpenDrawer
+
+    func body(content: Content) -> some View {
+        content.accessibilityRepresentation {
+            if !isBehindOpenDrawer {
+                content
             }
         }
     }
+}
+
+extension EnvironmentValues {
+    /// Whether the view is on the screen beside an open `SideDrawer`.
+    @Entry var isBehindOpenDrawer = false
 }
 
 /// The haptics, played on the frame the drawer comes within `DrawerMetrics.arrival` of open or

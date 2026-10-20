@@ -36,8 +36,6 @@ struct RoutinesScreen: View {
                 .padding(.bottom, Spacing.md)
             }
             .accessibilityHidden(session.isDrawerOpen)
-            // UIKit lists scroll bars for VoiceOver apart from the content.
-            .scrollIndicators(session.isDrawerOpen ? .hidden : .automatic)
             .background { Color.pp(.background).ignoresSafeArea() }
             .onAppear(perform: takeOrder)
             .onDisappear(perform: takeOrder)
@@ -55,7 +53,7 @@ struct RoutinesScreen: View {
                     Button("New routine", systemImage: "plus") {
                         Task { await session.startNew(pushed: true) }
                     }
-                    .hiddenBehindDrawer(session.isDrawerOpen)
+                    .hiddenBehindDrawer()
                 }
             }
         }
