@@ -67,14 +67,7 @@ struct RoutinesScreen: View {
         Button {
             Task { await session.open(routine.id, weightUnit: weightUnit, pushed: true) }
         } label: {
-            // A later card puts the routine's schedule trailing, beside the name.
-            Text(namer.shownName(of: routine) ?? String(localized: "New routine"))
-                .font(.ppRoutineName)
-                .foregroundStyle(.pp(.textPrimary))
-                .multilineTextAlignment(.leading)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, Spacing.md)
-                .contentShape(.rect)
+            NameRow(namer.shownName(of: routine) ?? String(localized: "New routine"))
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
@@ -91,31 +84,6 @@ struct RoutinesScreen: View {
 
     private var weightUnit: WeightUnit {
         WeightUnit(region: locale)
-    }
-}
-
-extension [Routine] {
-    /// The routines as they are now, in an order taken earlier, so a list doesn't reorder in
-    /// view; one not in it yet goes first.
-    func held(in order: [Routine.ID]) -> [Routine] {
-        let place = Dictionary(uniqueKeysWithValues: order.enumerated().map { ($1, $0) })
-        return enumerated()
-            .sorted { (place[$0.element.id] ?? $0.offset - order.count)
-                < (place[$1.element.id] ?? $1.offset - order.count)
-            }
-            .map(\.element)
-    }
-}
-
-/// The thinnest line the screen can draw, between rows.
-private struct Hairline: View {
-    @Environment(\.displayScale) private var displayScale
-
-    var body: some View {
-        Rectangle()
-            .fill(.pp(.borderStrong))
-            .frame(height: 1 / displayScale)
-            .accessibilityHidden(true)
     }
 }
 

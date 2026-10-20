@@ -85,7 +85,12 @@ private struct DrawerLabel<Icon: View, Title: View>: View {
         } else {
             HStack(spacing: 0) {
                 icon.frame(width: iconColumn)
-                title.padding(.leading, drawerInset)
+                // A place is one word, which at the largest sizes would break mid-word beside
+                // its icon; it shrinks a little to stay whole instead.
+                title
+                    .lineLimit(1)
+                    .minimumScaleFactor(placeNameScale)
+                    .padding(.leading, drawerInset)
             }
             .padding(.horizontal, drawerInset)
             .padding(.vertical, Spacing.xs)
@@ -98,6 +103,9 @@ private struct DrawerLabel<Icon: View, Title: View>: View {
         }
     }
 }
+
+/// How far a top-level place's name may shrink to fit on its line.
+private let placeNameScale: CGFloat = 0.7
 
 /// How far a place's icon sits from the drawer's edge, and its name from the icon.
 private let drawerInset = Spacing.sm + Spacing.xs

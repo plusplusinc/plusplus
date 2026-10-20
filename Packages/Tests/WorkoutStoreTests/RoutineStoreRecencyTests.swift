@@ -109,4 +109,40 @@ struct RoutineStoreRecencyTests {
         #expect(stored.withOpen(second).map(\.name) == ["B edited", "A", "C"])
         #expect(stored.withOpen(Routine()).map(\.name) == ["A", "B", "C"])
     }
+
+    @Test("A list holds the order it was drawn in, as the routines change")
+    func heldOrder() {
+        let first = Self.routine("A")
+        var second = Self.routine("B")
+        let third = Self.routine("C")
+        let order = [first, second, third].map(\.id)
+        second.name = "B edited"
+        // B was opened, so it is now first; the list keeps showing it where it was.
+        #expect([second, first, third].held(in: order).map(\.name) == ["A", "B edited", "C"])
+        // One gone drops out, and the rest keep their places.
+        #expect([third, first].held(in: order).map(\.name) == ["A", "C"])
+    }
+
+    @Test("A routine the order hasn't seen goes first, in its place among the new")
+    func heldNewFirst() {
+        let old = Self.routine("Old")
+        let order = [old.id]
+        let newer = Self.routine("Newer")
+        let newest = Self.routine("Newest")
+        #expect([newest, newer, old].held(in: order).map(\.name) == ["Newest", "Newer", "Old"])
+    }
+
+    @Test("The drawer's three: the latest, the open one first, held as the drawer opened")
+    func drawerThree() {
+        let saved = (1 ... 5).map { Self.routine("R\($0)") }
+        let open = saved[3]
+        let recent = saved.withOpen(open)
+        let order = recent.map(\.id)
+        #expect(recent.held(in: order).prefix(3).map(\.name) == ["R4", "R1", "R2"])
+        // Tapping R2 opens it; the drawer, sliding shut, still draws the order it opened with.
+        let opened = saved.withOpen(saved[1])
+        #expect(opened.held(in: order).prefix(3).map(\.name) == ["R4", "R1", "R2"])
+        // Opened again, it takes the order anew.
+        #expect(opened.held(in: opened.map(\.id)).prefix(3).map(\.name) == ["R2", "R1", "R3"])
+    }
 }
