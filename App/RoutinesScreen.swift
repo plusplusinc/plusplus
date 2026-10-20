@@ -23,13 +23,7 @@ struct RoutinesScreen: View {
                         .foregroundStyle(.pp(.textPrimary))
                         .accessibilityAddTraits(.isHeader)
                         .padding(.bottom, Spacing.md)
-                    let routines = shown
-                    ForEach(routines) { routine in
-                        if routine.id != routines.first?.id {
-                            Hairline()
-                        }
-                        row(routine)
-                    }
+                    ForEach(shown, content: row)
                 }
                 .padding(.horizontal, Spacing.md)
                 .padding(.top, Spacing.sm)

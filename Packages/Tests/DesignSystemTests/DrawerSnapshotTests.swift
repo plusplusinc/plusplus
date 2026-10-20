@@ -23,7 +23,7 @@ struct DrawerSnapshotTests {
     }
 
     /// The drawer as `DrawerMenu` lays it out: the title, Routines, then each routine with its
-    /// node, and New.
+    /// node, a new one showing first, in the placeholder's gray, and New, never marked.
     private func menu(routines: [String], showing: Showing) -> some View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
             Text(verbatim: "PlusPlus")
@@ -34,6 +34,16 @@ struct DrawerSnapshotTests {
                 Button("Routines", systemImage: "rectangle.stack") { }
                     .buttonStyle(.drawer(isSelected: showing == .routines))
                 VStack(alignment: .leading, spacing: Spacing.xs) {
+                    if showing == .new {
+                        Button { } label: {
+                            Label {
+                                Text("New routine").foregroundStyle(.pp(.textSecondary))
+                            } icon: {
+                                DrawerNode(isLit: true)
+                            }
+                        }
+                        .buttonStyle(.drawer(isSelected: true, isNested: true))
+                    }
                     ForEach(routines, id: \.self) { name in
                         let isShowing = showing == .routine(name)
                         Button { } label: {
@@ -42,7 +52,7 @@ struct DrawerSnapshotTests {
                         .buttonStyle(.drawer(isSelected: isShowing, isNested: true))
                     }
                     Button("New", systemImage: "plus") { }
-                        .buttonStyle(.drawer(isSelected: showing == .new, isNested: true))
+                        .buttonStyle(.drawer(isSelected: false, isNested: true))
                 }
             }
         }
@@ -107,10 +117,10 @@ struct DrawerSnapshotTests {
         )
     }
 
-    @Test("The drawer open on a new routine: New is marked, under the one routine saved")
+    @Test("The drawer open on a new routine: its gray row is marked, above the two latest")
     func newShowing() {
         assertThemedSnapshots(
-            of: drawer(routines: ["Leg day"], showing: .new),
+            of: drawer(routines: ["Leg day", "Upper body"], showing: .new),
             width: Self.screenWidth,
         )
     }
@@ -122,12 +132,7 @@ struct DrawerSnapshotTests {
                 .ppFixedTitleFont()
                 .foregroundStyle(.pp(.textPrimary))
                 .padding(.bottom, Spacing.md)
-            ForEach(names, id: \.self) { name in
-                if name != names.first {
-                    Hairline()
-                }
-                NameRow(name)
-            }
+            ForEach(names, id: \.self, content: NameRow.init)
         }
         .padding(.horizontal, Spacing.md)
         .padding(.top, Spacing.sm)
@@ -136,12 +141,12 @@ struct DrawerSnapshotTests {
         .background(Color.pp(.background))
     }
 
-    @Test("The Routines screen: a name per row, between hairlines, a long one wrapping")
+    @Test("The Routines screen: a name per row, a long one wrapping")
     func routinesScreen() {
         assertThemedSnapshots(
             of: routinesList([
                 "Leg day",
-                "Upper body strength and conditioning",
+                "Upper body strength, conditioning, and mobility",
                 "Chest and back",
                 "Core",
             ]),

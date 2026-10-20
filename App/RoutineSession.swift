@@ -1,3 +1,4 @@
+import Foundation
 import Observation
 import OSLog
 import WorkoutStore
@@ -21,7 +22,12 @@ final class RoutineSession {
     var isRoutinePushed = false
     /// The saved routines, latest first, as of the last read, with each routine left since.
     private var saved: [Routine] = []
+    /// When each routine was last edited, as of the last read, with each edit made since.
+    private var editedAt: [Routine.ID: Date] = [:]
     private var isSwitching = false
+    /// How many times the routine showing has changed, so a read that a switch overtook is
+    /// dropped.
+    @ObservationIgnored private var switches = 0
 
     /// Nil when the store didn't open: switching works in memory, and nothing saves.
     @ObservationIgnored private let store: RoutineStore?
@@ -47,9 +53,16 @@ final class RoutineSession {
         saved.withOpen(current)
     }
 
+    /// The drawer's routines: the `count` latest opened or edited, the last edited first, so
+    /// opening one never moves it.
+    func recentByEdit(first count: Int) -> [Routine] {
+        recent.lastEdited(first: count, editedAt: editedAt)
+    }
+
     /// Saves a change to the open routine.
     func save(_ routine: Routine) {
         current = routine
+        editedAt[routine.id] = .now
         saves.yield(routine)
     }
 
@@ -67,11 +80,18 @@ final class RoutineSession {
         case new
     }
 
-    /// Reads the saved routines again, as the Routines screen and the drawer show.
+    /// Reads the saved routines again, for the Routines screen and the drawer's next opening.
+    /// A read that fails leaves the last one, to be tried again at the next refresh; one that
+    /// started before a switch is dropped, since it may be missing the routine left.
     func refreshRecent(weightUnit: WeightUnit) async {
         guard let store else { return }
+        let switchesBefore = switches
         do {
-            saved = try await store.routinesByRecency(weightUnit: weightUnit)
+            let read = try await store.routinesByRecency(weightUnit: weightUnit)
+            guard switches == switchesBefore else { return }
+            saved = read.routines
+            // An edit still on its way to the store is newer than what it read.
+            editedAt.merge(read.editedAt, uniquingKeysWith: max)
         } catch {
             Logger.app.error("The recent routines didn't load: \(error)")
         }
@@ -132,6 +152,7 @@ final class RoutineSession {
     private func show(_ routine: Routine, pushed: Bool) {
         // The routine left stays in the list at its place, before its last save reads back.
         saved = recent
+        switches += 1
         opened = routine
         current = routine
         screen = pushed ? .routines : .routine

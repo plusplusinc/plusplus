@@ -8,7 +8,7 @@ extension RoutineAutosaveUITests {
     /// from the Routines screen.
     @MainActor
     func drawerSwitchesRoutines(in app: XCUIApplication, title: XCUIElement) {
-        XCTContext.runActivity(named: "The drawer marks the routine showing, and New") { _ in
+        XCTContext.runActivity(named: "The drawer marks the routine showing, or a new one") { _ in
             app.addExercise("Barbell bench press, Barbell, bench")
             XCTAssertEqual(title.value(becoming: "Chest"), "Chest")
             openDrawer(in: app)
@@ -17,16 +17,18 @@ extension RoutineAutosaveUITests {
             XCTAssertTrue(app.buttons["Chest"].isSelected, "The routine showing isn't marked")
             XCTAssertFalse(app.buttons["Routines"].isSelected)
             attach(named: "drawer-routine")
-            app.buttons["New routine"].tap()
+            app.buttons["New"].tap()
             XCTAssertTrue(app.drawerTitle.disappears(), "New did not close the drawer")
             XCTAssertEqual(title.value(becoming: "New routine"), "New routine")
             XCTAssertEqual(app.exerciseRows.count, 0)
             openDrawer(in: app)
-            XCTAssertTrue(app.buttons["New routine"].isSelected, "New isn't marked on a new one")
+            XCTAssertEqual(drawerRoutines(in: app), ["New routine", "Chest"])
+            XCTAssertTrue(app.buttons["New routine"].isSelected, "The new one isn't marked")
+            XCTAssertFalse(app.buttons["New"].isSelected, "New, an action, is marked")
             XCTAssertFalse(app.buttons["Chest"].isSelected)
-            // On an untouched new routine, New only closes the drawer.
+            // The untouched new routine's row only closes the drawer.
             app.buttons["New routine"].tap()
-            XCTAssertTrue(app.drawerTitle.disappears(), "New did not close the drawer")
+            XCTAssertTrue(app.drawerTitle.disappears(), "The new one's row left the drawer open")
             XCTAssertEqual(title.value as? String, "New routine")
         }
         XCTContext.runActivity(named: "Switching keeps both, and opening counts as using") { _ in
@@ -38,12 +40,41 @@ extension RoutineAutosaveUITests {
             XCTAssertTrue(app.drawerTitle.disappears(), "Opening a routine left the drawer open")
             XCTAssertEqual(title.value(becoming: "Chest"), "Chest")
             XCTAssertEqual(app.exerciseNames, ["Barbell bench press"])
+            openDrawer(in: app)
+            // Opened from the drawer, it keeps its place there, and only the mark moves.
+            XCTAssertEqual(drawerRoutines(in: app), ["Back", "Chest"], "Opening one moved it")
+            XCTAssertTrue(app.buttons["Chest"].isSelected, "The routine opened isn't marked")
+            XCTAssertFalse(app.buttons["Back"].isSelected)
+            app.drawerTitle.tap()
+            XCTAssertTrue(app.drawerTitle.disappears(), "Tapping the title left the drawer open")
             app.relaunch()
             XCTAssertEqual(title.value as? String, "Chest", "Launch didn't reopen the one opened")
             openDrawer(in: app)
-            XCTAssertEqual(drawerRoutines(in: app), ["Chest", "Back"])
+            // Opened, not edited: launch reopens it, and it keeps its place by last edit.
+            XCTAssertEqual(drawerRoutines(in: app), ["Back", "Chest"])
         }
+        drawerEditMovesUp(in: app)
         routinesScreenDrillsIn(in: app, title: title)
+    }
+
+    /// With the drawer open on Back over Chest, Chest showing: editing Chest puts it first in the
+    /// drawer, without a relaunch. Leaves the drawer open.
+    @MainActor
+    private func drawerEditMovesUp(in app: XCUIApplication) {
+        XCTContext.runActivity(named: "Editing a routine moves it to the top of the drawer") { _ in
+            app.drawerTitle.tap()
+            XCTAssertTrue(app.drawerTitle.disappears(), "Tapping the title left the drawer open")
+            app.exerciseRows.element(boundBy: 0).tap()
+            let sets = app.buttons["Sets"]
+            XCTAssertTrue(sets.appears(), "Tapping a row opened no sheet")
+            sets.tap()
+            app.buttons["Increase"].tapAtCenter()
+            XCTAssertEqual(sets.value(becoming: "4 sets"), "4 sets")
+            app.buttons["Close"].tap()
+            XCTAssertTrue(sets.disappears(), "Close left the sheet up")
+            openDrawer(in: app)
+            XCTAssertEqual(drawerRoutines(in: app), ["Chest", "Back"], "The edited one isn't first")
+        }
     }
 
     /// The Routines screen lists every routine, latest first; a row or + pushes a routine with a
@@ -136,7 +167,7 @@ extension RoutineAutosaveUITests {
             return []
         }
         guard let routines = labels.firstIndex(of: "Routines"),
-              let new = labels[routines...].firstIndex(of: "New routine")
+              let new = labels[routines...].firstIndex(of: "New")
         else { return [] }
         return Array(labels[routines + 1 ..< new])
     }
