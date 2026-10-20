@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// A row in a list of names, such as the Routines screen's: the name in SF Mono, as a routine's
-/// title is, across the list's width, at a comfortable tap height. The whole row takes taps.
+/// A row in a list of names, such as the Routines screen's: the name in SF Pro, as it can't be
+/// edited there, across the list's width, at a comfortable tap height. The whole row takes taps.
 public struct NameRow: View {
     private let name: String
 

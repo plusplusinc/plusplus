@@ -151,7 +151,7 @@ struct DrawerSnapshotTests {
         assertThemedSnapshots(
             of: routinesList([
                 "Leg day",
-                "Upper body strength and conditioning",
+                "Upper body strength, conditioning, and mobility",
                 "Chest and back",
                 "Core",
             ]),

@@ -24,8 +24,9 @@ extension Font {
     public static let ppRowDetailNumber = Font.system(.subheadline, design: .monospaced)
     /// The numbers in a value at the row title's size and weight: SF Mono.
     public static let ppRowTitleNumber = Font.system(.body, design: .monospaced, weight: .semibold)
-    /// A routine's name in a list of routines: SF Mono, as its title is, at a row's size.
-    public static let ppRoutineName = Font.system(.headline, design: .monospaced, weight: .bold)
+    /// A routine's name in a list of routines: SF Pro, as the name can't be edited there, at the
+    /// drawer's size and weight, so a row reads the same in both.
+    public static let ppRoutineName = Font.system(.body, weight: .medium)
     /// A place in the drawer, Routines or a routine under it: one font for all, so none reads as
     /// a heading over the others.
     public static let ppDrawerItem = Font.system(.body, weight: .medium)
