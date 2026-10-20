@@ -12,9 +12,11 @@ rules file disagree, this file wins.
 **Status: routines, saved, and a drawer between them.** The app launches into the routine last
 opened or edited, or a new, empty one, which you can name and add built-in exercises to. ++, or
 a swipe in from the left edge, slides the screen aside, darkened, onto a drawer: Routines, the
-three routines last opened or edited, the last edited first, and New, the one showing marked,
-with a haptic as it starts to open and as it starts to shut. Routines opens the Routines screen, every saved routine by name,
-latest first; a row or its + pushes the routine, which a back chevron or the edge swipe pops. Every change saves on the phone
+three routines last opened or edited, the last edited first, and New, an action, never marked;
+an untouched new routine showing takes the first of the three rows, in gray. The place showing
+sits on a fill, and nothing in the drawer changes while it shows. A haptic plays as it starts to
+open and as it starts to shut. Routines opens the Routines screen, every saved routine by name
+in the drawer's font, latest first, with no lines between rows; a row or its + pushes the routine, which a back chevron or the edge swipe pops. Every change saves on the phone
 on its own: an untouched new routine is never saved, and one cleared to nothing is deleted. An
 unnamed routine with exercises gets a name, written in code from its exercises' tags, which it
 keeps across launches and which opens as text to edit. Each exercise in a routine carries its

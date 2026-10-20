@@ -132,14 +132,17 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   fill, a `RoundedRectangle(cornerRadius: Radius.key, style: .continuous)`, under icon and
   name, with as much space to the icon's left as above and below it (the dot, for a routine,
   marked with `DrawerIconBounds`), ending 16 pt short of the drawer's trailing edge, and one
-  always does. New is an action and is never
+  always does. The three routines are the last opened or edited, in the order they were last
+  edited (`lastEdited(first:editedAt:)`), so opening one never moves it. New is an action and is never
   marked: while an untouched new routine shows, it has its own row at the top of the three,
   New routine in the title's placeholder gray (`textSecondary`), its node lit and marked, above
   the two routines last opened or edited. A nested place's icon, a routine's `DrawerNode` or
   New's plus, sits in the column of the place above's icon, on the name's first line.
   Nothing in the drawer changes while any of it shows: `DrawerMenu` takes its rows and its mark
   from the session as it enters the hierarchy and holds them until it leaves, so a tap that
-  switches routines, or a swipe, never moves or re-marks a row; the next opening reads afresh.
+  switches routines, or a swipe, never moves or re-marks a row; the next opening once it has fully closed reads afresh.
+  The Routines screen lists each routine as a `NameRow`, its name in the drawer's font
+  (`ppRoutineName`, SF Pro, as it can't be edited there), with no lines between rows.
 - A generated name arrives in the title on its own clock (`SuggestionTiming`, one
   `TimelineView`): the old name fades out (0.15 s), then the new one types in, a character
   every 20 ms, each letter shuffling through the name's other letters in `railJoin` for 50 ms,
