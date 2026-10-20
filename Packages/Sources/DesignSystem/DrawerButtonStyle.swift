@@ -96,8 +96,8 @@ private struct DrawerLabel<Icon: View, Title: View>: View {
     /// The icon, its bounds offered for the fill unless it marks its own (a node marks its dot).
     private var markedIcon: some View {
         icon
-            .transformAnchorPreference(key: DrawerIconBounds.self, value: .bounds) { bounds, anchor in
-                bounds = bounds ?? anchor
+            .transformAnchorPreference(key: DrawerIconBounds.self, value: .bounds) {
+                $0 = $0 ?? $1
             }
             .frame(width: iconColumn)
     }
