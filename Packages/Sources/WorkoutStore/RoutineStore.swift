@@ -49,6 +49,16 @@ public actor RoutineStore {
             .map { Self.routine(from: $0, weightUnit: weightUnit) }
     }
 
+    /// When each saved routine was last edited, its name or its rows, apart from when it was
+    /// opened.
+    public func editDates() throws -> [Routine.ID: Date] {
+        // Ids are unique in the app's own writes; keyed leniently against a store that isn't.
+        try Dictionary(
+            modelContext.fetch(FetchDescriptor<StoredRoutine>()).map { ($0.id, $0.editedAt) },
+            uniquingKeysWith: max,
+        )
+    }
+
     /// Saves the routine as it is now, edited at `now`, or deletes it once it is empty.
     public func save(_ routine: Routine, at now: Date = .now) throws {
         let stored = try stored(id: routine.id)

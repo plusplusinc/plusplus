@@ -3,15 +3,12 @@ import SwiftUI
 import WorkoutStore
 
 /// What ++ opens: the app's title, and Routines, which shows every routine, with the three
-/// routines last opened or edited and New under it: each routine's node, and New's plus, sit
-/// in the column of Routines' icon. The item for what's showing is marked; one always is.
+/// routines last opened or edited, the last edited first, and New under it: each routine's
+/// node, and New's plus, sit in the column of Routines' icon. The item for what's showing is marked; one always is.
 struct DrawerMenu: View {
     let session: RoutineSession
     let namer: RoutineNamer
 
-    /// The order the routines are drawn in, taken as the drawer opens, so the one tapped moves
-    /// to the top on the next opening, not as the drawer slides shut.
-    @State private var order: [Routine.ID] = []
     @AccessibilityFocusState private var isTitleFocused: Bool
     @Environment(\.locale) private var locale
     @ObserveHotReload private var hotReload
@@ -46,14 +43,7 @@ struct DrawerMenu: View {
         }
         // The drawer is built as it opens, so these run on each opening.
         .task { isTitleFocused = true }
-        .task {
-            order = session.recent.map(\.id)
-            await session.refreshRecent(weightUnit: weightUnit)
-            // Unless a tap has already switched and closed the drawer, moving its routine up.
-            if session.isDrawerOpen {
-                order = session.recent.map(\.id)
-            }
-        }
+        .task { await session.refreshRecent(weightUnit: weightUnit) }
         .hotReloadable()
     }
 
@@ -61,7 +51,7 @@ struct DrawerMenu: View {
     private var routines: some View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
             // A later card will make the last of these the upcoming scheduled routine.
-            ForEach(session.recent.held(in: order).prefix(Self.recentCount)) { routine in
+            ForEach(session.recentByEdit(first: Self.recentCount)) { routine in
                 Button {
                     Task { await session.open(routine.id, weightUnit: weightUnit) }
                 } label: {

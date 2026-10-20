@@ -144,17 +144,55 @@ struct RoutineStoreRecencyTests {
         #expect([old, newer, newest].held(in: order).map(\.name) == ["Newer", "Newest", "Old"])
     }
 
-    @Test("The drawer's three: the latest, the open one first, held as the drawer opened")
-    func drawerThree() {
-        let saved = (1 ... 5).map { Self.routine("R\($0)") }
-        let open = saved[3]
-        let recent = saved.withOpen(open)
-        let order = recent.map(\.id)
-        #expect(recent.held(in: order).prefix(3).map(\.name) == ["R4", "R1", "R2"])
-        // Tapping R2 opens it; the drawer, sliding shut, still draws the order it opened with.
-        let opened = saved.withOpen(saved[1])
-        #expect(opened.held(in: order).prefix(3).map(\.name) == ["R4", "R1", "R2"])
-        // Opened again, it takes the order anew.
-        #expect(opened.held(in: opened.map(\.id)).prefix(3).map(\.name) == ["R2", "R1", "R3"])
+    /// The drawer's three, as a relaunch reads them.
+    private func drawerThree() async throws -> [String] {
+        let store = relaunch()
+        return try await store.routinesByRecency(weightUnit: .pounds)
+            .lastEdited(first: 3, editedAt: store.editDates())
+            .map(\.name)
+    }
+
+    /// Four routines edited in turn, A first and D last.
+    private func saveFour(to store: RoutineStore) async throws -> [Routine] {
+        let routines = ["A", "B", "C", "D"].map(Self.routine)
+        for (index, routine) in routines.enumerated() {
+            try await store.save(routine, at: Self.at(TimeInterval(index + 1)))
+        }
+        return routines
+    }
+
+    @Test("The drawer's three stay put as one of them is opened")
+    func drawerOpenKeepsOrder() async throws {
+        let store = relaunch()
+        let routines = try await saveFour(to: store)
+        #expect(try await drawerThree() == ["D", "C", "B"])
+        _ = try await store.openRoutine(routines[1].id, weightUnit: .pounds, at: Self.at(10))
+        #expect(try await drawerThree() == ["D", "C", "B"])
+    }
+
+    @Test("A routine edited goes to the top of the drawer's three")
+    func drawerEditMovesUp() async throws {
+        let store = relaunch()
+        var routines = try await saveFour(to: store)
+        routines[2].name = "C edited"
+        try await store.save(routines[2], at: Self.at(10))
+        #expect(try await drawerThree() == ["C edited", "D", "B"])
+    }
+
+    @Test("Which three show follows opening, and the one opened takes its place by its edit")
+    func drawerMembershipFollowsRecency() async throws {
+        let store = relaunch()
+        let routines = try await saveFour(to: store)
+        // A, out of the three, opened: it comes in, and B, now least recent, goes.
+        _ = try await store.openRoutine(routines[0].id, weightUnit: .pounds, at: Self.at(10))
+        #expect(try await drawerThree() == ["D", "C", "A"])
+    }
+
+    @Test("Routines edited at the same moment, or never, keep their recency order")
+    func drawerTies() {
+        let routines = ["A", "B", "C"].map(Self.routine)
+        let edited = [routines[2].id: Self.at(5)]
+        #expect(routines.lastEdited(first: 3, editedAt: edited).map(\.name) == ["C", "A", "B"])
+        #expect(routines.lastEdited(first: 2, editedAt: [:]).map(\.name) == ["A", "B"])
     }
 }

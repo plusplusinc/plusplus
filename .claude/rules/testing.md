@@ -29,7 +29,7 @@ What each tier holds today:
   of its superset not pairing, where a row's node is read only at rest, and the room above the
   rail scrolling the list and moving to the size asked; routines' recency (`routinesByRecency`,
   opened or edited, and `withOpen`), what launch reopens, a list holding the order it was drawn
-  in (`held(in:)`), and the drawer's three; and a drawer swipe's arithmetic (`DrawerDrag`).
+  in (`held(in:)`), and the drawer's three, in the order they were last edited; and a drawer swipe's arithmetic (`DrawerDrag`).
 - **Snapshots** hold how a component looks, at rest and while editing. The title's editing look,
   `_` included, is drawn from plain values through `EditableTitleContent`, reached with
   `@testable import`, so no focus or keyboard is needed; its `blinks: false` holds the `_` lit,

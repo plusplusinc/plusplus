@@ -25,6 +25,9 @@ public enum ColorToken: String, CaseIterable, Sendable {
     /// `rail`. Never at rest, and never the line.
     case railJoin = "ppRailJoin"
     /// The soft shadow all around something lifted off the screen, such as a held row's card.
+    /// The fill under the place the drawer marks as showing: a step from the background in
+    /// both appearances, further than `surface`.
+    case selectionFill = "ppSelectionFill"
     case shadow = "ppShadow"
     case surface = "ppSurface"
     /// The fill of something lifted off the screen, such as a row held to be moved: lighter

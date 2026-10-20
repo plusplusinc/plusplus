@@ -1,3 +1,4 @@
+import Foundation
 import Observation
 import OSLog
 import WorkoutStore
@@ -21,6 +22,8 @@ final class RoutineSession {
     var isRoutinePushed = false
     /// The saved routines, latest first, as of the last read, with each routine left since.
     private var saved: [Routine] = []
+    /// When each routine was last edited, as of the last read, with each edit made since.
+    private var editedAt: [Routine.ID: Date] = [:]
     private var isSwitching = false
 
     /// Nil when the store didn't open: switching works in memory, and nothing saves.
@@ -47,9 +50,16 @@ final class RoutineSession {
         saved.withOpen(current)
     }
 
+    /// The drawer's routines: the `count` latest opened or edited, the last edited first, so
+    /// opening one never moves it.
+    func recentByEdit(first count: Int) -> [Routine] {
+        recent.lastEdited(first: count, editedAt: editedAt)
+    }
+
     /// Saves a change to the open routine.
     func save(_ routine: Routine) {
         current = routine
+        editedAt[routine.id] = .now
         saves.yield(routine)
     }
 
@@ -72,6 +82,8 @@ final class RoutineSession {
         guard let store else { return }
         do {
             saved = try await store.routinesByRecency(weightUnit: weightUnit)
+            // An edit still on its way to the store is newer than what it read.
+            editedAt.merge(try await store.editDates(), uniquingKeysWith: max)
         } catch {
             Logger.app.error("The recent routines didn't load: \(error)")
         }

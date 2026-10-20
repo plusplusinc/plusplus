@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// A place the drawer goes: its icon and name, with no outline, taking taps across the drawer's
-/// width. The place showing sits on a rounded raised fill, icon and name. Pressing dims it, as a
+/// width. The place showing sits on a rounded fill, icon and name. Pressing dims it, as a
 /// key does.
 ///
 /// A nested place, under another, puts its icon (a `DrawerNode`, or a symbol) in the column of
@@ -87,7 +87,7 @@ private struct DrawerLabel<Icon: View, Title: View>: View {
         // The whole row, icon and name, so what's marked reads as one place.
         .background {
             if isSelected {
-                shape.fill(.pp(.surfaceRaised))
+                shape.fill(.pp(.selectionFill))
             }
         }
     }
