@@ -10,18 +10,22 @@ struct RoutineLauncher: View {
     let namer: RoutineNamer
     let resetsStore: Bool
 
-    @State private var routine: Routine?
+    @State private var session: RoutineSession?
     @Environment(\.locale) private var locale
     @ObserveHotReload private var hotReload
 
     var body: some View {
         Group {
-            if let routine {
-                RoutineScreen(routine: routine, store: store, namer: namer)
+            if let session {
+                // A switch to another routine gives a fresh screen: scroll, sheets, and title.
+                RoutineScreen(session: session, namer: namer)
+                    .id(session.opened.id)
             } else {
                 Color.pp(.background)
                     .ignoresSafeArea()
-                    .task { routine = await launchRoutine() }
+                    .task {
+                        session = await RoutineSession(routine: launchRoutine(), store: store)
+                    }
             }
         }
         .hotReloadable()

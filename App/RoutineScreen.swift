@@ -1,5 +1,4 @@
 import DesignSystem
-import OSLog
 import SwiftUI
 import WorkoutStore
 
@@ -9,13 +8,9 @@ import WorkoutStore
 /// in it, and deleted once it is cleared back to nothing.
 struct RoutineScreen: View {
     @State private var routine: Routine
-    /// Nil when the store didn't open: the screen works, and nothing saves.
-    private let store: RoutineStore?
+    /// Saves every change, and opens the drawer.
+    private let session: RoutineSession
     private let namer: RoutineNamer
-    /// Where every change to the routine goes, to be saved one at a time in the order they
-    /// happened, so an older version can never land last. The save task sets it, since a stream
-    /// is spent once its task ends, and a task run again needs a new one.
-    @State private var saves: AsyncStream<Routine>.Continuation?
     @State private var isPicking = false
     /// The row whose values are open in a sheet, as it was when opened: only its id is read.
     @State private var editing: RoutineExercise?
@@ -47,9 +42,10 @@ struct RoutineScreen: View {
 
     private static let defaultName = String(localized: "New routine")
 
-    init(routine: Routine, store: RoutineStore?, namer: RoutineNamer) {
-        _routine = State(initialValue: routine)
-        self.store = store
+    /// Shows the routine the session opened. A switch to another gives a new screen.
+    init(session: RoutineSession, namer: RoutineNamer) {
+        _routine = State(initialValue: session.opened)
+        self.session = session
         self.namer = namer
     }
 
@@ -62,8 +58,7 @@ struct RoutineScreen: View {
 
     var body: some View {
         let generatedName = generatedName
-        // The name the title shows: chosen, else generated, else none.
-        let shownName = routine.name.isEmpty ? generatedName : routine.name
+        let shownName = namer.shownName(of: routine)
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: Spacing.md) {
@@ -205,8 +200,9 @@ struct RoutineScreen: View {
                     }
                 }
                 ToolbarItem(placement: .topBarLeading) {
-                    // The drawer is a later slice.
-                    Button { } label: {
+                    Button {
+                        session.isDrawerOpen = true
+                    } label: {
                         Text(verbatim: "++")
                             .font(.ppMark)
                             .foregroundStyle(.pp(.accent))
@@ -225,22 +221,7 @@ struct RoutineScreen: View {
         .onTouchDownOutsideTitle { isEditingTitle = false }
         // `onChange` skips the first value, so a routine opened and left alone is never saved.
         .onChange(of: routine) { _, changed in
-            saves?.yield(changed)
-        }
-        .task {
-            // Only the newest unsaved version waits.
-            let (stream, continuation) = AsyncStream.makeStream(
-                of: Routine.self,
-                bufferingPolicy: .bufferingNewest(1),
-            )
-            saves = continuation
-            for await version in stream {
-                do {
-                    try await store?.save(version)
-                } catch {
-                    Logger.app.error("The routine didn't save: \(error)")
-                }
-            }
+            session.save(changed)
         }
         .hotReloadable()
     }
@@ -395,5 +376,8 @@ extension RoutineScreen {
 }
 
 #Preview {
-    RoutineScreen(routine: Routine(), store: nil, namer: .muscleGroupsOnly)
+    RoutineScreen(
+        session: RoutineSession(routine: Routine(), store: nil),
+        namer: .muscleGroupsOnly,
+    )
 }
