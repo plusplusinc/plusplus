@@ -119,14 +119,18 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   screen-edge recognizer never begins on synthetic touches); let go, it settles the way a flick
   of 400 pt/s goes, else to the nearer side of halfway, leaving at the finger's speed
   (`DrawerDrag`). A tap on the sliver, on the drawer's title, or VoiceOver's escape closes it.
-  The haptics play as the drawer visibly arrives, within 3 pt of open or closed, read each frame
+  The haptics play as the drawer visibly arrives, within 10 pt of open or closed, read each frame
   (`ArrivalFeedback`), not on the spring's completion, which comes later in its tail: soft at 0.8
   arriving open, rigid at 1.0 shutting; a swipe that springs back to where it began plays
-  nothing. With Reduce Motion nothing follows the finger: a 30 pt swipe decides, and the screen
-  fades out (0.1 s), moves, and fades back in. The drawer is in the hierarchy only while it
+  nothing. With Reduce Motion nothing follows the finger: a 30 pt swipe decides, and only
+  opacity animates: opening, the screen and its dim take their place at once and the drawer
+  fades in beside them (0.2 s); closing, the drawer fades out and the screen then goes back. The
+  controls in the screen's bars, hosted apart from it, leave VoiceOver behind the open drawer on
+  their own (`hiddenBehindDrawer`), as the scroll bars do by hiding. The drawer is in the hierarchy only while it
   shows. Its places (`DrawerButtonStyle`) have no outline; the one showing sits on a `surface`
   fill with continuous corners (`Radius.key`), and one always does. A nested place's icon, a
-  routine's `DrawerNode` or New's plus, sits in the column of the place above's icon.
+  routine's `DrawerNode` or New's plus, sits in the column of the place above's icon, on the
+  name's first line.
 - A generated name arrives in the title on its own clock (`SuggestionTiming`, one
   `TimelineView`): the old name fades out (0.15 s), then the new one types in, a character
   every 20 ms, each letter shuffling through the name's other letters in `railJoin` for 50 ms,

@@ -27,6 +27,7 @@ struct MenuButton: View {
                 .offset(y: -Self.markLift)
         }
         .accessibilityLabel("Menu")
+        .hiddenBehindDrawer(session.isDrawerOpen)
         .accessibilityFocused($isFocused)
         .onChange(of: session.isDrawerOpen) { _, isOpen in
             if !isOpen {

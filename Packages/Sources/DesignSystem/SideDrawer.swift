@@ -2,7 +2,8 @@ import SwiftUI
 
 /// A drawer under the screen: opening it slides the screen right, leaving a sliver of it in
 /// view. A swipe in from the left edge opens it, following the finger; a tap on the sliver, a
-/// swipe left, or VoiceOver's escape closes it. With Reduce Motion it fades rather than slides.
+/// swipe left, or VoiceOver's escape closes it. With Reduce Motion the screen moves at once and
+/// the drawer fades in beside it, or out before it moves back.
 /// The screen darkens as the drawer opens. A haptic plays the moment the drawer visibly arrives
 /// open, and another, firmer, the moment it shuts; a swipe that springs back to where it began
 /// plays none.
@@ -25,8 +26,8 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
     @State private var isDrawerInView: Bool
     /// How far open the drawer was as the swipe following the finger began; nil with none.
     @State private var swipeStart: CGFloat?
-    /// The screen faded out, with Reduce Motion, while it moves unseen.
-    @State private var isContentFaded = false
+    /// The drawer faded out, with Reduce Motion, before it fades in or once it has faded out.
+    @State private var isDrawerFaded = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
@@ -64,12 +65,13 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
         GeometryReader { proxy in
             let drawerWidth = max(proxy.size.width - DrawerMetrics.sliver, 0)
             ZStack(alignment: .leading) {
-                // Behind the sliver while the screen fades, with Reduce Motion.
+                // Behind the drawer while it fades, with Reduce Motion.
                 Color.pp(.background).ignoresSafeArea()
                 if isDrawerInView {
                     drawer
                         .frame(width: drawerWidth)
                         .background { Color.pp(.background).ignoresSafeArea() }
+                        .opacity(isDrawerFaded ? 0 : 1)
                         .accessibilityAddTraits(.isModal)
                         .accessibilityAction(.escape) { isOpen = false }
                 }
@@ -102,7 +104,6 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
                                 .accessibilityHidden(true)
                         }
                     }
-                    .opacity(isContentFaded ? 0 : 1)
                     .offset(x: progress * drawerWidth)
             }
             .modifier(ArrivalFeedback(progress: progress, width: drawerWidth))
@@ -152,19 +153,27 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
         }
     }
 
-    /// Slides the drawer open or closed, leaving at `speed` (lengths of its way a second), or
-    /// with Reduce Motion fades the screen out, moves it, and fades it back in.
+    /// Slides the drawer open or closed, leaving at `speed` (lengths of its way a second). With
+    /// Reduce Motion only opacity animates: opening, the screen and its dim take their place
+    /// beside the drawer at once and the drawer fades in; closing, the drawer fades out and the
+    /// screen goes back once it has.
     private func settle(open: Bool, speed: CGFloat = 0) {
         target = open
         isOpen = open
         isDrawerInView = true
         let end: CGFloat = open ? 1 : 0
         guard !reduceMotion else {
-            withAnimation(DrawerMetrics.fade) { isContentFaded = true } completion: {
-                shown = end
-                withAnimation(DrawerMetrics.fade) { isContentFaded = false } completion: {
-                    rest(open: open)
+            if open {
+                withTransaction(Transaction(animation: nil)) {
+                    isDrawerFaded = true
+                    shown = end
                 }
+            }
+            withAnimation(DrawerMetrics.fade) { isDrawerFaded = !open } completion: {
+                if open == target {
+                    withTransaction(Transaction(animation: nil)) { shown = end }
+                }
+                rest(open: open)
             }
             return
         }
@@ -178,6 +187,21 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
         guard open == target, swipeStart == nil else { return }
         if !open {
             isDrawerInView = false
+            isDrawerFaded = false
+        }
+    }
+}
+
+extension View {
+    /// Leaves VoiceOver while `isOpen`, for a control in a bar of the screen beside an open
+    /// `SideDrawer`: the navigation bar and a `safeAreaBar` are hosted apart from the screen,
+    /// out of reach of the drawer's modal trait and of `accessibilityHidden` on the screen, and
+    /// they ignore `accessibilityHidden` on the control too. An empty representation they keep.
+    public func hiddenBehindDrawer(_ isOpen: Bool) -> some View {
+        accessibilityRepresentation {
+            if !isOpen {
+                self
+            }
         }
     }
 }
@@ -242,11 +266,12 @@ enum DrawerMetrics {
     static let shadowOffset: CGFloat = -14
     /// Opening and closing: quick and without bounce, as a key answers a tap.
     static let slide = Spring(duration: 0.25, bounce: 0)
-    /// Each half of the Reduce Motion cross-fade, out and back in.
-    static let fade = Animation.snappy(duration: 0.1)
-    /// How near open or closed, in points, the drawer is seen to have arrived: from there to
-    /// rest it moves about a point a frame at 60 Hz, half that at 120 Hz.
-    static let arrival: CGFloat = 3
+    /// The drawer fading in or out, with Reduce Motion.
+    static let fade = Animation.easeInOut(duration: 0.2)
+    /// How near open or closed, in points, the drawer is seen to have arrived: the slide's last
+    /// clearly visible step, about 0.21 s into it. The rest of the way, crept a point or two a
+    /// frame, reads as already there.
+    static let arrival: CGFloat = 10
     /// Arriving open: soft, as a panel settling.
     static let opened = SensoryFeedback.impact(flexibility: .soft, intensity: 0.8)
     /// Shutting: rigid and full, so it's felt as the drawer closes.
