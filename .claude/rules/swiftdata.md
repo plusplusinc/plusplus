@@ -38,7 +38,7 @@ marks the routine edited (`editedAt`), since a routine saves only when its name 
 Opening a saved routine (`openRoutine`) marks it opened (`openedAt`), apart, so an open is never
 taken for an edit; a store written before `openedAt` reads it as `distantPast`. A routine's
 recency is the later of the two: `routinesByRecency` sorts on it in Swift, since a sort
-descriptor can't take the later of two dates, and launch opens the latest, an edit winning a
-tie.
+descriptor can't take the later of two dates, a tie going by id, and launch opens the routine
+that list puts first.
 
 SwiftData has no SQL aggregate pushdown; rollups are computed in Swift over fetched rows.

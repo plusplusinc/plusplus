@@ -21,14 +21,13 @@ public actor RoutineStore {
     /// cleared one is deleted. A weight never saved reads as its exercise's default in
     /// `weightUnit`.
     public func launchRoutine(weightUnit: WeightUnit) throws -> Routine? {
-        let edited = try latest(by: SortDescriptor(\.editedAt, order: .reverse))
-        let opened = try latest(by: SortDescriptor(\.openedAt, order: .reverse))
-        // A tie is the same moment; the edit wins it.
-        let launched = switch (edited, opened) {
-        case let (edited?, opened?): opened.openedAt > edited.editedAt ? opened : edited
-        case let (edited, opened): edited ?? opened
+        // The most recent is the latest edited or the latest opened, so two rows decide it.
+        let latest = try [\StoredRoutine.editedAt, \StoredRoutine.openedAt].compactMap {
+            try latest(by: SortDescriptor($0, order: .reverse))
         }
-        return launched.map { Self.routine(from: $0, weightUnit: weightUnit) }
+        return latest.min(by: Self.isMoreRecent(_:than:)).map {
+            Self.routine(from: $0, weightUnit: weightUnit)
+        }
     }
 
     /// Marks the routine opened at `now` and returns it, or nil, storing nothing, if there is
@@ -49,13 +48,8 @@ public actor RoutineStore {
     /// stable. Sorted here: a sort descriptor can't take the later of two dates.
     public func routinesByRecency(weightUnit: WeightUnit) throws -> [Routine] {
         try modelContext.fetch(FetchDescriptor<StoredRoutine>())
-            .map { (recency: max($0.editedAt, $0.openedAt), stored: $0) }
-            .sorted {
-                $0.recency != $1.recency
-                    ? $0.recency > $1.recency
-                    : $0.stored.id.uuidString < $1.stored.id.uuidString
-            }
-            .map { Self.routine(from: $0.stored, weightUnit: weightUnit) }
+            .sorted(by: Self.isMoreRecent(_:than:))
+            .map { Self.routine(from: $0, weightUnit: weightUnit) }
     }
 
     /// Saves the routine as it is now, edited at `now`, or deletes it once it is empty.
@@ -116,6 +110,13 @@ public actor RoutineStore {
         try modelContext.save()
     }
     #endif
+
+    /// Recency, the later of a routine's last edit and last open; a tie by id, so the order is
+    /// stable and launch opens the routine listed first.
+    private static func isMoreRecent(_ one: StoredRoutine, than other: StoredRoutine) -> Bool {
+        let (oneRecency, otherRecency) = (one.recency, other.recency)
+        return oneRecency != otherRecency ? oneRecency > otherRecency : one.id < other.id
+    }
 
     private func latest(by order: SortDescriptor<StoredRoutine>) throws -> StoredRoutine? {
         var descriptor = FetchDescriptor<StoredRoutine>(sortBy: [order])

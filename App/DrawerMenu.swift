@@ -44,7 +44,6 @@ struct DrawerMenu: View {
             .padding(.horizontal, Spacing.sm)
             .padding(.top, Spacing.sm)
         }
-        .background { Color.pp(.background).ignoresSafeArea() }
         // The drawer is built as it opens, so these run on each opening.
         .task { isTitleFocused = true }
         .task {
@@ -64,7 +63,7 @@ struct DrawerMenu: View {
                     Task { await session.open(routine.id, weightUnit: weightUnit) }
                 } label: {
                     Label {
-                        Text(namer.shownName(of: routine) ?? String(localized: "New routine"))
+                        Text(namer.listedName(of: routine))
                     } icon: {
                         DrawerNode(isLit: isShowing(routine))
                     }

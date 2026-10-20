@@ -67,7 +67,7 @@ struct RoutinesScreen: View {
         Button {
             Task { await session.open(routine.id, weightUnit: weightUnit, pushed: true) }
         } label: {
-            NameRow(namer.shownName(of: routine) ?? String(localized: "New routine"))
+            NameRow(namer.listedName(of: routine))
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)

@@ -6,11 +6,6 @@ import SwiftUI
 /// A nested place, under another, puts its icon (a `DrawerNode`, or a symbol) in the column of
 /// the place above's icon, and its name under that place's name; its fill takes the name alone.
 public struct DrawerButtonStyle: ButtonStyle {
-    /// Comfortably above the 44pt minimum touch target at the default text size.
-    private static let minHeight: CGFloat = 48
-    /// A nested place's smaller text needs less, but never under the 44pt minimum.
-    private static let nestedMinHeight: CGFloat = 44
-
     private let isSelected: Bool
     private let isNested: Bool
 
@@ -23,17 +18,12 @@ public struct DrawerButtonStyle: ButtonStyle {
 
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .labelStyle(DrawerLabelStyle(
-                isSelected: isSelected,
-                isNested: isNested,
-                minHeight: isNested ? Self.nestedMinHeight : Self.minHeight,
-            ))
+            .labelStyle(DrawerLabelStyle(isSelected: isSelected, isNested: isNested))
             .font(isNested ? .ppDrawerSubitem : .ppDrawerItem)
             .foregroundStyle(.pp(.textPrimary))
             .multilineTextAlignment(.leading)
             .contentShape(.rect)
-            .opacity(configuration.isPressed ? 0.6 : 1)
-            .keyPressAnimation(isPressed: configuration.isPressed)
+            .keyPress(isPressed: configuration.isPressed)
             .accessibilityAddTraits(isSelected ? .isSelected : [])
             .hotReloadable()
     }
@@ -42,7 +32,6 @@ public struct DrawerButtonStyle: ButtonStyle {
 private struct DrawerLabelStyle: LabelStyle {
     let isSelected: Bool
     let isNested: Bool
-    let minHeight: CGFloat
 
     func makeBody(configuration: Configuration) -> some View {
         DrawerLabel(
@@ -50,7 +39,6 @@ private struct DrawerLabelStyle: LabelStyle {
             title: configuration.title,
             isSelected: isSelected,
             isNested: isNested,
-            minHeight: minHeight,
         )
     }
 }
@@ -61,7 +49,15 @@ private struct DrawerLabel<Icon: View, Title: View>: View {
     let title: Title
     let isSelected: Bool
     let isNested: Bool
-    let minHeight: CGFloat
+
+    /// Comfortably above the 44pt minimum touch target at the default text size.
+    private static var minHeight: CGFloat { 48 }
+    /// A nested place's smaller text needs less, but never under the 44pt minimum.
+    private static var nestedMinHeight: CGFloat { 44 }
+
+    private var minHeight: CGFloat {
+        isNested ? Self.nestedMinHeight : Self.minHeight
+    }
 
     /// Wide enough for a top-level place's symbol, and scaled with its text.
     @ScaledMetric(relativeTo: .title3) private var iconColumn: CGFloat = 26

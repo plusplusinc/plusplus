@@ -91,19 +91,15 @@ final class RoutineSession {
             show(current, pushed: pushed)
             return closeDrawer()
         }
-        guard let store, !isSwitching else { return }
-        isSwitching = true
-        defer { isSwitching = false }
-        await finishSaving()
-        do {
-            if let routine = try await store.openRoutine(id, weightUnit: weightUnit) {
-                show(routine, pushed: pushed)
+        guard let store else { return }
+        await switchTo(pushed: pushed) {
+            do {
+                return try await store.openRoutine(id, weightUnit: weightUnit)
+            } catch {
+                Logger.app.error("The routine didn't open: \(error)")
+                return nil
             }
-        } catch {
-            Logger.app.error("The routine didn't open: \(error)")
         }
-        (saves, saving) = Self.startSaving(to: store)
-        closeDrawer()
     }
 
     /// Opens a new, empty routine on the routine screen and closes the drawer, or, `pushed`,
@@ -114,11 +110,19 @@ final class RoutineSession {
             show(current, pushed: pushed)
             return closeDrawer()
         }
+        await switchTo(pushed: pushed) { Routine() }
+    }
+
+    /// Lets the last edit land, then shows the routine `next` gives, if any, and closes the
+    /// drawer. A switch already under way takes the tap.
+    private func switchTo(pushed: Bool, _ next: () async -> Routine?) async {
         guard !isSwitching else { return }
         isSwitching = true
         defer { isSwitching = false }
         await finishSaving()
-        show(Routine(), pushed: pushed)
+        if let routine = await next() {
+            show(routine, pushed: pushed)
+        }
         (saves, saving) = Self.startSaving(to: store)
         closeDrawer()
     }

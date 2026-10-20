@@ -37,7 +37,7 @@ struct RoutineScreen: View {
     @Environment(\.locale) private var locale
     @ObserveHotReload private var hotReload
 
-    private static let defaultName = String(localized: "New routine")
+    static let defaultName = String(localized: "New routine")
 
     /// Shows the routine the session opened. A switch to another gives a new screen.
     init(session: RoutineSession, namer: RoutineNamer, isPushed: Bool = false) {
@@ -74,7 +74,7 @@ struct RoutineScreen: View {
 
     private var screen: some View {
         let generatedName = generatedName
-        let shownName = namer.shownName(of: routine)
+        let shownName = routine.name.isEmpty ? generatedName : routine.name
         return ScrollView {
             VStack(alignment: .leading, spacing: Spacing.md) {
                 EditableTitle(
@@ -379,4 +379,11 @@ extension RoutineScreen {
         session: RoutineSession(routine: Routine(), store: nil),
         namer: .muscleGroupsOnly,
     )
+}
+
+extension RoutineNamer {
+    /// A routine's name where routines are listed: the name it shows, else New routine.
+    func listedName(of routine: Routine) -> String {
+        shownName(of: routine) ?? RoutineScreen.defaultName
+    }
 }
