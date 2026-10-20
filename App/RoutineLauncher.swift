@@ -19,7 +19,7 @@ struct RoutineLauncher: View {
             if let session {
                 @Bindable var session = session
                 SideDrawer(isOpen: $session.isDrawerOpen) {
-                    DrawerMenu(session: session)
+                    DrawerMenu(session: session, namer: namer)
                 } content: {
                     switch session.screen {
                     case .routine:
@@ -35,7 +35,10 @@ struct RoutineLauncher: View {
                 Color.pp(.background)
                     .ignoresSafeArea()
                     .task {
-                        session = await RoutineSession(routine: launchRoutine(), store: store)
+                        let session = await RoutineSession(routine: launchRoutine(), store: store)
+                        self.session = session
+                        // The drawer names the routine last opened, which may not be this one.
+                        await session.refreshRecent(weightUnit: WeightUnit(region: locale))
                     }
             }
         }

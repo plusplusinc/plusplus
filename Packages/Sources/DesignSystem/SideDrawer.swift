@@ -3,6 +3,8 @@ import SwiftUI
 /// A drawer under the screen: opening it slides the screen right, leaving a sliver of it in
 /// view. A swipe in from the left edge opens it, following the finger; a tap on the sliver, a
 /// swipe left, or VoiceOver's escape closes it. With Reduce Motion it fades rather than slides.
+/// The screen darkens as the drawer opens, and a haptic plays each time it comes to rest open or
+/// closed; a swipe that springs back to where it began plays none.
 ///
 /// The drawer is in the hierarchy only while it shows, so what it holds, a pushed screen
 /// included, starts fresh each time it opens.
@@ -22,6 +24,8 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
     @State private var swipeStart: CGFloat?
     /// The screen faded out, with Reduce Motion, while it moves unseen.
     @State private var isContentFaded = false
+    /// Where the drawer last came to rest, which the haptics follow.
+    @State private var restsOpen: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
@@ -44,6 +48,7 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
         let open = isOpen.wrappedValue || (progress ?? 0) > 0
         _shown = State(initialValue: progress ?? (isOpen.wrappedValue ? 1 : 0))
         _target = State(initialValue: isOpen.wrappedValue)
+        _restsOpen = State(initialValue: isOpen.wrappedValue)
         _isDrawerInView = State(initialValue: open)
         self.drawer = drawer()
         self.content = content()
@@ -77,6 +82,13 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
                             .ignoresSafeArea()
                     }
                     .overlay {
+                        Color.pp(.dim)
+                            .opacity(progress)
+                            .ignoresSafeArea()
+                            .allowsHitTesting(false)
+                            .accessibilityHidden(true)
+                    }
+                    .overlay {
                         if isOpen {
                             Color.clear
                                 .contentShape(.rect)
@@ -101,6 +113,9 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
             if open != target {
                 settle(open: open)
             }
+        }
+        .sensoryFeedback(trigger: restsOpen) { _, open in
+            open ? DrawerMetrics.opened : DrawerMetrics.closed
         }
         .hotReloadable()
     }
@@ -145,17 +160,21 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
             withAnimation(DrawerMetrics.fade) { isContentFaded = true } completion: {
                 shown = end
                 withAnimation(DrawerMetrics.fade) { isContentFaded = false } completion: {
-                    leaveIfClosed()
+                    rest(open: open)
                 }
             }
             return
         }
         let animation = Animation.interpolatingSpring(DrawerMetrics.slide, initialVelocity: speed)
-        withAnimation(animation) { shown = end } completion: { leaveIfClosed() }
+        withAnimation(animation) { shown = end } completion: { rest(open: open) }
     }
 
-    private func leaveIfClosed() {
-        if !target, swipeStart == nil {
+    /// Ends a settle: unless another has taken over since, or a finger holds the drawer, the
+    /// drawer is at rest, and leaves the hierarchy if closed.
+    private func rest(open: Bool) {
+        guard open == target, swipeStart == nil else { return }
+        restsOpen = open
+        if !open {
             isDrawerInView = false
         }
     }
@@ -171,6 +190,9 @@ enum DrawerMetrics {
     static let slide = Spring.snappy(duration: 0.3)
     /// Each half of the Reduce Motion cross-fade, out and back in.
     static let fade = Animation.snappy(duration: 0.1)
+    /// Coming to rest open, and closed: soft, as a panel settling, with closing the lighter.
+    static let opened = SensoryFeedback.impact(flexibility: .soft, intensity: 0.8)
+    static let closed = SensoryFeedback.impact(flexibility: .soft, intensity: 0.5)
 }
 
 #Preview {

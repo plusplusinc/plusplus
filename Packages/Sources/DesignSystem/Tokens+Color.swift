@@ -9,6 +9,8 @@ public enum ColorToken: String, CaseIterable, Sendable {
     /// Green: what's active, and a value that went up; also the ++ mark. Never a control's fill.
     case accent = "ppAccent"
     case background = "ppBackground"
+    /// Laid over the screen the drawer slides aside, deepening as the drawer opens.
+    case dim = "ppDim"
     /// The outline of a key-shaped button, and the title's resting cursor.
     case borderStrong = "ppBorderStrong"
     /// The label on a primary key.

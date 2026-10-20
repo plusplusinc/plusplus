@@ -16,7 +16,7 @@ final class RoutineSession {
     var isDrawerOpen = false
     /// The screen the drawer slides aside: the routine, or the list of routines.
     private(set) var screen = Screen.routine
-    /// The saved routines, latest first, as of the Routines screen's last showing.
+    /// The saved routines, latest first, as of the last read, with each routine left since.
     private var saved: [Routine] = []
     private var isSwitching = false
 
@@ -50,7 +50,21 @@ final class RoutineSession {
         saves.yield(routine)
     }
 
-    /// Reads the saved routines again, as the Routines screen shows.
+    /// What the drawer marks as showing: the Routines screen, the open routine, or a new one.
+    var showing: Showing {
+        switch screen {
+        case .routines: .routines
+        case .routine: current.isEmpty ? .new : .routine
+        }
+    }
+
+    enum Showing {
+        case routines
+        case routine
+        case new
+    }
+
+    /// Reads the saved routines again, as the Routines screen and the drawer show.
     func refreshRecent(weightUnit: WeightUnit) async {
         guard let store else { return }
         do {
@@ -105,6 +119,8 @@ final class RoutineSession {
     }
 
     private func show(_ routine: Routine) {
+        // The routine left stays in the list at its place, before its last save reads back.
+        saved = recent
         opened = routine
         current = routine
         screen = .routine

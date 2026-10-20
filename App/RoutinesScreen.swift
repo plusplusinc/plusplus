@@ -16,7 +16,7 @@ struct RoutinesScreen: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     Text("Routines")
-                        .ppScreenTitleFont()
+                        .ppFixedTitleFont()
                         .foregroundStyle(.pp(.textPrimary))
                         .accessibilityAddTraits(.isHeader)
                         .padding(.bottom, Spacing.md)
