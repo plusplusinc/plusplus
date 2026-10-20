@@ -73,8 +73,8 @@ struct RoutinesScreen: View {
                 .foregroundStyle(.pp(.textPrimary))
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.vertical, Spacing.md)
-            .contentShape(.rect)
+                .padding(.vertical, Spacing.md)
+                .contentShape(.rect)
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
