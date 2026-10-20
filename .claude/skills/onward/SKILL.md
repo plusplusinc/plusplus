@@ -72,7 +72,10 @@ project board; agents' technical working files live in `.slices/`.
 - A screen with no design gets options drawn before it is built. The first is the platform's
   own control for the job (principle 4, "Native bones"), and each other option says what it
   does that the system one can't. An API offered as an option is one whose Apple doc (sosumi)
-  says it works on iPhone.
+  says it works on iPhone. Draw them as a page on the feature's design board, the claude.ai
+  artifact the board README links (Artifact `read`, add the page, `publish` to its `url`; a
+  feature with none gets one, linked there), and send its link: the maintainer chooses on the phone, where a file on the Mac never reaches them
+  and `SendUserFile` fails in a session with no project thread.
 - No time estimates. While a phase runs, tell the maintainer in a line now and then what it is
   doing and why that still serves the card, without being asked. Before each new attempt or
   extra run, by you or a subagent, check that it is still worth doing for the card's goal; ask
@@ -108,11 +111,12 @@ project board; agents' technical working files live in `.slices/`.
    hand (the full pass changed what they see, or there was no round), install it with
    `scripts/device.sh` (a link when the phone is out of reach) and tell them what to try, as for
    a round.
-2. After the maintainer's go-ahead: merge once checks pass (a wait for that also ends when
-   `gh pr view --json mergeable` reads `CONFLICTING`, since auto-merge waits on a conflict
-   without a word; after any merge to `main`, check every PR that waits), move the card to Done, run
-   `scripts/tidy.sh` (it removes the merged worktree and branch; it also runs at every session
-   start), and delete the slice's `.slices/sliceN-*` files.
+2. After the maintainer's go-ahead: wait for the checks as above (the wait also ends when
+   `gh pr view --json mergeable` reads `CONFLICTING`), then `gh pr merge <n> --squash`; never
+   `--auto`, which the auto-mode classifier can refuse even after a go-ahead and which waits on a
+   conflict without a word. After any merge to `main`, check every PR that waits. Move the card
+   to Done, run `scripts/tidy.sh` (it removes the merged worktree and branch; it also runs at
+   every session start), and delete the slice's `.slices/sliceN-*` files.
 3. Record decisions made during the slice in the board README (read it with `scripts/board.sh
    readme`, then write the whole new text back with `scripts/board.sh readme <<'README'`), and
    re-plan the later cards if they changed.
