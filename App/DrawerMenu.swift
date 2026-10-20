@@ -2,8 +2,9 @@ import DesignSystem
 import SwiftUI
 import WorkoutStore
 
-/// What ++ opens: the app's title, and Routines, which shows every routine, with the routine
-/// last opened and New under it. The item for what's showing is marked; one always is.
+/// What ++ opens: the app's title, and Routines, which shows every routine, with the three
+/// routines last opened or edited and New under it. The item for what's showing is marked;
+/// one always is.
 struct DrawerMenu: View {
     let session: RoutineSession
     let namer: RoutineNamer
@@ -41,15 +42,15 @@ struct DrawerMenu: View {
         .hotReloadable()
     }
 
-    /// The routine last opened, then New.
+    /// The routines last opened or edited, up to three, then New.
     private var routines: some View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
-            // A later card puts the upcoming scheduled routine between these two.
-            if let last = session.recent.first {
-                Button(namer.shownName(of: last) ?? String(localized: "New routine")) {
-                    Task { await session.open(last.id, weightUnit: weightUnit) }
+            // A later card makes the last of these the upcoming scheduled routine.
+            ForEach(session.recent.prefix(Self.recentCount)) { routine in
+                Button(namer.shownName(of: routine) ?? String(localized: "New routine")) {
+                    Task { await session.open(routine.id, weightUnit: weightUnit) }
                 }
-                .buttonStyle(.drawer(isSelected: session.showing == .routine, isNested: true))
+                .buttonStyle(.drawer(isSelected: isShowing(routine), isNested: true))
             }
             Button("New", systemImage: "plus") {
                 Task { await session.startNew() }
@@ -57,6 +58,12 @@ struct DrawerMenu: View {
             .buttonStyle(.drawer(isSelected: session.showing == .new, isNested: true))
             .accessibilityLabel("New routine")
         }
+    }
+
+    private static let recentCount = 3
+
+    private func isShowing(_ routine: Routine) -> Bool {
+        session.showing == .routine && routine.id == session.current.id
     }
 
     private var weightUnit: WeightUnit {

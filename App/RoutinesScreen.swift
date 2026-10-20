@@ -2,7 +2,7 @@ import DesignSystem
 import SwiftUI
 import WorkoutStore
 
-/// Every saved routine, most recently opened or edited first, each its name over its equipment.
+/// Every saved routine, most recently opened or edited first, each by its name.
 /// Tapping one pushes it on the routine screen; + pushes a new one.
 struct RoutinesScreen: View {
     @Bindable var session: RoutineSession
@@ -67,18 +67,12 @@ struct RoutinesScreen: View {
         Button {
             Task { await session.open(routine.id, weightUnit: weightUnit, pushed: true) }
         } label: {
-            VStack(alignment: .leading, spacing: Spacing.sm) {
-                // A later card puts the routine's schedule trailing, beside the name.
-                Text(namer.shownName(of: routine) ?? String(localized: "New routine"))
-                    .font(.ppRoutineName)
-                    .foregroundStyle(.pp(.textPrimary))
-                    .multilineTextAlignment(.leading)
-                let equipment = routine.exercises.map(\.exercise).equipment
-                if !equipment.isEmpty {
-                    Capsules(equipment.map(\.name))
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            // A later card puts the routine's schedule trailing, beside the name.
+            Text(namer.shownName(of: routine) ?? String(localized: "New routine"))
+                .font(.ppRoutineName)
+                .foregroundStyle(.pp(.textPrimary))
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.vertical, Spacing.md)
             .contentShape(.rect)
         }
