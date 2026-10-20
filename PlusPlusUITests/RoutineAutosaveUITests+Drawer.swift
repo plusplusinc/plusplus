@@ -13,7 +13,7 @@ extension RoutineAutosaveUITests {
             XCTAssertEqual(title.value(becoming: "Chest"), "Chest")
             openDrawer(in: app)
             XCTAssertEqual(drawerRoutines(in: app), ["Chest"])
-            XCTAssertFalse(app.buttons["Start"].exists, "VoiceOver reaches Start behind it")
+            XCTAssertTrue(app.buttons["Start"].disappears(), "VoiceOver reaches Start behind it")
             XCTAssertTrue(app.buttons["Chest"].isSelected, "The routine showing isn't marked")
             XCTAssertFalse(app.buttons["Routines"].isSelected)
             attach(named: "drawer-routine")
@@ -128,8 +128,13 @@ extension RoutineAutosaveUITests {
     private func drawerRoutines(in app: XCUIApplication) -> [String] {
         // Read from one snapshot: buttons read one by one shift under the reading as the bars'
         // controls leave the tree, each on its own pass, after the drawer opens.
-        guard let snapshot = try? app.snapshot() else { return [] }
-        let labels = buttonLabels(in: snapshot)
+        let labels: [String]
+        do {
+            labels = try buttonLabels(in: app.snapshot())
+        } catch {
+            XCTFail("The app's tree couldn't be read: \(error)")
+            return []
+        }
         guard let routines = labels.firstIndex(of: "Routines"),
               let new = labels[routines...].firstIndex(of: "New routine")
         else { return [] }

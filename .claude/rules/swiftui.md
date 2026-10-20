@@ -123,12 +123,12 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   (`ArrivalFeedback`), not on the spring's completion, which comes later in its tail: soft at 0.8
   arriving open, rigid at 1.0 shutting; a swipe that springs back to where it began plays
   nothing. With Reduce Motion nothing follows the finger: a 30 pt swipe decides, and only
-  opacity animates: opening, the screen and its dim take their place at once and the drawer
-  fades in beside them (0.2 s); closing, the drawer fades out and the screen then goes back. The
-  controls in the screen's bars, hosted apart from it, ignore `accessibilityHidden`, so behind the
-  open drawer each leaves VoiceOver through `hiddenBehindDrawer()`, which `primaryKeyBar` applies
-  and a toolbar item applies itself; the drawer hides the screen's scroll bars. The drawer is in the hierarchy only while it
-  shows. Its places (`DrawerButtonStyle`) have no outline; the one showing sits on a `surface`
+  opacity animates: opening, the screen and its dim take their place at once, with the haptic,
+  and the drawer fades in beside them (0.2 s); closing, the drawer fades out and the screen then
+  goes back, with the haptic. The controls in the screen's bars, hosted apart from it, ignore
+  `accessibilityHidden`, so behind the open drawer each leaves VoiceOver through
+  `hiddenBehindDrawer()`, which `primaryKeyBar` applies and a toolbar item applies itself; the
+  drawer hides the screen's scroll bars. The drawer is in the hierarchy only while it shows. Its places (`DrawerButtonStyle`) have no outline; the one showing sits on a `surface`
   fill with continuous corners (`Radius.key`), and one always does. A nested place's icon, a
   routine's `DrawerNode` or New's plus, sits in the column of the place above's icon, on the
   name's first line.

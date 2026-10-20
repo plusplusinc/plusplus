@@ -168,7 +168,8 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
         isDrawerInView = true
         let end: CGFloat = open ? 1 : 0
         guard !reduceMotion else {
-            if open {
+            // A swipe that leaves the drawer open, where it already shows, changes nothing.
+            if open, shown != end || isDrawerFaded {
                 withTransaction(Transaction(animation: nil)) {
                     isDrawerFaded = true
                     shown = end
