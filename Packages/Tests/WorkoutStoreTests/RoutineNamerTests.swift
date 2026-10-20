@@ -151,4 +151,14 @@ struct RoutineNamerTests {
         #expect(!NameStyle(of: Self.routine).hasCharacter)
         #expect(NameStyle(of: Self.characterRoutine).hasCharacter)
     }
+
+    @Test("A routine shows its chosen name, else its generated one")
+    func shownName() throws {
+        let namer = RoutineNamer.muscleGroupsOnly
+        let rows = try Exercise.builtIn(named: ["Goblet squat"])
+            .map { RoutineExercise(exercise: $0, weightUnit: .pounds) }
+        #expect(namer.shownName(of: Routine(name: "Mine", exercises: rows)) == "Mine")
+        #expect(namer.shownName(of: Routine(exercises: rows)) == "Legs")
+        #expect(namer.shownName(of: Routine()) == nil)
+    }
 }

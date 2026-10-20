@@ -65,6 +65,7 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
         }
         restPairSurvivesRelaunch(in: app)
         try clearedRoutineIsGone(in: app, title: title, gray: gray)
+        drawerSwitchesRoutines(in: app, title: title)
     }
 
     /// An unnamed routine is named for its exercises as they come and go, in white.

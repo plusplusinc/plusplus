@@ -16,17 +16,37 @@ public actor RoutineStore {
         try RoutineStore(modelContainer: WorkoutStoreContainer.make(mode: mode, schema: schema))
     }
 
-    /// The routine the app opens with, or nil for a new one: the last one edited. Every stored
-    /// routine has been edited, since an untouched one is never saved and a cleared one is
-    /// deleted. A weight never saved reads as its exercise's default in `weightUnit`.
+    /// The routine the app opens with, or nil for a new one: the last one opened or edited.
+    /// Every stored routine has been edited, since an untouched one is never saved and a
+    /// cleared one is deleted. A weight never saved reads as its exercise's default in
+    /// `weightUnit`.
     public func launchRoutine(weightUnit: WeightUnit) throws -> Routine? {
-        var descriptor = FetchDescriptor<StoredRoutine>(
-            sortBy: [SortDescriptor(\.editedAt, order: .reverse)],
-        )
-        descriptor.fetchLimit = 1
-        return try modelContext.fetch(descriptor).first.map {
-            Self.routine(from: $0, weightUnit: weightUnit)
-        }
+        // Picked here, as the list sorts, so launch opens the routine the list puts first.
+        try modelContext.fetch(FetchDescriptor<StoredRoutine>())
+            .min(by: Self.isMoreRecent(_:than:))
+            .map { Self.routine(from: $0, weightUnit: weightUnit) }
+    }
+
+    /// Marks the routine opened at `now` and returns it, or nil, storing nothing, if there is
+    /// no such routine. Opening counts as using: it moves the routine to the top of the recent
+    /// list, and a relaunch opens it.
+    public func openRoutine(
+        _ id: Routine.ID,
+        weightUnit: WeightUnit,
+        at now: Date = .now,
+    ) throws -> Routine? {
+        guard let stored = try stored(id: id) else { return nil }
+        stored.openedAt = now
+        try modelContext.save()
+        return Self.routine(from: stored, weightUnit: weightUnit)
+    }
+
+    /// Every saved routine, the latest opened or edited first; a tie by id, so the order is
+    /// stable. Sorted here: a sort descriptor can't take the later of two dates.
+    public func routinesByRecency(weightUnit: WeightUnit) throws -> [Routine] {
+        try modelContext.fetch(FetchDescriptor<StoredRoutine>())
+            .sorted(by: Self.isMoreRecent(_:than:))
+            .map { Self.routine(from: $0, weightUnit: weightUnit) }
     }
 
     /// Saves the routine as it is now, edited at `now`, or deletes it once it is empty.
@@ -87,6 +107,13 @@ public actor RoutineStore {
         try modelContext.save()
     }
     #endif
+
+    /// Recency, the later of a routine's last edit and last open; a tie by id, so the order is
+    /// stable and launch opens the routine listed first.
+    private static func isMoreRecent(_ one: StoredRoutine, than other: StoredRoutine) -> Bool {
+        let (oneRecency, otherRecency) = (one.recency, other.recency)
+        return oneRecency != otherRecency ? oneRecency > otherRecency : one.id < other.id
+    }
 
     private func stored(id: UUID) throws -> StoredRoutine? {
         var descriptor = FetchDescriptor<StoredRoutine>(predicate: #Predicate { $0.id == id })

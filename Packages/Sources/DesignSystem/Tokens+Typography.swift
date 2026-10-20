@@ -24,6 +24,12 @@ extension Font {
     public static let ppRowDetailNumber = Font.system(.subheadline, design: .monospaced)
     /// The numbers in a value at the row title's size and weight: SF Mono.
     public static let ppRowTitleNumber = Font.system(.body, design: .monospaced, weight: .semibold)
+    /// A routine's name in a list of routines: SF Mono, as its title is, at a row's size.
+    public static let ppRoutineName = Font.system(.headline, design: .monospaced, weight: .bold)
+    /// A place in the drawer, such as Routines.
+    public static let ppDrawerItem = Font.system(.title3, weight: .semibold)
+    /// A place in the drawer under another, such as a routine under Routines.
+    public static let ppDrawerSubitem = Font.system(.body, weight: .medium)
     /// The ++ mark: monospaced so the two pluses read as one glyph.
     public static let ppMark = Font.system(.title2, design: .monospaced, weight: .bold)
 }
@@ -31,7 +37,13 @@ extension Font {
 extension View {
     /// The screen title: SF Mono, 24pt bold, so a title that can be edited reads as typed text.
     public func ppScreenTitleFont() -> some View {
-        modifier(ScreenTitleFont())
+        modifier(ScreenTitleFont(design: .monospaced))
+    }
+
+    /// A title that can't be edited, such as the drawer's or the Routines screen's: the screen
+    /// title's size and weight in SF Pro, as it is a name, not typed text.
+    public func ppFixedTitleFont() -> some View {
+        modifier(ScreenTitleFont(design: .default))
     }
 }
 
@@ -56,12 +68,13 @@ enum ScreenTitle {
 }
 
 private struct ScreenTitleFont: ViewModifier {
+    let design: Font.Design
     @ScaledMetric(relativeTo: ScreenTitle.textStyle) private var size = ScreenTitle.size
     @ObserveHotReload private var hotReload
 
     func body(content: Content) -> some View {
         content
-            .font(.system(size: size, weight: .bold, design: .monospaced))
+            .font(.system(size: size, weight: .bold, design: design))
             .hotReloadable()
     }
 }

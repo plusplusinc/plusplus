@@ -10,18 +10,37 @@ struct RoutineLauncher: View {
     let namer: RoutineNamer
     let resetsStore: Bool
 
-    @State private var routine: Routine?
+    @State private var session: RoutineSession?
     @Environment(\.locale) private var locale
     @ObserveHotReload private var hotReload
 
     var body: some View {
         Group {
-            if let routine {
-                RoutineScreen(routine: routine, store: store, namer: namer)
+            if let session {
+                @Bindable var session = session
+                // A routine pushed onto the Routines screen takes the edge swipe back to the list.
+                SideDrawer(isOpen: $session.isDrawerOpen, swipeOpens: !session.isRoutinePushed) {
+                    DrawerMenu(session: session, namer: namer)
+                } content: {
+                    switch session.screen {
+                    case .routine:
+                        // A switch to another routine gives a fresh screen: scroll, sheets,
+                        // and title.
+                        RoutineScreen(session: session, namer: namer)
+                            .id(session.opened.id)
+                    case .routines:
+                        RoutinesScreen(session: session, namer: namer)
+                    }
+                }
             } else {
                 Color.pp(.background)
                     .ignoresSafeArea()
-                    .task { routine = await launchRoutine() }
+                    .task {
+                        let session = await RoutineSession(routine: launchRoutine(), store: store)
+                        self.session = session
+                        // The drawer names the routine last opened, which may not be this one.
+                        await session.refreshRecent(weightUnit: WeightUnit(region: locale))
+                    }
             }
         }
         .hotReloadable()

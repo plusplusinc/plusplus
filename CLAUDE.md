@@ -9,8 +9,12 @@ This file is the constitution: loaded every session, kept short. Detail lives in
 `.claude/rules/*.md`, which load when you touch matching files, and in `docs/`. If this file and a
 rules file disagree, this file wins.
 
-**Status: first screen, saved.** The app launches into the routine last edited, or a new,
-empty one, which you can name and add built-in exercises to. Every change saves on the phone
+**Status: routines, saved, and a drawer between them.** The app launches into the routine last
+opened or edited, or a new, empty one, which you can name and add built-in exercises to. ++, or
+a swipe in from the left edge, slides the screen aside, darkened, onto a drawer: Routines, the
+three routines last opened or edited, and New, the one showing marked, with a haptic as it
+arrives open and as it shuts. Routines opens the Routines screen, every saved routine by name,
+latest first; a row or its + pushes the routine, which a back chevron or the edge swipe pops. Every change saves on the phone
 on its own: an untouched new routine is never saved, and one cleared to nothing is deleted. An
 unnamed routine with exercises gets a name, written in code from its exercises' tags, which it
 keeps across launches and which opens as text to edit. Each exercise in a routine carries its
@@ -24,8 +28,8 @@ marks and whose rows share one round count; a held row resting half a second ove
 neighbor pairs with it, at the larger set count; an end's dot moves that end, a body drag
 carries a row in or out, and VoiceOver joins and leaves with actions. While a row or dot is
 held, the superset the drag affects sits in a sunken area. `WorkoutStore` holds the domain
-types, the first stored models behind `RoutineStore`, the namer, and the order a superset's sets
-go in. Nothing syncs yet.
+types, the first stored models behind `RoutineStore`, the namer, the order a superset's sets
+go in, and the routines' recency. Nothing syncs yet.
 
 ## Architecture
 

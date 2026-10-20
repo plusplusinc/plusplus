@@ -1,5 +1,4 @@
 import DesignSystem
-import OSLog
 import SwiftUI
 import WorkoutStore
 
@@ -9,13 +8,11 @@ import WorkoutStore
 /// in it, and deleted once it is cleared back to nothing.
 struct RoutineScreen: View {
     @State private var routine: Routine
-    /// Nil when the store didn't open: the screen works, and nothing saves.
-    private let store: RoutineStore?
+    /// Saves every change, and opens the drawer.
+    private let session: RoutineSession
     private let namer: RoutineNamer
-    /// Where every change to the routine goes, to be saved one at a time in the order they
-    /// happened, so an older version can never land last. The save task sets it, since a stream
-    /// is spent once its task ends, and a task run again needs a new one.
-    @State private var saves: AsyncStream<Routine>.Continuation?
+    /// Pushed onto the Routines screen, with a back button where ++ otherwise is.
+    private let isPushed: Bool
     @State private var isPicking = false
     /// The row whose values are open in a sheet, as it was when opened: only its id is read.
     @State private var editing: RoutineExercise?
@@ -40,17 +37,14 @@ struct RoutineScreen: View {
     @Environment(\.locale) private var locale
     @ObserveHotReload private var hotReload
 
-    private static let markWidth: CGFloat = 20
-    /// A plus sits on the font's math axis, about a point below the middle of its line, so the
-    /// mark is lifted to look centered in the round button.
-    private static let markLift: CGFloat = 1
+    static let defaultName = String(localized: "New routine")
 
-    private static let defaultName = String(localized: "New routine")
-
-    init(routine: Routine, store: RoutineStore?, namer: RoutineNamer) {
-        _routine = State(initialValue: routine)
-        self.store = store
+    /// Shows the routine the session opened. A switch to another gives a new screen.
+    init(session: RoutineSession, namer: RoutineNamer, isPushed: Bool = false) {
+        _routine = State(initialValue: session.opened)
+        self.session = session
         self.namer = namer
+        self.isPushed = isPushed
     }
 
     /// The name made for the routine from its exercises, which a chosen name hides and which
@@ -61,163 +55,11 @@ struct RoutineScreen: View {
     }
 
     var body: some View {
-        let generatedName = generatedName
-        // The name the title shows: chosen, else generated, else none.
-        let shownName = routine.name.isEmpty ? generatedName : routine.name
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: Spacing.md) {
-                    EditableTitle(
-                        text: $routine.name,
-                        isEditing: $isEditingTitle,
-                        placeholder: Self.defaultName,
-                        suggestion: generatedName,
-                        accessibilityLabel: "Routine name",
-                        accessibilityHint: "Renames the routine.",
-                    )
-                    .onScrollVisibilityChange(threshold: 0.01) { isVisible in
-                        withAnimation(.snappy) {
-                            isTitleUnderBar = !isVisible
-                        }
-                    }
-                    let equipment = routine.exercises.map(\.exercise).equipment
-                    if !equipment.isEmpty {
-                        Capsules(equipment.map(\.name))
-                            .accessibilityIdentifier("routine.equipment")
-                            .transition(.opacity)
-                    }
-                    Rail(
-                        routine.exercises,
-                        links: routine.joinedToNext,
-                        arriving: arriving,
-                        onMove: move,
-                        regroup: regroup,
-                    ) { item in
-                        RowLabel(
-                            title: item.exercise.name,
-                            detail: item.detailParts(locale: locale),
-                            spokenDetail: item.spokenDetail(locale: locale),
-                        )
-                        // Until an added row has entered it takes no taps, and its frame is
-                        // where it will be rather than where it is drawn, so VoiceOver and the UI
-                        // tests find it once it has. On the label, the row's one element: on the
-                        // row, `false` would un-hide the rail's node.
-                        .accessibilityHidden(item.id == entering)
-                        .railRow()
-                        .contentShape(.rect)
-                        .onTapGesture {
-                            guard item.id != entering else { return }
-                            editing = item
-                        }
-                        .accessibilityAddTraits(.isButton)
-                        .accessibilityValue(supersetValue(item.id))
-                        // None where it would do nothing: at an end, or with one row.
-                        .accessibilityActions {
-                            if let up = routine.slotMovingUp(item.id) {
-                                Button("Move up") { step(item.id, to: up, wentUp: true) }
-                            }
-                            if let down = routine.slotMovingDown(item.id) {
-                                Button("Move down") { step(item.id, to: down, wentUp: false) }
-                            }
-                            supersetActions(item.id)
-                        }
-                        .accessibilityIdentifier("routine.exercise")
-                        .swipeActions(edge: .trailing) {
-                            Button("Delete", role: .destructive) { delete(item.id) }
-                        }
-                    } end: {
-                        Button("Add exercise", systemImage: "plus") {
-                            isPicking = true
-                        }
-                        .buttonStyle(.key)
-                    }
-                }
-                .padding(.horizontal, Spacing.md)
-                // Room under Add exercise, so at the end of a long list it clears Start.
-                .padding(.bottom, Spacing.md)
-                // When the keyboard rises, UIKit scrolls the focused field to sit at least 5pt
-                // below the top of the visible area. Starting there keeps the title still.
-                .padding(.top, Spacing.sm)
-            }
-            .scrollPosition($scrollPosition)
-            .railAutoscroll($scrollPosition)
-            .onScrollGeometryChange(for: ScrollGeometry.self, of: { $0 }, action: keepEndInView)
-            .onScrollPhaseChange { _, phase in
-                isScrollingByHand = phase == .interacting || phase == .decelerating
-            }
-            .onScrollGeometryChange(
-                for: Bool.self,
-                of: Self.endIsInView(of:),
-                action: { _, isInView in isEndInView = isInView },
-            )
-            .primaryKeyBar(isPresented: !routine.exercises.isEmpty) {
-                // Starting a workout is a later slice.
-                Button("Start", systemImage: "play.fill") { }
-            }
-            // One row open at a time, closed by a scroll or a tap anywhere else, Start included,
-            // so the container holds Start's bar as well as the scroll view.
-            .swipeActionsContainer()
-            // A shape-style background stops at the keyboard's safe area, which left the
-            // window's black behind the keyboard's rounded top corners.
-            .background { Color.pp(.background).ignoresSafeArea() }
-            .navigationBarTitleDisplayMode(.inline)
-            .sheet(isPresented: $isPicking) {
-                ExercisePicker { exercise in
-                    // A second tap while the sheet goes down keeps the first pick.
-                    guard isPicking else { return }
-                    isPicking = false
-                    add(exercise)
-                }
-            }
-            // By item, so the sheet keeps its content as it slides away.
-            .sheet(item: $editing) { opened in
-                if let item = row(opened.id) {
-                    ExerciseSheet(
-                        item: item,
-                        partners: routine.partnerNames(of: opened.id),
-                    ) { delete(opened.id) }
-                }
-            }
-            .toolbar {
-                // As a large title does, the title shows small in the bar once it is under it.
-                ToolbarItem(placement: .title) {
-                    if isTitleUnderBar {
-                        // As a tap on the status bar does, a tap brings the title back. At the
-                        // accessibility text sizes the bar keeps touches on its title for the large
-                        // content viewer, so there the button is reached through VoiceOver only.
-                        Button {
-                            withAnimation(.snappy) {
-                                scrollPosition.scrollTo(edge: .top)
-                            }
-                        } label: {
-                            // Gray only for New routine, as in the title.
-                            Text(shownName ?? Self.defaultName)
-                                .font(.ppInlineTitle)
-                                .foregroundStyle(.pp(shownName == nil ? .textSecondary :
-                                        .textPrimary))
-                                .lineLimit(1)
-                        }
-                        .buttonStyle(.plain)
-                        // A heading, as the system's own bar title is.
-                        .accessibilityAddTraits(.isHeader)
-                        .accessibilityHint("Scrolls to the top.")
-                        .transition(.opacity)
-                    }
-                }
-                ToolbarItem(placement: .topBarLeading) {
-                    // The drawer is a later slice.
-                    Button { } label: {
-                        Text(verbatim: "++")
-                            .font(.ppMark)
-                            .foregroundStyle(.pp(.accent))
-                            // The glass sizes itself to its label. Reserving less width than
-                            // the mark's advance draws the mark large in a compact button.
-                            .fixedSize()
-                            .frame(width: Self.markWidth)
-                            .offset(y: -Self.markLift)
-                    }
-                    .accessibilityLabel("Menu")
-                }
+        Group {
+            if isPushed {
+                screen
+            } else {
+                NavigationStack { screen }
             }
         }
         // A touch anywhere outside the title, bars included, ends its edit and still acts. The
@@ -225,24 +67,163 @@ struct RoutineScreen: View {
         .onTouchDownOutsideTitle { isEditingTitle = false }
         // `onChange` skips the first value, so a routine opened and left alone is never saved.
         .onChange(of: routine) { _, changed in
-            saves?.yield(changed)
+            session.save(changed)
         }
-        .task {
-            // Only the newest unsaved version waits.
-            let (stream, continuation) = AsyncStream.makeStream(
-                of: Routine.self,
-                bufferingPolicy: .bufferingNewest(1),
-            )
-            saves = continuation
-            for await version in stream {
-                do {
-                    try await store?.save(version)
-                } catch {
-                    Logger.app.error("The routine didn't save: \(error)")
+        .hotReloadable()
+    }
+
+    private var screen: some View {
+        let generatedName = generatedName
+        let shownName = routine.name.isEmpty ? generatedName : routine.name
+        return ScrollView {
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                EditableTitle(
+                    text: $routine.name,
+                    isEditing: $isEditingTitle,
+                    placeholder: Self.defaultName,
+                    suggestion: generatedName,
+                    accessibilityLabel: "Routine name",
+                    accessibilityHint: "Renames the routine.",
+                )
+                .onScrollVisibilityChange(threshold: 0.01) { isVisible in
+                    withAnimation(.snappy) {
+                        isTitleUnderBar = !isVisible
+                    }
+                }
+                let equipment = routine.exercises.map(\.exercise).equipment
+                if !equipment.isEmpty {
+                    Capsules(equipment.map(\.name))
+                        .accessibilityIdentifier("routine.equipment")
+                        .transition(.opacity)
+                }
+                Rail(
+                    routine.exercises,
+                    links: routine.joinedToNext,
+                    arriving: arriving,
+                    onMove: move,
+                    regroup: regroup,
+                ) { item in
+                    RowLabel(
+                        title: item.exercise.name,
+                        detail: item.detailParts(locale: locale),
+                        spokenDetail: item.spokenDetail(locale: locale),
+                    )
+                    // Until an added row has entered it takes no taps, and its frame is
+                    // where it will be rather than where it is drawn, so VoiceOver and the UI
+                    // tests find it once it has. On the label, the row's one element: on the
+                    // row, `false` would un-hide the rail's node.
+                    .accessibilityHidden(item.id == entering)
+                    .railRow()
+                    .contentShape(.rect)
+                    .onTapGesture {
+                        guard item.id != entering else { return }
+                        editing = item
+                    }
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityValue(supersetValue(item.id))
+                    // None where it would do nothing: at an end, or with one row.
+                    .accessibilityActions {
+                        if let up = routine.slotMovingUp(item.id) {
+                            Button("Move up") { step(item.id, to: up, wentUp: true) }
+                        }
+                        if let down = routine.slotMovingDown(item.id) {
+                            Button("Move down") { step(item.id, to: down, wentUp: false) }
+                        }
+                        supersetActions(item.id)
+                    }
+                    .accessibilityIdentifier("routine.exercise")
+                    .swipeActions(edge: .trailing) {
+                        Button("Delete", role: .destructive) { delete(item.id) }
+                    }
+                } end: {
+                    Button("Add exercise", systemImage: "plus") {
+                        isPicking = true
+                    }
+                    .buttonStyle(.key)
+                }
+            }
+            .padding(.horizontal, Spacing.md)
+            // Room under Add exercise, so at the end of a long list it clears Start.
+            .padding(.bottom, Spacing.md)
+            // When the keyboard rises, UIKit scrolls the focused field to sit at least 5pt
+            // below the top of the visible area. Starting there keeps the title still.
+            .padding(.top, Spacing.sm)
+        }
+        .scrollPosition($scrollPosition)
+        .railAutoscroll($scrollPosition)
+        .onScrollGeometryChange(for: ScrollGeometry.self, of: { $0 }, action: keepEndInView)
+        .onScrollPhaseChange { _, phase in
+            isScrollingByHand = phase == .interacting || phase == .decelerating
+        }
+        .onScrollGeometryChange(
+            for: Bool.self,
+            of: Self.endIsInView(of:),
+            action: { _, isInView in isEndInView = isInView },
+        )
+        .primaryKeyBar(isPresented: !routine.exercises.isEmpty) {
+            // Starting a workout is a later slice.
+            Button("Start", systemImage: "play.fill") { }
+        }
+        // One row open at a time, closed by a scroll or a tap anywhere else, Start included,
+        // so the container holds Start's bar as well as the scroll view.
+        .swipeActionsContainer()
+        // The drawer's `accessibilityHidden` stops at the navigation stack, whose content is
+        // hosted apart, so the screen hides its own content behind the open drawer.
+        .accessibilityHidden(session.isDrawerOpen)
+        // A shape-style background stops at the keyboard's safe area, which left the
+        // window's black behind the keyboard's rounded top corners.
+        .background { Color.pp(.background).ignoresSafeArea() }
+        .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $isPicking) {
+            ExercisePicker { exercise in
+                // A second tap while the sheet goes down keeps the first pick.
+                guard isPicking else { return }
+                isPicking = false
+                add(exercise)
+            }
+        }
+        // By item, so the sheet keeps its content as it slides away.
+        .sheet(item: $editing) { opened in
+            if let item = row(opened.id) {
+                ExerciseSheet(
+                    item: item,
+                    partners: routine.partnerNames(of: opened.id),
+                ) { delete(opened.id) }
+            }
+        }
+        .toolbar {
+            // As a large title does, the title shows small in the bar once it is under it.
+            ToolbarItem(placement: .title) {
+                if isTitleUnderBar {
+                    // As a tap on the status bar does, a tap brings the title back. At the
+                    // accessibility text sizes the bar keeps touches on its title for the large
+                    // content viewer, so there the button is reached through VoiceOver only.
+                    Button {
+                        withAnimation(.snappy) {
+                            scrollPosition.scrollTo(edge: .top)
+                        }
+                    } label: {
+                        // Gray only for New routine, as in the title.
+                        Text(shownName ?? Self.defaultName)
+                            .font(.ppInlineTitle)
+                            .foregroundStyle(.pp(shownName == nil ? .textSecondary :
+                                    .textPrimary))
+                            .lineLimit(1)
+                    }
+                    .buttonStyle(.plain)
+                    // A heading, as the system's own bar title is.
+                    .accessibilityAddTraits(.isHeader)
+                    .accessibilityHint("Scrolls to the top.")
+                    .hiddenBehindDrawer()
+                    .transition(.opacity)
+                }
+            }
+            if !isPushed {
+                ToolbarItem(placement: .topBarLeading) {
+                    MenuButton(session: session)
                 }
             }
         }
-        .hotReloadable()
     }
 
     /// The row with this id, bound by id rather than by index, so a sheet still showing it
@@ -395,5 +376,15 @@ extension RoutineScreen {
 }
 
 #Preview {
-    RoutineScreen(routine: Routine(), store: nil, namer: .muscleGroupsOnly)
+    RoutineScreen(
+        session: RoutineSession(routine: Routine(), store: nil),
+        namer: .muscleGroupsOnly,
+    )
+}
+
+extension RoutineNamer {
+    /// A routine's name where routines are listed: the name it shows, else New routine.
+    func listedName(of routine: Routine) -> String {
+        shownName(of: routine) ?? RoutineScreen.defaultName
+    }
 }

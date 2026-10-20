@@ -31,6 +31,14 @@ public struct RoutineNamer: Sendable {
         return focus.checked(picked, against: unique)
     }
 
+    /// The name a routine shows: the one chosen, else the one made from its exercises, else
+    /// nil for New routine.
+    public func shownName(of routine: Routine) -> String? {
+        routine.name.isEmpty
+            ? name(for: routine.exercises.map(\.exercise), of: routine.id)
+            : routine.name
+    }
+
     private static func unique(_ exercises: [Exercise]) -> [Exercise] {
         var seen = Set<Exercise.ID>()
         return exercises.filter { seen.insert($0.id).inserted }

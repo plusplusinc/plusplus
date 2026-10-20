@@ -25,8 +25,7 @@ public struct KeyButtonStyle: ButtonStyle {
             .background(shape.fill(.pp(.surface)))
             .overlay(shape.strokeBorder(.pp(.borderStrong)))
             .contentShape(shape)
-            .opacity(configuration.isPressed ? 0.6 : 1)
-            .keyPressAnimation(isPressed: configuration.isPressed)
+            .keyPress(isPressed: configuration.isPressed)
             .hotReloadable()
     }
 }
@@ -42,6 +41,11 @@ private struct RailIconLabelStyle: LabelStyle {
 }
 
 extension View {
+    /// A key's press, dimmed: dimming, not scaling, so nothing around it moves.
+    func keyPress(isPressed: Bool) -> some View {
+        opacity(isPressed ? 0.6 : 1).keyPressAnimation(isPressed: isPressed)
+    }
+
     /// A key's press: down at once, as a finger lands, and back up quickly on release. Left to
     /// the system, the release eased back over half a second.
     func keyPressAnimation(isPressed: Bool) -> some View {

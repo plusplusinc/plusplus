@@ -34,6 +34,11 @@ routine is normalized as it loads (`normalizeSupersets()`): a split run gets a s
 of one goes plain, and a superset's rows take its first row's sets, so a routine saved before
 supersets opens with every row plain. The store calls `save()` itself, since an
 actor's context does not autosave. An empty routine is deleted rather than stored, and every save
-marks the routine edited, since a routine saves only when its name or rows changed.
+marks the routine edited (`editedAt`), since a routine saves only when its name or rows changed.
+Opening a saved routine (`openRoutine`) marks it opened (`openedAt`), apart, so an open is never
+taken for an edit; a store written before `openedAt` reads it as `distantPast`. A routine's
+recency is the later of the two: `routinesByRecency` sorts on it in Swift, since a sort
+descriptor can't take the later of two dates, a tie going by id, and launch opens the routine
+that list puts first.
 
 SwiftData has no SQL aggregate pushdown; rollups are computed in Swift over fetched rows.

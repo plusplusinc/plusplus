@@ -8,6 +8,11 @@ extension XCUIApplication {
         textViews["Routine name"]
     }
 
+    /// The ++ drawer's title, a button that closes it, there only while the drawer shows.
+    var drawerTitle: XCUIElement {
+        buttons["PlusPlus"]
+    }
+
     /// Launches into a new routine, not the one the last test saved, at the text size
     /// `category`, since the simulator keeps the last size it was set to, and with `arguments`
     /// besides. Returns the title once it is up. UIKit's animations are off

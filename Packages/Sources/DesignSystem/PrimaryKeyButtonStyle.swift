@@ -49,6 +49,7 @@ extension View {
             if isPresented {
                 key
                     .buttonStyle(.primaryKey)
+                    .hiddenBehindDrawer()
                     .padding(.horizontal, Spacing.md)
                     .padding(.top, Spacing.sm)
                     .background { Color.pp(.background).ignoresSafeArea() }
