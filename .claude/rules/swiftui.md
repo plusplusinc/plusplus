@@ -112,6 +112,21 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   wells and room come and go at once, there is no flash, and the haptics stay. A row swiped open hides its superset's loop. VoiceOver
   reads a member's value as "In a superset with" its partners, and offers "Superset with" each
   neighbor it isn't joined to, and "Move out of superset" on a member.
+- The ++ drawer (`SideDrawer`) lies under the screen, which slides right on
+  `Spring(duration: 0.25, bounce: 0)`, leaving a 78 pt sliver with a shadow on the drawer, and
+  darkens with `dim` as far as it is open. A swipe starting within 24 pt of the left edge opens
+  it and a swipe left closes it, following the finger (`DrawerSwipe`, a plain pan, since the
+  screen-edge recognizer never begins on synthetic touches); let go, it settles the way a flick
+  of 400 pt/s goes, else to the nearer side of halfway, leaving at the finger's speed
+  (`DrawerDrag`). A tap on the sliver, on the drawer's title, or VoiceOver's escape closes it.
+  The haptics play as the drawer visibly arrives, within 3 pt of open or closed, read each frame
+  (`ArrivalFeedback`), not on the spring's completion, which comes later in its tail: soft at 0.8
+  arriving open, rigid at 1.0 shutting; a swipe that springs back to where it began plays
+  nothing. With Reduce Motion nothing follows the finger: a 30 pt swipe decides, and the screen
+  fades out (0.1 s), moves, and fades back in. The drawer is in the hierarchy only while it
+  shows. Its places (`DrawerButtonStyle`) have no outline; the one showing sits on a `surface`
+  fill with continuous corners (`Radius.key`), and one always does. A nested place's icon, a
+  routine's `DrawerNode` or New's plus, sits in the column of the place above's icon.
 - A generated name arrives in the title on its own clock (`SuggestionTiming`, one
   `TimelineView`): the old name fades out (0.15 s), then the new one types in, a character
   every 20 ms, each letter shuffling through the name's other letters in `railJoin` for 50 ms,
