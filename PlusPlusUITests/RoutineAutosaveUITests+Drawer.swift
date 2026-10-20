@@ -80,6 +80,37 @@ extension RoutineAutosaveUITests {
             app.drawerTitle.tap()
             XCTAssertTrue(app.drawerTitle.disappears(), "Tapping the title left the drawer open")
         }
+        drawerListsThree(in: app, title: title)
+    }
+
+    /// The new routine left untouched lists nowhere, and with four saved the drawer lists the
+    /// three latest, the one made last first.
+    @MainActor
+    private func drawerListsThree(in app: XCUIApplication, title: XCUIElement) {
+        XCTContext.runActivity(named: "An untouched new one isn't listed; the drawer has 3") { _ in
+            let rows = app.buttons.matching(identifier: "routines.row")
+            let labels = { rows.allElementsBoundByIndex.map(\.label) }
+            let listedBefore = Set(labels())
+            XCTAssertEqual(listedBefore, ["Chest", "Back"], "The untouched new one was listed")
+            var latest = ""
+            for exercise in ["Backward arm circles", "Band pull-apart, Band"] {
+                app.buttons["New routine"].tap()
+                XCTAssertEqual(title.value(becoming: "New routine"), "New routine")
+                app.addExercise(exercise)
+                let unnamed = { title.value as? String == "New routine" }
+                XCTAssertFalse(reading(unnamed(), becoming: false, within: 2), "Still unnamed")
+                latest = title.value as? String ?? ""
+                app.navigationBars.buttons.element(boundBy: 0).tap()
+                XCTAssertTrue(title.disappears(), "The chevron did not pop")
+            }
+            XCTAssertEqual(reading(labels().count, becoming: 4, within: 2), 4)
+            openDrawer(in: app)
+            let listed = drawerRoutines(in: app)
+            XCTAssertEqual(listed.count, 3, "The drawer lists \(listed), not the latest three")
+            XCTAssertEqual(listed.first, latest, "The routine made last isn't first")
+            app.drawerTitle.tap()
+            XCTAssertTrue(app.drawerTitle.disappears(), "Tapping the title left the drawer open")
+        }
     }
 
     @MainActor
