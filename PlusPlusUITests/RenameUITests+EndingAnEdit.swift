@@ -35,10 +35,34 @@ extension RenameUITests {
                 app.buttons["Start"].tap()
             }
         }
-        XCTContext.runActivity(named: "A tap on ++ ends the edit in place") { _ in
-            endEditWithoutMoving(in: app, keyboard: keyboard) {
-                app.buttons["Menu"].tap()
-            }
+        XCTContext.runActivity(named: "A tap on ++ ends the edit and opens the drawer") { _ in
+            XCTAssertTrue(app.routineTitle.settles(), "The title kept moving before the edit")
+            app.routineTitle.tap()
+            XCTAssertTrue(keyboard.appears(), "A tap on the title did not start an edit")
+            app.buttons["Menu"].tap()
+            XCTAssertTrue(keyboard.disappears(), "++ did not end the edit")
+            XCTAssertTrue(app.drawerTitle.appears(), "++ did not open the drawer")
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+            XCTAssertTrue(app.drawerTitle.disappears(), "A tap on the sliver left it open")
+        }
+        XCTContext.runActivity(named: "An edge swipe opens it, a swipe left closes it") { _ in
+            let edge = app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0.5))
+                .withOffset(CGVector(dx: 2, dy: 0))
+            edge.press(
+                forDuration: 0.05,
+                thenDragTo: edge.withOffset(CGVector(dx: 250, dy: 0)),
+                withVelocity: .default,
+                thenHoldForDuration: 0,
+            )
+            XCTAssertTrue(app.drawerTitle.appears(), "The edge swipe did not open the drawer")
+            let drawer = app.coordinate(withNormalizedOffset: CGVector(dx: 0.6, dy: 0.6))
+            drawer.press(
+                forDuration: 0.05,
+                thenDragTo: drawer.withOffset(CGVector(dx: -220, dy: 0)),
+                withVelocity: .default,
+                thenHoldForDuration: 0,
+            )
+            XCTAssertTrue(app.drawerTitle.disappears(), "The swipe left did not close the drawer")
         }
         endEditsByDragging(in: app, keyboard: keyboard)
     }

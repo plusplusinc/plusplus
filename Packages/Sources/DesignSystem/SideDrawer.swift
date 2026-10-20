@@ -1,13 +1,28 @@
 import SwiftUI
 
 /// A drawer under the screen: opening it slides the screen right, leaving a sliver of it in
-/// view, and a tap on the sliver closes it.
+/// view. A swipe in from the left edge opens it, following the finger; a tap on the sliver, a
+/// swipe left, or VoiceOver's escape closes it. With Reduce Motion it fades rather than slides.
+///
+/// The drawer is in the hierarchy only while it shows, so what it holds, a pushed screen
+/// included, starts fresh each time it opens.
 public struct SideDrawer<Drawer: View, Content: View>: View {
     @Binding private var isOpen: Bool
     private let drawer: Drawer
     private let content: Content
-    /// How far open, 0 to 1, fixed for a snapshot; nil follows `isOpen`.
-    private let progress: CGFloat?
+    /// How far open, 0 to 1, fixed for a snapshot; nil follows `isOpen` and the finger.
+    private let fixedProgress: CGFloat?
+
+    /// How far open the drawer is drawn: settles to 0 or 1, and follows a swipe in between.
+    @State private var shown: CGFloat
+    /// Where the drawer is going, so a change of `isOpen` that a swipe made doesn't move it twice.
+    @State private var target: Bool
+    @State private var isDrawerInView: Bool
+    /// How far open the drawer was as the swipe following the finger began; nil with none.
+    @State private var swipeStart: CGFloat?
+    /// The screen faded out, with Reduce Motion, while it moves unseen.
+    @State private var isContentFaded = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
     public init(
@@ -25,23 +40,30 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
         @ViewBuilder content: () -> Content,
     ) {
         _isOpen = isOpen
-        self.progress = progress
+        fixedProgress = progress
+        let open = isOpen.wrappedValue || (progress ?? 0) > 0
+        _shown = State(initialValue: progress ?? (isOpen.wrappedValue ? 1 : 0))
+        _target = State(initialValue: isOpen.wrappedValue)
+        _isDrawerInView = State(initialValue: open)
         self.drawer = drawer()
         self.content = content()
     }
 
     public var body: some View {
-        let progress = progress ?? (isOpen ? 1 : 0)
+        let progress = fixedProgress ?? shown
         GeometryReader { proxy in
             let drawerWidth = max(proxy.size.width - DrawerMetrics.sliver, 0)
             ZStack(alignment: .leading) {
-                drawer
-                    .frame(width: drawerWidth)
-                    .background { Color.pp(.background).ignoresSafeArea() }
-                    .accessibilityHidden(!isOpen)
+                if isDrawerInView {
+                    drawer
+                        .frame(width: drawerWidth)
+                        .background { Color.pp(.background).ignoresSafeArea() }
+                        .accessibilityAddTraits(.isModal)
+                        .accessibilityAction(.escape) { isOpen = false }
+                }
                 content
                     .frame(width: proxy.size.width)
-                    .allowsHitTesting(!isOpen)
+                    .allowsHitTesting(!isOpen && swipeStart == nil)
                     .accessibilityHidden(isOpen)
                     .background {
                         Color.pp(.background)
@@ -61,11 +83,79 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
                                 .accessibilityHidden(true)
                         }
                     }
+                    .opacity(isContentFaded ? 0 : 1)
                     .offset(x: progress * drawerWidth)
             }
+            #if os(iOS)
+            .gesture(DrawerSwipe(opens: true, isEnabled: !isOpen) { phase in
+                follow(phase, width: drawerWidth)
+            })
+            .gesture(DrawerSwipe(opens: false, isEnabled: isOpen) { phase in
+                follow(phase, width: drawerWidth)
+            })
+            #endif
         }
-        .animation(.snappy(duration: 0.3), value: isOpen)
+        .onChange(of: isOpen) { _, open in
+            if open != target {
+                settle(open: open)
+            }
+        }
         .hotReloadable()
+    }
+
+    /// Moves the drawer with a swipe, and settles it where the swipe leaves it.
+    private func follow(_ phase: DrawerDrag.Phase, width: CGFloat) {
+        switch phase {
+        case let .changed(translation):
+            // With Reduce Motion nothing follows the finger: the release fades.
+            guard !reduceMotion else { return }
+            let start = swipeStart ?? shown
+            swipeStart = start
+            isDrawerInView = true
+            let progress = DrawerDrag.progress(translation: translation, width: width, from: start)
+            withTransaction(Transaction(animation: nil)) { shown = progress }
+        case let .ended(translation, velocity):
+            let start = swipeStart ?? shown
+            swipeStart = nil
+            if reduceMotion {
+                settle(open: DrawerDrag.swipeOpens(translation: translation, fromOpen: isOpen))
+                return
+            }
+            let progress = DrawerDrag.progress(translation: translation, width: width, from: start)
+            let opens = DrawerDrag.settlesOpen(progress: progress, velocity: velocity)
+            settle(open: opens, speed: DrawerDrag.releaseSpeed(
+                velocity: velocity, progress: progress, opens: opens, width: width,
+            ))
+        case .cancelled:
+            swipeStart = nil
+            settle(open: isOpen)
+        }
+    }
+
+    /// Slides the drawer open or closed, leaving at `speed` (lengths of its way a second), or
+    /// with Reduce Motion fades the screen out, moves it, and fades it back in.
+    private func settle(open: Bool, speed: CGFloat = 0) {
+        target = open
+        isOpen = open
+        isDrawerInView = true
+        let end: CGFloat = open ? 1 : 0
+        guard !reduceMotion else {
+            withAnimation(DrawerMetrics.fade) { isContentFaded = true } completion: {
+                shown = end
+                withAnimation(DrawerMetrics.fade) { isContentFaded = false } completion: {
+                    leaveIfClosed()
+                }
+            }
+            return
+        }
+        let animation = Animation.interpolatingSpring(DrawerMetrics.slide, initialVelocity: speed)
+        withAnimation(animation) { shown = end } completion: { leaveIfClosed() }
+    }
+
+    private func leaveIfClosed() {
+        if !target, swipeStart == nil {
+            isDrawerInView = false
+        }
     }
 }
 
@@ -75,6 +165,10 @@ enum DrawerMetrics {
     /// The shadow the screen casts on the drawer, from the design.
     static let shadowRadius: CGFloat = 18
     static let shadowOffset: CGFloat = -14
+    /// Opening and closing: quick, as it answers a tap.
+    static let slide = Spring.snappy(duration: 0.3)
+    /// Each half of the Reduce Motion cross-fade, out and back in.
+    static let fade = Animation.snappy(duration: 0.1)
 }
 
 #Preview {
