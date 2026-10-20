@@ -13,6 +13,7 @@ extension RoutineAutosaveUITests {
             XCTAssertEqual(title.value(becoming: "Chest"), "Chest")
             openDrawer(in: app)
             XCTAssertEqual(drawerRoutines(in: app), ["Chest"])
+            XCTAssertFalse(app.buttons["Start"].exists, "VoiceOver reaches Start behind it")
             XCTAssertTrue(app.buttons["Chest"].isSelected, "The routine showing isn't marked")
             XCTAssertFalse(app.buttons["Routines"].isSelected)
             attach(named: "drawer-routine")
@@ -117,16 +118,27 @@ extension RoutineAutosaveUITests {
     private func openDrawer(in app: XCUIApplication) {
         app.buttons["Menu"].tap()
         XCTAssertTrue(app.drawerTitle.appears(), "++ did not open the drawer")
+        // The bars are hosted apart from the screen, and their controls leave the tree on their
+        // own, so the drawer's buttons are read only once they have.
+        XCTAssertTrue(app.buttons["Menu"].disappears(), "VoiceOver reaches ++ behind the drawer")
     }
 
     /// The routines listed under Routines, in order: the buttons between Routines and New.
     @MainActor
     private func drawerRoutines(in app: XCUIApplication) -> [String] {
-        let labels = app.buttons.allElementsBoundByIndex.map(\.label)
+        // Read from one snapshot: buttons read one by one shift under the reading as the bars'
+        // controls leave the tree, each on its own pass, after the drawer opens.
+        guard let snapshot = try? app.snapshot() else { return [] }
+        let labels = buttonLabels(in: snapshot)
         guard let routines = labels.firstIndex(of: "Routines"),
               let new = labels[routines...].firstIndex(of: "New routine")
         else { return [] }
         return Array(labels[routines + 1 ..< new])
+    }
+
+    private func buttonLabels(in snapshot: any XCUIElementSnapshot) -> [String] {
+        let own = snapshot.elementType == .button ? [snapshot.label] : []
+        return own + snapshot.children.flatMap { buttonLabels(in: $0) }
     }
 
     @MainActor
