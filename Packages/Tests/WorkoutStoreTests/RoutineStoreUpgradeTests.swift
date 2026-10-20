@@ -69,6 +69,42 @@ private enum RoutineSchemaV2 {
     }
 }
 
+/// The stored shape as #90 shipped it, with supersets and before routines were opened.
+private enum RoutineSchemaV3 {
+    @Model
+    final class StoredRoutine {
+        var id = UUID()
+        var name = ""
+        var editedAt = Date.distantPast
+        @Relationship(deleteRule: .cascade, inverse: \StoredRoutineExercise.routine)
+        var exercises: [StoredRoutineExercise]? = []
+
+        init(id: UUID) {
+            self.id = id
+        }
+    }
+
+    @Model
+    final class StoredRoutineExercise {
+        var id = UUID()
+        var exerciseID = ""
+        var position = 0
+        var routine: StoredRoutine?
+        var sets: Int?
+        var reps: Int?
+        var seconds: Int?
+        var weight: Double?
+        var weightUnit: String?
+        var supersetID: UUID?
+
+        init(id: UUID, exerciseID: String, position: Int) {
+            self.id = id
+            self.exerciseID = exerciseID
+            self.position = position
+        }
+    }
+}
+
 @Suite("Routine store upgrade")
 struct RoutineStoreUpgradeTests {
     @Test("A store written before plans opens, each row with its exercise's defaults")
@@ -168,5 +204,42 @@ struct RoutineStoreUpgradeTests {
         #expect(routine.exercises.allSatisfy { $0.supersetID == nil })
         #expect(routine.exercises.map(\.plan.sets) == [5, 5])
         #expect(routine.exercises.map(\.plan.target) == [.reps(8), .reps(8)])
+    }
+
+    @Test("A store written before routines were opened opens in edited order")
+    func upgradeBeforeOpening() async throws {
+        let folder = FileManager.default.temporaryDirectory
+            .appending(path: "RoutineStoreUpgrade-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let url = folder.appending(path: "PlusPlus.store")
+
+        do {
+            let schema = Schema([
+                RoutineSchemaV3.StoredRoutine.self,
+                RoutineSchemaV3.StoredRoutineExercise.self,
+            ])
+            let old = try ModelContainer(
+                for: schema,
+                configurations: ModelConfiguration(schema: schema, url: url),
+            )
+            let context = ModelContext(old)
+            for (name, seconds) in [("Older", 1.0), ("Newer", 2.0)] {
+                let routine = RoutineSchemaV3.StoredRoutine(id: UUID())
+                routine.name = name
+                routine.editedAt = Date(timeIntervalSinceReferenceDate: seconds)
+                context.insert(routine)
+            }
+            try context.save()
+        }
+
+        let current = try ModelContainer(
+            for: RoutineStore.schema,
+            configurations: ModelConfiguration(schema: RoutineStore.schema, url: url),
+        )
+        let store = RoutineStore(modelContainer: current)
+        #expect(try await store.launchRoutine(weightUnit: .pounds)?.name == "Newer")
+        #expect(try await store.routinesByRecency(weightUnit: .pounds).map(\.name)
+            == ["Newer", "Older"])
     }
 }

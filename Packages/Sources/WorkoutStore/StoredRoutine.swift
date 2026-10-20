@@ -12,6 +12,9 @@ final class StoredRoutine {
     var name = ""
     /// When the name or the rows last changed: the launch rule opens the latest.
     var editedAt = Date.distantPast
+    /// When the routine was last opened from the drawer. Apart from `editedAt`, so an open is
+    /// never mistaken for an edit; a routine's recency is the later of the two.
+    var openedAt = Date.distantPast
     @Relationship(deleteRule: .cascade, inverse: \StoredRoutineExercise.routine)
     var exercises: [StoredRoutineExercise]? = []
 
