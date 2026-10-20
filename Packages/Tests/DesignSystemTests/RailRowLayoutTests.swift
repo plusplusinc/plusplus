@@ -54,8 +54,10 @@ struct RailRowLayoutTests {
         for (index, sizes) in log.rows.sorted(by: { $0.key < $1.key }) {
             #expect(sizes.count == 1, "row \(index), \(category.rawValue): laid out at \(sizes)")
         }
+        // Whether the scroll view reports its first value is its own business; a second, different
+        // one is the rows growing after they were placed.
         #expect(
-            log.contentHeights.count == 1,
+            Set(log.contentHeights).count <= 1,
             "\(category.rawValue): content heights \(log.contentHeights)",
         )
     }

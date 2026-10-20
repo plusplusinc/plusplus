@@ -220,6 +220,7 @@ private struct RailRowLayout: Layout {
         _ subviews: Subviews,
     ) -> Frames {
         guard subviews.count == 2 else {
+            assertionFailure("A rail row lays out its node column and its content, nothing else")
             return Frames(column: .zero, content: .zero, offer: .zero, size: .zero)
         }
         let column = subviews[0].dimensions(in: .unspecified)
