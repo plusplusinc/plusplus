@@ -19,12 +19,17 @@ struct RoutineLauncher: View {
             if let session {
                 @Bindable var session = session
                 SideDrawer(isOpen: $session.isDrawerOpen) {
-                    DrawerMenu(session: session, namer: namer)
+                    DrawerMenu(session: session)
                 } content: {
-                    // A switch to another routine gives a fresh screen: scroll, sheets, and
-                    // title.
-                    RoutineScreen(session: session, namer: namer)
-                        .id(session.opened.id)
+                    switch session.screen {
+                    case .routine:
+                        // A switch to another routine gives a fresh screen: scroll, sheets,
+                        // and title.
+                        RoutineScreen(session: session, namer: namer)
+                            .id(session.opened.id)
+                    case .routines:
+                        RoutinesScreen(session: session, namer: namer)
+                    }
                 }
             } else {
                 Color.pp(.background)

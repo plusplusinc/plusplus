@@ -24,6 +24,10 @@ extension Font {
     public static let ppRowDetailNumber = Font.system(.subheadline, design: .monospaced)
     /// The numbers in a value at the row title's size and weight: SF Mono.
     public static let ppRowTitleNumber = Font.system(.body, design: .monospaced, weight: .semibold)
+    /// A routine's name in a list of routines: SF Mono, as its title is, at a row's size.
+    public static let ppRoutineName = Font.system(.headline, design: .monospaced, weight: .bold)
+    /// A place in the drawer, such as Routines.
+    public static let ppDrawerItem = Font.system(.title3, weight: .semibold)
     /// The ++ mark: monospaced so the two pluses read as one glyph.
     public static let ppMark = Font.system(.title2, design: .monospaced, weight: .bold)
 }

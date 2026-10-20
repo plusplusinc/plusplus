@@ -30,17 +30,10 @@ struct RoutineScreen: View {
     @State private var isScrollingByHand = false
     /// Whether the title's field has focus. Any touch outside the title ends the edit.
     @State private var isEditingTitle = false
-    /// VoiceOver's focus on ++, given back to it as the drawer closes.
-    @AccessibilityFocusState private var isMenuFocused: Bool
     /// Whether the title has scrolled up under the bar, where a small copy of it shows instead.
     @State private var isTitleUnderBar = false
     @Environment(\.locale) private var locale
     @ObserveHotReload private var hotReload
-
-    private static let markWidth: CGFloat = 20
-    /// A plus sits on the font's math axis, about a point below the middle of its line, so the
-    /// mark is lifted to look centered in the round button.
-    private static let markLift: CGFloat = 1
 
     private static let defaultName = String(localized: "New routine")
 
@@ -205,31 +198,13 @@ struct RoutineScreen: View {
                     }
                 }
                 ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        session.isDrawerOpen = true
-                    } label: {
-                        Text(verbatim: "++")
-                            .font(.ppMark)
-                            .foregroundStyle(.pp(.accent))
-                            // The glass sizes itself to its label. Reserving less width than
-                            // the mark's advance draws the mark large in a compact button.
-                            .fixedSize()
-                            .frame(width: Self.markWidth)
-                            .offset(y: -Self.markLift)
-                    }
-                    .accessibilityLabel("Menu")
-                    .accessibilityFocused($isMenuFocused)
+                    MenuButton(session: session)
                 }
             }
         }
         // A touch anywhere outside the title, bars included, ends its edit and still acts. The
         // keyboard slides down as on Return, where `.scrollDismissesKeyboard` drops it at once.
         .onTouchDownOutsideTitle { isEditingTitle = false }
-        .onChange(of: session.isDrawerOpen) { _, isOpen in
-            if !isOpen {
-                isMenuFocused = true
-            }
-        }
         // `onChange` skips the first value, so a routine opened and left alone is never saved.
         .onChange(of: routine) { _, changed in
             session.save(changed)
