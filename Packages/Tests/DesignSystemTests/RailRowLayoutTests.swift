@@ -23,12 +23,13 @@ struct RailRowLayoutTests {
 
     private struct Host: View {
         let log: Log
+        var name = "Dumbbell bench press"
 
         var body: some View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     ForEach(0 ..< 4, id: \.self) { index in
-                        RowLabel(title: "Dumbbell bench press", detail: "3 × 10 reps · 20 kg")
+                        RowLabel(title: name, detail: "3 × 10 reps · 20 kg")
                             .railRow()
                             .onGeometryChange(for: CGSize.self, of: \.size) {
                                 log.rows[index, default: []].append($0)
@@ -43,16 +44,36 @@ struct RailRowLayoutTests {
         }
     }
 
+    /// Names from a few letters long to past a line at the default size, so that one of them
+    /// ends in the strip the content leaves free at its trailing edge, where only that inset
+    /// makes it wrap.
+    private nonisolated static let widths = (8 ... 40).map { String(repeating: "m", count: $0) }
+
     @Test("A list of rail rows is laid out once, at its final size", arguments: [large, ax5])
     func laidOutOnce(category: UIContentSizeCategory) throws {
-        let log = Log()
-        let host = UIHostingController(rootView: Host(log: log))
+        try expectLaidOutOnce(Host(log: Log()), at: category)
+    }
+
+    @Test(
+        "At the default size, a row whose name wraps only for the trailing inset is laid out once",
+        arguments: widths,
+    )
+    func laidOutOnceAtTheInset(name: String) throws {
+        try expectLaidOutOnce(Host(log: Log(), name: name), at: Self.large)
+    }
+
+    private func expectLaidOutOnce(_ root: Host, at category: UIContentSizeCategory) throws {
+        let log = root.log
+        let host = UIHostingController(rootView: root)
         let window = UIWindow.sceneless(hosting: host, at: category)
         defer { window.isHidden = true }
         window.settle()
         try #require(log.rows.count == 4)
         for (index, sizes) in log.rows.sorted(by: { $0.key < $1.key }) {
-            #expect(sizes.count == 1, "row \(index), \(category.rawValue): laid out at \(sizes)")
+            #expect(
+                sizes.count == 1,
+                "row \(index), \(root.name), \(category.rawValue): laid out at \(sizes)",
+            )
         }
         // Whether the scroll view reports its first value is its own business; a second, different
         // one is the rows growing after they were placed.
