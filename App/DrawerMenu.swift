@@ -3,8 +3,8 @@ import SwiftUI
 import WorkoutStore
 
 /// What ++ opens: the app's title, and Routines, which shows every routine, with the three
-/// routines last opened or edited and New under it. The item for what's showing is marked;
-/// one always is.
+/// routines last opened or edited and New under it: each routine's node, and New's plus, sit
+/// in the column of Routines' icon. The item for what's showing is marked; one always is.
 struct DrawerMenu: View {
     let session: RoutineSession
     let namer: RoutineNamer
@@ -19,19 +19,25 @@ struct DrawerMenu: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Spacing.lg) {
-                Text(verbatim: "PlusPlus")
-                    .ppFixedTitleFont()
-                    .foregroundStyle(.pp(.textPrimary))
-                    .accessibilityAddTraits(.isHeader)
-                    .accessibilityFocused($isTitleFocused)
-                    .padding(.horizontal, Spacing.sm)
+                // Tapping the title closes the drawer, as a tap on the screen beside it does.
+                Button {
+                    session.isDrawerOpen = false
+                } label: {
+                    Text(verbatim: "PlusPlus")
+                        .ppFixedTitleFont()
+                        .foregroundStyle(.pp(.textPrimary))
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Closes the menu")
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityFocused($isTitleFocused)
+                .padding(.horizontal, Spacing.sm)
                 VStack(alignment: .leading, spacing: Spacing.xs) {
                     Button("Routines", systemImage: "rectangle.stack") {
                         session.showRoutines()
                     }
                     .buttonStyle(.drawer(isSelected: session.showing == .routines))
                     routines
-                        .padding(.leading, Spacing.lg)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -54,8 +60,14 @@ struct DrawerMenu: View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
             // A later card makes the last of these the upcoming scheduled routine.
             ForEach(session.recent.held(in: order).prefix(Self.recentCount)) { routine in
-                Button(namer.shownName(of: routine) ?? String(localized: "New routine")) {
+                Button {
                     Task { await session.open(routine.id, weightUnit: weightUnit) }
+                } label: {
+                    Label {
+                        Text(namer.shownName(of: routine) ?? String(localized: "New routine"))
+                    } icon: {
+                        DrawerNode(isLit: isShowing(routine))
+                    }
                 }
                 .buttonStyle(.drawer(isSelected: isShowing(routine), isNested: true))
             }
