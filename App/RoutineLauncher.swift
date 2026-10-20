@@ -17,9 +17,15 @@ struct RoutineLauncher: View {
     var body: some View {
         Group {
             if let session {
-                // A switch to another routine gives a fresh screen: scroll, sheets, and title.
-                RoutineScreen(session: session, namer: namer)
-                    .id(session.opened.id)
+                @Bindable var session = session
+                SideDrawer(isOpen: $session.isDrawerOpen) {
+                    DrawerMenu(session: session, namer: namer)
+                } content: {
+                    // A switch to another routine gives a fresh screen: scroll, sheets, and
+                    // title.
+                    RoutineScreen(session: session, namer: namer)
+                        .id(session.opened.id)
+                }
             } else {
                 Color.pp(.background)
                     .ignoresSafeArea()

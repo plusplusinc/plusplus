@@ -31,7 +31,13 @@ extension Font {
 extension View {
     /// The screen title: SF Mono, 24pt bold, so a title that can be edited reads as typed text.
     public func ppScreenTitleFont() -> some View {
-        modifier(ScreenTitleFont())
+        modifier(ScreenTitleFont(design: .monospaced))
+    }
+
+    /// The drawer's title: the screen title's size and weight in SF Pro, as it is a name, not
+    /// typed text.
+    public func ppDrawerTitleFont() -> some View {
+        modifier(ScreenTitleFont(design: .default))
     }
 }
 
@@ -56,12 +62,13 @@ enum ScreenTitle {
 }
 
 private struct ScreenTitleFont: ViewModifier {
+    let design: Font.Design
     @ScaledMetric(relativeTo: ScreenTitle.textStyle) private var size = ScreenTitle.size
     @ObserveHotReload private var hotReload
 
     func body(content: Content) -> some View {
         content
-            .font(.system(size: size, weight: .bold, design: .monospaced))
+            .font(.system(size: size, weight: .bold, design: design))
             .hotReloadable()
     }
 }
