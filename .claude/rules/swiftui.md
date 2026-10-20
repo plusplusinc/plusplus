@@ -119,13 +119,13 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   screen-edge recognizer never begins on synthetic touches); let go, it settles the way a flick
   of 400 pt/s goes, else to the nearer side of halfway, leaving at the finger's speed
   (`DrawerDrag`). A tap on the sliver, on the drawer's title, or VoiceOver's escape closes it.
-  The haptics play as the drawer visibly arrives, within 10 pt of open or closed, read each frame
-  (`ArrivalFeedback`), not on the spring's completion, which comes later in its tail: soft at 0.8
-  arriving open, rigid at 1.0 shutting; a swipe that springs back to where it began plays
+  The haptics play the moment the drawer starts toward open or closed, as its target changes: on
+  a tap, on VoiceOver's escape, or as a swipe is let go, never while the finger drags: soft at
+  0.8 opening, rigid at 1.0 shutting; a swipe that springs back to where it began plays
   nothing. With Reduce Motion nothing follows the finger: a 30 pt swipe decides, and only
   opacity animates: opening, the screen and its dim take their place at once, with the haptic,
-  and the drawer fades in beside them (0.2 s); closing, the drawer fades out and the screen then
-  goes back, with the haptic. The controls in the screen's bars, hosted apart from it, ignore
+  and the drawer fades in beside them (0.2 s); closing, the haptic plays as the drawer starts to
+  fade out, and the screen goes back once it has. The controls in the screen's bars, hosted apart from it, ignore
   `accessibilityHidden`, so behind the open drawer each leaves VoiceOver through
   `hiddenBehindDrawer()`, which `primaryKeyBar` applies and a toolbar item applies itself; the
   drawer hides the screen's scroll bars. The drawer is in the hierarchy only while it shows. Its places (`DrawerButtonStyle`) have no outline; the one showing sits on a `surface`
