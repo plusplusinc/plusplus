@@ -241,8 +241,8 @@ enum DrawerMetrics {
     static let slide = Spring(duration: 0.25, bounce: 0)
     /// The drawer fading in or out, with Reduce Motion.
     static let fade = Animation.easeInOut(duration: 0.2)
-    /// Starting to open: soft, as a panel giving way.
-    static let opened = SensoryFeedback.impact(flexibility: .soft, intensity: 0.8)
+    /// Starting to open: crisp, and lighter than shutting.
+    static let opened = SensoryFeedback.impact(flexibility: .rigid, intensity: 0.7)
     /// Starting to shut: rigid and full, so it's felt as the drawer closes.
     static let closed = SensoryFeedback.impact(flexibility: .rigid, intensity: 1)
 }
