@@ -47,15 +47,11 @@ struct RailStepTests {
         }
     }
 
-    enum Motion: String, CaseIterable {
-        /// A row held in the bottom edge's band, so the list scrolls.
-        case edge
-        /// A row held where it lifted, its room above the rail opening.
-        case room
-    }
-
-    @Test("The frame clock is read once a frame while the list steps", arguments: Motion.allCases)
-    func readOncePerFrame(motion: Motion) throws {
+    /// A row held in the bottom edge's band, which scrolls the list a frame at a time for as
+    /// long as it is held. The room above the rail steps on the same clock, but on a spring that
+    /// settles by the time passed, so on a slow simulator it could settle in a frame or two.
+    @Test("The frame clock is read once a frame while the list steps")
+    func readOncePerFrame() throws {
         let log = Log()
         let host = UIHostingController(rootView: Host(log: log))
         let window = UIWindow.sceneless(hosting: host, at: .large)
@@ -65,11 +61,9 @@ struct RailStepTests {
         edges.frameRead = { log.reads.append($0) }
 
         let bottom = window.bounds.height
-        edges.lift(at: bottom / 2, room: 80) { _, _ in }
-        switch motion {
-        case .edge: edges.move(to: bottom - 20)
-        case .room: edges.aim(room: 80, animated: true)
-        }
+        edges.lift(at: bottom / 2) { _, _ in }
+        edges.move(to: bottom - 20)
+        try #require(edges.isStepping, "a row held in the bottom band doesn't scroll the list")
         let deadline = Date.now.addingTimeInterval(5)
         while Set(log.reads).count < 20, edges.isStepping, Date.now < deadline {
             RunLoop.main.run(mode: .default, before: .now.addingTimeInterval(0.005))
@@ -77,10 +71,10 @@ struct RailStepTests {
         edges.letGo()
 
         let frames = Set(log.reads).count
-        try #require(frames >= 5, "\(motion): the list stepped for only \(frames) frames")
+        try #require(frames >= 10, "the list stepped for only \(frames) frames")
         #expect(
             log.reads.count == frames,
-            "\(motion): the clock was read \(log.reads.count) times in \(frames) frames",
+            "the clock was read \(log.reads.count) times in \(frames) frames",
         )
     }
 }
