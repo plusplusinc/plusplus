@@ -154,6 +154,9 @@ struct RoutineScreen: View {
             // One row open at a time, closed by a scroll or a tap anywhere else, Start included,
             // so the container holds Start's bar as well as the scroll view.
             .swipeActionsContainer()
+            // The drawer's `accessibilityHidden` stops at the navigation stack, whose content is
+            // hosted apart, so the screen hides its own content behind the open drawer.
+            .accessibilityHidden(session.isDrawerOpen)
             // A shape-style background stops at the keyboard's safe area, which left the
             // window's black behind the keyboard's rounded top corners.
             .background { Color.pp(.background).ignoresSafeArea() }

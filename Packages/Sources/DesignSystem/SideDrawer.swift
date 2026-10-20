@@ -54,6 +54,8 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
         GeometryReader { proxy in
             let drawerWidth = max(proxy.size.width - DrawerMetrics.sliver, 0)
             ZStack(alignment: .leading) {
+                // Behind the sliver while the screen fades, with Reduce Motion.
+                Color.pp(.background).ignoresSafeArea()
                 if isDrawerInView {
                     drawer
                         .frame(width: drawerWidth)
