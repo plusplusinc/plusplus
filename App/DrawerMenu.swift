@@ -2,9 +2,11 @@ import DesignSystem
 import SwiftUI
 import WorkoutStore
 
-/// What ++ opens: the app's title, and Routines, which shows every routine, with the three
-/// routines last opened or edited, the last edited first, and New under it: each routine's
-/// node, and New's plus, sit in the column of Routines' icon. The item for what's showing is marked; one always is.
+/// What ++ opens: the app's title, and Routines, which shows every routine, with three routines
+/// under it and New, an action, last: each routine's node, and New's plus, sit in the column of
+/// Routines' icon. The place showing is marked; one always is. An untouched new routine showing
+/// is the first of the three, then the two last opened or edited; otherwise they are the three
+/// last opened or edited, the last edited first.
 struct DrawerMenu: View {
     let session: RoutineSession
     let namer: RoutineNamer
@@ -47,11 +49,16 @@ struct DrawerMenu: View {
         .hotReloadable()
     }
 
-    /// The routines last opened or edited, up to three, then New.
+    /// The new routine showing, if one is, then the routines last opened or edited, three in
+    /// all, then New.
     private var routines: some View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
-            // A later card will make the last of these the upcoming scheduled routine.
-            ForEach(session.recentByEdit(first: Self.recentCount)) { routine in
+            // A later card will put the upcoming scheduled routine at the top of these.
+            if isNewShowing {
+                newRoutine
+            }
+            ForEach(session.recentByEdit(first: Self.recentCount - (isNewShowing ? 1 : 0))) {
+                routine in
                 Button {
                     Task { await session.open(routine.id, weightUnit: weightUnit) }
                 } label: {
@@ -63,12 +70,32 @@ struct DrawerMenu: View {
                 }
                 .buttonStyle(.drawer(isSelected: isShowing(routine), isNested: true))
             }
+            // An action, never marked: what it makes shows as the row above.
             Button("New", systemImage: "plus") {
                 Task { await session.startNew() }
             }
-            .buttonStyle(.drawer(isSelected: session.showing == .new, isNested: true))
-            .accessibilityLabel("New routine")
+            .buttonStyle(.drawer(isSelected: false, isNested: true))
         }
+    }
+
+    /// The untouched new routine showing, named as its title is, in the title's placeholder gray.
+    /// Saved once it changes, it lists as any routine; left untouched, it goes.
+    private var newRoutine: some View {
+        Button {
+            Task { await session.startNew() }
+        } label: {
+            Label {
+                Text(RoutineScreen.defaultName)
+                    .foregroundStyle(.pp(.textSecondary))
+            } icon: {
+                DrawerNode(isLit: true)
+            }
+        }
+        .buttonStyle(.drawer(isSelected: true, isNested: true))
+    }
+
+    private var isNewShowing: Bool {
+        session.showing == .new
     }
 
     private static let recentCount = 3
