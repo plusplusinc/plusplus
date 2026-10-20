@@ -7,10 +7,17 @@ import WorkoutStore
 /// Routines' icon. The place showing is marked; one always is. An untouched new routine showing
 /// is the first of the three, then the two last opened or edited; otherwise they are the three
 /// last opened or edited, the last edited first.
+///
+/// Nothing in it changes while any of it shows: its rows and the mark are taken as it starts to
+/// show and held until it has fully closed, so a tap that switches routines, or a swipe, never
+/// moves a row under the finger. The next opening shows them as they are then.
 struct DrawerMenu: View {
     let session: RoutineSession
     let namer: RoutineNamer
 
+    /// The rows and the mark as the drawer started to show. The drawer is in the hierarchy only
+    /// while it shows, so this is taken anew each time it starts to.
+    @State private var held: Contents?
     @AccessibilityFocusState private var isTitleFocused: Bool
     @Environment(\.locale) private var locale
     @ObserveHotReload private var hotReload
@@ -35,7 +42,7 @@ struct DrawerMenu: View {
                     Button("Routines", systemImage: "rectangle.stack") {
                         session.showRoutines()
                     }
-                    .buttonStyle(.drawer(isSelected: session.showing == .routines))
+                    .buttonStyle(.drawer(isSelected: contents.showing == .routines))
                     routines
                 }
             }
@@ -43,9 +50,10 @@ struct DrawerMenu: View {
             .padding(.horizontal, Spacing.sm)
             .padding(.top, Spacing.sm)
         }
-        // The drawer is built as it opens, so these run on each opening.
+        // The drawer is built as it starts to show, so these run each time it does, before its
+        // first frame.
+        .onAppear { held = contents }
         .task { isTitleFocused = true }
-        .task { await session.refreshRecent(weightUnit: weightUnit) }
         .hotReloadable()
     }
 
@@ -54,10 +62,10 @@ struct DrawerMenu: View {
     private var routines: some View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
             // A later card will put the upcoming scheduled routine at the top of these.
-            if isNewShowing {
+            if contents.showing == .new {
                 newRoutine
             }
-            ForEach(session.recentByEdit(first: savedCount)) { routine in
+            ForEach(contents.routines) { routine in
                 Button {
                     Task { await session.open(routine.id, weightUnit: weightUnit) }
                 } label: {
@@ -93,19 +101,27 @@ struct DrawerMenu: View {
         .buttonStyle(.drawer(isSelected: true, isNested: true))
     }
 
-    private var isNewShowing: Bool {
-        session.showing == .new
+    /// What the drawer draws: as it started to show, or, before then, as the session is now.
+    private var contents: Contents {
+        held ?? Contents(session)
     }
-
-    /// Three rows in all: the new one showing takes the place of the third.
-    private var savedCount: Int {
-        isNewShowing ? Self.recentCount - 1 : Self.recentCount
-    }
-
-    private static let recentCount = 3
 
     private func isShowing(_ routine: Routine) -> Bool {
-        session.showing == .routine && routine.id == session.current.id
+        contents.showing == .routine && routine.id == contents.openID
+    }
+
+    /// The drawer's routines and its mark, taken from the session at one moment.
+    private struct Contents {
+        let showing: RoutineSession.Showing
+        let openID: Routine.ID
+        /// Three rows in all: an untouched new routine showing takes the place of the third.
+        let routines: [Routine]
+
+        init(_ session: RoutineSession) {
+            showing = session.showing
+            openID = session.current.id
+            routines = session.recentByEdit(first: showing == .new ? 2 : 3)
+        }
     }
 
     private var weightUnit: WeightUnit {

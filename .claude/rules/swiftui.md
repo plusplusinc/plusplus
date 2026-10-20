@@ -135,6 +135,9 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   New routine in the title's placeholder gray (`textSecondary`), its node lit and marked, above
   the two routines last opened or edited. A nested place's icon, a routine's `DrawerNode` or
   New's plus, sits in the column of the place above's icon, on the name's first line.
+  Nothing in the drawer changes while any of it shows: `DrawerMenu` takes its rows and its mark
+  from the session as it enters the hierarchy and holds them until it leaves, so a tap that
+  switches routines, or a swipe, never moves or re-marks a row; the next opening reads afresh.
 - A generated name arrives in the title on its own clock (`SuggestionTiming`, one
   `TimelineView`): the old name fades out (0.15 s), then the new one types in, a character
   every 20 ms, each letter shuffling through the name's other letters in `railJoin` for 50 ms,
