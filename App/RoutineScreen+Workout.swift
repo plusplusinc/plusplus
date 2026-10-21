@@ -15,43 +15,77 @@ extension RoutineScreen {
         routine.exercises.dropFirst().first?.id
     }
 
-    /// How tall the current exercise's label stands: the area between the bars, the end's room
-    /// included as the way back hides while it shows, less the row after it and the row's own
-    /// inset above and below the label.
+    /// How tall the current exercise's label stands: the list's height below the row's top,
+    /// less the row after it, which ends at the list's foot, and the row's own inset above and
+    /// below the label.
     var currentLabelHeight: CGFloat {
+        max(roomBelow(rowTop: session.currentTop) - RailRowMetrics.verticalInset * 2, 0)
+    }
+
+    /// The list's height below a row at `rowTop`, less the row after the current one, or the
+    /// end's room when there is none.
+    private func roomBelow(rowTop: CGFloat) -> CGFloat {
         let after = nextID == nil ? endRoom : nextRowHeight ?? endRoom
-        return max(visibleHeight + wayToCurrentRoom - after - RailRowMetrics.verticalInset * 2, 0)
+        return listHeight - rowTop - after
+    }
+
+    /// In a workout the list draws nothing below the safe area, so the row after the next one,
+    /// which starts there, is out of sight.
+    var drawnEdges: Edge.Set {
+        session.workout == nil ? .all : [.top, .horizontal]
     }
 
     /// Start in three beats, each once the last has finished: the key, pressed in, slides off
-    /// the bottom with its floor; the list scrolls the first exercise to just under the bar,
-    /// unless it is there already; and it grows into the current exercise. The haptic plays as
-    /// the key goes down. With Reduce Motion, the list crossfades into the workout.
+    /// the bottom with its floor; the list scrolls, only if the first exercise is not fully in
+    /// view or has too little room below it to grow, and only as far as it must; and the first
+    /// exercise grows into the current one where it is. The haptic plays as the key goes down.
+    /// With Reduce Motion, the list crossfades into the workout.
     func start(named name: String) {
         guard !isStartAway, session.workout == nil else { return }
         // Pressed in already: held there, so the key leaves as it was when let go.
         isStarting = true
-        // The list's end lies under the first row until it grows, so a short routine has
-        // nowhere to scroll it to: room under the end, out of sight, lets it reach the top. It
-        // goes in ahead of the scroll: a scroll in the same transaction stops at the old end.
+        // The list's end lies under the first row until it grows, so a short routine may have
+        // nowhere to scroll it to: room under the end, out of sight, lets it go. It goes in
+        // ahead of the scroll: a scroll in the same transaction stops at the old end.
         withTransaction(\.disablesAnimations, true) { isMakingRoom = true }
-        guard !reduceMotion else { return crossfade { begin(named: name) } }
+        guard !reduceMotion else {
+            return crossfade {
+                if let scroll = placeForGrowth() {
+                    scrollPosition.scrollTo(y: scroll)
+                }
+                begin(named: name)
+            }
+        }
         withAnimation(.snappy(duration: Self.keyBeat)) {
             isStartAway = true
         } completion: {
-            scrollToFirst { grow(named: name) }
+            scrollToGrow { grow(named: name) }
         }
     }
 
-    /// Scrolls the first exercise to just under the bar, then calls `next`; at once if it is
+    /// Picks where the first exercise's row will sit as the current one: where it is, if it
+    /// is fully in view with room below to grow; else as near there as it fits, at the bar at
+    /// the highest. Returns the scroll that takes it there, or nil when it stays.
+    private func placeForGrowth() -> CGFloat? {
+        guard let place = currentPlace else { return nil }
+        let rowTop = place.rowTop
+        let highestFit = max(
+            roomBelow(rowTop: 0) - RailRowMetrics.verticalInset * 2 - grownLabelFit,
+            0,
+        )
+        let top = rowTop < 0 ? 0 : min(rowTop, highestFit)
+        session.currentTop = top
+        guard abs(top - rowTop) >= 1 else { return nil }
+        return max(place.rowContentTop - top, 0)
+    }
+
+    /// Scrolls the first exercise to where it will grow, then calls `next`; at once if it is
     /// there already.
-    private func scrollToFirst(then next: @escaping () -> Void) {
-        guard let first = routine.exercises.first?.id,
-              currentPlace?.isUnderBar(inset: RailRowMetrics.verticalInset) == false
-        else { return next() }
-        scrollBeat.run(to: .firstUnderBar, then: next) {
+    private func scrollToGrow(then next: @escaping () -> Void) {
+        guard let scroll = placeForGrowth() else { return next() }
+        scrollBeat.run(to: .current(top: session.currentTop), then: next) {
             withAnimation(.snappy(duration: Self.scrollDuration)) {
-                scrollPosition.scrollTo(id: first, anchor: .top)
+                scrollPosition.scrollTo(y: scroll)
             }
         }
     }
@@ -66,12 +100,9 @@ extension RoutineScreen {
         }
     }
 
-    /// Starts the workout, keeping the first exercise under the bar as the bars change.
+    /// Starts the workout. The list stays where it is.
     private func begin(named name: String) {
         session.start(routineName: name)
-        if let first = routine.exercises.first?.id {
-            scrollPosition.scrollTo(id: first, anchor: .top)
-        }
         isStarting = false
     }
 
@@ -128,18 +159,52 @@ extension RoutineScreen {
         }
     }
 
-    /// Notes where the first exercise is, and ends a scroll that was taking it under the bar.
+    /// Notes where the first exercise is, and ends a scroll that was taking it to where it
+    /// grows.
     func placeCurrent(_ place: CurrentPlace) {
         currentPlace = place
-        if place.isUnderBar(inset: RailRowMetrics.verticalInset) {
-            scrollBeat.reached(.firstUnderBar)
-        }
+        scrollBeat.reached(.current(top: place.rowTop))
+        openOnCurrentIfDue()
     }
 
-    /// Whether the list is scrolled to its top, within the last couple of points of a scroll's
-    /// spring.
-    static func isAtTop(of geometry: ScrollGeometry) -> Bool {
-        geometry.contentOffset.y + geometry.contentInsets.top < 2
+    /// The scroll that puts the current exercise's row where Start left it.
+    private var scrollToCurrent: CGFloat? {
+        currentPlace.map { max($0.rowContentTop - session.currentTop, 0) }
+    }
+
+    /// Notes the height of the area between the bars, which a relaunch waits for.
+    func containerResized(_ height: CGFloat) {
+        visibleHeight = height
+        openOnCurrentIfDue()
+    }
+
+    /// Back in a workout after a relaunch, opens the list as Start left it, once the list has
+    /// its height and the current exercise its place.
+    func openOnCurrentIfDue() {
+        guard opensOnCurrent, visibleHeight > 0, currentPlace?.shown ?? 0 > 0,
+              let scroll = scrollToCurrent else { return }
+        opensOnCurrent = false
+        scrollPosition.scrollTo(y: scroll)
+    }
+
+    /// The first exercise's label as it will grow at Start, unseen, measured at its own height:
+    /// the least the current exercise needs.
+    @ViewBuilder
+    func grownLabelProbe(_ item: RoutineExercise) -> some View {
+        if session.workout == nil, item.id == routine.exercises.first?.id {
+            RowLabel(
+                title: item.exercise.name,
+                detail: item.detailParts(locale: locale),
+                focus: item.focus(
+                    inSuperset: routine.isInSuperset(item.id),
+                    minHeight: 0,
+                    locale: locale,
+                ),
+            )
+            .hidden()
+            .accessibilityHidden(true)
+            .reportingHeight(true) { grownLabelFit = $0 }
+        }
     }
 
     /// Start's beats, and the end's in reverse: the key leaving or coming back, the scroll, and
@@ -162,7 +227,9 @@ extension RoutineScreen {
             if let current, let place, place.isMostlyOut {
                 CurrentExerciseButton(name: current.exercise.name, isAbove: place.isAbove) {
                     withAnimation(.snappy(duration: 0.4)) {
-                        scrollPosition.scrollTo(id: current.id, anchor: .top)
+                        if let scroll = scrollToCurrent {
+                            scrollPosition.scrollTo(y: scroll)
+                        }
                     }
                 }
                 .padding(.horizontal, Spacing.xl * 2)
@@ -179,15 +246,15 @@ extension RoutineScreen {
 /// the beat ends as the list arrives where it was going, or, failing that, as it stops.
 final class ScrollBeat {
     /// Where a scroll in the sequence takes the list.
-    enum Goal {
-        /// The first exercise just under the bar, at Start.
-        case firstUnderBar
+    enum Goal: Equatable {
+        /// The current exercise's row this far below the bar, at Start.
+        case current(top: CGFloat)
         /// The list's top, as a workout ends.
         case top
     }
 
-    /// Whether the list is scrolled to its top. Not observed: read only as a sequence begins.
-    private(set) var isListAtTop = true
+    /// How far the list is scrolled. Not observed: read only as a sequence begins.
+    private(set) var scrolledY: CGFloat = 0
     private var goal: Goal?
     private var next: (() -> Void)?
     private var isAnimating = false
@@ -200,15 +267,27 @@ final class ScrollBeat {
         scroll()
     }
 
-    /// The list has reached `goal`.
-    func reached(_ goal: Goal) {
-        guard goal == self.goal else { return }
-        finish()
+    /// Whether the list is at its top, within the last couple of points of a scroll's spring.
+    var isListAtTop: Bool {
+        scrolledY < 2
     }
 
-    func listMoved(isAtTop: Bool) {
-        isListAtTop = isAtTop
-        if isAtTop {
+    /// The list has reached `goal`, within the last couple of points of a scroll's spring,
+    /// which are no reason to wait.
+    func reached(_ goal: Goal) {
+        switch (goal, self.goal) {
+        case (.top, .top):
+            finish()
+        case let (.current(top), .current(goal)) where abs(top - goal) < 2:
+            finish()
+        default:
+            break
+        }
+    }
+
+    func listMoved(to scrolledY: CGFloat) {
+        self.scrolledY = scrolledY
+        if isListAtTop {
             reached(.top)
         }
     }

@@ -11,23 +11,30 @@ nonisolated struct CurrentPlace: Equatable {
     var isAbove: Bool
     /// How far the label's top is below the bar, the top of the part showing.
     var top: CGFloat
+    /// How far the label's top is from the top of the list's content, where `scrollTo(y:)`
+    /// counts from.
+    var contentTop: CGFloat
 
     /// Scrolled fully or mostly out of view, where the way back to it shows.
     var isMostlyOut: Bool {
         shown < 0.4
     }
 
-    /// Just under the bar, where a scroll to it with a `.top` anchor puts it: the rail row's
-    /// top, which the scroll aligns, is the label's `inset` above it. Within the last couple of
-    /// points of the scroll's spring, which is no reason to wait.
-    func isUnderBar(inset: CGFloat) -> Bool {
-        abs(top - inset) < 2
+    /// How far the rail row's top is below the bar: the label is `RailRowMetrics.verticalInset`
+    /// below it.
+    @MainActor var rowTop: CGFloat {
+        top - RailRowMetrics.verticalInset
+    }
+
+    /// The rail row's top in the list's content.
+    @MainActor var rowContentTop: CGFloat {
+        contentTop - RailRowMetrics.verticalInset
     }
 
     init(_ proxy: GeometryProxy) {
         let row = CGRect(origin: .zero, size: proxy.size)
         guard let visible = proxy.bounds(of: .scrollView) else {
-            (shown, isAbove, top) = (1, false, 0)
+            (shown, isAbove, top, contentTop) = (1, false, 0, 0)
             return
         }
         let overlap = row.intersection(visible)
@@ -35,6 +42,14 @@ nonisolated struct CurrentPlace: Equatable {
         shown = overlap.isNull || most <= 0 ? 0 : overlap.height / most
         isAbove = row.midY < visible.midY
         top = row.minY - visible.minY
+        contentTop = proxy.frame(in: .list).minY
+    }
+}
+
+extension CoordinateSpaceProtocol where Self == NamedCoordinateSpace {
+    /// The routine screen's list content, from its top, as a scroll position counts.
+    nonisolated static var list: NamedCoordinateSpace {
+        .named("RoutineScreen.list")
     }
 }
 

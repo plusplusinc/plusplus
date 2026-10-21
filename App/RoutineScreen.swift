@@ -48,12 +48,16 @@ struct RoutineScreen: View {
     @State var isMakingRoom = false
     /// Where the first exercise, the current one in a workout, is against the part showing.
     @State var currentPlace: CurrentPlace?
-    /// The height of the area between the bars, less the room under the list's end in a workout:
-    /// the current exercise mostly fills the two.
+    /// The height of the area between the bars, less the room under the list's end in a workout.
     @State var visibleHeight: CGFloat = 0
+    /// The list's height between the bars and the safe area: in a workout, the current exercise
+    /// and the next fill it.
+    @State var listHeight: CGFloat = 0
+    /// The first exercise's label grown into the current one, at its own height.
+    @State var grownLabelFit: CGFloat = 0
     /// Back in a workout after a relaunch, the list opens on the current exercise, once it has
     /// grown to its size.
-    @State private var opensOnCurrent = false
+    @State var opensOnCurrent = false
     /// Room under the list's end in a workout, so Add exercise scrolls clear of the way back to
     /// the current exercise.
     @ScaledMetric(relativeTo: .body) var wayToCurrentRoom: CGFloat = 64
@@ -61,7 +65,7 @@ struct RoutineScreen: View {
     @State var nextRowHeight: CGFloat?
     /// What the current exercise leaves of that area when nothing follows it: Add exercise.
     @ScaledMetric(relativeTo: .body) var endRoom: CGFloat = 96
-    @Environment(\.locale) private var locale
+    @Environment(\.locale) var locale
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @ObserveHotReload private var hotReload
 
@@ -143,6 +147,7 @@ struct RoutineScreen: View {
                             locale: locale,
                         ) : nil,
                     )
+                    .background { grownLabelProbe(item) }
                     .id(item.id)
                     .reportingPlace(item.id == routine.exercises.first?.id, to: placeCurrent)
                     // Until an added row has entered it takes no taps, and its frame is
@@ -188,6 +193,7 @@ struct RoutineScreen: View {
             // below the top of the visible area. Starting there keeps the title still.
             .padding(.top, Spacing.sm)
             .opacity(isFadedOut ? 0 : 1)
+            .coordinateSpace(.list)
         }
         .contentMargins(
             .bottom,
@@ -202,16 +208,12 @@ struct RoutineScreen: View {
             scrollBeat.phaseChanged(to: phase)
         }
         .onScrollGeometryChange(for: Bool.self, of: Self.endIsInView(of:)) { isEndInView = $1 }
-        .onScrollGeometryChange(for: Bool.self, of: Self.isAtTop(of:)) {
-            scrollBeat.listMoved(isAtTop: $1)
+        .onScrollGeometryChange(for: CGFloat.self, of: \.scrolledY) { scrollBeat.listMoved(to: $1) }
+        .onScrollGeometryChange(for: CGFloat.self, of: \.containerSize.height) {
+            containerResized($1)
         }
-        .onScrollGeometryChange(for: CGFloat.self, of: \.containerSize.height) { _, height in
-            visibleHeight = height
-            if opensOnCurrent, height > 0, let currentID {
-                opensOnCurrent = false
-                scrollPosition.scrollTo(id: currentID, anchor: .top)
-            }
-        }
+        .onGeometryChange(for: CGFloat.self, of: \.size.height) { listHeight = $0 }
+        .mask { Rectangle().ignoresSafeArea(edges: drawnEdges) }
         .overlay(alignment: .bottom) { wayToCurrent }
         .primaryKeyBar(
             isPresented: !routine.exercises.isEmpty && session.workout == nil && !isStartAway,
