@@ -83,6 +83,30 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         }
         try supersetAtAX5(in: app)
         try drawerAtAX5(in: app)
+        try workoutAtAX5(in: app)
+    }
+
+    /// From the Routines screen the drawer left: a workout's bar, running and paused, and
+    /// Finish's dialog pass the audit at this size.
+    @MainActor
+    private func workoutAtAX5(in app: XCUIApplication) throws {
+        try XCTContext.runActivity(named: "A workout's bar and Finish's dialog at AX5") { _ in
+            app.buttons.matching(identifier: "routines.row").firstMatch.tap()
+            XCTAssertTrue(app.buttons["Start"].appears(), "The routine opened no Start")
+            app.buttons["Start"].tap()
+            let time = app.workoutTime
+            XCTAssertTrue(time.appears(within: 3), "Start began no workout")
+            attach(named: "workout-ax5")
+            try auditBelowTheBar(in: app)
+            time.tap()
+            XCTAssertEqual(reading(time.label, becoming: "Resume", within: 2), "Resume")
+            try auditBelowTheBar(in: app)
+            XCTAssertNotNil(app.openFinishDialog(), "No Finish in the dialog")
+            attach(named: "finish-dialog-ax5")
+            try auditBelowTheBar(in: app)
+            app.buttons["Discard workout"].tap()
+            XCTAssertTrue(app.buttons["Start"].appears(), "Discard left the workout running")
+        }
     }
 
     /// The drawer, its places kept whole, and the Routines screen pass the audit at this size.
@@ -118,6 +142,19 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             app.scrollToTop(titled: app.routineTitle.value as? String ?? "")
             attach(named: "superset-ax5")
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
+        }
+    }
+
+    /// The audit, passing over what is in the navigation bar: the bar caps its text, Finish and
+    /// the small title, at a size of its own, and shows the large content viewer on a long press
+    /// instead. In a workout the list lands with the title under the bar, where its small copy
+    /// shows cut short.
+    @MainActor
+    private func auditBelowTheBar(in app: XCUIApplication) throws {
+        let bar = app.navigationBars.firstMatch.frame
+        try app.performAccessibilityAudit(for: [.dynamicType, .textClipped]) { issue in
+            guard let element = issue.element else { return false }
+            return bar.contains(element.frame)
         }
     }
 

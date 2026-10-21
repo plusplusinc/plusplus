@@ -39,4 +39,16 @@ extension XCUIApplication {
         launch()
         XCTAssertTrue(routineTitle.appears(within: 10), "No title after relaunch")
     }
+
+    /// A swipe in from the screen's left edge, which opens the drawer or pops a pushed screen.
+    func edgeSwipe() {
+        let edge = coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0.5))
+            .withOffset(CGVector(dx: 2, dy: 0))
+        edge.press(
+            forDuration: 0.05,
+            thenDragTo: edge.withOffset(CGVector(dx: 300, dy: 0)),
+            withVelocity: .default,
+            thenHoldForDuration: 0,
+        )
+    }
 }
