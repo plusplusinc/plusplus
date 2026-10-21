@@ -45,19 +45,23 @@ struct RoutineScreen: View {
     @State var starts = 0
     /// With Reduce Motion, the list faded out while it changes into a workout.
     @State var isFadedOut = false
+    /// While the first exercise grows at Start, room under the list's end to scroll it to the top.
+    @State var isMakingRoom = false
     /// Where the first exercise, the current one in a workout, is against the part showing.
     @State var currentPlace: CurrentPlace?
     /// The height of the area between the bars, less the room under the list's end in a workout:
     /// the current exercise mostly fills the two.
-    @State private var visibleHeight: CGFloat = 0
+    @State var visibleHeight: CGFloat = 0
     /// Back in a workout after a relaunch, the list opens on the current exercise, once it has
     /// grown to its size.
     @State private var opensOnCurrent = false
     /// Room under the list's end in a workout, so Add exercise scrolls clear of the way back to
     /// the current exercise.
-    @ScaledMetric(relativeTo: .body) private var wayToCurrentRoom: CGFloat = 64
-    /// What the current exercise leaves of that area: the next row, and a margin under it.
-    @ScaledMetric(relativeTo: .body) private var nextRowRoom: CGFloat = 96
+    @ScaledMetric(relativeTo: .body) var wayToCurrentRoom: CGFloat = 64
+    /// The height of the row after the current exercise, which the current one leaves room for.
+    @State var nextRowHeight: CGFloat?
+    /// What the current exercise leaves of that area when nothing follows it: Add exercise.
+    @ScaledMetric(relativeTo: .body) var endRoom: CGFloat = 96
     @Environment(\.locale) private var locale
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @ObserveHotReload private var hotReload
@@ -78,11 +82,6 @@ struct RoutineScreen: View {
     /// name, so it is the same after a relaunch.
     private var generatedName: String? {
         namer.name(for: routine.exercises.map(\.exercise), of: routine.id)
-    }
-
-    /// The exercise a workout is on: the first, as nothing is done yet.
-    var currentID: RoutineExercise.ID? {
-        session.workout == nil ? nil : routine.exercises.first?.id
     }
 
     var body: some View {
@@ -141,7 +140,7 @@ struct RoutineScreen: View {
                         spokenDetail: item.spokenDetail(locale: locale),
                         focus: item.id == currentID ? item.focus(
                             inSuperset: routine.isInSuperset(item.id),
-                            minHeight: max(visibleHeight + wayToCurrentRoom - nextRowRoom, 0),
+                            minHeight: currentLabelHeight,
                             locale: locale,
                         ) : nil,
                     )
@@ -153,6 +152,9 @@ struct RoutineScreen: View {
                     // row, `false` would un-hide the rail's node.
                     .accessibilityHidden(item.id == entering)
                     .railRow()
+                    .reportingHeight(item.id == nextID) { nextRowHeight = $0 }
+                    // Under the tap, which stays on where the swipe is off.
+                    .swipeToDelete(isOn: item.id != currentID) { delete(item.id) }
                     .contentShape(.rect)
                     .onTapGesture {
                         guard item.id != entering else { return }
@@ -171,9 +173,6 @@ struct RoutineScreen: View {
                         supersetActions(item.id)
                     }
                     .accessibilityIdentifier("routine.exercise")
-                    .swipeActions(edge: .trailing) {
-                        Button("Delete", role: .destructive) { delete(item.id) }
-                    }
                 } end: {
                     Button("Add exercise", systemImage: "plus") {
                         isPicking = true
@@ -184,6 +183,8 @@ struct RoutineScreen: View {
             .padding(.horizontal, Spacing.md)
             // Room under Add exercise, so at the end of a long list it clears Start.
             .padding(.bottom, Spacing.md)
+            // In the content, not a margin, so the visible height the row is sized from stays.
+            .padding(.bottom, isMakingRoom ? visibleHeight : 0)
             // When the keyboard rises, UIKit scrolls the focused field to sit at least 5pt
             // below the top of the visible area. Starting there keeps the title still.
             .padding(.top, Spacing.sm)

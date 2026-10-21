@@ -255,3 +255,9 @@ extension View {
         }
     }
 }
+
+/// What a rail row adds around its content.
+public enum RailRowMetrics {
+    /// The inset above and below a row's content.
+    public static let verticalInset = Spacing.sm
+}

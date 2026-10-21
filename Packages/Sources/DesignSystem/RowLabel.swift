@@ -5,8 +5,9 @@ import SwiftUI
 /// words when `spokenDetail` is given.
 ///
 /// Given a `focus`, it is the current exercise of a workout: the name grows large, and the detail
-/// gives way to which set it is on and the plan's numbers, large, in a row at least `minHeight`
-/// tall. Changed in an animation, the name's size runs between the two, and the numbers grow out
+/// gives way to which set it is on, the exercise's equipment, and the plan's numbers, large, in
+/// a label at least `minHeight` tall. Changed in an animation, the name's size runs between the
+/// two, and the numbers grow out
 /// of where the detail was.
 public struct RowLabel: View {
     private let title: String
@@ -50,48 +51,56 @@ public struct RowLabel: View {
             .hotReloadable()
     }
 
-    /// The name stays where it is as the row grows: below it, the room stands at its height from
-    /// the start, and the numbers come in inside it.
+    /// The name stays where it is as the row grows: the label stands at its height from the start,
+    /// from its top, and the equipment and the numbers come in below the name inside it.
     private func content(_ detailText: String?) -> some View {
+        StandingHeight(minHeight: focus?.minHeight ?? 0) {
+            column(detailText)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func column(_ detailText: String?) -> some View {
         VStack(alignment: .leading, spacing: Spacing.xxs) {
             Text(title)
                 .modifier(SemiboldSize(size: focus == nil ? titleSize : currentTitleSize))
                 .foregroundStyle(.pp(.textPrimary))
-            StandingHeight(minHeight: focus.map { max($0.minHeight - currentTitleSize, 0) } ?? 0) {
-                VStack(alignment: .leading, spacing: Spacing.lg) {
-                    // The detail line gives way to which set it is on, in the same place.
-                    ZStack(alignment: .topLeading) {
-                        if let detailText {
-                            Text(AttributedString.monoNumbers(
-                                detailText,
-                                font: .ppRowDetailNumber,
-                            ))
-                            .font(.ppRowDetail)
-                            .foregroundStyle(.pp(.textSecondary))
-                            .opacity(focus == nil ? 1 : 0)
-                        }
-                        Text(focus?.progress ?? "")
-                            .font(.ppCurrentProgress)
-                            .foregroundStyle(.pp(.textSecondary))
-                            .opacity(focus == nil ? 0 : 1)
+            VStack(alignment: .leading, spacing: Spacing.lg) {
+                // The detail line gives way to which set it is on, in the same place.
+                ZStack(alignment: .topLeading) {
+                    if let detailText {
+                        Text(AttributedString.monoNumbers(
+                            detailText,
+                            font: .ppRowDetailNumber,
+                        ))
+                        .font(.ppRowDetail)
+                        .foregroundStyle(.pp(.textSecondary))
+                        .opacity(focus == nil ? 1 : 0)
                     }
-                    if let focus {
-                        // In once the rows below have mostly stepped aside, so the numbers
-                        // don't grow over them.
-                        figures(focus)
-                            .transition(
-                                .asymmetric(
-                                    insertion: .scale(scale: 0.3, anchor: .topLeading)
-                                        .combined(with: .opacity)
-                                        .animation(.snappy(duration: 0.35).delay(0.2)),
-                                    removal: .opacity.animation(.snappy(duration: 0.15)),
-                                ),
-                            )
-                    }
+                    Text(focus?.progress ?? "")
+                        .font(.ppCurrentProgress)
+                        .foregroundStyle(.pp(.textSecondary))
+                        .opacity(focus == nil ? 0 : 1)
+                }
+                if let focus, !focus.equipment.isEmpty {
+                    Capsules(focus.equipment)
+                        .transition(.opacity.animation(.snappy(duration: 0.3).delay(0.15)))
+                }
+                if let focus {
+                    // In once the rows below have mostly stepped aside, so the numbers
+                    // don't grow over them.
+                    figures(focus)
+                        .transition(
+                            .asymmetric(
+                                insertion: .scale(scale: 0.3, anchor: .topLeading)
+                                    .combined(with: .opacity)
+                                    .animation(.snappy(duration: 0.35).delay(0.2)),
+                                removal: .opacity.animation(.snappy(duration: 0.15)),
+                            ),
+                        )
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// Each number large, with what it counts beside it.
@@ -190,14 +199,24 @@ private struct SemiboldSize: ViewModifier, Animatable {
 public struct RowFocus: Equatable {
     /// Which set it is on: "Set 1 of 3".
     public var progress: String
+    /// The exercise's own equipment, as capsules; none for an exercise that needs none.
+    public var equipment: [String]
     public var figures: [Figure]
     /// The figures in words, for VoiceOver.
     public var spokenFigures: String
-    /// How tall the label stands, so the row fills most of the screen.
+    /// How tall the whole label stands, name included, so the row fills the screen but for the
+    /// row after it.
     public var minHeight: CGFloat
 
-    public init(progress: String, figures: [Figure], spokenFigures: String, minHeight: CGFloat) {
+    public init(
+        progress: String,
+        equipment: [String] = [],
+        figures: [Figure],
+        spokenFigures: String,
+        minHeight: CGFloat,
+    ) {
         self.progress = progress
+        self.equipment = equipment
         self.figures = figures
         self.spokenFigures = spokenFigures
         self.minHeight = minHeight
@@ -229,6 +248,7 @@ public struct RowFocus: Equatable {
             detail: [],
             focus: RowFocus(
                 progress: "Set 1 of 3",
+                equipment: ["Dumbbell", "Bench"],
                 figures: [
                     .init(number: "10", unit: "reps per side"),
                     .init(number: "50", unit: "lb"),

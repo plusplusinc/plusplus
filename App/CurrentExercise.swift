@@ -29,6 +29,29 @@ nonisolated struct CurrentPlace: Equatable {
 }
 
 extension View {
+    /// A row's Delete, revealed by a swipe, while `isOn`. Off, on the current exercise, which
+    /// fills the screen and whose sheet deletes it, there is no swipe at all: with no actions the
+    /// row still slid aside.
+    func swipeToDelete(isOn: Bool, delete: @escaping () -> Void) -> some View {
+        // The row itself stays on, or VoiceOver would read it dimmed.
+        environment(\.isEnabled, true)
+            .swipeActions(edge: .trailing) {
+                Button("Delete", role: .destructive, action: delete)
+            }
+            .disabled(!isOn)
+    }
+
+    /// Reports this row's height as it changes, while `isOn`.
+    func reportingHeight(_ isOn: Bool, to action: @escaping (CGFloat) -> Void) -> some View {
+        onGeometryChange(for: CGFloat?.self) { proxy in
+            isOn ? proxy.size.height : nil
+        } action: { height in
+            if let height {
+                action(height)
+            }
+        }
+    }
+
     /// Reports where this row is in the list as it scrolls, while `isOn`.
     func reportingPlace(_ isOn: Bool, to action: @escaping (CurrentPlace) -> Void) -> some View {
         onGeometryChange(for: CurrentPlace?.self) { proxy in
@@ -73,6 +96,7 @@ extension RoutineExercise {
     func focus(inSuperset: Bool, minHeight: CGFloat, locale: Locale) -> RowFocus {
         RowFocus(
             progress: progressText(set: 1, inSuperset: inSuperset, locale: locale),
+            equipment: [exercise].equipment.map(\.name),
             figures: figures(locale: locale).map { .init(number: $0.number, unit: $0.unit) },
             spokenFigures: spokenFigures(locale: locale),
             minHeight: minHeight,

@@ -149,7 +149,7 @@ private struct RailRow: ViewModifier {
         RailRowLayout(nodeSize: nodeSize) {
             RailNode()
             content
-                .padding(.vertical, Spacing.sm)
+                .padding(.vertical, RailRowMetrics.verticalInset)
                 .frame(minHeight: minHeight, alignment: .top)
                 .opacity(place.isArriving ? 0 : 1)
                 .offset(y: place.isArriving && !reduceMotion ? -Spacing.xs : 0)
