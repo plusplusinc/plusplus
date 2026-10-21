@@ -29,8 +29,9 @@ project board; agents' technical working files live in `.slices/`.
 3. Read the `.slices/` files that State names: the newest handoff or verify report. Read
    summaries, not code; subagents read code.
 4. A card not yet started gets an alignment check before anything else (see the /brief skill's
-   "Align"). Restate it as what the maintainer will see and do, then check its Aligned list
-   against the README, what merged since it was written, and its neighbors on the board. Bring
+   "Align"). Restate it as what the maintainer will see and do, reading each thing the app does
+   today from `main`'s code before you say it, then check its Aligned list against the README,
+   what merged since it was written, and its neighbors on the board. Bring
    anything open, contradicted, or missing (an undesigned screen, content nobody chose, a gap
    no card covers), each with a recommendation. Record the answers in the card, make cards for
    what lands out of scope, and start only on the maintainer's yes.
@@ -48,21 +49,24 @@ project board; agents' technical working files live in `.slices/`.
   straight to a builder with the card's Plan as its plan.
 - A slice with something to see on the phone runs as a loop with the maintainer (see the
   builder's "Rounds"). Install each round from the slice worktree with `scripts/device.sh`; a
-  fresh checkout is a cold build. It builds the worktree as it is, so uncommitted edits are fine
-  for a first look, but say so. Tell the maintainer in a line what changed, that the build is
-  unverified, and what to try: what to do and what they should see, never a check's name or what
-  it looks for. Then give their feedback to a fresh builder named for that round, which starts
-  from the slice's handoff note and brings it up to date before it reports; resume a builder
-  only to finish its own round. Wi-Fi first, link second: when no iPhone is in reach the script
-  makes an install link instead, printing why each paired iPhone was out of reach (say that,
-  not a guess), and when the phone is locked the build installs but doesn't
-  open, so tell them to open PlusPlus. Send them the link it prints. The work goes on while they
-  are away. The loop ends when they say it's right; then the builder runs its full pass and the
-  verifier runs once. Their being away doesn't end it: work done while they are away is a round
-  for them to try when they're back, and the full pass still waits for their word.
+  fresh checkout is a cold build. It builds the worktree as it is, so uncommitted edits are fine for a first
+  look, but say so. Tell the maintainer in a line what changed, that the build is unverified, and
+  what to try: what to do and what they should see, never a check's name or what it looks for.
+  Before installing, check each thing they asked for in the round's screenshots, on content like
+  theirs (as many exercises, equipment, long names). Then give their feedback to a fresh builder
+  named for that round, which starts from the slice's handoff note and brings it up to date before
+  it reports; resume a builder only to finish its own round. Wi-Fi first, link second: when no
+  iPhone is in reach the script makes an install link instead, printing why each paired iPhone was
+  out of reach (say that, not a guess), and when the phone is locked the build installs but
+  doesn't open, so tell them to open PlusPlus. Send them the link it prints. The work goes on
+  while they are away. The loop ends when they say it's right; then the builder runs its full pass
+  and the verifier runs once. Their being away doesn't end it: work done while they are away is a
+  round for them to try when they're back, and the full pass still waits for their word.
 - When you or the maintainer settle something while a builder works, send it to that builder
   at once (SendMessage) and add it to the slice's handoff note, so the next builder has it too.
   A change the maintainer proposes and you agree with is settled: build it, never ask again.
+  What you add to it is not: a cause you infer for something they felt, or a consequence you
+  derive (a new shape, a new timing), goes to them as a question before any builder gets it.
 - While the maintainer is still weighing a rule (asking whether it holds together, or offering
   another), send no builder any of the candidates: show them side by side as a table of the
   cases where they differ, and send the one they pick.
@@ -84,7 +88,9 @@ project board; agents' technical working files live in `.slices/`.
   artifact the board README links (Artifact `read`, add the page, `publish` to its `url`; a
   feature with none gets one, linked there), and send its link: the maintainer chooses on the
   phone, where a file on the Mac never reaches them and `SendUserFile` fails in a session with
-  no project thread.
+  no project thread. A session started from the phone has no Artifact tool, nor do the
+  subagents it starts: check with ToolSearch before anyone draws, and without it publish
+  through an interactive `claude` on the Mac, as agent memory describes.
 - No time estimates. While a phase runs, tell the maintainer in a line now and then what it is
   doing and why that still serves the card, without being asked. A subagent or a CI watch in
   the background says nothing until it ends, and a watch can outlive its run, so while one runs,

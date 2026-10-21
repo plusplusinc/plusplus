@@ -67,14 +67,18 @@ the card stays private and the PR names it by title.
 
 ## 4. Align
 
-Before handing off, make sure the maintainer and the card agree. Restate it as what they will
-see and do. Settled points name where they were settled (the board README, a design board, a
+Before handing off, make sure the maintainer and the card agree. Restate it as what they will see
+and do. Settled points name where they were settled (the board README, a design board, a
 decision). Open points are listed with a recommendation each: screens with no design, content
-nobody has chosen (lists, copy, defaults), conflicts with earlier decisions, and gaps between
-this card and its neighbors. An open point that is a choice between rules is a table of the
-cases where they differ, not prose. Their answers go into the body as an "Aligned with
-<maintainer> <date>" list, and out of every section that still lists them as open or plans
-otherwise; read the card back (`scripts/board.sh show`) before saying they're recorded.
+nobody has chosen (lists, copy, defaults), conflicts with earlier decisions, and gaps between this
+card and its neighbors. Check the card is one step that merges on its own and leaves the app
+working; one bundling pieces that could each merge gets the split proposed as an open point. A
+limit it proposes (a control turned off, an edit locked) names what would break today without it;
+one that guards a case a later card brings belongs to that card. An open point that is a choice
+between rules is a table of the cases where they differ, not prose. Their answers go into the body
+as an "Aligned with <maintainer> <date>" list, and out of every section that still lists them as
+open or plans otherwise; read the card back (`scripts/board.sh show`) before saying they're
+recorded.
 Anything they push out of scope becomes its own card, named in Out of scope. An
 open point that doesn't change what gets built can stay open; say so in the body. A card
 published as an issue is public: edit it with `gh issue edit <n> --body-file -` from a heredoc,
