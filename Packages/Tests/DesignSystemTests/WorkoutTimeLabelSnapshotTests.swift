@@ -23,7 +23,7 @@ struct WorkoutTimeLabelSnapshotTests {
         assertThemedSnapshots(of: label("04:12", isPaused: false), width: Self.width)
     }
 
-    @Test("Paused: play and the time in gray, at the running label's width")
+    @Test("Paused: play in white and the time in gray, at the running label's width")
     func paused() {
         assertThemedSnapshots(of: label("04:12", isPaused: true), width: Self.width)
     }

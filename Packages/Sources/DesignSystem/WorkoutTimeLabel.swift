@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// The label of a workout's time key: pause and the time in white while it runs; play and the
-/// time in gray while paused. The key's button says what a tap does, Pause or Resume, and the
-/// time in words.
+/// The label of a workout's time key: pause and the time in white while it runs; while paused,
+/// play stays white, since it is what a tap does, and only the stopped time turns gray. The
+/// key's button says what a tap does, Pause or Resume, and the time in words.
 ///
 /// The icon is drawn in the time's font, on its baseline, so it scales and sits with the
 /// digits, and it keeps the width of the wider of its two symbols, so the key holds its width
@@ -28,15 +28,16 @@ public struct WorkoutTimeLabel: View {
                 Image(systemName: isPaused ? Self.play : Self.pause)
                     .contentTransition(.symbolEffect(.replace))
             }
+            .foregroundStyle(.pp(.textPrimary))
             .imageScale(.small)
             .accessibilityHidden(true)
             Text(text)
+                .foregroundStyle(.pp(isPaused ? .textSecondary : .textPrimary))
         }
         .font(.ppWorkoutTime)
-        .foregroundStyle(.pp(isPaused ? .textSecondary : .textPrimary))
         .padding(.horizontal, Spacing.xs)
         .fixedSize()
-        // The icon's replace and the color change play on a pause or a resume.
+        // The icon's replace and the time's color change play on a pause or a resume.
         .animation(.snappy(duration: 0.2), value: isPaused)
         .hotReloadable()
     }
