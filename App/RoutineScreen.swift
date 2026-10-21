@@ -160,9 +160,10 @@ struct RoutineScreen: View {
             of: Self.endIsInView(of:),
             action: { _, isInView in isEndInView = isInView },
         )
-        .primaryKeyBar(isPresented: !routine.exercises.isEmpty) {
-            // Starting a workout is a later slice.
-            Button("Start", systemImage: "play.fill") { }
+        .primaryKeyBar(isPresented: !routine.exercises.isEmpty && session.workout == nil) {
+            Button("Start", systemImage: "play.fill") {
+                session.start(routineName: shownName ?? "")
+            }
         }
         // One row open at a time, closed by a scroll or a tap anywhere else, Start included,
         // so the container holds Start's bar as well as the scroll view.
@@ -218,7 +219,14 @@ struct RoutineScreen: View {
                     .transition(.opacity)
                 }
             }
-            if !isPushed {
+            if let workout = session.workout {
+                ToolbarItem(placement: .topBarLeading) {
+                    FinishButton(session: session, routineName: shownName ?? "")
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    WorkoutTimeKey(session: session, workout: workout)
+                }
+            } else if !isPushed {
                 ToolbarItem(placement: .topBarLeading) {
                     MenuButton(session: session)
                 }

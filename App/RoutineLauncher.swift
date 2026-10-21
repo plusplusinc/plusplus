@@ -18,8 +18,12 @@ struct RoutineLauncher: View {
         Group {
             if let session {
                 @Bindable var session = session
-                // A routine pushed onto the Routines screen takes the edge swipe back to the list.
-                SideDrawer(isOpen: $session.isDrawerOpen, swipeOpens: !session.isRoutinePushed) {
+                // A routine pushed onto the Routines screen takes the edge swipe back to the list,
+                // and a workout keeps the drawer shut.
+                SideDrawer(
+                    isOpen: $session.isDrawerOpen,
+                    swipeOpens: !session.isRoutinePushed && !session.isDrawerLocked,
+                ) {
                     DrawerMenu(session: session, namer: namer)
                 } content: {
                     switch session.screen {
@@ -32,11 +36,17 @@ struct RoutineLauncher: View {
                         RoutinesScreen(session: session, namer: namer)
                     }
                 }
+                .keepsScreenOn(session.workout != nil)
             } else {
                 Color.pp(.background)
                     .ignoresSafeArea()
                     .task {
-                        let session = await RoutineSession(routine: launchRoutine(), store: store)
+                        let launch = await launch()
+                        let session = RoutineSession(
+                            routine: launch.routine,
+                            workout: launch.workout,
+                            store: store,
+                        )
                         self.session = session
                         // The drawer names the routine last opened, which may not be this one.
                         await session.refreshRecent(weightUnit: WeightUnit(region: locale))
@@ -46,19 +56,19 @@ struct RoutineLauncher: View {
         .hotReloadable()
     }
 
-    private func launchRoutine() async -> Routine {
-        guard let store else { return Routine() }
+    private func launch() async -> (routine: Routine, workout: Workout?) {
+        guard let store else { return (Routine(), nil) }
         do {
             #if DEBUG
             if resetsStore {
                 try await store.deleteAll()
             }
             #endif
-            return try await store
-                .launch(weightUnit: WeightUnit(region: locale)).routine ?? Routine()
+            let launch = try await store.launch(weightUnit: WeightUnit(region: locale))
+            return (launch.routine ?? Routine(), launch.workout)
         } catch {
             Logger.app.error("Opening a new routine: the saved one didn't load: \(error)")
-            return Routine()
+            return (Routine(), nil)
         }
     }
 }

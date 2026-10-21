@@ -35,6 +35,15 @@ extension RenameUITests {
             app.addExercise(exercises[0].label)
             XCTAssertTrue(app.buttons["Start"].appears())
             app.buttons["Start"].tap()
+            XCTAssertTrue(app.buttons["Finish"].appears(), "Start began no workout")
+            XCTAssertEqual(app.buttons["workout.time"].label, "Pause")
+            XCTAssertFalse(app.buttons["Start"].exists, "Start stayed in a workout")
+            XCTAssertFalse(app.buttons["Menu"].exists, "++ stayed in a workout")
+            // Discarded, so the rest runs on a routine in edit mode, as if Start never ran.
+            app.buttons["Finish"].tap()
+            app.buttons["Discard workout"].firstMatch.tap()
+            XCTAssertTrue(app.buttons["Start"].appears(), "Discard left the workout running")
+            XCTAssertTrue(app.buttons["Menu"].exists)
             XCTAssertEqual(app.exerciseCount(becoming: 1), 1)
             XCTAssertFalse(search.exists, "Start opened something")
         }

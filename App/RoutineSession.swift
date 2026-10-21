@@ -3,7 +3,8 @@ import Observation
 import OSLog
 import WorkoutStore
 
-/// The routine open on screen, which screen shows, and the switch to another routine.
+/// The routine open on screen, which screen shows, the switch to another routine, and the
+/// workout running it.
 ///
 /// It owns saving, so a switch can wait for the last edit to land before opening the next
 /// routine: an edit just before a switch is never lost, and the routine opened is newer than
@@ -20,6 +21,8 @@ final class RoutineSession {
     /// Whether the open routine is pushed onto the Routines screen, opened from its list. Its
     /// back button and back swipe set this false, showing the list again.
     var isRoutinePushed = false
+    /// The workout running the open routine, from Start until Finish or Discard.
+    private(set) var workout: Workout?
     /// The saved routines, latest first, as of the last read, with each routine left since.
     private var saved: [Routine] = []
     /// When each routine was last edited, as of the last read, with each edit made since.
@@ -33,14 +36,30 @@ final class RoutineSession {
     @ObservationIgnored private let store: RoutineStore?
     /// Where every change to the routine goes, to be saved one at a time in the order they
     /// happened, so an older version can never land last. Only the newest unsaved one waits.
-    @ObservationIgnored private var saves: AsyncStream<Routine>.Continuation
+    @ObservationIgnored private var saves: AsyncStream<RoutineSave>.Continuation
     @ObservationIgnored private var saving: Task<Void, Never>
+    /// Where every change to the workout goes, saved in the order they happened. Each is the
+    /// whole workout, so only the newest unsaved one waits.
+    @ObservationIgnored private let workoutWrites: AsyncStream<WorkoutWrite>.Continuation
 
-    init(routine: Routine, store: RoutineStore?) {
+    init(routine: Routine, workout: Workout? = nil, store: RoutineStore?) {
         opened = routine
         current = routine
+        self.workout = workout
         self.store = store
         (saves, saving) = Self.startSaving(to: store)
+        workoutWrites = Self.startWritingWorkouts(to: store)
+    }
+
+    /// A routine to save, and whether to keep it once it is empty, as while its workout runs.
+    private struct RoutineSave {
+        let routine: Routine
+        let keepsEmpty: Bool
+    }
+
+    private enum WorkoutWrite {
+        case save(Workout)
+        case discard(Workout.ID)
     }
 
     enum Screen {
@@ -63,7 +82,61 @@ final class RoutineSession {
     func save(_ routine: Routine) {
         current = routine
         editedAt[routine.id] = .now
-        saves.yield(routine)
+        saves.yield(RoutineSave(routine: routine, keepsEmpty: workout != nil))
+    }
+
+    /// While a workout runs, the drawer stays shut: neither ++ nor the edge swipe opens it.
+    var isDrawerLocked: Bool {
+        workout != nil
+    }
+
+    /// Starts a workout on the open routine, shown at the root, so no back button or swipe
+    /// leaves it. `routineName` is the name it shows.
+    func start(routineName: String, at now: Date = .now) {
+        guard workout == nil else { return }
+        if screen != .routine || isRoutinePushed {
+            opened = current
+            screen = .routine
+            isRoutinePushed = false
+        }
+        isDrawerOpen = false
+        let started = Workout(routineID: current.id, routineName: routineName, startedAt: now)
+        workout = started
+        workoutWrites.yield(.save(started))
+    }
+
+    /// Pauses the workout, or resumes it if paused.
+    func togglePause(at now: Date = .now) {
+        guard let workout else { return }
+        let changed = workout.isPaused ? workout.resuming(at: now) : workout.pausing(at: now)
+        self.workout = changed
+        workoutWrites.yield(.save(changed))
+    }
+
+    /// Finishes the workout, keeping it with the name the routine shows now.
+    func finish(routineName: String, at now: Date = .now) {
+        guard let workout else { return }
+        var finished = workout.finishing(at: now)
+        finished.routineName = routineName
+        self.workout = nil
+        workoutWrites.yield(.save(finished))
+        deleteIfCleared()
+    }
+
+    /// Ends the workout keeping nothing of it, as if Start never ran.
+    func discard() {
+        guard let workout else { return }
+        self.workout = nil
+        workoutWrites.yield(.discard(workout.id))
+        deleteIfCleared()
+    }
+
+    /// A routine cleared to nothing while its workout ran was kept for it; once the workout
+    /// ends, it is deleted, as any cleared routine is.
+    private func deleteIfCleared() {
+        if current.isEmpty {
+            saves.yield(RoutineSave(routine: current, keepsEmpty: false))
+        }
     }
 
     /// What the drawer marks as showing: the Routines screen, the open routine, or a new one.
@@ -172,7 +245,7 @@ final class RoutineSession {
         while current != landed {
             landed = current
             do {
-                try await store?.save(landed)
+                try await store?.save(landed, keepsEmpty: workout != nil)
             } catch {
                 Logger.app.error("The routine didn't save: \(error)")
             }
@@ -181,20 +254,42 @@ final class RoutineSession {
 
     private static func startSaving(
         to store: RoutineStore?,
-    ) -> (AsyncStream<Routine>.Continuation, Task<Void, Never>) {
+    ) -> (AsyncStream<RoutineSave>.Continuation, Task<Void, Never>) {
         let (stream, continuation) = AsyncStream.makeStream(
-            of: Routine.self,
+            of: RoutineSave.self,
             bufferingPolicy: .bufferingNewest(1),
         )
         let task = Task {
             for await version in stream {
                 do {
-                    try await store?.save(version)
+                    try await store?.save(version.routine, keepsEmpty: version.keepsEmpty)
                 } catch {
                     Logger.app.error("The routine didn't save: \(error)")
                 }
             }
         }
         return (continuation, task)
+    }
+
+    private static func startWritingWorkouts(
+        to store: RoutineStore?,
+    ) -> AsyncStream<WorkoutWrite>.Continuation {
+        let (stream, continuation) = AsyncStream.makeStream(
+            of: WorkoutWrite.self,
+            bufferingPolicy: .bufferingNewest(1),
+        )
+        Task {
+            for await write in stream {
+                do {
+                    switch write {
+                    case let .save(workout): try await store?.save(workout)
+                    case let .discard(id): try await store?.discardWorkout(id)
+                    }
+                } catch {
+                    Logger.app.error("The workout didn't save: \(error)")
+                }
+            }
+        }
+        return continuation
     }
 }
