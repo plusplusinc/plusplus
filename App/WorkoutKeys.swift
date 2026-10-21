@@ -8,6 +8,8 @@ struct FinishButton: View {
     let session: RoutineSession
     /// The name the routine shows, kept with the finished workout.
     let routineName: String
+    /// Ends the workout with the change given, in the screen's sequence.
+    let end: (@escaping () -> Void) -> Void
 
     @State private var isConfirming = false
 
@@ -18,12 +20,11 @@ struct FinishButton: View {
         .hiddenBehindDrawer()
         // Attached to the button, so the dialog comes from it.
         .confirmationDialog("", isPresented: $isConfirming, titleVisibility: .hidden) {
-            // The current exercise goes back to its resting size as Start comes back.
             Button("Finish") {
-                withAnimation(.snappy(duration: 0.4)) { session.finish(routineName: routineName) }
+                end { session.finish(routineName: routineName) }
             }
             Button("Discard workout", role: .destructive) {
-                withAnimation(.snappy(duration: 0.4)) { session.discard() }
+                end(session.discard)
             }
             Button("Cancel", role: .cancel) { }
         }

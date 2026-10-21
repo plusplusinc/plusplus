@@ -84,7 +84,12 @@ public struct RowLabel: View {
                 }
                 if let focus, !focus.equipment.isEmpty {
                     Capsules(focus.equipment)
-                        .transition(.opacity.animation(.snappy(duration: 0.3).delay(0.15)))
+                        .transition(
+                            .asymmetric(
+                                insertion: .opacity.animation(.snappy(duration: 0.3).delay(0.15)),
+                                removal: .opacity.animation(.snappy(duration: 0.15)),
+                            ),
+                        )
                 }
                 if let focus {
                     // In once the rows below have mostly stepped aside, so the numbers

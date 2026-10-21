@@ -9,22 +9,32 @@ nonisolated struct CurrentPlace: Equatable {
     var shown: CGFloat
     /// Whether the row is above the part showing, so the way back to it is up.
     var isAbove: Bool
+    /// How far the label's top is below the bar, the top of the part showing.
+    var top: CGFloat
 
     /// Scrolled fully or mostly out of view, where the way back to it shows.
     var isMostlyOut: Bool {
         shown < 0.4
     }
 
+    /// Just under the bar, where a scroll to it with a `.top` anchor puts it: the rail row's
+    /// top, which the scroll aligns, is the label's `inset` above it. Within the last couple of
+    /// points of the scroll's spring, which is no reason to wait.
+    func isUnderBar(inset: CGFloat) -> Bool {
+        abs(top - inset) < 2
+    }
+
     init(_ proxy: GeometryProxy) {
         let row = CGRect(origin: .zero, size: proxy.size)
         guard let visible = proxy.bounds(of: .scrollView) else {
-            (shown, isAbove) = (1, false)
+            (shown, isAbove, top) = (1, false, 0)
             return
         }
         let overlap = row.intersection(visible)
         let most = min(row.height, visible.height)
         shown = overlap.isNull || most <= 0 ? 0 : overlap.height / most
         isAbove = row.midY < visible.midY
+        top = row.minY - visible.minY
     }
 }
 

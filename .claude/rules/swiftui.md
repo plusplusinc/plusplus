@@ -53,6 +53,18 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   It enters only where it can be seen: its place opens as the picker's sheet starts down, and
   the entry plays a moment into the sheet's slide, or, when the new row has pushed the list's
   end out of view, after a scroll to the end.
+- Start plays in three beats, each once the last has finished (`RoutineScreen+Workout.swift`),
+  with a medium impact as the finger lands on the key: the key, held pressed in, slides off
+  the bottom with its floor as it fades (`.snappy(0.2)`); the list scrolls the first exercise
+  to just under the bar (`.snappy(0.35)`), skipped when it is there already; and it grows in
+  place into the current exercise (`.snappy(0.4)`). Ending a workout, by Finish or Discard
+  once the dialog has gone, plays them in reverse: the current exercise shrinks back
+  (0.4 s, on a timing curve shaped like `.snappy`'s, since a spring's completion waits out its
+  tail and the next beat sat still for a quarter second), the list scrolls to its top (0.35 s),
+  skipped when it is there, and Start rises back in (0.2 s). A scroll's `withAnimation`
+  completion runs at once, so `ScrollBeat` ends that beat as the list arrives, within 2 pt.
+  Room under the list's end, out of sight, holds the scroll still while the row grows or
+  shrinks. With Reduce Motion each is one crossfade (0.15 s out, 0.2 s in), the haptic kept.
 - A row on a rail moves by holding and dragging (`RailDrag` holds every value). A hold of 0.4 s
   that moves under 10 pt lifts it; a press that moves first is a scroll, and a hold in the rail
   column, on the node, draws a superset instead (below). The hold is a UIKit long press (`RailLiftGesture`), put

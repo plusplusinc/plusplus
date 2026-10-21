@@ -7,8 +7,7 @@ import WorkoutStore
 /// Every change saves on its own, with no drafts. A new routine is saved once something is put
 /// in it, and deleted once it is cleared back to nothing.
 struct RoutineScreen: View {
-    // What the extensions in `RoutineScreen+Workout.swift` and `RoutineScreen+Supersets.swift`
-    // read is internal, not private, so they can live in their own files.
+    // What the `RoutineScreen+` extensions read is internal, not private, so they can be apart.
 
     @State var routine: Routine
     /// Saves every change, and opens the drawer.
@@ -39,10 +38,10 @@ struct RoutineScreen: View {
     @State private var isTitleUnderBar = false
     /// Start held down on its ledge from its press until the workout starts.
     @State var isStarting = false
-    /// Start leaving, ahead of the workout starting once the first exercise is in view.
-    @State var isStartLeaving = false
-    /// Counts Start's presses, each a medium impact.
-    @State var starts = 0
+    /// Start kept out of its bar from its press until the workout starts, and as one ends.
+    @State var isStartAway = false
+    /// The scroll in Start's sequence and the end's, and whether the list is at its top.
+    @State var scrollBeat = ScrollBeat()
     /// With Reduce Motion, the list faded out while it changes into a workout.
     @State var isFadedOut = false
     /// While the first exercise grows at Start, room under the list's end to scroll it to the top.
@@ -145,7 +144,7 @@ struct RoutineScreen: View {
                         ) : nil,
                     )
                     .id(item.id)
-                    .reportingPlace(item.id == routine.exercises.first?.id) { currentPlace = $0 }
+                    .reportingPlace(item.id == routine.exercises.first?.id, to: placeCurrent)
                     // Until an added row has entered it takes no taps, and its frame is
                     // where it will be rather than where it is drawn, so VoiceOver and the UI
                     // tests find it once it has. On the label, the row's one element: on the
@@ -200,12 +199,12 @@ struct RoutineScreen: View {
         .onScrollGeometryChange(for: ScrollGeometry.self, of: { $0 }, action: keepEndInView)
         .onScrollPhaseChange { _, phase in
             isScrollingByHand = phase == .interacting || phase == .decelerating
+            scrollBeat.phaseChanged(to: phase)
         }
-        .onScrollGeometryChange(
-            for: Bool.self,
-            of: Self.endIsInView(of:),
-            action: { _, isInView in isEndInView = isInView },
-        )
+        .onScrollGeometryChange(for: Bool.self, of: Self.endIsInView(of:)) { isEndInView = $1 }
+        .onScrollGeometryChange(for: Bool.self, of: Self.isAtTop(of:)) {
+            scrollBeat.listMoved(isAtTop: $1)
+        }
         .onScrollGeometryChange(for: CGFloat.self, of: \.containerSize.height) { _, height in
             visibleHeight = height
             if opensOnCurrent, height > 0, let currentID {
@@ -215,14 +214,13 @@ struct RoutineScreen: View {
         }
         .overlay(alignment: .bottom) { wayToCurrent }
         .primaryKeyBar(
-            isPresented: !routine.exercises.isEmpty && session.workout == nil && !isStartLeaving,
+            isPresented: !routine.exercises.isEmpty && session.workout == nil && !isStartAway,
             isPressedIn: isStarting,
         ) {
             Button("Start", systemImage: "play.fill") {
                 start(named: shownName ?? "")
             }
         }
-        .sensoryFeedback(.impact(weight: .medium), trigger: starts)
         // One row open at a time, closed by a scroll or a tap anywhere else, Start included,
         // so the container holds Start's bar as well as the scroll view.
         .swipeActionsContainer()
@@ -279,7 +277,7 @@ struct RoutineScreen: View {
             }
             if let workout = session.workout {
                 ToolbarItem(placement: .topBarLeading) {
-                    FinishButton(session: session, routineName: shownName ?? "")
+                    FinishButton(session: session, routineName: shownName ?? "", end: end)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     WorkoutTimeKey(session: session, workout: workout)
