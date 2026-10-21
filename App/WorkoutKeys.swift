@@ -43,12 +43,10 @@ struct WorkoutTimeKey: View {
         Button {
             session.togglePause()
         } label: {
-            if let pausedAt = workout.pausedAt {
-                label(at: pausedAt)
-            } else {
-                TimelineView(.periodic(from: workout.clockStart, by: 1)) { context in
-                    label(at: context.date)
-                }
+            // One timeline whether running or paused, so the label stays the same view and
+            // its icon can change from one symbol to the other.
+            TimelineView(SecondsSchedule(workout: workout)) { context in
+                label(at: workout.pausedAt ?? context.date)
             }
         }
         .hiddenBehindDrawer()
@@ -64,5 +62,20 @@ struct WorkoutTimeKey: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(workout.isPaused ? "Resume" : "Pause")
         .accessibilityValue(Workout.spokenElapsed(elapsed, locale: locale))
+    }
+}
+
+/// The whole seconds of a workout's elapsed time while it runs; while paused, once.
+private struct SecondsSchedule: TimelineSchedule {
+    let workout: Workout
+
+    func entries(from startDate: Date, mode _: Mode) -> AnyIterator<Date> {
+        if workout.isPaused {
+            return AnyIterator([startDate].makeIterator())
+        }
+        return AnyIterator(
+            PeriodicTimelineSchedule(from: workout.clockStart, by: 1)
+                .entries(from: startDate, mode: .normal),
+        )
     }
 }

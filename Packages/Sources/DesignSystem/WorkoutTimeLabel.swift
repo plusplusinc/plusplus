@@ -1,8 +1,12 @@
 import SwiftUI
 
-/// The label of a workout's time key: pause and the time in green while it runs; play and the
+/// The label of a workout's time key: pause and the time in white while it runs; play and the
 /// time in gray while paused. The key's button says what a tap does, Pause or Resume, and the
 /// time in words.
+///
+/// The icon is drawn in the time's font, on its baseline, so it scales and sits with the
+/// digits, and it keeps the width of the wider of its two symbols, so the key holds its width
+/// as it swaps. The time is SF Mono, so its digits hold still as they tick.
 public struct WorkoutTimeLabel: View {
     private let text: String
     private let isPaused: Bool
@@ -16,16 +20,30 @@ public struct WorkoutTimeLabel: View {
 
     public var body: some View {
         // Not a `Label`: in a bar, a label shows its icon alone.
-        HStack(spacing: Spacing.xs) {
-            Image(systemName: isPaused ? "play.fill" : "pause.fill")
-                .accessibilityHidden(true)
+        HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
+            ZStack {
+                ForEach(Self.symbols, id: \.self) { symbol in
+                    Image(systemName: symbol).hidden()
+                }
+                Image(systemName: isPaused ? Self.play : Self.pause)
+                    .contentTransition(.symbolEffect(.replace))
+            }
+            .imageScale(.small)
+            .accessibilityHidden(true)
             Text(text)
-                .font(.ppWorkoutTime)
         }
-        .foregroundStyle(.pp(isPaused ? .textSecondary : .accent))
+        .font(.ppWorkoutTime)
+        .foregroundStyle(.pp(isPaused ? .textSecondary : .textPrimary))
+        .padding(.horizontal, Spacing.xs)
         .fixedSize()
+        // The icon's replace and the color change play on a pause or a resume.
+        .animation(.snappy(duration: 0.2), value: isPaused)
         .hotReloadable()
     }
+
+    private static let pause = "pause.fill"
+    private static let play = "play.fill"
+    private static let symbols = [pause, play]
 }
 
 #Preview {
