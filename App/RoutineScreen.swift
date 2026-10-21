@@ -38,13 +38,13 @@ struct RoutineScreen: View {
     @State private var isTitleUnderBar = false
     /// From Start's press until its key has gone: its +1 and beat, and the grow.
     @State var isStarting = false
-    /// How far Start has ridden down with the rows below the current exercise as it grows.
-    @State var startDrop: CGFloat = 0
+    /// How far Start rides with the rows below the current exercise: down at Start, up at the end.
+    @State var startTravel: CGFloat = 0
     /// Under Start, the scroll edge effect's band hidden while the list makes room at Start.
     @State var isBottomEdgeHidden = false
     /// Start kept out of its bar in a workout, and as one ends until the list is back at the top.
     @State var isStartAway = false
-    /// The scroll in Start's sequence and the end's, and whether the list is at its top.
+    /// The scroll in Start's sequence, and how far the list is scrolled.
     @State var scrollBeat = ScrollBeat()
     /// With Reduce Motion, the list faded out while it changes into a workout.
     @State var isFadedOut = false
@@ -56,8 +56,7 @@ struct RoutineScreen: View {
     @State var currentPlace: CurrentPlace?
     /// The height of the area between the bars, less the room under the list's end in a workout.
     @State var visibleHeight: CGFloat = 0
-    /// The list's height between the bars and the safe area, and the screen's height below it:
-    /// in a workout, the current exercise and the next fill both.
+    /// The list's height between the bars, and the screen's below it, filled in a workout.
     @State var listHeight: CGFloat = 0
     @State var listFoot: CGFloat = 0
     /// Back in a workout after a relaunch, the list opens on the current exercise, once grown.
@@ -218,7 +217,8 @@ struct RoutineScreen: View {
         .primaryKeyBar(
             isPresented: showsStart,
             plusOne: isStarting,
-            drop: startDrop,
+            drop: isStarting ? startTravel : 0,
+            rise: isStarting ? 0 : startTravel,
         ) {
             Button("Start", systemImage: "play.fill", action: pressStart)
         }

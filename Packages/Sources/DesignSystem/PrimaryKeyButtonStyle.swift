@@ -43,17 +43,21 @@ extension ButtonStyle where Self == PrimaryKeyButtonStyle {
 
 extension View {
     /// A screen's primary key in a bar at its bottom while `isPresented`, rising in and dropping
-    /// out, or with Reduce Motion fading in and out. The key sits above the home indicator, inset
-    /// from the screen's sides as the content above it is, with nothing behind it: a scroll
-    /// view's content runs on under the key, beside and below it, softened by the system's
-    /// scroll edge effect, which a `safeAreaBar` extends to its height as the navigation bar's
-    /// does at the top. As `plusOne` turns on, a +1 pops off the key's top with a medium impact.
+    /// out, or with Reduce Motion fading in and out. The key sits above the home indicator, with
+    /// nothing behind it: a scroll view's content runs on under the key, beside and below it,
+    /// softened by the system's scroll edge effect, which a `safeAreaBar` extends to its height as
+    /// the navigation bar's
+    /// does at the top. Its sides are as far from the screen's edges as its bottom is from the
+    /// screen's bottom. As `plusOne` turns on, a +1 pops off the key's top with a medium impact.
     /// `drop` moves the key down by that much, at least off the screen, which an animation
-    /// carries it along at its own pace.
+    /// carries it along at its own pace. Presented with a `rise`, the key comes in from that far
+    /// below, at least out of sight, rather than rising and fading in, so it can ride up with
+    /// content moving as far on the same animation.
     public func primaryKeyBar(
         isPresented: Bool,
         plusOne: Bool = false,
         drop: CGFloat = 0,
+        rise: CGFloat = 0,
         @ViewBuilder key: () -> some View,
     ) -> some View {
         let key = key()
@@ -62,11 +66,11 @@ extension View {
                 key
                     .buttonStyle(.primaryKey)
                     .anchorPreference(key: PrimaryKeyBounds.self, value: .bounds) { $0 }
-                    .modifier(KeyDrop(drop: drop))
+                    .modifier(KeyDrop(drop: drop, isDropped: drop > 0))
                     .hiddenBehindDrawer()
-                    .padding(.horizontal, Spacing.md)
+                    .modifier(KeySideInset())
                     .padding(.top, Spacing.sm)
-                    .transition(KeyBarTransition())
+                    .transition(KeyBarTransition(rise: rise))
             }
         }
         // Over the screen rather than in the bar: the bar's scroll edge effect grows to cover
@@ -96,9 +100,9 @@ private struct KeyDrop: ViewModifier, Animatable {
     /// How far along the drop the key is, 0 to 1, which an animation runs through.
     var progress: CGFloat
 
-    init(drop: CGFloat) {
+    init(drop: CGFloat, isDropped: Bool) {
         self.drop = drop
-        progress = drop > 0 ? 1 : 0
+        progress = isDropped ? 1 : 0
     }
 
     nonisolated var animatableData: CGFloat {
@@ -117,6 +121,18 @@ private struct KeyDrop: ViewModifier, Animatable {
     }
 }
 
+/// The key inset from the screen's sides as far as it sits above the screen's bottom: the
+/// home indicator's safe area, which it stands on. With none, as far as content is inset.
+private struct KeySideInset: ViewModifier {
+    @State private var inset: CGFloat = 0
+
+    func body(content: Content) -> some View {
+        content
+            .padding(.horizontal, inset > 0 ? inset : Spacing.md)
+            .onGeometryChange(for: CGFloat.self, of: \.safeAreaInsets.bottom) { inset = $0 }
+    }
+}
+
 /// Where the primary key is, for the +1 that pops off its top.
 private struct PrimaryKeyBounds: PreferenceKey {
     static let defaultValue: Anchor<CGRect>? = nil
@@ -126,10 +142,16 @@ private struct PrimaryKeyBounds: PreferenceKey {
     }
 }
 
-/// The key sliding off the bottom as it fades, or, with Reduce Motion, only fading.
+/// The key sliding off the bottom as it fades, or, with Reduce Motion, only fading. With a
+/// `rise`, it comes in from that far below, unfaded, worked out frame by frame as `KeyDrop` is.
 private struct KeyBarTransition: Transition {
+    let rise: CGFloat
+
     func body(content: Content, phase: TransitionPhase) -> some View {
-        content.modifier(KeyBarPlace(isShown: phase.isIdentity))
+        let rises = rise > 0 && phase == .willAppear
+        content
+            .modifier(KeyDrop(drop: rise, isDropped: rises))
+            .modifier(KeyBarPlace(isShown: phase.isIdentity || rises))
     }
 }
 

@@ -162,7 +162,8 @@ public struct RowLabel: View {
 private let noBreakSpace = "\u{00A0}"
 
 /// Its one subview, from its top, in a frame `height` tall, the height animating as a number,
-/// and taller by however far the subview runs past `endHeight`, the height it animates to. The
+/// and taller by however far the subview runs past both `height` and `endHeight`, the height it
+/// animates to. The
 /// subview takes its new height at once, its new parts fading in later: counted whole, it held the
 /// label at that height until the animated one passed it, so the rows below started late. A
 /// frame's `minHeight` animated from 0 laid the row out at no height for the first frame.
@@ -181,8 +182,11 @@ private struct StandingHeight: Layout {
             width: proposal.width,
             height: nil,
         )) ?? .zero
-        // The content takes its new height at once, so it counts only past the end height.
-        return CGSize(width: size.width, height: height + max(size.height - endHeight, 0))
+        // The content takes its new height at once, so it counts only past the end height, and
+        // past the standing height: shrinking, parts fading out still take their room, which
+        // held the rows below until they had gone, then let them jump.
+        let counted = max(size.height - max(endHeight, height), 0)
+        return CGSize(width: size.width, height: height + counted)
     }
 
     func placeSubviews(

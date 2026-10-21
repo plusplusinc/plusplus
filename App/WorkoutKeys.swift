@@ -2,8 +2,9 @@ import DesignSystem
 import SwiftUI
 import WorkoutStore
 
-/// Finish, in the bar while a workout runs. It asks first: finish and keep the workout, or
-/// discard it.
+/// Finish, in the bar while a workout runs, a menu: finish and keep the workout, or discard it.
+/// A menu rather than a confirmation dialog: the dialog ran its action about a second after the
+/// tap, once its own dismissal had finished, so the list sat still before ending.
 struct FinishButton: View {
     let session: RoutineSession
     /// The name the routine shows, kept with the finished workout.
@@ -11,23 +12,16 @@ struct FinishButton: View {
     /// Ends the workout with the change given, in the screen's sequence.
     let end: (@escaping () -> Void) -> Void
 
-    @State private var isConfirming = false
-
     var body: some View {
-        Button("Finish") {
-            isConfirming = true
-        }
-        .hiddenBehindDrawer()
-        // Attached to the button, so the dialog comes from it.
-        .confirmationDialog("", isPresented: $isConfirming, titleVisibility: .hidden) {
+        Menu("Finish") {
             Button("Finish") {
                 end { session.finish(routineName: routineName) }
             }
             Button("Discard workout", role: .destructive) {
                 end(session.discard)
             }
-            Button("Cancel", role: .cancel) { }
         }
+        .hiddenBehindDrawer()
     }
 }
 

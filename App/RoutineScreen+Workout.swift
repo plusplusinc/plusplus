@@ -42,6 +42,7 @@ extension RoutineScreen {
         withTransaction(\.disablesAnimations, true) {
             isMakingRoom = true
             isBottomEdgeHidden = isEndInView
+            startTravel = 0
         }
         isStarting = true
     }
@@ -51,7 +52,7 @@ extension RoutineScreen {
     func holdStart(named name: String) async {
         guard isStarting, session.workout == nil else { return }
         do {
-            try await Task.sleep(for: .seconds(Self.pressHold))
+            try await Task.sleep(for: .seconds(Self.pressHold), tolerance: .zero)
         } catch {
             isStarting = false
             isMakingRoom = false
@@ -84,7 +85,7 @@ extension RoutineScreen {
         let landed = {
             // A pause in the sequence, by design: nothing is waited for.
             Task {
-                try? await Task.sleep(for: .seconds(Self.landingHold))
+                try? await Task.sleep(for: .seconds(Self.landingHold), tolerance: .zero)
                 next()
             }
             return
@@ -112,13 +113,13 @@ extension RoutineScreen {
         withAnimation(.snappy(duration: Self.growBeat)) {
             begin(named: name)
             growthLift = 0
-            startDrop = max(drop, 1)
+            startTravel = max(drop, 1)
             isBottomEdgeHidden = true
         } completion: {
             withTransaction(\.disablesAnimations, true) {
                 isStartAway = true
                 isStarting = false
-                startDrop = 0
+                startTravel = 0
                 isMakingRoom = false
                 isBottomEdgeHidden = false
             }
@@ -130,29 +131,50 @@ extension RoutineScreen {
         session.start(routineName: name)
     }
 
-    /// Ends the workout with `change`, Start's three beats in reverse, once Finish's dialog is
-    /// gone: the current exercise shrinks back to a resting row as the rows below close up; the
-    /// list scrolls back to its top, unless it is there already; and Start rises back in. With
-    /// Reduce Motion, the list crossfades back.
+    /// Ends the workout with `change`, Start's grow in reverse, in one motion: the current
+    /// exercise shrinks back to a resting row as the rows below close up, the list scrolls back
+    /// to its top, and Start rides up with the rows below, as far and as fast. The scroll is
+    /// animated, not lifted as at Start: drawn lifted at the top, the title showed over the
+    /// status bar, with no edge effect under the bar. On `.smooth`, the grow's curve without its
+    /// bounce, which carried the key past its place. With Reduce Motion, the list crossfades.
     func end(_ change: @escaping () -> Void) {
         guard session.workout != nil else { return }
-        // Start stays out until the list is back at the top, and the room under the list's end
-        // keeps the shrinking row where it is, rather than the list jumping to its new end.
-        withTransaction(\.disablesAnimations, true) {
-            isStartAway = true
-            isMakingRoom = true
-        }
         guard !reduceMotion else {
             return crossfade {
                 change()
                 scrollPosition.scrollTo(edge: .top)
             }
         }
-        withAnimation(Self.shrink, change) {
-            scrollToTop {
-                withTransaction(\.disablesAnimations, true) { isMakingRoom = false }
-                withAnimation(.snappy(duration: Self.keyBeat)) { isStartAway = false }
+        let scrolledY = scrollBeat.scrolledY
+        // The rows below move up by what the current exercise gives back, less the scroll. A
+        // relaunch into a workout never saw the row at rest: a row after it stands in for it.
+        var rise: CGFloat = 0
+        if let place = currentPlace {
+            let resting = place.restingHeight
+                ?? nextRowHeight.map { $0 - RailRowMetrics.verticalInset * 2 } ?? place.height
+            rise = place.height - resting - scrolledY
+        }
+        // Room under the list's end, so the shrinking content doesn't pull the scroll up.
+        withTransaction(\.disablesAnimations, true) {
+            isMakingRoom = true
+            startTravel = max(rise, 1)
+            isBottomEdgeHidden = true
+        }
+        var transaction = Transaction(animation: .smooth(duration: Self.growBeat))
+        // The band back as the motion ends; the rise kept until the key has come to rest.
+        transaction.addAnimationCompletion(criteria: .logicallyComplete) {
+            withTransaction(\.disablesAnimations, true) { isBottomEdgeHidden = false }
+        }
+        transaction.addAnimationCompletion {
+            withTransaction(\.disablesAnimations, true) {
+                startTravel = 0
+                isMakingRoom = false
             }
+        }
+        withTransaction(transaction) {
+            change()
+            scrollPosition.scrollTo(edge: .top)
+            isStartAway = false
         }
     }
 
@@ -186,6 +208,9 @@ extension RoutineScreen {
 
     /// Notes where the first exercise is, which a relaunch waits for.
     func placeCurrent(_ place: CurrentPlace) {
+        var place = place
+        place.restingHeight = currentID == nil && !isStarting ? place.height :
+            currentPlace?.restingHeight
         currentPlace = place
         openOnCurrentIfDue()
     }
@@ -211,22 +236,16 @@ extension RoutineScreen {
         scrollToCurrent()
     }
 
-    /// Start's beats, and the end's in reverse: the key leaving or coming back, the scroll, and
-    /// the current exercise growing or shrinking.
-    static let keyBeat = 0.2
-    /// The beat between Start's press and its leaving, for its +1: the scratch app's beat after
-    /// a logged set.
-    static let pressHold = 0.75
+    /// The beat between Start's press and its leaving, for its +1, which overlaps the grow. The
+    /// workout's first frame takes a few more to draw, so the rows move about 0.5 s after the
+    /// press.
+    static let pressHold = 0.4
     static let scrollDuration = 0.35
-    /// The first exercise growing at Start, the rows below stepping aside.
+    /// The first exercise growing at Start, the rows below stepping aside, and shrinking back
+    /// at the end.
     static let growBeat = 0.55
-    static let rowBeat = 0.4
     /// The pause between Start's scroll to the top landing and the row growing.
     static let landingHold = 0.2
-    /// The current exercise shrinking back, on a curve shaped like `.snappy`'s: a spring's
-    /// completion waits out its tail, which kept the scroll after it waiting a quarter second
-    /// with nothing moving.
-    static let shrink = Animation.timingCurve(0.25, 0.1, 0.25, 1, duration: rowBeat)
 
     /// While the current exercise is scrolled fully or mostly out of view, a floating key
     /// toward it, which scrolls back to it.

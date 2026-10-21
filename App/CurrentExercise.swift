@@ -16,6 +16,9 @@ nonisolated struct CurrentPlace: Equatable {
     var contentTop: CGFloat
     /// The label's height.
     var height: CGFloat
+    /// The label's height as a row, out of a workout, last seen: what the current exercise
+    /// shrinks back to. Not known after a relaunch into a workout.
+    var restingHeight: CGFloat?
 
     /// Scrolled fully or mostly out of view, where the way back to it shows.
     var isMostlyOut: Bool {

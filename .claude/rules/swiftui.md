@@ -59,9 +59,10 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   plays and a "+1" (`PlusOneBurst`, `ppPlusOne` in `accent`) pops from the key's top edge,
   centered, rising 30 pt as it grows from 0.7 to 1.25 and fades over 0.7 s, a keyframe
   animation that rests at opacity 0. It is drawn over the screen from the key's anchor, not in
-  the bar: the bar's scroll edge effect grows to cover whatever the bar draws. A 0.75 s beat
-  follows (`pressHold`, the scratch app's beat after a logged set), a second press doing
-  nothing; it is a `.task(id:)`, so the screen going away cancels it. Then, if the first
+  the bar: the bar's scroll edge effect grows to cover whatever the bar draws. A 0.4 s beat
+  follows (`pressHold`, slept with no tolerance), a second press doing nothing; the workout's
+  first frame takes a few more to draw, so the rows move about 0.5 s after the press, the +1
+  still rising; it is a `.task(id:)`, so the screen going away cancels it. Then, if the first
   exercise is mostly out of view, the list scrolls to its top (`.snappy(0.35)`) and holds
   0.2 s; and the first exercise grows into the current one as the list carries it up under the
   bar, one motion (`.snappy(0.55)`, `growBeat`), while the key rides down off the screen with
@@ -75,14 +76,16 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   band goes as the growth starts, or at the press where the list's end showed above the key, as
   the room made under the end would raise it. The current exercise's height is fixed, whatever
   the scroll: under the bar, it and the next row fill the screen to its bottom edge, under the
-  home indicator. Ending a workout, by Finish or Discard once the dialog has gone, plays in
-  reverse: the current exercise shrinks back (0.4 s, on a timing curve shaped like `.snappy`'s,
-  since a spring's completion waits out its tail and the next beat sat still for a quarter
-  second), the list scrolls to its top (0.35 s), skipped when it is there, and Start rises back
-  in (0.2 s). A scroll's `withAnimation` completion runs at once, so `ScrollBeat` ends that beat
-  as the list reaches its top, within 2 pt. Room under the list's end, out of sight, holds the
-  scroll still while the row grows or shrinks. With Reduce Motion the +1 flashes in place and
-  each change is one crossfade (0.15 s out, 0.2 s in), the haptic kept.
+  home indicator. Ending a workout, from Finish's menu (a menu, as a confirmation dialog ran
+  its action a second late, after its own dismissal), plays
+  the grow in reverse as one motion (`.smooth(0.55)`, the grow's curve without the bounce that
+  carried the key past its place): the current exercise shrinks back as the rows below close
+  up, the list scrolls back to its top, and Start comes in from as far below, riding up with
+  the rows below (`primaryKeyBar`'s `rise`, a transition worked out frame by frame). The scroll
+  is animated, not lifted: drawn lifted at the top, the title showed over the status bar with no
+  edge effect under the bar. Room under the list's end, out of sight, holds the scroll still
+  while the row grows or shrinks. With Reduce Motion the +1 flashes in place and each change is
+  one crossfade (0.15 s out, 0.2 s in), the haptic kept.
 - A row on a rail moves by holding and dragging (`RailDrag` holds every value). A hold of 0.4 s
   that moves under 10 pt lifts it; a press that moves first is a scroll, and a hold in the rail
   column, on the node, draws a superset instead (below). The hold is a UIKit long press (`RailLiftGesture`), put
