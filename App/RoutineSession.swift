@@ -23,11 +23,6 @@ final class RoutineSession {
     var isRoutinePushed = false
     /// The workout running the open routine, from Start until Finish or Discard.
     private(set) var workout: Workout?
-    /// How far below the bar the current exercise's row sits in the workout, as Start left it,
-    /// kept across launches so a relaunch shows the list as it was.
-    var currentTop: Double = UserDefaults.standard.double(forKey: RoutineSession.currentTopKey) {
-        didSet { UserDefaults.standard.set(currentTop, forKey: Self.currentTopKey) }
-    }
 
     /// The saved routines, latest first, as of the last read, with each routine left since.
     private var saved: [Routine] = []
@@ -67,8 +62,6 @@ final class RoutineSession {
         case save(Workout)
         case discard(Workout.ID)
     }
-
-    private static let currentTopKey = "workout.currentTop"
 
     enum Screen {
         case routine

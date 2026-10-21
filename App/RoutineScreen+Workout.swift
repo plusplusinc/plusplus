@@ -15,25 +15,21 @@ extension RoutineScreen {
         routine.exercises.dropFirst().first?.id
     }
 
-    /// How tall the current exercise's label stands: the screen's height below the row's top,
-    /// less the row after it, and the row's own inset above and below the label.
+    /// How tall the current exercise's label stands, wherever the list is scrolled: with its
+    /// row just under the bar, the row fills the screen below it but for the row after it,
+    /// or the end's room when there is none, and the row's own inset above and below the
+    /// label. The screen runs on past the list, under the home indicator, so the next row ends
+    /// at the screen's edge and the row after it starts out of sight.
     var currentLabelHeight: CGFloat {
-        max(roomBelow(rowTop: session.currentTop) - RailRowMetrics.verticalInset * 2, 0)
-    }
-
-    /// The screen's height below a row at `rowTop`, less the row after the current one, or the
-    /// end's room when there is none. It runs on past the list, under the home indicator, so the
-    /// next row ends at the screen's edge and the row after it starts out of sight.
-    private func roomBelow(rowTop: CGFloat) -> CGFloat {
         let after = nextID == nil ? endRoom : nextRowHeight ?? endRoom
-        return listHeight + listFoot - rowTop - after
+        return max(listHeight + listFoot - after - RailRowMetrics.verticalInset * 2, 0)
     }
 
-    /// Start in three beats, each once the last has finished: the key, pressed in, slides off
-    /// the bottom; the list scrolls, only if the first exercise is not fully in
-    /// view or has too little room below it to grow, and only as far as it must; and the first
-    /// exercise grows into the current one where it is. The haptic plays as the key goes down.
-    /// With Reduce Motion, the list crossfades into the workout.
+    /// Start in beats, each once the last has finished: the key, pressed in, slides off the
+    /// bottom; if the first exercise is scrolled mostly out of view, the list scrolls to its
+    /// top and holds a moment; and the first exercise grows into the current one as the list
+    /// scrolls it up under the bar, in one motion. The haptic plays as the key goes down. With
+    /// Reduce Motion, the list crossfades into the workout.
     func start(named name: String) {
         guard !isStartAway, session.workout == nil else { return }
         // Pressed in already: held there, so the key leaves as it was when let go.
@@ -44,39 +40,21 @@ extension RoutineScreen {
         withTransaction(\.disablesAnimations, true) { isMakingRoom = true }
         guard !reduceMotion else {
             return crossfade {
-                if let scroll = placeForGrowth() {
-                    scrollPosition.scrollTo(y: scroll)
-                }
                 begin(named: name)
+                scrollToCurrent()
             }
         }
         withAnimation(.snappy(duration: Self.keyBeat)) {
             isStartAway = true
         } completion: {
-            scrollToGrow { grow(named: name) }
+            bringFirstIntoView { grow(named: name) }
         }
     }
 
-    /// Picks where the first exercise's row will sit as the current one: where it is, if it
-    /// is fully in view with room below to grow; else as near there as it fits, at the bar at
-    /// the highest. Returns the scroll that takes it there, or nil when it stays.
-    private func placeForGrowth() -> CGFloat? {
-        guard let place = currentPlace else { return nil }
-        let rowTop = place.rowTop
-        let highestFit = max(
-            roomBelow(rowTop: 0) - RailRowMetrics.verticalInset * 2 - grownLabelFit,
-            0,
-        )
-        let top = rowTop < 0 ? 0 : min(rowTop, highestFit)
-        session.currentTop = top
-        guard abs(top - rowTop) >= 1 else { return nil }
-        return max(place.rowContentTop - top, 0)
-    }
-
-    /// Scrolls the first exercise to where it will grow, then, once the landing has had a beat
-    /// to itself, calls `next`; at once if it is there already.
-    private func scrollToGrow(then next: @escaping () -> Void) {
-        guard let scroll = placeForGrowth() else { return next() }
+    /// Scrolls the list to its top if the first exercise is mostly out of view, then, once
+    /// the landing has had a beat to itself, calls `next`; at once if it is in view.
+    private func bringFirstIntoView(then next: @escaping () -> Void) {
+        guard currentPlace?.isMostlyOut == true else { return next() }
         let landed = {
             // A pause in the sequence, by design: nothing is waited for.
             Task {
@@ -85,24 +63,30 @@ extension RoutineScreen {
             }
             return
         }
-        scrollBeat.run(to: .current(top: session.currentTop), then: landed) {
-            withAnimation(.snappy(duration: Self.scrollDuration)) {
-                scrollPosition.scrollTo(y: scroll)
-            }
-        }
+        scrollToTop(then: landed)
     }
 
-    /// The first exercise grows in place into the current one, filling the list but for the row
-    /// after it, as the rows below step aside.
+    /// The first exercise grows into the current one as the list scrolls it up under the bar,
+    /// one motion on one curve, the rows below stepping aside. An animated scroll held the
+    /// growth back until it had nearly landed, so the list is scrolled at once and drawn where
+    /// it was, then both run in one animation.
     private func grow(named name: String) {
+        if let place = currentPlace {
+            let target = max(place.rowContentTop, 0)
+            withTransaction(\.disablesAnimations, true) {
+                growthLift = target - scrollBeat.scrolledY
+                scrollPosition.scrollTo(y: target)
+            }
+        }
         withAnimation(.snappy(duration: Self.rowBeat)) {
             begin(named: name)
+            growthLift = 0
         } completion: {
             isMakingRoom = false
         }
     }
 
-    /// Starts the workout. The list stays where it is.
+    /// Starts the workout.
     private func begin(named name: String) {
         session.start(routineName: name)
         isStarting = false
@@ -137,7 +121,7 @@ extension RoutineScreen {
     /// Scrolls the list to its top, then calls `next`; at once if it is there already.
     private func scrollToTop(then next: @escaping () -> Void) {
         guard !scrollBeat.isListAtTop else { return next() }
-        scrollBeat.run(to: .top, then: next) {
+        scrollBeat.run(then: next) {
             withAnimation(.snappy(duration: Self.scrollDuration)) {
                 scrollPosition.scrollTo(edge: .top)
             }
@@ -161,17 +145,17 @@ extension RoutineScreen {
         }
     }
 
-    /// Notes where the first exercise is, and ends a scroll that was taking it to where it
-    /// grows.
+    /// Notes where the first exercise is, which a relaunch waits for.
     func placeCurrent(_ place: CurrentPlace) {
         currentPlace = place
-        scrollBeat.reached(.current(top: place.rowTop))
         openOnCurrentIfDue()
     }
 
-    /// The scroll that puts the current exercise's row where Start left it.
-    private var scrollToCurrent: CGFloat? {
-        currentPlace.map { max($0.rowContentTop - session.currentTop, 0) }
+    /// Scrolls the current exercise's row up to just under the bar.
+    func scrollToCurrent() {
+        if let place = currentPlace {
+            scrollPosition.scrollTo(y: max(place.rowContentTop, 0))
+        }
     }
 
     /// Notes the height of the area between the bars, which a relaunch waits for.
@@ -180,33 +164,12 @@ extension RoutineScreen {
         openOnCurrentIfDue()
     }
 
-    /// Back in a workout after a relaunch, opens the list as Start left it, once the list has
-    /// its height and the current exercise its place.
+    /// Back in a workout after a relaunch, opens the list on the current exercise, once the
+    /// list has its height and the current exercise its place.
     func openOnCurrentIfDue() {
-        guard opensOnCurrent, visibleHeight > 0, currentPlace?.shown ?? 0 > 0,
-              let scroll = scrollToCurrent else { return }
+        guard opensOnCurrent, visibleHeight > 0, currentPlace?.shown ?? 0 > 0 else { return }
         opensOnCurrent = false
-        scrollPosition.scrollTo(y: scroll)
-    }
-
-    /// The first exercise's label as it will grow at Start, unseen, measured at its own height:
-    /// the least the current exercise needs.
-    @ViewBuilder
-    func grownLabelProbe(_ item: RoutineExercise) -> some View {
-        if session.workout == nil, item.id == routine.exercises.first?.id {
-            RowLabel(
-                title: item.exercise.name,
-                detail: item.detailParts(locale: locale),
-                focus: item.focus(
-                    inSuperset: routine.isInSuperset(item.id),
-                    minHeight: 0,
-                    locale: locale,
-                ),
-            )
-            .hidden()
-            .accessibilityHidden(true)
-            .reportingHeight(true) { grownLabelFit = $0 }
-        }
+        scrollToCurrent()
     }
 
     /// Start's beats, and the end's in reverse: the key leaving or coming back, the scroll, and
@@ -214,7 +177,7 @@ extension RoutineScreen {
     static let keyBeat = 0.2
     static let scrollDuration = 0.35
     static let rowBeat = 0.4
-    /// The pause between a scroll landing at Start and the row growing.
+    /// The pause between Start's scroll to the top landing and the row growing.
     static let landingHold = 0.2
     /// The current exercise shrinking back, on a curve shaped like `.snappy`'s: a spring's
     /// completion waits out its tail, which kept the scroll after it waiting a quarter second
@@ -230,11 +193,7 @@ extension RoutineScreen {
         Group {
             if let current, let place, place.isMostlyOut {
                 CurrentExerciseButton(name: current.exercise.name, isAbove: place.isAbove) {
-                    withAnimation(.snappy(duration: 0.4)) {
-                        if let scroll = scrollToCurrent {
-                            scrollPosition.scrollTo(y: scroll)
-                        }
-                    }
+                    withAnimation(.snappy(duration: 0.4), scrollToCurrent)
                 }
                 .padding(.horizontal, Spacing.xl * 2)
                 .padding(.bottom, Spacing.md)
@@ -245,54 +204,33 @@ extension RoutineScreen {
     }
 }
 
-/// The scroll in Start's sequence and the end's, which the next beat waits for. An animated
-/// scroll's `withAnimation` completion runs at once, as the scroll is not a SwiftUI animation, so
-/// the beat ends as the list arrives where it was going, or, failing that, as it stops.
+/// The scroll to the list's top in Start's sequence and the end's, which the next beat waits
+/// for. An animated scroll's `withAnimation` completion runs at once, as the scroll is not a
+/// SwiftUI animation, so the beat ends as the list arrives at its top, or, failing that, as it
+/// stops.
 final class ScrollBeat {
-    /// Where a scroll in the sequence takes the list.
-    enum Goal: Equatable {
-        /// The current exercise's row this far below the bar, at Start.
-        case current(top: CGFloat)
-        /// The list's top, as a workout ends.
-        case top
-    }
-
     /// How far the list is scrolled. Not observed: read only as a sequence begins.
     private(set) var scrolledY: CGFloat = 0
-    private var goal: Goal?
     private var next: (() -> Void)?
     private var isAnimating = false
 
-    /// Scrolls with `scroll` toward `goal`, then, once the list is there, calls `next`.
-    func run(to goal: Goal, then next: @escaping () -> Void, _ scroll: () -> Void) {
-        self.goal = goal
+    /// Scrolls with `scroll` toward the list's top, then, once it is there, calls `next`.
+    func run(then next: @escaping () -> Void, _ scroll: () -> Void) {
         self.next = next
         isAnimating = false
         scroll()
     }
 
-    /// Whether the list is at its top, within the last couple of points of a scroll's spring.
+    /// Whether the list is at its top, within the last couple of points of a scroll's spring,
+    /// which are no reason to wait.
     var isListAtTop: Bool {
         scrolledY < 2
-    }
-
-    /// The list has reached `goal`, within the last couple of points of a scroll's spring,
-    /// which are no reason to wait.
-    func reached(_ goal: Goal) {
-        switch (goal, self.goal) {
-        case (.top, .top):
-            finish()
-        case let (.current(top), .current(goal)) where abs(top - goal) < 2:
-            finish()
-        default:
-            break
-        }
     }
 
     func listMoved(to scrolledY: CGFloat) {
         self.scrolledY = scrolledY
         if isListAtTop {
-            reached(.top)
+            finish()
         }
     }
 
@@ -306,7 +244,6 @@ final class ScrollBeat {
 
     private func finish() {
         guard let next else { return }
-        goal = nil
         self.next = nil
         isAnimating = false
         next()

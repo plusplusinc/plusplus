@@ -44,6 +44,8 @@ struct RoutineScreen: View {
     @State var scrollBeat = ScrollBeat()
     /// With Reduce Motion, the list faded out while it changes into a workout.
     @State var isFadedOut = false
+    /// At Start, how far the list's content is drawn below where it is scrolled to, run down to 0.
+    @State var growthLift: CGFloat = 0
     /// While the first exercise grows at Start, room under the list's end to scroll it to the top.
     @State var isMakingRoom = false
     /// Where the first exercise, the current one in a workout, is against the part showing.
@@ -54,8 +56,6 @@ struct RoutineScreen: View {
     /// in a workout, the current exercise and the next fill both.
     @State var listHeight: CGFloat = 0
     @State var listFoot: CGFloat = 0
-    /// The first exercise's label grown into the current one, at its own height.
-    @State var grownLabelFit: CGFloat = 0
     /// Back in a workout after a relaunch, the list opens on the current exercise, once it has
     /// grown to its size.
     @State var opensOnCurrent = false
@@ -148,7 +148,6 @@ struct RoutineScreen: View {
                             locale: locale,
                         ) : nil,
                     )
-                    .background { grownLabelProbe(item) }
                     .id(item.id)
                     .reportingPlace(item.id == routine.exercises.first?.id, to: placeCurrent)
                     // Until an added row has entered it takes no taps, and its frame is
@@ -194,6 +193,7 @@ struct RoutineScreen: View {
             // below the top of the visible area. Starting there keeps the title still.
             .padding(.top, Spacing.sm)
             .opacity(isFadedOut ? 0 : 1)
+            .offset(y: growthLift)
             .coordinateSpace(.list)
         }
         .contentMargins(.bottom, session.workout == nil ? 0 : wayToCurrentRoom, for: .scrollContent)
