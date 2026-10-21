@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// A current exercise's number and what it counts: side by side on their first baselines where
-/// both fit the width, the number at the height offered, and otherwise, as at the accessibility sizes, the
+/// both fit the width, the number at the height offered, and otherwise, as at the accessibility
+/// sizes, the
 /// unit under the number, wrapped to the width. The number is offered what height is left, so it
 /// shrinks to fit the label's standing height. A layout, not `ViewThatFits`: with
 /// `ViewThatFits` here, the title's text view taking focus in a workout sent the view graph
@@ -39,26 +40,46 @@ struct FigureLayout: Layout {
         let numberWidth = number.sizeThatFits(ProposedViewSize(width: nil, height: proposal.height))
             .width
         let unitWidth = unit.sizeThatFits(.unspecified).width
-        if numberWidth + spacing + unitWidth <= proposal.width ?? .infinity {
-            let numberOffer = ProposedViewSize(width: numberWidth, height: proposal.height)
-            let numberSize = number.dimensions(in: numberOffer)
-            let unitSize = unit.dimensions(in: .unspecified)
-            let baseline = max(numberSize[.firstTextBaseline], unitSize[.firstTextBaseline])
-            let numberTop = baseline - numberSize[.firstTextBaseline]
-            let unitTop = baseline - unitSize[.firstTextBaseline]
-            return Frames(
-                placed: [
-                    (CGRect(x: 0, y: numberTop, width: numberSize.width,
-                            height: numberSize.height), numberOffer),
-                    (CGRect(x: numberSize.width + spacing, y: unitTop, width: unitSize.width,
-                            height: unitSize.height), .unspecified),
-                ],
-                size: CGSize(
-                    width: numberSize.width + spacing + unitSize.width,
-                    height: max(numberTop + numberSize.height, unitTop + unitSize.height),
-                ),
-            )
+        guard numberWidth + spacing + unitWidth <= proposal.width ?? .infinity else {
+            return stacked(number, unit, proposal)
         }
+        let numberOffer = ProposedViewSize(width: numberWidth, height: proposal.height)
+        let numberSize = number.dimensions(in: numberOffer)
+        let unitSize = unit.dimensions(in: .unspecified)
+        let baseline = max(numberSize[.firstTextBaseline], unitSize[.firstTextBaseline])
+        let numberTop = baseline - numberSize[.firstTextBaseline]
+        let unitTop = baseline - unitSize[.firstTextBaseline]
+        let unitX = numberSize.width + spacing
+        return Frames(
+            placed: [
+                (
+                    CGRect(origin: CGPoint(x: 0, y: numberTop), size: CGSize(
+                        width: numberSize.width,
+                        height: numberSize.height,
+                    )),
+                    numberOffer,
+                ),
+                (
+                    CGRect(origin: CGPoint(x: unitX, y: unitTop), size: CGSize(
+                        width: unitSize.width,
+                        height: unitSize.height,
+                    )),
+                    .unspecified,
+                ),
+            ],
+            size: CGSize(
+                width: unitX + unitSize.width,
+                height: max(numberTop + numberSize.height, unitTop + unitSize.height),
+            ),
+        )
+    }
+
+    /// The unit under the number, wrapped to the width, the number in the height left.
+    private func stacked(
+        _ number: LayoutSubview,
+        _ unit: LayoutSubview,
+        _ proposal: ProposedViewSize,
+    ) -> Frames {
         let unitOffer = ProposedViewSize(width: proposal.width, height: nil)
         let unitSize = unit.dimensions(in: unitOffer)
         let numberOffer = ProposedViewSize(
@@ -68,10 +89,20 @@ struct FigureLayout: Layout {
         let numberSize = number.dimensions(in: numberOffer)
         return Frames(
             placed: [
-                (CGRect(origin: .zero, size: CGSize(width: numberSize.width,
-                                                    height: numberSize.height)), numberOffer),
-                (CGRect(x: 0, y: numberSize.height, width: unitSize.width,
-                        height: unitSize.height), unitOffer),
+                (
+                    CGRect(origin: .zero, size: CGSize(
+                        width: numberSize.width,
+                        height: numberSize.height,
+                    )),
+                    numberOffer,
+                ),
+                (
+                    CGRect(
+                        origin: CGPoint(x: 0, y: numberSize.height),
+                        size: CGSize(width: unitSize.width, height: unitSize.height),
+                    ),
+                    unitOffer,
+                ),
             ],
             size: CGSize(
                 width: max(numberSize.width, unitSize.width),
