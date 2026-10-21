@@ -109,8 +109,8 @@ struct CurrentExerciseButton: View {
         Button(action: action) {
             HStack(spacing: Spacing.xs) {
                 Image(systemName: isAbove ? "arrow.up" : "arrow.down")
+                // Whole, wrapping at the largest text sizes rather than cut short.
                 Text(name)
-                    .lineLimit(1)
             }
             .font(.ppButton)
         }
