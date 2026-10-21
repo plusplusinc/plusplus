@@ -49,7 +49,7 @@ struct RoutineStoreUpgradeTests {
             configurations: ModelConfiguration(schema: RoutineStore.schema, url: url),
         )
         let routine = try #require(try await RoutineStore(modelContainer: current)
-            .launchRoutine(weightUnit: .pounds))
+            .launch(weightUnit: .pounds).routine)
         let expected = try Exercise.builtIn(named: ["Dumbbell row", "Pigeon stretch"])
         #expect(routine.id == routineID)
         #expect(routine.name == "Upper")
@@ -99,7 +99,7 @@ struct RoutineStoreUpgradeTests {
             configurations: ModelConfiguration(schema: RoutineStore.schema, url: url),
         )
         let routine = try #require(try await RoutineStore(modelContainer: current)
-            .launchRoutine(weightUnit: .pounds))
+            .launch(weightUnit: .pounds).routine)
         #expect(routine.exercises.map(\.id) == rowIDs)
         #expect(routine.exercises.allSatisfy { $0.supersetID == nil })
         #expect(routine.exercises.map(\.plan.sets) == [5, 5])
@@ -139,8 +139,78 @@ struct RoutineStoreUpgradeTests {
             configurations: ModelConfiguration(schema: RoutineStore.schema, url: url),
         )
         let store = RoutineStore(modelContainer: current)
-        #expect(try await store.launchRoutine(weightUnit: .pounds)?.name == "Newer")
+        #expect(try await store.launch(weightUnit: .pounds).routine?.name == "Newer")
         #expect(try await store.routinesByRecency(weightUnit: .pounds).routines.map(\.name)
             == ["Newer", "Older"])
+    }
+
+    @Test("A store written before workouts opens with every routine, then keeps a workout")
+    func upgradeBeforeWorkouts() async throws {
+        let folder = FileManager.default.temporaryDirectory
+            .appending(path: "RoutineStoreUpgrade-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let url = folder.appending(path: "PlusPlus.store")
+        let supersetID = UUID()
+
+        do {
+            let schema = Schema([
+                RoutineSchemaV4.StoredRoutine.self,
+                RoutineSchemaV4.StoredRoutineExercise.self,
+            ])
+            let old = try ModelContainer(
+                for: schema,
+                configurations: ModelConfiguration(schema: schema, url: url),
+            )
+            let context = ModelContext(old)
+            for (name, edited, opened) in [("Older", 1.0, 3.0), ("Newer", 2.0, 0.0)] {
+                let routine = RoutineSchemaV4.StoredRoutine(id: UUID())
+                routine.name = name
+                routine.editedAt = Date(timeIntervalSinceReferenceDate: edited)
+                routine.openedAt = Date(timeIntervalSinceReferenceDate: opened)
+                context.insert(routine)
+                for (position, exercise) in ["push-up", "pull-up"].enumerated() {
+                    let row = RoutineSchemaV4.StoredRoutineExercise(
+                        id: UUID(),
+                        exerciseID: exercise,
+                        position: position,
+                    )
+                    row.sets = 4
+                    row.reps = 6
+                    row.supersetID = supersetID
+                    context.insert(row)
+                    row.routine = routine
+                }
+            }
+            try context.save()
+        }
+
+        func open() throws -> RoutineStore {
+            try RoutineStore(modelContainer: ModelContainer(
+                for: RoutineStore.schema,
+                migrationPlan: RoutineMigrationPlan.self,
+                configurations: ModelConfiguration(schema: RoutineStore.schema, url: url),
+            ))
+        }
+
+        let store = try open()
+        let routines = try await store.routinesByRecency(weightUnit: .pounds).routines
+        #expect(routines.map(\.name) == ["Older", "Newer"])
+        for routine in routines {
+            #expect(routine.exercises.map(\.exercise.id) == ["push-up", "pull-up"])
+            #expect(routine.exercises.map(\.plan.sets) == [4, 4])
+            #expect(routine.exercises.map(\.plan.target) == [.reps(6), .reps(6)])
+            #expect(routine.exercises.allSatisfy { $0.supersetID != nil })
+        }
+        let workout = Workout(
+            routineID: routines[0].id,
+            routineName: routines[0].name,
+            startedAt: Date(timeIntervalSinceReferenceDate: 10),
+        )
+        try await store.save(workout)
+
+        let launch = try await open().launch(weightUnit: .pounds)
+        #expect(launch.workout == workout)
+        #expect(launch.routine?.name == "Older")
     }
 }

@@ -2,7 +2,8 @@ import Foundation
 import OSLog
 import SwiftData
 
-/// Saves routines and finds the one the app opens with. Values in, values out: the stored
+/// Saves routines and workouts, and finds what the app opens with. Values in, values out: the
+/// stored
 /// models never leave the actor.
 @ModelActor
 public actor RoutineStore {
@@ -20,15 +21,46 @@ public actor RoutineStore {
         ))
     }
 
-    /// The routine the app opens with, or nil for a new one: the last one opened or edited.
-    /// Every stored routine has been edited, since an untouched one is never saved and a
-    /// cleared one is deleted. A weight never saved reads as its exercise's default in
-    /// `weightUnit`.
-    public func launchRoutine(weightUnit: WeightUnit) throws -> Routine? {
+    /// What the app opens with. A workout in progress opens with its routine, or, if that is
+    /// gone, an empty one under its id and name; with more than one, as sync could leave, the
+    /// latest started. Otherwise the routine last opened or edited, unless a workout finished
+    /// after that, which opens a new routine (nil). Every stored routine has been edited, since
+    /// an untouched one is never saved and a cleared one is deleted. A weight never saved reads
+    /// as its exercise's default in `weightUnit`.
+    public func launch(weightUnit: WeightUnit) throws -> (routine: Routine?, workout: Workout?) {
+        let workouts = try modelContext.fetch(FetchDescriptor<StoredWorkout>())
+        if let current = workouts.filter({ $0.endedAt == nil }).max(by: Self.startedEarlier) {
+            let workout = current.workout
+            let routine = try stored(id: workout.routineID)
+                .map { Self.routine(from: $0, weightUnit: weightUnit) }
+                ?? Routine(id: workout.routineID, name: workout.routineName)
+            return (routine, workout)
+        }
         // Picked here, as the list sorts, so launch opens the routine the list puts first.
-        try modelContext.fetch(FetchDescriptor<StoredRoutine>())
+        guard let latest = try modelContext.fetch(FetchDescriptor<StoredRoutine>())
             .min(by: Self.isMoreRecent(_:than:))
-            .map { Self.routine(from: $0, weightUnit: weightUnit) }
+        else { return (nil, nil) }
+        let lastFinish = workouts.compactMap(\.endedAt).max() ?? .distantPast
+        guard lastFinish <= latest.recency else { return (nil, nil) }
+        return (Self.routine(from: latest, weightUnit: weightUnit), nil)
+    }
+
+    /// Saves the workout as it is now, every field.
+    public func save(_ workout: Workout) throws {
+        let target = try storedWorkout(id: workout.id) ?? {
+            let new = StoredWorkout(id: workout.id)
+            modelContext.insert(new)
+            return new
+        }()
+        target.write(workout)
+        try modelContext.save()
+    }
+
+    /// Deletes the workout, keeping nothing of it; nothing if there is none.
+    public func discardWorkout(_ id: Workout.ID) throws {
+        guard let stored = try storedWorkout(id: id) else { return }
+        modelContext.delete(stored)
+        try modelContext.save()
     }
 
     /// Marks the routine opened at `now` and returns it, or nil, storing nothing, if there is
@@ -60,10 +92,12 @@ public actor RoutineStore {
         )
     }
 
-    /// Saves the routine as it is now, edited at `now`, or deletes it once it is empty.
-    public func save(_ routine: Routine, at now: Date = .now) throws {
+    /// Saves the routine as it is now, edited at `now`, or deletes it once it is empty, unless
+    /// `keepsEmpty`, as while a workout runs it: the empty routine is stored, and deleted by the
+    /// next save without it.
+    public func save(_ routine: Routine, at now: Date = .now, keepsEmpty: Bool = false) throws {
         let stored = try stored(id: routine.id)
-        guard !routine.isEmpty else {
+        guard !routine.isEmpty || keepsEmpty else {
             if let stored {
                 modelContext.delete(stored)
                 try modelContext.save()
@@ -110,10 +144,13 @@ public actor RoutineStore {
     }
 
     #if DEBUG
-    /// Empties the store, so a UI test starts from a new routine.
+    /// Empties the store, so a UI test starts from a new routine and no workout.
     public func deleteAll() throws {
         for routine in try modelContext.fetch(FetchDescriptor<StoredRoutine>()) {
             modelContext.delete(routine)
+        }
+        for workout in try modelContext.fetch(FetchDescriptor<StoredWorkout>()) {
+            modelContext.delete(workout)
         }
         try modelContext.save()
     }
@@ -124,6 +161,17 @@ public actor RoutineStore {
     private static func isMoreRecent(_ one: StoredRoutine, than other: StoredRoutine) -> Bool {
         let (oneRecency, otherRecency) = (one.recency, other.recency)
         return oneRecency != otherRecency ? oneRecency > otherRecency : one.id < other.id
+    }
+
+    /// A tie by id, so the same one is picked every launch.
+    private static func startedEarlier(_ one: StoredWorkout, than other: StoredWorkout) -> Bool {
+        one.startedAt != other.startedAt ? one.startedAt < other.startedAt : one.id < other.id
+    }
+
+    private func storedWorkout(id: UUID) throws -> StoredWorkout? {
+        var descriptor = FetchDescriptor<StoredWorkout>(predicate: #Predicate { $0.id == id })
+        descriptor.fetchLimit = 1
+        return try modelContext.fetch(descriptor).first
     }
 
     private func stored(id: UUID) throws -> StoredRoutine? {

@@ -55,7 +55,7 @@ struct RoutineLauncher: View {
             }
             #endif
             return try await store
-                .launchRoutine(weightUnit: WeightUnit(region: locale)) ?? Routine()
+                .launch(weightUnit: WeightUnit(region: locale)).routine ?? Routine()
         } catch {
             Logger.app.error("Opening a new routine: the saved one didn't load: \(error)")
             return Routine()

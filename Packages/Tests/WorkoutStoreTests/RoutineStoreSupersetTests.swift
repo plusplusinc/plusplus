@@ -31,7 +31,7 @@ struct RoutineStoreSupersetTests {
     func roundTrip() async throws {
         let routine = try grouped()
         try await relaunch().save(routine)
-        let reopened = try await relaunch().launchRoutine(weightUnit: .pounds)
+        let reopened = try await relaunch().launch(weightUnit: .pounds).routine
         #expect(reopened == routine)
         #expect(reopened?.joinedToNext == [rows[1].id, rows[3].id, rows[4].id])
     }
@@ -43,7 +43,7 @@ struct RoutineStoreSupersetTests {
         try await store.save(routine)
         routine = try #require(routine.regrouped(holding: rows[4].id, reaching: rows[3].id)).routine
         try await store.save(routine)
-        let reopened = try #require(try await relaunch().launchRoutine(weightUnit: .pounds))
+        let reopened = try #require(try await relaunch().launch(weightUnit: .pounds).routine)
         #expect(reopened.joinedToNext == [rows[1].id, rows[3].id])
         #expect(!reopened.isInSuperset(rows[5].id))
     }
@@ -56,7 +56,7 @@ struct RoutineStoreSupersetTests {
             routine.exercises[index].supersetID = superset
         }
         try await relaunch().save(routine)
-        let reopened = try #require(try await relaunch().launchRoutine(weightUnit: .pounds))
+        let reopened = try #require(try await relaunch().launch(weightUnit: .pounds).routine)
         #expect(reopened.joinedToNext == [rows[2].id])
         #expect(!reopened.isInSuperset(rows[0].id))
     }

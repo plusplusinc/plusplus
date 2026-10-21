@@ -59,7 +59,7 @@ public struct Workout: Identifiable, Equatable, Sendable {
     }
 
     /// Paused at `now`; unchanged if already paused or finished.
-    public func pausing(at now: Date) -> Workout {
+    public func pausing(at now: Date) -> Self {
         guard isInProgress, pausedAt == nil else { return self }
         var paused = self
         paused.pausedAt = now
@@ -67,7 +67,7 @@ public struct Workout: Identifiable, Equatable, Sendable {
     }
 
     /// Running again, the pause added to the time paused; unchanged if not paused.
-    public func resuming(at now: Date) -> Workout {
+    public func resuming(at now: Date) -> Self {
         guard isInProgress, let pausedAt else { return self }
         var resumed = self
         resumed.pausedSeconds += max(0, now.timeIntervalSince(pausedAt))
@@ -76,7 +76,7 @@ public struct Workout: Identifiable, Equatable, Sendable {
     }
 
     /// Finished at `now`, a pause in progress counting as paused; unchanged if already finished.
-    public func finishing(at now: Date) -> Workout {
+    public func finishing(at now: Date) -> Self {
         guard isInProgress else { return self }
         var finished = resuming(at: now)
         finished.endedAt = now

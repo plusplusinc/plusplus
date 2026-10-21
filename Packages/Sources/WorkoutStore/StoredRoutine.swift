@@ -8,7 +8,7 @@ import SwiftData
 typealias StoredRoutine = RoutineSchemaV4.StoredRoutine
 typealias StoredRoutineExercise = RoutineSchemaV4.StoredRoutineExercise
 
-/// As #91 shipped it, with `openedAt`: today's routines.
+/// As #91 shipped it, with `openedAt`, before workouts. Its models are still today's routines.
 enum RoutineSchemaV4: VersionedSchema {
     static let versionIdentifier = Schema.Version(4, 0, 0)
     static var models: [any PersistentModel.Type] {
