@@ -15,11 +15,6 @@ public struct RowLabel: View {
     private let spokenDetail: String?
     private let focus: RowFocus?
 
-    /// The name's size on a row, as `ppRowTitle`, and grown on the current exercise. Sizes, not
-    /// two fonts, so the name grows through every size between: Text's own interpolation
-    /// between the two fonts jumped.
-    @ScaledMetric(relativeTo: .body) private var titleSize: CGFloat = 17
-    @ScaledMetric(relativeTo: .title) private var currentTitleSize: CGFloat = 28
     /// The current exercise's numbers: 104pt at the default size.
     @ScaledMetric(relativeTo: .largeTitle) private var figureSize: CGFloat = 104
 
@@ -59,7 +54,7 @@ public struct RowLabel: View {
     /// from its top, and the equipment and the numbers come in below the name inside it.
     private func content(_ detailText: String?) -> some View {
         let height = focus?.minHeight ?? restingHeight
-        return StandingHeight(height: height, endHeight: height) {
+        return StandingHeight(height: height, endHeight: height, isResting: focus == nil) {
             column(detailText)
                 .onGeometryChange(for: CGFloat.self, of: \.size.height) { height in
                     if focus == nil {
@@ -73,68 +68,93 @@ public struct RowLabel: View {
     private func column(_ detailText: String?) -> some View {
         VStack(alignment: .leading, spacing: Spacing.xxs) {
             Text(title)
-                .modifier(SemiboldSize(size: focus == nil ? titleSize : currentTitleSize))
+                .modifier(TitleFont(growth: focus == nil ? 0 : 1))
                 .foregroundStyle(.pp(.textPrimary))
-            VStack(alignment: .leading, spacing: Spacing.lg) {
-                // The detail line gives way to which set it is on, in the same place.
-                ZStack(alignment: .topLeading) {
-                    if let detailText {
-                        Text(AttributedString.monoNumbers(
-                            detailText,
-                            font: .ppRowDetailNumber,
-                        ))
-                        .font(.ppRowDetail)
-                        .foregroundStyle(.pp(.textSecondary))
-                        .opacity(focus == nil ? 1 : 0)
+                .fixedSize(horizontal: false, vertical: true)
+            // Out of a workout, a row with no detail has nothing under its name, not even
+            // spacing.
+            if detailText != nil || focus != nil {
+                VStack(alignment: .leading, spacing: Spacing.lg) {
+                    // The detail line gives way to which set it is on, in the same place.
+                    ZStack(alignment: .topLeading) {
+                        if let detailText {
+                            Text(AttributedString.monoNumbers(
+                                detailText,
+                                font: .ppRowDetailNumber,
+                            ))
+                            .font(.ppRowDetail)
+                            .foregroundStyle(.pp(.textSecondary))
+                            .opacity(focus == nil ? 1 : 0)
+                        }
+                        if let focus {
+                            Text(focus.progress)
+                                .font(.ppCurrentProgress)
+                                .foregroundStyle(.pp(.textSecondary))
+                                // Whole, wrapped as far as it needs: only the numbers give way.
+                                .fixedSize(horizontal: false, vertical: true)
+                                .transition(.opacity)
+                        }
                     }
-                    Text(focus?.progress ?? "")
-                        .font(.ppCurrentProgress)
-                        .foregroundStyle(.pp(.textSecondary))
-                        .opacity(focus == nil ? 0 : 1)
-                }
-                if let focus, !focus.equipment.isEmpty {
-                    Capsules(focus.equipment)
-                        .transition(
-                            .asymmetric(
-                                insertion: .opacity.animation(.snappy(duration: 0.3).delay(0.15)),
-                                removal: .opacity.animation(.snappy(duration: 0.15)),
-                            ),
-                        )
-                }
-                if let focus {
-                    // In once the rows below have mostly stepped aside, so the numbers
-                    // don't grow over them.
-                    figures(focus)
-                        .transition(
-                            .asymmetric(
-                                insertion: .scale(scale: 0.3, anchor: .topLeading)
-                                    .combined(with: .opacity)
-                                    .animation(.snappy(duration: 0.35).delay(0.2)),
-                                removal: .opacity.animation(.snappy(duration: 0.15)),
-                            ),
-                        )
+                    if let focus, !focus.equipment.isEmpty {
+                        Capsules(focus.equipment)
+                            .transition(
+                                .asymmetric(
+                                    insertion: .opacity.animation(.snappy(duration: 0.3).delay(0.15)),
+                                    removal: .opacity.animation(.snappy(duration: 0.15)),
+                                ),
+                            )
+                    }
+                    if let focus {
+                        // In once the rows below have mostly stepped aside, so the numbers
+                        // don't grow over them.
+                        figures(focus)
+                            .transition(
+                                .asymmetric(
+                                    insertion: .scale(scale: 0.3, anchor: .topLeading)
+                                        .combined(with: .opacity)
+                                        .animation(.snappy(duration: 0.35).delay(0.2)),
+                                    removal: .opacity.animation(.snappy(duration: 0.15)),
+                                ),
+                            )
+                    }
                 }
             }
         }
     }
 
-    /// Each number large, with what it counts beside it.
+    /// Each number large, with what it counts beside it, or, where the two don't fit side by
+    /// side, as at the accessibility sizes, under it, the number shrinking to fit the width.
     private func figures(_ focus: RowFocus) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(focus.figures, id: \.self) { figure in
-                HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
-                    Text(figure.number)
-                        .font(.system(size: figureSize, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.pp(.textPrimary))
-                        .minimumScaleFactor(0.5)
-                    Text(figure.unit)
-                        .font(.ppCurrentUnit)
-                        .foregroundStyle(.pp(.textSecondary))
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
+                        number(figure)
+                        unit(figure)
+                            .lineLimit(1)
+                    }
+                    VStack(alignment: .leading, spacing: 0) {
+                        number(figure)
+                        unit(figure)
+                    }
                 }
-                .lineLimit(1)
             }
         }
-        .fixedSize()
+    }
+
+    private func number(_ figure: RowFocus.Figure) -> some View {
+        Text(figure.number)
+            .font(.system(size: figureSize, weight: .bold, design: .monospaced))
+            .foregroundStyle(.pp(.textPrimary))
+            .lineLimit(1)
+            .minimumScaleFactor(0.3)
+    }
+
+    private func unit(_ figure: RowFocus.Figure) -> some View {
+        Text(figure.unit)
+            .font(.ppCurrentUnit)
+            .foregroundStyle(.pp(.textSecondary))
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     private var spokenLabel: String {
@@ -171,6 +191,9 @@ private struct StandingHeight: Layout {
     var height: CGFloat
     /// Not animated: where `height` is going.
     let endHeight: CGFloat
+    /// Not animated: a row out of a workout, which, once any shrink has landed, is just as tall
+    /// as its content: the height it last measured can be out of date.
+    let isResting: Bool
 
     var animatableData: CGFloat {
         get { height }
@@ -178,10 +201,10 @@ private struct StandingHeight: Layout {
     }
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
-        let size = subviews.first?.sizeThatFits(ProposedViewSize(
-            width: proposal.width,
-            height: nil,
-        )) ?? .zero
+        let size = subviews.first?.sizeThatFits(offer(width: proposal.width)) ?? .zero
+        if isResting, height == endHeight {
+            return size
+        }
         // The content takes its new height at once, so it counts only past the end height, and
         // past the standing height: shrinking, parts fading out still take their room, which
         // held the rows below until they had gone, then let them jump.
@@ -195,27 +218,55 @@ private struct StandingHeight: Layout {
         subviews: Subviews,
         cache _: inout (),
     ) {
-        // At its own height: offered the standing height, it would center in it.
-        let proposal = ProposedViewSize(width: bounds.width, height: nil)
-        subviews.first?.place(at: bounds.origin, anchor: .topLeading, proposal: proposal)
+        subviews.first?.place(
+            at: bounds.origin,
+            anchor: .topLeading,
+            proposal: offer(width: bounds.width),
+        )
+    }
+
+    /// What the subview is offered: as tall as it likes at rest, and on the current exercise
+    /// the height it stands at, which its numbers shrink to fit at the largest text sizes, so the
+    /// row after it stays in view. Placed from its top, at its own height: placed in the
+    /// standing height, it would center in it.
+    private func offer(width: CGFloat?) -> ProposedViewSize {
+        ProposedViewSize(width: width, height: isResting ? nil : endHeight)
     }
 }
 
-/// A semibold system font at a size that animates, so text grows through every size between.
-private struct SemiboldSize: ViewModifier, Animatable {
-    var size: CGFloat
+/// The name's font: `ppRowTitle` on a row, `ppCurrentTitle` on the current exercise, and,
+/// as `growth` animates between 0 and 1, a semibold system font at every size between, so the
+/// name grows smoothly: Text's own interpolation between the two fonts jumped. At either end it
+/// is the token itself, so a row reads exactly as one out of a workout at every text size.
+private struct TitleFont: ViewModifier, Animatable {
+    var growth: CGFloat
 
     nonisolated var animatableData: CGFloat {
-        get { size }
-        set { size = newValue }
+        get { growth }
+        set { growth = newValue }
     }
 
+    @Environment(\.fontResolutionContext) private var fontContext
     @ObserveHotReload private var hotReload
 
     func body(content: Content) -> some View {
         content
-            .font(.system(size: size, weight: .semibold))
+            .font(font)
             .hotReloadable()
+    }
+
+    private var font: Font {
+        switch growth {
+        case ...0: .ppRowTitle
+        case 1...: .ppCurrentTitle
+        default:
+            .system(size: size(of: .ppRowTitle) * (1 - growth) + size(of: .ppCurrentTitle) * growth,
+                    weight: .semibold)
+        }
+    }
+
+    private func size(of font: Font) -> CGFloat {
+        font.resolve(in: fontContext).pointSize
     }
 }
 

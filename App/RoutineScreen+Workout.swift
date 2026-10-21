@@ -203,19 +203,26 @@ extension RoutineScreen {
 
     /// With Reduce Motion, the list and Start fade out, `change` happens unseen, and they fade
     /// back in changed; with `then`, the list alone fades back in, and `then` runs once it has.
+    /// The fades ease in and out, not snappy: the changed list's first frame is slow to draw,
+    /// and a snappy fade-in had done most of its fading by the time it showed, so it popped in.
     private func crossfade(then: (() -> Void)? = nil, _ change: @escaping () -> Void) {
-        withAnimation(.snappy(duration: 0.15)) {
+        withAnimation(.easeInOut(duration: 0.2)) {
             isFadedOut = true
             isStartAway = true
         } completion: {
             withTransaction(\.disablesAnimations, true, change)
-            withAnimation(.snappy(duration: 0.2)) {
-                isFadedOut = false
-                isStartAway = then != nil
-            } completion: {
-                isMakingRoom = false
-                isBottomEdgeHidden = false
-                then?()
+            // The fade-in starts on a later turn of the main run loop, once the change has been
+            // drawn: started with it, it ran on while the changed list's first frame drew, and the
+            // list showed at once, already faded in.
+            Task {
+                withAnimation(.easeInOut(duration: Self.fadeIn)) {
+                    isFadedOut = false
+                    isStartAway = then != nil
+                } completion: {
+                    isMakingRoom = false
+                    isBottomEdgeHidden = false
+                    then?()
+                }
             }
         }
     }
@@ -257,6 +264,8 @@ extension RoutineScreen {
     static let growBeat = 0.55
     /// Start coming back once the end's shrink has landed.
     static let startReturn = 0.25
+    /// With Reduce Motion, the list fading back in, changed.
+    static let fadeIn = 0.35
     /// The pause between Start's scroll to the top landing and the row growing.
     static let landingHold = 0.2
 

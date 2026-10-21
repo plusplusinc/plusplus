@@ -24,6 +24,8 @@ extension Font {
     public static let ppRowDetailNumber = Font.system(.subheadline, design: .monospaced)
     /// The numbers in a value at the row title's size and weight: SF Mono.
     public static let ppRowTitleNumber = Font.system(.body, design: .monospaced, weight: .semibold)
+    /// The current exercise's name, grown from `ppRowTitle`.
+    public static let ppCurrentTitle = Font.system(.title, weight: .semibold)
     /// Which set the current exercise is on, "Set 1 of 3": SF Mono, as numbers are.
     public static let ppCurrentProgress = Font.system(.body, design: .monospaced, weight: .medium)
     /// What a current exercise's large number counts, "reps", "lb".
