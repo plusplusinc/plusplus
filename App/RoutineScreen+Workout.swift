@@ -25,15 +25,34 @@ extension RoutineScreen {
         return max(listHeight + listFoot - after - RailRowMetrics.verticalInset * 2, 0)
     }
 
+    /// Start's press: the key stays pressed in, and a +1 pops off it, while it holds, then
+    /// `leave(named:)` runs. A second press while it holds does nothing.
+    func pressStart() {
+        guard !isStarting, !isStartAway, session.workout == nil else { return }
+        isStarting = true
+    }
+
+    /// The key holds pressed in for its +1 (shorter with Reduce Motion), then leaves. Run as
+    /// `isStarting` changes, so the hold is cancelled if the screen goes away; the key is then
+    /// let up, and nothing else has changed.
+    func holdStart(named name: String) async {
+        guard isStarting, session.workout == nil else { return }
+        let hold = reduceMotion ? Self.reducedPressHold : Self.pressHold
+        do {
+            try await Task.sleep(for: .seconds(hold))
+        } catch {
+            isStarting = false
+            return
+        }
+        leave(named: name)
+    }
+
     /// Start in beats, each once the last has finished: the key, pressed in, slides off the
     /// bottom; if the first exercise is scrolled mostly out of view, the list scrolls to its
     /// top and holds a moment; and the first exercise grows into the current one as the list
-    /// scrolls it up under the bar, in one motion. The haptic plays as the key goes down. With
-    /// Reduce Motion, the list crossfades into the workout.
-    func start(named name: String) {
-        guard !isStartAway, session.workout == nil else { return }
-        // Pressed in already: held there, so the key leaves as it was when let go.
-        isStarting = true
+    /// scrolls it up under the bar, in one motion. A light haptic plays as the key starts to go
+    /// (`primaryKeyBar`). With Reduce Motion, the list crossfades into the workout.
+    private func leave(named name: String) {
         // The list's end lies under the first row until it grows, so a short routine may have
         // nowhere to scroll it to: room under the end, out of sight, lets it go. It goes in
         // ahead of the scroll: a scroll in the same transaction stops at the old end.
@@ -175,6 +194,10 @@ extension RoutineScreen {
     /// Start's beats, and the end's in reverse: the key leaving or coming back, the scroll, and
     /// the current exercise growing or shrinking.
     static let keyBeat = 0.2
+    /// How long Start holds pressed in before it leaves: its +1's time, or with Reduce Motion
+    /// a shorter beat for the +1's flash.
+    static let pressHold = 0.7
+    static let reducedPressHold = 0.4
     static let scrollDuration = 0.35
     static let rowBeat = 0.4
     /// The pause between Start's scroll to the top landing and the row growing.

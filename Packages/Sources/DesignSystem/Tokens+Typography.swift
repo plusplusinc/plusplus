@@ -36,6 +36,8 @@ extension Font {
     /// A routine's name in a list of routines: SF Pro, as the name can't be edited there, the
     /// drawer's font, so a row reads the same in both.
     public static let ppRoutineName = ppDrawerItem
+    /// The +1 that pops off Start as it is pressed: SF Mono, as numbers are.
+    public static let ppPlusOne = Font.system(.title3, design: .monospaced, weight: .bold)
     /// The ++ mark: monospaced so the two pluses read as one glyph.
     public static let ppMark = Font.system(.title2, design: .monospaced, weight: .bold)
 }

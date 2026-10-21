@@ -54,8 +54,14 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   the entry plays a moment into the sheet's slide, or, when the new row has pushed the list's
   end out of view, after a scroll to the end.
 - Start plays in beats, each once the last has finished (`RoutineScreen+Workout.swift`), with a
-  medium impact as the finger lands on the key: the key, held pressed in, slides off the bottom
-  as it fades (`.snappy(0.2)`); if the first exercise is mostly out of view, the list scrolls to
+  medium impact as the finger lands on the key. The key stays pressed in, and a "+1"
+  (`PlusOneBurst`, `ppPlusOne` in `accent`) pops from its top edge, centered, rising 30 pt as it
+  grows from 0.7 to 1.25 and fades over 0.7 s, a keyframe animation that rests at opacity 0. It
+  is drawn over the screen from the key's anchor, not in the bar: the bar's scroll edge effect
+  grows to cover whatever the bar draws. The key holds 0.7 s (`pressHold`), a second press doing
+  nothing, then a light impact plays as it starts to leave (`primaryKeyBar`); the hold is a
+  `.task(id:)`, so the screen going away cancels it and lets the key up. Then the key slides off
+  the bottom as it fades (`.snappy(0.2)`); if the first exercise is mostly out of view, the list scrolls to
   its top (`.snappy(0.35)`) and holds 0.2 s; and the first exercise grows into the current one
   as the list carries it up under the bar, one motion (`.snappy(0.4)`). An animated
   `scrollTo` in that transaction held the growth back until it had nearly landed, so the list
@@ -68,8 +74,8 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   scrolls to its top (0.35 s), skipped when it is there, and Start rises back in (0.2 s). A
   scroll's `withAnimation` completion runs at once, so `ScrollBeat` ends that beat as the list
   reaches its top, within 2 pt. Room under the list's end, out of sight, holds the scroll still
-  while the row grows or shrinks. With Reduce Motion each is one crossfade (0.15 s out, 0.2 s
-  in), the haptic kept.
+  while the row grows or shrinks. With Reduce Motion the +1 flashes in place, the key holds 0.4 s, and each
+  beat is one crossfade (0.15 s out, 0.2 s in), the haptics kept.
 - A row on a rail moves by holding and dragging (`RailDrag` holds every value). A hold of 0.4 s
   that moves under 10 pt lifts it; a press that moves first is a scroll, and a hold in the rail
   column, on the node, draws a superset instead (below). The hold is a UIKit long press (`RailLiftGesture`), put

@@ -56,7 +56,8 @@ extension View {
     /// from the screen's sides as the content above it is, with nothing behind it: a scroll
     /// view's content runs on under the key, beside and below it, softened by the system's
     /// scroll edge effect, which a `safeAreaBar` extends to its height as the navigation bar's
-    /// does at the top. `isPressedIn` holds the key down after its press, so it leaves pressed.
+    /// does at the top. `isPressedIn` holds the key down after its press, so it leaves pressed: a
+    /// +1 pops off its top as it goes down, and a light impact plays as it starts to leave.
     public func primaryKeyBar(
         isPresented: Bool,
         isPressedIn: Bool = false,
@@ -67,12 +68,38 @@ extension View {
             if isPresented {
                 key
                     .buttonStyle(PrimaryKeyButtonStyle(isPressedIn: isPressedIn))
+                    .anchorPreference(key: PrimaryKeyBounds.self, value: .bounds) { $0 }
                     .hiddenBehindDrawer()
                     .padding(.horizontal, Spacing.md)
                     .padding(.top, Spacing.sm)
                     .transition(KeyBarTransition())
             }
         }
+        // Over the screen rather than in the bar: the bar's scroll edge effect grows to cover
+        // whatever the bar draws, so a +1 rising in it raised a frosted band behind itself.
+        .overlayPreferenceValue(PrimaryKeyBounds.self) { key in
+            GeometryReader { proxy in
+                if let key {
+                    let bounds = proxy[key]
+                    PlusOneBurst(isOn: isPressedIn)
+                        .frame(width: bounds.width, height: max(bounds.minY, 0), alignment: .bottom)
+                        .offset(x: bounds.minX)
+                }
+            }
+            .allowsHitTesting(false)
+        }
+        .sensoryFeedback(.impact(weight: .light), trigger: isPresented) { wasShown, isShown in
+            wasShown && !isShown && isPressedIn
+        }
+    }
+}
+
+/// Where the primary key is, for the +1 that pops off its top.
+private struct PrimaryKeyBounds: PreferenceKey {
+    static let defaultValue: Anchor<CGRect>? = nil
+
+    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
+        value = value ?? nextValue()
     }
 }
 

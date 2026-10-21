@@ -36,7 +36,7 @@ struct RoutineScreen: View {
     @State private var isEditingTitle = false
     /// Whether the title has scrolled up under the bar, where a small copy of it shows instead.
     @State private var isTitleUnderBar = false
-    /// Start held down on its ledge from its press until the workout starts.
+    /// Start held down on its ledge from its press until the workout starts, its hold running.
     @State var isStarting = false
     /// Start kept out of its bar from its press until the workout starts, and as one ends.
     @State var isStartAway = false
@@ -218,10 +218,9 @@ struct RoutineScreen: View {
             isPresented: !routine.exercises.isEmpty && session.workout == nil && !isStartAway,
             isPressedIn: isStarting,
         ) {
-            Button("Start", systemImage: "play.fill") {
-                start(named: shownName ?? "")
-            }
+            Button("Start", systemImage: "play.fill", action: pressStart)
         }
+        .task(id: isStarting) { await holdStart(named: shownName ?? "") }
         // One row open at a time, closed by a scroll or a tap anywhere else, Start included,
         // so the container holds Start's bar as well as the scroll view.
         .swipeActionsContainer()
