@@ -20,7 +20,13 @@ public enum StorageMode: Sendable {
 public enum WorkoutStoreContainer {
     private static let storeName = "PlusPlus"
 
-    public static func make(mode: StorageMode, schema: Schema) throws -> ModelContainer {
+    /// `migrationPlan` lists every shape a store on disk may hold, `schema` last; nil opens by
+    /// lightweight inference alone.
+    public static func make(
+        mode: StorageMode,
+        schema: Schema,
+        migrationPlan: (any SchemaMigrationPlan.Type)? = nil,
+    ) throws -> ModelContainer {
         let configuration =
             switch mode {
             case .local:
@@ -30,6 +36,10 @@ public enum WorkoutStoreContainer {
             }
 
         Logger.storage.info("Opening store in \(String(describing: mode), privacy: .public) mode")
-        return try ModelContainer(for: schema, configurations: configuration)
+        return try ModelContainer(
+            for: schema,
+            migrationPlan: migrationPlan,
+            configurations: configuration,
+        )
     }
 }

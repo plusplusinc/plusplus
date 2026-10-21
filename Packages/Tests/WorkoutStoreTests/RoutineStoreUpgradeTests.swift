@@ -3,108 +3,6 @@ import SwiftData
 import Testing
 @testable import WorkoutStore
 
-/// The stored shape as #68 shipped it, before rows held plans: the same entity names and only
-/// the attributes it had.
-private enum RoutineSchemaV1 {
-    @Model
-    final class StoredRoutine {
-        var id = UUID()
-        var name = ""
-        var editedAt = Date.distantPast
-        @Relationship(deleteRule: .cascade, inverse: \StoredRoutineExercise.routine)
-        var exercises: [StoredRoutineExercise]? = []
-
-        init(id: UUID) {
-            self.id = id
-        }
-    }
-
-    @Model
-    final class StoredRoutineExercise {
-        var id = UUID()
-        var exerciseID = ""
-        var position = 0
-        var routine: StoredRoutine?
-
-        init(id: UUID, exerciseID: String, position: Int) {
-            self.id = id
-            self.exerciseID = exerciseID
-            self.position = position
-        }
-    }
-}
-
-/// The stored shape as #71 shipped it, with plans and before supersets.
-private enum RoutineSchemaV2 {
-    @Model
-    final class StoredRoutine {
-        var id = UUID()
-        var name = ""
-        var editedAt = Date.distantPast
-        @Relationship(deleteRule: .cascade, inverse: \StoredRoutineExercise.routine)
-        var exercises: [StoredRoutineExercise]? = []
-
-        init(id: UUID) {
-            self.id = id
-        }
-    }
-
-    @Model
-    final class StoredRoutineExercise {
-        var id = UUID()
-        var exerciseID = ""
-        var position = 0
-        var routine: StoredRoutine?
-        var sets: Int?
-        var reps: Int?
-        var seconds: Int?
-        var weight: Double?
-        var weightUnit: String?
-
-        init(id: UUID, exerciseID: String, position: Int) {
-            self.id = id
-            self.exerciseID = exerciseID
-            self.position = position
-        }
-    }
-}
-
-/// The stored shape as #90 shipped it, with supersets and before routines were opened.
-private enum RoutineSchemaV3 {
-    @Model
-    final class StoredRoutine {
-        var id = UUID()
-        var name = ""
-        var editedAt = Date.distantPast
-        @Relationship(deleteRule: .cascade, inverse: \StoredRoutineExercise.routine)
-        var exercises: [StoredRoutineExercise]? = []
-
-        init(id: UUID) {
-            self.id = id
-        }
-    }
-
-    @Model
-    final class StoredRoutineExercise {
-        var id = UUID()
-        var exerciseID = ""
-        var position = 0
-        var routine: StoredRoutine?
-        var sets: Int?
-        var reps: Int?
-        var seconds: Int?
-        var weight: Double?
-        var weightUnit: String?
-        var supersetID: UUID?
-
-        init(id: UUID, exerciseID: String, position: Int) {
-            self.id = id
-            self.exerciseID = exerciseID
-            self.position = position
-        }
-    }
-}
-
 @Suite("Routine store upgrade")
 struct RoutineStoreUpgradeTests {
     @Test("A store written before plans opens, each row with its exercise's defaults")
@@ -147,6 +45,7 @@ struct RoutineStoreUpgradeTests {
 
         let current = try ModelContainer(
             for: RoutineStore.schema,
+            migrationPlan: RoutineMigrationPlan.self,
             configurations: ModelConfiguration(schema: RoutineStore.schema, url: url),
         )
         let routine = try #require(try await RoutineStore(modelContainer: current)
@@ -196,6 +95,7 @@ struct RoutineStoreUpgradeTests {
 
         let current = try ModelContainer(
             for: RoutineStore.schema,
+            migrationPlan: RoutineMigrationPlan.self,
             configurations: ModelConfiguration(schema: RoutineStore.schema, url: url),
         )
         let routine = try #require(try await RoutineStore(modelContainer: current)
@@ -235,6 +135,7 @@ struct RoutineStoreUpgradeTests {
 
         let current = try ModelContainer(
             for: RoutineStore.schema,
+            migrationPlan: RoutineMigrationPlan.self,
             configurations: ModelConfiguration(schema: RoutineStore.schema, url: url),
         )
         let store = RoutineStore(modelContainer: current)

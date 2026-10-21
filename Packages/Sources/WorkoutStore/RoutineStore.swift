@@ -10,10 +10,14 @@ public actor RoutineStore {
         uniqueKeysWithValues: Exercise.builtIn.map { ($0.id, $0) },
     )
 
-    static let schema = Schema([StoredRoutine.self, StoredRoutineExercise.self])
+    static let schema = Schema(versionedSchema: RoutineMigrationPlan.current)
 
     public static func open(_ mode: StorageMode) throws -> RoutineStore {
-        try RoutineStore(modelContainer: WorkoutStoreContainer.make(mode: mode, schema: schema))
+        try RoutineStore(modelContainer: WorkoutStoreContainer.make(
+            mode: mode,
+            schema: schema,
+            migrationPlan: RoutineMigrationPlan.self,
+        ))
     }
 
     /// The routine the app opens with, or nil for a new one: the last one opened or edited.
