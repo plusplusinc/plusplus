@@ -22,24 +22,26 @@ extension RoutineScreen {
 
     /// How tall the current exercise's label stands, wherever the list is scrolled: with its
     /// row just under the bar, the row fills the screen below it but for the row after it,
-    /// or the end's room when there is none, and the row's own inset above and below the
-    /// label, less the room left above it under the bar. The screen runs on past the list,
-    /// under the home indicator, so the next row ends at the screen's edge and the row after it
-    /// starts out of sight.
+    /// or the end's room when there is none, its own space above, and its inset above and below
+    /// the label. The screen runs on past the list, under the home indicator, so the next row
+    /// ends at the screen's edge and the row after it starts out of sight.
     var currentLabelHeight: CGFloat {
         let after = nextID == nil ? endRoom : nextRowHeight ?? endRoom
         return max(
-            listHeight + listFoot - after - RailRowMetrics.verticalInset * 2 - Self.landingGap,
+            listHeight + listFoot - after - RailRowMetrics.verticalInset * 2 - Self.currentTopSpace,
             0,
         )
     }
 
-    /// The room between the bar and the current exercise's row where the list lands on it.
-    static let landingGap = Spacing.lg
+    /// The current exercise's own space above its label, part of its row, so where the list
+    /// lands on the row, just under the bar, everything above it is under the bar and the space
+    /// between shows only the background.
+    static let currentTopSpace = Spacing.lg
 
-    /// The scroll position that lands the current exercise's row `landingGap` under the bar.
+    /// The scroll position that lands the current exercise's row, its space above included,
+    /// just under the bar. The row's top stays put as it grows: it is the list's first.
     func landingY(_ place: CurrentPlace) -> CGFloat {
-        max(place.rowContentTop - Self.landingGap, 0)
+        max(place.rowContentTop, 0)
     }
 
     /// Start's press: the key comes back up as any key does, a +1 pops off it with a medium
@@ -115,8 +117,9 @@ extension RoutineScreen {
         if let place = currentPlace {
             let target = landingY(place)
             let lift = target - scrollBeat.scrolledY
-            // The rows below move down by what the current exercise gains, less the lift.
-            drop = currentLabelHeight - place.height - lift
+            // The rows below move down by what the current exercise gains, its space above
+            // included, less the lift.
+            drop = currentLabelHeight + Self.currentTopSpace - place.height - lift
             withTransaction(\.disablesAnimations, true) {
                 growthLift = lift
                 scrollPosition.scrollTo(y: target)
@@ -219,14 +222,11 @@ extension RoutineScreen {
 
     /// Notes where the first exercise is, which a relaunch waits for.
     func placeCurrent(_ place: CurrentPlace) {
-        var place = place
-        place.restingHeight = currentID == nil && !isStarting ? place.height :
-            currentPlace?.restingHeight
         currentPlace = place
         openOnCurrentIfDue()
     }
 
-    /// Scrolls the current exercise's row up to `landingGap` under the bar.
+    /// Scrolls the current exercise's row up to just under the bar.
     func scrollToCurrent() {
         if let place = currentPlace {
             scrollPosition.scrollTo(y: landingY(place))

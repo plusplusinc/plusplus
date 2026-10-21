@@ -9,29 +9,21 @@ nonisolated struct CurrentPlace: Equatable {
     var shown: CGFloat
     /// Whether the row is above the part showing, so the way back to it is up.
     var isAbove: Bool
-    /// How far the label's top is below the bar, the top of the part showing.
+    /// How far the label's top, with the current exercise's space above it, is below the bar,
+    /// the top of the part showing.
     var top: CGFloat
-    /// How far the label's top is from the top of the list's content, where `scrollTo(y:)`
-    /// counts from.
+    /// How far that top is from the top of the list's content, where `scrollTo(y:)` counts from.
     var contentTop: CGFloat
-    /// The label's height.
+    /// The label's height, with the current exercise's space above it.
     var height: CGFloat
-    /// The label's height as a row, out of a workout, last seen: what the current exercise
-    /// shrinks back to. Not known after a relaunch into a workout.
-    var restingHeight: CGFloat?
 
     /// Scrolled fully or mostly out of view, where the way back to it shows.
     var isMostlyOut: Bool {
         shown < 0.4
     }
 
-    /// How far the rail row's top is below the bar: the label is `RailRowMetrics.verticalInset`
+    /// The rail row's top in the list's content: the label is `RailRowMetrics.verticalInset`
     /// below it.
-    @MainActor var rowTop: CGFloat {
-        top - RailRowMetrics.verticalInset
-    }
-
-    /// The rail row's top in the list's content.
     @MainActor var rowContentTop: CGFloat {
         contentTop - RailRowMetrics.verticalInset
     }

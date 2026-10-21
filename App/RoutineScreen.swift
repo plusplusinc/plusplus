@@ -150,6 +150,7 @@ struct RoutineScreen: View {
                         ) : nil,
                     )
                     .id(item.id)
+                    .padding(.top, item.id == currentID ? Self.currentTopSpace : 0)
                     .reportingPlace(item.id == routine.exercises.first?.id, to: placeCurrent)
                     // Until an added row has entered it takes no taps, and its frame is
                     // where it will be rather than where it is drawn, so VoiceOver and the UI
