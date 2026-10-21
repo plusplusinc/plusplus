@@ -26,7 +26,7 @@ struct RoutineScreen: View {
     /// drawn there, lands on it; it ignores taps until it has landed.
     @State private var entering: RoutineExercise.ID?
     /// Whether Add exercise, at the list's end, is fully in view.
-    @State private var isEndInView = true
+    @State var isEndInView = true
     /// While an added row's place opens, the list's end stays put on screen: as the content grows
     /// past the visible area, it scrolls in step (`keepEndInView`).
     @State private var isOpeningPlace = false
@@ -36,9 +36,13 @@ struct RoutineScreen: View {
     @State private var isEditingTitle = false
     /// Whether the title has scrolled up under the bar, where a small copy of it shows instead.
     @State private var isTitleUnderBar = false
-    /// Start held down on its ledge from its press until the workout starts, its hold running.
+    /// From Start's press until its key has gone: its +1 and beat, and the grow.
     @State var isStarting = false
-    /// Start kept out of its bar from its press until the workout starts, and as one ends.
+    /// How far Start has ridden down with the rows below the current exercise as it grows.
+    @State var startDrop: CGFloat = 0
+    /// Under Start, the scroll edge effect's band hidden while the list makes room at Start.
+    @State var isBottomEdgeHidden = false
+    /// Start kept out of its bar in a workout, and as one ends until the list is back at the top.
     @State var isStartAway = false
     /// The scroll in Start's sequence and the end's, and whether the list is at its top.
     @State var scrollBeat = ScrollBeat()
@@ -56,11 +60,9 @@ struct RoutineScreen: View {
     /// in a workout, the current exercise and the next fill both.
     @State var listHeight: CGFloat = 0
     @State var listFoot: CGFloat = 0
-    /// Back in a workout after a relaunch, the list opens on the current exercise, once it has
-    /// grown to its size.
+    /// Back in a workout after a relaunch, the list opens on the current exercise, once grown.
     @State var opensOnCurrent = false
-    /// Room under the list's end in a workout, so Add exercise scrolls clear of the way back to
-    /// the current exercise.
+    /// Room under the list's end in a workout, so Add exercise clears the way back to the current.
     @ScaledMetric(relativeTo: .body) var wayToCurrentRoom: CGFloat = 64
     /// The height of the row after the current exercise, which the current one leaves room for.
     @State var nextRowHeight: CGFloat?
@@ -193,12 +195,11 @@ struct RoutineScreen: View {
             // below the top of the visible area. Starting there keeps the title still.
             .padding(.top, Spacing.sm)
             .opacity(isFadedOut ? 0 : 1)
-            .offset(y: growthLift)
+            .modifier(GrowthLift(lift: growthLift))
             .coordinateSpace(.list)
         }
         .contentMargins(.bottom, session.workout == nil ? 0 : wayToCurrentRoom, for: .scrollContent)
-        // The room under the end is empty: under Start it would raise the edge effect's band.
-        .scrollEdgeEffectHidden(isMakingRoom, for: .bottom)
+        .scrollEdgeEffectHidden(isBottomEdgeHidden, for: .bottom)
         .scrollPosition($scrollPosition)
         .railAutoscroll($scrollPosition)
         .onScrollGeometryChange(for: ScrollGeometry.self, of: { $0 }, action: keepEndInView)
@@ -215,8 +216,9 @@ struct RoutineScreen: View {
         .reportingFoot { listFoot = $0 }
         .overlay(alignment: .bottom) { wayToCurrent }
         .primaryKeyBar(
-            isPresented: !routine.exercises.isEmpty && session.workout == nil && !isStartAway,
-            isPressedIn: isStarting,
+            isPresented: showsStart,
+            plusOne: isStarting,
+            drop: startDrop,
         ) {
             Button("Start", systemImage: "play.fill", action: pressStart)
         }

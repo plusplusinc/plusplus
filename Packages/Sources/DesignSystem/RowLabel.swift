@@ -23,6 +23,10 @@ public struct RowLabel: View {
     /// The current exercise's numbers: 104pt at the default size.
     @ScaledMetric(relativeTo: .largeTitle) private var figureSize: CGFloat = 104
 
+    /// The label's height as a row, which the standing height runs from and back to, so the
+    /// label grows and shrinks over the whole animation, on its curve.
+    @State private var restingHeight: CGFloat = 0
+
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ObserveHotReload private var hotReload
 
@@ -54,8 +58,14 @@ public struct RowLabel: View {
     /// The name stays where it is as the row grows: the label stands at its height from the start,
     /// from its top, and the equipment and the numbers come in below the name inside it.
     private func content(_ detailText: String?) -> some View {
-        StandingHeight(minHeight: focus?.minHeight ?? 0) {
+        let height = focus?.minHeight ?? restingHeight
+        return StandingHeight(height: height, endHeight: height) {
             column(detailText)
+                .onGeometryChange(for: CGFloat.self, of: \.size.height) { height in
+                    if focus == nil {
+                        restingHeight = height
+                    }
+                }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -151,15 +161,19 @@ public struct RowLabel: View {
 
 private let noBreakSpace = "\u{00A0}"
 
-/// Its one subview at least `minHeight` tall, from its top, the height animating as a number.
-/// A frame's `minHeight` animated from 0 laid the row out at no height for the animation's first
-/// frame, so the rows below jumped up onto it before they slid down.
+/// Its one subview, from its top, in a frame `height` tall, the height animating as a number,
+/// and taller by however far the subview runs past `endHeight`, the height it animates to. The
+/// subview takes its new height at once, its new parts fading in later: counted whole, it held the
+/// label at that height until the animated one passed it, so the rows below started late. A
+/// frame's `minHeight` animated from 0 laid the row out at no height for the first frame.
 private struct StandingHeight: Layout {
-    var minHeight: CGFloat
+    var height: CGFloat
+    /// Not animated: where `height` is going.
+    let endHeight: CGFloat
 
     var animatableData: CGFloat {
-        get { minHeight }
-        set { minHeight = newValue }
+        get { height }
+        set { height = newValue }
     }
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
@@ -167,7 +181,8 @@ private struct StandingHeight: Layout {
             width: proposal.width,
             height: nil,
         )) ?? .zero
-        return CGSize(width: size.width, height: max(size.height, minHeight))
+        // The content takes its new height at once, so it counts only past the end height.
+        return CGSize(width: size.width, height: height + max(size.height - endHeight, 0))
     }
 
     func placeSubviews(

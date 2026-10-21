@@ -15,6 +15,11 @@ extension RoutineScreen {
         routine.exercises.dropFirst().first?.id
     }
 
+    /// Whether Start shows: with exercises to start, and out of a workout but for its going.
+    var showsStart: Bool {
+        !routine.exercises.isEmpty && !isStartAway && (session.workout == nil || isStarting)
+    }
+
     /// How tall the current exercise's label stands, wherever the list is scrolled: with its
     /// row just under the bar, the row fills the screen below it but for the row after it,
     /// or the end's room when there is none, and the row's own inset above and below the
@@ -25,49 +30,51 @@ extension RoutineScreen {
         return max(listHeight + listFoot - after - RailRowMetrics.verticalInset * 2, 0)
     }
 
-    /// Start's press: the key stays pressed in, and a +1 pops off it, while it holds, then
-    /// `leave(named:)` runs. A second press while it holds does nothing.
+    /// Start's press: the key comes back up as any key does, a +1 pops off it with a medium
+    /// impact (`primaryKeyBar`), and after a beat `leave(named:)` runs. A second press in the
+    /// meantime does nothing.
     func pressStart() {
         guard !isStarting, !isStartAway, session.workout == nil else { return }
+        // The list's end lies under the first row until it grows, so a short routine may have
+        // nowhere to scroll it to: room under the end, out of sight, lets it go. It goes in
+        // ahead of the scroll: a scroll in the same transaction stops at the old end. Where the
+        // end showed above Start, the room would raise the edge effect's band under it.
+        withTransaction(\.disablesAnimations, true) {
+            isMakingRoom = true
+            isBottomEdgeHidden = isEndInView
+        }
         isStarting = true
     }
 
-    /// The key holds pressed in for its +1 (shorter with Reduce Motion), then leaves. Run as
-    /// `isStarting` changes, so the hold is cancelled if the screen goes away; the key is then
-    /// let up, and nothing else has changed.
+    /// The beat after Start's press, for its +1, then the key leaves. Run as `isStarting`
+    /// changes, so the beat is cancelled if the screen goes away, and nothing has changed.
     func holdStart(named name: String) async {
         guard isStarting, session.workout == nil else { return }
-        let hold = reduceMotion ? Self.reducedPressHold : Self.pressHold
         do {
-            try await Task.sleep(for: .seconds(hold))
+            try await Task.sleep(for: .seconds(Self.pressHold))
         } catch {
             isStarting = false
+            isMakingRoom = false
+            isBottomEdgeHidden = false
             return
         }
         leave(named: name)
     }
 
-    /// Start in beats, each once the last has finished: the key, pressed in, slides off the
-    /// bottom; if the first exercise is scrolled mostly out of view, the list scrolls to its
-    /// top and holds a moment; and the first exercise grows into the current one as the list
-    /// scrolls it up under the bar, in one motion. A light haptic plays as the key starts to go
-    /// (`primaryKeyBar`). With Reduce Motion, the list crossfades into the workout.
+    /// Start in beats, each once the last has finished: if the first exercise is scrolled
+    /// mostly out of view, the list scrolls to its top and holds a moment; then the first
+    /// exercise grows into the current one as the list scrolls it up under the bar, in one
+    /// motion, and the key rides down off the screen with the rows below it. With Reduce
+    /// Motion, the list crossfades into the workout.
     private func leave(named name: String) {
-        // The list's end lies under the first row until it grows, so a short routine may have
-        // nowhere to scroll it to: room under the end, out of sight, lets it go. It goes in
-        // ahead of the scroll: a scroll in the same transaction stops at the old end.
-        withTransaction(\.disablesAnimations, true) { isMakingRoom = true }
         guard !reduceMotion else {
             return crossfade {
                 begin(named: name)
+                isStarting = false
                 scrollToCurrent()
             }
         }
-        withAnimation(.snappy(duration: Self.keyBeat)) {
-            isStartAway = true
-        } completion: {
-            bringFirstIntoView { grow(named: name) }
-        }
+        bringFirstIntoView { grow(named: name) }
     }
 
     /// Scrolls the list to its top if the first exercise is mostly out of view, then, once
@@ -86,29 +93,41 @@ extension RoutineScreen {
     }
 
     /// The first exercise grows into the current one as the list scrolls it up under the bar,
-    /// one motion on one curve, the rows below stepping aside. An animated scroll held the
-    /// growth back until it had nearly landed, so the list is scrolled at once and drawn where
-    /// it was, then both run in one animation.
+    /// one motion on one curve, the rows below stepping aside and Start riding down with them,
+    /// as far and as fast, until it is gone. An animated scroll held the growth back until it
+    /// had nearly landed, so the list is scrolled at once and drawn where it was, then both run
+    /// in one animation.
     private func grow(named name: String) {
+        var drop: CGFloat = 0
         if let place = currentPlace {
             let target = max(place.rowContentTop, 0)
+            let lift = target - scrollBeat.scrolledY
+            // The rows below move down by what the current exercise gains, less the lift.
+            drop = currentLabelHeight - place.height - lift
             withTransaction(\.disablesAnimations, true) {
-                growthLift = target - scrollBeat.scrolledY
+                growthLift = lift
                 scrollPosition.scrollTo(y: target)
             }
         }
-        withAnimation(.snappy(duration: Self.rowBeat)) {
+        withAnimation(.snappy(duration: Self.growBeat)) {
             begin(named: name)
             growthLift = 0
+            startDrop = max(drop, 1)
+            isBottomEdgeHidden = true
         } completion: {
-            isMakingRoom = false
+            withTransaction(\.disablesAnimations, true) {
+                isStartAway = true
+                isStarting = false
+                startDrop = 0
+                isMakingRoom = false
+                isBottomEdgeHidden = false
+            }
         }
     }
 
     /// Starts the workout.
     private func begin(named name: String) {
         session.start(routineName: name)
-        isStarting = false
     }
 
     /// Ends the workout with `change`, Start's three beats in reverse, once Finish's dialog is
@@ -160,6 +179,7 @@ extension RoutineScreen {
                 isStartAway = false
             } completion: {
                 isMakingRoom = false
+                isBottomEdgeHidden = false
             }
         }
     }
@@ -194,11 +214,12 @@ extension RoutineScreen {
     /// Start's beats, and the end's in reverse: the key leaving or coming back, the scroll, and
     /// the current exercise growing or shrinking.
     static let keyBeat = 0.2
-    /// How long Start holds pressed in before it leaves: its +1's time, or with Reduce Motion
-    /// a shorter beat for the +1's flash.
-    static let pressHold = 0.7
-    static let reducedPressHold = 0.4
+    /// The beat between Start's press and its leaving, for its +1: the scratch app's beat after
+    /// a logged set.
+    static let pressHold = 0.75
     static let scrollDuration = 0.35
+    /// The first exercise growing at Start, the rows below stepping aside.
+    static let growBeat = 0.55
     static let rowBeat = 0.4
     /// The pause between Start's scroll to the top landing and the row growing.
     static let landingHold = 0.2

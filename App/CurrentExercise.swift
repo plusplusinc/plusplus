@@ -14,6 +14,8 @@ nonisolated struct CurrentPlace: Equatable {
     /// How far the label's top is from the top of the list's content, where `scrollTo(y:)`
     /// counts from.
     var contentTop: CGFloat
+    /// The label's height.
+    var height: CGFloat
 
     /// Scrolled fully or mostly out of view, where the way back to it shows.
     var isMostlyOut: Bool {
@@ -34,7 +36,7 @@ nonisolated struct CurrentPlace: Equatable {
     init(_ proxy: GeometryProxy) {
         let row = CGRect(origin: .zero, size: proxy.size)
         guard let visible = proxy.bounds(of: .scrollView) else {
-            (shown, isAbove, top, contentTop) = (1, false, 0, 0)
+            (shown, isAbove, top, contentTop, height) = (1, false, 0, 0, row.height)
             return
         }
         let overlap = row.intersection(visible)
@@ -43,6 +45,7 @@ nonisolated struct CurrentPlace: Equatable {
         isAbove = row.midY < visible.midY
         top = row.minY - visible.minY
         contentTop = proxy.frame(in: .list).minY
+        height = row.height
     }
 }
 
@@ -135,5 +138,21 @@ extension RoutineExercise {
             spokenFigures: spokenFigures(locale: locale),
             minHeight: minHeight,
         )
+    }
+}
+
+/// At Start, the list's content drawn `lift` below where it is scrolled to. Animatable, so the lift
+/// is worked out frame by frame with the current exercise's growth, and the rows below it move
+/// exactly as far as Start riding down with them: as an offset, it ran ahead of the growth.
+struct GrowthLift: ViewModifier, Animatable {
+    var lift: CGFloat
+
+    nonisolated var animatableData: CGFloat {
+        get { lift }
+        set { lift = newValue }
+    }
+
+    func body(content: Content) -> some View {
+        content.offset(y: lift)
     }
 }

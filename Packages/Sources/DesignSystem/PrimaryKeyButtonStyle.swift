@@ -2,26 +2,23 @@ import SwiftUI
 
 /// The one key a screen is for, such as Start: full width, a light fill on a ledge, label
 /// centered. Pressing pushes the key down onto its ledge, which stays put, so nothing around it
-/// moves, with a medium impact as the finger lands. Not green: green is for data.
+/// moves, and letting go lets it back up, each in 0.06 s, easing out. Not green: green is for
+/// data.
 ///
 /// A key's shape, as Add exercise's is, on a ledge of the same shape.
 public struct PrimaryKeyButtonStyle: ButtonStyle {
     /// A little taller than a key, such as Add exercise.
     @ScaledMetric(relativeTo: .title3) private var minHeight: CGFloat = 56
     private static let ledge: CGFloat = 4
-
-    /// Held down on its ledge after the press, as Start is while it leaves.
-    private let isPressedIn: Bool
+    /// The press and the release: a quick ease-out both ways, so the key reads as struck.
+    private static let press = Animation.easeOut(duration: 0.06)
 
     @ObserveHotReload private var hotReload
 
-    public init(isPressedIn: Bool = false) {
-        self.isPressedIn = isPressedIn
-    }
+    public init() { }
 
     public func makeBody(configuration: Configuration) -> some View {
         let shape = RoundedRectangle(cornerRadius: Radius.key)
-        let isDown = configuration.isPressed || isPressedIn
         configuration.label
             .font(.ppPrimaryKey)
             .foregroundStyle(.pp(.onPrimaryKey))
@@ -29,16 +26,10 @@ public struct PrimaryKeyButtonStyle: ButtonStyle {
             .frame(maxWidth: .infinity, minHeight: minHeight)
             .background(shape.fill(.pp(.primaryKey)))
             .contentShape(shape)
-            .offset(y: isDown ? Self.ledge : 0)
-            .keyPressAnimation(isPressed: isDown)
+            .offset(y: configuration.isPressed ? Self.ledge : 0)
+            .animation(Self.press, value: configuration.isPressed)
             .background(shape.fill(.pp(.borderStrong)).offset(y: Self.ledge))
             .padding(.bottom, Self.ledge)
-            .sensoryFeedback(
-                .impact(weight: .medium),
-                trigger: configuration.isPressed,
-            ) { _, isDown in
-                isDown
-            }
             .hotReloadable()
     }
 }
@@ -56,19 +47,22 @@ extension View {
     /// from the screen's sides as the content above it is, with nothing behind it: a scroll
     /// view's content runs on under the key, beside and below it, softened by the system's
     /// scroll edge effect, which a `safeAreaBar` extends to its height as the navigation bar's
-    /// does at the top. `isPressedIn` holds the key down after its press, so it leaves pressed: a
-    /// +1 pops off its top as it goes down, and a light impact plays as it starts to leave.
+    /// does at the top. As `plusOne` turns on, a +1 pops off the key's top with a medium impact.
+    /// `drop` moves the key down by that much, at least off the screen, which an animation
+    /// carries it along at its own pace.
     public func primaryKeyBar(
         isPresented: Bool,
-        isPressedIn: Bool = false,
+        plusOne: Bool = false,
+        drop: CGFloat = 0,
         @ViewBuilder key: () -> some View,
     ) -> some View {
         let key = key()
         return safeAreaBar(edge: .bottom) {
             if isPresented {
                 key
-                    .buttonStyle(PrimaryKeyButtonStyle(isPressedIn: isPressedIn))
+                    .buttonStyle(.primaryKey)
                     .anchorPreference(key: PrimaryKeyBounds.self, value: .bounds) { $0 }
+                    .modifier(KeyDrop(drop: drop))
                     .hiddenBehindDrawer()
                     .padding(.horizontal, Spacing.md)
                     .padding(.top, Spacing.sm)
@@ -81,16 +75,45 @@ extension View {
             GeometryReader { proxy in
                 if let key {
                     let bounds = proxy[key]
-                    PlusOneBurst(isOn: isPressedIn)
+                    PlusOneBurst(isOn: plusOne)
                         .frame(width: bounds.width, height: max(bounds.minY, 0), alignment: .bottom)
                         .offset(x: bounds.minX)
                 }
             }
             .allowsHitTesting(false)
         }
-        .sensoryFeedback(.impact(weight: .light), trigger: isPresented) { wasShown, isShown in
-            wasShown && !isShown && isPressedIn
+        .sensoryFeedback(.impact(weight: .medium), trigger: plusOne) { wasOn, isOn in
+            !wasOn && isOn
         }
+    }
+}
+
+/// The key moved down by `drop`, at least out of sight: by its own height and what lies below it.
+/// Animatable, so the drop is worked out frame by frame alongside the layout of a list it rides
+/// with; animated as an offset, it ran two frames ahead of the list's rows.
+private struct KeyDrop: ViewModifier, Animatable {
+    let drop: CGFloat
+    /// How far along the drop the key is, 0 to 1, which an animation runs through.
+    var progress: CGFloat
+
+    init(drop: CGFloat) {
+        self.drop = drop
+        progress = drop > 0 ? 1 : 0
+    }
+
+    nonisolated var animatableData: CGFloat {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    @State private var exit: CGFloat = 0
+
+    func body(content: Content) -> some View {
+        content
+            .offset(y: progress * max(drop, exit))
+            .onGeometryChange(for: CGFloat.self) { proxy in
+                proxy.size.height + proxy.safeAreaInsets.bottom
+            } action: { exit = $0 + Spacing.sm }
     }
 }
 
