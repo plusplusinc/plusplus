@@ -128,16 +128,9 @@ public struct RowLabel: View {
     private func figures(_ focus: RowFocus) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(focus.figures, id: \.self) { figure in
-                ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
-                        number(figure)
-                        unit(figure)
-                            .lineLimit(1)
-                    }
-                    VStack(alignment: .leading, spacing: 0) {
-                        number(figure)
-                        unit(figure)
-                    }
+                FigureLayout(spacing: Spacing.sm) {
+                    number(figure)
+                    unit(figure)
                 }
             }
         }
