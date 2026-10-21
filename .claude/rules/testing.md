@@ -29,7 +29,12 @@ What each tier holds today:
   of its superset not pairing, where a row's node is read only at rest, and the room above the
   rail scrolling the list and moving to the size asked; routines' recency (`routinesByRecency`,
   opened or edited, and `withOpen`), what launch reopens, a list holding the order it was drawn
-  in (`held(in:)`), and the drawer's three, in the order they were last edited; and a drawer swipe's arithmetic (`DrawerDrag`).
+  in (`held(in:)`), and the drawer's three, in the order they were last edited; and a drawer swipe's arithmetic (`DrawerDrag`);
+  a workout's time from its dates, through pauses, a relaunch, and its finish, on fixed dates
+  as the clock, and how it reads (`WorkoutTests`), the current exercise's set, figures, and
+  their words (`CurrentExerciseTextTests`), and `RoutineStore`'s workouts: saving, the launch
+  rule after Finish and after Discard, a workout whose routine is gone, and a store written
+  before workouts opening with every routine and then keeping one.
 - **Snapshots** hold how a component looks, at rest and while editing. The title's editing look,
   `_` included, is drawn from plain values through `EditableTitleContent`, reached with
   `@testable import`, so no focus or keyboard is needed; its `blinks: false` holds the `_` lit,
@@ -51,7 +56,11 @@ What each tier holds today:
   and pressed on an end; and a member's shared rounds in its sheet. The drawer is drawn open
   through `SideDrawer`'s internal `progress:` initializer, its places composed as `DrawerMenu`
   composes them, with a routine, Routines, and an untouched new routine's own row each marked; the Routines screen's list is
-  drawn from `NameRow`. Their bars are the system's. A snapshot draws each text size fresh, so the title's height after a live text size
+  drawn from `NameRow`. Their bars are the system's. The workout's time key's label is drawn
+  running, paused, and past an hour (`WorkoutTimeLabelSnapshotTests`), and the current exercise
+  on the rail, with and without equipment, the next row under it, at a fixed standing height,
+  so AX5 shows its numbers shrinking to fit (`CurrentExerciseSnapshotTests`); the bar and its
+  glass are the system's. A snapshot draws each text size fresh, so the title's height after a live text size
   change is held by `EditableTitleTextSizeTests`, which hosts `EditableTitleContent` in a window
   and changes the window's content size category, the field focused and not. Hosted the same
   way, `EditableTitleCaretTests` reads the `_` at every place of the caret against CoreText's
@@ -74,12 +83,13 @@ What each tier holds today:
   a relaunch, in `RoutineAutosaveUITests`), and a join at AX5 under the audit; the drawer opened
   by ++ and the edge swipe and closed by the sliver and a swipe left, switching routines with the
   one showing marked, a new one's row included, opening counting across a relaunch, the order kept in one session after opening one from the drawer and an edit moving it to the top, and the Routines screen's list and
-  drill-in, popped by the chevron and the edge swipe, and both under the audit at AX5, read from each row's VoiceOver value; and what the app saved, seen only by
+  drill-in, popped by the chevron and the edge swipe, and both under the audit at AX5, read from each row's VoiceOver value; a workout: Start growing the current exercise with only the next in view and no swipe on it, the way back, pause and resume, the time across relaunches running and paused, edits staying on, the drawer locked, launch after Discard and after Finish, and its bar, paused, and Finish's dialog under the audit at AX5, where the bar's own text, capped by the system, is passed over; and what the app saved, seen only by
   quitting and launching again, a dragged row's place and a superset's shared rounds included. Each launch costs about 9 s on
   CI, so there is one UI test per launch configuration:
   `RenameUITests/testRenameAtDefaultSize`,
   `TitleWrappingUITests/testWrappedTitleAtLargestTextSize`, and
-  `RoutineAutosaveUITests/testRoutineSurvivesRelaunch`, which relaunches eight times. A new
+  `RoutineAutosaveUITests/testRoutineSurvivesRelaunch`, which relaunches eight times, and
+  `WorkoutUITests/testWorkoutSurvivesRelaunch`, apart for its six more. A new
   check extends the test for its launch as a named `XCTContext.runActivity`; a new test needs a
   launch argument no existing test uses, or a test that would run past XCTest's three-minute
   allowance on CI (about 1.2 times its local time), which is why the drag and delete checks

@@ -76,8 +76,10 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   band goes as the growth starts, or at the press where the list's end showed above the key, as
   the room made under the end would raise it. The current exercise's height is fixed, whatever
   the scroll: under the bar, it and the next row fill the screen to its bottom edge, under the
-  home indicator. Ending a workout, from Finish's menu (a menu, as a confirmation dialog ran
-  its action a second late, after its own dismissal), plays
+  home indicator. Ending a workout, from Finish's confirmation dialog (no title; Finish, and
+  Discard workout as destructive; from the bar button iOS shows it as a popover with no Cancel,
+  a tap outside cancelling, and runs the action about a second after the tap, once the popover
+  has gone, which is accepted), plays
   the grow in reverse as one motion (`.smooth(0.55)`, the grow's curve without its bounce): the
   current exercise shrinks back as the rows below close up and the list scrolls back to its top,
   with Start away and the bottom band hidden. Once that lands (a 0.55 s beat from the motion's
@@ -91,8 +93,28 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   is animated, not lifted: drawn lifted at the top, the title showed over the status bar with no
   edge effect under the bar. Room under the list's end, out of sight, holds the scroll still
   while the row grows or shrinks. With Reduce Motion the +1 flashes in place and each change is
-  one crossfade (0.15 s out, 0.2 s in), the haptic kept; at the end, Start fades in after the
-  crossfade (0.25 s).
+  one crossfade, easing in and out (0.2 s out, 0.35 s in), the haptic kept; the fade-in starts on
+  a later turn of the run loop, once the change has drawn: the changed list's first frame is
+  slow, and a fade started with the change had run out before it showed. At the end, Start
+  fades in after the crossfade (0.25 s).
+- The current exercise of a workout is the routine's first row grown (`RowLabel`'s `focus`,
+  `RowFocus`): its node 14 pt in `accent`, pulsing in brightness within its circle
+  (`CurrentPulse`); its name from `ppRowTitle` to `ppCurrentTitle` through every size between
+  (`TitleFont`, the tokens themselves at the ends, so a resting row reads as one out of a
+  workout); which set it is on in place of the plan line; its equipment as capsules; and the
+  plan's numbers large (104 pt SF Mono at the default size), each with what it counts beside it,
+  or under it where the two don't fit the width (`FigureLayout`, not `ViewThatFits`, which sent
+  the view graph round a cycle as the title took focus, and hung the app). Its label stands at
+  one height wherever the list is scrolled (`currentLabelHeight`): with its row just under the
+  bar, the row, its own space above included (`currentTopSpace`, 24 pt), and the next row fill
+  the screen to its bottom edge, so the row after the next starts off the screen. The label is
+  offered that height, so at the largest text sizes the numbers shrink to fit it; the name, the
+  set, and the unit stay whole, and where they alone are taller the row runs on past it. Start,
+  the way back (`CurrentExerciseButton`, a floating key once the row is mostly scrolled out,
+  its name wrapping rather than cut short), a relaunch, and Start from a routine pushed on the
+  Routines screen land the row just under the bar, with everything above it under the bar;
+  while it is landed, a change in height above it, after a text size change or a rename, lands
+  it again. The current row has no swipe; its sheet's Delete stays.
 - A row on a rail moves by holding and dragging (`RailDrag` holds every value). A hold of 0.4 s
   that moves under 10 pt lifts it; a press that moves first is a scroll, and a hold in the rail
   column, on the node, draws a superset instead (below). The hold is a UIKit long press (`RailLiftGesture`), put
