@@ -45,7 +45,7 @@ extension RoutineScreen {
     }
 
     /// Start in three beats, each once the last has finished: the key, pressed in, slides off
-    /// the bottom with its floor; the list scrolls, only if the first exercise is not fully in
+    /// the bottom; the list scrolls, only if the first exercise is not fully in
     /// view or has too little room below it to grow, and only as far as it must; and the first
     /// exercise grows into the current one where it is. The haptic plays as the key goes down.
     /// With Reduce Motion, the list crossfades into the workout.

@@ -53,10 +53,10 @@ extension ButtonStyle where Self == PrimaryKeyButtonStyle {
 extension View {
     /// A screen's primary key in a bar at its bottom while `isPresented`, rising in and dropping
     /// out, or with Reduce Motion fading in and out. The key sits above the home indicator, inset
-    /// from the screen's sides as the content
-    /// above it is, on a floor of the screen's background that runs to the bottom edge: content
-    /// scrolled under the bar shows neither beside the key nor below it. `isPressedIn` holds the
-    /// key down after its press, so it leaves pressed.
+    /// from the screen's sides as the content above it is, with nothing behind it: a scroll
+    /// view's content runs on under the key, beside and below it, softened by the system's
+    /// scroll edge effect, which a `safeAreaBar` extends to its height as the navigation bar's
+    /// does at the top. `isPressedIn` holds the key down after its press, so it leaves pressed.
     public func primaryKeyBar(
         isPresented: Bool,
         isPressedIn: Bool = false,
@@ -70,22 +70,20 @@ extension View {
                     .hiddenBehindDrawer()
                     .padding(.horizontal, Spacing.md)
                     .padding(.top, Spacing.sm)
-                    .background { Color.pp(.background).ignoresSafeArea() }
-                    .transition(KeyFloorTransition())
+                    .transition(KeyBarTransition())
             }
         }
     }
 }
 
-/// The key and its floor sliding off the bottom as they fade, or, with Reduce Motion, only
-/// fading.
-private struct KeyFloorTransition: Transition {
+/// The key sliding off the bottom as it fades, or, with Reduce Motion, only fading.
+private struct KeyBarTransition: Transition {
     func body(content: Content, phase: TransitionPhase) -> some View {
-        content.modifier(KeyFloorPlace(isShown: phase.isIdentity))
+        content.modifier(KeyBarPlace(isShown: phase.isIdentity))
     }
 }
 
-private struct KeyFloorPlace: ViewModifier {
+private struct KeyBarPlace: ViewModifier {
     let isShown: Bool
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion

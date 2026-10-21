@@ -195,11 +195,9 @@ struct RoutineScreen: View {
             .opacity(isFadedOut ? 0 : 1)
             .coordinateSpace(.list)
         }
-        .contentMargins(
-            .bottom,
-            session.workout == nil ? 0 : wayToCurrentRoom,
-            for: .scrollContent,
-        )
+        .contentMargins(.bottom, session.workout == nil ? 0 : wayToCurrentRoom, for: .scrollContent)
+        // The room under the end is empty: under Start it would raise the edge effect's band.
+        .scrollEdgeEffectHidden(isMakingRoom, for: .bottom)
         .scrollPosition($scrollPosition)
         .railAutoscroll($scrollPosition)
         .onScrollGeometryChange(for: ScrollGeometry.self, of: { $0 }, action: keepEndInView)

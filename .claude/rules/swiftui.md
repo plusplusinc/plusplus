@@ -55,7 +55,7 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   end out of view, after a scroll to the end.
 - Start plays in three beats, each once the last has finished (`RoutineScreen+Workout.swift`),
   with a medium impact as the finger lands on the key: the key, held pressed in, slides off
-  the bottom with its floor as it fades (`.snappy(0.2)`); the list scrolls the first exercise
+  the bottom as it fades (`.snappy(0.2)`); the list scrolls the first exercise
   only as far as it must to be fully in view with room to grow (`.snappy(0.35)`), skipped when
   it is, and holds 0.2 s after landing; and it grows in place into the current exercise
   (`.snappy(0.4)`), at once when there was no scroll. Ending a workout, by Finish or Discard
