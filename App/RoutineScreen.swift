@@ -38,11 +38,11 @@ struct RoutineScreen: View {
     @State private var isTitleUnderBar = false
     /// From Start's press until its key has gone: its +1 and beat, and the grow.
     @State var isStarting = false
-    /// How far Start rides with the rows below the current exercise: down at Start, up at the end.
-    @State var startTravel: CGFloat = 0
-    /// Under Start, the scroll edge effect's band hidden while the list makes room at Start.
+    /// How far Start rides down with the rows below the current exercise as it grows at Start.
+    @State var startDrop: CGFloat = 0
+    /// Under Start, the scroll edge effect's band hidden while the list makes room.
     @State var isBottomEdgeHidden = false
-    /// Start kept out of its bar in a workout, and as one ends until the list is back at the top.
+    /// Start kept out of its bar in a workout, and as one ends until the list has landed.
     @State var isStartAway = false
     /// The scroll in Start's sequence, and how far the list is scrolled.
     @State var scrollBeat = ScrollBeat()
@@ -217,8 +217,7 @@ struct RoutineScreen: View {
         .primaryKeyBar(
             isPresented: showsStart,
             plusOne: isStarting,
-            drop: isStarting ? startTravel : 0,
-            rise: isStarting ? 0 : startTravel,
+            drop: startDrop,
         ) {
             Button("Start", systemImage: "play.fill", action: pressStart)
         }

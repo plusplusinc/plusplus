@@ -78,14 +78,21 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   the scroll: under the bar, it and the next row fill the screen to its bottom edge, under the
   home indicator. Ending a workout, from Finish's menu (a menu, as a confirmation dialog ran
   its action a second late, after its own dismissal), plays
-  the grow in reverse as one motion (`.smooth(0.55)`, the grow's curve without the bounce that
-  carried the key past its place): the current exercise shrinks back as the rows below close
-  up, the list scrolls back to its top, and Start comes in from as far below, riding up with
-  the rows below (`primaryKeyBar`'s `rise`, a transition worked out frame by frame). The scroll
+  the grow in reverse as one motion (`.smooth(0.55)`, the grow's curve without its bounce): the
+  current exercise shrinks back as the rows below close up and the list scrolls back to its top,
+  with Start away and the bottom band hidden. Once that lands (a 0.55 s beat from the motion's
+  start, slept: the animation's completion, even logically complete, ran a third of a second
+  after the rows settled), Start comes up on its own from below the screen's edge into place
+  (`.smooth(0.25)`, no overshoot), its band rising with its top: the key's transition is a
+  layout (`KeyRise`), so the bar, and the band covering it, stands only as tall as the key has
+  risen above the bar's bottom. The key's side insets are measured on the screen, not the key,
+  so a key coming in has them from its first frame; measured on the key, it came in 16 pt from
+  the sides and narrowed to 34 pt on the next animation, too big at first. The scroll
   is animated, not lifted: drawn lifted at the top, the title showed over the status bar with no
   edge effect under the bar. Room under the list's end, out of sight, holds the scroll still
   while the row grows or shrinks. With Reduce Motion the +1 flashes in place and each change is
-  one crossfade (0.15 s out, 0.2 s in), the haptic kept.
+  one crossfade (0.15 s out, 0.2 s in), the haptic kept; at the end, Start fades in after the
+  crossfade (0.25 s).
 - A row on a rail moves by holding and dragging (`RailDrag` holds every value). A hold of 0.4 s
   that moves under 10 pt lifts it; a press that moves first is a scroll, and a hold in the rail
   column, on the node, draws a superset instead (below). The hold is a UIKit long press (`RailLiftGesture`), put
