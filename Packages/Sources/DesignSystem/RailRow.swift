@@ -128,8 +128,6 @@ private struct NodeCenter: PreferenceKey {
 }
 
 private struct RailRow: ViewModifier {
-    /// Room under the content, in the row, which its stretch of line runs down through.
-    var foot: CGFloat
     @ScaledMetric(relativeTo: .body) private var minHeight: CGFloat = 64
     @ScaledMetric(relativeTo: .body) private var lineWidth = railLineWidth
     @ScaledMetric(relativeTo: .body) private var nodeSize = railNodeSize
@@ -143,7 +141,6 @@ private struct RailRow: ViewModifier {
             content
                 .padding(.vertical, RailRowMetrics.verticalInset)
                 .frame(minHeight: minHeight, alignment: .top)
-                .padding(.bottom, foot)
                 .opacity(place.isArriving ? 0 : 1)
                 .offset(y: place.isArriving && !reduceMotion ? -Spacing.xs : 0)
                 .entry(
@@ -379,9 +376,9 @@ let currentNodeSize: CGFloat = 14
 extension View {
     /// A row on a rail: its node in the rail column, then its content from the top, inset as the
     /// design has it, in a row at least as tall as two lines, so a one-line row keeps the rhythm
-    /// of a two-line one. `foot` adds that much room under it, the row's line running on through.
-    public func railRow(foot: CGFloat = 0) -> some View {
-        modifier(RailRow(foot: foot))
+    /// of a two-line one.
+    public func railRow() -> some View {
+        modifier(RailRow())
     }
 
     /// The rail column: the leading strip where rows put their nodes and a key its icon. At

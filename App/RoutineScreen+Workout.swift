@@ -15,33 +15,18 @@ extension RoutineScreen {
         routine.exercises.dropFirst().first?.id
     }
 
-    /// How tall the current exercise's label stands: the list's height below the row's top,
-    /// less the row after it, which ends at the list's foot, and the row's own inset above and
-    /// below the label.
+    /// How tall the current exercise's label stands: the screen's height below the row's top,
+    /// less the row after it, and the row's own inset above and below the label.
     var currentLabelHeight: CGFloat {
         max(roomBelow(rowTop: session.currentTop) - RailRowMetrics.verticalInset * 2, 0)
     }
 
-    /// The list's height below a row at `rowTop`, less the row after the current one, or the
-    /// end's room when there is none. The next row's room under the list is left out: it lies
-    /// below the list.
+    /// The screen's height below a row at `rowTop`, less the row after the current one, or the
+    /// end's room when there is none. It runs on past the list, under the home indicator, so the
+    /// next row ends at the screen's edge and the row after it starts out of sight.
     private func roomBelow(rowTop: CGFloat) -> CGFloat {
         let after = nextID == nil ? endRoom : nextRowHeight ?? endRoom
-        return listHeight - rowTop - after
-    }
-
-    /// Room under a row's content: in a workout, the next exercise's row runs on to the
-    /// screen's foot, its text above the home indicator, so the row after it starts out of
-    /// sight.
-    func foot(of id: RoutineExercise.ID) -> CGFloat {
-        session.workout != nil && id == nextID ? listFoot : 0
-    }
-
-    /// Notes the next exercise's row's height, less its room under the list, which the current
-    /// exercise's height leaves out.
-    func measureNextRow(_ id: RoutineExercise.ID) -> (CGFloat) -> Void {
-        let foot = foot(of: id)
-        return { nextRowHeight = $0 - foot }
+        return listHeight + listFoot - rowTop - after
     }
 
     /// Start in three beats, each once the last has finished: the key, pressed in, slides off

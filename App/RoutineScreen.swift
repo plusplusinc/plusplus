@@ -50,7 +50,8 @@ struct RoutineScreen: View {
     @State var currentPlace: CurrentPlace?
     /// The height of the area between the bars, less the room under the list's end in a workout.
     @State var visibleHeight: CGFloat = 0
-    /// The list's height between the bars and the safe area, and the screen's height below it.
+    /// The list's height between the bars and the safe area, and the screen's height below it:
+    /// in a workout, the current exercise and the next fill both.
     @State var listHeight: CGFloat = 0
     @State var listFoot: CGFloat = 0
     /// The first exercise's label grown into the current one, at its own height.
@@ -155,8 +156,8 @@ struct RoutineScreen: View {
                     // tests find it once it has. On the label, the row's one element: on the
                     // row, `false` would un-hide the rail's node.
                     .accessibilityHidden(item.id == entering)
-                    .railRow(foot: foot(of: item.id))
-                    .reportingHeight(item.id == nextID, to: measureNextRow(item.id))
+                    .railRow()
+                    .reportingHeight(item.id == nextID) { nextRowHeight = $0 }
                     // Under the tap, which stays on where the swipe is off.
                     .swipeToDelete(isOn: item.id != currentID) { delete(item.id) }
                     .contentShape(.rect)
