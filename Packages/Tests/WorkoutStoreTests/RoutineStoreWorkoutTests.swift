@@ -123,7 +123,7 @@ struct RoutineStoreWorkoutTests {
     }
 
     @Test(
-        "A routine cleared to nothing while its workout runs is kept, under its id, until saved without",
+        "A routine cleared while its workout runs is kept until a save without the workout",
     )
     func clearedMidWorkout() async throws {
         let routine = try Routine(exercises: [RoutineExercise(

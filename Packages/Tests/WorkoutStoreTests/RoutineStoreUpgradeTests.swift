@@ -151,39 +151,7 @@ struct RoutineStoreUpgradeTests {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         let url = folder.appending(path: "PlusPlus.store")
-        let supersetID = UUID()
-
-        do {
-            let schema = Schema([
-                RoutineSchemaV4.StoredRoutine.self,
-                RoutineSchemaV4.StoredRoutineExercise.self,
-            ])
-            let old = try ModelContainer(
-                for: schema,
-                configurations: ModelConfiguration(schema: schema, url: url),
-            )
-            let context = ModelContext(old)
-            for (name, edited, opened) in [("Older", 1.0, 3.0), ("Newer", 2.0, 0.0)] {
-                let routine = RoutineSchemaV4.StoredRoutine(id: UUID())
-                routine.name = name
-                routine.editedAt = Date(timeIntervalSinceReferenceDate: edited)
-                routine.openedAt = Date(timeIntervalSinceReferenceDate: opened)
-                context.insert(routine)
-                for (position, exercise) in ["push-up", "pull-up"].enumerated() {
-                    let row = RoutineSchemaV4.StoredRoutineExercise(
-                        id: UUID(),
-                        exerciseID: exercise,
-                        position: position,
-                    )
-                    row.sets = 4
-                    row.reps = 6
-                    row.supersetID = supersetID
-                    context.insert(row)
-                    row.routine = routine
-                }
-            }
-            try context.save()
-        }
+        try Self.writeBeforeWorkouts(to: url)
 
         func open() throws -> RoutineStore {
             try RoutineStore(modelContainer: ModelContainer(
@@ -212,5 +180,40 @@ struct RoutineStoreUpgradeTests {
         let launch = try await open().launch(weightUnit: .pounds)
         #expect(launch.workout == workout)
         #expect(launch.routine?.name == "Older")
+    }
+
+    /// Today's routines as #91 stored them: two, each with a superset of two rows with plans,
+    /// one opened after the other's edit.
+    private static func writeBeforeWorkouts(to url: URL) throws {
+        let schema = Schema([
+            RoutineSchemaV4.StoredRoutine.self,
+            RoutineSchemaV4.StoredRoutineExercise.self,
+        ])
+        let old = try ModelContainer(
+            for: schema,
+            configurations: ModelConfiguration(schema: schema, url: url),
+        )
+        let context = ModelContext(old)
+        for (name, edited, opened) in [("Older", 1.0, 3.0), ("Newer", 2.0, 0.0)] {
+            let routine = RoutineSchemaV4.StoredRoutine(id: UUID())
+            routine.name = name
+            routine.editedAt = Date(timeIntervalSinceReferenceDate: edited)
+            routine.openedAt = Date(timeIntervalSinceReferenceDate: opened)
+            context.insert(routine)
+            let supersetID = UUID()
+            for (position, exercise) in ["push-up", "pull-up"].enumerated() {
+                let row = RoutineSchemaV4.StoredRoutineExercise(
+                    id: UUID(),
+                    exerciseID: exercise,
+                    position: position,
+                )
+                row.sets = 4
+                row.reps = 6
+                row.supersetID = supersetID
+                context.insert(row)
+                row.routine = routine
+            }
+        }
+        try context.save()
     }
 }
