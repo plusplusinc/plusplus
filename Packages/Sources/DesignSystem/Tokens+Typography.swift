@@ -24,6 +24,8 @@ extension Font {
     public static let ppRowDetailNumber = Font.system(.subheadline, design: .monospaced)
     /// The numbers in a value at the row title's size and weight: SF Mono.
     public static let ppRowTitleNumber = Font.system(.body, design: .monospaced, weight: .semibold)
+    /// A workout's time on its key in the bar: SF Mono, so the digits hold still as they tick.
+    public static let ppWorkoutTime = Font.system(.body, design: .monospaced, weight: .semibold)
     /// A place in the drawer, Routines or a routine under it: one font for all, so none reads as
     /// a heading over the others.
     public static let ppDrawerItem = Font.system(.body, weight: .medium)
