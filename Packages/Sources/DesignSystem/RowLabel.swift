@@ -3,10 +3,24 @@ import SwiftUI
 /// A row's name over an optional detail line, given in parts. With no parts there is no line at
 /// all, not an empty one. VoiceOver reads it as one element, "name, detail", with the detail in
 /// words when `spokenDetail` is given.
+///
+/// Given a `focus`, it is the current exercise of a workout: the name grows large, and the detail
+/// gives way to which set it is on and the plan's numbers, large, in a row at least `minHeight`
+/// tall. Changed in an animation, the name's size runs between the two, and the numbers grow out
+/// of where the detail was.
 public struct RowLabel: View {
     private let title: String
     private let detail: [String]
     private let spokenDetail: String?
+    private let focus: RowFocus?
+
+    /// The name's size on a row, as `ppRowTitle`, and grown on the current exercise. Sizes, not
+    /// two fonts, so the name grows through every size between: Text's own interpolation
+    /// between the two fonts jumped.
+    @ScaledMetric(relativeTo: .body) private var titleSize: CGFloat = 17
+    @ScaledMetric(relativeTo: .title) private var currentTitleSize: CGFloat = 28
+    /// The current exercise's numbers: 104pt at the default size.
+    @ScaledMetric(relativeTo: .largeTitle) private var figureSize: CGFloat = 104
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ObserveHotReload private var hotReload
@@ -15,10 +29,12 @@ public struct RowLabel: View {
         title: String,
         detail: [String],
         spokenDetail: String? = nil,
+        focus: RowFocus? = nil,
     ) {
         self.title = title
         self.detail = detail
         self.spokenDetail = spokenDetail
+        self.focus = focus
     }
 
     /// A row whose detail is one line, or none.
@@ -28,24 +44,82 @@ public struct RowLabel: View {
 
     public var body: some View {
         let detailText = Self.detailText(detail, stacked: dynamicTypeSize.isAccessibilitySize)
+        content(detailText)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(spokenLabel)
+            .hotReloadable()
+    }
+
+    /// The name stays where it is as the row grows: below it, the room stands at its height from
+    /// the start, and the numbers come in inside it.
+    private func content(_ detailText: String?) -> some View {
         VStack(alignment: .leading, spacing: Spacing.xxs) {
             Text(title)
-                .font(.ppRowTitle)
+                .modifier(SemiboldSize(size: focus == nil ? titleSize : currentTitleSize))
                 .foregroundStyle(.pp(.textPrimary))
-            if let detailText {
-                Text(AttributedString.monoNumbers(detailText, font: .ppRowDetailNumber))
-                    .font(.ppRowDetail)
-                    .foregroundStyle(.pp(.textSecondary))
+            StandingHeight(minHeight: focus.map { max($0.minHeight - currentTitleSize, 0) } ?? 0) {
+                VStack(alignment: .leading, spacing: Spacing.lg) {
+                    // The detail line gives way to which set it is on, in the same place.
+                    ZStack(alignment: .topLeading) {
+                        if let detailText {
+                            Text(AttributedString.monoNumbers(
+                                detailText,
+                                font: .ppRowDetailNumber,
+                            ))
+                            .font(.ppRowDetail)
+                            .foregroundStyle(.pp(.textSecondary))
+                            .opacity(focus == nil ? 1 : 0)
+                        }
+                        Text(focus?.progress ?? "")
+                            .font(.ppCurrentProgress)
+                            .foregroundStyle(.pp(.textSecondary))
+                            .opacity(focus == nil ? 0 : 1)
+                    }
+                    if let focus {
+                        // In once the rows below have mostly stepped aside, so the numbers
+                        // don't grow over them.
+                        figures(focus)
+                            .transition(
+                                .asymmetric(
+                                    insertion: .scale(scale: 0.3, anchor: .topLeading)
+                                        .combined(with: .opacity)
+                                        .animation(.snappy(duration: 0.35).delay(0.2)),
+                                    removal: .opacity.animation(.snappy(duration: 0.15)),
+                                ),
+                            )
+                    }
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(
+    }
+
+    /// Each number large, with what it counts beside it.
+    private func figures(_ focus: RowFocus) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(focus.figures, id: \.self) { figure in
+                HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
+                    Text(figure.number)
+                        .font(.system(size: figureSize, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.pp(.textPrimary))
+                        .minimumScaleFactor(0.5)
+                    Text(figure.unit)
+                        .font(.ppCurrentUnit)
+                        .foregroundStyle(.pp(.textSecondary))
+                }
+                .lineLimit(1)
+            }
+        }
+        .fixedSize()
+    }
+
+    private var spokenLabel: String {
+        let parts = if let focus {
+            [title, focus.progress, focus.spokenFigures]
+        } else {
             [title, spokenDetail ?? detail.joined(separator: ", ")]
-                .filter { !$0.isEmpty }
-                .joined(separator: ", "),
-        )
-        .hotReloadable()
+        }
+        return parts.filter { !$0.isEmpty }.joined(separator: ", ")
     }
 
     /// The detail line from its parts, or nil for none. Joined with dots, each part kept whole,
@@ -63,6 +137,84 @@ public struct RowLabel: View {
 
 private let noBreakSpace = "\u{00A0}"
 
+/// Its one subview at least `minHeight` tall, from its top, the height animating as a number.
+/// A frame's `minHeight` animated from 0 laid the row out at no height for the animation's first
+/// frame, so the rows below jumped up onto it before they slid down.
+private struct StandingHeight: Layout {
+    var minHeight: CGFloat
+
+    var animatableData: CGFloat {
+        get { minHeight }
+        set { minHeight = newValue }
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
+        let size = subviews.first?.sizeThatFits(ProposedViewSize(
+            width: proposal.width,
+            height: nil,
+        )) ?? .zero
+        return CGSize(width: size.width, height: max(size.height, minHeight))
+    }
+
+    func placeSubviews(
+        in bounds: CGRect,
+        proposal _: ProposedViewSize,
+        subviews: Subviews,
+        cache _: inout (),
+    ) {
+        // At its own height: offered the standing height, it would center in it.
+        let proposal = ProposedViewSize(width: bounds.width, height: nil)
+        subviews.first?.place(at: bounds.origin, anchor: .topLeading, proposal: proposal)
+    }
+}
+
+/// A semibold system font at a size that animates, so text grows through every size between.
+private struct SemiboldSize: ViewModifier, Animatable {
+    var size: CGFloat
+
+    nonisolated var animatableData: CGFloat {
+        get { size }
+        set { size = newValue }
+    }
+
+    @ObserveHotReload private var hotReload
+
+    func body(content: Content) -> some View {
+        content
+            .font(.system(size: size, weight: .semibold))
+            .hotReloadable()
+    }
+}
+
+/// A row grown into the current exercise of a workout.
+public struct RowFocus: Equatable {
+    /// Which set it is on: "Set 1 of 3".
+    public var progress: String
+    public var figures: [Figure]
+    /// The figures in words, for VoiceOver.
+    public var spokenFigures: String
+    /// How tall the label stands, so the row fills most of the screen.
+    public var minHeight: CGFloat
+
+    public init(progress: String, figures: [Figure], spokenFigures: String, minHeight: CGFloat) {
+        self.progress = progress
+        self.figures = figures
+        self.spokenFigures = spokenFigures
+        self.minHeight = minHeight
+    }
+
+    /// A number shown large, with what it counts: "10" "reps".
+    public struct Figure: Hashable {
+        public var number: String
+        public var unit: String
+
+        public init(number: String, unit: String) {
+            self.number = number
+            self.unit = unit
+        }
+    }
+}
+
 #Preview {
     VStack(spacing: Spacing.md) {
         RowLabel(title: "Goblet squat", detail: "Kettlebell")
@@ -72,6 +224,19 @@ private let noBreakSpace = "\u{00A0}"
         )
         RowLabel(title: "Pigeon stretch", detail: ["60 s per side"])
         RowLabel(title: "Push-up", detail: nil)
+        RowLabel(
+            title: "Dumbbell row",
+            detail: [],
+            focus: RowFocus(
+                progress: "Set 1 of 3",
+                figures: [
+                    .init(number: "10", unit: "reps per side"),
+                    .init(number: "50", unit: "lb"),
+                ],
+                spokenFigures: "",
+                minHeight: 300,
+            ),
+        )
     }
     .padding()
     .background(Color.pp(.background))

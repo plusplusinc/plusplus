@@ -18,11 +18,12 @@ struct FinishButton: View {
         .hiddenBehindDrawer()
         // Attached to the button, so the dialog comes from it.
         .confirmationDialog("", isPresented: $isConfirming, titleVisibility: .hidden) {
+            // The current exercise goes back to its resting size as Start comes back.
             Button("Finish") {
-                session.finish(routineName: routineName)
+                withAnimation(.snappy(duration: 0.4)) { session.finish(routineName: routineName) }
             }
             Button("Discard workout", role: .destructive) {
-                session.discard()
+                withAnimation(.snappy(duration: 0.4)) { session.discard() }
             }
             Button("Cancel", role: .cancel) { }
         }

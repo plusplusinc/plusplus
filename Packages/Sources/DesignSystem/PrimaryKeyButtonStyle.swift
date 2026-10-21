@@ -10,12 +10,18 @@ public struct PrimaryKeyButtonStyle: ButtonStyle {
     @ScaledMetric(relativeTo: .title3) private var minHeight: CGFloat = 56
     private static let ledge: CGFloat = 4
 
+    /// Held down on its ledge after the press, as Start is while it leaves.
+    private let isPressedIn: Bool
+
     @ObserveHotReload private var hotReload
 
-    public init() { }
+    public init(isPressedIn: Bool = false) {
+        self.isPressedIn = isPressedIn
+    }
 
     public func makeBody(configuration: Configuration) -> some View {
         let shape = RoundedRectangle(cornerRadius: Radius.key)
+        let isDown = configuration.isPressed || isPressedIn
         configuration.label
             .font(.ppPrimaryKey)
             .foregroundStyle(.pp(.onPrimaryKey))
@@ -23,8 +29,8 @@ public struct PrimaryKeyButtonStyle: ButtonStyle {
             .frame(maxWidth: .infinity, minHeight: minHeight)
             .background(shape.fill(.pp(.primaryKey)))
             .contentShape(shape)
-            .offset(y: configuration.isPressed ? Self.ledge : 0)
-            .keyPressAnimation(isPressed: configuration.isPressed)
+            .offset(y: isDown ? Self.ledge : 0)
+            .keyPressAnimation(isPressed: isDown)
             .background(shape.fill(.pp(.borderStrong)).offset(y: Self.ledge))
             .padding(.bottom, Self.ledge)
             .hotReloadable()
@@ -42,13 +48,18 @@ extension View {
     /// A screen's primary key in a bar at its bottom while `isPresented`, rising in and dropping
     /// out. The key sits above the home indicator, inset from the screen's sides as the content
     /// above it is, on a floor of the screen's background that runs to the bottom edge: content
-    /// scrolled under the bar shows neither beside the key nor below it.
-    public func primaryKeyBar(isPresented: Bool, @ViewBuilder key: () -> some View) -> some View {
+    /// scrolled under the bar shows neither beside the key nor below it. `isPressedIn` holds the
+    /// key down after its press, so it leaves pressed.
+    public func primaryKeyBar(
+        isPresented: Bool,
+        isPressedIn: Bool = false,
+        @ViewBuilder key: () -> some View,
+    ) -> some View {
         let key = key()
         return safeAreaBar(edge: .bottom) {
             if isPresented {
                 key
-                    .buttonStyle(.primaryKey)
+                    .buttonStyle(PrimaryKeyButtonStyle(isPressedIn: isPressedIn))
                     .hiddenBehindDrawer()
                     .padding(.horizontal, Spacing.md)
                     .padding(.top, Spacing.sm)

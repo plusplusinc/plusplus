@@ -7,16 +7,19 @@ import WorkoutStore
 /// Every change saves on its own, with no drafts. A new routine is saved once something is put
 /// in it, and deleted once it is cleared back to nothing.
 struct RoutineScreen: View {
-    @State private var routine: Routine
+    // What the extensions in `RoutineScreen+Workout.swift` and `RoutineScreen+Supersets.swift`
+    // read is internal, not private, so they can live in their own files.
+
+    @State var routine: Routine
     /// Saves every change, and opens the drawer.
-    private let session: RoutineSession
+    let session: RoutineSession
     private let namer: RoutineNamer
     /// Pushed onto the Routines screen, with a back button where ++ otherwise is.
     private let isPushed: Bool
     @State private var isPicking = false
     /// The row whose values are open in a sheet, as it was when opened: only its id is read.
     @State private var editing: RoutineExercise?
-    @State private var scrollPosition = ScrollPosition()
+    @State var scrollPosition = ScrollPosition()
     /// The row just added, holding its place until it can be seen going in.
     @State private var arriving: RoutineExercise.ID?
     /// The row just added, from the add until its entry has played. A view takes taps where it
@@ -34,7 +37,29 @@ struct RoutineScreen: View {
     @State private var isEditingTitle = false
     /// Whether the title has scrolled up under the bar, where a small copy of it shows instead.
     @State private var isTitleUnderBar = false
+    /// Start held down on its ledge from its press until the workout starts.
+    @State var isStarting = false
+    /// Start leaving, ahead of the workout starting once the first exercise is in view.
+    @State var isStartLeaving = false
+    /// Counts Start's presses, each a medium impact.
+    @State var starts = 0
+    /// With Reduce Motion, the list faded out while it changes into a workout.
+    @State var isFadedOut = false
+    /// Where the first exercise, the current one in a workout, is against the part showing.
+    @State var currentPlace: CurrentPlace?
+    /// The height of the area between the bars, less the room under the list's end in a workout:
+    /// the current exercise mostly fills the two.
+    @State private var visibleHeight: CGFloat = 0
+    /// Back in a workout after a relaunch, the list opens on the current exercise, once it has
+    /// grown to its size.
+    @State private var opensOnCurrent = false
+    /// Room under the list's end in a workout, so Add exercise scrolls clear of the way back to
+    /// the current exercise.
+    @ScaledMetric(relativeTo: .body) private var wayToCurrentRoom: CGFloat = 64
+    /// What the current exercise leaves of that area: the next row, and a margin under it.
+    @ScaledMetric(relativeTo: .body) private var nextRowRoom: CGFloat = 96
     @Environment(\.locale) private var locale
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
     @ObserveHotReload private var hotReload
 
     static let defaultName = String(localized: "New routine")
@@ -42,6 +67,7 @@ struct RoutineScreen: View {
     /// Shows the routine the session opened. A switch to another gives a new screen.
     init(session: RoutineSession, namer: RoutineNamer, isPushed: Bool = false) {
         _routine = State(initialValue: session.opened)
+        _opensOnCurrent = State(initialValue: session.workout != nil)
         self.session = session
         self.namer = namer
         self.isPushed = isPushed
@@ -52,6 +78,11 @@ struct RoutineScreen: View {
     /// name, so it is the same after a relaunch.
     private var generatedName: String? {
         namer.name(for: routine.exercises.map(\.exercise), of: routine.id)
+    }
+
+    /// The exercise a workout is on: the first, as nothing is done yet.
+    var currentID: RoutineExercise.ID? {
+        session.workout == nil ? nil : routine.exercises.first?.id
     }
 
     var body: some View {
@@ -100,6 +131,7 @@ struct RoutineScreen: View {
                     routine.exercises,
                     links: routine.joinedToNext,
                     arriving: arriving,
+                    current: currentID,
                     onMove: move,
                     regroup: regroup,
                 ) { item in
@@ -107,7 +139,14 @@ struct RoutineScreen: View {
                         title: item.exercise.name,
                         detail: item.detailParts(locale: locale),
                         spokenDetail: item.spokenDetail(locale: locale),
+                        focus: item.id == currentID ? item.focus(
+                            inSuperset: routine.isInSuperset(item.id),
+                            minHeight: max(visibleHeight + wayToCurrentRoom - nextRowRoom, 0),
+                            locale: locale,
+                        ) : nil,
                     )
+                    .id(item.id)
+                    .reportingPlace(item.id == routine.exercises.first?.id) { currentPlace = $0 }
                     // Until an added row has entered it takes no taps, and its frame is
                     // where it will be rather than where it is drawn, so VoiceOver and the UI
                     // tests find it once it has. On the label, the row's one element: on the
@@ -148,7 +187,13 @@ struct RoutineScreen: View {
             // When the keyboard rises, UIKit scrolls the focused field to sit at least 5pt
             // below the top of the visible area. Starting there keeps the title still.
             .padding(.top, Spacing.sm)
+            .opacity(isFadedOut ? 0 : 1)
         }
+        .contentMargins(
+            .bottom,
+            session.workout == nil ? 0 : wayToCurrentRoom,
+            for: .scrollContent,
+        )
         .scrollPosition($scrollPosition)
         .railAutoscroll($scrollPosition)
         .onScrollGeometryChange(for: ScrollGeometry.self, of: { $0 }, action: keepEndInView)
@@ -160,11 +205,23 @@ struct RoutineScreen: View {
             of: Self.endIsInView(of:),
             action: { _, isInView in isEndInView = isInView },
         )
-        .primaryKeyBar(isPresented: !routine.exercises.isEmpty && session.workout == nil) {
-            Button("Start", systemImage: "play.fill") {
-                session.start(routineName: shownName ?? "")
+        .onScrollGeometryChange(for: CGFloat.self, of: \.containerSize.height) { _, height in
+            visibleHeight = height
+            if opensOnCurrent, height > 0, let currentID {
+                opensOnCurrent = false
+                scrollPosition.scrollTo(id: currentID, anchor: .top)
             }
         }
+        .overlay(alignment: .bottom) { wayToCurrent }
+        .primaryKeyBar(
+            isPresented: !routine.exercises.isEmpty && session.workout == nil && !isStartLeaving,
+            isPressedIn: isStarting,
+        ) {
+            Button("Start", systemImage: "play.fill") {
+                start(named: shownName ?? "")
+            }
+        }
+        .sensoryFeedback(.impact(weight: .medium), trigger: starts)
         // One row open at a time, closed by a scroll or a tap anywhere else, Start included,
         // so the container holds Start's bar as well as the scroll view.
         .swipeActionsContainer()
@@ -233,7 +290,10 @@ struct RoutineScreen: View {
             }
         }
     }
+}
 
+/// Editing the rows: the sheet's binding, moves, deletes, and adds.
+extension RoutineScreen {
     /// The row with this id, bound by id rather than by index, so a sheet still showing it
     /// never reads past the end of the rows once it is deleted.
     private func row(_ id: RoutineExercise.ID) -> Binding<RoutineExercise>? {
@@ -331,68 +391,9 @@ struct RoutineScreen: View {
     }
 }
 
-// Supersets: drawn by a row's node, and joined and left with VoiceOver.
-extension RoutineScreen {
-    /// VoiceOver's superset actions on a row, none where it would do nothing.
-    @ViewBuilder
-    private func supersetActions(_ id: RoutineExercise.ID) -> some View {
-        ForEach([RoutineNeighbor.above, .below], id: \.self) { side in
-            if routine.canJoin(id, side), let other = routine.neighbor(of: id, side) {
-                Button("Superset with \(other.exercise.name)") { join(id, side) }
-            }
-        }
-        if routine.isInSuperset(id) {
-            Button("Move out of superset") { leaveSuperset(id) }
-        }
-    }
-
-    /// A member's partners, by name, so two supersets next to each other read apart.
-    private func supersetValue(_ id: RoutineExercise.ID) -> String {
-        routine.partnerNames(of: id).map { "In a superset with \($0)" } ?? ""
-    }
-
-    /// Drawing a superset by a drag from a row's node, by the routine's rules.
-    private var regroup: RailRegroup<RoutineExercise.ID> {
-        RailRegroup { held, reach in
-            routine.regrouped(holding: held, reaching: reach).map { regrouping in
-                RailGrouping(
-                    links: regrouping.routine.joinedToNext,
-                    span: Set(regrouping.span),
-                )
-            }
-        } pickUp: { held in
-            Set(routine.pickedUp(holding: held))
-        } commit: { held, reach in
-            routine.regroup(holding: held, reaching: reach)
-        }
-    }
-
-    /// Joins a row with its neighbor with VoiceOver, and says whom it's with.
-    private func join(_ id: RoutineExercise.ID, _ side: RoutineNeighbor) {
-        withAnimation(.railChange) {
-            routine.join(id, side)
-        }
-        AccessibilityNotification.Announcement(supersetValue(id)).post()
-    }
-
-    private func leaveSuperset(_ id: RoutineExercise.ID) {
-        withAnimation(.railChange) {
-            routine.leaveSuperset(id)
-        }
-        AccessibilityNotification.Announcement("Out of the superset").post()
-    }
-}
-
 #Preview {
     RoutineScreen(
         session: RoutineSession(routine: Routine(), store: nil),
         namer: .muscleGroupsOnly,
     )
-}
-
-extension RoutineNamer {
-    /// A routine's name where routines are listed: the name it shows, else New routine.
-    func listedName(of routine: Routine) -> String {
-        shownName(of: routine) ?? RoutineScreen.defaultName
-    }
 }

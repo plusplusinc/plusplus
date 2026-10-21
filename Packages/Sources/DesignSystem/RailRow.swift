@@ -21,6 +21,8 @@ struct RailPlace {
     /// Whether the row's stretch of loop is hidden: a row of its group is swiped open, which
     /// slides that row's stretch away from the rest.
     var isLoopHidden = false
+    /// The row a workout is on: its node is larger, green, and pulses.
+    var isCurrent = false
 }
 
 /// Where a row is in a group of rows next to each other on a rail, a superset: on its own, or
@@ -56,6 +58,7 @@ extension EnvironmentValues {
 /// icon, held invisibly in the column, gives it the key's width and baseline at every text size.
 private struct RailNode: View {
     @ScaledMetric(relativeTo: .body) private var size = railNodeSize
+    @ScaledMetric(relativeTo: .body) private var currentSize = currentNodeSize
     @ScaledMetric(relativeTo: .body) private var lineWidth = railLineWidth
     @Environment(\.railPlace) private var place
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -64,6 +67,7 @@ private struct RailNode: View {
     var body: some View {
         let pop = RailEntry.pop(reduceMotion: reduceMotion)
         let landing = RailEntry.popStart(reduceMotion: reduceMotion)
+        let size = place.isCurrent ? currentSize : size
         Image(systemName: "plus")
             .font(.ppButton)
             .hidden()
@@ -72,9 +76,15 @@ private struct RailNode: View {
                 Circle()
                     .joiningRail(
                         when: place.isArriving,
-                        settlingTo: place.isRaised ? .textPrimary : .rail,
+                        settlingTo: place.isCurrent ? .accent
+                            : place.isRaised ? .textPrimary : .rail,
                     )
                     .frame(width: size, height: size)
+                    .background {
+                        if place.isCurrent, !reduceMotion {
+                            CurrentPulse()
+                        }
+                    }
                     .anchorPreference(key: NodeCenter.self, value: .center) { $0 }
                     .anchorPreference(key: RailNodes.self, value: .center) { [$0] }
                     // It pops from the line's tip as the line lands: shown at the line's width
@@ -86,6 +96,35 @@ private struct RailNode: View {
             }
             .accessibilityHidden(true)
             .hotReloadable()
+    }
+}
+
+/// The current exercise's node pulsing: a ring of its green grows out of it and fades, over and
+/// over, as the node breathes.
+private struct CurrentPulse: View {
+    @ObserveHotReload private var hotReload
+
+    var body: some View {
+        KeyframeAnimator(initialValue: Pulse(), repeating: true) { pulse in
+            Circle()
+                .fill(.pp(.accent))
+                .scaleEffect(pulse.scale)
+                .opacity(pulse.opacity)
+        } keyframes: { _ in
+            KeyframeTrack(\.scale) {
+                CubicKeyframe(2.8, duration: 1.6)
+            }
+            KeyframeTrack(\.opacity) {
+                CubicKeyframe(0, duration: 1.6)
+            }
+        }
+        .allowsHitTesting(false)
+        .hotReloadable()
+    }
+
+    private struct Pulse {
+        var scale = 1.0
+        var opacity = 0.55
     }
 }
 
@@ -340,6 +379,9 @@ let railLineWidth: CGFloat = 2
 
 /// A node's diameter at the default text size.
 let railNodeSize: CGFloat = 10
+
+/// The current exercise's node's diameter at the default text size.
+let currentNodeSize: CGFloat = 14
 
 extension View {
     /// A row on a rail: its node in the rail column, then its content from the top, inset as the
