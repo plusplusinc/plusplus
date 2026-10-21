@@ -50,9 +50,9 @@ struct RoutineScreen: View {
     @State var currentPlace: CurrentPlace?
     /// The height of the area between the bars, less the room under the list's end in a workout.
     @State var visibleHeight: CGFloat = 0
-    /// The list's height between the bars and the safe area: in a workout, the current exercise
-    /// and the next fill it.
+    /// The list's height between the bars and the safe area, and the screen's height below it.
     @State var listHeight: CGFloat = 0
+    @State var listFoot: CGFloat = 0
     /// The first exercise's label grown into the current one, at its own height.
     @State var grownLabelFit: CGFloat = 0
     /// Back in a workout after a relaunch, the list opens on the current exercise, once it has
@@ -155,8 +155,8 @@ struct RoutineScreen: View {
                     // tests find it once it has. On the label, the row's one element: on the
                     // row, `false` would un-hide the rail's node.
                     .accessibilityHidden(item.id == entering)
-                    .railRow()
-                    .reportingHeight(item.id == nextID) { nextRowHeight = $0 }
+                    .railRow(foot: foot(of: item.id))
+                    .reportingHeight(item.id == nextID, to: measureNextRow(item.id))
                     // Under the tap, which stays on where the swipe is off.
                     .swipeToDelete(isOn: item.id != currentID) { delete(item.id) }
                     .contentShape(.rect)
@@ -213,7 +213,7 @@ struct RoutineScreen: View {
             containerResized($1)
         }
         .onGeometryChange(for: CGFloat.self, of: \.size.height) { listHeight = $0 }
-        .mask { Rectangle().ignoresSafeArea(edges: drawnEdges) }
+        .reportingFoot { listFoot = $0 }
         .overlay(alignment: .bottom) { wayToCurrent }
         .primaryKeyBar(
             isPresented: !routine.exercises.isEmpty && session.workout == nil && !isStartAway,

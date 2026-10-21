@@ -66,6 +66,15 @@ extension View {
             .disabled(!isOn)
     }
 
+    /// Reports how far the screen goes on below this view, under the home indicator.
+    func reportingFoot(to action: @escaping (CGFloat) -> Void) -> some View {
+        background {
+            Color.clear
+                .ignoresSafeArea(.container, edges: .bottom)
+                .onGeometryChange(for: CGFloat.self, of: \.safeAreaInsets.bottom, action: action)
+        }
+    }
+
     /// Reports this row's height as it changes, while `isOn`.
     func reportingHeight(_ isOn: Bool, to action: @escaping (CGFloat) -> Void) -> some View {
         onGeometryChange(for: CGFloat?.self) { proxy in

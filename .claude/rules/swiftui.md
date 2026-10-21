@@ -56,8 +56,9 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
 - Start plays in three beats, each once the last has finished (`RoutineScreen+Workout.swift`),
   with a medium impact as the finger lands on the key: the key, held pressed in, slides off
   the bottom with its floor as it fades (`.snappy(0.2)`); the list scrolls the first exercise
-  to just under the bar (`.snappy(0.35)`), skipped when it is there already; and it grows in
-  place into the current exercise (`.snappy(0.4)`). Ending a workout, by Finish or Discard
+  only as far as it must to be fully in view with room to grow (`.snappy(0.35)`), skipped when
+  it is, and holds 0.2 s after landing; and it grows in place into the current exercise
+  (`.snappy(0.4)`), at once when there was no scroll. Ending a workout, by Finish or Discard
   once the dialog has gone, plays them in reverse: the current exercise shrinks back
   (0.4 s, on a timing curve shaped like `.snappy`'s, since a spring's completion waits out its
   tail and the next beat sat still for a quarter second), the list scrolls to its top (0.35 s),

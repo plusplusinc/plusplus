@@ -23,16 +23,25 @@ extension RoutineScreen {
     }
 
     /// The list's height below a row at `rowTop`, less the row after the current one, or the
-    /// end's room when there is none.
+    /// end's room when there is none. The next row's room under the list is left out: it lies
+    /// below the list.
     private func roomBelow(rowTop: CGFloat) -> CGFloat {
         let after = nextID == nil ? endRoom : nextRowHeight ?? endRoom
         return listHeight - rowTop - after
     }
 
-    /// In a workout the list draws nothing below the safe area, so the row after the next one,
-    /// which starts there, is out of sight.
-    var drawnEdges: Edge.Set {
-        session.workout == nil ? .all : [.top, .horizontal]
+    /// Room under a row's content: in a workout, the next exercise's row runs on to the
+    /// screen's foot, its text above the home indicator, so the row after it starts out of
+    /// sight.
+    func foot(of id: RoutineExercise.ID) -> CGFloat {
+        session.workout != nil && id == nextID ? listFoot : 0
+    }
+
+    /// Notes the next exercise's row's height, less its room under the list, which the current
+    /// exercise's height leaves out.
+    func measureNextRow(_ id: RoutineExercise.ID) -> (CGFloat) -> Void {
+        let foot = foot(of: id)
+        return { nextRowHeight = $0 - foot }
     }
 
     /// Start in three beats, each once the last has finished: the key, pressed in, slides off
@@ -79,11 +88,19 @@ extension RoutineScreen {
         return max(place.rowContentTop - top, 0)
     }
 
-    /// Scrolls the first exercise to where it will grow, then calls `next`; at once if it is
-    /// there already.
+    /// Scrolls the first exercise to where it will grow, then, once the landing has had a beat
+    /// to itself, calls `next`; at once if it is there already.
     private func scrollToGrow(then next: @escaping () -> Void) {
         guard let scroll = placeForGrowth() else { return next() }
-        scrollBeat.run(to: .current(top: session.currentTop), then: next) {
+        let landed = {
+            // A pause in the sequence, by design: nothing is waited for.
+            Task {
+                try? await Task.sleep(for: .seconds(Self.landingHold))
+                next()
+            }
+            return
+        }
+        scrollBeat.run(to: .current(top: session.currentTop), then: landed) {
             withAnimation(.snappy(duration: Self.scrollDuration)) {
                 scrollPosition.scrollTo(y: scroll)
             }
@@ -212,6 +229,8 @@ extension RoutineScreen {
     static let keyBeat = 0.2
     static let scrollDuration = 0.35
     static let rowBeat = 0.4
+    /// The pause between a scroll landing at Start and the row growing.
+    static let landingHold = 0.2
     /// The current exercise shrinking back, on a curve shaped like `.snappy`'s: a spring's
     /// completion waits out its tail, which kept the scroll after it waiting a quarter second
     /// with nothing moving.
