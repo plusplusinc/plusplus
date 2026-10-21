@@ -23,11 +23,23 @@ extension RoutineScreen {
     /// How tall the current exercise's label stands, wherever the list is scrolled: with its
     /// row just under the bar, the row fills the screen below it but for the row after it,
     /// or the end's room when there is none, and the row's own inset above and below the
-    /// label. The screen runs on past the list, under the home indicator, so the next row ends
-    /// at the screen's edge and the row after it starts out of sight.
+    /// label, less the room left above it under the bar. The screen runs on past the list,
+    /// under the home indicator, so the next row ends at the screen's edge and the row after it
+    /// starts out of sight.
     var currentLabelHeight: CGFloat {
         let after = nextID == nil ? endRoom : nextRowHeight ?? endRoom
-        return max(listHeight + listFoot - after - RailRowMetrics.verticalInset * 2, 0)
+        return max(
+            listHeight + listFoot - after - RailRowMetrics.verticalInset * 2 - Self.landingGap,
+            0,
+        )
+    }
+
+    /// The room between the bar and the current exercise's row where the list lands on it.
+    static let landingGap = Spacing.lg
+
+    /// The scroll position that lands the current exercise's row `landingGap` under the bar.
+    func landingY(_ place: CurrentPlace) -> CGFloat {
+        max(place.rowContentTop - Self.landingGap, 0)
     }
 
     /// Start's press: the key comes back up as any key does, a +1 pops off it with a medium
@@ -101,7 +113,7 @@ extension RoutineScreen {
     private func grow(named name: String) {
         var drop: CGFloat = 0
         if let place = currentPlace {
-            let target = max(place.rowContentTop, 0)
+            let target = landingY(place)
             let lift = target - scrollBeat.scrolledY
             // The rows below move down by what the current exercise gains, less the lift.
             drop = currentLabelHeight - place.height - lift
@@ -214,10 +226,10 @@ extension RoutineScreen {
         openOnCurrentIfDue()
     }
 
-    /// Scrolls the current exercise's row up to just under the bar.
+    /// Scrolls the current exercise's row up to `landingGap` under the bar.
     func scrollToCurrent() {
         if let place = currentPlace {
-            scrollPosition.scrollTo(y: max(place.rowContentTop, 0))
+            scrollPosition.scrollTo(y: landingY(place))
         }
     }
 
