@@ -235,7 +235,8 @@ extension RoutineScreen {
         let old = currentPlace
         currentPlace = place
         if let old, currentID != nil, !isScrollingByHand, place.contentTop != old.contentTop,
-           abs(scrollBeat.scrolledY - landingY(old)) < 1 {
+           abs(scrollBeat.scrolledY - landingY(old)) < 1
+        {
             scrollToCurrent()
         }
         openOnCurrentIfDue()

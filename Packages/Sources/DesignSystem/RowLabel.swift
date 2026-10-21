@@ -99,7 +99,8 @@ public struct RowLabel: View {
                         Capsules(focus.equipment)
                             .transition(
                                 .asymmetric(
-                                    insertion: .opacity.animation(.snappy(duration: 0.3).delay(0.15)),
+                                    insertion: .opacity
+                                        .animation(.snappy(duration: 0.3).delay(0.15)),
                                     removal: .opacity.animation(.snappy(duration: 0.15)),
                                 ),
                             )
@@ -260,8 +261,10 @@ private struct TitleFont: ViewModifier, Animatable {
         case ...0: .ppRowTitle
         case 1...: .ppCurrentTitle
         default:
-            .system(size: size(of: .ppRowTitle) * (1 - growth) + size(of: .ppCurrentTitle) * growth,
-                    weight: .semibold)
+            .system(
+                size: size(of: .ppRowTitle) * (1 - growth) + size(of: .ppCurrentTitle) * growth,
+                weight: .semibold,
+            )
         }
     }
 
