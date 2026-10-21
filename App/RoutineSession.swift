@@ -95,15 +95,17 @@ final class RoutineSession {
     /// leaves it. `routineName` is the name it shows.
     func start(routineName: String, at now: Date = .now) {
         guard workout == nil else { return }
+        // The workout first: a screen shown at the root reads it as it is made, to open on the
+        // current exercise.
+        let started = Workout(routineID: current.id, routineName: routineName, startedAt: now)
+        workout = started
+        workoutWrites.yield(.save(started))
         if screen != .routine || isRoutinePushed {
             opened = current
             screen = .routine
             isRoutinePushed = false
         }
         isDrawerOpen = false
-        let started = Workout(routineID: current.id, routineName: routineName, startedAt: now)
-        workout = started
-        workoutWrites.yield(.save(started))
     }
 
     /// Pauses the workout, or resumes it if paused.
