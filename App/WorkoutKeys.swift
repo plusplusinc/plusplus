@@ -40,6 +40,13 @@ extension View {
                 end(session.discard)
             }
             Button("Keep going", role: .cancel) { }
+        } message: {
+            // Read with the buttons: it names Finish only when Finish shows.
+            if session.workout?.offersFinish == true {
+                Text("Finish keeps what you logged; Discard deletes the workout.")
+            } else {
+                Text("Nothing has been logged yet.")
+            }
         }
     }
 }
