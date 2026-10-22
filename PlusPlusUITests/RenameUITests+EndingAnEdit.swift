@@ -30,19 +30,7 @@ extension RenameUITests {
             app.buttons["Close"].tap()
             XCTAssertTrue(sets.disappears(), "Close left the sheet up")
         }
-        XCTContext.runActivity(named: "A tap on Start ends the edit") { _ in
-            // Not checked in place: Start rides on the keyboard, so the tap may land as the key
-            // moves down with it, and a press that lands starts a workout, which grows the
-            // first exercise. Any workout started is discarded.
-            XCTAssertTrue(app.routineTitle.settles(), "The title kept moving before the edit")
-            app.routineTitle.tap()
-            XCTAssertTrue(keyboard.appears(), "A tap on the title did not start an edit")
-            app.buttons["Start"].tap()
-            XCTAssertTrue(keyboard.disappears(), "Start did not end the edit")
-            if app.workoutTime.appears(within: 1) {
-                app.discardWorkout()
-            }
-        }
+        startEndsTheEdit(in: app, keyboard: keyboard)
         XCTContext.runActivity(named: "A tap on ++ ends the edit and opens the drawer") { _ in
             XCTAssertTrue(app.routineTitle.settles(), "The title kept moving before the edit")
             app.routineTitle.tap()
@@ -123,6 +111,23 @@ extension RenameUITests {
             XCTAssertEqual(app.supersets(becoming: "AA......."), "AA.......")
             row(1).nodePoint.holdAndDrag(to: row(0).nodePoint)
             XCTAssertEqual(app.supersets(becoming: "........."), ".........")
+        }
+    }
+
+    /// Start ends an edit. Not checked in place: Start rides on the keyboard, so the tap may land
+    /// as the key moves down with it, and a press that lands starts a workout, which grows the
+    /// first exercise. Any workout started is discarded.
+    @MainActor
+    private func startEndsTheEdit(in app: XCUIApplication, keyboard: XCUIElement) {
+        XCTContext.runActivity(named: "A tap on Start ends the edit") { _ in
+            XCTAssertTrue(app.routineTitle.settles(), "The title kept moving before the edit")
+            app.routineTitle.tap()
+            XCTAssertTrue(keyboard.appears(), "A tap on the title did not start an edit")
+            app.buttons["Start"].tap()
+            XCTAssertTrue(keyboard.disappears(), "Start did not end the edit")
+            if app.workoutTime.appears(within: 1) {
+                app.discardWorkout()
+            }
         }
     }
 
