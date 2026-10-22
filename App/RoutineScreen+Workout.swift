@@ -77,10 +77,9 @@ extension RoutineScreen {
     /// Motion, the list crossfades into the workout.
     private func leave(named name: String) {
         guard !reduceMotion else {
-            return crossfade {
+            return crossfade(scrollingTo: currentPlace?.landingY ?? scrollBeat.scrolledY) {
                 session.start(routineName: name)
                 isStarting = false
-                scrollToCurrent()
             }
         }
         bringFirstIntoView { grow(named: name) }
@@ -147,10 +146,7 @@ extension RoutineScreen {
         // Start stays away until the list has landed, after a relaunch into a workout as well.
         withTransaction(\.disablesAnimations, true) { isStartAway = true }
         guard !reduceMotion else {
-            return crossfade(then: bringStartBack) {
-                change()
-                scrollPosition.scrollTo(edge: .top)
-            }
+            return crossfade(scrollingTo: 0, then: bringStartBack, change)
         }
         // Room under the list's end, so the shrinking content doesn't pull the scroll up.
         withTransaction(\.disablesAnimations, true) {
@@ -190,28 +186,40 @@ extension RoutineScreen {
         }
     }
 
-    /// With Reduce Motion, the list and Start fade out, `change` happens unseen, and they fade
-    /// back in changed; with `then`, the list alone fades back in, and `then` runs once it has.
-    /// The fades ease in and out, not snappy: the changed list's first frame is slow to draw,
-    /// and a snappy fade-in had done most of its fading by the time it showed, so it popped in.
-    private func crossfade(then: (() -> Void)? = nil, _ change: @escaping () -> Void) {
-        withAnimation(.easeInOut(duration: 0.2)) {
-            isFadedOut = true
-            isStartAway = true
-        } completion: {
-            withTransaction(\.disablesAnimations, true, change)
-            // The fade-in starts on a later turn of the main run loop, once the change has been
-            // drawn: started with it, it ran on while the changed list's first frame drew, and the
-            // list showed at once, already faded in.
-            Task {
-                withAnimation(.easeInOut(duration: Self.fadeIn)) {
-                    isFadedOut = false
-                    isStartAway = then != nil
-                } completion: {
+    /// With Reduce Motion, one crossfade: the list as it was fades out where it shows while the
+    /// list changed by `change`, scrolled to `y`, fades in over it, as Start fades out if it
+    /// goes; `then` runs once the fade has finished. The changed list is a new view, so the old
+    /// one stays on screen as it fades: faded out first and in after, the screen showed empty
+    /// between. The old one is drawn lifted by as far as the scroll jumps, so it holds still,
+    /// with what was under the bar cut away (`TopClip`): scrolled to the top, the bar has no
+    /// edge effect, and it showed through.
+    private func crossfade(
+        scrollingTo y: CGFloat,
+        then: (() -> Void)? = nil,
+        _ change: @escaping () -> Void,
+    ) {
+        let from = scrollBeat.scrolledY
+        withTransaction(\.disablesAnimations, true) {
+            isCrossfading = true
+            growthLift = y - from
+            underBarCut = max(from - y, 0)
+            scrollPosition.scrollTo(y: y)
+        }
+        // The change on a later turn of the run loop, once the list going out has been drawn
+        // lifted and cut: in the same update, it went out with neither.
+        Task {
+            withAnimation(.easeInOut(duration: Self.crossfadeDuration)) {
+                listChanges += 1
+                growthLift = 0
+                underBarCut = 0
+                change()
+            } completion: {
+                withTransaction(\.disablesAnimations, true) {
+                    isCrossfading = false
                     isMakingRoom = false
                     isBottomEdgeHidden = false
-                    then?()
                 }
+                then?()
             }
         }
     }
@@ -257,8 +265,8 @@ extension RoutineScreen {
     static let growBeat = 0.55
     /// Start coming back once the end's shrink has landed.
     static let startReturn = 0.25
-    /// With Reduce Motion, the list fading back in, changed.
-    static let fadeIn = 0.35
+    /// With Reduce Motion, the list crossfading into a workout or out of one.
+    static let crossfadeDuration = 0.35
     /// The pause between Start's scroll to the top landing and the row growing.
     static let landingHold = 0.2
 

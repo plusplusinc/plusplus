@@ -93,10 +93,14 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   is animated, not lifted: drawn lifted at the top, the title showed over the status bar with no
   edge effect under the bar. Room under the list's end, out of sight, holds the scroll still
   while the row grows or shrinks. With Reduce Motion the +1 flashes in place and each change is
-  one crossfade, easing in and out (0.2 s out, 0.35 s in), the haptic kept; the fade-in starts on
-  a later turn of the run loop, once the change has drawn: the changed list's first frame is
-  slow, and a fade started with the change had run out before it showed. At the end, Start
-  fades in after the crossfade (0.25 s).
+  one crossfade (0.35 s, easing in and out), the haptic kept: the changed list is a new view
+  (`listChanges` as its id, in a `ZStack` so the two overlap), fading in over the old one, which
+  is drawn lifted by as far as the scroll jumps so it holds still, with what was under the bar
+  cut away (`TopClip`); nothing inside the new one animates. The rows' closure reads the
+  workout's values once, as values: read through `self`, the list going out redrew itself in
+  the workout it was fading into. The change runs a turn of the run loop after the lift, so the
+  old list is drawn lifted before it goes. At the end, Start fades in after the crossfade
+  (0.25 s).
 - The current exercise of a workout is the routine's first row grown (`RowLabel`'s `focus`,
   `RowFocus`): its node 14 pt in `accent`, pulsing in brightness within its circle
   (`CurrentPulse`); its name from `ppRowTitle` to `ppCurrentTitle` through every size between

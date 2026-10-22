@@ -212,11 +212,8 @@ private struct StandingHeight: Layout {
         subviews: Subviews,
         cache _: inout (),
     ) {
-        subviews.first?.place(
-            at: bounds.origin,
-            anchor: .topLeading,
-            proposal: offer(isAtRest ? proposal : ProposedViewSize(width: bounds.width, height: nil)),
-        )
+        let placed = isAtRest ? proposal : ProposedViewSize(width: bounds.width, height: nil)
+        subviews.first?.place(at: bounds.origin, anchor: .topLeading, proposal: offer(placed))
     }
 
     /// Resting, with no shrink still running: laid out as a plain stack, with what it was offered.

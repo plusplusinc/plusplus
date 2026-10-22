@@ -148,6 +148,24 @@ extension RoutineExercise {
     }
 }
 
+/// Everything but the top `height` of a view, which nothing else is cut from: the list going out
+/// in a crossfade up to its top, lifted to hold still, would show what was under the bar above
+/// it, where the bar has no edge effect at the top of a list. A rectangle, so the cut is cheap.
+nonisolated struct TopClip: Shape {
+    var height: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        let far = max(rect.width, rect.height) * 4
+        let top = height > 0 ? rect.minY + height : rect.minY - far
+        return Path(CGRect(
+            x: rect.minX - far,
+            y: top,
+            width: rect.width + far * 2,
+            height: rect.maxY + far - top,
+        ))
+    }
+}
+
 /// At Start, the list's content drawn `lift` below where it is scrolled to. Animatable, so the lift
 /// is worked out frame by frame with the current exercise's growth, and the rows below it move
 /// exactly as far as Start riding down with them: as an offset, it ran ahead of the growth.
