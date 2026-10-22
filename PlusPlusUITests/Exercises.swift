@@ -40,6 +40,17 @@ extension XCUIApplication {
     /// row is not in the first screenful. Returns once the picker is closed and the row is in.
     func addExercise(_ label: String, searching query: String? = nil) {
         let count = exerciseRows.count
+        pickExercise(label, searching: query)
+        XCTAssertEqual(
+            exerciseCount(becoming: count + 1),
+            count + 1,
+            "Picking \(label) added no row",
+        )
+    }
+
+    /// Opens the picker and picks the row labeled `label`, as `addExercise` does, but returns
+    /// as soon as the picker is closed, while the row may still be entering.
+    func pickExercise(_ label: String, searching query: String? = nil) {
         let search = openPicker()
         if let query {
             search.tap()
@@ -47,11 +58,6 @@ extension XCUIApplication {
         }
         pickerRows[label].tap()
         XCTAssertTrue(search.disappears(), "Picking \(label) left the picker open")
-        XCTAssertEqual(
-            exerciseCount(becoming: count + 1),
-            count + 1,
-            "Picking \(label) added no row",
-        )
     }
 
     /// Replaces the search `query` in `search` with one nothing matches, and checks that the

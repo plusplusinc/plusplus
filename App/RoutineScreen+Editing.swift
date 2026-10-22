@@ -42,7 +42,9 @@ extension RoutineScreen {
     /// exercise, but enters only where it can be seen: a moment into the sheet's slide when
     /// everything still fits, and otherwise once a scroll to the end has brought the row and Add
     /// exercise into view. The scroll waits for the row's place: asked for while the row went in,
-    /// it stopped at the end the list had before.
+    /// it stopped at the end the list had before. Once Start is pressed, it enters where it is,
+    /// with no scroll: the end is then Start's room under the list, out of sight, and a scroll to
+    /// it took the list off the screen just as Start went to land on the first exercise.
     func add(_ exercise: Exercise) {
         let row = RoutineExercise(exercise: exercise, weightUnit: WeightUnit(region: locale))
         arriving = row.id
@@ -55,7 +57,7 @@ extension RoutineScreen {
             routine.exercises.append(row)
         } completion: {
             guard arriving == row.id else { return }
-            guard !isEndInView else { return letArrivingEnter(row) }
+            guard !isEndInView, !isMakingRoom else { return letArrivingEnter(row) }
             withAnimation(.railChange, completionCriteria: .logicallyComplete) {
                 scrollPosition.scrollTo(edge: .bottom)
             } completion: {
@@ -66,9 +68,11 @@ extension RoutineScreen {
 
     /// While an added row's place opens past the visible area, scrolls with it, a frame at a
     /// time, so Add exercise stays put on screen as the line grows above it. The place opens
-    /// with the list's end in view, so the end is where the scroll stays.
+    /// with the list's end in view, so the end is where the scroll stays. Not once Start is
+    /// pressed: its room under the list grows the content too, and following that took the
+    /// list off the screen, as `add` says.
     func keepEndInView(from old: ScrollGeometry, to new: ScrollGeometry) {
-        guard isOpeningPlace, !isScrollingByHand,
+        guard isOpeningPlace, !isMakingRoom, !isScrollingByHand,
               new.contentSize.height > old.contentSize.height
         else { return }
         guard new.endY > new.scrolledY else { return }

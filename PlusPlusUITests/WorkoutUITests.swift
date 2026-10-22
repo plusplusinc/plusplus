@@ -22,7 +22,8 @@ final nonisolated class WorkoutUITests: XCTestCase {
         app.addExercise("Band pull-apart, Band")
         app.addExercise("Balance board hold, Balance board")
         app.addExercise("Barbell back squat, Barbell")
-        app.addExercise("Biceps curl, Dumbbells", searching: "biceps")
+        // Start pressed straight after, as the row still enters.
+        app.pickExercise("Biceps curl, Dumbbells", searching: "biceps")
         startShowsTheCurrentExercise(in: app)
         theWayBackScrollsToIt(in: app)
         pauseAndResume(in: app)
@@ -49,6 +50,12 @@ final nonisolated class WorkoutUITests: XCTestCase {
     private func startShowsTheCurrentExercise(in app: XCUIApplication) {
         XCTContext.runActivity(named: "Start grows the first exercise into the current one") { _ in
             app.buttons["Start"].tap()
+            // Pressed as the last row added still enters, Start's room under the list once
+            // scrolled the list into it, out of sight, and the scroll back undid the landing.
+            XCTAssertFalse(
+                reading(app.exerciseRows.firstMatch.frame.maxY <= 0, until: { $0 }, within: 0.6),
+                "Start scrolled the first exercise out of sight",
+            )
             XCTAssertTrue(app.workoutTime.appears(), "Start began no workout")
             XCTAssertEqual(app.workoutTime.label, "Pause")
             XCTAssertTrue(app.endKey.exists)
