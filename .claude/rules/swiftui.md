@@ -71,21 +71,25 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   is scrolled at once, its content drawn where it was by an offset (`GrowthLift`) that runs to
   0 with the growth. The lift and the key's drop are `Animatable` modifiers, worked out frame by
   frame with the row's layout: as plain offsets they ran ahead of the rows. The row's label
-  stands at a height animated from its resting height (`StandingHeight`), its content counted
-  only past the end height, since new parts take their room at once. The bottom edge effect's
+  stands at a height running from its resting height on an animated `growth` (`StandingHeight`),
+  its content counted only past the end height, since new parts take their room at once. The bottom edge effect's
   band goes as the growth starts, or at the press where the list's end showed above the key, as
   the room made under the end would raise it. The current exercise's height is fixed, whatever
   the scroll: under the bar, it and the next row fill the screen to its bottom edge, under the
-  home indicator. Ending a workout, from Finish's confirmation dialog (no title; Finish, and
-  Discard workout as destructive; from the bar button iOS shows it as a popover with no Cancel,
-  a tap outside cancelling, and runs the action about a second after the tap, once the popover
-  has gone, which is accepted), plays
-  the grow in reverse as one motion (`.smooth(0.55)`, the grow's curve without its bounce): the
-  current exercise shrinks back as the rows below close up and the list scrolls back to its top,
-  with Start away and the bottom band hidden. Once that lands (a 0.55 s beat from the motion's
-  start, slept: the animation's completion, even logically complete, ran a third of a second
-  after the rows settled), Start comes up on its own from below the screen's edge into place
-  (`.smooth(0.25)`, no overshoot), its band rising with its top: the key's transition is a
+  home indicator. It is worked out in the pass that lays out the list (`RowStanding`): the
+  screen's height from a `GeometryReader` around the scroll view, and the next row's from a
+  hidden copy laid out as a rail row (`railRowStand()`); read back into state after layout, it
+  grew a pass later, and a relaunch into a workout logged SwiftUI's per-frame fault. Ending a workout, from Finish's confirmation (no title; Finish, and Discard
+  workout as destructive; UIKit's action sheet, `popoverConfirmation`, a popover from the bar
+  button with no Cancel, a tap outside cancelling), plays the grow in reverse as one motion: iOS
+  runs the choice about 0.54 s after the tap, once the popover has gone (SwiftUI's
+  `confirmationDialog` ran it about 1.2 s after), and the motion starts in that frame. The
+  current exercise shrinks back as the rows below close up and the list scrolls back to its top
+  (0.4 s, `endBeat`, on a timing curve that eases out and stops: a spring's settling tail felt
+  slow and heavy), with Start away and the bottom band hidden. Once that lands (an `endBeat`
+  sleep from the motion's start: the animation's completion came a few frames after the rows
+  stopped), Start comes up on its own from below the screen's edge into place (`.smooth(0.2)`,
+  no overshoot), its band rising with its top: the key's transition is a
   layout (`KeyRise`), so the bar, and the band covering it, stands only as tall as the key has
   risen above the bar's bottom. The key's side insets are measured on the screen, not the key,
   so a key coming in has them from its first frame; measured on the key, it came in 16 pt from
@@ -100,7 +104,7 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   workout's values once, as values: read through `self`, the list going out redrew itself in
   the workout it was fading into. The change runs a turn of the run loop after the lift, so the
   old list is drawn lifted before it goes. At the end, Start fades in after the crossfade
-  (0.25 s).
+  (0.2 s).
 - The current exercise of a workout is the routine's first row grown (`RowLabel`'s `focus`,
   `RowFocus`): its node 14 pt in `accent`, pulsing in brightness within its circle
   (`CurrentPulse`); its name from `ppRowTitle` to `ppCurrentTitle` through every size between

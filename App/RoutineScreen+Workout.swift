@@ -151,8 +151,9 @@ extension RoutineScreen {
     /// back to its top. Once that lands, Start comes up on its own from below the screen's edge
     /// with its edge band, a short beat with no overshoot. The scroll is animated, not lifted
     /// as at Start: drawn lifted at the top, the title showed over the status bar, with no edge
-    /// effect under the bar. On `.smooth`, the grow's curve without its bounce. With Reduce
-    /// Motion, the list crossfades, then Start fades in.
+    /// effect under the bar. On a curve that eases out and stops at its duration: a spring's
+    /// settling tail made the end feel slow and heavy as it landed. With Reduce Motion, the list
+    /// crossfades, then Start fades in.
     func end(_ change: @escaping () -> Void) {
         guard session.workout != nil else { return }
         // Start stays away until the list has landed, after a relaunch into a workout as well.
@@ -165,17 +166,16 @@ extension RoutineScreen {
             isMakingRoom = true
             isBottomEdgeHidden = true
         }
-        withAnimation(.smooth(duration: Self.growBeat)) {
+        withAnimation(.timingCurve(0.25, 0.1, 0.25, 1, duration: Self.endBeat)) {
             change()
             scrollPosition.scrollTo(edge: .top)
         } completion: {
             withTransaction(\.disablesAnimations, true) { isMakingRoom = false }
         }
-        // Start comes back as the list lands, a beat in the sequence by design: the
-        // animation's completion, even logically complete, ran a third of a second after the
-        // rows had settled.
+        // Start comes back as the list lands, a beat in the sequence by design: the animation's
+        // completion came a few frames after the rows had stopped.
         Task {
-            try? await Task.sleep(for: .seconds(Self.growBeat), tolerance: .zero)
+            try? await Task.sleep(for: .seconds(Self.endBeat), tolerance: .zero)
             bringStartBack()
         }
     }
@@ -272,11 +272,14 @@ extension RoutineScreen {
     /// press.
     static let pressHold = 0.4
     static let scrollDuration = 0.35
-    /// The first exercise growing at Start, the rows below stepping aside, and shrinking back
-    /// at the end.
+    /// The first exercise growing at Start, the rows below stepping aside.
     static let growBeat = 0.55
+    /// The current exercise shrinking back at the end, the rows below closing up, on a curve
+    /// quick off the mark that eases gently into place and stops at its duration, with no
+    /// spring's tail.
+    static let endBeat = 0.4
     /// Start coming back once the end's shrink has landed.
-    static let startReturn = 0.25
+    static let startReturn = 0.2
     /// With Reduce Motion, the list crossfading into a workout or out of one.
     static let crossfadeDuration = 0.35
     /// The pause between Start's scroll to the top landing and the row growing.
