@@ -2,8 +2,9 @@ import XCTest
 
 /// A workout across real taps and relaunches: Start growing the first exercise into the
 /// current one with the next in view, the way back to it, pause and resume, the time counting
-/// the time away, edits staying on, the drawer locked, and how Discard and Finish leave launch.
-/// Elapsed time, the launch rule, and the schema upgrade are unit-tested in the package; this
+/// the time away, edits staying on, the drawer locked, and how Discard leaves launch. Elapsed
+/// time, the launch rule, Finish, which needs a set done, and the schema upgrade are unit-tested
+/// in the package; this
 /// holds what only the running app shows. Its own test, not part of
 /// `RoutineAutosaveUITests`, which already relaunches eight times: with these six more it
 /// would run past XCTest's three minutes on Xcode Cloud.
@@ -37,32 +38,20 @@ final nonisolated class WorkoutUITests: XCTestCase {
             app.relaunch()
             XCTAssertEqual(title.value as? String, renamed, "Launch opened another routine")
             XCTAssertTrue(app.buttons["Start"].appears(), "The workout came back")
-            XCTAssertFalse(app.navigationBars.buttons["Finish"].exists)
-        }
-        XCTContext.runActivity(named: "Finish ends the workout, and launch opens a new one") { _ in
-            app.buttons["Start"].tap()
-            XCTAssertTrue(app.workoutTime.appears(), "Start began no workout")
-            let finish = app.openFinishMenu()
-            XCTAssertNotNil(finish, "No Finish in the menu")
-            attach(named: "finish-menu")
-            finish?.tap()
-            XCTAssertTrue(app.buttons["Start"].appears(), "Finish left the workout running")
-            XCTAssertTrue(app.buttons["Menu"].exists, "No ++ after Finish")
-            app.relaunch()
-            XCTAssertEqual(title.value as? String, "New routine")
-            XCTAssertEqual(app.exerciseRows.count, 0)
+            XCTAssertFalse(app.endKey.exists)
+            XCTAssertTrue(app.buttons["Menu"].exists, "No ++ after Discard")
         }
     }
 
     /// Start grows the first exercise to just under the bar, the next one in view under it and
-    /// the one after off the screen, and puts Finish and the time key in the bar.
+    /// the one after off the screen, and puts End and the time key in the bar.
     @MainActor
     private func startShowsTheCurrentExercise(in app: XCUIApplication) {
         XCTContext.runActivity(named: "Start grows the first exercise into the current one") { _ in
             app.buttons["Start"].tap()
             XCTAssertTrue(app.workoutTime.appears(), "Start began no workout")
             XCTAssertEqual(app.workoutTime.label, "Pause")
-            XCTAssertTrue(app.navigationBars.buttons["Finish"].exists)
+            XCTAssertTrue(app.endKey.exists)
             XCTAssertTrue(app.buttons["Start"].disappears(), "Start stayed in a workout")
             XCTAssertFalse(app.buttons["Menu"].exists, "++ stayed in a workout")
             let rows = app.exerciseRows

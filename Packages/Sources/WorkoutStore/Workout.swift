@@ -17,6 +17,9 @@ public struct Workout: Identifiable, Equatable, Sendable {
     public var pausedSeconds: Double
     /// When it finished; nil while in progress.
     public var endedAt: Date?
+    /// How many sets have been done in it. None can be logged yet, so it stays at zero and is
+    /// not stored: how a done set is kept belongs to logging.
+    public var completedSets: Int
 
     public init(
         id: UUID = UUID(),
@@ -26,6 +29,7 @@ public struct Workout: Identifiable, Equatable, Sendable {
         pausedAt: Date? = nil,
         pausedSeconds: Double = 0,
         endedAt: Date? = nil,
+        completedSets: Int = 0,
     ) {
         self.id = id
         self.routineID = routineID
@@ -34,6 +38,7 @@ public struct Workout: Identifiable, Equatable, Sendable {
         self.pausedAt = pausedAt
         self.pausedSeconds = pausedSeconds
         self.endedAt = endedAt
+        self.completedSets = completedSets
     }
 
     public var isPaused: Bool {
@@ -42,6 +47,12 @@ public struct Workout: Identifiable, Equatable, Sendable {
 
     public var isInProgress: Bool {
         endedAt == nil
+    }
+
+    /// Whether ending it offers to finish and keep it: only once a set is done, and while it is
+    /// in progress. Otherwise there is nothing to keep, and it can only be discarded.
+    public var offersFinish: Bool {
+        isInProgress && completedSets > 0
     }
 
     /// The time spent working out at `now`, pauses left out, in whole seconds rounded down.

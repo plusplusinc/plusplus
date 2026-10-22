@@ -2,26 +2,45 @@ import DesignSystem
 import SwiftUI
 import WorkoutStore
 
-/// Finish, in the bar while a workout runs, a menu: finish and keep the workout, or discard it.
-/// A menu rather than a confirmation dialog: its item runs as the menu starts to close, so the
-/// end's motion starts at once; a dialog ran its choice only once its own dismissal had finished.
-struct FinishButton: View {
-    let session: RoutineSession
-    /// The name the routine shows, kept with the finished workout.
-    let routineName: String
-    /// Ends the workout with the change given, in the screen's sequence.
-    let end: (@escaping () -> Void) -> Void
+/// End, in the bar while a workout runs, which only asks: the screen presents its dialog, whose
+/// choices are to finish the workout or discard it.
+struct EndButton: View {
+    let action: () -> Void
 
     var body: some View {
-        Menu("Finish") {
-            Button("Finish") {
-                end { session.finish(routineName: routineName) }
+        Button("End", action: action)
+            .accessibilityLabel("End workout")
+            .hiddenBehindDrawer()
+    }
+}
+
+extension View {
+    /// Asks whether to finish the workout and keep it, or discard it, with `end` running the
+    /// choice in the screen's sequence; the scratch app's dialog. Attached to the whole screen,
+    /// navigation stack included, so iOS shows it centered: attached to Finish or to the stack's
+    /// content, it came as a popover with an arrow.
+    func endWorkoutDialog(
+        isPresented: Binding<Bool>,
+        session: RoutineSession,
+        routineName: String,
+        end: @escaping (@escaping () -> Void) -> Void,
+    ) -> some View {
+        confirmationDialog(
+            "End this workout?",
+            isPresented: isPresented,
+            titleVisibility: .visible,
+        ) {
+            // Only with something to keep: until a set is done, it can only be discarded.
+            if session.workout?.offersFinish == true {
+                Button("Finish workout") {
+                    end { session.finish(routineName: routineName) }
+                }
             }
             Button("Discard workout", role: .destructive) {
                 end(session.discard)
             }
+            Button("Keep going", role: .cancel) { }
         }
-        .hiddenBehindDrawer()
     }
 }
 

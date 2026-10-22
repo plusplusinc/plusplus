@@ -35,7 +35,7 @@ extension RenameUITests {
             app.addExercise(exercises[0].label)
             XCTAssertTrue(app.buttons["Start"].appears())
             app.buttons["Start"].tap()
-            XCTAssertTrue(app.buttons["Finish"].appears(), "Start began no workout")
+            XCTAssertTrue(app.endKey.appears(), "Start began no workout")
             XCTAssertEqual(app.workoutTime.label, "Pause")
             XCTAssertFalse(app.buttons["Start"].exists, "Start stayed in a workout")
             XCTAssertFalse(app.buttons["Menu"].exists, "++ stayed in a workout")

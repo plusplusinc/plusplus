@@ -32,10 +32,11 @@ carries a row in or out, and VoiceOver joins and leaves with actions. While a ro
 held, the superset the drag affects sits in a sunken area. Start, once the routine has an
 exercise, runs a workout on the same screen: the first exercise grows into the current one, its
 set, equipment, and numbers large, filling the screen but for the next exercise, with no swipe;
-scrolled away, a floating key goes back to it. Finish takes ++'s place and asks to finish or
-discard; the time, at top right, pauses and resumes. A workout survives a relaunch, keeps the
-screen on, and locks the drawer, and every edit stays on. Finish keeps it, and launch then opens
-a new routine; Discard keeps nothing. The app shows only in dark
+scrolled away, a floating key goes back to it. End takes ++'s place and asks "End this
+workout?": Finish workout, offered once a set is done (none can be logged yet), keeps it, and
+launch then opens a new routine; Discard workout keeps nothing. The time, at top right, pauses
+and resumes. A workout survives a relaunch, keeps the screen on, and locks the drawer, and
+every edit stays on. The app shows only in dark
 appearance (`Config/Base.xcconfig`); the light palette is seen only in snapshots.
 `WorkoutStore` holds the domain types, the stored models behind `RoutineStore` in a versioned
 schema, workouts and their time, the namer, the order a superset's sets go in, and the routines' recency. Nothing syncs yet.

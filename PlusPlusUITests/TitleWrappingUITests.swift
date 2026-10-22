@@ -122,7 +122,7 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         }
     }
 
-    /// The audit, passing over what is in the navigation bar: the bar caps its text, Finish and
+    /// The audit, passing over what is in the navigation bar: the bar caps its text, End and
     /// the small title, at a size of its own, and shows the large content viewer on a long press
     /// instead. In a workout the list lands with the title under the bar, where its small copy
     /// shows cut short.

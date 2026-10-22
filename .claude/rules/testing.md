@@ -31,7 +31,7 @@ What each tier holds today:
   opened or edited, and `withOpen`), what launch reopens, a list holding the order it was drawn
   in (`held(in:)`), and the drawer's three, in the order they were last edited; and a drawer swipe's arithmetic (`DrawerDrag`);
   a workout's time from its dates, through pauses, a relaunch, and its finish, on fixed dates
-  as the clock, and how it reads (`WorkoutTests`), the current exercise's set, figures, and
+  as the clock, Finish offered only once a set is done, and how it reads (`WorkoutTests`), the current exercise's set, figures, and
   their words (`CurrentExerciseTextTests`), and `RoutineStore`'s workouts: saving, the launch
   rule after Finish and after Discard, a workout whose routine is gone, and a store written
   before workouts opening with every routine and then keeping one.
@@ -83,7 +83,7 @@ What each tier holds today:
   a relaunch, in `RoutineAutosaveUITests`), and a join at AX5 under the audit; the drawer opened
   by ++ and the edge swipe and closed by the sliver and a swipe left, switching routines with the
   one showing marked, a new one's row included, opening counting across a relaunch, the order kept in one session after opening one from the drawer and an edit moving it to the top, and the Routines screen's list and
-  drill-in, popped by the chevron and the edge swipe, and both under the audit at AX5, read from each row's VoiceOver value; a workout: Start growing the current exercise with only the next in view and no swipe on it, the way back, pause and resume, the time across relaunches running and paused, edits staying on, the drawer locked, launch after Discard and after Finish, and, at AX5, Start and a relaunch landing on the current exercise with the equipment standing taller than the screen, and its bar, paused, and Finish's menu under the audit, where the bar's own text, capped by the system, is passed over; Start keeping its size, and the screen its place, over the keyboard; and what the app saved, seen only by
+  drill-in, popped by the chevron and the edge swipe, and both under the audit at AX5, read from each row's VoiceOver value; a workout: Start growing the current exercise with only the next in view and no swipe on it, the way back, pause and resume, the time across relaunches running and paused, edits staying on, the drawer locked, launch after Discard (Finish, which needs a set done, is tested in the package), End's dialog offering only Discard workout, and, at AX5, Start and a relaunch landing on the current exercise with the equipment standing taller than the screen, and its bar, paused, and End's dialog under the audit, where the bar's own text, capped by the system, is passed over; Start keeping its size, and the screen its place, over the keyboard; and what the app saved, seen only by
   quitting and launching again, a dragged row's place and a superset's shared rounds included. Each launch costs about 9 s on
   CI, so there is one UI test per launch configuration:
   `RenameUITests/testRenameAtDefaultSize`,

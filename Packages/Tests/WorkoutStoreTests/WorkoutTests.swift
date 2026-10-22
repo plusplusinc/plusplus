@@ -77,6 +77,15 @@ struct WorkoutTests {
     func clockStart() {
         #expect(workout.pausing(at: at(10)).resuming(at: at(25)).clockStart == at(15))
     }
+
+    @Test("Ending offers Finish only once a set is done, and only while in progress")
+    func offersFinish() {
+        #expect(!workout.offersFinish)
+        var done = workout
+        done.completedSets = 1
+        #expect(done.offersFinish)
+        #expect(!done.finishing(at: at(300)).offersFinish)
+    }
 }
 
 @Suite("Workout text")

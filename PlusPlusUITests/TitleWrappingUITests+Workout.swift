@@ -1,13 +1,13 @@
 import XCTest
 
 /// A workout at the largest text size, run within `testWrappedTitleAtLargestTextSize`: its bar
-/// and Finish's menu under the audit, and where Start and a relaunch land. Here the equipment
+/// and End's dialog under the audit, and where Start and a relaunch land. Here the equipment
 /// under the title stands taller than the screen, so the current exercise starts out below it,
 /// and Start's scroll to the top runs far.
 extension TitleWrappingUITests {
     /// From the Routines screen the drawer left, with exercises added for their equipment: Start
     /// and a relaunch land on the current exercise, and a workout's bar, running and paused, and
-    /// Finish's menu pass the audit.
+    /// End's dialog pass the audit.
     @MainActor
     func workoutAtAX5(in app: XCUIApplication) throws {
         try XCTContext
@@ -31,10 +31,10 @@ extension TitleWrappingUITests {
                 time.tap()
                 XCTAssertEqual(reading(time.label, becoming: "Resume", within: 2), "Resume")
                 try auditBelowTheBar(in: app)
-                XCTAssertNotNil(app.openFinishMenu(), "No Finish in the menu")
-                attach(named: "finish-menu-ax5")
+                app.openEndDialog()
+                attach(named: "end-dialog-ax5")
                 try auditBelowTheBar(in: app)
-                // Discarded from the menu already open.
+                // Discarded from the dialog already open.
                 app.buttons["Discard workout"].tap()
                 XCTAssertTrue(app.buttons["Start"].appears(), "Discard left the workout running")
             }

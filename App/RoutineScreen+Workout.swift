@@ -156,10 +156,15 @@ extension RoutineScreen {
     /// crossfades, then Start fades in.
     func end(_ change: @escaping () -> Void) {
         guard let workout = session.workout else { return }
-        // The bar keeps the workout's keys until Start comes back (`endingWorkout`).
         withTransaction(\.disablesAnimations, true) { endingWorkout = workout }
         // Start stays away until the list has landed, after a relaunch into a workout as well.
         withTransaction(\.disablesAnimations, true) { isStartAway = true }
+        // Once the time has faded out of its key, the key's glass goes, the bar fading it: taken
+        // out with no animation, it went on the frame. A beat in the sequence by design.
+        Task {
+            try? await Task.sleep(for: .seconds(Self.barFade), tolerance: .zero)
+            withAnimation(.easeOut(duration: Self.barFade)) { endingWorkout = nil }
+        }
         guard !reduceMotion else {
             return crossfade(scrollingTo: 0, then: bringStartBack, change)
         }
@@ -184,9 +189,6 @@ extension RoutineScreen {
 
     /// Start, away for the end of a workout, coming back with its edge band.
     private func bringStartBack() {
-        // The bar's keys go for ++ in the system's own quick change: in Start's animation the
-        // bar's glass took longer than Start to settle, ++ coming last.
-        withTransaction(\.disablesAnimations, true) { endingWorkout = nil }
         withAnimation(.smooth(duration: Self.startReturn)) {
             isStartAway = false
             isBottomEdgeHidden = false
@@ -283,6 +285,9 @@ extension RoutineScreen {
     /// quick off the mark that eases gently into place and stops at its duration, with no
     /// spring's tail.
     static let endBeat = 0.4
+    /// The bar's keys fading at a workout's end: End for ++, and the time out of its key, then
+    /// the key's glass.
+    static let barFade = 0.2
     /// Start coming back once the end's shrink has landed.
     static let startReturn = 0.2
     /// With Reduce Motion, the list crossfading into a workout or out of one.

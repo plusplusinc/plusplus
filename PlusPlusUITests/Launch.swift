@@ -61,20 +61,22 @@ extension XCUIApplication {
         buttons["workout.time"]
     }
 
-    /// Taps Finish in the bar, and returns the menu's own Finish, once it shows: the Finish
-    /// that isn't the bar's.
-    func openFinishMenu() -> XCUIElement? {
-        let bar = navigationBars.buttons["Finish"]
-        let barFrame = bar.frame
-        bar.tap()
-        XCTAssertTrue(buttons["Discard workout"].appears(), "No menu")
-        return buttons.matching(NSPredicate(format: "label == 'Finish'"))
-            .allElementsBoundByIndex.first { $0.frame != barFrame }
+    /// End, in the bar while a workout runs.
+    var endKey: XCUIElement {
+        navigationBars.buttons["End workout"]
     }
 
-    /// Ends the workout with Finish, then Discard workout, and waits for Start to come back.
+    /// Taps End in the bar and waits for its dialog, which, with no set done, offers only
+    /// Discard workout.
+    func openEndDialog() {
+        endKey.tap()
+        XCTAssertTrue(buttons["Discard workout"].appears(), "No dialog")
+        XCTAssertFalse(buttons["Finish workout"].exists, "Finish offered with no set done")
+    }
+
+    /// Ends the workout with End, then Discard workout, and waits for Start to come back.
     func discardWorkout() {
-        navigationBars.buttons["Finish"].tap()
+        openEndDialog()
         buttons["Discard workout"].firstMatch.tap()
         XCTAssertTrue(buttons["Start"].appears(), "Discard left the workout running")
     }

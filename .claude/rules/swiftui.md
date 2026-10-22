@@ -79,15 +79,20 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   home indicator. It is worked out in the pass that lays out the list (`RowStanding`): the
   screen's height from a `GeometryReader` around the scroll view, and the next row's from a
   hidden copy laid out as a rail row (`railRowStand()`); read back into state after layout, it
-  grew a pass later, and a relaunch into a workout logged SwiftUI's per-frame fault. Ending a
-  workout, from Finish's menu (Finish, and Discard workout as destructive), plays the grow in
-  reverse as one motion, starting in the frame the item's action runs, as the menu starts to close
-  (a confirmation dialog ran its choice only once its dismissal had finished: SwiftUI's about 1.2 s
-  after the tap, UIKit's action sheet about 0.54 s). The bar keeps the workout's keys
-  (`endingWorkout`) until Start comes back: the menu closes back into Finish, and with Finish gone
-  from under it, it collapsed onto the title instead. The keys swap for ++ with no animation of
-  ours, just before Start rises. The current exercise shrinks back as the rows below close up and
-  the list scrolls back to its top
+  grew a pass later, and a relaunch into a workout logged SwiftUI's per-frame fault. End, in the
+  bar, asks "End this workout?" in a confirmation dialog, as the scratch app does: Finish workout
+  only once a set is done (`Workout.offersFinish`; none can be logged yet), and Discard workout
+  as destructive. The dialog hangs on the whole screen, outside the navigation stack: on End, or
+  on the stack's content, iOS showed it as a popover with an arrow; there, it shows centered. Its
+  choice runs about 0.37 s after the tap (simulator, two runs), and the end's motion starts
+  there. The bar's keys fade with it (`barFade`, 0.2 s): End crossfades into ++ in one leading
+  item, and the time fades out of its key, whose glass (`endingWorkout` holding the item) goes
+  0.2 s later in an animated change, the bar fading it; an item the bar takes out goes with its
+  content on the frame. The small title in the bar is always in its item, faded in and out
+  (0.2 s) as the large one goes under the bar or comes out, and shown to VoiceOver only while it
+  shows: the bar draws its edge effect only while the title item has something showing, so a
+  title taken out took the band under the bar with it, on the frame. The current exercise
+  shrinks back as the rows below close up and the list scrolls back to its top
   (0.4 s, `endBeat`, on a timing curve that eases out and stops: a spring's settling tail felt
   slow and heavy), with Start away and the bottom band hidden. Once that lands (an `endBeat`
   sleep from the motion's start: the animation's completion came a few frames after the rows

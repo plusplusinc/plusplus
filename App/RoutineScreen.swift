@@ -44,9 +44,11 @@ struct RoutineScreen: View {
     @State var isBottomEdgeHidden = false
     /// Start kept out of its bar in a workout, and as one ends until the list has landed.
     @State var isStartAway = false
-    /// As a workout ends, it as it was, its keys held in the bar until Start comes back: Finish's
-    /// menu closes back into Finish, which has to be there as it does.
+    /// As a workout ends, it as it was, for a beat: the time key's glass stays in the bar while
+    /// the time fades out of it.
     @State var endingWorkout: Workout?
+    /// Whether the dialog asking how to end the workout shows.
+    @State private var isConfirmingEnd = false
     /// The scroll in Start's sequence, and how far the list is scrolled.
     @State var scrollBeat = ScrollBeat()
     /// With Reduce Motion, how many times the list has crossfaded into or out of a workout: each
@@ -107,6 +109,12 @@ struct RoutineScreen: View {
         // A touch anywhere outside the title, bars included, ends its edit and still acts. The
         // keyboard slides down as on Return, where `.scrollDismissesKeyboard` drops it at once.
         .onTouchDownOutsideTitle { isEditingTitle = false }
+        .endWorkoutDialog(
+            isPresented: $isConfirmingEnd,
+            session: session,
+            routineName: (routine.name.isEmpty ? generatedName : routine.name) ?? "",
+            end: end,
+        )
         // `onChange` skips the first value, so a routine opened and left alone is never saved.
         .onChange(of: routine) { _, changed in
             session.save(changed)
@@ -139,7 +147,9 @@ struct RoutineScreen: View {
                             accessibilityHint: "Renames the routine.",
                         )
                         .onScrollVisibilityChange(threshold: 0.01) { isVisible in
-                            withAnimation(.snappy) {
+                            // A short fade, so the small title has gone by the time the large one
+                            // is out from under the bar.
+                            withAnimation(.easeOut(duration: Self.barFade)) {
                                 isTitleUnderBar = !isVisible
                             }
                         }
@@ -299,41 +309,74 @@ struct RoutineScreen: View {
         .toolbar {
             // As a large title does, the title shows small in the bar once it is under it.
             ToolbarItem(placement: .title) {
-                if isTitleUnderBar {
-                    // As a tap on the status bar does, a tap brings the title back. At the
-                    // accessibility text sizes the bar keeps touches on its title for the large
-                    // content viewer, so there the button is reached through VoiceOver only.
-                    Button {
-                        withAnimation(.snappy) {
-                            scrollPosition.scrollTo(edge: .top)
+                // Always there, faded out rather than taken out: the bar drew its edge effect only
+                // while the item had something showing, so the band under the bar came and went
+                // with the title, on the frame, and a title taken out went on the frame too.
+                smallTitle(shownName)
+                    .opacity(isTitleUnderBar ? 1 : 0)
+                    .allowsHitTesting(isTitleUnderBar)
+                    .accessibilityShown(isTitleUnderBar)
+            }
+            // One item, its key changing in a crossfade: the bar put one in or took one out on
+            // the frame.
+            if session.workout != nil || !isPushed {
+                ToolbarItem(placement: .topBarLeading) {
+                    ZStack {
+                        if session.workout != nil {
+                            EndButton { isConfirmingEnd = true }
+                                .transition(.opacity)
+                        } else {
+                            MenuButton(session: session)
+                                .transition(.opacity)
                         }
-                    } label: {
-                        // Gray only for New routine, as in the title.
-                        Text(shownName ?? Self.defaultName)
-                            .font(.ppInlineTitle)
-                            .foregroundStyle(.pp(shownName == nil ? .textSecondary :
-                                    .textPrimary))
-                            .lineLimit(1)
                     }
-                    .buttonStyle(.plain)
-                    // A heading, as the system's own bar title is.
-                    .accessibilityAddTraits(.isHeader)
-                    .accessibilityHint("Scrolls to the top.")
-                    .hiddenBehindDrawer()
-                    .transition(.opacity)
+                    .animation(.easeOut(duration: Self.barFade), value: session.workout == nil)
                 }
             }
+            // The time fades out of its glass, and then the glass goes, the bar fading it: the bar
+            // took the item out with its content on the frame, and only the glass faded.
             if let workout = session.workout ?? endingWorkout {
-                ToolbarItem(placement: .topBarLeading) {
-                    FinishButton(session: session, routineName: shownName ?? "", end: end)
-                }
                 ToolbarItem(placement: .topBarTrailing) {
                     WorkoutTimeKey(session: session, workout: workout)
+                        .opacity(session.workout == nil ? 0 : 1)
+                        .animation(.easeOut(duration: Self.barFade), value: session.workout == nil)
                 }
-            } else if !isPushed {
-                ToolbarItem(placement: .topBarLeading) {
-                    MenuButton(session: session)
-                }
+            }
+        }
+    }
+}
+
+extension RoutineScreen {
+    /// The title, small in the bar. As a tap on the status bar does, a tap brings the title back.
+    /// At the accessibility text sizes the bar keeps touches on its title for the large content
+    /// viewer, so there the button is reached through VoiceOver only.
+    private func smallTitle(_ shownName: String?) -> some View {
+        Button {
+            withAnimation(.snappy) {
+                scrollPosition.scrollTo(edge: .top)
+            }
+        } label: {
+            // Gray only for New routine, as in the title.
+            Text(shownName ?? Self.defaultName)
+                .font(.ppInlineTitle)
+                .foregroundStyle(.pp(shownName == nil ? .textSecondary : .textPrimary))
+                .lineLimit(1)
+        }
+        .buttonStyle(.plain)
+        // A heading, as the system's own bar title is.
+        .accessibilityAddTraits(.isHeader)
+        .accessibilityHint("Scrolls to the top.")
+        .hiddenBehindDrawer()
+    }
+}
+
+extension View {
+    /// Shown to VoiceOver and the UI tests only while `isShown`. `accessibilityHidden` left the
+    /// bar's title read out while faded away.
+    fileprivate func accessibilityShown(_ isShown: Bool) -> some View {
+        accessibilityRepresentation {
+            if isShown {
+                self
             }
         }
     }
