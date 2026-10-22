@@ -168,6 +168,7 @@ final nonisolated class WorkoutUITests: XCTestCase {
             app.addExercise("Push-up", searching: "push-up")
             app.exerciseRows.element(boundBy: 2).fullSwipeLeft()
             XCTAssertEqual(app.exerciseCount(becoming: 7), 7, "The swipe deleted nothing")
+            moveARow(in: app)
             let name = try XCTUnwrap(title.value as? String)
             app.scrollToTop(titled: name)
             let keyboard = app.keyboards.element
@@ -180,11 +181,32 @@ final nonisolated class WorkoutUITests: XCTestCase {
             XCTAssertTrue(app.workoutTime.appears(), "The workout did not come back")
             XCTAssertEqual(title.value as? String, renamed)
             XCTAssertEqual(app.exerciseNames, [
-                "Barbell bench press", "Pull-up", "Band pull-apart", "Balance board hold",
-                "Barbell back squat", "Biceps curl", "Push-up",
+                "Barbell bench press", "Pull-up", "Band pull-apart", "Barbell back squat",
+                "Balance board hold", "Biceps curl", "Push-up",
             ])
             return renamed
         }
+    }
+
+    /// Holding a row below the current exercise and dragging it past the next one moves it,
+    /// as it does outside a workout.
+    @MainActor
+    private func moveARow(in app: XCUIApplication) {
+        let rows = app.exerciseRows
+        let (moved, below) = (rows.element(boundBy: 3), rows.element(boundBy: 4))
+        for _ in 0 ..< 3 where !(moved.isHittable && below.isHittable) {
+            app.swipeUp()
+        }
+        var expected = app.exerciseNames
+        let height = below.frame.minY - moved.frame.minY
+        // Past the halfway point of the row below it.
+        moved.center.holdAndDrag(to: moved.center.down(1.2 * height))
+        expected.swapAt(3, 4)
+        XCTAssertEqual(
+            reading(app.exerciseNames, becoming: expected, within: 2),
+            expected,
+            "The drag moved nothing in a workout",
+        )
     }
 }
 
