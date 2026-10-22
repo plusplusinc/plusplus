@@ -33,7 +33,10 @@ extension TitleWrappingUITests {
                 try auditBelowTheBar(in: app)
                 app.openEndDialog()
                 attach(named: "end-dialog-ax5")
-                try auditBelowTheBar(in: app, systemTexts: ["End this workout?"])
+                try auditBelowTheBar(
+                    in: app,
+                    systemTexts: ["End this workout?", "Nothing has been logged yet."],
+                )
                 // Discarded from the dialog already open.
                 app.buttons["Discard workout"].tap()
                 XCTAssertTrue(app.buttons["Start"].appears(), "Discard left the workout running")
