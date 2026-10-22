@@ -285,8 +285,9 @@ fi
 APP="$DERIVED_DATA/Build/Products/Debug-iphoneos/$SCHEME.app"
 BUNDLE_ID=$(app_bundle_id "$APP")
 if ! xcrun devicectl device install app --quiet --device "$UDID" "$APP"; then
-    echo "built, but could not install on $NAME; if it stays out of reach," \
-        "scripts/device.sh --link makes an install link" >&2
+    echo "built, but could not install on $NAME, which is in reach: devicectl says why above." \
+        "Run this again once (the build is cached); if it fails the same way, make a link with" \
+        "scripts/device.sh --link and tell the maintainer the error, not a guess at its cause" >&2
     exit 69
 fi
 # A locked phone takes the install but refuses the launch. The build is on the phone either way.
