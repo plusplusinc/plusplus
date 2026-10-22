@@ -54,7 +54,7 @@ extension RoutineExercise {
     }
 
     /// A weight shows only on an exercise that holds one.
-    private var shownWeight: Weight? {
+    var shownWeight: Weight? {
         exercise.load == nil ? nil : plan.weight
     }
 }
@@ -62,12 +62,8 @@ extension RoutineExercise {
 extension SetTarget {
     /// "1 rep", "10 reps", "30 s", "90 s", "2 min", "2:30 min".
     func text(locale: Locale) -> String {
-        switch self {
-        case let .reps(reps):
-            "\(reps.formatted(.number.locale(locale)))\(noBreakSpace)\(reps == 1 ? "rep" : "reps")"
-        case let .time(seconds):
-            TimeText.text(seconds: seconds, locale: locale)
-        }
+        let figure = figure(locale: locale)
+        return figure.number + noBreakSpace + figure.unit
     }
 
     /// "1 rep", "10 reps", "90 seconds", "2 minutes", "2 minutes 30 seconds".

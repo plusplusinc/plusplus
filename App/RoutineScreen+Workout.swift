@@ -38,12 +38,6 @@ extension RoutineScreen {
     /// between shows only the background.
     static let currentTopSpace = Spacing.lg
 
-    /// The scroll position that lands the current exercise's row, its space above included,
-    /// just under the bar. The row's top stays put as it grows: it is the list's first.
-    func landingY(_ place: CurrentPlace) -> CGFloat {
-        max(place.rowContentTop, 0)
-    }
-
     /// Start's press: the key comes back up as any key does, a +1 pops off it with a medium
     /// impact (`primaryKeyBar`), and after a beat `leave(named:)` runs. A second press in the
     /// meantime does nothing.
@@ -84,7 +78,7 @@ extension RoutineScreen {
     private func leave(named name: String) {
         guard !reduceMotion else {
             return crossfade {
-                begin(named: name)
+                session.start(routineName: name)
                 isStarting = false
                 scrollToCurrent()
             }
@@ -115,7 +109,7 @@ extension RoutineScreen {
     private func grow(named name: String) {
         var drop: CGFloat = 0
         if let place = currentPlace {
-            let target = landingY(place)
+            let target = place.landingY
             let lift = target - scrollBeat.scrolledY
             // The rows below move down by what the current exercise gains, its space above
             // included, less the lift.
@@ -126,7 +120,7 @@ extension RoutineScreen {
             }
         }
         withAnimation(.snappy(duration: Self.growBeat)) {
-            begin(named: name)
+            session.start(routineName: name)
             growthLift = 0
             startDrop = max(drop, 1)
             isBottomEdgeHidden = true
@@ -139,11 +133,6 @@ extension RoutineScreen {
                 isBottomEdgeHidden = false
             }
         }
-    }
-
-    /// Starts the workout.
-    private func begin(named name: String) {
-        session.start(routineName: name)
     }
 
     /// Ends the workout with `change`, Start's grow in reverse, in one motion: the current
@@ -235,7 +224,7 @@ extension RoutineScreen {
         let old = currentPlace
         currentPlace = place
         if let old, currentID != nil, !isScrollingByHand, place.contentTop != old.contentTop,
-           abs(scrollBeat.scrolledY - landingY(old)) < 1
+           abs(scrollBeat.scrolledY - old.landingY) < 1
         {
             scrollToCurrent()
         }
@@ -245,7 +234,7 @@ extension RoutineScreen {
     /// Scrolls the current exercise's row up to just under the bar.
     func scrollToCurrent() {
         if let place = currentPlace {
-            scrollPosition.scrollTo(y: landingY(place))
+            scrollPosition.scrollTo(y: place.landingY)
         }
     }
 
@@ -258,7 +247,7 @@ extension RoutineScreen {
     /// Back in a workout after a relaunch, opens the list on the current exercise, once the
     /// list has its height and the current exercise its place.
     func openOnCurrentIfDue() {
-        guard opensOnCurrent, visibleHeight > 0, currentPlace?.shown ?? 0 > 0 else { return }
+        guard opensOnCurrent, visibleHeight > 0, currentPlace?.isInView == true else { return }
         opensOnCurrent = false
         scrollToCurrent()
     }
@@ -282,7 +271,7 @@ extension RoutineScreen {
     /// toward it, which scrolls back to it.
     @ViewBuilder
     var wayToCurrent: some View {
-        let current = currentID.flatMap { id in routine.exercises.first { $0.id == id } }
+        let current = session.workout == nil ? nil : routine.exercises.first
         let place = currentPlace
         Group {
             if let current, let place, place.isMostlyOut {

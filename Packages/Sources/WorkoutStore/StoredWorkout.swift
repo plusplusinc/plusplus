@@ -51,13 +51,4 @@ extension StoredWorkout {
             endedAt: endedAt,
         )
     }
-
-    private func update<Value: Equatable>(
-        _ field: ReferenceWritableKeyPath<StoredWorkout, Value>,
-        to value: Value,
-    ) {
-        if self[keyPath: field] != value {
-            self[keyPath: field] = value
-        }
-    }
 }

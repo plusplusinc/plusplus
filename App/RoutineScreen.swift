@@ -151,7 +151,12 @@ struct RoutineScreen: View {
                     )
                     .id(item.id)
                     .padding(.top, item.id == currentID ? Self.currentTopSpace : 0)
-                    .reportingPlace(item.id == routine.exercises.first?.id, to: placeCurrent)
+                    // Only while it is read: as the list scrolls, every change redraws the screen.
+                    .reportingPlace(
+                        item.id == routine.exercises.first?.id
+                            && (session.workout != nil || isStarting),
+                        to: placeCurrent,
+                    )
                     // Until an added row has entered it takes no taps, and its frame is
                     // where it will be rather than where it is drawn, so VoiceOver and the UI
                     // tests find it once it has. On the label, the row's one element: on the
@@ -159,8 +164,6 @@ struct RoutineScreen: View {
                     .accessibilityHidden(item.id == entering)
                     .railRow()
                     .reportingHeight(item.id == nextID) { nextRowHeight = $0 }
-                    // Under the tap, which stays on where the swipe is off.
-                    .swipeToDelete(isOn: item.id != currentID) { delete(item.id) }
                     .contentShape(.rect)
                     .onTapGesture {
                         guard item.id != entering else { return }
@@ -179,6 +182,10 @@ struct RoutineScreen: View {
                         supersetActions(item.id)
                     }
                     .accessibilityIdentifier("routine.exercise")
+                    // Outermost, as the system's swipe actions are, or their Delete is folded
+                    // into the row's accessibility element, where VoiceOver and the UI tests
+                    // never find it. The row's tap stays on where the swipe is off.
+                    .swipeToDelete(isOn: item.id != currentID) { delete(item.id) }
                 } end: {
                     Button("Add exercise", systemImage: "plus") {
                         isPicking = true

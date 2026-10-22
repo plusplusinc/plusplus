@@ -2,45 +2,43 @@ import DesignSystem
 import SwiftUI
 import WorkoutStore
 
-/// Where the current exercise's row is against the part of the list showing.
+/// Where the current exercise's row is against the part of the list showing. Coarse where it
+/// changes as the list scrolls, so a scroll changes it only as the row crosses a threshold.
 nonisolated struct CurrentPlace: Equatable {
-    /// How much of the row shows, of as much as could: 0 out of view, 1 all of it, or all the
-    /// list has room for.
-    var shown: CGFloat
+    /// Whether any of the row shows.
+    var isInView: Bool
+    /// Scrolled fully or mostly out of view, under 40 percent of as much as could show, where
+    /// the way back to it shows.
+    var isMostlyOut: Bool
     /// Whether the row is above the part showing, so the way back to it is up.
     var isAbove: Bool
-    /// How far the label's top, with the current exercise's space above it, is below the bar,
-    /// the top of the part showing.
-    var top: CGFloat
-    /// How far that top is from the top of the list's content, where `scrollTo(y:)` counts from.
+    /// How far the label's top, with the current exercise's space above it, is from the top of
+    /// the list's content, where `scrollTo(y:)` counts from.
     var contentTop: CGFloat
     /// The label's height, with the current exercise's space above it.
     var height: CGFloat
 
-    /// Scrolled fully or mostly out of view, where the way back to it shows.
-    var isMostlyOut: Bool {
-        shown < 0.4
-    }
-
-    /// The rail row's top in the list's content: the label is `RailRowMetrics.verticalInset`
-    /// below it.
-    @MainActor var rowContentTop: CGFloat {
-        contentTop - RailRowMetrics.verticalInset
+    /// The scroll position that lands the rail row, its label `RailRowMetrics.verticalInset`
+    /// below its top, just under the bar. The row's top stays put as it grows: it is the list's
+    /// first.
+    @MainActor var landingY: CGFloat {
+        max(contentTop - RailRowMetrics.verticalInset, 0)
     }
 
     init(_ proxy: GeometryProxy) {
         let row = CGRect(origin: .zero, size: proxy.size)
+        contentTop = proxy.frame(in: .list).minY
+        height = row.height
         guard let visible = proxy.bounds(of: .scrollView) else {
-            (shown, isAbove, top, contentTop, height) = (1, false, 0, 0, row.height)
+            (isInView, isMostlyOut, isAbove) = (true, false, false)
             return
         }
         let overlap = row.intersection(visible)
         let most = min(row.height, visible.height)
-        shown = overlap.isNull || most <= 0 ? 0 : overlap.height / most
+        let shown = overlap.isNull || most <= 0 ? 0 : overlap.height / most
+        isInView = shown > 0
+        isMostlyOut = shown < 0.4
         isAbove = row.midY < visible.midY
-        top = row.minY - visible.minY
-        contentTop = proxy.frame(in: .list).minY
-        height = row.height
     }
 }
 

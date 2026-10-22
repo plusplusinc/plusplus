@@ -23,7 +23,7 @@ extension RoutineExercise {
     public func figures(locale: Locale = .current) -> [PlanFigure] {
         let target = plan.target.figure(locale: locale)
         var figures = [PlanFigure(number: target.number, unit: qualified(target.unit, .target))]
-        if exercise.load != nil, let weight = plan.weight {
+        if let weight = shownWeight {
             figures.append(PlanFigure(
                 number: weight.number(locale: locale),
                 unit: qualified(weight.unit.rawValue, .weight),
@@ -35,7 +35,7 @@ extension RoutineExercise {
     /// The figures in words, for VoiceOver: "10 reps per side, 50 pounds".
     public func spokenFigures(locale: Locale = .current) -> String {
         var parts = [spokenValue(of: .target, locale: locale)]
-        if exercise.load != nil, plan.weight != nil {
+        if shownWeight != nil {
             parts.append(spokenValue(of: .weight, locale: locale))
         }
         return parts.joined(separator: ", ")

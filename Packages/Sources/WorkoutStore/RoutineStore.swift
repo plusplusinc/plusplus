@@ -28,8 +28,12 @@ public actor RoutineStore {
     /// an untouched one is never saved and a cleared one is deleted. A weight never saved reads
     /// as its exercise's default in `weightUnit`.
     public func launch(weightUnit: WeightUnit) throws -> (routine: Routine?, workout: Workout?) {
-        let workouts = try modelContext.fetch(FetchDescriptor<StoredWorkout>())
-        if let current = workouts.filter({ $0.endedAt == nil }).max(by: Self.startedEarlier) {
+        var inProgress = FetchDescriptor<StoredWorkout>(
+            predicate: #Predicate { $0.endedAt == nil },
+            sortBy: [SortDescriptor(\.startedAt, order: .reverse), SortDescriptor(\.id)],
+        )
+        inProgress.fetchLimit = 1
+        if let current = try modelContext.fetch(inProgress).first {
             let workout = current.workout
             let routine = try stored(id: workout.routineID)
                 .map { Self.routine(from: $0, weightUnit: weightUnit) }
@@ -40,7 +44,12 @@ public actor RoutineStore {
         guard let latest = try modelContext.fetch(FetchDescriptor<StoredRoutine>())
             .min(by: Self.isMoreRecent(_:than:))
         else { return (nil, nil) }
-        let lastFinish = workouts.compactMap(\.endedAt).max() ?? .distantPast
+        var finished = FetchDescriptor<StoredWorkout>(
+            predicate: #Predicate { $0.endedAt != nil },
+            sortBy: [SortDescriptor(\.endedAt, order: .reverse)],
+        )
+        finished.fetchLimit = 1
+        let lastFinish = try modelContext.fetch(finished).first?.endedAt ?? .distantPast
         guard lastFinish <= latest.recency else { return (nil, nil) }
         return (Self.routine(from: latest, weightUnit: weightUnit), nil)
     }
@@ -161,11 +170,6 @@ public actor RoutineStore {
     private static func isMoreRecent(_ one: StoredRoutine, than other: StoredRoutine) -> Bool {
         let (oneRecency, otherRecency) = (one.recency, other.recency)
         return oneRecency != otherRecency ? oneRecency > otherRecency : one.id < other.id
-    }
-
-    /// A tie by id, so the same one is picked every launch.
-    private static func startedEarlier(_ one: StoredWorkout, than other: StoredWorkout) -> Bool {
-        one.startedAt != other.startedAt ? one.startedAt < other.startedAt : one.id < other.id
     }
 
     private func storedWorkout(id: UUID) throws -> StoredWorkout? {
