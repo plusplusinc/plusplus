@@ -6,14 +6,14 @@ import SwiftUI
 ///
 /// Given a `focus`, it is the current exercise of a workout: the name grows large, and the detail
 /// gives way to which set it is on, the exercise's equipment, and the plan's numbers, large, in
-/// a label at least `minHeight` tall. Changed in an animation, the name's size runs between the
-/// two, and the numbers grow out
-/// of where the detail was.
+/// a label as tall as its `standing` leaves it. Changed in an animation, the name's size runs
+/// between the two, and the numbers grow out of where the detail was.
 public struct RowLabel: View {
     private let title: String
     private let detail: [String]
     private let spokenDetail: String?
     private let focus: RowFocus?
+    private let standing: RowStanding?
 
     /// The current exercise's numbers: 104pt at the default size.
     @ScaledMetric(relativeTo: .largeTitle) private var figureSize: CGFloat = 104
@@ -30,11 +30,13 @@ public struct RowLabel: View {
         detail: [String],
         spokenDetail: String? = nil,
         focus: RowFocus? = nil,
+        standing: RowStanding? = nil,
     ) {
         self.title = title
         self.detail = detail
         self.spokenDetail = spokenDetail
         self.focus = focus
+        self.standing = standing
     }
 
     /// A row whose detail is one line, or none.
@@ -53,14 +55,21 @@ public struct RowLabel: View {
     /// The name stays where it is as the row grows: the label stands at its height from the start,
     /// from its top, and the equipment and the numbers come in below the name inside it.
     private func content(_ detailText: String?) -> some View {
-        let height = focus?.minHeight ?? restingHeight
-        return StandingHeight(height: height, endHeight: height, isResting: focus == nil) {
+        StandingHeight(
+            growth: focus == nil ? 0 : 1,
+            isCurrent: focus != nil,
+            restingHeight: restingHeight,
+            standing: standing?.height,
+        ) {
             column(detailText)
                 .onGeometryChange(for: CGFloat.self, of: \.size.height) { height in
                     if focus == nil {
                         restingHeight = height
                     }
                 }
+            if let next = standing?.next {
+                Self(title: next.title, detail: next.detail).railRowStand()
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -175,65 +184,6 @@ public struct RowLabel: View {
 
 private let noBreakSpace = "\u{00A0}"
 
-/// Its one subview, from its top, in a frame `height` tall, the height animating as a number,
-/// and taller by however far the subview runs past both `height` and `endHeight`, the height it
-/// animates to. The
-/// subview takes its new height at once, its new parts fading in later: counted whole, it held the
-/// label at that height until the animated one passed it, so the rows below started late. A
-/// frame's `minHeight` animated from 0 laid the row out at no height for the first frame.
-private struct StandingHeight: Layout {
-    var height: CGFloat
-    /// Not animated: where `height` is going.
-    let endHeight: CGFloat
-    /// Not animated: a row out of a workout, which, once any shrink has landed, is just as tall
-    /// as its content: the height it last measured can be out of date.
-    let isResting: Bool
-
-    var animatableData: CGFloat {
-        get { height }
-        set { height = newValue }
-    }
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
-        let size = subviews.first?.sizeThatFits(offer(proposal)) ?? .zero
-        if isAtRest {
-            return size
-        }
-        // The content takes its new height at once, so it counts only past the end height, and
-        // past the standing height: shrinking, parts fading out still take their room, which
-        // held the rows below until they had gone, then let them jump.
-        let counted = max(size.height - max(endHeight, height), 0)
-        return CGSize(width: size.width, height: height + counted)
-    }
-
-    func placeSubviews(
-        in bounds: CGRect,
-        proposal: ProposedViewSize,
-        subviews: Subviews,
-        cache _: inout (),
-    ) {
-        let placed = isAtRest ? proposal : ProposedViewSize(width: bounds.width, height: nil)
-        subviews.first?.place(at: bounds.origin, anchor: .topLeading, proposal: offer(placed))
-    }
-
-    /// Resting, with no shrink still running: laid out as a plain stack, with what it was offered.
-    private var isAtRest: Bool {
-        isResting && height == endHeight
-    }
-
-    /// What the subview is offered: at rest, what the label was, as a row on `main` was; while it
-    /// shrinks, as tall as it likes; and on the current exercise the height it stands at, which
-    /// its numbers shrink to fit at the largest text sizes, so the row after it stays in view.
-    /// Placed from its top, at its own height: placed in the standing height, it would center in
-    /// it.
-    private func offer(_ proposal: ProposedViewSize) -> ProposedViewSize {
-        if isAtRest {
-            return proposal
-        }
-        return ProposedViewSize(width: proposal.width, height: isResting ? nil : endHeight)
-    }
-}
-
 /// The name's font: `ppRowTitle` on a row, `ppCurrentTitle` on the current exercise, and,
 /// as `growth` animates between 0 and 1, a semibold system font at every size between, so the
 /// name grows smoothly: Text's own interpolation between the two fonts jumped. At either end it
@@ -281,22 +231,16 @@ public struct RowFocus: Equatable {
     public var figures: [Figure]
     /// The figures in words, for VoiceOver.
     public var spokenFigures: String
-    /// How tall the whole label stands, name included, so the row fills the screen but for the
-    /// row after it.
-    public var minHeight: CGFloat
-
     public init(
         progress: String,
         equipment: [String] = [],
         figures: [Figure],
         spokenFigures: String,
-        minHeight: CGFloat,
     ) {
         self.progress = progress
         self.equipment = equipment
         self.figures = figures
         self.spokenFigures = spokenFigures
-        self.minHeight = minHeight
     }
 
     /// A number shown large, with what it counts: "10" "reps".
@@ -331,8 +275,8 @@ public struct RowFocus: Equatable {
                     .init(number: "50", unit: "lb"),
                 ],
                 spokenFigures: "",
-                minHeight: 300,
             ),
+            standing: RowStanding(height: 300),
         )
     }
     .padding()

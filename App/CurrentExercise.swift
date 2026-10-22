@@ -136,14 +136,13 @@ struct CurrentExerciseButton: View {
 }
 
 extension RoutineExercise {
-    /// The row grown into the current exercise, on its first set, its label `minHeight` tall.
-    func focus(inSuperset: Bool, minHeight: CGFloat, locale: Locale) -> RowFocus {
+    /// The row grown into the current exercise, on its first set.
+    func focus(inSuperset: Bool, locale: Locale) -> RowFocus {
         RowFocus(
             progress: progressText(set: 1, inSuperset: inSuperset, locale: locale),
             equipment: [exercise].equipment.map(\.name),
             figures: figures(locale: locale).map { .init(number: $0.number, unit: $0.unit) },
             spokenFigures: spokenFigures(locale: locale),
-            minHeight: minHeight,
         )
     }
 }

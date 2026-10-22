@@ -33,6 +33,18 @@ extension RoutineScreen {
         )
     }
 
+    /// How tall the current exercise's label stands with the row after it, or the end's room when
+    /// there is none, as `currentLabelHeight` has it, worked out from `screen`, the list's frame,
+    /// in the pass that lays the list out.
+    func currentStanding(_ screen: GeometryProxy) -> RowStanding {
+        let next = routine.exercises.dropFirst().first
+        let height = screen.size.height + screen.safeAreaInsets.bottom
+            - RailRowMetrics.verticalInset * 2 - Self.currentTopSpace - (next == nil ? endRoom : 0)
+        return RowStanding(height: height, next: next.map {
+            .init(title: $0.exercise.name, detail: $0.detailParts(locale: locale))
+        })
+    }
+
     /// The current exercise's own space above its label, part of its row, so where the list
     /// lands on the row, just under the bar, everything above it is under the bar and the space
     /// between shows only the background.

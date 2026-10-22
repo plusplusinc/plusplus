@@ -23,10 +23,18 @@ struct CurrentExerciseSnapshotTests {
         var focus: RowFocus?
     }
 
+    /// The label's height, with no row after it to leave room for.
+    private let standing = RowStanding(height: Self.labelHeight)
+
     private func rail(_ rows: [Row]) -> some View {
         Rail(rows, current: rows.first?.id) { row in
-            RowLabel(title: row.title, detail: row.detail, focus: row.focus)
-                .railRow()
+            RowLabel(
+                title: row.title,
+                detail: row.detail,
+                focus: row.focus,
+                standing: row.focus == nil ? nil : standing,
+            )
+            .railRow()
         } end: {
             Button("Add exercise", systemImage: "plus") { }
                 .buttonStyle(.key)
@@ -51,7 +59,6 @@ struct CurrentExerciseSnapshotTests {
                     .init(number: "25", unit: "lb per side"),
                 ],
                 spokenFigures: "10 reps, 25 pounds per side",
-                minHeight: Self.labelHeight,
             ),
         )
         assertThemedSnapshots(of: rail([current, next]), width: Self.width)
@@ -66,7 +73,6 @@ struct CurrentExerciseSnapshotTests {
                 progress: "Set 1 of 1",
                 figures: [.init(number: "60", unit: "s per side")],
                 spokenFigures: "60 seconds per side",
-                minHeight: Self.labelHeight,
             ),
         )
         assertThemedSnapshots(of: rail([current, next]), width: Self.width)

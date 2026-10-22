@@ -68,10 +68,7 @@ private struct RailNode: View {
         let pop = RailEntry.pop(reduceMotion: reduceMotion)
         let landing = RailEntry.popStart(reduceMotion: reduceMotion)
         let size = place.isCurrent ? currentSize : size
-        Image(systemName: "plus")
-            .font(.ppButton)
-            .hidden()
-            .railColumn()
+        RailNodeColumn()
             .overlay {
                 Circle()
                     .joiningRail(
@@ -95,6 +92,20 @@ private struct RailNode: View {
                     .entry(RailEntry.step(at: landing), value: place.isArriving)
             }
             .accessibilityHidden(true)
+            .hotReloadable()
+    }
+}
+
+/// The rail column as a row's node holds it: the key's icon, held invisibly, gives it the key's
+/// width and baseline at every text size.
+struct RailNodeColumn: View {
+    @ObserveHotReload private var hotReload
+
+    var body: some View {
+        Image(systemName: "plus")
+            .font(.ppButton)
+            .hidden()
+            .railColumn()
             .hotReloadable()
     }
 }
@@ -128,7 +139,6 @@ private struct NodeCenter: PreferenceKey {
 }
 
 private struct RailRow: ViewModifier {
-    @ScaledMetric(relativeTo: .body) private var minHeight: CGFloat = 64
     @ScaledMetric(relativeTo: .body) private var lineWidth = railLineWidth
     @ScaledMetric(relativeTo: .body) private var nodeSize = railNodeSize
     @Environment(\.railPlace) private var place
@@ -139,8 +149,7 @@ private struct RailRow: ViewModifier {
         RailRowLayout(nodeSize: nodeSize) {
             RailNode()
             content
-                .padding(.vertical, RailRowMetrics.verticalInset)
-                .frame(minHeight: minHeight, alignment: .top)
+                .modifier(RailRowContentFrame())
                 .opacity(place.isArriving ? 0 : 1)
                 .offset(y: place.isArriving && !reduceMotion ? -Spacing.xs : 0)
                 .entry(
@@ -208,82 +217,6 @@ private struct RailRow: ViewModifier {
                 RailEntry.shot(from: 0, to: split, reduceMotion: reduceMotion),
                 value: place.isLast,
             )
-    }
-}
-
-/// A row's node column and its content side by side, on their first lines' baselines, the content
-/// ending as far in from the row's trailing edge as the node's edge is from its leading one: the
-/// lifted card is centered on the row. The inset is worked out here, in the pass that sizes the
-/// row, from the column's width; read from the node after layout, it narrowed the content a pass
-/// later, and the row, grown taller, was laid out twice in a frame.
-private struct RailRowLayout: Layout {
-    /// The node's diameter, at the current text size.
-    var nodeSize: CGFloat
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
-        frames(proposal, subviews).size
-    }
-
-    func placeSubviews(
-        in bounds: CGRect,
-        proposal: ProposedViewSize,
-        subviews: Subviews,
-        cache _: inout (),
-    ) {
-        let frames = frames(proposal, subviews)
-        // Offered what each was measured at, so neither is measured again.
-        let placed = [(frames.column, ProposedViewSize.unspecified), (frames.content, frames.offer)]
-        for (subview, (frame, offer)) in zip(subviews, placed) {
-            subview.place(
-                at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY + frame.minY),
-                proposal: offer,
-            )
-        }
-    }
-
-    /// Where the column and the content go in the row, and the row's size: as an `HStack` with
-    /// no spacing aligned on `.firstTextBaseline` places them, the content offered the width the
-    /// column and the trailing inset leave.
-    private func frames(
-        _ proposal: ProposedViewSize,
-        _ subviews: Subviews,
-    ) -> Frames {
-        guard subviews.count == 2 else {
-            assertionFailure("A rail row lays out its node column and its content, nothing else")
-            return Frames(column: .zero, content: .zero, offer: .zero, size: .zero)
-        }
-        let column = subviews[0].dimensions(in: .unspecified)
-        let inset = max((column.width - nodeSize) / 2, 0)
-        let offer = ProposedViewSize(
-            width: proposal.width.map { max($0 - column.width - inset, 0) },
-            height: proposal.height,
-        )
-        let content = subviews[1].dimensions(in: offer)
-        let baseline = max(column[.firstTextBaseline], content[.firstTextBaseline])
-        let columnTop = baseline - column[.firstTextBaseline]
-        let contentTop = baseline - content[.firstTextBaseline]
-        return Frames(
-            column: CGRect(x: 0, y: columnTop, width: column.width, height: column.height),
-            content: CGRect(
-                x: column.width,
-                y: contentTop,
-                width: content.width,
-                height: content.height,
-            ),
-            offer: offer,
-            size: CGSize(
-                width: column.width + content.width + inset,
-                height: max(columnTop + column.height, contentTop + content.height),
-            ),
-        )
-    }
-
-    private struct Frames {
-        var column: CGRect
-        var content: CGRect
-        /// What the content was offered.
-        var offer: ProposedViewSize
-        var size: CGSize
     }
 }
 
@@ -379,6 +312,13 @@ extension View {
     /// of a two-line one.
     public func railRow() -> some View {
         modifier(RailRow())
+    }
+
+    /// This content as a rail row would stand, with its node's column, its inset, and its least
+    /// height, but nothing drawn: offered the width a row offers its content, it is as tall as
+    /// that row. For measuring a row in the same layout pass as another.
+    func railRowStand() -> some View {
+        RailRowStand(content: self)
     }
 
     /// The rail column: the leading strip where rows put their nodes and a key its icon. At
