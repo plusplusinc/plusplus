@@ -49,9 +49,10 @@ project board; agents' technical working files live in `.slices/`.
   straight to a builder with the card's Plan as its plan.
 - A slice with something to see on the phone runs as a loop with the maintainer (see the
   builder's "Rounds"). Install each round from the slice worktree with `scripts/device.sh`; a
-  fresh checkout is a cold build. It builds the worktree as it is, so uncommitted edits are fine for a first
-  look, but say so. Tell the maintainer in a line what changed, that the build is unverified, and
-  what to try: what to do and what they should see, never a check's name or what it looks for.
+  fresh checkout is a cold build. It builds the worktree as it is, so uncommitted edits are fine
+  for a first look, but say so. Tell the maintainer in a line what changed, that the build is
+  unverified, and what to try: what to do and what they should see, never a check's name or what
+  it looks for.
   Before installing, check each thing they asked for in the round's screenshots, on content like
   theirs (as many exercises, equipment, long names). Then give their feedback to a fresh builder
   named for that round, which starts from the slice's handoff note and brings it up to date before
