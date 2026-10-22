@@ -144,6 +144,39 @@ struct RoutineStoreWorkoutTests {
         #expect(try await relaunch().routinesByRecency(weightUnit: .pounds).routines.isEmpty)
     }
 
+    @Test(
+        "Ending a workout deletes its routine cleared to nothing in the same write",
+        arguments: [false, true],
+    )
+    func endDeletesCleared(finishes: Bool) async throws {
+        let routine = try Routine(exercises: [RoutineExercise(
+            exercise: #require(Exercise.builtIn.first),
+            weightUnit: .pounds,
+        )])
+        let workout = Self.started(routine, at: 10)
+        let store = relaunch()
+        try await store.save(routine, at: Self.at(1))
+        try await store.save(workout)
+        try await store.save(Routine(id: routine.id), at: Self.at(20), keepsEmpty: true)
+        if finishes {
+            try await store.save(workout.finishing(at: Self.at(30)))
+        } else {
+            try await store.discardWorkout(workout.id)
+        }
+        #expect(try await relaunch().routinesByRecency(weightUnit: .pounds).routines.isEmpty)
+    }
+
+    @Test("Ending a workout keeps its routine with exercises")
+    func endKeepsRoutine() async throws {
+        let routine = Routine(name: "Upper")
+        let store = relaunch()
+        try await store.save(routine, at: Self.at(1))
+        let workout = Self.started(routine, at: 10)
+        try await store.save(workout)
+        try await store.discardWorkout(workout.id)
+        #expect(try await relaunch().routinesByRecency(weightUnit: .pounds).routines.count == 1)
+    }
+
     #if DEBUG
     @Test("Emptying the store removes workouts too")
     func deleteAll() async throws {

@@ -39,8 +39,9 @@ final class RoutineSession {
     /// happened, so an older version can never land last. Only the newest unsaved one waits.
     @ObservationIgnored private var saves: AsyncStream<RoutineSave>.Continuation
     @ObservationIgnored private var saving: Task<Void, Never>
-    /// Where every change to the workout goes, saved in the order they happened. Each is the
-    /// whole workout, so only the newest unsaved one waits.
+    /// Where every change to a workout goes, saved in the order they happened. Every one waits
+    /// its turn: one workout's end and the next one's start can both be waiting, and keeping
+    /// only the newest would drop the end, leaving the first in progress in the store.
     @ObservationIgnored private let workoutWrites: AsyncStream<WorkoutWrite>.Continuation
 
     init(routine: Routine, workout: Workout? = nil, store: RoutineStore?) {
@@ -279,7 +280,7 @@ final class RoutineSession {
     ) -> AsyncStream<WorkoutWrite>.Continuation {
         let (stream, continuation) = AsyncStream.makeStream(
             of: WorkoutWrite.self,
-            bufferingPolicy: .bufferingNewest(1),
+            bufferingPolicy: .unbounded,
         )
         Task {
             for await write in stream {

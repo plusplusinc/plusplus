@@ -89,13 +89,13 @@ struct WorkoutTimeKey: View {
 private struct SecondsSchedule: TimelineSchedule {
     let workout: Workout
 
-    func entries(from startDate: Date, mode _: Mode) -> AnyIterator<Date> {
+    func entries(from startDate: Date, mode: Mode) -> AnyIterator<Date> {
         if workout.isPaused {
             return AnyIterator([startDate].makeIterator())
         }
         return AnyIterator(
             PeriodicTimelineSchedule(from: workout.clockStart, by: 1)
-                .entries(from: startDate, mode: .normal),
+                .entries(from: startDate, mode: mode),
         )
     }
 }

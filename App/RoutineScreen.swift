@@ -188,10 +188,8 @@ struct RoutineScreen: View {
                             )
                             // Until an added row has entered it takes no taps, and its frame is
                             // where it will be rather than where it is drawn, so VoiceOver and the
-                            // UI
-                            // tests find it once it has. On the label, the row's one element: on
-                            // the
-                            // row, `false` would un-hide the rail's node.
+                            // UI tests find it once it has. On the label, the row's one element:
+                            // on the row, `false` would un-hide the rail's node.
                             .accessibilityHidden(item.id == entering)
                             .railRow()
                             .reportingHeight(item.id == nextID) { nextRowHeight = $0 }
@@ -214,10 +212,9 @@ struct RoutineScreen: View {
                             }
                             .accessibilityIdentifier("routine.exercise")
                             // Outermost, as the system's swipe actions are, or their Delete is
-                            // folded
-                            // into the row's accessibility element, where VoiceOver and the UI
-                            // tests
-                            // never find it. The row's tap stays on where the swipe is off.
+                            // folded into the row's accessibility element, where VoiceOver and
+                            // the UI tests never find it. The row's tap stays on where the swipe
+                            // is off.
                             .swipeToDelete(isOn: item.id != currentID) { delete(item.id) }
                         } end: {
                             Button("Add exercise", systemImage: "plus") {

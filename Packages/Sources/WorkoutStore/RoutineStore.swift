@@ -3,8 +3,7 @@ import OSLog
 import SwiftData
 
 /// Saves routines and workouts, and finds what the app opens with. Values in, values out: the
-/// stored
-/// models never leave the actor.
+/// stored models never leave the actor.
 @ModelActor
 public actor RoutineStore {
     private static let builtInByID = Dictionary(
@@ -54,7 +53,8 @@ public actor RoutineStore {
         return (Self.routine(from: latest, weightUnit: weightUnit), nil)
     }
 
-    /// Saves the workout as it is now, every field.
+    /// Saves the workout as it is now, every field. Once it has ended, its routine, if cleared
+    /// to nothing while it ran, goes in the same save.
     public func save(_ workout: Workout) throws {
         let target = try storedWorkout(id: workout.id) ?? {
             let new = StoredWorkout(id: workout.id)
@@ -62,14 +62,31 @@ public actor RoutineStore {
             return new
         }()
         target.write(workout)
+        if !workout.isInProgress {
+            try deleteIfCleared(routineID: workout.routineID)
+        }
         try modelContext.save()
     }
 
-    /// Deletes the workout, keeping nothing of it; nothing if there is none.
+    /// Deletes the workout, keeping nothing of it, and its routine if cleared to nothing while
+    /// it ran, in one save; nothing if there is none.
     public func discardWorkout(_ id: Workout.ID) throws {
         guard let stored = try storedWorkout(id: id) else { return }
+        if let routineID = stored.routineID {
+            try deleteIfCleared(routineID: routineID)
+        }
         modelContext.delete(stored)
         try modelContext.save()
+    }
+
+    /// A routine cleared to nothing is kept only while its workout runs; ending the workout
+    /// deletes it in the same save, so no empty routine outlives a workout cut short between
+    /// two writes.
+    private func deleteIfCleared(routineID: UUID) throws {
+        guard let routine = try stored(id: routineID),
+              routine.name.isEmpty, routine.exercises?.isEmpty ?? true
+        else { return }
+        modelContext.delete(routine)
     }
 
     /// Marks the routine opened at `now` and returns it, or nil, storing nothing, if there is
