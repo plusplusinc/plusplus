@@ -33,9 +33,7 @@ final nonisolated class WorkoutUITests: XCTestCase {
             XCTAssertFalse(app.drawerTitle.appears(within: 1), "The edge swipe opened the drawer")
         }
         XCTContext.runActivity(named: "Discard leaves the routine as it was") { _ in
-            app.navigationBars.buttons["Finish"].tap()
-            app.buttons["Discard workout"].firstMatch.tap()
-            XCTAssertTrue(app.buttons["Start"].appears(), "Discard left the workout running")
+            app.discardWorkout()
             app.relaunch()
             XCTAssertEqual(title.value as? String, renamed, "Launch opened another routine")
             XCTAssertTrue(app.buttons["Start"].appears(), "The workout came back")
@@ -187,25 +185,6 @@ final nonisolated class WorkoutUITests: XCTestCase {
             ])
             return renamed
         }
-    }
-}
-
-@MainActor
-extension XCUIApplication {
-    /// The workout's time key, labeled Pause or Resume, its value the time in words.
-    var workoutTime: XCUIElement {
-        buttons["workout.time"]
-    }
-
-    /// Taps Finish in the bar, and returns the dialog's own Finish, once it shows. The popover
-    /// takes the bar's Finish out of the accessibility tree while it shows.
-    func openFinishDialog() -> XCUIElement? {
-        let bar = navigationBars.buttons["Finish"]
-        let barFrame = bar.frame
-        bar.tap()
-        XCTAssertTrue(buttons["Discard workout"].appears(), "No dialog")
-        return buttons.matching(NSPredicate(format: "label == 'Finish'"))
-            .allElementsBoundByIndex.first { $0.frame != barFrame }
     }
 }
 

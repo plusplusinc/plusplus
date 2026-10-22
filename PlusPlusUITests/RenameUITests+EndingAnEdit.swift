@@ -30,9 +30,17 @@ extension RenameUITests {
             app.buttons["Close"].tap()
             XCTAssertTrue(sets.disappears(), "Close left the sheet up")
         }
-        XCTContext.runActivity(named: "A tap on Start ends the edit in place") { _ in
-            endEditWithoutMoving(in: app, keyboard: keyboard) {
-                app.buttons["Start"].tap()
+        XCTContext.runActivity(named: "A tap on Start ends the edit") { _ in
+            // Not checked in place: Start rides on the keyboard, so the tap may land as the key
+            // moves down with it, and a press that lands starts a workout, which grows the
+            // first exercise. Any workout started is discarded.
+            XCTAssertTrue(app.routineTitle.settles(), "The title kept moving before the edit")
+            app.routineTitle.tap()
+            XCTAssertTrue(keyboard.appears(), "A tap on the title did not start an edit")
+            app.buttons["Start"].tap()
+            XCTAssertTrue(keyboard.disappears(), "Start did not end the edit")
+            if app.workoutTime.appears(within: 1) {
+                app.discardWorkout()
             }
         }
         XCTContext.runActivity(named: "A tap on ++ ends the edit and opens the drawer") { _ in
@@ -83,9 +91,10 @@ extension RenameUITests {
         XCTContext.runActivity(named: "A scroll ends the edit and scrolls the list") { _ in
             startEdit()
             let top = row(0).frame.minY
-            row(3).center.press(
+            // Row 1, clear of Start riding above the keyboard, which covers row 3.
+            row(1).center.press(
                 forDuration: 0.05,
-                thenDragTo: row(3).center.down(-200),
+                thenDragTo: row(1).center.down(-200),
                 withVelocity: .default,
                 thenHoldForDuration: 0,
             )

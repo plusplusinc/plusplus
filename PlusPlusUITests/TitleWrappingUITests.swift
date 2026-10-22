@@ -104,6 +104,7 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             XCTAssertNotNil(app.openFinishDialog(), "No Finish in the dialog")
             attach(named: "finish-dialog-ax5")
             try auditBelowTheBar(in: app)
+            // Discarded from the dialog already open.
             app.buttons["Discard workout"].tap()
             XCTAssertTrue(app.buttons["Start"].appears(), "Discard left the workout running")
         }

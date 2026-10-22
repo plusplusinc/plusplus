@@ -52,3 +52,30 @@ extension XCUIApplication {
         )
     }
 }
+
+/// A workout's controls in the bar.
+@MainActor
+extension XCUIApplication {
+    /// The workout's time key, labeled Pause or Resume, its value the time in words.
+    var workoutTime: XCUIElement {
+        buttons["workout.time"]
+    }
+
+    /// Taps Finish in the bar, and returns the dialog's own Finish, once it shows. The popover
+    /// takes the bar's Finish out of the accessibility tree while it shows.
+    func openFinishDialog() -> XCUIElement? {
+        let bar = navigationBars.buttons["Finish"]
+        let barFrame = bar.frame
+        bar.tap()
+        XCTAssertTrue(buttons["Discard workout"].appears(), "No dialog")
+        return buttons.matching(NSPredicate(format: "label == 'Finish'"))
+            .allElementsBoundByIndex.first { $0.frame != barFrame }
+    }
+
+    /// Ends the workout with Finish, then Discard workout, and waits for Start to come back.
+    func discardWorkout() {
+        navigationBars.buttons["Finish"].tap()
+        buttons["Discard workout"].firstMatch.tap()
+        XCTAssertTrue(buttons["Start"].appears(), "Discard left the workout running")
+    }
+}
