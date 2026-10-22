@@ -126,12 +126,14 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
     /// the small title, at a size of its own, and shows the large content viewer on a long press
     /// instead. In a workout the list lands with the title under the bar, where its small copy
     /// shows cut short.
+    /// Passed over as well, any text labeled one of `systemTexts`, such as a dialog's title,
+    /// which the system caps the same way.
     @MainActor
-    func auditBelowTheBar(in app: XCUIApplication) throws {
+    func auditBelowTheBar(in app: XCUIApplication, systemTexts: [String] = []) throws {
         let bar = app.navigationBars.firstMatch.frame
         try app.performAccessibilityAudit(for: [.dynamicType, .textClipped]) { issue in
             guard let element = issue.element else { return false }
-            return bar.contains(element.frame)
+            return bar.contains(element.frame) || systemTexts.contains(element.label)
         }
     }
 
