@@ -98,6 +98,11 @@ struct RoutineScreen: View {
         namer.name(for: routine.exercises.map(\.exercise), of: routine.id)
     }
 
+    /// The name the routine shows: its chosen one, or else the one made for it.
+    private var shownName: String? {
+        namer.shownName(of: routine)
+    }
+
     var body: some View {
         Group {
             if isPushed {
@@ -112,7 +117,7 @@ struct RoutineScreen: View {
         .endWorkoutDialog(
             isPresented: $isConfirmingEnd,
             session: session,
-            routineName: (routine.name.isEmpty ? generatedName : routine.name) ?? "",
+            routineName: shownName ?? "",
             end: end,
         )
         // `onChange` skips the first value, so a routine opened and left alone is never saved.
@@ -124,7 +129,7 @@ struct RoutineScreen: View {
 
     private var screen: some View {
         let generatedName = generatedName
-        let shownName = routine.name.isEmpty ? generatedName : routine.name
+        let shownName = shownName
         // Read once here, so the rows' closure holds them as values: a list crossfading out keeps
         // drawing its rows with what it had, rather than the workout it is fading into.
         let currentID = currentID

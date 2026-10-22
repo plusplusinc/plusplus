@@ -6,13 +6,22 @@ import WorkoutStore
 /// to it.
 extension RoutineScreen {
     /// The exercise a workout is on: the first, as nothing is done yet.
-    var currentID: RoutineExercise.ID? {
-        session.workout == nil ? nil : routine.exercises.first?.id
+    var currentExercise: RoutineExercise? {
+        session.workout == nil ? nil : routine.exercises.first
     }
 
-    /// The exercise after the current one, whose row stays in view under it.
+    var currentID: RoutineExercise.ID? {
+        currentExercise?.id
+    }
+
+    /// The exercise after the first, the current one in a workout, whose row stays in view
+    /// under it.
+    var nextExercise: RoutineExercise? {
+        routine.exercises.dropFirst().first
+    }
+
     var nextID: RoutineExercise.ID? {
-        routine.exercises.dropFirst().first?.id
+        nextExercise?.id
     }
 
     /// Whether Start shows: with exercises to start, and out of a workout but for its going.
@@ -37,10 +46,10 @@ extension RoutineScreen {
     /// there is none, as `currentLabelHeight` has it, worked out from `screen`, the list's frame,
     /// in the pass that lays the list out.
     func currentStanding(_ screen: GeometryProxy) -> RowStanding {
-        let next = routine.exercises.dropFirst().first
         let height = screen.size.height + screen.safeAreaInsets.bottom
-            - RailRowMetrics.verticalInset * 2 - Self.currentTopSpace - (next == nil ? endRoom : 0)
-        return RowStanding(height: height, next: next.map {
+            - RailRowMetrics.verticalInset * 2 - Self.currentTopSpace
+            - (nextExercise == nil ? endRoom : 0)
+        return RowStanding(height: height, next: nextExercise.map {
             .init(title: $0.exercise.name, detail: $0.detailParts(locale: locale))
         })
     }
@@ -156,9 +165,11 @@ extension RoutineScreen {
     /// crossfades, then Start fades in.
     func end(_ change: @escaping () -> Void) {
         guard let workout = session.workout else { return }
-        withTransaction(\.disablesAnimations, true) { endingWorkout = workout }
-        // Start stays away until the list has landed, after a relaunch into a workout as well.
-        withTransaction(\.disablesAnimations, true) { isStartAway = true }
+        withTransaction(\.disablesAnimations, true) {
+            endingWorkout = workout
+            // Start stays away until the list has landed, after a relaunch into a workout too.
+            isStartAway = true
+        }
         // Once the time has faded out of its key, the key's glass goes, the bar fading it: taken
         // out with no animation, it went on the frame. A beat in the sequence by design.
         Task {
@@ -299,7 +310,7 @@ extension RoutineScreen {
     /// toward it, which scrolls back to it.
     @ViewBuilder
     var wayToCurrent: some View {
-        let current = session.workout == nil ? nil : routine.exercises.first
+        let current = currentExercise
         let place = currentPlace
         Group {
             if let current, let place, place.isMostlyOut {

@@ -79,7 +79,7 @@ private struct PrimaryKeyBar<Key: View>: ViewModifier {
                     key
                         .buttonStyle(.primaryKey)
                         .anchorPreference(key: PrimaryKeyBounds.self, value: .bounds) { $0 }
-                        .modifier(KeyDrop(drop: drop, isDropped: drop > 0))
+                        .modifier(KeyDrop(drop: drop))
                         .hiddenBehindDrawer()
                         // As far from the sides as from the bottom; with no home indicator, as
                         // far as content is inset.
@@ -131,9 +131,9 @@ private struct KeyDrop: ViewModifier, Animatable {
     /// How far along the drop the key is, 0 to 1, which an animation runs through.
     var progress: CGFloat
 
-    init(drop: CGFloat, isDropped: Bool) {
+    init(drop: CGFloat) {
         self.drop = drop
-        progress = isDropped ? 1 : 0
+        progress = drop > 0 ? 1 : 0
     }
 
     nonisolated var animatableData: CGFloat {

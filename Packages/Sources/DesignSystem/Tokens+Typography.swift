@@ -31,7 +31,7 @@ extension Font {
     /// What a current exercise's large number counts, "reps", "lb".
     public static let ppCurrentUnit = Font.system(.title2)
     /// A workout's time on its key in the bar: SF Mono, so the digits hold still as they tick.
-    public static let ppWorkoutTime = Font.system(.body, design: .monospaced, weight: .semibold)
+    public static let ppWorkoutTime = ppRowTitleNumber
     /// A place in the drawer, Routines or a routine under it: one font for all, so none reads as
     /// a heading over the others.
     public static let ppDrawerItem = Font.system(.body, weight: .medium)
