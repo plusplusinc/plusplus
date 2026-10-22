@@ -44,6 +44,9 @@ struct RoutineScreen: View {
     @State var isBottomEdgeHidden = false
     /// Start kept out of its bar in a workout, and as one ends until the list has landed.
     @State var isStartAway = false
+    /// As a workout ends, it as it was, its keys held in the bar until Start comes back: Finish's
+    /// menu closes back into Finish, which has to be there as it does.
+    @State var endingWorkout: Workout?
     /// The scroll in Start's sequence, and how far the list is scrolled.
     @State var scrollBeat = ScrollBeat()
     /// With Reduce Motion, how many times the list has crossfaded into or out of a workout: each
@@ -320,7 +323,7 @@ struct RoutineScreen: View {
                     .transition(.opacity)
                 }
             }
-            if let workout = session.workout {
+            if let workout = session.workout ?? endingWorkout {
                 ToolbarItem(placement: .topBarLeading) {
                     FinishButton(session: session, routineName: shownName ?? "", end: end)
                 }

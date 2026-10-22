@@ -155,7 +155,9 @@ extension RoutineScreen {
     /// settling tail made the end feel slow and heavy as it landed. With Reduce Motion, the list
     /// crossfades, then Start fades in.
     func end(_ change: @escaping () -> Void) {
-        guard session.workout != nil else { return }
+        guard let workout = session.workout else { return }
+        // The bar keeps the workout's keys until Start comes back (`endingWorkout`).
+        withTransaction(\.disablesAnimations, true) { endingWorkout = workout }
         // Start stays away until the list has landed, after a relaunch into a workout as well.
         withTransaction(\.disablesAnimations, true) { isStartAway = true }
         guard !reduceMotion else {
@@ -182,6 +184,9 @@ extension RoutineScreen {
 
     /// Start, away for the end of a workout, coming back with its edge band.
     private func bringStartBack() {
+        // The bar's keys go for ++ in the system's own quick change: in Start's animation the
+        // bar's glass took longer than Start to settle, ++ coming last.
+        withTransaction(\.disablesAnimations, true) { endingWorkout = nil }
         withAnimation(.smooth(duration: Self.startReturn)) {
             isStartAway = false
             isBottomEdgeHidden = false

@@ -42,9 +42,9 @@ final nonisolated class WorkoutUITests: XCTestCase {
         XCTContext.runActivity(named: "Finish ends the workout, and launch opens a new one") { _ in
             app.buttons["Start"].tap()
             XCTAssertTrue(app.workoutTime.appears(), "Start began no workout")
-            let finish = app.openFinishDialog()
-            XCTAssertNotNil(finish, "No Finish in the dialog")
-            attach(named: "finish-dialog")
+            let finish = app.openFinishMenu()
+            XCTAssertNotNil(finish, "No Finish in the menu")
+            attach(named: "finish-menu")
             finish?.tap()
             XCTAssertTrue(app.buttons["Start"].appears(), "Finish left the workout running")
             XCTAssertTrue(app.buttons["Menu"].exists, "No ++ after Finish")

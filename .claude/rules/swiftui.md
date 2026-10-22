@@ -79,12 +79,15 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   home indicator. It is worked out in the pass that lays out the list (`RowStanding`): the
   screen's height from a `GeometryReader` around the scroll view, and the next row's from a
   hidden copy laid out as a rail row (`railRowStand()`); read back into state after layout, it
-  grew a pass later, and a relaunch into a workout logged SwiftUI's per-frame fault. Ending a workout, from Finish's confirmation (no title; Finish, and Discard
-  workout as destructive; UIKit's action sheet, `popoverConfirmation`, a popover from the bar
-  button with no Cancel, a tap outside cancelling), plays the grow in reverse as one motion: iOS
-  runs the choice about 0.54 s after the tap, once the popover has gone (SwiftUI's
-  `confirmationDialog` ran it about 1.2 s after), and the motion starts in that frame. The
-  current exercise shrinks back as the rows below close up and the list scrolls back to its top
+  grew a pass later, and a relaunch into a workout logged SwiftUI's per-frame fault. Ending a
+  workout, from Finish's menu (Finish, and Discard workout as destructive), plays the grow in
+  reverse as one motion, starting in the frame the item's action runs, as the menu starts to close
+  (a confirmation dialog ran its choice only once its dismissal had finished: SwiftUI's about 1.2 s
+  after the tap, UIKit's action sheet about 0.54 s). The bar keeps the workout's keys
+  (`endingWorkout`) until Start comes back: the menu closes back into Finish, and with Finish gone
+  from under it, it collapsed onto the title instead. The keys swap for ++ with no animation of
+  ours, just before Start rises. The current exercise shrinks back as the rows below close up and
+  the list scrolls back to its top
   (0.4 s, `endBeat`, on a timing curve that eases out and stops: a spring's settling tail felt
   slow and heavy), with Start away and the bottom band hidden. Once that lands (an `endBeat`
   sleep from the motion's start: the animation's completion came a few frames after the rows

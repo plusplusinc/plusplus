@@ -61,13 +61,13 @@ extension XCUIApplication {
         buttons["workout.time"]
     }
 
-    /// Taps Finish in the bar, and returns the dialog's own Finish, once it shows. The popover
-    /// takes the bar's Finish out of the accessibility tree while it shows.
-    func openFinishDialog() -> XCUIElement? {
+    /// Taps Finish in the bar, and returns the menu's own Finish, once it shows: the Finish
+    /// that isn't the bar's.
+    func openFinishMenu() -> XCUIElement? {
         let bar = navigationBars.buttons["Finish"]
         let barFrame = bar.frame
         bar.tap()
-        XCTAssertTrue(buttons["Discard workout"].appears(), "No dialog")
+        XCTAssertTrue(buttons["Discard workout"].appears(), "No menu")
         return buttons.matching(NSPredicate(format: "label == 'Finish'"))
             .allElementsBoundByIndex.first { $0.frame != barFrame }
     }

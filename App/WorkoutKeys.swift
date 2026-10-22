@@ -1,11 +1,10 @@
 import DesignSystem
-import OSLog
 import SwiftUI
 import WorkoutStore
 
-/// Finish, in the bar while a workout runs. It asks first: finish and keep the workout, or
-/// discard it, in a popover from the button, where a tap outside cancels (`popoverConfirmation`).
-/// The choice runs once the popover has gone, and the end's motion starts then.
+/// Finish, in the bar while a workout runs, a menu: finish and keep the workout, or discard it.
+/// A menu rather than a confirmation dialog: its item runs as the menu starts to close, so the
+/// end's motion starts at once; a dialog ran its choice only once its own dismissal had finished.
 struct FinishButton: View {
     let session: RoutineSession
     /// The name the routine shows, kept with the finished workout.
@@ -13,22 +12,16 @@ struct FinishButton: View {
     /// Ends the workout with the change given, in the screen's sequence.
     let end: (@escaping () -> Void) -> Void
 
-    @State private var isConfirming = false
-
     var body: some View {
-        Button("Finish") {
-            isConfirming = true
+        Menu("Finish") {
+            Button("Finish") {
+                end { session.finish(routineName: routineName) }
+            }
+            Button("Discard workout", role: .destructive) {
+                end(session.discard)
+            }
         }
         .hiddenBehindDrawer()
-        // Attached to the button, so the popover points at it.
-        .popoverConfirmation(isPresented: $isConfirming, choices: [
-            ConfirmationChoice(title: String(localized: "Finish")) {
-                end { session.finish(routineName: routineName) }
-            },
-            ConfirmationChoice(title: String(localized: "Discard workout"), isDestructive: true) {
-                end(session.discard)
-            },
-        ])
     }
 }
 
