@@ -5,8 +5,9 @@ import WorkoutStore
 /// Where the current exercise's row is against the part of the list showing. Coarse where it
 /// changes as the list scrolls, so a scroll changes it only as the row crosses a threshold.
 nonisolated struct CurrentPlace: Equatable {
-    /// Whether any of the row shows.
-    var isInView: Bool
+    /// Whether the row was placed in a list with a height, not in the first pass, before the
+    /// scroll view has its size, which lays the row out at no width, its place far off.
+    var isLaidOut: Bool
     /// Scrolled fully or mostly out of view, under 40 percent of as much as could show, where
     /// the way back to it shows.
     var isMostlyOut: Bool
@@ -30,13 +31,13 @@ nonisolated struct CurrentPlace: Equatable {
         contentTop = proxy.frame(in: .list).minY
         height = row.height
         guard let visible = proxy.bounds(of: .scrollView) else {
-            (isInView, isMostlyOut, isAbove) = (true, false, false)
+            (isLaidOut, isMostlyOut, isAbove) = (true, false, false)
             return
         }
         let overlap = row.intersection(visible)
         let most = min(row.height, visible.height)
         let shown = overlap.isNull || most <= 0 ? 0 : overlap.height / most
-        isInView = shown > 0
+        isLaidOut = visible.height > 0
         isMostlyOut = shown < 0.4
         isAbove = row.midY < visible.midY
     }

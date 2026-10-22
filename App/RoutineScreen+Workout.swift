@@ -245,9 +245,10 @@ extension RoutineScreen {
     }
 
     /// Back in a workout after a relaunch, opens the list on the current exercise, once the
-    /// list has its height and the current exercise its place.
+    /// list has its height and the current exercise its place in it. Wherever the row is: at
+    /// the largest text sizes, the equipment under the title can leave it below the screen.
     func openOnCurrentIfDue() {
-        guard opensOnCurrent, visibleHeight > 0, currentPlace?.isInView == true else { return }
+        guard opensOnCurrent, visibleHeight > 0, currentPlace?.isLaidOut == true else { return }
         opensOnCurrent = false
         scrollToCurrent()
     }
@@ -287,48 +288,34 @@ extension RoutineScreen {
     }
 }
 
-/// The scroll to the list's top in Start's sequence and the end's, which the next beat waits
-/// for. An animated scroll's `withAnimation` completion runs at once, as the scroll is not a
-/// SwiftUI animation, so the beat ends as the list arrives at its top, or, failing that, as it
-/// stops.
+/// The scroll to the list's top in Start's sequence, which the next beat waits for. An animated
+/// scroll's `withAnimation` completion runs at once, as the scroll is not a SwiftUI animation,
+/// so the beat ends as the scroll stops. Not before: a scroll set while the spring still settles
+/// around the top, a point or two either side of it, is undone by it, which left the current
+/// exercise where it was at Start whenever the scroll was long enough to still be settling.
 final class ScrollBeat {
     /// How far the list is scrolled. Not observed: read only as a sequence begins.
     private(set) var scrolledY: CGFloat = 0
     private var next: (() -> Void)?
-    private var isAnimating = false
 
-    /// Scrolls with `scroll` toward the list's top, then, once it is there, calls `next`.
+    /// Scrolls with `scroll` toward the list's top, then, once it has stopped, calls `next`.
     func run(then next: @escaping () -> Void, _ scroll: () -> Void) {
         self.next = next
-        isAnimating = false
         scroll()
     }
 
-    /// Whether the list is at its top, within the last couple of points of a scroll's spring,
-    /// which are no reason to wait.
+    /// Whether the list is at its top, so there is nothing to scroll.
     var isListAtTop: Bool {
-        scrolledY < 2
+        scrolledY < 0.5
     }
 
     func listMoved(to scrolledY: CGFloat) {
         self.scrolledY = scrolledY
-        if isListAtTop {
-            finish()
-        }
     }
 
     func phaseChanged(to phase: ScrollPhase) {
-        if phase == .animating {
-            isAnimating = true
-        } else if phase == .idle, isAnimating {
-            finish()
-        }
-    }
-
-    private func finish() {
-        guard let next else { return }
+        guard phase == .idle, let next else { return }
         self.next = nil
-        isAnimating = false
         next()
     }
 }
