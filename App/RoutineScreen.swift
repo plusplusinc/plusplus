@@ -54,8 +54,6 @@ struct RoutineScreen: View {
     @State var isMakingRoom = false
     /// Where the first exercise, the current one in a workout, is against the part showing.
     @State var currentPlace: CurrentPlace?
-    /// The height of the area between the bars, less the room under the list's end in a workout.
-    @State var visibleHeight: CGFloat = 0
     /// The list's height between the bars, and the screen's below it, filled in a workout.
     @State var listHeight: CGFloat = 0
     @State var listFoot: CGFloat = 0
@@ -197,7 +195,7 @@ struct RoutineScreen: View {
             // Room under Add exercise, so at the end of a long list it clears Start.
             .padding(.bottom, Spacing.md)
             // In the content, not a margin, so the visible height the row is sized from stays.
-            .padding(.bottom, isMakingRoom ? visibleHeight : 0)
+            .roomBelow(isMakingRoom)
             // When the keyboard rises, UIKit scrolls the focused field to sit at least 5pt
             // below the top of the visible area. Starting there keeps the title still.
             .padding(.top, Spacing.sm)
@@ -216,9 +214,6 @@ struct RoutineScreen: View {
         }
         .onScrollGeometryChange(for: Bool.self, of: Self.endIsInView(of:)) { isEndInView = $1 }
         .onScrollGeometryChange(for: CGFloat.self, of: \.scrolledY) { scrollBeat.listMoved(to: $1) }
-        .onScrollGeometryChange(for: CGFloat.self, of: \.containerSize.height) {
-            containerResized($1)
-        }
         .onGeometryChange(for: CGFloat.self, of: \.size.height) { listHeight = $0 }
         .reportingFoot { listFoot = $0 }
         .overlay(alignment: .bottom) { wayToCurrent }

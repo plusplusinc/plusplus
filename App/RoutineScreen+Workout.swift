@@ -238,17 +238,11 @@ extension RoutineScreen {
         }
     }
 
-    /// Notes the height of the area between the bars, which a relaunch waits for.
-    func containerResized(_ height: CGFloat) {
-        visibleHeight = height
-        openOnCurrentIfDue()
-    }
-
-    /// Back in a workout after a relaunch, opens the list on the current exercise, once the
-    /// list has its height and the current exercise its place in it. Wherever the row is: at
-    /// the largest text sizes, the equipment under the title can leave it below the screen.
+    /// Back in a workout after a relaunch, opens the list on the current exercise, once it has
+    /// its place in a list with a height. Wherever the row is: at the largest text sizes, the
+    /// equipment under the title can leave it below the screen.
     func openOnCurrentIfDue() {
-        guard opensOnCurrent, visibleHeight > 0, currentPlace?.isLaidOut == true else { return }
+        guard opensOnCurrent, currentPlace?.isLaidOut == true else { return }
         opensOnCurrent = false
         scrollToCurrent()
     }

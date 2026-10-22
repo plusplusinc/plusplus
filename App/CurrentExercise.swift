@@ -63,6 +63,19 @@ extension View {
             .disabled(!isOn)
     }
 
+    /// While `isOn`, room under this view as tall as the scroll view it is in shows, out of sight,
+    /// so the list can scroll its end up to the top. Sized in the same layout pass as the list,
+    /// so a change to what shows, as a workout's margin coming or going, changes it at once: as
+    /// a height read back from the scroll view, it changed the list a second time in the frame.
+    func roomBelow(_ isOn: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            self
+            if isOn {
+                Color.clear.containerRelativeFrame(.vertical)
+            }
+        }
+    }
+
     /// Reports how far the screen goes on below this view, under the home indicator.
     func reportingFoot(to action: @escaping (CGFloat) -> Void) -> some View {
         background {
