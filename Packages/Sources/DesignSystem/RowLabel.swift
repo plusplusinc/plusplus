@@ -195,8 +195,8 @@ private struct StandingHeight: Layout {
     }
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
-        let size = subviews.first?.sizeThatFits(offer(width: proposal.width)) ?? .zero
-        if isResting, height == endHeight {
+        let size = subviews.first?.sizeThatFits(offer(proposal)) ?? .zero
+        if isAtRest {
             return size
         }
         // The content takes its new height at once, so it counts only past the end height, and
@@ -208,23 +208,32 @@ private struct StandingHeight: Layout {
 
     func placeSubviews(
         in bounds: CGRect,
-        proposal _: ProposedViewSize,
+        proposal: ProposedViewSize,
         subviews: Subviews,
         cache _: inout (),
     ) {
         subviews.first?.place(
             at: bounds.origin,
             anchor: .topLeading,
-            proposal: offer(width: bounds.width),
+            proposal: offer(isAtRest ? proposal : ProposedViewSize(width: bounds.width, height: nil)),
         )
     }
 
-    /// What the subview is offered: as tall as it likes at rest, and on the current exercise
-    /// the height it stands at, which its numbers shrink to fit at the largest text sizes, so the
-    /// row after it stays in view. Placed from its top, at its own height: placed in the
-    /// standing height, it would center in it.
-    private func offer(width: CGFloat?) -> ProposedViewSize {
-        ProposedViewSize(width: width, height: isResting ? nil : endHeight)
+    /// Resting, with no shrink still running: laid out as a plain stack, with what it was offered.
+    private var isAtRest: Bool {
+        isResting && height == endHeight
+    }
+
+    /// What the subview is offered: at rest, what the label was, as a row on `main` was; while it
+    /// shrinks, as tall as it likes; and on the current exercise the height it stands at, which
+    /// its numbers shrink to fit at the largest text sizes, so the row after it stays in view.
+    /// Placed from its top, at its own height: placed in the standing height, it would center in
+    /// it.
+    private func offer(_ proposal: ProposedViewSize) -> ProposedViewSize {
+        if isAtRest {
+            return proposal
+        }
+        return ProposedViewSize(width: proposal.width, height: isResting ? nil : endHeight)
     }
 }
 
