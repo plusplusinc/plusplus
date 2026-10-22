@@ -50,7 +50,7 @@ struct RoutineStoreRecencyTests {
         try await store.save(first, at: Self.at(1))
         try await store.save(Self.routine("B"), at: Self.at(2))
         _ = try await store.openRoutine(first.id, weightUnit: .pounds, at: Self.at(3))
-        #expect(try await relaunch().launchRoutine(weightUnit: .pounds)?.name == "A")
+        #expect(try await relaunch().launch(weightUnit: .pounds).routine?.name == "A")
     }
 
     @Test("Launch reopens the routine edited last, after an open")
@@ -60,7 +60,7 @@ struct RoutineStoreRecencyTests {
         try await store.save(first, at: Self.at(1))
         _ = try await store.openRoutine(first.id, weightUnit: .pounds, at: Self.at(3))
         try await store.save(Self.routine("B"), at: Self.at(4))
-        #expect(try await relaunch().launchRoutine(weightUnit: .pounds)?.name == "B")
+        #expect(try await relaunch().launch(weightUnit: .pounds).routine?.name == "B")
     }
 
     @Test("Launch opens the routine listed first, whatever ties")
@@ -70,7 +70,7 @@ struct RoutineStoreRecencyTests {
             try await store.save(Self.routine(name), at: Self.at(1))
         }
         let first = try await listed().first
-        #expect(try await relaunch().launchRoutine(weightUnit: .pounds)?.name == first)
+        #expect(try await relaunch().launch(weightUnit: .pounds).routine?.name == first)
     }
 
     @Test("Opening a routine returns it whole: name, rows, plans, and supersets")

@@ -97,7 +97,7 @@ extension RoutineAutosaveUITests {
             XCTAssertEqual(title.value(becoming: "Back"), "Back", "The row pushed no routine")
             XCTAssertFalse(app.buttons["Menu"].exists, "++ shows on a pushed routine")
             attach(named: "pushed-routine")
-            edgeSwipe(in: app)
+            app.edgeSwipe()
             XCTAssertTrue(title.disappears(), "The edge swipe did not pop")
             XCTAssertFalse(app.drawerTitle.exists, "The edge swipe opened the drawer")
             XCTAssertTrue(app.buttons["Menu"].appears(), "No ++ back on the Routines screen")
@@ -107,7 +107,7 @@ extension RoutineAutosaveUITests {
             XCTAssertEqual(title.value(becoming: "New routine"), "New routine")
             app.navigationBars.buttons.element(boundBy: 0).tap()
             XCTAssertTrue(title.disappears(), "The chevron did not pop")
-            edgeSwipe(in: app)
+            app.edgeSwipe()
             XCTAssertTrue(app.drawerTitle.appears(), "The edge swipe on Routines did not open it")
             app.drawerTitle.tap()
             XCTAssertTrue(app.drawerTitle.disappears(), "Tapping the title left the drawer open")
@@ -175,17 +175,5 @@ extension RoutineAutosaveUITests {
     private func buttonLabels(in snapshot: any XCUIElementSnapshot) -> [String] {
         let own = snapshot.elementType == .button ? [snapshot.label] : []
         return own + snapshot.children.flatMap { buttonLabels(in: $0) }
-    }
-
-    @MainActor
-    private func edgeSwipe(in app: XCUIApplication) {
-        let edge = app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0.5))
-            .withOffset(CGVector(dx: 2, dy: 0))
-        edge.press(
-            forDuration: 0.05,
-            thenDragTo: edge.withOffset(CGVector(dx: 300, dy: 0)),
-            withVelocity: .default,
-            thenHoldForDuration: 0,
-        )
     }
 }

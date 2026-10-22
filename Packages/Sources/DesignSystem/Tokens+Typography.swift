@@ -24,12 +24,22 @@ extension Font {
     public static let ppRowDetailNumber = Font.system(.subheadline, design: .monospaced)
     /// The numbers in a value at the row title's size and weight: SF Mono.
     public static let ppRowTitleNumber = Font.system(.body, design: .monospaced, weight: .semibold)
+    /// The current exercise's name, grown from `ppRowTitle`.
+    public static let ppCurrentTitle = Font.system(.title, weight: .semibold)
+    /// Which set the current exercise is on, "Set 1 of 3": SF Mono, as numbers are.
+    public static let ppCurrentProgress = Font.system(.body, design: .monospaced, weight: .medium)
+    /// What a current exercise's large number counts, "reps", "lb".
+    public static let ppCurrentUnit = Font.system(.title2)
+    /// A workout's time on its key in the bar: SF Mono, so the digits hold still as they tick.
+    public static let ppWorkoutTime = ppRowTitleNumber
     /// A place in the drawer, Routines or a routine under it: one font for all, so none reads as
     /// a heading over the others.
     public static let ppDrawerItem = Font.system(.body, weight: .medium)
     /// A routine's name in a list of routines: SF Pro, as the name can't be edited there, the
     /// drawer's font, so a row reads the same in both.
     public static let ppRoutineName = ppDrawerItem
+    /// The +1 that pops off Start as it is pressed: SF Mono, as numbers are.
+    public static let ppPlusOne = Font.system(.title3, design: .monospaced, weight: .bold)
     /// The ++ mark: monospaced so the two pluses read as one glyph.
     public static let ppMark = Font.system(.title2, design: .monospaced, weight: .bold)
 }

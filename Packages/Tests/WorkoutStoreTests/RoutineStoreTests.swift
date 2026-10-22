@@ -26,14 +26,14 @@ struct RoutineStoreTests {
 
     @Test("An untouched store opens nothing")
     func untouched() async throws {
-        #expect(try await relaunch().launchRoutine(weightUnit: .pounds) == nil)
+        #expect(try await relaunch().launch(weightUnit: .pounds).routine == nil)
         #expect(try count(StoredRoutine.self) == 0)
     }
 
     @Test("A new routine with nothing in it is never stored")
     func emptyNotStored() async throws {
         try await relaunch().save(Routine())
-        #expect(try await relaunch().launchRoutine(weightUnit: .pounds) == nil)
+        #expect(try await relaunch().launch(weightUnit: .pounds).routine == nil)
         #expect(try count(StoredRoutine.self) == 0)
     }
 
@@ -41,7 +41,7 @@ struct RoutineStoreTests {
     func namedReopens() async throws {
         let routine = Routine(name: "Arm and back day")
         try await relaunch().save(routine)
-        #expect(try await relaunch().launchRoutine(weightUnit: .pounds) == routine)
+        #expect(try await relaunch().launch(weightUnit: .pounds).routine == routine)
     }
 
     @Test("Rows reopen in order, duplicates and ids kept")
@@ -51,7 +51,7 @@ struct RoutineStoreTests {
             exercises: [Self.row("Barbell bench press"), pullUp, Self.row("Pull-up")],
         )
         try await relaunch().save(routine)
-        #expect(try await relaunch().launchRoutine(weightUnit: .pounds) == routine)
+        #expect(try await relaunch().launch(weightUnit: .pounds).routine == routine)
     }
 
     @Test("A deleted row stays deleted, the rest in order, with no row left behind")
@@ -64,7 +64,7 @@ struct RoutineStoreTests {
         routine.exercises.remove(at: 1)
         try await store.save(routine)
 
-        #expect(try await relaunch().launchRoutine(weightUnit: .pounds) == routine)
+        #expect(try await relaunch().launch(weightUnit: .pounds).routine == routine)
         #expect(try count(StoredRoutineExercise.self) == 2)
     }
 
@@ -78,7 +78,7 @@ struct RoutineStoreTests {
         routine.move(last.id, to: .before(first.id))
         try await store.save(routine)
 
-        #expect(try await relaunch().launchRoutine(weightUnit: .pounds) == routine)
+        #expect(try await relaunch().launch(weightUnit: .pounds).routine == routine)
         #expect(try count(StoredRoutineExercise.self) == 3)
     }
 
@@ -91,7 +91,7 @@ struct RoutineStoreTests {
         routine.exercises = []
         try await store.save(routine)
 
-        #expect(try await relaunch().launchRoutine(weightUnit: .pounds) == nil)
+        #expect(try await relaunch().launch(weightUnit: .pounds).routine == nil)
         #expect(try count(StoredRoutine.self) == 0)
         #expect(try count(StoredRoutineExercise.self) == 0)
     }
@@ -103,12 +103,12 @@ struct RoutineStoreTests {
         var newer = Routine(name: "Newer")
         try await store.save(newer, at: Date(timeIntervalSince1970: 200))
         try await store.save(older, at: Date(timeIntervalSince1970: 100))
-        #expect(try await relaunch().launchRoutine(weightUnit: .pounds) == newer)
+        #expect(try await relaunch().launch(weightUnit: .pounds).routine == newer)
 
         var renamed = older
         renamed.name = "Renamed"
         try await store.save(renamed, at: Date(timeIntervalSince1970: 300))
-        #expect(try await relaunch().launchRoutine(weightUnit: .pounds) == renamed)
+        #expect(try await relaunch().launch(weightUnit: .pounds).routine == renamed)
     }
 
     @Test("A row whose exercise isn't built in is dropped, and the rest load")
@@ -122,7 +122,7 @@ struct RoutineStoreTests {
         unknown.routine = stored
         try context.save()
 
-        #expect(try await relaunch().launchRoutine(weightUnit: .pounds)?.exercises == [plank])
+        #expect(try await relaunch().launch(weightUnit: .pounds).routine?.exercises == [plank])
     }
 
     @Test("A routine is empty with no name and no rows")

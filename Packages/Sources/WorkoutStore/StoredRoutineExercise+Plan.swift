@@ -17,15 +17,6 @@ extension StoredRoutineExercise {
         update(\.weightUnit, to: plan.weight?.unit.rawValue)
     }
 
-    private func update<Value: Equatable>(
-        _ field: ReferenceWritableKeyPath<StoredRoutineExercise, Value?>,
-        to value: Value?,
-    ) {
-        if self[keyPath: field] != value {
-            self[keyPath: field] = value
-        }
-    }
-
     /// The stored plan, field by field: a field never stored, out of range, or for another
     /// measure reads as the exercise's default, a weight in `weightUnit`, the region's. A weight
     /// shows only on an exercise that holds one, and in the unit it was saved in.

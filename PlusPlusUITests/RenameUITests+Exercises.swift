@@ -35,6 +35,13 @@ extension RenameUITests {
             app.addExercise(exercises[0].label)
             XCTAssertTrue(app.buttons["Start"].appears())
             app.buttons["Start"].tap()
+            XCTAssertTrue(app.endKey.appears(), "Start began no workout")
+            XCTAssertEqual(app.workoutTime.label, "Pause")
+            XCTAssertFalse(app.buttons["Start"].exists, "Start stayed in a workout")
+            XCTAssertFalse(app.buttons["Menu"].exists, "++ stayed in a workout")
+            // Discarded, so the rest runs on a routine in edit mode, as if Start never ran.
+            app.discardWorkout()
+            XCTAssertTrue(app.buttons["Menu"].exists)
             XCTAssertEqual(app.exerciseCount(becoming: 1), 1)
             XCTAssertFalse(search.exists, "Start opened something")
         }
@@ -165,16 +172,15 @@ extension RenameUITests {
                 XCTAssertTrue(delete.appears(), "A swipe did not open the row")
             }
             open()
-            // Halfway between Add exercise and Start: clear of both keys' touch slop, and of
-            // Start's bar, however many rows there are.
-            let addExercise = app.buttons["Add exercise"]
-            let gap = app.buttons["Start"].frame.minY - addExercise.frame.maxY
-            addExercise.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 1))
-                .withOffset(CGVector(dx: 0, dy: gap / 2)).tap()
+            // The empty end of the capsules' second line, under the title: the list runs on
+            // under Start, so there may be no gap between Add exercise and Start.
+            app.equipment.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.8)).tap()
             XCTAssertTrue(delete.disappears(), "A tap on empty screen left the row open")
             open()
+            // The tap closes the row and still starts a workout, which is discarded.
             app.buttons["Start"].tap()
             XCTAssertTrue(delete.disappears(), "A tap on Start left the row open")
+            app.discardWorkout()
             open()
             // The tap closes the row and still opens the picker.
             _ = app.openPicker()

@@ -54,7 +54,7 @@ extension RoutineExercise {
     }
 
     /// A weight shows only on an exercise that holds one.
-    private var shownWeight: Weight? {
+    var shownWeight: Weight? {
         exercise.load == nil ? nil : plan.weight
     }
 }
@@ -62,12 +62,8 @@ extension RoutineExercise {
 extension SetTarget {
     /// "1 rep", "10 reps", "30 s", "90 s", "2 min", "2:30 min".
     func text(locale: Locale) -> String {
-        switch self {
-        case let .reps(reps):
-            "\(reps.formatted(.number.locale(locale)))\(noBreakSpace)\(reps == 1 ? "rep" : "reps")"
-        case let .time(seconds):
-            TimeText.text(seconds: seconds, locale: locale)
-        }
+        let figure = figure(locale: locale)
+        return figure.number + noBreakSpace + figure.unit
     }
 
     /// "1 rep", "10 reps", "90 seconds", "2 minutes", "2 minutes 30 seconds".
@@ -114,14 +110,20 @@ enum TimeText {
 
     /// "30 s", "90 s", "2 min", "2:30 min".
     static func text(seconds: Int, locale: Locale) -> String {
+        let parts = parts(seconds: seconds, locale: locale)
+        return parts.number + noBreakSpace + parts.unit
+    }
+
+    /// The number and its unit apart: "30" "s", "2" "min", "2:30" "min".
+    static func parts(seconds: Int, locale: Locale) -> (number: String, unit: String) {
         guard seconds >= minutesFrom else {
-            return seconds.formatted(.number.locale(locale)) + noBreakSpace + "s"
+            return (seconds.formatted(.number.locale(locale)), "s")
         }
         let minutes = (seconds / 60).formatted(.number.locale(locale))
         let rest = seconds % 60
-        guard rest > 0 else { return minutes + noBreakSpace + "min" }
+        guard rest > 0 else { return (minutes, "min") }
         let seconds = rest.formatted(.number.precision(.integerLength(2...)).locale(locale))
-        return minutes + ":" + seconds + noBreakSpace + "min"
+        return (minutes + ":" + seconds, "min")
     }
 }
 

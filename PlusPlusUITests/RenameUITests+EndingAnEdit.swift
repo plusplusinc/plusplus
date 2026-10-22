@@ -30,11 +30,7 @@ extension RenameUITests {
             app.buttons["Close"].tap()
             XCTAssertTrue(sets.disappears(), "Close left the sheet up")
         }
-        XCTContext.runActivity(named: "A tap on Start ends the edit in place") { _ in
-            endEditWithoutMoving(in: app, keyboard: keyboard) {
-                app.buttons["Start"].tap()
-            }
-        }
+        startEndsTheEdit(in: app, keyboard: keyboard)
         XCTContext.runActivity(named: "A tap on ++ ends the edit and opens the drawer") { _ in
             XCTAssertTrue(app.routineTitle.settles(), "The title kept moving before the edit")
             app.routineTitle.tap()
@@ -83,9 +79,10 @@ extension RenameUITests {
         XCTContext.runActivity(named: "A scroll ends the edit and scrolls the list") { _ in
             startEdit()
             let top = row(0).frame.minY
-            row(3).center.press(
+            // Row 1, clear of Start riding above the keyboard, which covers row 3.
+            row(1).center.press(
                 forDuration: 0.05,
-                thenDragTo: row(3).center.down(-200),
+                thenDragTo: row(1).center.down(-200),
                 withVelocity: .default,
                 thenHoldForDuration: 0,
             )
@@ -114,6 +111,28 @@ extension RenameUITests {
             XCTAssertEqual(app.supersets(becoming: "AA......."), "AA.......")
             row(1).nodePoint.holdAndDrag(to: row(0).nodePoint)
             XCTAssertEqual(app.supersets(becoming: "........."), ".........")
+        }
+    }
+
+    /// Start ends an edit. Not checked in place: Start rides on the keyboard, so the tap may land
+    /// as the key moves down with it, and a press that lands starts a workout, which grows the
+    /// first exercise. Any workout started is discarded.
+    @MainActor
+    private func startEndsTheEdit(in app: XCUIApplication, keyboard: XCUIElement) {
+        XCTContext.runActivity(named: "A tap on Start ends the edit") { _ in
+            XCTAssertTrue(app.routineTitle.settles(), "The title kept moving before the edit")
+            let start = app.buttons["Start"]
+            let (title, key) = (app.routineTitle.frame, start.frame)
+            app.routineTitle.tap()
+            XCTAssertTrue(keyboard.appears(), "A tap on the title did not start an edit")
+            // Riding on the keyboard, Start keeps its size, and the screen stays put beside it.
+            XCTAssertEqual(start.frame.size, key.size, "Start changed size over the keyboard")
+            XCTAssertEqual(app.routineTitle.frame.minX, title.minX, "The screen moved sideways")
+            start.tap()
+            XCTAssertTrue(keyboard.disappears(), "Start did not end the edit")
+            if app.workoutTime.appears(within: 1) {
+                app.discardWorkout()
+            }
         }
     }
 

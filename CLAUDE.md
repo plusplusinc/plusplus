@@ -9,7 +9,7 @@ This file is the constitution: loaded every session, kept short. Detail lives in
 `.claude/rules/*.md`, which load when you touch matching files, and in `docs/`. If this file and a
 rules file disagree, this file wins.
 
-**Status: routines, saved, and a drawer between them.** The app launches into the routine last
+**Status: routines, saved, a drawer between them, and a workout started on one.** The app launches into the routine last
 opened or edited, or a new, empty one, which you can name and add built-in exercises to. ++, or
 a swipe in from the left edge, slides the screen aside, darkened, onto a drawer: Routines, the
 three routines last opened or edited, the last edited first, and New, an action, never marked;
@@ -29,10 +29,17 @@ row's dot and dragging over other rows joins them into a superset, which a loop 
 marks and whose rows share one round count; a held row resting half a second over a plain
 neighbor pairs with it, at the larger set count; an end's dot moves that end, a body drag
 carries a row in or out, and VoiceOver joins and leaves with actions. While a row or dot is
-held, the superset the drag affects sits in a sunken area. The app shows only in dark
+held, the superset the drag affects sits in a sunken area. Start, once the routine has an
+exercise, runs a workout on the same screen: the first exercise grows into the current one, its
+set, equipment, and numbers large, filling the screen but for the next exercise, with no swipe;
+scrolled away, a floating key goes back to it. End takes ++'s place and asks "End this
+workout?": Finish workout, offered once a set is done (none can be logged yet), keeps it, and
+launch then opens a new routine; Discard workout keeps nothing. The time, at top right, pauses
+and resumes. A workout survives a relaunch, keeps the screen on, and locks the drawer, and
+every edit stays on. The app shows only in dark
 appearance (`Config/Base.xcconfig`); the light palette is seen only in snapshots.
-`WorkoutStore` holds the domain types, the first stored models behind `RoutineStore`, the
-namer, the order a superset's sets go in, and the routines' recency. Nothing syncs yet.
+`WorkoutStore` holds the domain types, the stored models behind `RoutineStore` in a versioned
+schema, workouts and their time, the namer, the order a superset's sets go in, and the routines' recency. Nothing syncs yet.
 
 ## Architecture
 

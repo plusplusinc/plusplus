@@ -39,7 +39,7 @@ struct RoutineStorePlanTests {
             RoutineExercise.builtIn("Farmer\u{2019}s carry") { $0.weight = Weight(50, .pounds) },
         ])
         try await relaunch().save(routine)
-        #expect(try await relaunch().launchRoutine(weightUnit: .pounds) == routine)
+        #expect(try await relaunch().launch(weightUnit: .pounds).routine == routine)
     }
 
     @Test("Two rows of one exercise keep their own values, and a kept row's change is saved")
@@ -53,7 +53,7 @@ struct RoutineStorePlanTests {
         routine.exercises[1].plan.target = .reps(8)
         try await store.save(routine)
 
-        let reopened = try #require(try await relaunch().launchRoutine(weightUnit: .pounds))
+        let reopened = try #require(try await relaunch().launch(weightUnit: .pounds).routine)
         #expect(reopened.exercises.map(\.plan.target) == [.reps(6), .reps(8)])
     }
 
@@ -77,9 +77,9 @@ struct RoutineStorePlanTests {
             row.weightUnit = nil
         }
         let row = try Exercise.builtIn(named: "Dumbbell row")
-        let inPounds = try #require(try await relaunch().launchRoutine(weightUnit: .pounds))
+        let inPounds = try #require(try await relaunch().launch(weightUnit: .pounds).routine)
         #expect(inPounds.exercises.map(\.plan) == [row.defaultPlan(in: .pounds)])
-        let inKilograms = try #require(try await relaunch().launchRoutine(weightUnit: .kilograms))
+        let inKilograms = try #require(try await relaunch().launch(weightUnit: .kilograms).routine)
         #expect(inKilograms.exercises.map(\.plan) == [row.defaultPlan(in: .kilograms)])
         #expect(inKilograms.exercises.first?.plan.weight == Weight(12, .kilograms))
     }
@@ -91,7 +91,7 @@ struct RoutineStorePlanTests {
             row.weight = 20
             row.weightUnit = "stone"
         }
-        let plan = try #require(try await relaunch().launchRoutine(weightUnit: .pounds)?.exercises
+        let plan = try #require(try await relaunch().launch(weightUnit: .pounds).routine?.exercises
             .first?.plan)
         #expect(plan == ExercisePlan(sets: 3, target: .reps(8), weight: Weight(15, .pounds)))
     }
@@ -105,7 +105,7 @@ struct RoutineStorePlanTests {
             row.weight = -5
             row.weightUnit = "lb"
         }
-        let plan = try #require(try await relaunch().launchRoutine(weightUnit: .pounds)?.exercises
+        let plan = try #require(try await relaunch().launch(weightUnit: .pounds).routine?.exercises
             .first?.plan)
         #expect(try plan == Exercise.builtIn(named: "Goblet squat").defaultPlan(in: .pounds))
     }
@@ -116,7 +116,7 @@ struct RoutineStorePlanTests {
             row.weight = 1005
             row.weightUnit = "lb"
         }
-        let plan = try #require(try await relaunch().launchRoutine(weightUnit: .pounds)?.exercises
+        let plan = try #require(try await relaunch().launch(weightUnit: .pounds).routine?.exercises
             .first?.plan)
         #expect(try plan.weight == Exercise.builtIn(named: "Goblet squat").defaultPlan(in: .pounds)
             .weight)
@@ -128,7 +128,7 @@ struct RoutineStorePlanTests {
             row.weight = 10
             row.weightUnit = "lb"
         }
-        let plan = try #require(try await relaunch().launchRoutine(weightUnit: .pounds)?.exercises
+        let plan = try #require(try await relaunch().launch(weightUnit: .pounds).routine?.exercises
             .first?.plan)
         #expect(plan.weight == nil)
     }

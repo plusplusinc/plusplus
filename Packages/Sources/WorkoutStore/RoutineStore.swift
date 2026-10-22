@@ -2,29 +2,91 @@ import Foundation
 import OSLog
 import SwiftData
 
-/// Saves routines and finds the one the app opens with. Values in, values out: the stored
-/// models never leave the actor.
+/// Saves routines and workouts, and finds what the app opens with. Values in, values out: the
+/// stored models never leave the actor.
 @ModelActor
 public actor RoutineStore {
     private static let builtInByID = Dictionary(
         uniqueKeysWithValues: Exercise.builtIn.map { ($0.id, $0) },
     )
 
-    static let schema = Schema([StoredRoutine.self, StoredRoutineExercise.self])
+    static let schema = Schema(versionedSchema: RoutineMigrationPlan.current)
 
     public static func open(_ mode: StorageMode) throws -> RoutineStore {
-        try RoutineStore(modelContainer: WorkoutStoreContainer.make(mode: mode, schema: schema))
+        try RoutineStore(modelContainer: WorkoutStoreContainer.make(
+            mode: mode,
+            schema: schema,
+            migrationPlan: RoutineMigrationPlan.self,
+        ))
     }
 
-    /// The routine the app opens with, or nil for a new one: the last one opened or edited.
-    /// Every stored routine has been edited, since an untouched one is never saved and a
-    /// cleared one is deleted. A weight never saved reads as its exercise's default in
-    /// `weightUnit`.
-    public func launchRoutine(weightUnit: WeightUnit) throws -> Routine? {
+    /// What the app opens with. A workout in progress opens with its routine, or, if that is
+    /// gone, an empty one under its id and name; with more than one, as sync could leave, the
+    /// latest started. Otherwise the routine last opened or edited, unless a workout finished
+    /// after that, which opens a new routine (nil). Every stored routine has been edited, since
+    /// an untouched one is never saved and a cleared one is deleted. A weight never saved reads
+    /// as its exercise's default in `weightUnit`.
+    public func launch(weightUnit: WeightUnit) throws -> (routine: Routine?, workout: Workout?) {
+        var inProgress = FetchDescriptor<StoredWorkout>(
+            predicate: #Predicate { $0.endedAt == nil },
+            sortBy: [SortDescriptor(\.startedAt, order: .reverse), SortDescriptor(\.id)],
+        )
+        inProgress.fetchLimit = 1
+        if let current = try modelContext.fetch(inProgress).first {
+            let workout = current.workout
+            let routine = try stored(id: workout.routineID)
+                .map { Self.routine(from: $0, weightUnit: weightUnit) }
+                ?? Routine(id: workout.routineID, name: workout.routineName)
+            return (routine, workout)
+        }
         // Picked here, as the list sorts, so launch opens the routine the list puts first.
-        try modelContext.fetch(FetchDescriptor<StoredRoutine>())
+        guard let latest = try modelContext.fetch(FetchDescriptor<StoredRoutine>())
             .min(by: Self.isMoreRecent(_:than:))
-            .map { Self.routine(from: $0, weightUnit: weightUnit) }
+        else { return (nil, nil) }
+        var finished = FetchDescriptor<StoredWorkout>(
+            predicate: #Predicate { $0.endedAt != nil },
+            sortBy: [SortDescriptor(\.endedAt, order: .reverse)],
+        )
+        finished.fetchLimit = 1
+        let lastFinish = try modelContext.fetch(finished).first?.endedAt ?? .distantPast
+        guard lastFinish <= latest.recency else { return (nil, nil) }
+        return (Self.routine(from: latest, weightUnit: weightUnit), nil)
+    }
+
+    /// Saves the workout as it is now, every field. Once it has ended, its routine, if cleared
+    /// to nothing while it ran, goes in the same save.
+    public func save(_ workout: Workout) throws {
+        let target = try storedWorkout(id: workout.id) ?? {
+            let new = StoredWorkout(id: workout.id)
+            modelContext.insert(new)
+            return new
+        }()
+        target.write(workout)
+        if !workout.isInProgress {
+            try deleteIfCleared(routineID: workout.routineID)
+        }
+        try modelContext.save()
+    }
+
+    /// Deletes the workout, keeping nothing of it, and its routine if cleared to nothing while
+    /// it ran, in one save; nothing if there is none.
+    public func discardWorkout(_ id: Workout.ID) throws {
+        guard let stored = try storedWorkout(id: id) else { return }
+        if let routineID = stored.routineID {
+            try deleteIfCleared(routineID: routineID)
+        }
+        modelContext.delete(stored)
+        try modelContext.save()
+    }
+
+    /// A routine cleared to nothing is kept only while its workout runs; ending the workout
+    /// deletes it in the same save, so no empty routine outlives a workout cut short between
+    /// two writes.
+    private func deleteIfCleared(routineID: UUID) throws {
+        guard let routine = try stored(id: routineID),
+              routine.name.isEmpty, routine.exercises?.isEmpty ?? true
+        else { return }
+        modelContext.delete(routine)
     }
 
     /// Marks the routine opened at `now` and returns it, or nil, storing nothing, if there is
@@ -56,10 +118,12 @@ public actor RoutineStore {
         )
     }
 
-    /// Saves the routine as it is now, edited at `now`, or deletes it once it is empty.
-    public func save(_ routine: Routine, at now: Date = .now) throws {
+    /// Saves the routine as it is now, edited at `now`, or deletes it once it is empty, unless
+    /// `keepsEmpty`, as while a workout runs it: the empty routine is stored, and deleted by the
+    /// next save without it.
+    public func save(_ routine: Routine, at now: Date = .now, keepsEmpty: Bool = false) throws {
         let stored = try stored(id: routine.id)
-        guard !routine.isEmpty else {
+        guard !routine.isEmpty || keepsEmpty else {
             if let stored {
                 modelContext.delete(stored)
                 try modelContext.save()
@@ -106,10 +170,13 @@ public actor RoutineStore {
     }
 
     #if DEBUG
-    /// Empties the store, so a UI test starts from a new routine.
+    /// Empties the store, so a UI test starts from a new routine and no workout.
     public func deleteAll() throws {
         for routine in try modelContext.fetch(FetchDescriptor<StoredRoutine>()) {
             modelContext.delete(routine)
+        }
+        for workout in try modelContext.fetch(FetchDescriptor<StoredWorkout>()) {
+            modelContext.delete(workout)
         }
         try modelContext.save()
     }
@@ -120,6 +187,12 @@ public actor RoutineStore {
     private static func isMoreRecent(_ one: StoredRoutine, than other: StoredRoutine) -> Bool {
         let (oneRecency, otherRecency) = (one.recency, other.recency)
         return oneRecency != otherRecency ? oneRecency > otherRecency : one.id < other.id
+    }
+
+    private func storedWorkout(id: UUID) throws -> StoredWorkout? {
+        var descriptor = FetchDescriptor<StoredWorkout>(predicate: #Predicate { $0.id == id })
+        descriptor.fetchLimit = 1
+        return try modelContext.fetch(descriptor).first
     }
 
     private func stored(id: UUID) throws -> StoredRoutine? {
