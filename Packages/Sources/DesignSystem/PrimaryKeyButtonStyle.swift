@@ -67,9 +67,9 @@ private struct PrimaryKeyBar<Key: View>: ViewModifier {
     let drop: CGFloat
     let key: Key
 
-    /// The screen's bottom safe area, measured on the screen rather than on the key, so a key
-    /// coming in has it from its first frame: measured on the key, it came in 16 pt from the
-    /// sides, then narrowed to its place on the screen's next animation.
+    /// The screen's bottom safe area, less the keyboard's, measured on the screen rather than on
+    /// the key, so a key coming in has it from its first frame: measured on the key, it came in
+    /// 16 pt from the sides, then narrowed to its place on the screen's next animation.
     @State private var bottomInset: CGFloat = 0
 
     func body(content: Content) -> some View {
@@ -88,7 +88,18 @@ private struct PrimaryKeyBar<Key: View>: ViewModifier {
                         .transition(KeyBarTransition(below: bottomInset))
                 }
             }
-            .onGeometryChange(for: CGFloat.self, of: \.safeAreaInsets.bottom) { bottomInset = $0 }
+            // The screen's own inset, without the keyboard's when it is up: with the keyboard's
+            // height as the side insets, the key stood tall and narrow over it, and the bar,
+            // wider than the screen, pushed the whole screen off its left edge. Measured inside
+            // the view that ignores the keyboard, which takes its inset away from what it holds;
+            // measured on that view, the keyboard's inset still counted.
+            .background {
+                Color.clear
+                    .onGeometryChange(for: CGFloat.self, of: \.safeAreaInsets.bottom) {
+                        bottomInset = $0
+                    }
+                    .ignoresSafeArea(.keyboard)
+            }
             // Over the screen rather than in the bar: the bar's scroll edge effect grows to cover
             // whatever the bar draws, so a +1 rising in it raised a frosted band behind itself.
             .overlayPreferenceValue(PrimaryKeyBounds.self) { key in

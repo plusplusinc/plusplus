@@ -121,9 +121,14 @@ extension RenameUITests {
     private func startEndsTheEdit(in app: XCUIApplication, keyboard: XCUIElement) {
         XCTContext.runActivity(named: "A tap on Start ends the edit") { _ in
             XCTAssertTrue(app.routineTitle.settles(), "The title kept moving before the edit")
+            let start = app.buttons["Start"]
+            let (title, key) = (app.routineTitle.frame, start.frame)
             app.routineTitle.tap()
             XCTAssertTrue(keyboard.appears(), "A tap on the title did not start an edit")
-            app.buttons["Start"].tap()
+            // Riding on the keyboard, Start keeps its size, and the screen stays put beside it.
+            XCTAssertEqual(start.frame.size, key.size, "Start changed size over the keyboard")
+            XCTAssertEqual(app.routineTitle.frame.minX, title.minX, "The screen moved sideways")
+            start.tap()
             XCTAssertTrue(keyboard.disappears(), "Start did not end the edit")
             if app.workoutTime.appears(within: 1) {
                 app.discardWorkout()
