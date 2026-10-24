@@ -19,7 +19,10 @@
 # an empty-bodied card; `body` and `state` refuse empty input rather than blank the card. `state`
 # takes the section's content without its heading and replaces everything from `## State` to
 # the end of the body, State being the last section, or appends the section when there is none.
-# `readme` writes the README when stdin has text and reads it otherwise.
+# `readme` writes the README when stdin has text and reads it otherwise. GitHub's item list
+# lags its writes: an item `add` just made, or a place `move` just set, can take minutes to
+# show in `list`, while `show <item-id>` reads the item at once. Neither is lost; check the
+# order again later rather than looking for a fault.
 #
 # Draft items keep the board private while the repo is public; `publish` converts one to an
 # issue when the /brief skill says so, keeping its place and status on the board. Trim the
