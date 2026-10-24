@@ -14,7 +14,6 @@ extra cases.
 """
 import json
 import pathlib
-import re
 import subprocess
 import sys
 from datetime import datetime
@@ -44,6 +43,7 @@ def find_run(runs, branch=None, number=None):
     if number is not None:
         return next((r for r in runs if r["attributes"]["number"] == number), None)
     # The branch's recent commits, newest first; the newest run of the newest one that ran.
+    git("fetch", "--quiet", "origin", branch)  # a push from elsewhere moves its tip
     log = git("rev-list", "--max-count=50", f"origin/{branch}")
     if log.returncode != 0:
         log = git("rev-list", "--max-count=50", branch)
@@ -51,8 +51,8 @@ def find_run(runs, branch=None, number=None):
         sys.exit(f"no branch {branch!r} here; fetch it, or pass --run <number>")
     newest = {}
     for r in runs:
-        sha = r["attributes"]["sourceCommit"]["commitSha"]
-        if sha not in newest or r["attributes"]["number"] > newest[sha]["attributes"]["number"]:
+        sha = (r["attributes"].get("sourceCommit") or {}).get("commitSha")
+        if sha and sha not in newest or r["attributes"]["number"] > newest[sha]["attributes"]["number"]:
             newest[sha] = r
     return next((newest[sha] for sha in log.stdout.split() if sha in newest), None)
 
@@ -85,12 +85,15 @@ def main(argv):
         print(f"no Xcode Cloud PR run found for {what} among the last 50; it may not have started yet")
         return 1
     a = run["attributes"]
-    sha = a["sourceCommit"]["commitSha"]
+    sha = (a.get("sourceCommit") or {}).get("commitSha", "")
     print(f"Xcode Cloud run {a['number']} on {sha[:7]}: {a.get('completionStatus') or a['executionProgress']}")
     if not a.get("finishedDate"):
         if a.get("startedDate"):
             elapsed = (datetime.now(when(a["startedDate"]).tzinfo) - when(a["startedDate"])).total_seconds()
             print(f"  running for {elapsed:.0f} s so far (budget {RUN} s, aim {RUN_AIM} s)")
+        return 0
+    if not a.get("startedDate"):
+        print("  it ended before it started, so it has no times")
         return 0
     total = (when(a["finishedDate"]) - when(a["startedDate"])).total_seconds()
     print(f"  start to finish {over(total, RUN)}, aim {RUN_AIM} s")

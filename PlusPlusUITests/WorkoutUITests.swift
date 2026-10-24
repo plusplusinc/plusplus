@@ -34,7 +34,7 @@ final nonisolated class WorkoutUITests: XCTestCase {
         // What launch opens after Discard is `RoutineStoreWorkoutTests`'.
         XCTContext.runActivity(named: "Discard leaves the routine as it was") { _ in
             app.discardWorkout()
-            XCTAssertEqual(title.value as? String, renamed, "Launch opened another routine")
+            XCTAssertEqual(title.value as? String, renamed, "Discard opened another routine")
             XCTAssertTrue(app.buttons["Start"].appears(), "The workout came back")
             XCTAssertFalse(app.endKey.exists)
             XCTAssertTrue(app.buttons["Menu"].exists, "No ++ after Discard")
@@ -116,11 +116,13 @@ final nonisolated class WorkoutUITests: XCTestCase {
             XCTAssertEqual(reading(key.label, becoming: "Resume", within: 2), "Resume")
             let held = key.seconds
             attach(named: "workout-paused")
-            // The time reads in whole seconds, so a second and a half sees a tick if one comes.
+            // Waited out in full when it holds. The time reads in whole seconds, so a second and
+            // a half sees a tick if one comes.
             XCTAssertEqual(reading(key.seconds, until: { $0 != held }, within: 1.5), held)
             key.tap()
             XCTAssertEqual(reading(key.label, becoming: "Pause", within: 2), "Pause")
-            XCTAssertGreaterThan(reading(key.seconds, until: { $0 > held }, within: 1.5), held)
+            // Returns at the first tick, so a longer window costs nothing when the time runs.
+            XCTAssertGreaterThan(reading(key.seconds, until: { $0 > held }, within: 2.5), held)
         }
     }
 

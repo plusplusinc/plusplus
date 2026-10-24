@@ -130,11 +130,13 @@ def tests(bundle):
     return 0
 
 
-def case_seconds(node):
-    # A parameterized test's own duration is the mean of its cases; its cost is their sum.
-    cases = [c for c in node.get("children") or [] if c.get("nodeType") == "Arguments"]
+def case_seconds(node, serial):
+    # A parameterized test's own duration is the mean of its cases. Run one at a time, its cost
+    # is their sum; in parallel, its longest case's.
+    cases = [c.get("durationInSeconds") or 0 for c in node.get("children") or []
+             if c.get("nodeType") == "Arguments"]
     if cases:
-        return sum(c.get("durationInSeconds") or 0 for c in cases)
+        return sum(cases) if serial else max(cases)
     return node.get("durationInSeconds") or 0
 
 
@@ -154,20 +156,20 @@ def times(bundle):
     if not data:
         print(f"no test results in {bundle}")
         return 0
+    serial = serial_targets((ROOT / "PlusPlus.xctestplan").read_text())
     rows = []
 
     def walk(node, target=None):
         if node.get("nodeType") in ("Unit test bundle", "UI test bundle"):
             target = node.get("name")
         if node.get("nodeType") == "Test Case":
-            rows.append((target, node.get("nodeIdentifier"), case_seconds(node)))
+            rows.append((target, node.get("nodeIdentifier"), case_seconds(node, target in serial)))
             return
         for child in node.get("children") or []:
             walk(child, target)
 
     for node in data.get("testNodes") or []:
         walk(node)
-    serial = serial_targets((ROOT / "PlusPlus.xctestplan").read_text())
     print("times against local budgets (reported, never failed):")
     for line in budget_lines(rows, serial, on_ci=False):
         print(f"  {line}")

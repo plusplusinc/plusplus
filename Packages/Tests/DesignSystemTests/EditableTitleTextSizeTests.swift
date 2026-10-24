@@ -123,8 +123,11 @@ struct EditableTitleTextSizeTests {
         /// The title as drawn, its `_` included, once its height has settled.
         func image() -> Pixels {
             _ = height()
-            // The field and a margin, not the whole window: every comparison walks each byte.
-            let bounds = field.map { $0.convert($0.bounds, to: host.view).insetBy(dx: -8, dy: -8) }
+            // The field and a margin on whole points, not the whole window: every comparison
+            // walks each byte. Where the field sits after a size change is the height checks'.
+            let bounds = field.map {
+                $0.convert($0.bounds, to: host.view).insetBy(dx: -8, dy: -8).integral
+            }
                 ?? host.view.bounds
             // The window has no scene, so it is never on a screen for `drawHierarchy` to copy;
             // its layers render all the same.
