@@ -52,7 +52,9 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   Nothing waits on it: the key, scrolling, swiping a row, and the title all work while it plays.
   It enters only where it can be seen: its place opens as the picker's sheet starts down, and
   the entry plays a moment into the sheet's slide, or, when the new row has pushed the list's
-  end out of view, after a scroll to the end.
+  end out of view, after a scroll to the end. Once Start is pressed (`isMakingRoom`), neither
+  scroll runs and the row enters where it is: the end is then Start's room under the list, and
+  following it took the list off the screen as Start went to land on the first exercise.
 - Start plays in beats, each once the last has finished (`RoutineScreen+Workout.swift`). Its
   key presses and releases as any key does, down onto its ledge and back up in 0.06 s each,
   easing out, as the scratch app's log-set key does. On the press's action, a medium impact
