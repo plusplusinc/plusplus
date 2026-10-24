@@ -2,7 +2,7 @@
 name: retro
 description: Over the work since the last retro, the merges to main and the conversations in this repo's Claude Code sessions, find what tripped the work up or fell short of what it aims for (docs/principles.md: the right product, built right, mostly autonomous), rank those findings by their evidence, fix them at the lowest altitude in a PR the maintainer reviews, check whether the last retro's fixes worked, and correct what the merges made false in the rules, skills, and docs. Gives the maintainer a private digest. Runs nightly on the maintainer's Mac as `/retro nightly`; use on request over a merge or a range of merges.
 argument-hint: "nightly | <PR number or range>"
-allowed-tools: Bash(git log:*), Bash(git diff:*), Bash(git show:*), Bash(git fetch:*), Bash(git worktree add:*), Bash(git worktree remove:*), Bash(gh pr view:*), Bash(gh pr list:*), Bash(gh pr checks:*), Bash(gh pr diff:*), Bash(gh api:*), Bash(asc xcode-cloud build-runs:*), Bash(asc xcode-cloud status:*), Bash(asc xcode-cloud doctor:*), Bash(asc xcode-cloud issues:*), Bash(asc xcode-cloud test-results:*), Bash(scripts/board.sh:*), Bash(scripts/lint.sh:*), Bash(scripts/conversations.py:*), Bash(date:*), Read, Write, Edit, Glob, Grep, Agent, CronList, CronCreate, CronDelete
+allowed-tools: Bash(git log:*), Bash(git diff:*), Bash(git show:*), Bash(git fetch:*), Bash(git worktree add:*), Bash(git worktree remove:*), Bash(gh pr view:*), Bash(gh pr list:*), Bash(gh pr checks:*), Bash(gh pr diff:*), Bash(gh api:*), Bash(asc xcode-cloud build-runs:*), Bash(asc xcode-cloud status:*), Bash(asc xcode-cloud doctor:*), Bash(asc xcode-cloud issues:*), Bash(asc xcode-cloud test-results:*), Bash(scripts/ci-times.py:*), Bash(scripts/board.sh:*), Bash(scripts/lint.sh:*), Bash(scripts/conversations.py:*), Bash(date:*), Read, Write, Edit, Glob, Grep, Agent, CronList, CronCreate, CronDelete
 ---
 
 **With the argument `nightly`, this is the nightly session: skip to "How it runs" and do
@@ -60,8 +60,9 @@ the strongest evidence, most of which never reaches a PR. Each session's heading
 transcript; open one only around a moment, never whole. For each PR: `gh pr diff`;
 `gh pr view --comments` for commits, review threads, comments, and time to merge;
 `gh api repos/{owner}/{repo}/pulls/N/comments` for inline review; its Xcode Cloud runs and why any failed (`gh pr checks`, and
-`asc xcode-cloud doctor` with the App Store Connect key); its board card; its Friction line. And
-the last merged retro PR's body, for its fixes.
+`asc xcode-cloud doctor` with the App Store Connect key), and its last run's times against the
+budgets (`scripts/ci-times.py --run <number>`); its board card; its Friction line. And the last
+merged retro PR's body, for its fixes.
 
 ## 2. Rank the findings
 
@@ -77,9 +78,14 @@ which get fixed, since every verified one does (the stopping rules).
    maintainer's intent was not settled and asking was cheap, a question the code, the board, the
    docs, or memory answered, or a brief whose problem, criterion, or scope did not hold.
 3. **Wasted work**: failed runs, time stuck, a tool that misbehaved, rounds the lead caused, a
-   wrong first try, rework after a merge.
+   wrong first try, rework after a merge, and a test tier over its budget on CI, with the
+   tests added to it since the last retro.
 4. **The maintainer's own friction**: what they had to chase, remember, wait on, or do beyond
    product calls and trying builds (a go-ahead to merge among them), or what left them lost.
+
+Each test a covered PR added is checked against `.claude/rules/testing.md`: its tier against the
+table there, and whether a test that already existed proves the same thing. A miss is a
+finding.
 
 The sweep goes unranked: fix each statement in `CLAUDE.md`, `.claude/`, `docs/`, and the README
 that the merges it covers made false, deleting first.
@@ -113,7 +119,8 @@ waiting. The body is the record the next retro reads:
 - Card, Friction, and Verified, which names `scripts/lint.sh` at least.
 
 Then report the findings, the fixes, what needs the maintainer's decision, the verifier's record
-(below), and the digest.
+(below), and the digest. The report and the digest each carry one CI line: the covered PRs'
+last runs, start to finish, and any tier over budget.
 
 ## The verifier's record
 

@@ -70,18 +70,6 @@ final nonisolated class RenameUITests: XCTestCase {
         try startClearsKeyboard(in: app, keyboard: keyboard)
     }
 
-    /// Reordering, supersets, and deleting, on the nine rows `testRenameAtDefaultSize` adds, in a
-    /// launch of their own: in one test they ran past XCTest's three-minute allowance on Xcode
-    /// Cloud.
-    @MainActor
-    func testDragAndDeleteRows() {
-        let app = XCUIApplication()
-        app.launchNineExercises(named: "Arm and back day")
-        reorderExercises(in: app)
-        supersetExercises(in: app)
-        deleteExercises(in: app)
-    }
-
     /// Taps the default title: it has to stay put, by frame and by pixel, as the keyboard rises,
     /// and show the background at the keyboard's corners. Returns the default's line at rest.
     @MainActor

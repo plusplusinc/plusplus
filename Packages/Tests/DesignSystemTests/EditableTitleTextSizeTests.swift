@@ -120,16 +120,20 @@ struct EditableTitleTextSizeTests {
             return focused(in: host.view)
         }
 
-        /// The window's view as drawn, the title and its `_` included, once the title's height
-        /// has settled.
-        func image() -> UIImage {
+        /// The title as drawn, its `_` included, once its height has settled.
+        func image() -> Pixels {
             _ = height()
-            let bounds = host.view.bounds
+            // The field and a margin on whole points, not the whole window: every comparison
+            // walks each byte. Where the field sits after a size change is the height checks'.
+            let bounds = field.map {
+                $0.convert($0.bounds, to: host.view).insetBy(dx: -8, dy: -8).integral
+            }
+                ?? host.view.bounds
             // The window has no scene, so it is never on a screen for `drawHierarchy` to copy;
             // its layers render all the same.
-            return UIGraphicsImageRenderer(bounds: bounds).image { context in
+            return Pixels(UIGraphicsImageRenderer(bounds: bounds).image { context in
                 host.view.layer.render(in: context.cgContext)
-            }
+            })
         }
 
         func change(to category: UIContentSizeCategory) {
@@ -182,50 +186,82 @@ struct EditableTitleTextSizeTests {
         arguments: carets,
     )
     func cursorAfterSizeChange(draft: String, caret: Int) throws {
-        for (start, other) in [(Self.large, Self.ax5), (Self.ax5, Self.large)] {
-            let fresh = Screen(draft, isEditing: true, at: other, caretAt: caret).image()
-            let freshStart = Screen(draft, isEditing: true, at: start, caretAt: caret).image()
+        // Each size's fresh image is drawn once and compared in both directions.
+        let fresh = [Self.large, Self.ax5].map {
+            ($0, Screen(draft, isEditing: true, at: $0, caretAt: caret).image())
+        }
+        for ((start, freshStart), (other, freshOther)) in [
+            (fresh[0], fresh[1]),
+            (fresh[1], fresh[0]),
+        ] {
             // The images see the `_`: one a cell along draws differently.
             let moved = Screen(draft, isEditing: true, at: start, caretAt: caret + 1).image()
-            try #require(!Self.samePixels(moved, freshStart), "the _ is not in the image")
+            try #require(!moved.matches(freshStart), "the _ is not in the image")
             let screen = Screen(draft, isEditing: true, at: start, caretAt: caret)
-            _ = screen.image()
+            _ = screen.height()
             #expect(screen.isFocused)
             screen.change(to: other)
             #expect(
-                Self.samePixels(screen.image(), fresh),
+                screen.image().matches(freshOther),
                 "at \(other.rawValue) after \(start.rawValue)",
             )
             screen.change(to: start)
-            #expect(Self.samePixels(screen.image(), freshStart), "back at \(start.rawValue)")
+            #expect(screen.image().matches(freshStart), "back at \(start.rawValue)")
         }
     }
 
-    /// Whether two images are the same size with every pixel within a few levels per channel,
-    /// for antialiasing that can land differently on the pixel grid.
-    private static func samePixels(_ one: UIImage, _ other: UIImage) -> Bool {
-        guard let first = one.cgImage, let second = other.cgImage,
-              first.width == second.width, first.height == second.height
-        else { return false }
-        let (bytes, otherBytes) = (rgba(first), rgba(second))
-        return zip(bytes, otherBytes).allSatisfy { abs(Int($0) - Int($1)) <= 8 }
-    }
+    /// An image's RGBA bytes, read once, for comparing two images pixel by pixel.
+    private struct Pixels {
+        let width: Int
+        let height: Int
+        let bytes: [UInt8]
 
-    private static func rgba(_ image: CGImage) -> [UInt8] {
-        var buffer = [UInt8](repeating: 0, count: image.width * image.height * 4)
-        buffer.withUnsafeMutableBytes { raw in
-            let context = CGContext(
-                data: raw.baseAddress,
-                width: image.width,
-                height: image.height,
-                bitsPerComponent: 8,
-                bytesPerRow: image.width * 4,
-                space: CGColorSpaceCreateDeviceRGB(),
-                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue,
-            )
-            context?.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        init(_ image: UIImage) {
+            let cgImage = image.cgImage
+            (width, height) = (cgImage?.width ?? 0, cgImage?.height ?? 0)
+            var bytes = [UInt8](repeating: 0, count: width * height * 4)
+            if let cgImage {
+                bytes.withUnsafeMutableBytes { raw in
+                    let context = CGContext(
+                        data: raw.baseAddress,
+                        width: cgImage.width,
+                        height: cgImage.height,
+                        bitsPerComponent: 8,
+                        bytesPerRow: cgImage.width * 4,
+                        space: CGColorSpaceCreateDeviceRGB(),
+                        bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue,
+                    )
+                    context?.draw(
+                        cgImage,
+                        in: CGRect(x: 0, y: 0, width: cgImage.width, height: cgImage.height),
+                    )
+                }
+            }
+            self.bytes = bytes
         }
-        return buffer
+
+        /// Whether the two are the same size with every byte within a few levels, for
+        /// antialiasing that can land differently on the pixel grid. Identical bytes answer at
+        /// once, and the walk stops at the first byte past the tolerance: in a Debug build a
+        /// `zip` over every byte took seconds an image.
+        func matches(_ other: Self) -> Bool {
+            guard width == other.width, height == other.height, !bytes.isEmpty else { return false }
+            return bytes.withUnsafeBufferPointer { mine in
+                other.bytes.withUnsafeBufferPointer { theirs in
+                    guard let first = mine.baseAddress,
+                          let second = theirs.baseAddress else { return false }
+                    if memcmp(first, second, mine.count) == 0 {
+                        return true
+                    }
+                    for index in 0 ..< mine.count
+                        where abs(Int(first[index]) - Int(second[index])) > 8
+                    {
+                        return false
+                    }
+                    return true
+                }
+            }
+        }
     }
 
     @Test(

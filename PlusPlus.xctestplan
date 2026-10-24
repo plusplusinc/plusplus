@@ -25,6 +25,7 @@
       }
     },
     {
+      "parallelizable" : false,
       "target" : {
         "containerPath" : "container:Packages",
         "identifier" : "DesignSystemTests",
@@ -32,6 +33,7 @@
       }
     },
     {
+      "parallelizable" : true,
       "target" : {
         "containerPath" : "container:PlusPlus.xcodeproj",
         "identifier" : "8B7F246030770B2700389AC8",

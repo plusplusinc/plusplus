@@ -1,8 +1,9 @@
 import XCTest
 
-/// The ++ drawer and the Routines screen over saved routines: switching, opening counting as
-/// using across a relaunch, and the drill-in from the Routines screen. Names come from the
-/// muscle groups (`-fallbackNames`).
+/// The ++ drawer and the Routines screen over saved routines: switching, and the drill-in from
+/// the Routines screen. Opening counting as using is `RoutineStoreRecencyTests`', through the
+/// `openRoutine` a switch already shows it called. Names come from the muscle groups
+/// (`-fallbackNames`).
 extension RoutineAutosaveUITests {
     /// From a new routine with nothing saved, two routines made, switched between, and opened
     /// from the Routines screen.
@@ -31,7 +32,7 @@ extension RoutineAutosaveUITests {
             XCTAssertTrue(app.drawerTitle.disappears(), "The new one's row left the drawer open")
             XCTAssertEqual(title.value as? String, "New routine")
         }
-        XCTContext.runActivity(named: "Switching keeps both, and opening counts as using") { _ in
+        XCTContext.runActivity(named: "Switching keeps both, and opening keeps the order") { _ in
             app.addExercise("Pull-up, Pull-up bar", searching: "pull-up")
             XCTAssertEqual(title.value(becoming: "Back"), "Back")
             openDrawer(in: app)
@@ -45,13 +46,6 @@ extension RoutineAutosaveUITests {
             XCTAssertEqual(drawerRoutines(in: app), ["Back", "Chest"], "Opening one moved it")
             XCTAssertTrue(app.buttons["Chest"].isSelected, "The routine opened isn't marked")
             XCTAssertFalse(app.buttons["Back"].isSelected)
-            app.drawerTitle.tap()
-            XCTAssertTrue(app.drawerTitle.disappears(), "Tapping the title left the drawer open")
-            app.relaunch()
-            XCTAssertEqual(title.value as? String, "Chest", "Launch didn't reopen the one opened")
-            openDrawer(in: app)
-            // Opened, not edited: launch reopens it, and it keeps its place by last edit.
-            XCTAssertEqual(drawerRoutines(in: app), ["Back", "Chest"])
         }
         drawerEditMovesUp(in: app)
         routinesScreenDrillsIn(in: app, title: title)

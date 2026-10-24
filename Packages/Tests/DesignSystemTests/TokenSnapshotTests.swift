@@ -38,7 +38,7 @@ struct TokenSnapshotTests {
 
     @Test("Every token renders in light, dark, and XXXL")
     func palette() {
-        assertThemedSnapshots(of: paletteView, width: 260)
+        assertThemedSnapshots(of: paletteView, width: 260, includingLight: true)
     }
 }
 
