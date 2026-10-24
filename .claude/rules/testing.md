@@ -44,7 +44,7 @@ Cheapest first. The tests' display names are the inventory of what each tier hol
 |---|---|
 | A rule or arithmetic: the store, the launch rule, names, plans, moves, supersets, a drag's, drawer's, or pairing's math, a workout's time | Package (`WorkoutStoreTests`, `DesignSystemTests` logic): macOS and the simulator, milliseconds |
 | What a saved store reopens as, and a schema upgrade on disk | Package, over an in-memory container (a second store on it is a relaunch) or a file |
-| How a component looks at a moment: at rest, editing, mid-drag, at AX5 | Snapshot, through `assertThemedSnapshots` |
+| How a component looks at a moment, in dark: at rest, editing, mid-drag, at AX5 | Snapshot, through `assertThemedSnapshots` |
 | What layout does over time: a live text size change, every layout pass, focus, the frame clock | Hosted view, in a `UIWindow.sceneless` |
 | What only the running app shows: the real keyboard and text system, gesture arbitration with the scroll view, system chrome composed in the app (sheets, search, swipe actions, bars, dialogs), VoiceOver frames, the accessibility audit at AX5, and what a relaunch brings back | UI test |
 
@@ -133,8 +133,11 @@ don't add another; if not, say why it doesn't.
 - Tests that need UIKit are wrapped in `#if canImport(UIKit) && !os(watchOS)` so `swift test`
   on macOS compiles them out; the simulator run exercises them.
 - Snapshots go through `assertThemedSnapshots(of:width:)` in `DesignSystemTests`, which owns
-  the explicit width, the precision, and the light, dark, and AX5 appearances (the image named
-  `xxxl` is `accessibilityExtraExtraExtraLarge`). Every pixel must match within perceptual
+  the explicit width, the precision, and the appearances: dark, and dark at AX5 (the image
+  named `xxxl` is `accessibilityExtraExtraExtraLarge`), as users see the app, which shows only
+  in dark. Light renders only in `TokenSnapshotTests`, through `includingLight`, while the light
+  palette exists; light screen snapshots return with the card "Choose light, dark, or automatic
+  appearance". Every pixel must match within perceptual
   0.98: a looser pixel share lets a `_` move a cell or vanish unseen. Do not call `assertSnapshot`
   directly. Re-record by deleting a suite's files, or its whole folder, under `__Snapshots__/`.
 - The scheme's test plan, `PlusPlus.xctestplan`, holds four settings to keep, and it is the
