@@ -146,25 +146,19 @@ extension RenameUITests {
         }
     }
 
-    /// The system's swipe actions: a swipe opens a row's Delete, a tap elsewhere closes it, a
-    /// full swipe deletes outright, and with no rows left Start goes.
+    /// The system's swipe actions: a swipe opens a row's Delete, a tap elsewhere closes it, and
+    /// a full swipe deletes outright. What a delete does to a superset is
+    /// `RoutineSupersetTests`', and Start going with the last row `RoutineAutosaveUITests`'.
     @MainActor
     func deleteExercises(in app: XCUIApplication) {
         let delete = app.buttons["Delete"]
         XCTContext.runActivity(named: "A swipe opens a row, and Delete deletes it") { _ in
-            // The superset checks leave the first two rows a pair.
-            XCTAssertEqual(app.supersets, "AA.......")
             app.exerciseRows.element(boundBy: 1).swipeOpen()
             XCTAssertTrue(delete.appears(), "A swipe did not open the row")
             attach(named: "row-open")
             delete.tap()
             XCTAssertEqual(app.exerciseCount(becoming: 8), 8)
             XCTAssertTrue(delete.disappears())
-            XCTAssertEqual(
-                app.supersets(becoming: "........"),
-                "........",
-                "Deleting one of a pair left the other in a superset",
-            )
         }
         XCTContext.runActivity(named: "A tap anywhere else closes an open row") { _ in
             let open = {
@@ -190,16 +184,9 @@ extension RenameUITests {
             let count = app.exerciseCount(becoming: 7, within: 1)
             XCTAssertEqual(count, 8, "A tap outside the row deleted it")
         }
-        XCTContext.runActivity(named: "A full swipe deletes, and with no rows Start goes") { _ in
-            for left in (0 ..< 8).reversed() {
-                app.lastExerciseRow.fullSwipeLeft()
-                XCTAssertEqual(
-                    app.exerciseCount(becoming: left),
-                    left,
-                    "A full swipe did not delete",
-                )
-            }
-            XCTAssertTrue(app.buttons["Start"].disappears(), "Start stayed with no exercises")
+        XCTContext.runActivity(named: "A full swipe deletes") { _ in
+            app.lastExerciseRow.fullSwipeLeft()
+            XCTAssertEqual(app.exerciseCount(becoming: 7), 7, "A full swipe did not delete")
         }
     }
 }

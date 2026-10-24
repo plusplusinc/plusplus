@@ -2,8 +2,11 @@ import XCTest
 
 /// Supersets drawn by a row's node and moved into and out of by a row's body, run within
 /// `testDragAndDeleteRows` on its nine rows, after the reorder checks. What a drag makes is the
-/// routine's rule, unit-tested in the package, and the field and loops are snapshot-tested; this
-/// checks that real touches on the node reach the rule, and a row's VoiceOver value reads it.
+/// routine's rule, unit-tested in the package: a node's span over ends, middles, and other
+/// supersets (`RoutineSupersetTests`), and a body's slots and which neighbor a rest pairs with
+/// (`RailGroupDragTests`, `RailPairingTests`). The field and loops are snapshot-tested. This
+/// checks once per gesture that real touches reach the rule, and a row's VoiceOver value reads
+/// it.
 /// XCTest drags in one straight move, so a drag that turns back before its drop, the span
 /// shrinking under the finger, is held by the rule's tests and tried on the phone.
 extension RenameUITests {
@@ -23,43 +26,6 @@ extension RenameUITests {
             )
             attach(named: "superset-after")
         }
-        XCTContext.runActivity(named: "A plain row's node over three rows joins four") { _ in
-            row(3).nodePoint.holdAndDrag(to: row(6).nodePoint)
-            XCTAssertEqual(app.supersets(becoming: "AA.BBBB.."), "AA.BBBB..")
-        }
-        XCTContext.runActivity(named: "An end's node dragged inward shrinks its superset") { _ in
-            row(6).nodePoint.holdAndDrag(to: row(5).nodePoint)
-            XCTAssertEqual(app.supersets(becoming: "AA.BBB..."), "AA.BBB...")
-        }
-        XCTContext.runActivity(named: "A middle node draws a new superset out of its own") { _ in
-            row(4).nodePoint.holdAndDrag(to: row(5).nodePoint)
-            XCTAssertEqual(app.supersets(becoming: "AA..BB..."), "AA..BB...")
-            attach(named: "superset-parted")
-        }
-        XCTContext.runActivity(named: "A node held and let go where it was changes nothing") { _ in
-            let (names, groups) = (app.exerciseNames, app.supersets)
-            // An end's node, which picks up its whole superset, then a plain row's.
-            for index in [4, 2] {
-                let node = row(index).nodePoint
-                node.holdAndDrag(to: node)
-                XCTAssertFalse(
-                    app.buttons["Close"].appears(within: 1),
-                    "Letting go of row \(index)'s node opened its sheet",
-                )
-                XCTAssertEqual(app.supersets, groups, "Letting go in place regrouped")
-                XCTAssertEqual(app.exerciseNames, names, "Letting go in place moved a row")
-            }
-        }
-        XCTContext.runActivity(named: "An end's node dragged onto another superset merges") { _ in
-            row(1).nodePoint.holdAndDrag(to: row(5).nodePoint)
-            XCTAssertEqual(app.supersets(becoming: "AAAAAA..."), "AAAAAA...")
-            attach(named: "superset-merged")
-        }
-        XCTContext
-            .runActivity(named: "An end's node dropped on the other end leaves all plain") { _ in
-                row(0).nodePoint.holdAndDrag(to: row(5).nodePoint)
-                XCTAssertEqual(app.supersets(becoming: "........."), ".........")
-            }
         moveRowsIntoAndOutOfASuperset(in: app)
     }
 
@@ -71,22 +37,12 @@ extension RenameUITests {
         let row = { rows.element(boundBy: $0) }
         let height = row(1).frame.minY - row(0).frame.minY
         XCTContext.runActivity(named: "A row's body dragged into a superset joins it") { _ in
-            row(0).nodePoint.holdAndDrag(to: row(1).nodePoint)
-            XCTAssertEqual(app.supersets(becoming: "AA......."), "AA.......")
             var expected = app.exerciseNames
             // Past the middle of the row above it: between the pair's two rows.
             row(2).center.holdAndDrag(to: row(2).center.down(-1.2 * height))
             expected.insert(expected.remove(at: 2), at: 1)
             XCTAssertEqual(reading(app.exerciseNames, becoming: expected, within: 2), expected)
             XCTAssertEqual(app.supersets(becoming: "AAA......"), "AAA......")
-        }
-        XCTContext.runActivity(named: "A member's body dragged past the edge leaves it") { _ in
-            var expected = app.exerciseNames
-            // Past the last member and the plain row below it, outside both of the edge's slots.
-            row(1).center.holdAndDrag(to: row(1).center.down(2.4 * height))
-            expected.insert(expected.remove(at: 1), at: 3)
-            XCTAssertEqual(reading(app.exerciseNames, becoming: expected, within: 2), expected)
-            XCTAssertEqual(app.supersets(becoming: "AA......."), "AA.......")
         }
         pairPlainRows(in: app)
         XCTContext
@@ -108,49 +64,21 @@ extension RenameUITests {
             }
     }
 
-    /// A row's card resting over a plain row pairs the two in a new superset; one that only
-    /// passes over it, or pauses briefly, moves the row and pairs nothing.
+    /// A row's card resting over a plain row pairs the two in a new superset. A drop without
+    /// the rest, a nudge, and a member just out of its own are the rest's arithmetic
+    /// (`RailPairingTests`).
     @MainActor
     private func pairPlainRows(in app: XCUIApplication) {
         let rows = app.exerciseRows
         let row = { rows.element(boundBy: $0) }
         let height = row(1).frame.minY - row(0).frame.minY
-        XCTContext.runActivity(named: "A row dropped over a plain row without resting moves") { _ in
-            var expected = app.exerciseNames
-            // Past the row below, a third of the way over the one after it, let go at once.
-            row(5).center.holdAndDrag(to: row(5).center.down(1.3 * height), holding: 0.1)
-            expected.insert(expected.remove(at: 5), at: 6)
-            XCTAssertEqual(reading(app.exerciseNames, becoming: expected, within: 2), expected)
-            XCTAssertEqual(app.supersets, "AA.......", "A drop without a rest paired")
-        }
         XCTContext.runActivity(named: "A row resting over a plain row pairs with it") { _ in
             var expected = app.exerciseNames
-            row(2).center.holdAndDrag(to: row(2).center.down(1.3 * height), holding: 1.2)
-            expected.insert(expected.remove(at: 2), at: 3)
+            row(4).center.holdAndDrag(to: row(4).center.down(1.3 * height), holding: 1.2)
+            expected.insert(expected.remove(at: 4), at: 5)
             XCTAssertEqual(reading(app.exerciseNames, becoming: expected, within: 2), expected)
-            XCTAssertEqual(app.supersets(becoming: "AA.BB...."), "AA.BB....")
+            XCTAssertEqual(app.supersets(becoming: "AAA..BB.."), "AAA..BB..")
         }
-        XCTContext.runActivity(named: "A row nudged up and resting pairs with the row above") { _ in
-            let names = app.exerciseNames
-            row(7).center.holdAndDrag(to: row(7).center.down(-0.4 * height), holding: 1.2)
-            XCTAssertEqual(app.supersets(becoming: "AA.BB.CC."), "AA.BB.CC.")
-            XCTAssertEqual(app.exerciseNames, names, "A nudge to pair moved a row")
-            attach(named: "superset-paired-by-rest")
-        }
-        XCTContext.runActivity(
-            named: "A member dragged just out of its superset and resting leaves it unpaired",
-        ) { _ in
-            let names = app.exerciseNames
-            // Past the pair's bottom edge, into its outer slot, lying over the plain row below.
-            row(1).center.holdAndDrag(to: row(1).center.down(0.4 * height), holding: 1.2)
-            XCTAssertEqual(app.supersets(becoming: "...AA.BB."), "...AA.BB.")
-            XCTAssertEqual(app.exerciseNames, names, "A member dragged just out moved past a row")
-        }
-        // Back to the one pair the checks after these expect: an end's node on the other end.
-        row(0).nodePoint.holdAndDrag(to: row(1).nodePoint)
-        row(4).nodePoint.holdAndDrag(to: row(3).nodePoint)
-        row(7).nodePoint.holdAndDrag(to: row(6).nodePoint)
-        XCTAssertEqual(app.supersets(becoming: "AA......."), "AA.......")
     }
 }
 

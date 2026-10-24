@@ -1,8 +1,9 @@
 import XCTest
 
 /// Holding a row and dragging it to a new place, run within `testDragAndDeleteRows` on its
-/// nine rows, which run past one screen. Where the gap goes is unit-tested in the package, and
-/// the card and gap are snapshot-tested; this checks what needs real touches and the scroll view.
+/// nine rows, which run past one screen. Where the gap goes, a drop in place included, is
+/// unit-tested in the package (`RailDragTests`, `RoutineMoveTests`), and the card and gap are
+/// snapshot-tested; this checks what needs real touches and the scroll view.
 extension RenameUITests {
     @MainActor
     func reorderExercises(in app: XCUIApplication) {
@@ -20,12 +21,6 @@ extension RenameUITests {
             XCTAssertFalse(app.buttons["Sets"].exists, "The drag opened the row's sheet")
             XCTAssertFalse(app.buttons["Delete"].exists, "The drag opened the row's Delete")
             attach(named: "reorder-after")
-        }
-        XCTContext.runActivity(named: "Dropping where it started changes nothing") { _ in
-            let before = app.exerciseNames
-            let row = rows.element(boundBy: 1)
-            row.center.holdAndDrag(to: row.center.down(0.3 * height))
-            XCTAssertEqual(order(keeping: before, in: app), before, "A drop in place moved the row")
         }
         releaseOverStartAndAtTheEdge(in: app)
         XCTContext.runActivity(named: "A press that moves first scrolls the list") { _ in
@@ -79,8 +74,9 @@ extension RenameUITests {
         holdAtTheTopEdge(in: app)
     }
 
-    /// From the end of the list, a row lifted just under the bar and held still stays put; the
-    /// last row dragged up to there scrolls the list back up to its top and lands first.
+    /// From the end of the list, the last row dragged up to just under the bar scrolls the list
+    /// back up to its top and lands first. A row held still there scrolls nothing: the edge's
+    /// arming is `RailDragTests`'.
     @MainActor
     private func holdAtTheTopEdge(in app: XCUIApplication) {
         let first = app.exerciseRows.element(boundBy: 0)
@@ -90,13 +86,6 @@ extension RenameUITests {
         XCTAssertTrue(last.settles(), "The list kept scrolling")
         // Just under the bar: in the edge's band, still over the list.
         let edge = app.point(x: last.frame.midX, y: bar.frame.maxY + 24)
-        XCTContext.runActivity(named: "A row held still at the top edge stays put") { _ in
-            let (names, top) = (app.exerciseNames, first.frame.minY)
-            // On whichever row is there.
-            edge.press(forDuration: 2.5)
-            XCTAssertEqual(order(keeping: names, in: app), names, "A still hold moved the row")
-            XCTAssertEqual(first.frame.minY, top, accuracy: 1, "A still hold scrolled the list")
-        }
         XCTContext
             .runActivity(named: "A row dragged to the top edge scrolls up and lands first") { _ in
                 var expected = app.exerciseNames
