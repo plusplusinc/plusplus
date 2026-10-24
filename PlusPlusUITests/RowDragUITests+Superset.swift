@@ -9,7 +9,7 @@ import XCTest
 /// it.
 /// XCTest drags in one straight move, so a drag that turns back before its drop, the span
 /// shrinking under the finger, is held by the rule's tests and tried on the phone.
-extension RenameUITests {
+extension RowDragUITests {
     @MainActor
     func supersetExercises(in app: XCUIApplication) {
         let rows = app.exerciseRows

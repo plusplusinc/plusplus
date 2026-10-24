@@ -43,13 +43,14 @@ def over(seconds, budget):
 
 
 def serial_targets(plan_text):
-    """The test plan's targets whose tests run one at a time, so their times add up: a UI target
-    unless parallelizable, and a Swift Testing target only when parallelizable is false, since
-    Swift Testing runs a target's tests in parallel when the plan doesn't say."""
+    """The test plan's targets whose tests' own times add up to its time: a UI target, and a
+    Swift Testing target only when parallelizable is false, since Swift Testing runs a target's
+    tests in parallel when the plan doesn't say. Each UI test is timed on its own either way;
+    run in parallel, on clones of the simulator, the sum is their cost, not the wall time."""
     serial = set()
     for t in json.loads(plan_text)["testTargets"]:
-        name, flag = t["target"]["name"], t.get("parallelizable")
-        if flag is False or (flag is None and name.endswith("UITests")):
+        name = t["target"]["name"]
+        if t.get("parallelizable") is False or name.endswith("UITests"):
             serial.add(name)
     return serial
 

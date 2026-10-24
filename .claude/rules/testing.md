@@ -94,7 +94,7 @@ and the drawer through `SideDrawer`'s `progress:`; a suggestion's arrival comes 
 
 There is one UI test per launch configuration, each a series of named
 `XCTContext.runActivity` checks: `RenameUITests/testRenameAtDefaultSize`,
-`RenameUITests/testDragAndDeleteRows` (the rows seeded),
+`RowDragUITests/testDragAndDeleteRows` (the rows seeded),
 `TitleWrappingUITests/testWrappedTitleAtLargestTextSize`,
 `RoutineAutosaveUITests/testRoutineSurvivesRelaunch`, and
 `WorkoutUITests/testWorkoutSurvivesRelaunch`. A new check joins the test for its launch only

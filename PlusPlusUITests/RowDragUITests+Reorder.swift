@@ -4,7 +4,7 @@ import XCTest
 /// nine rows, which run past one screen. Where the gap goes, a drop in place included, is
 /// unit-tested in the package (`RailDragTests`, `RoutineMoveTests`), and the card and gap are
 /// snapshot-tested; this checks what needs real touches and the scroll view.
-extension RenameUITests {
+extension RowDragUITests {
     @MainActor
     func reorderExercises(in app: XCUIApplication) {
         let rows = app.exerciseRows
