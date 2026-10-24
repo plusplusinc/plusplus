@@ -19,7 +19,7 @@ import sys
 from datetime import datetime
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from xcresult import ROOT, RUN, RUN_AIM, budget_lines, over, serial_targets  # noqa: E402
+from xcresult import ROOT, RUN, RUN_AIM, budget_lines, over, parallel_targets  # noqa: E402
 
 PR_WORKFLOW = "FE8B3BCC-1973-4533-BB66-4D047A8E3C22"  # docs/xcode-cloud.md, "PR"
 
@@ -114,8 +114,9 @@ def main(argv):
     plan = git("show", f"{sha}:PlusPlus.xctestplan")
     if plan.returncode != 0:
         sys.exit(f"can't read {sha[:7]}'s test plan: {plan.stderr.strip()}")
-    serial = serial_targets(plan.stdout)
-    for line in budget_lines(rows, serial, on_ci=True):
+    # App Store Connect gives each test's duration but not its start, so a parallel UI target's
+    # line has no wall time; the run's start to finish above holds it.
+    for line in budget_lines(rows, parallel_targets(plan.stdout), on_ci=True):
         print(f"  {line}")
     return 0
 
