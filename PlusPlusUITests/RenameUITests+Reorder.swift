@@ -71,14 +71,14 @@ extension RenameUITests {
             XCTAssertLessThan(first.frame.minY, top, "The list didn't scroll")
             attach(named: "reorder-edge")
         }
-        holdAtTheTopEdge(in: app)
+        dragToTheTopEdge(in: app)
     }
 
     /// From the end of the list, the last row dragged up to just under the bar scrolls the list
     /// back up to its top and lands first. A row held still there scrolls nothing: the edge's
     /// arming is `RailDragTests`'.
     @MainActor
-    private func holdAtTheTopEdge(in app: XCUIApplication) {
+    private func dragToTheTopEdge(in app: XCUIApplication) {
         let first = app.exerciseRows.element(boundBy: 0)
         let bar = app.navigationBars.firstMatch
         app.swipeUp(velocity: .fast)

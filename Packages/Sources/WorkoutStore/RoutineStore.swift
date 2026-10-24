@@ -6,10 +6,6 @@ import SwiftData
 /// stored models never leave the actor.
 @ModelActor
 public actor RoutineStore {
-    private static let builtInByID = Dictionary(
-        uniqueKeysWithValues: Exercise.builtIn.map { ($0.id, $0) },
-    )
-
     static let schema = Schema(versionedSchema: RoutineMigrationPlan.current)
 
     public static func open(_ mode: StorageMode) throws -> RoutineStore {
@@ -206,7 +202,7 @@ public actor RoutineStore {
     private static func routine(from stored: StoredRoutine, weightUnit: WeightUnit) -> Routine {
         let rows = (stored.exercises ?? []).sorted { $0.position < $1.position }
         var exercises = rows.compactMap { row -> RoutineExercise? in
-            guard let exercise = builtInByID[row.exerciseID] else {
+            guard let exercise = Exercise.builtIn(id: row.exerciseID) else {
                 Logger.storage
                     .error("Skipped a row for unknown exercise \(row.exerciseID, privacy: .public)")
                 return nil

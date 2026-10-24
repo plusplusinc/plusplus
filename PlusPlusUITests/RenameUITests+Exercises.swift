@@ -183,36 +183,46 @@ extension RenameUITests {
     }
 }
 
+/// A built-in exercise as the picker labels it, the search that finds it when it is not in the
+/// picker's first screenful, and its id for seeding.
+struct BuiltInRow {
+    let label: String
+    let query: String?
+    let id: String
+}
+
 @MainActor
 extension XCUIApplication {
-    /// The rows `testRenameAtDefaultSize` adds, in order, each with the search that finds it
-    /// when it is not in the picker's first screenful. Nine run past one screen.
-    static let nineExercises: [(label: String, query: String?)] = [
-        ("Barbell bench press, Barbell, bench", nil),
-        ("Band pull-apart, Band", nil),
-        ("Band pull-apart, Band", nil),
-        ("Balance board hold, Balance board", nil),
-        ("Barbell back squat, Barbell", nil),
-        ("Biceps curl, Dumbbells", "biceps"),
-        ("Push-up", "push-up"),
-        ("Balance board hold, Balance board", nil),
-        ("Barbell back squat, Barbell", nil),
+    /// The rows `testRenameAtDefaultSize` adds, in order. Nine run past one screen.
+    static let nineExercises: [BuiltInRow] = [
+        BuiltInRow(
+            label: "Barbell bench press, Barbell, bench",
+            query: nil,
+            id: "barbell-bench-press",
+        ),
+        BuiltInRow(label: "Band pull-apart, Band", query: nil, id: "band-pull-apart"),
+        BuiltInRow(label: "Band pull-apart, Band", query: nil, id: "band-pull-apart"),
+        BuiltInRow(
+            label: "Balance board hold, Balance board",
+            query: nil,
+            id: "balance-board-hold",
+        ),
+        BuiltInRow(label: "Barbell back squat, Barbell", query: nil, id: "barbell-back-squat"),
+        BuiltInRow(label: "Biceps curl, Dumbbells", query: "biceps", id: "biceps-curl"),
+        BuiltInRow(label: "Push-up", query: "push-up", id: "push-up"),
+        BuiltInRow(
+            label: "Balance board hold, Balance board",
+            query: nil,
+            id: "balance-board-hold",
+        ),
+        BuiltInRow(label: "Barbell back squat, Barbell", query: nil, id: "barbell-back-squat"),
     ]
 
-    /// `nineExercises`' built-in ids, for `-seedExercises`.
-    static let nineExerciseIDs = [
-        "barbell-bench-press", "band-pull-apart", "band-pull-apart", "balance-board-hold",
-        "barbell-back-squat", "biceps-curl", "push-up", "balance-board-hold", "barbell-back-squat",
-    ]
-
-    /// Launches into a routine named `name` holding `nineExercises`, seeded by launch argument,
-    /// for the checks that only need the rows. Adding them is `testRenameAtDefaultSize`'s.
+    /// Launches into a routine named `name` holding `nineExercises`, seeded, for the checks
+    /// that only need the rows. Adding them is `testRenameAtDefaultSize`'s.
     func launchSeedingNineExercises(named name: String) {
-        let title = launchNewRoutine(arguments: [
-            "-seedExercises", Self.nineExerciseIDs.joined(separator: ","), "-seedName", name,
-        ])
+        let title = launchSeeding(Self.nineExercises.map(\.id), named: name)
         XCTAssertEqual(title.value(becoming: name), name)
-        XCTAssertEqual(exerciseCount(becoming: 9), 9, "The seeded rows aren't all in")
     }
 
     /// Taps through the keyboard's one-time tip on sliding to type, which a freshly erased

@@ -4,11 +4,10 @@ import XCTest
 /// trip, the launch rule, and the names are unit-tested in the package; this holds the wire
 /// from the screen to the store, with two relaunches: one that brings back every saved field at
 /// once (rows in their new order, their duplicates and values, the generated name, a superset
-/// and its shared rounds), and one that shows a routine cleared to nothing is gone. Names come from
-/// the muscle
-/// groups (`-fallbackNames`), so the same name shows on any simulator. The title's color, white
-/// for a name whether typed or generated and gray for New routine, is read from pixels against
-/// the placeholder's own gray at the start.
+/// and its shared rounds), and one that shows a routine cleared to nothing is gone. Names come
+/// from the muscle groups (`-fallbackNames`), so the same name shows on any simulator. The
+/// title's color, white for a name whether typed or generated and gray for New routine, is read
+/// from pixels against the placeholder's own gray at the start.
 ///
 /// `nonisolated` because XCTestCase's initializers are; the test drives the UI on the main actor.
 final nonisolated class RoutineAutosaveUITests: XCTestCase {

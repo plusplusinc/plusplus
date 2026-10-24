@@ -10,6 +10,13 @@ extension Exercise {
     public static let builtIn: [Self] = (upperBody + legsAndCore)
         .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
 
+    /// The built-in exercise with this id, as a stored row names it.
+    public static func builtIn(id: String) -> Self? {
+        builtInByID[id]
+    }
+
+    private static let builtInByID = Dictionary(uniqueKeysWithValues: builtIn.map { ($0.id, $0) })
+
     private static let upperBody: [Self] = [
         // Chest
         Self(

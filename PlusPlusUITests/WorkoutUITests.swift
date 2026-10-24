@@ -18,10 +18,7 @@ final nonisolated class WorkoutUITests: XCTestCase {
             "barbell-bench-press", "pull-up", "goblet-squat", "band-pull-apart",
             "balance-board-hold", "barbell-back-squat",
         ]
-        let title = app.launchNewRoutine(arguments: [
-            "-fallbackNames", "YES", "-seedExercises", seeded.joined(separator: ","),
-        ])
-        XCTAssertEqual(app.exerciseCount(becoming: 6), 6, "The seeded rows aren't all in")
+        let title = app.launchSeeding(seeded, arguments: ["-fallbackNames", "YES"])
         // Added through the picker, and Start pressed straight after, as the row still enters.
         app.pickExercise("Biceps curl, Dumbbells", searching: "biceps")
         startShowsTheCurrentExercise(in: app)

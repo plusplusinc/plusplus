@@ -73,7 +73,7 @@ They are defined once, in `scripts/xcresult.py`. Local is CI divided by 1.25.
 | `DesignSystemTests` | 30 s | 24 s |
 | a `DesignSystemTests` test | 2 s | 1.6 s |
 | each UI test | 90 s | 72 s |
-| the UI tests together | 360 s | 290 s |
+| the UI tests together | 360 s | 288 s |
 | a PR run, start to finish | 11 min, aiming at 4 | |
 
 A test over its budget is fixed at its cause (setup through the UI, a fixed wait, a launch, a

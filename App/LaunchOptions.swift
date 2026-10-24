@@ -32,10 +32,9 @@ enum LaunchOptions {
     /// in the picker.
     static var seededRoutine: (name: String, exercises: [Exercise])? {
         guard let ids = UserDefaults.standard.string(forKey: "seedExercises") else { return nil }
-        let builtIn = Dictionary(uniqueKeysWithValues: Exercise.builtIn.map { ($0.id, $0) })
         return (
             UserDefaults.standard.string(forKey: "seedName") ?? "",
-            ids.split(separator: ",").compactMap { builtIn[String($0)] },
+            ids.split(separator: ",").compactMap { Exercise.builtIn(id: String($0)) },
         )
     }
 }

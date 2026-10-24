@@ -11,8 +11,6 @@ struct PlusPlusApp: App {
     private let namer: RoutineNamer
     /// Whether to start from an empty store, as the UI tests do.
     private let resetsStore: Bool
-    /// The routine an emptied store starts with, for a UI test that needs rows.
-    private let seed: (name: String, exercises: [Exercise])?
 
     init() {
         do {
@@ -24,20 +22,18 @@ struct PlusPlusApp: App {
         #if DEBUG
         namer = LaunchOptions.usesFallbackNames ? .muscleGroupsOnly : .standard
         resetsStore = LaunchOptions.resetsStore
-        seed = LaunchOptions.seededRoutine
         if LaunchOptions.turnsOffUIKitAnimations {
             UIView.setAnimationsEnabled(false)
         }
         #else
         namer = .standard
         resetsStore = false
-        seed = nil
         #endif
     }
 
     var body: some Scene {
         WindowGroup {
-            RoutineLauncher(store: store, namer: namer, resetsStore: resetsStore, seed: seed)
+            RoutineLauncher(store: store, namer: namer, resetsStore: resetsStore)
                 .publishesHotReloads()
         }
     }

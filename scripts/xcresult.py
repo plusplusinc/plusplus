@@ -24,21 +24,22 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
-# Seconds, as (local, Xcode Cloud). Local is CI divided by 1.25, the ratio measured in 2026-10.
-BUDGETS = {
-    "package": (10, None),  # scripts/test.sh, both swift test runs
-    "WorkoutStoreTests": (8, 10),
-    "DesignSystemTests": (24, 30),
-    "DesignSystemTests, a test": (1.6, 2),
-    "PlusPlusUITests": (290, 360),
-    "PlusPlusUITests, a test": (72, 90),
-    "run": (None, 660),  # an Xcode Cloud PR run, start to finish
+# Budgets in seconds on Xcode Cloud. A local run's are these divided by LOCAL_RATIO, the ratio
+# of CI to local times measured in 2026-10.
+LOCAL_RATIO = 1.25
+# Per test target: (all its tests, any one of them or None, whether every test is listed).
+TARGETS = {
+    "WorkoutStoreTests": (10, None, False),
+    "DesignSystemTests": (30, 2, False),
+    "PlusPlusUITests": (360, 90, True),
 }
+PACKAGE = 10  # scripts/test.sh on macOS, both swift test runs' test time, locally
+RUN = 660  # an Xcode Cloud PR run, start to finish
 RUN_AIM = 240  # the run's aim, printed beside its budget
 
 
 def over(seconds, budget):
-    return f"{seconds:.1f} s (budget {budget:g} s){' OVER BUDGET' if seconds > budget else ''}"
+    return f"{seconds:.1f} s (budget {budget:.3g} s){' OVER BUDGET' if seconds > budget else ''}"
 
 
 def serial_targets(plan_text):
@@ -66,24 +67,22 @@ def bundle_times(tests, serial):
     return times
 
 
-def budget_lines(tests, serial, column):
-    """Lines for each target, each UI test, and each DesignSystem test over its own budget.
-    column is 0 for local budgets, 1 for Xcode Cloud's."""
+def budget_lines(tests, serial, on_ci):
+    """Lines for each target, and for each of its tests that is listed or over its own budget.
+    Only a serial target's tests are timed on their own."""
+    scale = 1 if on_ci else 1 / LOCAL_RATIO
     lines = []
-    order = list(BUDGETS)
     by_target = bundle_times(tests, serial)
+    order = list(TARGETS)
     for target in sorted(by_target, key=lambda t: order.index(t) if t in order else len(order)):
+        total, per_test, lists_all = TARGETS.get(target, (None, None, False))
         seconds = by_target[target]
-        budget = BUDGETS.get(target, (None, None))[column]
-        lines.append(f"{target} {over(seconds, budget) if budget else f'{seconds:.1f} s'}")
-        per_test = BUDGETS.get(f"{target}, a test", (None, None))[column]
-        # Only a serial target's tests are timed on their own.
+        lines.append(f"{target} {over(seconds, total * scale) if total else f'{seconds:.1f} s'}")
         if not per_test or target not in serial:
             continue
         for t, name, s in sorted(tests, key=lambda row: -row[2]):
-            # Every UI test is listed; another target's test only when it alone is over.
-            if t == target and (target == "PlusPlusUITests" or s > per_test):
-                lines.append(f"  {name} {over(s, per_test)}")
+            if t == target and (lists_all or s > per_test * scale):
+                lines.append(f"  {name} {over(s, per_test * scale)}")
     return lines
 
 
@@ -143,8 +142,10 @@ def package(log):
     # Each swift test run ends "Test run with N tests in M suites passed after X seconds."
     text = pathlib.Path(log).read_text(errors="replace")
     runs = re.findall(r"Test run with \d+ tests? .*? after ([\d.]+) seconds", text)
-    if runs:
-        print(f"package tests {over(sum(map(float, runs)), BUDGETS['package'][0])}")
+    if not runs:
+        print("package tests: no test run's time in swift test's output")
+    else:
+        print(f"package tests {over(sum(map(float, runs)), PACKAGE)}")
     return 0
 
 
@@ -168,7 +169,7 @@ def times(bundle):
         walk(node)
     serial = serial_targets((ROOT / "PlusPlus.xctestplan").read_text())
     print("times against local budgets (reported, never failed):")
-    for line in budget_lines(rows, serial, 0):
+    for line in budget_lines(rows, serial, on_ci=False):
         print(f"  {line}")
     return 0
 
