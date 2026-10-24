@@ -19,10 +19,12 @@ code only after the criteria are checked.
    supports and at the largest text size,
    and `scripts/sim.sh log`. Look at every screenshot.
 3. Once every criterion is checked, read the existing tests and the code under test. Add a test
-   only for a criterion no test proves: its assertions come from the criterion, its tier and
-   place from `.claude/rules/testing.md`. Run just those tests with
-   `scripts/test.sh sim <Target/Class>` on the worktree's simulator, then commit them to the slice
-   branch and push. Xcode Cloud runs the full suite on the push. Any wait has a real time limit.
+   only for a criterion no test proves: first name the closest existing test and why it doesn't
+   prove it. Its assertions come from the criterion; its tier is the cheapest
+   `.claude/rules/testing.md`'s table allows, judged by its rubric. Run just those tests with
+   `scripts/test.sh sim <Target/Class>` on the worktree's simulator, read the budget lines it
+   prints, then commit them to the slice branch and push. Xcode Cloud runs the full suite on
+   the push. Any wait has a real time limit.
 4. List `~/Library/Logs/DiagnosticReports/PlusPlus-*` for reports newer than the time noted.
    A crash goes in the report once you have the steps that trigger it and its crash report;
    finding its cause, and whether `main` has it too, belongs to a builder.
@@ -36,8 +38,10 @@ code only after the criteria are checked.
    - <kind>, <new|known>: <what the app did, in a few words>
    ```
 
-   One line per finding, or the single line `- No findings`. The kind is `criterion` (one
-   failed), `test` (one you added for a criterion no test proved), `design` (a difference), or
+   One line per finding, or the single line `- No findings`. A `test` line ends with its tier
+   and its seconds in your run: `- test, new: <criterion in a few words>, <tier>, <s> s`. The
+   kind is `criterion` (one failed), `test` (one you added for a criterion no test proved),
+   `design` (a difference), or
    `crash`. `known` means the PR body or the lead's prompt already names it; `new` means
    neither does. The repo is public: describe the app in your own words, never quote the card,
    and leave out anything personal.

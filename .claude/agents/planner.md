@@ -16,7 +16,9 @@ through it.
    (the arrows in `CLAUDE.md`), the model change, the views, the order of small steps, each one
    ending in something that builds and can be seen.
 4. Write the test plan to the path the lead names: each acceptance criterion mapped to the
-   cheapest tier that can check it (`.claude/rules/testing.md`), plus the screenshots that show
+   cheapest tier that can check it (`.claude/rules/testing.md`'s table), with the rubric letter
+   that rules out the next cheaper tier and the existing test it extends; for a UI check, its
+   expected seconds on Xcode Cloud against the UI budget there. Then the screenshots that show
    it.
 
 You write only those files, under `.slices/`. No branch, no app code, no tests.

@@ -23,7 +23,9 @@ cost you find (a pause, a slower path): keep it, and report the cost and what yo
   taps, swipes, and drags land and which don't (`axe tap` does nothing on the routine screen or
   its sheets). A gesture that did nothing is the tool's until those notes rule it out.
 - Test as `.claude/rules/testing.md` says: `scripts/test.sh` and the simulator tests your change
-  touches, never the full simulator suite. That suite runs on Xcode Cloud when you push.
+  touches, never the full simulator suite. That suite runs on Xcode Cloud when you push. Read
+  the budget lines each run prints: a test over its budget is fixed at its cause, or named in
+  your report with its time.
 - Wait for everything you start before your turn ends: a builder whose turn ends while a
   command or agent it started is still running is made to hand back, unfinished. Run long
   commands in the foreground, and start `/simplify`'s helper agents with

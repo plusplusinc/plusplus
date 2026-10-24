@@ -7,117 +7,128 @@ paths: ["Packages/Tests/**", "PlusPlusUITests/**"]
 Swift Testing (`@Test`, `#expect`, `#require`) for everything except UI automation and
 performance, which stay on XCTest by Apple's own guidance.
 
-Put a test in the cheapest tier that can hold it: package tests on macOS (milliseconds, no
-simulator) before anything that needs UIKit, and snapshots before XCUITest.
+Put a test in the cheapest tier that can hold it, and judge every test, new or old, by the
+rubric below. Each tier's time is printed against its budget on every run.
 
-What each tier holds today:
+## The rubric
 
-- **Package tests** hold rules: `EditableTitle`'s static functions, the frames of a suggestion
-  typing in included, `RowLabel`'s detail line, `WorkoutStoreContainer`, the built-in exercises
-  with their equipment lines, tags, search, and plan parts, how a plan reads on its row and to
-  VoiceOver, `RoutineStore`'s saving and launch rule over an in-memory container (a relaunch is
-  a second store on the same container), plans included, and on disk, a store written with an
-  older schema opening under the current one, and the names: the focus, the style, the honesty
-  check, and every routine of up to two built-ins in every style; moving a row to a slot, its
-  Move up and Move down neighbors, and the announcement; supersets: a node's drag (ends,
-  middles, the card's examples, what a press picks up), moving into and out of one, delete,
-  shared rounds, VoiceOver's join and leave, normalizing, saving, the order of sets
-  (`setOrder`), and a rest-made pair at the larger set count; and a rail drag's arithmetic
-  (`RailDrag`): the slots, a superset's two edge slots included, where the gap goes, the dead
-  band, the row a node's finger reaches, the edge scroll's speed and arming, which neighbor a
-  resting card pairs with, the rest's countdown, the pair's release, a member dragged just out
-  of its superset not pairing, where a row's node is read only at rest, and the room above the
-  rail scrolling the list and moving to the size asked; routines' recency (`routinesByRecency`,
-  opened or edited, and `withOpen`), what launch reopens, a list holding the order it was drawn
-  in (`held(in:)`), and the drawer's three, in the order they were last edited; and a drawer swipe's arithmetic (`DrawerDrag`);
-  a workout's time from its dates, through pauses, a relaunch, and its finish, on fixed dates
-  as the clock, Finish offered only once a set is done, and how it reads (`WorkoutTests`), the current exercise's set, figures, and
-  their words (`CurrentExerciseTextTests`), and `RoutineStore`'s workouts: saving, the launch
-  rule after Finish and after Discard, a workout whose routine is gone, and a store written
-  before workouts opening with every routine and then keeping one.
-- **Snapshots** hold how a component looks, at rest and while editing. The title's editing look,
-  `_` included, is drawn from plain values through `EditableTitleContent`, reached with
-  `@testable import`, so no focus or keyboard is needed; its `blinks: false` holds the `_` lit,
-  a nil focus binding leaves it unfocused, and a forced `selection` (an `NSRange`) puts the
-  caret. A snapshot cannot show a caret the text system placed. A suggestion's arrival is drawn
-  the same way from `typingFrame(of:at:)`'s values, so a moment of it is an image: the old name
-  fading, the trail shuffling in blue, the last letter easing to white. Rows on the rail and
-  Start are snapshot through the same components the routine screen composes, a generated name
-  resting white over its rows included; a row swiped open is the system's, so the UI test shows
-  it. The exercise sheet's content, its equipment and a `ValueRow` per value, is snapshot with
-  every stepper closed and with one open; the sheet and its bar are the system's. A held row is
-  drawn at a moment of its drag through `Rail`'s internal initializer, its card placed relative
-  to its gap and already risen: over its own gap, with the gap moved, first in the rail,
-  alone, a pair's member inside and outside its edge, a plain row inside a pair's top edge in
-  its well, resting over a plain row before it pairs, paired with it in a well, and paired
-  first in the list with the room above the rail; in each, the line and loops keep one shade
-  past the card's edges, under its shadow. Supersets are drawn the same way: at rest,
-  one alone and two next to each other, and a node's drag, its field the well, held over a span
-  and pressed on an end; and a member's shared rounds in its sheet. The drawer is drawn open
-  through `SideDrawer`'s internal `progress:` initializer, its places composed as `DrawerMenu`
-  composes them, with a routine, Routines, and an untouched new routine's own row each marked; the Routines screen's list is
-  drawn from `NameRow`. Their bars are the system's. The workout's time key's label is drawn
-  running, paused, and past an hour (`WorkoutTimeLabelSnapshotTests`), and the current exercise
-  on the rail, with and without equipment, the next row under it, at a fixed standing height,
-  so AX5 shows its numbers shrinking to fit (`CurrentExerciseSnapshotTests`); the bar and its
-  glass are the system's. A snapshot draws each text size fresh, so the title's height after a live text size
-  change is held by `EditableTitleTextSizeTests`, which hosts `EditableTitleContent` in a window
-  and changes the window's content size category, the field focused and not. Hosted the same
-  way, `EditableTitleCaretTests` reads the `_` at every place of the caret against CoreText's
-  layout of the same text (emoji, Chinese, a wrap at a /), and `EditableTitleFocusTests` sees
-  every layout pass of the view under the title as an edit ends by Return or by giving up focus,
-  and `RailRowLayoutTests` every size a list of rail rows is laid out at, which is one.
-  `RailStepTests` counts every read of the frame clock that steps the list for a held row: one
-  a frame.
-- **UI tests** hold only what needs the real keyboard, text system, frames, or a relaunch:
-  typing, Return, arrows, taps, range selection, the keyboard's edge, scrolling as the keyboard
-  rises, nothing moving as an edit ends by Return or a touch outside the title, and VoiceOver
-  frames; the exercise picker, system chrome composed in the app, which has
-  no test target: adding, searching, swiping to delete, and the accessibility audit at AX5,
-  the exercise sheet with a stepper open included; stepping a value in the sheet; dragging a row, which needs
-  real touches and the scroll view: a drag, a drop in place, a release over Start, the edge
-  scroll, a press that scrolls, and at AX5; a node's drag drawing, shrinking, parting, and
-  merging supersets, a body's carrying a row into and out of one, a drop without a rest only
-  moving, a rest pairing, a nudge and rest pairing in place, a member dragged just out and
-  resting leaving unpaired, a rest-made pair taking the larger set count (and keeping it across
-  a relaunch, in `RoutineAutosaveUITests`), and a join at AX5 under the audit; the drawer opened
-  by ++ and the edge swipe and closed by the sliver and a swipe left, switching routines with the
-  one showing marked, a new one's row included, opening counting across a relaunch, the order kept in one session after opening one from the drawer and an edit moving it to the top, and the Routines screen's list and
-  drill-in, popped by the chevron and the edge swipe, and both under the audit at AX5, read from each row's VoiceOver value; a workout: Start growing the current exercise with only the next in view and no swipe on it, the way back, pause and resume, the time across relaunches running and paused, edits staying on, the drawer locked, launch after Discard (Finish, which needs a set done, is tested in the package), End's dialog offering only Discard workout, and, at AX5, Start and a relaunch landing on the current exercise with the equipment standing taller than the screen, and its bar, paused, and End's dialog under the audit, where the bar's own text, capped by the system, is passed over; Start keeping its size, and the screen its place, over the keyboard; and what the app saved, seen only by
-  quitting and launching again, a dragged row's place and a superset's shared rounds included. Each launch costs about 9 s on
-  CI, so there is one UI test per launch configuration:
-  `RenameUITests/testRenameAtDefaultSize`,
-  `TitleWrappingUITests/testWrappedTitleAtLargestTextSize`, and
-  `RoutineAutosaveUITests/testRoutineSurvivesRelaunch`, which relaunches eight times, and
-  `WorkoutUITests/testWorkoutSurvivesRelaunch`, apart for its six more. A new
-  check extends the test for its launch as a named `XCTContext.runActivity`; a new test needs a
-  launch argument no existing test uses, or a test that would run past XCTest's three-minute
-  allowance on CI (about 1.2 times its local time), which is why the drag and delete checks
-  are `RenameUITests/testDragAndDeleteRows`. Every test launches with `-resetStore YES`, so it
-  starts from a new routine and not the one the last test saved, and with `-noUIKitAnimations
-  YES`, and the relaunch test with `-fallbackNames YES`, muscle-group names, which a test can
-  predict where the standard names follow the routine's fresh id (all `LaunchOptions`, Debug
-  only). With UIKit's animations off, the keyboard and sheets appear at once, and XCTest's wait
-  for animations can't stall (`LaunchOptions.turnsOffUIKitAnimations` says why). SwiftUI's
-  animations still run, so a test that reads what one moves waits for its end
-  state; an added row is in the accessibility tree only once it has entered. Where the caret is shows in where typing lands, so they read it
-  from the field's value; one check reads the drawn `_` from pixels, for the wire from the text
-  system's selection to it. `TitleShot.swift` reads the `_`, the title's lines, and its contrast
-  from pixels: a name, typed or generated, reaches further from the background than the
-  placeholder's gray.
-  Wait with `appears()`, `disappears()`, `value(becoming:)`, and, for anything else read,
-  `reading(_:becoming:within:)` from `Waits.swift`: XCTest's own waits spend a second before
-  their first check. Typing, key presses, and taps can return before the app has handled them,
-  so a read after one waits for the state it checks: `value(becoming:)` for the value, and
-  `Ink.withCursor(_:until:)` for where the `_` is. Tap a stepper key with `tapAtCenter()`:
-  XCTest's `tap()` goes to its top-left corner, on the edge of the row above, which closes it.
-  Tap anything that may still be moving, such as Add exercise just after an add, once it
-  `settles()`: a view takes taps where it is laid out mid-move, so a tap read from a moving
-  frame can land on the row arriving there. Passing locally proves nothing about this; on
-  Xcode Cloud it failed six runs of #70.
+A test earns its place when it passes all seven; a UI check also names what only the running
+app shows (G).
 
-Before adding a test, find whether one already proves the guarantee. If one does, don't add
-another.
+- **A. Unique**: it fails for a break no other test catches. One that duplicates a lower test
+  goes. ([Fowler](https://martinfowler.com/articles/practical-test-pyramid.html); Khorikov,
+  *Unit Testing Principles, Practices, and Patterns*, ch. 4)
+- **B. Cheapest tier**: as low as it can sit and still catch that break.
+  ([Fowler](https://martinfowler.com/bliki/TestPyramid.html);
+  [Software Engineering at Google, ch. 11](https://abseil.io/resources/swe-book/html/ch11.html);
+  [Apple](https://developer.apple.com/documentation/xcode/adding-tests-to-your-xcode-project))
+- **C. Fast**: seconds only where real time is what's tested; state set by launch argument,
+  not by steps. ([Beck](https://testdesiderata.com/);
+  [WWDC20 10091](https://developer.apple.com/videos/play/wwdc2020/10091/))
+- **D. Deterministic**: same code, same result, in any order; no sleeps, no retries.
+  ([Fowler](https://martinfowler.com/articles/nonDeterminism.html);
+  [WWDC22 110361](https://developer.apple.com/videos/play/wwdc2022/110361/))
+- **E. Behavioral**: it fails when behavior changes, not when code moves.
+  ([Beck](https://testdesiderata.com/); [Google Testing Blog](https://testing.googleblog.com/2013/08/testing-on-toilet-test-behavior-not.html))
+- **F. Specific**: its name says the guarantee, and a failure names its cause.
+  ([WWDC20 10091](https://developer.apple.com/videos/play/wwdc2020/10091/);
+  [Dodds](https://kentcdodds.com/blog/effective-snapshot-testing))
+- **G. Predictive**: what passes would hold on the device. The only reason to pay for a UI
+  test. ([Dodds](https://kentcdodds.com/blog/the-testing-trophy-and-testing-classifications))
+
+## Where each guarantee goes
+
+Cheapest first. The tests' display names are the inventory of what each tier holds.
+
+| Guarantee | Tier |
+|---|---|
+| A rule or arithmetic: the store, the launch rule, names, plans, moves, supersets, a drag's, drawer's, or pairing's math, a workout's time | Package (`WorkoutStoreTests`, `DesignSystemTests` logic): macOS and the simulator, milliseconds |
+| What a saved store reopens as, and a schema upgrade on disk | Package, over an in-memory container (a second store on it is a relaunch) or a file |
+| How a component looks at a moment: at rest, editing, mid-drag, at AX5 | Snapshot, through `assertThemedSnapshots` |
+| What layout does over time: a live text size change, every layout pass, focus, the frame clock | Hosted view, in a `UIWindow.sceneless` |
+| What only the running app shows: the real keyboard and text system, gesture arbitration with the scroll view, system chrome composed in the app (sheets, search, swipe actions, bars, dialogs), VoiceOver frames, the accessibility audit at AX5, and what a relaunch brings back | UI test |
+
+- **A UI check proves the wire, once per gesture.** Where a gesture's variants differ only in
+  arithmetic the package holds (where a row lands, which neighbor pairs, a span's ends), one
+  UI check shows the gesture reaches that arithmetic, and the package holds the variants.
+- **One relaunch checks every saved field at once**; the package holds each field's round
+  trip. A relaunch costs 5 to 7 s on CI.
+- **Rows come from `-seedExercises`**, not adds through the picker, unless the add is what's
+  checked.
+- **Screenshots in UI tests are kept only on failure** (`attach(named:)`).
+- **Hosted and snapshot tests are main-actor work**, and `DesignSystemTests` runs them one at
+  a time (the test plan's `parallelizable: false`), so each one's own time is read, and a slow
+  one is named.
+
+## Budgets
+
+Reported on every run, never failed on: `scripts/test.sh` prints the package's, `scripts/test.sh
+sim` each target's and each UI test's, and `scripts/ci-times.py <branch>` an Xcode Cloud run's.
+They are defined once, in `scripts/xcresult.py`. Local is CI divided by 1.25.
+
+| Tier | Xcode Cloud | Local |
+|---|---|---|
+| Package on macOS, both runs' test time | | 10 s |
+| `WorkoutStoreTests` | 10 s | 8 s |
+| `DesignSystemTests` | 30 s | 24 s |
+| a `DesignSystemTests` test | 2 s | 1.6 s |
+| each UI test | 90 s | 72 s |
+| the UI tests together | 360 s | 290 s |
+| a PR run, start to finish | 11 min, aiming at 4 | |
+
+A test over its budget is fixed at its cause (setup through the UI, a fixed wait, a launch, a
+held main actor), or named with its time in the report that adds it. The first test of a
+filtered run carries the process's warm-up, so it can read over on its own.
+
+## Snapshots and hosted views
+
+A snapshot draws `EditableTitleContent` from plain values, reached with `@testable import`:
+`blinks: false` holds the `_` lit, a nil focus binding leaves it unfocused, and a forced
+`selection` (an `NSRange`) puts the caret. A snapshot cannot show a caret the text system
+placed, nor a height kept from the text size before, which is why those are hosted views. A
+moment of motion is drawn through an internal initializer, as a held row is through `Rail`'s
+and the drawer through `SideDrawer`'s `progress:`; a suggestion's arrival comes from
+`typingFrame(of:at:)`'s values.
+
+## UI tests
+
+There is one UI test per launch configuration, each a series of named
+`XCTContext.runActivity` checks: `RenameUITests/testRenameAtDefaultSize`,
+`RenameUITests/testDragAndDeleteRows` (the rows seeded),
+`TitleWrappingUITests/testWrappedTitleAtLargestTextSize`,
+`RoutineAutosaveUITests/testRoutineSurvivesRelaunch`, and
+`WorkoutUITests/testWorkoutSurvivesRelaunch`. A new check joins the test for its launch only
+when it names what only the running app shows (G) and the lower test that holds the rest, sets
+its state up by launch argument, and keeps its test within the UI budget; otherwise it goes in
+a cheaper tier. Every test launches with `-resetStore YES`, so it starts from a new routine and
+not the one the last test saved, and with `-noUIKitAnimations YES`; the relaunch tests add
+`-fallbackNames YES`, muscle-group names, which a test can predict where the standard names
+follow the routine's fresh id; and `-seedExercises <id,id,…>` with `-seedName <name>` starts
+from a routine of those built-in exercises (all `LaunchOptions`, Debug only). With UIKit's
+animations off, the keyboard and sheets appear at once, and XCTest's wait for animations can't
+stall (`LaunchOptions.turnsOffUIKitAnimations` says why). SwiftUI's animations still run, so a
+test that reads what one moves waits for its end state; an added row is in the accessibility
+tree only once it has entered. Where the caret is shows in where typing lands, so they read it
+from the field's value; one check reads the drawn `_` from pixels, for the wire from the text
+system's selection to it. `TitleShot.swift` reads the `_`, the title's lines, and its contrast
+from pixels: a name, typed or generated, reaches further from the background than the
+placeholder's gray.
+
+Wait with `appears()`, `disappears()`, `value(becoming:)`, and, for anything else read,
+`reading(_:becoming:within:)` from `Waits.swift`: XCTest's own waits spend a second before
+their first check. Typing, key presses, and taps can return before the app has handled them,
+so a read after one waits for the state it checks: `value(becoming:)` for the value, and
+`Ink.withCursor(_:until:)` for where the `_` is. Tap a stepper key with `tapAtCenter()`:
+XCTest's `tap()` goes to its top-left corner, on the edge of the row above, which closes it.
+Tap anything that may still be moving, such as Add exercise just after an add, once it
+`settles()`: a view takes taps where it is laid out mid-move, so a tap read from a moving
+frame can land on the row arriving there. Passing locally proves nothing about this; on
+Xcode Cloud it failed six runs of #70.
+
+## Every test
+
+Before adding a test, find the closest one that already exists. If it proves the guarantee,
+don't add another; if not, say why it doesn't.
 
 - Tests that need UIKit are wrapped in `#if canImport(UIKit) && !os(watchOS)` so `swift test`
   on macOS compiles them out; the simulator run exercises them.
@@ -126,14 +137,15 @@ another.
   `xxxl` is `accessibilityExtraExtraExtraLarge`). Every pixel must match within perceptual
   0.98: a looser pixel share lets a `_` move a cell or vanish unseen. Do not call `assertSnapshot`
   directly. Re-record by deleting a suite's files, or its whole folder, under `__Snapshots__/`.
-- The scheme's test plan, `PlusPlus.xctestplan`, holds three settings to keep, and it is the
-  only place Xcode Cloud reads them from. It pins the app language to English (US): UIKit sizes the
+- The scheme's test plan, `PlusPlus.xctestplan`, holds four settings to keep, and it is the
+  only place Xcode Cloud reads them from. `DesignSystemTests` is `parallelizable: false`, as
+  above. It pins the app language to English (US): UIKit sizes the
   system font's line height to fit the fallback fonts for the device's preferred languages, and
   Xcode Cloud's simulators list 34 of them, so unpinned text lays out taller there. Its
   `diagnosticCollectionPolicy` is `Never`: otherwise every failing run ends with `simctl
   diagnose`, which waits out its whole 600 s timeout on a simulator. Its test timeout fails a test
-  after three minutes, so a hung UI test fails rather than running on; that is more than twice the
-  slowest UI test's time on Xcode Cloud.
+  after three minutes, so a hung UI test fails rather than running on; that is twice the UI
+  test's budget on Xcode Cloud.
 - Display name on the attribute, stable identifier on the function:
   `@Test("An in-memory container round-trips a model") func inMemoryRoundTrip()`. The
   formatter is configured to keep it that way (see `.swiftformat`).

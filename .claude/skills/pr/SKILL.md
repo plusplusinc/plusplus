@@ -1,7 +1,7 @@
 ---
 name: pr
 description: Open or update a pull request for the current branch the way this repo expects, with lint and tests green first.
-allowed-tools: Bash(scripts/lint.sh:*), Bash(scripts/test.sh:*), Bash(git:*), Bash(gh pr:*)
+allowed-tools: Bash(scripts/lint.sh:*), Bash(scripts/test.sh:*), Bash(scripts/ci-times.py:*), Bash(git:*), Bash(gh pr:*)
 ---
 
 Branching and merge rules are in CLAUDE.md. Every diff also leaves the repo's prose true: read
@@ -16,7 +16,8 @@ because the first two change code and the rest verify it:
 4. `scripts/test.sh` passes, and so do the simulator tests the change touches
    (`scripts/test.sh sim <Target/Class>`). The full simulator suite is Xcode Cloud's check on
    the PR; a PR merges only when it is green. For docs or config alone, `scripts/test.sh` is
-   enough.
+   enough. Each run prints its tiers' times against their budgets; name any test over budget
+   in the body, with its time.
 5. For UI changes, a screenshot from `/run` has been looked at.
 
 Steps 1 and 2 are skipped for a diff with no Swift in it. Give both the same target, filled in:
@@ -33,7 +34,11 @@ gh pr create --title "<title>" --body-file - <<'BODY'   # or gh pr edit to updat
 <body>
 BODY
 gh pr checks --watch --interval 60                     # Xcode Cloud reports back as a check
+scripts/ci-times.py <branch>                           # the run's times against the budgets
 ```
+
+Once the run finishes, put `scripts/ci-times.py`'s lines for it in the body's Verified line
+with `gh pr edit`.
 
 If `gh pr checks` still says "no checks reported" a minute after the PR opens or after a push
 to it, a rebase included, GitHub's event never reached Xcode Cloud, which happens
