@@ -33,17 +33,9 @@ extension RenameUITests {
         let exercises = XCUIApplication.nineExercises
         XCTContext.runActivity(named: "Start appears with the first exercise") { _ in
             app.addExercise(exercises[0].label)
+            // What Start does is `WorkoutUITests`'.
             XCTAssertTrue(app.buttons["Start"].appears())
-            app.buttons["Start"].tap()
-            XCTAssertTrue(app.endKey.appears(), "Start began no workout")
-            XCTAssertEqual(app.workoutTime.label, "Pause")
-            XCTAssertFalse(app.buttons["Start"].exists, "Start stayed in a workout")
-            XCTAssertFalse(app.buttons["Menu"].exists, "++ stayed in a workout")
-            // Discarded, so the rest runs on a routine in edit mode, as if Start never ran.
-            app.discardWorkout()
-            XCTAssertTrue(app.buttons["Menu"].exists)
-            XCTAssertEqual(app.exerciseCount(becoming: 1), 1)
-            XCTAssertFalse(search.exists, "Start opened something")
+            XCTAssertFalse(search.exists, "The add left the picker open")
         }
         XCTContext.runActivity(named: "Six adds in a row, one a duplicate") { _ in
             for exercise in exercises[1 ... 6] {

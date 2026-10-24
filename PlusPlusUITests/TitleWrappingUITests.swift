@@ -141,12 +141,12 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
     /// the audit at this text size.
     @MainActor
     private func auditRowsAndPicker(in app: XCUIApplication) throws {
-        let name = "Rows, a sheet, and the picker at AX5 pass the audit"
+        let name = "A sheet and the picker at AX5 pass the audit"
         try XCTContext.runActivity(named: name) { _ in
             app.addExercise("Kneeling hip flexor stretch", searching: "kneeling")
             XCTAssertTrue(app.buttons["Start"].appears())
             attach(named: "rail-ax5")
-            try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
+            // The rows are audited at AX5 later, once a node has joined two.
             app.exerciseRows.firstMatch.tap()
             let time = app.buttons["Time"]
             XCTAssertTrue(time.appears(), "Tapping a row opened no sheet")

@@ -8,7 +8,7 @@ import Testing
 /// A row held on a rail, drawn at a moment of its drag from plain values: the card raised over
 /// the rows, and the gap open on the rail where it would land. The hold, the finger, and the
 /// haptics are the phone's; the drag's arithmetic is unit-tested in `RailDragTests`.
-@Suite("Rail drag")
+@Suite("Rail drag, drawn")
 struct RailDragSnapshotTests {
     private static let screenWidth: CGFloat = 390
 
