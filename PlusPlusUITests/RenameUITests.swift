@@ -76,7 +76,7 @@ final nonisolated class RenameUITests: XCTestCase {
     @MainActor
     func testDragAndDeleteRows() {
         let app = XCUIApplication()
-        app.launchNineExercises(named: "Arm and back day")
+        app.launchSeedingNineExercises(named: "Arm and back day")
         reorderExercises(in: app)
         supersetExercises(in: app)
         deleteExercises(in: app)

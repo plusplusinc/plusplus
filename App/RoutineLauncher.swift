@@ -9,6 +9,8 @@ struct RoutineLauncher: View {
     let store: RoutineStore?
     let namer: RoutineNamer
     let resetsStore: Bool
+    /// Saved into the emptied store, when it resets, as the routine to launch into.
+    var seed: (name: String, exercises: [Exercise])?
 
     @State private var session: RoutineSession?
     @Environment(\.locale) private var locale
@@ -62,6 +64,16 @@ struct RoutineLauncher: View {
             #if DEBUG
             if resetsStore {
                 try await store.deleteAll()
+                if let seed {
+                    let unit = WeightUnit(region: locale)
+                    try await store.save(Routine(
+                        name: seed.name,
+                        exercises: seed.exercises.map { RoutineExercise(
+                            exercise: $0,
+                            weightUnit: unit,
+                        ) },
+                    ))
+                }
             }
             #endif
             let launch = try await store.launch(weightUnit: WeightUnit(region: locale))

@@ -220,20 +220,20 @@ extension XCUIApplication {
         ("Barbell back squat, Barbell", nil),
     ]
 
-    /// Launches into a new routine named `name` holding `nineExercises`, scrolled to its top,
-    /// for the checks that only need the rows.
-    func launchNineExercises(named name: String) {
-        let title = launchNewRoutine()
-        title.tap()
-        XCTAssertTrue(keyboards.element.appears(), "A tap on the title did not start an edit")
-        title.typeText(name + "\n")
-        XCTAssertTrue(keyboards.element.disappears(), "Return did not end the edit")
+    /// `nineExercises`' built-in ids, for `-seedExercises`.
+    static let nineExerciseIDs = [
+        "barbell-bench-press", "band-pull-apart", "band-pull-apart", "balance-board-hold",
+        "barbell-back-squat", "biceps-curl", "push-up", "balance-board-hold", "barbell-back-squat",
+    ]
+
+    /// Launches into a routine named `name` holding `nineExercises`, seeded by launch argument,
+    /// for the checks that only need the rows. Adding them is `testRenameAtDefaultSize`'s.
+    func launchSeedingNineExercises(named name: String) {
+        let title = launchNewRoutine(arguments: [
+            "-seedExercises", Self.nineExerciseIDs.joined(separator: ","), "-seedName", name,
+        ])
         XCTAssertEqual(title.value(becoming: name), name)
-        for exercise in Self.nineExercises {
-            addExercise(exercise.label, searching: exercise.query)
-        }
-        XCTAssertTrue(addExerciseClearsStart(), "The add left Add exercise behind Start")
-        scrollToTop(titled: name)
+        XCTAssertEqual(exerciseCount(becoming: 9), 9, "The seeded rows aren't all in")
     }
 
     /// Taps through the keyboard's one-time tip on sliding to type, which a freshly erased

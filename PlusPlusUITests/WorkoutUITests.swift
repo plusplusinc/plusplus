@@ -14,15 +14,16 @@ final nonisolated class WorkoutUITests: XCTestCase {
     @MainActor
     func testWorkoutSurvivesRelaunch() throws {
         let app = XCUIApplication()
-        let title = app.launchNewRoutine(arguments: ["-fallbackNames", "YES"])
-        app.addExercise("Barbell bench press, Barbell, bench")
-        app.addExercise("Pull-up, Pull-up bar", searching: "pull-up")
-        app.addExercise("Goblet squat, Kettlebell", searching: "goblet")
         // Long enough to scroll the current exercise out of view.
-        app.addExercise("Band pull-apart, Band")
-        app.addExercise("Balance board hold, Balance board")
-        app.addExercise("Barbell back squat, Barbell")
-        // Start pressed straight after, as the row still enters.
+        let seeded = [
+            "barbell-bench-press", "pull-up", "goblet-squat", "band-pull-apart",
+            "balance-board-hold", "barbell-back-squat",
+        ]
+        let title = app.launchNewRoutine(arguments: [
+            "-fallbackNames", "YES", "-seedExercises", seeded.joined(separator: ","),
+        ])
+        XCTAssertEqual(app.exerciseCount(becoming: 6), 6, "The seeded rows aren't all in")
+        // Added through the picker, and Start pressed straight after, as the row still enters.
         app.pickExercise("Biceps curl, Dumbbells", searching: "biceps")
         startShowsTheCurrentExercise(in: app)
         theWayBackScrollsToIt(in: app)
