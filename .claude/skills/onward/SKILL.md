@@ -86,7 +86,11 @@ project board; agents' technical working files live in `.slices/`.
   phone, where a file on the Mac never reaches them and `SendUserFile` fails in a session with
   no project thread.
 - No time estimates. While a phase runs, tell the maintainer in a line now and then what it is
-  doing and why that still serves the card, without being asked. Before each new attempt or
+  doing and why that still serves the card, without being asked. A subagent or a CI watch in
+  the background says nothing until it ends, and a watch can outlive its run, so while one runs,
+  wake yourself about every 15 minutes (a background wait that notifies you) to read where it is
+  at that moment (a subagent's transcript's last entry, the PR's `gh pr checks`) and send that
+  line; a check that has finished is a result, whatever the watch says. Before each new attempt or
   extra run, by you or a subagent, check that it is still worth doing for the card's goal; ask
   for the proof the change needs and leave repeat runs to Xcode Cloud.
 - After every push to the PR, yours or a subagent's, watch its Xcode Cloud run to the end
