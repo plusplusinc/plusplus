@@ -66,6 +66,14 @@ project board; agents' technical working files live in `.slices/`.
 - While the maintainer is still weighing a rule (asking whether it holds together, or offering
   another), send no builder any of the candidates: show them side by side as a table of the
   cases where they differ, and send the one they pick.
+- A round that does what they asked only by adding something they didn't (a clip at an edge, an
+  uneven gap) is not installed as a cost for them to judge: bring the ways to do it as a table,
+  and build the one they pick. Read a request that names a size or a direction (smaller, to
+  match, faster) against today's values in the code before you restate it; when the words and
+  the numbers disagree, ask.
+- Name a part of the screen by what the maintainer sees and where it is, not the platform's term
+  for it (home indicator, safe area, popover), and before asking about something in their build,
+  say where it is and what it does.
 - A problem found outside the card, by the verifier or anyone, gets checked on `main` before
   the merge (its code, or a worktree of `main`), and becomes a card when `main` has it too,
   the slice's to fix when it doesn't; never leave it as a question for the maintainer.

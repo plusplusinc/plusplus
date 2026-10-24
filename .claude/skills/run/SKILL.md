@@ -54,7 +54,9 @@ What to check in the light, dark, and XXXL images before declaring UI work done:
 A still says nothing about motion, and watching it play says little more: record the screen
 (`xcrun simctl io <device> recordVideo <file>.mov`) and step through the frames with `ffmpeg`
 (in the `Brewfile`). Recordings written this way have uneven frame timestamps, so find a moment
-by what its frame shows, not by counting frames. The add animation was tuned by feel over six
+by what its frame shows, not by counting frames. Look at the frames full size, or cropped to the
+part that moves, never scaled down: at a few hundred pixels wide, three one-frame cuts in the
+bar went unseen until the phone showed them. The add animation was tuned by feel over six
 rounds; the frames showed a third of a second of dead time in it at once.
 
 ## Gotchas
