@@ -41,11 +41,14 @@ asc xcode-cloud workflows view --id FE8B3BCC-1973-4533-BB66-4D047A8E3C22 --prett
 asc xcode-cloud workflows update --id FE8B3BCC-1973-4533-BB66-4D047A8E3C22 --file <patch.json>
 ```
 
-When the two disagree, a PR Xcode Cloud skips but the check treats as app code waits for a status
-that never comes, and the check fails at its time limit saying to compare them.
+When the two disagree, a PR Xcode Cloud skips but the check treats as app code gets no status,
+and after 10 minutes with none the check fails, naming that and the other cause, GitHub's event
+never reaching Xcode Cloud (`/pr` says what to do).
 
 `.github/` is on the list: no build or test reads it, and a change to the check itself is run by
-the check on its own PR. Xcode Cloud runs `ci_scripts/`, the `Brewfile`, and `scripts/lint.sh`
+the check on its own PR. Like any Actions check, it runs the PR's own copy of the workflow, the
+script, and the list, so a PR can change what it is checked against; the diff, read before the
+merge, shows that. Xcode Cloud runs `ci_scripts/`, the `Brewfile`, and `scripts/lint.sh`
 with what it sources before it builds, so those are not on it.
 
 ## Running it locally
@@ -62,9 +65,15 @@ scripts/pr-check.sh run <pr> <sha>          # the whole check
 
 On `main`: require a pull request, require "PR check" with the branch up to date, squash merges
 only, delete branches on merge. Renaming the job means updating the rule, since it names the
-check:
+check. Set once with the first command; the second changes only the required check:
 
 ```sh
+gh api -X PUT repos/plusplusinc/plusplus/branches/main/protection \
+  -f required_status_checks[strict]=true \
+  -f 'required_status_checks[contexts][]=PR check' \
+  -F enforce_admins=true \
+  -f required_pull_request_reviews[required_approving_review_count]=0 \
+  -F restrictions=null
 gh api -X PATCH repos/plusplusinc/plusplus/branches/main/protection/required_status_checks \
   -F strict=true -f 'contexts[]=PR check'
 gh repo edit plusplusinc/plusplus --enable-squash-merge --enable-merge-commit=false \

@@ -16,6 +16,10 @@ LIST="$ROOT/.github/no-code-paths"
 # The commit status Xcode Cloud's PR workflow posts; its actions post check runs besides.
 XCODE_CLOUD_STATUS="PlusPlus Workout Tracker | PR"
 POLL_SECONDS=${PR_CHECK_POLL_SECONDS:-60}
+# Below the workflow's timeout-minutes, so the check fails with a message rather than a kill.
+MINUTES=40
+# Xcode Cloud posts a pending status within a minute of the PR event; none by then means no run.
+START_MINUTES=10
 
 usage() {
     sed -n '2,11p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2
@@ -43,13 +47,13 @@ entries() {
 # True when a path matches an entry, with Xcode Cloud's meaning (see the list's header).
 is_no_code() {
     local path=$1 entry
-    while IFS= read -r entry; do
+    for entry in "${ENTRIES[@]}"; do
         case "$entry" in
             */) [[ "$path" == "$entry"* ]] && return 0 ;;
             */*) [[ "$path" == "$entry" ]] && return 0 ;;
-            *) [[ "$(basename "$path")" == "$entry" ]] && return 0 ;;
+            *) [[ "${path##*/}" == "$entry" ]] && return 0 ;;
         esac
-    done < <(entries)
+    done
     return 1
 }
 
@@ -60,6 +64,8 @@ files() {
 
 classify() {
     local path
+    ENTRIES=()
+    while IFS= read -r path; do ENTRIES+=("$path"); done < <(entries)
     while IFS= read -r path; do
         [ -n "$path" ] || continue
         is_no_code "$path" || { echo "app: $path"; return; }
@@ -67,9 +73,11 @@ classify() {
     echo docs
 }
 
+# state, description, and link, separated by \x1f, which unlike a tab keeps an empty field.
 xcode_cloud_status() {
     gh api "repos/$(repo)/commits/$1/status" --jq \
-        ".statuses[] | select(.context == \"$XCODE_CLOUD_STATUS\") | [.state, .description, .target_url] | @tsv"
+        ".statuses[] | select(.context == \"$XCODE_CLOUD_STATUS\")
+            | [.state, .description // \"\", .target_url // \"\"] | join(\"\\u001f\")"
 }
 
 xcode_cloud_actions() {
@@ -78,28 +86,32 @@ xcode_cloud_actions() {
 }
 
 wait_for() {
-    local sha=$1 minutes=${2:-40} state="" description="" url="" line
-    local deadline=$((SECONDS + minutes * 60))
+    local sha=$1 minutes=${2:-$MINUTES} state="" description="" url="" line
+    local deadline=$((SECONDS + minutes * 60)) start_deadline=$((SECONDS + START_MINUTES * 60))
     echo "waiting for \"$XCODE_CLOUD_STATUS\" on $sha"
     while :; do
-        line=$(xcode_cloud_status "$sha")
+        # A failed request is a poll with no answer, not a failed check.
+        line=$(xcode_cloud_status "$sha") || line=""
         if [ -n "$line" ]; then
-            IFS=$'\t' read -r state description url <<< "$line"
+            IFS=$'\x1f' read -r state description url <<< "$line"
             [ "$state" = pending ] || break
+        elif [ -z "$state" ] && [ "$SECONDS" -ge "$start_deadline" ]; then
+            fail "Xcode Cloud has not started on $sha after $START_MINUTES min. Either GitHub's \
+event never reached it (push an empty commit, as /pr says), or the PR changed only paths Xcode \
+Cloud's start condition skips but .github/no-code-paths does not list (docs/pr-check.md)."
         fi
-        [ "$SECONDS" -lt "$deadline" ] || fail "No result from Xcode Cloud on $sha after $minutes min \
-(${state:-no status yet}). If it never started, the PR changed only paths Xcode Cloud's start \
-condition skips but .github/no-code-paths does not list: compare the two (docs/pr-check.md)."
+        [ "$SECONDS" -lt "$deadline" ] || fail "Xcode Cloud has not finished on $sha after \
+$minutes min: $url"
         sleep "$POLL_SECONDS"
     done
 
     local actions
-    actions=$(xcode_cloud_actions "$sha")
+    actions=$(xcode_cloud_actions "$sha") || actions=
     [ -n "$actions" ] && echo "$actions"
     case "$state" in
         success) echo "Xcode Cloud passed: $url" ;;
         *)
-            if [ "$description" = cancelled ] && [ -z "$actions" ]; then
+            if [[ "$description" == [Cc]ancel* ]] && [ -z "$actions" ]; then
                 fail "Xcode Cloud cancelled the run before any action started, which usually means \
 this month's Xcode Cloud compute hours are spent (App Store Connect, Xcode Cloud, Usage). Once \
 they are back, start the run again and re-run this check. $url"
@@ -127,7 +139,7 @@ run() {
         scripts/lint.sh "${existing[@]}"
     else
         echo "changes the app (${verdict#app: }), so Xcode Cloud's result decides"
-        wait_for "$sha" "${PR_CHECK_MINUTES:-40}"
+        wait_for "$sha"
     fi
 }
 
@@ -151,7 +163,7 @@ case "${1:-}" in
     run) [ "$#" -eq 3 ] || usage; run "$2" "$3" ;;
     files) [ "$#" -eq 2 ] || usage; files "$2" ;;
     classify) classify ;;
-    wait) [ "$#" -ge 2 ] || usage; wait_for "$2" "${3:-40}" ;;
+    wait) [ "$#" -ge 2 ] || usage; wait_for "$2" "${3:-}" ;;
     xcode-cloud) xcode_cloud_rule ;;
     *) usage ;;
 esac
