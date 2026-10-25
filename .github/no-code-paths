@@ -14,6 +14,8 @@
 # scripts/lint.sh, scripts/common.sh, scripts/check-us-english.sh, .swiftformat, .swiftlint.yml.
 # Not listed, and never no-code whatever this file says, since they decide the check: this file,
 # scripts/pr-check.sh, and .github/workflows/.
+# With PR_TESTS_ON=github, scripts/test.sh and scripts/xcresult.py count as app code too, since
+# GitHub's runner runs them; Xcode Cloud doesn't, so they stay listed.
 .claude/
 .github/pull_request_template.md
 docs/

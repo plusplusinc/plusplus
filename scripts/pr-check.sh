@@ -2,13 +2,16 @@
 # The "PR check" job's logic (.github/workflows/pr-check.yml), runnable locally against any PR or
 # commit. docs/pr-check.md explains the check.
 #
-#   scripts/pr-check.sh run <pr> <sha>       # what CI runs: lint a docs-only PR, else wait
+#   scripts/pr-check.sh route <pr>           # docs, xcode-cloud, or github: where the PR is checked
+#   scripts/pr-check.sh lint <pr>            # the docs-only path: scripts/lint.sh on its files
+#   scripts/pr-check.sh wait <sha> [minutes] # Xcode Cloud's result on a commit; default 40 min
 #   scripts/pr-check.sh files <pr>           # the PR's changed paths, renames' old paths too
 #   scripts/pr-check.sh classify < paths     # "docs", or "app: <first path that is app code>"
-#   scripts/pr-check.sh wait <sha> [minutes] # Xcode Cloud's result on a commit; default 40 min
 #   scripts/pr-check.sh xcode-cloud          # .github/no-code-paths as Xcode Cloud's rule, JSON
 #
 # Needs `gh` signed in (GH_TOKEN in CI). Polls about once a minute. Run it inside a checkout.
+# PR_TESTS_ON, the repository variable CI passes in, says where an app PR's tests run:
+# xcode-cloud (also when unset) or github, GitHub's xcode-27 runner.
 # It reads the no-code list from PR_CHECK_BASE (default origin/main), never the working tree,
 # so a PR cannot widen the list it is checked against; CI runs main's copy of this script too.
 set -euo pipefail
@@ -18,6 +21,8 @@ BASE=${PR_CHECK_BASE:-origin/main}
 LIST=".github/no-code-paths"
 # They decide the check, so a PR that changes them waits for Xcode Cloud, whatever the list says.
 GATE_PATTERN='^(\.github/no-code-paths|scripts/pr-check\.sh|\.github/workflows/.*)$'
+# The GitHub runner's tests run them, so with PR_TESTS_ON=github they count as app code too.
+GITHUB_TEST_PATTERN='^(scripts/test\.sh|scripts/xcresult\.py)$'
 # The commit status Xcode Cloud's PR workflow posts; its actions post check runs besides.
 XCODE_CLOUD_STATUS="PlusPlus Workout Tracker | PR"
 POLL_SECONDS=${PR_CHECK_POLL_SECONDS:-60}
@@ -27,18 +32,27 @@ MINUTES=40
 START_MINUTES=10
 
 usage() {
-    sed -n '2,11p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2
+    sed -n '2,14p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2
     exit 2
+}
+
+# Where an app PR's tests run, from PR_TESTS_ON; unset means Xcode Cloud.
+tests_on() {
+    case "${PR_TESTS_ON:-xcode-cloud}" in
+        xcode-cloud | github) echo "${PR_TESTS_ON:-xcode-cloud}" ;;
+        *) fail "PR_TESTS_ON is \"$PR_TESTS_ON\"; set the repository variable to xcode-cloud or github" ;;
+    esac
 }
 
 repo() {
     echo "${GITHUB_REPOSITORY:-$(gh repo view --json nameWithOwner -q .nameWithOwner)}"
 }
 
-# Prints a message as an error annotation in Actions, plainly elsewhere.
+# Prints a message as an error annotation in Actions, plainly elsewhere. Always on stderr, which
+# the runner reads commands from too, so a caller capturing stdout (route) still shows it.
 fail() {
     if [ -n "${GITHUB_ACTIONS:-}" ]; then
-        echo "::error title=PR check::$1"
+        echo "::error title=PR check::$1" >&2
     else
         echo "$1" >&2
     fi
@@ -81,12 +95,14 @@ files() {
 }
 
 classify() {
-    local path
+    local path on
+    on=$(tests_on)
     ENTRIES=()
     while IFS= read -r path; do ENTRIES+=("$path"); done < <(entries)
     while IFS= read -r path; do
         [ -n "$path" ] || continue
-        if [[ "$path" =~ $GATE_PATTERN ]] || ! is_no_code "$path"; then
+        if [[ "$path" =~ $GATE_PATTERN ]] || ! is_no_code "$path" ||
+            { [ "$on" = github ] && [[ "$path" =~ $GITHUB_TEST_PATTERN ]]; }; then
             echo "app: $path"
             return
         fi
@@ -142,27 +158,33 @@ they are back, start the run again and re-run this check. $url"
     esac
 }
 
-run() {
-    local pr=$1 sha=$2 paths verdict
+route() {
+    local paths verdict
     require_base
-    paths=$(files "$pr")
+    # Not a pipe: classify stops at the first app path, which would end files with SIGPIPE.
+    paths=$(files "$1")
     verdict=$(classify <<< "$paths")
     if [ "$verdict" = docs ]; then
-        echo "docs-only: every changed path is in $BASE's $LIST, so Xcode Cloud skips it"
-        local existing=()
-        while IFS= read -r path; do
-            [ -f "$ROOT/$path" ] && existing+=("$path")
-        done <<< "$paths"
-        if [ "${#existing[@]}" -eq 0 ]; then
-            echo "nothing left to lint: the PR only deletes files"
-            return
-        fi
-        cd "$ROOT"
-        scripts/lint.sh "${existing[@]}"
+        echo "docs-only: every changed path is in $BASE's $LIST" >&2
+        echo docs
     else
-        echo "changes the app (${verdict#app: }), so Xcode Cloud's result decides"
-        wait_for "$sha"
+        echo "changes the app (${verdict#app: }), so its tests run on $(tests_on)" >&2
+        tests_on
     fi
+}
+
+lint() {
+    local paths path existing=()
+    paths=$(files "$1")
+    while IFS= read -r path; do
+        [ -f "$ROOT/$path" ] && existing+=("$path")
+    done <<< "$paths"
+    if [ "${#existing[@]}" -eq 0 ]; then
+        echo "nothing left to lint: the PR only deletes files"
+        return
+    fi
+    cd "$ROOT"
+    scripts/lint.sh "${existing[@]}"
 }
 
 xcode_cloud_rule() {
@@ -181,8 +203,12 @@ print(json.dumps({"mode": "DO_NOT_START_IF_ALL_FILES_MATCH", "matchers": matcher
 '
 }
 
+# Here, not only where it is read, since bash ignores a failure inside $(...).
+tests_on > /dev/null
+
 case "${1:-}" in
-    run) [ "$#" -eq 3 ] || usage; run "$2" "$3" ;;
+    route) [ "$#" -eq 2 ] || usage; route "$2" ;;
+    lint) [ "$#" -eq 2 ] || usage; lint "$2" ;;
     files) [ "$#" -eq 2 ] || usage; files "$2" ;;
     classify) require_base; classify ;;
     wait) [ "$#" -ge 2 ] || usage; wait_for "$2" "${3:-}" ;;

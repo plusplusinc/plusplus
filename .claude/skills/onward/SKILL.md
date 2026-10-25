@@ -99,15 +99,17 @@ project board; agents' technical working files live in `.slices/`.
   at that moment (a subagent's transcript's last entry, the PR's `gh pr checks`) and send that
   line; a check that has finished is a result, whatever the watch says. Before each new attempt or
   extra run, by you or a subagent, check that it is still worth doing for the card's goal; ask
-  for the proof the change needs and leave repeat runs to Xcode Cloud.
+  for the proof the change needs and leave repeat runs to the PR's check.
 - Push only when CI's answer is needed: when the PR opens, after a round of fixes, and before
   the merge (the rebase "require up to date" asks for included). You and every subagent commit
   locally in between: rounds reach the phone by `scripts/device.sh`, not CI, and each push to a
-  PR that changes the app spends a full Xcode Cloud run.
+  PR that changes the app spends a full test run (Xcode Cloud hours, or about 30 minutes of
+  GitHub's runner).
 - After every push to the PR, yours or a subagent's, watch its "PR check" to the end yourself
   (see `/pr`): `gh pr checks <n> --watch --interval 60` with `run_in_background: true`, which
-  notifies you when it exits. For a PR that changes the app it lasts as long as the Xcode Cloud
-  run it waits for. A subagent's "still queued" is not a result. A failed run goes to a builder
+  notifies you when it exits. For a PR that changes the app it lasts as long as its tests: about
+  30 minutes on GitHub's runner, inside the check, with `PR_TESTS_ON=github`, or the Xcode Cloud
+  run it waits for otherwise (`docs/pr-check.md`). A subagent's "still queued" is not a result. A failed run goes to a builder
   before anything else reaches the maintainer, unless "PR check" says the month's Xcode Cloud
   hours are likely spent, which goes to the maintainer; the go-ahead you ask for names the
   commit CI is green at.

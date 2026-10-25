@@ -14,9 +14,10 @@ because the first two change code and the rest verify it:
    the PR body.
 3. `scripts/lint.sh` is clean.
 4. `scripts/test.sh` passes, and so do the simulator tests the change touches
-   (`scripts/test.sh sim <Target/Class>`). The full simulator suite runs on Xcode Cloud for a
-   PR that changes the app, and "PR check" reports its result; a PR merges only when that check
-   is green. For docs or config alone, `scripts/test.sh` is enough.
+   (`scripts/test.sh sim <Target/Class>`). For a PR that changes the app, the full simulator
+   suite runs where the repository variable `PR_TESTS_ON` says (`gh variable list`): on GitHub's
+   runner inside "PR check" itself (`github`), or on Xcode Cloud (`xcode-cloud`, or unset), whose
+   result "PR check" reports; a PR merges only when that check is green. For docs or config alone, `scripts/test.sh` is enough.
 5. For UI changes, a screenshot from `/run` has been looked at.
 
 Steps 1 and 2 are skipped for a diff with no Swift in it. Give both the same target, filled in:
@@ -28,7 +29,8 @@ the branch and HEAD they name are the worktree's; if not, run again with the tar
 
 Push only when CI's answer is needed: when opening the PR, after a round of fixes, and before
 the merge (a rebase onto `main` included). Commit locally between them; each push to a PR that
-changes the app spends a full Xcode Cloud run of the month's hours. Then:
+changes the app spends a full test run, of the month's Xcode Cloud hours or about 30 minutes of
+GitHub's runner. Then:
 ```sh
 git push -u origin <branch>
 gh pr create --title "<title>" --body-file - <<'BODY'   # or gh pr edit to update the body
@@ -39,11 +41,14 @@ gh pr checks --watch --interval 60                     # "PR check" is the one t
 
 "PR check" (`docs/pr-check.md`) lints a PR whose changed files are all in
 `.github/no-code-paths` and passes in a minute or two; Xcode Cloud starts no run for it. For any
-other PR it waits for Xcode Cloud's "PlusPlus Workout Tracker | PR" on the same commit and passes
-or fails with it, naming the run. When it fails saying the month's Xcode Cloud hours are likely
-spent, tell the lead or the maintainer; no rerun helps until they are back.
+other PR, with `PR_TESTS_ON=github`, it runs `scripts/lint.sh` and `scripts/test.sh sim` on
+GitHub's `xcode-27` runner, about 30 minutes; a failure's log is `gh run view <run-id>
+--log-failed`, and its result bundle `gh run download <run-id> -n test-xcresult -D .build/ci`.
+Otherwise it waits for Xcode Cloud's "PlusPlus Workout Tracker | PR" on the same commit and
+passes or fails with it, naming the run. When it fails saying the month's Xcode Cloud hours are
+likely spent, tell the lead or the maintainer; no rerun helps until they are back.
 
-If a PR that changes the app still lists no "PlusPlus Workout Tracker | PR" check a minute after
+On Xcode Cloud, if a PR that changes the app still lists no "PlusPlus Workout Tracker | PR" check a minute after
 it opens or after a push to it, a rebase included, GitHub's event never reached Xcode Cloud,
 which happens intermittently and leaves no log on our side. Push an empty commit
 (`git commit --allow-empty -m "Start Xcode Cloud" && git push`); the push sends a fresh event.

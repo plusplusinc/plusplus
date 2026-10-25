@@ -1,8 +1,9 @@
 # The one required check on every pull request to main, "PR check" (docs/pr-check.md). A PR whose
 # changed files all match the base branch's .github/no-code-paths gets scripts/lint.sh on those
-# files and passes; any other waits for Xcode Cloud's result on the same commit and passes or
-# fails with it.
-# Branch protection names this job; renaming it means updating the rule.
+# files and passes. Any other is tested where the repository variable PR_TESTS_ON says: on
+# Xcode Cloud (xcode-cloud, or unset), whose result on the same commit the check waits for and
+# reports, or here on GitHub's xcode-27 runner (github), where the check lints and runs every test.
+# Branch protection names only "PR check"; renaming it means updating the rule.
 name: PR check
 
 on:
@@ -20,27 +21,32 @@ concurrency:
   group: pr-check-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
+env:
+  PR: ${{ github.event.pull_request.number }}
+  SHA: ${{ github.event.pull_request.head.sha }}
+  PR_CHECK_BASE: ${{ github.event.pull_request.base.sha }}
+  # A repository variable, so a PR cannot change where it is tested.
+  PR_TESTS_ON: ${{ vars.PR_TESTS_ON }}
+
 jobs:
-  pr-check:
-    name: PR check
+  # Decides the PR check's runner, which a job cannot change once it starts.
+  route:
+    name: Route
     runs-on: ubuntu-24.04
-    # Above the longest Xcode Cloud PR run so far (about 20 min, queue included), and above
-    # scripts/pr-check.sh's own 40-minute limit, so the script fails first, with a message.
-    timeout-minutes: 45
+    timeout-minutes: 5
+    outputs:
+      route: ${{ steps.route.outputs.route }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       # The check and its no-code list come from the base branch, never the PR, so a PR cannot
-      # change what it is checked against. The PR's checkout is only linted, on the docs-only
-      # path, by a scripts/lint.sh that path cannot have changed.
-      - name: Lint or wait for Xcode Cloud
+      # change what it is checked against.
+      - name: Docs, Xcode Cloud, or GitHub
+        id: route
         env:
           GH_TOKEN: ${{ github.token }}
-          PR: ${{ github.event.pull_request.number }}
-          SHA: ${{ github.event.pull_request.head.sha }}
-          PR_CHECK_BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           git fetch --quiet --depth=1 origin "$PR_CHECK_BASE"
           check="$RUNNER_TEMP/pr-check.sh"
@@ -49,4 +55,100 @@ jobs:
             echo "no scripts/pr-check.sh on the base; running the PR's"
             cp scripts/pr-check.sh "$check"
           fi
-          bash "$check" run "$PR" "$SHA"
+          route=$(bash "$check" route "$PR")
+          echo "route=$route" >> "$GITHUB_OUTPUT"
+
+  pr-check:
+    name: PR check
+    needs: route
+    # Runs even when Route fails, since a skipped required check counts as passed.
+    if: ${{ !cancelled() }}
+    runs-on: ${{ needs.route.outputs.route == 'github' && 'xcode-27' || 'ubuntu-24.04' }}
+    # Covers a GitHub test run (22 to 28 min measured, plus setup) with headroom, and sits above
+    # scripts/pr-check.sh's own 40-minute wait for Xcode Cloud, so that fails first, with a message.
+    timeout-minutes: 60
+    env:
+      ROUTE: ${{ needs.route.outputs.route }}
+    steps:
+      - name: Route
+        run: |
+          if [ -z "$ROUTE" ]; then
+            echo "::error title=PR check::Route failed; its log says why"
+            exit 1
+          fi
+          echo "$ROUTE"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Docs-only, or waiting for Xcode Cloud: the base's script, as in Route. The PR's checkout
+      # is only linted, on the docs-only path, by a scripts/lint.sh that path cannot have changed.
+      - name: Lint or wait for Xcode Cloud
+        if: env.ROUTE != 'github'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git fetch --quiet --depth=1 origin "$PR_CHECK_BASE"
+          check="$RUNNER_TEMP/pr-check.sh"
+          git show "$PR_CHECK_BASE:scripts/pr-check.sh" > "$check" || cp scripts/pr-check.sh "$check"
+          if [ "$ROUTE" = docs ]; then
+            bash "$check" lint "$PR"
+          else
+            bash "$check" wait "$SHA"
+          fi
+
+      # The image ships its own SwiftFormat, newer than the one the code is formatted with, and
+      # each release adds or changes rules, so lint would fail code that is clean locally and on
+      # Xcode Cloud. This pins the release, checked against its checksum, ahead of Homebrew's on
+      # the PATH. Moving to a newer one is its own change: bump both values and reformat the tree.
+      - name: Install SwiftFormat 0.63.0
+        if: env.ROUTE == 'github'
+        env:
+          SWIFTFORMAT_VERSION: 0.63.0
+          SWIFTFORMAT_SHA256: 28c7802e11fa5ae113d903066439c6bb1be20a8ac1ad9709c42616a7e273fb0f
+        run: |
+          bin="$RUNNER_TEMP/bin"
+          mkdir -p "$bin"
+          curl -fsSL -o "$RUNNER_TEMP/swiftformat.zip" \
+            "https://github.com/nicklockwood/SwiftFormat/releases/download/$SWIFTFORMAT_VERSION/swiftformat.zip"
+          echo "$SWIFTFORMAT_SHA256  $RUNNER_TEMP/swiftformat.zip" | shasum -a 256 -c -
+          unzip -q -o "$RUNNER_TEMP/swiftformat.zip" swiftformat -d "$bin"
+          echo "$bin" >> "$GITHUB_PATH"
+
+      - name: Install tools
+        if: env.ROUTE == 'github'
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: 1
+          HOMEBREW_NO_INSTALL_CLEANUP: 1
+        run: |
+          xcodebuild -version
+          brew bundle
+          swiftformat --version
+          swiftlint version
+
+      - name: Lint
+        if: env.ROUTE == 'github'
+        run: scripts/lint.sh
+
+      # The checkout is not a linked worktree, so the scripts use the image's "iPhone 17". The
+      # runner (3 CPUs) is slower than Xcode Cloud's and parallel simulator clones made it slower
+      # still, so the UI tests run one at a time, and each test gets 10 minutes instead of the
+      # test plan's 3, which two UI tests ran past here. The slowest takes about 2 minutes on a
+      # Mac and the others about 1.45 times their Mac time here, so 10 minutes is about 5 times
+      # the slowest's Mac time and still fails a hung test well inside the job's limit.
+      - name: Test
+        if: env.ROUTE == 'github'
+        env:
+          PLUSPLUS_TEST_SERIAL: 1
+          PLUSPLUS_TEST_ALLOWANCE: 600
+        run: scripts/test.sh sim
+
+      - name: Upload result bundle
+        if: failure() && env.ROUTE == 'github'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-xcresult
+          path: .build/results/test.xcresult
+          if-no-files-found: ignore
+          retention-days: 7
