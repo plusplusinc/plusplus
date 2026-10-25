@@ -1,7 +1,8 @@
-# Xcode Cloud: PR checks and TestFlight builds
+# Xcode Cloud: TestFlight builds
 
-Xcode Cloud builds and tests every pull request and ships each `v*` tag to TestFlight. Workflow
-definitions live in App Store Connect, not in the repo. Two files here belong to it:
+Xcode Cloud ships each `v*` tag to TestFlight. Pull requests are checked on GitHub Actions
+instead, as `docs/pr-check.md` says. Workflow definitions live in App Store Connect, not in the
+repo. Two files here belong to it:
 `ci_scripts/ci_post_clone.sh`, which installs the `Brewfile` tools and runs `scripts/lint.sh`
 before any build action, and `PlusPlus.xcodeproj/xcshareddata/xcodecloud/manifest.json`, which
 records the Xcode Cloud product the project belongs to. Xcode writes the manifest back whenever
@@ -20,10 +21,9 @@ name, nothing secret, and nothing in the build reads it.
 
 ## Workflows
 
-**PR**: start on pull request to `main`. Actions: Build and Test, scheme `PlusPlus`, iOS
-simulator iPhone 17, using the scheme's settings. The scheme's test plan, `PlusPlus.xctestplan`,
-includes the package test targets, so this covers storage, snapshot, and UI tests in one run.
-Post-actions: none.
+**PR**: disabled, and kept rather than deleted. It ran Build and Test on every pull request
+until Xcode Cloud's monthly compute hours ran out in October 2026; the PR check moved to GitHub
+Actions, which has no hour limit on a public repository.
 
 **TestFlight**: start on a tag beginning with `v`. Actions: Archive, iOS, with distribution to
 TestFlight internal testing; it never submits to the App Store. Post-actions: TestFlight Internal
@@ -36,7 +36,7 @@ not let a team member be added to an internal group. Internal builds skip Beta A
 Review, and `ITSAppUsesNonExemptEncryption` in `Config/Base.xcconfig` answers the export
 compliance question so the build is available as soon as processing finishes.
 
-Merges to `main` do not build; the PR run already tested that code, since branch protection
+Merges to `main` do not build; the PR check already tested that code, since branch protection
 requires a branch to be up to date before it merges. Builds reach TestFlight only when a `v*` tag
 is pushed, one build per tag.
 
@@ -73,9 +73,8 @@ The `.p8` lives in `~/.appstoreconnect/private_keys/`. Nothing of that is in the
 
 ## Agents
 
-An agent uses the least access that answers its question. Pass or fail comes from GitHub, where
-Xcode Cloud reports every run as a check (`gh pr checks`); that needs no key and is all an agent
-without one gets. Local agents that operate CI use `asc` rather than ad hoc API calls. Reading
+An agent uses the least access that answers its question. A PR's pass or fail comes from
+GitHub Actions (`gh pr checks`), which needs no key; Xcode Cloud is only for TestFlight builds. Local agents that operate CI use `asc` rather than ad hoc API calls. Reading
 runs and starting one are allowed without a prompt (`.claude/settings.json`); anything else that
 changes App Store Connect asks first. The API cannot cancel a running build or edit a
 workflow's post-actions, so those two go through App Store Connect in the browser. The Xcode
@@ -83,18 +82,4 @@ MCP server has no Xcode Cloud tools.
 
 ## Branch protection
 
-On `main`: require a pull request, require the Xcode Cloud status check, squash merges only,
-delete branches on merge. Set once with:
-
-```sh
-gh api -X PUT repos/plusplusinc/plusplus/branches/main/protection \
-  -f required_status_checks[strict]=true \
-  -f 'required_status_checks[contexts][]=Xcode Cloud' \
-  -F enforce_admins=true \
-  -f required_pull_request_reviews[required_approving_review_count]=0 \
-  -F restrictions=null
-gh repo edit plusplusinc/plusplus --enable-squash-merge --enable-merge-commit=false \
-  --enable-rebase-merge=false --delete-branch-on-merge
-```
-
-The check name is whatever Xcode Cloud reports on the first PR; adjust the context if it differs.
+`docs/pr-check.md` has the rule on `main` and the commands that set it.

@@ -8,8 +8,9 @@ repo. Everything here is committed and shared; per-developer overrides go in
 
 `scripts/` is the single source of truth for building, testing, linting, and running. The
 project skills in `.claude/skills/` wrap them with the judgment an agent needs (what to check in
-a screenshot, when `fast` is enough). Xcode Cloud runs `scripts/lint.sh` too, so the agent, a
-human, and CI cannot disagree about what "clean" means.
+a screenshot, when `fast` is enough). The PR check (`docs/pr-check.md`) runs `scripts/lint.sh`
+and `scripts/test.sh sim` too, so the agent, a human, and CI cannot disagree about what "clean"
+means.
 
 ## CLI, script, or MCP
 
@@ -63,8 +64,8 @@ run to measure them, since one rewrites the README and the other makes a public 
 quota is spent, `board.sh` prints the reset time and exits; a retry would spend whatever comes
 back.
 
-The `/pr` skill and `docs/xcode-cloud.md` wait on CI by polling once a minute: a run takes about
-four minutes, so polling faster spends quota and gains nothing.
+The `/pr` skill waits on CI by polling once a minute: a run takes several minutes, so polling
+faster spends quota and gains nothing.
 
 ## Hooks
 
@@ -164,7 +165,7 @@ minimized. On any other simulator it leaves the settings alone, since that one i
   when a tap lands in a focused field while it is empty or on its caret, as in Reminders; no
   AutoFill setting removes it. Find the tap that hit the focused title; a reboot cleared it once.
 - A gray panel over the keys reading "Speed up your typing by sliding your finger" fails a check
-  of the keyboard's edge on Xcode Cloud only: a freshly erased simulator, as each CI run's is,
+  of the keyboard's edge on CI only: a freshly erased simulator, as each CI run's is,
   shows that one-time tip a second or so after the keyboard first rises. `scripts/sim.sh erase`
   reproduces it; `dismissKeyboardTip()` in the UI tests taps its Continue.
 - A UI test hangs: the test plan fails it after three minutes ("exceeded execution time

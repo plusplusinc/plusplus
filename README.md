@@ -58,7 +58,8 @@ scripts/lint.sh --fix    # SwiftFormat, SwiftLint, US English
 | `Packages/Sources/DesignSystem` | Design tokens and shared components. SwiftUI only, no domain knowledge. |
 | `Config/` | Every build setting, as xcconfig. Nothing lives in the pbxproj. |
 | `scripts/` | Build, test, lint, and run, shared by humans, agents, and CI. |
-| `ci_scripts/` | Xcode Cloud hooks. |
+| `.github/workflows/` | The PR check on GitHub Actions: lint and every test. |
+| `ci_scripts/` | Xcode Cloud hooks, for TestFlight builds. |
 | `.claude/` | Agent rules, skills, and hooks. See `docs/agent-tooling.md`. |
 
 The dependency rules between the packages are the architecture; they are spelled out in
@@ -72,5 +73,6 @@ a sheet, and put in order by holding and dragging them. Every change saves on th
 unnamed routine is named for its exercises, and nothing syncs yet. The ++ drawer switches
 between your latest routines, starts a new one, and opens the Routines screen, which lists them
 all by name and opens one with a tap. Status, architecture, and the branching rules are in
-[CLAUDE.md](CLAUDE.md); Xcode Cloud, PR checks, and TestFlight builds in
+[CLAUDE.md](CLAUDE.md); the PR check in
+[docs/pr-check.md](docs/pr-check.md); TestFlight builds in
 [docs/xcode-cloud.md](docs/xcode-cloud.md).

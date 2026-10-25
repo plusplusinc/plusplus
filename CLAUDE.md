@@ -123,7 +123,8 @@ queue. Working files go in `.slices/`.
 ## Commands
 
 The scripts are the single source of truth; the `/build`, `/test`, `/lint`, `/run`, `/brief`,
-`/onward`, `/pr`, and `/retro` skills wrap them, and Xcode Cloud runs the same lint script.
+`/onward`, `/pr`, and `/retro` skills wrap them, and the PR check on GitHub Actions runs the
+same lint and test scripts (`docs/pr-check.md`).
 
 ```sh
 scripts/test.sh              # package tests on macOS, no simulator, seconds

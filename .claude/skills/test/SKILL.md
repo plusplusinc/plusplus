@@ -7,7 +7,7 @@ allowed-tools: Bash(scripts/test.sh:*), Bash(xcrun xcresulttool:*)
 - `scripts/test.sh`: the package on macOS, no simulator. Seconds. Run after any change to
   `WorkoutStore`, and before every commit.
 - `scripts/test.sh sim`: the app scheme on the simulator, which includes the package tests plus
-  snapshot and UI tests. Xcode Cloud runs this on every PR, so run it locally only to
+  snapshot and UI tests. The PR's GitHub Actions check runs this on every push, so run it locally only to
   reproduce a CI failure. After a change to `DesignSystem` or the app, run the affected
   suites instead, as in the next line.
 - `scripts/test.sh sim Target/Suite/testName()`: one test. The identifier must be verbatim; a

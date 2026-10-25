@@ -99,11 +99,11 @@ project board; agents' technical working files live in `.slices/`.
   at that moment (a subagent's transcript's last entry, the PR's `gh pr checks`) and send that
   line; a check that has finished is a result, whatever the watch says. Before each new attempt or
   extra run, by you or a subagent, check that it is still worth doing for the card's goal; ask
-  for the proof the change needs and leave repeat runs to Xcode Cloud.
-- After every push to the PR, yours or a subagent's, watch its Xcode Cloud run to the end
-  yourself: once a check is listed (see `/pr`), `gh pr checks <n> --watch --interval 60` with
+  for the proof the change needs and leave repeat runs to the PR's check.
+- After every push to the PR, yours or a subagent's, watch its check, GitHub Actions' "Lint and
+  test", to the end yourself: `gh pr checks <n> --watch --interval 60` with
   `run_in_background: true`, which notifies you when it exits. A subagent's "still queued" is
-  not a result. A failed run (its check concludes `action_required`) goes to a builder before
+  not a result. A failed run (its check concludes `fail`) goes to a builder before
   anything else reaches the maintainer, and the go-ahead you ask for names the commit CI is
   green at.
 - A test that fails on a PR's CI is diagnosed, never just rerun. A flake that is on `main` too

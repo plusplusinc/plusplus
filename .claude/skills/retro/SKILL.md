@@ -59,8 +59,8 @@ The conversation since the last retro, merged or not (`scripts/conversations.py 
 the strongest evidence, most of which never reaches a PR. Each session's heading names its
 transcript; open one only around a moment, never whole. For each PR: `gh pr diff`;
 `gh pr view --comments` for commits, review threads, comments, and time to merge;
-`gh api repos/{owner}/{repo}/pulls/N/comments` for inline review; its Xcode Cloud runs and why any failed (`gh pr checks`, and
-`asc xcode-cloud doctor` with the App Store Connect key); its board card; its Friction line. And
+`gh api repos/{owner}/{repo}/pulls/N/comments` for inline review; its GitHub Actions runs and why any failed (`gh pr checks`, and
+`gh api repos/{owner}/{repo}/actions/runs/<id>/jobs` for each step's result and time); its board card; its Friction line. And
 the last merged retro PR's body, for its fixes.
 
 ## 2. Rank the findings

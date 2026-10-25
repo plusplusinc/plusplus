@@ -22,7 +22,7 @@ code only after the criteria are checked.
    only for a criterion no test proves: its assertions come from the criterion, its tier and
    place from `.claude/rules/testing.md`. Run just those tests with
    `scripts/test.sh sim <Target/Class>` on the worktree's simulator, then commit them to the slice
-   branch and push. Xcode Cloud runs the full suite on the push. Any wait has a real time limit.
+   branch and push. The PR's GitHub Actions check runs the full suite on the push. Any wait has a real time limit.
 4. List `~/Library/Logs/DiagnosticReports/PlusPlus-*` for reports newer than the time noted.
    A crash goes in the report once you have the steps that trigger it and its crash report;
    finding its cause, and whether `main` has it too, belongs to a builder.
