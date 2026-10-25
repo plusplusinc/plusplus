@@ -5,7 +5,7 @@ Every pull request to `main` runs one GitHub Actions job, "PR check"
 `scripts/pr-check.sh`, which runs the same way on a Mac:
 
 - **A PR that changes no app code**, one whose changed files all match `.github/no-code-paths`
-  (docs, `.claude/`, `.github/`, the root Markdown files, the scripts no build runs), gets
+  (docs, `.claude/`, the PR template, the root Markdown files, the scripts no build runs), gets
   `scripts/lint.sh` on its changed files and passes, in a minute or two. Xcode Cloud starts no
   run for it, since its PR workflow skips the same list.
 - **Any other PR** waits for Xcode Cloud's commit status, "PlusPlus Workout Tracker | PR", on the
@@ -25,7 +25,9 @@ supersedes, and its time limit, 45 minutes, sits above Xcode Cloud's longest PR 
 
 ## The no-code list
 
-`.github/no-code-paths` is the one list, read by the check. Anything not on it counts as app
+`.github/no-code-paths` is the one list. The check reads it, and runs `scripts/pr-check.sh`,
+from the PR's base commit, never the PR, so a PR cannot widen the list it is checked against;
+locally both default to `origin/main` (`PR_CHECK_BASE` names another). Anything not on it counts as app
 code, so a path nobody thought of gets tested. Its entries mean what Xcode Cloud's Files and
 Folders matchers mean: `folder/` is everything in that folder at any depth, a bare `name` is a
 file of that name in any folder, and `folder/name` is that file in that folder. Xcode Cloud
@@ -34,7 +36,7 @@ match"), which only the App Store Connect API or its UI changes. After editing t
 the copy, keeping the rest of the start condition as it is:
 
 ```sh
-scripts/pr-check.sh xcode-cloud    # the list as Xcode Cloud's filesAndFoldersRule
+PR_CHECK_BASE=HEAD scripts/pr-check.sh xcode-cloud   # the branch's list as Xcode Cloud's rule
 asc xcode-cloud workflows view --id FE8B3BCC-1973-4533-BB66-4D047A8E3C22 --pretty
 # put the rule under data.attributes.pullRequestStartCondition.filesAndFoldersRule, keep
 # source, destination, and autoCancel, and send only that attribute:
@@ -45,10 +47,11 @@ When the two disagree, a PR Xcode Cloud skips but the check treats as app code g
 and after 10 minutes with none the check fails, naming that and the other cause, GitHub's event
 never reaching Xcode Cloud (`/pr` says what to do).
 
-`.github/` is on the list: no build or test reads it, and a change to the check itself is run by
-the check on its own PR. Like any Actions check, it runs the PR's own copy of the workflow, the
-script, and the list, so a PR can change what it is checked against; the diff, read before the
-merge, shows that. Xcode Cloud runs `ci_scripts/`, the `Brewfile`, and `scripts/lint.sh`
+The files that decide the check, the list, `scripts/pr-check.sh`, and `.github/workflows/`, are
+never on it: the check counts a PR that changes them as app code whatever the list says, so it
+waits for Xcode Cloud, which runs on it. The workflow file itself is still the PR's, since a
+`pull_request` job runs the PR's own copy, so a PR could edit it to skip all of this; the diff,
+read before the merge, shows that. Xcode Cloud runs `ci_scripts/`, the `Brewfile`, and `scripts/lint.sh`
 with what it sources before it builds, so those are not on it.
 
 ## Running it locally
