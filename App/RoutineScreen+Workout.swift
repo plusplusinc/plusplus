@@ -64,6 +64,7 @@ extension RoutineScreen {
     /// meantime does nothing.
     func pressStart() {
         guard !isStarting, !isStartAway, session.workout == nil else { return }
+        probe("press scrolledY=\(f(scrollBeat.scrolledY)) endInView=\(isEndInView) arriving=\(arriving != nil) entering=\(entering != nil) opening=\(isOpeningPlace) \(scrollPosition.probeText)")
         // The list's end lies under the first row until it grows, so a short routine may have
         // nowhere to scroll it to: room under the end, out of sight, lets it go. It goes in
         // ahead of the scroll: a scroll in the same transaction stops at the old end. Where the
@@ -82,7 +83,9 @@ extension RoutineScreen {
         guard isStarting, session.workout == nil else { return }
         do {
             try await Task.sleep(for: .seconds(Self.pressHold), tolerance: .zero)
+            probe("hold woke scrolledY=\(f(scrollBeat.scrolledY))")
         } catch {
+            probe("hold cancelled")
             isStarting = false
             isMakingRoom = false
             isBottomEdgeHidden = false
@@ -109,6 +112,7 @@ extension RoutineScreen {
     /// Scrolls the list to its top if the first exercise is mostly out of view, then, once
     /// the landing has had a beat to itself, calls `next`; at once if it is in view.
     private func bringFirstIntoView(then next: @escaping () -> Void) {
+        probe("bringFirstIntoView mostlyOut=\(currentPlace?.isMostlyOut == true) place=\(currentPlace.map { "top:\(f($0.contentTop)) h:\(f($0.height))" } ?? "nil")")
         guard currentPlace?.isMostlyOut == true else { return next() }
         let landed = {
             // A pause in the sequence, by design: nothing is waited for.
@@ -134,9 +138,19 @@ extension RoutineScreen {
             // The rows below move down by what the current exercise gains, its space above
             // included, less the lift.
             drop = currentLabelHeight + Self.currentTopSpace - place.height - lift
+            probe("grow target=\(f(target)) scrolledY=\(f(scrollBeat.scrolledY)) lift=\(f(lift)) drop=\(f(drop)) placeTop=\(f(place.contentTop)) placeH=\(f(place.height)) labelH=\(f(currentLabelHeight)) before \(scrollPosition.probeText)")
             withTransaction(\.disablesAnimations, true) {
                 growthLift = lift
                 scrollPosition.scrollTo(y: target)
+            }
+            probe("grow after scrollTo \(scrollPosition.probeText)")
+        } else {
+            probe("grow no place")
+        }
+        Task {
+            for i in 0 ..< 90 {
+                try? await Task.sleep(for: .milliseconds(16), tolerance: .zero)
+                probe("tick \(i) scrolledY=\(f(scrollBeat.scrolledY)) lift=\(f(growthLift)) \(scrollPosition.probeText)")
             }
         }
         withAnimation(.snappy(duration: Self.growBeat)) {
@@ -145,6 +159,7 @@ extension RoutineScreen {
             startDrop = max(drop, 1)
             isBottomEdgeHidden = true
         } completion: {
+            probe("grow completion scrolledY=\(f(scrollBeat.scrolledY))")
             withTransaction(\.disablesAnimations, true) {
                 isStartAway = true
                 isStarting = false
@@ -261,6 +276,7 @@ extension RoutineScreen {
     func placeCurrent(_ place: CurrentPlace) {
         let old = currentPlace
         currentPlace = place
+        probe("place top=\(f(place.contentTop)) h=\(f(place.height)) mostlyOut=\(place.isMostlyOut) laidOut=\(place.isLaidOut) workout=\(currentID != nil)")
         if let old, currentID != nil, !isScrollingByHand, place.contentTop != old.contentTop,
            abs(scrollBeat.scrolledY - old.landingY) < 1
         {
@@ -272,6 +288,7 @@ extension RoutineScreen {
     /// Scrolls the current exercise's row up to just under the bar.
     func scrollToCurrent() {
         if let place = currentPlace {
+            probe("scrollToCurrent y=\(f(place.landingY))")
             scrollPosition.scrollTo(y: place.landingY)
         }
     }
@@ -352,6 +369,7 @@ final class ScrollBeat {
     }
 
     func phaseChanged(to phase: ScrollPhase) {
+        probe("phase \(phase) next=\(next != nil)")
         guard phase == .idle, let next else { return }
         self.next = nil
         next()

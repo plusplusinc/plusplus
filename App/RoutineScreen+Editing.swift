@@ -56,11 +56,14 @@ extension RoutineScreen {
         withAnimation(.linear(duration: 0.1)) {
             routine.exercises.append(row)
         } completion: {
+            probe("add completion arriving=\(arriving == row.id) endInView=\(isEndInView) makingRoom=\(isMakingRoom)")
             guard arriving == row.id else { return }
             guard !isEndInView, !isMakingRoom else { return letArrivingEnter(row) }
+            probe("add scroll to bottom")
             withAnimation(.railChange, completionCriteria: .logicallyComplete) {
                 scrollPosition.scrollTo(edge: .bottom)
             } completion: {
+                probe("add scroll completion makingRoom=\(isMakingRoom)")
                 letArrivingEnter(row)
             }
         }
@@ -76,6 +79,7 @@ extension RoutineScreen {
               new.contentSize.height > old.contentSize.height
         else { return }
         guard new.endY > new.scrolledY else { return }
+        probe("keepEndInView to \(f(new.endY)) from \(f(new.scrolledY))")
         withTransaction(\.disablesAnimations, true) {
             scrollPosition.scrollTo(y: new.endY)
         }
@@ -93,7 +97,9 @@ extension RoutineScreen {
         var transaction = Transaction()
         transaction.isRailEntry = true
         // A later add, its row arriving, keeps the scroll in step for its own place.
+        probe("letArrivingEnter")
         transaction.addAnimationCompletion {
+            probe("entry completion makingRoom=\(isMakingRoom)")
             isOpeningPlace = arriving != nil
             if entering == row.id {
                 entering = nil

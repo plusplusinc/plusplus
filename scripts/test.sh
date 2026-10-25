@@ -41,6 +41,8 @@ case "$MODE" in
                 -maximum-test-execution-time-allowance "$PLUSPLUS_TEST_ALLOWANCE")
         fi
         [ "${PLUSPLUS_TEST_SERIAL:-}" = 1 ] && args+=(-parallel-testing-enabled NO)
+        # Probe only: repeat the run.
+        [ -n "${PLUSPLUS_TEST_ITERATIONS:-}" ] && args+=(-test-iterations "$PLUSPLUS_TEST_ITERATIONS")
         status=0
         run_xcodebuild test test ${args[@]+"${args[@]}"} || status=$?
         # The summary also fails a run that executed no tests; xcodebuild's own failure wins.

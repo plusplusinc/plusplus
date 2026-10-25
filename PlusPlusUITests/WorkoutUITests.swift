@@ -1,3 +1,4 @@
+import os
 import XCTest
 
 /// A workout across real taps and relaunches: Start growing the first exercise into the
@@ -13,6 +14,7 @@ import XCTest
 final nonisolated class WorkoutUITests: XCTestCase {
     @MainActor
     func testWorkoutSurvivesRelaunch() throws {
+        Logger(subsystem: "probe", category: "test").notice("PROBE test start")
         let app = XCUIApplication()
         let title = app.launchNewRoutine(arguments: ["-fallbackNames", "YES"])
         app.addExercise("Barbell bench press, Barbell, bench")
@@ -49,7 +51,9 @@ final nonisolated class WorkoutUITests: XCTestCase {
     @MainActor
     private func startShowsTheCurrentExercise(in app: XCUIApplication) {
         XCTContext.runActivity(named: "Start grows the first exercise into the current one") { _ in
+            Logger(subsystem: "probe", category: "test").notice("PROBE test tapping Start")
             app.buttons["Start"].tap()
+            Logger(subsystem: "probe", category: "test").notice("PROBE test tapped Start")
             // Pressed as the last row added still enters, Start's room under the list once
             // scrolled the list into it, out of sight, and the scroll back undid the landing.
             XCTAssertFalse(

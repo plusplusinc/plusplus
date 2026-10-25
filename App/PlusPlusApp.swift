@@ -13,6 +13,7 @@ struct PlusPlusApp: App {
     private let resetsStore: Bool
 
     init() {
+        probe("launch args=\(ProcessInfo.processInfo.arguments.dropFirst().joined(separator: " "))")
         do {
             store = try RoutineStore.open(.local)
         } catch {

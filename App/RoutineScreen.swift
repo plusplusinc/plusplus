@@ -269,6 +269,11 @@ struct RoutineScreen: View {
             .onScrollGeometryChange(for: CGFloat.self, of: \.scrolledY) {
                 scrollBeat.listMoved(to: $1)
             }
+            .onScrollGeometryChange(for: [CGFloat].self, of: {
+                [$0.scrolledY, $0.contentSize.height, $0.containerSize.height, $0.contentInsets.top, $0.contentInsets.bottom]
+            }) { _, g in
+                probe("geo scrolledY=\(f(g[0])) content=\(f(g[1])) container=\(f(g[2])) insetTop=\(f(g[3])) insetBottom=\(f(g[4])) endY=\(f(max(g[1] - g[2], 0))) room=\(isMakingRoom) workout=\(session.workout != nil) \(scrollPosition.probeText)")
+            }
             .onGeometryChange(for: CGFloat.self, of: \.size.height) { listHeight = $0 }
             .reportingFoot { listFoot = $0 }
         }

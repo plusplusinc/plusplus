@@ -66,7 +66,7 @@ jobs:
     runs-on: ${{ needs.route.outputs.route == 'github' && 'xcode-27' || 'ubuntu-24.04' }}
     # Covers a GitHub test run (22 to 28 min measured, plus setup) with headroom, and sits above
     # scripts/pr-check.sh's own 40-minute wait for Xcode Cloud, so that fails first, with a message.
-    timeout-minutes: 60
+    timeout-minutes: 120
     env:
       ROUTE: ${{ needs.route.outputs.route }}
     steps:
@@ -127,10 +127,6 @@ jobs:
           swiftformat --version
           swiftlint version
 
-      - name: Lint
-        if: env.ROUTE == 'github'
-        run: scripts/lint.sh
-
       # The checkout is not a linked worktree, so the scripts use the image's "iPhone 17". The
       # runner (3 CPUs) is slower than Xcode Cloud's and parallel simulator clones made it slower
       # still, so the UI tests run one at a time, and each test gets 10 minutes instead of the
@@ -142,7 +138,25 @@ jobs:
         env:
           PLUSPLUS_TEST_SERIAL: 1
           PLUSPLUS_TEST_ALLOWANCE: 600
-        run: scripts/test.sh sim
+          PLUSPLUS_TEST_ITERATIONS: 15
+        run: scripts/test.sh sim PlusPlusUITests/WorkoutUITests/testWorkoutSurvivesRelaunch
+
+      - name: Probe log
+        if: always() && env.ROUTE == 'github'
+        run: |
+          mkdir -p .build/probe
+          xcrun simctl spawn booted log show --last 3h --style compact \
+            --predicate 'eventMessage CONTAINS "PROBE"' > .build/probe/probe.log || true
+          wc -l .build/probe/probe.log
+          cp -R .build/results/test.xcresult .build/probe/ || true
+
+      - name: Upload probe
+        if: always() && env.ROUTE == 'github'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: probe
+          path: .build/probe
+          retention-days: 7
 
       - name: Upload result bundle
         if: failure() && env.ROUTE == 'github'
