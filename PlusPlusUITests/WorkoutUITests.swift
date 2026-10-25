@@ -1,12 +1,13 @@
 import XCTest
 
 /// A workout across real taps and relaunches: Start growing the first exercise into the
-/// current one with the next in view, the way back to it, pause and resume, the time counting
-/// the time away, edits staying on, the time held while paused, the drawer locked, and Discard.
-/// Elapsed time, every saved field's round trip, the launch rule after Discard and Finish, which
-/// needs a set done, and the schema upgrade are unit-tested in the package; this holds what
-/// only the running app shows, with two relaunches: running, and paused after the edits. Its
-/// own test, since it launches with a workout's own setup.
+/// current one with the next in view, the way back to it, pause and resume, edits staying on,
+/// the time held through a relaunch while paused, the drawer locked, and Discard. Elapsed time,
+/// the time counted while the app was closed, every saved field's round trip, the launch rule
+/// after Discard and Finish, which needs a set done, and the schema upgrade are unit-tested in
+/// the package, and `TitleWrappingUITests` relaunches a running workout; this holds what only
+/// the running app shows, with one relaunch, paused after the edits. Its own test, since it
+/// launches with a workout's own setup.
 ///
 /// `nonisolated` because XCTestCase's initializers are; the test drives the UI on the main actor.
 final nonisolated class WorkoutUITests: XCTestCase {
@@ -24,7 +25,6 @@ final nonisolated class WorkoutUITests: XCTestCase {
         startShowsTheCurrentExercise(in: app)
         theWayBackScrollsToIt(in: app)
         pauseAndResume(in: app)
-        survivesRelaunch(in: app)
         let renamed = try editsStayOn(in: app, title: title)
         XCTContext.runActivity(named: "The drawer is locked") { _ in
             XCTAssertFalse(app.buttons["Menu"].exists, "++ shows in a workout")
@@ -123,25 +123,6 @@ final nonisolated class WorkoutUITests: XCTestCase {
             XCTAssertEqual(reading(key.label, becoming: "Pause", within: 2), "Pause")
             // Returns at the first tick, so a longer window costs nothing when the time runs.
             XCTAssertGreaterThan(reading(key.seconds, until: { $0 > held }, within: 2.5), held)
-        }
-    }
-
-    /// After a relaunch the workout is back on its current exercise, its time counting the
-    /// time away. Paused, the time held is `editsStayOn`'s relaunch.
-    @MainActor
-    private func survivesRelaunch(in app: XCUIApplication) {
-        let key = app.workoutTime
-        XCTContext.runActivity(named: "Running, a relaunch counts the time away") { _ in
-            let before = key.seconds
-            let quit = Date.now
-            app.relaunch()
-            XCTAssertTrue(key.appears(), "The workout did not come back")
-            let away = Int(Date.now.timeIntervalSince(quit))
-            XCTAssertGreaterThanOrEqual(key.seconds, before + away - 1)
-            XCTAssertEqual(key.label, "Pause")
-            XCTAssertFalse(app.buttons["Start"].exists)
-            XCTAssertTrue(app.exerciseRows.firstMatch.label.contains("Set 1 of 3"))
-            attach(named: "workout-relaunched")
         }
     }
 
