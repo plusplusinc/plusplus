@@ -12,8 +12,8 @@ rubric below. Each tier's time is printed against its budget on every run.
 
 ## The rubric
 
-A test earns its place when it passes all seven; a UI check also names what only the running
-app shows (G).
+A test earns its place when it passes A to F; a UI check also names what only the running app
+shows (G), and is weighed by H and I, since it costs the most.
 
 - **A. Unique**: it fails for a break no other test catches. One that duplicates a lower test
   goes. ([Fowler](https://martinfowler.com/articles/practical-test-pyramid.html); Khorikov,
@@ -35,6 +35,30 @@ app shows (G).
   [Dodds](https://kentcdodds.com/blog/effective-snapshot-testing))
 - **G. Predictive**: what passes would hold on the device. The only reason to pay for a UI
   test. ([Dodds](https://kentcdodds.com/blog/the-testing-trophy-and-testing-classifications))
+- **H. Likely to come back**: the break is likely to return, because the code it guards is
+  still changing, or the code it runs through is shared and changes for other features. High:
+  among the most-changed files on `main` lately, or a queued card changes the code around it.
+  Low: a one-off bug fixed at its cause and pinned by a cheaper test, or one that never reached
+  `main`. A check whose feature a queued card replaces dies with it.
+  ([Google Testing Blog](https://testing.googleblog.com/2020/08/code-coverage-best-practices.html):
+  testing should be "a function of … how often you will need to touch/change the code";
+  [Marick, *When Should a Test Be Automated?*](http://www.exampler.com/testing-com/writings/automate.pdf):
+  "Automated tests produce their value after the code changes"; Beck, "How deep are your unit
+  tests?": "If I don't typically make a kind of mistake … I don't test for it"; Bach,
+  *Heuristic Risk-Based Testing*; Nagappan and Ball, *Use of Relative Code Churn Measures to
+  Predict System Defect Density*)
+- **I. Noticed in use**: the maintainer would see the break by using the app within a day, on
+  a path he uses daily, and it costs only a redo. He uses it in dark, at the default text size,
+  without VoiceOver, and tries every slice before it merges; nothing at AX5, nothing VoiceOver
+  reads, and nothing that loses work is noticed in use.
+  ([Software Engineering at Google, ch. 14](https://abseil.io/resources/swe-book/html/ch14.html):
+  dogfooding finds "unanticipated behaviors", but "manual regression testing does not scale
+  sublinearly"; Marick's cost of a check by hand, and John Daly's "What bugs aren't I finding
+  while I'm doing that?"; `docs/principles.md`, "Reliability before novelty")
+
+A UI check that isn't noticed in use stays, unless another test holds it (A). One that is
+noticed in use stays only if it is likely to come back and a break would block other work or
+lose data, or if it costs under about 2 s.
 
 ## Where each guarantee goes
 
