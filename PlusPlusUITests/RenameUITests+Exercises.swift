@@ -58,6 +58,7 @@ extension RenameUITests {
     func startClearsKeyboard(in app: XCUIApplication, keyboard: XCUIElement) throws {
         let title = app.routineTitle
         let start = app.buttons["Start"]
+        let atRest = start.frame
         let name = try XCTUnwrap(title.value as? String)
         let longer = name + " and core and arms"
         try XCTContext.runActivity(named: "Start rides above the keyboard") { _ in
@@ -73,6 +74,14 @@ extension RenameUITests {
         }
         title.typeText("\n")
         XCTAssertTrue(keyboard.disappears(), "Return did not end the edit")
+        // The keyboard's element goes before the keyboard has finished going down. Pressed
+        // 0.1 s after Return, in a full parallel run, the long press once showed no edit menu,
+        // so it waits for the edit's end to finish: Start back where it rests.
+        XCTAssertEqual(
+            reading(start.frame, becoming: atRest, within: 2),
+            atRest,
+            "Start did not go back down with the keyboard",
+        )
         XCTContext.runActivity(named: "A long press on the title shows the edit menu") { _ in
             title.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.25))
                 .press(forDuration: 1)
