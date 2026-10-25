@@ -6,14 +6,16 @@
 #   folder/       every file in that folder, at any depth
 #   name          a file with that name, in any folder
 #   folder/name   that file in that folder
-# scripts/pr-check.sh reads this file. Xcode Cloud keeps a copy in the PR workflow's start
-# condition (Files and Folders); `scripts/pr-check.sh xcode-cloud` prints it for the API.
-# Change both together.
+# scripts/pr-check.sh reads this file, as main has it, never a PR's copy. Xcode Cloud keeps a
+# copy in the PR workflow's start condition (Files and Folders); `scripts/pr-check.sh
+# xcode-cloud` prints it for the API. Change both together.
 #
 # Not listed, since Xcode Cloud runs them before it builds: ci_scripts/, Brewfile,
 # scripts/lint.sh, scripts/common.sh, scripts/check-us-english.sh, .swiftformat, .swiftlint.yml.
+# Not listed, and never no-code whatever this file says, since they decide the check: this file,
+# scripts/pr-check.sh, and .github/workflows/.
 .claude/
-.github/
+.github/pull_request_template.md
 docs/
 AGENTS.md
 CLAUDE.md
@@ -25,7 +27,6 @@ scripts/build.sh
 scripts/conversations.py
 scripts/device.sh
 scripts/nightly-retro.sh
-scripts/pr-check.sh
 scripts/run.sh
 scripts/sim.sh
 scripts/test.sh

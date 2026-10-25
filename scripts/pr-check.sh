@@ -8,11 +8,16 @@
 #   scripts/pr-check.sh wait <sha> [minutes] # Xcode Cloud's result on a commit; default 40 min
 #   scripts/pr-check.sh xcode-cloud          # .github/no-code-paths as Xcode Cloud's rule, JSON
 #
-# Needs `gh` signed in (GH_TOKEN in CI). Polls about once a minute.
+# Needs `gh` signed in (GH_TOKEN in CI). Polls about once a minute. Run it inside a checkout.
+# It reads the no-code list from PR_CHECK_BASE (default origin/main), never the working tree,
+# so a PR cannot widen the list it is checked against; CI runs main's copy of this script too.
 set -euo pipefail
 
-ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-LIST="$ROOT/.github/no-code-paths"
+ROOT=$(git rev-parse --show-toplevel)
+BASE=${PR_CHECK_BASE:-origin/main}
+LIST=".github/no-code-paths"
+# They decide the check, so a PR that changes them waits for Xcode Cloud, whatever the list says.
+GATE_PATTERN='^(\.github/no-code-paths|scripts/pr-check\.sh|\.github/workflows/.*)$'
 # The commit status Xcode Cloud's PR workflow posts; its actions post check runs besides.
 XCODE_CLOUD_STATUS="PlusPlus Workout Tracker | PR"
 POLL_SECONDS=${PR_CHECK_POLL_SECONDS:-60}
@@ -40,8 +45,21 @@ fail() {
     exit 1
 }
 
+require_base() {
+    git -C "$ROOT" rev-parse --quiet --verify "$BASE^{commit}" > /dev/null ||
+        fail "no commit $BASE here to read $LIST from: fetch it, or set PR_CHECK_BASE"
+}
+
 entries() {
-    grep -v -e '^#' -e '^[[:space:]]*$' "$LIST"
+    local list
+    if list=$(git -C "$ROOT" show "$BASE:$LIST" 2> /dev/null); then
+        :
+    else
+        # Only before the check first merges: main has no list yet.
+        echo "no $LIST on $BASE; reading the working tree's" >&2
+        list=$(cat "$ROOT/$LIST")
+    fi
+    grep -v -e '^#' -e '^[[:space:]]*$' <<< "$list"
 }
 
 # True when a path matches an entry, with Xcode Cloud's meaning (see the list's header).
@@ -68,7 +86,10 @@ classify() {
     while IFS= read -r path; do ENTRIES+=("$path"); done < <(entries)
     while IFS= read -r path; do
         [ -n "$path" ] || continue
-        is_no_code "$path" || { echo "app: $path"; return; }
+        if [[ "$path" =~ $GATE_PATTERN ]] || ! is_no_code "$path"; then
+            echo "app: $path"
+            return
+        fi
     done
     echo docs
 }
@@ -123,10 +144,11 @@ they are back, start the run again and re-run this check. $url"
 
 run() {
     local pr=$1 sha=$2 paths verdict
+    require_base
     paths=$(files "$pr")
     verdict=$(classify <<< "$paths")
     if [ "$verdict" = docs ]; then
-        echo "docs-only: every changed path is in .github/no-code-paths, so Xcode Cloud skips it"
+        echo "docs-only: every changed path is in $BASE's $LIST, so Xcode Cloud skips it"
         local existing=()
         while IFS= read -r path; do
             [ -f "$ROOT/$path" ] && existing+=("$path")
@@ -162,8 +184,8 @@ print(json.dumps({"mode": "DO_NOT_START_IF_ALL_FILES_MATCH", "matchers": matcher
 case "${1:-}" in
     run) [ "$#" -eq 3 ] || usage; run "$2" "$3" ;;
     files) [ "$#" -eq 2 ] || usage; files "$2" ;;
-    classify) classify ;;
+    classify) require_base; classify ;;
     wait) [ "$#" -ge 2 ] || usage; wait_for "$2" "${3:-}" ;;
-    xcode-cloud) xcode_cloud_rule ;;
+    xcode-cloud) require_base; xcode_cloud_rule ;;
     *) usage ;;
 esac

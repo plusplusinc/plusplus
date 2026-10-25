@@ -1,6 +1,7 @@
 # The one required check on every pull request to main, "PR check" (docs/pr-check.md). A PR whose
-# changed files all match .github/no-code-paths gets scripts/lint.sh on those files and passes;
-# any other waits for Xcode Cloud's result on the same commit and passes or fails with it.
+# changed files all match the base branch's .github/no-code-paths gets scripts/lint.sh on those
+# files and passes; any other waits for Xcode Cloud's result on the same commit and passes or
+# fails with it.
 # Branch protection names this job; renaming it means updating the rule.
 name: PR check
 
@@ -31,9 +32,21 @@ jobs:
         with:
           persist-credentials: false
 
+      # The check and its no-code list come from the base branch, never the PR, so a PR cannot
+      # change what it is checked against. The PR's checkout is only linted, on the docs-only
+      # path, by a scripts/lint.sh that path cannot have changed.
       - name: Lint or wait for Xcode Cloud
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
           SHA: ${{ github.event.pull_request.head.sha }}
-        run: scripts/pr-check.sh run "$PR" "$SHA"
+          PR_CHECK_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git fetch --quiet --depth=1 origin "$PR_CHECK_BASE"
+          check="$RUNNER_TEMP/pr-check.sh"
+          if ! git show "$PR_CHECK_BASE:scripts/pr-check.sh" > "$check"; then
+            # Only the PR that adds the check finds none on its base.
+            echo "no scripts/pr-check.sh on the base; running the PR's"
+            cp scripts/pr-check.sh "$check"
+          fi
+          bash "$check" run "$PR" "$SHA"
