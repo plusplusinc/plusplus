@@ -1,0 +1,57 @@
+# Every pull request's check: lint, then the app scheme's test plan on an iPhone 17 simulator,
+# through the same scripts a developer runs locally. Branch protection requires this job by its
+# name, "Lint and test"; renaming it means updating the protection rule too.
+#
+# `xcode-27` is a standard GitHub-hosted runner (Apple silicon, 3 CPUs, 7 GB), free and without
+# an hour limit on a public repo; `xcode-27-xlarge` is a larger, paid one.
+name: PR
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# A new push to the same PR cancels the run it supersedes.
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-test:
+    name: Lint and test
+    runs-on: xcode-27
+    timeout-minutes: 40
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: 1
+      HOMEBREW_NO_INSTALL_CLEANUP: 1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          xcrun simctl list devices available | grep 'iPhone 17 ' || true
+
+      - name: Install tools
+        run: brew bundle
+
+      - name: Lint
+        run: scripts/lint.sh
+
+      # The checkout is not a linked worktree, so the scripts use the simulator named
+      # "iPhone 17", as they do in the main checkout.
+      - name: Test
+        run: scripts/test.sh sim
+
+      - name: Upload result bundle
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-xcresult
+          path: .build/results/test.xcresult
+          if-no-files-found: ignore
+          retention-days: 7
