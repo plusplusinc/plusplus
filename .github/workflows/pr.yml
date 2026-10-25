@@ -26,6 +26,7 @@ jobs:
     env:
       HOMEBREW_NO_AUTO_UPDATE: 1
       HOMEBREW_NO_INSTALL_CLEANUP: 1
+      SWIFTFORMAT_VERSION: 0.63.0
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -36,8 +37,27 @@ jobs:
           xcodebuild -version
           xcrun simctl list devices available | grep 'iPhone 17 ' || true
 
+      # The image ships its own SwiftFormat, newer than the one the code is formatted with, and
+      # each release adds or changes rules, so the check would fail code that is clean locally.
+      # This pins the release, checked against its checksum, ahead of Homebrew's on the PATH.
+      # Moving to a newer one is its own change: bump both values and reformat the tree with it.
+      - name: Install SwiftFormat ${{ env.SWIFTFORMAT_VERSION }}
+        env:
+          SWIFTFORMAT_SHA256: 28c7802e11fa5ae113d903066439c6bb1be20a8ac1ad9709c42616a7e273fb0f
+        run: |
+          bin="$RUNNER_TEMP/bin"
+          mkdir -p "$bin"
+          curl -fsSL -o "$RUNNER_TEMP/swiftformat.zip" \
+            "https://github.com/nicklockwood/SwiftFormat/releases/download/$SWIFTFORMAT_VERSION/swiftformat.zip"
+          echo "$SWIFTFORMAT_SHA256  $RUNNER_TEMP/swiftformat.zip" | shasum -a 256 -c -
+          unzip -q -o "$RUNNER_TEMP/swiftformat.zip" swiftformat -d "$bin"
+          echo "$bin" >> "$GITHUB_PATH"
+
       - name: Install tools
-        run: brew bundle
+        run: |
+          brew bundle
+          swiftformat --version
+          swiftlint version
 
       - name: Lint
         run: scripts/lint.sh
