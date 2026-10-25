@@ -4,6 +4,10 @@ paths: ["Packages/Tests/**", "PlusPlusUITests/**"]
 
 # Testing
 
+Every test runs in the check that blocks a merge. A test that isn't worth blocking a merge is
+not worth keeping, so no tier or suite runs as a report only; speed comes from cutting and
+fixing tests, never from moving them out of the check.
+
 Swift Testing (`@Test`, `#expect`, `#require`) for everything except UI automation and
 performance, which stay on XCTest by Apple's own guidance.
 

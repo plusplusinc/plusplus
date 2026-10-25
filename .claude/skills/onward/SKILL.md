@@ -71,6 +71,14 @@ project board; agents' technical working files live in `.slices/`.
 - While the maintainer is still weighing a rule (asking whether it holds together, or offering
   another), send no builder any of the candidates: show them side by side as a table of the
   cases where they differ, and send the one they pick.
+- A short reply ("yes", "go") answers only a yes-or-no question. When more than one question is
+  open, when the last one asks which of several, or when the reply arrived within seconds of
+  your message, ask which it answers before acting on it.
+- A number a recommendation or a card turns on (a price, a quota, a machine's speed) is read
+  from its source or measured, the cheapest way, before you recommend it or anything is built
+  on it: a card whose go or no-go rests on one measures it as its first step.
+- Reporting a phase as done, say where it went less deep than the card asked (what was compared
+  only by name, sampled, or left out) before the maintainer has to ask.
 - A round that does what they asked only by adding something they didn't (a clip at an edge, an
   uneven gap) is not installed as a cost for them to judge: bring the ways to do it as a table,
   and build the one they pick. Read a request that names a size or a direction (smaller, to
