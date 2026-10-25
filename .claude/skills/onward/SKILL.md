@@ -100,12 +100,17 @@ project board; agents' technical working files live in `.slices/`.
   line; a check that has finished is a result, whatever the watch says. Before each new attempt or
   extra run, by you or a subagent, check that it is still worth doing for the card's goal; ask
   for the proof the change needs and leave repeat runs to Xcode Cloud.
-- After every push to the PR, yours or a subagent's, watch its Xcode Cloud run to the end
-  yourself: once a check is listed (see `/pr`), `gh pr checks <n> --watch --interval 60` with
-  `run_in_background: true`, which notifies you when it exits. A subagent's "still queued" is
-  not a result. A failed run (its check concludes `action_required`) goes to a builder before
-  anything else reaches the maintainer, and the go-ahead you ask for names the commit CI is
-  green at.
+- Push only when CI's answer is needed: when the PR opens, after a round of fixes, and before
+  the merge (the rebase "require up to date" asks for included). You and every subagent commit
+  locally in between: rounds reach the phone by `scripts/device.sh`, not CI, and each push to a
+  PR that changes the app spends a full Xcode Cloud run.
+- After every push to the PR, yours or a subagent's, watch its "PR check" to the end yourself
+  (see `/pr`): `gh pr checks <n> --watch --interval 60` with `run_in_background: true`, which
+  notifies you when it exits. For a PR that changes the app it lasts as long as the Xcode Cloud
+  run it waits for. A subagent's "still queued" is not a result. A failed run goes to a builder
+  before anything else reaches the maintainer, unless "PR check" says the month's Xcode Cloud
+  hours are likely spent, which goes to the maintainer; the go-ahead you ask for names the
+  commit CI is green at.
 - A test that fails on a PR's CI is diagnosed, never just rerun. A flake that is on `main` too
   gets fixed, as its own card ahead of the PR, before the PR merges.
 - A round builds what the card's criteria cover. Feedback that reaches past them (a new look, a

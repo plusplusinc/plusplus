@@ -1,0 +1,33 @@
+# Paths no build or test reads. A PR whose changed files all match this list is docs-only: the
+# "PR check" job lints it and passes, and Xcode Cloud's PR workflow does not start a run for it.
+# Anything not listed counts as app code, so a new path errs toward testing.
+#
+# Two readers, one meaning, which is Xcode Cloud's (docs/pr-check.md):
+#   folder/       every file in that folder, at any depth
+#   name          a file with that name, in any folder
+#   folder/name   that file in that folder
+# scripts/pr-check.sh reads this file. Xcode Cloud keeps a copy in the PR workflow's start
+# condition (Files and Folders); `scripts/pr-check.sh xcode-cloud` prints it for the API.
+# Change both together.
+#
+# Not listed, since Xcode Cloud runs them before it builds: ci_scripts/, Brewfile,
+# scripts/lint.sh, scripts/common.sh, scripts/check-us-english.sh, .swiftformat, .swiftlint.yml.
+.claude/
+.github/
+docs/
+AGENTS.md
+CLAUDE.md
+README.md
+.gitignore
+.mcp.json
+scripts/board.sh
+scripts/build.sh
+scripts/conversations.py
+scripts/device.sh
+scripts/nightly-retro.sh
+scripts/pr-check.sh
+scripts/run.sh
+scripts/sim.sh
+scripts/test.sh
+scripts/tidy.sh
+scripts/xcresult.py

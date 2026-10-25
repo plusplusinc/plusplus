@@ -1,0 +1,39 @@
+# The one required check on every pull request to main, "PR check" (docs/pr-check.md). A PR whose
+# changed files all match .github/no-code-paths gets scripts/lint.sh on those files and passes;
+# any other waits for Xcode Cloud's result on the same commit and passes or fails with it.
+# Branch protection names this job; renaming it means updating the rule.
+name: PR check
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read # the PR's changed files
+  statuses: read # Xcode Cloud's commit status
+  checks: read # Xcode Cloud's actions, to tell a cancelled run that never started
+
+# A new push to the same PR cancels the run it supersedes, as Xcode Cloud's auto-cancel does.
+concurrency:
+  group: pr-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  pr-check:
+    name: PR check
+    runs-on: ubuntu-24.04
+    # Above the longest Xcode Cloud PR run so far (about 20 min, queue included).
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Lint or wait for Xcode Cloud
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_CHECK_MINUTES: 40
+          PR: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: scripts/pr-check.sh run "$PR" "$SHA"
