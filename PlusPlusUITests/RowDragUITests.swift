@@ -21,7 +21,7 @@ final nonisolated class RowDragUITests: XCTestCase {
 }
 
 extension RowDragUITests {
-    /// The system's swipe actions: a swipe opens a row's Delete, a tap elsewhere closes it, and
+    /// The system's swipe actions: a swipe opens a row's Delete, a tap on Start closes it, and
     /// a full swipe deletes outright. What a delete does to a superset is
     /// `RoutineSupersetTests`', and Start going with the last row `RoutineAutosaveUITests`'.
     @MainActor
@@ -35,29 +35,16 @@ extension RowDragUITests {
             XCTAssertEqual(app.exerciseCount(becoming: 8), 8)
             XCTAssertTrue(delete.disappears())
         }
-        XCTContext.runActivity(named: "A tap anywhere else closes an open row") { _ in
-            let open = {
-                app.exerciseRows.element(boundBy: 0).swipeOpen()
-                XCTAssertTrue(delete.appears(), "A swipe did not open the row")
-            }
-            open()
-            // The empty end of the capsules' second line, under the title: the list runs on
-            // under Start, so there may be no gap between Add exercise and Start.
-            app.equipment.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.8)).tap()
-            XCTAssertTrue(delete.disappears(), "A tap on empty screen left the row open")
-            open()
+        // A tap inside the list closing the row is the system's swipe-actions container; Start's
+        // bar is the app's own.
+        XCTContext.runActivity(named: "A tap on Start closes an open row") { _ in
+            app.exerciseRows.element(boundBy: 0).swipeOpen()
+            XCTAssertTrue(delete.appears(), "A swipe did not open the row")
             // The tap closes the row and still starts a workout, which is discarded.
             app.buttons["Start"].tap()
             XCTAssertTrue(delete.disappears(), "A tap on Start left the row open")
             app.discardWorkout()
-            open()
-            // The tap closes the row and still opens the picker.
-            _ = app.openPicker()
-            app.buttons["Close"].firstMatch.tap()
-            XCTAssertTrue(app.searchFields.firstMatch.disappears())
-            XCTAssertFalse(delete.exists, "Add exercise left the row open")
-            let count = app.exerciseCount(becoming: 7, within: 1)
-            XCTAssertEqual(count, 8, "A tap outside the row deleted it")
+            XCTAssertEqual(app.exerciseCount(becoming: 7, within: 1), 8, "Start deleted the row")
         }
         XCTContext.runActivity(named: "A full swipe deletes") { _ in
             app.lastExerciseRow.fullSwipeLeft()

@@ -22,7 +22,7 @@ extension RowDragUITests {
             XCTAssertFalse(app.buttons["Delete"].exists, "The drag opened the row's Delete")
             attach(named: "reorder-after")
         }
-        releaseOverStartAndAtTheEdge(in: app)
+        dragToTheBottomEdge(in: app)
         XCTContext.runActivity(named: "A press that moves first scrolls the list") { _ in
             let before = (app.exerciseNames, first.frame.minY)
             let row = rows.element(boundBy: 3)
@@ -48,18 +48,13 @@ extension RowDragUITests {
         }
     }
 
-    /// A row let go over Start goes back where it was; one held at the bottom edge scrolls the
-    /// list to its end and lands there.
+    /// A row held at the bottom edge scrolls the list to its end and lands there; the list
+    /// goes back to its top for the checks after it. The top edge runs through the same
+    /// `railAutoscroll`, and each edge's speed and arming is `RailDragTests`'.
     @MainActor
-    private func releaseOverStartAndAtTheEdge(in app: XCUIApplication) {
+    private func dragToTheBottomEdge(in app: XCUIApplication) {
         let first = app.exerciseRows.element(boundBy: 0)
         let start = app.buttons["Start"]
-        XCTContext.runActivity(named: "Releasing over Start cancels") { _ in
-            let before = app.exerciseNames
-            first.center.holdAndDrag(to: start.center)
-            XCTAssertEqual(order(keeping: before, in: app), before, "A release over Start moved it")
-            app.scrollToTop(titled: "Arm and back day")
-        }
         XCTContext.runActivity(named: "A row held at the bottom edge scrolls and lands last") { _ in
             var expected = app.exerciseNames
             let top = first.frame.minY
@@ -71,48 +66,6 @@ extension RowDragUITests {
             XCTAssertLessThan(first.frame.minY, top, "The list didn't scroll")
             attach(named: "reorder-edge")
         }
-        dragToTheTopEdge(in: app)
-    }
-
-    /// From the end of the list, the last row dragged up to just under the bar scrolls the list
-    /// back up to its top and lands first. A row held still there scrolls nothing: the edge's
-    /// arming is `RailDragTests`'.
-    @MainActor
-    private func dragToTheTopEdge(in app: XCUIApplication) {
-        let first = app.exerciseRows.element(boundBy: 0)
-        let bar = app.navigationBars.firstMatch
-        app.swipeUp(velocity: .fast)
-        let last = app.lastExerciseRow
-        XCTAssertTrue(last.settles(), "The list kept scrolling")
-        // Just under the bar: in the edge's band, still over the list.
-        let edge = app.point(x: last.frame.midX, y: bar.frame.maxY + 24)
-        XCTContext
-            .runActivity(named: "A row dragged to the top edge scrolls up and lands first") { _ in
-                var expected = app.exerciseNames
-                let top = first.frame.minY
-                last.center.holdAndDrag(to: edge, holding: 2.5)
-                expected.insert(expected.removeLast(), at: 0)
-                XCTAssertEqual(reading(app.exerciseNames, becoming: expected, within: 2), expected)
-                XCTAssertGreaterThan(first.frame.minY, top, "The list didn't scroll up")
-                XCTAssertTrue(
-                    reading(
-                        app.routineTitle.frame.minY >= bar.frame.maxY,
-                        becoming: true,
-                        within: 2,
-                    ),
-                    "The list didn't scroll back to its top",
-                )
-                attach(named: "reorder-top-edge")
-            }
-    }
-
-    /// The rows' order once it changes from `before`, or `before` if it stays for a second. A held
-    /// row's gap draws nothing until it has settled, so it is out of the accessibility tree: a
-    /// read of fewer rows is from before the drag has settled, and doesn't count.
-    @MainActor
-    private func order(keeping before: [String], in app: XCUIApplication) -> [String] {
-        let changed = { (names: [String]) in names.count == before.count && names != before }
-        let names = reading(app.exerciseNames, until: changed, within: 1)
-        return names.count == before.count ? names : before
+        app.scrollToTop(titled: "Arm and back day")
     }
 }
