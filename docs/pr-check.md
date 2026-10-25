@@ -43,8 +43,8 @@ GitHub's runner has 3 CPUs: the suite took 22 to 28 minutes there, against about
 Cloud, and parallel simulator clones made it slower. So the workflow sets two variables
 `scripts/test.sh` reads: `PLUSPLUS_TEST_SERIAL=1` runs the tests on one simulator whatever the
 test plan says, and `PLUSPLUS_TEST_ALLOWANCE=600` gives each test 10 minutes instead of the test
-plan's 3, which two UI tests ran past there (the slowest takes about 2 minutes on a Mac). Local
-runs and Xcode Cloud keep the test plan's settings. SwiftFormat is pinned in the workflow to the
+plan's 3, which two UI tests ran past there: the slowest, about 2 minutes on a Mac, took about
+5 on the runner, so 10 is twice that. Local runs and Xcode Cloud keep the test plan's settings. SwiftFormat is pinned in the workflow to the
 release the code is formatted with, 0.63.0 with its checksum, since the image ships a newer one
 whose rules fail clean code; moving to a newer release is its own change, which reformats the
 tree. A failed run uploads its result bundle, `test-xcresult`, kept seven days. With `github`,

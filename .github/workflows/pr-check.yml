@@ -134,9 +134,9 @@ jobs:
       # The checkout is not a linked worktree, so the scripts use the image's "iPhone 17". The
       # runner (3 CPUs) is slower than Xcode Cloud's and parallel simulator clones made it slower
       # still, so the UI tests run one at a time, and each test gets 10 minutes instead of the
-      # test plan's 3, which two UI tests ran past here. The slowest takes about 2 minutes on a
-      # Mac and the others about 1.45 times their Mac time here, so 10 minutes is about 5 times
-      # the slowest's Mac time and still fails a hung test well inside the job's limit.
+      # test plan's 3, which two UI tests ran past here: testDragAndDeleteRows takes about 2
+      # minutes on a Mac and about 5 here, so 10 minutes is twice the slowest measured and still
+      # fails a hung test well inside the job's limit.
       - name: Test
         if: env.ROUTE == 'github'
         env:
