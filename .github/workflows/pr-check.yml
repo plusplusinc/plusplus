@@ -66,7 +66,7 @@ jobs:
     runs-on: ${{ needs.route.outputs.route == 'github' && 'xcode-27' || 'ubuntu-24.04' }}
     # Covers a GitHub test run (22 to 28 min measured, plus setup) with headroom, and sits above
     # scripts/pr-check.sh's own 40-minute wait for Xcode Cloud, so that fails first, with a message.
-    timeout-minutes: 120
+    timeout-minutes: 150
     env:
       ROUTE: ${{ needs.route.outputs.route }}
     steps:
@@ -138,7 +138,7 @@ jobs:
         env:
           PLUSPLUS_TEST_SERIAL: 1
           PLUSPLUS_TEST_ALLOWANCE: 600
-          PLUSPLUS_TEST_ITERATIONS: 15
+          PLUSPLUS_TEST_ITERATIONS: 30
         run: scripts/test.sh sim PlusPlusUITests/WorkoutUITests/testWorkoutSurvivesRelaunch
 
       - name: Probe log
