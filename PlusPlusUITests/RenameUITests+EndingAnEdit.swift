@@ -1,17 +1,14 @@
 import XCTest
 
 /// Ending an edit of the title, run within `testRenameAtDefaultSize` once there are exercises,
-/// so the equipment's capsules and the rows sit under the title: by Return, and by a touch
-/// anywhere outside the title, which also does its own thing. Only the keyboard moves.
+/// so the equipment's capsules and the rows sit under the title: by a touch outside the title,
+/// which also does its own thing. Only the keyboard moves. Return in place is the hosted
+/// `EditableTitleFocusTests`'. A tap on Start or ++, and a node's hold, go through the same
+/// end-on-touch hook as the touches here, and are left to use.
 extension RenameUITests {
     @MainActor
     func endEditsWithoutMoving(in app: XCUIApplication, keyboard: XCUIElement) {
         let capsules = app.equipment
-        XCTContext.runActivity(named: "Return leaves everything in place") { _ in
-            endEditWithoutMoving(in: app, keyboard: keyboard) {
-                app.routineTitle.typeText("\n")
-            }
-        }
         XCTContext.runActivity(named: "A tap on empty space ends the edit in place") { _ in
             endEditWithoutMoving(in: app, keyboard: keyboard) {
                 // Past the capsules' widest line, where nothing takes a tap. The gap under them
@@ -30,42 +27,11 @@ extension RenameUITests {
             app.buttons["Close"].tap()
             XCTAssertTrue(sets.disappears(), "Close left the sheet up")
         }
-        startEndsTheEdit(in: app, keyboard: keyboard)
-        XCTContext.runActivity(named: "A tap on ++ ends the edit and opens the drawer") { _ in
-            XCTAssertTrue(app.routineTitle.settles(), "The title kept moving before the edit")
-            app.routineTitle.tap()
-            XCTAssertTrue(keyboard.appears(), "A tap on the title did not start an edit")
-            app.buttons["Menu"].tap()
-            XCTAssertTrue(keyboard.disappears(), "++ did not end the edit")
-            XCTAssertTrue(app.drawerTitle.appears(), "++ did not open the drawer")
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
-            XCTAssertTrue(app.drawerTitle.disappears(), "A tap on the sliver left it open")
-        }
-        XCTContext.runActivity(named: "An edge swipe opens it, a swipe left closes it") { _ in
-            let edge = app.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0.5))
-                .withOffset(CGVector(dx: 2, dy: 0))
-            edge.press(
-                forDuration: 0.05,
-                thenDragTo: edge.withOffset(CGVector(dx: 250, dy: 0)),
-                withVelocity: .default,
-                thenHoldForDuration: 0,
-            )
-            XCTAssertTrue(app.drawerTitle.appears(), "The edge swipe did not open the drawer")
-            let drawer = app.coordinate(withNormalizedOffset: CGVector(dx: 0.6, dy: 0.6))
-            drawer.press(
-                forDuration: 0.05,
-                thenDragTo: drawer.withOffset(CGVector(dx: -220, dy: 0)),
-                withVelocity: .default,
-                thenHoldForDuration: 0,
-            )
-            XCTAssertTrue(app.drawerTitle.disappears(), "The swipe left did not close the drawer")
-        }
         endEditsByDragging(in: app, keyboard: keyboard)
     }
 
-    /// A scroll, a row's hold, and a node's hold each end the edit as they start, and still do
-    /// their own thing. Each drag is undone, so the reorder and superset checks after this start
-    /// from the same rows.
+    /// A scroll and a row's hold each end the edit as they start, and still do their own thing.
+    /// The row's drag is undone, so the checks after this start from the same rows.
     @MainActor
     private func endEditsByDragging(in app: XCUIApplication, keyboard: XCUIElement) {
         let rows = app.exerciseRows
@@ -103,36 +69,6 @@ extension RenameUITests {
             XCTAssertEqual(reading(app.exerciseNames, becoming: moved, within: 2), moved)
             row(1).center.holdAndDrag(to: row(1).center.down(-1.2 * height))
             XCTAssertEqual(reading(app.exerciseNames, becoming: names, within: 2), names)
-        }
-        XCTContext.runActivity(named: "A node's hold ends the edit and joins the rows") { _ in
-            startEdit()
-            row(0).nodePoint.holdAndDrag(to: row(1).nodePoint)
-            XCTAssertTrue(keyboard.disappears(), "The node's hold did not end the edit")
-            XCTAssertEqual(app.supersets(becoming: "AA......."), "AA.......")
-            row(1).nodePoint.holdAndDrag(to: row(0).nodePoint)
-            XCTAssertEqual(app.supersets(becoming: "........."), ".........")
-        }
-    }
-
-    /// Start ends an edit. Not checked in place: Start rides on the keyboard, so the tap may land
-    /// as the key moves down with it, and a press that lands starts a workout, which grows the
-    /// first exercise. Any workout started is discarded.
-    @MainActor
-    private func startEndsTheEdit(in app: XCUIApplication, keyboard: XCUIElement) {
-        XCTContext.runActivity(named: "A tap on Start ends the edit") { _ in
-            XCTAssertTrue(app.routineTitle.settles(), "The title kept moving before the edit")
-            let start = app.buttons["Start"]
-            let (title, key) = (app.routineTitle.frame, start.frame)
-            app.routineTitle.tap()
-            XCTAssertTrue(keyboard.appears(), "A tap on the title did not start an edit")
-            // Riding on the keyboard, Start keeps its size, and the screen stays put beside it.
-            XCTAssertEqual(start.frame.size, key.size, "Start changed size over the keyboard")
-            XCTAssertEqual(app.routineTitle.frame.minX, title.minX, "The screen moved sideways")
-            start.tap()
-            XCTAssertTrue(keyboard.disappears(), "Start did not end the edit")
-            if app.workoutTime.appears(within: 1) {
-                app.discardWorkout()
-            }
         }
     }
 

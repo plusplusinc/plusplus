@@ -25,6 +25,7 @@
       }
     },
     {
+      "parallelizable" : false,
       "target" : {
         "containerPath" : "container:Packages",
         "identifier" : "DesignSystemTests",

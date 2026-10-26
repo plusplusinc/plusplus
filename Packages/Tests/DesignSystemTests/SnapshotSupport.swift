@@ -5,9 +5,12 @@ import SnapshotTesting
 import SwiftUI
 import Testing
 
-/// Snapshots a view in the three appearances every component must survive: light, dark, and
-/// the largest accessibility content size. The test plan pins the language so the system
-/// font's line height, which follows the device's preferred languages, is the same everywhere.
+/// Snapshots a view as users see it, dark, at the default text size and at the largest
+/// accessibility size. The app shows only in dark appearance, so light renders only with
+/// `includingLight`, which the token palette passes while the light palette exists; light
+/// screen snapshots come back with the card "Choose light, dark, or automatic appearance". The
+/// test plan pins the language so the system font's line height, which follows the device's
+/// preferred languages, is the same everywhere.
 ///
 /// The width is explicit because `.sizeThatFits` proposes zero width and `Text` truncates to
 /// nothing, producing a silently wrong reference image. Every pixel must match, perceptually:
@@ -23,23 +26,25 @@ import Testing
 func assertThemedSnapshots(
     of view: some View,
     width: CGFloat,
+    includingLight: Bool = false,
     fileID: StaticString = #fileID,
     file: StaticString = #filePath,
     testName: String = #function,
     line: UInt = #line,
     column: UInt = #column,
 ) {
-    let appearances: [(name: String, traits: UITraitCollection)] = [
-        ("light", UITraitCollection { $0.userInterfaceStyle = .light }),
-        ("dark", UITraitCollection { $0.userInterfaceStyle = .dark }),
-        (
-            "xxxl",
-            UITraitCollection {
-                $0.userInterfaceStyle = .light
-                $0.preferredContentSizeCategory = .accessibilityExtraExtraExtraLarge
-            },
-        ),
-    ]
+    let light = ("light", UITraitCollection { $0.userInterfaceStyle = .light })
+    let appearances: [(name: String, traits: UITraitCollection)] = (includingLight ? [light] : []) +
+        [
+            ("dark", UITraitCollection { $0.userInterfaceStyle = .dark }),
+            (
+                "xxxl",
+                UITraitCollection {
+                    $0.userInterfaceStyle = .dark
+                    $0.preferredContentSizeCategory = .accessibilityExtraExtraExtraLarge
+                },
+            ),
+        ]
     let directory = snapshotDirectory(
         forSuite: URL(filePath: "\(file)").deletingPathExtension().lastPathComponent,
     )

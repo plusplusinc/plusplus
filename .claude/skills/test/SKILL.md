@@ -14,6 +14,7 @@ allowed-tools: Bash(scripts/test.sh:*), Bash(xcrun xcresulttool:*)
   typo matches no tests, and the run fails.
 
 The simulator run writes `.build/results/test.xcresult` and prints a one-line summary plus each
-failure's message. Snapshot failures attach the diff image inside the result bundle; open it with
+failure's message. Every run, fast or sim, then prints its times against the budgets in
+`.claude/rules/testing.md`, saying OVER BUDGET where one is over; it never fails on them. Snapshot failures attach the diff image inside the result bundle; open it with
 `xcrun xcresulttool get test-results tests --path .build/results/test.xcresult` to find the
 attachment, or look for `*.failed.png` next to the reference.

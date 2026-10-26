@@ -21,7 +21,7 @@ name, nothing secret, and nothing in the build reads it.
 
 ## Workflows
 
-**PR**: start on pull request to `main`, unless every changed file matches
+**PR** (workflow `FE8B3BCC-1973-4533-BB66-4D047A8E3C22`): start on pull request to `main`, unless every changed file matches
 `.github/no-code-paths` (the start condition's Files and Folders rule, a copy of that list that
 `docs/pr-check.md` says how to update), with auto-cancel of a superseded run. Actions: Build and Test, scheme `PlusPlus`, iOS
 simulator iPhone 17, using the scheme's settings. The scheme's test plan, `PlusPlus.xctestplan`,
@@ -64,6 +64,9 @@ asc xcode-cloud artifacts download --id <artifact-id> --path .build/asc/<file>.z
 asc xcode-cloud run --workflow-id <id> --branch <name>     # start a run
 asc builds add-groups --app 6808082840 --latest --group Internal     # attach a TestFlight build
 ```
+
+`scripts/ci-times.py <branch>` (or `--run <number>`) prints a PR run's times against the test
+budgets in `scripts/xcresult.py`: start to finish, each test target, and each UI test.
 
 A run started with `run` still has to match one of the workflow's start conditions: Xcode
 Cloud refuses a TestFlight run on `main`, since that workflow starts only on a `v*` tag.

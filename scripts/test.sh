@@ -9,6 +9,8 @@
 # The package declares a macOS platform so its tests run with `swift test` and no simulator.
 # Tests that need UIKit are compiled out there and run in the simulator tier, whose test
 # plan includes the package test targets, so `sim` is a superset of `fast`.
+#
+# Each run prints its times against the budgets in scripts/xcresult.py, and never fails on them.
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
 MODE="${1:-fast}"
@@ -16,7 +18,12 @@ ONLY="${2:-}"
 
 case "$MODE" in
     fast)
-        swift test --package-path "$PACKAGE" --disable-xctest --quiet
+        log="$RESULTS/fast.log"
+        status=0
+        swift test --package-path "$PACKAGE" --disable-xctest --quiet 2>&1 | tee "$log" ||
+            status=$?
+        xcresult package "$log"
+        [ "$status" -eq 0 ] || exit "$status"
         ;;
     sim)
         # Whatever the last session left on the simulator (dark mode, a minimized keyboard) is
@@ -33,6 +40,7 @@ case "$MODE" in
         run_xcodebuild test test ${only[@]+"${only[@]}"} || status=$?
         # The summary also fails a run that executed no tests; xcodebuild's own failure wins.
         if ! xcresult tests "$RESULTS/test.xcresult" && [ "$status" -eq 0 ]; then status=1; fi
+        xcresult times "$RESULTS/test.xcresult"
         [ "$status" -eq 0 ] || exit "$status"
         ;;
     *)
