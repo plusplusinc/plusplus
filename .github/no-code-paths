@@ -24,6 +24,7 @@ README.md
 .mcp.json
 scripts/board.sh
 scripts/build.sh
+scripts/ci-times.py
 scripts/conversations.py
 scripts/device.sh
 scripts/nightly-retro.sh
