@@ -120,12 +120,6 @@ struct Ink {
     /// The `_` blinks on and off every 0.53s. Over two cycles a `_` that is there shows.
     static let twoBlinks: TimeInterval = 2.2
 
-    /// Reads a blinking `_` needs at the least, however long they take. On Xcode Cloud with the
-    /// UI classes in parallel a read took 2.7 to 3 s, against 0.3 s alone (runs 315 and 297), so
-    /// two cycles held one or two reads, each of which could land while the `_` was off. Reads
-    /// that far apart drift about half a cycle each, so four see it lit.
-    static let blinkReads = 4
-
     let shot: TitleShot
     let lines: [Run]
     let cursor: Run?
@@ -204,8 +198,8 @@ struct Ink {
 
     /// Reads ink until the `_` is lit where `miss` finds nothing wrong with it. Key presses and
     /// taps can return before the app has handled them, so a read after one waits for the state
-    /// it checks. After two blink cycles, and at least `blinkReads` reads, it throws with the
-    /// last miss, or with none if the `_` never lit.
+    /// it checks. After two blink cycles it throws with the last miss, or with none if the `_`
+    /// never lit.
     @MainActor
     static func withCursor(
         file: StaticString = #filePath,
@@ -215,9 +209,7 @@ struct Ink {
     ) throws -> Self {
         let deadline = Date.now.addingTimeInterval(twoBlinks)
         var last = "No _ over two blink cycles"
-        var reads = 0
-        while Date.now < deadline || reads < blinkReads {
-            reads += 1
+        while Date.now < deadline {
             let ink = try read()
             guard let cursor = ink.cursor else { continue }
             guard let wrong = miss(ink, cursor) else { return ink }
