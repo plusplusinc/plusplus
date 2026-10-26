@@ -119,6 +119,9 @@ project board; agents' technical working files live in `.slices/`.
   running (its transcript's last entry and when it happened), a PR open or merged
   (`gh pr view`), a run passed. What you read earlier in the turn may have changed. An interrupt of your turn can stop background agents: after one,
   check each, and restart a stopped one from its commits and handoff without waiting to be asked.
+- An ask still open when you repeat it in a later update says again, in a line, what it is and
+  what a yes does, so it reads on its own: a bare "still open: merge #N?" hours after the
+  explanation sends the maintainer back to ask what #N was.
 - When a subagent runs long, have it write `.slices/sliceN-handoff.md` and continue with a
   fresh one in the same worktree.
 - Rewrite the card's State section (`scripts/board.sh state <id> <<'STATE'`, quoted so

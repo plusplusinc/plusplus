@@ -83,6 +83,8 @@ A `SessionStart` hook runs `scripts/tidy.sh` in the background from the main che
 to `.build/tidy.log`. It removes worktrees and local branches whose work has landed: their tip is
 in `main` or in a merged PR. Merges are squashed, so git alone can't tell a branch is done.
 Agents' worktrees with commits outlive the agent, and nothing else removes them.
+A second one runs `scripts/nightly-retro.sh check`, which prints a line into the session's
+context when the nightly retro isn't running, so the session that finds it stopped starts it.
 
 ## Rules
 
