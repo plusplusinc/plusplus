@@ -1,59 +1,30 @@
 # The PR check
 
-Every pull request to `main` runs one GitHub Actions job, "PR check"
-(`.github/workflows/pr-check.yml`), on each push, and branch protection requires it. Its logic is
+Every pull request to `main` runs one required GitHub Actions check, "PR check"
+(`.github/workflows/pr-check.yml`), on each push; branch protection requires only it. Its logic is
 `scripts/pr-check.sh`, which runs the same way on a Mac:
 
 - **A PR that changes no app code**, one whose changed files all match `.github/no-code-paths`
   (docs, `.claude/`, the PR template, the root Markdown files, the scripts no build runs), gets
   `scripts/lint.sh` on its changed files and passes, in a minute or two. Xcode Cloud starts no
   run for it, since its PR workflow skips the same list.
-- **Any other PR** is tested where the repository variable `PR_TESTS_ON` says (next section).
-  With `github`, the check itself runs `scripts/lint.sh` and `scripts/test.sh sim` on GitHub's
-  `xcode-27` runner. With `xcode-cloud`, or no variable, it waits for Xcode Cloud's commit
-  status, "PlusPlus Workout Tracker | PR", on the PR's head commit, polling once a minute, and
-  passes or fails with it, naming the run and its actions' results. A run Xcode Cloud cancels
-  before any action starts fails the check with a message saying the month's Xcode Cloud hours
-  are likely spent, since Xcode Cloud does that when they are. Once the hours are back, start
-  the run again (`asc xcode-cloud run`, or push) and re-run the check; until then, `github`
-  tests on GitHub instead.
+- **Any other PR** waits for Xcode Cloud's commit status, "PlusPlus Workout Tracker | PR", on the
+  PR's head commit, polling once a minute, and passes or fails with it, naming the run and its
+  actions' results. A run Xcode Cloud cancels before any action starts fails the check with a
+  message saying the month's Xcode Cloud hours are likely spent, since Xcode Cloud does that when
+  they are. Once the hours are back, start the run again (`asc xcode-cloud run`, or push) and
+  re-run the check.
 
-A first job, "Route", reads which of the three a PR is and picks the check's runner:
-`ubuntu-24.04` for the docs-only lint and the wait, `xcode-27` for the tests, both free on a
-public repository. The docs-only lint needs no Swift tools: `scripts/lint.sh` given paths with no Swift file runs only the US English check, and Swift,
-`.swiftformat`, and `.swiftlint.yml` all count as app code, which Xcode Cloud lints whole in
-`ci_scripts/ci_post_clone.sh`. The job reads and nothing more (`contents`, `pull-requests`,
-`statuses`, `checks`), the token reaches only the steps that run the base's script, its actions
-are pinned to a commit, a new push cancels the run it supersedes, and its time limit, 60 minutes,
-covers a GitHub test run and sits above the script's 40-minute wait for Xcode Cloud.
-
-## Where an app PR's tests run
-
-`PR_TESTS_ON` is a repository variable, so a PR cannot change it, and switching is a setting:
-
-```sh
-gh variable set PR_TESTS_ON --body github        # GitHub's xcode-27 runner, inside "PR check"
-gh variable set PR_TESTS_ON --body xcode-cloud   # back to Xcode Cloud (or: gh variable delete PR_TESTS_ON)
-```
-
-Then re-run the check on open PRs (`gh run rerun <run-id>`), since a run reads the variable when
-it starts. Branch protection names only "PR check" in both modes.
-
-GitHub's runner has 3 CPUs: the suite took 22 to 28 minutes there, against about 11 on Xcode
-Cloud, and parallel simulator clones made it slower. So the workflow sets two variables
-`scripts/test.sh` reads: `PLUSPLUS_TEST_SERIAL=1` runs the tests on one simulator whatever the
-test plan says, and `PLUSPLUS_TEST_ALLOWANCE=600` gives each test 10 minutes instead of the test
-plan's 3, which two UI tests ran past there: the slowest, about 2 minutes on a Mac, took about
-5 on the runner, so 10 is twice that. Local runs and Xcode Cloud keep the test plan's settings. SwiftFormat is pinned in the workflow to the
-release the code is formatted with, 0.63.0 with its checksum, since the image ships a newer one
-whose rules fail clean code; moving to a newer release is its own change, which reformats the
-tree. A failed run uploads its result bundle, `test-xcresult`, kept seven days. With `github`,
-`scripts/test.sh` and `scripts/xcresult.py` count as app code too, since the runner runs them.
-
-Xcode Cloud's PR workflow starts on app PRs in either mode; with `github` the check ignores it,
-so while the hours are spent its runs are cancelled before they start, and once they are back
-each such run spends them for nothing until the variable goes back or the workflow is disabled
-in App Store Connect.
+A first job, "Route", reads which of the two a PR is; "PR check" then lints or waits. Both run
+on `ubuntu-24.04`, free on a public repository, and when Route fails, "PR check" fails too,
+pointing to Route's log. The docs-only lint needs no Swift tools: `scripts/lint.sh` given paths
+with no Swift file runs only the US English check, and Swift, `.swiftformat`, and
+`.swiftlint.yml` all count as app code, which Xcode Cloud lints whole in
+`ci_scripts/ci_post_clone.sh`. The jobs read and nothing more (`contents`, `pull-requests`,
+`statuses`, `checks`), the token reaches only the steps that run the base's script, their one
+action is pinned to a commit, a new push cancels the run it supersedes, and the check's time
+limit, 45 minutes, sits above Xcode Cloud's longest PR run so far (about 20 minutes, queue
+included) and above the script's 40-minute wait.
 
 ## The no-code list
 
@@ -90,12 +61,10 @@ with what it sources before it builds, so those are not on it.
 
 ```sh
 scripts/pr-check.sh files <pr> | scripts/pr-check.sh classify   # docs, or the first app path
-scripts/pr-check.sh route <pr>              # docs, xcode-cloud, or github, as Route decides
+scripts/pr-check.sh route <pr>              # docs or xcode-cloud, as Route decides
 scripts/pr-check.sh lint <pr>               # the docs-only path
 scripts/pr-check.sh wait <sha> [minutes]    # Xcode Cloud's result on a commit, as CI reads it
 ```
-
-They read `PR_TESTS_ON` from the environment, unset meaning `xcode-cloud`.
 
 `gh pr checks <n> --watch --interval 60` waits on it from a PR.
 

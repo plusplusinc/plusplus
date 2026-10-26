@@ -1,8 +1,7 @@
 # The one required check on every pull request to main, "PR check" (docs/pr-check.md). A PR whose
 # changed files all match the base branch's .github/no-code-paths gets scripts/lint.sh on those
-# files and passes. Any other is tested where the repository variable PR_TESTS_ON says: on
-# Xcode Cloud (xcode-cloud, or unset), whose result on the same commit the check waits for and
-# reports, or here on GitHub's xcode-27 runner (github), where the check lints and runs every test.
+# files and passes; any other waits for Xcode Cloud's result on the same commit and passes or
+# fails with it.
 # Branch protection names only "PR check"; renaming it means updating the rule.
 name: PR check
 
@@ -25,11 +24,9 @@ env:
   PR: ${{ github.event.pull_request.number }}
   SHA: ${{ github.event.pull_request.head.sha }}
   PR_CHECK_BASE: ${{ github.event.pull_request.base.sha }}
-  # A repository variable, so a PR cannot change where it is tested.
-  PR_TESTS_ON: ${{ vars.PR_TESTS_ON }}
 
 jobs:
-  # Decides the PR check's runner, which a job cannot change once it starts.
+  # Decides whether the PR is docs-only or waits for Xcode Cloud.
   route:
     name: Route
     runs-on: ubuntu-24.04
@@ -43,7 +40,7 @@ jobs:
 
       # The check and its no-code list come from the base branch, never the PR, so a PR cannot
       # change what it is checked against.
-      - name: Docs, Xcode Cloud, or GitHub
+      - name: Docs or Xcode Cloud
         id: route
         env:
           GH_TOKEN: ${{ github.token }}
@@ -63,10 +60,10 @@ jobs:
     needs: route
     # Runs even when Route fails, since a skipped required check counts as passed.
     if: ${{ !cancelled() }}
-    runs-on: ${{ needs.route.outputs.route == 'github' && 'xcode-27' || 'ubuntu-24.04' }}
-    # Covers a GitHub test run (22 to 28 min measured, plus setup) with headroom, and sits above
-    # scripts/pr-check.sh's own 40-minute wait for Xcode Cloud, so that fails first, with a message.
-    timeout-minutes: 60
+    runs-on: ubuntu-24.04
+    # Above the longest Xcode Cloud PR run so far (about 20 min, queue included), and above
+    # scripts/pr-check.sh's own 40-minute limit, so the script fails first, with a message.
+    timeout-minutes: 45
     env:
       ROUTE: ${{ needs.route.outputs.route }}
     steps:
@@ -82,10 +79,9 @@ jobs:
         with:
           persist-credentials: false
 
-      # Docs-only, or waiting for Xcode Cloud: the base's script, as in Route. The PR's checkout
-      # is only linted, on the docs-only path, by a scripts/lint.sh that path cannot have changed.
+      # The base's script, as in Route. The PR's checkout is only linted, on the docs-only path,
+      # by a scripts/lint.sh that path cannot have changed.
       - name: Lint or wait for Xcode Cloud
-        if: env.ROUTE != 'github'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -97,58 +93,3 @@ jobs:
           else
             bash "$check" wait "$SHA"
           fi
-
-      # The image ships its own SwiftFormat, newer than the one the code is formatted with, and
-      # each release adds or changes rules, so lint would fail code that is clean locally and on
-      # Xcode Cloud. This pins the release, checked against its checksum, ahead of Homebrew's on
-      # the PATH. Moving to a newer one is its own change: bump both values and reformat the tree.
-      - name: Install SwiftFormat 0.63.0
-        if: env.ROUTE == 'github'
-        env:
-          SWIFTFORMAT_VERSION: 0.63.0
-          SWIFTFORMAT_SHA256: 28c7802e11fa5ae113d903066439c6bb1be20a8ac1ad9709c42616a7e273fb0f
-        run: |
-          bin="$RUNNER_TEMP/bin"
-          mkdir -p "$bin"
-          curl -fsSL -o "$RUNNER_TEMP/swiftformat.zip" \
-            "https://github.com/nicklockwood/SwiftFormat/releases/download/$SWIFTFORMAT_VERSION/swiftformat.zip"
-          echo "$SWIFTFORMAT_SHA256  $RUNNER_TEMP/swiftformat.zip" | shasum -a 256 -c -
-          unzip -q -o "$RUNNER_TEMP/swiftformat.zip" swiftformat -d "$bin"
-          echo "$bin" >> "$GITHUB_PATH"
-
-      - name: Install tools
-        if: env.ROUTE == 'github'
-        env:
-          HOMEBREW_NO_AUTO_UPDATE: 1
-          HOMEBREW_NO_INSTALL_CLEANUP: 1
-        run: |
-          xcodebuild -version
-          brew bundle
-          swiftformat --version
-          swiftlint version
-
-      - name: Lint
-        if: env.ROUTE == 'github'
-        run: scripts/lint.sh
-
-      # The checkout is not a linked worktree, so the scripts use the image's "iPhone 17". The
-      # runner (3 CPUs) is slower than Xcode Cloud's and parallel simulator clones made it slower
-      # still, so the UI tests run one at a time, and each test gets 10 minutes instead of the
-      # test plan's 3, which two UI tests ran past here: testDragAndDeleteRows takes about 2
-      # minutes on a Mac and about 5 here, so 10 minutes is twice the slowest measured and still
-      # fails a hung test well inside the job's limit.
-      - name: Test
-        if: env.ROUTE == 'github'
-        env:
-          PLUSPLUS_TEST_SERIAL: 1
-          PLUSPLUS_TEST_ALLOWANCE: 600
-        run: scripts/test.sh sim
-
-      - name: Upload result bundle
-        if: failure() && env.ROUTE == 'github'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: test-xcresult
-          path: .build/results/test.xcresult
-          if-no-files-found: ignore
-          retention-days: 7
