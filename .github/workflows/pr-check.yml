@@ -1,0 +1,95 @@
+# The one required check on every pull request to main, "PR check" (docs/pr-check.md). A PR whose
+# changed files all match the base branch's .github/no-code-paths gets scripts/lint.sh on those
+# files and passes; any other waits for Xcode Cloud's result on the same commit and passes or
+# fails with it.
+# Branch protection names only "PR check"; renaming it means updating the rule.
+name: PR check
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read # the PR's changed files
+  statuses: read # Xcode Cloud's commit status
+  checks: read # Xcode Cloud's actions, to tell a cancelled run that never started
+
+# A new push to the same PR cancels the run it supersedes, as Xcode Cloud's auto-cancel does.
+concurrency:
+  group: pr-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  PR: ${{ github.event.pull_request.number }}
+  SHA: ${{ github.event.pull_request.head.sha }}
+  PR_CHECK_BASE: ${{ github.event.pull_request.base.sha }}
+
+jobs:
+  # Decides whether the PR is docs-only or waits for Xcode Cloud.
+  route:
+    name: Route
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      route: ${{ steps.route.outputs.route }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The check and its no-code list come from the base branch, never the PR, so a PR cannot
+      # change what it is checked against.
+      - name: Docs or Xcode Cloud
+        id: route
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git fetch --quiet --depth=1 origin "$PR_CHECK_BASE"
+          check="$RUNNER_TEMP/pr-check.sh"
+          if ! git show "$PR_CHECK_BASE:scripts/pr-check.sh" > "$check"; then
+            # Only the PR that adds the check finds none on its base.
+            echo "no scripts/pr-check.sh on the base; running the PR's"
+            cp scripts/pr-check.sh "$check"
+          fi
+          route=$(bash "$check" route "$PR")
+          echo "route=$route" >> "$GITHUB_OUTPUT"
+
+  pr-check:
+    name: PR check
+    needs: route
+    # Runs even when Route fails, since a skipped required check counts as passed.
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    # Above the longest Xcode Cloud PR run so far (about 20 min, queue included), and above
+    # scripts/pr-check.sh's own 40-minute limit, so the script fails first, with a message.
+    timeout-minutes: 45
+    env:
+      ROUTE: ${{ needs.route.outputs.route }}
+    steps:
+      - name: Route
+        run: |
+          if [ -z "$ROUTE" ]; then
+            echo "::error title=PR check::Route failed; its log says why"
+            exit 1
+          fi
+          echo "$ROUTE"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The base's script, as in Route. The PR's checkout is only linted, on the docs-only path,
+      # by a scripts/lint.sh that path cannot have changed.
+      - name: Lint or wait for Xcode Cloud
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git fetch --quiet --depth=1 origin "$PR_CHECK_BASE"
+          check="$RUNNER_TEMP/pr-check.sh"
+          git show "$PR_CHECK_BASE:scripts/pr-check.sh" > "$check" || cp scripts/pr-check.sh "$check"
+          if [ "$ROUTE" = docs ]; then
+            bash "$check" lint "$PR"
+          else
+            bash "$check" wait "$SHA"
+          fi
