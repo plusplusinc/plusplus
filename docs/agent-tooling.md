@@ -117,18 +117,18 @@ lives in packages.
 
 ## The nightly retro
 
-The retro (`.claude/skills/retro/SKILL.md`) runs on the maintainer's Mac, in a Claude Code
-session in a detached `screen` session; the skill's "How it runs" has the command that starts
-it and what each night does. It reads the merges and the conversation since the last run,
+The retro (`.claude/skills/retro/SKILL.md`) runs on the maintainer's Mac, as a Claude Code
+run in print mode that a launchd agent starts at midnight and that exits when it's done; the
+skill's "How it runs" has the command that installs it and what each night does. It reads the merges and the conversation since the last run,
 which `scripts/conversations.py` prints without the tool calls, so a day reads in tens of
 kilobytes rather than the tens of megabytes of transcripts. Changing the retro means changing
 the skill.
 
-`scripts/nightly-retro.sh` starts the session, and prints whether its Claude Code is running
-and its last reply, read from the transcript, without attaching. It exists because starting the
-session by hand gets three things wrong, which its header explains: the calling Claude Code
-session's variables leak in, a second retro can start, and the `screen` 4.00 macOS ships has
-quirks.
+`scripts/nightly-retro.sh` installs the launchd agent, runs the retro once, and prints whether
+it's installed and running and its last reply, read from the transcript. It exists because
+doing these by hand gets three things wrong, which its header explains: the agent's plist needs
+the main checkout's paths, which a tracked file can't hold in a public repo; the calling Claude
+Code session's variables leak into a run; and a second run can start.
 
 ## Parallel work
 
