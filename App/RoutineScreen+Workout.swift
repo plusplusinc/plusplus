@@ -149,10 +149,22 @@ extension RoutineScreen {
                 isStartAway = true
                 isStarting = false
                 startDrop = 0
-                isMakingRoom = false
                 isBottomEdgeHidden = false
             }
+            letRoomGo()
         }
+    }
+
+    /// Takes away Start's room under the list's end once Start is over and the current exercise
+    /// has grown, which `placeCurrent` hears of. Without the room, the list ends just past the
+    /// screen until the growth is laid out, and the list, landed on the current exercise, was
+    /// pulled back up to that end. The grow's completion can come first: on a busy main thread
+    /// it came 26 ms after the grow began, before any of the growth had been laid out.
+    func letRoomGo() {
+        guard isMakingRoom, !isStarting, session.workout != nil,
+              (currentPlace?.height ?? 0) >= currentLabelHeight
+        else { return }
+        withTransaction(\.disablesAnimations, true) { isMakingRoom = false }
     }
 
     /// Ends the workout with `change`, Start's grow in reverse, in one motion: the current
@@ -246,9 +258,9 @@ extension RoutineScreen {
             } completion: {
                 withTransaction(\.disablesAnimations, true) {
                     isCrossfading = false
-                    isMakingRoom = false
                     isBottomEdgeHidden = false
                 }
+                letRoomGo()
                 then?()
             }
         }
@@ -261,6 +273,7 @@ extension RoutineScreen {
     func placeCurrent(_ place: CurrentPlace) {
         let old = currentPlace
         currentPlace = place
+        letRoomGo()
         if let old, currentID != nil, !isScrollingByHand, place.contentTop != old.contentTop,
            abs(scrollBeat.scrolledY - old.landingY) < 1
         {
