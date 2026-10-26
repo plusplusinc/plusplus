@@ -34,6 +34,9 @@ cost you find (a pause, a slower path): keep it, and report the cost and what yo
   `run_in_background: false`, all in one message so they still run in parallel. Anything you
   wait on (a run, a log line) has a real time limit, such as a loop bounded by `$SECONDS`.
   Never write an `until` loop with no exit.
+- A failure CI showed that a few local tries, under load included, don't reproduce: stop trying
+  locally and report to the lead what is established (from the run's own log and screenshots)
+  and what catching it where it failed would take. More local tries cost time and prove nothing.
 - When it works: `/simplify` once, commit what it changed, then `/code-review`, then
   `scripts/lint.sh` and the targeted tests, then open or update the PR with `/pr`. Friction in the
   body comes from this session; the Card line names the slice's card. Report the PR's "PR check"
