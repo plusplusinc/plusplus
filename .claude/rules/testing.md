@@ -4,6 +4,10 @@ paths: ["Packages/Tests/**", "PlusPlusUITests/**"]
 
 # Testing
 
+Every test runs in the check that blocks a merge. A test that isn't worth blocking a merge is
+not worth keeping, so no tier or suite runs as a report only; speed comes from cutting and
+fixing tests, never from moving them out of the check.
+
 Swift Testing (`@Test`, `#expect`, `#require`) for everything except UI automation and
 performance, which stay on XCTest by Apple's own guidance.
 
@@ -191,6 +195,6 @@ don't add another; if not, say why it doesn't.
   formatter is configured to keep it that way (see `.swiftformat`).
 - No sleeping in tests. Use clocks, confirmations, or injected schedulers.
 - While working, run `scripts/test.sh` and the simulator tests the change touches
-  (`scripts/test.sh sim <Target/Class>`). The full simulator suite is Xcode Cloud's PR check,
-  so don't also run it locally. After re-recording snapshots, run only their suite again.
+  (`scripts/test.sh sim <Target/Class>`). The full simulator suite runs on Xcode Cloud for every
+  PR that changes the app, so don't also run it locally. After re-recording snapshots, run only their suite again.
 - A bug fix comes with a test that failed before the fix.

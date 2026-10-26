@@ -1,6 +1,7 @@
 # Xcode Cloud: PR checks and TestFlight builds
 
-Xcode Cloud builds and tests every pull request and ships each `v*` tag to TestFlight. Workflow
+Xcode Cloud builds and tests every pull request that changes the app, whose result the "PR
+check" reports (`docs/pr-check.md`), and ships each `v*` tag to TestFlight. Workflow
 definitions live in App Store Connect, not in the repo. Two files here belong to it:
 `ci_scripts/ci_post_clone.sh`, which installs the `Brewfile` tools and runs `scripts/lint.sh`
 before any build action, and `PlusPlus.xcodeproj/xcshareddata/xcodecloud/manifest.json`, which
@@ -20,7 +21,9 @@ name, nothing secret, and nothing in the build reads it.
 
 ## Workflows
 
-**PR** (workflow `FE8B3BCC-1973-4533-BB66-4D047A8E3C22`): start on pull request to `main`. Actions: Build and Test, scheme `PlusPlus`, iOS
+**PR** (workflow `FE8B3BCC-1973-4533-BB66-4D047A8E3C22`): start on pull request to `main`, unless every changed file matches
+`.github/no-code-paths` (the start condition's Files and Folders rule, a copy of that list that
+`docs/pr-check.md` says how to update), with auto-cancel of a superseded run. Actions: Build and Test, scheme `PlusPlus`, iOS
 simulator iPhone 17, using the scheme's settings. The scheme's test plan, `PlusPlus.xctestplan`,
 includes the package test targets, so this covers storage, snapshot, and UI tests in one run.
 Post-actions: none.
@@ -77,27 +80,15 @@ The `.p8` lives in `~/.appstoreconnect/private_keys/`. Nothing of that is in the
 ## Agents
 
 An agent uses the least access that answers its question. Pass or fail comes from GitHub, where
-Xcode Cloud reports every run as a check (`gh pr checks`); that needs no key and is all an agent
-without one gets. Local agents that operate CI use `asc` rather than ad hoc API calls. Reading
+Xcode Cloud reports every run as a commit status and its actions as checks, and "PR check" passes
+or fails with them (`gh pr checks`); that needs no key and is all an agent without one gets. Local agents that operate CI use `asc` rather than ad hoc API calls. Reading
 runs and starting one are allowed without a prompt (`.claude/settings.json`); anything else that
 changes App Store Connect asks first. The API cannot cancel a running build or edit a
-workflow's post-actions, so those two go through App Store Connect in the browser. The Xcode
+workflow's post-actions, so those two go through App Store Connect in the browser; it does set
+start conditions (`asc xcode-cloud workflows update`). The Xcode
 MCP server has no Xcode Cloud tools.
 
 ## Branch protection
 
-On `main`: require a pull request, require the Xcode Cloud status check, squash merges only,
-delete branches on merge. Set once with:
-
-```sh
-gh api -X PUT repos/plusplusinc/plusplus/branches/main/protection \
-  -f required_status_checks[strict]=true \
-  -f 'required_status_checks[contexts][]=Xcode Cloud' \
-  -F enforce_admins=true \
-  -f required_pull_request_reviews[required_approving_review_count]=0 \
-  -F restrictions=null
-gh repo edit plusplusinc/plusplus --enable-squash-merge --enable-merge-commit=false \
-  --enable-rebase-merge=false --delete-branch-on-merge
-```
-
-The check name is whatever Xcode Cloud reports on the first PR; adjust the context if it differs.
+Branch protection requires "PR check", not Xcode Cloud's status, since Xcode Cloud does not run
+on every PR; `docs/pr-check.md` has the rule and the commands that set it.

@@ -134,6 +134,7 @@ scripts/device.sh [--link]   # build, install, launch on the iPhone, else an ins
 scripts/sim.sh <command>     # drive the simulator: shots, appearance, reset, erase, log
 scripts/lint.sh [--fix]      # SwiftFormat, SwiftLint, US English, as CI runs them
 scripts/board.sh <command>   # the private project board; run bare to list its commands
+scripts/pr-check.sh <command> # the PR check's logic, run against a PR or commit
 ```
 
 Reach an external service through its own CLI (`gh`, `asc`). A wrapper script or MCP server
