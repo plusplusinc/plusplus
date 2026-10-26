@@ -5,7 +5,6 @@
 #
 #   scripts/nightly-retro.sh start   # start it, from any checkout; refuses when one is running
 #   scripts/nightly-retro.sh show    # whether its claude is running, and its last reply, whole
-#   scripts/nightly-retro.sh check   # one line when its claude isn't running, else nothing
 #
 # Attach with `screen -d -r nightly-retro` (-d detaches any other terminal first), detach with
 # Ctrl-a d. When Claude Code quits, a shell takes its place, so its last screen stays readable.
@@ -115,20 +114,11 @@ show() {
     "$ROOT/scripts/conversations.py" --retro-reply
 }
 
-# The SessionStart hook in .claude/settings.json runs this, so the session that finds the retro
-# stopped (a restart of the Mac ends it) starts it again, rather than a night going missing.
-check() {
-    has_retro || echo "The nightly retro isn't running (a restart of the Mac ends it). Start it" \
-        "now with scripts/nightly-retro.sh start, without asking: the retro skill's \"How it runs\"" \
-        "has the lead keep it running."
-}
-
 case "${1:-}" in
     start) start ;;
     show) show ;;
-    check) check ;;
     *)
-        sed -n '2,11s/^# \{0,1\}//p' "${BASH_SOURCE[0]}" >&2
+        sed -n '2,10s/^# \{0,1\}//p' "${BASH_SOURCE[0]}" >&2
         exit 64
         ;;
 esac

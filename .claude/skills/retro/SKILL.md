@@ -145,8 +145,7 @@ scripts/nightly-retro.sh start
 ```
 
 The lead starts it, and starts it again whenever it has stopped: a restart of the Mac ends the
-`screen` session, and every session in this repo is told at its start when it isn't running
-(`scripts/nightly-retro.sh check`, a SessionStart hook). `scripts/nightly-retro.sh show` says whether its Claude Code is running and
+`screen` session. `scripts/nightly-retro.sh show` says whether its Claude Code is running and
 prints its last reply, which is how the lead reads the night's report in the morning;
 `screen -d -r nightly-retro` attaches, and Ctrl-a d detaches.
 
