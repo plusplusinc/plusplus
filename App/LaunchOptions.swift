@@ -1,7 +1,9 @@
 #if DEBUG
 import Foundation
+import WorkoutStore
 
-/// Launch arguments the UI tests pass, as `-name YES`. Compiled out of release builds.
+/// Launch arguments the UI tests pass, as `-name YES` or `-name value`. Compiled out of release
+/// builds.
 enum LaunchOptions {
     /// Start from an empty store.
     static var resetsStore: Bool {
@@ -22,6 +24,18 @@ enum LaunchOptions {
     /// With no UIKit animations there is nothing to miscount. SwiftUI's own animations still run.
     static var turnsOffUIKitAnimations: Bool {
         UserDefaults.standard.bool(forKey: "noUIKitAnimations")
+    }
+
+    /// With `resetsStore`, a routine to launch into in place of a new one: `-seedExercises`
+    /// lists built-in exercise ids, comma-separated, and `-seedName` names it. A test that needs
+    /// rows but doesn't check adding them starts with them, rather than spending seconds an add
+    /// in the picker.
+    static var seededRoutine: (name: String, exercises: [Exercise])? {
+        guard let ids = UserDefaults.standard.string(forKey: "seedExercises") else { return nil }
+        return (
+            UserDefaults.standard.string(forKey: "seedName") ?? "",
+            ids.split(separator: ",").compactMap { Exercise.builtIn(id: String($0)) },
+        )
     }
 }
 #endif

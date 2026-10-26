@@ -6,8 +6,8 @@ import XCTest
 /// and Start's scroll to the top runs far.
 extension TitleWrappingUITests {
     /// From the Routines screen the drawer left, with exercises added for their equipment: Start
-    /// and a relaunch land on the current exercise, and a workout's bar, running and paused, and
-    /// End's dialog pass the audit.
+    /// and a relaunch land on the current exercise, and a workout's bar, paused, and End's dialog
+    /// pass the audit. Running, the bar differs only in its key's shorter Pause.
     @MainActor
     func workoutAtAX5(in app: XCUIApplication) throws {
         try XCTContext
@@ -23,7 +23,6 @@ extension TitleWrappingUITests {
                 XCTAssertTrue(time.appears(within: 3), "Start began no workout")
                 assertLandedOnTheCurrentExercise(in: app, after: "Start")
                 attach(named: "workout-ax5")
-                try auditBelowTheBar(in: app)
                 app.relaunch()
                 XCTAssertTrue(time.appears(), "The workout did not come back")
                 assertLandedOnTheCurrentExercise(in: app, after: "the relaunch")

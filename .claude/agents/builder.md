@@ -24,7 +24,8 @@ cost you find (a pause, a slower path): keep it, and report the cost and what yo
   its sheets). A gesture that did nothing is the tool's until those notes rule it out.
 - Test as `.claude/rules/testing.md` says: `scripts/test.sh` and the simulator tests your change
   touches, never the full simulator suite. That suite runs on Xcode Cloud when you push a
-  change to the app.
+  change to the app. Read the budget lines each run prints: a test over its budget is fixed at
+  its cause, or named in your report with its time.
 - Push only when CI's answer is needed: when opening the PR, after a round of fixes, and before
   the merge. Commit locally in between, rounds included; each push to a PR that changes the app
   spends a full Xcode Cloud run.

@@ -4,13 +4,90 @@
     scripts/xcresult.py build <bundle>   one line per error and warning, 1-based line numbers
     scripts/xcresult.py tests <bundle>   one-line totals plus each failure's message; exits 1
                                          when no tests ran or there is no summary
+    scripts/xcresult.py times <bundle>   each test bundle's time against its local budget, each
+                                         UI test's, and any DesignSystem test over its own;
+                                         reports only, and always exits 0
+    scripts/xcresult.py package <log>    the package tests' time on macOS, from swift test's
+                                         output, against its budget; always exits 0
+
+The budgets are defined here once; scripts/test.sh and scripts/ci-times.py print against them,
+and .claude/rules/testing.md's table repeats them. A run over budget is reported, never failed.
 
 xcresulttool reports 0-based line numbers in its JSON; compilers and editors are 1-based, so
 this adds one. Everything else is passed through as-is.
 """
 import json
+import pathlib
+import re
 import subprocess
 import sys
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+# Budgets in seconds on Xcode Cloud. A local run's are these divided by LOCAL_RATIO, the ratio
+# of CI to local times measured in 2026-10 with one test at a time on both.
+LOCAL_RATIO = 1.25
+# Per test target: (all its tests, any one of them or None, whether every test is listed).
+TARGETS = {
+    "WorkoutStoreTests": (10, None, False),
+    "DesignSystemTests": (30, 2, False),
+    "PlusPlusUITests": (360, 90, True),
+}
+PACKAGE = 10  # scripts/test.sh on macOS, both swift test runs' test time, locally
+RUN = 660  # an Xcode Cloud PR run, start to finish
+RUN_AIM = 240  # the run's aim, printed beside its budget
+
+
+def over(seconds, budget):
+    return f"{seconds:.1f} s (budget {budget:.3g} s){' OVER BUDGET' if seconds > budget else ''}"
+
+
+def parallel_targets(plan_text):
+    """The test plan's Swift Testing targets whose tests run at the same time: those the plan
+    doesn't mark parallelizable false, since Swift Testing runs its tests in parallel when the
+    plan doesn't say. The UI target runs one test at a time (.claude/rules/testing.md)."""
+    parallel = set()
+    for t in json.loads(plan_text)["testTargets"]:
+        name = t["target"]["name"]
+        if t.get("parallelizable") is not False and not is_ui(name):
+            parallel.add(name)
+    return parallel
+
+
+def is_ui(target):
+    return target.endswith("UITests")
+
+
+def bundle_times(tests, parallel):
+    """Each target's time from (target, test, seconds) rows. A serial target's tests add up. A
+    parallel target's tests start together and each is timed from that start, so its time is
+    its longest test's."""
+    times = {}
+    for target, _, seconds in tests:
+        if target in parallel:
+            times[target] = max(times.get(target, 0), seconds)
+        else:
+            times[target] = times.get(target, 0) + seconds
+    return times
+
+
+def budget_lines(tests, parallel, on_ci):
+    """Lines for each target, and for each of its tests that is listed or over its own budget.
+    Only a serial target's tests are timed on their own."""
+    lines = []
+    by_target = bundle_times(tests, parallel)
+    order = list(TARGETS)
+    for target in sorted(by_target, key=lambda t: order.index(t) if t in order else len(order)):
+        total, per_test, lists_all = TARGETS.get(target, (None, None, False))
+        scale = 1 if on_ci else 1 / LOCAL_RATIO
+        seconds = by_target[target]
+        lines.append(f"{target} {over(seconds, total * scale) if total else f'{seconds:.1f} s'}")
+        if not per_test or target in parallel:
+            continue
+        for t, name, s in sorted(tests, key=lambda row: -row[2]):
+            if t == target and (lists_all or s > per_test * scale):
+                lines.append(f"  {name} {over(s, per_test * scale)}")
+    return lines
 
 
 def load(*subcommand, bundle):
@@ -57,8 +134,55 @@ def tests(bundle):
     return 0
 
 
+def case_seconds(node, parallel):
+    # A parameterized test's own duration is the mean of its cases. Run one at a time, its cost
+    # is their sum; in parallel, its longest case's.
+    cases = [c.get("durationInSeconds") or 0 for c in node.get("children") or []
+             if c.get("nodeType") == "Arguments"]
+    if cases:
+        return max(cases) if parallel else sum(cases)
+    return node.get("durationInSeconds") or 0
+
+
+def package(log):
+    # Each swift test run ends "Test run with N tests in M suites passed after X seconds."
+    text = pathlib.Path(log).read_text(errors="replace")
+    runs = re.findall(r"Test run with \d+ tests? .*? after ([\d.]+) seconds", text)
+    if not runs:
+        print("package tests: no test run's time in swift test's output")
+    else:
+        print(f"package tests {over(sum(map(float, runs)), PACKAGE)}")
+    return 0
+
+
+def times(bundle):
+    data = load("test-results", "tests", bundle=bundle)
+    if not data:
+        print(f"no test results in {bundle}")
+        return 0
+    parallel = parallel_targets((ROOT / "PlusPlus.xctestplan").read_text())
+    rows = []
+
+    def walk(node, target=None):
+        if node.get("nodeType") in ("Unit test bundle", "UI test bundle"):
+            target = node.get("name")
+        if node.get("nodeType") == "Test Case":
+            rows.append((target, node.get("nodeIdentifier"), case_seconds(node, target in parallel)))
+            return
+        for child in node.get("children") or []:
+            walk(child, target)
+
+    for node in data.get("testNodes") or []:
+        walk(node)
+    print("times against local budgets (reported, never failed):")
+    for line in budget_lines(rows, parallel, on_ci=False):
+        print(f"  {line}")
+    return 0
+
+
 if __name__ == "__main__":
-    if len(sys.argv) != 3 or sys.argv[1] not in ("build", "tests"):
+    commands = {"build": build, "tests": tests, "times": times, "package": package}
+    if len(sys.argv) != 3 or sys.argv[1] not in commands:
         print(__doc__, file=sys.stderr)
         sys.exit(64)
-    sys.exit({"build": build, "tests": tests}[sys.argv[1]](sys.argv[2]))
+    sys.exit(commands[sys.argv[1]](sys.argv[2]))

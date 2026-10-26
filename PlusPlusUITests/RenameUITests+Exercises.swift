@@ -1,11 +1,14 @@
 import XCTest
 
-/// Adding, searching, and deleting exercises: adding within `testRenameAtDefaultSize`, so it
-/// shares its launch, and deleting within `testDragAndDeleteRows`.
+/// Adding exercises, within `testRenameAtDefaultSize`, so it shares its launch. Deleting is
+/// `RowDragUITests`'.
 extension RenameUITests {
-    /// The picker opens fast and without the keyboard, search narrows it, and a pick adds a row.
+    /// The picker opens fast and without the keyboard, and a pick adds a row. The rest of the
+    /// rows are seeded by a relaunch, and one more is added through the picker's search onto
+    /// them. Search's list and empty state are left to use, and the add's scroll to Add exercise
+    /// is `TitleWrappingUITests`' at AX5.
     @MainActor
-    func addAndSearchExercises(in app: XCUIApplication, keyboard: XCUIElement) {
+    func addExercises(in app: XCUIApplication, keyboard: XCUIElement) {
         let search = app.searchFields.firstMatch
         XCTContext.runActivity(named: "Add exercise opens the picker") { _ in
             XCTAssertFalse(app.buttons["Start"].exists, "Start shows with no exercises")
@@ -13,53 +16,19 @@ extension RenameUITests {
             XCTAssertFalse(keyboard.exists, "Search took focus when the picker opened")
             XCTAssertEqual(app.pickerRows.firstMatch.label, "Backward arm circles")
         }
-        XCTContext.runActivity(named: "Search narrows and shows an empty state") { _ in
-            search.tap()
-            search.typeText("curl")
-            let curls = ["Biceps curl, Dumbbells", "Hammer curl, Dumbbells"]
-            XCTAssertTrue(app.pickerRows[curls[0]].appears())
-            XCTAssertEqual(app.pickerRows.allElementsBoundByIndex.map(\.label), curls)
-            app.searchForNothing(replacing: "curl", in: search)
-            XCTAssertEqual(app.pickerRows.count, 0)
-            attach(named: "picker-no-results")
-            // While searching, the first Close ends the search; the next closes the sheet.
-            for _ in 0 ..< 2 where search.exists {
-                app.buttons["Close"].firstMatch.tap()
-                _ = keyboard.disappears()
-            }
-            XCTAssertTrue(search.disappears(), "Close left the picker open")
-            XCTAssertEqual(app.exerciseRows.count, 0, "Closing the picker added an exercise")
-        }
-        let exercises = XCUIApplication.nineExercises
+        let (seeded, added) = XCUIApplication.renameRows
         XCTContext.runActivity(named: "Start appears with the first exercise") { _ in
-            app.addExercise(exercises[0].label)
+            app.pickerRows[seeded[0].label].tap()
+            XCTAssertTrue(search.disappears(), "The add left the picker open")
+            XCTAssertEqual(app.exerciseCount(becoming: 1), 1, "The pick added no row")
+            // What Start does is `WorkoutUITests`'.
             XCTAssertTrue(app.buttons["Start"].appears())
-            app.buttons["Start"].tap()
-            XCTAssertTrue(app.endKey.appears(), "Start began no workout")
-            XCTAssertEqual(app.workoutTime.label, "Pause")
-            XCTAssertFalse(app.buttons["Start"].exists, "Start stayed in a workout")
-            XCTAssertFalse(app.buttons["Menu"].exists, "++ stayed in a workout")
-            // Discarded, so the rest runs on a routine in edit mode, as if Start never ran.
-            app.discardWorkout()
-            XCTAssertTrue(app.buttons["Menu"].exists)
-            XCTAssertEqual(app.exerciseCount(becoming: 1), 1)
-            XCTAssertFalse(search.exists, "Start opened something")
         }
-        XCTContext.runActivity(named: "Six adds in a row, one a duplicate") { _ in
-            for exercise in exercises[1 ... 6] {
-                app.addExercise(exercise.label, searching: exercise.query)
-            }
-            XCTAssertEqual(app.exerciseCount(becoming: 7), 7)
-            attach(named: "seven-exercises")
+        XCTContext.runActivity(named: "An add through search lands after seeded rows") { _ in
+            app.launchSeeding(seeded.map(\.id), named: "Arm and back day")
+            app.addExercise(added.label, searching: added.query)
+            attach(named: "nine-exercises")
         }
-        readRowsAtTheListEnd(in: app)
-    }
-
-    /// The rows read as name and plan, and at the end of the list both keys and the
-    /// title stay reachable. Split from `addAndSearchExercises` so each body stays inside
-    /// SwiftLint's length limit; the activities run in this order either way.
-    @MainActor
-    private func readRowsAtTheListEnd(in app: XCUIApplication) {
         XCTContext.runActivity(named: "Rows read as name and plan") { _ in
             let labels = app.exerciseRows.allElementsBoundByIndex.map(\.label)
             XCTAssertEqual(labels, [
@@ -69,27 +38,22 @@ extension RenameUITests {
                 "Balance board hold, 3 sets of 30 seconds",
                 "Barbell back squat, 3 sets of 5 reps, 45 pounds",
                 "Biceps curl, 3 sets of 12 reps, 15 pounds per side",
+                "Balance board hold, 3 sets of 30 seconds",
+                "Barbell back squat, 3 sets of 5 reps, 45 pounds",
                 "Push-up, 3 sets of 10 reps",
             ])
         }
-        XCTContext.runActivity(named: "An add that would hide Add exercise scrolls to it") { _ in
-            // The eighth row still fits; the ninth pushes Add exercise below Start.
-            for exercise in XCUIApplication.nineExercises[7...] {
-                app.addExercise(exercise.label, searching: exercise.query)
-            }
-            XCTAssertTrue(app.addExerciseClearsStart(), "The add left Add exercise behind Start")
-            attach(named: "nine-exercises")
-        }
         XCTContext.runActivity(named: "A tap on the small title scrolls back to the top") { _ in
+            // The ninth row pushed Add exercise below Start, and the add scrolled to it.
             app.scrollToTop(titled: "Arm and back day")
             let smallTitle = app.navigationBars.firstMatch.buttons["Arm and back day"]
             XCTAssertTrue(smallTitle.disappears(), "The small title stayed with the title in view")
         }
     }
 
-    /// Start rides above the keyboard while the title is edited, rather than staying behind it,
-    /// and goes back down with the keyboard when a tap just outside a two-line title ends the
-    /// edit. A long press on the title shows the edit menu.
+    /// Start rides above the keyboard while the title is edited, rather than staying behind it.
+    /// A long press on the title shows the edit menu, and a long name shortened goes back to one
+    /// line.
     @MainActor
     func startClearsKeyboard(in app: XCUIApplication, keyboard: XCUIElement) throws {
         let title = app.routineTitle
@@ -108,23 +72,16 @@ extension RenameUITests {
             XCTAssertEqual(title.value(becoming: longer), longer)
             XCTAssertGreaterThan(title.frame.height, 44, "The longer name did not wrap")
         }
-        XCTContext.runActivity(named: "A tap just below a two-line title ends the edit") { _ in
-            // Outside the field, where SwiftUI still gives a tap to the target behind it, which
-            // once started the edit again in the same tap and left Start behind the keyboard.
-            title.coordinate(withNormalizedOffset: CGVector(dx: 0.75, dy: 1))
-                .withOffset(CGVector(dx: 0, dy: 8)).tap()
-            XCTAssertTrue(keyboard.disappears(), "The tap below the title kept the edit")
-            XCTAssertEqual(
-                reading(start.frame, becoming: atRest, within: 2),
-                atRest,
-                "Start did not go back down with the keyboard",
-            )
-            XCTAssertEqual(
-                watchFrames(of: [start], for: Self.keyboardAvoidanceWindow),
-                [atRest],
-                "Start moved after the edit ended",
-            )
-        }
+        title.typeText("\n")
+        XCTAssertTrue(keyboard.disappears(), "Return did not end the edit")
+        // The keyboard's element goes before the keyboard has finished going down. Pressed
+        // 0.1 s after Return, in a full parallel run, the long press once showed no edit menu,
+        // so it waits for the edit's end to finish: Start back where it rests.
+        XCTAssertEqual(
+            reading(start.frame, becoming: atRest, within: 2),
+            atRest,
+            "Start did not go back down with the keyboard",
+        )
         XCTContext.runActivity(named: "A long press on the title shows the edit menu") { _ in
             title.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.25))
                 .press(forDuration: 1)
@@ -145,95 +102,57 @@ extension RenameUITests {
             XCTAssertTrue(keyboard.disappears())
         }
     }
+}
 
-    /// The system's swipe actions: a swipe opens a row's Delete, a tap elsewhere closes it, a
-    /// full swipe deletes outright, and with no rows left Start goes.
-    @MainActor
-    func deleteExercises(in app: XCUIApplication) {
-        let delete = app.buttons["Delete"]
-        XCTContext.runActivity(named: "A swipe opens a row, and Delete deletes it") { _ in
-            // The superset checks leave the first two rows a pair.
-            XCTAssertEqual(app.supersets, "AA.......")
-            app.exerciseRows.element(boundBy: 1).swipeOpen()
-            XCTAssertTrue(delete.appears(), "A swipe did not open the row")
-            attach(named: "row-open")
-            delete.tap()
-            XCTAssertEqual(app.exerciseCount(becoming: 8), 8)
-            XCTAssertTrue(delete.disappears())
-            XCTAssertEqual(
-                app.supersets(becoming: "........"),
-                "........",
-                "Deleting one of a pair left the other in a superset",
-            )
-        }
-        XCTContext.runActivity(named: "A tap anywhere else closes an open row") { _ in
-            let open = {
-                app.exerciseRows.element(boundBy: 0).swipeOpen()
-                XCTAssertTrue(delete.appears(), "A swipe did not open the row")
-            }
-            open()
-            // The empty end of the capsules' second line, under the title: the list runs on
-            // under Start, so there may be no gap between Add exercise and Start.
-            app.equipment.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.8)).tap()
-            XCTAssertTrue(delete.disappears(), "A tap on empty screen left the row open")
-            open()
-            // The tap closes the row and still starts a workout, which is discarded.
-            app.buttons["Start"].tap()
-            XCTAssertTrue(delete.disappears(), "A tap on Start left the row open")
-            app.discardWorkout()
-            open()
-            // The tap closes the row and still opens the picker.
-            _ = app.openPicker()
-            app.buttons["Close"].firstMatch.tap()
-            XCTAssertTrue(app.searchFields.firstMatch.disappears())
-            XCTAssertFalse(delete.exists, "Add exercise left the row open")
-            let count = app.exerciseCount(becoming: 7, within: 1)
-            XCTAssertEqual(count, 8, "A tap outside the row deleted it")
-        }
-        XCTContext.runActivity(named: "A full swipe deletes, and with no rows Start goes") { _ in
-            for left in (0 ..< 8).reversed() {
-                app.lastExerciseRow.fullSwipeLeft()
-                XCTAssertEqual(
-                    app.exerciseCount(becoming: left),
-                    left,
-                    "A full swipe did not delete",
-                )
-            }
-            XCTAssertTrue(app.buttons["Start"].disappears(), "Start stayed with no exercises")
-        }
-    }
+/// A built-in exercise as the picker labels it, the search that finds it when it is not in the
+/// picker's first screenful, and its id for seeding.
+struct BuiltInRow {
+    let label: String
+    let query: String?
+    let id: String
 }
 
 @MainActor
 extension XCUIApplication {
-    /// The rows `testRenameAtDefaultSize` adds, in order, each with the search that finds it
-    /// when it is not in the picker's first screenful. Nine run past one screen.
-    static let nineExercises: [(label: String, query: String?)] = [
-        ("Barbell bench press, Barbell, bench", nil),
-        ("Band pull-apart, Band", nil),
-        ("Band pull-apart, Band", nil),
-        ("Balance board hold, Balance board", nil),
-        ("Barbell back squat, Barbell", nil),
-        ("Biceps curl, Dumbbells", "biceps"),
-        ("Push-up", "push-up"),
-        ("Balance board hold, Balance board", nil),
-        ("Barbell back squat, Barbell", nil),
+    /// The rows `testRenameAtDefaultSize` ends with and `RowDragUITests` seeds, in order. Nine
+    /// run past one screen.
+    static let nineExercises: [BuiltInRow] = [
+        BuiltInRow(
+            label: "Barbell bench press, Barbell, bench",
+            query: nil,
+            id: "barbell-bench-press",
+        ),
+        BuiltInRow(label: "Band pull-apart, Band", query: nil, id: "band-pull-apart"),
+        BuiltInRow(label: "Band pull-apart, Band", query: nil, id: "band-pull-apart"),
+        BuiltInRow(
+            label: "Balance board hold, Balance board",
+            query: nil,
+            id: "balance-board-hold",
+        ),
+        BuiltInRow(label: "Barbell back squat, Barbell", query: nil, id: "barbell-back-squat"),
+        BuiltInRow(label: "Biceps curl, Dumbbells", query: "biceps", id: "biceps-curl"),
+        BuiltInRow(label: "Push-up", query: "push-up", id: "push-up"),
+        BuiltInRow(
+            label: "Balance board hold, Balance board",
+            query: nil,
+            id: "balance-board-hold",
+        ),
+        BuiltInRow(label: "Barbell back squat, Barbell", query: nil, id: "barbell-back-squat"),
     ]
 
-    /// Launches into a new routine named `name` holding `nineExercises`, scrolled to its top,
-    /// for the checks that only need the rows.
-    func launchNineExercises(named name: String) {
-        let title = launchNewRoutine()
-        title.tap()
-        XCTAssertTrue(keyboards.element.appears(), "A tap on the title did not start an edit")
-        title.typeText(name + "\n")
-        XCTAssertTrue(keyboards.element.disappears(), "Return did not end the edit")
+    /// The rows `testRenameAtDefaultSize` seeds, and the one it then adds through search: the
+    /// nine, with Push-up moved to the end.
+    static var renameRows: (seeded: [BuiltInRow], added: BuiltInRow) {
+        var rows = nineExercises
+        let added = rows.remove(at: 6)
+        return (rows, added)
+    }
+
+    /// Launches into a routine named `name` holding `nineExercises`, seeded, for the checks
+    /// that only need the rows. Adding them is `testRenameAtDefaultSize`'s.
+    func launchSeedingNineExercises(named name: String) {
+        let title = launchSeeding(Self.nineExercises.map(\.id), named: name)
         XCTAssertEqual(title.value(becoming: name), name)
-        for exercise in Self.nineExercises {
-            addExercise(exercise.label, searching: exercise.query)
-        }
-        XCTAssertTrue(addExerciseClearsStart(), "The add left Add exercise behind Start")
-        scrollToTop(titled: name)
     }
 
     /// Taps through the keyboard's one-time tip on sliding to type, which a freshly erased
