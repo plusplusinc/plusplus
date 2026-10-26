@@ -93,10 +93,7 @@ Cheapest first. The tests' display names are the inventory of what each tier hol
 Reported on every run, never failed on: `scripts/test.sh` prints the package's, `scripts/test.sh
 sim` each target's and each UI test's, and `scripts/ci-times.py <branch>` an Xcode Cloud run's.
 They are defined once, in `scripts/xcresult.py`. Local is CI divided by 1.25, the ratio with
-one test at a time on both, except a UI test's while `PlusPlusUITests` runs in parallel: five
-clones of the simulator share the Mac, so each test runs 1.04 to 1.09 times as long as on CI
-serially, and its local budget is 90 s divided by the lowest, 1.04, so a test reads over only
-when it grew.
+one test at a time on both.
 
 | Tier | Xcode Cloud | Local |
 |---|---|---|
@@ -104,16 +101,12 @@ when it grew.
 | `WorkoutStoreTests` | 10 s | 8 s |
 | `DesignSystemTests` | 30 s | 24 s |
 | a `DesignSystemTests` test | 2 s | 1.6 s |
-| each UI test | 90 s | 72 s, 86.5 s in parallel |
-| the UI tests together, wall time | 360 s | 288 s |
+| each UI test | 90 s | 72 s |
+| the UI tests together | 360 s | 288 s |
 | a PR run, start to finish | 11 min, aiming at 4 | |
 
 A target's budget holds its wall time. A serial target's is its tests' sum, and a parallel
-Swift Testing target's its longest test's, since each is timed from their common start. A UI
-target in parallel prints both: its wall time, from its first test's start to its last one's
-end (the first clone's boot comes before it), and its tests' sum, their cost. Each UI test's
-own time is its cost either way. App Store Connect gives no start times, so `ci-times.py`
-prints that target's sum with no verdict, and the run's start to finish holds it.
+Swift Testing target's its longest test's, since each is timed from their common start.
 
 A test over its budget is fixed at its cause (setup through the UI, a fixed wait, a launch, a
 held main actor), or named with its time in the report that adds it. The first test of a
@@ -179,11 +172,11 @@ don't add another; if not, say why it doesn't.
   appearance". Every pixel must match within perceptual
   0.98: a looser pixel share lets a `_` move a cell or vanish unseen. Do not call `assertSnapshot`
   directly. Re-record by deleting a suite's files, or its whole folder, under `__Snapshots__/`.
-- The scheme's test plan, `PlusPlus.xctestplan`, holds five settings to keep, and it is the
+- The scheme's test plan, `PlusPlus.xctestplan`, holds four settings to keep, and it is the
   only place Xcode Cloud reads them from. `DesignSystemTests` is `parallelizable: false`, as
-  above. `PlusPlusUITests` is `parallelizable: true`, so Xcode hands its classes, one long
-  test each, to clones of the simulator: locally the five run in about 130 s of wall time
-  against about 300 s one at a time, and Xcode deletes the clones after. It pins the app language to English (US): UIKit sizes the
+  above. `PlusPlusUITests` is left serial: on Xcode Cloud with its classes on five clones of the
+  simulator (runs 315 and 316), a screenshot took about 3 s rather than 0.3 s, and each run
+  failed a different UI test on timing. It pins the app language to English (US): UIKit sizes the
   system font's line height to fit the fallback fonts for the device's preferred languages, and
   Xcode Cloud's simulators list 34 of them, so unpinned text lays out taller there. Its
   `diagnosticCollectionPolicy` is `Never`: otherwise every failing run ends with `simctl

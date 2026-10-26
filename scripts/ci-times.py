@@ -114,8 +114,6 @@ def main(argv):
     plan = git("show", f"{sha}:PlusPlus.xctestplan")
     if plan.returncode != 0:
         sys.exit(f"can't read {sha[:7]}'s test plan: {plan.stderr.strip()}")
-    # App Store Connect gives each test's duration but not its start, so a parallel UI target's
-    # line has no wall time; the run's start to finish above holds it.
     for line in budget_lines(rows, parallel_targets(plan.stdout), on_ci=True):
         print(f"  {line}")
     return 0

@@ -3,8 +3,7 @@ import XCTest
 /// Dragging, joining, and deleting rows with real touches over the scroll view, on nine seeded
 /// rows that run past one screen. Where a drag lands, what a node's span makes, and which
 /// neighbor a rest pairs with are unit-tested in the package; this checks each gesture once,
-/// that it reaches that arithmetic. A class of its own, so that with parallel testing no class
-/// holds two long tests.
+/// that it reaches that arithmetic.
 ///
 /// `nonisolated` because XCTestCase's initializers are; the test drives the UI on the main actor.
 final nonisolated class RowDragUITests: XCTestCase {
