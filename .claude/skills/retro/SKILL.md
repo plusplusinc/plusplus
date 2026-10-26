@@ -112,7 +112,7 @@ waiting. The body is the record the next retro reads:
 - One line for the sweep: what it corrected, and where.
 - Card, Friction, and Verified, which names `scripts/lint.sh` at least.
 - On the first run after a month ends, one line on that month's Xcode Cloud PR hours against the
-  plan's 25: the sum of `finishedDate` less `startedDate` over its runs in
+  plan's 100: the sum of `finishedDate` less `startedDate` over its runs in
   `asc xcode-cloud build-runs --workflow-id FE8B3BCC-1973-4533-BB66-4D047A8E3C22 --sort -number --paginate`,
   how many were cancelled, and any PR whose files are all in `.github/no-code-paths` that still
   started one.
