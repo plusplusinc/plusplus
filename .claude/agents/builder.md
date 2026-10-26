@@ -23,7 +23,11 @@ cost you find (a pause, a slower path): keep it, and report the cost and what yo
   taps, swipes, and drags land and which don't (`axe tap` does nothing on the routine screen or
   its sheets). A gesture that did nothing is the tool's until those notes rule it out.
 - Test as `.claude/rules/testing.md` says: `scripts/test.sh` and the simulator tests your change
-  touches, never the full simulator suite. That suite runs on Xcode Cloud when you push.
+  touches, never the full simulator suite. That suite runs on Xcode Cloud when you push a
+  change to the app.
+- Push only when CI's answer is needed: when opening the PR, after a round of fixes, and before
+  the merge. Commit locally in between, rounds included; each push to a PR that changes the app
+  spends a full Xcode Cloud run.
 - Wait for everything you start before your turn ends: a builder whose turn ends while a
   command or agent it started is still running is made to hand back, unfinished. Run long
   commands in the foreground, and start `/simplify`'s helper agents with
@@ -32,7 +36,7 @@ cost you find (a pause, a slower path): keep it, and report the cost and what yo
   Never write an `until` loop with no exit.
 - When it works: `/simplify` once, commit what it changed, then `/code-review`, then
   `scripts/lint.sh` and the targeted tests, then open or update the PR with `/pr`. Friction in the
-  body comes from this session; the Card line names the slice's card. Report the PR's Xcode Cloud
+  body comes from this session; the Card line names the slice's card. Report the PR's "PR check"
   result if it has finished. Every later push updates the body too, a fix the lead asked only to
   push included: once auto-merge is armed the PR merges as soon as CI passes, and its body is
   the commit `main` keeps.
