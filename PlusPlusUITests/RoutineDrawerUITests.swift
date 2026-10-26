@@ -3,14 +3,18 @@ import XCTest
 /// The ++ drawer and the Routines screen over saved routines: switching, and the drill-in from
 /// the Routines screen. Opening counting as using is `RoutineStoreRecencyTests`', through the
 /// `openRoutine` a switch already shows it called. Names come from the muscle groups
-/// (`-fallbackNames`).
-extension RoutineAutosaveUITests {
-    /// From a new routine with nothing saved, two routines made, switched between, and opened
-    /// from the Routines screen.
+/// (`-fallbackNames`). Saving and relaunching are `RoutineAutosaveUITests`'.
+///
+/// `nonisolated` because XCTestCase's initializers are; the test drives the UI on the main actor.
+final nonisolated class RoutineDrawerUITests: XCTestCase {
+    /// From one saved routine, a second made, the two switched between, and both opened from
+    /// the Routines screen.
     @MainActor
-    func drawerSwitchesRoutines(in app: XCUIApplication, title: XCUIElement) {
+    func testDrawerSwitchesRoutines() {
+        let app = XCUIApplication()
+        // Seeded, since the add is `RoutineAutosaveUITests`'.
+        let title = app.launchSeeding(["barbell-bench-press"], arguments: ["-fallbackNames", "YES"])
         XCTContext.runActivity(named: "The drawer marks the routine showing, or a new one") { _ in
-            app.addExercise("Barbell bench press, Barbell, bench")
             XCTAssertEqual(title.value(becoming: "Chest"), "Chest")
             openDrawer(in: app)
             XCTAssertEqual(drawerRoutines(in: app), ["Chest"])

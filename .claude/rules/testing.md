@@ -124,11 +124,12 @@ and the drawer through `SideDrawer`'s `progress:`; a suggestion's arrival comes 
 
 ## UI tests
 
-There is one UI test per launch configuration, each a series of named
-`XCTContext.runActivity` checks: `RenameUITests/testRenameAtDefaultSize`,
-`RowDragUITests/testDragAndDeleteRows` (the rows seeded),
-`TitleWrappingUITests/testWrappedTitleAtLargestTextSize`,
-`RoutineAutosaveUITests/testRoutineSurvivesRelaunch`, and
+There is one UI test per launch configuration, split by feature where one test would pass the
+UI test budget, each a series of named `XCTContext.runActivity` checks:
+`RenameUITests/testRenameAtDefaultSize`, `RowDragUITests/testDragAndDeleteRows` (the rows
+seeded), `TitleWrappingUITests/testWrappedTitleAtLargestTextSize`,
+`RoutineAutosaveUITests/testRoutineSurvivesRelaunch`,
+`RoutineDrawerUITests/testDrawerSwitchesRoutines` (a routine seeded), and
 `WorkoutUITests/testWorkoutSurvivesRelaunch`. A new check joins the test for its launch only
 when it names what only the running app shows (G) and the lower test that holds the rest, sets
 its state up by launch argument, and keeps its test within the UI budget; otherwise it goes in

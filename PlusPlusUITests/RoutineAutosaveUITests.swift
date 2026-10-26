@@ -7,7 +7,8 @@ import XCTest
 /// and its shared rounds), and one that shows a routine cleared to nothing is gone. Names come
 /// from the muscle groups (`-fallbackNames`), so the same name shows on any simulator. The
 /// title's color, white for a name whether typed or generated and gray for New routine, is read
-/// from pixels against the placeholder's own gray at the start.
+/// from pixels against the placeholder's own gray at the start. The drawer over saved routines is
+/// `RoutineDrawerUITests`'.
 ///
 /// `nonisolated` because XCTestCase's initializers are; the test drives the UI on the main actor.
 final nonisolated class RoutineAutosaveUITests: XCTestCase {
@@ -40,7 +41,6 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
         }
         try typedNameStays(in: app, title: title, gray: gray)
         try clearedRoutineIsGone(in: app, title: title, gray: gray)
-        drawerSwitchesRoutines(in: app, title: title)
     }
 
     /// An unnamed routine is named for its exercises as they come and go, in white.
