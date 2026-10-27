@@ -20,12 +20,12 @@ import UIKit
 @Suite("Rail steps once a frame")
 struct RailStepTests {
     /// The edges the hosted list shares with its rows.
-    private final class Log {
+    private final class EdgesBox {
         var edges: RailEdges?
     }
 
     private struct Host: View {
-        let log: Log
+        let box: EdgesBox
         @State private var position = ScrollPosition()
 
         var body: some View {
@@ -35,7 +35,7 @@ struct RailStepTests {
                         Text("Row \(index)").frame(maxWidth: .infinity, minHeight: 80)
                     }
                 }
-                .background(EdgesReader(log: log))
+                .background(EdgesReader(box: box))
             }
             .scrollPosition($position)
             .railAutoscroll($position)
@@ -43,11 +43,11 @@ struct RailStepTests {
     }
 
     private struct EdgesReader: View {
-        let log: Log
+        let box: EdgesBox
         @Environment(\.railEdges) private var edges
 
         var body: some View {
-            Color.clear.onAppear { log.edges = edges }
+            Color.clear.onAppear { box.edges = edges }
         }
     }
 
@@ -85,12 +85,12 @@ struct RailStepTests {
     /// long as it is held, then let go, six times over.
     @Test("The frame clock keeps going, read once a frame, each time the list steps")
     func readOncePerFrame() throws {
-        let log = Log()
-        let host = UIHostingController(rootView: Host(log: log))
+        let box = EdgesBox()
+        let host = UIHostingController(rootView: Host(box: box))
         let window = UIWindow.sceneless(hosting: host, at: .large)
         defer { window.isHidden = true }
         window.settle()
-        let edges = try #require(log.edges)
+        let edges = try #require(box.edges)
         let bottom = window.bounds.height
         let screen = Screen()
 
