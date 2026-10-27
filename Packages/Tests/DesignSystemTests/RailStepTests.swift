@@ -67,7 +67,7 @@ struct RailStepTests {
         /// a clock inserted then stopped most often: in a sweep across the frame, in about half
         /// the holds started 7 to 9 ms in, and in none started 2 ms or more either side. It
         /// spins for that last part, since running the run loop could start an update.
-        func waitHalfAFrame() {
+        func waitHalfAFrame() throws {
             let link = CADisplayLink(target: self, selector: #selector(frame(_:)))
             link.add(to: .main, forMode: .common)
             defer { link.invalidate() }
@@ -76,6 +76,7 @@ struct RailStepTests {
             while frames == seen, Date.now < deadline {
                 RunLoop.main.run(mode: .default, before: .now.addingTimeInterval(0.001))
             }
+            try #require(frames > seen, "the screen showed no frame for a second")
             let start = lastFrame + frameLength / 2
             while CACurrentMediaTime() < start { }
         }
@@ -94,11 +95,13 @@ struct RailStepTests {
         let bottom = window.bounds.height
         let screen = Screen()
 
+        var lastRead = Date.distantPast
         for hold in 1 ... 6 {
             var reads: [Date] = []
+            var scrolled: CGFloat = 0
             edges.frameRead = { reads.append($0) }
-            screen.waitHalfAFrame()
-            edges.lift(at: bottom / 2) { _, _ in }
+            try screen.waitHalfAFrame()
+            edges.lift(at: bottom / 2) { distance, _ in scrolled += distance }
             edges.move(to: bottom - 20)
             try #require(edges.isStepping, "a row held in the bottom band doesn't scroll the list")
             let deadline = Date.now.addingTimeInterval(5)
@@ -106,6 +109,8 @@ struct RailStepTests {
                 RunLoop.main.run(mode: .default, before: .now.addingTimeInterval(0.005))
             }
             edges.letGo()
+            // Lets the clock pause, so the next hold starts it again.
+            window.settle()
 
             let frames = Set(reads).count
             try #require(frames >= 10, "hold \(hold): the list stepped for only \(frames) frames")
@@ -113,6 +118,12 @@ struct RailStepTests {
                 reads.count == frames,
                 "hold \(hold): the clock was read \(reads.count) times in \(frames) frames",
             )
+            // Started again, the clock goes on from now: a date from before the pause would step
+            // the list by the whole pause.
+            let first = try #require(reads.min())
+            #expect(first > lastRead, "hold \(hold): the clock started again from before the pause")
+            lastRead = try #require(reads.max())
+            #expect(scrolled > 0, "hold \(hold): the clock went on but the list didn't scroll")
         }
     }
 }
