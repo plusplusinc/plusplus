@@ -4,8 +4,8 @@
     scripts/ci-times.py <branch>        the newest run of the branch's commits
     scripts/ci-times.py --run <number>  that run
 
-Prints the run's number and commit, its time from start to finish against its budget and the
-4-minute aim, and, once it has finished, each test target's time and each UI test's, as
+Prints the run's number and commit, its time from start to finish (no budget: much of it is
+Xcode Cloud's own steps, see scripts/xcresult.py), and, once it has finished, each test target's time and each UI test's, as
 scripts/test.sh sim prints them locally. Reported, never failed: it exits 0 whatever the
 times, 1 only when it can't find the run. It reads App Store Connect through `asc`, with three
 calls: the workflow's last 50 runs, then, once it has finished, its actions and its test results. On Xcode
@@ -19,7 +19,7 @@ import sys
 from datetime import datetime
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from xcresult import ROOT, RUN, RUN_AIM, budget_lines, over, parallel_targets  # noqa: E402
+from xcresult import ROOT, budget_lines, parallel_targets  # noqa: E402
 
 PR_WORKFLOW = "FE8B3BCC-1973-4533-BB66-4D047A8E3C22"  # docs/xcode-cloud.md, "PR"
 
@@ -90,13 +90,13 @@ def main(argv):
     if not a.get("finishedDate"):
         if a.get("startedDate"):
             elapsed = (datetime.now(when(a["startedDate"]).tzinfo) - when(a["startedDate"])).total_seconds()
-            print(f"  running for {elapsed:.0f} s so far (budget {RUN} s, aim {RUN_AIM} s)")
+            print(f"  running for {elapsed:.0f} s so far")
         return 0
     if not a.get("startedDate"):
         print("  it ended before it started, so it has no times")
         return 0
     total = (when(a["finishedDate"]) - when(a["startedDate"])).total_seconds()
-    print(f"  start to finish {over(total, RUN)}, aim {RUN_AIM} s")
+    print(f"  start to finish {total:.1f} s")
     actions = asc("actions", "--run-id", run["id"])["data"]
     test = next((x for x in actions if x["attributes"]["actionType"] == "TEST"), None)
     if not test:

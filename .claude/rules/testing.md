@@ -103,7 +103,9 @@ one test at a time on both.
 | a `DesignSystemTests` test | 2 s | 1.6 s |
 | each UI test | 90 s | 72 s |
 | the UI tests together | 360 s | 288 s |
-| a PR run, start to finish | 11 min, aiming at 4 | |
+
+A PR run's start-to-finish time is printed with no budget: about 250 s of it is Xcode Cloud's
+own steps, which vary by tens of seconds from run to run (runs 317 and 318).
 
 A target's budget holds its wall time. A serial target's is its tests' sum, and a parallel
 Swift Testing target's its longest test's, since each is timed from their common start.
