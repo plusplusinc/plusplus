@@ -95,12 +95,12 @@ struct RailStepTests {
         let bottom = window.bounds.height
         let screen = Screen()
 
-        var lastRead = Date.distantPast
         for hold in 1 ... 6 {
             var reads: [Date] = []
             var scrolled: CGFloat = 0
             edges.frameRead = { reads.append($0) }
             try screen.waitHalfAFrame()
+            let began = Date.now
             edges.lift(at: bottom / 2) { distance, _ in scrolled += distance }
             edges.move(to: bottom - 20)
             try #require(edges.isStepping, "a row held in the bottom band doesn't scroll the list")
@@ -118,11 +118,11 @@ struct RailStepTests {
                 reads.count == frames,
                 "hold \(hold): the clock was read \(reads.count) times in \(frames) frames",
             )
-            // Started again, the clock goes on from now: a date from before the pause would step
-            // the list by the whole pause.
+            // Started again, the clock goes on from now: a date from before this hold began, such
+            // as one from when the clock paused at the last let-go, would step the list by the
+            // whole pause.
             let first = try #require(reads.min())
-            #expect(first > lastRead, "hold \(hold): the clock started again from before the pause")
-            lastRead = try #require(reads.max())
+            #expect(first >= began, "hold \(hold): the clock started again from before the hold")
             #expect(scrolled > 0, "hold \(hold): the clock went on but the list didn't scroll")
         }
     }
