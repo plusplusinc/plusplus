@@ -13,7 +13,7 @@ final nonisolated class SettlingTests: XCTestCase {
         var reads = 0
         func read() -> CGRect {
             reads += 1
-            time += reads == 1 ? 5 : 0.1
+            time += reads == 1 ? 5 : 0.125
             return CGRect(x: 0, y: 100, width: 50, height: 44)
         }
         XCTAssertTrue(
@@ -28,13 +28,14 @@ final nonisolated class SettlingTests: XCTestCase {
         var reads = 0
         func read() -> CGRect {
             reads += 1
-            time += 0.1
+            time += 0.125
             return CGRect(x: 0, y: CGFloat(reads), width: 50, height: 44)
         }
         XCTAssertFalse(
             settling(read(), still: 0.25, within: 2, now: { time }),
             "A frame that kept changing read as settled",
         )
-        XCTAssertLessThanOrEqual(reads, 21, "It read on past the timeout")
+        // Steps of 1/8 s add up exactly: the 17th read answers at the deadline, 2 s past the first.
+        XCTAssertEqual(reads, 17, "It read on past the timeout, or stopped short of it")
     }
 }

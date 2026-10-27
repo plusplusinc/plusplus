@@ -12,8 +12,9 @@ extension XCUIElement {
     }
 
     /// Whether the element has stopped moving: its frame unchanged for `still` seconds, within
-    /// the timeout. A row's place on the rail opens frame by frame, and where a view takes taps
-    /// moves with it, so a tap read from a frame mid-move lands where the row is going.
+    /// the timeout from the first frame read's answer (`settling`). A row's place on the rail
+    /// opens frame by frame, and where a view takes taps moves with it, so a tap read from a frame
+    /// mid-move lands where the row is going.
     func settles(still: TimeInterval = 0.25, within timeout: TimeInterval = 2) -> Bool {
         settling(frame, still: still, within: timeout)
     }
