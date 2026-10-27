@@ -11,12 +11,16 @@ import UIKit
 /// starts, it could give the next frame's date in the same frame, and the list stepped twice,
 /// which SwiftUI logs as an `onChange(of: Date)` fault. The fault only shows when that update
 /// runs long, as on the routine screen, so this counts the reads.
+///
+/// The clock also has to keep going. One inserted as the list started stepping could stop after
+/// its first date, most often when the hold began about half a frame after the last, and the
+/// list stayed where it was (`RailFrames`). So each hold here begins half a frame after one, and
+/// the list is held and let go several times.
 @MainActor
 @Suite("Rail steps once a frame")
 struct RailStepTests {
-    /// Every date the frame clock was read at.
+    /// The edges the hosted list shares with its rows.
     private final class Log {
-        var reads: [Date] = []
         var edges: RailEdges?
     }
 
@@ -47,10 +51,39 @@ struct RailStepTests {
         }
     }
 
+    /// When the main thread was last told of a new frame on the screen, and how long one lasts.
+    private final class Screen: NSObject {
+        private(set) var frames = 0
+        private(set) var lastFrame: CFTimeInterval = 0
+        private(set) var frameLength: CFTimeInterval = 0
+
+        @objc func frame(_ link: CADisplayLink) {
+            frames += 1
+            lastFrame = CACurrentMediaTime()
+            frameLength = link.targetTimestamp - link.timestamp
+        }
+
+        /// Returns half a frame after the main thread is told of the screen's next frame, where
+        /// a clock inserted then stopped most often: in a sweep across the frame, in about half
+        /// the holds started 7 to 9 ms in, and in none started 2 ms or more either side. It
+        /// spins for that last part, since running the run loop could start an update.
+        func waitHalfAFrame() {
+            let link = CADisplayLink(target: self, selector: #selector(frame(_:)))
+            link.add(to: .main, forMode: .common)
+            defer { link.invalidate() }
+            let seen = frames
+            let deadline = Date.now.addingTimeInterval(1)
+            while frames == seen, Date.now < deadline {
+                RunLoop.main.run(mode: .default, before: .now.addingTimeInterval(0.001))
+            }
+            let start = lastFrame + frameLength / 2
+            while CACurrentMediaTime() < start { }
+        }
+    }
+
     /// A row held in the bottom edge's band, which scrolls the list a frame at a time for as
-    /// long as it is held. The room above the rail steps on the same clock, but on a spring that
-    /// settles by the time passed, so on a slow simulator it could settle in a frame or two.
-    @Test("The frame clock is read once a frame while the list steps")
+    /// long as it is held, then let go, six times over.
+    @Test("The frame clock keeps going, read once a frame, each time the list steps")
     func readOncePerFrame() throws {
         let log = Log()
         let host = UIHostingController(rootView: Host(log: log))
@@ -58,24 +91,29 @@ struct RailStepTests {
         defer { window.isHidden = true }
         window.settle()
         let edges = try #require(log.edges)
-        edges.frameRead = { log.reads.append($0) }
-
         let bottom = window.bounds.height
-        edges.lift(at: bottom / 2) { _, _ in }
-        edges.move(to: bottom - 20)
-        try #require(edges.isStepping, "a row held in the bottom band doesn't scroll the list")
-        let deadline = Date.now.addingTimeInterval(5)
-        while Set(log.reads).count < 20, edges.isStepping, Date.now < deadline {
-            RunLoop.main.run(mode: .default, before: .now.addingTimeInterval(0.005))
-        }
-        edges.letGo()
+        let screen = Screen()
 
-        let frames = Set(log.reads).count
-        try #require(frames >= 10, "the list stepped for only \(frames) frames")
-        #expect(
-            log.reads.count == frames,
-            "the clock was read \(log.reads.count) times in \(frames) frames",
-        )
+        for hold in 1 ... 6 {
+            var reads: [Date] = []
+            edges.frameRead = { reads.append($0) }
+            screen.waitHalfAFrame()
+            edges.lift(at: bottom / 2) { _, _ in }
+            edges.move(to: bottom - 20)
+            try #require(edges.isStepping, "a row held in the bottom band doesn't scroll the list")
+            let deadline = Date.now.addingTimeInterval(5)
+            while Set(reads).count < 10, edges.isStepping, Date.now < deadline {
+                RunLoop.main.run(mode: .default, before: .now.addingTimeInterval(0.005))
+            }
+            edges.letGo()
+
+            let frames = Set(reads).count
+            try #require(frames >= 10, "hold \(hold): the list stepped for only \(frames) frames")
+            #expect(
+                reads.count == frames,
+                "hold \(hold): the clock was read \(reads.count) times in \(frames) frames",
+            )
+        }
     }
 }
 
