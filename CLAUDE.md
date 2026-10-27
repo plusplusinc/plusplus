@@ -106,8 +106,10 @@ which wait until they say it's right and then run once, as the phases above.
 The maintainer clears the lead's context between slices; `/onward` starts or resumes the next
 card from the project board, whose Todo column, in board order, is one queue of feature slices
 and standalone tasks.
-Anything the maintainer throws out becomes a card through `/brief`, which places it in that
-queue. Working files go in `.slices/`.
+Anything the maintainer throws out, or the lead finds along the way, becomes a card through
+`/brief`, which looks for one already there and places it in that queue; a small tooling or
+process change the lead recommends in answer to their question is made then, in its own PR,
+not offered as a card. Working files go in `.slices/`.
 
 ## Working in the project
 

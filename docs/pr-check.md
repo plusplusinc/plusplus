@@ -72,7 +72,9 @@ scripts/pr-check.sh wait <sha> [minutes]    # Xcode Cloud's result on a commit, 
 
 On `main`: require a pull request, require "PR check" with the branch up to date, squash merges
 only, delete branches on merge. Renaming the job means updating the rule, since it names the
-check. Set once with the first command; the second changes only the required check:
+check. Change the required check only once the workflow that runs it, under that name, is on
+`main`: until then only the PR that adds it produces it, so every other PR waits on that one.
+Set once with the first command; the second changes only the required check:
 
 ```sh
 gh api -X PUT repos/plusplusinc/plusplus/branches/main/protection \
