@@ -65,8 +65,8 @@ asc xcode-cloud run --workflow-id <id> --branch <name>     # start a run
 asc builds add-groups --app 6808082840 --latest --group Internal     # attach a TestFlight build
 ```
 
-`scripts/ci-times.py <branch>` (or `--run <number>`) prints a PR run's times against the test
-budgets in `scripts/xcresult.py`: start to finish, each test target, and each UI test.
+`scripts/ci-times.py <branch>` (or `--run <number>`) prints a PR run's time start to finish,
+and each test target's and each UI test's against the budgets in `scripts/xcresult.py`.
 
 A run started with `run` still has to match one of the workflow's start conditions: Xcode
 Cloud refuses a TestFlight run on `main`, since that workflow starts only on a `v*` tag.

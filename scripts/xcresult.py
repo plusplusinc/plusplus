@@ -34,8 +34,10 @@ TARGETS = {
     "PlusPlusUITests": (360, 90, True),
 }
 PACKAGE = 10  # scripts/test.sh on macOS, both swift test runs' test time, locally
-RUN = 660  # an Xcode Cloud PR run, start to finish
-RUN_AIM = 240  # the run's aim, printed beside its budget
+# A run's start-to-finish time has no budget: in runs 317 and 318 about 250 s of it was Xcode
+# Cloud's own steps (machine start, clone, the hand-off to the simulator, collecting results),
+# and the last of those varied by 34 s between the two with nothing changed. The tests are
+# what this repo controls, so their budgets above are the check.
 
 
 def over(seconds, budget):
