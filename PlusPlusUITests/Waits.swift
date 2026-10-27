@@ -12,21 +12,11 @@ extension XCUIElement {
     }
 
     /// Whether the element has stopped moving: its frame unchanged for `still` seconds, within
-    /// the timeout. A row's place on the rail opens frame by frame, and where a view takes taps
-    /// moves with it, so a tap read from a frame mid-move lands where the row is going.
+    /// the timeout from the first frame read's answer (`settling`). A row's place on the rail
+    /// opens frame by frame, and where a view takes taps moves with it, so a tap read from a frame
+    /// mid-move lands where the row is going.
     func settles(still: TimeInterval = 0.25, within timeout: TimeInterval = 2) -> Bool {
-        let deadline = Date.now.addingTimeInterval(timeout)
-        var last = frame
-        var since = Date.now
-        while Date.now < deadline {
-            let now = frame
-            if now != last {
-                (last, since) = (now, .now)
-            } else if Date.now.timeIntervalSince(since) >= still {
-                return true
-            }
-        }
-        return false
+        settling(frame, still: still, within: timeout)
     }
 
     /// The element's value once it is `expected`, or its last value after the timeout. Typing
@@ -73,6 +63,32 @@ func reading<Value>(
         last = read()
     }
     return last
+}
+
+/// Whether what `read` reads stops changing for `still` seconds, within the timeout, by the
+/// times `now` gives. The timeout counts from the first read's answer, and two reads are always
+/// compared: on a slow runner one accessibility query can take longer than the whole timeout.
+@MainActor
+func settling<Value: Equatable>(
+    _ read: @autoclosure () -> Value,
+    still: TimeInterval,
+    within timeout: TimeInterval,
+    now: () -> Date = { .now },
+) -> Bool {
+    var last = read()
+    var since = now()
+    let deadline = since.addingTimeInterval(timeout)
+    var at: Date
+    repeat {
+        let next = read()
+        at = now()
+        if next != last {
+            (last, since) = (next, at)
+        } else if at.timeIntervalSince(since) >= still {
+            return true
+        }
+    } while at < deadline
+    return false
 }
 
 /// The frames of `elements` once any of them moves, or as they are after `duration`. Whether
