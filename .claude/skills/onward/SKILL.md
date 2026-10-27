@@ -101,13 +101,18 @@ project board; agents' technical working files live in `.slices/`.
   subagents it starts: check with ToolSearch before anyone draws, and without it publish
   through an interactive `claude` on the Mac, as agent memory describes.
 - No time estimates. While a phase runs, tell the maintainer in a line now and then what it is
-  doing and why that still serves the card, without being asked. A subagent or a CI watch in
-  the background says nothing until it ends, and a watch can outlive its run, so while one runs,
-  wake yourself about every 15 minutes (a background wait that notifies you) to read where it is
-  at that moment (a subagent's transcript's last entry, the PR's `gh pr checks`) and send that
-  line; a check that has finished is a result, whatever the watch says. Before each new attempt or
-  extra run, by you or a subagent, check that it is still worth doing for the card's goal; ask
-  for the proof the change needs and leave repeat runs to Xcode Cloud.
+  doing, for which card, and why that still serves the card, without being asked. A subagent or
+  a CI watch in the background says nothing until it ends, and a watch can outlive its run, so
+  while one runs, wake yourself about every 15 minutes (a background wait that notifies you) to
+  read where it is at that moment (a subagent's transcript's last entry, the PR's `gh pr
+  checks`) and send that line; a check that has finished is a result, whatever the watch says.
+  A wake's message is what was true when you set it: cancel it when you stop what it watches,
+  and when one fires, read your own steps since before taking anything it finds for someone
+  else's. Before each new attempt or extra run, by you or a subagent, check that it is still
+  worth doing for the card's goal. A flake's fix is proved from its cause (a log showing the
+  failing order now handled, or a test that forces it), never by a count of clean runs: at a
+  1-in-15 failure rate, a fix that did nothing still passes 30 runs about one time in eight.
+  Without either, say so in the PR.
 - Push only when CI's answer is needed: when the PR opens, after a round of fixes, and before
   the merge (the rebase "require up to date" asks for included). You and every subagent commit
   locally in between: rounds reach the phone by `scripts/device.sh`, not CI, and each push to a
