@@ -101,7 +101,8 @@ project board; agents' technical working files live in `.slices/`.
   subagents it starts: check with ToolSearch before anyone draws, and without it publish
   through an interactive `claude` on the Mac, as agent memory describes.
 - No time estimates. While a phase runs, tell the maintainer in a line now and then what it is
-  doing, for which card, and why that still serves the card, without being asked. A subagent or
+  doing, for which card, and why that still serves the card, without being asked. Every line of
+  text you write reaches them, so plan in your head, never in a line to yourself. A subagent or
   a CI watch in the background says nothing until it ends, and a watch can outlive its run, so
   while one runs, wake yourself about every 15 minutes (a background wait that notifies you) to
   read where it is at that moment (a subagent's transcript's last entry, the PR's `gh pr
@@ -119,7 +120,8 @@ project board; agents' technical working files live in `.slices/`.
   PR that changes the app spends a full Xcode Cloud run.
 - After every push to the PR, yours or a subagent's, watch its "PR check" to the end yourself
   (see `/pr`): `gh pr checks <n> --watch --interval 60` with `run_in_background: true`, which
-  notifies you when it exits. For a PR that changes the app it lasts as long as the Xcode Cloud
+  notifies you when it exits. Stop a watch still running from an earlier push first
+  (`TaskStop`), so each push brings one result. For a PR that changes the app it lasts as long as the Xcode Cloud
   run it waits for. A subagent's "still queued" is not a result. A failed run goes to a builder
   before anything else reaches the maintainer, unless "PR check" says the month's Xcode Cloud
   hours are likely spent, which goes to the maintainer; the go-ahead you ask for names the
