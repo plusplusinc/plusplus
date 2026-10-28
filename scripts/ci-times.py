@@ -51,9 +51,8 @@ def when(stamp):
     2026-10-27T11:23:44.421000+00:00
     2026-10-27T11:23:44.421337-07:00
     """
-    head, fraction, zone = re.fullmatch(r"(.*T\d\d:\d\d:\d\d)(?:\.(\d+))?(.*)", stamp).groups()
-    fraction = f".{fraction[:6].ljust(6, '0')}" if fraction else ""
-    return datetime.fromisoformat(head + fraction + zone.replace("Z", "+00:00"))
+    stamp = re.sub(r"\.(\d+)", lambda m: "." + m[1][:6].ljust(6, "0"), stamp)
+    return datetime.fromisoformat(stamp.replace("Z", "+00:00"))
 
 
 def find_run(runs, branch=None, number=None):
