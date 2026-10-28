@@ -19,13 +19,13 @@ time. Every `@Model` follows these from the start:
 
 `RoutineStore` is the one `@ModelActor`, opened through
 `WorkoutStoreContainer.make(mode:schema:migrationPlan:)` with its own schema, versioned: every
-stored shape shipped so far is a `VersionedSchema` (`RoutineSchemaV1` to `V5`, the older ones in
+stored shape shipped so far is a `VersionedSchema` (`RoutineSchemaV1` to `V6`, the older ones in
 `RoutineSchema+Shipped.swift`), and `RoutineMigrationPlan` runs a lightweight stage between each,
 since each change only added an attribute or a model. Staged migration refuses a store whose
 shape matches none of the plan's versions, so a shipped version never changes: a stored change
 is a new version, a new stage, and a test that opens the last shape, written on disk, under it
-(`RoutineStoreUpgradeTests`). Its models, `StoredRoutine`, `StoredRoutineExercise`, and
-`StoredWorkout`, are internal:
+(`RoutineStoreUpgradeTests`). Its models, `StoredRoutine`, `StoredRoutineExercise`, `StoredWorkout`, and `StoredSet`, are
+internal:
 `Routine`, a value, crosses the boundary, and the store diffs its rows by id rather than
 replacing them, so a row's identity, and later its sync record, is stable. A row carries its
 `position`, since a relationship is unordered, and its plan: `sets`, `reps` or `seconds` (apart,
@@ -52,7 +52,11 @@ A workout (`Workout`, stored as `StoredWorkout`) holds its routine's id, not a r
 the routine's name as it was, so renaming or deleting the routine leaves it. It has no status:
 its start, the moment it was paused, the seconds paused before, and its end make it running,
 paused, or finished, and its time is worked out from them at any moment, so a relaunch or a
-lock never loses any. Discard deletes it. `launch(weightUnit:)` opens a workout in progress with
+lock never loses any. Its sets (`LoggedSet`, stored as `StoredSet`, a cascade relationship) each
+keep their row's id and exercise slug, round, side (`Side`'s raw string, unknown reading as
+nil), and numbers as done beside the numbers planned, each measure and weight apart as a row's
+are, with a `position` for the order logged; `save(_ workout:)` diffs them by id, as a routine's
+rows. Discard deletes it, its sets with it. `launch(weightUnit:)` opens a workout in progress with
 its routine (an empty one under its id and name if the routine is gone; of two in progress, as
 sync could leave, the one started later), else the routine last opened or edited, unless a
 workout finished after that, which opens a new routine. While a workout runs, a routine cleared
