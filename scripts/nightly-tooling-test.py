@@ -664,6 +664,20 @@ class PrePush(unittest.TestCase):
         result = self.push_from_python("docs/x.md")
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_the_pre_push_hook_budgets_what_is_pushed_not_head(self):
+        # The app commit goes on its own branch; HEAD stays on a docs-only one.
+        self.git("checkout", "-q", "-b", "app")
+        Path(self.root / "w/App").mkdir()
+        Path(self.root / "w/App/X.swift").write_text("x\n")
+        self.git("add", "-A")
+        self.git("-c", "user.email=t@example.com", "-c", "user.name=t", "commit", "-qm", "app")
+        self.git("checkout", "-q", "card")
+        (self.night.dir / "state.json").write_text(json.dumps({"start": NIGHT.isoformat()}))  # no hours: fails
+        result = subprocess.run(["git", "push", "-q", "origin", "app"], cwd=self.root / "w", env=self.night.git_env(),
+                                capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("pre-push hook failed", result.stderr)
+
     def test_a_failure_refuses_the_push(self):
         (self.night.dir / "state.json").unlink()
         result = self.push_from_python("App/X.swift")
@@ -1005,24 +1019,6 @@ class Lesser(unittest.TestCase):
         for command in ["env -i git push", "unset GIT_CONFIG_COUNT", "export GIT_CONFIG_COUNT=0",
                         "git config core.hooksPath x"]:
             self.assertIn("git hooks stay on", decide(command, app=False) or "", command)
-
-    def test_the_pre_push_hook_budgets_what_is_pushed_not_head(self):
-        case = PrePush("run")
-        case.setUp()
-        self.addCleanup(case.doCleanups)
-        # The app commit goes on its own branch; HEAD stays on a docs-only one.
-        case.git("checkout", "-q", "-b", "app")
-        Path(case.root / "w/App").mkdir()
-        Path(case.root / "w/App/X.swift").write_text("x\n")
-        case.git("add", "-A")
-        case.git("-c", "user.email=t@example.com", "-c", "user.name=t", "commit", "-qm", "app")
-        case.git("checkout", "-q", "card")
-        (case.night.dir / "state.json").write_text(json.dumps({"start": NIGHT.isoformat()}))  # no hours: fails
-        result = subprocess.run(["git", "push", "-q", "origin", "app"], cwd=case.root / "w", env=case.night.git_env(),
-                                capture_output=True, text=True)
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("pre-push hook failed", result.stderr)
-
 
 if __name__ == "__main__":
     unittest.main()

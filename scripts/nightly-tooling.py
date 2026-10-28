@@ -592,11 +592,8 @@ def hooks_off(words):
         return True
     if any(re.match(r"GIT_CONFIG\w*=", w) for w in words):
         return True
-    first = words[0].rsplit("/", 1)[-1]
-    if first in ("env", "unset", "export", "declare", "typeset") and (
-            any(w.startswith("GIT_CONFIG") for w in words) or {"-i", "-", "--ignore-environment"} & set(words)):
-        return True
-    return any(w == "-u" and nxt.startswith("GIT_CONFIG") for w, nxt in zip(words, words[1:]))
+    return words[0].rsplit("/", 1)[-1] in ("env", "unset", "export", "declare", "typeset") and bool(
+        any(w.startswith("GIT_CONFIG") for w in words) or {"-i", "-", "--ignore-environment"} & set(words))
 
 
 def safe_late(words):
@@ -643,10 +640,11 @@ class Fence:
             return True
         return self.home in path.parents and path.relative_to(self.home).parts[0].startswith(".")
 
-    def named(self, command):
-        """The night's own files a Bash command names, in a word, an option's value, or a redirection."""
+    def named(self, parsed):
+        """The night's own files a Bash command names, in a word, an option's value, or a
+        redirection; parsed is commands(command, targets=True)."""
         found = []
-        for words in commands(command, targets=True):
+        for words in parsed:
             for word in words:
                 for part in {word.lstrip("<>@"), word.split("=", 1)[-1].lstrip("<>@")}:
                     if (part.startswith(("/", "~", ".", "$HOME", "${HOME}")) or "/" in part) and self.guarded(part):
@@ -689,12 +687,12 @@ def hook_decision(tool, command, now, stop, handoff, run_gate, fence, path="", i
     never, starts = call_risks(command)
     if never:
         return never
-    named = fence.named(command)
+    parsed = commands(command, targets=True)
+    named = fence.named(parsed)
     if named:
         return fenced + ", ".join(named)
-    writes = [w for words in commands(command, targets=True) for w in words
-              if w.startswith(">") and w != ">/dev/null"]
-    if late and (starts or writes or not all(safe_late(words) for words in commands(command))):
+    writes = [w for words in parsed for w in words if w.startswith(">") and w != ">/dev/null"]
+    if late and (starts or writes or not all(safe_late(words) for words in parsed)):
         return late_reason
     if starts:
         why = run_gate(starts)
@@ -873,10 +871,9 @@ class Night:
                 self.show_plan(card, info, uncapped)
                 return
             self.cards += 1
-            if self.take(card, info) == "stop":
-                return
+            result = self.take(card, info)
             self.current = None
-            if self.audit():
+            if self.audit() or result == "stop":
                 return
 
     def left_in_progress(self, card, error):
@@ -1026,13 +1023,10 @@ class Night:
             self.ended = "A usage limit stopped a card's run."
             return "stop"
         if pr and pr["state"] == "MERGED":
-            # Only the runner arms auto-merge, after every gate; a PR merged during the run skipped them.
-            why = (f"PR #{pr['number']} was merged during the card's run, not by the runner, so none of "
-                   f"its gates ran; review it, and undo with git revert")
-            self.parked.append(f"{title}: {why}")
-            board("state", item, stdin=f"- The nightly run found {why}.\n")
-            self.ended = log(f"No more cards: {why}.")
-            return "stop"
+            # Only the runner arms auto-merge, after every gate; the audit after the card reports this one.
+            board("state", item, stdin=f"- The nightly run found PR #{pr['number']} merged during the card's "
+                  "run, not by the runner, so none of its gates ran; review it, and undo with git revert.\n")
+            return "merged elsewhere"
         if not pr:
             return self.park(item, title, None, f"no PR; its lead ended with: {reply or 'nothing'}")
         if pr["state"] == "CLOSED":
@@ -1134,8 +1128,7 @@ class Night:
             self.unchecked.append(f"reading tonight's merges failed ({error})")
             self.ended = log(f"No more cards: {self.unchecked[-1]}.")
             return True
-        known = {pr["number"] for pr in self.unarmed}
-        self.unarmed += [pr for pr in merged if pr["number"] not in self.armed | known]
+        self.unarmed = [pr for pr in merged if pr["number"] not in self.armed]
         if self.unarmed:
             self.ended = log("No more cards: merged to main tonight without the runner: "
                              + ", ".join(f"#{pr['number']}" for pr in self.unarmed) + ".")
@@ -1158,15 +1151,20 @@ class Night:
         try:
             lines = self.digest()
         except Exception as error:  # noqa: BLE001 - the digest is written whatever fails
-            lines = [*[f"Merged without the runner: #{pr['number']}" for pr in self.unarmed],
-                     *[f"Not checked: {u}" for u in self.unchecked],
-                     f"Nightly tooling {self.start:%Y-%m-%d}: the digest failed ({type(error).__name__}: {error})",
+            lines = [*self.top_lines(), f"Nightly tooling {self.start:%Y-%m-%d}: the digest failed ({type(error).__name__}: {error})",
                      *[f"Parked: {p}" for p in self.parked], *[f"Waiting: {w}" for w in self.waiting],
                      f"Ended: {self.ended}"]
         text = "\n".join(lines)
         (self.dir / "digest.md").write_text(text + "\n")
         print(text)
         tidy()
+
+    def top_lines(self):
+        """What the digest says first: merges that skipped the gates, and what went unchecked."""
+        return [f"Merged without the runner: #{pr['number']} {pr['title']}, by "
+                f"{(pr.get('mergedBy') or {}).get('login', 'unknown')}; none of the night's gates ran on it. "
+                f"Review it; undo: git revert {((pr.get('mergeCommit') or {}).get('oid') or '?')[:7]}"
+                for pr in self.unarmed] + [f"Not checked: {u}" for u in self.unchecked]
 
     def digest(self):
         now = datetime.now().astimezone()
@@ -1187,11 +1185,7 @@ class Night:
         except FAILURES as error:
             behind, self.ended = [], f"{self.ended} Reading the open PRs failed: {error}"
         self.audit()
-        lines = [f"Merged without the runner: #{pr['number']} {pr['title']}, by "
-                 f"{(pr.get('mergedBy') or {}).get('login', 'unknown')}; none of the night's gates ran on it. "
-                 f"Review it; undo: git revert {((pr.get('mergeCommit') or {}).get('oid') or '?')[:7]}"
-                 for pr in self.unarmed]
-        lines += [f"Not checked: {u}" for u in self.unchecked]
+        lines = self.top_lines()
         lines += [f"Nightly tooling {self.start:%Y-%m-%d}: {len(self.merged)} merged, "
                   f"{len(self.parked)} parked, {len(self.waiting)} waiting for the maintainer"]
         lines += [digest_block(pr, merged, files, self.proof(runs, sha, built, files))
@@ -1277,8 +1271,8 @@ def pre_push(folder):
         state = json.loads((folder / "state.json").read_text())
         # git gives the hook a line per ref it pushes: local ref, local commit, remote ref, remote
         # commit. A deleted ref's local commit is all zeros.
-        revs = [line.split()[1] for line in sys.stdin.read().splitlines()
-                if len(line.split()) == 4 and line.split()[1].strip("0")]
+        refs = [line.split() for line in sys.stdin.read().splitlines()]
+        revs = [ref[1] for ref in refs if len(ref) == 4 and ref[1].strip("0")]
         why = run_budget(folder, os.getcwd(), state, record=True, revs=revs)
     except Exception as error:  # noqa: BLE001 - an error must refuse, whatever it is
         why = f"the nightly pre-push hook failed ({type(error).__name__}: {error})"
