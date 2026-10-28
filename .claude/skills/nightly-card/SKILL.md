@@ -29,7 +29,8 @@ puts a failed card's PR back to draft. A hook enforces what follows; a denied ca
 
 ## The night's limits
 
-- Work only in the worktree you were given; never edit the main checkout.
+- Work only in the worktree you were given; in the main checkout, only `.slices/` (gitignored)
+  takes the handoff note.
 - Never merge, never arm auto-merge, and never move the card: the runner does those.
 - A test count drop needs a line in the PR body starting `Fewer tests:` that says why, or the
   runner parks the card.

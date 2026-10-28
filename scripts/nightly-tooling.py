@@ -54,13 +54,16 @@ PROTECTED = [
     "Packages/Package.swift", "*.xctestplan", "*.entitlements", "ci_scripts/*",
     ".swiftlint.yml", "*/.swiftlint.yml", ".swiftformat", "*/.swiftformat",
     "scripts/nightly-tooling.py", "scripts/nightly-tooling-test.py", "scripts/nightly-retro.sh",
-    ".claude/skills/nightly-card/*",
+    "scripts/xcresult.py", "scripts/tidy.sh", "scripts/board.sh", "scripts/common.sh",
+    ".claude/skills/nightly-card/*", ".claude/hooks/*",
 ]
 DAY_ONLY = (".claude/", "docs/")  # a PR entirely under these waits for the day
 TEST_DIRS = ("Packages/Tests", "PlusPlusUITests")
 TEST_PATTERN = r"@Test([^A-Za-z]|$)|func test[A-Z_]"
 FEWER_TESTS = "Fewer tests:"  # the PR body's line that explains a drop
-PUSH = re.compile(r"\bgit\b[^;&|\n]*\bpush\b")
+FAILURES = (RuntimeError, OSError, ValueError, KeyError, subprocess.SubprocessError)
+# A git push as a command of its own, not text in a commit message or `git stash push`.
+PUSH = re.compile(r"(^|[;&|(\n])\s*git(\s+-C\s+\S+)?\s+push\b")
 
 
 def log(message):
@@ -152,9 +155,10 @@ def last_rate_limit(paths):
 
 def limit_hit(lines):
     """Whether a claude run's stream-json lines end in a usage limit."""
-    if any("usage_limit_reached" in line for line in lines):
-        return True
     for event in events(lines):
+        # Top-level fields only: a tool's output that mentions a limit is no limit.
+        if "usage_limit_reached" in (event.get("error"), event.get("apiError")):
+            return True
         if event.get("type") == "rate_limit_event":
             if (event.get("rate_limit_info") or {}).get("status") == "rejected":
                 return True
@@ -248,8 +252,8 @@ def verifier_record(comments):
 
 
 def only_tests(files):
-    """Whether these files are all tests, which a verifier adds after its build."""
-    return all(re.search(r"test", f, re.I) for f in files)
+    """Whether these files are all in the test targets, where a verifier adds tests after its build."""
+    return all(f.startswith(tuple(d + "/" for d in TEST_DIRS)) for f in files)
 
 
 def test_drops(before, after):
@@ -313,7 +317,9 @@ def board_cards():
     if not todo:
         return []
     shown = sh(str(ROOT / "scripts/board.sh"), "show", *[r[0] for r in todo][:100])
-    bodies = dict(re.findall(r"^==> (\S+) <==\n(.*?)(?=^==> |\Z)", shown, re.M | re.S))
+    # show prints a "==> id <==" header before each card only when it shows more than one.
+    bodies = (dict(re.findall(r"^==> (\S+) <==\n(.*?)(?=^==> |\Z)", shown, re.M | re.S))
+              if len(todo) > 1 else {todo[0][0]: shown})
     return [(*r, bodies.get(r[0], "")) for r in todo]
 
 
@@ -395,7 +401,11 @@ class Night:
                     break
                 time.sleep(max(0, (detail - datetime.now().astimezone()).total_seconds()) + 60)
                 continue
-            card = self.next_card()
+            try:
+                card = self.next_card()
+            except FAILURES as error:
+                self.ended = log(f"No more cards: reading the board, the PRs, or Xcode Cloud failed: {error}")
+                break
             if not card:
                 break
             if self.dry_run:
@@ -406,7 +416,7 @@ class Night:
                 if self.take(card, info) == "limit":
                     self.ended = "A usage limit stopped a card's run."
                     break
-            except (RuntimeError, OSError, ValueError, subprocess.SubprocessError) as error:
+            except FAILURES as error:
                 # Nothing after a failure is trusted: end the night, with the digest saying why.
                 self.ended = log(f"No more cards: the runner failed on \"{card[1]}\": {error}")
                 self.parked.append(f"{card[1]}: the runner failed ({error}); check its card, worktree, and PR")
@@ -438,8 +448,10 @@ class Night:
                 clashes = {n: f for n, f in clashes.items() if f}
                 if clashes:
                     why = "it may touch what " + ", ".join(f"#{n} ({', '.join(f)})" for n, f in clashes.items()) + " changes"
-            if not why and likely:
-                why = xcode_cloud_gate(self.hours, self.pushes, classify(sorted(likely)) != "docs")
+            if not why:
+                # A card that names no files may change the app, so the budget applies to it too.
+                app = not likely or classify(sorted(likely)) != "docs"
+                why = xcode_cloud_gate(self.hours, self.pushes, app)
             if why:
                 if re.search(r"^Nightly:", body, re.M):
                     log(f"Skipped \"{title}\": {why}.")
@@ -486,12 +498,12 @@ class Night:
         self.tried.add(item)
         n = self.cards
         worktree, branch = self.paths(title)
-        handoff = f".slices/{branch}-handoff.md"
+        handoff = f".slices/{branch}-handoff.md"  # in the main checkout, the worktrees' parent
         sh("git", "fetch", "--quiet", "origin", "main")
         sh("git", "worktree", "add", "--no-track", str(worktree), "-b", branch, "origin/main")
         stop = self.window[1]
         (self.dir / "state.json").write_text(json.dumps(
-            {"stop": stop.isoformat(), "hours": self.hours, "handoff": handoff}))
+            {"stop": stop.isoformat(), "hours": self.hours, "handoff": str(worktree.parents[2] / handoff)}))
         settings = self.dir / f"card-{n}-settings.json"
         self.settings(worktree, settings)
         board("status", item, "In Progress")
@@ -527,7 +539,10 @@ class Night:
     def decide(self, item, title, pr):
         n, sha = pr["number"], pr["headRefOid"]
         sh("git", "fetch", "--quiet", "origin", f"pull/{n}/head", check=False)
-        record = verifier_record([c["body"] for c in pr["comments"]])
+        # Only a record the verifier posted counts: it comments as the account this runs as, and a
+        # public repo's comments can come from anyone.
+        me = sh("gh", "api", "user", "--jq", ".login").strip()
+        record = verifier_record([c["body"] for c in pr["comments"] if (c.get("author") or {}).get("login") == me])
         if not record:
             return self.park(item, title, pr, "no verifier record on the PR")
         built, failures = record
@@ -535,7 +550,9 @@ class Night:
             return self.park(item, title, pr, "the verifier found " + "; ".join(f[2:] for f in failures))
         if not built:
             return self.park(item, title, pr, "its verifier record names no commit")
-        later = sh("git", "diff", "--name-only", f"{built}..{sha}", check=False).split()
+        if subprocess.run(["git", "merge-base", "--is-ancestor", built, sha], cwd=ROOT).returncode != 0:
+            return self.park(item, title, pr, f"its verifier record names {built}, which isn't on the PR")
+        later = sh("git", "diff", "--name-only", f"{built}..{sha}").split()
         if not only_tests(later):
             return self.park(item, title, pr, "changes after the verifier's build that it never saw")
         base = sh("git", "merge-base", "origin/main", sha).strip()
@@ -604,13 +621,20 @@ class Night:
     def finish(self):
         if self.dry_run:
             return
-        runs = xcode_cloud_runs()
         now = datetime.now().astimezone()
-        sh("git", "fetch", "--quiet", "origin", "main")
+        # The digest is written whatever fails here; a read that failed says so in its line.
+        try:
+            runs = xcode_cloud_runs()
+        except FAILURES as error:
+            runs, self.ended = [], f"{self.ended} Reading Xcode Cloud's runs failed: {error}"
+        sh("git", "fetch", "--quiet", "origin", "main", check=False)
         after = test_counts("origin/main")
-        behind = [pr for pr in gh_json("pr", "list", "--state", "open",
-                                       "--json", "number,title,mergeStateStatus")
-                  if pr["mergeStateStatus"] == "BEHIND"]
+        try:
+            behind = [pr for pr in gh_json("pr", "list", "--state", "open",
+                                           "--json", "number,title,mergeStateStatus")
+                      if pr["mergeStateStatus"] == "BEHIND"]
+        except FAILURES as error:
+            behind, self.ended = [], f"{self.ended} Reading the open PRs failed: {error}"
         lines = [f"Nightly tooling {self.start:%Y-%m-%d}: {len(self.merged)} merged, "
                  f"{len(self.parked)} parked, {len(self.waiting)} waiting for the maintainer"]
         lines += [digest_block(pr, merged, files, self.proof(runs, sha, built, files))

@@ -110,6 +110,9 @@ class Usage(unittest.TestCase):
         self.assertTrue(nightly.limit_hit([json.dumps({"type": "rate_limit_event",
                                                        "rate_limit_info": {"status": "rejected"}})]))
         self.assertTrue(nightly.limit_hit(['{"apiError": "usage_limit_reached"}']))
+        # A tool's output that mentions the limit, as reading this runner's own code would.
+        tool_output = {"type": "user", "message": {"content": [{"type": "tool_result", "content": "usage_limit_reached"}]}}
+        self.assertFalse(nightly.limit_hit([json.dumps(tool_output)]))
         self.assertFalse(nightly.limit_hit([json.dumps({"type": "result", "is_error": True, "api_error_status": 500})]))
 
 
@@ -154,8 +157,9 @@ class Paths(unittest.TestCase):
                 "PlusPlus.xcodeproj/project.pbxproj", "Packages/Package.swift", "PlusPlus.xctestplan",
                 "App/PlusPlus.entitlements", "ci_scripts/ci_post_clone.sh", ".swiftlint.yml",
                 "Packages/Tests/.swiftlint.yml", ".swiftformat", "scripts/nightly-tooling.py",
-                "scripts/nightly-retro.sh", ".claude/skills/nightly-card/SKILL.md"]
-        safe = ["scripts/tidy.sh", "docs/pr-check.md", "PlusPlusUITests/Waits.swift",
+                "scripts/nightly-retro.sh", ".claude/skills/nightly-card/SKILL.md", "scripts/xcresult.py",
+                "scripts/tidy.sh", ".claude/hooks/on-edit.sh"]
+        safe = ["scripts/ci-times.py", "docs/pr-check.md", "PlusPlusUITests/Waits.swift",
                 ".claude/skills/pr/SKILL.md", "Packages/Sources/WorkoutStore/Namer.swift", "Config/README.md"]
         self.assertEqual(nightly.protected(hits + safe), hits)
 
@@ -205,6 +209,8 @@ class Verifier(unittest.TestCase):
         self.assertTrue(nightly.only_tests(["PlusPlusUITests/WaitsTests.swift", "Packages/Tests/X/YTests.swift"]))
         self.assertTrue(nightly.only_tests([]))
         self.assertFalse(nightly.only_tests(["PlusPlusUITests/WaitsTests.swift", "App/Root.swift"]))
+        for not_a_test in ["Packages/Sources/WorkoutStore/Latest.swift", "scripts/test.sh", "scripts/nightly-tooling-test.py"]:
+            self.assertFalse(nightly.only_tests([not_a_test]), not_a_test)
 
     def test_fewer_tests(self):
         before = {"WorkoutStoreTests": 161, "DesignSystemTests": 118}
@@ -222,6 +228,14 @@ class Hook(unittest.TestCase):
         self.assertIsNone(self.decide("Agent"))
         self.assertIsNone(self.decide("Bash", "git push -u origin night-x", app_push=True, pushes=3))
         self.assertIsNone(self.decide("Bash", "git push -u origin night-x", app_push=False, pushes=9, hours=99))
+
+    def test_only_a_git_push_command_counts_as_a_push(self):
+        for command in ["git push", "git -C /w push -u origin x", "cd /w && git push", "make; git push origin x"]:
+            self.assertIsNotNone(nightly.PUSH.search(command), command)
+        for command in ['git commit -m "Retry the push on 429"', "git stash push", "echo git push"]:
+            self.assertIsNone(nightly.PUSH.search(command), command)
+        late = STOP + timedelta(minutes=1)
+        self.assertIsNone(self.decide("Bash", 'git commit -m "push later"', now=late))
 
     def test_never_merge(self):
         self.assertIn("Never merge", self.decide("Bash", "gh pr merge 12 --squash"))
