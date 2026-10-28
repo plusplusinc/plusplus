@@ -25,7 +25,12 @@ project board; agents' technical working files live in `.slices/`.
    when it is active, leave the card to it and say so.
    An open nightly retro PR (title "Retro of", `gh pr list --search "Retro of in:title"`)
    comes before the card: rebase it, check each hunk against main, then trim, merge, or close
-   it with the maintainer's go-ahead.
+   it yourself, and tell the maintainer in a line what it changed.
+   A standalone card that changes nothing the maintainer sees in the app (tooling, CI, tests,
+   process) is yours alone, as `CLAUDE.md` says: align it against the code yourself, run it,
+   merge it green, and say in a line what landed. Run one alongside a product slice (a builder
+   in its own worktree) rather than spending the maintainer's turn on it; with them engaged,
+   lead the next product card.
 3. Read the `.slices/` files that State names: the newest handoff or verify report. Read
    summaries, not code; subagents read code.
 4. A card not yet started gets an alignment check before anything else (see the /brief skill's
@@ -34,7 +39,7 @@ project board; agents' technical working files live in `.slices/`.
    what merged since it was written, and its neighbors on the board. Bring
    anything open, contradicted, or missing (an undesigned screen, content nobody chose, a gap
    no card covers), each with a recommendation. Record the answers in the card, make cards for
-   what lands out of scope, and start only on the maintainer's yes.
+   what lands out of scope, and start a product card only on the maintainer's yes.
 5. Otherwise say in two or three lines where the slice stands and what happens next, then do
    it. Ask only for product calls.
 
@@ -154,7 +159,8 @@ project board; agents' technical working files live in `.slices/`.
    hand (the full pass changed what they see, or there was no round), install it with
    `scripts/device.sh` (a link when the phone is out of reach) and tell them what to try, as for
    a round.
-2. After the maintainer's go-ahead: merge once checks pass (a wait for that also ends when
+2. After the maintainer's go-ahead (for a card that is yours alone, once the verifier and CI
+   pass): merge once checks pass (a wait for that also ends when
    `gh pr view --json mergeable` reads `CONFLICTING`, since auto-merge waits on a conflict
    without a word; after any merge to `main`, check every PR that waits), move the card to Done, run
    `scripts/tidy.sh` (it removes the merged worktree and branch; it also runs at every session
