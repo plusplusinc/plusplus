@@ -125,7 +125,19 @@ kilobytes rather than the tens of megabytes of transcripts. Changing the retro m
 the skill.
 
 `scripts/nightly-retro.sh` installs the launchd agent, runs the retro once, and prints whether
-it's installed and running and its last reply, read from the transcript. It exists because
+it's installed and running and its last reply, read from the transcript.
+
+After the retro, the same run hands over to `scripts/nightly-tooling.py`, which takes standalone
+cards carrying a `Nightly:` line (the /brief skill says which qualify) one at a time: up to three
+a night, or until a usage window reaches 0.9 on the night before the weekly limit resets, and
+never after 5 am. Its gates are code, tested against fixtures by
+`python3 scripts/nightly-tooling-test.py`: the time of night, the usage limits read from the
+night's own stream-json (never a probe call), this month's Xcode Cloud hours and the night's
+pushes, overlap with open PRs, and, once a card's lead (the nightly-card skill) ends, a passing
+verifier record before it arms auto-merge, while a PR touching a protected path or only `.claude/`
+and `docs/` waits for the maintainer and a failed one goes back to draft. A PreToolUse hook it
+passes each card's claude denies merging, a push past the Xcode Cloud budget, and anything new
+from 7 am. Its digest, in the night's folder, is what `show` prints after the retro's reply. It exists because
 doing these by hand gets three things wrong, which its header explains: the agent's plist needs
 the main checkout's paths, which a tracked file can't hold in a public repo; the calling Claude
 Code session's variables leak into a run; and a second run can start.

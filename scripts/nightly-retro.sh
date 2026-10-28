@@ -138,7 +138,7 @@ case "${1:-}" in
     run) run ;;
     show) show ;;
     *)
-        sed -n '2,8s/^# \{0,1\}//p' "${BASH_SOURCE[0]}" >&2
+        sed -n '2,9s/^# \{0,1\}//p' "${BASH_SOURCE[0]}" >&2
         exit 64
         ;;
 esac
