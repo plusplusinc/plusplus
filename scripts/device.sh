@@ -9,10 +9,10 @@
 #
 # The phone is looked up each time, never stored, since the repo is public. It must be paired
 # with this Mac and reachable: devicectl marks it unavailable when it is away or off the Mac's
-# Wi-Fi, and then the script makes a link. It also makes one when devicectl lists the phone but
-# the build can't reach it, so xcodebuild finds no destination or times out waiting for one.
-# A locked phone that is reachable takes the install but not the launch, and the script says to
-# open the app there. The build is incremental in the worktree's .build/device, apart from the
+# Wi-Fi, and then the script makes a link. The build targets any iPhone, not this one, since
+# xcodebuild refuses a locked phone as a destination while devicectl installs on it: a locked
+# phone that is reachable takes the install but not the launch, and the script says to open the
+# app there. When the install itself fails, devicectl's reason is printed and it makes a link. The build is incremental in the worktree's .build/device, apart from the
 # simulator's derived data so both can build at once.
 #
 # The link is a development-signed .ipa, an install manifest, and a one-button page, deployed
@@ -267,28 +267,17 @@ if [ "$COUNT" -gt 1 ]; then
 fi
 IFS=$'\t' read -r UDID NAME <<< "$IPHONES"
 
-DESTINATION="id=$UDID"
-BUILD_LOG="$STAGING/device-build.log"
-STATUS=0
+DESTINATION="generic/platform=iOS"
 run_xcodebuild device build -configuration Debug \
-    -allowProvisioningUpdates -allowProvisioningDeviceRegistration | tee "$BUILD_LOG" || STATUS=$?
-if [ "$STATUS" -ne 0 ]; then
-    if grep -q -e "Unable to find a destination matching" -e "Unable to find a device matching" \
-        -e "Timed out waiting for all destinations" "$BUILD_LOG"; then
-        echo "$NAME is listed but the build can't reach it, so making an install link"
-        install_link
-        exit
-    fi
-    exit "$STATUS"
-fi
+    -allowProvisioningUpdates -allowProvisioningDeviceRegistration
 
 APP="$DERIVED_DATA/Build/Products/Debug-iphoneos/$SCHEME.app"
 BUNDLE_ID=$(app_bundle_id "$APP")
 if ! xcrun devicectl device install app --quiet --device "$UDID" "$APP"; then
-    echo "built, but could not install on $NAME, which is in reach: devicectl says why above." \
-        "Run this again once (the build is cached); if it fails the same way, make a link with" \
-        "scripts/device.sh --link and tell the maintainer the error, not a guess at its cause" >&2
-    exit 69
+    echo "built, but could not install on $NAME (devicectl says why above; tell the maintainer" \
+        "that, not a guess at its cause), so making an install link"
+    install_link
+    exit
 fi
 # A locked phone takes the install but refuses the launch. The build is on the phone either way.
 if ! xcrun devicectl device process launch --quiet --terminate-existing --device "$UDID" \
