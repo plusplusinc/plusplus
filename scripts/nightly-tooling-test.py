@@ -44,8 +44,8 @@ class TimeOfNight(unittest.TestCase):
 
 
 class Usage(unittest.TestCase):
-    def gate(self, event, uncapped=False, now=NIGHT):
-        return nightly.usage_gate(event, now, CUTOFF, STOP, uncapped)
+    def gate(self, event, uncapped=False):
+        return nightly.usage_gate(event, NIGHT, CUTOFF, STOP, uncapped)
 
     def test_low_usage_goes(self):
         self.assertEqual(self.gate(info()), ("go", None))
@@ -122,9 +122,9 @@ class Count(unittest.TestCase):
 
 
 class XcodeCloud(unittest.TestCase):
-    def run_(self, started, minutes, finished=True, created=None):
+    def run_(self, started, minutes, finished=True):
         start = datetime.fromisoformat(started + "+00:00")
-        attributes = {"createdDate": (created or started) + "Z", "startedDate": started + ".5Z"}
+        attributes = {"createdDate": started + "Z", "startedDate": started + ".5Z"}
         if finished:
             attributes["finishedDate"] = (start + timedelta(minutes=minutes)).isoformat()
         return {"attributes": attributes}

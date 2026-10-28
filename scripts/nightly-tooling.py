@@ -26,7 +26,6 @@ Tests: python3 scripts/nightly-tooling-test.py, against fixtures, with no networ
 """
 import fnmatch
 import json
-import os
 import re
 import subprocess
 import sys
@@ -34,11 +33,8 @@ import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-# The main checkout, under which cards get their worktrees, whichever checkout this runs from.
-MAIN = Path(subprocess.run(["git", "-C", str(ROOT), "rev-parse", "--path-format=absolute", "--git-common-dir"],
-                           capture_output=True, text=True).stdout.strip() or ROOT / ".git").parent
-PR_WORKFLOW = "FE8B3BCC-1973-4533-BB66-4D047A8E3C22"  # docs/xcode-cloud.md, "PR"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from xcresult import PR_WORKFLOW, ROOT, when  # noqa: E402
 
 CUTOFF_HOUR = 5  # no card starts at or after this hour
 STOP_HOUR = 7  # nothing new starts at all; a running builder writes its handoff
@@ -64,10 +60,7 @@ DAY_ONLY = (".claude/", "docs/")  # a PR entirely under these waits for the day
 TEST_DIRS = ("Packages/Tests", "PlusPlusUITests")
 TEST_PATTERN = r"@Test([^A-Za-z]|$)|func test[A-Z_]"
 FEWER_TESTS = "Fewer tests:"  # the PR body's line that explains a drop
-
-
-def die(message):
-    sys.exit(message)
+PUSH = re.compile(r"\bgit\b[^;&|\n]*\bpush\b")
 
 
 def log(message):
@@ -80,10 +73,23 @@ def local(stamp):
     return datetime.fromtimestamp(stamp).astimezone()
 
 
-def when(stamp):
-    """An ISO timestamp with any number of fraction digits (see scripts/ci-times.py)."""
-    stamp = re.sub(r"\.(\d+)", lambda m: "." + m[1][:6].ljust(6, "0"), stamp)
-    return datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+def windows(info):
+    """A rate_limit_info's windows by name: five_hour, seven_day, and any other."""
+    return (info or {}).get("unifiedWindows") or {}
+
+
+def events(lines):
+    """The JSON events among a stream-json log's lines."""
+    for line in lines:
+        try:
+            yield json.loads(line)
+        except ValueError:
+            continue
+
+
+def push_count(folder):
+    path = Path(folder) / "pushes"
+    return len(path.read_text().splitlines()) if path.exists() else 0
 
 
 # The gates. Each takes what it decides on and returns the decision, so the tests drive it with
@@ -99,8 +105,7 @@ def night_window(now):
 
 def is_uncapped(info, stop):
     """Whether every limit but the five-hour one resets by `stop`: the night before the weekly reset."""
-    windows = (info or {}).get("unifiedWindows") or {}
-    weekly = {name: w for name, w in windows.items() if name != "five_hour"}
+    weekly = {name: w for name, w in windows(info).items() if name != "five_hour"}
     return bool(weekly) and all(w["resetsAt"] <= stop.timestamp() for w in weekly.values())
 
 
@@ -110,11 +115,10 @@ def usage_gate(info, now, cutoff, stop, uncapped):
     Every window counts, whatever its name; one whose reset has passed counts as fresh. A full
     five-hour window waits for its reset only when that lands before the cutoff.
     """
-    windows = (info or {}).get("unifiedWindows") or {}
-    if not windows:
+    if not windows(info):
         return "stop", "no rate_limit_event in tonight's logs, so usage is unknown"
     wait = None
-    for name, w in sorted(windows.items()):
+    for name, w in sorted(windows(info).items()):
         resets = local(w["resetsAt"])
         if resets <= now:
             continue
@@ -138,13 +142,9 @@ def last_rate_limit(paths):
     """The rate_limit_info of the last rate_limit_event in these stream-json logs, oldest first."""
     found = None
     for path in paths:
-        for line in Path(path).read_text(errors="replace").splitlines():
-            if '"rate_limit_event"' not in line:
-                continue
-            try:
-                event = json.loads(line)
-            except ValueError:
-                continue
+        lines = [line for line in Path(path).read_text(errors="replace").splitlines()
+                 if '"rate_limit_event"' in line]
+        for event in events(lines):
             if event.get("type") == "rate_limit_event":
                 found = event.get("rate_limit_info")
     return found
@@ -152,13 +152,9 @@ def last_rate_limit(paths):
 
 def limit_hit(lines):
     """Whether a claude run's stream-json lines end in a usage limit."""
-    for line in lines:
-        if "usage_limit_reached" in line:
-            return True
-        try:
-            event = json.loads(line)
-        except ValueError:
-            continue
+    if any("usage_limit_reached" in line for line in lines):
+        return True
+    for event in events(lines):
         if event.get("type") == "rate_limit_event":
             if (event.get("rate_limit_info") or {}).get("status") == "rejected":
                 return True
@@ -274,7 +270,7 @@ def hook_decision(tool, command, now, stop, app_push, pushes, hours, handoff):
         return None
     if re.search(r"\bgh\s+pr\s+merge\b", command):
         return "The nightly runner arms auto-merge itself, once the verifier has passed. Never merge."
-    pushing = re.search(r"\bgit\b[^;&|\n]*\bpush\b", command)
+    pushing = PUSH.search(command)
     if late:
         segments = [s.strip() for s in re.split(r"&&|\|\||;|\n", command) if s.strip()]
         if pushing or not all(SAFE_LATE.match(s) for s in segments):
@@ -357,7 +353,7 @@ class Night:
         self.now = now
         self.dry_run = dry_run
         self.window = night_window(now)
-        self.digest = []
+        self.merged = []  # (pr, merge commit, files, head, verifier's commit)
         self.parked = []
         self.waiting = []
         self.usage = []
@@ -368,11 +364,6 @@ class Night:
     def logs(self):
         return sorted(self.dir.glob("*.jsonl"), key=lambda p: p.stat().st_mtime)
 
-    def state(self, **values):
-        path = self.dir / "state.json"
-        current = json.loads(path.read_text()) if path.exists() else {}
-        current.update(values)
-        path.write_text(json.dumps(current))
 
     def run(self):
         self.dir.mkdir(parents=True, exist_ok=True)
@@ -429,11 +420,15 @@ class Night:
         """The first eligible card that won't collide with an open PR or the Xcode Cloud budget."""
         runs = xcode_cloud_runs()
         self.hours = month_hours(runs, self.clock())
-        self.pushes = self.push_count()
+        self.pushes = push_count(self.dir)
         open_prs = gh_json("pr", "list", "--state", "open", "--json", "number,files")
         open_files = {pr["number"]: [f["path"] for f in pr["files"]] for pr in open_prs}
-        repo_files = set(sh("git", "ls-tree", "-r", "--name-only", "origin/main").split())
-        for item, status, feature, title, body in board_cards():
+        # The cards and main's files, read once a night: the runner's own moves are in self.tried.
+        if not hasattr(self, "cards_tonight"):
+            self.cards_tonight = board_cards()
+            self.repo_files = set(sh("git", "ls-tree", "-r", "--name-only", "origin/main").split())
+        repo_files = self.repo_files
+        for item, status, feature, title, body in self.cards_tonight:
             if item in self.tried:
                 continue
             why = eligibility(status, feature, body)
@@ -454,10 +449,6 @@ class Night:
         self.ended = log("No eligible tooling card left in Todo.")
         return None
 
-    def push_count(self):
-        path = self.dir / "pushes"
-        return len(path.read_text().splitlines()) if path.exists() else 0
-
     def command(self, item, worktree, branch, settings):
         return ["claude", "--name", "Nightly card", "-p", "--permission-mode", "auto",
                 "--output-format", "stream-json", "--verbose", "--settings", str(settings),
@@ -465,17 +456,17 @@ class Night:
 
     def paths(self, title):
         name = slug(title)
-        worktree = MAIN / ".claude/worktrees" / name
+        main = Path(sh("git", "rev-parse", "--path-format=absolute", "--git-common-dir").strip()).parent
+        worktree = main / ".claude/worktrees" / name
         n = 2
         while worktree.exists():
-            worktree = MAIN / ".claude/worktrees" / f"{name}-{n}"
+            worktree = main / ".claude/worktrees" / f"{name}-{n}"
             n += 1
         return worktree, worktree.name
 
-    def settings(self, worktree, handoff, path):
+    def settings(self, worktree, path):
         hook = f"/usr/bin/env python3 {ROOT / 'scripts/nightly-tooling.py'} hook {self.dir} {worktree}"
         path.write_text(json.dumps({
-            "permissions": {"deny": ["Bash(gh pr merge:*)"]},
             "hooks": {"PreToolUse": [{"matcher": "Bash|Agent|Task",
                                       "hooks": [{"type": "command", "command": hook, "timeout": 60}]}]},
         }, indent=2))
@@ -499,9 +490,10 @@ class Night:
         sh("git", "fetch", "--quiet", "origin", "main")
         sh("git", "worktree", "add", "--no-track", str(worktree), "-b", branch, "origin/main")
         stop = self.window[1]
-        self.state(stop=stop.isoformat(), hours=self.hours, handoff=handoff)
+        (self.dir / "state.json").write_text(json.dumps(
+            {"stop": stop.isoformat(), "hours": self.hours, "handoff": handoff}))
         settings = self.dir / f"card-{n}-settings.json"
-        self.settings(worktree, handoff, settings)
+        self.settings(worktree, settings)
         board("status", item, "In Progress")
         board("state", item, stdin=f"- Nightly run of {self.start:%Y-%m-%d}, card {n}: led by "
               f"scripts/nightly-tooling.py, not a session.\n- Worktree: `.claude/worktrees/{branch}`, "
@@ -523,7 +515,7 @@ class Night:
         self.usage.append(f"{title}: {usage_line(info)} → {usage_line(after)}")
         reply = last_reply(lines)
         prs = gh_json("pr", "list", "--head", branch, "--state", "all",
-                      "--json", "number,title,state,headRefOid,body")
+                      "--json", "number,title,state,headRefOid,body,comments")
         pr = prs[0] if prs else None
         if limit_hit(lines):
             self.park(item, title, pr, "the usage limit stopped its run")
@@ -535,9 +527,7 @@ class Night:
     def decide(self, item, title, pr):
         n, sha = pr["number"], pr["headRefOid"]
         sh("git", "fetch", "--quiet", "origin", f"pull/{n}/head", check=False)
-        comments = json.loads(sh("gh", "pr", "view", str(n), "--json", "comments",
-                                 "--jq", "[.comments[].body]"))
-        record = verifier_record(comments)
+        record = verifier_record([c["body"] for c in pr["comments"]])
         if not record:
             return self.park(item, title, pr, "no verifier record on the PR")
         built, failures = record
@@ -553,7 +543,8 @@ class Night:
         if drops and FEWER_TESTS not in pr["body"]:
             return self.park(item, title, pr, "fewer tests (" + ", ".join(f"{t} {b} → {a}" for t, b, a in drops)
                              + f") and no \"{FEWER_TESTS}\" line in its body")
-        files = sh(str(ROOT / "scripts/pr-check.sh"), "files", str(n)).split()
+        # Without rename detection a renamed file lists its old path too.
+        files = sh("git", "diff", "--name-only", "--no-renames", base, sha).split()
         touched = protected(files)
         if touched or day_only(files):
             why = (f"it touches {', '.join(touched)}, which a night never merges" if touched
@@ -568,7 +559,7 @@ class Night:
         if not merged:
             return self.park(item, title, pr, "its PR check failed, or didn't finish within the hour")
         board("status", item, "Done")
-        self.digest.append(digest_block(pr, merged, files, self.proof(n, sha, built, files)))
+        self.merged.append((pr, merged, files, sha, built))
         log(f"#{n} merged as {merged[:7]}.")
         return "merged"
 
@@ -590,11 +581,10 @@ class Night:
             time.sleep(60)
         return None
 
-    def proof(self, n, sha, built, files):
-        route = classify(files)
+    def proof(self, runs, sha, built, files):
         check = "PR check passed, lint only"
-        if route != "docs":
-            run = next((r for r in xcode_cloud_runs()
+        if classify(files) != "docs":
+            run = next((r for r in runs
                         if (r["attributes"].get("sourceCommit") or {}).get("commitSha") == sha), None)
             check = f"PR check passed on Xcode Cloud run {run['attributes']['number']}" if run else "PR check passed"
         return f"verifier record at {built}, {check}"
@@ -621,9 +611,10 @@ class Night:
         behind = [pr for pr in gh_json("pr", "list", "--state", "open",
                                        "--json", "number,title,mergeStateStatus")
                   if pr["mergeStateStatus"] == "BEHIND"]
-        lines = [f"Nightly tooling {self.start:%Y-%m-%d}: {len(self.digest)} merged, "
+        lines = [f"Nightly tooling {self.start:%Y-%m-%d}: {len(self.merged)} merged, "
                  f"{len(self.parked)} parked, {len(self.waiting)} waiting for the maintainer"]
-        lines += self.digest
+        lines += [digest_block(pr, merged, files, self.proof(runs, sha, built, files))
+                  for pr, merged, files, sha, built in self.merged]
         lines.append(f"Xcode Cloud: {len(runs_since(runs, self.start))} runs tonight, "
                      f"{month_hours(runs, now):.1f} h this month")
         lines.append("Tests: " + ", ".join(f"{t} {self.tests_before.get(t, 0)} → {after.get(t, 0)}"
@@ -662,20 +653,18 @@ def hook(folder, worktree):
     folder = Path(folder)
     state = json.loads((folder / "state.json").read_text())
     command = (call.get("tool_input") or {}).get("command", "")
-    pushes_file = folder / "pushes"
-    pushes = len(pushes_file.read_text().splitlines()) if pushes_file.exists() else 0
     app_push = False
-    if call.get("tool_name") == "Bash" and re.search(r"\bgit\b[^;&|\n]*\bpush\b", command):
+    if call.get("tool_name") == "Bash" and PUSH.search(command):
         files = sh("git", "diff", "--name-only", "origin/main...HEAD", cwd=worktree, check=False).split()
         app_push = bool(files) and classify(files) != "docs"
     why = hook_decision(call.get("tool_name"), command, datetime.now().astimezone(),
-                        datetime.fromisoformat(state["stop"]), app_push, pushes, state["hours"],
+                        datetime.fromisoformat(state["stop"]), app_push, push_count(folder), state["hours"],
                         state["handoff"])
     if why:
         print(why, file=sys.stderr)
         sys.exit(2)
     if app_push:
-        with pushes_file.open("a") as out:
+        with (folder / "pushes").open("a") as out:
             out.write(f"{datetime.now().astimezone().isoformat()} {worktree}\n")
 
 

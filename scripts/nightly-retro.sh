@@ -47,9 +47,9 @@ main_checkout() {
     dirname "$common"
 }
 
-# The retro's claude pid, else nothing. -a, since pgrep otherwise skips its own ancestors, which
-# the retro's claude is when this runs inside it.
-retro_pid() {
+# The nightly run's pid, the retro's claude or the tooling runner, else nothing. -a, since pgrep
+# otherwise skips its own ancestors, which the retro's claude is when this runs inside it.
+nightly_pid() {
     pgrep -aof "$RETRO_PROCESS" || pgrep -aof "$TOOLING_PROCESS" || true
 }
 
@@ -98,7 +98,7 @@ PLIST
 
 run() {
     local pid main name night
-    pid=$(retro_pid)
+    pid=$(nightly_pid)
     [ -z "$pid" ] || die "A nightly run, the retro or its tooling cards, is already going (pid $pid); two would cover the same night."
 
     local vars=(SHELL=/bin/zsh TERM=xterm-256color PATH=/usr/bin:/bin:/usr/sbin:/sbin)
@@ -120,7 +120,7 @@ run() {
 
 show() {
     local pid
-    pid=$(retro_pid)
+    pid=$(nightly_pid)
     if [ -n "$pid" ]; then
         echo "The nightly run is going (pid $pid), the retro or its tooling cards. The retro's reply so far follows."
     elif installed; then

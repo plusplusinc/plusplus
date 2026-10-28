@@ -21,8 +21,10 @@ import pathlib
 import re
 import subprocess
 import sys
+from datetime import datetime
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+PR_WORKFLOW = "FE8B3BCC-1973-4533-BB66-4D047A8E3C22"  # docs/xcode-cloud.md, "PR"
 
 # Budgets in seconds on Xcode Cloud. A local run's are these divided by LOCAL_RATIO, the ratio
 # of CI to local times measured in 2026-10 with one test at a time on both.
@@ -38,6 +40,26 @@ PACKAGE = 10  # scripts/test.sh on macOS, both swift test runs' test time, local
 # Cloud's own steps (machine start, clone, the hand-off to the simulator, collecting results),
 # and the last of those varied by 34 s between the two with nothing changed. The tests are
 # what this repo controls, so their budgets above are the check.
+
+
+def when(stamp):
+    """Xcode Cloud's timestamp, whose fraction of a second can have any number of digits, or none.
+
+    Python 3.9's fromisoformat takes only 3 or 6, so the fraction is padded or cut to 6 first.
+    Shared with scripts/ci-times.py and scripts/nightly-tooling.py. Run with
+    `python3 -m doctest scripts/xcresult.py`.
+
+    >>> for s in ["2026-10-27T11:23:44Z", "2026-10-27T11:23:44.4+00:00", "2026-10-27T11:23:44.42Z",
+    ...           "2026-10-27T11:23:44.421Z", "2026-10-27T11:23:44.421337-07:00"]:
+    ...     print(when(s).isoformat())
+    2026-10-27T11:23:44+00:00
+    2026-10-27T11:23:44.400000+00:00
+    2026-10-27T11:23:44.420000+00:00
+    2026-10-27T11:23:44.421000+00:00
+    2026-10-27T11:23:44.421337-07:00
+    """
+    stamp = re.sub(r"\.(\d+)", lambda m: "." + m[1][:6].ljust(6, "0"), stamp)
+    return datetime.fromisoformat(stamp.replace("Z", "+00:00"))
 
 
 def over(seconds, budget):
