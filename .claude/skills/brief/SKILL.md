@@ -104,4 +104,5 @@ Reply with the card id, the classification, where it landed in the queue and why
 points still waiting on an answer with your recommendation for each, and the one thing in the
 brief the maintainer is most likely to disagree with. The maintainer approves by
 leaving it there and vetoes by reordering or parking it; do not move it to In Progress
-yourself.
+yourself. A card that changes nothing they see in the app (tooling, CI, tests, process) needs
+no approval: say in a line that it exists and where it sits, and `/onward` runs it.
