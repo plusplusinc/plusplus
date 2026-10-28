@@ -11,7 +11,8 @@
 # unmerged PRs are never cleaned up; their work may still be wanted. A removed worktree's own
 # simulator, "PlusPlus <worktree>" (see scripts/common.sh), is shut down and deleted with it, and
 # so is the recorded simulator of a worktree removed by hand; this is the only script that deletes
-# a simulator.
+# a simulator. A file or folder in .slices/ goes too once every board card it names (by item id,
+# PVTI_...) is Done; one that names none is kept.
 #
 #   scripts/tidy.sh            # remove, and print each thing removed
 #   scripts/tidy.sh --dry-run  # print what would be removed
@@ -141,3 +142,21 @@ while read -r branch; do
         run git branch -D "$branch"
     fi
 done < <(git for-each-ref --format='%(refname:short)' refs/heads)
+
+# .slices/ entries whose cards are all Done: one board request for every id they name.
+SLICES="$ROOT/.slices"
+if [ -d "$SLICES" ]; then
+    ids=$(grep -rhoE 'PVTI_[A-Za-z0-9_-]+' "$SLICES" 2> /dev/null | sort -u | head -100 || true)
+    # A board error (a spent quota) leaves everything in place.
+    if [ -n "$ids" ] && shown=$("$ROOT/scripts/board.sh" show $ids 2> /dev/null); then
+        done_ids=$(awk '/^==> .* <==$/ { id = $2; getline; getline; if ($0 == "[Done]") print id }' <<< "$shown")
+        for entry in "$SLICES"/* "$SLICES"/.[!.]*; do
+            [ -e "$entry" ] || continue
+            named=$(grep -rhoE 'PVTI_[A-Za-z0-9_-]+' "$entry" 2> /dev/null | sort -u || true)
+            [ -n "$named" ] || continue
+            if [ -z "$(comm -23 <(echo "$named") <(echo "$done_ids" | sort -u))" ]; then
+                run rm -r "$entry"
+            fi
+        done
+    fi
+fi
