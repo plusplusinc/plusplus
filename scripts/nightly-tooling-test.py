@@ -5,6 +5,10 @@
 """
 import importlib.util
 import json
+import os
+import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
 from datetime import datetime, timedelta
@@ -143,10 +147,10 @@ class XcodeCloud(unittest.TestCase):
         runs = [self.run_("2026-10-28T03:59:00", 10), self.run_("2026-10-28T04:10:00", 10)]
         self.assertEqual(len(nightly.runs_since(runs, since)), 1)
 
-    def test_a_card_that_starts_a_run_waits_past_seventy_hours_or_four_pushes(self):
+    def test_a_card_that_starts_a_run_waits_past_seventy_hours_or_four_runs(self):
         self.assertIsNone(nightly.xcode_cloud_gate(69.9, 3, True))
         self.assertIn("70", nightly.xcode_cloud_gate(70.1, 0, True))
-        self.assertIn("4 pushes", nightly.xcode_cloud_gate(10, 4, True))
+        self.assertIn("4 Xcode Cloud runs", nightly.xcode_cloud_gate(10, 4, True))
         self.assertIsNone(nightly.xcode_cloud_gate(99, 9, False))
 
 
@@ -158,9 +162,14 @@ class Paths(unittest.TestCase):
                 "App/PlusPlus.entitlements", "ci_scripts/ci_post_clone.sh", ".swiftlint.yml",
                 "Packages/Tests/.swiftlint.yml", ".swiftformat", "scripts/nightly-tooling.py",
                 "scripts/nightly-retro.sh", ".claude/skills/nightly-card/SKILL.md", "scripts/xcresult.py",
-                "scripts/tidy.sh", ".claude/hooks/on-edit.sh"]
-        safe = ["scripts/ci-times.py", "docs/pr-check.md", "PlusPlusUITests/Waits.swift",
-                ".claude/skills/pr/SKILL.md", "Packages/Sources/WorkoutStore/Namer.swift", "Config/README.md"]
+                "scripts/tidy.sh", ".claude/hooks/on-edit.sh",
+                # What CI runs or installs, and what steers the night's agents.
+                "PlusPlus.xcodeproj/xcshareddata/xcschemes/PlusPlus.xcscheme", "scripts/lint.sh",
+                "scripts/check-us-english.sh", "Brewfile", "Packages/Package.resolved",
+                ".github/pull_request_template.md", ".claude/agents/verifier.md", ".claude/skills/pr/SKILL.md",
+                ".claude/rules/testing.md", "CLAUDE.md", "AGENTS.md", ".mcp.json"]
+        safe = ["scripts/ci-times.py", "docs/pr-check.md", "PlusPlusUITests/Waits.swift", "scripts/test.sh",
+                ".claude/skills/run/SKILL.md", "Packages/Sources/WorkoutStore/Namer.swift", "Config/README.md"]
         self.assertEqual(nightly.protected(hits + safe), hits)
 
     def test_only_claude_and_docs_wait_for_the_day(self):
@@ -196,11 +205,21 @@ class Verifier(unittest.TestCase):
     def test_the_newest_record_decides(self):
         comments = ["Verifier record, abc1234\n- criterion, new: it failed",
                     "a reply", "Verifier record, def5678\n- test, new: x, unit, 0.1 s\n- design, known: y"]
-        self.assertEqual(nightly.verifier_record(comments), ("def5678", []))
+        self.assertEqual(nightly.verifier_record(comments), ("def5678", [], []))
 
     def test_a_failed_criterion_or_a_crash_fails(self):
-        _, failures = nightly.verifier_record(["Verifier record, abc1234\n- criterion, new: a\n- crash, new: b\n- No findings"])
-        self.assertEqual(len(failures), 2)
+        _, failures, unread = nightly.verifier_record(["Verifier record, abc1234\n- criterion, new: a\n- crash, new: b\n- No findings"])
+        self.assertEqual((len(failures), unread), (2, []))
+
+    def test_a_line_off_the_format_is_unread_never_a_pass(self):
+        for line in ["- Criterion, new: it failed", "  - criterion, new: it failed", "- criterion new: it failed",
+                     "* criterion, new: it failed", "- criterion, New: it failed", "it failed"]:
+            self.assertEqual(nightly.verifier_record([f"Verifier record, abc1234\n{line}"])[2], [line], line)
+        self.assertEqual(nightly.verifier_record(["Verifier record, abc1234\n\n"])[2], ["(no lines)"])
+
+    def test_the_header_names_a_commit_or_nothing(self):
+        self.assertIsNone(nightly.verifier_record(["Verifier record, the latest\n- No findings"])[0])
+        self.assertEqual(nightly.verifier_record(["Verifier record, abc1234 \n- No findings"])[0], "abc1234")
 
     def test_no_record(self):
         self.assertIsNone(nightly.verifier_record(["LGTM"]))
@@ -218,10 +237,34 @@ class Verifier(unittest.TestCase):
                          [("DesignSystemTests", 118, 117)])
         self.assertEqual(nightly.test_drops(before, before), [])
 
+    def test_only_a_fewer_tests_line_naming_the_target_explains_a_drop(self):
+        drops = [("DesignSystemTests", 118, 117)]
+        self.assertEqual(nightly.unexplained_drops(drops, "Fewer tests: DesignSystemTests drops a duplicate."), [])
+        for body in ["x", "Says no `Fewer tests:` line is needed.", "Fewer tests: WorkoutStoreTests, a duplicate.",
+                     "  Fewer tests: DesignSystemTests"]:
+            self.assertEqual(nightly.unexplained_drops(drops, body), drops, body)
+
+    def test_a_test_in_a_comment_or_a_string_does_not_count(self):
+        source = """@Test func a() {}
+@MainActor @Test("named") func b() {}
+// @Test func c() {}
+/* @Test func d() {}
+   @Test func e() {} */
+let text = "@Test func f() // not a comment"
+func testG() {}
+    // func testH() {}
+"""
+        self.assertEqual(nightly.count_tests(source), 3)
+
+
+def gate(app_push, pushes, hours=10):
+    """A run_gate as the hook builds it, from what the branch changes and the night's runs."""
+    return lambda: nightly.xcode_cloud_gate(hours, pushes, app_push)
+
 
 class Hook(unittest.TestCase):
     def decide(self, tool, command="", now=NIGHT, app_push=False, pushes=0, hours=10):
-        return nightly.hook_decision(tool, command, now, STOP, app_push, pushes, hours, ".slices/h.md")
+        return nightly.hook_decision(tool, command, now, STOP, ".slices/h.md", gate(app_push, pushes, hours))
 
     def test_ordinary_work_is_allowed(self):
         self.assertIsNone(self.decide("Bash", "scripts/build.sh"))
@@ -229,11 +272,12 @@ class Hook(unittest.TestCase):
         self.assertIsNone(self.decide("Bash", "git push -u origin night-x", app_push=True, pushes=3))
         self.assertIsNone(self.decide("Bash", "git push -u origin night-x", app_push=False, pushes=9, hours=99))
 
-    def test_only_a_git_push_command_counts_as_a_push(self):
-        for command in ["git push", "git -C /w push -u origin x", "cd /w && git push", "make; git push origin x"]:
-            self.assertIsNotNone(nightly.PUSH.search(command), command)
-        for command in ['git commit -m "Retry the push on 429"', "git stash push", "echo git push"]:
-            self.assertIsNone(nightly.PUSH.search(command), command)
+    def test_only_a_git_push_or_a_new_pr_may_start_a_run(self):
+        for command in ["git push", "git -C /w push -u origin x", "cd /w && git push", "make; git push origin x",
+                        "gh pr create --title t --body-file -", "gh pr ready 7"]:
+            self.assertTrue(nightly.call_risks(command)[1], command)
+        for command in ['git commit -m "Retry the push on 429"', "git stash push", "gh pr view 7", "gh pr checks 7"]:
+            self.assertEqual(nightly.call_risks(command), (None, False), command)
         late = STOP + timedelta(minutes=1)
         self.assertIsNone(self.decide("Bash", 'git commit -m "push later"', now=late))
 
@@ -340,13 +384,38 @@ class Decide(unittest.TestCase):
         pr = self.pr(lambda: self.write("Packages/Tests/WorkoutStoreTests/T.swift", "@Test func a() {}\n"))
         self.assertEqual(self.night.decide("PVTI_1", "Card", pr), "parked")
 
+    def test_a_test_commented_out_is_a_drop(self):
+        pr = self.pr(lambda: self.write("Packages/Tests/WorkoutStoreTests/T.swift",
+                                        "@Test func a() {}\n// @Test func b() {}\n"))
+        self.assertEqual(self.night.decide("PVTI_1", "Card", pr), "parked")
+        self.assertIn("WorkoutStoreTests 2 → 1", self.night.parked[0])
+
+    def test_a_drop_its_body_explains_merges(self):
+        pr = self.pr(lambda: self.write("Packages/Tests/WorkoutStoreTests/T.swift", "@Test func a() {}\n"),
+                     body="Fewer tests: WorkoutStoreTests loses b, which a covers.")
+        self.assertEqual(self.night.decide("PVTI_1", "Card", pr), "merged")
+
+    def test_a_record_off_the_format_parks(self):
+        pr = self.pr(lambda: self.write("scripts/a.py", "y\n"), record="- Criterion, new: it broke")
+        self.assertEqual(self.night.decide("PVTI_1", "Card", pr), "parked")
+        self.assertFalse([c for c in self.calls if "--auto" in c])
+        self.assertIn("can't read", self.night.parked[0])
+
+    def test_a_scheme_or_lint_script_change_waits(self):
+        for name in ("PlusPlus.xcodeproj/xcshareddata/xcschemes/PlusPlus.xcscheme", "scripts/lint.sh"):
+            self.git("checkout", "-q", "main")
+            self.git("branch", "-qD", "card") if self.git("branch", "--list", "card") else None
+            pr = self.pr(lambda: self.write(name, "exit 0\n"))
+            self.assertEqual(self.night.decide("PVTI_1", "Card", pr), "waiting", name)
+        self.assertFalse([c for c in self.calls if c.startswith("gh pr merge")])
+
 
 class Loop(unittest.TestCase):
     """Night.run's card count, with the board, the PRs, and each card's run stubbed."""
 
     BODY = "## Problem\nx\n\nNightly: faster CI; its time\n\n## Success\nRun it.\n"
 
-    def night(self, results, weekly_resets):
+    def night(self, results, weekly_resets, take=None, event=None, finish=False):
         cards = [(f"PVTI_{i}", "Todo", "-", f"card {i}", self.BODY) for i in range(4)]
         stubs = {"board_cards": lambda: cards, "xcode_cloud_runs": lambda: [], "gh_json": lambda *a: [],
                  "classify": lambda files: "app: x", "sh": lambda *a, **k: "", "test_counts": lambda rev: {}}
@@ -355,19 +424,24 @@ class Loop(unittest.TestCase):
         for name, stub in stubs.items():
             setattr(nightly, name, stub)
         folder = Path(tempfile.mkdtemp())
-        event = info(week_resets=weekly_resets)
+        event = event or info(week_resets=weekly_resets)
         (folder / "retro.jsonl").write_text(json.dumps({"type": "rate_limit_event", "rate_limit_info": event}) + "\n")
         night = nightly.Night(folder, NIGHT, False)
-        night.clock, night.finish = (lambda: NIGHT), (lambda: None)
+        night.clock = lambda: NIGHT
+        if not finish:
+            night.finish = lambda: None
         taken = []
 
-        def take(card, _):
+        def taking(card, _):
             taken.append(card[1])
             night.tried.add(card[0])
             return results[len(taken) - 1]
 
-        night.take = take
+        night.take = take or taking
         night.run()
+        if take or finish:
+            night.taken = taken
+            return night
         return taken
 
     def test_four_eligible_cards_on_a_capped_night_three_run(self):
@@ -376,6 +450,34 @@ class Loop(unittest.TestCase):
     def test_after_a_failed_card_the_next_runs(self):
         self.assertEqual(self.night(["parked", "merged", "merged", "merged"], weekly_resets=100),
                          ["card 0", "card 1", "card 2"])
+
+    def test_a_crash_mid_card_leaves_a_state_and_a_digest(self):
+        board_calls = []
+        saved = nightly.board, nightly.tidy
+        self.addCleanup(lambda: (setattr(nightly, "board", saved[0]), setattr(nightly, "tidy", saved[1])))
+        nightly.board = lambda *a, stdin=None: board_calls.append((a, stdin))
+        nightly.tidy = lambda: None
+
+        def crash(card, _):
+            raise AttributeError("'list' object has no attribute 'get'")
+
+        night = self.night([], weekly_resets=100, take=crash, finish=True)
+        digest = (night.dir / "digest.md").read_text()
+        self.assertIn("Ended: No more cards: the runner failed: AttributeError", digest)
+        self.assertIn("Parked: card 0: the runner failed", digest)
+        self.assertEqual(board_calls[0][0], ("state", "PVTI_0"))
+        self.assertIn("still In Progress", board_calls[0][1])
+
+    def test_an_unreadable_usage_event_ends_the_night_with_a_digest(self):
+        saved = nightly.tidy
+        self.addCleanup(setattr, nightly, "tidy", saved)
+        nightly.tidy = lambda: None
+        event = info()
+        del event["unifiedWindows"]["seven_day"]["resetsAt"]
+        night = self.night(["merged"], weekly_resets=100, event=event, finish=True)
+        self.assertEqual(night.taken, [])
+        self.assertIn("Ended: No more cards: the usage window seven_day can't be read",
+                      (night.dir / "digest.md").read_text())
 
     def test_the_uncapped_night_takes_the_fourth(self):
         resets_at_seven = (STOP - NIGHT).total_seconds() / 3600
@@ -386,7 +488,7 @@ class Bypass(unittest.TestCase):
     """Spellings of a merge or an Xcode Cloud run that the hook has to stop. These fail today."""
 
     def decide(self, command, app_push=True, pushes=9):
-        return nightly.hook_decision("Bash", command, NIGHT, STOP, app_push, pushes, 10, ".slices/h.md")
+        return nightly.hook_decision("Bash", command, NIGHT, STOP, ".slices/h.md", gate(app_push, pushes))
 
     def test_a_merge_with_the_repo_flag_is_denied(self):
         for command in ["gh pr -R plusplusinc/plusplus merge 7 --squash", "gh -R plusplusinc/plusplus pr merge 7",
@@ -397,6 +499,185 @@ class Bypass(unittest.TestCase):
         for command in ["git -c push.default=current push", "FOO=1 git push", "bash -c 'git push'",
                         "asc xcode-cloud run --workflow-id x"]:
             self.assertIsNotNone(self.decide(command), command)
+
+    def test_every_merge_spelling_is_denied_whatever_the_budget(self):
+        for command in ["gh api -X PUT repos/o/r/pulls/7/merge", "gh api --method PUT /repos/o/r/pulls/7/merge",
+                        "gh api repos/o/r/merges -f base=main -f head=x",
+                        "gh api graphql -f query='mutation { mergePullRequest(input: {}) { clientMutationId } }'",
+                        "gh api graphql -F query=@merge.graphql", "gh api graphql --input q.json",
+                        "/opt/homebrew/bin/gh pr merge 7", "echo 7 | xargs gh pr merge", "eval gh pr merge 7",
+                        'sh -c "gh pr merge 7 --auto"', 'git commit -m "$(gh pr merge 7)"', "cd x && `gh pr merge 7`",
+                        "gh alias set m 'pr merge'", "git -c alias.p=push p", "git config alias.p push"]:
+            self.assertIsNotNone(self.decide(command, app_push=False, pushes=0), command)
+
+    def test_every_push_spelling_past_the_limit_is_denied(self):
+        for command in ["env git push", "env FOO=1 git push", "/usr/bin/git push", "command git push", "time git push",
+                        "git --no-pager push", "git --git-dir .git push", "bash -lc 'cd /w && git push'",
+                        "nohup git push 2>&1 | tail -1", "git push 'unbalanced", "gh -R o/r pr create --title t"]:
+            self.assertIn("Xcode Cloud run", self.decide(command) or "", command)
+            self.assertIsNone(self.decide(command, pushes=3), command)
+
+    def test_an_xcode_cloud_change_is_denied_and_a_read_allowed(self):
+        for command in ["asc --profile p xcode-cloud run --workflow-id x", "asc xcode-cloud workflows update --id x",
+                        "asc xcode-cloud workflows delete --id x", "asc xcode-cloud products delete --id x"]:
+            self.assertIsNotNone(self.decide(command, app_push=False), command)
+        for command in ["asc xcode-cloud build-runs list --workflow-id x", "asc xcode-cloud status --run-id 1 --wait",
+                        "asc xcode-cloud doctor --run-id 1", "asc xcode-cloud artifacts download --id 1"]:
+            self.assertIsNone(self.decide(command, app_push=False), command)
+
+    def test_text_about_a_merge_is_no_merge(self):
+        body = "gh pr create --title 'Close the merge gate' --body-file - <<'BODY'\nIt denies gh pr merge 7.\nBODY"
+        for command in [body, 'git commit -m "Deny gh pr merge"', "gh pr view 7 --json mergeStateStatus",
+                        "grep -n 'gh pr merge' scripts/x.py", "git merge origin/main",
+                        "gh api graphql -f query='{ viewer { login } }'", "gh api repos/o/r/pulls/7"]:
+            self.assertIsNone(self.decide(command, app_push=False), command)
+
+    def test_the_budget_is_read_only_for_a_call_that_may_start_a_run(self):
+        calls = []
+        nightly.hook_decision("Bash", "scripts/build.sh && git commit -m push", NIGHT, STOP, "h",
+                              lambda: calls.append(1))
+        self.assertEqual(calls, [])
+
+
+class HookFailsClosed(unittest.TestCase):
+    """The hook as Claude Code runs it: any error exits 2, which denies the call."""
+
+    def hook(self, folder, stdin):
+        script = Path(__file__).with_name("nightly-tooling.py")
+        return subprocess.run([sys.executable, str(script), "hook", str(folder), str(folder)], input=stdin,
+                              capture_output=True, text=True)
+
+    def test_no_state_denies(self):
+        with tempfile.TemporaryDirectory() as folder:
+            result = self.hook(folder, json.dumps({"tool_name": "Bash", "tool_input": {"command": "git push"}}))
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("hook failed", result.stderr)
+
+    def test_unreadable_input_denies(self):
+        with tempfile.TemporaryDirectory() as folder:
+            Path(folder, "state.json").write_text(json.dumps({"start": NIGHT.isoformat(), "stop": STOP.isoformat(),
+                                                              "handoff": "h"}))
+            for stdin in ["", "not json", "[]", json.dumps({"tool_input": {"command": "ls"}})]:
+                self.assertEqual(self.hook(folder, stdin).returncode, 2, stdin)
+
+    def test_a_failed_budget_read_denies_the_push(self):
+        with tempfile.TemporaryDirectory() as folder:
+            # No such worktree, so reading what the branch changes fails.
+            Path(folder, "state.json").write_text(json.dumps({"start": NIGHT.isoformat(),
+                                                              "stop": (datetime.now() + timedelta(hours=1)).astimezone().isoformat(),
+                                                              "handoff": "h"}))
+            script = Path(__file__).with_name("nightly-tooling.py")
+            call = json.dumps({"tool_name": "Bash", "tool_input": {"command": "git push"}})
+            result = subprocess.run([sys.executable, str(script), "hook", folder, str(Path(folder, "gone"))],
+                                    input=call, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 2)
+            ls = json.dumps({"tool_name": "Bash", "tool_input": {"command": "ls"}})
+            self.assertEqual(subprocess.run([sys.executable, str(script), "hook", folder, folder], input=ls,
+                                            capture_output=True, text=True).returncode, 0)
+
+
+class Malformed(unittest.TestCase):
+    """Events and log lines the runner reads but didn't write: none of them may crash it."""
+
+    def test_an_unreadable_window_stops_the_night(self):
+        broken = [{"utilization": 0.1, "status": "allowed"}, {"utilization": "0.1", "resetsAt": at(9), "status": "allowed"},
+                  {"utilization": 0.1, "resetsAt": None}, "full", None, {"utilization": True, "resetsAt": at(9)}]
+        for w in broken:
+            decision, why = nightly.usage_gate(info(seven_day=w), NIGHT, CUTOFF, STOP, False)
+            self.assertEqual(decision, "stop", w)
+            self.assertIn("seven_day", why)
+            self.assertFalse(nightly.is_uncapped(info(week_resets=1, seven_day=w), STOP), w)
+            self.assertIn("seven_day unreadable", nightly.usage_line(info(seven_day=w)))
+
+    def test_info_that_isnt_an_object_reads_as_no_event(self):
+        for value in ["allowed", 3, [1], {"unifiedWindows": "x"}, {"unifiedWindows": [1]}]:
+            self.assertEqual(nightly.usage_gate(value, NIGHT, CUTOFF, STOP, False)[0], "stop", value)
+            self.assertFalse(nightly.is_uncapped(value, STOP))
+            self.assertEqual(nightly.usage_line(value), "unknown")
+
+    def test_lines_that_are_json_but_not_events_are_skipped(self):
+        lines = ["[1, 2]", '"stderr text"', "3", "null", json.dumps({"type": "result", "result": "PR #9"}), "not json"]
+        self.assertFalse(nightly.limit_hit(lines))
+        self.assertEqual(nightly.last_reply(lines), "PR #9")
+        with tempfile.TemporaryDirectory() as folder:
+            log = Path(folder, "x.jsonl")
+            log.write_text('["rate_limit_event"]\n' + json.dumps({"type": "rate_limit_event", "rate_limit_info": "x"}))
+            self.assertEqual(nightly.last_rate_limit([log]), "x")
+
+    def test_the_digest_of_a_night_without_one_never_shows_an_earlier_one(self):
+        with tempfile.TemporaryDirectory() as root:
+            saved = nightly.ROOT
+            self.addCleanup(setattr, nightly, "ROOT", saved)
+            nightly.ROOT = Path(root)
+            for night in ("2026-10-27", "2026-10-28"):
+                Path(root, ".build/retro", night).mkdir(parents=True)
+            Path(root, ".build/retro/2026-10-27/digest.md").write_text("old digest\n")
+            out = io_of(lambda: nightly.main(["digest"]))
+            self.assertIn("No tooling digest for 2026-10-28", out)
+            self.assertNotIn("old digest", out)
+
+
+def io_of(call):
+    import contextlib
+    import io
+    buffer = io.StringIO()
+    with contextlib.redirect_stdout(buffer):
+        call()
+    return buffer.getvalue()
+
+
+class TidySlices(unittest.TestCase):
+    """scripts/tidy.sh's .slices/ cleanup, run whole in a scratch clone with gh and the board faked."""
+
+    ROWS = "PVTI_done  Done\t-\tA\nPVTI_todo  In Progress\t-\tB\n"
+
+    def tidy(self, slices, rows=ROWS, board_fails=False):
+        root = Path(os.path.realpath(tempfile.mkdtemp()))
+        self.addCleanup(shutil.rmtree, root, True)
+        run = lambda *a, cwd=root / "main": subprocess.run(a, cwd=cwd, check=True, capture_output=True, text=True)
+        run("git", "init", "-q", "--bare", "-b", "main", str(root / "origin.git"), cwd=root)
+        run("git", "clone", "-q", str(root / "origin.git"), "main", cwd=root)
+        (root / "main/scripts").mkdir()
+        for name in ("tidy.sh", "common.sh"):
+            shutil.copy(Path(__file__).with_name(name), root / "main/scripts" / name)
+        board = root / "main/scripts/board.sh"
+        board.write_text("#!/bin/bash\n" + ("echo 'quota spent' >&2; exit 1\n" if board_fails
+                                             else f"[ \"$1\" = list ] && printf '{rows}'\n"))
+        board.chmod(0o755)
+        bin_dir = root / "bin"
+        bin_dir.mkdir()
+        (bin_dir / "gh").write_text("#!/bin/bash\nexit 0\n")
+        (bin_dir / "gh").chmod(0o755)
+        run("git", "-c", "user.email=t@example.com", "-c", "user.name=t", "commit", "-q", "--allow-empty", "-m", "base")
+        run("git", "push", "-q", "origin", "main")
+        run("git", "worktree", "add", "-q", "-b", "live-card", str(root / "main/.claude/worktrees/live-card"))
+        for name, text in slices.items():
+            path = root / "main/.slices" / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text)
+        env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}"}
+        out = subprocess.run([str(root / "main/scripts/tidy.sh")], cwd=root / "main", env=env,
+                             capture_output=True, text=True)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        left = sorted(str(p.relative_to(root / "main/.slices")) for p in (root / "main/.slices").rglob("*") if p.is_file())
+        return left, out.stdout
+
+    def test_only_entries_whose_cards_are_all_done_go(self):
+        left, out = self.tidy({"done-plan.md": "Card PVTI_done.", "mixed.md": "PVTI_done, then PVTI_todo",
+                               "live-card-plan.md": "Cites PVTI_done only.", "notes.md": "no card",
+                               "old/run.json": "PVTI_done", "gone.md": "PVTI_gone"})
+        self.assertEqual(left, ["gone.md", "live-card-plan.md", "mixed.md", "notes.md"])
+        self.assertIn("kept", out)
+        self.assertIn("PVTI_gone, which the board doesn't have", out)
+
+    def test_a_folder_naming_one_card_goes(self):
+        left, _ = self.tidy({"one/a.md": "PVTI_done", "one/b.md": "PVTI_done again"})
+        self.assertEqual(left, [])
+
+    def test_a_board_error_keeps_everything_and_says_so(self):
+        left, out = self.tidy({"done-plan.md": "PVTI_done"}, board_fails=True)
+        self.assertEqual(left, ["done-plan.md"])
+        self.assertIn("reading the board failed: quota spent", out)
 
 
 if __name__ == "__main__":
