@@ -104,9 +104,9 @@ project board; agents' technical working files live in `.slices/`.
   link it from the feature's section of the board README, and send its link: the maintainer
   chooses on the phone, where a file on the Mac never reaches them and `SendUserFile` fails in
   a session with no project thread. The link opens on exactly what is being asked: each open
-  question has a page of its own holding only its frames, the canvas's `launch` is set to that
-  page before every message that asks it, and a settled page's name says what was picked. The
-  canvas has no link to a single frame. Since 2026-10-28 a session started from the phone, and the
+  question gets a small canvas of its own holding only its options, and that is the link sent;
+  the feature's canvas keeps the rest. A canvas's `launch` page doesn't do it, since the app
+  reopens the page a returning viewer last saw, and there is no link to a single frame. Since 2026-10-28 a session started from the phone, and the
   subagents it starts, have the Artifact tool; check with ToolSearch before anyone draws, and
   without it publish through an interactive `claude` on the Mac, as agent memory describes.
 - No time estimates. While a phase runs, tell the maintainer in a line now and then what it is
