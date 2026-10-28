@@ -78,11 +78,11 @@ struct WorkoutTests {
         #expect(workout.pausing(at: at(10)).resuming(at: at(25)).clockStart == at(15))
     }
 
-    @Test("Ending offers Finish only once a set is done, and only while in progress")
-    func offersFinish() {
+    @Test("Ending offers Finish only once a set is logged, and only while in progress")
+    func offersFinish() throws {
         #expect(!workout.offersFinish)
-        var done = workout
-        done.completedSets = 1
+        let row = try RoutineExercise.builtIn("Push-up")
+        let done = workout.logging(PlannedSet(row: row.id, round: 1), of: row, at: at(30))
         #expect(done.offersFinish)
         #expect(!done.finishing(at: at(300)).offersFinish)
     }

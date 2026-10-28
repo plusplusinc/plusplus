@@ -17,9 +17,8 @@ public struct Workout: Identifiable, Equatable, Sendable {
     public var pausedSeconds: Double
     /// When it finished; nil while in progress.
     public var endedAt: Date?
-    /// How many sets have been done in it. None can be logged yet, so it stays at zero and is
-    /// not stored: how a done set is kept belongs to logging.
-    public var completedSets: Int
+    /// Every set done in it, in the order logged.
+    public var sets: [LoggedSet]
 
     public init(
         id: UUID = UUID(),
@@ -29,7 +28,7 @@ public struct Workout: Identifiable, Equatable, Sendable {
         pausedAt: Date? = nil,
         pausedSeconds: Double = 0,
         endedAt: Date? = nil,
-        completedSets: Int = 0,
+        sets: [LoggedSet] = [],
     ) {
         self.id = id
         self.routineID = routineID
@@ -38,7 +37,7 @@ public struct Workout: Identifiable, Equatable, Sendable {
         self.pausedAt = pausedAt
         self.pausedSeconds = pausedSeconds
         self.endedAt = endedAt
-        self.completedSets = completedSets
+        self.sets = sets
     }
 
     public var isPaused: Bool {
@@ -52,7 +51,7 @@ public struct Workout: Identifiable, Equatable, Sendable {
     /// Whether ending it offers to finish and keep it: only once a set is done, and while it is
     /// in progress. Otherwise there is nothing to keep, and it can only be discarded.
     public var offersFinish: Bool {
-        isInProgress && completedSets > 0
+        isInProgress && !sets.isEmpty
     }
 
     /// The time spent working out at `now`, pauses left out, in whole seconds rounded down.
@@ -84,6 +83,23 @@ public struct Workout: Identifiable, Equatable, Sendable {
         resumed.pausedSeconds += max(0, now.timeIntervalSince(pausedAt))
         resumed.pausedAt = nil
         return resumed
+    }
+
+    /// With `planned` logged at `now`, at the numbers `row` plans now, done as planned.
+    public func logging(_ planned: PlannedSet, of row: RoutineExercise, at now: Date) -> Self {
+        var logged = self
+        logged.sets.append(LoggedSet(
+            row: row.id,
+            exerciseID: row.exercise.id,
+            round: planned.round,
+            side: planned.side,
+            target: row.plan.target,
+            weight: row.shownWeight,
+            plannedTarget: row.plan.target,
+            plannedWeight: row.shownWeight,
+            loggedAt: now,
+        ))
+        return logged
     }
 
     /// Finished at `now`, a pause in progress counting as paused; unchanged if already finished.
