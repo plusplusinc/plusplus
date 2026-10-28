@@ -124,8 +124,9 @@ which `scripts/conversations.py` prints without the tool calls, so a day reads i
 kilobytes rather than the tens of megabytes of transcripts. Changing the retro means changing
 the skill.
 
-`scripts/nightly-retro.sh` installs the launchd agent, runs the retro once, and prints whether
-it's installed and running and its last reply, read from the transcript.
+`scripts/nightly-retro.sh` installs the launchd agent, runs the night once, and prints whether
+it's installed and running, the retro's last reply, read from the transcript, and the tooling
+runner's last digest.
 
 After the retro, the same run hands over to `scripts/nightly-tooling.py`, which takes standalone
 cards carrying a `Nightly:` line (the /brief skill says which qualify) one at a time: up to three
@@ -186,8 +187,8 @@ minimized. On any other simulator it leaves the settings alone, since that one i
 
 ## Permissions
 
-`.claude/settings.json` pre-approves the scripts except `nightly-retro.sh`, which starts an
-unattended Claude Code session; read-only `xcodebuild`, `git`, `gh`, and `asc` commands (plus
+`.claude/settings.json` pre-approves the scripts except `nightly-retro.sh` and
+`nightly-tooling.py`, which start unattended Claude Code sessions; read-only `xcodebuild`, `git`, `gh`, and `asc` commands (plus
 `asc xcode-cloud run`; see `docs/xcode-cloud.md`); and `simctl`, with `simctl erase` and
 `simctl delete`, uploads and notarization, and force pushes denied. Both take any device, or
 `all`, so a wrong argument would wipe a person's simulators; `scripts/sim.sh erase` erases only
