@@ -14,6 +14,19 @@ extension RoutineScreen {
         currentExercise?.id
     }
 
+    /// The set a workout does next: the first in the routine's order not yet logged.
+    var currentSet: PlannedSet? {
+        session.workout.flatMap { routine.nextSet(after: $0.sets) }
+    }
+
+    /// Logs the set the slide was on, at the numbers its row shows, the progress line rolling
+    /// to the next.
+    func log(_ set: PlannedSet, of row: RoutineExercise) {
+        withAnimation(.snappy(duration: SetMotion.roll)) {
+            session.log(set, of: row)
+        }
+    }
+
     /// The exercise after the first, the current one in a workout, whose row stays in view
     /// under it.
     var nextExercise: RoutineExercise? {

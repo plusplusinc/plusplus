@@ -14,6 +14,8 @@ public struct RowLabel: View {
     private let spokenDetail: String?
     private let focus: RowFocus?
     private let standing: RowStanding?
+    /// Logs the current exercise's set, given with `focus`: the slide under its numbers.
+    private let onLog: (() -> Void)?
 
     /// The current exercise's numbers: 104pt at the default size.
     @ScaledMetric(relativeTo: .largeTitle) private var figureSize: CGFloat = 104
@@ -31,12 +33,14 @@ public struct RowLabel: View {
         spokenDetail: String? = nil,
         focus: RowFocus? = nil,
         standing: RowStanding? = nil,
+        onLog: (() -> Void)? = nil,
     ) {
         self.title = title
         self.detail = detail
         self.spokenDetail = spokenDetail
         self.focus = focus
         self.standing = standing
+        self.onLog = onLog
     }
 
     /// A row whose detail is one line, or none.
@@ -96,11 +100,7 @@ public struct RowLabel: View {
                             .opacity(focus == nil ? 1 : 0)
                         }
                         if let focus {
-                            Text(focus.progress)
-                                .font(.ppCurrentProgress)
-                                .foregroundStyle(.pp(.textSecondary))
-                                // Whole, wrapped as far as it needs: only the numbers give way.
-                                .fixedSize(horizontal: false, vertical: true)
+                            progressLine(focus)
                                 .transition(.opacity)
                         }
                     }
@@ -114,7 +114,22 @@ public struct RowLabel: View {
                                 ),
                             )
                     }
-                    if let focus {
+                    if let focus, let onLog {
+                        // Below the numbers, which give way first.
+                        VStack(alignment: .leading, spacing: Spacing.lg) {
+                            figures(focus)
+                            SlideToLog(onLog: onLog)
+                                .layoutPriority(1)
+                        }
+                        .transition(
+                            .asymmetric(
+                                insertion: .scale(scale: 0.3, anchor: .topLeading)
+                                    .combined(with: .opacity)
+                                    .animation(.snappy(duration: 0.35).delay(0.2)),
+                                removal: .opacity.animation(.snappy(duration: 0.15)),
+                            ),
+                        )
+                    } else if let focus {
                         // In once the rows below have mostly stepped aside, so the numbers
                         // don't grow over them.
                         figures(focus)
@@ -130,6 +145,29 @@ public struct RowLabel: View {
                 }
             }
         }
+    }
+
+    /// Which set it is on, "Set 1 of 3", and the side, "· Left", set off in the name's color.
+    /// A new set rolls in from below as the old one rolls out above.
+    private func progressLine(_ focus: RowFocus) -> some View {
+        var line = AttributedString(focus.progress)
+        if let side = focus.side {
+            line += AttributedString("\(noBreakSpace)·\(noBreakSpace)")
+            var sideText = AttributedString(side)
+            sideText.foregroundColor = .pp(.textPrimary)
+            line += sideText
+        }
+        // Clipped around the line, so the rolls show only within it.
+        return ZStack(alignment: .topLeading) {
+            Text(line)
+                .font(.ppCurrentProgress)
+                .foregroundStyle(.pp(.textSecondary))
+                // Whole, wrapped as far as it needs: only the numbers give way.
+                .fixedSize(horizontal: false, vertical: true)
+                .id(line)
+                .transition(.push(from: .bottom))
+        }
+        .clipped()
     }
 
     /// Each number large, with what it counts beside it, or, where the two don't fit side by
@@ -162,7 +200,8 @@ public struct RowLabel: View {
 
     private var spokenLabel: String {
         let parts = if let focus {
-            [title, focus.progress, focus.spokenFigures]
+            [title, [focus.progress, focus.side].compactMap(\.self).joined(separator: ", "),
+             focus.spokenFigures]
         } else {
             [title, spokenDetail ?? detail.joined(separator: ", ")]
         }
@@ -226,6 +265,8 @@ private struct TitleFont: ViewModifier, Animatable {
 public struct RowFocus: Equatable {
     /// Which set it is on: "Set 1 of 3".
     public var progress: String
+    /// The side the set works, "Left", for an exercise done one side at a time.
+    public var side: String?
     /// The exercise's own equipment, as capsules; none for an exercise that needs none.
     public var equipment: [String]
     public var figures: [Figure]
@@ -233,11 +274,13 @@ public struct RowFocus: Equatable {
     public var spokenFigures: String
     public init(
         progress: String,
+        side: String? = nil,
         equipment: [String] = [],
         figures: [Figure],
         spokenFigures: String,
     ) {
         self.progress = progress
+        self.side = side
         self.equipment = equipment
         self.figures = figures
         self.spokenFigures = spokenFigures

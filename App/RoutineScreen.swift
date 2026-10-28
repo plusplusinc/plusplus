@@ -133,6 +133,7 @@ struct RoutineScreen: View {
         // Read once here, so the rows' closure holds them as values: a list crossfading out keeps
         // drawing its rows with what it had, rather than the workout it is fading into.
         let currentID = currentID
+        let currentSet = currentSet
         let underBar = underBarCut
         // The screen's height below the bar is known in the pass that lays out the list, so the
         // current exercise is sized from it in that pass (`RowStanding`).
@@ -176,11 +177,15 @@ struct RoutineScreen: View {
                                 title: item.exercise.name,
                                 detail: item.detailParts(locale: locale),
                                 spokenDetail: item.spokenDetail(locale: locale),
-                                focus: item.id == currentID ? item.focus(
-                                    inSuperset: routine.isInSuperset(item.id),
-                                    locale: locale,
-                                ) : nil,
+                                focus: currentSet.flatMap { set in
+                                    item.id == currentID ? item.focus(
+                                        on: set,
+                                        inSuperset: routine.isInSuperset(item.id),
+                                        locale: locale,
+                                    ) : nil
+                                },
                                 standing: item.id == routine.exercises.first?.id ? standing : nil,
+                                onLog: currentSet.map { set in { log(set, of: item) } },
                             )
                             .id(item.id)
                             .padding(.top, item.id == currentID ? Self.currentTopSpace : 0)

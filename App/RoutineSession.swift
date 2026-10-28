@@ -117,6 +117,14 @@ final class RoutineSession {
         workoutWrites.yield(.save(changed))
     }
 
+    /// Logs `planned`, a set of `row`, at the numbers `row` plans now.
+    func log(_ planned: PlannedSet, of row: RoutineExercise, at now: Date = .now) {
+        guard let workout else { return }
+        let logged = workout.logging(planned, of: row, at: now)
+        self.workout = logged
+        workoutWrites.yield(.save(logged))
+    }
+
     /// Finishes the workout, keeping it with the name the routine shows now.
     func finish(routineName: String, at now: Date = .now) {
         guard let workout else { return }

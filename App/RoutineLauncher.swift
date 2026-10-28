@@ -64,13 +64,21 @@ struct RoutineLauncher: View {
                 try await store.deleteAll()
                 if let seed = LaunchOptions.seededRoutine {
                     let unit = WeightUnit(region: locale)
-                    try await store.save(Routine(
+                    var routine = Routine(
                         name: seed.name,
                         exercises: seed.exercises.map { RoutineExercise(
                             exercise: $0,
                             weightUnit: unit,
                         ) },
-                    ))
+                    )
+                    if let superset = seed.superset {
+                        for index in superset.dropLast()
+                            where routine.exercises.indices.contains(index + 1)
+                        {
+                            routine.join(routine.exercises[index].id, .below)
+                        }
+                    }
+                    try await store.save(routine)
                 }
             }
             #endif
