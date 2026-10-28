@@ -574,14 +574,18 @@ class Night:
 
     def wait_merge(self, n):
         """The merge commit, or None when the checks failed or the hour ran out."""
-        subprocess.run(["gh", "pr", "checks", str(n), "--watch", "--interval", "60", "--required"],
-                       cwd=ROOT, capture_output=True, timeout=3600, check=False)
+        try:
+            subprocess.run(["gh", "pr", "checks", str(n), "--watch", "--interval", "60", "--required"],
+                           cwd=ROOT, capture_output=True, timeout=3600, check=False)
+        except subprocess.TimeoutExpired:
+            pass
         for _ in range(10):
             pr = gh_json("pr", "view", str(n), "--json", "state,mergeCommit,statusCheckRollup")
             if pr["state"] == "MERGED":
                 return pr["mergeCommit"]["oid"]
+            # A check run has a conclusion; a commit status, such as Xcode Cloud's, a state.
             if any(c.get("conclusion") in ("FAILURE", "CANCELLED", "TIMED_OUT")
-                   for c in pr["statusCheckRollup"]):
+                   or c.get("state") in ("FAILURE", "ERROR") for c in pr["statusCheckRollup"]):
                 return None
             time.sleep(60)
         return None
