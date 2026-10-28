@@ -25,7 +25,7 @@ would split it, `bash -c`, `eval`, and `$(...)` included, and denies a merge of 
 merge`, `gh api` on a merge path, a GraphQL mutation), any `asc xcode-cloud` command that starts
 or changes a build or workflow, a gh alias being defined, turning off git's hooks, a push or PR
 that would start an Xcode Cloud run once tonight's runs reach four or this month's PR hours pass
-70, and, from 7 am, any new agent or anything but reading and committing. Any error in it denies
+70, and, from 7 am, any new agent, edit but the handoff, or command but reading and committing. Any error in it denies
 the call. It reads only what the command line shows, so two checks back it whatever a command
 hides: git runs the night's `pre-push` hook (through GIT_CONFIG_* in the card's environment) on
 every push, refusing one past the budget, with tonight's runs counted from Xcode Cloud itself;
@@ -56,6 +56,10 @@ USAGE_STOP = 0.9
 MORNING_RESERVE = 0.5
 HOURS_LIMIT = 70  # this month's Xcode Cloud PR hours, of the plan's 100
 RUN_LIMIT = 4  # Xcode Cloud PR runs a night's cards may start
+# A read the hooks wait on gives up after this, well inside the hook's own timeout, so a slow
+# service denies the call rather than letting Claude Code run it when the hook times out.
+READ_TIMEOUT = 60
+HOOK_TIMEOUT = 300
 
 # A PR touching one of these is never merged at night (fnmatch, where * also matches /). The
 # runner's own files are here too, so no night can loosen its gates.
@@ -141,10 +145,11 @@ def night_window(now):
     return day.replace(hour=CUTOFF_HOUR), day.replace(hour=STOP_HOUR)
 
 
-def is_uncapped(info, stop):
-    """Whether every limit but the five-hour one resets by `stop`: the night before the weekly reset."""
+def is_uncapped(info, now, stop):
+    """Whether every limit but the five-hour one resets after `now` and by `stop`: the night before
+    the weekly reset. A reset already past starts a new week, which a night doesn't spend."""
     weekly = [window(w) for name, w in windows(info).items() if name != "five_hour"]
-    return bool(weekly) and all(w and w[1] <= stop.timestamp() for w in weekly)
+    return bool(weekly) and all(w and now.timestamp() < w[1] <= stop.timestamp() for w in weekly)
 
 
 def usage_gate(info, now, cutoff, stop, uncapped):
@@ -467,17 +472,17 @@ def safe_late(words):
     return tool_args(words[:1], "git") is not None and git_call(words[1:])[1] in SAFE_LATE_GIT
 
 
-def hook_decision(tool, command, now, stop, handoff, run_gate):
-    """None to allow a card's tool call, else the reason it's denied. run_gate(starts) is None when
-    one more Xcode Cloud run fits tonight, else why not; it is called only for a call that may
-    start one."""
+def hook_decision(tool, command, now, stop, handoff, run_gate, path=""):
+    """None to allow a card's tool call, else the reason it's denied. `command` is a Bash call's,
+    `path` an edit's file. run_gate(starts) is None when one more Xcode Cloud run fits tonight,
+    else why not; it is called only for a call that may start one."""
     late = now >= stop
     late_reason = (f"It is past {STOP_HOUR} am, so the night starts nothing new. Commit what builds, "
                    f"write the handoff note to {handoff}, and end your turn.")
-    if tool in ("Agent", "Task"):
-        return late_reason if late else None
+    if tool in ("Edit", "Write", "NotebookEdit"):
+        return late_reason if late and path != handoff else None
     if tool != "Bash":
-        return None
+        return late_reason if late else None
     never, starts = call_risks(command)
     if never:
         return never
@@ -499,8 +504,8 @@ def digest_block(pr, sha, files, proof):
 
 # The world: git, gh, asc, the board, and claude.
 
-def sh(*args, cwd=ROOT, stdin=None, check=True):
-    result = subprocess.run(args, cwd=cwd, input=stdin, capture_output=True, text=True)
+def sh(*args, cwd=ROOT, stdin=None, check=True, timeout=None):
+    result = subprocess.run(args, cwd=cwd, input=stdin, capture_output=True, text=True, timeout=timeout)
     if check and result.returncode != 0:
         raise RuntimeError(f"{' '.join(args)}: {result.stderr.strip() or result.stdout.strip()}")
     return result.stdout
@@ -532,12 +537,13 @@ def board(*args, stdin=None):
 
 
 def classify(files):
-    return sh(str(ROOT / "scripts/pr-check.sh"), "classify", stdin="\n".join(files) + "\n").strip()
+    return sh(str(ROOT / "scripts/pr-check.sh"), "classify", stdin="\n".join(files) + "\n",
+              timeout=READ_TIMEOUT).strip()
 
 
 def xcode_cloud_runs(limit=200):
     out = sh("asc", "xcode-cloud", "build-runs", "--workflow-id", PR_WORKFLOW, "--sort", "-number",
-             "--limit", str(limit))
+             "--limit", str(limit), timeout=READ_TIMEOUT)
     return json.loads(out)["data"]
 
 
@@ -567,6 +573,11 @@ def tidy():
     subprocess.run([str(ROOT / "scripts/tidy.sh")], cwd=ROOT, check=False)
 
 
+def main_checkout():
+    """The main checkout, where .slices/, .build/retro/, and the worktrees live, from any worktree."""
+    return Path(sh("git", "rev-parse", "--path-format=absolute", "--git-common-dir").strip()).parent
+
+
 def slug(title):
     words = re.findall(r"[a-z0-9]+", title.lower())
     return "night-" + "-".join(words[:6])
@@ -589,7 +600,6 @@ class Night:
 
     def logs(self):
         return sorted(self.dir.glob("*.jsonl"), key=lambda p: p.stat().st_mtime)
-
 
     def run(self):
         self.dir.mkdir(parents=True, exist_ok=True)
@@ -614,8 +624,8 @@ class Night:
         cutoff, stop = self.window
         while True:
             info = last_rate_limit(self.logs())
-            uncapped = is_uncapped(info, stop)
             now = self.clock()
+            uncapped = is_uncapped(info, now, stop)
             if now >= cutoff:
                 self.ended = log(f"No more cards: it is past {CUTOFF_HOUR} am.")
                 return
@@ -640,7 +650,6 @@ class Night:
                 self.show_plan(card, info, uncapped)
                 return
             self.cards += 1
-            self.current = card
             if self.take(card, info) == "stop":
                 return
             self.current = None
@@ -702,20 +711,23 @@ class Night:
                 f"/nightly-card {item} {worktree} {branch}"]
 
     def paths(self, title):
+        """A worktree and branch whose name no worktree, branch, or PR has used, so an earlier
+        card's PR can never be read as this one's."""
         name = slug(title)
-        main = Path(sh("git", "rev-parse", "--path-format=absolute", "--git-common-dir").strip()).parent
-        worktree = main / ".claude/worktrees" / name
-        n = 2
-        while worktree.exists():
-            worktree = main / ".claude/worktrees" / f"{name}-{n}"
-            n += 1
+        used = set(sh("git", "for-each-ref", "--format=%(refname:lstrip=-1)", "refs/heads",
+                      "refs/remotes/origin").split())
+        used |= {pr["headRefName"] for pr in gh_json("pr", "list", "--state", "all", "--search",
+                                                     f"head:{name}", "--json", "headRefName")}
+        worktree, n = main_checkout() / ".claude/worktrees" / name, 2
+        while worktree.exists() or worktree.name in used:
+            worktree, n = main_checkout() / ".claude/worktrees" / f"{name}-{n}", n + 1
         return worktree, worktree.name
 
     def settings(self, worktree, path):
         hook = f"/usr/bin/env python3 {ROOT / 'scripts/nightly-tooling.py'} hook {self.dir} {worktree}"
         path.write_text(json.dumps({
-            "hooks": {"PreToolUse": [{"matcher": "Bash|Agent|Task",
-                                      "hooks": [{"type": "command", "command": hook, "timeout": 60}]}]},
+            "hooks": {"PreToolUse": [{"matcher": "Bash|Agent|Task|Edit|Write|NotebookEdit|mcp__.*",
+                                      "hooks": [{"type": "command", "command": hook, "timeout": HOOK_TIMEOUT}]}]},
         }, indent=2))
 
     def git_env(self):
@@ -755,6 +767,7 @@ class Night:
         settings = self.dir / f"card-{n}-settings.json"
         self.settings(worktree, settings)
         board("status", item, "In Progress")
+        self.current = card
         board("state", item, stdin=f"- Nightly run of {self.start:%Y-%m-%d}, card {n}: led by "
               f"scripts/nightly-tooling.py, not a session.\n- Worktree: `.claude/worktrees/{branch}`, "
               f"branch `{branch}`; handoff `{handoff}`.\n")
@@ -791,6 +804,8 @@ class Night:
             return "stop"
         if not pr:
             return self.park(item, title, None, f"no PR; its lead ended with: {reply or 'nothing'}")
+        if pr["state"] == "CLOSED":
+            return self.park(item, title, pr, f"its PR was closed; its lead ended with: {reply or 'nothing'}")
         return self.decide(item, title, pr)
 
     def decide(self, item, title, pr):
@@ -842,22 +857,17 @@ class Night:
         return "merged"
 
     def wait_merge(self, n):
-        """The merge commit, or None when the checks failed or the hour ran out."""
-        try:
-            subprocess.run(["gh", "pr", "checks", str(n), "--watch", "--interval", "60", "--required"],
-                           cwd=ROOT, capture_output=True, timeout=3600, check=False)
-        except subprocess.TimeoutExpired:
-            pass
-        for _ in range(10):
+        """The merge commit, or None when the required check, "PR check", failed or an hour passed.
+        Polled once a minute, since a check may not exist yet when auto-merge is armed."""
+        deadline = time.monotonic() + 3600
+        while True:
             pr = gh_json("pr", "view", str(n), "--json", "state,mergeCommit,statusCheckRollup")
             if pr["state"] == "MERGED":
                 return pr["mergeCommit"]["oid"]
-            # A check run has a conclusion; a commit status, such as Xcode Cloud's, a state.
-            if any(c.get("conclusion") in ("FAILURE", "CANCELLED", "TIMED_OUT")
-                   or c.get("state") in ("FAILURE", "ERROR") for c in pr["statusCheckRollup"]):
+            if any(c.get("name") == "PR check" and c.get("conclusion") in ("FAILURE", "CANCELLED", "TIMED_OUT")
+                   for c in pr["statusCheckRollup"]) or time.monotonic() > deadline:
                 return None
             time.sleep(60)
-        return None
 
     def proof(self, runs, sha, built, files):
         check = "PR check passed, lint only"
@@ -961,9 +971,11 @@ def hook_check(folder, worktree):
     state = json.loads((folder / "state.json").read_text())
     now = datetime.now().astimezone()
     # A push's start is recorded by the pre-push hook it then meets; a PR's here.
-    return hook_decision(call["tool_name"], (call.get("tool_input") or {}).get("command") or "", now,
+    tool_input = call.get("tool_input") or {}
+    return hook_decision(call["tool_name"], tool_input.get("command") or "", now,
                          datetime.fromisoformat(state["stop"]), state["handoff"],
-                         lambda starts: run_budget(folder, worktree, state, record=starts != "push"))
+                         lambda starts: run_budget(folder, worktree, state, record=starts != "push"),
+                         tool_input.get("file_path") or tool_input.get("notebook_path") or "")
 
 
 def run_budget(folder, worktree, state, record):
@@ -1008,7 +1020,7 @@ def main(args):
     elif args[:1] == ["pre-push"] and len(args) == 2:
         pre_push(args[1])
     elif args[:1] == ["digest"]:
-        folders = [Path(args[1])] if len(args) > 1 else sorted((ROOT / ".build/retro").glob("20*"))
+        folders = [Path(args[1])] if len(args) > 1 else sorted((main_checkout() / ".build/retro").glob("20*"))
         if not folders:
             print("No nightly tooling digest yet.")
         elif (folders[-1] / "digest.md").exists():

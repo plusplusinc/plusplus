@@ -14,7 +14,6 @@ extra cases.
 """
 import json
 import pathlib
-import re
 import subprocess
 import sys
 from datetime import datetime
@@ -32,8 +31,6 @@ def asc(*args):
 
 def git(*args):
     return subprocess.run(["git", "-C", str(ROOT), *args], capture_output=True, text=True)
-
-
 
 
 def find_run(runs, branch=None, number=None):

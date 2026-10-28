@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -91,11 +92,14 @@ class Usage(unittest.TestCase):
 
     def test_uncapped_only_when_every_weekly_window_resets_by_seven(self):
         resets_at_seven = (STOP - NIGHT).total_seconds() / 3600
-        self.assertTrue(nightly.is_uncapped(info(week_resets=resets_at_seven), STOP))
-        self.assertFalse(nightly.is_uncapped(info(week_resets=resets_at_seven + 0.1), STOP))
+        self.assertTrue(nightly.is_uncapped(info(week_resets=resets_at_seven), NIGHT, STOP))
+        self.assertFalse(nightly.is_uncapped(info(week_resets=resets_at_seven + 0.1), NIGHT, STOP))
         other = {"seven_day_opus": {"utilization": 0, "resetsAt": at(50), "status": "allowed"}}
-        self.assertFalse(nightly.is_uncapped(info(week_resets=1, **other), STOP))
-        self.assertFalse(nightly.is_uncapped(None, STOP))
+        self.assertFalse(nightly.is_uncapped(info(week_resets=1, **other), NIGHT, STOP))
+        self.assertFalse(nightly.is_uncapped(None, NIGHT, STOP))
+
+    def test_a_weekly_reset_already_past_is_a_new_week_not_an_uncapped_night(self):
+        self.assertFalse(nightly.is_uncapped(info(week_resets=-0.5), NIGHT, STOP))
 
     def test_reads_the_last_event_in_the_night_logs(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -259,15 +263,15 @@ func testG() {}
         self.assertEqual(nightly.count_tests(source), 3)
 
 
-def decide(command="", tool="Bash", now=NIGHT, app=True, runs=0, hours=10):
+def decide(command="", tool="Bash", now=NIGHT, app=True, runs=0, hours=10, path=""):
     """The hook's decision, with a run_gate built from what the branch changes and the night's runs."""
     gate = lambda starts: app and nightly.xcode_cloud_gate(hours, runs)  # noqa: E731
-    return nightly.hook_decision(tool, command, now, STOP, ".slices/h.md", gate) or None
+    return nightly.hook_decision(tool, command, now, STOP, ".slices/h.md", gate, path) or None
 
 
 class Hook(unittest.TestCase):
-    def decide(self, tool, command="", now=NIGHT, app=False, runs=0, hours=10):
-        return decide(command, tool, now, app, runs, hours)
+    def decide(self, tool, command="", now=NIGHT, app=False, runs=0, hours=10, path=""):
+        return decide(command, tool, now, app, runs, hours, path)
 
     def test_ordinary_work_is_allowed(self):
         self.assertIsNone(self.decide("Bash", "scripts/build.sh"))
@@ -298,7 +302,22 @@ class Hook(unittest.TestCase):
         self.assertIn("past 7", self.decide("Bash", "scripts/build.sh", now=late))
         self.assertIn("past 7", self.decide("Bash", "git push", now=late))
         self.assertIsNone(self.decide("Bash", "cd /w && git add -A && git commit -m handoff", now=late))
-        self.assertIsNone(self.decide("Write", now=late))
+        self.assertIsNone(self.decide("Write", now=late, path=".slices/h.md"))
+        for tool in ("Write", "Edit", "NotebookEdit"):
+            self.assertIn("past 7", self.decide(tool, now=late, path="App/Root.swift"), tool)
+            self.assertIsNone(self.decide(tool, path="App/Root.swift"), tool)
+        self.assertIn("past 7", self.decide("mcp__xcode__BuildProject", now=late))
+        self.assertIsNone(self.decide("mcp__xcode__BuildProject"))
+        self.assertIsNone(self.decide("Read", now=STOP - timedelta(minutes=1)))
+
+    def test_the_hook_sees_edits_and_mcp_calls_and_outlasts_its_reads(self):
+        with tempfile.TemporaryDirectory() as folder:
+            nightly.Night(folder, NIGHT, False).settings("/w", Path(folder, "s.json"))
+            hook = json.loads(Path(folder, "s.json").read_text())["hooks"]["PreToolUse"][0]
+        for tool in ("Bash", "Agent", "Edit", "Write", "mcp__xcode__RunAllTests"):
+            self.assertRegex(tool, f"^({hook['matcher']})$")
+        # Two reads (classify, then Xcode Cloud) give up before Claude Code would time the hook out.
+        self.assertGreater(hook["hooks"][0]["timeout"], 2 * nightly.READ_TIMEOUT + 30)
 
     def test_from_seven_a_pipe_or_substitution_is_no_way_out(self):
         late = STOP + timedelta(minutes=1)
@@ -412,6 +431,26 @@ class Decide(unittest.TestCase):
         self.assertFalse([c for c in self.calls if "--auto" in c])
         self.assertIn("can't read", self.night.parked[0])
 
+    def test_a_branch_or_pr_name_already_used_is_never_reused(self):
+        self.git("branch", "night-card")
+        saved = nightly.gh_json
+        self.addCleanup(setattr, nightly, "gh_json", saved)
+        nightly.gh_json = lambda *a: [{"headRefName": "night-card-2"}]
+        worktree, branch = self.night.paths("Card")
+        self.assertEqual((branch, worktree.name), ("night-card-3", "night-card-3"))
+
+    def test_auto_merge_waits_for_the_pr_check_and_only_it(self):
+        saved = nightly.gh_json, nightly.time.sleep
+        self.addCleanup(lambda: (setattr(nightly, "gh_json", saved[0]), setattr(nightly.time, "sleep", saved[1])))
+        nightly.time.sleep = lambda s: None
+        views = [{"state": "OPEN", "statusCheckRollup": []},
+                 {"state": "OPEN", "statusCheckRollup": [{"name": "Route", "conclusion": "FAILURE"}]},
+                 {"state": "MERGED", "mergeCommit": {"oid": "abc"}, "statusCheckRollup": []}]
+        nightly.gh_json = lambda *a: views.pop(0)
+        self.assertEqual(nightly.Night.wait_merge(self.night, 7), "abc")
+        nightly.gh_json = lambda *a: {"state": "OPEN", "statusCheckRollup": [{"name": "PR check", "conclusion": "FAILURE"}]}
+        self.assertIsNone(nightly.Night.wait_merge(self.night, 7))
+
     def test_a_scheme_or_lint_script_change_waits(self):
         for name in ("PlusPlus.xcodeproj/xcshareddata/xcschemes/PlusPlus.xcscheme", "scripts/lint.sh"):
             self.git("checkout", "-q", "main")
@@ -449,7 +488,7 @@ class Loop(unittest.TestCase):
             night.tried.add(card[0])
             return results[len(taken) - 1]
 
-        night.take = take or taking
+        night.take = (lambda card, info: take(night, card, info)) if take else taking
         night.taken = taken
         night.run()
         return night
@@ -468,7 +507,8 @@ class Loop(unittest.TestCase):
         nightly.board = lambda *a, stdin=None: board_calls.append((a, stdin))
         nightly.tidy = lambda: None
 
-        def crash(card, _):
+        def crash(night, card, _):
+            night.current = card  # as take() does once the card is In Progress
             raise AttributeError("'list' object has no attribute 'get'")
 
         night = self.night([], weekly_resets=100, take=crash, finish=True)
@@ -632,13 +672,13 @@ class Malformed(unittest.TestCase):
             decision, why = nightly.usage_gate(info(seven_day=w), NIGHT, CUTOFF, STOP, False)
             self.assertEqual(decision, "stop", w)
             self.assertIn("seven_day", why)
-            self.assertFalse(nightly.is_uncapped(info(week_resets=1, seven_day=w), STOP), w)
+            self.assertFalse(nightly.is_uncapped(info(week_resets=1, seven_day=w), NIGHT, STOP), w)
             self.assertIn("seven_day unreadable", nightly.usage_line(info(seven_day=w)))
 
     def test_info_that_isnt_an_object_reads_as_no_event(self):
         for value in ["allowed", 3, [1], {"unifiedWindows": "x"}, {"unifiedWindows": [1]}]:
             self.assertEqual(nightly.usage_gate(value, NIGHT, CUTOFF, STOP, False)[0], "stop", value)
-            self.assertFalse(nightly.is_uncapped(value, STOP))
+            self.assertFalse(nightly.is_uncapped(value, NIGHT, STOP))
             self.assertEqual(nightly.usage_line(value), "unknown")
 
     def test_lines_that_are_json_but_not_events_are_skipped(self):
@@ -652,9 +692,9 @@ class Malformed(unittest.TestCase):
 
     def test_the_digest_of_a_night_without_one_never_shows_an_earlier_one(self):
         with tempfile.TemporaryDirectory() as root:
-            saved = nightly.ROOT
-            self.addCleanup(setattr, nightly, "ROOT", saved)
-            nightly.ROOT = Path(root)
+            saved = nightly.main_checkout
+            self.addCleanup(setattr, nightly, "main_checkout", saved)
+            nightly.main_checkout = lambda: Path(root)
             for night in ("2026-10-27", "2026-10-28"):
                 Path(root, ".build/retro", night).mkdir(parents=True)
             Path(root, ".build/retro/2026-10-27/digest.md").write_text("old digest\n")
@@ -695,10 +735,14 @@ class TidySlices(unittest.TestCase):
         run("git", "-c", "user.email=t@example.com", "-c", "user.name=t", "commit", "-q", "--allow-empty", "-m", "base")
         run("git", "push", "-q", "origin", "main")
         run("git", "worktree", "add", "-q", "-b", "live-card", str(root / "main/.claude/worktrees/live-card"))
+        old = time.time() - 2 * 86400
         for name, text in slices.items():
             path = root / "main/.slices" / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(text)
+        for path in (root / "main/.slices").rglob("*"):
+            if not path.name.startswith("fresh"):
+                os.utime(path, (old, old))
         env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}"}
         out = subprocess.run([str(root / "main/scripts/tidy.sh")], cwd=root / "main", env=env,
                              capture_output=True, text=True)
@@ -709,8 +753,8 @@ class TidySlices(unittest.TestCase):
     def test_only_entries_whose_cards_are_all_done_go(self):
         left, out = self.tidy({"done-plan.md": "Card PVTI_done.", "mixed.md": "PVTI_done, then PVTI_todo",
                                "live-card-plan.md": "Cites PVTI_done only.", "notes.md": "no card",
-                               "old/run.json": "PVTI_done", "gone.md": "PVTI_gone"})
-        self.assertEqual(left, ["gone.md", "live-card-plan.md", "mixed.md", "notes.md"])
+                               "old/run.json": "PVTI_done", "gone.md": "PVTI_gone", "fresh-plan.md": "PVTI_done"})
+        self.assertEqual(left, ["fresh-plan.md", "gone.md", "live-card-plan.md", "mixed.md", "notes.md"])
         self.assertIn("kept", out)
         self.assertIn("PVTI_gone, which the board doesn't have", out)
 

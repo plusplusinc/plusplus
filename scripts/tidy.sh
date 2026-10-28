@@ -145,8 +145,8 @@ while read -r branch; do
 done < <(git for-each-ref --format='%(refname:short)' refs/heads)
 
 # .slices/ entries of finished cards. One named after a live worktree or local branch (`<name>`,
-# `<name>-plan.md`, `<name>.json`) is work still going and stays, whatever cards it cites. Any
-# other goes once every card it names is Done, read in one `board.sh list` request, made only when
+# `<name>-plan.md`, `<name>.json`), or touched in the last day, is work still going and stays,
+# whatever cards it cites. Any other goes once every card it names is Done, read in one `board.sh list` request, made only when
 # such an entry names a card. One naming a card the board doesn't have stays, and says so.
 SLICES="$ROOT/.slices"
 if [ -d "$SLICES" ]; then
@@ -163,6 +163,7 @@ if [ -d "$SLICES" ]; then
         while read -r prefix; do
             case "$name" in "$prefix" | "$prefix"-* | "$prefix".*) owned=true && break ;; esac
         done <<< "$live"
+        [ -n "$(find "$entry" -newermt "-$FRESH_SECONDS seconds" -print -quit)" ] && owned=true
         $owned || candidates+=("$entry")
     done
     if [ "${#candidates[@]}" -gt 0 ] && grep -rqE 'PVTI_' "${candidates[@]}" 2> /dev/null; then
