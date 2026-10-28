@@ -97,6 +97,7 @@ public struct SlideToLog: View {
             .hotReloadable()
     }
 
+    #if os(iOS)
     private func drag(_ phase: SlideToLogGesture.Phase, translation: CGFloat, travel: CGFloat) {
         switch phase {
         case .changed:
@@ -111,6 +112,7 @@ public struct SlideToLog: View {
             withAnimation(.snappy(duration: SetMotion.springBack)) { progress = 0 }
         }
     }
+    #endif
 
     /// The key finishes its slide as the set logs, rests while the progress line rolls, then
     /// fades out at the end and in again at the start.
