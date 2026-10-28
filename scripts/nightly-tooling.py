@@ -72,6 +72,7 @@ def die(message):
 
 def log(message):
     print(f"{datetime.now().strftime('%H:%M')} {message}", flush=True)
+    return message
 
 
 def local(stamp):
@@ -362,6 +363,7 @@ class Night:
         self.usage = []
         self.tried = set()
         self.cards = 0
+        self.ended = "no card was eligible"
 
     def logs(self):
         return sorted(self.dir.glob("*.jsonl"), key=lambda p: p.stat().st_mtime)
@@ -378,7 +380,7 @@ class Night:
         sh("git", "fetch", "--quiet", "origin", "main")
         self.tests_before = test_counts("origin/main")
         if not self.window:
-            log(f"No tooling cards: they start only from midnight to {CUTOFF_HOUR} am.")
+            self.ended = log(f"No tooling cards: they start only from midnight to {CUTOFF_HOUR} am.")
             return self.finish()
         cutoff, stop = self.window
         while True:
@@ -386,14 +388,15 @@ class Night:
             uncapped = is_uncapped(info, stop)
             now = self.clock()
             if now >= cutoff:
-                log(f"No more cards: it is past {CUTOFF_HOUR} am.")
+                self.ended = log(f"No more cards: it is past {CUTOFF_HOUR} am.")
                 break
             if not cards_left(self.cards, uncapped):
-                log(f"No more cards: {self.cards} tonight, the limit on a night the weekly limit doesn't reset.")
+                self.ended = log(f"No more cards: {self.cards} tonight, the limit on a night the weekly "
+                                 "limit doesn't reset.")
                 break
             decision, detail = usage_gate(info, now, cutoff, stop, uncapped)
             if decision == "stop":
-                log(f"No more cards: {detail}.")
+                self.ended = log(f"No more cards: {detail}.")
                 break
             if decision == "wait":
                 log(f"Waiting for the five-hour window to reset at {detail:%H:%M}.")
@@ -408,7 +411,14 @@ class Night:
                 self.show_plan(card, info, uncapped)
                 break
             self.cards += 1
-            if self.take(card, info) == "limit":
+            try:
+                if self.take(card, info) == "limit":
+                    self.ended = "A usage limit stopped a card's run."
+                    break
+            except (RuntimeError, OSError, ValueError, subprocess.SubprocessError) as error:
+                # Nothing after a failure is trusted: end the night, with the digest saying why.
+                self.ended = log(f"No more cards: the runner failed on \"{card[1]}\": {error}")
+                self.parked.append(f"{card[1]}: the runner failed ({error}); check its card, worktree, and PR")
                 break
         return self.finish()
 
@@ -441,7 +451,7 @@ class Night:
                     self.tried.add(item)
                 continue
             return item, title, body
-        log("No eligible tooling card left in Todo.")
+        self.ended = log("No eligible tooling card left in Todo.")
         return None
 
     def push_count(self):
@@ -618,6 +628,7 @@ class Night:
         lines += [f"Waiting: {w}" for w in self.waiting]
         lines += [f"Behind main: #{pr['number']} {pr['title']}" for pr in behind]
         lines += [f"Usage: {u}" for u in self.usage]
+        lines.append(f"Ended: {self.ended}")
         text = "\n".join(lines)
         (self.dir / "digest.md").write_text(text + "\n")
         print(text)
