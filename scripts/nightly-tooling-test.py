@@ -263,5 +263,141 @@ class Digest(unittest.TestCase):
                                "verifier record at abc1234, PR check passed on Xcode Cloud run 330 — undo: git revert 0123456")
 
 
+class Decide(unittest.TestCase):
+    """Night.decide against a real git repo, with gh and the board recorded instead of called."""
+
+    def setUp(self):
+        self.repo = Path(tempfile.mkdtemp())
+        self.git("init", "-q", "-b", "main")
+        self.git("config", "user.email", "night@example.com")
+        self.git("config", "user.name", "night")
+        for name in (".swiftlint.yml", "scripts/a.py"):
+            self.write(name, "x\n")
+        self.write("Packages/Tests/WorkoutStoreTests/T.swift", "@Test func a() {}\n@Test func b() {}\n")
+        self.git("add", "-A")
+        self.git("commit", "-qm", "base")
+        self.git("update-ref", "refs/remotes/origin/main", "HEAD")
+        self.calls = []
+        real = nightly.sh
+
+        def sh(*args, cwd=None, stdin=None, check=True):
+            if args[0] == "git":
+                return "" if args[1] == "fetch" else real(*args, cwd=self.repo, stdin=stdin, check=check)
+            self.calls.append(" ".join(str(a) for a in args))
+            return "me\n" if args[:3] == ("gh", "api", "user") else ""
+
+        self.saved = nightly.sh, nightly.ROOT
+        nightly.sh, nightly.ROOT = sh, self.repo
+        self.night = nightly.Night(self.repo / "night", NIGHT, False)
+        self.night.wait_merge = lambda n: "f" * 40
+
+    def tearDown(self):
+        nightly.sh, nightly.ROOT = self.saved
+
+    def git(self, *args):
+        return nightly.subprocess.run(["git", *args], cwd=self.repo, check=True, capture_output=True,
+                                      text=True).stdout.strip()
+
+    def write(self, name, text):
+        path = self.repo / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+
+    def pr(self, change, record="- No findings", body="x"):
+        self.git("checkout", "-q", "-b", "card", "origin/main")
+        change()
+        self.git("add", "-A")
+        self.git("commit", "-qm", "card")
+        sha = self.git("rev-parse", "HEAD")
+        comments = [{"body": f"Verifier record, {sha[:7]}\n{record}", "author": {"login": "me"}}] if record else []
+        return {"number": 7, "title": "Card", "headRefOid": sha, "body": body, "comments": comments}
+
+    def test_a_passing_card_arms_auto_merge_at_its_head(self):
+        pr = self.pr(lambda: self.write("scripts/a.py", "y\n"))
+        self.assertEqual(self.night.decide("PVTI_1", "Card", pr), "merged")
+        self.assertIn(f"gh pr merge 7 --auto --squash --match-head-commit {pr['headRefOid']}", self.calls)
+
+    def test_a_renamed_protected_file_waits_unmerged_and_the_digest_says_so(self):
+        pr = self.pr(lambda: (self.repo / ".swiftlint.yml").rename(self.repo / "lint.yml"))
+        self.assertEqual(self.night.decide("PVTI_1", "Card", pr), "waiting")
+        self.assertFalse([c for c in self.calls if c.startswith("gh pr merge")])
+        self.assertIn(".swiftlint.yml", self.night.waiting[0])
+
+    def test_a_failed_card_goes_to_draft_with_auto_merge_off_and_its_state_says_why(self):
+        pr = self.pr(lambda: self.write("scripts/a.py", "y\n"), record="- criterion, new: it broke")
+        self.assertEqual(self.night.decide("PVTI_1", "Card", pr), "parked")
+        self.assertIn("gh pr merge 7 --disable-auto", self.calls)
+        self.assertIn("gh pr ready 7 --undo", self.calls)
+        self.assertTrue(any(c.endswith("board.sh state PVTI_1") for c in self.calls))
+        self.assertIn("it broke", self.night.parked[0])
+
+    def test_no_merge_without_a_verifier_record(self):
+        pr = self.pr(lambda: self.write("scripts/a.py", "y\n"), record=None)
+        self.assertEqual(self.night.decide("PVTI_1", "Card", pr), "parked")
+        self.assertFalse([c for c in self.calls if "--auto" in c])
+
+    def test_a_test_count_drop_without_its_line_parks(self):
+        pr = self.pr(lambda: self.write("Packages/Tests/WorkoutStoreTests/T.swift", "@Test func a() {}\n"))
+        self.assertEqual(self.night.decide("PVTI_1", "Card", pr), "parked")
+
+
+class Loop(unittest.TestCase):
+    """Night.run's card count, with the board, the PRs, and each card's run stubbed."""
+
+    BODY = "## Problem\nx\n\nNightly: faster CI; its time\n\n## Success\nRun it.\n"
+
+    def night(self, results, weekly_resets):
+        cards = [(f"PVTI_{i}", "Todo", "-", f"card {i}", self.BODY) for i in range(4)]
+        stubs = {"board_cards": lambda: cards, "xcode_cloud_runs": lambda: [], "gh_json": lambda *a: [],
+                 "classify": lambda files: "app: x", "sh": lambda *a, **k: "", "test_counts": lambda rev: {}}
+        saved = {name: getattr(nightly, name) for name in stubs}
+        self.addCleanup(lambda: [setattr(nightly, n, f) for n, f in saved.items()])
+        for name, stub in stubs.items():
+            setattr(nightly, name, stub)
+        folder = Path(tempfile.mkdtemp())
+        event = info(week_resets=weekly_resets)
+        (folder / "retro.jsonl").write_text(json.dumps({"type": "rate_limit_event", "rate_limit_info": event}) + "\n")
+        night = nightly.Night(folder, NIGHT, False)
+        night.clock, night.finish = (lambda: NIGHT), (lambda: None)
+        taken = []
+
+        def take(card, _):
+            taken.append(card[1])
+            night.tried.add(card[0])
+            return results[len(taken) - 1]
+
+        night.take = take
+        night.run()
+        return taken
+
+    def test_four_eligible_cards_on_a_capped_night_three_run(self):
+        self.assertEqual(self.night(["merged"] * 4, weekly_resets=100), ["card 0", "card 1", "card 2"])
+
+    def test_after_a_failed_card_the_next_runs(self):
+        self.assertEqual(self.night(["parked", "merged", "merged", "merged"], weekly_resets=100),
+                         ["card 0", "card 1", "card 2"])
+
+    def test_the_uncapped_night_takes_the_fourth(self):
+        resets_at_seven = (STOP - NIGHT).total_seconds() / 3600
+        self.assertEqual(len(self.night(["merged"] * 4, weekly_resets=resets_at_seven)), 4)
+
+
+class Bypass(unittest.TestCase):
+    """Spellings of a merge or an Xcode Cloud run that the hook has to stop. These fail today."""
+
+    def decide(self, command, app_push=True, pushes=9):
+        return nightly.hook_decision("Bash", command, NIGHT, STOP, app_push, pushes, 10, ".slices/h.md")
+
+    def test_a_merge_with_the_repo_flag_is_denied(self):
+        for command in ["gh pr -R plusplusinc/plusplus merge 7 --squash", "gh -R plusplusinc/plusplus pr merge 7",
+                        "gh api repos/plusplusinc/plusplus/pulls/7/merge -X PUT"]:
+            self.assertIsNotNone(self.decide(command, app_push=False), command)
+
+    def test_a_push_past_the_limit_is_denied_however_it_is_spelled(self):
+        for command in ["git -c push.default=current push", "FOO=1 git push", "bash -c 'git push'",
+                        "asc xcode-cloud run --workflow-id x"]:
+            self.assertIsNotNone(self.decide(command), command)
+
+
 if __name__ == "__main__":
     unittest.main()
