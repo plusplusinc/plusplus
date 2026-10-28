@@ -110,6 +110,13 @@ Anything the maintainer throws out, or the lead finds along the way, becomes a c
 `/brief`, which looks for one already there and places it in that queue; a small tooling or
 process change the lead recommends in answer to their question is made then, in its own PR,
 not offered as a card. Working files go in `.slices/`.
+The maintainer's time is for the product. Tooling, CI, tests, and process (a standalone card
+that changes nothing they see in the app, and the nightly retro's PR) are the lead's to find,
+card, align, build, verify, and merge on its own once CI is green, alongside a product slice
+where it can, telling them in a line what landed (Dave, 2026-10-28). It checks first that the
+change is worth its cost and safe to undo. What reaches outside the repo or can't be undone
+still waits for their word: spending money, or Xcode Cloud hours beyond the plan, a `v*` tag,
+an account's settings, deleting what isn't the lead's.
 
 ## Working in the project
 
