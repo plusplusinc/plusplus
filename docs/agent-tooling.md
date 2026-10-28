@@ -139,11 +139,17 @@ verifier record before it arms auto-merge, while a PR touching a protected path 
 and what steers the night's agents) or only `.claude/` and `docs/` waits for the maintainer and
 a failed one goes back to draft. A PreToolUse hook it passes each card's claude runs before the
 permission rules and overrides their allow: it reads each command as the shell splits it and
-denies a merge, an `asc xcode-cloud` command that starts or changes a build, a push or new PR
-past the night's four Xcode Cloud runs (counted from Xcode Cloud), and anything new from 7 am;
-any error in it denies the call. What a command line hides meets two more checks: the card's
-git runs the night's pre-push hook on every push, and the runner ends the night when a card's
-PR was merged by anyone else. Its digest, in the night's folder, is what `show` prints after the retro's reply. It exists because
+denies a merge, an `asc xcode-cloud` command that starts or changes a build, an `asc api` write,
+inline or piped code run by a shell or interpreter, a push or new PR past the night's four Xcode
+Cloud runs (counted from Xcode Cloud), and anything new from 7 am; it keeps a card's writes in
+its worktree and `.slices/`, away from the runner, the night's folder, and config dotfiles; any
+error in it denies the call. Claude Code's own sandbox can't hold these writes instead: under it
+`gh` fails TLS verification and SwiftPM's nested sandbox fails, so both would run outside it.
+What a command line hides, such as a script file the card writes and runs, meets three more
+checks: the card's git runs the night's pre-push hook on every push; the runner turns auto-merge
+off on every PR a card opened unless it arms one itself; and it ends the night, naming them at
+the top of the digest, on any PR merged since the night started that it didn't arm. Its digest,
+in the night's folder, is what `show` prints after the retro's reply. It exists because
 doing these by hand gets three things wrong, which its header explains: the agent's plist needs
 the main checkout's paths, which a tracked file can't hold in a public repo; the calling Claude
 Code session's variables leak into a run; and a second run can start.

@@ -23,13 +23,22 @@ card it would take and the command it would run, then stops before changing anyt
 the permission rules, and its deny wins over their allow. It reads each Bash command as the shell
 would split it, `bash -c`, `eval`, and `$(...)` included, and denies a merge of a PR (`gh pr
 merge`, `gh api` on a merge path, a GraphQL mutation), any `asc xcode-cloud` command that starts
-or changes a build or workflow, a gh alias being defined, turning off git's hooks, a push or PR
-that would start an Xcode Cloud run once tonight's runs reach four or this month's PR hours pass
-70, and, from 7 am, any new agent, edit but the handoff, or command but reading and committing. Any error in it denies
-the call. It reads only what the command line shows, so two checks back it whatever a command
-hides: git runs the night's `pre-push` hook (through GIT_CONFIG_* in the card's environment) on
+or changes a build or workflow and any `asc api` call but a GET, a gh alias being defined,
+turning off git's hooks, a shell or interpreter run on inline or piped code (`python3 -c`, `| sh`,
+a heredoc into a shell), a push or PR that would start an Xcode Cloud run once tonight's runs
+reach four or this month's PR hours pass 70, and, from 7 am, any new agent, edit but the
+handoff, or command but reading and committing. It keeps a card's writes in its worktree and the
+main checkout's .slices/, and denies a command naming the night's own files: the main checkout,
+the runner, the night's folder, or a dotfile in the home folder. Any error in it denies the call.
+
+It reads only what the command line shows, and a script file the card writes and runs is past
+it: that is the accepted limit, since the night's agents are no adversaries. Three checks back
+it: git runs the night's `pre-push` hook (through GIT_CONFIG_* in the card's environment) on
 every push, refusing one past the budget, with tonight's runs counted from Xcode Cloud itself;
-and the runner ends the night when a card's PR was merged by anyone but itself.
+once a card's claude ends, the runner turns auto-merge off on every PR the card opened, arming
+it again only on a PR that passes every gate; and after each card, and at the end, it lists the
+PRs merged to main since the night started that it didn't arm, ending the night on any and
+putting them at the top of the digest.
 
 Tests: python3 scripts/nightly-tooling-test.py, against fixtures, with no network.
 """
@@ -325,10 +334,61 @@ def unexplained_drops(drops, body):
 SWIFT_NOISE = re.compile(r'//[^\n]*|/\*.*?\*/|"""(?:.|\n)*?"""|"(?:\\.|[^"\\\n])*"', re.S)
 
 
+DISABLED = re.compile(r"\.disabled\b|\.enabled\(\s*if:\s*false\s*\)")
+
+
+def block(code, start):
+    """(open, end) of the first { } block at or after start, braces nested."""
+    first, depth = code.find("{", start), 0
+    if first < 0:
+        return len(code), len(code)
+    for i in range(first, len(code)):
+        depth += {"{": 1, "}": -1}.get(code[i], 0)
+        if depth == 0:
+            return first, i + 1
+    return first, len(code)
+
+
+def without_dead_code(code):
+    """The code without `#if false` (or `0`) blocks, an `#else` branch kept."""
+    kept, depth = [], 0
+    for line in code.split("\n"):
+        directive = line.strip()
+        if depth:
+            if directive.startswith("#if"):
+                depth += 1
+            elif directive.startswith("#endif"):
+                depth -= 1
+            elif directive.startswith(("#else", "#elseif")) and depth == 1:
+                depth = 0
+            continue
+        if re.fullmatch(r"#if\s+(false|0)\b.*", directive):
+            depth = 1
+        else:
+            kept.append(line)
+    return "\n".join(kept)
+
+
 def count_tests(source):
-    """The tests in a Swift file, leaving out any in a comment, such as a test commented out. A
-    heuristic: a nested block comment or a raw string can fool it, which a reviewer of the PR sees."""
-    return len(re.findall(TEST_PATTERN, SWIFT_NOISE.sub("", source)))
+    """The tests in a Swift file that run, so a test commented out or disabled counts as dropped:
+    one in a comment or `#if false`, an `@Test` or `@Suite` with `.disabled` or `.enabled(if:
+    false)`, and an XCTest that throws XCTSkip (XCTSkipIf too, whose condition a reader can't
+    know). A heuristic: a nested block comment, a raw string, or a condition only known at run
+    time (`#if SOME_FLAG`, `.enabled(if: x)`) can fool it, which a reviewer of the PR sees."""
+    code = without_dead_code(SWIFT_NOISE.sub("", source))
+    for suite in reversed(list(re.finditer(r"@Suite\b", code))):
+        first, end = block(code, suite.end())
+        if DISABLED.search(code[suite.end():first]):
+            code = code[:suite.start()] + code[end:]
+    count = 0
+    for test in re.finditer(TEST_PATTERN, code):
+        if test[0].startswith("@Test"):
+            declared = code.find("func", test.end())
+            disabled = DISABLED.search(code[test.end():declared if declared >= 0 else len(code)])
+        else:
+            disabled = "XCTSkip" in code[slice(*block(code, test.end()))]
+        count += not disabled
+    return count
 
 
 # What a card may still run past 7 am: reading, and committing what builds.
@@ -336,6 +396,9 @@ SAFE_LATE = {"cd", "ls", "cat", "head", "tail", "grep"}
 SAFE_LATE_GIT = {"add", "commit", "status", "diff", "log", "show", "rev-parse"}
 SEPARATORS = {";", "&", "&&", "|", "||", "|&", "(", ")"}
 SHELLS = {"bash", "sh", "zsh", "dash", "ksh"}
+INTERPRETERS = re.compile(r"python[\d.]*|node|perl|ruby|osascript")
+WRAPPERS = {"env", "command", "exec", "nohup", "time", "xargs", "nice", "timeout", "caffeinate"}
+WRAPPER_VALUES = {"-u", "-n", "-I", "-L", "-P", "-S", "-C", "-s"}  # wrapper options that take a value
 GIT_VALUE_OPTIONS = {"-c", "-C", "--git-dir", "--work-tree", "--namespace", "--exec-path", "--config-env"}
 # asc xcode-cloud words that start a build or change a workflow or product.
 ASC_CHANGES = {"run", "create", "update", "duplicate", "delete"}
@@ -358,10 +421,11 @@ def without_heredocs(command):
     return "\n".join(kept)
 
 
-def commands(command, depth=0):
+def commands(command, depth=0, targets=False):
     """Each simple command in a shell command line, as its words, with those `bash -c`, `eval`,
     `$(...)`, and backticks run. A line shlex can't split is read again without its quotes, which
-    finds more commands, never fewer."""
+    finds more commands, never fewer. With targets, a redirection's file is kept as a word, after
+    its direction: `>file` or `<file`."""
     # A newline ends a command; inside quotes the added ";" changes only this reading of the text.
     text = without_heredocs(command).replace("\n", " ; ")
     lexer = shlex.shlex(text, posix=True, punctuation_chars=";&|()<>")
@@ -369,17 +433,21 @@ def commands(command, depth=0):
     try:
         tokens = list(lexer)
     except ValueError:
-        return commands(re.sub(r"[\"'\\]", " ", text), depth + 1) if depth < 3 else [text.split()]
-    found, words, skip = [], [], False
+        return (commands(re.sub(r"[\"'\\]", " ", text), depth + 1, targets) if depth < 3
+                else [text.split()])
+    found, words, redirect = [], [], None
     for token in [*tokens, ";"]:
-        if skip:
-            skip = False
+        if redirect:
+            # `>&` and `2>&` duplicate a descriptor: what follows is a number, not a file.
+            if targets and not redirect.endswith("&"):
+                words.append((">" if ">" in redirect else "<") + token)
+            redirect = None
         elif token in SEPARATORS:
             if words:
                 found.append(words)
             words = []
         elif set(token) <= set("<>&") or re.fullmatch(r"\d?[<>]+&?", token):
-            skip = True  # a redirection and its target
+            redirect = token
         else:
             words.append(token)
     if depth >= 3:
@@ -393,7 +461,44 @@ def commands(command, depth=0):
                 inner.append(after[1])
             if word == "eval":
                 inner.append(" ".join(after))
-    return found + [words for text in inner for words in commands(text, depth + 1)]
+    return found + [words for text in inner for words in commands(text, depth + 1, targets)]
+
+
+def program(words):
+    """(name, args) of the program a simple command runs, past assignments and wrappers such as
+    env, xargs, and timeout, with their options."""
+    i = 0
+    while i < len(words):
+        word, name = words[i], words[i].rsplit("/", 1)[-1]
+        if re.fullmatch(r"\w+=.*", word) or name in WRAPPERS:
+            i += 1
+        elif i and (word.startswith("-") or re.fullmatch(r"[\d.]+[smhd]?", word)):
+            i += 2 if word in WRAPPER_VALUES else 1
+        else:
+            return name, words[i + 1:]
+    return "", []
+
+
+def runs_inline_code(words):
+    """Whether a simple command runs a shell or an interpreter on code that isn't a file: `python3
+    -c`, `node -e`, `perl -e`, or code read from stdin (a pipe, a heredoc, a here-string). A
+    shell's `-c` is allowed, since commands() reads its code."""
+    name, args = program(words)
+    if name in SHELLS:
+        if args[:1] and re.fullmatch(r"-\w*c\w*", args[0]):
+            return False
+        return "-s" in args or not [a for a in args if not a.startswith("-")]
+    if not INTERPRETERS.fullmatch(name):
+        return False
+    inline = r"-[a-zA-Z]*c" if name.startswith("python") else r"-[a-zA-Z]*[eE]|-p"
+    for arg in args:
+        if arg == "-" or re.match(inline, arg) or arg.split("=")[0] in ("--eval", "--print"):
+            return True
+        if arg == "-m" and name.startswith("python"):
+            return False
+        if not arg.startswith("-"):
+            return False  # a script file
+    return True  # no script file: it reads stdin
 
 
 def tool_args(words, name):
@@ -436,14 +541,23 @@ def call_risks(command):
     """
     starts = None
     for words in commands(command):
-        if re.search(r"hookspath|GIT_CONFIG|--no-verify", " ".join(words), re.I):
-            return "The night's git hooks stay on: no --no-verify, core.hooksPath, or GIT_CONFIG_*.", None
+        if hooks_off(words):
+            return ("The night's git hooks stay on: no --no-verify, core.hooksPath, GIT_CONFIG_* changed, "
+                    "or environment cleared."), None
+        if runs_inline_code(words):
+            return ("At night no shell or interpreter runs inline or piped code (python3 -c, node -e, "
+                    "perl -e, | sh, a heredoc or here-string into a shell): write the script to a file "
+                    "in the worktree and run that."), None
         git = tool_args(words, "git")
         if git is not None and git_call(git)[1] == "push":
             starts = starts or "push"
         gh = tool_args(words, "gh")
         if gh is not None:
             group, *rest = positionals(gh) or [""]
+            # gh's command words are written out, so the checks below read what gh will run.
+            spelled = [group] + (rest[:1] if group != "api" else [])
+            if group and not all(re.fullmatch(r"[a-z][a-z-]*", w) for w in spelled):
+                return "At night gh's command words are written out in full: no variables or globs.", None
             if group == "pr" and rest[:1] == ["merge"]:
                 return "The nightly runner arms auto-merge itself, once the verifier has passed. Never merge.", None
             # A query read from a file or stdin can't be checked, so it counts as a mutation.
@@ -463,7 +577,26 @@ def call_risks(command):
             if ASC_CHANGES & {w for w in after if not w.startswith("-")}:
                 return ("No Xcode Cloud run is started, and no workflow or product changed, at night: "
                         "a push to the PR starts its run."), None
+        # asc's raw API: anything but a GET writes to App Store Connect.
+        asc_words = [w for w in asc or [] if not w.startswith("-")]
+        if "api" in asc_words and [w.upper() for w in asc_words[asc_words.index("api") + 1:][:1]] != ["GET"]:
+            return "At night asc api only reads: GET, never POST, PATCH, or DELETE.", None
     return None, starts
+
+
+def hooks_off(words):
+    """Whether a simple command turns off the night's pre-push hook: git's --no-verify or
+    core.hooksPath, a GIT_CONFIG_* variable set or removed, or the environment cleared."""
+    name, args = program(words)
+    if name == "git" and any(w == "--no-verify" or re.search("hookspath", w, re.I) for w in args):
+        return True
+    if any(re.match(r"GIT_CONFIG\w*=", w) for w in words):
+        return True
+    first = words[0].rsplit("/", 1)[-1]
+    if first in ("env", "unset", "export", "declare", "typeset") and (
+            any(w.startswith("GIT_CONFIG") for w in words) or {"-i", "-", "--ignore-environment"} & set(words)):
+        return True
+    return any(w == "-u" and nxt.startswith("GIT_CONFIG") for w, nxt in zip(words, words[1:]))
 
 
 def safe_late(words):
@@ -472,21 +605,96 @@ def safe_late(words):
     return tool_args(words[:1], "git") is not None and git_call(words[1:])[1] in SAFE_LATE_GIT
 
 
-def hook_decision(tool, command, now, stop, handoff, run_gate, path=""):
+class Fence:
+    """Where a card's agents may write: its worktree and the main checkout's .slices/, but not the
+    worktree's Claude Code settings, which the running session reloads. What a command names may
+    not be the night's own files: the main checkout (the runner, its hooks, the night's folder,
+    git's config), the runner's own checkout, or a dotfile in the home folder (gh's, git's, Claude
+    Code's, and asc's config)."""
+
+    def __init__(self, worktree, main, night, cwd=None):
+        self.cwd = self.real(cwd or worktree)
+        worktree = self.real(worktree)
+        self.writable = [worktree, self.real(main) / ".slices"]
+        self.live = [worktree / ".claude/settings*.json", worktree / ".mcp.json"]
+        self.home = self.real("~")
+        self.guarded_roots = [self.real(main), self.real(ROOT), self.real(night), self.home / "Library/LaunchAgents"]
+
+    @staticmethod
+    def real(path, cwd=None):
+        path = re.sub(r"^(\$HOME|\$\{HOME\})(?=/|$)", "~", str(path))
+        path = Path(os.path.expanduser(path))
+        return Path(os.path.realpath(path if path.is_absolute() or cwd is None else cwd / path))
+
+    def resolve(self, path):
+        return self.real(path, self.cwd)
+
+    def may_write(self, path):
+        path = self.resolve(path)
+        return (any(path == root or root in path.parents for root in self.writable)
+                and not any(fnmatch.fnmatch(str(path), str(live)) for live in self.live))
+
+    def guarded(self, path):
+        """Whether a path a command names is one of the night's own files."""
+        if self.may_write(path):
+            return False
+        path = self.resolve(path)
+        if any(path == root or root in path.parents for root in self.guarded_roots):
+            return True
+        return self.home in path.parents and path.relative_to(self.home).parts[0].startswith(".")
+
+    def named(self, command):
+        """The night's own files a Bash command names, in a word, an option's value, or a redirection."""
+        found = []
+        for words in commands(command, targets=True):
+            for word in words:
+                for part in {word.lstrip("<>@"), word.split("=", 1)[-1].lstrip("<>@")}:
+                    if (part.startswith(("/", "~", ".", "$HOME", "${HOME}")) or "/" in part) and self.guarded(part):
+                        found.append(part)
+        return sorted(set(found))
+
+
+def strings(value):
+    """Every string in a tool call's input, however deep."""
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for item in value.values():
+            yield from strings(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from strings(item)
+
+
+def hook_decision(tool, command, now, stop, handoff, run_gate, fence, path="", inputs=()):
     """None to allow a card's tool call, else the reason it's denied. `command` is a Bash call's,
-    `path` an edit's file. run_gate(starts) is None when one more Xcode Cloud run fits tonight,
-    else why not; it is called only for a call that may start one."""
+    `path` an edit's file, `inputs` the strings in any other tool's input. run_gate(starts) is
+    None when one more Xcode Cloud run fits tonight, else why not; it is called only for a call
+    that may start one."""
     late = now >= stop
     late_reason = (f"It is past {STOP_HOUR} am, so the night starts nothing new. Commit what builds, "
                    f"write the handoff note to {handoff}, and end your turn.")
+    fenced = ("At night a card writes only in its worktree and the main checkout's .slices/, and no "
+              "command names the night's own files (the main checkout, the runner, the night's folder, "
+              "git's, gh's, asc's, or Claude Code's config): ")
     if tool in ("Edit", "Write", "NotebookEdit"):
-        return late_reason if late and path != handoff else None
+        if not fence.may_write(path):
+            return fenced + path
+        return late_reason if late and fence.resolve(path) != fence.resolve(handoff) else None
     if tool != "Bash":
+        named = [s for s in inputs if s.startswith(("/", "~")) and fence.guarded(s)]
+        if named:
+            return fenced + ", ".join(named)
         return late_reason if late else None
     never, starts = call_risks(command)
     if never:
         return never
-    if late and (starts or not all(safe_late(words) for words in commands(command))):
+    named = fence.named(command)
+    if named:
+        return fenced + ", ".join(named)
+    writes = [w for words in commands(command, targets=True) for w in words
+              if w.startswith(">") and w != ">/dev/null"]
+    if late and (starts or writes or not all(safe_late(words) for words in commands(command))):
         return late_reason
     if starts:
         why = run_gate(starts)
@@ -513,6 +721,14 @@ def sh(*args, cwd=ROOT, stdin=None, check=True, timeout=None):
 
 def gh_json(*args):
     return json.loads(sh("gh", *args))
+
+
+def disable_auto(n):
+    """Turns a PR's auto-merge off, and makes sure: gh fails on a PR that has none to turn off,
+    so the check reads the PR again rather than trusting gh's exit."""
+    sh("gh", "pr", "merge", str(n), "--disable-auto", check=False)
+    if sh("gh", "pr", "view", str(n), "--json", "autoMergeRequest", "--jq", ".autoMergeRequest != null").strip() == "true":
+        raise RuntimeError(f"auto-merge is still on for #{n}")
 
 
 def board_cards():
@@ -592,10 +808,13 @@ class Night:
         self.merged = []  # (pr, merge commit, files, head, verifier's commit)
         self.parked = []
         self.waiting = []
+        self.armed = set()  # the PRs the runner armed auto-merge on
         self.usage = []
         self.tried = set()
         self.cards = 0
         self.me = None  # the account the verifier comments as, read once a night
+        self.unarmed = []  # PRs merged to main tonight that the runner didn't arm
+        self.unchecked = []  # what the runner couldn't make sure of, for the top of the digest
         self.ended = "no card was eligible"
 
     def logs(self):
@@ -613,6 +832,10 @@ class Night:
             self.ended = log(f"No more cards: the runner failed: {type(error).__name__}: {error}")
             if self.current:
                 self.left_in_progress(self.current, error)
+                try:
+                    self.disarm()
+                except Exception as again:  # noqa: BLE001 - the digest says so, at the top
+                    self.unchecked.append(f"turning auto-merge off on tonight's PRs failed ({again})")
         return self.finish()
 
     def loop(self):
@@ -653,6 +876,8 @@ class Night:
             if self.take(card, info) == "stop":
                 return
             self.current = None
+            if self.audit():
+                return
 
     def left_in_progress(self, card, error):
         """Says on the card, and in the digest, that the runner failed while taking it."""
@@ -783,6 +1008,8 @@ class Night:
             except subprocess.TimeoutExpired:
                 process.terminate()
                 process.wait()
+        # Whatever happens next, no PR the card opened merges unless the runner arms it below.
+        extra = [n for n in self.disarm() if n not in self.armed]
         lines = stream.read_text(errors="replace").splitlines()
         after = last_rate_limit([stream])
         self.usage.append(f"{title}: {usage_line(info)} → {usage_line(after)}")
@@ -790,6 +1017,10 @@ class Night:
         prs = gh_json("pr", "list", "--head", branch, "--state", "all",
                       "--json", "number,title,state,headRefOid,body,comments")
         pr = prs[0] if prs else None
+        others = [n for n in extra if not pr or n != pr["number"]]
+        if others:
+            self.waiting.append(f"{title} also opened " + ", ".join(f"#{n}" for n in others)
+                                + ", left unmerged with auto-merge off")
         if limit_hit(lines):
             self.park(item, title, pr, "the usage limit stopped its run")
             self.ended = "A usage limit stopped a card's run."
@@ -842,10 +1073,12 @@ class Night:
         if touched or day_only(files):
             why = (f"it touches {', '.join(touched)}, which a night never merges" if touched
                    else "it changes only .claude/ and docs/, which waits for the day")
+            disable_auto(n)
             self.waiting.append(f"#{n} {pr['title']}: {why}")
             board("state", item, stdin=f"- PR #{n} waits for the maintainer, unmerged: {why}.\n")
             log(f"#{n} waits for the maintainer: {why}.")
             return "waiting"
+        self.armed.add(n)
         sh("gh", "pr", "merge", str(n), "--auto", "--squash", "--match-head-commit", sha)
         log(f"#{n}: verifier passed; auto-merge armed at {sha[:7]}.")
         merged = self.wait_merge(n)
@@ -877,11 +1110,41 @@ class Night:
             check = f"PR check passed on Xcode Cloud run {run['attributes']['number']}" if run else "PR check passed"
         return f"verifier record at {built}, {check}"
 
+    def since(self):
+        """The night's start, as GitHub's search reads a time."""
+        return self.start.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def disarm(self):
+        """Turns auto-merge off on every open PR this account opened tonight, and returns their
+        numbers. A failure raises, which ends the night."""
+        prs = gh_json("pr", "list", "--state", "open", "--author", "@me", "--search", f"created:>={self.since()}",
+                      "--json", "number,autoMergeRequest")
+        for pr in prs:
+            if pr.get("autoMergeRequest"):
+                disable_auto(pr["number"])
+        return [pr["number"] for pr in prs]
+
+    def audit(self):
+        """Every PR merged to main since the night started that the runner didn't arm, kept for the
+        top of the digest. Any ends the night: something got past the gates."""
+        try:
+            merged = gh_json("pr", "list", "--state", "merged", "--base", "main", "--search",
+                             f"merged:>={self.since()}", "--json", "number,title,mergedBy,mergeCommit")
+        except FAILURES as error:
+            self.unchecked.append(f"reading tonight's merges failed ({error})")
+            self.ended = log(f"No more cards: {self.unchecked[-1]}.")
+            return True
+        known = {pr["number"] for pr in self.unarmed}
+        self.unarmed += [pr for pr in merged if pr["number"] not in self.armed | known]
+        if self.unarmed:
+            self.ended = log("No more cards: merged to main tonight without the runner: "
+                             + ", ".join(f"#{pr['number']}" for pr in self.unarmed) + ".")
+        return bool(self.unarmed)
+
     def park(self, item, title, pr, why):
         if pr:
-            n = str(pr["number"])
-            sh("gh", "pr", "merge", n, "--disable-auto", check=False)
-            sh("gh", "pr", "ready", n, "--undo", check=False)
+            disable_auto(pr["number"])
+            sh("gh", "pr", "ready", str(pr["number"]), "--undo", check=False)
         where = f"PR #{pr['number']} is a draft with auto-merge off" if pr else "no PR"
         board("state", item, stdin=f"- Parked by the nightly run: {why}. {where}.\n- Next: "
               "a daytime /onward reads the PR and the handoff in `.slices/`.\n")
@@ -895,7 +1158,9 @@ class Night:
         try:
             lines = self.digest()
         except Exception as error:  # noqa: BLE001 - the digest is written whatever fails
-            lines = [f"Nightly tooling {self.start:%Y-%m-%d}: the digest failed ({type(error).__name__}: {error})",
+            lines = [*[f"Merged without the runner: #{pr['number']}" for pr in self.unarmed],
+                     *[f"Not checked: {u}" for u in self.unchecked],
+                     f"Nightly tooling {self.start:%Y-%m-%d}: the digest failed ({type(error).__name__}: {error})",
                      *[f"Parked: {p}" for p in self.parked], *[f"Waiting: {w}" for w in self.waiting],
                      f"Ended: {self.ended}"]
         text = "\n".join(lines)
@@ -921,8 +1186,14 @@ class Night:
                       if pr["mergeStateStatus"] == "BEHIND"]
         except FAILURES as error:
             behind, self.ended = [], f"{self.ended} Reading the open PRs failed: {error}"
-        lines = [f"Nightly tooling {self.start:%Y-%m-%d}: {len(self.merged)} merged, "
-                 f"{len(self.parked)} parked, {len(self.waiting)} waiting for the maintainer"]
+        self.audit()
+        lines = [f"Merged without the runner: #{pr['number']} {pr['title']}, by "
+                 f"{(pr.get('mergedBy') or {}).get('login', 'unknown')}; none of the night's gates ran on it. "
+                 f"Review it; undo: git revert {((pr.get('mergeCommit') or {}).get('oid') or '?')[:7]}"
+                 for pr in self.unarmed]
+        lines += [f"Not checked: {u}" for u in self.unchecked]
+        lines += [f"Nightly tooling {self.start:%Y-%m-%d}: {len(self.merged)} merged, "
+                  f"{len(self.parked)} parked, {len(self.waiting)} waiting for the maintainer"]
         lines += [digest_block(pr, merged, files, self.proof(runs, sha, built, files))
                   for pr, merged, files, sha, built in self.merged]
         lines.append(f"Xcode Cloud: {runs_tonight(runs, self.start, self.dir)} runs tonight, "
@@ -970,20 +1241,24 @@ def hook_check(folder, worktree):
     call = json.load(sys.stdin)
     state = json.loads((folder / "state.json").read_text())
     now = datetime.now().astimezone()
+    # The runner makes each worktree in <main checkout>/.claude/worktrees/.
+    fence = Fence(worktree, Path(worktree).resolve().parents[2], folder, call.get("cwd"))
     # A push's start is recorded by the pre-push hook it then meets; a PR's here.
     tool_input = call.get("tool_input") or {}
     return hook_decision(call["tool_name"], tool_input.get("command") or "", now,
                          datetime.fromisoformat(state["stop"]), state["handoff"],
-                         lambda starts: run_budget(folder, worktree, state, record=starts != "push"),
-                         tool_input.get("file_path") or tool_input.get("notebook_path") or "")
+                         lambda starts: run_budget(folder, worktree, state, record=starts != "push"), fence,
+                         tool_input.get("file_path") or tool_input.get("notebook_path") or "",
+                         list(strings(tool_input)))
 
 
-def run_budget(folder, worktree, state, record):
-    """None when the branch's changes are docs, or one more Xcode Cloud run fits tonight, else why
-    not. Tonight's runs are counted from Xcode Cloud itself, so a run counts however it started;
-    this month's hours are the runner's reading at the card's start."""
-    files = sh("git", "diff", "--name-only", "origin/main...HEAD", cwd=worktree).split()
-    if not files or classify(files) == "docs":
+def run_budget(folder, worktree, state, record, revs=("HEAD",)):
+    """None when the changes of the commits about to be pushed or opened (revs) are docs, or one
+    more Xcode Cloud run fits tonight, else why not. Tonight's runs are counted from Xcode Cloud
+    itself, so a run counts however it started; this month's hours are the runner's reading at
+    the card's start."""
+    files = {f for rev in revs for f in sh("git", "diff", "--name-only", f"origin/main...{rev}", cwd=worktree).split()}
+    if not files or classify(sorted(files)) == "docs":
         return None
     # The night's runs are among the newest few; a cap of four needs no more.
     runs = xcode_cloud_runs(limit=20)
@@ -1000,7 +1275,11 @@ def pre_push(folder):
     folder = Path(folder)
     try:
         state = json.loads((folder / "state.json").read_text())
-        why = run_budget(folder, os.getcwd(), state, record=True)
+        # git gives the hook a line per ref it pushes: local ref, local commit, remote ref, remote
+        # commit. A deleted ref's local commit is all zeros.
+        revs = [line.split()[1] for line in sys.stdin.read().splitlines()
+                if len(line.split()) == 4 and line.split()[1].strip("0")]
+        why = run_budget(folder, os.getcwd(), state, record=True, revs=revs)
     except Exception as error:  # noqa: BLE001 - an error must refuse, whatever it is
         why = f"the nightly pre-push hook failed ({type(error).__name__}: {error})"
     if why:

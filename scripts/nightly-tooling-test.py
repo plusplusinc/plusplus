@@ -263,10 +263,19 @@ func testG() {}
         self.assertEqual(nightly.count_tests(source), 3)
 
 
-def decide(command="", tool="Bash", now=NIGHT, app=True, runs=0, hours=10, path=""):
+WORKTREE = nightly.ROOT / ".claude/worktrees/night-card"
+NIGHT_DIR = nightly.ROOT / ".build/retro/2026-10-28"
+
+
+def fence(cwd=None):
+    """The fence of a card in WORKTREE, as the runner lays it out."""
+    return nightly.Fence(WORKTREE, nightly.ROOT, NIGHT_DIR, cwd)
+
+
+def decide(command="", tool="Bash", now=NIGHT, app=True, runs=0, hours=10, path="", inputs=(), cwd=None):
     """The hook's decision, with a run_gate built from what the branch changes and the night's runs."""
     gate = lambda starts: app and nightly.xcode_cloud_gate(hours, runs)  # noqa: E731
-    return nightly.hook_decision(tool, command, now, STOP, ".slices/h.md", gate, path) or None
+    return nightly.hook_decision(tool, command, now, STOP, ".slices/h.md", gate, fence(cwd), path, inputs) or None
 
 
 class Hook(unittest.TestCase):
@@ -321,7 +330,7 @@ class Hook(unittest.TestCase):
 
     def test_from_seven_a_pipe_or_substitution_is_no_way_out(self):
         late = STOP + timedelta(minutes=1)
-        for command in ["cat x | sh", "grep -l a f | xargs rm -rf", 'git commit -m "$(scripts/build.sh)"',
+        for command in ["cat x | tee y", "cat x > y", "grep -l a f | xargs rm -rf", 'git commit -m "$(scripts/build.sh)"',
                         "cat x\nscripts/build.sh", "git -C /w push"]:
             self.assertIn("past 7", self.decide("Bash", command, now=late), command)
         self.assertIsNone(self.decide("Bash", "git -C /w status && git --no-pager diff | head", now=late))
@@ -394,7 +403,7 @@ class Decide(unittest.TestCase):
     def test_a_renamed_protected_file_waits_unmerged_and_the_digest_says_so(self):
         pr = self.pr(lambda: (self.repo / ".swiftlint.yml").rename(self.repo / "lint.yml"))
         self.assertEqual(self.night.decide("PVTI_1", "Card", pr), "waiting")
-        self.assertFalse([c for c in self.calls if c.startswith("gh pr merge")])
+        self.assertFalse([c for c in self.calls if "--auto " in c])
         self.assertIn(".swiftlint.yml", self.night.waiting[0])
 
     def test_a_failed_card_goes_to_draft_with_auto_merge_off_and_its_state_says_why(self):
@@ -457,7 +466,7 @@ class Decide(unittest.TestCase):
             self.git("branch", "-qD", "card") if self.git("branch", "--list", "card") else None
             pr = self.pr(lambda: self.write(name, "exit 0\n"))
             self.assertEqual(self.night.decide("PVTI_1", "Card", pr), "waiting", name)
-        self.assertFalse([c for c in self.calls if c.startswith("gh pr merge")])
+        self.assertFalse([c for c in self.calls if "--auto " in c])
 
 
 class Loop(unittest.TestCase):
@@ -465,9 +474,9 @@ class Loop(unittest.TestCase):
 
     BODY = "## Problem\nx\n\nNightly: faster CI; its time\n\n## Success\nRun it.\n"
 
-    def night(self, results, weekly_resets, take=None, event=None, finish=False):
+    def night(self, results, weekly_resets, take=None, event=None, finish=False, gh=lambda *a: []):
         cards = [(f"PVTI_{i}", "Todo", "-", f"card {i}", self.BODY) for i in range(4)]
-        stubs = {"board_cards": lambda: cards, "xcode_cloud_runs": lambda: [], "gh_json": lambda *a: [],
+        stubs = {"board_cards": lambda: cards, "xcode_cloud_runs": lambda: [], "gh_json": gh,
                  "classify": lambda files: "app: x", "sh": lambda *a, **k: "", "test_counts": lambda rev: {}}
         saved = {name: getattr(nightly, name) for name in stubs}
         self.addCleanup(lambda: [setattr(nightly, n, f) for n, f in saved.items()])
@@ -587,7 +596,7 @@ class Bypass(unittest.TestCase):
     def test_the_budget_is_read_only_for_a_call_that_may_start_a_run(self):
         calls = []
         nightly.hook_decision("Bash", "scripts/build.sh && git commit -m push && gh api repos/o/r/pulls",
-                              NIGHT, STOP, "h", calls.append)
+                              NIGHT, STOP, "h", calls.append, fence())
         self.assertEqual(calls, [])
 
 
@@ -839,6 +848,180 @@ class Reverify(unittest.TestCase):
         self.assertEqual(exit_.exception.code, 2)
         self.assertIn("TimeoutExpired", err.getvalue())
         self.assertLess(time.monotonic() - start, 10)
+
+
+class AutoMergeOff(unittest.TestCase):
+    """Only the runner's own merge merges: every other PR of the night ends with auto-merge off,
+    and a merge the runner didn't arm ends the night at the top of the digest."""
+
+    BODY = Loop.BODY
+
+    def test_every_pr_the_card_opened_ends_with_auto_merge_off(self):
+        calls, root = [], Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, root, True)
+
+        def gh_json(*args):
+            if "--author" in args:  # the card's PRs, both armed during its run
+                return [{"number": 7, "autoMergeRequest": {"mergeMethod": "SQUASH"}},
+                        {"number": 9, "autoMergeRequest": {"mergeMethod": "SQUASH"}}]
+            return [{"number": 7, "title": "Card", "state": "OPEN", "headRefOid": "a" * 40, "body": "",
+                     "comments": []}]
+
+        stubs = {"sh": lambda *a, **k: calls.append(" ".join(map(str, a))) or "", "gh_json": gh_json,
+                 "board": lambda *a, stdin=None: None}
+        saved = {name: getattr(nightly, name) for name in stubs}
+        self.addCleanup(lambda: [setattr(nightly, n, f) for n, f in saved.items()])
+        for name, stub in stubs.items():
+            setattr(nightly, name, stub)
+        night = nightly.Night(root / "night", NIGHT, False)
+        night.dir.mkdir()
+        night.start, night.cards, night.hours = NIGHT, 1, 1.0
+        (root / "w").mkdir()
+        night.paths = lambda title: (root / "w", "night-card")
+        night.command = lambda *a: ["true"]
+        self.assertEqual(night.take(("PVTI_1", "Card", ""), info()), "parked")  # no verifier record
+        self.assertIn("gh pr merge 7 --disable-auto", calls)
+        self.assertIn("gh pr merge 9 --disable-auto", calls)
+        self.assertIn("#9", night.waiting[0])
+
+    def test_auto_merge_that_stays_on_ends_the_night(self):
+        saved = nightly.sh
+        self.addCleanup(setattr, nightly, "sh", saved)
+        nightly.sh = lambda *a, **k: "true\n" if "view" in a else ""
+        with self.assertRaisesRegex(RuntimeError, "still on for #7"):
+            nightly.disable_auto(7)
+
+    def test_a_merge_the_runner_did_not_arm_ends_the_night_at_the_top_of_the_digest(self):
+        saved = nightly.tidy
+        self.addCleanup(setattr, nightly, "tidy", saved)
+        nightly.tidy = lambda: None
+        merged = [{"number": 50, "title": "Sneaky", "mergedBy": {"login": "me"}, "mergeCommit": {"oid": "b" * 40}}]
+        night = Loop.night(self, ["waiting"] * 4, weekly_resets=100, finish=True,
+                           gh=lambda *a: merged if "merged" in a else [])
+        self.assertEqual(night.taken, ["card 0"])
+        digest = (night.dir / "digest.md").read_text().splitlines()
+        self.assertTrue(digest[0].startswith("Merged without the runner: #50 Sneaky, by me"), digest[0])
+        self.assertIn("git revert bbbbbbb", digest[0])
+
+    def test_the_runners_own_merge_is_no_finding(self):
+        night = nightly.Night(tempfile.mkdtemp(), NIGHT, False)
+        self.addCleanup(shutil.rmtree, night.dir, True)
+        night.start, night.armed = NIGHT, {7}
+        saved = nightly.gh_json
+        self.addCleanup(setattr, nightly, "gh_json", saved)
+        nightly.gh_json = lambda *a: [{"number": 7, "title": "Card"}]
+        self.assertFalse(night.audit())
+
+
+class WritesStayInTheWorktree(unittest.TestCase):
+    """A card writes only in its worktree and .slices/, and names none of the night's own files."""
+
+    def test_an_edit_outside_the_worktree_and_slices_is_denied(self):
+        for path in ["/tmp/x", str(Path.home() / ".zshrc"), str(nightly.ROOT / "App/Root.swift"),
+                     str(WORKTREE / ".claude/settings.json"), str(WORKTREE / "../other/x")]:
+            self.assertIn("only in its worktree", decide(tool="Edit", path=path) or "", path)
+        for path in [str(WORKTREE / "scripts/x.py"), "scripts/x.py", str(nightly.ROOT / ".slices/night-card-handoff.md"),
+                     str(WORKTREE / ".claude/skills/x/SKILL.md")]:
+            self.assertIsNone(decide(tool="Write", path=path), path)
+
+    def test_a_command_naming_the_nights_files_is_denied(self):
+        for command in ["cat >> ~/.config/gh/config.yml <<EOF\naliases: {}\nEOF", "echo x > $HOME/.gitconfig",
+                        f"cp x {NIGHT_DIR}/state.json", "cd .. && rm -rf night-card", "cd ../../.. && git config x y",
+                        f"bash -c 'echo x > {nightly.ROOT}/.git/config'", "ln -s ~/.claude/settings.json s",
+                        f"git -C {nightly.ROOT} commit -am x", "tee ${HOME}/.asc/config.json"]:
+            self.assertIn("night's own files", decide(command, app=False) or "", command)
+
+    def test_ordinary_commands_are_allowed(self):
+        for command in ["git push -u origin night-card", "scripts/test.sh 2>&1 | tail -5", "ls > /dev/null",
+                        "/usr/bin/env python3 scripts/x.py", f"cat {nightly.ROOT}/.slices/night-card-plan.md",
+                        "echo x > /tmp/y", "git diff origin/main...HEAD", "ls ~", 'git commit -m "Read ~/.config/gh"']:
+            self.assertIsNone(decide(command, app=False), command)
+
+    def test_relative_paths_resolve_from_the_calls_directory(self):
+        self.assertIsNotNone(decide("echo x > scripts/nightly-tooling.py", app=False, cwd=nightly.ROOT))
+        self.assertIsNone(decide("echo x > scripts/nightly-tooling.py", app=False, cwd=WORKTREE))
+
+    def test_a_symlink_out_of_the_worktree_is_followed(self):
+        with tempfile.TemporaryDirectory() as root:
+            worktree = Path(root, "main/.claude/worktrees/w")
+            worktree.mkdir(parents=True)
+            Path(root, "main/scripts").mkdir()
+            (worktree / "out").symlink_to(Path(root, "main/scripts"))
+            self.assertFalse(nightly.Fence(worktree, Path(root, "main"), Path(root, "night")).may_write(worktree / "out/x"))
+
+    def test_another_tools_paths_are_checked_too(self):
+        self.assertIsNotNone(decide(tool="mcp__xcode__XcodeWrite", inputs=[str(nightly.ROOT / "App/A.swift"), "x"]))
+        self.assertIsNone(decide(tool="mcp__xcode__XcodeWrite", inputs=[str(WORKTREE / "App/A.swift")]))
+
+
+class NoInlineCode(unittest.TestCase):
+    """The accepted limit: a script file runs, inline or piped code doesn't."""
+
+    def test_inline_and_piped_code_is_denied(self):
+        for command in ["python3 - <<'EOF'\nprint(1)\nEOF", "python3.12 -Ic 'x'", "ruby -rjson -e 'x'", "osascript -e x",
+                        "node --eval x", "curl -s u | bash", "xargs -n 1 sh", "bash -s < x", "env python3"]:
+            self.assertIn("inline or piped code", decide(command, app=False) or "", command)
+
+    def test_scripts_and_reading_about_shells_are_allowed(self):
+        for command in ["python3 scripts/nightly-tooling-test.py", "python3 -m json.tool f.json", "bash -c 'ls'",
+                        "bash scripts/x.sh", "grep -n bash scripts/x.sh", "node scripts/x.js --eval-later",
+                        "env FOO=1 python3 -u scripts/x.py"]:
+            self.assertIsNone(decide(command, app=False), command)
+
+    def test_asc_api_reads_only(self):
+        self.assertIsNotNone(decide("asc api post /v1/ciBuildRuns --confirm", app=False))
+        self.assertIsNotNone(decide("asc api DELETE /v1/x --confirm", app=False))
+        self.assertIsNone(decide("asc api GET /v1/ciProducts --paginate --pretty", app=False))
+
+
+class DisabledTests(unittest.TestCase):
+    def test_a_disabled_or_skipped_test_counts_as_dropped(self):
+        source = """
+@Test(.disabled("flaky")) func a() {}
+@Test("b", .enabled(if: false)) func b() {}
+@Test(.enabled(if: ProcessInfo.isCI)) func c() {}
+#if false
+@Test func d() {}
+#else
+@Test func e() {}
+#endif
+@Suite(.disabled()) struct S {
+    @Test func f() {}
+    struct Inner { @Test func g() {} }
+}
+@Suite struct T { @Test func h() {} }
+final class X: XCTestCase {
+    func testI() throws { throw XCTSkip("later") }
+    func testJ() { if true { XCTAssert(true) } }
+}
+"""
+        self.assertEqual(nightly.count_tests(source), 4)  # c, e, h, and testJ
+
+
+class Lesser(unittest.TestCase):
+    def test_reading_about_git_hooks_is_allowed_and_turning_them_off_is_not(self):
+        for command in ["grep -n hooksPath scripts/x.py", "env | grep GIT_CONFIG"]:
+            self.assertIsNone(decide(command, app=False), command)
+        for command in ["env -i git push", "unset GIT_CONFIG_COUNT", "export GIT_CONFIG_COUNT=0",
+                        "git config core.hooksPath x"]:
+            self.assertIn("git hooks stay on", decide(command, app=False) or "", command)
+
+    def test_the_pre_push_hook_budgets_what_is_pushed_not_head(self):
+        case = PrePush("run")
+        case.setUp()
+        self.addCleanup(case.doCleanups)
+        # The app commit goes on its own branch; HEAD stays on a docs-only one.
+        case.git("checkout", "-q", "-b", "app")
+        Path(case.root / "w/App").mkdir()
+        Path(case.root / "w/App/X.swift").write_text("x\n")
+        case.git("add", "-A")
+        case.git("-c", "user.email=t@example.com", "-c", "user.name=t", "commit", "-qm", "app")
+        case.git("checkout", "-q", "card")
+        (case.night.dir / "state.json").write_text(json.dumps({"start": NIGHT.isoformat()}))  # no hours: fails
+        result = subprocess.run(["git", "push", "-q", "origin", "app"], cwd=case.root / "w", env=case.night.git_env(),
+                                capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("pre-push hook failed", result.stderr)
 
 
 if __name__ == "__main__":
