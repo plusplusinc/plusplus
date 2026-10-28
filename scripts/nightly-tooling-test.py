@@ -768,5 +768,78 @@ class TidySlices(unittest.TestCase):
         self.assertIn("reading the board failed: quota spent", out)
 
 
+class Reverify(unittest.TestCase):
+    """Ways around the gates the re-verify found (2026-10-28) that no test above covers."""
+
+    def test_a_merge_run_through_another_program_is_denied(self):
+        # Guardrail 3: only the runner arms auto-merge. Each of these runs `gh pr merge` from a line
+        # the hook can read whole, without a script file it would have to open.
+        for command in ["python3 -c \"import os; os.system('gh pr merge 7 --auto')\"",
+                        "node -e \"require('child_process').execSync('gh pr merge 7')\"",
+                        "perl -e 'system(\"gh pr merge 7\")'",
+                        "echo 'gh pr merge 7' | sh", "sh <<< 'gh pr merge 7'", "cat <<EOF | bash\ngh pr merge 7\nEOF",
+                        "m=merge; gh pr $m 7", "gh pr $'merge' 7", "gh pr $(echo merge) 7", "gh pr merg* 7"]:
+            self.assertIsNotNone(decide(command, app=False), command)
+
+    def test_an_xcode_cloud_run_through_the_raw_api_is_denied(self):
+        # The card's Xcode Cloud guardrail: no agent starts a run but by a counted push.
+        for command in ["asc api POST /v1/ciBuildRuns --confirm --body-file run.json",
+                        "asc api PATCH /v1/ciWorkflows/x --confirm --body '{}'"]:
+            self.assertIsNotNone(decide(command, app=False), command)
+        self.assertIsNone(decide("asc api GET /v1/ciProducts", app=False))
+
+    def test_the_nights_own_gates_cannot_be_edited(self):
+        # The hook and pre-push hook run the main checkout's runner and read the night's folder;
+        # a card that edits them turns its own gates off.
+        night = nightly.ROOT / ".build/retro/2026-10-28"
+        for path in [nightly.ROOT / "scripts/nightly-tooling.py", night / "state.json", night / "git-hooks/pre-push",
+                     Path.home() / ".config/gh/config.yml"]:
+            self.assertIsNotNone(decide(tool="Write", path=str(path)), path)
+        self.assertIsNotNone(decide(f"sed -i '' s/exit/pass/ {nightly.ROOT}/scripts/nightly-tooling.py", app=False))
+
+    def test_a_pr_left_for_the_maintainer_has_auto_merge_off(self):
+        # A protected PR stays unmerged: if anything armed auto-merge during the card's run, the
+        # runner turns it off, as it does for a parked one.
+        case = Decide("run")
+        case.setUp()
+        try:
+            pr = case.pr(lambda: case.write(".swiftlint.yml", "y\n"))
+            self.assertEqual(case.night.decide("PVTI_1", "Card", pr), "waiting")
+            self.assertIn("gh pr merge 7 --disable-auto", case.calls)
+        finally:
+            case.tearDown()
+            case.doCleanups()
+
+    def test_a_budget_read_that_times_out_denies_the_push(self):
+        # The hook's own reads give up before Claude Code's hook timeout, which would run the call.
+        root = Path(os.path.realpath(tempfile.mkdtemp()))
+        self.addCleanup(shutil.rmtree, root, True)
+        git = lambda *a: subprocess.run(["git", "-c", "user.email=t@example.com", "-c", "user.name=t", *a],  # noqa: E731
+                                        cwd=root / "w", check=True, capture_output=True)
+        (root / "w/App").mkdir(parents=True)
+        git("init", "-q", "-b", "main")
+        git("commit", "-q", "--allow-empty", "-m", "base")
+        git("update-ref", "refs/remotes/origin/main", "HEAD")
+        (root / "w/App/X.swift").write_text("x\n")
+        git("add", "-A")
+        git("commit", "-qm", "card")
+        (root / "bin").mkdir()
+        (root / "bin/asc").write_text("#!/bin/sh\nsleep 30\n")
+        (root / "bin/asc").chmod(0o755)
+        (root / "state.json").write_text(json.dumps({"start": NIGHT.isoformat(), "hours": 1, "handoff": "h",
+                                                     "stop": (datetime.now() + timedelta(hours=1)).astimezone().isoformat()}))
+        saved = nightly.READ_TIMEOUT, os.environ["PATH"], sys.stdin
+        self.addCleanup(lambda: (setattr(nightly, "READ_TIMEOUT", saved[0]), os.environ.__setitem__("PATH", saved[1]),
+                                 setattr(sys, "stdin", saved[2])))
+        nightly.READ_TIMEOUT, os.environ["PATH"] = 1, f"{root / 'bin'}:{saved[1]}"
+        sys.stdin = io.StringIO(json.dumps({"tool_name": "Bash", "tool_input": {"command": "git push"}}))
+        start = time.monotonic()
+        with self.assertRaises(SystemExit) as exit_, contextlib.redirect_stderr(io.StringIO()) as err:
+            nightly.hook(root, root / "w")
+        self.assertEqual(exit_.exception.code, 2)
+        self.assertIn("TimeoutExpired", err.getvalue())
+        self.assertLess(time.monotonic() - start, 10)
+
+
 if __name__ == "__main__":
     unittest.main()
