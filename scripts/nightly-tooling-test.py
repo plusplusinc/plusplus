@@ -917,14 +917,24 @@ class AutoMergeOff(unittest.TestCase):
         self.assertTrue(digest[0].startswith("Merged without the runner: #50 Sneaky, by me"), digest[0])
         self.assertIn("git revert bbbbbbb", digest[0])
 
-    def test_the_runners_own_merge_is_no_finding(self):
+    def test_the_runners_own_merge_and_a_day_sessions_are_no_finding(self):
         night = nightly.Night(tempfile.mkdtemp(), NIGHT, False)
         self.addCleanup(shutil.rmtree, night.dir, True)
-        night.start, night.armed = NIGHT, {7}
+        night.start, night.armed, night.armed_before = NIGHT, {7}, {3}
         saved = nightly.gh_json
         self.addCleanup(setattr, nightly, "gh_json", saved)
-        nightly.gh_json = lambda *a: [{"number": 7, "title": "Card"}]
+        nightly.gh_json = lambda *a: [{"number": 7, "title": "Card"}, {"number": 3, "title": "Day"}]
         self.assertFalse(night.audit())
+
+    def test_a_merge_search_does_not_list_yet_is_still_found(self):
+        night = nightly.Night(tempfile.mkdtemp(), NIGHT, False)
+        self.addCleanup(shutil.rmtree, night.dir, True)
+        night.start, night.merged_during = NIGHT, [{"number": 8, "title": "Card"}]
+        saved = nightly.gh_json
+        self.addCleanup(setattr, nightly, "gh_json", saved)
+        nightly.gh_json = lambda *a: []
+        self.assertTrue(night.audit())
+        self.assertEqual(night.top_lines()[0][:32], "Merged without the runner: #8 Ca")
 
 
 class WritesStayInTheWorktree(unittest.TestCase):
@@ -976,6 +986,12 @@ class NoInlineCode(unittest.TestCase):
                         "node --eval x", "curl -s u | bash", "xargs -n 1 sh", "bash -s < x", "env python3"]:
             self.assertIn("inline or piped code", decide(command, app=False) or "", command)
 
+    def test_options_before_the_code_hide_nothing(self):
+        for command in ["bash -x -c 'gh pr merge 12 --squash'", "bash -o pipefail -c 'gh pr merge 12'",
+                        "python3 -W ignore -c 'x'", "ruby -I lib -e 'x'", "node -r mod -e 'x'"]:
+            self.assertIsNotNone(decide(command, app=False), command)
+        self.assertIsNone(decide("command -v python3 || brew install python", app=False))
+
     def test_scripts_and_reading_about_shells_are_allowed(self):
         for command in ["python3 scripts/nightly-tooling-test.py", "python3 -m json.tool f.json", "bash -c 'ls'",
                         "bash scripts/x.sh", "grep -n bash scripts/x.sh", "node scripts/x.js --eval-later",
@@ -1010,13 +1026,15 @@ final class X: XCTestCase {
 }
 """
         self.assertEqual(nightly.count_tests(source), 4)  # c, e, h, and testJ
+        self.assertEqual(nightly.count_tests('@Test(.tags(.functional), .disabled("x")) func a() {}'), 0)
 
 
 class Lesser(unittest.TestCase):
     def test_reading_about_git_hooks_is_allowed_and_turning_them_off_is_not(self):
         for command in ["grep -n hooksPath scripts/x.py", "env | grep GIT_CONFIG"]:
             self.assertIsNone(decide(command, app=False), command)
-        for command in ["env -i git push", "unset GIT_CONFIG_COUNT", "export GIT_CONFIG_COUNT=0",
+        for command in ["env -i git push", "unset GIT_CONFIG_COUNT", "git config alias.p 'push --no-verify'",
+                        "git push --no-verif", "find . -maxdepth 0 -exec git push --no-verify ;", "export GIT_CONFIG_COUNT=0",
                         "git config core.hooksPath x"]:
             self.assertIn("git hooks stay on", decide(command, app=False) or "", command)
 

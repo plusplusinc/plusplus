@@ -383,8 +383,8 @@ def count_tests(source):
     count = 0
     for test in re.finditer(TEST_PATTERN, code):
         if test[0].startswith("@Test"):
-            declared = code.find("func", test.end())
-            disabled = DISABLED.search(code[test.end():declared if declared >= 0 else len(code)])
+            declared = re.compile(r"\bfunc\b").search(code, test.end())
+            disabled = DISABLED.search(code[test.end():declared.start() if declared else len(code)])
         else:
             disabled = "XCTSkip" in code[slice(*block(code, test.end()))]
         count += not disabled
@@ -397,6 +397,9 @@ SAFE_LATE_GIT = {"add", "commit", "status", "diff", "log", "show", "rev-parse"}
 SEPARATORS = {";", "&", "&&", "|", "||", "|&", "(", ")"}
 SHELLS = {"bash", "sh", "zsh", "dash", "ksh"}
 INTERPRETERS = re.compile(r"python[\d.]*|node|perl|ruby|osascript")
+# Interpreter options whose value is the next word, not a script file.
+INTERPRETER_VALUES = {"python": {"-W", "-X", "-Q"}, "node": {"-r", "--require", "--import", "--loader"},
+                      "perl": {"-I", "-M", "-m"}, "ruby": {"-I", "-r", "-C"}, "osascript": {"-l", "-i"}}
 WRAPPERS = {"env", "command", "exec", "nohup", "time", "xargs", "nice", "timeout", "caffeinate"}
 WRAPPER_VALUES = {"-u", "-n", "-I", "-L", "-P", "-S", "-C", "-s"}  # wrapper options that take a value
 GIT_VALUE_OPTIONS = {"-c", "-C", "--git-dir", "--work-tree", "--namespace", "--exec-path", "--config-env"}
@@ -457,11 +460,22 @@ def commands(command, depth=0, targets=False):
     for words in found:
         for i, word in enumerate(words):
             after = words[i + 1:]
-            if word.rsplit("/", 1)[-1] in SHELLS and len(after) > 1 and re.fullmatch(r"-\w*c\w*", after[0]):
-                inner.append(after[1])
+            code = shell_code(after) if word.rsplit("/", 1)[-1] in SHELLS else None
+            if code is not None:
+                inner.append(code)
             if word == "eval":
                 inner.append(" ".join(after))
     return found + [words for text in inner for words in commands(text, depth + 1, targets)]
+
+
+def shell_code(args):
+    """The code a shell runs with -c, its options before it whatever they are, or None."""
+    i = 0
+    while i < len(args) and args[i][:1] in ("-", "+"):
+        if re.fullmatch(r"-\w*c\w*", args[i]):
+            return args[i + 1] if i + 1 < len(args) else ""
+        i += 2 if args[i] in ("-o", "+o", "-O", "+O") else 1  # set -o takes the option's name
+    return None
 
 
 def program(words):
@@ -470,6 +484,8 @@ def program(words):
     i = 0
     while i < len(words):
         word, name = words[i], words[i].rsplit("/", 1)[-1]
+        if name == "command" and words[i + 1:i + 2] in (["-v"], ["-V"]):
+            return name, words[i + 1:]  # only looks a program up
         if re.fullmatch(r"\w+=.*", word) or name in WRAPPERS:
             i += 1
         elif i and (word.startswith("-") or re.fullmatch(r"[\d.]+[smhd]?", word)):
@@ -485,13 +501,21 @@ def runs_inline_code(words):
     shell's `-c` is allowed, since commands() reads its code."""
     name, args = program(words)
     if name in SHELLS:
-        if args[:1] and re.fullmatch(r"-\w*c\w*", args[0]):
+        if shell_code(args) is not None:
             return False
         return "-s" in args or not [a for a in args if not a.startswith("-")]
     if not INTERPRETERS.fullmatch(name):
         return False
     inline = r"-[a-zA-Z]*c" if name.startswith("python") else r"-[a-zA-Z]*[eE]|-p"
+    takes_value = INTERPRETER_VALUES["python" if name.startswith("python") else name]
+    skip = False
     for arg in args:
+        if skip:
+            skip = False
+            continue
+        if arg in takes_value:
+            skip = True
+            continue
         if arg == "-" or re.match(inline, arg) or arg.split("=")[0] in ("--eval", "--print"):
             return True
         if arg == "-m" and name.startswith("python"):
@@ -587,8 +611,9 @@ def call_risks(command):
 def hooks_off(words):
     """Whether a simple command turns off the night's pre-push hook: git's --no-verify or
     core.hooksPath, a GIT_CONFIG_* variable set or removed, or the environment cleared."""
-    name, args = program(words)
-    if name == "git" and any(w == "--no-verify" or re.search("hookspath", w, re.I) for w in args):
+    if any(re.search(r"--no-ver", w) for w in words):
+        return True
+    if tool_args(words, "git") is not None and any(re.search("hookspath", w, re.I) for w in words):
         return True
     if any(re.match(r"GIT_CONFIG\w*=", w) for w in words):
         return True
@@ -807,6 +832,9 @@ class Night:
         self.parked = []
         self.waiting = []
         self.armed = set()  # the PRs the runner armed auto-merge on
+        self.armed_before = set()  # PRs a day session armed, which may merge tonight
+        self.seen = set()  # tonight's PRs an earlier sweep found
+        self.merged_during = []  # cards' PRs found merged when their run ended
         self.usage = []
         self.tried = set()
         self.cards = 0
@@ -837,6 +865,8 @@ class Night:
         return self.finish()
 
     def loop(self):
+        self.armed_before = {pr["number"] for pr in gh_json("pr", "list", "--state", "open", "--json",
+                                                           "number,autoMergeRequest") if pr.get("autoMergeRequest")}
         sh("git", "fetch", "--quiet", "origin", "main")
         self.tests_before = test_counts("origin/main")
         if not self.window:
@@ -873,7 +903,12 @@ class Night:
             self.cards += 1
             result = self.take(card, info)
             self.current = None
-            if self.audit() or result == "stop":
+            if self.audit():
+                self.ended = log("No more cards: " + (f"merged to main tonight without the runner: "
+                                 + ", ".join(f"#{pr['number']}" for pr in self.unarmed) if self.unarmed
+                                 else self.unchecked[-1]) + ".")
+                return
+            if result == "stop":
                 return
 
     def left_in_progress(self, card, error):
@@ -1006,7 +1041,8 @@ class Night:
                 process.terminate()
                 process.wait()
         # Whatever happens next, no PR the card opened merges unless the runner arms it below.
-        extra = [n for n in self.disarm() if n not in self.armed]
+        extra = [n for n in self.disarm() if n not in self.armed | self.seen]
+        self.seen |= set(extra)
         lines = stream.read_text(errors="replace").splitlines()
         after = last_rate_limit([stream])
         self.usage.append(f"{title}: {usage_line(info)} → {usage_line(after)}")
@@ -1026,7 +1062,9 @@ class Night:
             # Only the runner arms auto-merge, after every gate; the audit after the card reports this one.
             board("state", item, stdin=f"- The nightly run found PR #{pr['number']} merged during the card's "
                   "run, not by the runner, so none of its gates ran; review it, and undo with git revert.\n")
-            return "merged elsewhere"
+            # GitHub's search may not list it yet, so the audit is told.
+            self.merged_during.append({"number": pr["number"], "title": pr["title"]})
+            return "stop"
         if not pr:
             return self.park(item, title, None, f"no PR; its lead ended with: {reply or 'nothing'}")
         if pr["state"] == "CLOSED":
@@ -1126,12 +1164,10 @@ class Night:
                              f"merged:>={self.since()}", "--json", "number,title,mergedBy,mergeCommit")
         except FAILURES as error:
             self.unchecked.append(f"reading tonight's merges failed ({error})")
-            self.ended = log(f"No more cards: {self.unchecked[-1]}.")
             return True
-        self.unarmed = [pr for pr in merged if pr["number"] not in self.armed]
-        if self.unarmed:
-            self.ended = log("No more cards: merged to main tonight without the runner: "
-                             + ", ".join(f"#{pr['number']}" for pr in self.unarmed) + ".")
+        found = {pr["number"] for pr in merged}
+        self.unarmed = [pr for pr in merged + [p for p in self.merged_during if p["number"] not in found]
+                        if pr["number"] not in self.armed | self.armed_before]
         return bool(self.unarmed)
 
     def park(self, item, title, pr, why):
@@ -1164,7 +1200,7 @@ class Night:
         return [f"Merged without the runner: #{pr['number']} {pr['title']}, by "
                 f"{(pr.get('mergedBy') or {}).get('login', 'unknown')}; none of the night's gates ran on it. "
                 f"Review it; undo: git revert {((pr.get('mergeCommit') or {}).get('oid') or '?')[:7]}"
-                for pr in self.unarmed] + [f"Not checked: {u}" for u in self.unchecked]
+                for pr in self.unarmed] + [f"Not checked: {u}" for u in dict.fromkeys(self.unchecked)]
 
     def digest(self):
         now = datetime.now().astimezone()
