@@ -66,10 +66,14 @@ public struct SlideToLog: View {
                 .fill(.pp(.textPrimary))
                 .shadow(color: .pp(.shadow), radius: 1.5, y: 1)
                 .overlay {
-                    Image(systemName: isArmed ? "checkmark" : "arrow.right")
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundStyle(.pp(.background))
-                        .contentTransition(.symbolEffect(.replace))
+                    // Both drawn, one shown, swapped at once: animated, the one going out was left
+                    // behind in the trail as the key moved on.
+                    ZStack {
+                        Image(systemName: "arrow.right").opacity(isArmed ? 0 : 1)
+                        Image(systemName: "checkmark").opacity(isArmed ? 1 : 0)
+                    }
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(.pp(.background))
                 }
                 .frame(width: keyWidth, height: keyHeight)
                 .offset(x: keyX)

@@ -5,9 +5,10 @@ import WorkoutStore
 /// A workout: Start's press, the first exercise growing into the current one, and the way back
 /// to it.
 extension RoutineScreen {
-    /// The exercise a workout is on: the first, as nothing is done yet.
+    /// The exercise a workout is on: the row of the set it does next. None once every set is
+    /// logged.
     var currentExercise: RoutineExercise? {
-        session.workout == nil ? nil : routine.exercises.first
+        currentSet.flatMap { set in routine.exercises.first { $0.id == set.row } }
     }
 
     var currentID: RoutineExercise.ID? {
@@ -19,22 +20,96 @@ extension RoutineScreen {
         session.workout.flatMap { routine.nextSet(after: $0.sets) }
     }
 
-    /// Logs the set the slide was on, at the numbers its row shows, the progress line rolling
-    /// to the next.
-    func log(_ set: PlannedSet, of row: RoutineExercise) {
-        withAnimation(.snappy(duration: SetMotion.roll)) {
-            session.log(set, of: row)
-        }
+    /// The row that grows, or stands grown: the current exercise, or, out of a workout, the
+    /// first, which Start grows.
+    var growingID: RoutineExercise.ID? {
+        session.workout == nil ? routine.exercises.first?.id : currentID
     }
 
-    /// The exercise after the first, the current one in a workout, whose row stays in view
-    /// under it.
+    /// The row after the current exercise in the list, whose row stays in view under it.
     var nextExercise: RoutineExercise? {
-        routine.exercises.dropFirst().first
+        row(after: growingID)
     }
 
     var nextID: RoutineExercise.ID? {
         nextExercise?.id
+    }
+
+    /// The row after `id` in the list, if any.
+    func row(after id: RoutineExercise.ID?) -> RoutineExercise? {
+        guard let index = routine.exercises.firstIndex(where: { $0.id == id }) else { return nil }
+        return routine.exercises.dropFirst(index + 1).first
+    }
+
+    /// Whether `id`'s row is given a standing height: the row that grows, and the one last
+    /// current, so it shrinks back to its place from its full height.
+    func stands(_ id: RoutineExercise.ID) -> Bool {
+        id == growingID || id == lastCurrentID
+    }
+
+    /// Logs the set the slide was on, at the numbers its row shows. Within one exercise the
+    /// progress line rolls to the next set. Moving to another, the current row shrinks back to a
+    /// resting row as the next one grows and the list lands it under the bar, in one motion: as
+    /// at Start, the list is scrolled at once to where the next row will land and drawn where it
+    /// was, then both run in one animation. After the last set nothing grows.
+    func log(_ set: PlannedSet, of row: RoutineExercise) {
+        guard let workout = session.workout else { return }
+        let next = routine.nextSet(after: workout.logging(set, of: row, at: .now).sets)
+        guard next?.row != set.row else {
+            withAnimation(.snappy(duration: SetMotion.roll)) { session.log(set, of: row) }
+            return
+        }
+        withTransaction(\.disablesAnimations, true) { lastCurrentID = row.id }
+        let target = next.flatMap { landing(on: $0.row, leaving: row.id) }
+        noteRestingPitch(of: next?.row)
+        guard !reduceMotion else {
+            return crossfade(scrollingTo: target ?? scrollBeat.scrolledY) {
+                session.log(set, of: row)
+            }
+        }
+        isMovingOn = true
+        if let target {
+            withTransaction(\.disablesAnimations, true) {
+                isMakingRoom = true
+                growthLift = target - scrollBeat.scrolledY
+                scrollPosition.scrollTo(y: target)
+            }
+        }
+        withAnimation(.snappy(duration: Self.moveBeat)) {
+            session.log(set, of: row)
+            growthLift = 0
+        } completion: {
+            isMovingOn = false
+            letRoomGo()
+            // With no landing worked out ahead, as after a relaunch, the list lands after.
+            if target == nil, next != nil {
+                withAnimation(.snappy(duration: Self.moveBeat), scrollToCurrent)
+            }
+        }
+    }
+
+    /// Where the list lands `next`'s row under the bar once `leaving`, the current row, has
+    /// shrunk back: at the row's top, where its label lands just under the bar. A row above
+    /// stays where it is; one below rises by what `leaving` gives back, from its pitch now, top
+    /// to the next row's top, to its pitch at rest, noted as it grew. Nil when either isn't
+    /// known, as after a relaunch into a workout.
+    private func landing(on next: RoutineExercise.ID, leaving: RoutineExercise.ID) -> CGFloat? {
+        guard let nextTop = rowFrames.tops[next], let leavingTop = rowFrames.tops[leaving]
+        else { return nil }
+        guard nextTop > leavingTop else { return max(nextTop, 0) }
+        guard let after = row(after: leaving).flatMap({ rowFrames.tops[$0.id] }),
+              let resting = rowFrames.restingPitch[leaving]
+        else { return nil }
+        return max(nextTop - (after - leavingTop - resting), 0)
+    }
+
+    /// Notes `id`'s pitch at rest, top to the next row's top, before it grows: what it gives
+    /// back as it shrinks. The rail keeps a resting row to a rhythm, so it is more than its height.
+    func noteRestingPitch(of id: RoutineExercise.ID?) {
+        guard let id, let top = rowFrames.tops[id],
+              let after = row(after: id).flatMap({ rowFrames.tops[$0.id] })
+        else { return }
+        rowFrames.restingPitch[id] = after - top
     }
 
     /// Whether Start shows: with exercises to start, and out of a workout but for its going.
@@ -55,14 +130,15 @@ extension RoutineScreen {
         )
     }
 
-    /// How tall the current exercise's label stands with the row after it, or the end's room when
-    /// there is none, as `currentLabelHeight` has it, worked out from `screen`, the list's frame,
+    /// How tall `id`'s label stands as the current exercise with the row after it, or the end's
+    /// room when there is none, as `currentLabelHeight` has it, worked out from `screen`, the list's frame,
     /// in the pass that lays the list out.
-    func currentStanding(_ screen: GeometryProxy) -> RowStanding {
+    func standing(of id: RoutineExercise.ID, _ screen: GeometryProxy) -> RowStanding {
+        let next = row(after: id)
         let height = screen.size.height + screen.safeAreaInsets.bottom
             - RailRowMetrics.verticalInset * 2 - Self.currentTopSpace
-            - (nextExercise == nil ? endRoom : 0)
-        return RowStanding(height: height, next: nextExercise.map {
+            - (next == nil ? endRoom : 0)
+        return RowStanding(height: height, next: next.map {
             .init(title: $0.exercise.name, detail: $0.detailParts(locale: locale))
         })
     }
@@ -71,6 +147,10 @@ extension RoutineScreen {
     /// lands on the row, just under the bar, everything above it is under the bar and the space
     /// between shows only the background.
     static let currentTopSpace = Spacing.lg
+
+
+    /// The current row shrinking back as the next one grows, the list landing it.
+    static let moveBeat = 0.45
 
     /// Start's press: the key comes back up as any key does, a +1 pops off it with a medium
     /// impact (`primaryKeyBar`), and after a beat `leave(named:)` runs. A second press in the
@@ -140,6 +220,7 @@ extension RoutineScreen {
     /// had nearly landed, so the list is scrolled at once and drawn where it was, then both run
     /// in one animation.
     private func grow(named name: String) {
+        noteRestingPitch(of: routine.exercises.first?.id)
         var drop: CGFloat = 0
         if let place = currentPlace {
             let target = place.landingY
@@ -191,6 +272,7 @@ extension RoutineScreen {
     func end(_ change: @escaping () -> Void) {
         guard let workout = session.workout else { return }
         withTransaction(\.disablesAnimations, true) {
+            lastCurrentID = currentID
             endingWorkout = workout
             // Start stays away until the list has landed, after a relaunch into a workout too.
             isStartAway = true
@@ -287,7 +369,10 @@ extension RoutineScreen {
         let old = currentPlace
         currentPlace = place
         letRoomGo()
-        if let old, currentID != nil, !isScrollingByHand, place.contentTop != old.contentTop,
+        // Not while moving to the next exercise, which lands it: its place, read as it grows,
+        // is on the way there.
+        if let old, currentID != nil, !isScrollingByHand, !isMovingOn,
+           place.contentTop != old.contentTop,
            abs(scrollBeat.scrolledY - old.landingY) < 1
         {
             scrollToCurrent()
@@ -339,7 +424,8 @@ extension RoutineScreen {
         let current = currentExercise
         let place = currentPlace
         Group {
-            if let current, let place, place.isMostlyOut {
+            // Not while the list moves to the next exercise, whose row passes through the edge.
+            if let current, let place, place.isMostlyOut, !isMovingOn {
                 CurrentExerciseButton(name: current.exercise.name, isAbove: place.isAbove) {
                     withAnimation(.snappy(duration: 0.4), scrollToCurrent)
                 }
@@ -350,6 +436,14 @@ extension RoutineScreen {
         }
         .animation(.snappy, value: current != nil && place?.isMostlyOut == true)
     }
+}
+
+/// Where each row is in the list's content, and each row's height when last at rest, read as
+/// a move begins. Not observed: rows report as they lay out, and redrawing the screen for each
+/// would redraw it on every frame of a move.
+final class RowFrames {
+    var tops: [RoutineExercise.ID: CGFloat] = [:]
+    var restingPitch: [RoutineExercise.ID: CGFloat] = [:]
 }
 
 /// The scroll to the list's top in Start's sequence, which the next beat waits for. An animated

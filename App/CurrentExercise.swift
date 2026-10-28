@@ -20,8 +20,7 @@ nonisolated struct CurrentPlace: Equatable {
     var height: CGFloat
 
     /// The scroll position that lands the rail row, its label `RailRowMetrics.verticalInset`
-    /// below its top, just under the bar. The row's top stays put as it grows: it is the list's
-    /// first.
+    /// below its top, just under the bar.
     @MainActor var landingY: CGFloat {
         max(contentTop - RailRowMetrics.verticalInset, 0)
     }
@@ -92,6 +91,17 @@ extension View {
         } action: { height in
             if let height {
                 action(height)
+            }
+        }
+    }
+
+    /// Reports this row's frame in the list's content as it lays out, while `isOn`.
+    func reportingFrame(_ isOn: Bool, to action: @escaping (CGRect) -> Void) -> some View {
+        onGeometryChange(for: CGRect?.self) { proxy in
+            isOn ? proxy.frame(in: .list) : nil
+        } action: { frame in
+            if let frame {
+                action(frame)
             }
         }
     }

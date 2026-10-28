@@ -70,6 +70,12 @@ struct RoutineScreen: View {
     @State var listFoot: CGFloat = 0
     /// Back in a workout after a relaunch, the list opens on the current exercise, once grown.
     @State var opensOnCurrent = false
+    /// The row that was the current exercise before the last move, given its standing height so
+    /// it shrinks back from it.
+    @State var lastCurrentID: RoutineExercise.ID?
+    /// While the current exercise moves to the next row, when rows' heights are mid-motion.
+    @State var isMovingOn = false
+    @State var rowFrames = RowFrames()
     /// Room under the list's end in a workout, so Add exercise clears the way back to the current.
     @ScaledMetric(relativeTo: .body) var wayToCurrentRoom: CGFloat = 64
     /// The height of the row after the current exercise, which the current one leaves room for.
@@ -134,11 +140,11 @@ struct RoutineScreen: View {
         // drawing its rows with what it had, rather than the workout it is fading into.
         let currentID = currentID
         let currentSet = currentSet
+        let tracksRows = session.workout != nil || isStarting
         let underBar = underBarCut
         // The screen's height below the bar is known in the pass that lays out the list, so the
         // current exercise is sized from it in that pass (`RowStanding`).
         return GeometryReader { screen in
-            let standing = currentStanding(screen)
             ScrollView {
                 // One over the other, as a crossfade has them: in the scroll view's own stack, the
                 // list coming in and the one going stood one after the other.
@@ -184,7 +190,7 @@ struct RoutineScreen: View {
                                         locale: locale,
                                     ) : nil
                                 },
-                                standing: item.id == routine.exercises.first?.id ? standing : nil,
+                                standing: stands(item.id) ? standing(of: item.id, screen) : nil,
                                 onLog: currentSet.map { set in { log(set, of: item) } },
                             )
                             .id(item.id)
@@ -192,8 +198,7 @@ struct RoutineScreen: View {
                             // Only while it is read: as the list scrolls, every change redraws the
                             // screen.
                             .reportingPlace(
-                                item.id == routine.exercises.first?.id
-                                    && (session.workout != nil || isStarting),
+                                item.id == growingID && (session.workout != nil || isStarting),
                                 to: placeCurrent,
                             )
                             // Until an added row has entered it takes no taps, and its frame is
@@ -202,6 +207,8 @@ struct RoutineScreen: View {
                             // on the row, `false` would un-hide the rail's node.
                             .accessibilityHidden(item.id == entering)
                             .railRow()
+                            // The whole row, its insets included, as the rail stacks it.
+                            .reportingFrame(tracksRows) { rowFrames.tops[item.id] = $0.minY }
                             .reportingHeight(item.id == nextID) { nextRowHeight = $0 }
                             .contentShape(.rect)
                             .onTapGesture {
