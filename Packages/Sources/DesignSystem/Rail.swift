@@ -43,6 +43,8 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     private let arriving: RowID?
     /// The row a workout is on, whose node shows it in green, pulsing.
     private let current: RowID?
+    /// The rows whose sets are all done in a workout, whose nodes show it in purple.
+    private let done: Set<RowID>
     private let onMove: ((RowID, RailSlot<RowID>) -> Void)?
     let links: Set<RowID>
     let regroup: RailRegroup<RowID>?
@@ -101,6 +103,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         links: Set<Data.Element.ID> = [],
         arriving: Data.Element.ID? = nil,
         current: Data.Element.ID? = nil,
+        done: Set<Data.Element.ID> = [],
         onMove: ((Data.Element.ID, RailSlot<Data.Element.ID>) -> Void)? = nil,
         regroup: RailRegroup<Data.Element.ID>? = nil,
         @ViewBuilder row: @escaping (Data.Element) -> Row,
@@ -111,6 +114,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
             links: links,
             arriving: arriving,
             current: current,
+            done: done,
             onMove: onMove,
             regroup: regroup,
             drag: nil,
@@ -125,6 +129,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         links: Set<RowID> = [],
         arriving: RowID? = nil,
         current: RowID? = nil,
+        done: Set<RowID> = [],
         onMove: ((RowID, RailSlot<RowID>) -> Void)? = nil,
         regroup: RailRegroup<RowID>? = nil,
         drag: RailDragState<RowID>?,
@@ -137,6 +142,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         self.links = links
         self.arriving = arriving
         self.current = current
+        self.done = done
         self.onMove = onMove
         self.regroup = regroup
         _drag = State(initialValue: drag)
@@ -177,6 +183,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                     flashes: flashes[item.id] ?? 0,
                     isLoopHidden: hiddenLoops.contains(item.id),
                     isCurrent: item.id == current,
+                    isDone: done.contains(item.id),
                 )
                 // An arriving row's place opens with its entry's shot, so the end view is pushed
                 // down as far as the line has grown, on every frame.

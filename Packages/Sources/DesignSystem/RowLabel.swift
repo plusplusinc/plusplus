@@ -16,6 +16,9 @@ public struct RowLabel: View {
     private let standing: RowStanding?
     /// Logs the current exercise's set, given with `focus`: the slide under its numbers.
     private let onLog: (() -> Void)?
+    /// How far the exercise is through its sets in a workout, shown as bars at the trailing
+    /// end of its detail line, or of its progress line on the current exercise.
+    private let bars: SetProgress?
 
     /// The current exercise's numbers: 104pt at the default size.
     @ScaledMetric(relativeTo: .largeTitle) private var figureSize: CGFloat = 104
@@ -33,6 +36,7 @@ public struct RowLabel: View {
         spokenDetail: String? = nil,
         focus: RowFocus? = nil,
         standing: RowStanding? = nil,
+        bars: SetProgress? = nil,
         onLog: (() -> Void)? = nil,
     ) {
         self.title = title
@@ -41,6 +45,7 @@ public struct RowLabel: View {
         self.focus = focus
         self.standing = standing
         self.onLog = onLog
+        self.bars = bars
     }
 
     /// A row whose detail is one line, or none.
@@ -88,19 +93,13 @@ public struct RowLabel: View {
             // spacing.
             if detailText != nil || focus != nil {
                 VStack(alignment: .leading, spacing: Spacing.lg) {
-                    // The detail line gives way to which set it is on, in the same place.
-                    ZStack(alignment: .topLeading) {
-                        if let detailText {
-                            Text(AttributedString.monoNumbers(
-                                detailText,
-                                font: .ppRowDetailNumber,
-                            ))
-                            .font(.ppRowDetail)
-                            .foregroundStyle(.pp(.textSecondary))
-                            .opacity(focus == nil ? 1 : 0)
-                        }
-                        if let focus {
-                            progressLine(focus)
+                    // The detail line gives way to which set it is on, in the same place, the
+                    // bars at its trailing end.
+                    HStack(alignment: .top, spacing: Spacing.sm) {
+                        lines(detailText)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        if let bars {
+                            barsOnFirstLine(bars)
                                 .transition(.opacity)
                         }
                     }
@@ -145,6 +144,37 @@ public struct RowLabel: View {
                 }
             }
         }
+    }
+
+    /// The detail line and the progress line, one over the other, as one gives way to the other.
+    private func lines(_ detailText: String?) -> some View {
+        ZStack(alignment: .topLeading) {
+            if let detailText {
+                Text(AttributedString.monoNumbers(
+                    detailText,
+                    font: .ppRowDetailNumber,
+                ))
+                .font(.ppRowDetail)
+                .foregroundStyle(.pp(.textSecondary))
+                .opacity(focus == nil ? 1 : 0)
+            }
+            if let focus {
+                progressLine(focus)
+                    .transition(.opacity)
+            }
+        }
+    }
+
+    /// The bars, centered on the first line of the line beside them: in a box as tall as one line
+    /// of its text at every size.
+    private func barsOnFirstLine(_ bars: SetProgress) -> some View {
+        ZStack {
+            Text(verbatim: "0")
+                .font(focus == nil ? .ppRowDetail : .ppCurrentProgress)
+                .hidden()
+            SetBars(bars, isCurrent: focus != nil)
+        }
+        .fixedSize()
     }
 
     /// Which set it is on, "Set 1 of 3", and the side, "· Left", set off in the name's color.
@@ -205,7 +235,7 @@ public struct RowLabel: View {
         } else {
             [title, spokenDetail ?? detail.joined(separator: ", ")]
         }
-        return parts.filter { !$0.isEmpty }.joined(separator: ", ")
+        return (parts + [bars?.spoken ?? ""]).filter { !$0.isEmpty }.joined(separator: ", ")
     }
 
     /// The detail line from its parts, or nil for none. Joined with dots, each part kept whole,

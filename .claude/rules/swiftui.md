@@ -11,7 +11,9 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
 - No raw colors, spacing, font sizes, or corner radii at call sites. Use `Color.pp(.token)`,
   `Font.pp*` or a `.pp*Font()` modifier, `Spacing`, and `Radius` from `DesignSystem`. If a
   token is missing, add a `ColorToken` case and its colorset. Green (`accent`) is what's
-  active, and a value that went up.
+  active, and a value that went up. Purple (`done`) is done: a finished exercise's node and the
+  bars of the sets logged; a set still to do is `toDo`, a filled gray. A resting row shows its
+  bars only once started and until finished, at its detail line's trailing end.
   Blue (`railJoin`) marks something arriving: a row joining a rail, a superset a node's drag
   just made, and a generated name typing into the title, for the moment it arrives, then gives way to the thing's own color; nothing
   rests in it.
@@ -83,7 +85,7 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   hidden copy laid out as a rail row (`railRowStand()`); read back into state after layout, it
   grew a pass later, and a relaunch into a workout logged SwiftUI's per-frame fault. End, in the
   bar, asks "End this workout?" in a confirmation dialog, as the scratch app does: Finish workout
-  only once a set is done (`Workout.offersFinish`; none can be logged yet), and Discard workout
+  only once a set is logged (`Workout.offersFinish`), and Discard workout
   as destructive. The dialog hangs on the whole screen, outside the navigation stack: on End, or
   on the stack's content, iOS showed it as a popover with an arrow; there, it shows centered. Its
   choice runs about 0.37 s after the tap (simulator, two runs), and the end's motion starts
@@ -115,11 +117,17 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   the workout it was fading into. The change runs a turn of the run loop after the lift, so the
   old list is drawn lifted before it goes. At the end, Start fades in after the crossfade
   (0.2 s).
-- The current exercise of a workout is the routine's first row grown (`RowLabel`'s `focus`,
-  `RowFocus`): its node 14 pt in `accent`, pulsing in brightness within its circle
-  (`CurrentPulse`); its name from `ppRowTitle` to `ppCurrentTitle` through every size between
+- The current exercise of a workout is the row of the next set to log, the first in the
+  routine's order not yet logged, grown (`RowLabel`'s `focus`, `RowFocus`): its node 14 pt in
+  `accent`, pulsing in brightness within its circle on one clock, the time itself
+  (`CurrentPulse`), which the bar of its current set shares, so the two never drift apart; its name from `ppRowTitle` to `ppCurrentTitle` through every size between
   (`TitleFont`, the tokens themselves at the ends, so a resting row reads as one out of a
-  workout); which set it is on in place of the plan line; its equipment as capsules; and the
+  workout); which set it is on in place of the plan line ("Round 2 of 3" in a superset, the side
+  set off in `textPrimary`, "Set 1 of 3 · Left", its numbers then without "per side"), with
+  its set bars (`SetBars`) at the line's trailing end, centered on its first line, from its
+  first set; its slide to log (`SlideToLog`) under its numbers, a UIKit pan that begins only
+  on a mostly horizontal move, so a vertical swipe on it scrolls, and that the rail's hold
+  waits on, so a finger resting on the key never lifts the row; its equipment as capsules; and the
   plan's numbers large (104 pt SF Mono at the default size), each with what it counts beside it,
   or under it where the two don't fit the width (`FigureLayout`, not `ViewThatFits`, which sent
   the view graph round a cycle as the title took focus, and hung the app). Its label stands at

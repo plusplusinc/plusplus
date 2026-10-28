@@ -20,6 +20,30 @@ extension RoutineScreen {
         session.workout.flatMap { routine.nextSet(after: $0.sets) }
     }
 
+    /// The rows whose sets are all logged in the workout, whose nodes show them done.
+    var finishedRows: Set<RoutineExercise.ID> {
+        guard let sets = session.workout?.sets else { return [] }
+        return Set(routine.exercises.lazy.map(\.id).filter { id in
+            let progress = routine.progress(of: id, logged: sets)
+            return progress.total > 0 && progress.done == progress.total
+        })
+    }
+
+    /// The set bars a row shows in a workout: on the current exercise always, from its first set;
+    /// on any other only once started and until finished, where its node shows it done.
+    func bars(of id: RoutineExercise.ID) -> SetProgress? {
+        guard let sets = session.workout?.sets else { return nil }
+        let progress = routine.progress(of: id, logged: sets)
+        guard id == currentID
+            || routine.isStarted(id, logged: sets) && progress.done < progress.total
+        else { return nil }
+        return SetProgress(
+            done: progress.done,
+            total: progress.total,
+            spoken: spokenProgress(done: progress.done, total: progress.total, locale: locale),
+        )
+    }
+
     /// The row that grows, or stands grown: the current exercise, or, out of a workout, the
     /// first, which Start grows.
     var growingID: RoutineExercise.ID? {

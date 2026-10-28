@@ -176,6 +176,7 @@ struct RoutineScreen: View {
                             links: routine.joinedToNext,
                             arriving: arriving,
                             current: currentID,
+                            done: finishedRows,
                             onMove: move,
                             regroup: regroup,
                         ) { item in
@@ -191,6 +192,7 @@ struct RoutineScreen: View {
                                     ) : nil
                                 },
                                 standing: stands(item.id) ? standing(of: item.id, screen) : nil,
+                                bars: bars(of: item.id),
                                 onLog: currentSet.map { set in { log(set, of: item) } },
                             )
                             .id(item.id)

@@ -11,6 +11,9 @@ public enum ColorToken: String, CaseIterable, Sendable {
     case background = "ppBackground"
     /// Laid over the screen the drawer slides aside, deepening as the drawer opens.
     case dim = "ppDim"
+    /// Purple: done. A finished exercise's node, and the bars of the sets done. Apart from
+    /// `accent` in lightness as well as hue, so the two read apart without color.
+    case done = "ppDone"
     /// The outline of a key-shaped button, and the title's resting cursor.
     case borderStrong = "ppBorderStrong"
     /// The label on a primary key.
@@ -24,6 +27,9 @@ public enum ColorToken: String, CaseIterable, Sendable {
     /// settles to `rail`; a group's loop as a drop makes the group, then settling to
     /// `rail`. Never at rest, and never the line.
     case railJoin = "ppRailJoin"
+    /// A set still to do: its bar, filled, a gray darker than `rail`, so `done` stands apart from
+    /// it in lightness too.
+    case toDo = "ppToDo"
     /// The fill under the place the drawer marks as showing: a step from the background in
     /// both appearances, further than `surface`.
     case selectionFill = "ppSelectionFill"

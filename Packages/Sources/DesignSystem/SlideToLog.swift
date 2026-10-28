@@ -164,7 +164,8 @@ import UIKit
 
 /// The slide's drag, as a UIKit pan that begins only on a mostly horizontal move, so a vertical
 /// swipe that starts on the track goes to the scroll view. SwiftUI's drag, set to begin on any
-/// move, took the scroll view's swipes.
+/// move, took the scroll view's swipes. A long press on the track, the rail's hold that lifts a
+/// row, waits for it to fail: a finger resting on the key before it slides lifted the row.
 struct SlideToLogGesture: UIGestureRecognizerRepresentable {
     enum Phase {
         case changed
@@ -205,6 +206,13 @@ struct SlideToLogGesture: UIGestureRecognizerRepresentable {
             guard let pan = recognizer as? UIPanGestureRecognizer else { return true }
             let velocity = pan.velocity(in: pan.view)
             return abs(velocity.x) > abs(velocity.y)
+        }
+
+        func gestureRecognizer(
+            _: UIGestureRecognizer,
+            shouldBeRequiredToFailBy other: UIGestureRecognizer,
+        ) -> Bool {
+            other is UILongPressGestureRecognizer
         }
     }
 }

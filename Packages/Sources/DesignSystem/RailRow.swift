@@ -23,6 +23,8 @@ struct RailPlace {
     var isLoopHidden = false
     /// The row a workout is on: its node is larger, green, and pulses.
     var isCurrent = false
+    /// A row whose sets are all done in a workout: its node is filled purple.
+    var isDone = false
 }
 
 /// Where a row is in a group of rows next to each other on a rail, a superset: on its own, or
@@ -74,12 +76,12 @@ private struct RailNode: View {
                     .joiningRail(
                         when: place.isArriving,
                         settlingTo: place.isCurrent ? .accent
-                            : place.isRaised ? .textPrimary : .rail,
+                            : place.isRaised ? .textPrimary : place.isDone ? .done : .rail,
                     )
                     .frame(width: size, height: size)
                     .overlay {
-                        if place.isCurrent, !reduceMotion {
-                            CurrentPulse()
+                        if place.isCurrent {
+                            Color.clear.currentPulse(in: Circle())
                         }
                     }
                     .anchorPreference(key: NodeCenter.self, value: .center) { $0 }
@@ -107,25 +109,6 @@ struct RailNodeColumn: View {
             .hidden()
             .railColumn()
             .hotReloadable()
-    }
-}
-
-/// The current exercise's node pulsing: its green dims and comes back, slowly, over and over,
-/// within the node's own circle. It starts at full green, so a still shows the node at rest.
-private struct CurrentPulse: View {
-    @ObserveHotReload private var hotReload
-
-    var body: some View {
-        // The background's color laid over the green, more of it as the node dims.
-        PhaseAnimator([false, true]) { isDim in
-            Circle()
-                .fill(.pp(.background))
-                .opacity(isDim ? 0.45 : 0)
-        } animation: { _ in
-            .easeInOut(duration: 0.9)
-        }
-        .allowsHitTesting(false)
-        .hotReloadable()
     }
 }
 
