@@ -3,7 +3,9 @@
 
     python3 scripts/nightly-tooling-test.py
 """
+import contextlib
 import importlib.util
+import io
 import json
 import os
 import shutil
@@ -148,10 +150,9 @@ class XcodeCloud(unittest.TestCase):
         self.assertEqual(len(nightly.runs_since(runs, since)), 1)
 
     def test_a_card_that_starts_a_run_waits_past_seventy_hours_or_four_runs(self):
-        self.assertIsNone(nightly.xcode_cloud_gate(69.9, 3, True))
-        self.assertIn("70", nightly.xcode_cloud_gate(70.1, 0, True))
-        self.assertIn("4 Xcode Cloud runs", nightly.xcode_cloud_gate(10, 4, True))
-        self.assertIsNone(nightly.xcode_cloud_gate(99, 9, False))
+        self.assertIsNone(nightly.xcode_cloud_gate(69.9, 3))
+        self.assertIn("70", nightly.xcode_cloud_gate(70.1, 0))
+        self.assertIn("4 Xcode Cloud runs", nightly.xcode_cloud_gate(10, 4))
 
 
 class Paths(unittest.TestCase):
@@ -168,8 +169,9 @@ class Paths(unittest.TestCase):
                 "scripts/check-us-english.sh", "Brewfile", "Packages/Package.resolved",
                 ".github/pull_request_template.md", ".claude/agents/verifier.md", ".claude/skills/pr/SKILL.md",
                 ".claude/rules/testing.md", "CLAUDE.md", "AGENTS.md", ".mcp.json"]
+        hits += [".claude/skills/run/SKILL.md", ".claude/skills/brief/SKILL.md"]
         safe = ["scripts/ci-times.py", "docs/pr-check.md", "PlusPlusUITests/Waits.swift", "scripts/test.sh",
-                ".claude/skills/run/SKILL.md", "Packages/Sources/WorkoutStore/Namer.swift", "Config/README.md"]
+                "Packages/Sources/WorkoutStore/Namer.swift", "Config/README.md"]
         self.assertEqual(nightly.protected(hits + safe), hits)
 
     def test_only_claude_and_docs_wait_for_the_day(self):
@@ -257,27 +259,28 @@ func testG() {}
         self.assertEqual(nightly.count_tests(source), 3)
 
 
-def gate(app_push, pushes, hours=10):
-    """A run_gate as the hook builds it, from what the branch changes and the night's runs."""
-    return lambda: nightly.xcode_cloud_gate(hours, pushes, app_push)
+def decide(command="", tool="Bash", now=NIGHT, app=True, runs=0, hours=10):
+    """The hook's decision, with a run_gate built from what the branch changes and the night's runs."""
+    gate = lambda starts: app and nightly.xcode_cloud_gate(hours, runs)  # noqa: E731
+    return nightly.hook_decision(tool, command, now, STOP, ".slices/h.md", gate) or None
 
 
 class Hook(unittest.TestCase):
-    def decide(self, tool, command="", now=NIGHT, app_push=False, pushes=0, hours=10):
-        return nightly.hook_decision(tool, command, now, STOP, ".slices/h.md", gate(app_push, pushes, hours))
+    def decide(self, tool, command="", now=NIGHT, app=False, runs=0, hours=10):
+        return decide(command, tool, now, app, runs, hours)
 
     def test_ordinary_work_is_allowed(self):
         self.assertIsNone(self.decide("Bash", "scripts/build.sh"))
         self.assertIsNone(self.decide("Agent"))
-        self.assertIsNone(self.decide("Bash", "git push -u origin night-x", app_push=True, pushes=3))
-        self.assertIsNone(self.decide("Bash", "git push -u origin night-x", app_push=False, pushes=9, hours=99))
+        self.assertIsNone(self.decide("Bash", "git push -u origin night-x", app=True, runs=3))
+        self.assertIsNone(self.decide("Bash", "git push -u origin night-x", app=False, runs=9, hours=99))
 
     def test_only_a_git_push_or_a_new_pr_may_start_a_run(self):
         for command in ["git push", "git -C /w push -u origin x", "cd /w && git push", "make; git push origin x",
                         "gh pr create --title t --body-file -", "gh pr ready 7"]:
             self.assertTrue(nightly.call_risks(command)[1], command)
         for command in ['git commit -m "Retry the push on 429"', "git stash push", "gh pr view 7", "gh pr checks 7"]:
-            self.assertEqual(nightly.call_risks(command), (None, False), command)
+            self.assertEqual(nightly.call_risks(command), (None, None), command)
         late = STOP + timedelta(minutes=1)
         self.assertIsNone(self.decide("Bash", 'git commit -m "push later"', now=late))
 
@@ -285,9 +288,9 @@ class Hook(unittest.TestCase):
         self.assertIn("Never merge", self.decide("Bash", "gh pr merge 12 --squash"))
         self.assertIn("Never merge", self.decide("Bash", "cd x && gh  pr merge --auto"))
 
-    def test_the_fifth_app_push_or_past_seventy_hours_is_denied(self):
-        self.assertIn("Xcode Cloud", self.decide("Bash", "git -C /w push", app_push=True, pushes=4))
-        self.assertIn("Xcode Cloud", self.decide("Bash", "git push", app_push=True, hours=70.5))
+    def test_the_fifth_run_or_past_seventy_hours_is_denied(self):
+        self.assertIn("Xcode Cloud", self.decide("Bash", "git -C /w push", app=True, runs=4))
+        self.assertIn("Xcode Cloud", self.decide("Bash", "git push", app=True, hours=70.5))
 
     def test_from_seven_only_the_handoff(self):
         late = STOP + timedelta(minutes=1)
@@ -296,6 +299,13 @@ class Hook(unittest.TestCase):
         self.assertIn("past 7", self.decide("Bash", "git push", now=late))
         self.assertIsNone(self.decide("Bash", "cd /w && git add -A && git commit -m handoff", now=late))
         self.assertIsNone(self.decide("Write", now=late))
+
+    def test_from_seven_a_pipe_or_substitution_is_no_way_out(self):
+        late = STOP + timedelta(minutes=1)
+        for command in ["cat x | sh", "grep -l a f | xargs rm -rf", 'git commit -m "$(scripts/build.sh)"',
+                        "cat x\nscripts/build.sh", "git -C /w push"]:
+            self.assertIn("past 7", self.decide("Bash", command, now=late), command)
+        self.assertIsNone(self.decide("Bash", "git -C /w status && git --no-pager diff | head", now=late))
 
 
 class Digest(unittest.TestCase):
@@ -312,6 +322,7 @@ class Decide(unittest.TestCase):
 
     def setUp(self):
         self.repo = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.repo, True)
         self.git("init", "-q", "-b", "main")
         self.git("config", "user.email", "night@example.com")
         self.git("config", "user.name", "night")
@@ -424,6 +435,7 @@ class Loop(unittest.TestCase):
         for name, stub in stubs.items():
             setattr(nightly, name, stub)
         folder = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, folder, True)
         event = event or info(week_resets=weekly_resets)
         (folder / "retro.jsonl").write_text(json.dumps({"type": "rate_limit_event", "rate_limit_info": event}) + "\n")
         night = nightly.Night(folder, NIGHT, False)
@@ -438,17 +450,15 @@ class Loop(unittest.TestCase):
             return results[len(taken) - 1]
 
         night.take = take or taking
+        night.taken = taken
         night.run()
-        if take or finish:
-            night.taken = taken
-            return night
-        return taken
+        return night
 
     def test_four_eligible_cards_on_a_capped_night_three_run(self):
-        self.assertEqual(self.night(["merged"] * 4, weekly_resets=100), ["card 0", "card 1", "card 2"])
+        self.assertEqual(self.night(["merged"] * 4, weekly_resets=100).taken, ["card 0", "card 1", "card 2"])
 
     def test_after_a_failed_card_the_next_runs(self):
-        self.assertEqual(self.night(["parked", "merged", "merged", "merged"], weekly_resets=100),
+        self.assertEqual(self.night(["parked", "merged", "merged", "merged"], weekly_resets=100).taken,
                          ["card 0", "card 1", "card 2"])
 
     def test_a_crash_mid_card_leaves_a_state_and_a_digest(self):
@@ -481,19 +491,19 @@ class Loop(unittest.TestCase):
 
     def test_the_uncapped_night_takes_the_fourth(self):
         resets_at_seven = (STOP - NIGHT).total_seconds() / 3600
-        self.assertEqual(len(self.night(["merged"] * 4, weekly_resets=resets_at_seven)), 4)
+        self.assertEqual(len(self.night(["merged"] * 4, weekly_resets=resets_at_seven).taken), 4)
 
 
 class Bypass(unittest.TestCase):
-    """Spellings of a merge or an Xcode Cloud run that the hook has to stop. These fail today."""
+    """Spellings of a merge or an Xcode Cloud run that the hook has to stop."""
 
-    def decide(self, command, app_push=True, pushes=9):
-        return nightly.hook_decision("Bash", command, NIGHT, STOP, ".slices/h.md", gate(app_push, pushes))
+    def decide(self, command, app=True, runs=9):
+        return decide(command, app=app, runs=runs)
 
     def test_a_merge_with_the_repo_flag_is_denied(self):
         for command in ["gh pr -R plusplusinc/plusplus merge 7 --squash", "gh -R plusplusinc/plusplus pr merge 7",
                         "gh api repos/plusplusinc/plusplus/pulls/7/merge -X PUT"]:
-            self.assertIsNotNone(self.decide(command, app_push=False), command)
+            self.assertIsNotNone(self.decide(command, app=False), command)
 
     def test_a_push_past_the_limit_is_denied_however_it_is_spelled(self):
         for command in ["git -c push.default=current push", "FOO=1 git push", "bash -c 'git push'",
@@ -507,45 +517,47 @@ class Bypass(unittest.TestCase):
                         "gh api graphql -F query=@merge.graphql", "gh api graphql --input q.json",
                         "/opt/homebrew/bin/gh pr merge 7", "echo 7 | xargs gh pr merge", "eval gh pr merge 7",
                         'sh -c "gh pr merge 7 --auto"', 'git commit -m "$(gh pr merge 7)"', "cd x && `gh pr merge 7`",
-                        "gh alias set m 'pr merge'", "git -c alias.p=push p", "git config alias.p push"]:
-            self.assertIsNotNone(self.decide(command, app_push=False, pushes=0), command)
+                        "gh alias set m 'pr merge'", "git push --no-verify", "git -c core.hooksPath=/dev/null push",
+                        "env -u GIT_CONFIG_COUNT git push", "GIT_CONFIG_COUNT=0 git push"]:
+            self.assertIsNotNone(self.decide(command, app=False, runs=0), command)
 
     def test_every_push_spelling_past_the_limit_is_denied(self):
         for command in ["env git push", "env FOO=1 git push", "/usr/bin/git push", "command git push", "time git push",
                         "git --no-pager push", "git --git-dir .git push", "bash -lc 'cd /w && git push'",
-                        "nohup git push 2>&1 | tail -1", "git push 'unbalanced", "gh -R o/r pr create --title t"]:
+                        "nohup git push 2>&1 | tail -1", "git push 'unbalanced", "gh -R o/r pr create --title t",
+                        "gh api repos/o/r/pulls -f head=x -f base=main", "gh api -X PATCH repos/o/r/git/refs/heads/x"]:
             self.assertIn("Xcode Cloud run", self.decide(command) or "", command)
-            self.assertIsNone(self.decide(command, pushes=3), command)
+            self.assertIsNone(self.decide(command, runs=3), command)
 
     def test_an_xcode_cloud_change_is_denied_and_a_read_allowed(self):
         for command in ["asc --profile p xcode-cloud run --workflow-id x", "asc xcode-cloud workflows update --id x",
                         "asc xcode-cloud workflows delete --id x", "asc xcode-cloud products delete --id x"]:
-            self.assertIsNotNone(self.decide(command, app_push=False), command)
+            self.assertIsNotNone(self.decide(command, app=False), command)
         for command in ["asc xcode-cloud build-runs list --workflow-id x", "asc xcode-cloud status --run-id 1 --wait",
                         "asc xcode-cloud doctor --run-id 1", "asc xcode-cloud artifacts download --id 1"]:
-            self.assertIsNone(self.decide(command, app_push=False), command)
+            self.assertIsNone(self.decide(command, app=False), command)
 
     def test_text_about_a_merge_is_no_merge(self):
         body = "gh pr create --title 'Close the merge gate' --body-file - <<'BODY'\nIt denies gh pr merge 7.\nBODY"
         for command in [body, 'git commit -m "Deny gh pr merge"', "gh pr view 7 --json mergeStateStatus",
                         "grep -n 'gh pr merge' scripts/x.py", "git merge origin/main",
                         "gh api graphql -f query='{ viewer { login } }'", "gh api repos/o/r/pulls/7"]:
-            self.assertIsNone(self.decide(command, app_push=False), command)
+            self.assertIsNone(self.decide(command, app=False), command)
 
     def test_the_budget_is_read_only_for_a_call_that_may_start_a_run(self):
         calls = []
-        nightly.hook_decision("Bash", "scripts/build.sh && git commit -m push", NIGHT, STOP, "h",
-                              lambda: calls.append(1))
+        nightly.hook_decision("Bash", "scripts/build.sh && git commit -m push && gh api repos/o/r/pulls",
+                              NIGHT, STOP, "h", calls.append)
         self.assertEqual(calls, [])
 
 
 class HookFailsClosed(unittest.TestCase):
     """The hook as Claude Code runs it: any error exits 2, which denies the call."""
 
-    def hook(self, folder, stdin):
+    def hook(self, folder, stdin, worktree=None):
         script = Path(__file__).with_name("nightly-tooling.py")
-        return subprocess.run([sys.executable, str(script), "hook", str(folder), str(folder)], input=stdin,
-                              capture_output=True, text=True)
+        return subprocess.run([sys.executable, str(script), "hook", str(folder), str(worktree or folder)],
+                              input=stdin, capture_output=True, text=True)
 
     def test_no_state_denies(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -556,24 +568,58 @@ class HookFailsClosed(unittest.TestCase):
     def test_unreadable_input_denies(self):
         with tempfile.TemporaryDirectory() as folder:
             Path(folder, "state.json").write_text(json.dumps({"start": NIGHT.isoformat(), "stop": STOP.isoformat(),
-                                                              "handoff": "h"}))
+                                                              "hours": 1, "handoff": "h"}))
             for stdin in ["", "not json", "[]", json.dumps({"tool_input": {"command": "ls"}})]:
                 self.assertEqual(self.hook(folder, stdin).returncode, 2, stdin)
 
     def test_a_failed_budget_read_denies_the_push(self):
         with tempfile.TemporaryDirectory() as folder:
             # No such worktree, so reading what the branch changes fails.
-            Path(folder, "state.json").write_text(json.dumps({"start": NIGHT.isoformat(),
-                                                              "stop": (datetime.now() + timedelta(hours=1)).astimezone().isoformat(),
-                                                              "handoff": "h"}))
-            script = Path(__file__).with_name("nightly-tooling.py")
-            call = json.dumps({"tool_name": "Bash", "tool_input": {"command": "git push"}})
-            result = subprocess.run([sys.executable, str(script), "hook", folder, str(Path(folder, "gone"))],
-                                    input=call, capture_output=True, text=True)
-            self.assertEqual(result.returncode, 2)
+            Path(folder, "state.json").write_text(json.dumps({"start": NIGHT.isoformat(), "hours": 1, "handoff": "h",
+                                                              "stop": (datetime.now() + timedelta(hours=1)).astimezone().isoformat()}))
+            push = json.dumps({"tool_name": "Bash", "tool_input": {"command": "git push"}})
+            self.assertEqual(self.hook(folder, push, worktree=Path(folder, "gone")).returncode, 2)
             ls = json.dumps({"tool_name": "Bash", "tool_input": {"command": "ls"}})
-            self.assertEqual(subprocess.run([sys.executable, str(script), "hook", folder, folder], input=ls,
-                                            capture_output=True, text=True).returncode, 0)
+            self.assertEqual(self.hook(folder, ls).returncode, 0)
+
+
+class PrePush(unittest.TestCase):
+    """The pre-push hook a card's git runs, whatever started the push."""
+
+    def setUp(self):
+        self.root = Path(os.path.realpath(tempfile.mkdtemp()))
+        self.addCleanup(shutil.rmtree, self.root, True)
+        git = lambda *a: subprocess.run(["git", *a], cwd=self.root / "w", check=True, capture_output=True)  # noqa: E731
+        subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(self.root / "origin.git")], check=True)
+        subprocess.run(["git", "clone", "-q", str(self.root / "origin.git"), str(self.root / "w")], check=True,
+                       capture_output=True)
+        git("-c", "user.email=t@example.com", "-c", "user.name=t", "commit", "-q", "--allow-empty", "-m", "base")
+        git("push", "-q", "origin", "main")
+        git("checkout", "-q", "-b", "card")
+        self.git = git
+        self.night = nightly.Night(self.root / "night", NIGHT, False)
+        self.night.dir.mkdir()
+        (self.night.dir / "state.json").write_text(json.dumps({"start": NIGHT.isoformat(), "hours": 1}))
+
+    def push_from_python(self, name):
+        Path(self.root / "w" / name).parent.mkdir(parents=True, exist_ok=True)
+        Path(self.root / "w" / name).write_text("x\n")
+        self.git("add", "-A")
+        self.git("-c", "user.email=t@example.com", "-c", "user.name=t", "commit", "-qm", "card")
+        # A push the PreToolUse hook can't see in the command line.
+        return subprocess.run([sys.executable, "-c", "import subprocess, sys; sys.exit(subprocess.run("
+                               "['git', 'push', '-q', 'origin', 'card']).returncode)"],
+                              cwd=self.root / "w", env=self.night.git_env(), capture_output=True, text=True)
+
+    def test_a_docs_push_goes(self):
+        result = self.push_from_python("docs/x.md")
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_a_failure_refuses_the_push(self):
+        (self.night.dir / "state.json").unlink()
+        result = self.push_from_python("App/X.swift")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("pre-push hook failed", result.stderr)
 
 
 class Malformed(unittest.TestCase):
@@ -618,8 +664,6 @@ class Malformed(unittest.TestCase):
 
 
 def io_of(call):
-    import contextlib
-    import io
     buffer = io.StringIO()
     with contextlib.redirect_stdout(buffer):
         call()
