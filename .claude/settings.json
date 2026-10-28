@@ -48,7 +48,18 @@
       "Bash(xcrun altool:*)",
       "Bash(xcrun notarytool:*)",
       "Bash(git push --force:*)",
-      "Bash(git push -f:*)"
+      "Bash(git push -f:*)",
+      "Bash(git tag:*)",
+      "Bash(gh api -X PUT:*)",
+      "Bash(gh api -X PATCH:*)",
+      "Bash(gh api -X DELETE:*)",
+      "Bash(gh api --method PUT:*)",
+      "Bash(gh api --method PATCH:*)",
+      "Bash(gh api --method DELETE:*)",
+      "Bash(gh repo edit:*)",
+      "Bash(asc xcode-cloud workflows update:*)",
+      "Edit(.claude/settings*.json)",
+      "Write(.claude/settings*.json)"
     ]
   },
   "enabledPlugins": {
