@@ -41,6 +41,13 @@ every heading present even when its answer is one line:
   their phone or from the analytics is not a criterion.
 - **Plan** lists the model change, the views, the tests, and the screenshots the PR will carry
   (before and after for any UI). For a hunch, the spike and what answer would end it.
+- **Nightly:** a standalone card the nightly run may take (`scripts/nightly-tooling.py`) gets a
+  line `Nightly: <what it makes better>; <how we'd notice>`, and nothing else does. It qualifies
+  when it changes nothing the maintainer sees in the app, makes speed, reliability, cost,
+  safety, or the quality of product work better, has a Success check or acceptance criteria
+  the verifier can run, touches only files in the repo, and is more than prose (a change only to
+  `.claude/` and `docs/` waits for the day). Name the files it will touch in backticks: the run
+  skips a card whose files an open PR changes.
 - **Tense** follows CLAUDE.md: a card is read before the work, during it, and after it, and
   every sentence has to be true whenever it is read.
   - Problem describes today in the present tense: "Today a routine is a list of names." Any

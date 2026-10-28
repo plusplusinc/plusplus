@@ -14,15 +14,12 @@ extra cases.
 """
 import json
 import pathlib
-import re
 import subprocess
 import sys
 from datetime import datetime
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from xcresult import ROOT, budget_lines, parallel_targets  # noqa: E402
-
-PR_WORKFLOW = "FE8B3BCC-1973-4533-BB66-4D047A8E3C22"  # docs/xcode-cloud.md, "PR"
+from xcresult import PR_WORKFLOW, ROOT, budget_lines, parallel_targets, when  # noqa: E402
 
 
 def asc(*args):
@@ -34,25 +31,6 @@ def asc(*args):
 
 def git(*args):
     return subprocess.run(["git", "-C", str(ROOT), *args], capture_output=True, text=True)
-
-
-def when(stamp):
-    """Xcode Cloud's timestamp, whose fraction of a second can have any number of digits, or none.
-
-    Python 3.9's fromisoformat takes only 3 or 6, so the fraction is padded or cut to 6 first.
-    Run with `python3 -m doctest scripts/ci-times.py`.
-
-    >>> for s in ["2026-10-27T11:23:44Z", "2026-10-27T11:23:44.4+00:00", "2026-10-27T11:23:44.42Z",
-    ...           "2026-10-27T11:23:44.421Z", "2026-10-27T11:23:44.421337-07:00"]:
-    ...     print(when(s).isoformat())
-    2026-10-27T11:23:44+00:00
-    2026-10-27T11:23:44.400000+00:00
-    2026-10-27T11:23:44.420000+00:00
-    2026-10-27T11:23:44.421000+00:00
-    2026-10-27T11:23:44.421337-07:00
-    """
-    stamp = re.sub(r"\.(\d+)", lambda m: "." + m[1][:6].ljust(6, "0"), stamp)
-    return datetime.fromisoformat(stamp.replace("Z", "+00:00"))
 
 
 def find_run(runs, branch=None, number=None):

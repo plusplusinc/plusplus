@@ -11,7 +11,9 @@
 # unmerged PRs are never cleaned up; their work may still be wanted. A removed worktree's own
 # simulator, "PlusPlus <worktree>" (see scripts/common.sh), is shut down and deleted with it, and
 # so is the recorded simulator of a worktree removed by hand; this is the only script that deletes
-# a simulator.
+# a simulator. A file or folder in .slices/ goes too once every board card it names (by item id,
+# PVTI_...) is Done, unless it is named after a live worktree or branch; one that names none, or a
+# card the board doesn't have, is kept.
 #
 #   scripts/tidy.sh            # remove, and print each thing removed
 #   scripts/tidy.sh --dry-run  # print what would be removed
@@ -141,3 +143,47 @@ while read -r branch; do
         run git branch -D "$branch"
     fi
 done < <(git for-each-ref --format='%(refname:short)' refs/heads)
+
+# .slices/ entries of finished cards. One named after a live worktree or local branch (`<name>`,
+# `<name>-plan.md`, `<name>.json`), or touched in the last day, is work still going and stays,
+# whatever cards it cites. Any other goes once every card it names is Done, read in one `board.sh list` request, made only when
+# such an entry names a card. One naming a card the board doesn't have stays, and says so.
+SLICES="$ROOT/.slices"
+if [ -d "$SLICES" ]; then
+    live=$({
+        git worktree list --porcelain | awk '/^worktree /{print substr($0,10)}' |
+            while read -r path; do basename "$path"; done
+        git for-each-ref --format='%(refname:short)' refs/heads
+    } | sort -u)
+    candidates=()
+    for entry in "$SLICES"/* "$SLICES"/.[!.]*; do
+        [ -e "$entry" ] || continue
+        name=$(basename "$entry")
+        owned=false
+        while read -r prefix; do
+            case "$name" in "$prefix" | "$prefix"-* | "$prefix".*) owned=true && break ;; esac
+        done <<< "$live"
+        [ -n "$(find "$entry" -newermt "-$FRESH_SECONDS seconds" -print -quit)" ] && owned=true
+        $owned || candidates+=("$entry")
+    done
+    if [ "${#candidates[@]}" -gt 0 ] && grep -rqE 'PVTI_' "${candidates[@]}" 2> /dev/null; then
+        if rows=$("$ROOT/scripts/board.sh" list 2>&1); then
+            # A row is "<id>  <status>\t<feature>\t<title>".
+            known=$(awk '{ print $1 }' <<< "$rows" | sort -u)
+            done_ids=$(awk -F'\t' '$1 ~ /  Done$/ { split($1, f, " "); print f[1] }' <<< "$rows" | sort -u)
+            for entry in "${candidates[@]}"; do
+                named=$(grep -rhoE 'PVTI_[A-Za-z0-9_-]+' "$entry" 2> /dev/null | sort -u || true)
+                [ -n "$named" ] || continue
+                unknown=$(comm -23 <(echo "$named") <(echo "$known") | paste -sd, -)
+                if [ -n "$unknown" ]; then
+                    echo "tidy: kept $entry: it names $unknown, which the board doesn't have"
+                elif [ -z "$(comm -23 <(echo "$named") <(echo "$done_ids"))" ]; then
+                    run rm -r "$entry"
+                fi
+            done
+        else
+            # A spent quota, or any other board error, leaves everything in place.
+            echo "tidy: kept .slices/: reading the board failed: $(tail -1 <<< "$rows")"
+        fi
+    fi
+fi

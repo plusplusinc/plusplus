@@ -28,6 +28,8 @@ scripts/ci-times.py
 scripts/conversations.py
 scripts/device.sh
 scripts/nightly-retro.sh
+scripts/nightly-tooling-test.py
+scripts/nightly-tooling.py
 scripts/run.sh
 scripts/sim.sh
 scripts/test.sh
