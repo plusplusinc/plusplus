@@ -98,13 +98,14 @@ project board; agents' technical working files live in `.slices/`.
 - A screen with no design gets options drawn before it is built. The first is the platform's
   own control for the job (principle 4, "Native bones"), and each other option says what it
   does that the system one can't. An API offered as an option is one whose Apple doc (sosumi)
-  says it works on iPhone. Draw them as a page on the feature's design board, the claude.ai
-  artifact the board README links (Artifact `read`, add the page, `publish` to its `url`; a
-  feature with none gets one, linked there), and send its link: the maintainer chooses on the
-  phone, where a file on the Mac never reaches them and `SendUserFile` fails in a session with
-  no project thread. A session started from the phone has no Artifact tool, nor do the
-  subagents it starts: check with ToolSearch before anyone draws, and without it publish
-  through an interactive `claude` on the Mac, as agent memory describes.
+  says it works on iPhone. Draw them as phone-size frames on a Design canvas, a claude.ai
+  artifact made from the Design type (Artifact `quickstart` with intent "design"), each
+  decision numbered and each option lettered so the maintainer answers in one line ("1A, 2B"),
+  link it from the feature's section of the board README, and send its link: the maintainer
+  chooses on the phone, where a file on the Mac never reaches them and `SendUserFile` fails in
+  a session with no project thread. Since 2026-10-28 a session started from the phone, and the
+  subagents it starts, have the Artifact tool; check with ToolSearch before anyone draws, and
+  without it publish through an interactive `claude` on the Mac, as agent memory describes.
 - No time estimates. While a phase runs, tell the maintainer in a line now and then what it is
   doing, for which card, and why that still serves the card, without being asked. Every line of
   text you write reaches them, so plan in your head, never in a line to yourself. A subagent or
