@@ -501,7 +501,8 @@ class Night:
         deadline = stop + KILL_GRACE
         with stream.open("w") as out:
             process = subprocess.Popen(self.command(item, worktree, branch, settings), cwd=worktree,
-                                       stdout=out, stderr=subprocess.STDOUT, text=True)
+                                       stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT,
+                                       text=True)
             try:
                 process.wait(timeout=max(60, (deadline - datetime.now().astimezone()).total_seconds()))
             except subprocess.TimeoutExpired:
