@@ -232,24 +232,31 @@ private struct RailAutoscroll: ViewModifier {
             .background {
                 // A frame at a time, only while a held row is in an edge's band, or the room
                 // above the rail moves.
-                if edges.isStepping {
-                    RailFrames(edges: edges)
-                }
+                RailFrames(edges: edges, isStepping: edges.isStepping)
             }
             .hotReloadable()
     }
 }
 
-/// Steps the list once a frame. Its own view, with nothing to change but `edges`, so a step,
-/// which scrolls the list and so re-runs the body around it, doesn't read the frame clock again:
-/// read again later in the same frame, it can give the next frame's date, and the list would
-/// step twice in one frame, which SwiftUI logs as a fault.
+/// Steps the list once a frame. Its own view, with nothing to change but whether the list steps,
+/// so a step, which scrolls the list and so re-runs the body around it, doesn't read the frame
+/// clock again: read again later in the same frame, it can give the next frame's date, and the
+/// list would step twice in one frame, which SwiftUI logs as a fault.
+///
+/// The clock stays in the hierarchy, paused while the list doesn't step. A clock inserted as the
+/// list starts stepping, with nothing else on the screen changing, can stop after its first date
+/// and never give a second, and the list then stays where it is for as long as the row is held.
 private struct RailFrames: View {
     let edges: RailEdges
+    let isStepping: Bool
 
     var body: some View {
-        TimelineView(.animation) { timeline in
-            frame(at: timeline.date)
+        TimelineView(.animation(paused: !isStepping)) { timeline in
+            // What steps the list is inserted as it starts stepping, so its first date only
+            // starts the count: a date from before the pause would step it by the whole pause.
+            if isStepping {
+                frame(at: timeline.date)
+            }
         }
     }
 
