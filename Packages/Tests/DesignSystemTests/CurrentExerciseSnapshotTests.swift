@@ -6,9 +6,9 @@ import SwiftUI
 import Testing
 
 /// The current exercise of a workout on the rail, as the routine screen composes it: its node
-/// large and green, its name grown, which set it is on, its equipment, and its plan's numbers
-/// large, the label as tall as they are, the next row under it. At AX5 the numbers' unit goes
-/// under them, and nothing truncates.
+/// large and green, its name grown, which set it is on with its bars, its equipment, its plan's
+/// numbers large, and the slide to log the set, the label as tall as they are, the next row under
+/// it. At AX5 the numbers' unit goes under them, and nothing truncates.
 @Suite("Current exercise")
 struct CurrentExerciseSnapshotTests {
     private static let width: CGFloat = 390
@@ -18,6 +18,7 @@ struct CurrentExerciseSnapshotTests {
         let title: String
         let detail: [String]
         var focus: RowFocus?
+        var bars: SetProgress?
     }
 
     private func rail(_ rows: [Row]) -> some View {
@@ -26,6 +27,8 @@ struct CurrentExerciseSnapshotTests {
                 title: row.title,
                 detail: row.detail,
                 focus: row.focus,
+                bars: row.bars,
+                log: row.focus.map { _ in LogStep(label: "Log set") { } },
             )
             .railRow()
         } end: {
@@ -53,6 +56,27 @@ struct CurrentExerciseSnapshotTests {
                 ],
                 spokenFigures: "10 reps, 25 pounds per side",
             ),
+            bars: SetProgress(done: 1, total: 3, spoken: "1 of 3 sets done"),
+        )
+        assertThemedSnapshots(of: rail([current, next]), width: Self.width)
+    }
+
+    @Test("One side at a time: the side beside the set, the bars gray until both sides are in")
+    func oneSide() {
+        let current = Row(
+            title: "Dumbbell row",
+            detail: ["3 × 10 reps per side", "30 lb"],
+            focus: RowFocus(
+                progress: "Set 1 of 3",
+                side: "Right",
+                equipment: ["Dumbbells", "Bench"],
+                figures: [
+                    .init(number: "10", unit: "reps"),
+                    .init(number: "30", unit: "lb"),
+                ],
+                spokenFigures: "10 reps, 30 pounds",
+            ),
+            bars: SetProgress(done: 0, total: 3, spoken: "0 of 3 sets done"),
         )
         assertThemedSnapshots(of: rail([current, next]), width: Self.width)
     }

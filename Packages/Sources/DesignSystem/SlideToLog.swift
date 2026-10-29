@@ -36,7 +36,9 @@ public struct SlideToLog: View {
     @State private var trackWidth: CGFloat = 0
 
     @ScaledMetric(relativeTo: .body) private var trackHeight: CGFloat = 56
-    @ScaledMetric(relativeTo: .body) private var keyWidth: CGFloat = 64
+    /// The key's width as the text size asks; at most a third of the track (`keyWidth`).
+    @ScaledMetric(relativeTo: .body) private var scaledKeyWidth: CGFloat = 64
+    @ScaledMetric(relativeTo: .body) private var arrowSize: CGFloat = 20
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
@@ -60,6 +62,12 @@ public struct SlideToLog: View {
     }
 
     private static let inset: CGFloat = 4
+
+    /// The key's width, held to a third of the track: at the accessibility sizes, as wide as the
+    /// text size asked, it covered most of the track and left "Log set" no room.
+    private var keyWidth: CGFloat {
+        trackWidth > 0 ? min(scaledKeyWidth, trackWidth / 3) : scaledKeyWidth
+    }
 
     public var body: some View {
         let keyHeight = trackHeight - Self.inset * 2
@@ -90,7 +98,7 @@ public struct SlideToLog: View {
                         Image(systemName: "arrow.right").opacity(isArmed ? 0 : 1)
                         Image(systemName: "checkmark").opacity(isArmed ? 1 : 0)
                     }
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.system(size: arrowSize, weight: .bold))
                     .foregroundStyle(.pp(.background))
                 }
                 .frame(width: keyWidth, height: keyHeight)

@@ -99,8 +99,9 @@ public struct RowLabel: View {
             if detailText != nil || focus != nil {
                 VStack(alignment: .leading, spacing: Spacing.lg) {
                     // The detail line gives way to which set it is on, in the same place, the
-                    // bars at its trailing end.
-                    HStack(alignment: .top, spacing: Spacing.sm) {
+                    // bars at its trailing end: beside it, or under it at the accessibility
+                    // sizes, where beside it eight bars squeezed the line to nothing.
+                    linesAndBars {
                         lines(detailText)
                             .frame(maxWidth: .infinity, alignment: .leading)
                         if let bars {
@@ -125,6 +126,13 @@ public struct RowLabel: View {
                 }
             }
         }
+    }
+
+    /// The lines and the bars beside them, or, at the accessibility sizes, the bars under them.
+    private var linesAndBars: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .trailing, spacing: Spacing.xxs))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: Spacing.sm))
     }
 
     /// The detail line and the progress line, one over the other, as one gives way to the other.
