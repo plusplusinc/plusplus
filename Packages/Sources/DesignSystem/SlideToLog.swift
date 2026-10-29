@@ -1,12 +1,15 @@
 import SwiftUI
 
 /// Slide to log a set: a light key in a track as wide as the exercise, with a quiet label naming
-/// the step, "Log set", "Log left", or "Log last set". As the key slides, the track behind it
-/// fills in a neutral gray (`SlideFill`). At rest the key shows an arrow; past two-thirds of the
-/// way it turns to a check and a haptic plays, lighter for one side than for a whole set; slid
-/// back under, the arrow comes back. Let go past that point and the set logs (`onLog`), the
-/// key finishing its slide, resting there a moment, then fading out at the end and back in at
-/// the start. Let go short of it and the key springs back.
+/// the step, "Log set", "Log left", or "Log last set". Nothing fills the track behind the key. At
+/// rest the key shows an arrow; past two-thirds of the way it turns to a check and a haptic plays,
+/// lighter for one side than for a whole set; slid back under, the arrow comes back. Let go past
+/// that point and the set logs (`onLog`), the key finishing its slide, resting there a moment,
+/// then fading out at the end and back in at the start. The key has mass: let go short of it, it
+/// coasts on with the finger's speed, and where that would carry it past the point
+/// (`SlideTrack.coast`), as a quick flick does, it coasts on past, the haptic plays and the set
+/// logs as it crosses, and it finishes its slide; otherwise it slows and springs back, carrying
+/// that speed.
 ///
 /// The drag is horizontal only: a mostly vertical move that starts on the track scrolls the list
 /// (`SlideToLogGesture`). VoiceOver reads it as one button named by its label.
@@ -77,10 +80,6 @@ public struct SlideToLog: View {
                 .padding(.leading, keyWidth + Self.inset * 2)
                 .padding(.trailing, Self.inset * 2)
                 .opacity(SlideTrack.labelOpacity(keyEnd: keyX + keyWidth, track: trackWidth))
-            SlideFill(progress: progress, isArmed: isArmed)
-                .frame(width: keyX + keyWidth - Self.inset, height: keyHeight)
-                .offset(x: Self.inset)
-                .opacity(keyOpacity)
             RoundedRectangle(cornerRadius: Radius.key)
                 .fill(.pp(.textPrimary))
                 .shadow(color: .pp(.shadow), radius: 1.5, y: 1)
@@ -102,8 +101,8 @@ public struct SlideToLog: View {
         .onGeometryChange(for: CGFloat.self, of: \.size.width) { trackWidth = $0 }
         .contentShape(.rect)
         #if os(iOS)
-        .gesture(SlideToLogGesture(isEnabled: !isFinishing) { phase, translation in
-            drag(phase, translation: translation, travel: travel)
+        .gesture(SlideToLogGesture(isEnabled: !isFinishing) { phase, translation, velocity in
+            drag(phase, translation: translation, velocity: velocity, travel: travel)
         })
         #endif
         // A tap on the track does nothing, rather than open the row's sheet under it.
@@ -120,7 +119,14 @@ public struct SlideToLog: View {
     }
 
     #if os(iOS)
-    private func drag(_ phase: SlideToLogGesture.Phase, translation: CGFloat, travel: CGFloat) {
+    private func drag(
+        _ phase: SlideToLogGesture.Phase,
+        translation: CGFloat,
+        velocity: CGFloat,
+        travel: CGFloat,
+    ) {
+        // The finger's speed in tracks a second.
+        let speed = travel > 0 ? velocity / travel : 0
         switch phase {
         case .changed:
             let next = SlideTrack.progress(translation: translation, travel: travel)
@@ -130,11 +136,39 @@ public struct SlideToLog: View {
             progress = next
         case .ended where SlideTrack.isArmed(progress):
             log()
+        case .ended where SlideTrack.isArmed(SlideTrack.coast(from: progress, speed: speed)):
+            coast(speed: speed)
         case .ended, .cancelled:
-            withAnimation(.snappy(duration: SetMotion.springBack)) { progress = 0 }
+            // Slowing, then back, from the speed it was let go at, as a share of the way back.
+            let share = progress > 0 ? -speed / progress : 0
+            withAnimation(.interpolatingSpring(
+                duration: SetMotion.springBack,
+                bounce: 0,
+                initialVelocity: share,
+            )) {
+                progress = 0
+            }
         }
     }
     #endif
+
+    /// Let go short of the commit at `speed`, with enough to carry it past: the key coasts on to
+    /// the end, slowing from that speed, and the set logs, with the haptic, as it crosses.
+    private func coast(speed: CGFloat) {
+        isFinishing = true
+        let (duration, crossing) = SlideTrack.coastTiming(from: progress, speed: speed)
+        withAnimation(.timingCurve(0.5, 1, 0.5, 1, duration: duration)) {
+            progress = 1
+        } completion: {
+            rest()
+        }
+        // The log as the key crosses, timed from the curve by design: nothing is waited for.
+        Task {
+            try? await Task.sleep(for: .seconds(crossing), tolerance: .zero)
+            arms += 1
+            onLog()
+        }
+    }
 
     /// The key finishes its slide as the set logs, rests while the progress line rolls, then
     /// fades out at the end and in again at the start.
@@ -144,32 +178,22 @@ public struct SlideToLog: View {
         withAnimation(.easeOut(duration: SetMotion.finish)) {
             progress = 1
         } completion: {
-            withAnimation(.linear(duration: SetMotion.fadeOut).delay(SetMotion.rest)) {
-                keyOpacity = 0
-            } completion: {
-                progress = 0
-                withAnimation(.easeOut(duration: SetMotion.fadeIn)) {
-                    keyOpacity = 1
-                } completion: {
-                    isFinishing = false
-                }
-            }
+            rest()
         }
     }
-}
 
-/// What fills the track behind the key, from its start to the key's trailing edge: a neutral
-/// gray, the same before and past the commit, where the check and the haptic mark the log. Its
-/// own view, so another effect can take its place without touching the slide.
-struct SlideFill: View {
-    /// How far along the track the key is, 0 to 1.
-    let progress: CGFloat
-    /// Whether the key is past the commit.
-    let isArmed: Bool
-
-    var body: some View {
-        RoundedRectangle(cornerRadius: Radius.key)
-            .fill(.pp(.textPrimary).opacity(0.14))
+    /// The key at the end, resting there, then fading out and in again at the start.
+    private func rest() {
+        withAnimation(.linear(duration: SetMotion.fadeOut).delay(SetMotion.rest)) {
+            keyOpacity = 0
+        } completion: {
+            progress = 0
+            withAnimation(.easeOut(duration: SetMotion.fadeIn)) {
+                keyOpacity = 1
+            } completion: {
+                isFinishing = false
+            }
+        }
     }
 }
 
@@ -189,6 +213,25 @@ enum SlideTrack {
     /// Whether a release at `progress` logs the set.
     static func isArmed(_ progress: CGFloat) -> Bool {
         progress >= SetMotion.commit
+    }
+
+    /// Where a key let go at `progress`, moving at `speed` tracks a second, would coast to as it
+    /// slows to a stop: UIKit's projection for a scroll view's deceleration, `speed` times the
+    /// rate over one less the rate, a thousandth for each millisecond.
+    static func coast(from progress: CGFloat, speed: CGFloat) -> CGFloat {
+        let rate = SetMotion.coastRate
+        return progress + speed * rate / (1 - rate) / 1000
+    }
+
+    /// For a key coasting from `progress` at `speed` to the end, on a curve that sets off at
+    /// about that speed and slows to a stop (`timingCurve(0.5, 1, 0.5, 1)`, about twice as fast
+    /// at the start as on average): how long it takes, and when it crosses the commit.
+    static func coastTiming(from progress: CGFloat, speed: CGFloat) -> (duration: Double, crossing: Double) {
+        let left = max(1 - progress, 0)
+        let duration = min(max(2 * left / max(speed, 0.01), 0.12), 0.4)
+        // On that curve the share of the way gone runs about as 1 - (1 - t)^2.
+        let share = left > 0 ? min(max((SetMotion.commit - progress) / left, 0), 1) : 1
+        return (duration, duration * (1 - (1 - share).squareRoot()))
     }
 
     /// "Log set" fades as the key's leading edge comes over it, gone 40 pt before the end.
@@ -213,8 +256,9 @@ struct SlideToLogGesture: UIGestureRecognizerRepresentable {
     }
 
     var isEnabled: Bool
-    /// Each step of the drag, with how far it has gone across.
-    var onPhase: (Phase, CGFloat) -> Void
+    /// Each step of the drag, with how far it has gone across and how fast it is going, in
+    /// points a second.
+    var onPhase: (Phase, CGFloat, CGFloat) -> Void
 
     func makeCoordinator(converter _: CoordinateSpaceConverter) -> Coordinator {
         Coordinator()
@@ -232,10 +276,11 @@ struct SlideToLogGesture: UIGestureRecognizerRepresentable {
 
     func handleUIGestureRecognizerAction(_ recognizer: UIPanGestureRecognizer, context _: Context) {
         let across = recognizer.translation(in: recognizer.view).x
+        let speed = recognizer.velocity(in: recognizer.view).x
         switch recognizer.state {
-        case .began, .changed: onPhase(.changed, across)
-        case .ended: onPhase(.ended, across)
-        case .cancelled, .failed: onPhase(.cancelled, across)
+        case .began, .changed: onPhase(.changed, across, speed)
+        case .ended: onPhase(.ended, across, speed)
+        case .cancelled, .failed: onPhase(.cancelled, across, speed)
         default: break
         }
     }

@@ -20,6 +20,11 @@ public enum SetMotion {
     /// How far along the track the key has to go to log the set: past it, the arrow turns to a
     /// check and a haptic plays; a release logs. Slid back under, both go back.
     static let commit = 2.0 / 3
+    /// How quickly a key let go slows, as UIKit's deceleration rates go: kept a share of its
+    /// speed each millisecond. At 0.994 it coasts about a sixth of a second's worth of its speed,
+    /// so from a quarter of the way, a flick at about 750 pt/s on a 300 pt travel carries it past
+    /// `commit`, and a slow drag, 200 pt/s, about 33 pt.
+    static let coastRate = 0.994
     /// A key let go short of `commit` springing back to the start.
     static let springBack = 0.35
     /// A key let go past `commit` finishing its slide to the track's end.
