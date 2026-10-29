@@ -174,7 +174,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         let room = drag.map(roomAbove) ?? 0
         // Held, the rail draws every stroke once, under the rows, rather than each row its own.
         let isHeld = drag != nil || regrouping != nil
-        VStack(alignment: .leading, spacing: 0) {
+        RailStack {
             // Each row learns its place from the rail. Rows taken as a view's subviews could
             // not: a subview resolves in its container's environment, not one set on it.
             ForEach(shown) { item in
@@ -436,3 +436,4 @@ extension Animation {
     /// let the rows below a deleted one drift up.
     public static let railChange = Animation.snappy(duration: 0.25)
 }
+

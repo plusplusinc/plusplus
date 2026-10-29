@@ -16,8 +16,6 @@ nonisolated struct CurrentPlace: Equatable {
     /// How far the label's top, with the current exercise's space above it, is from the top of
     /// the list's content, where `scrollTo(y:)` counts from.
     var contentTop: CGFloat
-    /// The label's height, with the current exercise's space above it.
-    var height: CGFloat
 
     /// The scroll position that lands the rail row, its label `RailRowMetrics.verticalInset`
     /// below its top, just under the bar.
@@ -28,7 +26,6 @@ nonisolated struct CurrentPlace: Equatable {
     init(_ proxy: GeometryProxy) {
         let row = CGRect(origin: .zero, size: proxy.size)
         contentTop = proxy.frame(in: .list).minY
-        height = row.height
         guard let visible = proxy.bounds(of: .scrollView) else {
             (isLaidOut, isMostlyOut, isAbove) = (true, false, false)
             return

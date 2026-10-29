@@ -136,6 +136,7 @@ struct RoutineScreen: View {
         // drawing its rows with what it had, rather than the workout it is fading into.
         let currentID = currentID
         let currentSet = currentSet
+        let moving = exerciseMove
         let tracksRows = session.workout != nil || isStarting
         let underBar = underBarCut
         return ScrollView {
@@ -174,20 +175,11 @@ struct RoutineScreen: View {
                         onMove: move,
                         regroup: regroup,
                     ) { item in
-                        RowLabel(
-                            title: item.exercise.name,
-                            detail: item.detailParts(locale: locale),
-                            spokenDetail: item.spokenDetail(locale: locale),
-                            focus: currentSet.flatMap { set in
-                                item.id == currentID ? focus(of: item, on: set) : nil
-                            },
-                            bars: bars(of: item.id),
-                            log: currentSet.map { logStep($0, of: item) },
-                        )
+                        rowLabel(item, current: currentID, on: currentSet, move: moving)
                         .id(item.id)
                         .padding(
                             .top,
-                            item.id == currentID || item.id == exerciseMove?.to
+                            isOpen(item.id, current: currentID, move: moving)
                                 ? Self.currentTopSpace : 0,
                         )
                         // Only while it is read: as the list scrolls, every change redraws the
@@ -228,19 +220,29 @@ struct RoutineScreen: View {
                         // is off.
                         .swipeToDelete(isOn: item.id != currentID) { delete(item.id) }
                     } end: {
-                        if isWorkoutDone {
+                        // The Finish row once the last row has started to close, fading in
+                        // once it is mostly closed, never over the slide going.
+                        if isWorkoutDone, moving?.stage != .leaving {
                             FinishWorkoutRow {
                                 isPicking = true
                             } finish: {
                                 finish(named: shownName ?? "")
                             }
-                            .transition(.opacity)
+                            .transition(.asymmetric(
+                                insertion: .opacity.animation(SetMotion.finishIn),
+                                removal: .opacity,
+                            ))
                         } else {
                             Button("Add exercise", systemImage: "plus") {
                                 isPicking = true
                             }
                             .buttonStyle(.key)
-                            .transition(.opacity)
+                            // Going for the Finish row, quickly, where it stood: a view going
+                            // stays where it was as the rows close up above it.
+                            .transition(.asymmetric(
+                                insertion: .opacity,
+                                removal: .opacity.animation(.easeIn(duration: SetMotion.leaveFade)),
+                            ))
                         }
                     }
                 }

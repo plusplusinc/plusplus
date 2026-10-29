@@ -2,9 +2,9 @@ import SwiftUI
 
 /// Slide to log a set: a light key in a track as wide as the exercise, with a quiet label naming
 /// the step, "Log set", "Log left", or "Log last set". As the key slides, the track behind it
-/// fills in a neutral tone. At rest the key shows an arrow; past two-thirds of the way it turns to
-/// a check, the fill turns purple, and a haptic plays, lighter for one side than for a whole set;
-/// slid back under, all three go back. Let go past that point and the set logs (`onLog`), the
+/// fills in a neutral gray (`SlideFill`). At rest the key shows an arrow; past two-thirds of the
+/// way it turns to a check and a haptic plays, lighter for one side than for a whole set; slid
+/// back under, the arrow comes back. Let go past that point and the set logs (`onLog`), the
 /// key finishing its slide, resting there a moment, then fading out at the end and back in at
 /// the start. Let go short of it and the key springs back.
 ///
@@ -64,8 +64,9 @@ public struct SlideToLog: View {
         let keyX = Self.inset + travel * progress
         let isArmed = SlideTrack.isArmed(progress)
         ZStack(alignment: .leading) {
+            // Sunk into the exercise, darker than the screen around it.
             RoundedRectangle(cornerRadius: 15)
-                .fill(.pp(.surface))
+                .fill(.pp(.well))
                 .strokeBorder(.pp(.borderStrong), lineWidth: 1)
             Text(label)
                 .font(.ppButton.weight(.regular))
@@ -76,11 +77,7 @@ public struct SlideToLog: View {
                 .padding(.leading, keyWidth + Self.inset * 2)
                 .padding(.trailing, Self.inset * 2)
                 .opacity(SlideTrack.labelOpacity(keyEnd: keyX + keyWidth, track: trackWidth))
-            // The fill behind the key, from the track's start: neutral, purple once past the
-            // commit, as the set is done.
-            RoundedRectangle(cornerRadius: Radius.key)
-                .fill(isArmed ? Color.pp(.done) : Color.pp(.textPrimary).opacity(0.14))
-                .animation(.easeOut(duration: SetMotion.fillTurn), value: isArmed)
+            SlideFill(progress: progress, isArmed: isArmed)
                 .frame(width: keyX + keyWidth - Self.inset, height: keyHeight)
                 .offset(x: Self.inset)
                 .opacity(keyOpacity)
@@ -158,6 +155,21 @@ public struct SlideToLog: View {
                 }
             }
         }
+    }
+}
+
+/// What fills the track behind the key, from its start to the key's trailing edge: a neutral
+/// gray, the same before and past the commit, where the check and the haptic mark the log. Its
+/// own view, so another effect can take its place without touching the slide.
+struct SlideFill: View {
+    /// How far along the track the key is, 0 to 1.
+    let progress: CGFloat
+    /// Whether the key is past the commit.
+    let isArmed: Bool
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: Radius.key)
+            .fill(.pp(.textPrimary).opacity(0.14))
     }
 }
 

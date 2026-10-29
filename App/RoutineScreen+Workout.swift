@@ -18,7 +18,7 @@ extension RoutineScreen {
     /// The set a workout does next, the first in the routine's order not yet logged, as the screen
     /// shows it: none while a move to another exercise is on its way, until the next one grows.
     var currentSet: PlannedSet? {
-        guard exerciseMove?.isGrowing != false else { return nil }
+        guard exerciseMove.map({ $0.stage == .opening }) != false else { return nil }
         return session.workout.flatMap { routine.nextSet(after: $0.sets) }
     }
 
@@ -36,6 +36,44 @@ extension RoutineScreen {
             focus.progress = held
         }
         return focus
+    }
+
+    /// A row's label: the current exercise, grown, on `set`; the row a move leaves, as it was,
+    /// while its parts go; the row it moves to, its name grown ahead of its parts; else a row.
+    /// Given the screen's values read once, as the rows' closure holds them.
+    func rowLabel(
+        _ item: RoutineExercise,
+        current: RoutineExercise.ID?,
+        on set: PlannedSet?,
+        move: ExerciseMove?,
+    ) -> RowLabel {
+        let isLeaving = move?.isLeaving(item.id) == true
+        let focus: RowFocus? = if isLeaving {
+            move?.leaving.focus
+        } else if item.id == current, let set {
+            focus(of: item, on: set)
+        } else {
+            nil
+        }
+        let log: LogStep? = isLeaving ? move?.leaving.log : set.map { logStep($0, of: item) }
+        return RowLabel(
+            title: item.exercise.name,
+            detail: item.detailParts(locale: locale),
+            spokenDetail: item.spokenDetail(locale: locale),
+            focus: focus,
+            bars: bars(of: item.id),
+            log: focus == nil ? nil : log,
+            isNameGrown: move?.isArriving(item.id) == true ? true : nil,
+            isLeaving: isLeaving,
+        )
+    }
+
+    /// Whether `id`'s row has the current exercise's space above it: current, left by a move
+    /// as its parts go, or moved to from the close on. After the last set, the last row keeps it
+    /// as it closes, so it closes where it stands, and gives it up as the list settles.
+    func isOpen(_ id: RoutineExercise.ID, current: RoutineExercise.ID?, move: ExerciseMove?) -> Bool {
+        guard id != current, let move else { return id == current }
+        return move.isLeaving(id) || move.isArriving(id) || move.to == nil && move.from == id
     }
 
     /// The slide for `set`: "Log last set" on the workout's last planned set, "Log left" or "Log
@@ -93,13 +131,16 @@ extension RoutineScreen {
     }
 
     /// Logs the set the slide was on, at the numbers its row shows. Within one exercise the
-    /// progress line rolls to the next set. Moving to another, in `SetMotion`'s beats, each a
-    /// little over the last: the current row shrinks back to a resting row; a green pulse travels
-    /// along the rail to the next row's node, round a superset's loop at a round's end, as the
-    /// list scrolls the next row up under the bar; and the next row grows into the current
-    /// exercise as the pulse lands. The scroll is Start's: the list is scrolled at once to where
-    /// the next row will land and drawn where it was, the lift run to 0 on the pulse's curve.
-    /// After the last set, the row shrinks and the Finish row shows under it.
+    /// progress line rolls to the next set. Moving to another, on one timeline from the log
+    /// (`SetMotion`): the parts under the current exercise's name go, bottom first; then, on one
+    /// curve, its row closes back to a resting row as the list scrolls the next row up under the
+    /// bar and the next row's name grows, while a green pulse travels the rail to the next node,
+    /// round a superset's loop at a round's end; and as the pulse lands, the next row opens to
+    /// its content's height and its parts come in, top first. The scroll is Start's: the list is
+    /// scrolled at once to where the next row will land and drawn where it was, the lift run to 0
+    /// on the close's curve, in the close's transaction, so the row closing and the scroll move
+    /// the rows below as one. After the last set, the row closes and the Finish row shows under
+    /// it.
     func log(_ set: PlannedSet, of row: RoutineExercise) {
         guard let workout = session.workout else { return }
         let next = routine.nextSet(after: workout.logging(set, of: row, at: .now).sets)
@@ -107,61 +148,93 @@ extension RoutineScreen {
             withAnimation(.snappy(duration: SetMotion.roll)) { session.log(set, of: row) }
             return
         }
-        guard let next else { return logLast(set, of: row) }
-        let target = landing(on: next.row, leaving: row.id)
-        noteRestingPitch(of: next.row)
+        let target = next.flatMap { landing(on: $0.row, leaving: row.id) }
         guard !reduceMotion else {
             return crossfade(scrollingTo: target ?? scrollBeat.scrolledY) {
                 session.log(set, of: row)
             }
         }
+        // The slide as it was, doing nothing now, so it stays where it is as it goes.
+        let step = logStep(set, of: row)
+        let leaving = ExerciseMove.Leaving(
+            focus: focus(of: row, on: set),
+            log: LogStep(label: step.label, weight: step.weight) { },
+        )
+        guard let next else { return logLast(set, of: row, leaving: leaving) }
+        noteRestingPitch(of: next.row)
         let rows = routine.exercises.map(\.id)
         let isUp = (rows.firstIndex(of: next.row) ?? 0) < (rows.firstIndex(of: row.id) ?? 0)
-        // At a superset round's end, the round just done rolls to the next as the first grows.
+        // At a superset round's end, the round just done rolls to the next as the first opens.
         let held = isUp && next.round != set.round && routine.isInSuperset(next.row)
-            ? focus(of: row, on: set).progress : nil
+            ? leaving.focus.progress : nil
         isMovingOn = true
-        if let target {
-            withTransaction(\.disablesAnimations, true) {
-                isMakingRoom = true
-                growthLift = target - scrollBeat.scrolledY
-                scrollPosition.scrollTo(y: target)
-            }
-            withAnimation(SetMotion.scroll(up: isUp)) { growthLift = 0 }
-        }
-        withAnimation(.snappy(duration: SetMotion.shrink)) {
-            exerciseMove = ExerciseMove(to: next.row, heldProgress: held)
-            railPulse = RailPulse(from: row.id, to: next.row, run: (railPulse?.run ?? 0) + 1)
+        // Leave: the parts go, each on its own delay (`part(_:isLeaving:)`).
+        exerciseMove = ExerciseMove(from: row.id, to: next.row, leaving: leaving)
+        withAnimation(.easeIn(duration: SetMotion.leaveFade)) {
             session.log(set, of: row)
         }
-        // The beats after the shrink, timed from the log by design: nothing is waited for.
+        // The pulse waits `SetMotion.travelStart` from here, on the same clock as the close.
+        railPulse = RailPulse(from: row.id, to: next.row, run: (railPulse?.run ?? 0) + 1)
+        // The beats after the leave, timed from the log by design: nothing is waited for.
         Task {
-            try? await Task.sleep(for: .seconds(SetMotion.growStart), tolerance: .zero)
-            withAnimation(.snappy(duration: SetMotion.grow)) { exerciseMove?.isGrowing = true }
-            if held != nil {
-                try? await Task.sleep(for: .seconds(SetMotion.roundRoll), tolerance: .zero)
-                withAnimation(.snappy(duration: SetMotion.roll)) { exerciseMove?.heldProgress = nil
+            try? await Task.sleep(for: .seconds(SetMotion.closeStart), tolerance: .zero)
+            if let target {
+                withTransaction(\.disablesAnimations, true) {
+                    isMakingRoom = true
+                    growthLift = target - scrollBeat.scrolledY
+                    scrollPosition.scrollTo(y: target)
                 }
             }
-            try? await Task.sleep(for: .seconds(SetMotion.grow), tolerance: .zero)
+            withAnimation(SetMotion.closing) {
+                exerciseMove?.stage = .closing
+                growthLift = 0
+            }
+            try? await Task.sleep(
+                for: .seconds(SetMotion.openStart - SetMotion.closeStart),
+                tolerance: .zero,
+            )
+            withAnimation(SetMotion.opening) {
+                exerciseMove?.stage = .opening
+                exerciseMove?.heldProgress = held
+            }
+            if held != nil {
+                try? await Task.sleep(for: .seconds(SetMotion.roundRoll), tolerance: .zero)
+                withAnimation(.snappy(duration: SetMotion.roll)) {
+                    exerciseMove?.heldProgress = nil
+                }
+            }
+            try? await Task.sleep(
+                for: .seconds(SetMotion.move - SetMotion.openStart),
+                tolerance: .zero,
+            )
             exerciseMove = nil
             isMovingOn = false
             letRoomGo()
             // With no landing worked out ahead, as after a relaunch, the list lands after.
             if target == nil {
-                withAnimation(.snappy(duration: SetMotion.grow), scrollToCurrent)
+                withAnimation(SetMotion.opening, scrollToCurrent)
             }
         }
     }
 
-    /// The workout's last planned set: the row shrinks back, then the list's room to land a
-    /// current exercise goes as the list settles on its end, the Finish row under the last row.
-    private func logLast(_ set: PlannedSet, of row: RoutineExercise) {
+    /// The workout's last planned set: the parts go, the row closes back, the Finish row fading
+    /// in under it once the row is mostly closed, then the list's room to land a current exercise
+    /// goes as the list settles on its end.
+    private func logLast(_ set: PlannedSet, of row: RoutineExercise, leaving: ExerciseMove.Leaving) {
         isMovingOn = true
-        withAnimation(.snappy(duration: SetMotion.shrink)) {
+        exerciseMove = ExerciseMove(from: row.id, to: nil, leaving: leaving)
+        withAnimation(.easeIn(duration: SetMotion.leaveFade)) {
             session.log(set, of: row)
-        } completion: {
+        }
+        Task {
+            try? await Task.sleep(for: .seconds(SetMotion.closeStart), tolerance: .zero)
+            withAnimation(SetMotion.closing) {
+                exerciseMove?.stage = .closing
+            }
+            try? await Task.sleep(for: .seconds(SetMotion.close), tolerance: .zero)
+            // The row's space above goes in the settle, not before it, on its frame.
             withAnimation(.snappy(duration: SetMotion.settle)) {
+                exerciseMove = nil
                 isMovingOn = false
                 scrollPosition.scrollTo(edge: .bottom)
             }
@@ -488,16 +561,46 @@ extension RoutineScreen {
     }
 }
 
-/// A move from one exercise to the next in progress, from the log until the next has grown.
+/// A move from one exercise to the next in progress, from the log until the next has opened
+/// (`SetMotion`), or, after the last set, until the row has closed.
 struct ExerciseMove {
-    /// The row it moves to, whose space above opens as the last one shrinks, so the travel lands
-    /// its label where it stays as it grows.
-    let to: RoutineExercise.ID
-    /// Whether the next exercise has started to grow, its set shown.
-    var isGrowing = false
+    /// The row it leaves.
+    let from: RoutineExercise.ID
+    /// The row it moves to, whose name grows and whose space above opens as the last one
+    /// closes, so the travel lands its label where it stays as it opens. None after the last set.
+    let to: RoutineExercise.ID?
+    /// The row it leaves as it showed, held while its parts go.
+    let leaving: Leaving
+    var stage = Stage.leaving
     /// At a superset round's end, the round just done, which the first member shows as it starts
-    /// to grow, then rolls to its own.
+    /// to open, then rolls to its own.
     var heldProgress: String?
+
+    enum Stage {
+        /// The parts under the current exercise's name going, its row still open.
+        case leaving
+        /// The row closing, the list scrolling, the pulse traveling.
+        case closing
+        /// The next row opening, the current exercise, its parts coming in.
+        case opening
+    }
+
+    /// What the row it leaves showed: its set and numbers, and its slide.
+    struct Leaving {
+        let focus: RowFocus
+        let log: LogStep
+    }
+
+    /// Whether `id` is the row it leaves, still open as its parts go.
+    func isLeaving(_ id: RoutineExercise.ID) -> Bool {
+        stage == .leaving && id == from
+    }
+
+    /// Whether `id` is the row it moves to, from the close on: its name grown, its space above
+    /// open.
+    func isArriving(_ id: RoutineExercise.ID) -> Bool {
+        stage != .leaving && id == to
+    }
 }
 
 /// Where each row is in the list's content, and each row's height when last at rest, read as

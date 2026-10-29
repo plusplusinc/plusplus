@@ -95,7 +95,7 @@ nonisolated struct RailRoute: Equatable {
 /// The green pulse traveling a route: a capsule along it whose front edge leads, as the October
 /// rail entry's did. It is as wide as the line at the start and `pointScale` times as wide at
 /// the landing, on a cubic ease-in, and as long as its width plus a stretch for its speed, at most
-/// `longest` of the route, so it starts as a round dot and stretches as it speeds up. After it
+/// `longest` of the route, so it stretches most as it shoots off. After it
 /// lands, through `SetMotion.collapse`, the stretch collapses back into the dot, on the node.
 nonisolated struct PulseShape: Shape {
     /// From 0 as it sets off to 1 as it lands, then on to `end` as it collapses; below 0 there
@@ -132,9 +132,11 @@ nonisolated struct PulseShape: Shape {
             let collapse = CGFloat((time - 1) / (Self.end - 1))
             length = width + (length - width) * max(0, 1 - collapse)
         }
-        // The round caps add half the width at each end, so the stretch between them is shorter.
-        let head = max(front - width / 2, 0)
-        let tail = max(front - length + width / 2, 0)
+        // The round caps add half the width at each end, so the stretch between them is shorter;
+        // collapsing, the dot it leaves settles on the node's center.
+        let settled = time > 1 ? width / 2 * min(CGFloat((time - 1) / (Self.end - 1)), 1) : 0
+        let head = max(front - width / 2 + settled, 0)
+        let tail = max(front - length + width / 2 + settled, 0)
         let points = route.stretch(from: min(tail, head), to: head)
         guard let first = points.first else { return Path() }
         var line = Path()
@@ -152,7 +154,8 @@ nonisolated struct PulseShape: Shape {
 }
 
 /// The pulse drawn over a rail, from the rows' nodes as they are on each frame. It plays once
-/// for each new `run`, from `SetMotion.travelStart` after it, and draws nothing between runs.
+/// for each new `run`, from `SetMotion.travelStart` after it, holding as a dot on the node it
+/// landed on until the node is current, and draws nothing between runs.
 /// With Reduce Motion there is none: the move crossfades.
 struct RailPulseRun: View {
     let route: RailRoute?
@@ -176,6 +179,9 @@ struct RailPulseRun: View {
             LinearKeyframe(-1.0, duration: SetMotion.travelStart)
             MoveKeyframe(0.0)
             LinearKeyframe(PulseShape.end, duration: SetMotion.travel + SetMotion.collapse)
+            // A dot on the node as it rides up under the bar, until the node turns green.
+            LinearKeyframe(PulseShape.end, duration: SetMotion.dotHold + SetMotion.openStart
+                - SetMotion.travelStart - SetMotion.travel - SetMotion.collapse)
             MoveKeyframe(-1.0)
         }
         .allowsHitTesting(false)

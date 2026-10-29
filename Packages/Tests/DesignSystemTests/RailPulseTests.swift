@@ -51,25 +51,32 @@ struct RailPulseTests {
         let shape = PulseShape(time: -1, route: route, lineWidth: 2)
         #expect(shape.path(in: .zero).isEmpty)
         let landed = PulseShape(time: PulseShape.end, route: route, lineWidth: 2)
-        // Collapsed into a dot at the node, twice the line's width.
+        // Collapsed into a dot centered on the node, twice the line's width.
         let box = landed.path(in: .zero).boundingRect
         #expect(abs(box.height - 4) < 0.01)
-        #expect(abs(box.maxY - 64) < 0.01)
+        #expect(abs(box.midY - 64) < 0.01)
     }
 
-    @Test("The travel starts moving, ends where it lands, and only gathers speed")
+    @Test("The travel shoots off, ends where it lands, and still moves as it lands")
     func travel() {
         #expect(SetMotion.distance(at: 0) == 0)
-        #expect(SetMotion.distance(at: 1) == 1)
-        #expect(SetMotion.speed(at: 0) > 0)
-        #expect(SetMotion.speed(at: 1) > SetMotion.speed(at: 0.5))
+        #expect(abs(SetMotion.distance(at: 1) - 1) < 1e-9)
+        #expect(SetMotion.speed(at: 0) > SetMotion.speed(at: 0.5))
+        #expect(SetMotion.speed(at: 1) > 0)
     }
 
-    @Test("The move takes about 0.8 s, each beat starting before the last ends")
+    @Test("The move takes about 0.8 s, the pulse leading and each beat starting before the last ends")
     @MainActor
     func beats() {
-        #expect(abs(SetMotion.move - 0.8) < 0.1)
-        #expect(SetMotion.travelStart < SetMotion.shrink)
-        #expect(SetMotion.growStart < SetMotion.travelStart + SetMotion.travel)
+        #expect(abs(SetMotion.move - 0.8) < 0.05)
+        // The parts have all started to go before the row closes, and the pulse sets off first.
+        #expect(SetMotion.travelStart < SetMotion.closeStart)
+        #expect(SetMotion.leaveDelay(.equipment) < SetMotion.closeStart)
+        // The pulse lands before the row stops, and the next opens before the close ends.
+        #expect(SetMotion.travelStart + SetMotion.travel < SetMotion.closeStart + SetMotion.close)
+        #expect(SetMotion.openStart < SetMotion.closeStart + SetMotion.close)
+        // Top first in, bottom first out.
+        #expect(SetMotion.arriveDelay(.progress) < SetMotion.arriveDelay(.slide))
+        #expect(SetMotion.leaveDelay(.slide) < SetMotion.leaveDelay(.progress))
     }
 }
