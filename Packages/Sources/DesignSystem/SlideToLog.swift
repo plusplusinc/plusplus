@@ -36,8 +36,11 @@ public struct SlideToLog: View {
     @State private var trackWidth: CGFloat = 0
 
     @ScaledMetric(relativeTo: .body) private var trackHeight: CGFloat = 56
-    /// The key's width as the text size asks; at most a third of the track (`keyWidth`).
-    @ScaledMetric(relativeTo: .body) private var scaledKeyWidth: CGFloat = 64
+    /// Scaled as a large title is, about half as much as the body at the accessibility sizes:
+    /// scaled with the body, the key covered most of the track there and left "Log set" no room.
+    /// Not held to the track's measured width: the track's width follows the key's where a
+    /// layout asks for its ideal size, and the two fed each other, a layout loop at AX5.
+    @ScaledMetric(relativeTo: .largeTitle) private var keyWidth: CGFloat = 64
     @ScaledMetric(relativeTo: .body) private var arrowSize: CGFloat = 20
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
@@ -62,12 +65,6 @@ public struct SlideToLog: View {
     }
 
     private static let inset: CGFloat = 4
-
-    /// The key's width, held to a third of the track: at the accessibility sizes, as wide as the
-    /// text size asked, it covered most of the track and left "Log set" no room.
-    private var keyWidth: CGFloat {
-        trackWidth > 0 ? min(scaledKeyWidth, trackWidth / 3) : scaledKeyWidth
-    }
 
     public var body: some View {
         let keyHeight = trackHeight - Self.inset * 2
