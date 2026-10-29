@@ -19,11 +19,6 @@ public struct RowLabel: View {
     /// How far the exercise is through its sets in a workout, shown as bars at the trailing
     /// end of its detail line, or of its progress line on the current exercise.
     private let bars: SetProgress?
-    /// Whether the name stands at the current exercise's size: with `focus`, and on the row a
-    /// workout is moving to, ahead of its other parts.
-    private let isNameGrown: Bool
-    /// Whether the parts under the name are going, ahead of the row closing.
-    private let isLeaving: Bool
 
     /// The current exercise's numbers: 104pt at the default size.
     @ScaledMetric(relativeTo: .largeTitle) private var figureSize: CGFloat = 104
@@ -36,6 +31,7 @@ public struct RowLabel: View {
     @State private var grownHeight: CGFloat = 0
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.restingLabelFloor) private var restingLabelFloor
     @ObserveHotReload private var hotReload
 
     public init(
@@ -45,8 +41,6 @@ public struct RowLabel: View {
         focus: RowFocus? = nil,
         bars: SetProgress? = nil,
         log: LogStep? = nil,
-        isNameGrown: Bool? = nil,
-        isLeaving: Bool = false,
     ) {
         self.title = title
         self.detail = detail
@@ -54,8 +48,6 @@ public struct RowLabel: View {
         self.focus = focus
         self.log = log
         self.bars = bars
-        self.isNameGrown = isNameGrown ?? (focus != nil)
-        self.isLeaving = isLeaving
     }
 
     /// A row whose detail is one line, or none.
@@ -77,7 +69,10 @@ public struct RowLabel: View {
         StandingHeight(
             growth: focus == nil ? 0 : 1,
             isCurrent: focus != nil,
-            restingHeight: restingHeight,
+            // On a rail, a row stands at least as tall as two lines: growing from its own
+            // height, the label's first points of growth, and a shrink's last, moved nothing,
+            // so the rows below ran ahead of the growth and came back as it ended.
+            restingHeight: max(restingHeight, restingLabelFloor),
             grownHeight: grownHeight,
         ) {
             column(detailText)
@@ -90,14 +85,15 @@ public struct RowLabel: View {
                 }
         }
         // Nothing under the name shows past the height it stands at, so as it opens each part
-        // shows only once the rows below have made room for it, never over them.
-        .clipShape(BottomClip(isOn: focus != nil))
+        // shows only once the rows below have made room for it, and as it closes, a part still
+        // going is cut off by its bottom, never over them.
+        .clipShape(BottomClip())
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func column(_ detailText: String?) -> some View {
         VStack(alignment: .leading, spacing: Spacing.xxs) {
-            GrowingName(title: title, growth: isNameGrown ? 1 : 0)
+            GrowingName(title: title, growth: focus == nil ? 0 : 1)
             // Out of a workout, a row with no detail has nothing under its name, not even
             // spacing.
             if detailText != nil || focus != nil {
@@ -110,21 +106,21 @@ public struct RowLabel: View {
                         if let bars {
                             // Kept as the row leaves: on a superset's member, the round goes on.
                             barsOnFirstLine(bars)
-                                .part(.progress, isLeaving: false)
+                                .part(.progress)
                         }
                     }
                     if let focus, !focus.equipment.isEmpty {
                         Capsules(focus.equipment)
-                            .part(.equipment, isLeaving: isLeaving)
+                            .part(.equipment)
                     }
                     if let focus {
                         figures(focus)
-                            .part(.figures, isLeaving: isLeaving)
+                            .part(.figures)
                     }
                     if focus != nil, let log {
                         SlideToLog(log.label, weight: log.weight, onLog: log.action)
                             .layoutPriority(1)
-                            .part(.slide, isLeaving: isLeaving)
+                            .part(.slide)
                     }
                 }
             }
@@ -148,14 +144,14 @@ public struct RowLabel: View {
             }
             if let focus {
                 progressLine(focus)
-                    .part(.progress, isLeaving: isLeaving)
+                    .part(.progress)
             }
         }
     }
 
     /// Whether the detail line shows: on a row at rest, its name at a row's size.
     private var showsDetail: Bool {
-        focus == nil && !isNameGrown
+        focus == nil
     }
 
     /// The bars, centered on the first line of the line beside them: in a box as tall as one line
@@ -261,45 +257,38 @@ public struct RowLabel: View {
 private let noBreakSpace = "\u{00A0}"
 
 /// Everything above a view's bottom edge, however far it reaches up or to either side: the cut
-/// is the bottom edge alone, and only while `isOn`.
+/// is the bottom edge alone.
 private nonisolated struct BottomClip: Shape {
-    let isOn: Bool
-
     func path(in rect: CGRect) -> Path {
         let far = max(rect.width, rect.height) * 4
         return Path(CGRect(
             x: rect.minX - far,
             y: rect.minY - far,
             width: rect.width + far * 2,
-            height: rect.height + far * (isOn ? 1 : 2),
+            height: rect.height + far,
         ))
     }
 }
 
 extension View {
     /// One of the current exercise's parts under its name, coming in and going in turn
-    /// (`SetMotion`): in, fading as it rises into place once the row has room; going, while
-    /// `isLeaving`, fading as it drops, before the row closes. Taken out any other way, as a
-    /// workout ends, it fades.
-    func part(_ part: SetMotion.Part, isLeaving: Bool) -> some View {
-        opacity(isLeaving ? 0 : 1)
-            .offset(y: isLeaving ? SetMotion.leaveDrop : 0)
-            .animation(
-                isLeaving
-                    ? .easeIn(duration: SetMotion.leaveFade).delay(SetMotion.leaveDelay(part))
-                    : nil,
-                value: isLeaving,
-            )
-            .transition(
-                .asymmetric(
-                    insertion: .opacity.combined(with: .offset(y: SetMotion.arriveRise))
-                        .animation(
-                            .easeOut(duration: SetMotion.arriveFade)
-                                .delay(SetMotion.arriveDelay(part)),
-                        ),
-                    removal: .opacity.animation(.easeOut(duration: SetMotion.leaveFade)),
-                ),
-            )
+    /// (`SetMotion`): in, fading as it rises into place once the row has room; going, fading as
+    /// it drops, bottom first, as the row starts to close.
+    func part(_ part: SetMotion.Part) -> some View {
+        transition(
+            .asymmetric(
+                insertion: .opacity.combined(with: .offset(y: SetMotion.arriveRise))
+                    .animation(
+                        .easeOut(duration: SetMotion.arriveFade)
+                            .delay(SetMotion.arriveDelay(part)),
+                    ),
+                removal: .opacity.combined(with: .offset(y: SetMotion.leaveDrop))
+                    .animation(
+                        .easeIn(duration: SetMotion.leaveFade)
+                            .delay(SetMotion.leaveDelay(part)),
+                    ),
+            ),
+        )
     }
 }
 

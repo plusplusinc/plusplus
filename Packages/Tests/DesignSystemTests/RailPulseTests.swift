@@ -65,18 +65,20 @@ struct RailPulseTests {
         #expect(SetMotion.speed(at: 1) > 0)
     }
 
-    @Test("The move takes about 0.8 s, the pulse leading and each beat starting before the last ends")
+    @Test("The move takes about 0.7 s, one shift the pulse lands with, parts out before in")
     @MainActor
     func beats() {
-        #expect(abs(SetMotion.move - 0.8) < 0.05)
-        // The parts have all started to go before the row closes, and the pulse sets off first.
-        #expect(SetMotion.travelStart < SetMotion.closeStart)
-        #expect(SetMotion.leaveDelay(.equipment) < SetMotion.closeStart)
-        // The pulse lands before the row stops, and the next opens before the close ends.
-        #expect(SetMotion.travelStart + SetMotion.travel < SetMotion.closeStart + SetMotion.close)
-        #expect(SetMotion.openStart < SetMotion.closeStart + SetMotion.close)
-        // Top first in, bottom first out.
+        #expect(abs(SetMotion.move - 0.7) < 0.1)
+        // The row starts to shift as the parts go, not after a beat.
+        #expect(SetMotion.shiftStart < SetMotion.leaveDelay(.equipment) + SetMotion.leaveFade)
+        // The pulse lands in the shift's last fifth, as the next row comes to rest.
+        let landed = SetMotion.travelStart + SetMotion.travel
+        #expect(landed > SetMotion.shiftStart + SetMotion.shift * 0.7)
+        #expect(landed < SetMotion.shiftStart + SetMotion.shift)
+        // Top first in, bottom first out, every part gone before the first comes in.
         #expect(SetMotion.arriveDelay(.progress) < SetMotion.arriveDelay(.slide))
         #expect(SetMotion.leaveDelay(.slide) < SetMotion.leaveDelay(.progress))
+        #expect(SetMotion.leaveDelay(.progress) + SetMotion.leaveFade
+            <= SetMotion.arriveDelay(.progress))
     }
 }

@@ -3,19 +3,17 @@ import SwiftUI
 /// Every timing in logging a set and moving on, in one place, so a tweak tried on the phone is one
 /// line and a rebuild.
 ///
-/// Moving to another exercise is one timeline from the slide's log, about 0.8 s, in three beats
-/// that overlap so it never stalls:
-/// - **Leave** (`leaveStart`, 0 to 0.14 s): what the current exercise grew to show goes before
-///   its row closes, bottom first, each part fading as it drops a few points: the slide, the
-///   numbers, then the equipment and the progress line.
-/// - **Close** (`closeStart`, 0.1 to 0.52 s): on one curve, the row shrinks back to a resting row,
-///   its name shrinking with it, as the list scrolls the next row up under the bar and the next
-///   row's name grows to the current exercise's size. Ahead of it, from 0.06 s, a green pulse
-///   shoots along the rail from the node left to the next one's, leading the eye there, and lands
-///   at 0.34 s, a dot that rides the node up under the bar until the row opens.
-/// - **Open** (`openStart`, 0.49 to 0.78 s): the next row opens to its content's height, with no
-///   overshoot, and once it has room its parts come in top first, each fading as it rises a few
-///   points: the progress line, the equipment, the numbers, the slide.
+/// Moving to another exercise is one motion from the slide's log, about 0.7 s:
+/// - **Leave** (0 to 0.14 s): what the current exercise grew to show goes, bottom first, each part
+///   fading as it drops a few points: the slide, the numbers, then the equipment and the progress
+///   line.
+/// - **Shift** (`shiftStart`, 0.04 to 0.69 s): on one curve, the row shrinks back to a resting row
+///   as the next row grows into the current exercise and the list scrolls it up under the bar,
+///   so what lies between and below moves up once, with the scroll, never back down. A green
+///   pulse shoots along the rail from the node left to the next one's and lands as the next row
+///   comes to rest under the bar, a dot on the node until the node lights.
+/// - **Arrive**: the next row's parts come in top first as it has room for them, each fading as
+///   it rises a few points: the progress line, the equipment, the numbers, the slide.
 public enum SetMotion {
     // MARK: The slide
 
@@ -56,34 +54,40 @@ public enum SetMotion {
         }
     }
 
-    // MARK: Close
+    // MARK: Shift
 
-    /// When the row starts to close and the list to scroll, from the slide's log: as the last
-    /// parts finish going, low enough by then that the rows rising below never pass under one.
-    public static let closeStart = 0.1
-    /// The row closing and the list scrolling the next row under the bar, on one curve, so the
+    /// When the row starts to shrink, the next to grow, and the list to scroll, from the slide's
+    /// log: as the slide goes, so nothing waits; the row's bottom cuts off whatever is still
+    /// going as it closes.
+    public static let shiftStart = 0.04
+    /// The shift, the row shrinking as the next grows and the list scrolls, on one curve, so the
     /// rows below move as one.
-    public nonisolated static let close = 0.42
+    public nonisolated static let shift = 0.65
 
-    /// The close's curve: under way gently, as the last parts go, and easing to a stop with no
-    /// overshoot. Shared by the row's shrink, the names' sizes, and the list's scroll.
-    public static var closing: Animation {
-        .timingCurve(0.42, 0, 0.2, 1, duration: close)
+    /// The shift's curve: under way gently, as the parts go, and easing to a stop with no
+    /// overshoot. Shared by both rows' heights, the names' sizes, and the list's scroll.
+    public static var shifting: Animation {
+        .timingCurve(0.42, 0, 0.2, 1, duration: shift).delay(shiftStart)
     }
 
-    /// When the pulse sets off, from the slide's log: as the slide starts to go, ahead of the
-    /// close, so it leads.
-    public static let travelStart = 0.06
-    /// The pulse shooting from the node left to the next one's.
-    public nonisolated static let travel = 0.28
+    /// When the pulse sets off, from the slide's log: as the slide starts to go.
+    public static let travelStart = 0.08
+    /// The pulse shooting from the node left to the next one's, landing as the shift brings the
+    /// next row to rest under the bar.
+    public nonisolated static let travel = 0.48
     /// The pulse's speed as it lands, against its average: an ease-out that shoots off and still
     /// hits the node moving, never creeping into it.
     nonisolated static let travelLanding = 0.6
     /// After the pulse lands, how long its stretch takes to collapse into a dot on the node.
     public nonisolated static let collapse = 0.06
-    /// How long after the next row starts to open, its node turning green, that the pulse's dot
-    /// goes, under the green node by then.
+    /// How long after the next row's node lights that the pulse's dot goes, under the green node
+    /// by then.
     public static let dotHold = 0.06
+
+    /// When the next row's node lights, from the slide's log: as the pulse's dot settles on it.
+    public static var landing: Double {
+        travelStart + travel + collapse
+    }
 
     /// The detail line, back on the row closing, fading in once the progress line has gone and
     /// the row is well on its way to a resting row.
@@ -94,57 +98,42 @@ public enum SetMotion {
     /// The detail line on the next row going as its name starts to grow.
     public static let detailOut = Animation.easeIn(duration: 0.06)
 
-    // MARK: Open
-
-    /// How long before the close ends that the next row starts to open, its node turning green
-    /// under the pulse's dot.
-    public static let growLead = 0.03
-    /// The next row opening to its content's height.
-    public static let open = 0.3
-
-    /// The open's curve: quick to give the parts room, then easing in with no overshoot.
-    public static var opening: Animation {
-        .timingCurve(0.2, 0, 0, 1, duration: open)
-    }
+    // MARK: Arrive
 
     /// Each part of the next exercise fading in as it rises into place.
     public static let arriveFade = 0.16
     /// How far each part rises as it comes in.
     public static let arriveRise: CGFloat = 8
 
-    /// When `part` starts to come in, from the open's start: top first, each once the row has
-    /// opened enough to hold it, the progress line once the detail line has gone (`detailOut`).
+    /// When `part` starts to come in, from the slide's log: top first, each once the row has
+    /// grown enough to hold it, the progress line once the detail line has gone (`detailOut`).
     public static func arriveDelay(_ part: Part) -> Double {
         switch part {
-        case .progress: 0.06
-        case .equipment: 0.08
-        case .figures: 0.1
-        case .slide: 0.13
+        case .progress: 0.2
+        case .equipment: 0.26
+        case .figures: 0.32
+        case .slide: 0.4
         }
     }
 
-    /// At a superset round's end, how long after the first member starts to open that "Round 2
-    /// of 3" rolls to "Round 3 of 3", taking `roll`.
-    public static let roundRoll = 0.12
+    /// At a superset round's end, how long after the log that "Round 2 of 3" rolls to "Round 3
+    /// of 3", taking `roll`: as the first member's node lights.
+    public static var roundRoll: Double {
+        landing
+    }
 
     // MARK: After the last set
 
-    /// After the last planned set, the Finish row fading in, from the close's start: once the
-    /// last row is mostly closed, so it never shows over the slide going.
-    public static let finishIn = Animation.easeOut(duration: 0.2).delay(0.22)
-    /// After the last planned set, the list settling on its end, the Finish row in view.
-    public static let settle = 0.35
+    /// After the last planned set, the Finish row fading in, from the log: once the last row is
+    /// mostly closed, so it never shows over the slide going.
+    public static let finishIn = Animation.easeOut(duration: 0.2).delay(0.26)
 
     // MARK: The timeline
 
-    /// When the next row starts to open, from the slide's log.
-    public static var openStart: Double {
-        closeStart + close - growLead
-    }
-
-    /// The whole move, from the slide's log to the next exercise's last part in place.
+    /// The whole move, from the slide's log to the shift's end, the next exercise's last part in
+    /// place and the pulse's dot gone.
     public static var move: Double {
-        openStart + arriveDelay(.slide) + arriveFade
+        max(shiftStart + shift, arriveDelay(.slide) + arriveFade, landing + dotHold)
     }
 
     /// The current exercise's parts under its name, which leave and arrive in turn.

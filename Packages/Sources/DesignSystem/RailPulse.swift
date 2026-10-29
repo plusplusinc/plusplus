@@ -179,9 +179,8 @@ struct RailPulseRun: View {
             LinearKeyframe(-1.0, duration: SetMotion.travelStart)
             MoveKeyframe(0.0)
             LinearKeyframe(PulseShape.end, duration: SetMotion.travel + SetMotion.collapse)
-            // A dot on the node as it rides up under the bar, until the node turns green.
-            LinearKeyframe(PulseShape.end, duration: SetMotion.dotHold + SetMotion.openStart
-                - SetMotion.travelStart - SetMotion.travel - SetMotion.collapse)
+            // A dot on the node until the node has turned green under it.
+            LinearKeyframe(PulseShape.end, duration: SetMotion.dotHold)
             MoveKeyframe(-1.0)
         }
         .allowsHitTesting(false)

@@ -77,7 +77,7 @@ extension View {
     /// is shorter than the `visible` height. Worked out in the pass that lays the list out, from
     /// its own height, so it is right on every frame of a growth. None out of a workout.
     func roomToLand(top: CGFloat?, visible: CGFloat) -> some View {
-        RoomToLand(top: top, visible: visible) { self }
+        RoomToLand(top: top ?? 0, isOn: top != nil, visible: visible) { self }
     }
 
     /// Reports this row's frame in the list's content as it lays out, while `isOn`.
@@ -178,14 +178,21 @@ struct GrowthLift: ViewModifier, Animatable {
     }
 }
 
-/// Its one subview, with room under it: as much as `top` plus `visible` reaches past its height.
+/// Its one subview, with room under it while `isOn`: as much as `top` plus `visible` reaches
+/// past its height. `top` animates, so the room can close over a motion.
 private struct RoomToLand: Layout {
-    let top: CGFloat?
+    var top: CGFloat
+    let isOn: Bool
     let visible: CGFloat
+
+    var animatableData: CGFloat {
+        get { top }
+        set { top = newValue }
+    }
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
         let size = subviews.first?.sizeThatFits(proposal) ?? .zero
-        guard let top else { return size }
+        guard isOn else { return size }
         return CGSize(width: size.width, height: max(size.height, top + visible))
     }
 

@@ -71,6 +71,9 @@ struct RoutineScreen: View {
     @State var opensOnCurrent = false
     /// While the current exercise moves to the next row, when rows' heights are mid-motion.
     @State var isMovingOn = false
+    /// After the last set, the room to land the current exercise, closing as its row does, the
+    /// list's end held where it shows (`keepEndPinned(from:to:)`).
+    @State var closingRoomTop: CGFloat?
     /// While a log moves the workout to another exercise, until the next one has grown.
     @State var exerciseMove: ExerciseMove?
     /// The pulse that carries the workout from one exercise's node to the next one's.
@@ -136,7 +139,6 @@ struct RoutineScreen: View {
         // drawing its rows with what it had, rather than the workout it is fading into.
         let currentID = currentID
         let currentSet = currentSet
-        let moving = exerciseMove
         let tracksRows = session.workout != nil || isStarting
         let underBar = underBarCut
         return ScrollView {
@@ -169,19 +171,15 @@ struct RoutineScreen: View {
                         routine.exercises,
                         links: routine.joinedToNext,
                         arriving: arriving,
-                        current: currentID,
+                        current: litID,
                         done: finishedRows,
                         pulse: railPulse,
                         onMove: move,
                         regroup: regroup,
                     ) { item in
-                        rowLabel(item, current: currentID, on: currentSet, move: moving)
+                        rowLabel(item, current: currentID, on: currentSet)
                         .id(item.id)
-                        .padding(
-                            .top,
-                            isOpen(item.id, current: currentID, move: moving)
-                                ? Self.currentTopSpace : 0,
-                        )
+                        .padding(.top, item.id == currentID ? Self.currentTopSpace : 0)
                         // Only while it is read: as the list scrolls, every change redraws the
                         // screen.
                         .reportingPlace(
@@ -222,7 +220,7 @@ struct RoutineScreen: View {
                     } end: {
                         // The Finish row once the last row has started to close, fading in
                         // once it is mostly closed, never over the slide going.
-                        if isWorkoutDone, moving?.stage != .leaving {
+                        if isWorkoutDone {
                             FinishWorkoutRow {
                                 isPicking = true
                             } finish: {
@@ -252,7 +250,8 @@ struct RoutineScreen: View {
                 // In the content, not a margin, so the visible height the row is sized from
                 // stays.
                 .roomToLand(
-                    top: currentID != nil || isMovingOn ? currentPlace?.landingY : nil,
+                    top: closingRoomTop
+                        ?? (currentID != nil || isMovingOn ? currentPlace?.landingY : nil),
                     visible: listHeight - wayToCurrentRoom,
                 )
                 .roomBelow(isMakingRoom)
@@ -282,7 +281,10 @@ struct RoutineScreen: View {
         .scrollEdgeEffectHidden(isBottomEdgeHidden, for: .bottom)
         .scrollPosition($scrollPosition)
         .railAutoscroll($scrollPosition)
-        .onScrollGeometryChange(for: ScrollGeometry.self, of: { $0 }, action: keepEndInView)
+        .onScrollGeometryChange(for: ScrollGeometry.self, of: { $0 }) { old, new in
+            keepEndInView(from: old, to: new)
+            keepEndPinned(from: old, to: new)
+        }
         .onScrollPhaseChange { _, phase in
             isScrollingByHand = phase == .interacting || phase == .decelerating
             scrollBeat.phaseChanged(to: phase)

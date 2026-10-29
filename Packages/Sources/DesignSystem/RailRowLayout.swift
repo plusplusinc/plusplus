@@ -8,10 +8,18 @@ struct RailRowContentFrame: ViewModifier {
 
     func body(content: Content) -> some View {
         content
+            .environment(\.restingLabelFloor, minHeight - RailRowMetrics.verticalInset * 2)
             .padding(.vertical, RailRowMetrics.verticalInset)
             .frame(minHeight: minHeight, alignment: .top)
             .hotReloadable()
     }
+}
+
+extension EnvironmentValues {
+    /// The height a row's content stands at, at least, between its insets: a label growing from
+    /// a row grows from there, as the row does, so its growth moves the rows below from its
+    /// start, and a label shrinking back reaches it as its growth ends, not before.
+    @Entry var restingLabelFloor: CGFloat = 0
 }
 
 /// A row's node column and its content side by side, on their first lines' baselines, the content

@@ -30,9 +30,12 @@ struct StandingHeight: Layout {
         }
         let heights = heights(proposal, subviews)
         let size = column.sizeThatFits(offer(proposal, end: heights.end))
-        // The column takes its new height at once, so it counts only past the end height, and
-        // past the standing height: shrinking, parts fading out still take their room, which
-        // held the rows below until they had gone, then let them jump.
+        // Shrinking, the parts going still take their room until they have gone, so the label
+        // stands at its height alone, cutting them off (`BottomClip`): counted, they held the
+        // rows below, then let them jump.
+        guard isCurrent else { return CGSize(width: size.width, height: heights.now) }
+        // The column takes its new height at once, so it counts only past the end height: where
+        // it runs past it, as at the largest text sizes.
         let counted = max(size.height - max(heights.end, heights.now), 0)
         return CGSize(width: size.width, height: heights.now + counted)
     }
