@@ -57,7 +57,13 @@ A still says nothing about motion, and watching it play says little more: record
 by what its frame shows, not by counting frames. Look at the frames full size, or cropped to the
 part that moves, never scaled down: at a few hundred pixels wide, three one-frame cuts in the
 bar went unseen until the phone showed them. The add animation was tuned by feel over six
-rounds; the frames showed a third of a second of dead time in it at once.
+rounds; the frames showed a third of a second of dead time in it at once. Looking is not
+measuring: `scripts/sim.sh motion <file>.mov` lists each move's length, every frame's change,
+and the pauses inside it, so a stall or a second motion on another curve shows as numbers. Where
+a position matters (a row landing, rows below following), track it per frame, by its pixels in
+the frames or by logging its frame during the move. On 2026-10-28 a round stepped through at full
+size still went to the phone with a 0.13 s stall and an 83 pt one-frame jump in a move between
+rows, which the next round's per-frame tracking found at once.
 
 ## Gotchas
 

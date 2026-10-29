@@ -135,12 +135,12 @@ The scripts are the single source of truth; the `/build`, `/test`, `/lint`, `/ru
 `/onward`, `/pr`, and `/retro` skills wrap them, and Xcode Cloud runs the same lint script.
 
 ```sh
-scripts/test.sh              # package tests on macOS, no simulator, seconds
+scripts/test.sh              # package and script tests on macOS, no simulator, seconds
 scripts/build.sh             # app for the simulator, compact diagnostics
 scripts/test.sh sim          # everything on the simulator, including snapshots
 scripts/run.sh [name]        # build, install, launch, screenshot to .build/screenshots/
 scripts/device.sh [--link]   # build, install, launch on the iPhone, else an install link
-scripts/sim.sh <command>     # drive the simulator: shots, appearance, reset, erase, log
+scripts/sim.sh <command>     # drive the simulator: shots, appearance, reset, erase, log, motion
 scripts/lint.sh [--fix]      # SwiftFormat, SwiftLint, US English, as CI runs them
 scripts/board.sh <command>   # the private project board; run bare to list its commands
 scripts/pr-check.sh <command> # the PR check's logic, run against a PR or commit

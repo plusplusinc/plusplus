@@ -74,6 +74,7 @@ Cheapest first. The tests' display names are the inventory of what each tier hol
 | What a saved store reopens as, and a schema upgrade on disk | Package, over an in-memory container (a second store on it is a relaunch) or a file |
 | How a component looks at a moment, in dark: at rest, editing, mid-drag, at AX5 | Snapshot, through `assertThemedSnapshots` |
 | What layout does over time: a live text size change, every layout pass, focus, the frame clock | Hosted view, in a `UIWindow.sceneless` |
+| What a script in `scripts/` decides: the night runner's gates, parsing CI's output | Its `unittest` file or doctest, which `scripts/test.sh` runs; CI doesn't |
 | What only the running app shows: the real keyboard and text system, gesture arbitration with the scroll view, system chrome composed in the app (sheets, search, swipe actions, bars, dialogs), VoiceOver frames, the accessibility audit at AX5, and what a relaunch brings back | UI test |
 
 - **A UI check proves the wire, once per gesture.** Where a gesture's variants differ only in

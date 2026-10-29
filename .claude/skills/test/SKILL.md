@@ -1,11 +1,12 @@
 ---
 name: test
-description: Run tests. `fast` runs the package on macOS in seconds; `sim` runs the full app scheme on the simulator, a superset of fast.
+description: Run tests. `fast` runs the package on macOS and the scripts' own tests in seconds; `sim` runs the full app scheme on the simulator, the package tests included.
 allowed-tools: Bash(scripts/test.sh:*), Bash(xcrun xcresulttool:*)
 ---
 
-- `scripts/test.sh`: the package on macOS, no simulator. Seconds. Run after any change to
-  `WorkoutStore`, and before every commit.
+- `scripts/test.sh`: the package on macOS, no simulator, then the scripts' own tests (the night
+  runner's gates, the CI times' parsing), which nothing else runs. Seconds. Run after any change
+  to `WorkoutStore` or a script, and before every commit.
 - `scripts/test.sh sim`: the app scheme on the simulator, which includes the package tests plus
   snapshot and UI tests. Xcode Cloud runs this on every PR that changes the app, so run it
   locally only to reproduce a CI failure. After a change to `DesignSystem` or the app, run the
