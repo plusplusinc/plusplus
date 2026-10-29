@@ -54,6 +54,32 @@ struct RoutineStoreWorkoutTests {
         #expect(stored.map(\.workout) == [resumed.finishing(at: Self.at(70))])
     }
 
+    @Test("A stored set the app can't read is kept through a save, not deleted")
+    func unreadableSetKept() async throws {
+        let bench = try RoutineExercise.builtIn("Barbell bench press")
+        let routine = Routine(name: "Upper", exercises: [bench])
+        try await relaunch().save(routine, at: Self.at(1))
+        let workout = Self.started(routine, at: 10)
+        try await relaunch().save(workout)
+        // A set with no row, as a store not written by this build might hold.
+        let context = ModelContext(container)
+        let stored = try #require(try context.fetch(FetchDescriptor<StoredWorkout>()).first)
+        let unreadable = StoredSet(id: UUID())
+        context.insert(unreadable)
+        unreadable.workout = stored
+        try context.save()
+        let loaded = try #require(try await relaunch().launch(weightUnit: .pounds).workout)
+        #expect(loaded.sets.isEmpty)
+        try await relaunch().save(loaded.logging(
+            PlannedSet(row: bench.id, round: 1),
+            of: bench,
+            at: Self.at(20),
+        ))
+        let sets = try ModelContext(container).fetch(FetchDescriptor<StoredSet>())
+        #expect(sets.contains { $0.id == unreadable.id })
+        #expect(sets.count == 2)
+    }
+
     @Test("Logged sets round-trip every field, in the order logged, and a later save diffs them")
     func setsRoundTrip() async throws {
         let superset = UUID()

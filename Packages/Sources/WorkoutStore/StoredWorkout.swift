@@ -131,6 +131,12 @@ extension StoredSet {
         return fields
     }
 
+    /// Whether the set reads as a logged set: it has a row, and reps or a time, done and planned.
+    var isReadable: Bool {
+        rowID != nil && Self.storedTarget(reps, seconds) != nil
+            && Self.storedTarget(plannedReps, plannedSeconds) != nil
+    }
+
     /// The set, or nil, logged, when it has no row or no reps or time to read.
     var loggedSet: LoggedSet? {
         guard let rowID,

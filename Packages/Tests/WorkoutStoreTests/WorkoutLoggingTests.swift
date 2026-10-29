@@ -33,6 +33,15 @@ struct WorkoutLoggingTests {
         #expect(routine.nextSet(after: workout.sets) == PlannedSet(row: pull.id, round: 1))
     }
 
+    @Test("Logging a set already logged changes nothing")
+    func logTwice() throws {
+        let bench = try RoutineExercise.builtIn("Barbell bench press") { $0.sets = 3 }
+        let routine = Routine(exercises: [bench])
+        let first = PlannedSet(row: bench.id, round: 1)
+        let once = workout(routine).logging(first, of: bench, at: start)
+        #expect(once.logging(first, of: bench, at: start.addingTimeInterval(5)) == once)
+    }
+
     @Test("In a superset, a log on A1 moves to B1, then A2")
     func superset() throws {
         let superset = UUID()

@@ -117,7 +117,9 @@ extension RoutineScreen {
     /// lift run to 0 in the shift's transaction. After the last set, the row closes as the list
     /// settles on its end and the Finish row shows under it.
     func log(_ set: PlannedSet, of row: RoutineExercise) {
-        guard let workout = session.workout else { return }
+        // A log during a move, as VoiceOver's action can send, would start a second move whose
+        // state the first one's end tears down.
+        guard let workout = session.workout, !isMovingOn else { return }
         let next = routine.nextSet(after: workout.logging(set, of: row, at: .now).sets)
         guard next?.row != set.row else {
             withAnimation(.snappy(duration: SetMotion.roll)) { session.log(set, of: row) }
