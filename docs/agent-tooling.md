@@ -132,8 +132,8 @@ After the retro, the same run hands over to `scripts/nightly-tooling.py`, which 
 cards carrying a `Nightly:` line (the /brief skill says which qualify) one at a time: up to three
 a night, or until a usage window reaches 0.9 on the night before the weekly limit resets, and
 never after 5 am. Its gates are code, tested against fixtures by
-`python3 scripts/nightly-tooling-test.py`: the time of night, the usage limits read from the
-night's own stream-json (never a probe call), this month's Xcode Cloud hours and the night's
+`python3 scripts/nightly-tooling-test.py`, which `scripts/test.sh` runs: the time of night, the
+usage limits read from the night's own stream-json (never a probe call), this month's Xcode Cloud hours and the night's
 runs, overlap with open PRs, and, once a card's lead (the nightly-card skill) ends, a passing
 verifier record before it arms auto-merge, while a PR touching a protected path (what CI runs,
 and what steers the night's agents) or only `.claude/` and `docs/` waits for the maintainer and
@@ -148,8 +148,10 @@ error in it denies the call. Claude Code's own sandbox can't hold these writes i
 What a command line hides, such as a script file the card writes and runs, meets three more
 checks: the card's git runs the night's pre-push hook on every push; the runner turns auto-merge
 off on every PR a card opened unless it arms one itself; and it ends the night, naming them at
-the top of the digest, on any PR merged since the night started that it didn't arm. Its digest,
-in the night's folder, is what `show` prints after the retro's reply. It exists because
+the top of the digest, on any PR merged since the night started that it didn't arm. A new gate
+starts from such a check on what happened (a merge, a push, a run started); denying a command's
+spellings only narrows it, since every verifier pass and review on #118 found more spellings.
+Its digest, in the night's folder, is what `show` prints after the retro's reply. It exists because
 doing these by hand gets three things wrong, which its header explains: the agent's plist needs
 the main checkout's paths, which a tracked file can't hold in a public repo; the calling Claude
 Code session's variables leak into a run; and a second run can start.

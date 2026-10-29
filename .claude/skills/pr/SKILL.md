@@ -42,6 +42,10 @@ scripts/ci-times.py <branch>                           # the run's times against
 Once Xcode Cloud's run finishes, put `scripts/ci-times.py`'s lines for it in the body's Verified
 line with `gh pr edit`.
 
+The body goes in on stdin, as above, for `gh pr edit` too, never from a file: the scratchpad is
+shared by the lead and every subagent, and a body read back from a file there that another
+session had overwritten put a private card's text in a public PR's body (#118).
+
 "PR check" (`docs/pr-check.md`) lints a PR whose changed files are all in
 `.github/no-code-paths` and passes in a minute or two; Xcode Cloud starts no run for it. For any
 other PR it waits for Xcode Cloud's "PlusPlus Workout Tracker | PR" on the same commit and passes

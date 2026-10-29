@@ -33,13 +33,15 @@ project board; agents' technical working files live in `.slices/`.
    lead the next product card.
 3. Read the `.slices/` files that State names: the newest handoff or verify report. Read
    summaries, not code; subagents read code.
-4. A card not yet started gets an alignment check before anything else (see the /brief skill's
-   "Align"). Restate it as what the maintainer will see and do, reading each thing the app does
-   today from `main`'s code before you say it, then check its Aligned list against the README,
-   what merged since it was written, and its neighbors on the board. Bring
-   anything open, contradicted, or missing (an undesigned screen, content nobody chose, a gap
-   no card covers), each with a recommendation. Record the answers in the card, make cards for
-   what lands out of scope, and start a product card only on the maintainer's yes.
+4. A card not yet started gets an alignment check before anything else (see the /brief
+   skill's "Align"). Restate it as what the maintainer will see and do, reading each thing the
+   app does today from `main`'s code before you say it, then check its Aligned list against the
+   README, what merged since it was written, its neighbors on the board, and the pages of every
+   design board and canvas drawn for its feature, for options drawn earlier and never picked
+   (one card's alignment missed a control drawn for it a week before). Bring anything open,
+   contradicted, or missing (an undesigned screen, content nobody chose, a gap no card covers),
+   each with a recommendation. Record the answers in the card, make cards for what lands out of
+   scope, and start a product card only on the maintainer's yes.
 5. Otherwise say in two or three lines where the slice stands and what happens next, then do
    it. Ask only for product calls.
 
@@ -83,7 +85,10 @@ project board; agents' technical working files live in `.slices/`.
   from its source or measured, the cheapest way, before you recommend it or anything is built
   on it: a card whose go or no-go rests on one measures it as its first step.
 - Reporting a phase as done, say where it went less deep than the card asked (what was compared
-  only by name, sampled, or left out) before the maintainer has to ask.
+  only by name, sampled, or left out) before the maintainer has to ask. A fix to how something
+  reaches them (a link, an install) is tried the way they will meet it before you call it fixed,
+  or called untried, with what would show it works: #120 and #121 were each called fixed, and
+  each design link still opened on the wrong question for them.
 - A round that does what they asked only by adding something they didn't (a clip at an edge, an
   uneven gap) is not installed as a cost for them to judge: bring the ways to do it as a table,
   and build the one they pick. Read a request that names a size or a direction (smaller, to
@@ -96,23 +101,28 @@ project board; agents' technical working files live in `.slices/`.
   the merge (its code, or a worktree of `main`), and becomes a card when `main` has it too,
   the slice's to fix when it doesn't; never leave it as a question for the maintainer.
 - A screen with no design gets options drawn before it is built. The first is the platform's
-  own control for the job (principle 4, "Native bones"), and each other option says what it
-  does that the system one can't. An API offered as an option is one whose Apple doc (sosumi)
-  says it works on iPhone. Draw them as phone-size frames on a Design canvas, a claude.ai
-  artifact made from the Design type (Artifact `quickstart` with intent "design"), each
-  decision numbered and each option lettered so the maintainer answers in one line ("1A, 2B"),
-  link it from the feature's section of the board README, and send its link: the maintainer
-  chooses on the phone, where a file on the Mac never reaches them and `SendUserFile` fails in
-  a session with no project thread. The link opens on exactly what is being asked: each open
-  question has a page of its own holding only its frames, and the link sent is the canvas's
-  with `#page-<page id>` after it (`…/artifact/<id>#page-d5`), which the canvas opens on. The
-  canvas's `launch` page alone doesn't do it, since the app reopens the page a returning
-  viewer last saw. Since 2026-10-28 a session started from the phone, and the
-  subagents it starts, have the Artifact tool; check with ToolSearch before anyone draws, and
-  without it publish through an interactive `claude` on the Mac, as agent memory describes.
+  own control for the job (principle 4, "Native bones"), and each other option says what it does
+  that the system one can't. An API offered as an option is one whose Apple doc (sosumi) says it
+  works on iPhone. Draw them as phone-size frames on a Design canvas, a claude.ai artifact made
+  from the Design type (Artifact `quickstart` with intent "design"), each decision numbered and
+  each option lettered so the maintainer answers in one line ("1A, 2B"), options that differ
+  only in how they move drawn moving (two stills that look alike read as one option), link it
+  from the feature's section of the board README, and send its link: the maintainer chooses on
+  the phone, where a file on the Mac never reaches them and `SendUserFile` fails in a session
+  with no project thread. The link opens on exactly what is being asked: each open question has
+  a page of its own holding only its frames, and the link sent is the canvas's with `#page-<page
+  id>` after it (`…/artifact/<id>#page-d5`), which the canvas opens on. The canvas's `launch`
+  page alone doesn't do it, since the app reopens the page a returning viewer last saw. Since
+  2026-10-28 a session started from the phone, and the subagents it starts, have the Artifact
+  tool; check with ToolSearch before anyone draws, and without it publish through an interactive
+  `claude` on the Mac, as agent memory describes.
 - No time estimates. While a phase runs, tell the maintainer in a line now and then what it is
   doing, for which card, and why that still serves the card, without being asked. Every line of
-  text you write reaches them, so plan in your head, never in a line to yourself. A subagent or
+  text you write reaches them, the text before a tool call included, which arrives as a message
+  of its own: plan in your head, and write nothing before a tool call but what tells them
+  something ("The canvas file hasn't changed, so my edit still applies" told them nothing). When
+  a subagent's notice brings only what you already told them, send nothing for it: a second
+  summary, or an ask repeated minutes after the first, is noise. A subagent or
   a CI watch in the background says nothing until it ends, and a watch can outlive its run, so
   while one runs, wake yourself about every 15 minutes (a background wait that notifies you) to
   read where it is at that moment (a subagent's transcript's last entry, the PR's `gh pr

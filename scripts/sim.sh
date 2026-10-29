@@ -11,6 +11,8 @@
 #   scripts/sim.sh log [minutes]            # the app's own log lines, plus errors and faults
 #   scripts/sim.sh erase                    # in a worktree, erase its own simulator and reset it;
 #                                           # about 25 s, and scripts/run.sh reinstalls the app
+#   scripts/sim.sh motion <recording.mov>   # each move in a recording, frame by frame, and its
+#                                           # pauses; reads the file, touches no simulator
 #
 # Appearance, content size, and the keyboard are simulator settings, so they survive relaunches
 # and reboots: whatever the last session left behind is what the next screenshot or UI test
@@ -68,7 +70,52 @@ screenshot() {
     echo "$path"
 }
 
+# Each frame's change from the last different one (mpdecimate drops a recording's repeated
+# frames, which simctl writes out of order), as the mean brightness of their difference, 0 to
+# 255. A move runs from a frame changing by 0.5 or more to the last such frame before half a
+# second with none; a pause is 0.04 s or more inside it (two frames at 60 fps) with no frame
+# changing by 0.05, the level a pulsing dot stays under. Tuned on two recordings of one move
+# between rows (2026-10-28): the first reads 0.95 s with a 0.133 s pause at 0.158 s, the stall
+# that looking at its frames missed and tracking each row's position found; its rework, 0.75 s
+# and none.
+motion() {
+    ffmpeg -hide_banner -nostats -i "$1" -vf \
+        "mpdecimate,tblend=all_mode=difference,signalstats,metadata=print:key=lavfi.signalstats.YAVG" \
+        -f null - 2>&1 |
+        awk '/pts_time:/ { sub(/.*pts_time:/, ""); t = $1 } /YAVG=/ { sub(/.*YAVG=/, ""); print t, $1 }' |
+        sort -n |
+        awk -v moving=0.5 -v still=0.05 '
+            { t[NR] = $1; c[NR] = $2 }
+            END {
+                i = 1
+                while (i <= NR) {
+                    while (i <= NR && c[i] < moving) i++
+                    if (i > NR) break
+                    s = i; e = i
+                    for (j = i + 1; j <= NR && t[j] - t[e] < 0.5; j++) if (c[j] >= moving) e = j
+                    printf "move at %.3f s, %.2f s long (time from its start, change, bar)\n", t[s], t[e] - t[s]
+                    last = s; pauses = ""
+                    for (k = s; k <= e; k++) {
+                        bar = ""
+                        for (b = 0.125; b <= c[k] && b < 40; b += 0.25) bar = bar "#"
+                        printf "  %6.3f %5.2f %s\n", t[k] - t[s], c[k], bar
+                        if (c[k] < still) continue
+                        if (t[k] - t[last] > 0.04)
+                            pauses = pauses sprintf("  pause of %.3f s at %.3f s\n", t[k] - t[last], t[last] - t[s])
+                        last = k
+                    }
+                    printf "%s", pauses
+                    i = e + 1
+                }
+                if (NR == 0) print "no frames read" > "/dev/stderr"
+            }'
+}
+
 case "${1:-}" in
+    motion)
+        [ -f "${2:-}" ] || { echo "usage: scripts/sim.sh motion <recording.mov>" >&2; exit 64; }
+        motion "$2"
+        ;;
     screenshot)
         screenshot "${2:-app}"
         ;;
@@ -128,7 +175,7 @@ case "${1:-}" in
             --predicate "process == \"$SCHEME\" AND (subsystem == \"$SUBSYSTEM\" OR messageType >= 16)"
         ;;
     *)
-        sed -n '2,14p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2
+        sed -n '2,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2
         exit 64
         ;;
 esac
