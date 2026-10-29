@@ -37,10 +37,14 @@ struct GrowingName: View, Animatable {
                 .onGeometryChange(for: CGFloat.self, of: \.size.height) { heights.small = $0 }
                 .scaleEffect(scale * ratio, anchor: .topLeading)
                 .opacity(1 - largeOpacity)
+                // Only the size showing is read: the other, laid out at its own size inside this
+                // one's height, read as clipped text in the accessibility audit.
+                .accessibilityHidden(largeOpacity == 1)
             name(.ppCurrentTitle)
                 .onGeometryChange(for: CGFloat.self, of: \.size.height) { heights.large = $0 }
                 .scaleEffect(scale, anchor: .topLeading)
                 .opacity(largeOpacity)
+                .accessibilityHidden(largeOpacity == 0)
         }
         .hotReloadable()
     }

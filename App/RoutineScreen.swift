@@ -203,6 +203,12 @@ struct RoutineScreen: View {
                             .accessibilityValue(supersetValue(item.id))
                             // None where it would do nothing: at an end, or with one row.
                             .accessibilityActions {
+                                // The slide is inside the row's one element, out of VoiceOver's
+                                // reach, so the current exercise logs its set as an action.
+                                if item.id == currentID, let set = currentSet {
+                                    let step = logStep(set, of: item)
+                                    Button(step.label, action: step.action)
+                                }
                                 if let up = routine.slotMovingUp(item.id) {
                                     Button("Move up") { step(item.id, to: up, wentUp: true) }
                                 }
