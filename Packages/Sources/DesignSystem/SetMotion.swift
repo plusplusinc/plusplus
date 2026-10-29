@@ -76,7 +76,7 @@ public enum SetMotion {
     }
 
     /// When the pulse sets off, from the slide's log: as the slide starts to go.
-    public static let travelStart = 0.08
+    public nonisolated static let travelStart = 0.08
     /// The pulse shooting from the node left to the next one's, landing as the shift brings the
     /// next row to rest under the bar.
     public nonisolated static let travel = 0.48
@@ -87,7 +87,7 @@ public enum SetMotion {
     public nonisolated static let collapse = 0.06
     /// How long after the next row's node lights that the pulse's dot goes, under the green node
     /// by then.
-    public static let dotHold = 0.06
+    public nonisolated static let dotHold = 0.06
 
     /// When the next row's node lights, from the slide's log: as the pulse's dot settles on it.
     public static var landing: Double {

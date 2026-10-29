@@ -57,6 +57,19 @@ struct RailPulseTests {
         #expect(abs(box.midY - 64) < 0.01)
     }
 
+    @Test("Once a run is over, its pulse draws nothing, the dot on the node gone too")
+    func runEnds() {
+        let route = RailRoute.line(from: .zero, to: CGPoint(x: 0, y: 64))
+        let run = KeyframeTimeline(initialValue: -1.0) { PulseShape.run }
+        // Where the animator rests once the run is over.
+        for time in [run.value(progress: 1), run.value(time: run.duration)] {
+            #expect(PulseShape(time: time, route: route, lineWidth: 2).path(in: .zero).isEmpty)
+        }
+        // Through the hold, the dot is on the node.
+        let holding = run.value(time: run.duration - SetMotion.dotHold / 2)
+        #expect(!PulseShape(time: holding, route: route, lineWidth: 2).path(in: .zero).isEmpty)
+    }
+
     @Test("The travel shoots off, ends where it lands, and still moves as it lands")
     func travel() {
         #expect(SetMotion.distance(at: 0) == 0)

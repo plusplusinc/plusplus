@@ -115,6 +115,21 @@ nonisolated struct PulseShape: Shape {
         1 + SetMotion.collapse / SetMotion.travel
     }
 
+    /// A run's times, from before it sets off to after its dot is gone.
+    @KeyframesBuilder<Double>
+    static var run: some Keyframes<Double> {
+        MoveKeyframe(-1.0)
+        LinearKeyframe(-1.0, duration: SetMotion.travelStart)
+        MoveKeyframe(0.0)
+        LinearKeyframe(end, duration: SetMotion.travel + SetMotion.collapse)
+        // A dot on the node until the node has turned green under it.
+        LinearKeyframe(end, duration: SetMotion.dotHold)
+        // Then nothing, held for a frame: a timeline ending on a `MoveKeyframe` rests on the value
+        // before it, which left the dot on the node once the run was over.
+        MoveKeyframe(-1.0)
+        LinearKeyframe(-1.0, duration: 1.0 / 60)
+    }
+
     var animatableData: Double {
         get { time }
         set { time = newValue }
@@ -175,13 +190,7 @@ struct RailPulseRun: View {
             )
             .fill(.pp(.accent))
         } keyframes: { _ in
-            MoveKeyframe(-1.0)
-            LinearKeyframe(-1.0, duration: SetMotion.travelStart)
-            MoveKeyframe(0.0)
-            LinearKeyframe(PulseShape.end, duration: SetMotion.travel + SetMotion.collapse)
-            // A dot on the node until the node has turned green under it.
-            LinearKeyframe(PulseShape.end, duration: SetMotion.dotHold)
-            MoveKeyframe(-1.0)
+            PulseShape.run
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
