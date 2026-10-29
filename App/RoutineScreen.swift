@@ -14,7 +14,7 @@ struct RoutineScreen: View {
     let session: RoutineSession
     private let namer: RoutineNamer
     /// Pushed onto the Routines screen, with a back button where ++ otherwise is.
-    private let isPushed: Bool
+    let isPushed: Bool
     @State private var isPicking = false
     /// The row whose values are open in a sheet, as it was when opened: only its id is read.
     @State var editing: RoutineExercise?
@@ -35,7 +35,7 @@ struct RoutineScreen: View {
     /// Whether the title's field has focus. Any touch outside the title ends the edit.
     @State private var isEditingTitle = false
     /// Whether the title has scrolled up under the bar, where a small copy of it shows instead.
-    @State private var isTitleUnderBar = false
+    @State var isTitleUnderBar = false
     /// From Start's press until its key has gone: its +1 and beat, and the grow.
     @State var isStarting = false
     /// How far Start rides down with the rows below the current exercise as it grows at Start.
@@ -48,7 +48,7 @@ struct RoutineScreen: View {
     /// the time fades out of it.
     @State var endingWorkout: Workout?
     /// Whether the dialog asking how to end the workout shows.
-    @State private var isConfirmingEnd = false
+    @State var isConfirmingEnd = false
     /// The scroll in Start's sequence, and how far the list is scrolled.
     @State var scrollBeat = ScrollBeat()
     /// With Reduce Motion, how many times the list has crossfaded into or out of a workout: each
@@ -104,7 +104,7 @@ struct RoutineScreen: View {
     }
 
     /// The name the routine shows: its chosen one, or else the one made for it.
-    private var shownName: String? {
+    var shownName: String? {
         namer.shownName(of: routine)
     }
 
@@ -281,7 +281,7 @@ struct RoutineScreen: View {
         .scrollEdgeEffectHidden(isBottomEdgeHidden, for: .bottom)
         .scrollPosition($scrollPosition)
         .railAutoscroll($scrollPosition)
-        .onScrollGeometryChange(for: ScrollGeometry.self, of: { $0 }) { old, new in
+        .onScrollGeometryChange(for: ScrollGeometry.self, of: \.self) { old, new in
             keepEndInView(from: old, to: new)
             keepEndPinned(from: old, to: new)
         }
@@ -330,79 +330,7 @@ struct RoutineScreen: View {
                 ) { delete(opened.id) }
             }
         }
-        .toolbar {
-            // As a large title does, the title shows small in the bar once it is under it.
-            ToolbarItem(placement: .title) {
-                // Always there, faded out rather than taken out: the bar drew its edge effect only
-                // while the item had something showing, so the band under the bar came and went
-                // with the title, on the frame, and a title taken out went on the frame too.
-                smallTitle(shownName)
-                    .opacity(isTitleUnderBar ? 1 : 0)
-                    .allowsHitTesting(isTitleUnderBar)
-                    .accessibilityShown(isTitleUnderBar)
-            }
-            // One item, its key changing in a crossfade: the bar put one in or took one out on
-            // the frame.
-            if session.workout != nil || !isPushed {
-                ToolbarItem(placement: .topBarLeading) {
-                    ZStack {
-                        if session.workout != nil {
-                            EndButton { isConfirmingEnd = true }
-                                .transition(.opacity)
-                        } else {
-                            MenuButton(session: session)
-                                .transition(.opacity)
-                        }
-                    }
-                    .animation(.easeOut(duration: Self.barFade), value: session.workout == nil)
-                }
-            }
-            // The time fades out of its glass, and then the glass goes, the bar fading it: the bar
-            // took the item out with its content on the frame, and only the glass faded.
-            if let workout = session.workout ?? endingWorkout {
-                ToolbarItem(placement: .topBarTrailing) {
-                    WorkoutTimeKey(session: session, workout: workout)
-                        .opacity(session.workout == nil ? 0 : 1)
-                        .animation(.easeOut(duration: Self.barFade), value: session.workout == nil)
-                }
-            }
-        }
-    }
-}
-
-extension RoutineScreen {
-    /// The title, small in the bar. As a tap on the status bar does, a tap brings the title back.
-    /// At the accessibility text sizes the bar keeps touches on its title for the large content
-    /// viewer, so there the button is reached through VoiceOver only.
-    private func smallTitle(_ shownName: String?) -> some View {
-        Button {
-            withAnimation(.snappy) {
-                scrollPosition.scrollTo(edge: .top)
-            }
-        } label: {
-            // Gray only for New routine, as in the title.
-            Text(shownName ?? Self.defaultName)
-                .font(.ppInlineTitle)
-                .foregroundStyle(.pp(shownName == nil ? .textSecondary : .textPrimary))
-                .lineLimit(1)
-        }
-        .buttonStyle(.plain)
-        // A heading, as the system's own bar title is.
-        .accessibilityAddTraits(.isHeader)
-        .accessibilityHint("Scrolls to the top.")
-        .hiddenBehindDrawer()
-    }
-}
-
-extension View {
-    /// Shown to VoiceOver and the UI tests only while `isShown`. `accessibilityHidden` left the
-    /// bar's title read out while faded away.
-    fileprivate func accessibilityShown(_ isShown: Bool) -> some View {
-        accessibilityRepresentation {
-            if isShown {
-                self
-            }
-        }
+        .toolbar { barItems }
     }
 }
 

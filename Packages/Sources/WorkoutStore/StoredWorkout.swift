@@ -114,16 +114,21 @@ extension StoredSet {
         update(\.loggedAt, to: set.loggedAt)
     }
 
-    private static func fields(
-        _ target: SetTarget,
-        _ weight: Weight?,
-    ) -> (reps: Int?, seconds: Int?, weight: Double?, unit: String?) {
-        let (reps, seconds): (Int?, Int?) =
-            switch target {
-            case let .reps(count): (count, nil)
-            case let .time(time): (nil, time)
-            }
-        return (reps, seconds, weight?.amount, weight?.unit.rawValue)
+    /// A set's reps or time and weight, as the stored fields hold them.
+    private struct Fields {
+        var reps: Int?
+        var seconds: Int?
+        var weight: Double?
+        var unit: String?
+    }
+
+    private static func fields(_ target: SetTarget, _ weight: Weight?) -> Fields {
+        var fields = Fields(weight: weight?.amount, unit: weight?.unit.rawValue)
+        switch target {
+        case let .reps(count): fields.reps = count
+        case let .time(time): fields.seconds = time
+        }
+        return fields
     }
 
     /// The set, or nil, logged, when it has no row or no reps or time to read.
