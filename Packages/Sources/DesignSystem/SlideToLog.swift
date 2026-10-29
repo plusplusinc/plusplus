@@ -73,7 +73,8 @@ public struct SlideToLog: View {
         let isArmed = SlideTrack.isArmed(progress)
         ZStack(alignment: .leading) {
             // Sunk into the exercise, darker than the screen around it.
-            RoundedRectangle(cornerRadius: 15)
+            // Concentric with the key's corners, an inset in from them.
+            RoundedRectangle(cornerRadius: Self.inset + Radius.key)
                 .fill(.pp(.well))
                 .strokeBorder(.pp(.borderStrong), lineWidth: 1)
             Text(label)

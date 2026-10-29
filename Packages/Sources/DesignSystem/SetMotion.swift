@@ -46,12 +46,12 @@ public enum SetMotion {
     /// Each part of the current exercise fading out as it goes.
     public static let leaveFade = 0.09
     /// How far each part drops as it fades out.
-    public static let leaveDrop: CGFloat = 6
+    static let leaveDrop: CGFloat = 6
     /// How long after the part below it each part starts to go, bottom first.
-    public static let leaveStagger = 0.025
+    static let leaveStagger = 0.025
 
     /// When `part` starts to go, from the slide's log.
-    public static func leaveDelay(_ part: Part) -> Double {
+    static func leaveDelay(_ part: Part) -> Double {
         switch part {
         case .slide: 0
         case .figures: leaveStagger
@@ -76,18 +76,18 @@ public enum SetMotion {
     }
 
     /// When the pulse sets off, from the slide's log: as the slide starts to go.
-    public nonisolated static let travelStart = 0.08
+    nonisolated static let travelStart = 0.08
     /// The pulse shooting from the node left to the next one's, landing as the shift brings the
     /// next row to rest under the bar.
-    public nonisolated static let travel = 0.48
+    nonisolated static let travel = 0.48
     /// The pulse's speed as it lands, against its average: an ease-out that shoots off and still
     /// hits the node moving, never creeping into it.
     nonisolated static let travelLanding = 0.6
     /// After the pulse lands, how long its stretch takes to collapse into a dot on the node.
-    public nonisolated static let collapse = 0.06
+    nonisolated static let collapse = 0.06
     /// How long after the next row's node lights that the pulse's dot goes, under the green node
     /// by then.
-    public nonisolated static let dotHold = 0.06
+    nonisolated static let dotHold = 0.06
 
     /// When the next row's node lights, from the slide's log: as the pulse's dot settles on it.
     public static var landing: Double {
@@ -96,35 +96,29 @@ public enum SetMotion {
 
     /// The detail line, back on the row closing, fading in once the progress line has gone and
     /// the row is well on its way to a resting row.
-    public static var detailIn: Animation {
+    static var detailIn: Animation {
         .easeOut(duration: 0.15).delay(0.15)
     }
 
     /// The detail line on the next row going as its name starts to grow.
-    public static let detailOut = Animation.easeIn(duration: 0.06)
+    static let detailOut = Animation.easeIn(duration: 0.06)
 
     // MARK: Arrive
 
     /// Each part of the next exercise fading in as it rises into place.
-    public static let arriveFade = 0.16
+    static let arriveFade = 0.16
     /// How far each part rises as it comes in.
-    public static let arriveRise: CGFloat = 8
+    static let arriveRise: CGFloat = 8
 
     /// When `part` starts to come in, from the slide's log: top first, each once the row has
     /// grown enough to hold it, the progress line once the detail line has gone (`detailOut`).
-    public static func arriveDelay(_ part: Part) -> Double {
+    static func arriveDelay(_ part: Part) -> Double {
         switch part {
         case .progress: 0.2
         case .equipment: 0.26
         case .figures: 0.32
         case .slide: 0.4
         }
-    }
-
-    /// At a superset round's end, how long after the log that "Round 2 of 3" rolls to "Round 3
-    /// of 3", taking `roll`: as the first member's node lights.
-    public static var roundRoll: Double {
-        landing
     }
 
     // MARK: After the last set
@@ -142,7 +136,7 @@ public enum SetMotion {
     }
 
     /// The current exercise's parts under its name, which leave and arrive in turn.
-    public enum Part {
+    enum Part {
         case progress
         case equipment
         case figures

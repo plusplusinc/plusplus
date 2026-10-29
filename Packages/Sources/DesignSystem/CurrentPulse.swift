@@ -38,7 +38,9 @@ private struct CurrentPulseOverlay<S: Shape>: ViewModifier {
     func body(content: Content) -> some View {
         content.overlay {
             if !reduceMotion, !isHeld {
-                TimelineView(.animation) { context in
+                // A slow sine in brightness: 30 frames a second draw it smoothly, at a quarter of a
+                // ProMotion screen's rate, through a workout that keeps the screen on.
+                TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
                     shape
                         .fill(.pp(.background))
                         .opacity(CurrentPulse.dim(at: context.date))

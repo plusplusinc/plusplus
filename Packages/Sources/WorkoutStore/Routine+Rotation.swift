@@ -36,8 +36,7 @@ extension Routine {
             let rounds = members.map(\.plan.sets).max() ?? 0
             for round in stride(from: 1, through: rounds, by: 1) {
                 for member in members where member.plan.sets >= round {
-                    let sides: [Side?] = member.exercise.isPerSide ? Side.allCases : [nil]
-                    for side in sides {
+                    for side in member.sides {
                         order.append(PlannedSet(row: member.id, round: round, side: side))
                     }
                 }
@@ -63,9 +62,8 @@ extension Routine {
     ) -> (done: Int, total: Int) {
         guard let item = exercises.first(where: { $0.id == row }) else { return (0, 0) }
         let done = Set(logged.map(\.planned))
-        let sides: [Side?] = item.exercise.isPerSide ? Side.allCases : [nil]
         let finished = stride(from: 1, through: item.plan.sets, by: 1).count { round in
-            sides.allSatisfy { done.contains(PlannedSet(row: row, round: round, side: $0)) }
+            item.sides.allSatisfy { done.contains(PlannedSet(row: row, round: round, side: $0)) }
         }
         return (finished, item.plan.sets)
     }
@@ -73,5 +71,13 @@ extension Routine {
     /// Whether any set, or side of one, of the row is logged.
     public func isStarted(_ row: RoutineExercise.ID, logged: [LoggedSet]) -> Bool {
         logged.contains { $0.row == row }
+    }
+}
+
+extension RoutineExercise {
+    /// The sides each of its sets is done on: left then right for an exercise done one side at a
+    /// time, else one with no side.
+    var sides: [Side?] {
+        exercise.isPerSide ? Side.allCases : [nil]
     }
 }

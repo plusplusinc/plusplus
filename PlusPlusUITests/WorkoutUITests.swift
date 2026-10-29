@@ -37,12 +37,8 @@ final nonisolated class WorkoutUITests: XCTestCase {
         // What launch opens after Discard is `RoutineStoreWorkoutTests`'.
         XCTContext
             .runActivity(named: "Finish is offered; Discard leaves the routine") { _ in
-                app.endKey.tap()
-                XCTAssertTrue(app.buttons["Finish workout"].appears(), "No Finish with sets logged")
-                app.buttons["Discard workout"].firstMatch.tap()
-                XCTAssertTrue(app.buttons["Start"].appears(), "Discard left the workout running")
+                app.discardWorkout(withSetsLogged: true)
                 XCTAssertEqual(title.value as? String, renamed, "Discard opened another routine")
-                XCTAssertTrue(app.buttons["Start"].appears(), "The workout came back")
                 XCTAssertFalse(app.endKey.exists)
                 XCTAssertTrue(app.buttons["Menu"].exists, "No ++ after Discard")
             }

@@ -183,7 +183,7 @@ struct RoutineScreen: View {
                             // Only while it is read: as the list scrolls, every change redraws the
                             // screen.
                             .reportingPlace(
-                                item.id == growingID && (session.workout != nil || isStarting),
+                                item.id == growingID && tracksRows,
                                 to: placeCurrent,
                             )
                             // Until an added row has entered it takes no taps, and its frame is

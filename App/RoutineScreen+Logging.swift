@@ -27,8 +27,7 @@ extension RoutineScreen {
 
     /// Whether every planned set of the workout is logged, so the Finish row ends the list.
     var isWorkoutDone: Bool {
-        guard let workout = session.workout, !routine.exercises.isEmpty else { return false }
-        return routine.nextSet(after: workout.sets) == nil
+        session.workout != nil && !routine.exercises.isEmpty && currentSet == nil
     }
 
     /// The current exercise as it grows into `set`: at a superset round's end, it shows the round
@@ -105,12 +104,6 @@ extension RoutineScreen {
     /// first, which Start grows.
     var growingID: RoutineExercise.ID? {
         session.workout == nil ? routine.exercises.first?.id : currentID
-    }
-
-    /// The row after `id` in the list, if any.
-    func row(after id: RoutineExercise.ID?) -> RoutineExercise? {
-        guard let index = routine.exercises.firstIndex(where: { $0.id == id }) else { return nil }
-        return routine.exercises.dropFirst(index + 1).first
     }
 
     /// Logs the set the slide was on, at the numbers its row shows. Within one exercise the
@@ -232,7 +225,7 @@ extension RoutineScreen {
         guard let nextTop = rowFrames.tops[next], let leavingTop = rowFrames.tops[leaving]
         else { return nil }
         guard nextTop > leavingTop else { return max(nextTop, 0) }
-        guard let after = row(after: leaving).flatMap({ rowFrames.tops[$0.id] }),
+        guard let after = routine.neighbor(of: leaving, .below).flatMap({ rowFrames.tops[$0.id] }),
               let resting = rowFrames.restingPitch[leaving]
         else { return nil }
         return max(nextTop - (after - leavingTop - resting), 0)
@@ -242,7 +235,7 @@ extension RoutineScreen {
     /// back as it shrinks. The rail keeps a resting row to a rhythm, so it is more than its height.
     func noteRestingPitch(of id: RoutineExercise.ID?) {
         guard let id, let top = rowFrames.tops[id],
-              let after = row(after: id).flatMap({ rowFrames.tops[$0.id] })
+              let after = routine.neighbor(of: id, .below).flatMap({ rowFrames.tops[$0.id] })
         else { return }
         rowFrames.restingPitch[id] = after - top
     }
