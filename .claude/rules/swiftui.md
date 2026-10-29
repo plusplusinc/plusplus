@@ -76,14 +76,16 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   0 with the growth. The lift and the key's drop are `Animatable` modifiers, worked out frame by
   frame with the row's layout: as plain offsets they ran ahead of the rows. The row's label
   stands at a height running from its resting height on an animated `growth` (`StandingHeight`),
-  its content counted only past the end height, since new parts take their room at once. The bottom edge effect's
-  band goes as the growth starts, or at the press where the list's end showed above the key, as
-  the room made under the end would raise it. The current exercise's height is fixed, whatever
-  the scroll: under the bar, it and the next row fill the screen to its bottom edge, under the
-  home indicator. It is worked out in the pass that lays out the list (`RowStanding`): the
-  screen's height from a `GeometryReader` around the scroll view, and the next row's from a
-  hidden copy laid out as a rail row (`railRowStand()`); read back into state after layout, it
-  grew a pass later, and a relaunch into a workout logged SwiftUI's per-frame fault. End, in the
+  its content counted only past the end height, since new parts take their room at once, and
+  nothing under the name drawn below the height it stands at (`BottomClip`). The current
+  exercise is as tall as its content; Start drops the key a screen's height, so it is gone by
+  the time the growth ends. The bottom edge effect's band goes as the growth starts, or at the
+  press where the list's end showed above the key, as the room made under the end would raise
+  it. The rail stacks its rows in a layout of its own (`RailStack`), each row placed as its
+  height animates: the rail's `VStack` held the rows below at their old places mid-growth, then
+  let them jump. A resting row's label stands at least as tall as the row's minimum less its
+  insets (`restingLabelFloor`): growing from its own height, its first points of growth moved
+  nothing, and the rows below ran ahead and came back. End, in the
   bar, asks "End this workout?" in a confirmation dialog, as the scratch app does: Finish workout
   only once a set is logged (`Workout.offersFinish`), and Discard workout
   as destructive. The dialog hangs on the whole screen, outside the navigation stack: on End, or
@@ -120,27 +122,62 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
 - The current exercise of a workout is the row of the next set to log, the first in the
   routine's order not yet logged, grown (`RowLabel`'s `focus`, `RowFocus`): its node 14 pt in
   `accent`, pulsing in brightness within its circle on one clock, the time itself
-  (`CurrentPulse`), which the bar of its current set shares, so the two never drift apart; its name from `ppRowTitle` to `ppCurrentTitle` through every size between
-  (`TitleFont`, the tokens themselves at the ends, so a resting row reads as one out of a
-  workout); which set it is on in place of the plan line ("Round 2 of 3" in a superset, the side
-  set off in `textPrimary`, "Set 1 of 3 · Left", its numbers then without "per side"), with
-  its set bars (`SetBars`) at the line's trailing end, centered on its first line, from its
-  first set; its slide to log (`SlideToLog`) under its numbers, a UIKit pan that begins only
-  on a mostly horizontal move, so a vertical swipe on it scrolls, and that the rail's hold
-  waits on, so a finger resting on the key never lifts the row; its equipment as capsules; and the
-  plan's numbers large (104 pt SF Mono at the default size), each with what it counts beside it,
-  or under it where the two don't fit the width (`FigureLayout`, not `ViewThatFits`, which sent
-  the view graph round a cycle as the title took focus, and hung the app). Its label stands at
-  one height wherever the list is scrolled (`currentLabelHeight`): with its row just under the
-  bar, the row, its own space above included (`currentTopSpace`, 24 pt), and the next row fill
-  the screen to its bottom edge, so the row after the next starts off the screen. The label is
-  offered that height, so at the largest text sizes the numbers shrink to fit it; the name, the
-  set, and the unit stay whole, and where they alone are taller the row runs on past it. Start,
-  the way back (`CurrentExerciseButton`, a floating key once the row is mostly scrolled out,
-  its name wrapping rather than cut short), a relaunch, and Start from a routine pushed on the
-  Routines screen land the row just under the bar, with everything above it under the bar;
-  while it is landed, a change in height above it, after a text size change or a rename, lands
-  it again. The current row has no swipe; its sheet's Delete stays.
+  (`CurrentPulse`), which the bar of its current set shares, so the two never drift apart; its
+  name from `ppRowTitle` to `ppCurrentTitle` (`GrowingName`: both sizes laid out once at the
+  row's width, the one showing scaled from its top leading corner, so it grows as one drawn
+  piece; a font size animated frame by frame reflowed the text every frame, and crossfading
+  only where the two sizes break into different lines; the large one stands unscaled at rest,
+  where it doesn't show, as scaled down the accessibility audit read it as clipped); which set
+  it is on in place of the plan line ("Round 2 of 3" in a superset, the side set off in
+  `textPrimary`, "Set 1 of 3 · Left", its numbers then without "per side"), with its set bars
+  (`SetBars`) at the line's trailing end, centered on its first line, from its first set, or
+  under it at the accessibility sizes, where beside it eight bars squeezed the line to nothing;
+  its equipment as capsules; the plan's numbers large (104 pt SF Mono at the default size),
+  each with what it counts beside it, or under it where the two don't fit the width
+  (`FigureLayout`, not `ViewThatFits`, which sent the view graph round a cycle as the title
+  took focus, and hung the app); and its slide to log (`SlideToLog`) under them. The label is
+  as tall as its content, at every text size. Start, the way back (`CurrentExerciseButton`, a
+  floating key once the row is mostly scrolled out, its name wrapping rather than cut short),
+  a relaunch, a move to the next exercise, and Start from a routine pushed on the Routines
+  screen land the row just under the bar (`currentTopSpace`, 24 pt, its own space above it),
+  with everything above it under the bar; while it is landed, a change in height above it,
+  after a text size change or a rename, lands it again. The current row has no swipe; its
+  sheet's Delete stays. VoiceOver reads the row as one element and logs its set with an
+  action named as the slide is ("Log set"), the slide being inside the element.
+- The slide to log (`SlideToLog`, its timings in `SetMotion`) is a light key in a dark track as
+  wide as the exercise, "Log set" in the track, or "Log left", "Log right", "Log last set";
+  nothing fills the track behind the key. Its drag is a UIKit pan that begins only on a mostly
+  horizontal move, so a vertical swipe on it scrolls, and the rail's hold waits on it, so a
+  finger resting on the key never lifts the row. Past two-thirds (`commit`) the arrow turns to
+  a check with a haptic, medium for a set and light for a side; slid back under, the arrow
+  comes back. Let go past it, the set logs, the key finishing its slide (0.18 s), resting
+  there 0.8 s while the progress line rolls, then fading out and in again at the start. The
+  key has mass: let go short of it, it coasts as UIKit projects a scroll's deceleration
+  (`coastRate` 0.994, `SlideTrack.coast`); where that carries it past, as a quick flick does,
+  it coasts on to the end on an ease-out from the finger's speed, the haptic and the log at
+  the crossing; otherwise it springs back carrying that speed. The key scales as a large
+  title, about half as much as the body at the accessibility sizes: with the body it left
+  "Log set" no room, and held to the track's measured width the two fed each other, a layout
+  loop. A log within one exercise rolls "Set 2 of 3" up to "Set 3 of 3" (0.3 s). A log that
+  moves to another exercise is one motion of about 0.7 s (`ExerciseMove`, `SetMotion`): the
+  current exercise's parts go bottom first, each fading as it drops 6 pt; on one curve
+  (`shifting`, 0.65 s) its row shrinks back to a resting row as the next row grows into the
+  current exercise and the list scrolls it up under the bar, the scroll Start's (scrolled at
+  once, drawn lifted, the lift run to 0), so the rows between and below move up once, never
+  back down; the next row's parts come in top first, each rising 8 pt as it fades in. A green
+  pulse (`RailPulse`) shoots along the rail from the node left to the next one, a capsule
+  stretching with its speed and widening as it goes, round a superset's loop at a round's
+  end, and lands as the next row comes to rest, collapsing to a dot on the node until the node
+  lights (`litID`), when "Round 2 of 3" rolls to the next round. Its keyframes end on a frame
+  of nothing: a timeline ending on a `MoveKeyframe` rests on the value before it, which left
+  the dot on the node. After the workout's last planned set the row closes as the list settles
+  on its end, the room that landed it closing on the same curve with the end held where it
+  shows (`keepEndPinned`), and `FinishWorkoutRow` fades in under it: a square + key on the
+  rail, Add exercise, and Finish workout beside it in the primary key's colors, both a key's
+  height; Finish ends the workout at once, as End's Finish does. Set bars, purple once done,
+  gray to do, show on every started row until it is finished, where its node turns purple.
+  With Reduce Motion a move to another exercise is one crossfade, as Start's is, with no
+  pulse; the haptics stay.
 - A row on a rail moves by holding and dragging (`RailDrag` holds every value). A hold of 0.4 s
   that moves under 10 pt lifts it; a press that moves first is a scroll, and a hold in the rail
   column, on the node, draws a superset instead (below). The hold is a UIKit long press (`RailLiftGesture`), put
