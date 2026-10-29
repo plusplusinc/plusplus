@@ -32,6 +32,7 @@ public struct RowLabel: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.restingLabelFloor) private var restingLabelFloor
+    @Environment(\.shiftWaitsForPulse) private var shiftWaitsForPulse
     @ObserveHotReload private var hotReload
 
     public init(
@@ -149,7 +150,9 @@ public struct RowLabel: View {
                 // starts to grow, before the progress line comes in.
                 .opacity(showsDetail ? 1 : 0)
                 .animation(
-                    showsDetail ? SetMotion.detailIn : SetMotion.detailOut,
+                    showsDetail
+                        ? SetMotion.detailIn(waits: shiftWaitsForPulse)
+                        : SetMotion.detailOut(waits: shiftWaitsForPulse),
                     value: showsDetail,
                 )
             }
@@ -278,28 +281,6 @@ private nonisolated struct BottomClip: Shape {
             width: rect.width + far * 2,
             height: rect.height + far,
         ))
-    }
-}
-
-extension View {
-    /// One of the current exercise's parts under its name, coming in and going in turn
-    /// (`SetMotion`): in, fading as it rises into place once the row has room; going, fading as
-    /// it drops, bottom first, as the row starts to close.
-    func part(_ part: SetMotion.Part) -> some View {
-        transition(
-            .asymmetric(
-                insertion: .opacity.combined(with: .offset(y: SetMotion.arriveRise))
-                    .animation(
-                        .easeOut(duration: SetMotion.arriveFade)
-                            .delay(SetMotion.arriveDelay(part)),
-                    ),
-                removal: .opacity.combined(with: .offset(y: SetMotion.leaveDrop))
-                    .animation(
-                        .easeIn(duration: SetMotion.leaveFade)
-                            .delay(SetMotion.leaveDelay(part)),
-                    ),
-            ),
-        )
     }
 }
 

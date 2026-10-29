@@ -50,24 +50,35 @@ struct RailPulseTests {
         let route = RailRoute.line(from: .zero, to: CGPoint(x: 0, y: 64))
         let shape = PulseShape(time: -1, route: route, lineWidth: 2)
         #expect(shape.path(in: .zero).isEmpty)
-        let landed = PulseShape(time: PulseShape.end, route: route, lineWidth: 2)
+        let landed = PulseShape(time: PulseShape.end(.down), route: route, lineWidth: 2)
         // Collapsed into a dot centered on the node, twice the line's width.
         let box = landed.path(in: .zero).boundingRect
         #expect(abs(box.height - 4) < 0.01)
         #expect(abs(box.midY - 64) < 0.01)
     }
 
-    @Test("Once a run is over, its pulse draws nothing, the dot on the node gone too")
-    func runEnds() {
+    @Test(
+        "Once a run is over, its pulse draws nothing, the dot on the node gone too",
+        arguments: [SetMotion.Way.down, .loop],
+    )
+    func runEnds(way: SetMotion.Way) {
         let route = RailRoute.line(from: .zero, to: CGPoint(x: 0, y: 64))
-        let run = KeyframeTimeline(initialValue: -1.0) { PulseShape.run }
+        let run = KeyframeTimeline(initialValue: -1.0) { PulseShape.run(way) }
+        func path(_ time: Double) -> Path {
+            PulseShape(time: time, route: route, lineWidth: 2, way: way).path(in: .zero)
+        }
         // Where the animator rests once the run is over.
         for time in [run.value(progress: 1), run.value(time: run.duration)] {
-            #expect(PulseShape(time: time, route: route, lineWidth: 2).path(in: .zero).isEmpty)
+            #expect(path(time).isEmpty)
         }
         // Through the hold, the dot is on the node.
-        let holding = run.value(time: run.duration - SetMotion.dotHold / 2)
-        #expect(!PulseShape(time: holding, route: route, lineWidth: 2).path(in: .zero).isEmpty)
+        #expect(!path(run.value(time: run.duration - SetMotion.dotHold(way) / 2)).isEmpty)
+        // Down the rail, the dot rides the node up through the whole move; up a loop, it goes
+        // once the node is green, before the shift settles.
+        let dotGone = run.duration - 1.0 / 60
+        #expect(way == .down
+            ? abs(dotGone - SetMotion.move(.down)) < 1e-9
+            : dotGone < SetMotion.move(.loop))
     }
 
     @Test("The travel shoots off, ends where it lands, and still moves as it lands")
@@ -78,25 +89,45 @@ struct RailPulseTests {
         #expect(SetMotion.speed(at: 1) > 0)
     }
 
-    @Test("The move takes about 0.75 s, the pulse leading and the shift settling after it lands")
+    @Test("Up a loop, the move takes about 0.75 s, the pulse leading and the shift settling after")
     @MainActor
-    func beats() {
-        #expect(abs(SetMotion.move - 0.75) < 0.1)
+    func loopBeats() {
+        #expect(abs(SetMotion.move(.loop) - 0.75) < 0.1)
         // The pulse sets off first; the shift is under way as the parts go, not after a beat.
         #expect(SetMotion.travelStart < SetMotion.leaveDelay(.equipment))
         #expect(TetheredShift.progress(at: SetMotion.leaveDelay(.equipment) + SetMotion.leaveFade)
             > 0)
         // The pulse lands ahead of the shift, which settles a beat after.
-        let landed = SetMotion.travelStart + SetMotion.travel
+        let landed = SetMotion.travelStart + SetMotion.travel(.loop)
         #expect(TetheredShift.progress(at: landed) > 0.6)
         #expect(TetheredShift.progress(at: landed) < 0.9)
-        #expect(SetMotion.shiftEnd > landed + 0.15)
-        #expect(SetMotion.shiftEnd < landed + 0.4)
+        #expect(SetMotion.shiftEnd(.loop) > landed + 0.15)
+        #expect(SetMotion.shiftEnd(.loop) < landed + 0.4)
         // Top first in, bottom first out, every part gone before the first comes in.
         #expect(SetMotion.arriveDelay(.progress) < SetMotion.arriveDelay(.slide))
         #expect(SetMotion.leaveDelay(.slide) < SetMotion.leaveDelay(.progress))
         #expect(SetMotion.leaveDelay(.progress) + SetMotion.leaveFade
             <= SetMotion.arriveDelay(.progress))
+    }
+
+    @Test("Down the rail, the pulse lands before anything moves, and the shift runs after it")
+    @MainActor
+    func downBeats() {
+        #expect(abs(SetMotion.move(.down) - 0.75) < 0.1)
+        // Brisk: about a quarter-second across.
+        #expect(SetMotion.travel(.down) >= 0.25 && SetMotion.travel(.down) <= 0.3)
+        // The node lights as the pulse lands, which is when the shift starts.
+        let landed = SetMotion.travelStart + SetMotion.travel(.down)
+        #expect(SetMotion.landing(.down) == landed)
+        #expect(abs(SetMotion.shiftEnd(.down) - landed - SetMotion.afterLanding) < 1e-9)
+        // The next exercise's parts come in during the shift, top first, none before it.
+        #expect(SetMotion.arriveDelay(.progress, waits: true) > landed)
+        #expect(SetMotion.arriveDelay(.progress, waits: true)
+            < SetMotion.arriveDelay(.slide, waits: true))
+        #expect(SetMotion.arriveDelay(.slide, waits: true) < SetMotion.shiftEnd(.down))
+        // The pulse's dot stays on the node until the shift has carried it up under the bar.
+        let dotGone = landed + SetMotion.collapse + SetMotion.dotHold(.down)
+        #expect(abs(dotGone - SetMotion.shiftEnd(.down)) < 1e-9)
     }
 
     @Test("The shift trails the pulse, only ever moves forward, and ends where it lands")
@@ -110,6 +141,6 @@ struct RailPulseTests {
             #expect(progress <= TetheredShift.pulse(at: time) + 1e-9)
             last = progress
         }
-        #expect(TetheredShift.progress(at: SetMotion.shiftEnd) == 1)
+        #expect(TetheredShift.progress(at: SetMotion.shiftEnd(.loop)) == 1)
     }
 }

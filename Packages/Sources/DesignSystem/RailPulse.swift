@@ -5,11 +5,13 @@ import SwiftUI
 public struct RailPulse<ID: Hashable>: Equatable {
     public var from: ID
     public var to: ID
+    public var way: SetMotion.Way
     public var run: Int
 
-    public init(from: ID, to: ID, run: Int) {
+    public init(from: ID, to: ID, way: SetMotion.Way, run: Int) {
         self.from = from
         self.to = to
+        self.way = way
         self.run = run
     }
 }
@@ -103,6 +105,8 @@ nonisolated struct PulseShape: Shape {
     var time: Double
     let route: RailRoute
     let lineWidth: CGFloat
+    /// Which way it goes, which sets how long its travel takes.
+    var way = SetMotion.Way.down
 
     /// How much wider it is at the landing than the line.
     static let pointScale: CGFloat = 2
@@ -111,19 +115,20 @@ nonisolated struct PulseShape: Shape {
     /// The longest it stretches, against the route.
     static let longest: CGFloat = 0.35
 
-    static var end: Double {
-        1 + SetMotion.collapse / SetMotion.travel
+    static func end(_ way: SetMotion.Way) -> Double {
+        1 + SetMotion.collapse / SetMotion.travel(way)
     }
 
     /// A run's times, from before it sets off to after its dot is gone.
     @KeyframesBuilder<Double>
-    static var run: some Keyframes<Double> {
+    static func run(_ way: SetMotion.Way) -> some Keyframes<Double> {
         MoveKeyframe(-1.0)
         LinearKeyframe(-1.0, duration: SetMotion.travelStart)
         MoveKeyframe(0.0)
-        LinearKeyframe(end, duration: SetMotion.travel + SetMotion.collapse)
-        // A dot on the node until the node has turned green under it.
-        LinearKeyframe(end, duration: SetMotion.dotHold)
+        LinearKeyframe(end(way), duration: SetMotion.travel(way) + SetMotion.collapse)
+        // A dot on the node: down the rail, riding up with it under the bar; up a loop, until the
+        // node has turned green under it.
+        LinearKeyframe(end(way), duration: SetMotion.dotHold(way))
         // Then nothing, held for a frame: a timeline ending on a `MoveKeyframe` rests on the value
         // before it, which left the dot on the node once the run was over.
         MoveKeyframe(-1.0)
@@ -141,15 +146,16 @@ nonisolated struct PulseShape: Shape {
         let width = lineWidth * (1 + (Self.pointScale - 1) * CGFloat(shot * shot * shot))
         let total = route.length
         let front = total * CGFloat(SetMotion.distance(at: shot))
-        let speed = CGFloat(SetMotion.speed(at: shot)) * total / CGFloat(SetMotion.travel)
+        let speed = CGFloat(SetMotion.speed(at: shot)) * total / CGFloat(SetMotion.travel(way))
         var length = min(width + Self.stretch * speed, max(total * Self.longest, width))
+        let end = Self.end(way)
         if time > 1 {
-            let collapse = CGFloat((time - 1) / (Self.end - 1))
+            let collapse = CGFloat((time - 1) / (end - 1))
             length = width + (length - width) * max(0, 1 - collapse)
         }
         // The round caps add half the width at each end, so the stretch between them is shorter;
         // collapsing, the dot it leaves settles on the node's center.
-        let settled = time > 1 ? width / 2 * min(CGFloat((time - 1) / (Self.end - 1)), 1) : 0
+        let settled = time > 1 ? width / 2 * min(CGFloat((time - 1) / (end - 1)), 1) : 0
         let head = max(front - width / 2 + settled, 0)
         let tail = max(front - length + width / 2 + settled, 0)
         let points = route.stretch(from: min(tail, head), to: head)
@@ -170,10 +176,11 @@ nonisolated struct PulseShape: Shape {
 
 /// The pulse drawn over a rail, from the rows' nodes as they are on each frame. It plays once
 /// for each new `run`, from `SetMotion.travelStart` after it, holding as a dot on the node it
-/// landed on until the node is current, and draws nothing between runs.
+/// landed on for `SetMotion.dotHold(_:)`, and draws nothing between runs.
 /// With Reduce Motion there is none: the move crossfades.
 struct RailPulseRun: View {
     let route: RailRoute?
+    let way: SetMotion.Way
     let run: Int
     @ScaledMetric(relativeTo: .body) private var lineWidth = railLineWidth
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -187,10 +194,11 @@ struct RailPulseRun: View {
                 time: reduceMotion ? -1 : time,
                 route: route ?? RailRoute([]),
                 lineWidth: lineWidth,
+                way: way,
             )
             .fill(.pp(.accent))
         } keyframes: { _ in
-            PulseShape.run
+            PulseShape.run(way)
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)

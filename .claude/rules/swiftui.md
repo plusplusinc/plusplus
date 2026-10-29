@@ -162,16 +162,21 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   moves to another exercise is one motion of about 0.75 s (`ExerciseMove`, `SetMotion`): the
   current exercise's parts go bottom first, each fading as it drops 6 pt. A green pulse
   (`RailPulse`) sets off at once along the rail from the node left to the next one, a capsule
-  stretching with its speed and widening as it goes, round a superset's loop at a round's end,
-  landing 0.44 s after the log, and the rest follows it as if tethered (`tethered`,
-  `TetheredShift`): the shift's progress is a critically damped spring pulled toward where the
-  pulse is along its travel, so it starts slowly as the pulse pulls away and settles 0.3 s
-  after it lands, never overshooting. On that curve the row shrinks back to a resting row as
+  stretching with its speed and widening as it goes. Down the rail (`SetMotion.Way.down`) it
+  runs the whole way while nothing else moves, landing 0.3 s after the log, and the node
+  lights as it lands; only then does the shift run (`moving(.down)`, 0.45 s on an ease-out),
+  carrying the lit node up under the bar with the pulse's dot on it, and the next row's parts
+  wait for it (`shiftWaitsForPulse`). Back up a superset's loop at a round's end, the rest
+  follows the pulse as if tethered (`moving(.loop)`, `TetheredShift`): the shift's progress is
+  a critically damped spring pulled toward where the pulse is along its travel, so it starts
+  slowly as the pulse pulls away and settles 0.3 s after it lands at 0.44 s, never
+  overshooting. Either way, the row shrinks back to a resting row as
   the next row grows into the current exercise and the list scrolls it up under the bar, the
   scroll Start's (scrolled at once, drawn lifted, the lift run to 0), so the rows between and
   below move one way only; the next row's parts come in top first, each rising 8 pt as it fades
-  in. The pulse collapses to a dot on the node, held until the node has turned green under it
-  (0.15 s after it starts to light, `litID`), when "Round 2 of 3" rolls to the next round. Its keyframes end on a frame
+  in. The pulse collapses to a dot on the node, held down the rail until the shift ends, and up
+  a loop until the node has turned green under it (0.15 s after it starts to light, `litID`),
+  when "Round 2 of 3" rolls to the next round. Its keyframes end on a frame
   of nothing: a timeline ending on a `MoveKeyframe` rests on the value before it, which left
   the dot on the node. After the workout's last planned set the row closes as the list settles
   on its end (`shifting`, 0.65 s, with no pulse to follow), the room that landed it closing on the same curve with the end held where it

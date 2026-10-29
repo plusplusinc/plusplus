@@ -178,6 +178,7 @@ struct RoutineScreen: View {
                         regroup: regroup,
                     ) { item in
                         rowLabel(item, current: currentID, on: currentSet)
+                            .environment(\.shiftWaitsForPulse, exerciseMove?.way == .down)
                             .id(item.id)
                             .padding(.top, item.id == currentID ? Self.currentTopSpace : 0)
                             // Only while it is read: as the list scrolls, every change redraws the
