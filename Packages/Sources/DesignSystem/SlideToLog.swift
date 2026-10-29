@@ -226,7 +226,10 @@ enum SlideTrack {
     /// For a key coasting from `progress` at `speed` to the end, on a curve that sets off at
     /// about that speed and slows to a stop (`timingCurve(0.5, 1, 0.5, 1)`, about twice as fast
     /// at the start as on average): how long it takes, and when it crosses the commit.
-    static func coastTiming(from progress: CGFloat, speed: CGFloat) -> (duration: Double, crossing: Double) {
+    static func coastTiming(
+        from progress: CGFloat,
+        speed: CGFloat,
+    ) -> (duration: Double, crossing: Double) {
         let left = max(1 - progress, 0)
         let duration = min(max(2 * left / max(speed, 0.01), 0.12), 0.4)
         // On that curve the share of the way gone runs about as 1 - (1 - t)^2.

@@ -178,45 +178,45 @@ struct RoutineScreen: View {
                         regroup: regroup,
                     ) { item in
                         rowLabel(item, current: currentID, on: currentSet)
-                        .id(item.id)
-                        .padding(.top, item.id == currentID ? Self.currentTopSpace : 0)
-                        // Only while it is read: as the list scrolls, every change redraws the
-                        // screen.
-                        .reportingPlace(
-                            item.id == growingID && (session.workout != nil || isStarting),
-                            to: placeCurrent,
-                        )
-                        // Until an added row has entered it takes no taps, and its frame is
-                        // where it will be rather than where it is drawn, so VoiceOver and the
-                        // UI tests find it once it has. On the label, the row's one element:
-                        // on the row, `false` would un-hide the rail's node.
-                        .accessibilityHidden(item.id == entering)
-                        .railRow()
-                        // The whole row, its insets included, as the rail stacks it.
-                        .reportingFrame(tracksRows) { rowFrames.tops[item.id] = $0.minY }
-                        .contentShape(.rect)
-                        .onTapGesture {
-                            guard item.id != entering else { return }
-                            editing = item
-                        }
-                        .accessibilityAddTraits(.isButton)
-                        .accessibilityValue(supersetValue(item.id))
-                        // None where it would do nothing: at an end, or with one row.
-                        .accessibilityActions {
-                            if let up = routine.slotMovingUp(item.id) {
-                                Button("Move up") { step(item.id, to: up, wentUp: true) }
+                            .id(item.id)
+                            .padding(.top, item.id == currentID ? Self.currentTopSpace : 0)
+                            // Only while it is read: as the list scrolls, every change redraws the
+                            // screen.
+                            .reportingPlace(
+                                item.id == growingID && (session.workout != nil || isStarting),
+                                to: placeCurrent,
+                            )
+                            // Until an added row has entered it takes no taps, and its frame is
+                            // where it will be rather than where it is drawn, so VoiceOver and the
+                            // UI tests find it once it has. On the label, the row's one element:
+                            // on the row, `false` would un-hide the rail's node.
+                            .accessibilityHidden(item.id == entering)
+                            .railRow()
+                            // The whole row, its insets included, as the rail stacks it.
+                            .reportingFrame(tracksRows) { rowFrames.tops[item.id] = $0.minY }
+                            .contentShape(.rect)
+                            .onTapGesture {
+                                guard item.id != entering else { return }
+                                editing = item
                             }
-                            if let down = routine.slotMovingDown(item.id) {
-                                Button("Move down") { step(item.id, to: down, wentUp: false) }
+                            .accessibilityAddTraits(.isButton)
+                            .accessibilityValue(supersetValue(item.id))
+                            // None where it would do nothing: at an end, or with one row.
+                            .accessibilityActions {
+                                if let up = routine.slotMovingUp(item.id) {
+                                    Button("Move up") { step(item.id, to: up, wentUp: true) }
+                                }
+                                if let down = routine.slotMovingDown(item.id) {
+                                    Button("Move down") { step(item.id, to: down, wentUp: false) }
+                                }
+                                supersetActions(item.id)
                             }
-                            supersetActions(item.id)
-                        }
-                        .accessibilityIdentifier("routine.exercise")
-                        // Outermost, as the system's swipe actions are, or their Delete is
-                        // folded into the row's accessibility element, where VoiceOver and
-                        // the UI tests never find it. The row's tap stays on where the swipe
-                        // is off.
-                        .swipeToDelete(isOn: item.id != currentID) { delete(item.id) }
+                            .accessibilityIdentifier("routine.exercise")
+                            // Outermost, as the system's swipe actions are, or their Delete is
+                            // folded into the row's accessibility element, where VoiceOver and
+                            // the UI tests never find it. The row's tap stays on where the swipe
+                            // is off.
+                            .swipeToDelete(isOn: item.id != currentID) { delete(item.id) }
                     } end: {
                         // The Finish row once the last row has started to close, fading in
                         // once it is mostly closed, never over the slide going.

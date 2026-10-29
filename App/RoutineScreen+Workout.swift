@@ -44,7 +44,11 @@ extension RoutineScreen {
 
     /// A row's label: the current exercise, grown, on `set`; else a row. Given the screen's
     /// values read once, as the rows' closure holds them.
-    func rowLabel(_ item: RoutineExercise, current: RoutineExercise.ID?, on set: PlannedSet?) -> RowLabel {
+    func rowLabel(
+        _ item: RoutineExercise,
+        current: RoutineExercise.ID?,
+        on set: PlannedSet?,
+    ) -> RowLabel {
         let focus = item.id == current ? set.map { focus(of: item, on: $0) } : nil
         return RowLabel(
             title: item.exercise.name,

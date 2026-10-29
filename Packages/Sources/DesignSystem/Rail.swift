@@ -436,4 +436,3 @@ extension Animation {
     /// let the rows below a deleted one drift up.
     public static let railChange = Animation.snappy(duration: 0.25)
 }
-

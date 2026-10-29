@@ -140,7 +140,10 @@ public struct RowLabel: View {
                 // Never over the progress line: back once it has gone, and gone as the name
                 // starts to grow, before the progress line comes in.
                 .opacity(showsDetail ? 1 : 0)
-                .animation(showsDetail ? SetMotion.detailIn : SetMotion.detailOut, value: showsDetail)
+                .animation(
+                    showsDetail ? SetMotion.detailIn : SetMotion.detailOut,
+                    value: showsDetail,
+                )
             }
             if let focus {
                 progressLine(focus)
