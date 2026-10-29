@@ -45,6 +45,8 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     private let current: RowID?
     /// The rows whose sets are all done in a workout, whose nodes show it in purple.
     private let done: Set<RowID>
+    /// A pulse from one row's node to another's, as a workout moves on (`RailPulse`).
+    private let pulse: RailPulse<RowID>?
     private let onMove: ((RowID, RailSlot<RowID>) -> Void)?
     let links: Set<RowID>
     let regroup: RailRegroup<RowID>?
@@ -104,6 +106,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         arriving: Data.Element.ID? = nil,
         current: Data.Element.ID? = nil,
         done: Set<Data.Element.ID> = [],
+        pulse: RailPulse<Data.Element.ID>? = nil,
         onMove: ((Data.Element.ID, RailSlot<Data.Element.ID>) -> Void)? = nil,
         regroup: RailRegroup<Data.Element.ID>? = nil,
         @ViewBuilder row: @escaping (Data.Element) -> Row,
@@ -115,6 +118,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
             arriving: arriving,
             current: current,
             done: done,
+            pulse: pulse,
             onMove: onMove,
             regroup: regroup,
             drag: nil,
@@ -130,6 +134,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         arriving: RowID? = nil,
         current: RowID? = nil,
         done: Set<RowID> = [],
+        pulse: RailPulse<RowID>? = nil,
         onMove: ((RowID, RailSlot<RowID>) -> Void)? = nil,
         regroup: RailRegroup<RowID>? = nil,
         drag: RailDragState<RowID>?,
@@ -143,6 +148,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         self.arriving = arriving
         self.current = current
         self.done = done
+        self.pulse = pulse
         self.onMove = onMove
         self.regroup = regroup
         _drag = State(initialValue: drag)
@@ -235,6 +241,15 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         .background { spanField() }
         .background { drawnWells(held: well) }
         .coordinateSpace(.named(RailDrag.space))
+        // The pulse, over the rows' strokes and nodes, from the nodes as they are on each frame.
+        .overlayPreferenceValue(RowNodes.self) { nodes in
+            GeometryReader { proxy in
+                RailPulseRun(
+                    route: pulse.flatMap { route($0, nodes, in: proxy) },
+                    run: pulse?.run ?? 0,
+                )
+            }
+        }
         // The card, over the rows it passes and Add exercise. It is placed in the rail's space,
         // where the finger is, not in the row's place, which moves as the gap does.
         .overlayPreferenceValue(RowNodes.self) { nodes in
@@ -350,6 +365,23 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
 }
 
 extension Rail {
+    /// The way `pulse` goes between its nodes: up a superset's loop to its first member, from a
+    /// later one in the same superset; straight along the rail otherwise.
+    private func route(
+        _ pulse: RailPulse<RowID>,
+        _ nodes: [AnyHashable: Anchor<CGPoint>],
+        in proxy: GeometryProxy,
+    ) -> RailRoute? {
+        guard let from = nodes[AnyHashable(pulse.from)].map({ proxy[$0] }),
+              let to = nodes[AnyHashable(pulse.to)].map({ proxy[$0] })
+        else { return nil }
+        let ids = data.map(\.id)
+        guard let start = ids.firstIndex(of: pulse.to), let end = ids.firstIndex(of: pulse.from),
+              start < end, ids[start ..< end].allSatisfy(links.contains)
+        else { return .line(from: from, to: to) }
+        return .loop(from: from, to: to, x: pen.runX(nodeX: from.x), radius: pen.radius)
+    }
+
     /// The rail moved `distance` up the screen under the held finger: the card moves down it as
     /// far, staying under the finger. Only the finger moves the gap, or a pair: the list scrolling
     /// for it in an edge's band, `byEdge`, carries it through the rows; the room above the rail

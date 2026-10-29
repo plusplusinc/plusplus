@@ -86,7 +86,8 @@ public actor RoutineStore {
         }
     }
 
-    /// Deletes the workout, keeping nothing of it, its sets with it, and its routine if cleared to nothing while
+    /// Deletes the workout, keeping nothing of it, its sets with it, and its routine if cleared to
+    /// nothing while
     /// it ran, in one save; nothing if there is none.
     public func discardWorkout(_ id: Workout.ID) throws {
         guard let stored = try storedWorkout(id: id) else { return }

@@ -75,24 +75,12 @@ extension View {
         }
     }
 
-    /// Reports how far the screen goes on below this view, under the home indicator.
-    func reportingFoot(to action: @escaping (CGFloat) -> Void) -> some View {
-        background {
-            Color.clear
-                .ignoresSafeArea(.container, edges: .bottom)
-                .onGeometryChange(for: CGFloat.self, of: \.safeAreaInsets.bottom, action: action)
-        }
-    }
-
-    /// Reports this row's height as it changes, while `isOn`.
-    func reportingHeight(_ isOn: Bool, to action: @escaping (CGFloat) -> Void) -> some View {
-        onGeometryChange(for: CGFloat?.self) { proxy in
-            isOn ? proxy.size.height : nil
-        } action: { height in
-            if let height {
-                action(height)
-            }
-        }
+    /// In a workout, room under this view, out of sight, so the list can scroll the current
+    /// exercise's row, its top at `top` in the list, up under the bar even where what follows it
+    /// is shorter than the `visible` height. Worked out in the pass that lays the list out, from
+    /// its own height, so it is right on every frame of a growth. None out of a workout.
+    func roomToLand(top: CGFloat?, visible: CGFloat) -> some View {
+        RoomToLand(top: top, visible: visible) { self }
     }
 
     /// Reports this row's frame in the list's content as it lays out, while `isOn`.
@@ -190,5 +178,26 @@ struct GrowthLift: ViewModifier, Animatable {
 
     func body(content: Content) -> some View {
         content.offset(y: lift)
+    }
+}
+
+/// Its one subview, with room under it: as much as `top` plus `visible` reaches past its height.
+private struct RoomToLand: Layout {
+    let top: CGFloat?
+    let visible: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
+        let size = subviews.first?.sizeThatFits(proposal) ?? .zero
+        guard let top else { return size }
+        return CGSize(width: size.width, height: max(size.height, top + visible))
+    }
+
+    func placeSubviews(
+        in bounds: CGRect,
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache _: inout (),
+    ) {
+        subviews.first?.place(at: bounds.origin, anchor: .topLeading, proposal: proposal)
     }
 }

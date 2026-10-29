@@ -1,14 +1,26 @@
 import SwiftUI
 
-/// Slide to log a set: a light key in a track as wide as the exercise, with a quiet "Log set".
-/// At rest the key shows an arrow; past two-thirds of the way it turns to a check with a
-/// haptic, and back if slid back under. Let go past that point and the set logs (`onLog`), the
+/// Slide to log a set: a light key in a track as wide as the exercise, with a quiet label naming
+/// the step, "Log set", "Log left", or "Log last set". As the key slides, the track behind it
+/// fills in a neutral tone. At rest the key shows an arrow; past two-thirds of the way it turns to
+/// a check, the fill turns purple, and a haptic plays, lighter for one side than for a whole set;
+/// slid back under, all three go back. Let go past that point and the set logs (`onLog`), the
 /// key finishing its slide, resting there a moment, then fading out at the end and back in at
 /// the start. Let go short of it and the key springs back.
 ///
 /// The drag is horizontal only: a mostly vertical move that starts on the track scrolls the list
-/// (`SlideToLogGesture`). VoiceOver reads it as one button, "Log set".
+/// (`SlideToLogGesture`). VoiceOver reads it as one button named by its label.
 public struct SlideToLog: View {
+    /// What a slide logs, which sets its haptic's weight.
+    public enum Weight {
+        /// A whole set.
+        case set
+        /// One side of a set done one side at a time: a lighter haptic.
+        case side
+    }
+
+    private let label: String
+    private let weight: Weight
     private let onLog: () -> Void
 
     /// How far along the track the key is, 0 at the start, 1 at the end.
@@ -25,12 +37,20 @@ public struct SlideToLog: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
-    public init(onLog: @escaping () -> Void) {
-        self.init(progress: 0, isFinishing: false, onLog: onLog)
+    public init(_ label: String, weight: Weight = .set, onLog: @escaping () -> Void) {
+        self.init(label, weight: weight, progress: 0, isFinishing: false, onLog: onLog)
     }
 
     /// The track at a moment, so a preview or a snapshot can draw it.
-    init(progress: CGFloat, isFinishing: Bool = false, onLog: @escaping () -> Void = {}) {
+    init(
+        _ label: String = "Log set",
+        weight: Weight = .set,
+        progress: CGFloat,
+        isFinishing: Bool = false,
+        onLog: @escaping () -> Void = { },
+    ) {
+        self.label = label
+        self.weight = weight
         self.onLog = onLog
         _progress = State(initialValue: progress)
         _isFinishing = State(initialValue: isFinishing)
@@ -47,7 +67,7 @@ public struct SlideToLog: View {
             RoundedRectangle(cornerRadius: 15)
                 .fill(.pp(.surface))
                 .strokeBorder(.pp(.borderStrong), lineWidth: 1)
-            Text("Log set")
+            Text(label)
                 .font(.ppButton.weight(.regular))
                 .foregroundStyle(.pp(.textSecondary))
                 .lineLimit(1)
@@ -56,9 +76,11 @@ public struct SlideToLog: View {
                 .padding(.leading, keyWidth + Self.inset * 2)
                 .padding(.trailing, Self.inset * 2)
                 .opacity(SlideTrack.labelOpacity(keyEnd: keyX + keyWidth, track: trackWidth))
-            // A light trail behind the key, from the track's start.
+            // The fill behind the key, from the track's start: neutral, purple once past the
+            // commit, as the set is done.
             RoundedRectangle(cornerRadius: Radius.key)
-                .fill(.pp(.textPrimary).opacity(0.1))
+                .fill(isArmed ? Color.pp(.done) : Color.pp(.textPrimary).opacity(0.14))
+                .animation(.easeOut(duration: SetMotion.fillTurn), value: isArmed)
                 .frame(width: keyX + keyWidth - Self.inset, height: keyHeight)
                 .offset(x: Self.inset)
                 .opacity(keyOpacity)
@@ -83,18 +105,21 @@ public struct SlideToLog: View {
         .onGeometryChange(for: CGFloat.self, of: \.size.width) { trackWidth = $0 }
         .contentShape(.rect)
         #if os(iOS)
-            .gesture(SlideToLogGesture(isEnabled: !isFinishing) { phase, translation in
-                drag(phase, translation: translation, travel: travel)
-            })
+        .gesture(SlideToLogGesture(isEnabled: !isFinishing) { phase, translation in
+            drag(phase, translation: translation, travel: travel)
+        })
         #endif
-            // A tap on the track does nothing, rather than open the row's sheet under it.
-            .onTapGesture {}
-            .sensoryFeedback(.impact(weight: .medium), trigger: arms)
-            .accessibilityRepresentation {
-                Button("Log set", action: onLog)
-            }
-            .accessibilityIdentifier("workout.logSet")
-            .hotReloadable()
+        // A tap on the track does nothing, rather than open the row's sheet under it.
+        .onTapGesture { }
+        .sensoryFeedback(
+            .impact(weight: weight == .side ? .light : .medium),
+            trigger: arms,
+        )
+        .accessibilityRepresentation {
+            Button(label, action: onLog)
+        }
+        .accessibilityIdentifier("workout.logSet")
+        .hotReloadable()
     }
 
     #if os(iOS)
@@ -222,10 +247,10 @@ struct SlideToLogGesture: UIGestureRecognizerRepresentable {
 
 #Preview {
     VStack(spacing: Spacing.md) {
-        SlideToLog {}
-        SlideToLog(progress: 0.4)
+        SlideToLog("Log set") { }
+        SlideToLog("Log left", weight: .side, progress: 0.4)
         SlideToLog(progress: 0.8)
-        SlideToLog(progress: 1, isFinishing: true)
+        SlideToLog("Log last set", progress: 1, isFinishing: true)
     }
     .padding()
     .background(Color.pp(.background))

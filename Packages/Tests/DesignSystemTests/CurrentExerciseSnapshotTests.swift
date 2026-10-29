@@ -7,14 +7,11 @@ import Testing
 
 /// The current exercise of a workout on the rail, as the routine screen composes it: its node
 /// large and green, its name grown, which set it is on, its equipment, and its plan's numbers
-/// large, in a label standing at the height the screen gives it, the next row under it. At AX5
-/// the numbers shrink to that height, their unit under them, and nothing truncates.
+/// large, the label as tall as they are, the next row under it. At AX5 the numbers' unit goes
+/// under them, and nothing truncates.
 @Suite("Current exercise")
 struct CurrentExerciseSnapshotTests {
     private static let width: CGFloat = 390
-    /// The current exercise's label height: what the screen leaves it, fixed here so AX5 shows
-    /// the numbers fitting it.
-    private static let labelHeight: CGFloat = 460
 
     private struct Row: Identifiable {
         let id = UUID()
@@ -23,16 +20,12 @@ struct CurrentExerciseSnapshotTests {
         var focus: RowFocus?
     }
 
-    /// The label's height, with no row after it to leave room for.
-    private let standing = RowStanding(height: Self.labelHeight)
-
     private func rail(_ rows: [Row]) -> some View {
         Rail(rows, current: rows.first?.id) { row in
             RowLabel(
                 title: row.title,
                 detail: row.detail,
                 focus: row.focus,
-                standing: row.focus == nil ? nil : standing,
             )
             .railRow()
         } end: {

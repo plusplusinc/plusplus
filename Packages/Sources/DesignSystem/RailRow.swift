@@ -272,7 +272,10 @@ private struct GroupLoop: View {
         let line = pen.line(top: ends.top, bottom: ends.bottom, nodeX: node.x, x: x)
             .intersection(Path(CGRect(x: 0, y: 0, width: node.x, height: height)))
         guard link == .first || link == .middle else { return line }
-        let head = pen.head(middle: node.y + height / 2, x: x)
+        // Kept whole inside the row: on a row given space above its label, as the next exercise
+        // of a workout is, half its height below the node is at its bottom edge.
+        let middle = min(node.y + height / 2, height - pen.length / 2 - pen.gap - pen.lineWidth)
+        let head = pen.head(middle: middle, x: x)
         return line.subtracting(head.opening).union(head.added)
     }
 }
@@ -295,13 +298,6 @@ extension View {
     /// of a two-line one.
     public func railRow() -> some View {
         modifier(RailRow())
-    }
-
-    /// This content as a rail row would stand, with its node's column, its inset, and its least
-    /// height, but nothing drawn: offered the width a row offers its content, it is as tall as
-    /// that row. For measuring a row in the same layout pass as another.
-    func railRowStand() -> some View {
-        RailRowStand(content: self)
     }
 
     /// The rail column: the leading strip where rows put their nodes and a key its icon. At

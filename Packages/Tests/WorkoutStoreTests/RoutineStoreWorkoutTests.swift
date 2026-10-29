@@ -75,7 +75,11 @@ struct RoutineStoreWorkoutTests {
         #expect(launched == workout)
         #expect(launched.sets.map(\.side) == [.left, .right, nil])
         #expect(launched.sets[2].target == .time(seconds: 45))
-        #expect(routine.nextSet(after: launched.sets) == PlannedSet(row: rowing.id, round: 2, side: .left))
+        #expect(routine.nextSet(after: launched.sets) == PlannedSet(
+            row: rowing.id,
+            round: 2,
+            side: .left,
+        ))
 
         workout.sets.remove(at: 1)
         let finished = workout.finishing(at: Self.at(50))

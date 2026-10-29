@@ -5,17 +5,17 @@ import SwiftUI
 /// words when `spokenDetail` is given.
 ///
 /// Given a `focus`, it is the current exercise of a workout: the name grows large, and the detail
-/// gives way to which set it is on, the exercise's equipment, and the plan's numbers, large, in
-/// a label as tall as its `standing` leaves it. Changed in an animation, the name's size runs
+/// gives way to which set it is on, the exercise's equipment, the plan's numbers, large, and the
+/// slide that logs the set, the label growing to their height. Changed in an animation, the name's
+/// size runs
 /// between the two, and the numbers grow out of where the detail was.
 public struct RowLabel: View {
     private let title: String
     private let detail: [String]
     private let spokenDetail: String?
     private let focus: RowFocus?
-    private let standing: RowStanding?
     /// Logs the current exercise's set, given with `focus`: the slide under its numbers.
-    private let onLog: (() -> Void)?
+    private let log: LogStep?
     /// How far the exercise is through its sets in a workout, shown as bars at the trailing
     /// end of its detail line, or of its progress line on the current exercise.
     private let bars: SetProgress?
@@ -23,9 +23,12 @@ public struct RowLabel: View {
     /// The current exercise's numbers: 104pt at the default size.
     @ScaledMetric(relativeTo: .largeTitle) private var figureSize: CGFloat = 104
 
-    /// The label's height as a row, which the standing height runs from and back to, so the
+    /// The label's height as a row, which its height runs from and back to, so the
     /// label grows and shrinks over the whole animation, on its curve.
     @State private var restingHeight: CGFloat = 0
+    /// The label's height as the current exercise, which the height runs from as it shrinks back:
+    /// by then its column has given up the parts that made it that tall.
+    @State private var grownHeight: CGFloat = 0
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ObserveHotReload private var hotReload
@@ -35,16 +38,14 @@ public struct RowLabel: View {
         detail: [String],
         spokenDetail: String? = nil,
         focus: RowFocus? = nil,
-        standing: RowStanding? = nil,
         bars: SetProgress? = nil,
-        onLog: (() -> Void)? = nil,
+        log: LogStep? = nil,
     ) {
         self.title = title
         self.detail = detail
         self.spokenDetail = spokenDetail
         self.focus = focus
-        self.standing = standing
-        self.onLog = onLog
+        self.log = log
         self.bars = bars
     }
 
@@ -68,17 +69,16 @@ public struct RowLabel: View {
             growth: focus == nil ? 0 : 1,
             isCurrent: focus != nil,
             restingHeight: restingHeight,
-            standing: standing?.height,
+            grownHeight: grownHeight,
         ) {
             column(detailText)
                 .onGeometryChange(for: CGFloat.self, of: \.size.height) { height in
                     if focus == nil {
                         restingHeight = height
+                    } else {
+                        grownHeight = height
                     }
                 }
-            if let next = standing?.next {
-                Self(title: next.title, detail: next.detail).railRowStand()
-            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -113,11 +113,11 @@ public struct RowLabel: View {
                                 ),
                             )
                     }
-                    if let focus, let onLog {
+                    if let focus, let log {
                         // Below the numbers, which give way first.
                         VStack(alignment: .leading, spacing: Spacing.lg) {
                             figures(focus)
-                            SlideToLog(onLog: onLog)
+                            SlideToLog(log.label, weight: log.weight, onLog: log.action)
                                 .layoutPriority(1)
                         }
                         .transition(
@@ -178,23 +178,34 @@ public struct RowLabel: View {
     }
 
     /// Which set it is on, "Set 1 of 3", and the side, "· Left", set off in the name's color.
-    /// A new set rolls in from below as the old one rolls out above.
+    /// Each part rolls on its own as it changes, the new one in from below as the old one goes
+    /// out above, so a switch from Left to Right rolls only the side, and the next set rolls both.
+    /// Side by side where they fit, else the side under the set (`FigureLayout`).
+    @ViewBuilder
     private func progressLine(_ focus: RowFocus) -> some View {
-        var line = AttributedString(focus.progress)
         if let side = focus.side {
-            line += AttributedString("\(noBreakSpace)·\(noBreakSpace)")
-            var sideText = AttributedString(side)
-            sideText.foregroundColor = .pp(.textPrimary)
-            line += sideText
+            FigureLayout(spacing: 0) {
+                rolling(focus.progress, color: .textSecondary)
+                rolling("\(noBreakSpace)·\(noBreakSpace)\(side)", color: .textPrimary, dot: true)
+            }
+        } else {
+            rolling(focus.progress, color: .textSecondary)
         }
-        // Clipped around the line, so the rolls show only within it.
+    }
+
+    /// One part of the progress line, rolling as it changes, clipped around itself so the roll
+    /// shows only within it. The dot before a side stays in the set's gray.
+    private func rolling(_ text: String, color: ColorToken, dot: Bool = false) -> some View {
+        var line = AttributedString(text)
+        line.foregroundColor = .pp(color)
+        if dot, let range = line.range(of: "\(noBreakSpace)·\(noBreakSpace)") {
+            line[range].foregroundColor = .pp(.textSecondary)
+        }
         return ZStack(alignment: .topLeading) {
             Text(line)
                 .font(.ppCurrentProgress)
-                .foregroundStyle(.pp(.textSecondary))
-                // Whole, wrapped as far as it needs: only the numbers give way.
                 .fixedSize(horizontal: false, vertical: true)
-                .id(line)
+                .id(text)
                 .transition(.push(from: .bottom))
         }
         .clipped()
@@ -230,8 +241,11 @@ public struct RowLabel: View {
 
     private var spokenLabel: String {
         let parts = if let focus {
-            [title, [focus.progress, focus.side].compactMap(\.self).joined(separator: ", "),
-             focus.spokenFigures]
+            [
+                title,
+                [focus.progress, focus.side].compactMap(\.self).joined(separator: ", "),
+                focus.spokenFigures,
+            ]
         } else {
             [title, spokenDetail ?? detail.joined(separator: ", ")]
         }
@@ -288,6 +302,20 @@ private struct TitleFont: ViewModifier, Animatable {
 
     private func size(of font: Font) -> CGFloat {
         font.resolve(in: fontContext).pointSize
+    }
+}
+
+/// The slide that logs the current exercise's set: what it says, how firm its haptic is, and
+/// what it does.
+public struct LogStep {
+    public var label: String
+    public var weight: SlideToLog.Weight
+    public var action: () -> Void
+
+    public init(label: String, weight: SlideToLog.Weight = .set, action: @escaping () -> Void) {
+        self.label = label
+        self.weight = weight
+        self.action = action
     }
 }
 
@@ -349,7 +377,6 @@ public struct RowFocus: Equatable {
                 ],
                 spokenFigures: "",
             ),
-            standing: RowStanding(height: 300),
         )
     }
     .padding()
