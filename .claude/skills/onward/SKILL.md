@@ -105,7 +105,9 @@ project board; agents' technical working files live in `.slices/`.
   chooses on the phone, where a file on the Mac never reaches them and `SendUserFile` fails in
   a session with no project thread. The link opens on exactly what is being asked: each open
   question has a page of its own holding only its frames, and the link sent is the canvas's
-  with `#page-<page id>` after it (`…/artifact/<id>#page-d5`), which the canvas opens on. The
+  with `#page-<page id>` after it, and a tag of its own after a dot each time it is sent
+  (`…/artifact/<id>#page-d5.r1029a`): the canvas opens on that page, but ignores a hash it has
+  already seen, and reads only what comes before the first dot. The
   canvas's `launch` page alone doesn't do it, since the app reopens the page a returning
   viewer last saw. Since 2026-10-28 a session started from the phone, and the
   subagents it starts, have the Artifact tool; check with ToolSearch before anyone draws, and
