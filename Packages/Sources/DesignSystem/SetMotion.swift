@@ -3,15 +3,16 @@ import SwiftUI
 /// Every timing in logging a set and moving on, in one place, so a tweak tried on the phone is one
 /// line and a rebuild.
 ///
-/// Moving to another exercise is one motion from the slide's log, about 0.7 s:
+/// Moving to another exercise is one motion from the slide's log, about 0.75 s:
 /// - **Leave** (0 to 0.14 s): what the current exercise grew to show goes, bottom first, each part
 ///   fading as it drops a few points: the slide, the numbers, then the equipment and the progress
 ///   line.
-/// - **Shift** (`shiftStart`, 0.04 to 0.69 s): on one curve, the row shrinks back to a resting row
-///   as the next row grows into the current exercise and the list scrolls it up under the bar,
-///   so what lies between and below moves up once, with the scroll, never back down. A green
-///   pulse shoots along the rail from the node left to the next one's and lands as the next row
-///   comes to rest under the bar, a dot on the node until the node lights.
+/// - **Shift** (0 to `shiftEnd`): a green pulse sets off along the rail from the node left toward
+///   the next one's (`travelStart`, `travel`), and the rest follows it as if tethered
+///   (`TetheredShift`): the row shrinks back to a resting row as the next row grows into the
+///   current exercise and the list scrolls it up under the bar, starting slowly as the pulse pulls
+///   away, catching up, and settling just after the pulse lands, so what lies between and below
+///   moves up once, never back down. The pulse is a dot on the node until the node lights.
 /// - **Arrive**: the next row's parts come in top first as it has room for them, each fading as
 ///   it rises a few points: the progress line, the equipment, the numbers, the slide.
 public enum SetMotion {
@@ -61,33 +62,49 @@ public enum SetMotion {
 
     // MARK: Shift
 
-    /// When the row starts to shrink, the next to grow, and the list to scroll, from the slide's
-    /// log: as the slide goes, so nothing waits; the row's bottom cuts off whatever is still
-    /// going as it closes.
+    /// After the last set, when the row starts to close, from the slide's log: as the slide goes,
+    /// so nothing waits; the row's bottom cuts off whatever is still going as it closes.
     public static let shiftStart = 0.04
-    /// The shift, the row shrinking as the next grows and the list scrolls, on one curve, so the
-    /// rows below move as one.
+    /// After the last set, the row closing as the list settles on its end, on one curve.
     public nonisolated static let shift = 0.65
 
-    /// The shift's curve: under way gently, as the parts go, and easing to a stop with no
-    /// overshoot. Shared by both rows' heights, the names' sizes, and the list's scroll.
+    /// After the last set, the closing's curve: under way gently, as the parts go, and easing to
+    /// a stop with no overshoot. With no pulse to follow, it runs on its own clock.
     public static var shifting: Animation {
         .timingCurve(0.42, 0, 0.2, 1, duration: shift).delay(shiftStart)
     }
 
-    /// When the pulse sets off, from the slide's log: as the slide starts to go.
-    nonisolated static let travelStart = 0.08
-    /// The pulse shooting from the node left to the next one's, landing as the shift brings the
-    /// next row to rest under the bar.
-    nonisolated static let travel = 0.48
+    /// Moving to another exercise, the shift's curve, which follows the pulse (`TetheredShift`).
+    /// Shared by both rows' heights, the names' sizes, and the list's scroll.
+    public static var tethered: Animation {
+        Animation(TetheredShift())
+    }
+
+    /// How stiffly the shift is tethered to the pulse, in radians a second: a critically damped
+    /// spring's natural frequency. It trails the pulse by about `2 / tether` s as it travels and
+    /// comes to rest a quarter-second after it lands; stiffer, the two move as one, looser, the
+    /// list drags.
+    nonisolated static let tether = 16.0
+
+    /// When the shift comes to rest, from the slide's log.
+    public nonisolated static var shiftEnd: Double {
+        TetheredShift.duration
+    }
+
+    /// When the pulse sets off, from the slide's log: at once, ahead of everything it pulls.
+    nonisolated static let travelStart = 0.02
+    /// The pulse shooting from the node left to the next one's, ahead of the shift, which settles
+    /// a beat after it lands.
+    nonisolated static let travel = 0.42
     /// The pulse's speed as it lands, against its average: an ease-out that shoots off and still
     /// hits the node moving, never creeping into it.
     nonisolated static let travelLanding = 0.6
     /// After the pulse lands, how long its stretch takes to collapse into a dot on the node.
     nonisolated static let collapse = 0.06
-    /// How long after the next row's node lights that the pulse's dot goes, under the green node
-    /// by then.
-    nonisolated static let dotHold = 0.06
+    /// How long after the next row's node starts to light that the pulse's dot goes, under the
+    /// green node by then: the node's color takes `roll` to change, and at 0.06 s the dot went
+    /// over a node still mostly gray.
+    nonisolated static let dotHold = 0.15
 
     /// When the next row's node lights, from the slide's log: as the pulse's dot settles on it.
     public static var landing: Double {
@@ -115,9 +132,9 @@ public enum SetMotion {
     static func arriveDelay(_ part: Part) -> Double {
         switch part {
         case .progress: 0.2
-        case .equipment: 0.26
-        case .figures: 0.32
-        case .slide: 0.4
+        case .equipment: 0.28
+        case .figures: 0.36
+        case .slide: 0.46
         }
     }
 
@@ -132,7 +149,7 @@ public enum SetMotion {
     /// The whole move, from the slide's log to the shift's end, the next exercise's last part in
     /// place and the pulse's dot gone.
     public static var move: Double {
-        max(shiftStart + shift, arriveDelay(.slide) + arriveFade, landing + dotHold)
+        max(shiftEnd, arriveDelay(.slide) + arriveFade, landing + dotHold)
     }
 
     /// The current exercise's parts under its name, which leave and arrive in turn.
@@ -152,5 +169,60 @@ public enum SetMotion {
     /// The pulse's speed at a share `time` of its travel, against its average.
     nonisolated static func speed(at time: Double) -> Double {
         (2 - travelLanding) - 2 * (1 - travelLanding) * time
+    }
+}
+
+/// The shift as it follows the pulse: its progress is a critically damped spring, at rest at 0,
+/// pulled toward where the pulse is along its travel (`SetMotion.distance(at:)`), so it starts
+/// slowly as the pulse pulls away, trails it, and catches up just after it lands. Critically
+/// damped, it never overshoots, so nothing it moves turns back. Worked out once, a sample a
+/// millisecond, until it is within half a percent of the end, and scaled to end there exactly.
+nonisolated struct TetheredShift: CustomAnimation {
+    static let samples: [Double] = {
+        let (step, substeps) = (0.001, 8)
+        let omega = SetMotion.tether
+        var (position, velocity, time) = (0.0, 0.0, 0.0)
+        var samples = [0.0]
+        while position < 0.995, samples.count < 2000 {
+            for _ in 0 ..< substeps {
+                let pull = omega * omega * (pulse(at: time) - position) - 2 * omega * velocity
+                velocity += pull * step / Double(substeps)
+                position += velocity * step / Double(substeps)
+                time += step / Double(substeps)
+            }
+            samples.append(position)
+        }
+        let last = samples.last ?? 1
+        return samples.map { $0 / last }
+    }()
+
+    /// How long it runs.
+    static var duration: Double {
+        Double(samples.count - 1) * 0.001
+    }
+
+    /// Where the pulse is along its travel, from 0 to 1, `time` after the log.
+    static func pulse(at time: Double) -> Double {
+        let share = (time - SetMotion.travelStart) / SetMotion.travel
+        return share <= 0 ? 0 : share >= 1 ? 1 : SetMotion.distance(at: share)
+    }
+
+    /// The shift's progress, from 0 to 1, `time` after the log.
+    static func progress(at time: Double) -> Double {
+        let index = time / 0.001
+        guard index > 0 else { return 0 }
+        guard index < Double(samples.count - 1) else { return 1 }
+        let below = Int(index)
+        let share = index - Double(below)
+        return samples[below] + (samples[below + 1] - samples[below]) * share
+    }
+
+    func animate<V: VectorArithmetic>(
+        value: V,
+        time: TimeInterval,
+        context _: inout AnimationContext<V>,
+    ) -> V? {
+        guard time < Self.duration else { return nil }
+        return value.scaled(by: Self.progress(at: time))
     }
 }

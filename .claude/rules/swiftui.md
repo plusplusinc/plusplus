@@ -159,19 +159,22 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   title, about half as much as the body at the accessibility sizes: with the body it left
   "Log set" no room, and held to the track's measured width the two fed each other, a layout
   loop. A log within one exercise rolls "Set 2 of 3" up to "Set 3 of 3" (0.3 s). A log that
-  moves to another exercise is one motion of about 0.7 s (`ExerciseMove`, `SetMotion`): the
-  current exercise's parts go bottom first, each fading as it drops 6 pt; on one curve
-  (`shifting`, 0.65 s) its row shrinks back to a resting row as the next row grows into the
-  current exercise and the list scrolls it up under the bar, the scroll Start's (scrolled at
-  once, drawn lifted, the lift run to 0), so the rows between and below move up once, never
-  back down; the next row's parts come in top first, each rising 8 pt as it fades in. A green
-  pulse (`RailPulse`) shoots along the rail from the node left to the next one, a capsule
-  stretching with its speed and widening as it goes, round a superset's loop at a round's
-  end, and lands as the next row comes to rest, collapsing to a dot on the node until the node
-  lights (`litID`), when "Round 2 of 3" rolls to the next round. Its keyframes end on a frame
+  moves to another exercise is one motion of about 0.75 s (`ExerciseMove`, `SetMotion`): the
+  current exercise's parts go bottom first, each fading as it drops 6 pt. A green pulse
+  (`RailPulse`) sets off at once along the rail from the node left to the next one, a capsule
+  stretching with its speed and widening as it goes, round a superset's loop at a round's end,
+  landing 0.44 s after the log, and the rest follows it as if tethered (`tethered`,
+  `TetheredShift`): the shift's progress is a critically damped spring pulled toward where the
+  pulse is along its travel, so it starts slowly as the pulse pulls away and settles 0.3 s
+  after it lands, never overshooting. On that curve the row shrinks back to a resting row as
+  the next row grows into the current exercise and the list scrolls it up under the bar, the
+  scroll Start's (scrolled at once, drawn lifted, the lift run to 0), so the rows between and
+  below move one way only; the next row's parts come in top first, each rising 8 pt as it fades
+  in. The pulse collapses to a dot on the node, held until the node has turned green under it
+  (0.15 s after it starts to light, `litID`), when "Round 2 of 3" rolls to the next round. Its keyframes end on a frame
   of nothing: a timeline ending on a `MoveKeyframe` rests on the value before it, which left
   the dot on the node. After the workout's last planned set the row closes as the list settles
-  on its end, the room that landed it closing on the same curve with the end held where it
+  on its end (`shifting`, 0.65 s, with no pulse to follow), the room that landed it closing on the same curve with the end held where it
   shows (`keepEndPinned`), and `FinishWorkoutRow` fades in under it: a square + key on the
   rail, Add exercise, and Finish workout beside it in the primary key's colors, both a key's
   height; Finish ends the workout at once, as End's Finish does. Set bars, purple once done,

@@ -78,20 +78,38 @@ struct RailPulseTests {
         #expect(SetMotion.speed(at: 1) > 0)
     }
 
-    @Test("The move takes about 0.7 s, one shift the pulse lands with, parts out before in")
+    @Test("The move takes about 0.75 s, the pulse leading and the shift settling after it lands")
     @MainActor
     func beats() {
-        #expect(abs(SetMotion.move - 0.7) < 0.1)
-        // The row starts to shift as the parts go, not after a beat.
-        #expect(SetMotion.shiftStart < SetMotion.leaveDelay(.equipment) + SetMotion.leaveFade)
-        // The pulse lands in the shift's last fifth, as the next row comes to rest.
+        #expect(abs(SetMotion.move - 0.75) < 0.1)
+        // The pulse sets off first; the shift is under way as the parts go, not after a beat.
+        #expect(SetMotion.travelStart < SetMotion.leaveDelay(.equipment))
+        #expect(TetheredShift.progress(at: SetMotion.leaveDelay(.equipment) + SetMotion.leaveFade)
+            > 0)
+        // The pulse lands ahead of the shift, which settles a beat after.
         let landed = SetMotion.travelStart + SetMotion.travel
-        #expect(landed > SetMotion.shiftStart + SetMotion.shift * 0.7)
-        #expect(landed < SetMotion.shiftStart + SetMotion.shift)
+        #expect(TetheredShift.progress(at: landed) > 0.6)
+        #expect(TetheredShift.progress(at: landed) < 0.9)
+        #expect(SetMotion.shiftEnd > landed + 0.15)
+        #expect(SetMotion.shiftEnd < landed + 0.4)
         // Top first in, bottom first out, every part gone before the first comes in.
         #expect(SetMotion.arriveDelay(.progress) < SetMotion.arriveDelay(.slide))
         #expect(SetMotion.leaveDelay(.slide) < SetMotion.leaveDelay(.progress))
         #expect(SetMotion.leaveDelay(.progress) + SetMotion.leaveFade
             <= SetMotion.arriveDelay(.progress))
+    }
+
+    @Test("The shift trails the pulse, only ever moves forward, and ends where it lands")
+    func tether() {
+        var last = 0.0
+        for step in 0 ... 1000 {
+            let time = Double(step) / 1000
+            let progress = TetheredShift.progress(at: time)
+            #expect(progress >= last)
+            #expect(progress <= 1)
+            #expect(progress <= TetheredShift.pulse(at: time) + 1e-9)
+            last = progress
+        }
+        #expect(TetheredShift.progress(at: SetMotion.shiftEnd) == 1)
     }
 }

@@ -111,8 +111,9 @@ extension RoutineScreen {
     /// (`SetMotion`): the parts under the current exercise's name go, bottom first, and on one
     /// curve its row shrinks back to a resting row as the next row grows into the current
     /// exercise and the list scrolls it up under the bar, so the rows below move up once, with
-    /// the scroll. A green pulse travels the rail to the next node, round a superset's loop at a
-    /// round's end, and lands as the row comes to rest, its node lighting. The scroll is Start's:
+    /// the scroll. A green pulse sets off first along the rail to the next node, round a
+    /// superset's loop at a round's end, and the shift follows it as if tethered, settling just
+    /// after it lands and its node lights. The scroll is Start's:
     /// the list is scrolled at once to where the next row will land and drawn where it was, the
     /// lift run to 0 in the shift's transaction. After the last set, the row closes as the list
     /// settles on its end and the Finish row shows under it.
@@ -149,7 +150,7 @@ extension RoutineScreen {
         }
         // One transaction: the parts going and coming each on their own delays
         // (`part(_:)`), both rows' heights, their names, and the lift on the shift's curve.
-        withAnimation(SetMotion.shifting) {
+        withAnimation(SetMotion.tethered) {
             exerciseMove = ExerciseMove(heldProgress: held)
             session.log(set, of: row)
             growthLift = 0
