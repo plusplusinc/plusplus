@@ -67,12 +67,16 @@ feedback would help, and write the handoff note the lead names; each round after
 builder, until the lead ends the loop. A
 round is one change, `scripts/run.sh` on the worktree's simulator so it builds and launches, a new
 commit (never amend, so each round stays its own), the handoff note the lead names brought up
-to date, and a reply with the hash and one line on what changed. No tests, review, or PR during
-the loop; when the lead ends it, everything under "When it works" runs as usual. A round that
-changes motion (a drag, an animation, a transition) still records it, measures it with
-`scripts/sim.sh motion` and steps through the frames, as `/run` says, and fixes what stalls or
-jumps before it reports: a still says nothing about motion. A stall, jump, wobble, or overlap
-you found is fixed in the round, not listed for the maintainer to find on the phone.
+to date, and a reply with the hash and one line on what changed. No tests, lint, rules or docs
+edits, review, or PR during the loop, even when a timing test now fails; when the lead ends it,
+everything under "When it works" runs as usual. A round that changes motion (a drag, an
+animation, a transition) still records it, measures it with `scripts/sim.sh motion` and steps
+through the frames, as `/run` says, and fixes what stalls or jumps before it reports: a still
+says nothing about motion. A stall, jump, wobble, or overlap you found is fixed in the round,
+not listed for the maintainer to find on the phone. A round that only retunes values of a
+motion the maintainer has already seen (a duration, a delay, a size, a curve) skips the
+recording: it builds, commits, and installs with `scripts/device.sh` first, and anything else
+waits until after (the maintainer asked for these on the phone at once, 2026-10-30).
 
 ## Checkpoint
 
