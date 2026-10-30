@@ -39,6 +39,10 @@ gh pr checks --watch --interval 60                     # "PR check" is the one t
 scripts/ci-times.py <branch>                           # the run's times against the budgets
 ```
 
+Merge a branch's PR from its own worktree with no number (`gh pr merge --squash --auto` takes
+the branch's): a number written before `gh pr create` prints it is a guess, and one merged the
+night's retro (#123) in place of the PR just opened.
+
 Once Xcode Cloud's run finishes, put `scripts/ci-times.py`'s lines for it in the body's Verified
 line with `gh pr edit`.
 
