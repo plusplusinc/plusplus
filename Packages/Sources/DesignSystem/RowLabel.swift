@@ -120,7 +120,12 @@ public struct RowLabel: View {
                             .part(.figures)
                     }
                     if focus != nil, let log {
-                        SlideToLog(log.label, weight: log.weight, onLog: log.action)
+                        SlideToLog(
+                            log.label,
+                            weight: log.weight,
+                            onLog: log.action,
+                            onReturn: log.onReturn,
+                        )
                             .layoutPriority(1)
                             .part(.slide)
                     }
@@ -200,17 +205,8 @@ public struct RowLabel: View {
     /// clipped around itself, so "Set 2 of 3" to "Set 3 of 3" rolls the 2 alone (Dave,
     /// 2026-10-30). The dot before a side stays in the set's gray.
     private func rolling(_ text: String, color: ColorToken, dot: Bool = false) -> some View {
-        // Each word keeps the space after it, a no-break space included, so the line reads as
-        // one string.
-        var words = [""]
-        for character in text {
-            words[words.count - 1].append(character)
-            if character.isWhitespace {
-                words.append("")
-            }
-        }
-        return HStack(alignment: .firstTextBaseline, spacing: 0) {
-            ForEach(Array(words.enumerated()), id: \.offset) { _, word in
+        HStack(alignment: .firstTextBaseline, spacing: 0) {
+            ForEach(Array(rollingWords(text).enumerated()), id: \.offset) { _, word in
                 rollingWord(word, color: dot && word.contains("·") ? .textSecondary : color)
             }
         }
@@ -295,20 +291,6 @@ private nonisolated struct BottomClip: Shape {
             width: rect.width + far * 2,
             height: rect.height + far,
         ))
-    }
-}
-
-/// The slide that logs the current exercise's set: what it says, how firm its haptic is, and
-/// what it does.
-public struct LogStep {
-    public var label: String
-    public var weight: SlideToLog.Weight
-    public var action: () -> Void
-
-    public init(label: String, weight: SlideToLog.Weight = .set, action: @escaping () -> Void) {
-        self.label = label
-        self.weight = weight
-        self.action = action
     }
 }
 

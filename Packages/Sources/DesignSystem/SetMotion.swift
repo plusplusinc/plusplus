@@ -42,22 +42,19 @@ public enum SetMotion {
     static let coastRate = 0.994
     /// A key let go short of `commit` springing back to the start.
     static let springBack = 0.35
-    /// A key let go past `commit` finishing its slide to the track's end.
-    static let finish = 0.18
-    /// The key resting at the end while the progress line rolls to the next set.
+    /// The key resting at the end with its check.
     static let rest = 0.8
-    /// The key fading out at the end, then in again at the start.
+    /// The key fading out at the end, then in again at the start, where, within one exercise,
+    /// the progress line rolls to the next set or side (Dave, 2026-10-30: not as the key
+    /// reaches the end).
     static let fadeOut = 0.15
     static let fadeIn = 0.2
-    /// From the log to the key showing again at the start: when, within one exercise, the
-    /// progress line rolls to the next set or side (Dave, 2026-10-30: not as the key reaches the
-    /// end).
-    public static let keyReturn = finish + rest + fadeOut
 
     // MARK: Within one exercise
 
-    /// "Set 2 of 3" rolling up and out as "Set 3 of 3" rolls up and in, once the set logs; the
-    /// side word, "Left" to "Right", rolls with it.
+    /// "Set 2 of 3" rolling to "Set 3 of 3", only the words that change, each up and out as the
+    /// new one rolls up and in, once the key is back at the start; the side word, "Left" to
+    /// "Right", rolls with it.
     public static let roll = 0.3
 
     // MARK: Moving on to another exercise: leave

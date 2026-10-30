@@ -8,7 +8,8 @@ import Testing
 /// A workout's rail scrolled past the current exercise: a finished row's node purple, rows
 /// partly done with their bars at one place at the trailing end however many sets they have and
 /// however their name and plan wrap, a row not started with none, and, once every set is logged,
-/// the Finish row ending the list.
+/// the Finish row ending the list; and the current row's node held small and gray while a set
+/// logged on it is not yet shown.
 @Suite("Workout rail")
 struct WorkoutRailSnapshotTests {
     private static let width: CGFloat = 390
@@ -22,10 +23,12 @@ struct WorkoutRailSnapshotTests {
 
     private func rail(
         _ rows: [Row],
-        done: Set<UUID>,
+        done: Set<UUID> = [],
+        current: UUID? = nil,
+        isSetHeld: Bool = false,
         @ViewBuilder end: () -> some View,
     ) -> some View {
-        Rail(rows, done: done) { row in
+        Rail(rows, current: current, done: done, isSetHeld: isSetHeld) { row in
             RowLabel(title: row.title, detail: row.detail, bars: row.bars)
                 .railRow()
         } end: {
@@ -55,6 +58,19 @@ struct WorkoutRailSnapshotTests {
             Row(title: "Push-up", detail: ["3 × 10 reps"]),
         ]
         let view = rail(rows, done: [finished.id]) {
+            Button("Add exercise", systemImage: "plus") { }
+                .buttonStyle(.key)
+        }
+        assertThemedSnapshots(of: view, width: Self.width)
+    }
+
+    @Test("A set logged on the current row, not yet shown: its node small and gray, the rest not")
+    func heldSet() {
+        let rows = [
+            Row(title: "Goblet squat", detail: ["3 × 10 reps", "35 lb"]),
+            Row(title: "Pull-up", detail: ["3 × 6 reps"]),
+        ]
+        let view = rail(rows, current: rows[0].id, isSetHeld: true) {
             Button("Add exercise", systemImage: "plus") { }
                 .buttonStyle(.key)
         }

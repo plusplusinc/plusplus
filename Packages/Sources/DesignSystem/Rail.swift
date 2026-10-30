@@ -45,6 +45,9 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     private let current: RowID?
     /// The rows whose sets are all done in a workout, whose nodes show it in purple.
     private let done: Set<RowID>
+    /// Whether the current row has a set logged that stays on it, not yet shown: its node rests
+    /// small and gray until it is (`SetBeat`).
+    private let isSetHeld: Bool
     /// A pulse from one row's node to another's, as a workout moves on (`RailPulse`).
     private let pulse: RailPulse<RowID>?
     let onMove: ((RowID, RailSlot<RowID>) -> Void)?
@@ -106,6 +109,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         arriving: Data.Element.ID? = nil,
         current: Data.Element.ID? = nil,
         done: Set<Data.Element.ID> = [],
+        isSetHeld: Bool = false,
         pulse: RailPulse<Data.Element.ID>? = nil,
         onMove: ((Data.Element.ID, RailSlot<Data.Element.ID>) -> Void)? = nil,
         regroup: RailRegroup<Data.Element.ID>? = nil,
@@ -118,6 +122,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
             arriving: arriving,
             current: current,
             done: done,
+            isSetHeld: isSetHeld,
             pulse: pulse,
             onMove: onMove,
             regroup: regroup,
@@ -134,6 +139,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         arriving: RowID? = nil,
         current: RowID? = nil,
         done: Set<RowID> = [],
+        isSetHeld: Bool = false,
         pulse: RailPulse<RowID>? = nil,
         onMove: ((RowID, RailSlot<RowID>) -> Void)? = nil,
         regroup: RailRegroup<RowID>? = nil,
@@ -148,6 +154,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         self.arriving = arriving
         self.current = current
         self.done = done
+        self.isSetHeld = isSetHeld
         self.pulse = pulse
         self.onMove = onMove
         self.regroup = regroup
@@ -190,6 +197,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                     isLoopHidden: hiddenLoops.contains(item.id),
                     isCurrent: item.id == current,
                     isDone: done.contains(item.id),
+                    isSetHeld: isSetHeld && item.id == current,
                 )
                 // An arriving row's place opens with its entry's shot, so the end view is pushed
                 // down as far as the line has grown, on every frame.

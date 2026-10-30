@@ -2,8 +2,9 @@ import CoreGraphics
 import Testing
 @testable import DesignSystem
 
-/// The slide's arithmetic, from plain numbers: how far a drag takes the key, where it logs, and
-/// where a key let go coasts to, and when it crosses the commit on the way.
+/// The slide's arithmetic, from plain numbers: how far a drag takes the key, where it logs,
+/// where a key let go coasts to, and how long it glides to the end; and the words the progress
+/// line rolls by.
 @Suite("Slide to log, its track")
 @MainActor
 struct SlideToLogTests {
@@ -33,16 +34,28 @@ struct SlideToLogTests {
         #expect(SlideTrack.coast(from: 0.4, speed: 0) == 0.4)
     }
 
-    @Test("Coasting to the end, it crosses the commit inside the coast, sooner from nearer it")
-    func coastTiming() {
-        let far = SlideTrack.coastTiming(from: 0.25, speed: 4)
-        let near = SlideTrack.coastTiming(from: 0.6, speed: 4)
-        for timing in [far, near] {
-            #expect(timing.duration >= 0.12 && timing.duration <= 0.4)
-            #expect(timing.crossing > 0 && timing.crossing < timing.duration)
-        }
-        #expect(near.crossing < far.crossing)
-        // From past the commit, it has crossed already.
-        #expect(SlideTrack.coastTiming(from: 0.8, speed: 4).crossing == 0)
+    @Test("Let go, the key glides to the end at the speed it was let go at, and slowest at the floor")
+    func glide() {
+        // At 2 tracks a second, from a quarter of the way: three quarters in 0.375 s.
+        #expect(SlideTrack.glide(from: 0.25, speed: 2) == 0.375)
+        // As fast from nearer the end: half the way, half the time.
+        #expect(SlideTrack.glide(from: 0.625, speed: 2) == 0.1875)
+        // Let go standing still, or backward, it crawls on at the floor.
+        let crawl = Double(0.25 / SlideTrack.glideFloor)
+        #expect(SlideTrack.glide(from: 0.75, speed: 0) == crawl)
+        #expect(SlideTrack.glide(from: 0.75, speed: -1) == crawl)
+        #expect(SlideTrack.glide(from: 1, speed: 2) == 0)
+    }
+
+    @Test("The progress line splits into words that keep their spaces, none empty")
+    func words() {
+        #expect(rollingWords("Set 2 of 3") == ["Set ", "2 ", "of ", "3"])
+        // Joined, they are the line again, so a change rolls only the words that differ.
+        #expect(rollingWords("Set 2 of 3").joined() == "Set 2 of 3")
+        let side = "\u{00A0}·\u{00A0}Left"
+        #expect(rollingWords(side) == ["\u{00A0}", "·\u{00A0}", "Left"])
+        // A line ending in a space ends on its last word, not on an empty one.
+        #expect(rollingWords("Set 2 ") == ["Set ", "2 "])
+        #expect(rollingWords("").isEmpty)
     }
 }

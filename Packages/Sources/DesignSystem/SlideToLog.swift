@@ -1,15 +1,15 @@
 import SwiftUI
 
 /// Slide to log a set: a light key in a track as wide as the exercise, with a quiet label naming
-/// the step, "Log set", "Log left", or "Log last set". Nothing fills the track behind the key. At
-/// rest the key shows an arrow; past two-thirds of the way it turns to a check and a haptic plays,
-/// lighter for one side than for a whole set; slid back under, the arrow comes back. Let go past
-/// that point and the set logs (`onLog`), the key finishing its slide, resting there a moment,
-/// then fading out at the end and back in at the start. The key has mass: let go short of it, it
-/// coasts on with the finger's speed, and where that would carry it past the point
-/// (`SlideTrack.coast`), as a quick flick does, it coasts on past, the haptic plays and the set
-/// logs as it crosses, and it finishes its slide; otherwise it slows and springs back, carrying
-/// that speed.
+/// the step, "Log set", "Log left", or "Log last set". Nothing fills the track behind the key.
+/// The key shows an arrow. Dragged past two-thirds of the way, the commit, a haptic plays,
+/// lighter for one side than for a whole set, and let go there the set logs (`onLog`) and the
+/// key glides on to the end at the finger's speed (`SlideTrack.glide(from:speed:)`). The key has
+/// mass: let go short of the commit with speed enough to carry it past (`SlideTrack.coast`), as a
+/// quick flick does, it glides to the end the same way, and only there the haptic plays and the
+/// set logs; otherwise it slows and springs back, carrying that speed. At rest at the end, its
+/// arrow is a check, at once; it rests a moment, fades out, and comes back at the start
+/// (`onReturn`), as an arrow.
 ///
 /// The drag is horizontal only: a mostly vertical move that starts on the track scrolls the list
 /// (`SlideToLogGesture`). VoiceOver reads it as one button named by its label.
@@ -25,6 +25,7 @@ public struct SlideToLog: View {
     private let label: String
     private let weight: Weight
     private let onLog: () -> Void
+    private let onReturn: () -> Void
 
     /// How far along the track the key is, 0 at the start, 1 at the end.
     @State private var progress: CGFloat
@@ -33,10 +34,8 @@ public struct SlideToLog: View {
     @State private var keyOpacity: CGFloat = 1
     /// Counts the crossings of `commit` on the way out, each a haptic.
     @State private var arms = 0
-    /// A flicked key on its way to the end, still showing its arrow until it gets there.
-    @State private var isCoasting = false
     /// Let go and come to rest at the end, where the check shows.
-    @State private var isAtEnd = false
+    @State private var isAtEnd: Bool
     @State private var trackWidth: CGFloat = 0
 
     @ScaledMetric(relativeTo: .body) private var trackHeight: CGFloat = 56
@@ -49,23 +48,41 @@ public struct SlideToLog: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
-    public init(_ label: String, weight: Weight = .set, onLog: @escaping () -> Void) {
-        self.init(label, weight: weight, progress: 0, isFinishing: false, onLog: onLog)
+    /// A slide that calls `onLog` as the set logs, and `onReturn` as the key shows again at the
+    /// start after it. VoiceOver's action calls both at once.
+    public init(
+        _ label: String,
+        weight: Weight = .set,
+        onLog: @escaping () -> Void,
+        onReturn: @escaping () -> Void = { },
+    ) {
+        self.init(
+            label,
+            weight: weight,
+            progress: 0,
+            isFinishing: false,
+            onLog: onLog,
+            onReturn: onReturn,
+        )
     }
 
-    /// The track at a moment, so a preview or a snapshot can draw it.
+    /// The track at a moment, so a preview or a snapshot can draw it: finishing at the end, the
+    /// key rests there with its check.
     init(
         _ label: String = "Log set",
         weight: Weight = .set,
         progress: CGFloat,
         isFinishing: Bool = false,
         onLog: @escaping () -> Void = { },
+        onReturn: @escaping () -> Void = { },
     ) {
         self.label = label
         self.weight = weight
         self.onLog = onLog
+        self.onReturn = onReturn
         _progress = State(initialValue: progress)
         _isFinishing = State(initialValue: isFinishing)
+        _isAtEnd = State(initialValue: isFinishing && progress >= 1)
     }
 
     private static let inset: CGFloat = 4
@@ -93,9 +110,9 @@ public struct SlideToLog: View {
                 .fill(.pp(.textPrimary))
                 .shadow(color: .pp(.shadow), radius: 1.5, y: 1)
                 .overlay {
-                    // The arrow switches to the check at once, as the key comes to rest at the end
-                    // (Dave, 2026-10-30): Replace left the arrow behind on a moving key and drew the
-                    // check in low; `ArrowToCheck`'s morph is kept for another try.
+                    // The arrow switches to the check at once, as the key comes to rest at the
+                    // end (Dave, 2026-10-30): the symbols' Replace left the arrow behind on a
+                    // moving key and drew the check in low.
                     Image(systemName: isAtEnd ? "checkmark" : "arrow.right")
                         .font(.system(size: arrowSize, weight: .bold))
                         .foregroundStyle(.pp(.background))
@@ -121,7 +138,10 @@ public struct SlideToLog: View {
             trigger: arms,
         )
         .accessibilityRepresentation {
-            Button(label, action: onLog)
+            Button(label) {
+                onLog()
+                onReturn()
+            }
         }
         .accessibilityIdentifier("workout.logSet")
         .hotReloadable()
@@ -166,32 +186,28 @@ public struct SlideToLog: View {
     /// (Dave, 2026-10-30).
     private func coast(speed: CGFloat) {
         isFinishing = true
-        let (duration, _) = SlideTrack.glide(from: progress, speed: speed)
-        withAnimation(.linear(duration: duration)) {
-            isCoasting = true
+        withAnimation(.linear(duration: SlideTrack.glide(from: progress, speed: speed))) {
             progress = 1
         } completion: {
-            isCoasting = false
             arms += 1
             onLog()
             rest()
         }
     }
 
-    /// The key finishes its slide as the set logs, rests while the progress line rolls, then
-    /// fades out at the end and in again at the start.
-    private func log(speed: CGFloat = 0) {
+    /// Let go past the commit at `speed`: the set logs, and the key glides on to the end.
+    private func log(speed: CGFloat) {
         isFinishing = true
         onLog()
-        let glide = SlideTrack.glide(from: progress, speed: speed)
-        withAnimation(.linear(duration: glide.duration)) {
+        withAnimation(.linear(duration: SlideTrack.glide(from: progress, speed: speed))) {
             progress = 1
         } completion: {
             rest()
         }
     }
 
-    /// The key at the end, resting there, then fading out and in again at the start.
+    /// The key at the end with its check, resting there, then fading out, and in again at the
+    /// start with its arrow, where it is back (`onReturn`).
     private func rest() {
         isAtEnd = true
         withAnimation(.linear(duration: SetMotion.fadeOut).delay(SetMotion.rest)) {
@@ -199,6 +215,7 @@ public struct SlideToLog: View {
         } completion: {
             progress = 0
             isAtEnd = false
+            onReturn()
             withAnimation(.easeOut(duration: SetMotion.fadeIn)) {
                 keyOpacity = 1
             } completion: {
@@ -234,31 +251,15 @@ enum SlideTrack {
         return progress + speed * rate / (1 - rate) / 1000
     }
 
-    /// For a key coasting from `progress` at `speed` to the end, on a curve that sets off at
-    /// about that speed and slows to a stop (`timingCurve(0.5, 1, 0.5, 1)`, about twice as fast
-    /// at the start as on average): how long it takes, and when it crosses the commit.
-    /// Let go at `speed` (tracks a second), the key keeps that speed to the end, as a thing in
-    /// motion does (Dave, 2026-10-30), never slower than `glideFloor` (about 70 pt/s, only so a key let go standing still finishes), and when it crosses the
-    /// commit, if it hasn't yet.
-    static func glide(
-        from progress: CGFloat,
-        speed: CGFloat,
-    ) -> (duration: Double, crossing: Double) {
-        let pace = max(speed, glideFloor)
-        return (
-            Double(max(1 - progress, 0) / pace),
-            Double(max(SetMotion.commit - progress, 0) / pace),
-        )
+    /// How long a key let go at `progress`, moving at `speed` tracks a second, takes to the end:
+    /// it keeps that speed, as a thing in motion does (Dave, 2026-10-30), never slower than
+    /// `glideFloor`.
+    static func glide(from progress: CGFloat, speed: CGFloat) -> Double {
+        Double(max(1 - progress, 0) / max(speed, glideFloor))
     }
 
-    /// How far the arrow has turned into the check at `progress`: from a quarter of the track
-    /// before the commit to the commit itself.
-    static func morph(_ progress: CGFloat) -> CGFloat {
-        let start = SetMotion.commit - 0.25
-        return min(max((progress - start) / (SetMotion.commit - start), 0), 1)
-    }
-
-    /// The slowest a key let go past the commit finishes, in tracks a second.
+    /// The slowest a key let go glides, in tracks a second, about 70 pt/s: only so a key let go
+    /// standing still past the commit gets to the end.
     static let glideFloor: CGFloat = 0.3
 
     /// "Log set" fades as the key's leading edge comes over it, gone 40 pt before the end.
@@ -338,35 +339,4 @@ struct SlideToLogGesture: UIGestureRecognizerRepresentable {
     }
     .padding()
     .background(Color.pp(.background))
-}
-
-/// A right arrow at `morph` 0, a check at 1: its head's arms swing round into the check's legs,
-/// the top arm into the long one and the bottom into the short, as its shaft draws into the
-/// check's corner. Points in a unit square, stroked by the caller.
-nonisolated struct ArrowToCheck: Shape {
-    var morph: CGFloat
-
-    var animatableData: CGFloat {
-        get { morph }
-        set { morph = newValue }
-    }
-
-    func path(in rect: CGRect) -> Path {
-        func point(_ from: CGPoint, _ to: CGPoint) -> CGPoint {
-            CGPoint(
-                x: rect.minX + (from.x + (to.x - from.x) * morph) * rect.width,
-                y: rect.minY + (from.y + (to.y - from.y) * morph) * rect.height,
-            )
-        }
-        let corner = CGPoint(x: 0.4, y: 0.76)
-        var path = Path()
-        // The head, a chevron, to the check.
-        path.move(to: point(CGPoint(x: 0.52, y: 0.18), CGPoint(x: 0.88, y: 0.24)))
-        path.addLine(to: point(CGPoint(x: 0.86, y: 0.5), corner))
-        path.addLine(to: point(CGPoint(x: 0.52, y: 0.82), CGPoint(x: 0.12, y: 0.48)))
-        // The shaft, shrinking into the check's corner.
-        path.move(to: point(CGPoint(x: 0.12, y: 0.5), corner))
-        path.addLine(to: point(CGPoint(x: 0.84, y: 0.5), corner))
-        return path
-    }
 }

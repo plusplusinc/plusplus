@@ -25,6 +25,20 @@ extension RoutineScreen {
         exerciseMove.map { $0.isLanded } == false ? nil : currentID
     }
 
+    /// A set logged that stays on the current exercise, saved at once, but shown as still to do
+    /// until the slide's key is back at the start, when the line rolls on (Dave, 2026-10-30).
+    /// None once another set is logged, as in another workout.
+    var heldSet: PlannedSet? {
+        guard let held = unshownSet, session.workout?.sets.last?.planned == held else { return nil }
+        return held
+    }
+
+    /// The workout's sets as the screen shows them: all but a held one.
+    private var shownSets: [LoggedSet]? {
+        let held = heldSet
+        return session.workout?.sets.filter { $0.planned != held }
+    }
+
     /// Whether every planned set of the workout is logged, so the Finish row ends the list.
     var isWorkoutDone: Bool {
         session.workout != nil && !routine.exercises.isEmpty && currentSet == nil
@@ -47,7 +61,7 @@ extension RoutineScreen {
         current: RoutineExercise.ID?,
         on set: PlannedSet?,
     ) -> RowLabel {
-        let focus = item.id == current ? set.map { focus(of: item, on: $0) } : nil
+        let focus = item.id == current ? (heldSet ?? set).map { focus(of: item, on: $0) } : nil
         return RowLabel(
             title: item.exercise.name,
             detail: item.detailParts(locale: locale),
@@ -63,6 +77,9 @@ extension RoutineScreen {
     /// name, which shows below.
     func logStep(_ set: PlannedSet, of item: RoutineExercise) -> LogStep {
         let action = { log(set, of: item) }
+        let onReturn = {
+            withAnimation(.snappy(duration: SetMotion.roll)) { unshownSet = nil }
+        }
         let weight: SlideToLog.Weight = set.side == nil ? .set : .side
         let isLast = session.workout.map {
             routine.nextSet(after: $0.logging(set, of: item, at: .now).sets) == nil
@@ -73,7 +90,7 @@ extension RoutineScreen {
         case (false, .right): String(localized: "Log right")
         case (false, nil): String(localized: "Log set")
         }
-        return LogStep(label: label, weight: weight, action: action)
+        return LogStep(label: label, weight: weight, action: action, onReturn: onReturn)
     }
 
     /// The rows whose sets are all logged in the workout, whose nodes show them done.
@@ -88,7 +105,7 @@ extension RoutineScreen {
     /// The set bars a row shows in a workout: on the current exercise always, from its first set;
     /// on any other only once started and until finished, where its node shows it done.
     func bars(of id: RoutineExercise.ID) -> SetProgress? {
-        guard let sets = session.workout?.sets else { return nil }
+        guard let sets = shownSets else { return nil }
         let progress = routine.progress(of: id, logged: sets)
         guard id == currentID
             || routine.isStarted(id, logged: sets) && progress.done < progress.total
@@ -106,8 +123,9 @@ extension RoutineScreen {
         session.workout == nil ? routine.exercises.first?.id : currentID
     }
 
-    /// Logs the set the slide was on, at the numbers its row shows. Within one exercise the
-    /// progress line rolls to the next set. Moving to another, one motion from the log
+    /// Logs the set the slide was on, at the numbers its row shows. Within one exercise it is
+    /// held from showing (`heldSet`), the current node small and gray, until the slide's key is
+    /// back at the start, when the progress line and the bars roll on. Moving to another, one motion from the log
     /// (`SetMotion`): the parts under the current exercise's name go, bottom first, and on one
     /// curve its row shrinks back to a resting row as the next row grows into the current
     /// exercise and the list scrolls it up under the bar, so the rows below move up once, with
@@ -126,12 +144,8 @@ extension RoutineScreen {
         guard let workout = session.workout, !isMovingOn else { return }
         let next = routine.nextSet(after: workout.logging(set, of: row, at: .now).sets)
         guard next?.row != set.row else {
-            // Logged as the key comes back to the start, so the line rolls with it.
-            setBeats += 1
-            Task {
-                try? await Task.sleep(for: .seconds(SetMotion.keyReturn), tolerance: .zero)
-                withAnimation(.snappy(duration: SetMotion.roll)) { session.log(set, of: row) }
-            }
+            unshownSet = set
+            session.log(set, of: row)
             return
         }
         let target = next.flatMap { landing(on: $0.row, leaving: row.id) }

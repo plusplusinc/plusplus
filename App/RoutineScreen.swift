@@ -81,8 +81,9 @@ struct RoutineScreen: View {
     /// Counts the moves to another exercise that have landed on its node, each with a light tick,
     /// lighter than the slide's.
     @State var landings = 0
-    /// Counts the sets logged that stay on the current exercise (`currentBeat`).
-    @State var setBeats = 0
+    /// The last set logged, while it stays on the current exercise and its key is still on its
+    /// way back to the start (`heldSet`).
+    @State var unshownSet: PlannedSet?
     @State var rowFrames = RowFrames()
     /// Room under the list's end in a workout, so Add exercise clears the way back to the current.
     @ScaledMetric(relativeTo: .body) var wayToCurrentRoom: CGFloat = 64
@@ -179,6 +180,7 @@ struct RoutineScreen: View {
                         arriving: arriving,
                         current: litID,
                         done: finishedRows,
+                        isSetHeld: heldSet != nil,
                         pulse: railPulse,
                         onMove: move,
                         regroup: regroup,
@@ -214,7 +216,7 @@ struct RoutineScreen: View {
                                 // reach, so the current exercise logs its set as an action.
                                 if item.id == currentID, let set = currentSet {
                                     let step = logStep(set, of: item)
-                                    Button(step.label, action: step.action)
+                                    Button(step.label, action: step.logAtOnce)
                                 }
                                 if let up = routine.slotMovingUp(item.id) {
                                     Button("Move up") { step(item.id, to: up, wentUp: true) }
@@ -257,8 +259,6 @@ struct RoutineScreen: View {
                         }
                     }
                 }
-                // Over the rail, where its nodes are drawn: on a row's label it never reached them.
-                .environment(\.currentBeat, setBeats)
                 .padding(.horizontal, Spacing.md)
                 // Room under Add exercise, so at the end of a long list it clears Start.
                 .padding(.bottom, Spacing.md)

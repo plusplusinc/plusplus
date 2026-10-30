@@ -25,6 +25,9 @@ struct RailPlace {
     var isCurrent = false
     /// A row whose sets are all done in a workout: its node is filled purple.
     var isDone = false
+    /// The current row with a set logged that stays on it, until the key is back at the start:
+    /// its node rests small and gray (`SetBeat`).
+    var isSetHeld = false
 }
 
 /// Where a row is in a group of rows next to each other on a rail, a superset: on its own, or
@@ -64,7 +67,6 @@ private struct RailNode: View {
     @ScaledMetric(relativeTo: .body) private var lineWidth = railLineWidth
     @Environment(\.railPlace) private var place
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.currentBeat) private var beat
     @ObserveHotReload private var hotReload
 
     var body: some View {
@@ -87,7 +89,10 @@ private struct RailNode: View {
                     }
                     // A set done that stays on this exercise: the node shrinks and grays as the set
                     // logs, rests so while the key does, and pops back green as the line rolls.
-                    .keyframeAnimator(initialValue: SetBeat(), trigger: beat) { node, value in
+                    .keyframeAnimator(
+                        initialValue: SetBeat(held: place.isSetHeld),
+                        trigger: place.isSetHeld,
+                    ) { node, value in
                         let shown = place.isCurrent && !reduceMotion
                         node
                             .overlay {
@@ -95,16 +100,7 @@ private struct RailNode: View {
                             }
                             .scaleEffect(shown ? value.scale : 1)
                     } keyframes: { _ in
-                        KeyframeTrack(\.scale) {
-                            CubicKeyframe(0.5, duration: 0.2)
-                            LinearKeyframe(0.5, duration: SetMotion.keyReturn - 0.2)
-                            SpringKeyframe(1, duration: 0.4, spring: .bouncy)
-                        }
-                        KeyframeTrack(\.gray) {
-                            CubicKeyframe(1, duration: 0.2)
-                            LinearKeyframe(1, duration: SetMotion.keyReturn - 0.2)
-                            CubicKeyframe(0, duration: 0.12)
-                        }
+                        SetBeat.keyframes(held: place.isSetHeld)
                     }
                     .anchorPreference(key: NodeCenter.self, value: .center) { $0 }
                     .anchorPreference(key: RailNodes.self, value: .center) { [$0] }
@@ -329,8 +325,34 @@ extension View {
     }
 }
 
-/// The current node's beat as a set logs that stays on its exercise.
+/// The current node's beat as a set logs that stays on its exercise (Dave, 2026-10-30): it
+/// shrinks to half and fades to the rail's gray as the set logs, rests so, and pops back full
+/// and green, with a bounce, as the progress line rolls.
 struct SetBeat {
     var scale = 1.0
+    /// How far the node is covered in the rail's gray.
     var gray = 0.0
+
+    /// The node at rest, or held small and gray.
+    init(held: Bool = false) {
+        scale = held ? 0.5 : 1
+        gray = held ? 1 : 0
+    }
+
+    /// To held, or back from it, from wherever the node is.
+    @KeyframesBuilder<Self>
+    static func keyframes(held: Bool) -> some Keyframes<Self> {
+        let end = Self(held: held)
+        KeyframeTrack(\.scale) {
+            if held {
+                CubicKeyframe(end.scale, duration: 0.2)
+            } else {
+                // Its own settling time: cut at 0.4 s, it stopped 2 % large.
+                SpringKeyframe(end.scale, spring: .bouncy)
+            }
+        }
+        KeyframeTrack(\.gray) {
+            CubicKeyframe(end.gray, duration: held ? 0.2 : 0.12)
+        }
+    }
 }
