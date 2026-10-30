@@ -32,7 +32,7 @@ public struct SlideToLog: View {
     /// Whether the key is going through its finish after a log, when it takes no drag.
     @State private var isFinishing: Bool
     @State private var keyOpacity: CGFloat = 1
-    /// Counts the crossings of `commit` on the way out, each a haptic.
+    /// Counts the haptics: a drag crossing `commit` on the way out, or a flick reaching the end.
     @State private var arms = 0
     /// Let go and come to rest at the end, where the check shows.
     @State private var isAtEnd: Bool

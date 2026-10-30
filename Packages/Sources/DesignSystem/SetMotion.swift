@@ -22,11 +22,11 @@ import SwiftUI
 /// - **Arrive**: the next row's parts come in top first as it has room for them, each fading as
 ///   it rises a few points: the progress line, the equipment, the numbers, the slide.
 public enum SetMotion {
-    /// Which way a move goes along the rail, which sets how the shift follows the pulse.
+    /// Which way a move goes along the rail, which sets the pulse's route and travel.
     public enum Way: Sendable {
-        /// Down to a later row: the pulse lands, then the shift runs.
+        /// Down to a later row.
         case down
-        /// Back up a superset's loop to its first member: the shift follows the pulse.
+        /// Back up a superset's loop to its first member, at a round's end.
         case loop
     }
 
@@ -81,14 +81,14 @@ public enum SetMotion {
 
     /// After the last set, when the row starts to close, from the slide's log: as the slide goes,
     /// so nothing waits; the row's bottom cuts off whatever is still going as it closes.
-    public static let shiftStart = 0.04
+    public static let closeStart = 0.04
     /// After the last set, the row closing as the list settles on its end, on one curve.
-    public nonisolated static let shift = 0.65
+    public nonisolated static let close = 0.65
 
     /// After the last set, the closing's curve: under way gently, as the parts go, and easing to
     /// a stop with no overshoot. With no pulse to follow, it runs on its own clock.
-    public static var shifting: Animation {
-        .timingCurve(0.42, 0, 0.2, 1, duration: shift).delay(shiftStart)
+    public static var closing: Animation {
+        .timingCurve(0.42, 0, 0.2, 1, duration: close).delay(closeStart)
     }
 
     /// Moving to another exercise, the shift's curve, shared by both rows' heights, the names'

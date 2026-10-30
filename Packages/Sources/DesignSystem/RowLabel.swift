@@ -357,3 +357,21 @@ public struct RowFocus: Equatable {
     .padding()
     .background(Color.pp(.background))
 }
+
+/// `text`'s words, each with the whitespace after it, a no-break space included, so the words
+/// set side by side read as one string, and a word rolls only when it changes: none empty.
+func rollingWords(_ text: String) -> [String] {
+    var words: [String] = []
+    var word = ""
+    for character in text {
+        word.append(character)
+        if character.isWhitespace {
+            words.append(word)
+            word = ""
+        }
+    }
+    if !word.isEmpty {
+        words.append(word)
+    }
+    return words
+}

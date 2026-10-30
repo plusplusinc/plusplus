@@ -329,9 +329,9 @@ extension View {
 /// shrinks to half and fades to the rail's gray as the set logs, rests so, and pops back full
 /// and green, with a bounce, as the progress line rolls.
 struct SetBeat {
-    var scale = 1.0
+    var scale: Double
     /// How far the node is covered in the rail's gray.
-    var gray = 0.0
+    var gray: Double
 
     /// The node at rest, or held small and gray.
     init(held: Bool = false) {

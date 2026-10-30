@@ -157,6 +157,7 @@ extension RoutineScreen {
             }
         }
         guard let next else { return logLast(set, of: row) }
+        unshownSet = nil
         noteRestingPitch(of: next.row)
         let rows = routine.exercises.map(\.id)
         let isUp = (rows.firstIndex(of: next.row) ?? 0) < (rows.firstIndex(of: row.id) ?? 0)
@@ -232,13 +233,13 @@ extension RoutineScreen {
         withTransaction(\.disablesAnimations, true) {
             closingRoomTop = currentPlace?.landingY ?? scrollBeat.scrolledY
         }
-        withAnimation(SetMotion.shifting) {
+        withAnimation(SetMotion.closing) {
             session.log(set, of: row)
             closingRoomTop = 0
         }
         Task {
             try? await Task.sleep(
-                for: .seconds(SetMotion.shiftStart + SetMotion.shift),
+                for: .seconds(SetMotion.closeStart + SetMotion.close),
                 tolerance: .zero,
             )
             closingRoomTop = nil

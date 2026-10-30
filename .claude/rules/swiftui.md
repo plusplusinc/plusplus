@@ -202,7 +202,7 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   the next round once the row shows it (`roundRoll`). The blob's keyframes end on a frame of
   nothing: a timeline ending on a `MoveKeyframe` rests on the value before it, which left the
   pulse on the node. After the workout's last planned set the row closes as the list settles on
-  its end (`shifting`, 0.65 s, with no pulse), the room that landed it closing on the same curve
+  its end (`closing`, 0.65 s, with no pulse), the room that landed it closing on the same curve
   with the end held where it shows (`keepEndPinned`), and `FinishWorkoutRow` fades in under it:
   a square + key on the rail, Add exercise, and Finish workout beside it in the primary key's
   colors, both a key's height; Finish ends the workout at once, as End's Finish does. Set bars,
