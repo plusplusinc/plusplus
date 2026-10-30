@@ -2,7 +2,8 @@ import SwiftUI
 
 /// The end of a workout's list once every planned set is logged: a square key with a plus, Add
 /// exercise, its plus on the rail where Add exercise's sits, and Finish workout beside it, wide,
-/// in the primary key's colors. Both are a key's height.
+/// in the primary key's colors. Both are a key's height, or, where the label wraps, as tall as
+/// Finish workout.
 public struct FinishWorkoutRow: View {
     private let add: () -> Void
     private let finish: () -> Void
@@ -22,7 +23,8 @@ public struct FinishWorkoutRow: View {
                 Image(systemName: "plus")
                     .font(.ppButton)
                     .foregroundStyle(.pp(.textPrimary))
-                    .frame(width: height, height: height)
+                    .frame(width: height)
+                    .frame(maxHeight: .infinity)
                     .background(keyShape.fill(.pp(.surface)))
                     .overlay(keyShape.strokeBorder(.pp(.borderStrong)))
                     .contentShape(keyShape)
@@ -30,8 +32,14 @@ public struct FinishWorkoutRow: View {
             .buttonStyle(DimmedPress())
             .accessibilityLabel("Add exercise")
             Button(action: finish) {
+                // Two lines at most, broken only between words and centered: at the largest
+                // text sizes "workout" alone is wider than the key, and wrapped freely it broke
+                // as "work-out" over three lines. Shrunk instead, until each word fits a line.
                 Text("Finish workout")
                     .font(.ppPrimaryKey)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.5)
                     .foregroundStyle(.pp(.onPrimaryKey))
                     .padding(.horizontal, Spacing.md)
                     .frame(maxWidth: .infinity, minHeight: height)
@@ -41,6 +49,8 @@ public struct FinishWorkoutRow: View {
             .buttonStyle(DimmedPress())
             .accessibilityIdentifier("workout.finish")
         }
+        // Both keys as tall as the taller.
+        .fixedSize(horizontal: false, vertical: true)
         .hotReloadable()
     }
 
