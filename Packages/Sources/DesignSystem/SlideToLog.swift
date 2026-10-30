@@ -35,6 +35,8 @@ public struct SlideToLog: View {
     @State private var arms = 0
     /// A flicked key on its way to the end, still showing its arrow until it gets there.
     @State private var isCoasting = false
+    /// Let go and come to rest at the end, where the check shows.
+    @State private var isAtEnd = false
     @State private var trackWidth: CGFloat = 0
 
     @ScaledMetric(relativeTo: .body) private var trackHeight: CGFloat = 56
@@ -91,16 +93,17 @@ public struct SlideToLog: View {
                 .fill(.pp(.textPrimary))
                 .shadow(color: .pp(.shadow), radius: 1.5, y: 1)
                 .overlay {
-                    // The arrow turns into the check as the key goes, by where it is: dragged, done
-                    // at the commit; flicked, done as it reaches the end, the glide animating it.
-                    // On trial (Dave, 2026-10-30): the symbols' own Replace, played as the key
-                    // reaches the commit, or, flicked, the end, against `ArrowToCheck`'s morph.
-                    let isChecked = SlideTrack.isArmed(progress) && !isCoasting
-                    Image(systemName: isChecked ? "checkmark" : "arrow.right")
+                    // On trial (Dave, 2026-10-30): the symbols' own Replace, played only once the key
+                    // has been let go and come to rest at the end, so it never plays on a moving
+                    // key, which left the arrow behind as the key went on. Back to the arrow at
+                    // once, unseen, as the key goes back to the start.
+                    Image(systemName: isAtEnd ? "checkmark" : "arrow.right")
                         .font(.system(size: arrowSize, weight: .bold))
                         .foregroundStyle(.pp(.background))
-                        .contentTransition(.symbolEffect(.replace))
-                        .animation(.snappy, value: isChecked)
+                        .contentTransition(isAtEnd ? .symbolEffect(.replace) : .identity)
+                        .animation(.snappy, value: isAtEnd)
+                        // One square for both: the arrow is wider than the check.
+                        .frame(width: arrowSize * 1.5, height: arrowSize * 1.5)
                 }
                 .frame(width: keyWidth, height: keyHeight)
                 .offset(x: keyX)
@@ -193,10 +196,12 @@ public struct SlideToLog: View {
 
     /// The key at the end, resting there, then fading out and in again at the start.
     private func rest() {
+        isAtEnd = true
         withAnimation(.linear(duration: SetMotion.fadeOut).delay(SetMotion.rest)) {
             keyOpacity = 0
         } completion: {
             progress = 0
+            isAtEnd = false
             withAnimation(.easeOut(duration: SetMotion.fadeIn)) {
                 keyOpacity = 1
             } completion: {
