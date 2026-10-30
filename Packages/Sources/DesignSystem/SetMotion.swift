@@ -49,6 +49,10 @@ public enum SetMotion {
     /// The key fading out at the end, then in again at the start.
     static let fadeOut = 0.15
     static let fadeIn = 0.2
+    /// From the log to the key showing again at the start: when, within one exercise, the
+    /// progress line rolls to the next set or side (Dave, 2026-10-30: not as the key reaches the
+    /// end).
+    public static let keyReturn = finish + rest + fadeOut
 
     // MARK: Within one exercise
 

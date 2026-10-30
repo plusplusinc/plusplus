@@ -126,7 +126,11 @@ extension RoutineScreen {
         guard let workout = session.workout, !isMovingOn else { return }
         let next = routine.nextSet(after: workout.logging(set, of: row, at: .now).sets)
         guard next?.row != set.row else {
-            withAnimation(.snappy(duration: SetMotion.roll)) { session.log(set, of: row) }
+            // Logged as the key comes back to the start, so the line rolls with it.
+            Task {
+                try? await Task.sleep(for: .seconds(SetMotion.keyReturn), tolerance: .zero)
+                withAnimation(.snappy(duration: SetMotion.roll)) { session.log(set, of: row) }
+            }
             return
         }
         let target = next.flatMap { landing(on: $0.row, leaving: row.id) }
