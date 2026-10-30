@@ -268,7 +268,6 @@ struct RoutineScreen: View {
                 .roomToLand(
                     top: closingRoomTop
                         ?? (currentID != nil || isMovingOn ? currentPlace?.landingY : nil),
-                    visible: listHeight - wayToCurrentRoom,
                 )
                 .roomBelow(isMakingRoom)
                 // When the keyboard rises, UIKit scrolls the focused field to sit at least 5pt

@@ -74,10 +74,16 @@ extension View {
 
     /// In a workout, room under this view, out of sight, so the list can scroll the current
     /// exercise's row, its top at `top` in the list, up under the bar even where what follows it
-    /// is shorter than the `visible` height. Worked out in the pass that lays the list out, from
-    /// its own height, so it is right on every frame of a growth. None out of a workout.
-    func roomToLand(top: CGFloat?, visible: CGFloat) -> some View {
-        RoomToLand(top: top ?? 0, isOn: top != nil, visible: visible) { self }
+    /// is shorter than the height the scroll view shows above its content margin. Worked out in
+    /// the pass that lays the list out, from its own height and the scroll view's, so it is right
+    /// on every frame of a growth: the scroll view's height read back into state, as `roomBelow`
+    /// found, changed the list a second time in a frame. None out of a workout.
+    func roomToLand(top: CGFloat?) -> some View {
+        RoomToLand(top: top ?? 0, isOn: top != nil) {
+            self
+            // What the scroll view shows above its content margin, measured in the same pass.
+            Color.clear.containerRelativeFrame(.vertical)
+        }
     }
 
     /// Reports this row's frame in the list's content as it lays out, while `isOn`.
@@ -178,12 +184,12 @@ struct GrowthLift: ViewModifier, Animatable {
     }
 }
 
-/// Its one subview, with room under it while `isOn`: as much as `top` plus `visible` reaches
-/// past its height. `top` animates, so the room can close over a motion.
+/// Its first subview, with room under it while `isOn`: as much as `top` plus what the scroll view
+/// shows, its second subview's height, reaches past its height. `top` animates, so the room can
+/// close over a motion.
 private struct RoomToLand: Layout {
     var top: CGFloat
     let isOn: Bool
-    let visible: CGFloat
 
     var animatableData: CGFloat {
         get { top }
@@ -192,7 +198,8 @@ private struct RoomToLand: Layout {
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
         let size = subviews.first?.sizeThatFits(proposal) ?? .zero
-        guard isOn else { return size }
+        guard isOn, subviews.count > 1 else { return size }
+        let visible = subviews[1].sizeThatFits(proposal).height
         return CGSize(width: size.width, height: max(size.height, top + visible))
     }
 
@@ -203,5 +210,7 @@ private struct RoomToLand: Layout {
         cache _: inout (),
     ) {
         subviews.first?.place(at: bounds.origin, anchor: .topLeading, proposal: proposal)
+        // Measured only: placed at the top with no size of its own in the room.
+        subviews.dropFirst().first?.place(at: bounds.origin, anchor: .topLeading, proposal: .zero)
     }
 }
