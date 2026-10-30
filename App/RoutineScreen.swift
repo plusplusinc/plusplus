@@ -146,6 +146,7 @@ struct RoutineScreen: View {
         // drawing its rows with what it had, rather than the workout it is fading into.
         let currentID = currentID
         let currentSet = currentSet
+        let rowBars = rowBars
         let tracksRows = session.workout != nil || isStarting
         let underBar = underBarCut
         return ScrollView {
@@ -185,7 +186,7 @@ struct RoutineScreen: View {
                         onMove: move,
                         regroup: regroup,
                     ) { item in
-                        rowLabel(item, current: currentID, on: currentSet)
+                        rowLabel(item, current: currentID, on: currentSet, bars: rowBars[item.id])
                             .environment(\.exerciseMoveWay, exerciseMove?.way)
                             .id(item.id)
                             .padding(.top, item.id == currentID ? Self.currentTopSpace : 0)
@@ -214,7 +215,7 @@ struct RoutineScreen: View {
                             .accessibilityActions {
                                 // The slide is inside the row's one element, out of VoiceOver's
                                 // reach, so the current exercise logs its set as an action.
-                                if item.id == currentID, let set = currentSet {
+                                if item.id == currentID, let set = currentSet, !isMovingOn {
                                     let step = logStep(set, of: item)
                                     Button(step.label, action: step.logAtOnce)
                                 }

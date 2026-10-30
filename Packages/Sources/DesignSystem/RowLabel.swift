@@ -123,6 +123,7 @@ public struct RowLabel: View {
                         SlideToLog(
                             log.label,
                             weight: log.weight,
+                            isEnabled: log.isEnabled,
                             onLog: log.action,
                             onReturn: log.onReturn,
                         )

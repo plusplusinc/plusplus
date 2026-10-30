@@ -9,7 +9,11 @@ import SwiftUI
 /// quick flick does, it glides to the end the same way, and only there the haptic plays and the
 /// set logs; otherwise it slows and springs back, carrying that speed. At rest at the end, its
 /// arrow is a check, at once; it rests a moment, fades out, and comes back at the start
-/// (`onReturn`), as an arrow.
+/// (`onReturn`), as an arrow. With Reduce Motion, a key let go to log is at the end with its check
+/// at once, and the set logs there.
+///
+/// While it can't log (`isEnabled` false), as while the screen moves on to it, it takes no drag,
+/// and VoiceOver's button is dimmed.
 ///
 /// The drag is horizontal only: a mostly vertical move that starts on the track scrolls the list
 /// (`SlideToLogGesture`). VoiceOver reads it as one button named by its label.
@@ -24,6 +28,7 @@ public struct SlideToLog: View {
 
     private let label: String
     private let weight: Weight
+    private let isEnabled: Bool
     private let onLog: () -> Void
     private let onReturn: () -> Void
 
@@ -53,12 +58,14 @@ public struct SlideToLog: View {
     public init(
         _ label: String,
         weight: Weight = .set,
+        isEnabled: Bool = true,
         onLog: @escaping () -> Void,
         onReturn: @escaping () -> Void = { },
     ) {
         self.init(
             label,
             weight: weight,
+            isEnabled: isEnabled,
             progress: 0,
             isFinishing: false,
             onLog: onLog,
@@ -71,6 +78,7 @@ public struct SlideToLog: View {
     init(
         _ label: String = "Log set",
         weight: Weight = .set,
+        isEnabled: Bool = true,
         progress: CGFloat,
         isFinishing: Bool = false,
         onLog: @escaping () -> Void = { },
@@ -78,6 +86,7 @@ public struct SlideToLog: View {
     ) {
         self.label = label
         self.weight = weight
+        self.isEnabled = isEnabled
         self.onLog = onLog
         self.onReturn = onReturn
         _progress = State(initialValue: progress)
@@ -127,7 +136,9 @@ public struct SlideToLog: View {
         .onGeometryChange(for: CGFloat.self, of: \.size.width) { trackWidth = $0 }
         .contentShape(.rect)
         #if os(iOS)
-        .gesture(SlideToLogGesture(isEnabled: !isFinishing) { phase, translation, velocity in
+        .gesture(SlideToLogGesture(isEnabled: isEnabled &&
+                !isFinishing)
+        { phase, translation, velocity in
             drag(phase, translation: translation, velocity: velocity, travel: travel)
         })
         #endif
@@ -142,6 +153,7 @@ public struct SlideToLog: View {
                 onLog()
                 onReturn()
             }
+            .disabled(!isEnabled)
         }
         .accessibilityIdentifier("workout.logSet")
         .hotReloadable()
@@ -186,6 +198,10 @@ public struct SlideToLog: View {
     /// (Dave, 2026-10-30).
     private func coast(speed: CGFloat) {
         isFinishing = true
+        guard !reduceMotion else {
+            arms += 1
+            return endAtOnce()
+        }
         withAnimation(.linear(duration: SlideTrack.glide(from: progress, speed: speed))) {
             progress = 1
         } completion: {
@@ -198,12 +214,21 @@ public struct SlideToLog: View {
     /// Let go past the commit at `speed`: the set logs, and the key glides on to the end.
     private func log(speed: CGFloat) {
         isFinishing = true
+        guard !reduceMotion else { return endAtOnce() }
         onLog()
         withAnimation(.linear(duration: SlideTrack.glide(from: progress, speed: speed))) {
             progress = 1
         } completion: {
             rest()
         }
+    }
+
+    /// With Reduce Motion, the key let go at the end with its check at once, and the set logged
+    /// there: gliding, it was still an arrow as a move to the next exercise crossfaded it away.
+    private func endAtOnce() {
+        withTransaction(\.disablesAnimations, true) { progress = 1 }
+        rest()
+        onLog()
     }
 
     /// The key at the end with its check, resting there, then fading out, and in again at the
@@ -295,6 +320,7 @@ struct SlideToLogGesture: UIGestureRecognizerRepresentable {
     func makeUIGestureRecognizer(context: Context) -> UIPanGestureRecognizer {
         let recognizer = UIPanGestureRecognizer()
         recognizer.delegate = context.coordinator
+        recognizer.isEnabled = isEnabled
         return recognizer
     }
 

@@ -54,12 +54,14 @@ extension RoutineScreen {
         return focus
     }
 
-    /// A row's label: the current exercise, grown, on `set`; else a row. Given the screen's
-    /// values read once, as the rows' closure holds them.
+    /// A row's label: the current exercise, grown, on `set`; else a row, with its `bars`. Given
+    /// the screen's values read once, as the rows' closure holds them: read here, a list
+    /// crossfading out took the bars of the workout it faded into, a finished row's gone at once.
     func rowLabel(
         _ item: RoutineExercise,
         current: RoutineExercise.ID?,
         on set: PlannedSet?,
+        bars: SetProgress?,
     ) -> RowLabel {
         let focus = item.id == current ? (heldSet ?? set).map { focus(of: item, on: $0) } : nil
         return RowLabel(
@@ -67,14 +69,16 @@ extension RoutineScreen {
             detail: item.detailParts(locale: locale),
             spokenDetail: item.spokenDetail(locale: locale),
             focus: focus,
-            bars: bars(of: item.id),
+            bars: bars,
             log: focus == nil ? nil : set.map { logStep($0, of: item) },
         )
     }
 
     /// The slide for `set`: "Log last set" on the workout's last planned set, "Log left" or "Log
     /// right" on a side, with a lighter haptic, and otherwise "Log set". Never the next exercise's
-    /// name, which shows below.
+    /// name, which shows below. It takes no drag until a move to it has ended: a log that came
+    /// as its slide faded in, before the move's end, was dropped, after the key's glide, haptic,
+    /// and check had shown it logged.
     func logStep(_ set: PlannedSet, of item: RoutineExercise) -> LogStep {
         let action = { log(set, of: item) }
         let onReturn = {
@@ -90,7 +94,13 @@ extension RoutineScreen {
         case (false, .right): String(localized: "Log right")
         case (false, nil): String(localized: "Log set")
         }
-        return LogStep(label: label, weight: weight, action: action, onReturn: onReturn)
+        return LogStep(
+            label: label,
+            weight: weight,
+            isEnabled: !isMovingOn,
+            action: action,
+            onReturn: onReturn,
+        )
     }
 
     /// The rows whose sets are all logged in the workout, whose nodes show them done.
@@ -100,6 +110,11 @@ extension RoutineScreen {
             let progress = routine.progress(of: id, logged: sets)
             return progress.total > 0 && progress.done == progress.total
         })
+    }
+
+    /// Each row's bars (`bars(of:)`), for the rows' closure to hold as values.
+    var rowBars: [RoutineExercise.ID: SetProgress] {
+        routine.exercises.reduce(into: [:]) { bars, item in bars[item.id] = self.bars(of: item.id) }
     }
 
     /// The set bars a row shows in a workout: on the current exercise always, from its first set;
@@ -138,8 +153,8 @@ extension RoutineScreen {
     /// run to 0 in the shift's transaction. After the last set, the row closes as the list settles
     /// on its end and the Finish row shows under it.
     func log(_ set: PlannedSet, of row: RoutineExercise) {
-        // A log during a move, as VoiceOver's action can send, would start a second move whose
-        // state the first one's end tears down.
+        // Neither the slide nor VoiceOver offers a log during a move (`logStep(_:of:)`): one
+        // would start a second move whose state the first one's end tears down.
         guard let workout = session.workout, !isMovingOn else { return }
         let next = routine.nextSet(after: workout.logging(set, of: row, at: .now).sets)
         guard next?.row != set.row else {
@@ -148,17 +163,12 @@ extension RoutineScreen {
             return
         }
         let target = next.flatMap { landing(on: $0.row, leaving: row.id) }
+        noteRestingPitch(of: next?.row)
         guard !reduceMotion else {
-            return crossfade(scrollingTo: target ?? scrollBeat.scrolledY) {
-                session.log(set, of: row)
-                if next != nil {
-                    landings += 1
-                }
-            }
+            return crossfadeOn(to: next, scrollingTo: target) { session.log(set, of: row) }
         }
         guard let next else { return logLast(set, of: row) }
         unshownSet = nil
-        noteRestingPitch(of: next.row)
         let rows = routine.exercises.map(\.id)
         let isUp = (rows.firstIndex(of: next.row) ?? 0) < (rows.firstIndex(of: row.id) ?? 0)
         // At a superset round's end, the round just done rolls to the next once the first member
@@ -190,6 +200,33 @@ extension RoutineScreen {
             run: (railPulse?.run ?? 0) + 1,
         )
         land(way, scrollingTo: target)
+    }
+
+    /// With Reduce Motion, moving on, or closing after the last set, is one crossfade, the tick
+    /// played as the next node lights in it. A move like any other: the current exercise's place
+    /// changing under it doesn't land it again (`placeCurrent(_:)`), and its slide takes no drag
+    /// until it is over. With no `target` worked out ahead, as after a relaunch, the list lands
+    /// after.
+    private func crossfadeOn(
+        to next: PlannedSet?,
+        scrollingTo target: CGFloat?,
+        _ log: @escaping () -> Void,
+    ) {
+        unshownSet = nil
+        isMovingOn = true
+        let landed = {
+            isMovingOn = false
+            letRoomGo()
+            if next != nil, target == nil {
+                scrollToCurrent()
+            }
+        }
+        crossfade(scrollingTo: target ?? scrollBeat.scrolledY, then: landed) {
+            log()
+            if next != nil {
+                landings += 1
+            }
+        }
     }
 
     /// A move's landing, with its tick and the node lighting under the pulse's plop, the round's

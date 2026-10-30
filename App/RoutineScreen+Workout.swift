@@ -51,6 +51,8 @@ extension RoutineScreen {
     /// motion, and the key rides down off the screen with the rows below it. With Reduce
     /// Motion, the list crossfades into the workout.
     private func leave(named name: String) {
+        // What the first row gives back as it shrinks, which the move off it lands by.
+        noteRestingPitch(of: routine.exercises.first?.id)
         guard !reduceMotion else {
             return crossfade(scrollingTo: currentPlace?.landingY ?? scrollBeat.scrolledY) {
                 session.start(routineName: name)
@@ -81,7 +83,6 @@ extension RoutineScreen {
     /// had nearly landed, so the list is scrolled at once and drawn where it was, then both run
     /// in one animation.
     private func grow(named name: String) {
-        noteRestingPitch(of: routine.exercises.first?.id)
         // The grown exercise's height is its content's, known once it is laid out, so Start rides
         // a screen's height down, out of sight by the time the growth ends.
         let drop = listHeight
