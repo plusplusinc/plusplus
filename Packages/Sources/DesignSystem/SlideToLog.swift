@@ -72,7 +72,6 @@ public struct SlideToLog: View {
         let keyHeight = trackHeight - Self.inset * 2
         let travel = SlideTrack.travel(track: trackWidth, key: keyWidth, inset: Self.inset)
         let keyX = Self.inset + travel * progress
-        let isArmed = SlideTrack.isArmed(progress) && !isCoasting
         ZStack(alignment: .leading) {
             // Sunk into the exercise, darker than the screen around it.
             // Concentric with the key's corners, an inset in from them.
@@ -92,14 +91,18 @@ public struct SlideToLog: View {
                 .fill(.pp(.textPrimary))
                 .shadow(color: .pp(.shadow), radius: 1.5, y: 1)
                 .overlay {
-                    // Both drawn, one shown, swapped at once: animated, the one going out was left
-                    // behind in the trail as the key moved on.
-                    ZStack {
-                        Image(systemName: "arrow.right").opacity(isArmed ? 0 : 1)
-                        Image(systemName: "checkmark").opacity(isArmed ? 1 : 0)
-                    }
-                    .font(.system(size: arrowSize, weight: .bold))
-                    .foregroundStyle(.pp(.background))
+                    // The arrow turns into the check as the key goes, by where it is: dragged, done
+                    // at the commit; flicked, done as it reaches the end, the glide animating it.
+                    ArrowToCheck(morph: isCoasting ? 1 : SlideTrack.morph(progress))
+                        .stroke(
+                            .pp(.background),
+                            style: StrokeStyle(
+                                lineWidth: arrowSize * 0.14,
+                                lineCap: .round,
+                                lineJoin: .round,
+                            ),
+                        )
+                        .frame(width: arrowSize, height: arrowSize)
                 }
                 .frame(width: keyWidth, height: keyHeight)
                 .offset(x: keyX)
@@ -165,9 +168,9 @@ public struct SlideToLog: View {
     /// (Dave, 2026-10-30).
     private func coast(speed: CGFloat) {
         isFinishing = true
-        isCoasting = true
         let (duration, _) = SlideTrack.glide(from: progress, speed: speed)
         withAnimation(.linear(duration: duration)) {
+            isCoasting = true
             progress = 1
         } completion: {
             isCoasting = false
@@ -246,6 +249,13 @@ enum SlideTrack {
             Double(max(1 - progress, 0) / pace),
             Double(max(SetMotion.commit - progress, 0) / pace),
         )
+    }
+
+    /// How far the arrow has turned into the check at `progress`: from a quarter of the track
+    /// before the commit to the commit itself.
+    static func morph(_ progress: CGFloat) -> CGFloat {
+        let start = SetMotion.commit - 0.25
+        return min(max((progress - start) / (SetMotion.commit - start), 0), 1)
     }
 
     /// The slowest a key let go past the commit finishes, in tracks a second.
@@ -328,4 +338,35 @@ struct SlideToLogGesture: UIGestureRecognizerRepresentable {
     }
     .padding()
     .background(Color.pp(.background))
+}
+
+/// A right arrow at `morph` 0, a check at 1: its head's arms swing round into the check's legs,
+/// the top arm into the long one and the bottom into the short, as its shaft draws into the
+/// check's corner. Points in a unit square, stroked by the caller.
+struct ArrowToCheck: Shape {
+    var morph: CGFloat
+
+    var animatableData: CGFloat {
+        get { morph }
+        set { morph = newValue }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        func point(_ from: CGPoint, _ to: CGPoint) -> CGPoint {
+            CGPoint(
+                x: rect.minX + (from.x + (to.x - from.x) * morph) * rect.width,
+                y: rect.minY + (from.y + (to.y - from.y) * morph) * rect.height,
+            )
+        }
+        let corner = CGPoint(x: 0.4, y: 0.76)
+        var path = Path()
+        // The head, a chevron, to the check.
+        path.move(to: point(CGPoint(x: 0.52, y: 0.18), CGPoint(x: 0.88, y: 0.24)))
+        path.addLine(to: point(CGPoint(x: 0.86, y: 0.5), corner))
+        path.addLine(to: point(CGPoint(x: 0.52, y: 0.82), CGPoint(x: 0.12, y: 0.48)))
+        // The shaft, shrinking into the check's corner.
+        path.move(to: point(CGPoint(x: 0.12, y: 0.5), corner))
+        path.addLine(to: point(CGPoint(x: 0.84, y: 0.5), corner))
+        return path
+    }
 }
