@@ -100,7 +100,7 @@ public struct SlideToLog: View {
                     Image(systemName: isAtEnd ? "checkmark" : "arrow.right")
                         .font(.system(size: arrowSize, weight: .bold))
                         .foregroundStyle(.pp(.background))
-                        .contentTransition(isAtEnd ? .symbolEffect(.replace) : .identity)
+                        .contentTransition(isAtEnd ? .symbolEffect(.replace.downUp.wholeSymbol) : .identity)
                         .animation(.snappy, value: isAtEnd)
                         // One square for both: the arrow is wider than the check.
                         .frame(width: arrowSize * 1.5, height: arrowSize * 1.5)
