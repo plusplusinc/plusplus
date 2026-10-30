@@ -205,9 +205,17 @@ public struct RowLabel: View {
     /// clipped around itself, so "Set 2 of 3" to "Set 3 of 3" rolls the 2 alone (Dave,
     /// 2026-10-30). The dot before a side stays in the set's gray.
     private func rolling(_ text: String, color: ColorToken, dot: Bool = false) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 0) {
-            ForEach(Array(rollingWords(text).enumerated()), id: \.offset) { _, word in
-                rollingWord(word, color: dot && word.contains("·") ? .textSecondary : color)
+        // Wrapped at a breaking space where the line doesn't fit, as at the accessibility sizes.
+        FlowLayout(spacing: 0) {
+            ForEach(Array(rollingWords(text).enumerated()), id: \.offset) { _, group in
+                HStack(alignment: .firstTextBaseline, spacing: 0) {
+                    ForEach(Array(group.enumerated()), id: \.offset) { _, word in
+                        rollingWord(
+                            word,
+                            color: dot && word.contains("·") ? .textSecondary : color,
+                        )
+                    }
+                }
             }
         }
     }
@@ -358,20 +366,28 @@ public struct RowFocus: Equatable {
     .background(Color.pp(.background))
 }
 
-/// `text`'s words, each with the whitespace after it, a no-break space included, so the words
-/// set side by side read as one string, and a word rolls only when it changes: none empty.
-func rollingWords(_ text: String) -> [String] {
-    var words: [String] = []
+/// `text`'s words, each with the whitespace after it, so the words set side by side read as
+/// one string, and a word rolls only when it changes; grouped where no-break spaces join them,
+/// so a line wraps only at a breaking space. None empty.
+func rollingWords(_ text: String) -> [[String]] {
+    var groups: [[String]] = []
+    var group: [String] = []
     var word = ""
     for character in text {
         word.append(character)
-        if character.isWhitespace {
-            words.append(word)
-            word = ""
+        guard character.isWhitespace else { continue }
+        group.append(word)
+        word = ""
+        if String(character) != noBreakSpace {
+            groups.append(group)
+            group = []
         }
     }
     if !word.isEmpty {
-        words.append(word)
+        group.append(word)
     }
-    return words
+    if !group.isEmpty {
+        groups.append(group)
+    }
+    return groups
 }

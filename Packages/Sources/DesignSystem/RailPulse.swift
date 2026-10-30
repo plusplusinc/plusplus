@@ -293,14 +293,18 @@ struct RailPulseRun: View {
         // Always in place, so the first run is a change it sees: put in with its first run, it
         // started at that run and never played it.
         KeyframeAnimator(initialValue: -1.0, trigger: run) { time in
-            let shape = PulseShape(
-                time: reduceMotion ? -1 : time,
-                route: route ?? RailRoute([]),
-                size: size,
-                restingSize: restingSize,
-                way: way,
-            )
-            shape.fill(.pp(.accent)).currentPulse(in: shape)
+            // Only during a run: between runs there is nothing to draw, and the dimming's
+            // timeline would tick through the whole workout.
+            if time >= 0, !reduceMotion {
+                let shape = PulseShape(
+                    time: time,
+                    route: route ?? RailRoute([]),
+                    size: size,
+                    restingSize: restingSize,
+                    way: way,
+                )
+                shape.fill(.pp(.accent)).currentPulse(in: shape)
+            }
         } keyframes: { _ in
             PulseShape.run(way)
         }

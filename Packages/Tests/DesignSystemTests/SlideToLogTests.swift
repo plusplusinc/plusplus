@@ -47,15 +47,16 @@ struct SlideToLogTests {
         #expect(SlideTrack.glide(from: 1, speed: 2) == 0)
     }
 
-    @Test("The progress line splits into words that keep their spaces, none empty")
+    @Test("The progress line splits into words with their spaces, wrapping only at a breaking one")
     func words() {
-        #expect(rollingWords("Set 2 of 3") == ["Set ", "2 ", "of ", "3"])
+        #expect(rollingWords("Set 2 of 3") == [["Set "], ["2 "], ["of "], ["3"]])
         // Joined, they are the line again, so a change rolls only the words that differ.
-        #expect(rollingWords("Set 2 of 3").joined() == "Set 2 of 3")
+        #expect(rollingWords("Set 2 of 3").joined().joined() == "Set 2 of 3")
+        // Joined by no-break spaces, the dot and the side wrap as one, but roll on their own.
         let side = "\u{00A0}·\u{00A0}Left"
-        #expect(rollingWords(side) == ["\u{00A0}", "·\u{00A0}", "Left"])
+        #expect(rollingWords(side) == [["\u{00A0}", "·\u{00A0}", "Left"]])
         // A line ending in a space ends on its last word, not on an empty one.
-        #expect(rollingWords("Set 2 ") == ["Set ", "2 "])
+        #expect(rollingWords("Set 2 ") == [["Set "], ["2 "]])
         #expect(rollingWords("").isEmpty)
     }
 }
