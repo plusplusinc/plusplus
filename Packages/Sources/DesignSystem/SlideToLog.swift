@@ -93,16 +93,14 @@ public struct SlideToLog: View {
                 .overlay {
                     // The arrow turns into the check as the key goes, by where it is: dragged, done
                     // at the commit; flicked, done as it reaches the end, the glide animating it.
-                    ArrowToCheck(morph: isCoasting ? 1 : SlideTrack.morph(progress))
-                        .stroke(
-                            .pp(.background),
-                            style: StrokeStyle(
-                                lineWidth: arrowSize * 0.14,
-                                lineCap: .round,
-                                lineJoin: .round,
-                            ),
-                        )
-                        .frame(width: arrowSize, height: arrowSize)
+                    // On trial (Dave, 2026-10-30): the symbols' own Replace, played as the key
+                    // reaches the commit, or, flicked, the end, against `ArrowToCheck`'s morph.
+                    let isChecked = SlideTrack.isArmed(progress) && !isCoasting
+                    Image(systemName: isChecked ? "checkmark" : "arrow.right")
+                        .font(.system(size: arrowSize, weight: .bold))
+                        .foregroundStyle(.pp(.background))
+                        .contentTransition(.symbolEffect(.replace))
+                        .animation(.snappy, value: isChecked)
                 }
                 .frame(width: keyWidth, height: keyHeight)
                 .offset(x: keyX)
