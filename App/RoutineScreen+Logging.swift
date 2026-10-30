@@ -20,7 +20,7 @@ extension RoutineScreen {
     }
 
     /// The row whose node is lit on the rail: the current exercise, but while a move to it is on
-    /// its way, none until the pulse lands on it.
+    /// its way, none until the pulse's plop has settled into its node.
     var litID: RoutineExercise.ID? {
         exerciseMove.map { $0.isLanded } == false ? nil : currentID
     }
@@ -111,10 +111,12 @@ extension RoutineScreen {
     /// (`SetMotion`): the parts under the current exercise's name go, bottom first, and on one
     /// curve its row shrinks back to a resting row as the next row grows into the current
     /// exercise and the list scrolls it up under the bar, so the rows below move up once, with
-    /// the scroll. A green pulse sets off first along the rail to the next node: down the rail,
-    /// it lands, lighting the node, before the shift runs, which carries the node up with the
-    /// pulse's dot on it; round a superset's loop at a round's end, the shift follows it as if
-    /// tethered, settling just after it lands and its node lights. The scroll is Start's:
+    /// the scroll. The node left is pulled out first into a blob of green that runs along the
+    /// rail to the next node and plops into it, with a light tick, the node lighting as it
+    /// settles (`PulseShape`): down the rail, the current exercise holds until just before the
+    /// landing, when its parts go and the shift starts; round a superset's loop at a round's end,
+    /// the shift follows the pulse as if tethered, settling just after it lands. The scroll is
+    /// Start's:
     /// the list is scrolled at once to where the next row will land and drawn where it was, the
     /// lift run to 0 in the shift's transaction. After the last set, the row closes as the list
     /// settles on its end and the Finish row shows under it.
@@ -131,6 +133,9 @@ extension RoutineScreen {
         guard !reduceMotion else {
             return crossfade(scrollingTo: target ?? scrollBeat.scrolledY) {
                 session.log(set, of: row)
+                if next != nil {
+                    landings += 1
+                }
             }
         }
         guard let next else { return logLast(set, of: row) }
@@ -143,8 +148,11 @@ extension RoutineScreen {
             ? focus(of: row, on: set).progress : nil
         let way: SetMotion.Way = isUp ? .loop : .down
         isMovingOn = true
-        if let target {
-            withTransaction(\.disablesAnimations, true) {
+        // The node left goes to its own color at once, under the pulse pulling out of it, which
+        // leaves it behind in that color as its neck snaps.
+        withTransaction(\.disablesAnimations, true) {
+            exerciseMove = ExerciseMove(way: way, heldProgress: held)
+            if let target {
                 isMakingRoom = true
                 growthLift = target - scrollBeat.scrolledY
                 scrollPosition.scrollTo(y: target)
@@ -153,7 +161,6 @@ extension RoutineScreen {
         // One transaction: the parts going and coming each on their own delays
         // (`part(_:)`), both rows' heights, their names, and the lift on the shift's curve.
         withAnimation(SetMotion.moving(way)) {
-            exerciseMove = ExerciseMove(way: way, heldProgress: held)
             session.log(set, of: row)
             growthLift = 0
         }
@@ -163,22 +170,34 @@ extension RoutineScreen {
             way: way,
             run: (railPulse?.run ?? 0) + 1,
         )
-        // The node lighting as the pulse lands, and the round's roll, timed from the log by
-        // design: nothing is waited for.
+        land(way, scrollingTo: target)
+    }
+
+    /// A move's landing, with its tick and the round's roll, then the node lighting as the
+    /// pulse's plop settles into it, and the move's end, timed from the log by design: nothing is
+    /// waited for. With no `target` worked out ahead, as after a relaunch, the list lands after.
+    private func land(_ way: SetMotion.Way, scrollingTo target: CGFloat?) {
         Task {
             try? await Task.sleep(for: .seconds(SetMotion.landing(way)), tolerance: .zero)
+            landings += 1
             withAnimation(.snappy(duration: SetMotion.roll)) {
-                exerciseMove?.isLanded = true
                 exerciseMove?.heldProgress = nil
             }
             try? await Task.sleep(
-                for: .seconds(SetMotion.move(way) - SetMotion.landing(way)),
+                for: .seconds(SetMotion.lit(way) - SetMotion.landing(way)),
+                tolerance: .zero,
+            )
+            // At once: the plop, the lit node's size and green, hands over to it without a seam.
+            withTransaction(\.disablesAnimations, true) {
+                exerciseMove?.isLanded = true
+            }
+            try? await Task.sleep(
+                for: .seconds(SetMotion.move(way) - SetMotion.lit(way)),
                 tolerance: .zero,
             )
             exerciseMove = nil
             isMovingOn = false
             letRoomGo()
-            // With no landing worked out ahead, as after a relaunch, the list lands after.
             if target == nil {
                 withAnimation(.snappy(duration: SetMotion.roll), scrollToCurrent)
             }
@@ -264,7 +283,7 @@ struct ExerciseMove {
     /// At a superset round's end, the round just done, which the first member shows as it grows,
     /// then rolls to its own as its node lights.
     var heldProgress: String?
-    /// Whether the pulse has landed on the next row's node, which then lights.
+    /// Whether the pulse's plop has settled into the next row's node, which then lights.
     var isLanded = false
 }
 

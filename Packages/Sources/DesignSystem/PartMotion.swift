@@ -10,8 +10,9 @@ extension View {
 }
 
 extension EnvironmentValues {
-    /// Whether a move under way holds its shift until the pulse has landed, as down the rail, so
-    /// the next exercise's parts come in later (`SetMotion.arriveDelay(_:waits:)`).
+    /// Whether a move under way holds its shift until the pulse has nearly landed, as down the
+    /// rail, so the current exercise's parts go later (`SetMotion.leaveDelay(_:waits:)`) and the
+    /// next one's come in later (`SetMotion.arriveDelay(_:waits:)`).
     @Entry public var shiftWaitsForPulse = false
 }
 
@@ -31,7 +32,7 @@ private struct PartMotion: ViewModifier {
                 removal: .opacity.combined(with: .offset(y: SetMotion.leaveDrop))
                     .animation(
                         .easeIn(duration: SetMotion.leaveFade)
-                            .delay(SetMotion.leaveDelay(part)),
+                            .delay(SetMotion.leaveDelay(part, waits: shiftWaitsForPulse)),
                     ),
             ),
         )

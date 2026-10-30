@@ -78,6 +78,9 @@ struct RoutineScreen: View {
     @State var exerciseMove: ExerciseMove?
     /// The pulse that carries the workout from one exercise's node to the next one's.
     @State var railPulse: RailPulse<RoutineExercise.ID>?
+    /// Counts the moves to another exercise that have landed on its node, each with a light tick,
+    /// lighter than the slide's.
+    @State var landings = 0
     @State var rowFrames = RowFrames()
     /// Room under the list's end in a workout, so Add exercise clears the way back to the current.
     @ScaledMetric(relativeTo: .body) var wayToCurrentRoom: CGFloat = 64
@@ -129,6 +132,7 @@ struct RoutineScreen: View {
         .onChange(of: routine) { _, changed in
             session.save(changed)
         }
+        .sensoryFeedback(.impact(weight: .light, intensity: 0.6), trigger: landings)
         .hotReloadable()
     }
 

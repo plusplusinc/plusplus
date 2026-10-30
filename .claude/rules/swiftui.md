@@ -159,27 +159,36 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   title, about half as much as the body at the accessibility sizes: with the body it left
   "Log set" no room, and held to the track's measured width the two fed each other, a layout
   loop. A log within one exercise rolls "Set 2 of 3" up to "Set 3 of 3" (0.3 s). A log that
-  moves to another exercise is one motion of about 0.75 s (`ExerciseMove`, `SetMotion`): the
-  current exercise's parts go bottom first, each fading as it drops 6 pt. A green pulse
-  (`RailPulse`) sets off at once along the rail from the node left to the next one, a capsule
-  stretching with its speed and widening as it goes. Down the rail (`SetMotion.Way.down`) it
-  runs the whole way while nothing else moves, landing 0.3 s after the log, and the node
-  lights as it lands; only then does the shift run (`moving(.down)`, 0.45 s on an ease-out),
-  carrying the lit node up under the bar with the pulse's dot on it, and the next row's parts
-  wait for it (`shiftWaitsForPulse`). Back up a superset's loop at a round's end, the rest
-  follows the pulse as if tethered (`moving(.loop)`, `TetheredShift`): the shift's progress is
-  a critically damped spring pulled toward where the pulse is along its travel, so it starts
-  slowly as the pulse pulls away and settles 0.3 s after it lands at 0.44 s, never
-  overshooting. Either way, the row shrinks back to a resting row as
-  the next row grows into the current exercise and the list scrolls it up under the bar, the
-  scroll Start's (scrolled at once, drawn lifted, the lift run to 0), so the rows between and
-  below move one way only; the next row's parts come in top first, each rising 8 pt as it fades
-  in. The pulse collapses to a dot on the node, held down the rail until the shift ends, and up
-  a loop until the node has turned green under it (0.15 s after it starts to light, `litID`),
-  when "Round 2 of 3" rolls to the next round. Its keyframes end on a frame
-  of nothing: a timeline ending on a `MoveKeyframe` rests on the value before it, which left
-  the dot on the node. After the workout's last planned set the row closes as the list settles
-  on its end (`shifting`, 0.65 s, with no pulse to follow), the room that landed it closing on the same curve with the end held where it
+  moves to another exercise is one motion (`ExerciseMove`, `SetMotion`), 0.89 s down the rail
+  and 0.85 s back up a loop. The node left goes to its own color at once, under a green blob
+  (`RailPulse`, `PulseShape`) that is that node from the log: from 0.02 s its bottom is pulled
+  out along the rail, a capsule drawn out by its speed (at most 3 times the node, its area
+  kept, so it thins), joined to the node left by a neck whose sides are two curves touching
+  both circles (`PulseShape.neck`) until the curves meet and it snaps, leaving the node in its
+  own color, with no wobble. Its leading end joins the next node by a neck too, and landed, a
+  circle the current node's size, it plops: squashing to 1.25 by 0.8 and wiggling back to round
+  on a dying sine of two and a half swings through 0.35 s (`squash(at:)`), with a light haptic
+  (`landings`, lighter than the slide's), and the node lights at once as the plop settles
+  (`lit(_:)`, `litID`), the blob dimming with the current pulse's clock so neither hand-over
+  shows a seam. Paths are joined with `Path.union`, which keeps every edge antialiased; a
+  blur-and-threshold metaball would have shrunk the shapes and drawn hard edges. Down the rail
+  (`SetMotion.Way.down`) the blob travels on a 0.5 s quintic ease-in-out, slow as it pulls free
+  and as it joins, landing 0.52 s after the log; the current exercise's parts hold until the
+  shift starts 0.08 s before the landing (`shiftLead`, `moving(.down)`, 0.45 s on an ease-out),
+  then go bottom first, each fading as it drops 6 pt, and the next row's parts come in after
+  them (`shiftWaitsForPulse`). Back up a superset's loop at a round's end, the parts go at once
+  and the rest follows the pulse as if tethered (`moving(.loop)`, `TetheredShift`): the shift's
+  progress is a critically damped spring pulled toward where the pulse is along its travel
+  (0.42 s on an ease-out), so it starts slowly as the pulse pulls away and settles 0.3 s after
+  it reaches the node at 0.44 s, never overshooting; there the blob gathers into a circle
+  (0.06 s) and plops as down the rail, and "Round 2 of 3" rolls to the next round as it lands.
+  Either way, the row shrinks back to a resting row as the next row grows into the current
+  exercise and the list scrolls it up under the bar, the scroll Start's (scrolled at once,
+  drawn lifted, the lift run to 0), so the rows between and below move one way only; the next
+  row's parts come in top first, each rising 8 pt as it fades in. The blob's keyframes end on a
+  frame of nothing: a timeline ending on a `MoveKeyframe` rests on the value before it, which
+  left the pulse on the node. After the workout's last planned set the row closes as the list
+  settles on its end (`shifting`, 0.65 s, with no pulse to follow), the room that landed it closing on the same curve with the end held where it
   shows (`keepEndPinned`), and `FinishWorkoutRow` fades in under it: a square + key on the
   rail, Add exercise, and Finish workout beside it in the primary key's colors, both a key's
   height; Finish ends the workout at once, as End's Finish does. Set bars, purple once done,

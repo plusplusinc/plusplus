@@ -94,43 +94,47 @@ nonisolated struct RailRoute: Equatable {
     }
 }
 
-/// The green pulse traveling a route: a capsule along it whose front edge leads, as the October
-/// rail entry's did. It is as wide as the line at the start and `pointScale` times as wide at
-/// the landing, on a cubic ease-in, and as long as its width plus a stretch for its speed, at most
-/// `longest` of the route, so it stretches most as it shoots off. After it
-/// lands, through `SetMotion.collapse`, the stretch collapses back into the dot, on the node.
+/// The green pulse traveling a route, as a blob of something viscous, `time` seconds after the
+/// slide's log. From the log it is the node it leaves, round; from `SetMotion.travelStart`, that
+/// node is pulled out along the route:
+/// the mass, a circle at `size`, the current node's, slides off a circle at `restingSize`, the
+/// node left behind, and a neck between them (`neck(_:_:)`) thins as they part, until it snaps
+/// and only the mass draws. It runs along the route as a capsule drawn out by its speed, thinner
+/// the longer it is, its area kept, and once its leading end touches the next node, a circle at
+/// `restingSize` there joins it by a neck too. Landed (`SetMotion.landing(_:)`), it is a circle
+/// on the node, which squashes and wiggles back to round through `SetMotion.plop`
+/// (`SetMotion.squash(at:)`); then nothing draws, the node lit in its place.
 nonisolated struct PulseShape: Shape {
-    /// From 0 as it sets off to 1 as it lands, then on to `end` as it collapses; below 0 there
-    /// is no pulse.
+    /// Seconds since the log; below 0, as between runs, there is no pulse.
     var time: Double
     let route: RailRoute
-    let lineWidth: CGFloat
-    /// Which way it goes, which sets how long its travel takes.
+    /// The current node's size, the mass's at rest.
+    let size: CGFloat
+    /// A resting node's size: the one left behind, and the one it joins.
+    let restingSize: CGFloat
+    /// Which way it goes, which sets its travel's length and curve.
     var way = SetMotion.Way.down
 
-    /// How much wider it is at the landing than the line.
-    static let pointScale: CGFloat = 2
-    /// How long the stretch is for each point a second of its speed.
-    static let stretch: CGFloat = 0.022
-    /// The longest it stretches, against the route.
-    static let longest: CGFloat = 0.35
+    /// How much longer the mass is for each point a second of its speed.
+    static let stretch: CGFloat = 0.03
+    /// The longest the mass draws out, against its size.
+    static let longest: CGFloat = 3
+    /// The radius of the curves a neck's sides follow, against `size`: larger, the neck reaches
+    /// farther before it snaps.
+    static let goo: CGFloat = 0.6
 
-    static func end(_ way: SetMotion.Way) -> Double {
-        1 + SetMotion.collapse / SetMotion.travel(way)
+    /// How long a run lasts, from the log to the plop settled.
+    static func runEnd(_ way: SetMotion.Way) -> Double {
+        SetMotion.lit(way)
     }
 
-    /// A run's times, from before it sets off to after its dot is gone.
+    /// A run's times: the seconds since the log, then nothing.
     @KeyframesBuilder<Double>
     static func run(_ way: SetMotion.Way) -> some Keyframes<Double> {
-        MoveKeyframe(-1.0)
-        LinearKeyframe(-1.0, duration: SetMotion.travelStart)
         MoveKeyframe(0.0)
-        LinearKeyframe(end(way), duration: SetMotion.travel(way) + SetMotion.collapse)
-        // A dot on the node: down the rail, riding up with it under the bar; up a loop, until the
-        // node has turned green under it.
-        LinearKeyframe(end(way), duration: SetMotion.dotHold(way))
+        LinearKeyframe(runEnd(way), duration: runEnd(way))
         // Then nothing, held for a frame: a timeline ending on a `MoveKeyframe` rests on the value
-        // before it, which left the dot on the node once the run was over.
+        // before it, which left the pulse on the node once the run was over.
         MoveKeyframe(-1.0)
         LinearKeyframe(-1.0, duration: 1.0 / 60)
     }
@@ -141,48 +145,147 @@ nonisolated struct PulseShape: Shape {
     }
 
     func path(in _: CGRect) -> Path {
-        guard time >= 0, route.length > 0 else { return Path() }
-        let shot = min(time, 1)
-        let width = lineWidth * (1 + (Self.pointScale - 1) * CGFloat(shot * shot * shot))
+        let start = SetMotion.travelStart
+        // From the log, so the node left, gone to its own color, is never seen before the pulse
+        // covers it; it waits there, round, until `travelStart`.
+        guard time >= 0, time < Self.runEnd(way), route.length > 0,
+              let target = route.points.last
+        else { return Path() }
+        let landed = time - SetMotion.landing(way)
+        if landed >= 0 {
+            let squash = CGFloat(SetMotion.squash(at: landed))
+            let width = size * (1 + CGFloat(SetMotion.plopWiden) * squash)
+            let height = size * (1 - CGFloat(SetMotion.plopFlatten) * squash)
+            return Path(ellipseIn: CGRect(
+                x: target.x - width / 2, y: target.y - height / 2, width: width, height: height,
+            ))
+        }
+        let travel = SetMotion.travel(way)
+        let share = min(max((time - start) / travel, 0), 1)
         let total = route.length
-        let front = total * CGFloat(SetMotion.distance(at: shot))
-        let speed = CGFloat(SetMotion.speed(at: shot)) * total / CGFloat(SetMotion.travel(way))
-        var length = min(width + Self.stretch * speed, max(total * Self.longest, width))
-        let end = Self.end(way)
-        if time > 1 {
-            let collapse = CGFloat((time - 1) / (end - 1))
-            length = width + (length - width) * max(0, 1 - collapse)
+        let headAlong = total * CGFloat(SetMotion.distance(at: share, way))
+        var length = min(
+            size + Self.stretch * CGFloat(SetMotion.speed(at: share, way)) * total / travel,
+            size * Self.longest,
+        )
+        // Up a loop it reaches the node still moving, and gathers into a circle on it.
+        let gathered = (time - start - travel) / SetMotion.collapse
+        if gathered > 0 {
+            length = size + (length - size) * CGFloat(max(1 - gathered, 0))
         }
-        // The round caps add half the width at each end, so the stretch between them is shorter;
-        // collapsing, the dot it leaves settles on the node's center.
-        let settled = time > 1 ? width / 2 * min(CGFloat((time - 1) / (end - 1)), 1) : 0
-        let head = max(front - width / 2 + settled, 0)
-        let tail = max(front - length + width / 2 + settled, 0)
-        let points = route.stretch(from: min(tail, head), to: head)
-        guard let first = points.first else { return Path() }
-        var line = Path()
-        line.move(to: first)
-        for point in points.dropFirst() {
-            line.addLine(to: point)
+        let width = Self.width(length: length, size: size)
+        let tailAlong = max(headAlong - (length - width), 0)
+        let head = Circle(center: route.point(at: headAlong), radius: width / 2)
+        let tail = Circle(center: route.point(at: tailAlong), radius: width / 2)
+        var mass = Path()
+        let points = route.stretch(from: tailAlong, to: headAlong)
+        if let first = points.first {
+            mass.move(to: first)
+            for point in points.dropFirst() {
+                mass.addLine(to: point)
+            }
         }
-        let dot = Path(ellipseIn: CGRect(
-            x: first.x - width / 2, y: first.y - width / 2, width: width, height: width,
-        ))
-        return line
+        var shape = mass
             .strokedPath(StrokeStyle(lineWidth: width, lineCap: .round, lineJoin: .round))
-            .union(dot)
+            .union(head.path)
+        let left = Circle(center: route.points[0], radius: restingSize / 2)
+        // Attached while the mass still overlaps the node left, its tail held there, or a neck
+        // joins them.
+        let neck = Self.neck(left, tail, goo: size * Self.goo)
+        if neck != nil || left.distance(to: tail) < left.radius + tail.radius {
+            shape = shape.union(left.path)
+        }
+        if let neck {
+            shape = shape.union(neck)
+        }
+        let next = Circle(center: target, radius: restingSize / 2)
+        if next.distance(to: head) < next.radius + head.radius {
+            shape = shape.union(next.path)
+            if let neck = Self.neck(head, next, goo: size * Self.goo) {
+                shape = shape.union(neck)
+            }
+        }
+        return shape
+    }
+
+    /// The mass's width drawn out to `length`: a capsule with the area of a circle at `size`.
+    static func width(length: CGFloat, size: CGFloat) -> CGFloat {
+        // A capsule's area is w(l - w) + πw²/4; solved for w, the narrower root.
+        let bend = 1 - CGFloat.pi / 4
+        let area = CGFloat.pi / 4 * size * size
+        guard length > size else { return size }
+        return (length - (length * length - 4 * bend * area).squareRoot()) / (2 * bend)
+    }
+
+    /// The neck joining two circles, as goo does: the space between them bounded by two curves
+    /// of radius `goo`, one each side, each touching both circles. As the circles part, the
+    /// curves close in on the line between their centers, and the neck thins to nothing and
+    /// snaps once they meet it: nil from then on, and while one circle holds the other.
+    static func neck(_ one: Circle, _ other: Circle, goo: CGFloat) -> Path? {
+        let along = CGPoint(x: other.center.x - one.center.x, y: other.center.y - one.center.y)
+        let apart = hypot(along.x, along.y)
+        guard apart > abs(one.radius - other.radius) else { return nil }
+        let (reachOne, reachOther) = (one.radius + goo, other.radius + goo)
+        let forward = (apart * apart + reachOne * reachOne - reachOther * reachOther) / (2 * apart)
+        let side = (reachOne * reachOne - forward * forward).squareRoot()
+        guard side > goo else { return nil }
+        let (unit, normal) = (
+            CGPoint(x: along.x / apart, y: along.y / apart),
+            CGPoint(x: -along.y / apart, y: along.x / apart),
+        )
+        let curves = [1.0, -1.0].map { sign in
+            CGPoint(
+                x: one.center.x + unit.x * forward + normal.x * side * sign,
+                y: one.center.y + unit.y * forward + normal.y * side * sign,
+            )
+        }
+        func touch(_ circle: Circle, _ curve: CGPoint) -> CGPoint {
+            let share = circle.radius / (circle.radius + goo)
+            return CGPoint(
+                x: circle.center.x + (curve.x - circle.center.x) * share,
+                y: circle.center.y + (curve.y - circle.center.y) * share,
+            )
+        }
+        var neck = Path()
+        neck.addLines([
+            touch(one, curves[0]), touch(other, curves[0]),
+            touch(other, curves[1]), touch(one, curves[1]),
+        ])
+        neck.closeSubpath()
+        for curve in curves {
+            neck = neck.subtracting(Circle(center: curve, radius: goo).path)
+        }
+        return neck
+    }
+
+    /// A circle on the route, for the blob's parts.
+    struct Circle {
+        let center: CGPoint
+        let radius: CGFloat
+
+        var path: Path {
+            Path(ellipseIn: CGRect(
+                x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2,
+            ))
+        }
+
+        func distance(to other: Self) -> CGFloat {
+            hypot(other.center.x - center.x, other.center.y - center.y)
+        }
     }
 }
 
 /// The pulse drawn over a rail, from the rows' nodes as they are on each frame. It plays once
-/// for each new `run`, from `SetMotion.travelStart` after it, holding as a dot on the node it
-/// landed on for `SetMotion.dotHold(_:)`, and draws nothing between runs.
-/// With Reduce Motion there is none: the move crossfades.
+/// for each new `run`, from the log to its plop settled on the node it lands on
+/// (`SetMotion.lit(_:)`), and draws nothing between runs. It dims with the current node it
+/// leaves and becomes (`currentPulse(in:)`), so it takes over from one and hands over to the
+/// other without a seam. With Reduce Motion there is none: the move crossfades.
 struct RailPulseRun: View {
     let route: RailRoute?
     let way: SetMotion.Way
     let run: Int
-    @ScaledMetric(relativeTo: .body) private var lineWidth = railLineWidth
+    @ScaledMetric(relativeTo: .body) private var size = currentNodeSize
+    @ScaledMetric(relativeTo: .body) private var restingSize = railNodeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
@@ -190,13 +293,14 @@ struct RailPulseRun: View {
         // Always in place, so the first run is a change it sees: put in with its first run, it
         // started at that run and never played it.
         KeyframeAnimator(initialValue: -1.0, trigger: run) { time in
-            PulseShape(
+            let shape = PulseShape(
                 time: reduceMotion ? -1 : time,
                 route: route ?? RailRoute([]),
-                lineWidth: lineWidth,
+                size: size,
+                restingSize: restingSize,
                 way: way,
             )
-            .fill(.pp(.accent))
+            shape.fill(.pp(.accent)).currentPulse(in: shape)
         } keyframes: { _ in
             PulseShape.run(way)
         }
