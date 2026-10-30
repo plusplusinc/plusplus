@@ -32,10 +32,11 @@ carries a row in or out, and VoiceOver joins and leaves with actions. While a ro
 held, the superset the drag affects sits in a sunken area. Start, once the routine has an
 exercise, runs a workout on the same screen: the first exercise grows into the current one, its
 set, equipment, and numbers large, with no swipe; scrolled away, a floating key goes back to it.
-Sliding its key past two-thirds logs the set at the numbers shown: the next set rolls in, one
-side then the other where the exercise is per side, and after its last set the next exercise in
-order grows as the last shrinks, a green pulse running the rail to its node, a superset going
-round its members by round. Started rows show a bar per set, purple once done, and a finished
+Sliding its key past two-thirds, or flicking it, logs the set at the numbers shown, saved at
+once: as the key comes back to the start the next set rolls in, one side then the other where
+the exercise is per side, and after its last set a green blob pulls out of the node, runs the
+rail, and plops into the next exercise's, which then grows as the last shrinks, a superset
+going round its members by round. Started rows show a bar per set, purple once done, and a finished
 row's node turns purple; after the last set, Finish workout ends the list. End takes ++'s place
 and asks "End this workout?": Finish workout, offered once a set is logged, keeps it, and
 launch then opens a new routine; Discard workout keeps nothing. The time, at top right, pauses

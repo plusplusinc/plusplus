@@ -56,7 +56,9 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   the entry plays a moment into the sheet's slide, or, when the new row has pushed the list's
   end out of view, after a scroll to the end. Once Start is pressed (`isMakingRoom`), neither
   scroll runs and the row enters where it is: the end is then Start's room under the list, and
-  following it took the list off the screen as Start went to land on the first exercise.
+  following it took the list off the screen as Start went to land on the first exercise. The
+  press also sets the scroll to where the list is: a scroll to the end leaves the position
+  bound to the end, and it followed the room down.
 - Start plays in beats, each once the last has finished (`RoutineScreen+Workout.swift`). Its
   key presses and releases as any key does, down onto its ledge and back up in 0.06 s each,
   easing out, as the scratch app's log-set key does. On the press's action, a medium impact
@@ -148,53 +150,65 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   wide as the exercise, "Log set" in the track, or "Log left", "Log right", "Log last set";
   nothing fills the track behind the key. Its drag is a UIKit pan that begins only on a mostly
   horizontal move, so a vertical swipe on it scrolls, and the rail's hold waits on it, so a
-  finger resting on the key never lifts the row. Past two-thirds (`commit`) the arrow turns to
-  a check with a haptic, medium for a set and light for a side; slid back under, the arrow
-  comes back. Let go past it, the set logs, the key finishing its slide (0.18 s), resting
-  there 0.8 s while the progress line rolls, then fading out and in again at the start. The
-  key has mass: let go short of it, it coasts as UIKit projects a scroll's deceleration
-  (`coastRate` 0.994, `SlideTrack.coast`); where that carries it past, as a quick flick does,
-  it coasts on to the end on an ease-out from the finger's speed, the haptic and the log at
-  the crossing; otherwise it springs back carrying that speed. The key scales as a large
-  title, about half as much as the body at the accessibility sizes: with the body it left
-  "Log set" no room, and held to the track's measured width the two fed each other, a layout
-  loop. A log within one exercise rolls "Set 2 of 3" up to "Set 3 of 3" (0.3 s). A log that
-  moves to another exercise is one motion (`ExerciseMove`, `SetMotion`), 0.89 s down the rail
-  and 0.85 s back up a loop. The node left goes to its own color at once, under a green blob
-  (`RailPulse`, `PulseShape`) that is that node from the log: from 0.02 s its bottom is pulled
-  out along the rail, a capsule drawn out by its speed (at most 3 times the node, its area
-  kept, so it thins), joined to the node left by a neck whose sides are two curves touching
-  both circles (`PulseShape.neck`) until the curves meet and it snaps, leaving the node in its
-  own color, with no wobble. Its leading end joins the next node by a neck too, and landed, a
-  circle the current node's size, it plops: squashing to 1.25 by 0.8 and wiggling back to round
-  on a dying sine of two and a half swings through 0.35 s (`squash(at:)`), with a light haptic
-  (`landings`, lighter than the slide's), and the node lights at once as the plop settles
-  (`lit(_:)`, `litID`), the blob dimming with the current pulse's clock so neither hand-over
-  shows a seam. Paths are joined with `Path.union`, which keeps every edge antialiased; a
-  blur-and-threshold metaball would have shrunk the shapes and drawn hard edges. Down the rail
-  (`SetMotion.Way.down`) the blob travels on a 0.5 s quintic ease-in-out, slow as it pulls free
-  and as it joins, landing 0.52 s after the log; the current exercise's parts hold until the
-  shift starts 0.08 s before the landing (`shiftLead`, `moving(.down)`, 0.45 s on an ease-out),
-  then go bottom first, each fading as it drops 6 pt, and the next row's parts come in after
-  them (`shiftWaitsForPulse`). Back up a superset's loop at a round's end, the parts go at once
-  and the rest follows the pulse as if tethered (`moving(.loop)`, `TetheredShift`): the shift's
-  progress is a critically damped spring pulled toward where the pulse is along its travel
-  (0.42 s on an ease-out), so it starts slowly as the pulse pulls away and settles 0.3 s after
-  it reaches the node at 0.44 s, never overshooting; there the blob gathers into a circle
-  (0.06 s) and plops as down the rail, and "Round 2 of 3" rolls to the next round as it lands.
-  Either way, the row shrinks back to a resting row as the next row grows into the current
-  exercise and the list scrolls it up under the bar, the scroll Start's (scrolled at once,
-  drawn lifted, the lift run to 0), so the rows between and below move one way only; the next
-  row's parts come in top first, each rising 8 pt as it fades in. The blob's keyframes end on a
-  frame of nothing: a timeline ending on a `MoveKeyframe` rests on the value before it, which
-  left the pulse on the node. After the workout's last planned set the row closes as the list
-  settles on its end (`shifting`, 0.65 s, with no pulse to follow), the room that landed it closing on the same curve with the end held where it
-  shows (`keepEndPinned`), and `FinishWorkoutRow` fades in under it: a square + key on the
-  rail, Add exercise, and Finish workout beside it in the primary key's colors, both a key's
-  height; Finish ends the workout at once, as End's Finish does. Set bars, purple once done,
-  gray to do, show on every started row until it is finished, where its node turns purple.
-  With Reduce Motion a move to another exercise is one crossfade, as Start's is, with no
-  pulse; the haptics stay.
+  finger resting on the key never lifts the row. The key shows an arrow. Dragged past
+  two-thirds (`commit`), a haptic plays, medium for a set and light for a side; let go there,
+  the set logs and the key glides on to the end in a straight line at the finger's speed
+  (`SlideTrack.glide`), never slower than 0.3 tracks a second, so it never speeds up or slows
+  after a flick. The key has mass: let go short of the commit, it coasts as UIKit projects a
+  scroll's deceleration (`coastRate` 0.994, `SlideTrack.coast`); where that carries it past, as
+  a quick flick does, it glides to the end the same way, and only there the haptic plays and
+  the set logs; otherwise it springs back carrying that speed. Only at rest at the end does the
+  arrow become a check, at once, with no transition: the symbols' Replace left the arrow behind
+  on a moving key and drew the check in low. It rests 0.8 s, fades out (0.15 s), and comes back
+  at the start with its arrow (`onReturn`), fading in (0.2 s). The key scales as a large title,
+  about half as much as the body at the accessibility sizes: with the body it left "Log set" no
+  room, and held to the track's measured width the two fed each other, a layout loop.
+- A log that stays on the current exercise is saved at once, but shown as still to do
+  (`heldSet`) until the slide's key is back at the start, driven by its `onReturn`, not a timer,
+  so a fast glide and the roll stay together; VoiceOver's action, with no slide, shows it at
+  once. As it logs, the current node shrinks to half and fades to the rail's gray (0.2 s) and
+  rests so; as the key comes back, the progress line rolls word by word, only the words that
+  change ("Set 2 of 3" to "Set 3 of 3" rolls the 2 alone, a side word on its own), each pushed
+  up and out as its new one comes up (0.3 s), the bars with it, and the node pops back full and
+  green on a `.bouncy` spring past its size (`SetBeat`). The hold is a value on the row's
+  `RailPlace`, set by the rail (`Rail`'s `isSetHeld`), like the current row itself: an
+  environment value set on a row's label never reached its node, a sibling inside `railRow()`.
+  With Reduce Motion the node stays as it is.
+- A log that moves to another exercise is one motion (`ExerciseMove`, `SetMotion`), about
+  1.27 s down the rail and 1.25 s back up a superset's loop. The node left goes to its own color
+  at once, under a green blob (`RailPulse`, `PulseShape`) that is that node from the log: from
+  0.02 s its bottom is pulled out along the rail, a capsule drawn out by its speed (at most 3
+  times the node, its area kept, so it thins), joined to the node left by a neck whose sides are
+  two curves touching both circles (`PulseShape.neck`) until the curves meet and it snaps,
+  leaving the node in its own color, with no wobble. Its leading end joins the next node by a
+  neck too, and landed, a circle the current node's size, it plops: squashing to 1.25 by 0.8 and
+  wiggling back to round on a dying sine of two and a half swings through 0.35 s
+  (`squash(at:)`), with a light haptic (`landings`, lighter than the slide's), the node lit
+  under it as it lands (`isLanded`, `litID`), the blob dimming with the current pulse's clock
+  so neither hand-over shows a seam. Paths are joined with `Path.union`, which keeps every edge
+  antialiased; a blur-and-threshold metaball would have shrunk the shapes and drawn hard edges.
+  Down the rail (`SetMotion.Way.down`) the blob travels 0.5 s on a quartic ease-in-out
+  (`travelEase` 4, four times its average speed at the middle), slow as it pulls free and as it
+  joins, landing 0.52 s after the log; back up a loop at a round's end it travels 0.42 s on an
+  ease-out and gathers into a circle on the node (0.06 s), landing at 0.5 s. Either way nothing
+  else moves until the landing has been seen: the current exercise's parts all still show, and
+  the shift starts `landingHold` (0.3 s) after the landing, as the wiggle has mostly settled
+  (`moving(_:)`, 0.45 s on `timingCurve(0.6, 0, 0.1, 1)`, starting from rest and easing hard to
+  a stop with no overshoot). Then the parts go bottom first, each fading as it drops 6 pt; the
+  row shrinks back to a resting row as the next row grows into the current exercise and the
+  list scrolls it up under the bar, the scroll Start's (scrolled at once, drawn lifted, the lift
+  run to 0), so the rows between and below move one way only; and the next row's parts come in
+  top first, each rising 8 pt as it fades in (`exerciseMoveWay`), "Round 2 of 3" rolling to
+  the next round once the row shows it (`roundRoll`). The blob's keyframes end on a frame of
+  nothing: a timeline ending on a `MoveKeyframe` rests on the value before it, which left the
+  pulse on the node. After the workout's last planned set the row closes as the list settles on
+  its end (`shifting`, 0.65 s, with no pulse), the room that landed it closing on the same curve
+  with the end held where it shows (`keepEndPinned`), and `FinishWorkoutRow` fades in under it:
+  a square + key on the rail, Add exercise, and Finish workout beside it in the primary key's
+  colors, both a key's height; Finish ends the workout at once, as End's Finish does. Set bars,
+  purple once done, gray to do, show on every started row until it is finished, where its node
+  turns purple. With Reduce Motion a move to another exercise is one crossfade, as Start's is,
+  with no pulse; the haptics stay.
 - A row on a rail moves by holding and dragging (`RailDrag` holds every value). A hold of 0.4 s
   that moves under 10 pt lifts it; a press that moves first is a scroll, and a hold in the rail
   column, on the node, draws a superset instead (below). The hold is a UIKit long press (`RailLiftGesture`), put
