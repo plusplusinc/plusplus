@@ -121,7 +121,7 @@ struct RailPulseTests {
     }
 
     @Test(
-        "Once a run is over, its pulse draws nothing, the plop gone into the lit node",
+        "Once a run is over, its pulse draws nothing, the plop settled over the lit node",
         arguments: [SetMotion.Way.down, .loop],
     )
     func runEnds(way: SetMotion.Way) {
@@ -133,10 +133,10 @@ struct RailPulseTests {
         // Through the plop, it draws on the node.
         let plopping = blob(run.value(time: SetMotion.landing(way) + 0.01), way: way).boundingRect
         #expect(abs(plopping.midY - 64) < 0.01)
-        // It goes as the node lights, which ends the move or comes just before its end.
+        // It goes as the plop settles over the lit node, before the move ends.
         let gone = run.duration - 1.0 / 60
-        #expect(abs(gone - SetMotion.lit(way)) < 1e-9)
-        #expect(SetMotion.lit(way) <= SetMotion.move(way))
+        #expect(abs(gone - SetMotion.landing(way) - SetMotion.plop) < 1e-9)
+        #expect(gone <= SetMotion.move(way))
     }
 
     @Test("Up a loop, the travel shoots off, ends where it lands, and still moves as it lands")
@@ -162,61 +162,33 @@ struct RailPulseTests {
         }
     }
 
-    @Test("Up a loop, the move takes about 0.75 s, the pulse leading and the shift settling after")
+    @Test(
+        "Nothing moves until the pulse has landed and mostly plopped; then the shift runs",
+        arguments: [SetMotion.Way.down, .loop],
+    )
     @MainActor
-    func loopBeats() {
-        #expect(abs(SetMotion.move(.loop) - 0.75) < 0.1)
-        // The pulse sets off first; the shift is under way as the parts go, not after a beat.
-        #expect(SetMotion.travelStart < SetMotion.leaveDelay(.equipment))
-        #expect(TetheredShift.progress(at: SetMotion.leaveDelay(.equipment) + SetMotion.leaveFade)
-            > 0)
-        // The pulse lands ahead of the shift, which settles a beat after.
-        let landed = SetMotion.travelStart + SetMotion.travel(.loop)
-        #expect(TetheredShift.progress(at: landed) > 0.6)
-        #expect(TetheredShift.progress(at: landed) < 0.9)
-        #expect(SetMotion.shiftEnd(.loop) > landed + 0.15)
-        #expect(SetMotion.shiftEnd(.loop) < landed + 0.4)
-        // Top first in, bottom first out, every part gone before the first comes in.
-        #expect(SetMotion.arriveDelay(.progress) < SetMotion.arriveDelay(.slide))
-        #expect(SetMotion.leaveDelay(.slide) < SetMotion.leaveDelay(.progress))
-        #expect(SetMotion.leaveDelay(.progress) + SetMotion.leaveFade
-            <= SetMotion.arriveDelay(.progress))
-    }
-
-    @Test("Down the rail, the exercise holds while the pulse travels; the shift starts as it lands")
-    @MainActor
-    func downBeats() {
-        // Half a second across, slow enough to watch it travel.
-        #expect(SetMotion.travel(.down) == 0.5)
-        let landed = SetMotion.travelStart + SetMotion.travel(.down)
-        #expect(SetMotion.landing(.down) == landed)
-        // The shift and the parts going start together, just before the landing.
-        #expect(abs(SetMotion.downShiftStart - (landed - 0.08)) < 1e-9)
-        #expect(SetMotion.leaveDelay(.slide, waits: true) == SetMotion.downShiftStart)
-        #expect(SetMotion.leaveDelay(.progress, waits: true) + SetMotion.leaveFade
-            < SetMotion.arriveDelay(.progress, waits: true))
-        #expect(abs(SetMotion.shiftEnd(.down) - SetMotion.downShiftStart - SetMotion.downShift)
-            < 1e-9)
-        // The next exercise's parts come in during the shift, top first.
-        #expect(SetMotion.arriveDelay(.progress, waits: true)
-            < SetMotion.arriveDelay(.slide, waits: true))
-        #expect(SetMotion.arriveDelay(.slide, waits: true) < SetMotion.shiftEnd(.down))
-        // The node lights as the plop settles, within the shift; the move ends with the shift.
-        #expect(SetMotion.lit(.down) < SetMotion.shiftEnd(.down))
-        #expect(abs(SetMotion.move(.down) - SetMotion.shiftEnd(.down)) < 1e-9)
-    }
-
-    @Test("The shift trails the pulse, only ever moves forward, and ends where it lands")
-    func tether() {
-        var last = 0.0
-        for step in 0 ... 1000 {
-            let time = Double(step) / 1000
-            let progress = TetheredShift.progress(at: time)
-            #expect(progress >= last)
-            #expect(progress <= 1)
-            #expect(progress <= TetheredShift.pulse(at: time) + 1e-9)
-            last = progress
-        }
-        #expect(TetheredShift.progress(at: SetMotion.shiftEnd(.loop)) == 1)
+    func beats(way: SetMotion.Way) {
+        // Half a second across, slow enough to watch it travel, the whole move about 1.25 s.
+        #expect(abs(SetMotion.landing(way) - 0.51) < 0.02)
+        #expect(abs(SetMotion.move(way) - 1.25) < 0.05)
+        // The shift and the parts going hold until a beat after the landing, the wiggle mostly
+        // settled, so the landing plays on a still screen.
+        let start = SetMotion.moveShiftStart(way)
+        #expect(abs(start - SetMotion.landing(way) - SetMotion.landingHold) < 1e-9)
+        #expect(abs(SetMotion.squash(at: SetMotion.landingHold)) < 0.25)
+        #expect(SetMotion.leaveDelay(.slide, way: way) == start)
+        #expect(SetMotion.detailOut(way: way) == .easeIn(duration: 0.06).delay(start))
+        // Bottom first out, every part gone before the first comes in, top first, by the end.
+        #expect(SetMotion.leaveDelay(.slide, way: way) < SetMotion.leaveDelay(.progress, way: way))
+        #expect(SetMotion.leaveDelay(.progress, way: way) + SetMotion.leaveFade
+            <= SetMotion.arriveDelay(.progress, way: way) + 1e-9)
+        #expect(SetMotion.arriveDelay(.progress, way: way)
+            < SetMotion.arriveDelay(.slide, way: way))
+        #expect(SetMotion.arriveDelay(.slide, way: way) < SetMotion.shiftEnd(way))
+        #expect(abs(SetMotion.shiftEnd(way) - start - SetMotion.moveShift) < 1e-9)
+        // A round's roll shows on the grown row, within the move.
+        #expect(SetMotion.roundRoll(way) > SetMotion.arriveDelay(.progress, way: way))
+        #expect(SetMotion.roundRoll(way) < SetMotion.move(way))
+        #expect(abs(SetMotion.move(way) - SetMotion.shiftEnd(way)) < 0.02)
     }
 }

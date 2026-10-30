@@ -32,7 +32,7 @@ public struct RowLabel: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.restingLabelFloor) private var restingLabelFloor
-    @Environment(\.shiftWaitsForPulse) private var shiftWaitsForPulse
+    @Environment(\.exerciseMoveWay) private var exerciseMoveWay
     @ObserveHotReload private var hotReload
 
     public init(
@@ -151,8 +151,8 @@ public struct RowLabel: View {
                 .opacity(showsDetail ? 1 : 0)
                 .animation(
                     showsDetail
-                        ? SetMotion.detailIn(waits: shiftWaitsForPulse)
-                        : SetMotion.detailOut(waits: shiftWaitsForPulse),
+                        ? SetMotion.detailIn(way: exerciseMoveWay)
+                        : SetMotion.detailOut(way: exerciseMoveWay),
                     value: showsDetail,
                 )
             }

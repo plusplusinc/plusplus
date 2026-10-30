@@ -3,21 +3,22 @@ import SwiftUI
 /// Every timing in logging a set and moving on, in one place, so a tweak tried on the phone is one
 /// line and a rebuild.
 ///
-/// Moving to another exercise is one motion from the slide's log, about 0.9 s:
+/// Moving to another exercise is one motion from the slide's log, about 1.25 s:
 /// - **Pulse**: the node left is pulled out into a blob of green (`PulseShape`): its bottom edge
 ///   stretches into a neck that thins and snaps, leaving the node behind in its own color, and
 ///   the mass runs along the rail, drawn out the faster it goes, to the next node, which it joins
 ///   (`travelStart`, `travel(_:)`). There it plops in, squashing and wiggling back to a circle
-///   (`plop`), with a light haptic, and the node lights once it settles (`lit(_:)`).
+///   (`plop`), with a light haptic, and the node lights as it plops (`landing(_:)`).
+/// - **Hold**: nothing else moves until the landing has been seen: the pulse travels and plops on
+///   a still screen, the current exercise's parts all still showing, for `landingHold` after it
+///   lands, about when its wiggle has mostly settled.
 /// - **Leave**: what the current exercise grew to show goes, bottom first, each part fading as it
-///   drops a few points: the slide, the numbers, then the equipment and the progress line. Down
-///   the rail (`Way.down`) the parts hold while the pulse travels and go as the shift starts;
-///   back up a superset's loop (`Way.loop`) they go at once.
+///   drops a few points: the slide, the numbers, then the equipment and the progress line, as the
+///   shift starts.
 /// - **Shift** (to `shiftEnd(_:)`): the row shrinks back to a resting row as the next row grows
-///   into the current exercise and the list scrolls it up under the bar, so what lies between and
-///   below moves up once, never back down. Down the rail it starts just before the pulse lands
-///   (`shiftLead`), so the landing and the shift are one motion; up the loop it follows the pulse
-///   as if tethered (`TetheredShift`), settling just after it lands.
+///   into the current exercise and the list scrolls it under the bar, down the rail (`Way.down`)
+///   and back up a superset's loop (`Way.loop`) alike. Down the rail, what lies between and below
+///   moves up once, never back down.
 /// - **Arrive**: the next row's parts come in top first as it has room for them, each fading as
 ///   it rises a few points: the progress line, the equipment, the numbers, the slide.
 public enum SetMotion {
@@ -64,10 +65,10 @@ public enum SetMotion {
     /// How long after the part below it each part starts to go, bottom first.
     static let leaveStagger = 0.025
 
-    /// When `part` starts to go, from the slide's log: at once, or, when the shift `waits` for
-    /// the pulse, as down the rail, as the shift starts.
-    static func leaveDelay(_ part: Part, waits: Bool = false) -> Double {
-        let start = waits ? downShiftStart : 0
+    /// When `part` starts to go, from the slide's log: on a move to another exercise `way`, as
+    /// the shift starts; with no pulse to wait for, after the last set, at once.
+    static func leaveDelay(_ part: Part, way: Way? = nil) -> Double {
+        let start = way.map(moveShiftStart) ?? 0
         return switch part {
         case .slide: start
         case .figures: start + leaveStagger
@@ -90,37 +91,25 @@ public enum SetMotion {
     }
 
     /// Moving to another exercise, the shift's curve, shared by both rows' heights, the names'
-    /// sizes, and the list's scroll: down the rail, from just before the pulse lands; up a loop,
-    /// following the pulse (`TetheredShift`).
+    /// sizes, and the list's scroll: held until the pulse has landed and plopped
+    /// (`moveShiftStart(_:)`), then started from rest, easing to a stop with no overshoot.
     public static func moving(_ way: Way) -> Animation {
-        switch way {
-        case .down: .timingCurve(0.35, 0, 0.2, 1, duration: downShift).delay(downShiftStart)
-        case .loop: Animation(TetheredShift())
-        }
+        .timingCurve(0.35, 0, 0.2, 1, duration: moveShift).delay(moveShiftStart(way))
     }
 
-    /// Down the rail, the shift: started from rest, easing to a stop with no overshoot.
-    nonisolated static let downShift = 0.45
-    /// Down the rail, how long before the pulse lands the shift starts, so the landing and the
-    /// shift read as one motion rather than a stop and a start.
-    nonisolated static let shiftLead = 0.08
-    /// Down the rail, when the shift starts, from the slide's log.
-    nonisolated static var downShiftStart: Double {
-        landing(.down) - shiftLead
+    /// Moving to another exercise, the shift's length.
+    nonisolated static let moveShift = 0.45
+    /// How long after the pulse lands the shift starts: the plop plays on a still screen, and the
+    /// shift starts about when its wiggle has mostly settled. Longer, the landing holds longer.
+    nonisolated static let landingHold = 0.3
+    /// Moving to another exercise, when the shift starts, from the slide's log.
+    public nonisolated static func moveShiftStart(_ way: Way) -> Double {
+        landing(way) + landingHold
     }
-
-    /// How stiffly the shift is tethered to the pulse, in radians a second: a critically damped
-    /// spring's natural frequency. It trails the pulse by about `2 / tether` s as it travels and
-    /// comes to rest a quarter-second after it lands; stiffer, the two move as one, looser, the
-    /// list drags.
-    nonisolated static let tether = 16.0
 
     /// When the shift comes to rest, from the slide's log.
     public nonisolated static func shiftEnd(_ way: Way) -> Double {
-        switch way {
-        case .down: downShiftStart + downShift
-        case .loop: TetheredShift.duration
-        }
+        moveShiftStart(way) + moveShift
     }
 
     /// When the pulse sets off, from the slide's log: at once, ahead of everything it pulls.
@@ -143,7 +132,7 @@ public enum SetMotion {
     nonisolated static let collapse = 0.06
 
     /// When the pulse lands on the next row's node as a circle and plops in, with a light
-    /// haptic, from the slide's log.
+    /// haptic, and the node lights under it, from the slide's log.
     public nonisolated static func landing(_ way: Way) -> Double {
         switch way {
         case .down: travelStart + travel(.down)
@@ -172,22 +161,16 @@ public enum SetMotion {
         return raw(time) / raw(deepest)
     }
 
-    /// When the next row's node lights, from the slide's log: as the plop settles into a circle
-    /// the node's size, so the node takes its place without a seam.
-    public nonisolated static func lit(_ way: Way) -> Double {
-        landing(way) + plop
-    }
-
     /// The detail line, back on the row closing, fading in once the progress line has gone and
-    /// the row is well on its way to a resting row: `waits` for the pulse to land first, as the
-    /// shift does down the rail.
-    static func detailIn(waits: Bool) -> Animation {
-        .easeOut(duration: 0.15).delay(waits ? downShiftStart + 0.08 : 0.15)
+    /// the row is well on its way to a resting row: on a move to another exercise `way`, timed
+    /// from its shift's start.
+    static func detailIn(way: Way?) -> Animation {
+        .easeOut(duration: 0.15).delay(way.map { moveShiftStart($0) + 0.08 } ?? 0.15)
     }
 
     /// The detail line on the next row going as its name starts to grow.
-    static func detailOut(waits: Bool) -> Animation {
-        .easeIn(duration: 0.06).delay(waits ? downShiftStart : 0)
+    static func detailOut(way: Way?) -> Animation {
+        .easeIn(duration: 0.06).delay(way.map(moveShiftStart) ?? 0)
     }
 
     // MARK: Arrive
@@ -199,10 +182,10 @@ public enum SetMotion {
 
     /// When `part` starts to come in, from the slide's log: top first, each once the row has
     /// grown enough to hold it, the progress line once the detail line has gone (`detailOut`).
-    /// When the shift `waits` for the pulse, as down the rail, each comes in once the current
-    /// exercise's parts, going as the shift starts, have gone, timed from the shift's start.
-    static func arriveDelay(_ part: Part, waits: Bool = false) -> Double {
-        guard waits else {
+    /// On a move to another exercise `way`, each comes in once the current exercise's parts,
+    /// going as the shift starts, have gone, timed from the shift's start.
+    static func arriveDelay(_ part: Part, way: Way? = nil) -> Double {
+        guard let way else {
             return switch part {
             case .progress: 0.2
             case .equipment: 0.28
@@ -210,7 +193,7 @@ public enum SetMotion {
             case .slide: 0.46
             }
         }
-        return downShiftStart + {
+        return moveShiftStart(way) + {
             switch part {
             case .progress: 0.14
             case .equipment: 0.18
@@ -218,6 +201,12 @@ public enum SetMotion {
             case .slide: 0.28
             }
         }()
+    }
+
+    /// At a superset round's end, when the round just done, which the first member shows as it
+    /// grows, rolls to its own, from the slide's log: once its progress line has come in.
+    public static func roundRoll(_ way: Way) -> Double {
+        arriveDelay(.progress, way: way) + arriveFade
     }
 
     // MARK: After the last set
@@ -231,7 +220,7 @@ public enum SetMotion {
     /// The whole move, from the slide's log to the shift's end, the next exercise's last part in
     /// place and the pulse's plop settled into the lit node.
     public static func move(_ way: Way) -> Double {
-        max(shiftEnd(way), arriveDelay(.slide, waits: way == .down) + arriveFade, lit(way))
+        max(shiftEnd(way), arriveDelay(.slide, way: way) + arriveFade, PulseShape.runEnd(way))
     }
 
     /// The current exercise's parts under its name, which leave and arrive in turn.
@@ -259,60 +248,5 @@ public enum SetMotion {
         case .down: 30 * time * time * (1 - time) * (1 - time)
         case .loop: (2 - travelLanding) - 2 * (1 - travelLanding) * time
         }
-    }
-}
-
-/// The shift as it follows the pulse: its progress is a critically damped spring, at rest at 0,
-/// pulled toward where the pulse is along its travel (`SetMotion.distance(at:_:)`), so it starts
-/// slowly as the pulse pulls away, trails it, and catches up just after it lands. Critically
-/// damped, it never overshoots, so nothing it moves turns back. Worked out once, a sample a
-/// millisecond, until it is within half a percent of the end, and scaled to end there exactly.
-nonisolated struct TetheredShift: CustomAnimation {
-    static let samples: [Double] = {
-        let (step, substeps) = (0.001, 8)
-        let omega = SetMotion.tether
-        var (position, velocity, time) = (0.0, 0.0, 0.0)
-        var samples = [0.0]
-        while position < 0.995, samples.count < 2000 {
-            for _ in 0 ..< substeps {
-                let pull = omega * omega * (pulse(at: time) - position) - 2 * omega * velocity
-                velocity += pull * step / Double(substeps)
-                position += velocity * step / Double(substeps)
-                time += step / Double(substeps)
-            }
-            samples.append(position)
-        }
-        let last = samples.last ?? 1
-        return samples.map { $0 / last }
-    }()
-
-    /// How long it runs.
-    static var duration: Double {
-        Double(samples.count - 1) * 0.001
-    }
-
-    /// Where the pulse is along its travel up the loop, from 0 to 1, `time` after the log.
-    static func pulse(at time: Double) -> Double {
-        let share = (time - SetMotion.travelStart) / SetMotion.travel(.loop)
-        return share <= 0 ? 0 : share >= 1 ? 1 : SetMotion.distance(at: share, .loop)
-    }
-
-    /// The shift's progress, from 0 to 1, `time` after the log.
-    static func progress(at time: Double) -> Double {
-        let index = time / 0.001
-        guard index > 0 else { return 0 }
-        guard index < Double(samples.count - 1) else { return 1 }
-        let below = Int(index)
-        let share = index - Double(below)
-        return samples[below] + (samples[below + 1] - samples[below]) * share
-    }
-
-    func animate<V: VectorArithmetic>(
-        value: V,
-        time: TimeInterval,
-        context _: inout AnimationContext<V>,
-    ) -> V? {
-        guard time < Self.duration else { return nil }
-        return value.scaled(by: Self.progress(at: time))
     }
 }

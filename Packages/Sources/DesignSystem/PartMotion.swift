@@ -10,16 +10,16 @@ extension View {
 }
 
 extension EnvironmentValues {
-    /// Whether a move under way holds its shift until the pulse has nearly landed, as down the
-    /// rail, so the current exercise's parts go later (`SetMotion.leaveDelay(_:waits:)`) and the
-    /// next one's come in later (`SetMotion.arriveDelay(_:waits:)`).
-    @Entry public var shiftWaitsForPulse = false
+    /// The way of a move to another exercise under way, whose shift holds until the pulse has
+    /// landed, so the current exercise's parts go later (`SetMotion.leaveDelay(_:way:)`) and the
+    /// next one's come in later (`SetMotion.arriveDelay(_:way:)`). None after the last set.
+    @Entry public var exerciseMoveWay: SetMotion.Way?
 }
 
 /// One of the current exercise's parts coming in and going in turn (`View.part(_:)`).
 private struct PartMotion: ViewModifier {
     let part: SetMotion.Part
-    @Environment(\.shiftWaitsForPulse) private var shiftWaitsForPulse
+    @Environment(\.exerciseMoveWay) private var exerciseMoveWay
 
     func body(content: Content) -> some View {
         content.transition(
@@ -27,12 +27,12 @@ private struct PartMotion: ViewModifier {
                 insertion: .opacity.combined(with: .offset(y: SetMotion.arriveRise))
                     .animation(
                         .easeOut(duration: SetMotion.arriveFade)
-                            .delay(SetMotion.arriveDelay(part, waits: shiftWaitsForPulse)),
+                            .delay(SetMotion.arriveDelay(part, way: exerciseMoveWay)),
                     ),
                 removal: .opacity.combined(with: .offset(y: SetMotion.leaveDrop))
                     .animation(
                         .easeIn(duration: SetMotion.leaveFade)
-                            .delay(SetMotion.leaveDelay(part, waits: shiftWaitsForPulse)),
+                            .delay(SetMotion.leaveDelay(part, way: exerciseMoveWay)),
                     ),
             ),
         )

@@ -103,7 +103,7 @@ nonisolated struct RailRoute: Equatable {
 /// the longer it is, its area kept, and once its leading end touches the next node, a circle at
 /// `restingSize` there joins it by a neck too. Landed (`SetMotion.landing(_:)`), it is a circle
 /// on the node, which squashes and wiggles back to round through `SetMotion.plop`
-/// (`SetMotion.squash(at:)`); then nothing draws, the node lit in its place.
+/// (`SetMotion.squash(at:)`) over the node, lit as it lands; then nothing draws.
 nonisolated struct PulseShape: Shape {
     /// Seconds since the log; below 0, as between runs, there is no pulse.
     var time: Double
@@ -125,7 +125,7 @@ nonisolated struct PulseShape: Shape {
 
     /// How long a run lasts, from the log to the plop settled.
     static func runEnd(_ way: SetMotion.Way) -> Double {
-        SetMotion.lit(way)
+        SetMotion.landing(way) + SetMotion.plop
     }
 
     /// A run's times: the seconds since the log, then nothing.
@@ -277,7 +277,7 @@ nonisolated struct PulseShape: Shape {
 
 /// The pulse drawn over a rail, from the rows' nodes as they are on each frame. It plays once
 /// for each new `run`, from the log to its plop settled on the node it lands on
-/// (`SetMotion.lit(_:)`), and draws nothing between runs. It dims with the current node it
+/// (`PulseShape.runEnd(_:)`), and draws nothing between runs. It dims with the current node it
 /// leaves and becomes (`currentPulse(in:)`), so it takes over from one and hands over to the
 /// other without a seam. With Reduce Motion there is none: the move crossfades.
 struct RailPulseRun: View {
