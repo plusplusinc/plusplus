@@ -343,7 +343,7 @@ struct SlideToLogGesture: UIGestureRecognizerRepresentable {
 /// A right arrow at `morph` 0, a check at 1: its head's arms swing round into the check's legs,
 /// the top arm into the long one and the bottom into the short, as its shaft draws into the
 /// check's corner. Points in a unit square, stroked by the caller.
-struct ArrowToCheck: Shape {
+nonisolated struct ArrowToCheck: Shape {
     var morph: CGFloat
 
     var animatableData: CGFloat {
