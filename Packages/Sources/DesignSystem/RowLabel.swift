@@ -196,19 +196,33 @@ public struct RowLabel: View {
         }
     }
 
-    /// One part of the progress line, rolling as it changes, clipped around itself so the roll
-    /// shows only within it. The dot before a side stays in the set's gray.
+    /// One part of the progress line, word by word, each word rolling only when it changes and
+    /// clipped around itself, so "Set 2 of 3" to "Set 3 of 3" rolls the 2 alone (Dave,
+    /// 2026-10-30). The dot before a side stays in the set's gray.
     private func rolling(_ text: String, color: ColorToken, dot: Bool = false) -> some View {
-        var line = AttributedString(text)
-        line.foregroundColor = .pp(color)
-        if dot, let range = line.range(of: "\(noBreakSpace)·\(noBreakSpace)") {
-            line[range].foregroundColor = .pp(.textSecondary)
+        // Each word keeps the space after it, a no-break space included, so the line reads as
+        // one string.
+        var words = [""]
+        for character in text {
+            words[words.count - 1].append(character)
+            if character.isWhitespace {
+                words.append("")
+            }
         }
-        return ZStack(alignment: .topLeading) {
-            Text(line)
+        return HStack(alignment: .firstTextBaseline, spacing: 0) {
+            ForEach(Array(words.enumerated()), id: \.offset) { _, word in
+                rollingWord(word, color: dot && word.contains("·") ? .textSecondary : color)
+            }
+        }
+    }
+
+    private func rollingWord(_ word: String, color: ColorToken) -> some View {
+        ZStack(alignment: .topLeading) {
+            Text(word)
                 .font(.ppCurrentProgress)
-                .fixedSize(horizontal: false, vertical: true)
-                .id(text)
+                .foregroundStyle(Color.pp(color))
+                .fixedSize()
+                .id(word)
                 .transition(.push(from: .bottom))
         }
         .clipped()

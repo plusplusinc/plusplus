@@ -141,7 +141,7 @@ public struct SlideToLog: View {
             }
             progress = next
         case .ended where SlideTrack.isArmed(progress):
-            log()
+            log(speed: speed)
         case .ended where SlideTrack.isArmed(SlideTrack.coast(from: progress, speed: speed)):
             coast(speed: speed)
         case .ended, .cancelled:
@@ -162,8 +162,8 @@ public struct SlideToLog: View {
     /// the end, slowing from that speed, and the set logs, with the haptic, as it crosses.
     private func coast(speed: CGFloat) {
         isFinishing = true
-        let (duration, crossing) = SlideTrack.coastTiming(from: progress, speed: speed)
-        withAnimation(.timingCurve(0.5, 1, 0.5, 1, duration: duration)) {
+        let (duration, crossing) = SlideTrack.glide(from: progress, speed: speed)
+        withAnimation(.linear(duration: duration)) {
             progress = 1
         } completion: {
             rest()
@@ -178,10 +178,11 @@ public struct SlideToLog: View {
 
     /// The key finishes its slide as the set logs, rests while the progress line rolls, then
     /// fades out at the end and in again at the start.
-    private func log() {
+    private func log(speed: CGFloat = 0) {
         isFinishing = true
         onLog()
-        withAnimation(.easeOut(duration: SetMotion.finish)) {
+        let glide = SlideTrack.glide(from: progress, speed: speed)
+        withAnimation(.linear(duration: glide.duration)) {
             progress = 1
         } completion: {
             rest()
@@ -232,16 +233,22 @@ enum SlideTrack {
     /// For a key coasting from `progress` at `speed` to the end, on a curve that sets off at
     /// about that speed and slows to a stop (`timingCurve(0.5, 1, 0.5, 1)`, about twice as fast
     /// at the start as on average): how long it takes, and when it crosses the commit.
-    static func coastTiming(
+    /// Let go at `speed` (tracks a second), the key keeps that speed to the end, as a thing in
+    /// motion does (Dave, 2026-10-30), never slower than `glideFloor`, and when it crosses the
+    /// commit, if it hasn't yet.
+    static func glide(
         from progress: CGFloat,
         speed: CGFloat,
     ) -> (duration: Double, crossing: Double) {
-        let left = max(1 - progress, 0)
-        let duration = min(max(2 * left / max(speed, 0.01), 0.12), 0.4)
-        // On that curve the share of the way gone runs about as 1 - (1 - t)^2.
-        let share = left > 0 ? min(max((SetMotion.commit - progress) / left, 0), 1) : 1
-        return (duration, duration * (1 - (1 - share).squareRoot()))
+        let pace = max(speed, glideFloor)
+        return (
+            Double(max(1 - progress, 0) / pace),
+            Double(max(SetMotion.commit - progress, 0) / pace),
+        )
     }
+
+    /// The slowest a key let go past the commit finishes, in tracks a second.
+    static let glideFloor: CGFloat = 2.5
 
     /// "Log set" fades as the key's leading edge comes over it, gone 40 pt before the end.
     static func labelOpacity(keyEnd: CGFloat, track: CGFloat) -> CGFloat {
