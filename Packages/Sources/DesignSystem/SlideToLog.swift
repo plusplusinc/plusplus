@@ -93,15 +93,12 @@ public struct SlideToLog: View {
                 .fill(.pp(.textPrimary))
                 .shadow(color: .pp(.shadow), radius: 1.5, y: 1)
                 .overlay {
-                    // On trial (Dave, 2026-10-30): the symbols' own Replace, played only once the key
-                    // has been let go and come to rest at the end, so it never plays on a moving
-                    // key, which left the arrow behind as the key went on. Back to the arrow at
-                    // once, unseen, as the key goes back to the start.
+                    // The arrow switches to the check at once, as the key comes to rest at the end
+                    // (Dave, 2026-10-30): Replace left the arrow behind on a moving key and drew the
+                    // check in low; `ArrowToCheck`'s morph is kept for another try.
                     Image(systemName: isAtEnd ? "checkmark" : "arrow.right")
                         .font(.system(size: arrowSize, weight: .bold))
                         .foregroundStyle(.pp(.background))
-                        .contentTransition(isAtEnd ? .symbolEffect(.replace.downUp.wholeSymbol) : .identity)
-                        .animation(.snappy, value: isAtEnd)
                         // One square for both: the arrow is wider than the check.
                         .frame(width: arrowSize * 1.5, height: arrowSize * 1.5)
                 }
