@@ -234,7 +234,7 @@ enum SlideTrack {
     /// about that speed and slows to a stop (`timingCurve(0.5, 1, 0.5, 1)`, about twice as fast
     /// at the start as on average): how long it takes, and when it crosses the commit.
     /// Let go at `speed` (tracks a second), the key keeps that speed to the end, as a thing in
-    /// motion does (Dave, 2026-10-30), never slower than `glideFloor`, and when it crosses the
+    /// motion does (Dave, 2026-10-30), never slower than `glideFloor` (about 70 pt/s, only so a key let go standing still finishes), and when it crosses the
     /// commit, if it hasn't yet.
     static func glide(
         from progress: CGFloat,
@@ -248,7 +248,7 @@ enum SlideTrack {
     }
 
     /// The slowest a key let go past the commit finishes, in tracks a second.
-    static let glideFloor: CGFloat = 2.5
+    static let glideFloor: CGFloat = 0.3
 
     /// "Log set" fades as the key's leading edge comes over it, gone 40 pt before the end.
     static func labelOpacity(keyEnd: CGFloat, track: CGFloat) -> CGFloat {
