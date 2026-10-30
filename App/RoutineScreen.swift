@@ -185,7 +185,6 @@ struct RoutineScreen: View {
                     ) { item in
                         rowLabel(item, current: currentID, on: currentSet)
                             .environment(\.exerciseMoveWay, exerciseMove?.way)
-                            .environment(\.currentBeat, setBeats)
                             .id(item.id)
                             .padding(.top, item.id == currentID ? Self.currentTopSpace : 0)
                             // Only while it is read: as the list scrolls, every change redraws the
@@ -258,6 +257,8 @@ struct RoutineScreen: View {
                         }
                     }
                 }
+                // Over the rail, where its nodes are drawn: on a row's label it never reached them.
+                .environment(\.currentBeat, setBeats)
                 .padding(.horizontal, Spacing.md)
                 // Room under Add exercise, so at the end of a long list it clears Start.
                 .padding(.bottom, Spacing.md)

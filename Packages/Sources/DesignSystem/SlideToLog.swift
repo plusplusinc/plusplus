@@ -33,6 +33,8 @@ public struct SlideToLog: View {
     @State private var keyOpacity: CGFloat = 1
     /// Counts the crossings of `commit` on the way out, each a haptic.
     @State private var arms = 0
+    /// A flicked key on its way to the end, still showing its arrow until it gets there.
+    @State private var isCoasting = false
     @State private var trackWidth: CGFloat = 0
 
     @ScaledMetric(relativeTo: .body) private var trackHeight: CGFloat = 56
@@ -70,7 +72,7 @@ public struct SlideToLog: View {
         let keyHeight = trackHeight - Self.inset * 2
         let travel = SlideTrack.travel(track: trackWidth, key: keyWidth, inset: Self.inset)
         let keyX = Self.inset + travel * progress
-        let isArmed = SlideTrack.isArmed(progress)
+        let isArmed = SlideTrack.isArmed(progress) && !isCoasting
         ZStack(alignment: .leading) {
             // Sunk into the exercise, darker than the screen around it.
             // Concentric with the key's corners, an inset in from them.
@@ -158,21 +160,20 @@ public struct SlideToLog: View {
     }
     #endif
 
-    /// Let go short of the commit at `speed`, with enough to carry it past: the key coasts on to
-    /// the end, slowing from that speed, and the set logs, with the haptic, as it crosses.
+    /// Let go short of the commit at `speed`, with enough to carry it past: the key glides on to
+    /// the end at that speed, and only there turns to a check, with the haptic, and the set logs
+    /// (Dave, 2026-10-30).
     private func coast(speed: CGFloat) {
         isFinishing = true
-        let (duration, crossing) = SlideTrack.glide(from: progress, speed: speed)
+        isCoasting = true
+        let (duration, _) = SlideTrack.glide(from: progress, speed: speed)
         withAnimation(.linear(duration: duration)) {
             progress = 1
         } completion: {
-            rest()
-        }
-        // The log as the key crosses, timed from the curve by design: nothing is waited for.
-        Task {
-            try? await Task.sleep(for: .seconds(crossing), tolerance: .zero)
+            isCoasting = false
             arms += 1
             onLog()
+            rest()
         }
     }
 
