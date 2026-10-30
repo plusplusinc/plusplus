@@ -20,6 +20,9 @@ extension RoutineScreen {
         // ahead of the scroll: a scroll in the same transaction stops at the old end. Where the
         // end showed above Start, the room would raise the edge effect's band under it.
         withTransaction(\.disablesAnimations, true) {
+            // Held where it is: after an add's scroll to the list's end, the position stays
+            // bound to that edge, and followed it down into the room, off the screen.
+            scrollPosition.scrollTo(y: scrollBeat.scrolledY)
             isMakingRoom = true
             isBottomEdgeHidden = isEndInView
             startDrop = 0
