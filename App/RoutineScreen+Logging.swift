@@ -123,21 +123,20 @@ extension RoutineScreen {
         session.workout == nil ? routine.exercises.first?.id : currentID
     }
 
-    /// Logs the set the slide was on, at the numbers its row shows. Within one exercise it is
-    /// held from showing (`heldSet`), the current node small and gray, until the slide's key is
-    /// back at the start, when the progress line and the bars roll on. Moving to another, one motion from the log
-    /// (`SetMotion`): the parts under the current exercise's name go, bottom first, and on one
-    /// curve its row shrinks back to a resting row as the next row grows into the current
-    /// exercise and the list scrolls it up under the bar, so the rows below move up once, with
-    /// the scroll. The node left is pulled out first into a blob of green that runs along the
-    /// rail to the next node and plops into it, with a light tick, the node lighting as it
-    /// settles (`PulseShape`): down the rail, the current exercise holds until just before the
-    /// landing, when its parts go and the shift starts; round a superset's loop at a round's end,
-    /// the shift follows the pulse as if tethered, settling just after it lands. The scroll is
-    /// Start's:
-    /// the list is scrolled at once to where the next row will land and drawn where it was, the
-    /// lift run to 0 in the shift's transaction. After the last set, the row closes as the list
-    /// settles on its end and the Finish row shows under it.
+    /// Logs the set the slide was on, at the numbers its row shows. Within one exercise it is held
+    /// from showing (`heldSet`), the current node small and gray, until the slide's key is back at
+    /// the start, when the progress line and the bars roll on. Moving to another, one motion from
+    /// the log (`SetMotion`): the parts under the current exercise's name go, bottom first, and on
+    /// one curve its row shrinks back to a resting row as the next row grows into the current
+    /// exercise and the list scrolls it up under the bar, so the rows below move up once, with the
+    /// scroll. The node left is pulled out first into a blob of green that runs along the rail to
+    /// the next node and plops into it, with a light tick, the node lighting as it settles
+    /// (`PulseShape`), on a still screen: down the rail and round a superset's loop alike, the
+    /// current exercise's parts go and the shift starts only `SetMotion.landingHold` after the
+    /// landing. The scroll is Start's: the
+    /// list is scrolled at once to where the next row will land and drawn where it was, the lift
+    /// run to 0 in the shift's transaction. After the last set, the row closes as the list settles
+    /// on its end and the Finish row shows under it.
     func log(_ set: PlannedSet, of row: RoutineExercise) {
         // A log during a move, as VoiceOver's action can send, would start a second move whose
         // state the first one's end tears down.
@@ -193,8 +192,8 @@ extension RoutineScreen {
     }
 
     /// A move's landing, with its tick and the node lighting under the pulse's plop, the round's
-    /// roll once the next row shows it, then the move's end, timed from the log by design: nothing is
-    /// waited for. With no `target` worked out ahead, as after a relaunch, the list lands after.
+    /// roll once the next row shows it, then the move's end, timed from the log by design: nothing
+    /// is waited for. With no `target` worked out ahead, as after a relaunch, the list lands after.
     private func land(_ way: SetMotion.Way, scrollingTo target: CGFloat?) {
         Task {
             try? await Task.sleep(for: .seconds(SetMotion.landing(way)), tolerance: .zero)

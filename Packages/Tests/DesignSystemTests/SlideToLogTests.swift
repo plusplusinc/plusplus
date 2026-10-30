@@ -34,7 +34,7 @@ struct SlideToLogTests {
         #expect(SlideTrack.coast(from: 0.4, speed: 0) == 0.4)
     }
 
-    @Test("Let go, the key glides to the end at the speed it was let go at, and slowest at the floor")
+    @Test("Let go, the key glides to the end at its release speed, and no slower than the floor")
     func glide() {
         // At 2 tracks a second, from a quarter of the way: three quarters in 0.375 s.
         #expect(SlideTrack.glide(from: 0.25, speed: 2) == 0.375)

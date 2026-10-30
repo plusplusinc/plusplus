@@ -126,8 +126,8 @@ public struct RowLabel: View {
                             onLog: log.action,
                             onReturn: log.onReturn,
                         )
-                            .layoutPriority(1)
-                            .part(.slide)
+                        .layoutPriority(1)
+                        .part(.slide)
                     }
                 }
             }

@@ -236,10 +236,10 @@ public enum SetMotion {
         case slide
     }
 
-    /// Where along the travel, from 0 to 1, the pulse is a share `time` of the way through it.
-    /// Down the rail, a power ease-in-out (`travelEase`): slow as its neck stretches and pulls
-    /// free, fastest halfway, and slowing to a stop as it joins the next node. Up a loop, a quadratic ease-out,
-    /// fastest as it sets off and landing at `travelLanding`.
+    /// Where along the travel, from 0 to 1, the pulse is a share `time` of the way through it. Down
+    /// the rail, a power ease-in-out (`travelEase`): slow as its neck stretches and pulls free,
+    /// fastest halfway, and slowing to a stop as it joins the next node. Up a loop, a quadratic
+    /// ease-out, fastest as it sets off and landing at `travelLanding`.
     nonisolated static func distance(at time: Double, _ way: Way) -> Double {
         switch way {
         case .down:
