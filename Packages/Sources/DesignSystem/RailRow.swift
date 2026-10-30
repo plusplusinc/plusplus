@@ -64,6 +64,7 @@ private struct RailNode: View {
     @ScaledMetric(relativeTo: .body) private var lineWidth = railLineWidth
     @Environment(\.railPlace) private var place
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.currentBeat) private var beat
     @ObserveHotReload private var hotReload
 
     var body: some View {
@@ -83,6 +84,15 @@ private struct RailNode: View {
                         if place.isCurrent {
                             Color.clear.currentPulse(in: Circle())
                         }
+                    }
+                    .keyframeAnimator(
+                        initialValue: 1.0,
+                        trigger: beat,
+                    ) { node, scale in
+                        node.scaleEffect(place.isCurrent && !reduceMotion ? scale : 1)
+                    } keyframes: { _ in
+                        CubicKeyframe(0.55, duration: 0.14)
+                        SpringKeyframe(1, duration: 0.3, spring: .snappy)
                     }
                     .anchorPreference(key: NodeCenter.self, value: .center) { $0 }
                     .anchorPreference(key: RailNodes.self, value: .center) { [$0] }

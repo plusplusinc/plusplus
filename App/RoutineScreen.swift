@@ -81,6 +81,8 @@ struct RoutineScreen: View {
     /// Counts the moves to another exercise that have landed on its node, each with a light tick,
     /// lighter than the slide's.
     @State var landings = 0
+    /// Counts the sets logged that stay on the current exercise (`currentBeat`).
+    @State var setBeats = 0
     @State var rowFrames = RowFrames()
     /// Room under the list's end in a workout, so Add exercise clears the way back to the current.
     @ScaledMetric(relativeTo: .body) var wayToCurrentRoom: CGFloat = 64
@@ -183,6 +185,7 @@ struct RoutineScreen: View {
                     ) { item in
                         rowLabel(item, current: currentID, on: currentSet)
                             .environment(\.exerciseMoveWay, exerciseMove?.way)
+                            .environment(\.currentBeat, setBeats)
                             .id(item.id)
                             .padding(.top, item.id == currentID ? Self.currentTopSpace : 0)
                             // Only while it is read: as the list scrolls, every change redraws the

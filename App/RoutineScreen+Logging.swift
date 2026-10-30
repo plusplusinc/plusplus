@@ -130,6 +130,7 @@ extension RoutineScreen {
             Task {
                 try? await Task.sleep(for: .seconds(SetMotion.keyReturn), tolerance: .zero)
                 withAnimation(.snappy(duration: SetMotion.roll)) { session.log(set, of: row) }
+                setBeats += 1
             }
             return
         }

@@ -14,6 +14,9 @@ extension EnvironmentValues {
     /// landed, so the current exercise's parts go later (`SetMotion.leaveDelay(_:way:)`) and the
     /// next one's come in later (`SetMotion.arriveDelay(_:way:)`). None after the last set.
     @Entry public var exerciseMoveWay: SetMotion.Way?
+    /// Counts the sets logged that stay on the current exercise: each one, the current node
+    /// shrinks down and back, as its progress line rolls (Dave, 2026-10-30).
+    @Entry public var currentBeat = 0
 }
 
 /// One of the current exercise's parts coming in and going in turn (`View.part(_:)`).
