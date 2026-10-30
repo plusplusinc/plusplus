@@ -127,10 +127,10 @@ extension RoutineScreen {
         let next = routine.nextSet(after: workout.logging(set, of: row, at: .now).sets)
         guard next?.row != set.row else {
             // Logged as the key comes back to the start, so the line rolls with it.
+            setBeats += 1
             Task {
                 try? await Task.sleep(for: .seconds(SetMotion.keyReturn), tolerance: .zero)
                 withAnimation(.snappy(duration: SetMotion.roll)) { session.log(set, of: row) }
-                setBeats += 1
             }
             return
         }

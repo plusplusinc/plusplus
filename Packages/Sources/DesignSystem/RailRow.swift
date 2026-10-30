@@ -85,14 +85,26 @@ private struct RailNode: View {
                             Color.clear.currentPulse(in: Circle())
                         }
                     }
-                    .keyframeAnimator(
-                        initialValue: 1.0,
-                        trigger: beat,
-                    ) { node, scale in
-                        node.scaleEffect(place.isCurrent && !reduceMotion ? scale : 1)
+                    // A set done that stays on this exercise: the node shrinks and grays as the set
+                    // logs, rests so while the key does, and pops back green as the line rolls.
+                    .keyframeAnimator(initialValue: SetBeat(), trigger: beat) { node, value in
+                        let shown = place.isCurrent && !reduceMotion
+                        node
+                            .overlay {
+                                Circle().fill(.pp(.rail)).opacity(shown ? value.gray : 0)
+                            }
+                            .scaleEffect(shown ? value.scale : 1)
                     } keyframes: { _ in
-                        CubicKeyframe(0.55, duration: 0.14)
-                        SpringKeyframe(1, duration: 0.3, spring: .snappy)
+                        KeyframeTrack(\.scale) {
+                            CubicKeyframe(0.5, duration: 0.2)
+                            LinearKeyframe(0.5, duration: SetMotion.keyReturn - 0.2)
+                            SpringKeyframe(1, duration: 0.4, spring: .bouncy)
+                        }
+                        KeyframeTrack(\.gray) {
+                            CubicKeyframe(1, duration: 0.2)
+                            LinearKeyframe(1, duration: SetMotion.keyReturn - 0.2)
+                            CubicKeyframe(0, duration: 0.12)
+                        }
                     }
                     .anchorPreference(key: NodeCenter.self, value: .center) { $0 }
                     .anchorPreference(key: RailNodes.self, value: .center) { [$0] }
@@ -315,4 +327,10 @@ extension View {
     func railColumn() -> some View {
         padding(.horizontal, Spacing.sm).frame(minWidth: railColumnWidth)
     }
+}
+
+/// The current node's beat as a set logs that stays on its exercise.
+struct SetBeat {
+    var scale = 1.0
+    var gray = 0.0
 }
