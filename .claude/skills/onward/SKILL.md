@@ -55,7 +55,9 @@ project board; agents' technical working files live in `.slices/`.
   subagent is under `.slices/`. Size the team to the card: a small task with no UI can go
   straight to a builder with the card's Plan as its plan.
 - A slice with something to see on the phone runs as a loop with the maintainer (see the
-  builder's "Rounds"). Install each round from the slice worktree with `scripts/device.sh`; a
+  builder's "Rounds"). A round's prompt asks for the change and the install, never tests, lint,
+  or docs (set-logging's rounds 5 to 8 asked for them and took 10 to 40 minutes each; the
+  maintainer wants a tuning round on the phone at once). Install each round from the slice worktree with `scripts/device.sh`; a
   fresh checkout is a cold build. It builds the worktree as it is, so uncommitted edits are fine
   for a first look, but say so. Tell the maintainer in a line what changed, that the build is
   unverified, and what to try: what to do and what they should see, never a check's name or what
