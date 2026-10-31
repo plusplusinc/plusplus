@@ -69,15 +69,14 @@ extension RoutineScreen {
         switch role {
         case .start:
             Label("Start", systemImage: "play.fill")
-        case let .log(text):
-            Text(text)
         case let .back(exercise, isAbove):
             // Whole, wrapping at the largest text sizes rather than cut short.
             Label(exercise, systemImage: isAbove ? "arrow.up" : "arrow.down")
-        case .closing:
-            Text("Log last set")
-        case .finish:
-            Text("Finish workout")
+        case .log, .closing, .finish:
+            // One branch, so the words that stay as the last set closes ("Log last set") are
+            // the same view: a branch of its own crossfaded the text into itself, which
+            // dimmed it for the closing's 0.65 s.
+            Text(verbatim: spokenKey(role))
         }
     }
 
