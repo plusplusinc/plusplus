@@ -5,8 +5,10 @@ import SwiftUI
 /// moves, and letting go lets it back up, each in 0.06 s, easing out. Not green: green is for
 /// data.
 ///
-/// A key's shape, as Add exercise's is, on a ledge of the same shape.
+/// A key's shape, as Add exercise's is, on a ledge of the same shape; or, as a pill, a capsule
+/// hugging its label.
 public struct PrimaryKeyButtonStyle: ButtonStyle {
+    private let shape: PrimaryKeyShape
     /// A little taller than a key, such as Add exercise.
     @ScaledMetric(relativeTo: .title3) private var minHeight: CGFloat = 56
     private static let ledge: CGFloat = 4
@@ -15,15 +17,20 @@ public struct PrimaryKeyButtonStyle: ButtonStyle {
 
     @ObserveHotReload private var hotReload
 
-    public init() { }
+    public init(shape: PrimaryKeyShape = .wide) {
+        self.shape = shape
+    }
 
     public func makeBody(configuration: Configuration) -> some View {
-        let shape = RoundedRectangle(cornerRadius: Radius.key)
+        let shape = switch shape {
+        case .wide: AnyShape(RoundedRectangle(cornerRadius: Radius.key))
+        case .pill: AnyShape(Capsule())
+        }
         configuration.label
             .font(.ppPrimaryKey)
             .foregroundStyle(.pp(.onPrimaryKey))
             .padding(.horizontal, Spacing.lg)
-            .frame(maxWidth: .infinity, minHeight: minHeight)
+            .frame(maxWidth: self.shape == .wide ? .infinity : nil, minHeight: minHeight)
             .background(shape.fill(.pp(.primaryKey)))
             .contentShape(shape)
             .offset(y: configuration.isPressed ? Self.ledge : 0)
@@ -32,6 +39,13 @@ public struct PrimaryKeyButtonStyle: ButtonStyle {
             .padding(.bottom, Self.ledge)
             .hotReloadable()
     }
+}
+
+/// How wide the primary key is: the bar's whole width, or a pill hugging its label at the bar's
+/// trailing end.
+public enum PrimaryKeyShape: Sendable {
+    case wide
+    case pill
 }
 
 extension ButtonStyle where Self == PrimaryKeyButtonStyle {
@@ -48,22 +62,30 @@ extension View {
     /// content runs on under the key, beside and below it, softened by the system's scroll edge
     /// effect, which a `safeAreaBar` extends to its height as the navigation bar's does at the
     /// top. Its sides are as far from the screen's edges as its bottom is from the screen's
-    /// bottom. As `plusOne` turns on, a +1 pops off the key's top with a medium impact. `drop`
-    /// moves the key down by that much, at least off the screen, which an animation carries it
-    /// along at its own pace.
+    /// bottom; a pill sits at its trailing end. Each time `plusOnes` goes up, a +1 pops off the
+    /// key's top. `drop` moves the key down by that much, at least off the screen, which an
+    /// animation carries it along at its own pace.
     public func primaryKeyBar(
         isPresented: Bool,
-        plusOne: Bool = false,
+        shape: PrimaryKeyShape = .wide,
+        plusOnes: Int = 0,
         drop: CGFloat = 0,
         @ViewBuilder key: () -> some View,
     ) -> some View {
-        modifier(PrimaryKeyBar(isPresented: isPresented, plusOne: plusOne, drop: drop, key: key()))
+        modifier(PrimaryKeyBar(
+            isPresented: isPresented,
+            shape: shape,
+            plusOnes: plusOnes,
+            drop: drop,
+            key: key(),
+        ))
     }
 }
 
 private struct PrimaryKeyBar<Key: View>: ViewModifier {
     let isPresented: Bool
-    let plusOne: Bool
+    let shape: PrimaryKeyShape
+    let plusOnes: Int
     let drop: CGFloat
     let key: Key
 
@@ -77,8 +99,9 @@ private struct PrimaryKeyBar<Key: View>: ViewModifier {
             .safeAreaBar(edge: .bottom) {
                 if isPresented {
                     key
-                        .buttonStyle(.primaryKey)
+                        .buttonStyle(PrimaryKeyButtonStyle(shape: shape))
                         .anchorPreference(key: PrimaryKeyBounds.self, value: .bounds) { $0 }
+                        .frame(maxWidth: .infinity, alignment: .trailing)
                         .modifier(KeyDrop(drop: drop))
                         .hiddenBehindDrawer()
                         // As far from the sides as from the bottom; with no home indicator, as
@@ -106,7 +129,7 @@ private struct PrimaryKeyBar<Key: View>: ViewModifier {
                 GeometryReader { proxy in
                     if let key {
                         let bounds = proxy[key]
-                        PlusOneBurst(isOn: plusOne)
+                        PlusOneBurst(trigger: plusOnes)
                             .frame(
                                 width: bounds.width,
                                 height: max(bounds.minY, 0),
@@ -116,9 +139,6 @@ private struct PrimaryKeyBar<Key: View>: ViewModifier {
                     }
                 }
                 .allowsHitTesting(false)
-            }
-            .sensoryFeedback(.impact(weight: .medium), trigger: plusOne) { wasOn, isOn in
-                !wasOn && isOn
             }
     }
 }
