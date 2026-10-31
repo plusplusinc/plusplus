@@ -52,9 +52,8 @@ struct RoutineScreen: View {
     /// From a key swap's start until the next key is coming in: the key down out of sight, its
     /// room in the bar kept, and taps do nothing.
     @State var isKeySwapping = false
-    /// The key's logs, each popping a +1 off it.
-    @State var plusOnes = 0
-    /// The key's logs of a set, each with a medium impact, and of a side, each with a light one.
+    /// The key's logs of a set, each with a medium impact, and of a side, each with a light one;
+    /// each log pops a +1 off the key.
     @State var setLogs = 0
     @State var sideLogs = 0
     /// As a workout ends, it as it was, for a beat: the time key's glass stays in the bar while
@@ -156,6 +155,8 @@ struct RoutineScreen: View {
     private var screen: some View {
         let generatedName = generatedName
         let shownName = shownName
+        // Read once: the key's identity and the key are one role.
+        let role = keyRole
         // Read once here, so the rows' closure holds them as values: a list crossfading out keeps
         // drawing its rows with what it had, rather than the workout it is fading into.
         let currentID = currentID
@@ -298,12 +299,12 @@ struct RoutineScreen: View {
         .onGeometryChange(for: CGFloat.self, of: \.size.height) { listHeight = $0 }
         .primaryKeyBar(
             isPresented: showsKey,
-            keyID: keyRole.kind,
+            keyID: role.kind,
             isSwappedOut: isKeySwapping,
-            plusOnes: plusOnes,
+            plusOnes: setLogs + sideLogs,
             drop: startDrop,
         ) {
-            key(keyRole, named: shownName ?? "")
+            key(role, named: shownName ?? "")
         }
         .task(id: isStarting) { await holdStart(named: shownName ?? "") }
         .task(id: unshownSet) { await rollHeldSet() }

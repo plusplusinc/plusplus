@@ -8,17 +8,15 @@ extension RoutineScreen {
     /// What the key is for now.
     enum KeyRole: Equatable {
         case start
-        /// Logs the current set, saying which ("Log set", "Log left", "Log last set").
+        /// Logs the current set, saying which ("Log set", "Log left", "Log last set"). After the
+        /// last set, as its row closes, it still says "Log last set", and takes no tap.
         case log(String)
         /// The current exercise is scrolled away, above it or not: the key goes back to it.
         case back(name: String, isAbove: Bool)
-        /// After the last set, as its row closes: it still says so, and takes no tap.
-        case closing
         case finish
 
         /// Which key this is: a change of kind swaps the key for another, a change within one,
-        /// as "Log left" to "Log right", changes its words. Closing is the log key still, which
-        /// says "Log last set" until Finish workout takes its place.
+        /// as "Log left" to "Log right", changes its words.
         enum Kind: Hashable {
             case start
             case log
@@ -29,7 +27,7 @@ extension RoutineScreen {
         var kind: Kind {
             switch self {
             case .start: .start
-            case .log, .closing: .log
+            case .log: .log
             case .back: .back
             case .finish: .finish
             }
@@ -45,7 +43,7 @@ extension RoutineScreen {
     private var liveKeyRole: KeyRole {
         guard let workout = session.workout, !isStarting else { return .start }
         if isWorkoutDone {
-            return isMovingOn ? .closing : .finish
+            return isMovingOn ? .log(String(localized: "Log last set")) : .finish
         }
         if let way = keyWayBack, let current = currentExercise {
             return .back(name: current.exercise.name, isAbove: way == .top)
@@ -72,10 +70,9 @@ extension RoutineScreen {
         case let .back(exercise, isAbove):
             // Whole, wrapping at the largest text sizes rather than cut short.
             Label(exercise, systemImage: isAbove ? "arrow.up" : "arrow.down")
-        case .log, .closing, .finish:
-            // One branch, so the words that stay as the last set closes ("Log last set") are
-            // the same view: a branch of its own crossfaded the text into itself, which
-            // dimmed it for the closing's 0.65 s.
+        case .log, .finish:
+            // One branch, so words that stay are the same view: a branch per role crossfaded
+            // "Log last set" into itself as the last set's row closed, which dimmed it.
             Text(verbatim: spokenKey(role))
         }
     }
@@ -85,7 +82,6 @@ extension RoutineScreen {
         case .start: String(localized: "Start")
         case let .log(text): text
         case let .back(exercise, _): String(localized: "Go to current exercise, \(exercise)")
-        case .closing: String(localized: "Log last set")
         case .finish: String(localized: "Finish workout")
         }
     }
@@ -108,7 +104,6 @@ extension RoutineScreen {
         }
         // A second tap while the set just logged is held, as a double tap would be, is dropped.
         guard heldSet == nil else { return }
-        plusOnes += 1
         if set.side == nil {
             setLogs += 1
         } else {
@@ -132,7 +127,7 @@ extension RoutineScreen {
         guard !isMovingOn, !opensOnCurrent, !scrollBeat.isFingerOn, !scrollBeat.isPastTop else {
             return
         }
-        let way: VerticalEdge? = if currentID != nil, let place = currentPlace, place.isMostlyOut {
+        let way: VerticalEdge? = if let place = currentPlace, place.isMostlyOut, currentID != nil {
             place.isAbove ? .top : .bottom
         } else {
             nil
@@ -160,7 +155,8 @@ extension RoutineScreen {
             return
         }
         // Easing in, so it is still in sight until it clears the edge, and the next one comes up
-        // straight after: easing out, it crept out of sight over its last frames.
+        // straight after: easing out, it crept out of sight over its last frames. Timed, not on
+        // the animation's completion, which came a few frames after the key had gone.
         withAnimation(.easeIn(duration: Self.keySwap)) { isKeySwapping = true }
         Task {
             try? await Task.sleep(for: .seconds(Self.keySwap), tolerance: .zero)

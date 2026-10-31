@@ -112,8 +112,7 @@ extension RoutineScreen {
             }
             letRoomGo()
             // On a later turn of the run loop, once Start has gone: in the same update, away
-            // and back cancel out, and the key jumped back up from its drop. The edge band comes
-            // back with it.
+            // and back cancel out, and the key jumped back up from its drop.
             Task { bringKeyBack() }
         }
     }
@@ -129,8 +128,8 @@ extension RoutineScreen {
 
     /// Ends the workout with `change`, Start's grow in reverse, in one motion: the current
     /// exercise shrinks back to a resting row as the rows below close up, and the list scrolls
-    /// back to its top. Once that lands, Start comes up on its own from below the screen's edge
-    /// with its edge band, a short beat with no overshoot. The scroll is animated, not lifted
+    /// back to its top. Once that lands, Start comes up on its own from below the screen's edge,
+    /// a short beat with no overshoot. The scroll is animated, not lifted
     /// as at Start: drawn lifted at the top, the title showed over the status bar, with no edge
     /// effect under the bar. On a curve that eases out and stops at its duration: a spring's
     /// settling tail made the end feel slow and heavy as it landed. With Reduce Motion, the list

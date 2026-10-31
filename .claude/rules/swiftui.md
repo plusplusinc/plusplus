@@ -168,7 +168,7 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   after it. Each log plays a haptic from the screen, medium for a set and light for a side, and a
   "+1" (`PlusOneBurst`, `ppPlusOne` in `accent`) pops from the key's top edge, centered, rising 30
   pt as it grows from 0.7 to 1.25 and fades over 0.7 s, a keyframe animation played by a count
-  (`plusOnes`) that rests at opacity 0; with Reduce Motion it flashes in place. It is drawn over
+  (the logs, `primaryKeyBar`'s `plusOnes`) that rests at opacity 0; with Reduce Motion it flashes in place. It is drawn over
   the screen from the key's anchor, not in the bar, so it rises above the bar's room.
 - A log that stays on the current exercise is saved at once, but shown as still to do (`heldSet`)
   for `SetMotion.heldRoll` (0.5 s, about as the +1 has risen), a `.task(id:)` on the held set, so
