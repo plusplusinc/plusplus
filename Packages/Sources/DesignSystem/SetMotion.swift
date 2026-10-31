@@ -3,7 +3,7 @@ import SwiftUI
 /// Every timing in logging a set and moving on, in one place, so a tweak tried on the phone is one
 /// line and a rebuild.
 ///
-/// Moving to another exercise is one motion from the slide's log, about 1.25 s:
+/// Moving to another exercise is one motion from the log, about 1.25 s:
 /// - **Pulse**: the node left is pulled out into a blob of green (`PulseShape`): its bottom edge
 ///   stretches into a neck that thins and snaps, leaving the node behind in its own color, and
 ///   the mass runs along the rail, drawn out the faster it goes, to the next node, which it joins
@@ -13,14 +13,14 @@ import SwiftUI
 ///   a still screen, the current exercise's parts all still showing, for `landingHold` after it
 ///   lands, about when its wiggle has mostly settled.
 /// - **Leave**: what the current exercise grew to show goes, bottom first, each part fading as it
-///   drops a few points: the slide, the numbers, then the equipment and the progress line, as the
-///   shift starts.
+///   drops a few points: the numbers, then the equipment and the progress line, as the shift
+///   starts.
 /// - **Shift** (to `shiftEnd(_:)`): the row shrinks back to a resting row as the next row grows
 ///   into the current exercise and the list scrolls it under the bar, down the rail (`Way.down`)
 ///   and back up a superset's loop (`Way.loop`) alike. Down the rail, what lies between and below
 ///   moves up once, never back down.
 /// - **Arrive**: the next row's parts come in top first as it has room for them, each fading as
-///   it rises a few points: the progress line, the equipment, the numbers, the slide.
+///   it rises a few points: the progress line, the equipment, the numbers.
 public enum SetMotion {
     /// Which way a move goes along the rail, which sets the pulse's route and travel.
     public enum Way: Sendable {
@@ -30,31 +30,11 @@ public enum SetMotion {
         case loop
     }
 
-    // MARK: The slide
-
-    /// How far along the track the key has to go to log the set: past it, the arrow turns to a
-    /// check and a haptic plays; a release logs. Slid back under, both go back.
-    static let commit = 2.0 / 3
-    /// How quickly a key let go slows, as UIKit's deceleration rates go: kept a share of its
-    /// speed each millisecond. At 0.994 it coasts about a sixth of a second's worth of its speed,
-    /// so from a quarter of the way, a flick at about 750 pt/s on a 300 pt travel carries it past
-    /// `commit`, and a slow drag, 200 pt/s, about 33 pt.
-    static let coastRate = 0.994
-    /// A key let go short of `commit` springing back to the start.
-    static let springBack = 0.35
-    /// The key resting at the end with its check.
-    static let rest = 0.8
-    /// The key fading out at the end, then in again at the start, where, within one exercise,
-    /// the progress line rolls to the next set or side (Dave, 2026-10-30: not as the key
-    /// reaches the end).
-    static let fadeOut = 0.15
-    static let fadeIn = 0.2
-
     // MARK: Within one exercise
 
     /// "Set 2 of 3" rolling to "Set 3 of 3", only the words that change, each up and out as the
-    /// new one rolls up and in, once the key is back at the start; the side word, "Left" to
-    /// "Right", rolls with it.
+    /// new one rolls up and in, once the held set's beat is over (`heldRoll`); the side word,
+    /// "Left" to "Right", rolls with it.
     public static let roll = 0.3
     /// After a tap logs a set that stays on the exercise, how long it is held as still to do
     /// before the line rolls on: about as the +1 has risen. Taps inside it are dropped.
@@ -63,26 +43,25 @@ public enum SetMotion {
     // MARK: Moving on to another exercise: leave
 
     /// Each part of the current exercise fading out as it goes.
-    public static let leaveFade = 0.09
+    static let leaveFade = 0.09
     /// How far each part drops as it fades out.
     static let leaveDrop: CGFloat = 6
     /// How long after the part below it each part starts to go, bottom first.
     static let leaveStagger = 0.025
 
-    /// When `part` starts to go, from the slide's log: on a move to another exercise `way`, as
+    /// When `part` starts to go, from the log: on a move to another exercise `way`, as
     /// the shift starts; with no pulse to wait for, after the last set, at once.
     static func leaveDelay(_ part: Part, way: Way? = nil) -> Double {
         let start = way.map(moveShiftStart) ?? 0
         return switch part {
-        case .slide: start
-        case .figures: start + leaveStagger
-        case .equipment, .progress: start + leaveStagger * 2
+        case .figures: start
+        case .equipment, .progress: start + leaveStagger
         }
     }
 
     // MARK: Shift
 
-    /// After the last set, when the row starts to close, from the slide's log: as the slide goes,
+    /// After the last set, when the row starts to close, from the log: as its parts start to go,
     /// so nothing waits; the row's bottom cuts off whatever is still going as it closes.
     public static let closeStart = 0.04
     /// After the last set, the row closing as the list settles on its end, on one curve.
@@ -106,17 +85,17 @@ public enum SetMotion {
     /// How long after the pulse lands the shift starts: the plop plays on a still screen, and the
     /// shift starts about when its wiggle has mostly settled. Longer, the landing holds longer.
     nonisolated static let landingHold = 0.3
-    /// Moving to another exercise, when the shift starts, from the slide's log.
+    /// Moving to another exercise, when the shift starts, from the log.
     public nonisolated static func moveShiftStart(_ way: Way) -> Double {
         landing(way) + landingHold
     }
 
-    /// When the shift comes to rest, from the slide's log.
+    /// When the shift comes to rest, from the log.
     public nonisolated static func shiftEnd(_ way: Way) -> Double {
         moveShiftStart(way) + moveShift
     }
 
-    /// When the pulse sets off, from the slide's log: at once, ahead of everything it pulls.
+    /// When the pulse sets off, from the log: at once, ahead of everything it pulls.
     nonisolated static let travelStart = 0.02
     /// The pulse traveling from the node left to the next one's, from its pulling free to its
     /// joining. Down the rail, slow enough to watch it go; up a loop, ahead of the shift, which
@@ -140,7 +119,7 @@ public enum SetMotion {
     nonisolated static let collapse = 0.06
 
     /// When the pulse lands on the next row's node as a circle and plops in, with a light
-    /// haptic, and the node lights under it, from the slide's log.
+    /// haptic, and the node lights under it, from the log.
     public nonisolated static func landing(_ way: Way) -> Double {
         switch way {
         case .down: travelStart + travel(.down)
@@ -188,7 +167,7 @@ public enum SetMotion {
     /// How far each part rises as it comes in.
     static let arriveRise: CGFloat = 8
 
-    /// When `part` starts to come in, from the slide's log: top first, each once the row has
+    /// When `part` starts to come in, from the log: top first, each once the row has
     /// grown enough to hold it, the progress line once the detail line has gone (`detailOut`).
     /// On a move to another exercise `way`, each comes in once the current exercise's parts,
     /// going as the shift starts, have gone, timed from the shift's start.
@@ -198,7 +177,6 @@ public enum SetMotion {
             case .progress: 0.2
             case .equipment: 0.28
             case .figures: 0.36
-            case .slide: 0.46
             }
         }
         return moveShiftStart(way) + {
@@ -206,29 +184,22 @@ public enum SetMotion {
             case .progress: 0.14
             case .equipment: 0.18
             case .figures: 0.22
-            case .slide: 0.28
             }
         }()
     }
 
     /// At a superset round's end, when the round just done, which the first member shows as it
-    /// grows, rolls to its own, from the slide's log: once its progress line has come in.
+    /// grows, rolls to its own, from the log: once its progress line has come in.
     public static func roundRoll(_ way: Way) -> Double {
         arriveDelay(.progress, way: way) + arriveFade
     }
 
-    // MARK: After the last set
-
-    /// After the last planned set, the Finish row fading in, from the log: once the last row is
-    /// mostly closed, so it never shows over the slide going.
-    public static let finishIn = Animation.easeOut(duration: 0.2).delay(0.26)
-
     // MARK: The timeline
 
-    /// The whole move, from the slide's log to the shift's end, the next exercise's last part in
+    /// The whole move, from the log to the shift's end, the next exercise's last part in
     /// place and the pulse's plop settled into the lit node.
     public static func move(_ way: Way) -> Double {
-        max(shiftEnd(way), arriveDelay(.slide, way: way) + arriveFade, PulseShape.runEnd(way))
+        max(shiftEnd(way), arriveDelay(.figures, way: way) + arriveFade, PulseShape.runEnd(way))
     }
 
     /// The current exercise's parts under its name, which leave and arrive in turn.
@@ -236,7 +207,6 @@ public enum SetMotion {
         case progress
         case equipment
         case figures
-        case slide
     }
 
     /// Where along the travel, from 0 to 1, the pulse is a share `time` of the way through it. Down

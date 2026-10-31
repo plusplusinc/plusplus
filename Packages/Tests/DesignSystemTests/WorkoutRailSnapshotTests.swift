@@ -7,9 +7,8 @@ import Testing
 
 /// A workout's rail scrolled past the current exercise: a finished row's node purple, rows
 /// partly done with their bars at one place at the trailing end however many sets they have and
-/// however their name and plan wrap, a row not started with none, and, once every set is logged,
-/// the Finish row ending the list; and the current row's node held small and gray while a set
-/// logged on it is not yet shown.
+/// however their name and plan wrap, and a row not started with none; and the current row's
+/// node held small and gray while a set logged on it is not yet shown.
 @Suite("Workout rail")
 struct WorkoutRailSnapshotTests {
     private static let width: CGFloat = 390
@@ -73,18 +72,6 @@ struct WorkoutRailSnapshotTests {
         let view = rail(rows, current: rows[0].id, isSetHeld: true) {
             Button("Add exercise", systemImage: "plus") { }
                 .buttonStyle(.key)
-        }
-        assertThemedSnapshots(of: view, width: Self.width)
-    }
-
-    @Test("Every set logged: Finish workout beside the + on the rail, both a key's height")
-    func finishRow() {
-        let rows = [
-            Row(title: "Goblet squat", detail: ["3 × 10 reps", "35 lb"]),
-            Row(title: "Pull-up", detail: ["3 × 6 reps"]),
-        ]
-        let view = rail(rows, done: Set(rows.map(\.id))) {
-            FinishWorkoutRow { } finish: { }
         }
         assertThemedSnapshots(of: view, width: Self.width)
     }

@@ -176,15 +176,15 @@ struct RailPulseTests {
         let start = SetMotion.moveShiftStart(way)
         #expect(abs(start - SetMotion.landing(way) - SetMotion.landingHold) < 1e-9)
         #expect(abs(SetMotion.squash(at: SetMotion.landingHold)) < 0.25)
-        #expect(SetMotion.leaveDelay(.slide, way: way) == start)
+        #expect(SetMotion.leaveDelay(.figures, way: way) == start)
         #expect(SetMotion.detailOut(way: way) == .easeIn(duration: 0.06).delay(start))
         // Bottom first out, every part gone before the first comes in, top first, by the end.
-        #expect(SetMotion.leaveDelay(.slide, way: way) < SetMotion.leaveDelay(.progress, way: way))
+        #expect(SetMotion.leaveDelay(.figures, way: way) < SetMotion.leaveDelay(.progress, way: way))
         #expect(SetMotion.leaveDelay(.progress, way: way) + SetMotion.leaveFade
             <= SetMotion.arriveDelay(.progress, way: way) + 1e-9)
         #expect(SetMotion.arriveDelay(.progress, way: way)
-            < SetMotion.arriveDelay(.slide, way: way))
-        #expect(SetMotion.arriveDelay(.slide, way: way) < SetMotion.shiftEnd(way))
+            < SetMotion.arriveDelay(.figures, way: way))
+        #expect(SetMotion.arriveDelay(.figures, way: way) < SetMotion.shiftEnd(way))
         #expect(abs(SetMotion.shiftEnd(way) - start - SetMotion.moveShift) < 1e-9)
         // A round's roll shows on the grown row, within the move.
         #expect(SetMotion.roundRoll(way) > SetMotion.arriveDelay(.progress, way: way))

@@ -109,33 +109,6 @@ extension View {
     }
 }
 
-/// The way back to the current exercise, floating over the list while it is scrolled away: an
-/// arrow toward it, and its name.
-struct CurrentExerciseButton: View {
-    let name: String
-    let isAbove: Bool
-    let action: () -> Void
-
-    @ObserveHotReload private var hotReload
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: Spacing.xs) {
-                Image(systemName: isAbove ? "arrow.up" : "arrow.down")
-                // Whole, wrapping at the largest text sizes rather than cut short.
-                Text(name)
-            }
-            .font(.ppButton)
-        }
-        .buttonStyle(.glass)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Go to current exercise, \(name)")
-        .accessibilityAddTraits(.isButton)
-        .accessibilityIdentifier("workout.current")
-        .hotReloadable()
-    }
-}
-
 extension RoutineExercise {
     /// The row grown into the current exercise, on `set`.
     func focus(on set: PlannedSet, inSuperset: Bool, locale: Locale) -> RowFocus {
