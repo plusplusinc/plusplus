@@ -173,8 +173,9 @@ extension RoutineScreen {
         }
     }
 
-    /// Each half of a key swap: the key going down and out, then the next coming up and in.
-    static let keySwap = 0.12
+    /// Each half of a key swap: the key going down and out, then the next coming up and in on
+    /// Start's own curve, as Start comes back after End.
+    static let keySwap = startReturn
 
     /// After a log that stays on the exercise, the beat the set is held for before the line
     /// rolls on. A task on the held set, so the screen going away cancels it.
