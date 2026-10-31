@@ -293,6 +293,7 @@ struct RoutineScreen: View {
         .onGeometryChange(for: CGFloat.self, of: \.size.height) { listHeight = $0 }
         .primaryKeyBar(
             isPresented: showsKey,
+            keyID: keyRole == .start,
             shape: keyShape,
             plusOnes: plusOnes,
             drop: startDrop,

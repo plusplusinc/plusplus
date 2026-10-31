@@ -64,9 +64,12 @@ extension View {
     /// top. Its sides are as far from the screen's edges as its bottom is from the screen's
     /// bottom; a pill sits at its trailing end. Each time `plusOnes` goes up, a +1 pops off the
     /// key's top. `drop` moves the key down by that much, at least off the screen, which an
-    /// animation carries it along at its own pace.
+    /// animation carries it along at its own pace. A change of `keyID` makes the key another
+    /// one, which comes in afresh: a key put back just after it went otherwise took up the one
+    /// going, faded and below the edge, and faded in as it rose.
     public func primaryKeyBar(
         isPresented: Bool,
+        keyID: AnyHashable = 0,
         shape: PrimaryKeyShape = .wide,
         plusOnes: Int = 0,
         drop: CGFloat = 0,
@@ -74,6 +77,7 @@ extension View {
     ) -> some View {
         modifier(PrimaryKeyBar(
             isPresented: isPresented,
+            keyID: keyID,
             shape: shape,
             plusOnes: plusOnes,
             drop: drop,
@@ -84,6 +88,7 @@ extension View {
 
 private struct PrimaryKeyBar<Key: View>: ViewModifier {
     let isPresented: Bool
+    let keyID: AnyHashable
     let shape: PrimaryKeyShape
     let plusOnes: Int
     let drop: CGFloat
@@ -109,6 +114,7 @@ private struct PrimaryKeyBar<Key: View>: ViewModifier {
                         .padding(.horizontal, bottomInset > 0 ? bottomInset : Spacing.md)
                         .padding(.top, Spacing.sm)
                         .transition(KeyBarTransition(below: bottomInset))
+                        .id(keyID)
                 }
             }
             // The screen's own inset, without the keyboard's when it is up: with the keyboard's

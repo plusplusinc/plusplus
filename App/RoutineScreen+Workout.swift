@@ -102,15 +102,22 @@ extension RoutineScreen {
             startDrop = max(drop, 1)
             isBottomEdgeHidden = true
         } completion: {
+            letRoomGo()
+        }
+        // The workout's key comes up as the rows land, a beat in the sequence by design: the
+        // animation's completion came a few frames after the rows had stopped, and the key rose
+        // after a pause.
+        Task {
+            try? await Task.sleep(for: .seconds(Self.keyReturnDelay), tolerance: .zero)
             withTransaction(\.disablesAnimations, true) {
                 isKeyAway = true
                 isStarting = false
                 startDrop = 0
-                isBottomEdgeHidden = false
             }
             letRoomGo()
-            // On a later turn of the run loop, once the key has gone: in the same update, away
-            // and back cancel out, and the key jumped back up from its drop.
+            // On a later turn of the run loop, once Start has gone: in the same update, away
+            // and back cancel out, and the key jumped back up from its drop. The edge band comes
+            // back with it.
             Task { bringKeyBack() }
         }
     }
@@ -271,6 +278,9 @@ extension RoutineScreen {
     static let scrollDuration = 0.35
     /// The first exercise growing at Start, the rows below stepping aside.
     static let growBeat = 0.55
+    /// From the grow's start until the workout's key starts up, as the rows visibly land: the
+    /// snappy curve's last 0.1 s moves them under a point.
+    static let keyReturnDelay = 0.45
     /// The current exercise shrinking back at the end, the rows below closing up, on a curve
     /// quick off the mark that eases gently into place and stops at its duration, with no
     /// spring's tail.

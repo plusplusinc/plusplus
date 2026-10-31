@@ -30,29 +30,39 @@ extension RoutineScreen {
         return .log(routine.logText(for: set, after: shownSets ?? workout.sets))
     }
 
-    /// The key that `primaryKeyBar` holds, for `role`.
-    @ViewBuilder
+    /// The key that `primaryKeyBar` holds, for `role`: one key whose words change, so its fill
+    /// never fades between roles.
     func key(_ role: KeyRole, named name: String) -> some View {
-        let tap = { tapKey(named: name) }
+        Button { tapKey(named: name) } label: { keyLabel(role) }
+            .accessibilityLabel(spokenKey(role))
+            // Not on Start, which the tests find by its label.
+            .accessibilityIdentifier(role == .start ? "" : "workout.key")
+    }
+
+    @ViewBuilder
+    private func keyLabel(_ role: KeyRole) -> some View {
         switch role {
         case .start:
-            Button("Start", systemImage: "play.fill", action: tap)
+            Label("Start", systemImage: "play.fill")
         case let .log(text):
-            Button(text, action: tap)
-                .accessibilityIdentifier("workout.key")
+            Text(text)
         case let .back(exercise, isAbove):
-            Button(action: tap) {
-                // Whole, wrapping at the largest text sizes rather than cut short.
-                Label(exercise, systemImage: isAbove ? "arrow.up" : "arrow.down")
-            }
-            .accessibilityLabel("Go to current exercise, \(exercise)")
-            .accessibilityIdentifier("workout.key")
+            // Whole, wrapping at the largest text sizes rather than cut short.
+            Label(exercise, systemImage: isAbove ? "arrow.up" : "arrow.down")
         case .closing:
-            Button("Log last set", action: tap)
-                .accessibilityIdentifier("workout.key")
+            Text("Log last set")
         case .finish:
-            Button("Finish workout", action: tap)
-                .accessibilityIdentifier("workout.key")
+            Text("Finish workout")
+        }
+    }
+
+    private func spokenKey(_ role: KeyRole) -> String {
+        switch role {
+        case .start: String(localized: "Start")
+        case let .log(text): text
+        case let .back(exercise, _): String(localized: "Go to current exercise, \(exercise)")
+        case .closing: String(localized: "Log last set")
+        case .finish: String(localized: "Finish workout")
         }
     }
 
