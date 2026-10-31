@@ -36,7 +36,11 @@ final nonisolated class WorkoutFinishUITests: XCTestCase {
             XCTAssertTrue(finish.appears(), "No Finish workout after the last set")
         }
         XCTContext.runActivity(named: "Finish workout ends at once, with no dialog") { _ in
-            app.buttons["workout.finish"].tap()
+            // The key appears while the logged exercise shrinks to a row above it, and rises
+            // with it: on Xcode Cloud a tap read from its first frame landed 100 points below.
+            let finish = app.buttons["workout.finish"]
+            XCTAssertTrue(finish.settles(), "Finish workout kept moving")
+            finish.tap()
             XCTAssertTrue(app.buttons["Start"].appears(), "Finish workout left the workout running")
             XCTAssertFalse(app.buttons["Discard workout"].exists, "Finish workout asked first")
             XCTAssertFalse(app.endKey.exists, "End stayed after Finish workout")
