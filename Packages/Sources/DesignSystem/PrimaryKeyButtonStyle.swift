@@ -116,8 +116,13 @@ private struct PrimaryKeyBar<Key: View>: ViewModifier {
                         // The resting face, not the ledge under it, at that distance from the
                         // bottom: the ledge and the pressed face sit below it, in the safe area.
                         // The bar keeps its room, so the list under it doesn't move. With no
-                        // safe area below, the ledge stays on the screen.
-                        .padding(.bottom, bottomInset > 0 ? -PrimaryKeyButtonStyle.ledge : 0)
+                        // safe area below, the key rises by its ledge, which so stays on the
+                        // screen. That rise is an offset, never the bar's height: `bottomInset`
+                        // is measured only after the first layout, and a bar whose height
+                        // followed it changed the list's inset a second time in its first
+                        // frame, which SwiftUI logs as an `OnScrollGeometryChange` fault.
+                        .padding(.bottom, -PrimaryKeyButtonStyle.ledge)
+                        .offset(y: bottomInset > 0 ? 0 : -PrimaryKeyButtonStyle.ledge)
                         .padding(.top, Spacing.sm + PrimaryKeyButtonStyle.ledge)
                         .transition(KeyBarTransition(below: bottomInset))
                         .id(keyID)
