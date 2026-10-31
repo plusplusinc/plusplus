@@ -138,6 +138,9 @@ extension RoutineScreen {
         guard let workout = session.workout else { return }
         withTransaction(\.disablesAnimations, true) {
             endingWorkout = workout
+            // The next workout's key starts from the log, whatever this one's last showed.
+            keyWayBack = nil
+            heldKeyRole = nil
         }
         // The workout's key slides down as it fades, and Start stays away until the list has
         // landed: taken out with no animation, the key went on the frame.

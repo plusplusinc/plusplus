@@ -134,6 +134,9 @@ extension RoutineScreen {
         }
         let target = next.flatMap { landing(on: $0.row, leaving: row.id) }
         noteRestingPitch(of: next?.row)
+        // The key keeps the words it had until the next row shows its set, so it changes with
+        // the row: read live, it said the next exercise's set ("Log left") as the pulse set off.
+        heldKeyRole = keyRole
         guard !reduceMotion else {
             return crossfadeOn(to: next, scrollingTo: target) { session.log(set, of: row) }
         }
@@ -217,6 +220,7 @@ extension RoutineScreen {
             )
             withAnimation(.snappy(duration: SetMotion.roll)) {
                 exerciseMove?.heldProgress = nil
+                heldKeyRole = nil
             }
             try? await Task.sleep(
                 for: .seconds(SetMotion.move(way) - SetMotion.roundRoll(way)),
