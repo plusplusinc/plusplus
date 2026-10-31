@@ -1,8 +1,8 @@
 import XCTest
 
 /// A workout across real taps and relaunches: Start growing the first exercise into the
-/// current one with the next in view, sliding to log its sets until the next exercise is
-/// current, the way back to it, a vertical swipe from the slide scrolling, pause and resume,
+/// current one with the next in view, tapping the key to log its sets until the next exercise
+/// is current, the key going back to it once scrolled away, pause and resume,
 /// edits staying on, the time and the next set held through a relaunch while paused, the drawer
 /// locked, Finish offered, and Discard. Elapsed time, the time counted while the app was closed,
 /// every saved field's round trip, the order of sets, the launch rule after Discard and Finish,
@@ -25,7 +25,7 @@ final nonisolated class WorkoutUITests: XCTestCase {
         // Added through the picker, and Start pressed straight after, as the row still enters.
         app.pickExercise("Biceps curl, Dumbbells", searching: "biceps")
         startShowsTheCurrentExercise(in: app)
-        slidesLogSets(in: app)
+        tapsLogSets(in: app)
         theWayBackScrollsToIt(in: app)
         pauseAndResume(in: app)
         let renamed = try editsStayOn(in: app, title: title)
@@ -81,15 +81,16 @@ final nonisolated class WorkoutUITests: XCTestCase {
         }
     }
 
-    /// Three slides on Barbell bench press: one moves it to its second set, the third on to
-    /// Pull-up, which lands under the bar. Which set comes next is `WorkoutLoggingTests`'; this
-    /// is the slide's gesture inside the scroll view, and the landing after a move.
+    /// Three taps on the key on Barbell bench press: one moves it to its second set, the third
+    /// on to Pull-up, which lands under the bar, the key reading Log set throughout. Which set
+    /// comes next, and the key's words, are `WorkoutLoggingTests`'; this is the tap's wire from
+    /// the bar to the log and the row, and the landing after a move.
     @MainActor
-    private func slidesLogSets(in app: XCUIApplication) {
-        XCTContext.runActivity(named: "Sliding logs a set, and the last one moves on") { _ in
+    private func tapsLogSets(in app: XCUIApplication) {
+        XCTContext.runActivity(named: "A tap on the key logs a set, and the last one moves on") { _ in
             let rows = app.exerciseRows
             let bench = rows.element(boundBy: 0)
-            app.slideToLog(on: bench)
+            app.tapWorkoutKey(reading: "Log set")
             XCTAssertTrue(
                 reading(
                     bench.label,
@@ -97,15 +98,16 @@ final nonisolated class WorkoutUITests: XCTestCase {
                     within: 3,
                 )
                 .hasPrefix("Barbell bench press, Set 2 of 3"),
-                "A slide logged nothing: \(bench.label)",
+                "A tap logged nothing: \(bench.label)",
             )
-            app.slideToLog(on: bench)
+            XCTAssertEqual(app.workoutKey.label, "Log set", "The key changed on a log")
+            app.tapWorkoutKey(reading: "Log set")
             XCTAssertTrue(
                 reading(bench.label, until: { $0.contains("Set 3 of 3") }, within: 3)
                     .contains("Set 3 of 3"),
-                "The second slide logged nothing: \(bench.label)",
+                "The second tap logged nothing: \(bench.label)",
             )
-            app.slideToLog(on: bench)
+            app.tapWorkoutKey(reading: "Log set")
             let pullUp = rows.element(boundBy: 1)
             XCTAssertTrue(
                 reading(pullUp.label, until: { $0.hasPrefix("Pull-up, Set 1 of 3") }, within: 3)
@@ -119,33 +121,34 @@ final nonisolated class WorkoutUITests: XCTestCase {
         }
     }
 
-    /// Scrolled away from the current exercise, a floating key goes back to it and then goes.
-    /// The first swipe starts on the slide, and scrolls, logging nothing.
+    /// Scrolled away from the current exercise, the key goes back to it, logging nothing, and
+    /// reads Log set again, which then logs.
     @MainActor
     private func theWayBackScrollsToIt(in app: XCUIApplication) {
-        XCTContext.runActivity(named: "Scrolled away, a key goes back to the current one") { _ in
-            let way = app.buttons["workout.current"]
+        XCTContext.runActivity(named: "Scrolled away, the key goes back to the current one") { _ in
+            let key = app.workoutKey
             let current = app.exerciseRows.element(boundBy: 1)
             let before = current.label
-            app.slidePoint(on: current, along: 0.5)
-                .press(
-                    forDuration: 0.05,
-                    thenDragTo: app.slidePoint(on: current, along: 0.5).down(-400),
-                )
-            XCTAssertEqual(current.label, before, "A vertical swipe from the slide logged a set")
-            for _ in 0 ..< 3 where !way.exists {
+            let wayBack = "Go to current exercise, Pull-up"
+            for _ in 0 ..< 3 where !key.label.hasPrefix(wayBack) {
                 app.swipeUp()
+                _ = reading(key.label, until: { $0.hasPrefix(wayBack) }, within: 1.5)
             }
-            XCTAssertTrue(way.appears(), "No way back once scrolled away")
             attach(named: "workout-scrolled-away")
-            way.tap()
-            XCTAssertTrue(way.disappears(), "The way back stayed once back")
+            app.tapWorkoutKey(reading: wayBack)
             // Read once the scroll back has landed.
             let bar = app.navigationBars.firstMatch.frame.maxY
             XCTAssertGreaterThanOrEqual(
                 reading(current.frame.minY, until: { $0 >= bar - 1 }, within: 2),
                 bar - 1,
                 "The way back left the current exercise under the bar",
+            )
+            XCTAssertEqual(current.label, before, "The way back logged a set")
+            app.tapWorkoutKey(reading: "Log set")
+            XCTAssertTrue(
+                reading(current.label, until: { $0.hasPrefix("Pull-up, Set 2 of 3") }, within: 3)
+                    .hasPrefix("Pull-up, Set 2 of 3"),
+                "Back on Pull-up, a tap logged nothing: \(current.label)",
             )
         }
     }
@@ -199,9 +202,10 @@ final nonisolated class WorkoutUITests: XCTestCase {
                 XCTAssertEqual(reading(key.label, becoming: "Pause", within: 2), "Pause")
                 XCTAssertEqual(title.value as? String, renamed)
                 XCTAssertTrue(
-                    app.exerciseRows.element(boundBy: 1).label.hasPrefix("Pull-up, Set 1 of 3"),
-                    "The relaunch did not come back on Pull-up's first set",
+                    app.exerciseRows.element(boundBy: 1).label.hasPrefix("Pull-up, Set 2 of 3"),
+                    "The relaunch did not come back on Pull-up's second set",
                 )
+                XCTAssertEqual(app.workoutKey.label, "Log set", "The key after a relaunch")
                 XCTAssertEqual(app.exerciseNames, [
                     "Barbell bench press", "Pull-up", "Band pull-apart", "Barbell back squat",
                     "Balance board hold", "Calf raise", "Step-up", "Biceps curl", "Push-up",
@@ -229,42 +233,6 @@ final nonisolated class WorkoutUITests: XCTestCase {
             expected,
             "The drag moved nothing in a workout",
         )
-    }
-}
-
-@MainActor
-extension XCUIApplication {
-    /// A point on the slide at the bottom of the current exercise's row `row`, `along` its width.
-    /// The slide is inside the row's one accessibility element, so it is found from the row's
-    /// frame: its track, 56 pt tall, ends 8 pt above the row's bottom, its key at its leading end.
-    func slidePoint(on row: XCUIElement, along: CGFloat) -> XCUICoordinate {
-        let frame = row.frame
-        // The track runs under the name, from the rail column's end to the row's trailing inset.
-        let (start, end) = (frame.minX + 46, frame.maxX - 16)
-        return point(x: start + (end - start) * along, y: frame.maxY - 8 - 28)
-    }
-
-    /// Slides the key on `row`'s slide from its rest to the track's end, and lets go, once the
-    /// key is back at the start: after a log it finishes its slide, rests, and fades back in,
-    /// taking no drag until then.
-    func slideToLog(on row: XCUIElement) {
-        XCTAssertTrue(row.settles(), "The current exercise kept moving")
-        XCTAssertTrue(
-            reading(isKeyAtRest(on: row), becoming: true, within: 3),
-            "The slide's key did not come back to the start",
-        )
-        slidePoint(on: row, along: 0.1)
-            .press(forDuration: 0.05, thenDragTo: slidePoint(on: row, along: 0.98))
-    }
-
-    /// Whether the slide's light key shows at the start of its dark track, read from pixels.
-    private func isKeyAtRest(on row: XCUIElement) -> Bool {
-        // Above its arrow, which is drawn in the background's color.
-        let key = slidePoint(on: row, along: 0.1).down(-16).screenPoint
-        guard let shot = try? TitleShot(), let color = try? shot.color(at: key) else {
-            return false
-        }
-        return color.reduce(0, +) > 600
     }
 }
 

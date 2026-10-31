@@ -11,7 +11,7 @@ struct WorkoutLoggingTests {
         Workout(routineID: routine.id, routineName: "Upper", startedAt: start)
     }
 
-    /// Logs the routine's next set, as the slide does.
+    /// Logs the routine's next set, as the key does.
     private func logNext(_ workout: Workout, _ routine: Routine) throws -> Workout {
         let next = try #require(routine.nextSet(after: workout.sets))
         let row = try #require(routine.exercises.first { $0.id == next.row })
@@ -71,6 +71,26 @@ struct WorkoutLoggingTests {
         workout = try logNext(workout, routine)
         #expect(workout.sets.map(\.side) == [.left, .right])
         #expect(routine.progress(of: row.id, logged: workout.sets) == (1, 3))
+    }
+
+    @Test("The key reads Log set on a whole set, Log left then Log right on a side, and Log last set on the workout's last")
+    func logText() throws {
+        let push = try RoutineExercise.builtIn("Push-up") { $0.sets = 2 }
+        let row = try RoutineExercise.builtIn("Dumbbell row") { $0.sets = 1 }
+        let routine = Routine(exercises: [push, row])
+        var workout = workout(routine)
+        var said: [String] = []
+        while let next = routine.nextSet(after: workout.sets) {
+            said.append(routine.logText(for: next, after: workout.sets))
+            workout = try logNext(workout, routine)
+        }
+        // The right side is the workout's last set, so it reads as the last, not as a side.
+        #expect(said == ["Log set", "Log set", "Log left", "Log last set"])
+        let single = Routine(exercises: [push])
+        let first = PlannedSet(row: push.id, round: 1)
+        #expect(single.logText(for: first, after: []) == "Log set")
+        #expect(single.logText(for: PlannedSet(row: push.id, round: 2), after: [])
+            == "Log set", "A set with an earlier one still to do is not the last")
     }
 
     @Test("Once every set is logged there is no next set, and every row reads finished")

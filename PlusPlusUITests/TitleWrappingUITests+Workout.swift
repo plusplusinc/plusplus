@@ -42,7 +42,7 @@ extension TitleWrappingUITests {
             }
     }
 
-    /// The current exercise's row just under the bar, with no way back to it showing.
+    /// The current exercise's row just under the bar, the key not going back to it.
     @MainActor
     private func assertLandedOnTheCurrentExercise(in app: XCUIApplication, after step: String) {
         let current = app.exerciseRows.firstMatch
@@ -54,6 +54,9 @@ extension TitleWrappingUITests {
             isLanded(top),
             "After \(step), the current exercise's top is at \(top), the bar's bottom at \(bar)",
         )
-        XCTAssertFalse(app.buttons["workout.current"].exists, "The way back shows after \(step)")
+        XCTAssertFalse(
+            app.workoutKey.label.hasPrefix("Go to current exercise"),
+            "The key goes back after \(step)",
+        )
     }
 }
