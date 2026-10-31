@@ -146,7 +146,8 @@ extension RoutineScreen {
     /// up in from it, one after the other, never two keys at once and never both words on one
     /// (with Reduce Motion, each fades). The bar keeps its room throughout, so the list under it
     /// stays put: with the bar gone between them, a list at its end moved down, which changed
-    /// whether the current exercise was in view, and the key back with it. A tap while it swaps does nothing. Within a kind, the
+    /// whether the current exercise was in view, and the key back with it. A tap while it swaps
+    /// does nothing. Within a kind, the
     /// words change in place. During a swap, `change` is made at once and the key coming in
     /// shows the workout as it stands then.
     func swapKey(_ change: () -> Void) {

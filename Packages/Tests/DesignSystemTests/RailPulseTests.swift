@@ -179,7 +179,10 @@ struct RailPulseTests {
         #expect(SetMotion.leaveDelay(.figures, way: way) == start)
         #expect(SetMotion.detailOut(way: way) == .easeIn(duration: 0.06).delay(start))
         // Bottom first out, every part gone before the first comes in, top first, by the end.
-        #expect(SetMotion.leaveDelay(.figures, way: way) < SetMotion.leaveDelay(.progress, way: way))
+        #expect(SetMotion.leaveDelay(.figures, way: way) < SetMotion.leaveDelay(
+            .progress,
+            way: way,
+        ))
         #expect(SetMotion.leaveDelay(.progress, way: way) + SetMotion.leaveFade
             <= SetMotion.arriveDelay(.progress, way: way) + 1e-9)
         #expect(SetMotion.arriveDelay(.progress, way: way)

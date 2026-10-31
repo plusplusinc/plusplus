@@ -7,7 +7,8 @@ import Testing
 
 /// The current exercise of a workout on the rail, as the routine screen composes it: its node
 /// large and green, its name grown, which set it is on with its bars, its equipment, its plan's
-/// numbers large, the label as tall as they are, the next row under it. At AX5 the numbers' unit goes under them, and nothing truncates.
+/// numbers large, the label as tall as they are, the next row under it. At AX5 the numbers' unit
+/// goes under them, and nothing truncates.
 @Suite("Current exercise")
 struct CurrentExerciseSnapshotTests {
     private static let width: CGFloat = 390

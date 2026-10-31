@@ -56,7 +56,8 @@ extension View {
     /// content runs on under the key, beside and below it, with the bottom scroll edge effect
     /// hidden, which a `safeAreaBar` would otherwise draw behind the bar. Its sides are as far
     /// from the screen's edges as its bottom is from the screen's bottom. Each time `plusOnes`
-    /// goes up, a +1 pops off the key's top. `drop` moves the key down by that much, at least off the screen, which an
+    /// goes up, a +1 pops off the key's top. `drop` moves the key down by that much, at least off
+    /// the screen, which an
     /// animation carries it along at its own pace. A change of `keyID` makes the key another
     /// one, which comes in afresh: a key put back just after it went otherwise took up the one
     /// going, faded and below the edge, and faded in as it rose. While `isSwappedOut`, the key

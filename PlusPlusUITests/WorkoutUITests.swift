@@ -89,38 +89,39 @@ final nonisolated class WorkoutUITests: XCTestCase {
     /// the bar to the log and the row, and the landing after a move.
     @MainActor
     private func tapsLogSets(in app: XCUIApplication) {
-        XCTContext.runActivity(named: "A tap on the key logs a set, and the last one moves on") { _ in
-            let rows = app.exerciseRows
-            let bench = rows.element(boundBy: 0)
-            app.tapWorkoutKey(reading: "Log set")
-            XCTAssertTrue(
-                reading(
-                    bench.label,
-                    until: { $0.hasPrefix("Barbell bench press, Set 2 of 3") },
-                    within: 3,
+        XCTContext
+            .runActivity(named: "A tap on the key logs a set, and the last one moves on") { _ in
+                let rows = app.exerciseRows
+                let bench = rows.element(boundBy: 0)
+                app.tapWorkoutKey(reading: "Log set")
+                XCTAssertTrue(
+                    reading(
+                        bench.label,
+                        until: { $0.hasPrefix("Barbell bench press, Set 2 of 3") },
+                        within: 3,
+                    )
+                    .hasPrefix("Barbell bench press, Set 2 of 3"),
+                    "A tap logged nothing: \(bench.label)",
                 )
-                .hasPrefix("Barbell bench press, Set 2 of 3"),
-                "A tap logged nothing: \(bench.label)",
-            )
-            XCTAssertEqual(app.workoutKey.label, "Log set", "The key changed on a log")
-            app.tapWorkoutKey(reading: "Log set")
-            XCTAssertTrue(
-                reading(bench.label, until: { $0.contains("Set 3 of 3") }, within: 3)
-                    .contains("Set 3 of 3"),
-                "The second tap logged nothing: \(bench.label)",
-            )
-            app.tapWorkoutKey(reading: "Log set")
-            let pullUp = rows.element(boundBy: 1)
-            XCTAssertTrue(
-                reading(pullUp.label, until: { $0.hasPrefix("Pull-up, Set 1 of 3") }, within: 3)
-                    .hasPrefix("Pull-up, Set 1 of 3"),
-                "The last set did not move on to Pull-up: \(pullUp.label)",
-            )
-            let bar = app.navigationBars.firstMatch.frame.maxY
-            let top = reading(pullUp.frame.minY, until: { abs($0 - bar) < 30 }, within: 3)
-            XCTAssertLessThan(abs(top - bar), 30, "Pull-up did not land under the bar: \(top)")
-            attach(named: "workout-moved-on")
-        }
+                XCTAssertEqual(app.workoutKey.label, "Log set", "The key changed on a log")
+                app.tapWorkoutKey(reading: "Log set")
+                XCTAssertTrue(
+                    reading(bench.label, until: { $0.contains("Set 3 of 3") }, within: 3)
+                        .contains("Set 3 of 3"),
+                    "The second tap logged nothing: \(bench.label)",
+                )
+                app.tapWorkoutKey(reading: "Log set")
+                let pullUp = rows.element(boundBy: 1)
+                XCTAssertTrue(
+                    reading(pullUp.label, until: { $0.hasPrefix("Pull-up, Set 1 of 3") }, within: 3)
+                        .hasPrefix("Pull-up, Set 1 of 3"),
+                    "The last set did not move on to Pull-up: \(pullUp.label)",
+                )
+                let bar = app.navigationBars.firstMatch.frame.maxY
+                let top = reading(pullUp.frame.minY, until: { abs($0 - bar) < 30 }, within: 3)
+                XCTAssertLessThan(abs(top - bar), 30, "Pull-up did not land under the bar: \(top)")
+                attach(named: "workout-moved-on")
+            }
     }
 
     /// Scrolled away from the current exercise, the key goes back to it, logging nothing, and

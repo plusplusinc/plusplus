@@ -123,7 +123,8 @@ extension RoutineScreen {
     /// run to 0 in the shift's transaction. After the last set, the row closes as the list settles
     /// on its end and the key becomes Finish workout.
     func log(_ set: PlannedSet, of row: RoutineExercise) {
-        // The key logs nothing during a move (`tapKey(named:)`): one would start a second move whose state the first one's end tears down.
+        // The key logs nothing during a move (`tapKey(named:)`): one would start a second move
+        // whose state the first one's end tears down.
         guard let workout = session.workout, !isMovingOn else { return }
         let next = routine.nextSet(after: workout.logging(set, of: row, at: .now).sets)
         guard next?.row != set.row else {
@@ -232,7 +233,8 @@ extension RoutineScreen {
     }
 
     /// The workout's last planned set: the parts go, and the row closes back as the list settles
-    /// on its end, in one motion, the key swapping to Finish workout once it is over. The room under the end that landed the row under the bar closes on the same curve,
+    /// on its end, in one motion, the key swapping to Finish workout once it is over. The room
+    /// under the end that landed the row under the bar closes on the same curve,
     /// and the list's end stays where it shows as the content shortens, so what is above it moves
     /// down, once, and never back.
     private func logLast(_ set: PlannedSet, of row: RoutineExercise) {

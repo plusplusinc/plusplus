@@ -35,7 +35,10 @@ final nonisolated class WorkoutFinishUITests: XCTestCase {
                 "Finish workout",
                 "The key did not turn to Finish workout after the last set",
             )
-            XCTAssertTrue(app.buttons["Add exercise"].exists, "The list does not end in Add exercise")
+            XCTAssertTrue(
+                app.buttons["Add exercise"].exists,
+                "The list does not end in Add exercise",
+            )
         }
         XCTContext.runActivity(named: "Finish workout ends at once, with no dialog") { _ in
             app.tapWorkoutKey(reading: "Finish workout")
