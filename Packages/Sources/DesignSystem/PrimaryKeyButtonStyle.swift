@@ -53,11 +53,10 @@ extension View {
     /// A screen's primary key in a bar at its bottom while `isPresented`, sliding up in from
     /// below the screen's edge and down out of it as it fades, or with Reduce Motion fading in
     /// and out. The key sits above the home indicator, with nothing behind it: a scroll view's
-    /// content runs on under the key, beside and below it, softened by the system's scroll edge
-    /// effect, which a `safeAreaBar` extends to its height as the navigation bar's does at the
-    /// top. Its sides are as far from the screen's edges as its bottom is from the screen's
-    /// bottom. Each time `plusOnes` goes up, a +1 pops off the
-    /// key's top. `drop` moves the key down by that much, at least off the screen, which an
+    /// content runs on under the key, beside and below it, with the bottom scroll edge effect
+    /// hidden, which a `safeAreaBar` would otherwise draw behind the bar. Its sides are as far
+    /// from the screen's edges as its bottom is from the screen's bottom. Each time `plusOnes`
+    /// goes up, a +1 pops off the key's top. `drop` moves the key down by that much, at least off the screen, which an
     /// animation carries it along at its own pace. A change of `keyID` makes the key another
     /// one, which comes in afresh: a key put back just after it went otherwise took up the one
     /// going, faded and below the edge, and faded in as it rose. While `isSwappedOut`, the key
@@ -98,6 +97,8 @@ private struct PrimaryKeyBar<Key: View>: ViewModifier {
 
     func body(content: Content) -> some View {
         content
+            // No band behind the key: the list's rows run on under it.
+            .scrollEdgeEffectHidden(true, for: .bottom)
             .safeAreaBar(edge: .bottom) {
                 if isPresented {
                     key
@@ -132,8 +133,7 @@ private struct PrimaryKeyBar<Key: View>: ViewModifier {
                     }
                     .ignoresSafeArea(.keyboard)
             }
-            // Over the screen rather than in the bar: the bar's scroll edge effect grows to cover
-            // whatever the bar draws, so a +1 rising in it raised a frosted band behind itself.
+            // Over the screen rather than in the bar, so it can rise above the bar's room.
             .overlayPreferenceValue(PrimaryKeyBounds.self) { key in
                 GeometryReader { proxy in
                     if let key {
@@ -242,52 +242,13 @@ private struct KeyBarPlace: ViewModifier {
 
     func body(content: Content) -> some View {
         let isFaded = phase == .didDisappear || (reduceMotion && !phase.isIdentity)
-        KeyRise(progress: phase.isIdentity || reduceMotion ? 1 : 0, below: below) {
-            content
-        }
-        .opacity(isFaded ? 0 : 1)
-    }
-}
-
-/// The key `progress` of the way up from below the screen's edge, the bar as tall as the key
-/// stands above the bar's bottom, so the bar's edge band rises with the key's top rather than
-/// standing at full height from the first frame. A layout, so the bar's height, and the band
-/// with it, is worked out frame by frame with the key.
-private struct KeyRise: Layout {
-    var progress: CGFloat
-    let below: CGFloat
-
-    nonisolated var animatableData: CGFloat {
-        get { progress }
-        set { progress = newValue }
-    }
-
-    nonisolated func sizeThatFits(
-        proposal: ProposedViewSize,
-        subviews: Subviews,
-        cache _: inout (),
-    ) -> CGSize {
-        let size = subviews.first?.sizeThatFits(proposal) ?? .zero
-        return CGSize(width: size.width, height: max(size.height - hidden(size.height), 0))
-    }
-
-    nonisolated func placeSubviews(
-        in bounds: CGRect,
-        proposal _: ProposedViewSize,
-        subviews: Subviews,
-        cache _: inout (),
-    ) {
-        guard let key = subviews.first else { return }
-        let size = key.sizeThatFits(ProposedViewSize(width: bounds.width, height: nil))
-        key.place(
-            at: CGPoint(x: bounds.minX, y: bounds.maxY - size.height + hidden(size.height)),
-            proposal: ProposedViewSize(width: bounds.width, height: size.height),
-        )
-    }
-
-    /// How far down the key is: none at rest, out of sight below the screen at 0.
-    private nonisolated func hidden(_ height: CGFloat) -> CGFloat {
-        (1 - progress) * (height + below)
+        let isDown = !phase.isIdentity && !reduceMotion
+        let below = below
+        content
+            .visualEffect { content, proxy in
+                content.offset(y: isDown ? proxy.size.height + below : 0)
+            }
+            .opacity(isFaded ? 0 : 1)
     }
 }
 

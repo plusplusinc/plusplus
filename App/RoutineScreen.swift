@@ -40,8 +40,6 @@ struct RoutineScreen: View {
     @State var isStarting = false
     /// How far Start rides down with the rows below the current exercise as it grows at Start.
     @State var startDrop: CGFloat = 0
-    /// Under Start, the scroll edge effect's band hidden while the list makes room.
-    @State var isBottomEdgeHidden = false
     /// The key kept out of its bar from the end of Start's grow until the workout's key comes
     /// up, and as a workout ends until the list has landed and Start comes up.
     @State var isKeyAway = false
@@ -278,9 +276,6 @@ struct RoutineScreen: View {
             }
             .coordinateSpace(.list)
         }
-        .scrollEdgeEffectHidden(isBottomEdgeHidden, for: .bottom)
-        // Behind the key, the band the navigation bar has at the top, with its hard edge.
-        .scrollEdgeEffectStyle(.hard, for: .bottom)
         .scrollPosition($scrollPosition)
         .railAutoscroll($scrollPosition)
         .onScrollGeometryChange(for: ScrollGeometry.self, of: \.self) { old, new in

@@ -15,14 +15,12 @@ extension RoutineScreen {
         guard !isStarting, !isKeyAway, session.workout == nil else { return }
         // The list's end lies under the first row until it grows, so a short routine may have
         // nowhere to scroll it to: room under the end, out of sight, lets it go. It goes in
-        // ahead of the scroll: a scroll in the same transaction stops at the old end. Where the
-        // end showed above Start, the room would raise the edge effect's band under it.
+        // ahead of the scroll: a scroll in the same transaction stops at the old end.
         withTransaction(\.disablesAnimations, true) {
             // Held where it is: after an add's scroll to the list's end, the position stays
             // bound to that edge, and followed it down into the room, off the screen.
             scrollPosition.scrollTo(y: scrollBeat.scrolledY)
             isMakingRoom = true
-            isBottomEdgeHidden = isEndInView
             startDrop = 0
         }
         isStarting = true
@@ -37,7 +35,6 @@ extension RoutineScreen {
         } catch {
             isStarting = false
             isMakingRoom = false
-            isBottomEdgeHidden = false
             return
         }
         leave(named: name)
@@ -100,7 +97,6 @@ extension RoutineScreen {
             session.start(routineName: name)
             growthLift = 0
             startDrop = max(drop, 1)
-            isBottomEdgeHidden = true
         } completion: {
             letRoomGo()
         }
@@ -157,10 +153,7 @@ extension RoutineScreen {
             return crossfade(scrollingTo: 0, then: bringKeyBack, change)
         }
         // Room under the list's end, so the shrinking content doesn't pull the scroll up.
-        withTransaction(\.disablesAnimations, true) {
-            isMakingRoom = true
-            isBottomEdgeHidden = true
-        }
+        withTransaction(\.disablesAnimations, true) { isMakingRoom = true }
         withAnimation(.timingCurve(0.25, 0.1, 0.25, 1, duration: Self.endBeat)) {
             change()
             scrollPosition.scrollTo(edge: .top)
@@ -175,12 +168,11 @@ extension RoutineScreen {
         }
     }
 
-    /// The key, away for Start's grow or the end of a workout, coming back with its edge band:
-    /// the workout's key, or Start.
+    /// The key, away for Start's grow or the end of a workout, coming back: the workout's key,
+    /// or Start.
     private func bringKeyBack() {
         withAnimation(.smooth(duration: Self.startReturn)) {
             isKeyAway = false
-            isBottomEdgeHidden = false
         }
     }
 
@@ -222,10 +214,7 @@ extension RoutineScreen {
                 underBarCut = 0
                 change()
             } completion: {
-                withTransaction(\.disablesAnimations, true) {
-                    isCrossfading = false
-                    isBottomEdgeHidden = false
-                }
+                withTransaction(\.disablesAnimations, true) { isCrossfading = false }
                 letRoomGo()
                 then?()
             }
