@@ -61,8 +61,8 @@ extension View {
     /// animation carries it along at its own pace. A change of `keyID` makes the key another
     /// one, which comes in afresh: a key put back just after it went otherwise took up the one
     /// going, faded and below the edge, and faded in as it rose. While `isSwappedOut`, the key
-    /// is down out of sight, fading as it goes and coming back up unfaded, with Reduce Motion
-    /// only fading, and the bar keeps its room: a key swapped for another with no bar between
+    /// is down out of sight, unfaded both ways, with Reduce Motion only fading, and the bar
+    /// keeps its room: a key swapped for another with no bar between
     /// them moved the list under it.
     public func primaryKeyBar(
         isPresented: Bool,
@@ -182,16 +182,16 @@ private struct KeyDrop: ViewModifier, Animatable {
 }
 
 /// The key down out of sight while `isOut`, as far as its height and what lies below it, in
-/// place: the bar keeps its room. Going, it fades as it goes; coming back, it is unfaded from
-/// the start. With Reduce Motion it stays put and fades each way. Measured as it is drawn, so a
+/// place: the bar keeps its room. No further, so the key coming in starts up as the one going
+/// clears the edge: with 8 pt more, the two halves had frames with no key between them. Unfaded
+/// both ways: faded going, it was all but gone three frames before it cleared the edge. With
+/// Reduce Motion it stays put and fades each way. Measured as it is drawn, so a
 /// key that starts out of sight is out of sight from its first frame.
 private struct KeySwap: ViewModifier, Animatable {
-    let isOut: Bool
     /// How far out the key is, 0 to 1, which an animation runs through.
     var progress: CGFloat
 
     init(isOut: Bool) {
-        self.isOut = isOut
         progress = isOut ? 1 : 0
     }
 
@@ -205,17 +205,13 @@ private struct KeySwap: ViewModifier, Animatable {
     func body(content: Content) -> some View {
         let progress = progress
         let moves = !reduceMotion
-        let fades = isOut || reduceMotion
         content
             .visualEffect { content, proxy in
                 content.offset(y: moves
-                    ? progress * (proxy.size.height + proxy.safeAreaInsets.bottom + Spacing.sm)
+                    ? progress * (proxy.size.height + proxy.safeAreaInsets.bottom)
                     : 0)
             }
-            .opacity(fades ? 1 - progress : 1)
-            // Worked out from `progress` frame by frame, never animated on its own: the opacity's
-            // jump to 1 as the key came back was, and the key rose faded.
-            .transaction(value: isOut) { $0.animation = nil }
+            .opacity(reduceMotion ? 1 - progress : 1)
     }
 }
 

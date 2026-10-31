@@ -249,9 +249,7 @@ extension RoutineScreen {
             scrollToCurrent()
         }
         openOnCurrentIfDue()
-        if scrollBeat.phase == .idle {
-            settleKeyRole()
-        }
+        settleKeyRole()
     }
 
     /// Scrolls the current exercise's row up to just under the bar.
@@ -302,11 +300,22 @@ extension RoutineScreen {
 /// around the top, a point or two either side of it, is undone by it, which left the current
 /// exercise where it was at Start whenever the scroll was long enough to still be settling.
 final class ScrollBeat {
-    /// How far the list is scrolled. Not observed: read only as a sequence begins.
+    /// How far the list is scrolled. Not observed: read as a sequence begins and as the key's
+    /// role settles.
     private(set) var scrolledY: CGFloat = 0
     /// The list's scroll phase. Not observed: the key's role reads it as the list's place changes.
     private(set) var phase = ScrollPhase.idle
     private var next: (() -> Void)?
+
+    /// Whether the list is pulled down past its top, rubber-banding.
+    var isPastTop: Bool {
+        scrolledY < 0
+    }
+
+    /// Whether a finger is on the list, scrolling it or about to.
+    var isFingerOn: Bool {
+        phase == .interacting || phase == .tracking
+    }
 
     /// Scrolls with `scroll` toward the list's top, then, once it has stopped, calls `next`.
     func run(then next: @escaping () -> Void, _ scroll: () -> Void) {

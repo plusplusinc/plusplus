@@ -46,7 +46,8 @@ struct RoutineScreen: View {
     /// up, and as a workout ends until the list has landed and Start comes up.
     @State var isKeyAway = false
     /// While the current exercise is mostly out of view, which way the key points back to it,
-    /// settled only once a scroll has ended (`settleKeyRole()`); none while it logs.
+    /// held while a finger is on the list and following the row as the list coasts once it lifts
+    /// (`settleKeyRole()`); none while it logs.
     @State var keyWayBack: VerticalEdge?
     /// While the key swaps (`swapKey(_:)`), the role of the key going, until it has gone.
     @State var heldKeyRole: KeyRole?
@@ -278,6 +279,8 @@ struct RoutineScreen: View {
             .coordinateSpace(.list)
         }
         .scrollEdgeEffectHidden(isBottomEdgeHidden, for: .bottom)
+        // Behind the key, the band the navigation bar has at the top, with its hard edge.
+        .scrollEdgeEffectStyle(.hard, for: .bottom)
         .scrollPosition($scrollPosition)
         .railAutoscroll($scrollPosition)
         .onScrollGeometryChange(for: ScrollGeometry.self, of: \.self) { old, new in
@@ -287,13 +290,15 @@ struct RoutineScreen: View {
         .onScrollPhaseChange { _, phase in
             isScrollingByHand = phase == .interacting || phase == .decelerating
             scrollBeat.phaseChanged(to: phase)
-            if phase == .idle {
-                settleKeyRole()
-            }
+            settleKeyRole()
         }
         .onScrollGeometryChange(for: Bool.self, of: Self.endIsInView(of:)) { isEndInView = $1 }
-        .onScrollGeometryChange(for: CGFloat.self, of: \.scrolledY) {
-            scrollBeat.listMoved(to: $1)
+        .onScrollGeometryChange(for: CGFloat.self, of: \.scrolledY) { old, new in
+            scrollBeat.listMoved(to: new)
+            // Back from past the top, where the key's role was held.
+            if old < 0, new >= 0 {
+                settleKeyRole()
+            }
         }
         .onGeometryChange(for: CGFloat.self, of: \.size.height) { listHeight = $0 }
         .primaryKeyBar(

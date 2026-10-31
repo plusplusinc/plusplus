@@ -93,8 +93,9 @@ extension RoutineScreen {
 
     /// A tap on the key. Out of a workout, Start. After the last set, Finish workout. Otherwise,
     /// where the current exercise is mostly out of view when the tap lands, as on a list still
-    /// moving away under "Log set", the list goes back to it and nothing is logged: the words
-    /// change only once a scroll has ended (`settleKeyRole()`), the place at once.
+    /// moving away under a finger that still says "Log set", the list goes back to it and nothing
+    /// is logged: the key changes only once the finger lifts (`settleKeyRole()`), the place at
+    /// once.
     func tapKey(named name: String) {
         guard session.workout != nil, !isStarting else { return pressStart() }
         guard !isMovingOn, !isKeySwapping else { return }
@@ -118,11 +119,20 @@ extension RoutineScreen {
     }
 
     /// Settles which way the key points: back to the current exercise while it is mostly out of
-    /// view, else none. Called once a scroll has ended or a move has landed, never mid-scroll,
-    /// so the words don't change under a finger. Not while moving on, whose row passes through
-    /// the edge, nor before a relaunch has opened on the current exercise.
+    /// view, else none. Called as the row crosses that line, as the scroll phase changes, and
+    /// as a move lands. Held while a finger is on the list, so the key doesn't change under a
+    /// thumb about to tap it; once the finger lifts, it follows the row as the list coasts,
+    /// swapping as the row crosses the line rather than once the list stops (about 0.95 s after
+    /// a flick, with the swap's 0.45 s after that, the key lagged the list). Not while moving
+    /// on, whose row passes through the edge, nor before a relaunch has opened on the current
+    /// exercise. Nor while the list rubber-bands past its top: a flick back to the top pulled
+    /// the current exercise mostly below the screen for a moment, and the key went from back
+    /// up, to Log set, to back down, to Log set within 0.2 s. Past the end, the rows only go
+    /// further the way they were going.
     func settleKeyRole() {
-        guard !isMovingOn, !opensOnCurrent else { return }
+        guard !isMovingOn, !opensOnCurrent, !scrollBeat.isFingerOn, !scrollBeat.isPastTop else {
+            return
+        }
         let way: VerticalEdge? = if currentID != nil, let place = currentPlace, place.isMostlyOut {
             place.isAbove ? .top : .bottom
         } else {
@@ -149,7 +159,9 @@ extension RoutineScreen {
             heldKeyRole = nil
             return
         }
-        withAnimation(.easeOut(duration: Self.keySwap)) { isKeySwapping = true }
+        // Easing in, so it is still in sight until it clears the edge, and the next one comes up
+        // straight after: easing out, it crept out of sight over its last frames.
+        withAnimation(.easeIn(duration: Self.keySwap)) { isKeySwapping = true }
         Task {
             try? await Task.sleep(for: .seconds(Self.keySwap), tolerance: .zero)
             // Out of sight, the key becomes the next one with no transition of its own.
@@ -162,7 +174,7 @@ extension RoutineScreen {
     }
 
     /// Each half of a key swap: the key going down and out, then the next coming up and in.
-    static let keySwap = 0.2
+    static let keySwap = 0.12
 
     /// After a log that stays on the exercise, the beat the set is held for before the line
     /// rolls on. A task on the held set, so the screen going away cancels it.
