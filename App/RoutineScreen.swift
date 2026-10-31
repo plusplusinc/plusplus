@@ -48,6 +48,11 @@ struct RoutineScreen: View {
     /// While the current exercise is mostly out of view, which way the key points back to it,
     /// settled only once a scroll has ended (`settleKeyRole()`); none while it logs.
     @State var keyWayBack: VerticalEdge?
+    /// While the key swaps (`swapKey(_:)`), the role of the key going, until it has gone.
+    @State var heldKeyRole: KeyRole?
+    /// From a key swap's start until the next key is coming in: the key down out of sight, its
+    /// room in the bar kept, and taps do nothing.
+    @State var isKeySwapping = false
     /// The key's logs, each popping a +1 off it.
     @State var plusOnes = 0
     /// The key's logs of a set, each with a medium impact, and of a side, each with a light one.
@@ -293,8 +298,8 @@ struct RoutineScreen: View {
         .onGeometryChange(for: CGFloat.self, of: \.size.height) { listHeight = $0 }
         .primaryKeyBar(
             isPresented: showsKey,
-            keyID: keyRole == .start,
-            shape: keyShape,
+            keyID: keyRole.kind,
+            isSwappedOut: isKeySwapping,
             plusOnes: plusOnes,
             drop: startDrop,
         ) {

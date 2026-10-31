@@ -5,32 +5,32 @@ import SwiftUI
 /// moves, and letting go lets it back up, each in 0.06 s, easing out. Not green: green is for
 /// data.
 ///
-/// A key's shape, as Add exercise's is, on a ledge of the same shape; or, as a pill, a capsule
-/// hugging its label.
+/// A capsule, its ends fully round, on a ledge of the same shape. A label that wraps, at the
+/// largest text sizes, makes the key taller with the same round corners and straight sides
+/// between them: as a capsule it went oval, and the label's first and last lines stood out past
+/// its edge.
 public struct PrimaryKeyButtonStyle: ButtonStyle {
-    private let shape: PrimaryKeyShape
     /// A little taller than a key, such as Add exercise.
     @ScaledMetric(relativeTo: .title3) private var minHeight: CGFloat = 56
+    /// Above and below the label, inside the minimum height for one line, so a wrapped label's
+    /// first and last lines stay clear of the round corners.
+    @ScaledMetric(relativeTo: .title3) private var labelInset: CGFloat = 12
     private static let ledge: CGFloat = 4
     /// The press and the release: a quick ease-out both ways, so the key reads as struck.
     private static let press = Animation.easeOut(duration: 0.06)
 
     @ObserveHotReload private var hotReload
 
-    public init(shape: PrimaryKeyShape = .wide) {
-        self.shape = shape
-    }
+    public init() { }
 
     public func makeBody(configuration: Configuration) -> some View {
-        let shape = switch shape {
-        case .wide: AnyShape(RoundedRectangle(cornerRadius: Radius.key))
-        case .pill: AnyShape(Capsule())
-        }
+        let shape = RoundedRectangle(cornerRadius: minHeight / 2)
         configuration.label
             .font(.ppPrimaryKey)
             .foregroundStyle(.pp(.onPrimaryKey))
             .padding(.horizontal, Spacing.lg)
-            .frame(maxWidth: self.shape == .wide ? .infinity : nil, minHeight: minHeight)
+            .padding(.vertical, labelInset)
+            .frame(maxWidth: .infinity, minHeight: minHeight)
             .background(shape.fill(.pp(.primaryKey)))
             .contentShape(shape)
             .offset(y: configuration.isPressed ? Self.ledge : 0)
@@ -39,13 +39,6 @@ public struct PrimaryKeyButtonStyle: ButtonStyle {
             .padding(.bottom, Self.ledge)
             .hotReloadable()
     }
-}
-
-/// How wide the primary key is: the bar's whole width, or a pill hugging its label at the bar's
-/// trailing end.
-public enum PrimaryKeyShape: Sendable {
-    case wide
-    case pill
 }
 
 extension ButtonStyle where Self == PrimaryKeyButtonStyle {
@@ -62,15 +55,18 @@ extension View {
     /// content runs on under the key, beside and below it, softened by the system's scroll edge
     /// effect, which a `safeAreaBar` extends to its height as the navigation bar's does at the
     /// top. Its sides are as far from the screen's edges as its bottom is from the screen's
-    /// bottom; a pill sits at its trailing end. Each time `plusOnes` goes up, a +1 pops off the
+    /// bottom. Each time `plusOnes` goes up, a +1 pops off the
     /// key's top. `drop` moves the key down by that much, at least off the screen, which an
     /// animation carries it along at its own pace. A change of `keyID` makes the key another
     /// one, which comes in afresh: a key put back just after it went otherwise took up the one
-    /// going, faded and below the edge, and faded in as it rose.
+    /// going, faded and below the edge, and faded in as it rose. While `isSwappedOut`, the key
+    /// is down out of sight, fading as it goes and coming back up unfaded, with Reduce Motion
+    /// only fading, and the bar keeps its room: a key swapped for another with no bar between
+    /// them moved the list under it.
     public func primaryKeyBar(
         isPresented: Bool,
         keyID: AnyHashable = 0,
-        shape: PrimaryKeyShape = .wide,
+        isSwappedOut: Bool = false,
         plusOnes: Int = 0,
         drop: CGFloat = 0,
         @ViewBuilder key: () -> some View,
@@ -78,7 +74,7 @@ extension View {
         modifier(PrimaryKeyBar(
             isPresented: isPresented,
             keyID: keyID,
-            shape: shape,
+            isSwappedOut: isSwappedOut,
             plusOnes: plusOnes,
             drop: drop,
             key: key(),
@@ -89,7 +85,7 @@ extension View {
 private struct PrimaryKeyBar<Key: View>: ViewModifier {
     let isPresented: Bool
     let keyID: AnyHashable
-    let shape: PrimaryKeyShape
+    let isSwappedOut: Bool
     let plusOnes: Int
     let drop: CGFloat
     let key: Key
@@ -104,10 +100,10 @@ private struct PrimaryKeyBar<Key: View>: ViewModifier {
             .safeAreaBar(edge: .bottom) {
                 if isPresented {
                     key
-                        .buttonStyle(PrimaryKeyButtonStyle(shape: shape))
+                        .buttonStyle(.primaryKey)
                         .anchorPreference(key: PrimaryKeyBounds.self, value: .bounds) { $0 }
-                        .frame(maxWidth: .infinity, alignment: .trailing)
                         .modifier(KeyDrop(drop: drop))
+                        .modifier(KeySwap(isOut: isSwappedOut))
                         .hiddenBehindDrawer()
                         // As far from the sides as from the bottom; with no home indicator, as
                         // far as content is inset.
@@ -175,6 +171,44 @@ private struct KeyDrop: ViewModifier, Animatable {
             .onGeometryChange(for: CGFloat.self) { proxy in
                 proxy.size.height + proxy.safeAreaInsets.bottom
             } action: { exit = $0 + Spacing.sm }
+    }
+}
+
+/// The key down out of sight while `isOut`, as far as its height and what lies below it, in
+/// place: the bar keeps its room. Going, it fades as it goes; coming back, it is unfaded from
+/// the start. With Reduce Motion it stays put and fades each way. Measured as it is drawn, so a
+/// key that starts out of sight is out of sight from its first frame.
+private struct KeySwap: ViewModifier, Animatable {
+    let isOut: Bool
+    /// How far out the key is, 0 to 1, which an animation runs through.
+    var progress: CGFloat
+
+    init(isOut: Bool) {
+        self.isOut = isOut
+        progress = isOut ? 1 : 0
+    }
+
+    nonisolated var animatableData: CGFloat {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        let progress = progress
+        let moves = !reduceMotion
+        let fades = isOut || reduceMotion
+        content
+            .visualEffect { content, proxy in
+                content.offset(y: moves
+                    ? progress * (proxy.size.height + proxy.safeAreaInsets.bottom + Spacing.sm)
+                    : 0)
+            }
+            .opacity(fades ? 1 - progress : 1)
+            // Worked out from `progress` frame by frame, never animated on its own: the opacity's
+            // jump to 1 as the key came back was, and the key rose faded.
+            .transaction(value: isOut) { $0.animation = nil }
     }
 }
 

@@ -15,9 +15,34 @@ extension RoutineScreen {
         /// After the last set, as its row closes: it still says so, and takes no tap.
         case closing
         case finish
+
+        /// Which key this is: a change of kind swaps the key for another, a change within one,
+        /// as "Log left" to "Log right", changes its words. Closing is the log key still, which
+        /// says "Log last set" until Finish workout takes its place.
+        enum Kind: Hashable {
+            case start
+            case log
+            case back
+            case finish
+        }
+
+        var kind: Kind {
+            switch self {
+            case .start: .start
+            case .log, .closing: .log
+            case .back: .back
+            case .finish: .finish
+            }
+        }
     }
 
+    /// What the key shows: while it swaps, the role it had, until it has gone.
     var keyRole: KeyRole {
+        heldKeyRole ?? liveKeyRole
+    }
+
+    /// What the key is for, as the workout stands.
+    private var liveKeyRole: KeyRole {
         guard let workout = session.workout, !isStarting else { return .start }
         if isWorkoutDone {
             return isMovingOn ? .closing : .finish
@@ -30,8 +55,8 @@ extension RoutineScreen {
         return .log(routine.logText(for: set, after: shownSets ?? workout.sets))
     }
 
-    /// The key that `primaryKeyBar` holds, for `role`: one key whose words change, so its fill
-    /// never fades between roles.
+    /// The key that `primaryKeyBar` holds, for `role`. Within a kind, one key whose words
+    /// change; across kinds, another key (`swapKey(_:)`).
     func key(_ role: KeyRole, named name: String) -> some View {
         Button { tapKey(named: name) } label: { keyLabel(role) }
             .accessibilityLabel(spokenKey(role))
@@ -66,23 +91,13 @@ extension RoutineScreen {
         }
     }
 
-    /// The key's shape in a workout: a pill at the bar's trailing end in the pill build, else as
-    /// wide as Start.
-    var keyShape: PrimaryKeyShape {
-        #if LOG_KEY_PILL
-        session.workout == nil || isStarting ? .wide : .pill
-        #else
-        .wide
-        #endif
-    }
-
     /// A tap on the key. Out of a workout, Start. After the last set, Finish workout. Otherwise,
     /// where the current exercise is mostly out of view when the tap lands, as on a list still
     /// moving away under "Log set", the list goes back to it and nothing is logged: the words
     /// change only once a scroll has ended (`settleKeyRole()`), the place at once.
     func tapKey(named name: String) {
         guard session.workout != nil, !isStarting else { return pressStart() }
-        guard !isMovingOn else { return }
+        guard !isMovingOn, !isKeySwapping else { return }
         if isWorkoutDone {
             return finish(named: name)
         }
@@ -114,8 +129,40 @@ extension RoutineScreen {
             nil
         }
         guard way != keyWayBack else { return }
-        withAnimation(.snappy) { keyWayBack = way }
+        swapKey { keyWayBack = way }
     }
+
+    /// Makes `change`, and where it changes the key's kind, swaps the key: the one showing goes
+    /// down out of the screen's bottom edge with its words as they were, then the new one comes
+    /// up in from it, one after the other, never two keys at once and never both words on one
+    /// (with Reduce Motion, each fades). The bar keeps its room throughout, so the list under it
+    /// stays put: with the bar gone between them, a list at its end moved down, which changed
+    /// whether the current exercise was in view, and the key back with it. A tap while it swaps does nothing. Within a kind, the
+    /// words change in place. During a swap, `change` is made at once and the key coming in
+    /// shows the workout as it stands then.
+    func swapKey(_ change: () -> Void) {
+        guard !isKeySwapping else { return change() }
+        let shown = keyRole
+        heldKeyRole = shown
+        change()
+        guard liveKeyRole.kind != shown.kind else {
+            heldKeyRole = nil
+            return
+        }
+        withAnimation(.easeOut(duration: Self.keySwap)) { isKeySwapping = true }
+        Task {
+            try? await Task.sleep(for: .seconds(Self.keySwap), tolerance: .zero)
+            // Out of sight, the key becomes the next one with no transition of its own.
+            withTransaction(\.disablesAnimations, true) { heldKeyRole = nil }
+            // On a later turn of the run loop, from out of sight, as `bringKeyBack()`.
+            Task {
+                withAnimation(.smooth(duration: Self.keySwap)) { isKeySwapping = false }
+            }
+        }
+    }
+
+    /// Each half of a key swap: the key going down and out, then the next coming up and in.
+    static let keySwap = 0.2
 
     /// After a log that stays on the exercise, the beat the set is held for before the line
     /// rolls on. A task on the held set, so the screen going away cancels it.

@@ -214,7 +214,7 @@ extension RoutineScreen {
         unshownSet = nil
         isMovingOn = true
         let landed = {
-            isMovingOn = false
+            swapKey { isMovingOn = false }
             letRoomGo()
             if next != nil, target == nil {
                 scrollToCurrent()
@@ -281,7 +281,7 @@ extension RoutineScreen {
                 tolerance: .zero,
             )
             closingRoomTop = nil
-            isMovingOn = false
+            swapKey { isMovingOn = false }
             letRoomGo()
             settleKeyRole()
         }
