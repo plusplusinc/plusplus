@@ -16,10 +16,12 @@ final nonisolated class WorkoutUITests: XCTestCase {
     @MainActor
     func testWorkoutSurvivesRelaunch() throws {
         let app = XCUIApplication()
-        // Long enough to scroll the current exercise out of view.
+        // Long enough to scroll the current exercise, Pull-up once grown, mostly out of view
+        // past the list's end: with eight rows, the end came up before it had.
         let seeded = [
             "barbell-bench-press", "pull-up", "goblet-squat", "band-pull-apart",
-            "balance-board-hold", "barbell-back-squat", "calf-raise", "step-up",
+            "balance-board-hold", "barbell-back-squat", "calf-raise", "step-up", "chin-up",
+            "inverted-row", "ring-dip",
         ]
         let title = app.launchSeeding(seeded, arguments: ["-fallbackNames", "YES"])
         // Added through the picker, and Start pressed straight after, as the row still enters.
@@ -179,8 +181,9 @@ final nonisolated class WorkoutUITests: XCTestCase {
         try XCTContext
             .runActivity(named: "Edits stay on, and paused, a relaunch keeps the time") { _ in
                 app.addExercise("Push-up", searching: "push-up")
-                app.exerciseRows.element(boundBy: 2).fullSwipeLeft()
-                XCTAssertEqual(app.exerciseCount(becoming: 9), 9, "The swipe deleted nothing")
+                // Near the end, where the add left the list: rows near its top are under the bar.
+                app.exerciseRows.element(boundBy: 10).fullSwipeLeft()
+                XCTAssertEqual(app.exerciseCount(becoming: 12), 12, "The swipe deleted nothing")
                 moveARow(in: app)
                 let name = try XCTUnwrap(title.value as? String)
                 app.scrollToTop(titled: name)
@@ -207,8 +210,9 @@ final nonisolated class WorkoutUITests: XCTestCase {
                 )
                 XCTAssertEqual(app.workoutKey.label, "Log set", "The key after a relaunch")
                 XCTAssertEqual(app.exerciseNames, [
-                    "Barbell bench press", "Pull-up", "Band pull-apart", "Barbell back squat",
-                    "Balance board hold", "Calf raise", "Step-up", "Biceps curl", "Push-up",
+                    "Barbell bench press", "Pull-up", "Goblet squat", "Band pull-apart",
+                    "Balance board hold", "Barbell back squat", "Calf raise", "Step-up",
+                    "Inverted row", "Chin-up", "Biceps curl", "Push-up",
                 ])
                 return renamed
             }
@@ -219,7 +223,7 @@ final nonisolated class WorkoutUITests: XCTestCase {
     @MainActor
     private func moveARow(in app: XCUIApplication) {
         let rows = app.exerciseRows
-        let (moved, below) = (rows.element(boundBy: 3), rows.element(boundBy: 4))
+        let (moved, below) = (rows.element(boundBy: 8), rows.element(boundBy: 9))
         for _ in 0 ..< 3 where !(moved.isHittable && below.isHittable) {
             app.swipeUp()
         }
@@ -227,7 +231,7 @@ final nonisolated class WorkoutUITests: XCTestCase {
         let height = below.frame.minY - moved.frame.minY
         // Past the halfway point of the row below it.
         moved.center.holdAndDrag(to: moved.center.down(1.2 * height))
-        expected.swapAt(3, 4)
+        expected.swapAt(8, 9)
         XCTAssertEqual(
             reading(app.exerciseNames, becoming: expected, within: 2),
             expected,
