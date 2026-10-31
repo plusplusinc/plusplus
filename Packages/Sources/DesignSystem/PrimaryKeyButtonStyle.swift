@@ -114,8 +114,9 @@ private struct PrimaryKeyBar<Key: View>: ViewModifier {
                         .padding(.horizontal, bottomInset > 0 ? bottomInset : Spacing.md)
                         // The resting face, not the ledge under it, at that distance from the
                         // bottom: the ledge and the pressed face sit below it, in the safe area.
-                        // The bar keeps its room, so the list under it doesn't move.
-                        .padding(.bottom, -PrimaryKeyButtonStyle.ledge)
+                        // The bar keeps its room, so the list under it doesn't move. With no
+                        // safe area below, the ledge stays on the screen.
+                        .padding(.bottom, bottomInset > 0 ? -PrimaryKeyButtonStyle.ledge : 0)
                         .padding(.top, Spacing.sm + PrimaryKeyButtonStyle.ledge)
                         .transition(KeyBarTransition(below: bottomInset))
                         .id(keyID)
