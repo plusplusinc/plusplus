@@ -5,55 +5,6 @@ import WorkoutStore
 /// A workout: Start's press, the first exercise growing into the current one, and the way back
 /// to it.
 extension RoutineScreen {
-    /// The exercise a workout is on: the first, as nothing is done yet.
-    var currentExercise: RoutineExercise? {
-        session.workout == nil ? nil : routine.exercises.first
-    }
-
-    var currentID: RoutineExercise.ID? {
-        currentExercise?.id
-    }
-
-    /// The exercise after the first, the current one in a workout, whose row stays in view
-    /// under it.
-    var nextExercise: RoutineExercise? {
-        routine.exercises.dropFirst().first
-    }
-
-    var nextID: RoutineExercise.ID? {
-        nextExercise?.id
-    }
-
-    /// Whether Start shows: with exercises to start, and out of a workout but for its going.
-    var showsStart: Bool {
-        !routine.exercises.isEmpty && !isStartAway && (session.workout == nil || isStarting)
-    }
-
-    /// How tall the current exercise's label stands, wherever the list is scrolled: with its
-    /// row just under the bar, the row fills the screen below it but for the row after it,
-    /// or the end's room when there is none, its own space above, and its inset above and below
-    /// the label. The screen runs on past the list, under the home indicator, so the next row
-    /// ends at the screen's edge and the row after it starts out of sight.
-    var currentLabelHeight: CGFloat {
-        let after = nextID == nil ? endRoom : nextRowHeight ?? endRoom
-        return max(
-            listHeight + listFoot - after - RailRowMetrics.verticalInset * 2 - Self.currentTopSpace,
-            0,
-        )
-    }
-
-    /// How tall the current exercise's label stands with the row after it, or the end's room when
-    /// there is none, as `currentLabelHeight` has it, worked out from `screen`, the list's frame,
-    /// in the pass that lays the list out.
-    func currentStanding(_ screen: GeometryProxy) -> RowStanding {
-        let height = screen.size.height + screen.safeAreaInsets.bottom
-            - RailRowMetrics.verticalInset * 2 - Self.currentTopSpace
-            - (nextExercise == nil ? endRoom : 0)
-        return RowStanding(height: height, next: nextExercise.map {
-            .init(title: $0.exercise.name, detail: $0.detailParts(locale: locale))
-        })
-    }
-
     /// The current exercise's own space above its label, part of its row, so where the list
     /// lands on the row, just under the bar, everything above it is under the bar and the space
     /// between shows only the background.
@@ -69,6 +20,9 @@ extension RoutineScreen {
         // ahead of the scroll: a scroll in the same transaction stops at the old end. Where the
         // end showed above Start, the room would raise the edge effect's band under it.
         withTransaction(\.disablesAnimations, true) {
+            // Held where it is: after an add's scroll to the list's end, the position stays
+            // bound to that edge, and followed it down into the room, off the screen.
+            scrollPosition.scrollTo(y: scrollBeat.scrolledY)
             isMakingRoom = true
             isBottomEdgeHidden = isEndInView
             startDrop = 0
@@ -97,6 +51,8 @@ extension RoutineScreen {
     /// motion, and the key rides down off the screen with the rows below it. With Reduce
     /// Motion, the list crossfades into the workout.
     private func leave(named name: String) {
+        // What the first row gives back as it shrinks, which the move off it lands by.
+        noteRestingPitch(of: routine.exercises.first?.id)
         guard !reduceMotion else {
             return crossfade(scrollingTo: currentPlace?.landingY ?? scrollBeat.scrolledY) {
                 session.start(routineName: name)
@@ -122,18 +78,17 @@ extension RoutineScreen {
     }
 
     /// The first exercise grows into the current one as the list scrolls it up under the bar,
-    /// one motion on one curve, the rows below stepping aside and Start riding down with them,
-    /// as far and as fast, until it is gone. An animated scroll held the growth back until it
+    /// one motion on one curve, the rows below stepping aside and Start riding down off the
+    /// screen as they do. An animated scroll held the growth back until it
     /// had nearly landed, so the list is scrolled at once and drawn where it was, then both run
     /// in one animation.
     private func grow(named name: String) {
-        var drop: CGFloat = 0
+        // The grown exercise's height is its content's, known once it is laid out, so Start rides
+        // a screen's height down, out of sight by the time the growth ends.
+        let drop = listHeight
         if let place = currentPlace {
             let target = place.landingY
             let lift = target - scrollBeat.scrolledY
-            // The rows below move down by what the current exercise gains, its space above
-            // included, less the lift.
-            drop = currentLabelHeight + Self.currentTopSpace - place.height - lift
             withTransaction(\.disablesAnimations, true) {
                 growthLift = lift
                 scrollPosition.scrollTo(y: target)
@@ -155,15 +110,12 @@ extension RoutineScreen {
         }
     }
 
-    /// Takes away Start's room under the list's end once Start is over and the current exercise
-    /// has grown, which `placeCurrent` hears of. Without the room, the list ends just past the
-    /// screen until the growth is laid out, and the list, landed on the current exercise, was
-    /// pulled back up to that end. The grow's completion can come first: on a busy main thread
-    /// it came 26 ms after the grow began, before any of the growth had been laid out.
+    /// Takes away the screen's room under the list's end once Start or a move to the next
+    /// exercise is over. The room to land the current exercise under the bar
+    /// (`roomToLand(top:visible:)`) stays, worked out in each layout pass, so it holds the list
+    /// wherever the growth is.
     func letRoomGo() {
-        guard isMakingRoom, !isStarting, session.workout != nil,
-              (currentPlace?.height ?? 0) >= currentLabelHeight
-        else { return }
+        guard isMakingRoom, !isStarting, !isMovingOn, session.workout != nil else { return }
         withTransaction(\.disablesAnimations, true) { isMakingRoom = false }
     }
 
@@ -235,7 +187,7 @@ extension RoutineScreen {
     /// between. The old one is drawn lifted by as far as the scroll jumps, so it holds still,
     /// with what was under the bar cut away (`TopClip`): scrolled to the top, the bar has no
     /// edge effect, and it showed through.
-    private func crossfade(
+    func crossfade(
         scrollingTo y: CGFloat,
         then: (() -> Void)? = nil,
         _ change: @escaping () -> Void,
@@ -274,7 +226,10 @@ extension RoutineScreen {
         let old = currentPlace
         currentPlace = place
         letRoomGo()
-        if let old, currentID != nil, !isScrollingByHand, place.contentTop != old.contentTop,
+        // Not while moving to the next exercise, which lands it: its place, read as it grows,
+        // is on the way there.
+        if let old, currentID != nil, !isScrollingByHand, !isMovingOn,
+           place.contentTop != old.contentTop,
            abs(scrollBeat.scrolledY - old.landingY) < 1
         {
             scrollToCurrent()
@@ -326,7 +281,8 @@ extension RoutineScreen {
         let current = currentExercise
         let place = currentPlace
         Group {
-            if let current, let place, place.isMostlyOut {
+            // Not while the list moves to the next exercise, whose row passes through the edge.
+            if let current, let place, place.isMostlyOut, !isMovingOn {
                 CurrentExerciseButton(name: current.exercise.name, isAbove: place.isAbove) {
                     withAnimation(.snappy(duration: 0.4), scrollToCurrent)
                 }

@@ -16,12 +16,9 @@ nonisolated struct CurrentPlace: Equatable {
     /// How far the label's top, with the current exercise's space above it, is from the top of
     /// the list's content, where `scrollTo(y:)` counts from.
     var contentTop: CGFloat
-    /// The label's height, with the current exercise's space above it.
-    var height: CGFloat
 
     /// The scroll position that lands the rail row, its label `RailRowMetrics.verticalInset`
-    /// below its top, just under the bar. The row's top stays put as it grows: it is the list's
-    /// first.
+    /// below its top, just under the bar.
     @MainActor var landingY: CGFloat {
         max(contentTop - RailRowMetrics.verticalInset, 0)
     }
@@ -29,7 +26,6 @@ nonisolated struct CurrentPlace: Equatable {
     init(_ proxy: GeometryProxy) {
         let row = CGRect(origin: .zero, size: proxy.size)
         contentTop = proxy.frame(in: .list).minY
-        height = row.height
         guard let visible = proxy.bounds(of: .scrollView) else {
             (isLaidOut, isMostlyOut, isAbove) = (true, false, false)
             return
@@ -76,22 +72,27 @@ extension View {
         }
     }
 
-    /// Reports how far the screen goes on below this view, under the home indicator.
-    func reportingFoot(to action: @escaping (CGFloat) -> Void) -> some View {
-        background {
-            Color.clear
-                .ignoresSafeArea(.container, edges: .bottom)
-                .onGeometryChange(for: CGFloat.self, of: \.safeAreaInsets.bottom, action: action)
+    /// In a workout, room under this view, out of sight, so the list can scroll the current
+    /// exercise's row, its top at `top` in the list, up under the bar even where what follows it
+    /// is shorter than the height the scroll view shows above its content margin. Worked out in
+    /// the pass that lays the list out, from its own height and the scroll view's, so it is right
+    /// on every frame of a growth: the scroll view's height read back into state, as `roomBelow`
+    /// found, changed the list a second time in a frame. None out of a workout.
+    func roomToLand(top: CGFloat?) -> some View {
+        RoomToLand(top: top ?? 0, isOn: top != nil) {
+            self
+            // What the scroll view shows above its content margin, measured in the same pass.
+            Color.clear.containerRelativeFrame(.vertical)
         }
     }
 
-    /// Reports this row's height as it changes, while `isOn`.
-    func reportingHeight(_ isOn: Bool, to action: @escaping (CGFloat) -> Void) -> some View {
-        onGeometryChange(for: CGFloat?.self) { proxy in
-            isOn ? proxy.size.height : nil
-        } action: { height in
-            if let height {
-                action(height)
+    /// Reports this row's frame in the list's content as it lays out, while `isOn`.
+    func reportingFrame(_ isOn: Bool, to action: @escaping (CGRect) -> Void) -> some View {
+        onGeometryChange(for: CGRect?.self) { proxy in
+            isOn ? proxy.frame(in: .list) : nil
+        } action: { frame in
+            if let frame {
+                action(frame)
             }
         }
     }
@@ -136,13 +137,15 @@ struct CurrentExerciseButton: View {
 }
 
 extension RoutineExercise {
-    /// The row grown into the current exercise, on its first set.
-    func focus(inSuperset: Bool, locale: Locale) -> RowFocus {
+    /// The row grown into the current exercise, on `set`.
+    func focus(on set: PlannedSet, inSuperset: Bool, locale: Locale) -> RowFocus {
         RowFocus(
-            progress: progressText(set: 1, inSuperset: inSuperset, locale: locale),
+            progress: progressText(set: set.round, inSuperset: inSuperset, locale: locale),
+            side: set.side?.text,
             equipment: [exercise].equipment.map(\.name),
-            figures: figures(locale: locale).map { .init(number: $0.number, unit: $0.unit) },
-            spokenFigures: spokenFigures(locale: locale),
+            figures: figures(side: set.side, locale: locale)
+                .map { .init(number: $0.number, unit: $0.unit) },
+            spokenFigures: spokenFigures(side: set.side, locale: locale),
         )
     }
 }
@@ -178,5 +181,36 @@ struct GrowthLift: ViewModifier, Animatable {
 
     func body(content: Content) -> some View {
         content.offset(y: lift)
+    }
+}
+
+/// Its first subview, with room under it while `isOn`: as much as `top` plus what the scroll view
+/// shows, its second subview's height, reaches past its height. `top` animates, so the room can
+/// close over a motion.
+private struct RoomToLand: Layout {
+    var top: CGFloat
+    let isOn: Bool
+
+    var animatableData: CGFloat {
+        get { top }
+        set { top = newValue }
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
+        let size = subviews.first?.sizeThatFits(proposal) ?? .zero
+        guard isOn, subviews.count > 1 else { return size }
+        let visible = subviews[1].sizeThatFits(proposal).height
+        return CGSize(width: size.width, height: max(size.height, top + visible))
+    }
+
+    func placeSubviews(
+        in bounds: CGRect,
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache _: inout (),
+    ) {
+        subviews.first?.place(at: bounds.origin, anchor: .topLeading, proposal: proposal)
+        // Measured only: placed at the top with no size of its own in the room.
+        subviews.dropFirst().first?.place(at: bounds.origin, anchor: .topLeading, proposal: .zero)
     }
 }

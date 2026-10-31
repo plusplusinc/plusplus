@@ -54,6 +54,80 @@ struct RoutineStoreWorkoutTests {
         #expect(stored.map(\.workout) == [resumed.finishing(at: Self.at(70))])
     }
 
+    @Test("A stored set the app can't read is kept through a save, not deleted")
+    func unreadableSetKept() async throws {
+        let bench = try RoutineExercise.builtIn("Barbell bench press")
+        let routine = Routine(name: "Upper", exercises: [bench])
+        try await relaunch().save(routine, at: Self.at(1))
+        let workout = Self.started(routine, at: 10)
+        try await relaunch().save(workout)
+        // A set with no row, as a store not written by this build might hold.
+        let context = ModelContext(container)
+        let stored = try #require(try context.fetch(FetchDescriptor<StoredWorkout>()).first)
+        let unreadable = StoredSet(id: UUID())
+        context.insert(unreadable)
+        unreadable.workout = stored
+        try context.save()
+        let loaded = try #require(try await relaunch().launch(weightUnit: .pounds).workout)
+        #expect(loaded.sets.isEmpty)
+        try await relaunch().save(loaded.logging(
+            PlannedSet(row: bench.id, round: 1),
+            of: bench,
+            at: Self.at(20),
+        ))
+        let sets = try ModelContext(container).fetch(FetchDescriptor<StoredSet>())
+        #expect(sets.contains { $0.id == unreadable.id })
+        #expect(sets.count == 2)
+    }
+
+    @Test("Logged sets round-trip every field, in the order logged, and a later save diffs them")
+    func setsRoundTrip() async throws {
+        let superset = UUID()
+        var rowing = try RoutineExercise.builtIn("Dumbbell row") { $0.sets = 2 }
+        var plank = try RoutineExercise.builtIn("Plank") { $0.target = .time(seconds: 45) }
+        rowing.supersetID = superset
+        plank.supersetID = superset
+        let routine = Routine(name: "Upper", exercises: [rowing, plank])
+        try await relaunch().save(routine, at: Self.at(1))
+        var workout = Self.started(routine, at: 10)
+        for seconds in [20.0, 30, 40] {
+            let next = try #require(routine.nextSet(after: workout.sets))
+            let row = try #require(routine.exercises.first { $0.id == next.row })
+            workout = workout.logging(next, of: row, at: Self.at(seconds))
+        }
+        workout.sets[0].weight = Weight(47.5, .kilograms)
+        try await relaunch().save(workout)
+        let launched = try #require(try await relaunch().launch(weightUnit: .pounds).workout)
+        #expect(launched == workout)
+        #expect(launched.sets.map(\.side) == [.left, .right, nil])
+        #expect(launched.sets[2].target == .time(seconds: 45))
+        #expect(routine.nextSet(after: launched.sets) == PlannedSet(
+            row: rowing.id,
+            round: 2,
+            side: .left,
+        ))
+
+        workout.sets.remove(at: 1)
+        let finished = workout.finishing(at: Self.at(50))
+        try await relaunch().save(finished)
+        let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkout>())
+        #expect(stored.map(\.workout) == [finished])
+        #expect(try ModelContext(container).fetchCount(FetchDescriptor<StoredSet>()) == 2)
+    }
+
+    @Test("Discarding a workout deletes its logged sets")
+    func discardDeletesSets() async throws {
+        let row = try RoutineExercise.builtIn("Push-up")
+        let routine = Routine(name: "Upper", exercises: [row])
+        let store = relaunch()
+        try await store.save(routine, at: Self.at(1))
+        let workout = Self.started(routine, at: 10)
+            .logging(PlannedSet(row: row.id, round: 1), of: row, at: Self.at(20))
+        try await store.save(workout)
+        try await store.discardWorkout(workout.id)
+        #expect(try ModelContext(container).fetchCount(FetchDescriptor<StoredSet>()) == 0)
+    }
+
     @Test("After Finish, launch opens a new routine, until a routine is opened or edited")
     func afterFinish() async throws {
         var routine = Routine(name: "Upper")

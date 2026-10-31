@@ -5,7 +5,14 @@ import Testing
 @Suite("Rotation")
 struct RotationTests {
     private func order(_ routine: Routine, _ names: [RoutineExercise.ID: String]) -> [String] {
-        routine.setOrder.map { "\(names[$0.row] ?? "?")\($0.round)" }
+        routine.setOrder.map { set in
+            let side = switch set.side {
+            case .left: "L"
+            case .right: "R"
+            case nil: ""
+            }
+            return "\(names[set.row] ?? "?")\(set.round)\(side)"
+        }
     }
 
     @Test("A superset of two with three rounds goes A1 B1 A2 B2 A3 B3")
@@ -43,5 +50,24 @@ struct RotationTests {
         second.supersetID = superset
         let routine = Routine(exercises: [first, second])
         #expect(order(routine, [first.id: "A", second.id: "B"]) == ["A1", "B1", "B2", "B3"])
+    }
+
+    @Test("A per-side exercise goes left then right in each set")
+    func perSide() throws {
+        let row = try RoutineExercise.builtIn("Dumbbell row") { $0.sets = 2 }
+        let routine = Routine(exercises: [row])
+        #expect(order(routine, [row.id: "A"]) == ["A1L", "A1R", "A2L", "A2R"])
+    }
+
+    @Test("A per-side member keeps its sides together in a superset round")
+    func perSideInSuperset() throws {
+        let superset = UUID()
+        var first = try RoutineExercise.builtIn("Dumbbell row") { $0.sets = 2 }
+        var second = try RoutineExercise.builtIn("Pull-up") { $0.sets = 2 }
+        first.supersetID = superset
+        second.supersetID = superset
+        let routine = Routine(exercises: [first, second])
+        #expect(order(routine, [first.id: "A", second.id: "B"])
+            == ["A1L", "A1R", "B1", "A2L", "A2R", "B2"])
     }
 }

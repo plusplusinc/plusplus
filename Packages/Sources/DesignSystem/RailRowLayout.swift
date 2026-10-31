@@ -8,10 +8,18 @@ struct RailRowContentFrame: ViewModifier {
 
     func body(content: Content) -> some View {
         content
+            .environment(\.restingLabelFloor, minHeight - RailRowMetrics.verticalInset * 2)
             .padding(.vertical, RailRowMetrics.verticalInset)
             .frame(minHeight: minHeight, alignment: .top)
             .hotReloadable()
     }
+}
+
+extension EnvironmentValues {
+    /// The height a row's content stands at, at least, between its insets: a label growing from
+    /// a row grows from there, as the row does, so its growth moves the rows below from its
+    /// start, and a label shrinking back reaches it as its growth ends, not before.
+    @Entry var restingLabelFloor: CGFloat = 0
 }
 
 /// A row's node column and its content side by side, on their first lines' baselines, the content
@@ -22,9 +30,6 @@ struct RailRowContentFrame: ViewModifier {
 struct RailRowLayout: Layout {
     /// The node's diameter, at the current text size.
     var nodeSize: CGFloat
-    /// Whether what it is offered is its content's width, not the row's: a row stood in another
-    /// row's content, to be measured there (`railRowStand()`).
-    var isOfferedContentWidth = false
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
         frames(proposal, subviews).size
@@ -61,8 +66,7 @@ struct RailRowLayout: Layout {
         let column = subviews[0].dimensions(in: .unspecified)
         let inset = max((column.width - nodeSize) / 2, 0)
         let offer = ProposedViewSize(
-            width: isOfferedContentWidth ? proposal.width
-                : proposal.width.map { max($0 - column.width - inset, 0) },
+            width: proposal.width.map { max($0 - column.width - inset, 0) },
             height: proposal.height,
         )
         let content = subviews[1].dimensions(in: offer)
@@ -91,22 +95,5 @@ struct RailRowLayout: Layout {
         /// What the content was offered.
         var offer: ProposedViewSize
         var size: CGSize
-    }
-}
-
-/// A row's content laid out as `RailRow` lays it out, with nothing drawn or reported.
-struct RailRowStand<Content: View>: View {
-    let content: Content
-    @ScaledMetric(relativeTo: .body) private var nodeSize = railNodeSize
-    @ObserveHotReload private var hotReload
-
-    var body: some View {
-        RailRowLayout(nodeSize: nodeSize, isOfferedContentWidth: true) {
-            RailNodeColumn()
-            content.modifier(RailRowContentFrame())
-        }
-        .hidden()
-        .accessibilityHidden(true)
-        .hotReloadable()
     }
 }

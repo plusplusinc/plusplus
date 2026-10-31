@@ -4,6 +4,7 @@
 import SnapshotTesting
 import SwiftUI
 import Testing
+@testable import DesignSystem
 
 /// Snapshots a view as users see it, dark, at the default text size and at the largest
 /// accessibility size. The app shows only in dark appearance, so light renders only with
@@ -17,6 +18,9 @@ import Testing
 /// each may differ by a barely visible amount, so text rasterization differences between
 /// machines do not read as design regressions, but none by more. Letting even 1% of pixels
 /// differ freely would let the `_` move a cell, or vanish, unseen.
+///
+/// The current exercise's pulse is held at full green (`isPulseHeld`): on its clock, each run drew
+/// it at another brightness.
 ///
 /// References live in `__Snapshots__/<TestFile>` at the test target's root, which is where
 /// recording writes, including a new suite's first recording. When `__Snapshots__` itself is
@@ -50,7 +54,10 @@ func assertThemedSnapshots(
     )
     for appearance in appearances {
         let failure = verifySnapshot(
-            of: view.frame(width: width).fixedSize(horizontal: false, vertical: true),
+            of: view
+                .environment(\.isPulseHeld, true)
+                .frame(width: width)
+                .fixedSize(horizontal: false, vertical: true),
             as: .image(
                 precision: 1,
                 perceptualPrecision: 0.98,

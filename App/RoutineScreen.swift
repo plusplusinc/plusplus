@@ -14,7 +14,7 @@ struct RoutineScreen: View {
     let session: RoutineSession
     private let namer: RoutineNamer
     /// Pushed onto the Routines screen, with a back button where ++ otherwise is.
-    private let isPushed: Bool
+    let isPushed: Bool
     @State private var isPicking = false
     /// The row whose values are open in a sheet, as it was when opened: only its id is read.
     @State var editing: RoutineExercise?
@@ -35,7 +35,7 @@ struct RoutineScreen: View {
     /// Whether the title's field has focus. Any touch outside the title ends the edit.
     @State private var isEditingTitle = false
     /// Whether the title has scrolled up under the bar, where a small copy of it shows instead.
-    @State private var isTitleUnderBar = false
+    @State var isTitleUnderBar = false
     /// From Start's press until its key has gone: its +1 and beat, and the grow.
     @State var isStarting = false
     /// How far Start rides down with the rows below the current exercise as it grows at Start.
@@ -48,7 +48,7 @@ struct RoutineScreen: View {
     /// the time fades out of it.
     @State var endingWorkout: Workout?
     /// Whether the dialog asking how to end the workout shows.
-    @State private var isConfirmingEnd = false
+    @State var isConfirmingEnd = false
     /// The scroll in Start's sequence, and how far the list is scrolled.
     @State var scrollBeat = ScrollBeat()
     /// With Reduce Motion, how many times the list has crossfaded into or out of a workout: each
@@ -65,17 +65,28 @@ struct RoutineScreen: View {
     @State var isMakingRoom = false
     /// Where the first exercise, the current one in a workout, is against the part showing.
     @State var currentPlace: CurrentPlace?
-    /// The list's height between the bars, and the screen's below it, filled in a workout.
+    /// The list's height between the bars.
     @State var listHeight: CGFloat = 0
-    @State var listFoot: CGFloat = 0
     /// Back in a workout after a relaunch, the list opens on the current exercise, once grown.
     @State var opensOnCurrent = false
+    /// While the current exercise moves to the next row, when rows' heights are mid-motion.
+    @State var isMovingOn = false
+    /// After the last set, the room to land the current exercise, closing as its row does, the
+    /// list's end held where it shows (`keepEndPinned(from:to:)`).
+    @State var closingRoomTop: CGFloat?
+    /// While a log moves the workout to another exercise, until the next one has grown.
+    @State var exerciseMove: ExerciseMove?
+    /// The pulse that carries the workout from one exercise's node to the next one's.
+    @State var railPulse: RailPulse<RoutineExercise.ID>?
+    /// Counts the moves to another exercise that have landed on its node, each with a light tick,
+    /// lighter than the slide's.
+    @State var landings = 0
+    /// The last set logged, while it stays on the current exercise and its key is still on its
+    /// way back to the start (`heldSet`).
+    @State var unshownSet: PlannedSet?
+    @State var rowFrames = RowFrames()
     /// Room under the list's end in a workout, so Add exercise clears the way back to the current.
     @ScaledMetric(relativeTo: .body) var wayToCurrentRoom: CGFloat = 64
-    /// The height of the row after the current exercise, which the current one leaves room for.
-    @State var nextRowHeight: CGFloat?
-    /// What the current exercise leaves of that area when nothing follows it: Add exercise.
-    @ScaledMetric(relativeTo: .body) var endRoom: CGFloat = 96
     @Environment(\.locale) var locale
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @ObserveHotReload private var hotReload
@@ -99,7 +110,7 @@ struct RoutineScreen: View {
     }
 
     /// The name the routine shows: its chosen one, or else the one made for it.
-    private var shownName: String? {
+    var shownName: String? {
         namer.shownName(of: routine)
     }
 
@@ -124,6 +135,7 @@ struct RoutineScreen: View {
         .onChange(of: routine) { _, changed in
             session.save(changed)
         }
+        .sensoryFeedback(.impact(weight: .light, intensity: 0.6), trigger: landings)
         .hotReloadable()
     }
 
@@ -133,62 +145,55 @@ struct RoutineScreen: View {
         // Read once here, so the rows' closure holds them as values: a list crossfading out keeps
         // drawing its rows with what it had, rather than the workout it is fading into.
         let currentID = currentID
+        let currentSet = currentSet
+        let rowBars = rowBars
+        let tracksRows = session.workout != nil || isStarting
         let underBar = underBarCut
-        // The screen's height below the bar is known in the pass that lays out the list, so the
-        // current exercise is sized from it in that pass (`RowStanding`).
-        return GeometryReader { screen in
-            let standing = currentStanding(screen)
-            ScrollView {
-                // One over the other, as a crossfade has them: in the scroll view's own stack, the
-                // list coming in and the one going stood one after the other.
-                ZStack(alignment: .topLeading) {
-                    VStack(alignment: .leading, spacing: Spacing.md) {
-                        EditableTitle(
-                            text: $routine.name,
-                            isEditing: $isEditingTitle,
-                            placeholder: Self.defaultName,
-                            suggestion: generatedName,
-                            accessibilityLabel: "Routine name",
-                            accessibilityHint: "Renames the routine.",
-                        )
-                        .onScrollVisibilityChange(threshold: 0.01) { isVisible in
-                            // A short fade, so the small title has gone by the time the large one
-                            // is out from under the bar.
-                            withAnimation(.easeOut(duration: Self.barFade)) {
-                                isTitleUnderBar = !isVisible
-                            }
+        return ScrollView {
+            // One over the other, as a crossfade has them: in the scroll view's own stack, the
+            // list coming in and the one going stood one after the other.
+            ZStack(alignment: .topLeading) {
+                VStack(alignment: .leading, spacing: Spacing.md) {
+                    EditableTitle(
+                        text: $routine.name,
+                        isEditing: $isEditingTitle,
+                        placeholder: Self.defaultName,
+                        suggestion: generatedName,
+                        accessibilityLabel: "Routine name",
+                        accessibilityHint: "Renames the routine.",
+                    )
+                    .onScrollVisibilityChange(threshold: 0.01) { isVisible in
+                        // A short fade, so the small title has gone by the time the large one
+                        // is out from under the bar.
+                        withAnimation(.easeOut(duration: Self.barFade)) {
+                            isTitleUnderBar = !isVisible
                         }
-                        let equipment = routine.exercises.map(\.exercise).equipment
-                        if !equipment.isEmpty {
-                            Capsules(equipment.map(\.name))
-                                .accessibilityIdentifier("routine.equipment")
-                                .transition(.opacity)
-                        }
-                        Rail(
-                            routine.exercises,
-                            links: routine.joinedToNext,
-                            arriving: arriving,
-                            current: currentID,
-                            onMove: move,
-                            regroup: regroup,
-                        ) { item in
-                            RowLabel(
-                                title: item.exercise.name,
-                                detail: item.detailParts(locale: locale),
-                                spokenDetail: item.spokenDetail(locale: locale),
-                                focus: item.id == currentID ? item.focus(
-                                    inSuperset: routine.isInSuperset(item.id),
-                                    locale: locale,
-                                ) : nil,
-                                standing: item.id == routine.exercises.first?.id ? standing : nil,
-                            )
+                    }
+                    let equipment = routine.exercises.map(\.exercise).equipment
+                    if !equipment.isEmpty {
+                        Capsules(equipment.map(\.name))
+                            .accessibilityIdentifier("routine.equipment")
+                            .transition(.opacity)
+                    }
+                    Rail(
+                        routine.exercises,
+                        links: routine.joinedToNext,
+                        arriving: arriving,
+                        current: litID,
+                        done: finishedRows,
+                        isSetHeld: heldSet != nil,
+                        pulse: railPulse,
+                        onMove: move,
+                        regroup: regroup,
+                    ) { item in
+                        rowLabel(item, current: currentID, on: currentSet, bars: rowBars[item.id])
+                            .environment(\.exerciseMoveWay, exerciseMove?.way)
                             .id(item.id)
                             .padding(.top, item.id == currentID ? Self.currentTopSpace : 0)
                             // Only while it is read: as the list scrolls, every change redraws the
                             // screen.
                             .reportingPlace(
-                                item.id == routine.exercises.first?.id
-                                    && (session.workout != nil || isStarting),
+                                item.id == growingID && tracksRows,
                                 to: placeCurrent,
                             )
                             // Until an added row has entered it takes no taps, and its frame is
@@ -197,7 +202,8 @@ struct RoutineScreen: View {
                             // on the row, `false` would un-hide the rail's node.
                             .accessibilityHidden(item.id == entering)
                             .railRow()
-                            .reportingHeight(item.id == nextID) { nextRowHeight = $0 }
+                            // The whole row, its insets included, as the rail stacks it.
+                            .reportingFrame(tracksRows) { rowFrames.tops[item.id] = $0.minY }
                             .contentShape(.rect)
                             .onTapGesture {
                                 guard item.id != entering else { return }
@@ -207,6 +213,12 @@ struct RoutineScreen: View {
                             .accessibilityValue(supersetValue(item.id))
                             // None where it would do nothing: at an end, or with one row.
                             .accessibilityActions {
+                                // The slide is inside the row's one element, out of VoiceOver's
+                                // reach, so the current exercise logs its set as an action.
+                                if item.id == currentID, let set = currentSet, !isMovingOn {
+                                    let step = logStep(set, of: item)
+                                    Button(step.label, action: step.logAtOnce)
+                                }
                                 if let up = routine.slotMovingUp(item.id) {
                                     Button("Move up") { step(item.id, to: up, wentUp: true) }
                                 }
@@ -221,57 +233,82 @@ struct RoutineScreen: View {
                             // the UI tests never find it. The row's tap stays on where the swipe
                             // is off.
                             .swipeToDelete(isOn: item.id != currentID) { delete(item.id) }
-                        } end: {
+                    } end: {
+                        // The Finish row once the last row has started to close, fading in
+                        // once it is mostly closed, never over the slide going.
+                        if isWorkoutDone {
+                            FinishWorkoutRow {
+                                isPicking = true
+                            } finish: {
+                                finish(named: shownName ?? "")
+                            }
+                            .transition(.asymmetric(
+                                insertion: .opacity.animation(SetMotion.finishIn),
+                                removal: .opacity,
+                            ))
+                        } else {
                             Button("Add exercise", systemImage: "plus") {
                                 isPicking = true
                             }
                             .buttonStyle(.key)
+                            // Going for the Finish row, quickly, where it stood: a view going
+                            // stays where it was as the rows close up above it.
+                            .transition(.asymmetric(
+                                insertion: .opacity,
+                                removal: .opacity.animation(.easeIn(duration: SetMotion.leaveFade)),
+                            ))
                         }
                     }
-                    .padding(.horizontal, Spacing.md)
-                    // Room under Add exercise, so at the end of a long list it clears Start.
-                    .padding(.bottom, Spacing.md)
-                    // In the content, not a margin, so the visible height the row is sized from
-                    // stays.
-                    .roomBelow(isMakingRoom)
-                    // When the keyboard rises, UIKit scrolls the focused field to sit at least 5pt
-                    // below the top of the visible area. Starting there keeps the title still.
-                    .padding(.top, Spacing.sm)
-                    .clipShape(TopClip(height: underBar))
-                    .modifier(GrowthLift(lift: growthLift))
-                    // Crossfading, the changed list comes in already changed: only its fade
-                    // animates.
-                    .transaction { transaction in
-                        if isCrossfading {
-                            transaction.animation = nil
-                            transaction.disablesAnimations = true
-                        }
-                    }
-                    .id(listChanges)
-                    .transition(.opacity)
                 }
-                .coordinateSpace(.list)
+                .padding(.horizontal, Spacing.md)
+                // Room under Add exercise, so at the end of a long list it clears Start.
+                .padding(.bottom, Spacing.md)
+                // In the content, not a margin, so the visible height the row is sized from
+                // stays.
+                .roomToLand(
+                    top: closingRoomTop
+                        ?? (currentID != nil || isMovingOn ? currentPlace?.landingY : nil),
+                )
+                .roomBelow(isMakingRoom)
+                // When the keyboard rises, UIKit scrolls the focused field to sit at least 5pt
+                // below the top of the visible area. Starting there keeps the title still.
+                .padding(.top, Spacing.sm)
+                .clipShape(TopClip(height: underBar))
+                .modifier(GrowthLift(lift: growthLift))
+                // Crossfading, the changed list comes in already changed: only its fade
+                // animates.
+                .transaction { transaction in
+                    if isCrossfading {
+                        transaction.animation = nil
+                        transaction.disablesAnimations = true
+                    }
+                }
+                .id(listChanges)
+                .transition(.opacity)
             }
-            .contentMargins(
-                .bottom,
-                session.workout == nil ? 0 : wayToCurrentRoom,
-                for: .scrollContent,
-            )
-            .scrollEdgeEffectHidden(isBottomEdgeHidden, for: .bottom)
-            .scrollPosition($scrollPosition)
-            .railAutoscroll($scrollPosition)
-            .onScrollGeometryChange(for: ScrollGeometry.self, of: { $0 }, action: keepEndInView)
-            .onScrollPhaseChange { _, phase in
-                isScrollingByHand = phase == .interacting || phase == .decelerating
-                scrollBeat.phaseChanged(to: phase)
-            }
-            .onScrollGeometryChange(for: Bool.self, of: Self.endIsInView(of:)) { isEndInView = $1 }
-            .onScrollGeometryChange(for: CGFloat.self, of: \.scrolledY) {
-                scrollBeat.listMoved(to: $1)
-            }
-            .onGeometryChange(for: CGFloat.self, of: \.size.height) { listHeight = $0 }
-            .reportingFoot { listFoot = $0 }
+            .coordinateSpace(.list)
         }
+        .contentMargins(
+            .bottom,
+            session.workout == nil ? 0 : wayToCurrentRoom,
+            for: .scrollContent,
+        )
+        .scrollEdgeEffectHidden(isBottomEdgeHidden, for: .bottom)
+        .scrollPosition($scrollPosition)
+        .railAutoscroll($scrollPosition)
+        .onScrollGeometryChange(for: ScrollGeometry.self, of: \.self) { old, new in
+            keepEndInView(from: old, to: new)
+            keepEndPinned(from: old, to: new)
+        }
+        .onScrollPhaseChange { _, phase in
+            isScrollingByHand = phase == .interacting || phase == .decelerating
+            scrollBeat.phaseChanged(to: phase)
+        }
+        .onScrollGeometryChange(for: Bool.self, of: Self.endIsInView(of:)) { isEndInView = $1 }
+        .onScrollGeometryChange(for: CGFloat.self, of: \.scrolledY) {
+            scrollBeat.listMoved(to: $1)
+        }
+        .onGeometryChange(for: CGFloat.self, of: \.size.height) { listHeight = $0 }
         .overlay(alignment: .bottom) { wayToCurrent }
         .primaryKeyBar(
             isPresented: showsStart,
@@ -308,79 +345,7 @@ struct RoutineScreen: View {
                 ) { delete(opened.id) }
             }
         }
-        .toolbar {
-            // As a large title does, the title shows small in the bar once it is under it.
-            ToolbarItem(placement: .title) {
-                // Always there, faded out rather than taken out: the bar drew its edge effect only
-                // while the item had something showing, so the band under the bar came and went
-                // with the title, on the frame, and a title taken out went on the frame too.
-                smallTitle(shownName)
-                    .opacity(isTitleUnderBar ? 1 : 0)
-                    .allowsHitTesting(isTitleUnderBar)
-                    .accessibilityShown(isTitleUnderBar)
-            }
-            // One item, its key changing in a crossfade: the bar put one in or took one out on
-            // the frame.
-            if session.workout != nil || !isPushed {
-                ToolbarItem(placement: .topBarLeading) {
-                    ZStack {
-                        if session.workout != nil {
-                            EndButton { isConfirmingEnd = true }
-                                .transition(.opacity)
-                        } else {
-                            MenuButton(session: session)
-                                .transition(.opacity)
-                        }
-                    }
-                    .animation(.easeOut(duration: Self.barFade), value: session.workout == nil)
-                }
-            }
-            // The time fades out of its glass, and then the glass goes, the bar fading it: the bar
-            // took the item out with its content on the frame, and only the glass faded.
-            if let workout = session.workout ?? endingWorkout {
-                ToolbarItem(placement: .topBarTrailing) {
-                    WorkoutTimeKey(session: session, workout: workout)
-                        .opacity(session.workout == nil ? 0 : 1)
-                        .animation(.easeOut(duration: Self.barFade), value: session.workout == nil)
-                }
-            }
-        }
-    }
-}
-
-extension RoutineScreen {
-    /// The title, small in the bar. As a tap on the status bar does, a tap brings the title back.
-    /// At the accessibility text sizes the bar keeps touches on its title for the large content
-    /// viewer, so there the button is reached through VoiceOver only.
-    private func smallTitle(_ shownName: String?) -> some View {
-        Button {
-            withAnimation(.snappy) {
-                scrollPosition.scrollTo(edge: .top)
-            }
-        } label: {
-            // Gray only for New routine, as in the title.
-            Text(shownName ?? Self.defaultName)
-                .font(.ppInlineTitle)
-                .foregroundStyle(.pp(shownName == nil ? .textSecondary : .textPrimary))
-                .lineLimit(1)
-        }
-        .buttonStyle(.plain)
-        // A heading, as the system's own bar title is.
-        .accessibilityAddTraits(.isHeader)
-        .accessibilityHint("Scrolls to the top.")
-        .hiddenBehindDrawer()
-    }
-}
-
-extension View {
-    /// Shown to VoiceOver and the UI tests only while `isShown`. `accessibilityHidden` left the
-    /// bar's title read out while faded away.
-    fileprivate func accessibilityShown(_ isShown: Bool) -> some View {
-        accessibilityRepresentation {
-            if isShown {
-                self
-            }
-        }
+        .toolbar { barItems }
     }
 }
 

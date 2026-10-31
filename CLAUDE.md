@@ -9,7 +9,7 @@ This file is the constitution: loaded every session, kept short. Detail lives in
 `.claude/rules/*.md`, which load when you touch matching files, and in `docs/`. If this file and a
 rules file disagree, this file wins.
 
-**Status: routines, saved, a drawer between them, and a workout started on one.** The app launches into the routine last
+**Status: routines, saved, a drawer between them, and a workout logged set by set on one.** The app launches into the routine last
 opened or edited, or a new, empty one, which you can name and add built-in exercises to. ++, or
 a swipe in from the left edge, slides the screen aside, darkened, onto a drawer: Routines, the
 three routines last opened or edited, the last edited first, and New, an action, never marked;
@@ -31,15 +31,20 @@ neighbor pairs with it, at the larger set count; an end's dot moves that end, a 
 carries a row in or out, and VoiceOver joins and leaves with actions. While a row or dot is
 held, the superset the drag affects sits in a sunken area. Start, once the routine has an
 exercise, runs a workout on the same screen: the first exercise grows into the current one, its
-set, equipment, and numbers large, filling the screen but for the next exercise, with no swipe;
-scrolled away, a floating key goes back to it. End takes ++'s place and asks "End this
-workout?": Finish workout, offered once a set is done (none can be logged yet), keeps it, and
+set, equipment, and numbers large, with no swipe; scrolled away, a floating key goes back to it.
+Sliding its key past two-thirds, or flicking it, logs the set at the numbers shown, saved at
+once: as the key comes back to the start the next set rolls in, one side then the other where
+the exercise is per side, and after its last set a green blob pulls out of the node, runs the
+rail, and plops into the next exercise's, which then grows as the last shrinks, a superset
+going round its members by round. Started rows show a bar per set, purple once done, and a finished
+row's node turns purple; after the last set, Finish workout ends the list. End takes ++'s place
+and asks "End this workout?": Finish workout, offered once a set is logged, keeps it, and
 launch then opens a new routine; Discard workout keeps nothing. The time, at top right, pauses
 and resumes. A workout survives a relaunch, keeps the screen on, and locks the drawer, and
 every edit stays on. The app shows only in dark
 appearance (`Config/Base.xcconfig`); the light palette is seen only in snapshots.
 `WorkoutStore` holds the domain types, the stored models behind `RoutineStore` in a versioned
-schema, workouts and their time, the namer, the order a superset's sets go in, and the routines' recency. Nothing syncs yet.
+schema, workouts with their time and logged sets, the namer, the order sets go in and the next one, and the routines' recency. Nothing syncs yet.
 
 ## Architecture
 

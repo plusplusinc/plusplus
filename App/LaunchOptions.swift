@@ -30,12 +30,25 @@ enum LaunchOptions {
     /// lists built-in exercise ids, comma-separated, and `-seedName` names it. A test that needs
     /// rows but doesn't check adding them starts with them, rather than spending seconds an add
     /// in the picker.
-    static var seededRoutine: (name: String, exercises: [Exercise])? {
+    /// `-seedSuperset` joins the seeded rows from one index to another, from 0, into a
+    /// superset ("1,2"), for a workout to step through one.
+    static var seededRoutine: SeededRoutine? {
         guard let ids = UserDefaults.standard.string(forKey: "seedExercises") else { return nil }
-        return (
-            UserDefaults.standard.string(forKey: "seedName") ?? "",
-            ids.split(separator: ",").compactMap { Exercise.builtIn(id: String($0)) },
+        let ends = UserDefaults.standard.string(forKey: "seedSuperset")?
+            .split(separator: ",").compactMap { Int($0) } ?? []
+        return SeededRoutine(
+            name: UserDefaults.standard.string(forKey: "seedName") ?? "",
+            exercises: ids.split(separator: ",").compactMap { Exercise.builtIn(id: String($0)) },
+            superset: ends.count == 2 && ends[0] < ends[1] ? ends[0] ... ends[1] : nil,
         )
     }
+}
+
+/// The routine `-seedExercises`, `-seedName`, and `-seedSuperset` ask for.
+struct SeededRoutine {
+    let name: String
+    let exercises: [Exercise]
+    /// The rows joined into a superset, by index from 0.
+    let superset: ClosedRange<Int>?
 }
 #endif

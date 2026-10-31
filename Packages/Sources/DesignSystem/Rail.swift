@@ -43,7 +43,14 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     private let arriving: RowID?
     /// The row a workout is on, whose node shows it in green, pulsing.
     private let current: RowID?
-    private let onMove: ((RowID, RailSlot<RowID>) -> Void)?
+    /// The rows whose sets are all done in a workout, whose nodes show it in purple.
+    private let done: Set<RowID>
+    /// Whether the current row has a set logged that stays on it, not yet shown: its node rests
+    /// small and gray until it is (`SetBeat`).
+    private let isSetHeld: Bool
+    /// A pulse from one row's node to another's, as a workout moves on (`RailPulse`).
+    private let pulse: RailPulse<RowID>?
+    let onMove: ((RowID, RailSlot<RowID>) -> Void)?
     let links: Set<RowID>
     let regroup: RailRegroup<RowID>?
     let row: (Data.Element) -> Row
@@ -101,6 +108,9 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         links: Set<Data.Element.ID> = [],
         arriving: Data.Element.ID? = nil,
         current: Data.Element.ID? = nil,
+        done: Set<Data.Element.ID> = [],
+        isSetHeld: Bool = false,
+        pulse: RailPulse<Data.Element.ID>? = nil,
         onMove: ((Data.Element.ID, RailSlot<Data.Element.ID>) -> Void)? = nil,
         regroup: RailRegroup<Data.Element.ID>? = nil,
         @ViewBuilder row: @escaping (Data.Element) -> Row,
@@ -111,6 +121,9 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
             links: links,
             arriving: arriving,
             current: current,
+            done: done,
+            isSetHeld: isSetHeld,
+            pulse: pulse,
             onMove: onMove,
             regroup: regroup,
             drag: nil,
@@ -125,6 +138,9 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         links: Set<RowID> = [],
         arriving: RowID? = nil,
         current: RowID? = nil,
+        done: Set<RowID> = [],
+        isSetHeld: Bool = false,
+        pulse: RailPulse<RowID>? = nil,
         onMove: ((RowID, RailSlot<RowID>) -> Void)? = nil,
         regroup: RailRegroup<RowID>? = nil,
         drag: RailDragState<RowID>?,
@@ -137,6 +153,9 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         self.links = links
         self.arriving = arriving
         self.current = current
+        self.done = done
+        self.isSetHeld = isSetHeld
+        self.pulse = pulse
         self.onMove = onMove
         self.regroup = regroup
         _drag = State(initialValue: drag)
@@ -162,7 +181,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         let room = drag.map(roomAbove) ?? 0
         // Held, the rail draws every stroke once, under the rows, rather than each row its own.
         let isHeld = drag != nil || regrouping != nil
-        VStack(alignment: .leading, spacing: 0) {
+        RailStack {
             // Each row learns its place from the rail. Rows taken as a view's subviews could
             // not: a subview resolves in its container's environment, not one set on it.
             ForEach(shown) { item in
@@ -177,6 +196,8 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                     flashes: flashes[item.id] ?? 0,
                     isLoopHidden: hiddenLoops.contains(item.id),
                     isCurrent: item.id == current,
+                    isDone: done.contains(item.id),
+                    isSetHeld: isSetHeld && item.id == current,
                 )
                 // An arriving row's place opens with its entry's shot, so the end view is pushed
                 // down as far as the line has grown, on every frame.
@@ -228,6 +249,16 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         .background { spanField() }
         .background { drawnWells(held: well) }
         .coordinateSpace(.named(RailDrag.space))
+        // The pulse, over the rows' strokes and nodes, from the nodes as they are on each frame.
+        .overlayPreferenceValue(RowNodes.self) { nodes in
+            GeometryReader { proxy in
+                RailPulseRun(
+                    route: pulse.flatMap { route($0, nodes, in: proxy) },
+                    way: pulse?.way ?? .down,
+                    run: pulse?.run ?? 0,
+                )
+            }
+        }
         // The card, over the rows it passes and Add exercise. It is placed in the rail's space,
         // where the finger is, not in the row's place, which moves as the gap does.
         .overlayPreferenceValue(RowNodes.self) { nodes in
@@ -281,106 +312,24 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     func gapTop(of drag: RailDragState<RowID>) -> CGFloat {
         gapTop(lifting: drag.lifted, at: drag.slot) ?? 0
     }
-
-    private func dragged(_ id: RowID, _ phase: RailDrag.Phase, at finger: RailDrag.Finger) {
-        switch phase {
-        case .began:
-            guard drag == nil, regrouping == nil else { return }
-            if finger.inColumn, regroup != nil {
-                return holdNode(id, at: finger)
-            }
-            guard onMove != nil else { return }
-            let candidates = candidates(lifting: id)
-            guard let origin = RailDrag.origin(
-                of: id,
-                in: data.map(\.id),
-                candidates: candidates,
-                groups: groups,
-            ),
-                let own = candidates.first(where: { $0.slot == origin })
-            else { return }
-            cardTop = own.gapTop
-            drag = RailDragState(
-                lifted: id,
-                origin: own.slot,
-                slot: own.slot,
-                grab: finger.inRail - own.gapTop,
-                rows: data.map(\.id),
-            )
-            lifts += 1
-            // The list scrolling under a still finger carries the card through the rows.
-            // The most room above the rail a pair can ask for: the card's own height.
-            edges?.lift(at: finger.inScrollView, room: heights.byID[id] ?? 0) { distance, byEdge in
-                railMoved(distance, carrying: id, byEdge: byEdge)
-            }
-        case .changed:
-            if regrouping?.held == id {
-                return moveNodeFinger(to: finger)
-            }
-            guard let held = drag, held.lifted == id else { return }
-            cardTop = finger.inRail - held.grab
-            edges?.move(to: finger.inScrollView)
-            // Over a bar, where a drop sends the row back, the rows show it back where it was.
-            let overBar = isOverBar(finger)
-            if overBar != held.isOverBar {
-                withAnimation(reduceMotion ? nil : RailDrag.gap) { drag?.isOverBar = overBar }
-            }
-            follow(id)
-        case .ended, .cancelled:
-            if let held = regrouping, held.held == id {
-                edges?.letGo()
-                let goesBack = phase == .cancelled || isOverBar(finger)
-                return letGoOfNode(held, goingBack: goesBack)
-            }
-            guard let released = drag, released.lifted == id, !released.isReleased else { return }
-            edges?.letGo()
-            dwell = nil
-            // Let go over a bar, or past the screen's edge, the row goes back.
-            let goesBack = phase == .cancelled || isOverBar(finger)
-            settle(released, goingBack: goesBack)
-        }
-    }
 }
 
 extension Rail {
-    /// The rail moved `distance` up the screen under the held finger: the card moves down it as
-    /// far, staying under the finger. Only the finger moves the gap, or a pair: the list scrolling
-    /// for it in an edge's band, `byEdge`, carries it through the rows; the room above the rail
-    /// doesn't.
-    private func railMoved(_ distance: CGFloat, carrying id: RowID, byEdge: Bool) {
-        cardTop += distance
-        if byEdge {
-            follow(id)
-        }
-    }
-
-    /// Whether the finger is over a bar, or past the screen's edge, where a drop changes nothing.
-    func isOverBar(_ finger: RailDrag.Finger) -> Bool {
-        edges?.isOutside(finger.inScrollView) == true
-    }
-
-    /// Lets the held row go, into its gap or, `goingBack`, back where it started: the card lowers
-    /// into the gap as `onMove` reorders the data to match the rows shown, in one transaction, so
-    /// no row moves. Back where it started, nothing moves, and the rows close up around it. Once
-    /// it has settled, the row draws in its place again.
-    private func settle(_ released: RailDragState<RowID>, goingBack: Bool) {
-        let slot = goingBack ? released.origin : released.slot
-        var settling = released
-        settling.slot = slot
-        settling.isReleased = true
-        settling.isOverBar = false
-        let animation = goingBack ? RailDrag.cancel : RailDrag.drop
-        withAnimation(reduceMotion ? nil : animation) {
-            if slot != released.origin {
-                onMove?(released.lifted, slot)
-            }
-            cardTop = gapTop(lifting: released.lifted, at: slot) ?? cardTop
-            drag = settling
-        } completion: {
-            if drag?.lifted == released.lifted {
-                drag = nil
-            }
-        }
+    /// The way `pulse` goes between its nodes: up a superset's loop to its first member, from a
+    /// later one in the same superset; straight along the rail otherwise.
+    private func route(
+        _ pulse: RailPulse<RowID>,
+        _ nodes: [AnyHashable: Anchor<CGPoint>],
+        in proxy: GeometryProxy,
+    ) -> RailRoute? {
+        guard let from = nodes[AnyHashable(pulse.from)].map({ proxy[$0] }),
+              let to = nodes[AnyHashable(pulse.to)].map({ proxy[$0] })
+        else { return nil }
+        let ids = data.map(\.id)
+        guard let start = ids.firstIndex(of: pulse.to), let end = ids.firstIndex(of: pulse.from),
+              start < end, ids[start ..< end].allSatisfy(links.contains)
+        else { return .line(from: from, to: to) }
+        return .loop(from: from, to: to, x: pen.runX(nodeX: from.x), radius: pen.radius)
     }
 }
 

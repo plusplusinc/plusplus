@@ -11,7 +11,8 @@ public struct PlanFigure: Hashable, Sendable {
 }
 
 extension RoutineExercise {
-    /// "Set 1 of 3", or "Round 1 of 3" in a superset, whose rows share one round count.
+    /// "Set 1 of 3", or "Round 1 of 3" in a superset, whose rows share one round count. A side
+    /// reads apart (`Side.text`), so the view can set it off.
     public func progressText(set: Int, inSuperset: Bool, locale: Locale = .current) -> String {
         let set = set.formatted(.number.locale(locale))
         let sets = plan.sets.formatted(.number.locale(locale))
@@ -19,10 +20,12 @@ extension RoutineExercise {
     }
 
     /// The reps or time, then the weight if the exercise holds one, each saying what it is for
-    /// as the row does: "10" "reps per side", "20" "lb/side".
-    public func figures(locale: Locale = .current) -> [PlanFigure] {
+    /// as the row does: "10" "reps per side", "20" "lb/side". With a `side` named, the set is
+    /// that side's alone, so the reps or time drop "per side": "10" "reps".
+    public func figures(side: Side? = nil, locale: Locale = .current) -> [PlanFigure] {
         let target = plan.target.figure(locale: locale)
-        var figures = [PlanFigure(number: target.number, unit: qualified(target.unit, .target))]
+        let unit = side == nil ? qualified(target.unit, .target) : target.unit
+        var figures = [PlanFigure(number: target.number, unit: unit)]
         if let weight = shownWeight {
             figures.append(PlanFigure(
                 number: weight.number(locale: locale),
@@ -32,14 +35,32 @@ extension RoutineExercise {
         return figures
     }
 
-    /// The figures in words, for VoiceOver: "10 reps per side, 50 pounds".
-    public func spokenFigures(locale: Locale = .current) -> String {
-        var parts = [spokenValue(of: .target, locale: locale)]
+    /// The figures in words, for VoiceOver: "10 reps per side, 50 pounds"; with a `side`,
+    /// "10 reps, 50 pounds".
+    public func spokenFigures(side: Side? = nil, locale: Locale = .current) -> String {
+        var parts = [side == nil ? spokenValue(of: .target, locale: locale)
+            : plan.target.spokenText(locale: locale)]
         if shownWeight != nil {
             parts.append(spokenValue(of: .weight, locale: locale))
         }
         return parts.joined(separator: ", ")
     }
+}
+
+extension Side {
+    /// "Left", "Right": the side a set of a per-side exercise works.
+    public var text: String {
+        switch self {
+        case .left: String(localized: "Left")
+        case .right: String(localized: "Right")
+        }
+    }
+}
+
+/// How far through its sets a row is, in words, for VoiceOver: "2 of 3 sets done".
+public func spokenProgress(done: Int, total: Int, locale: Locale = .current) -> String {
+    let done = done.formatted(.number.locale(locale))
+    return "\(done) of \(counted(total, "set", "sets", locale: locale)) done"
 }
 
 extension SetTarget {

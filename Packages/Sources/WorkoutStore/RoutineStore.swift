@@ -58,14 +58,37 @@ public actor RoutineStore {
             return new
         }()
         target.write(workout)
+        writeSets(workout.sets, of: target)
         if !workout.isInProgress {
             try deleteIfCleared(routineID: workout.routineID)
         }
         try modelContext.save()
     }
 
-    /// Deletes the workout, keeping nothing of it, and its routine if cleared to nothing while
-    /// it ran, in one save; nothing if there is none.
+    /// Diffs the workout's stored sets against `sets` by id: a set gone is deleted, a new one
+    /// inserted, and each written at its place in the order logged. A stored set this build
+    /// can't read, never in `sets`, is kept rather than taken for one gone.
+    private func writeSets(_ sets: [LoggedSet], of workout: StoredWorkout) {
+        let old = workout.sets ?? []
+        let kept = Set(sets.map(\.id))
+        for set in old where !kept.contains(set.id) && set.isReadable {
+            modelContext.delete(set)
+        }
+        // Set ids are unique in the app's own writes; keyed leniently against a store that isn't.
+        let byID = Dictionary(old.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        for (position, set) in sets.enumerated() {
+            let stored = byID[set.id] ?? {
+                let new = StoredSet(id: set.id)
+                modelContext.insert(new)
+                new.workout = workout
+                return new
+            }()
+            stored.write(set, position: position)
+        }
+    }
+
+    /// Deletes the workout, keeping nothing of it, its sets with it, and its routine if cleared to
+    /// nothing while it ran, in one save; nothing if there is none.
     public func discardWorkout(_ id: Workout.ID) throws {
         guard let stored = try storedWorkout(id: id) else { return }
         if let routineID = stored.routineID {

@@ -182,6 +182,44 @@ struct RoutineStoreUpgradeTests {
         #expect(launch.routine?.name == "Older")
     }
 
+    @Test("A store written before logged sets opens with its workout in progress, no sets")
+    func upgradeBeforeSets() async throws {
+        let folder = FileManager.default.temporaryDirectory
+            .appending(path: "RoutineStoreUpgrade-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let url = folder.appending(path: "PlusPlus.store")
+        try Self.writeBeforeWorkouts(to: url)
+        let workoutID = UUID()
+        do {
+            let schema = Schema(versionedSchema: RoutineSchemaV5.self)
+            let old = try ModelContainer(
+                for: schema,
+                configurations: ModelConfiguration(schema: schema, url: url),
+            )
+            let context = ModelContext(old)
+            let routine = try #require(try context
+                .fetch(FetchDescriptor<StoredRoutine>())
+                .first { $0.name == "Older" })
+            let workout = RoutineSchemaV5.StoredWorkout(id: workoutID)
+            workout.routineID = routine.id
+            workout.routineName = "Older"
+            workout.startedAt = Date(timeIntervalSinceReferenceDate: 10)
+            context.insert(workout)
+            try context.save()
+        }
+
+        let current = try ModelContainer(
+            for: RoutineStore.schema,
+            migrationPlan: RoutineMigrationPlan.self,
+            configurations: ModelConfiguration(schema: RoutineStore.schema, url: url),
+        )
+        let launch = try await RoutineStore(modelContainer: current).launch(weightUnit: .pounds)
+        #expect(launch.workout?.id == workoutID)
+        #expect(launch.workout?.sets == [])
+        #expect(launch.routine?.name == "Older")
+    }
+
     /// Today's routines as #91 stored them: two, each with a superset of two rows with plans,
     /// one opened after the other's edit.
     private static func writeBeforeWorkouts(to url: URL) throws {

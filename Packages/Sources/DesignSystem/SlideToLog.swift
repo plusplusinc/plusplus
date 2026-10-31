@@ -1,0 +1,368 @@
+import SwiftUI
+
+/// Slide to log a set: a light key in a track as wide as the exercise, with a quiet label naming
+/// the step, "Log set", "Log left", or "Log last set". Nothing fills the track behind the key.
+/// The key shows an arrow. Dragged past two-thirds of the way, the commit, a haptic plays,
+/// lighter for one side than for a whole set, and let go there the set logs (`onLog`) and the
+/// key glides on to the end at the finger's speed (`SlideTrack.glide(from:speed:)`). The key has
+/// mass: let go short of the commit with speed enough to carry it past (`SlideTrack.coast`), as a
+/// quick flick does, it glides to the end the same way, and only there the haptic plays and the
+/// set logs; otherwise it slows and springs back, carrying that speed. At rest at the end, its
+/// arrow is a check, at once; it rests a moment, fades out, and comes back at the start
+/// (`onReturn`), as an arrow. With Reduce Motion, a key let go to log is at the end with its check
+/// at once, and the set logs there.
+///
+/// While it can't log (`isEnabled` false), as while the screen moves on to it, it takes no drag,
+/// and VoiceOver's button is dimmed.
+///
+/// The drag is horizontal only: a mostly vertical move that starts on the track scrolls the list
+/// (`SlideToLogGesture`). VoiceOver reads it as one button named by its label.
+public struct SlideToLog: View {
+    /// What a slide logs, which sets its haptic's weight.
+    public enum Weight {
+        /// A whole set.
+        case set
+        /// One side of a set done one side at a time: a lighter haptic.
+        case side
+    }
+
+    private let label: String
+    private let weight: Weight
+    private let isEnabled: Bool
+    private let onLog: () -> Void
+    private let onReturn: () -> Void
+
+    /// How far along the track the key is, 0 at the start, 1 at the end.
+    @State private var progress: CGFloat
+    /// Whether the key is going through its finish after a log, when it takes no drag.
+    @State private var isFinishing: Bool
+    @State private var keyOpacity: CGFloat = 1
+    /// Counts the haptics: a drag crossing `commit` on the way out, or a flick reaching the end.
+    @State private var arms = 0
+    /// Let go and come to rest at the end, where the check shows.
+    @State private var isAtEnd: Bool
+    @State private var trackWidth: CGFloat = 0
+
+    @ScaledMetric(relativeTo: .body) private var trackHeight: CGFloat = 56
+    /// Scaled as a large title is, about half as much as the body at the accessibility sizes:
+    /// scaled with the body, the key covered most of the track there and left "Log set" no room.
+    /// Not held to the track's measured width: the track's width follows the key's where a
+    /// layout asks for its ideal size, and the two fed each other, a layout loop at AX5.
+    @ScaledMetric(relativeTo: .largeTitle) private var keyWidth: CGFloat = 64
+    @ScaledMetric(relativeTo: .body) private var arrowSize: CGFloat = 20
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @ObserveHotReload private var hotReload
+
+    /// A slide that calls `onLog` as the set logs, and `onReturn` as the key shows again at the
+    /// start after it. VoiceOver's action calls both at once.
+    public init(
+        _ label: String,
+        weight: Weight = .set,
+        isEnabled: Bool = true,
+        onLog: @escaping () -> Void,
+        onReturn: @escaping () -> Void = { },
+    ) {
+        self.init(
+            label,
+            weight: weight,
+            isEnabled: isEnabled,
+            progress: 0,
+            isFinishing: false,
+            onLog: onLog,
+            onReturn: onReturn,
+        )
+    }
+
+    /// The track at a moment, so a preview or a snapshot can draw it: finishing at the end, the
+    /// key rests there with its check.
+    init(
+        _ label: String = "Log set",
+        weight: Weight = .set,
+        isEnabled: Bool = true,
+        progress: CGFloat,
+        isFinishing: Bool = false,
+        onLog: @escaping () -> Void = { },
+        onReturn: @escaping () -> Void = { },
+    ) {
+        self.label = label
+        self.weight = weight
+        self.isEnabled = isEnabled
+        self.onLog = onLog
+        self.onReturn = onReturn
+        _progress = State(initialValue: progress)
+        _isFinishing = State(initialValue: isFinishing)
+        _isAtEnd = State(initialValue: isFinishing && progress >= 1)
+    }
+
+    private static let inset: CGFloat = 4
+
+    public var body: some View {
+        let keyHeight = trackHeight - Self.inset * 2
+        let travel = SlideTrack.travel(track: trackWidth, key: keyWidth, inset: Self.inset)
+        let keyX = Self.inset + travel * progress
+        ZStack(alignment: .leading) {
+            // Sunk into the exercise, darker than the screen around it.
+            // Concentric with the key's corners, an inset in from them.
+            RoundedRectangle(cornerRadius: Self.inset + Radius.key)
+                .fill(.pp(.well))
+                .strokeBorder(.pp(.borderStrong), lineWidth: 1)
+            Text(label)
+                .font(.ppButton.weight(.regular))
+                .foregroundStyle(.pp(.textSecondary))
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+                .frame(maxWidth: .infinity)
+                .padding(.leading, keyWidth + Self.inset * 2)
+                .padding(.trailing, Self.inset * 2)
+                .opacity(SlideTrack.labelOpacity(keyEnd: keyX + keyWidth, track: trackWidth))
+            RoundedRectangle(cornerRadius: Radius.key)
+                .fill(.pp(.textPrimary))
+                .shadow(color: .pp(.shadow), radius: 1.5, y: 1)
+                .overlay {
+                    // The arrow switches to the check at once, as the key comes to rest at the
+                    // end (Dave, 2026-10-30): the symbols' Replace left the arrow behind on a
+                    // moving key and drew the check in low.
+                    Image(systemName: isAtEnd ? "checkmark" : "arrow.right")
+                        .font(.system(size: arrowSize, weight: .bold))
+                        .foregroundStyle(.pp(.background))
+                        // One square for both: the arrow is wider than the check.
+                        .frame(width: arrowSize * 1.5, height: arrowSize * 1.5)
+                }
+                .frame(width: keyWidth, height: keyHeight)
+                .offset(x: keyX)
+                .opacity(keyOpacity)
+        }
+        .frame(height: trackHeight)
+        .onGeometryChange(for: CGFloat.self, of: \.size.width) { trackWidth = $0 }
+        .contentShape(.rect)
+        #if os(iOS)
+        .gesture(SlideToLogGesture(isEnabled: isEnabled &&
+                !isFinishing)
+        { phase, translation, velocity in
+            drag(phase, translation: translation, velocity: velocity, travel: travel)
+        })
+        #endif
+        // A tap on the track does nothing, rather than open the row's sheet under it.
+        .onTapGesture { }
+        .sensoryFeedback(
+            .impact(weight: weight == .side ? .light : .medium),
+            trigger: arms,
+        )
+        .accessibilityRepresentation {
+            Button(label) {
+                onLog()
+                onReturn()
+            }
+            .disabled(!isEnabled)
+        }
+        .accessibilityIdentifier("workout.logSet")
+        .hotReloadable()
+    }
+
+    #if os(iOS)
+    private func drag(
+        _ phase: SlideToLogGesture.Phase,
+        translation: CGFloat,
+        velocity: CGFloat,
+        travel: CGFloat,
+    ) {
+        // The finger's speed in tracks a second.
+        let speed = travel > 0 ? velocity / travel : 0
+        switch phase {
+        case .changed:
+            let next = SlideTrack.progress(translation: translation, travel: travel)
+            if SlideTrack.isArmed(next), !SlideTrack.isArmed(progress) {
+                arms += 1
+            }
+            progress = next
+        case .ended where SlideTrack.isArmed(progress):
+            log(speed: speed)
+        case .ended where SlideTrack.isArmed(SlideTrack.coast(from: progress, speed: speed)):
+            coast(speed: speed)
+        case .ended, .cancelled:
+            // Slowing, then back, from the speed it was let go at, as a share of the way back.
+            let share = progress > 0 ? -speed / progress : 0
+            withAnimation(.interpolatingSpring(
+                duration: SetMotion.springBack,
+                bounce: 0,
+                initialVelocity: share,
+            )) {
+                progress = 0
+            }
+        }
+    }
+    #endif
+
+    /// Let go short of the commit at `speed`, with enough to carry it past: the key glides on to
+    /// the end at that speed, and only there turns to a check, with the haptic, and the set logs
+    /// (Dave, 2026-10-30).
+    private func coast(speed: CGFloat) {
+        isFinishing = true
+        guard !reduceMotion else {
+            arms += 1
+            return endAtOnce()
+        }
+        withAnimation(.linear(duration: SlideTrack.glide(from: progress, speed: speed))) {
+            progress = 1
+        } completion: {
+            arms += 1
+            onLog()
+            rest()
+        }
+    }
+
+    /// Let go past the commit at `speed`: the set logs, and the key glides on to the end.
+    private func log(speed: CGFloat) {
+        isFinishing = true
+        guard !reduceMotion else { return endAtOnce() }
+        onLog()
+        withAnimation(.linear(duration: SlideTrack.glide(from: progress, speed: speed))) {
+            progress = 1
+        } completion: {
+            rest()
+        }
+    }
+
+    /// With Reduce Motion, the key let go at the end with its check at once, and the set logged
+    /// there: gliding, it was still an arrow as a move to the next exercise crossfaded it away.
+    private func endAtOnce() {
+        withTransaction(\.disablesAnimations, true) { progress = 1 }
+        rest()
+        onLog()
+    }
+
+    /// The key at the end with its check, resting there, then fading out, and in again at the
+    /// start with its arrow, where it is back (`onReturn`).
+    private func rest() {
+        isAtEnd = true
+        withAnimation(.linear(duration: SetMotion.fadeOut).delay(SetMotion.rest)) {
+            keyOpacity = 0
+        } completion: {
+            progress = 0
+            isAtEnd = false
+            onReturn()
+            withAnimation(.easeOut(duration: SetMotion.fadeIn)) {
+                keyOpacity = 1
+            } completion: {
+                isFinishing = false
+            }
+        }
+    }
+}
+
+/// The track's arithmetic: how far the key has gone, where it logs, and how the label fades.
+enum SlideTrack {
+    /// How far the key can go: the track's width less the key and an inset at each end.
+    static func travel(track: CGFloat, key: CGFloat, inset: CGFloat) -> CGFloat {
+        max(track - key - inset * 2, 0)
+    }
+
+    /// How far along a drag of `translation` takes the key, held within the track.
+    static func progress(translation: CGFloat, travel: CGFloat) -> CGFloat {
+        guard travel > 0 else { return 0 }
+        return min(max(translation / travel, 0), 1)
+    }
+
+    /// Whether a release at `progress` logs the set.
+    static func isArmed(_ progress: CGFloat) -> Bool {
+        progress >= SetMotion.commit
+    }
+
+    /// Where a key let go at `progress`, moving at `speed` tracks a second, would coast to as it
+    /// slows to a stop: UIKit's projection for a scroll view's deceleration, `speed` times the
+    /// rate over one less the rate, a thousandth for each millisecond.
+    static func coast(from progress: CGFloat, speed: CGFloat) -> CGFloat {
+        let rate = SetMotion.coastRate
+        return progress + speed * rate / (1 - rate) / 1000
+    }
+
+    /// How long a key let go at `progress`, moving at `speed` tracks a second, takes to the end:
+    /// it keeps that speed, as a thing in motion does (Dave, 2026-10-30), never slower than
+    /// `glideFloor`.
+    static func glide(from progress: CGFloat, speed: CGFloat) -> Double {
+        Double(max(1 - progress, 0) / max(speed, glideFloor))
+    }
+
+    /// The slowest a key let go glides, in tracks a second, about 70 pt/s: only so a key let go
+    /// standing still past the commit gets to the end.
+    static let glideFloor: CGFloat = 0.3
+
+    /// "Log set" fades as the key's leading edge comes over it, gone 40 pt before the end.
+    static func labelOpacity(keyEnd: CGFloat, track: CGFloat) -> CGFloat {
+        let fadeFrom = track * 0.45
+        return min(max(1 - (keyEnd - fadeFrom) / 60, 0), 1)
+    }
+}
+
+#if os(iOS)
+import UIKit
+
+/// The slide's drag, as a UIKit pan that begins only on a mostly horizontal move, so a vertical
+/// swipe that starts on the track goes to the scroll view. SwiftUI's drag, set to begin on any
+/// move, took the scroll view's swipes. A long press on the track, the rail's hold that lifts a
+/// row, waits for it to fail: a finger resting on the key before it slides lifted the row.
+struct SlideToLogGesture: UIGestureRecognizerRepresentable {
+    enum Phase {
+        case changed
+        case ended
+        case cancelled
+    }
+
+    var isEnabled: Bool
+    /// Each step of the drag, with how far it has gone across and how fast it is going, in
+    /// points a second.
+    var onPhase: (Phase, CGFloat, CGFloat) -> Void
+
+    func makeCoordinator(converter _: CoordinateSpaceConverter) -> Coordinator {
+        Coordinator()
+    }
+
+    func makeUIGestureRecognizer(context: Context) -> UIPanGestureRecognizer {
+        let recognizer = UIPanGestureRecognizer()
+        recognizer.delegate = context.coordinator
+        recognizer.isEnabled = isEnabled
+        return recognizer
+    }
+
+    func updateUIGestureRecognizer(_ recognizer: UIPanGestureRecognizer, context _: Context) {
+        recognizer.isEnabled = isEnabled
+    }
+
+    func handleUIGestureRecognizerAction(_ recognizer: UIPanGestureRecognizer, context _: Context) {
+        let across = recognizer.translation(in: recognizer.view).x
+        let speed = recognizer.velocity(in: recognizer.view).x
+        switch recognizer.state {
+        case .began, .changed: onPhase(.changed, across, speed)
+        case .ended: onPhase(.ended, across, speed)
+        case .cancelled, .failed: onPhase(.cancelled, across, speed)
+        default: break
+        }
+    }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
+            guard let pan = recognizer as? UIPanGestureRecognizer else { return true }
+            let velocity = pan.velocity(in: pan.view)
+            return abs(velocity.x) > abs(velocity.y)
+        }
+
+        func gestureRecognizer(
+            _: UIGestureRecognizer,
+            shouldBeRequiredToFailBy other: UIGestureRecognizer,
+        ) -> Bool {
+            other is UILongPressGestureRecognizer
+        }
+    }
+}
+#endif
+
+#Preview {
+    VStack(spacing: Spacing.md) {
+        SlideToLog("Log set") { }
+        SlideToLog("Log left", weight: .side, progress: 0.4)
+        SlideToLog(progress: 0.8)
+        SlideToLog("Log last set", progress: 1, isFinishing: true)
+    }
+    .padding()
+    .background(Color.pp(.background))
+}

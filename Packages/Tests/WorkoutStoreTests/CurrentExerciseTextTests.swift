@@ -39,6 +39,23 @@ struct CurrentExerciseTextTests {
             == ["45 s"])
     }
 
+    @Test("With a side named, the reps or time drop per side; a pair's weight keeps its /side")
+    func figuresOnASide() throws {
+        let rowing = try Self.row("Dumbbell row")
+        let weight = try #require(rowing.plan.weight).number(locale: Self.locale)
+        #expect(rowing.figures(side: .left, locale: Self.locale).map { "\($0.number) \($0.unit)" }
+            == ["10 reps", "\(weight) lb"])
+        #expect(rowing.spokenFigures(side: .right, locale: Self.locale)
+            == "10 reps, \(weight) pounds")
+        #expect(Side.left.text == "Left")
+    }
+
+    @Test("A row's progress in words: done sets of its sets")
+    func spokenProgressReads() {
+        #expect(spokenProgress(done: 2, total: 3, locale: Self.locale) == "2 of 3 sets done")
+        #expect(spokenProgress(done: 0, total: 1, locale: Self.locale) == "0 of 1 set done")
+    }
+
     @Test("Spoken, in words")
     func spoken() throws {
         let row = try Self.row("Push-up", target: .reps(1))

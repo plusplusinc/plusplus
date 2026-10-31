@@ -2,9 +2,8 @@ import SwiftUI
 
 /// A current exercise's number and what it counts: side by side on their first baselines where
 /// both fit the width, the number at the height offered, and otherwise, as at the accessibility
-/// sizes, the
-/// unit under the number, wrapped to the width. The number is offered what height is left, so it
-/// shrinks to fit the label's standing height. A layout, not `ViewThatFits`: with
+/// sizes, the unit under the number, wrapped to the width. Also the progress line's set and side.
+/// A layout, not `ViewThatFits`: with
 /// `ViewThatFits` here, the title's text view taking focus in a workout sent the view graph
 /// round a cycle, and the app hung.
 struct FigureLayout: Layout {

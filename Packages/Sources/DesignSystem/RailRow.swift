@@ -23,6 +23,11 @@ struct RailPlace {
     var isLoopHidden = false
     /// The row a workout is on: its node is larger, green, and pulses.
     var isCurrent = false
+    /// A row whose sets are all done in a workout: its node is filled purple.
+    var isDone = false
+    /// The current row with a set logged that stays on it, until the key is back at the start:
+    /// its node rests small and gray (`SetBeat`).
+    var isSetHeld = false
 }
 
 /// Where a row is in a group of rows next to each other on a rail, a superset: on its own, or
@@ -74,13 +79,28 @@ private struct RailNode: View {
                     .joiningRail(
                         when: place.isArriving,
                         settlingTo: place.isCurrent ? .accent
-                            : place.isRaised ? .textPrimary : .rail,
+                            : place.isRaised ? .textPrimary : place.isDone ? .done : .rail,
                     )
                     .frame(width: size, height: size)
                     .overlay {
-                        if place.isCurrent, !reduceMotion {
-                            CurrentPulse()
+                        if place.isCurrent {
+                            Color.clear.currentPulse(in: Circle())
                         }
+                    }
+                    // A set done that stays on this exercise: the node shrinks and grays as the set
+                    // logs, rests so while the key does, and pops back green as the line rolls.
+                    .keyframeAnimator(
+                        initialValue: SetBeat(held: place.isSetHeld),
+                        trigger: place.isSetHeld,
+                    ) { node, value in
+                        let shown = place.isCurrent && !reduceMotion
+                        node
+                            .overlay {
+                                Circle().fill(.pp(.rail)).opacity(shown ? value.gray : 0)
+                            }
+                            .scaleEffect(shown ? value.scale : 1)
+                    } keyframes: { _ in
+                        SetBeat.keyframes(held: place.isSetHeld)
                     }
                     .anchorPreference(key: NodeCenter.self, value: .center) { $0 }
                     .anchorPreference(key: RailNodes.self, value: .center) { [$0] }
@@ -107,25 +127,6 @@ struct RailNodeColumn: View {
             .hidden()
             .railColumn()
             .hotReloadable()
-    }
-}
-
-/// The current exercise's node pulsing: its green dims and comes back, slowly, over and over,
-/// within the node's own circle. It starts at full green, so a still shows the node at rest.
-private struct CurrentPulse: View {
-    @ObserveHotReload private var hotReload
-
-    var body: some View {
-        // The background's color laid over the green, more of it as the node dims.
-        PhaseAnimator([false, true]) { isDim in
-            Circle()
-                .fill(.pp(.background))
-                .opacity(isDim ? 0.45 : 0)
-        } animation: { _ in
-            .easeInOut(duration: 0.9)
-        }
-        .allowsHitTesting(false)
-        .hotReloadable()
     }
 }
 
@@ -289,7 +290,10 @@ private struct GroupLoop: View {
         let line = pen.line(top: ends.top, bottom: ends.bottom, nodeX: node.x, x: x)
             .intersection(Path(CGRect(x: 0, y: 0, width: node.x, height: height)))
         guard link == .first || link == .middle else { return line }
-        let head = pen.head(middle: node.y + height / 2, x: x)
+        // Kept whole inside the row: on a row given space above its label, as the next exercise
+        // of a workout is, half its height below the node is at its bottom edge.
+        let middle = min(node.y + height / 2, height - pen.length / 2 - pen.gap - pen.lineWidth)
+        let head = pen.head(middle: middle, x: x)
         return line.subtracting(head.opening).union(head.added)
     }
 }
@@ -314,16 +318,41 @@ extension View {
         modifier(RailRow())
     }
 
-    /// This content as a rail row would stand, with its node's column, its inset, and its least
-    /// height, but nothing drawn: offered the width a row offers its content, it is as tall as
-    /// that row. For measuring a row in the same layout pass as another.
-    func railRowStand() -> some View {
-        RailRowStand(content: self)
-    }
-
     /// The rail column: the leading strip where rows put their nodes and a key its icon. At
     /// large text sizes it grows with what it holds, keeping an inset, rather than clipping it.
     func railColumn() -> some View {
         padding(.horizontal, Spacing.sm).frame(minWidth: railColumnWidth)
+    }
+}
+
+/// The current node's beat as a set logs that stays on its exercise (Dave, 2026-10-30): it
+/// shrinks to half and fades to the rail's gray as the set logs, rests so, and pops back full
+/// and green, with a bounce, as the progress line rolls.
+struct SetBeat {
+    var scale: Double
+    /// How far the node is covered in the rail's gray.
+    var gray: Double
+
+    /// The node at rest, or held small and gray.
+    init(held: Bool = false) {
+        scale = held ? 0.5 : 1
+        gray = held ? 1 : 0
+    }
+
+    /// To held, or back from it, from wherever the node is.
+    @KeyframesBuilder<Self>
+    static func keyframes(held: Bool) -> some Keyframes<Self> {
+        let end = Self(held: held)
+        KeyframeTrack(\.scale) {
+            if held {
+                CubicKeyframe(end.scale, duration: 0.2)
+            } else {
+                // Its own settling time: cut at 0.4 s, it stopped 2 % large.
+                SpringKeyframe(end.scale, spring: .bouncy)
+            }
+        }
+        KeyframeTrack(\.gray) {
+            CubicKeyframe(end.gray, duration: held ? 0.2 : 0.12)
+        }
     }
 }

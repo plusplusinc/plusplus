@@ -121,3 +121,26 @@ enum RoutineSchemaV3: VersionedSchema {
         }
     }
 }
+
+/// As #97 shipped it, with workouts and before logged sets. Its routines are still today's.
+enum RoutineSchemaV5: VersionedSchema {
+    static let versionIdentifier = Schema.Version(5, 0, 0)
+    static var models: [any PersistentModel.Type] {
+        [StoredRoutine.self, StoredRoutineExercise.self, StoredWorkout.self]
+    }
+
+    @Model
+    final class StoredWorkout {
+        var id = UUID()
+        var routineID: UUID?
+        var routineName = ""
+        var startedAt = Date.distantPast
+        var pausedAt: Date?
+        var pausedSeconds = 0.0
+        var endedAt: Date?
+
+        init(id: UUID) {
+            self.id = id
+        }
+    }
+}

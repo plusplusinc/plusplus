@@ -84,18 +84,22 @@ extension XCUIApplication {
         navigationBars.buttons["End workout"]
     }
 
-    /// Taps End in the bar and waits for its dialog, which, with no set done, says so and
-    /// offers only Discard workout.
-    func openEndDialog() {
+    /// Taps End in the bar and waits for its dialog: with a set logged, it offers Finish
+    /// workout; with none, it says so and offers only Discard workout.
+    func openEndDialog(withSetsLogged isLogged: Bool = false) {
         endKey.tap()
         XCTAssertTrue(buttons["Discard workout"].appears(), "No dialog")
-        XCTAssertFalse(buttons["Finish workout"].exists, "Finish offered with no set done")
-        XCTAssertTrue(staticTexts["Nothing has been logged yet."].exists, "No message")
+        if isLogged {
+            XCTAssertTrue(buttons["Finish workout"].exists, "No Finish with sets logged")
+        } else {
+            XCTAssertFalse(buttons["Finish workout"].exists, "Finish offered with no set done")
+            XCTAssertTrue(staticTexts["Nothing has been logged yet."].exists, "No message")
+        }
     }
 
     /// Ends the workout with End, then Discard workout, and waits for Start to come back.
-    func discardWorkout() {
-        openEndDialog()
+    func discardWorkout(withSetsLogged isLogged: Bool = false) {
+        openEndDialog(withSetsLogged: isLogged)
         buttons["Discard workout"].firstMatch.tap()
         XCTAssertTrue(buttons["Start"].appears(), "Discard left the workout running")
     }

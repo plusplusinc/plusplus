@@ -5,24 +5,34 @@ import SwiftUI
 /// words when `spokenDetail` is given.
 ///
 /// Given a `focus`, it is the current exercise of a workout: the name grows large, and the detail
-/// gives way to which set it is on, the exercise's equipment, and the plan's numbers, large, in
-/// a label as tall as its `standing` leaves it. Changed in an animation, the name's size runs
-/// between the two, and the numbers grow out of where the detail was.
+/// gives way to which set it is on, the exercise's equipment, the plan's numbers, large, and the
+/// slide that logs the set, the label growing to their height. Changed in an animation, the name
+/// scales between its two sizes (`GrowingName`), and the parts under it come in, and go, in turn
+/// (`SetMotion`).
 public struct RowLabel: View {
     private let title: String
     private let detail: [String]
     private let spokenDetail: String?
     private let focus: RowFocus?
-    private let standing: RowStanding?
+    /// Logs the current exercise's set, given with `focus`: the slide under its numbers.
+    private let log: LogStep?
+    /// How far the exercise is through its sets in a workout, shown as bars at the trailing
+    /// end of its detail line, or of its progress line on the current exercise.
+    private let bars: SetProgress?
 
     /// The current exercise's numbers: 104pt at the default size.
     @ScaledMetric(relativeTo: .largeTitle) private var figureSize: CGFloat = 104
 
-    /// The label's height as a row, which the standing height runs from and back to, so the
+    /// The label's height as a row, which its height runs from and back to, so the
     /// label grows and shrinks over the whole animation, on its curve.
     @State private var restingHeight: CGFloat = 0
+    /// The label's height as the current exercise, which the height runs from as it shrinks back:
+    /// by then its column has given up the parts that made it that tall.
+    @State private var grownHeight: CGFloat = 0
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.restingLabelFloor) private var restingLabelFloor
+    @Environment(\.exerciseMoveWay) private var exerciseMoveWay
     @ObserveHotReload private var hotReload
 
     public init(
@@ -30,13 +40,15 @@ public struct RowLabel: View {
         detail: [String],
         spokenDetail: String? = nil,
         focus: RowFocus? = nil,
-        standing: RowStanding? = nil,
+        bars: SetProgress? = nil,
+        log: LogStep? = nil,
     ) {
         self.title = title
         self.detail = detail
         self.spokenDetail = spokenDetail
         self.focus = focus
-        self.standing = standing
+        self.log = log
+        self.bars = bars
     }
 
     /// A row whose detail is one line, or none.
@@ -58,78 +70,167 @@ public struct RowLabel: View {
         StandingHeight(
             growth: focus == nil ? 0 : 1,
             isCurrent: focus != nil,
-            restingHeight: restingHeight,
-            standing: standing?.height,
+            // On a rail, a row stands at least as tall as two lines: growing from its own
+            // height, the label's first points of growth, and a shrink's last, moved nothing,
+            // so the rows below ran ahead of the growth and came back as it ended.
+            restingHeight: max(restingHeight, restingLabelFloor),
+            grownHeight: grownHeight,
         ) {
             column(detailText)
                 .onGeometryChange(for: CGFloat.self, of: \.size.height) { height in
                     if focus == nil {
                         restingHeight = height
+                    } else {
+                        grownHeight = height
                     }
                 }
-            if let next = standing?.next {
-                Self(title: next.title, detail: next.detail).railRowStand()
-            }
         }
+        // Nothing under the name shows past the height it stands at, so as it opens each part
+        // shows only once the rows below have made room for it, and as it closes, a part still
+        // going is cut off by its bottom, never over them.
+        .clipShape(BottomClip())
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func column(_ detailText: String?) -> some View {
         VStack(alignment: .leading, spacing: Spacing.xxs) {
-            Text(title)
-                .modifier(TitleFont(growth: focus == nil ? 0 : 1))
-                .foregroundStyle(.pp(.textPrimary))
-                .fixedSize(horizontal: false, vertical: true)
+            GrowingName(title: title, growth: focus == nil ? 0 : 1)
             // Out of a workout, a row with no detail has nothing under its name, not even
             // spacing.
             if detailText != nil || focus != nil {
                 VStack(alignment: .leading, spacing: Spacing.lg) {
-                    // The detail line gives way to which set it is on, in the same place.
-                    ZStack(alignment: .topLeading) {
-                        if let detailText {
-                            Text(AttributedString.monoNumbers(
-                                detailText,
-                                font: .ppRowDetailNumber,
-                            ))
-                            .font(.ppRowDetail)
-                            .foregroundStyle(.pp(.textSecondary))
-                            .opacity(focus == nil ? 1 : 0)
-                        }
-                        if let focus {
-                            Text(focus.progress)
-                                .font(.ppCurrentProgress)
-                                .foregroundStyle(.pp(.textSecondary))
-                                // Whole, wrapped as far as it needs: only the numbers give way.
-                                .fixedSize(horizontal: false, vertical: true)
-                                .transition(.opacity)
+                    // The detail line gives way to which set it is on, in the same place, the
+                    // bars at its trailing end: beside it, or under it at the accessibility
+                    // sizes, where beside it eight bars squeezed the line to nothing.
+                    linesAndBars {
+                        lines(detailText)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        if let bars {
+                            // Kept as the row leaves: on a superset's member, the round goes on.
+                            barsOnFirstLine(bars)
+                                .part(.progress)
                         }
                     }
                     if let focus, !focus.equipment.isEmpty {
                         Capsules(focus.equipment)
-                            .transition(
-                                .asymmetric(
-                                    insertion: .opacity
-                                        .animation(.snappy(duration: 0.3).delay(0.15)),
-                                    removal: .opacity.animation(.snappy(duration: 0.15)),
-                                ),
-                            )
+                            .part(.equipment)
                     }
                     if let focus {
-                        // In once the rows below have mostly stepped aside, so the numbers
-                        // don't grow over them.
                         figures(focus)
-                            .transition(
-                                .asymmetric(
-                                    insertion: .scale(scale: 0.3, anchor: .topLeading)
-                                        .combined(with: .opacity)
-                                        .animation(.snappy(duration: 0.35).delay(0.2)),
-                                    removal: .opacity.animation(.snappy(duration: 0.15)),
-                                ),
-                            )
+                            .part(.figures)
+                    }
+                    if focus != nil, let log {
+                        SlideToLog(
+                            log.label,
+                            weight: log.weight,
+                            isEnabled: log.isEnabled,
+                            onLog: log.action,
+                            onReturn: log.onReturn,
+                        )
+                        .layoutPriority(1)
+                        .part(.slide)
                     }
                 }
             }
         }
+    }
+
+    /// The lines and the bars beside them, or, at the accessibility sizes, the bars under them.
+    private var linesAndBars: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .trailing, spacing: Spacing.xxs))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: Spacing.sm))
+    }
+
+    /// The detail line and the progress line, one over the other, as one gives way to the other.
+    private func lines(_ detailText: String?) -> some View {
+        ZStack(alignment: .topLeading) {
+            if let detailText {
+                Text(AttributedString.monoNumbers(
+                    detailText,
+                    font: .ppRowDetailNumber,
+                ))
+                .font(.ppRowDetail)
+                .foregroundStyle(.pp(.textSecondary))
+                // Never over the progress line: back once it has gone, and gone as the name
+                // starts to grow, before the progress line comes in.
+                .opacity(showsDetail ? 1 : 0)
+                .animation(
+                    showsDetail
+                        ? SetMotion.detailIn(way: exerciseMoveWay)
+                        : SetMotion.detailOut(way: exerciseMoveWay),
+                    value: showsDetail,
+                )
+            }
+            if let focus {
+                progressLine(focus)
+                    .part(.progress)
+            }
+        }
+    }
+
+    /// Whether the detail line shows: on a row at rest, its name at a row's size.
+    private var showsDetail: Bool {
+        focus == nil
+    }
+
+    /// The bars, centered on the first line of the line beside them: in a box as tall as one line
+    /// of its text at every size.
+    private func barsOnFirstLine(_ bars: SetProgress) -> some View {
+        ZStack {
+            Text(verbatim: "0")
+                .font(focus == nil ? .ppRowDetail : .ppCurrentProgress)
+                .hidden()
+            SetBars(bars, isCurrent: focus != nil)
+        }
+        .fixedSize()
+    }
+
+    /// Which set it is on, "Set 1 of 3", and the side, "· Left", set off in the name's color.
+    /// Each part rolls on its own as it changes, the new one in from below as the old one goes
+    /// out above, so a switch from Left to Right rolls only the side, and the next set rolls both.
+    /// Side by side where they fit, else the side under the set (`FigureLayout`).
+    @ViewBuilder
+    private func progressLine(_ focus: RowFocus) -> some View {
+        if let side = focus.side {
+            FigureLayout(spacing: 0) {
+                rolling(focus.progress, color: .textSecondary)
+                rolling("\(noBreakSpace)·\(noBreakSpace)\(side)", color: .textPrimary, dot: true)
+            }
+        } else {
+            rolling(focus.progress, color: .textSecondary)
+        }
+    }
+
+    /// One part of the progress line, word by word, each word rolling only when it changes and
+    /// clipped around itself, so "Set 2 of 3" to "Set 3 of 3" rolls the 2 alone (Dave,
+    /// 2026-10-30). The dot before a side stays in the set's gray.
+    private func rolling(_ text: String, color: ColorToken, dot: Bool = false) -> some View {
+        // Wrapped at a breaking space where the line doesn't fit, as at the accessibility sizes.
+        FlowLayout(spacing: 0) {
+            ForEach(Array(rollingWords(text).enumerated()), id: \.offset) { _, group in
+                HStack(alignment: .firstTextBaseline, spacing: 0) {
+                    ForEach(Array(group.enumerated()), id: \.offset) { _, word in
+                        rollingWord(
+                            word,
+                            color: dot && word.contains("·") ? .textSecondary : color,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private func rollingWord(_ word: String, color: ColorToken) -> some View {
+        ZStack(alignment: .topLeading) {
+            Text(word)
+                .font(.ppCurrentProgress)
+                .foregroundStyle(Color.pp(color))
+                .fixedSize()
+                .id(word)
+                .transition(.push(from: .bottom))
+        }
+        .clipped()
     }
 
     /// Each number large, with what it counts beside it, or, where the two don't fit side by
@@ -162,11 +263,15 @@ public struct RowLabel: View {
 
     private var spokenLabel: String {
         let parts = if let focus {
-            [title, focus.progress, focus.spokenFigures]
+            [
+                title,
+                [focus.progress, focus.side].compactMap(\.self).joined(separator: ", "),
+                focus.spokenFigures,
+            ]
         } else {
             [title, spokenDetail ?? detail.joined(separator: ", ")]
         }
-        return parts.filter { !$0.isEmpty }.joined(separator: ", ")
+        return (parts + [bars?.spoken ?? ""]).filter { !$0.isEmpty }.joined(separator: ", ")
     }
 
     /// The detail line from its parts, or nil for none. Joined with dots, each part kept whole,
@@ -184,41 +289,17 @@ public struct RowLabel: View {
 
 private let noBreakSpace = "\u{00A0}"
 
-/// The name's font: `ppRowTitle` on a row, `ppCurrentTitle` on the current exercise, and,
-/// as `growth` animates between 0 and 1, a semibold system font at every size between, so the
-/// name grows smoothly: Text's own interpolation between the two fonts jumped. At either end it
-/// is the token itself, so a row reads exactly as one out of a workout at every text size.
-private struct TitleFont: ViewModifier, Animatable {
-    var growth: CGFloat
-
-    nonisolated var animatableData: CGFloat {
-        get { growth }
-        set { growth = newValue }
-    }
-
-    @Environment(\.fontResolutionContext) private var fontContext
-    @ObserveHotReload private var hotReload
-
-    func body(content: Content) -> some View {
-        content
-            .font(font)
-            .hotReloadable()
-    }
-
-    private var font: Font {
-        switch growth {
-        case ...0: .ppRowTitle
-        case 1...: .ppCurrentTitle
-        default:
-            .system(
-                size: size(of: .ppRowTitle) * (1 - growth) + size(of: .ppCurrentTitle) * growth,
-                weight: .semibold,
-            )
-        }
-    }
-
-    private func size(of font: Font) -> CGFloat {
-        font.resolve(in: fontContext).pointSize
+/// Everything above a view's bottom edge, however far it reaches up or to either side: the cut
+/// is the bottom edge alone.
+private nonisolated struct BottomClip: Shape {
+    func path(in rect: CGRect) -> Path {
+        let far = max(rect.width, rect.height) * 4
+        return Path(CGRect(
+            x: rect.minX - far,
+            y: rect.minY - far,
+            width: rect.width + far * 2,
+            height: rect.height + far,
+        ))
     }
 }
 
@@ -226,6 +307,8 @@ private struct TitleFont: ViewModifier, Animatable {
 public struct RowFocus: Equatable {
     /// Which set it is on: "Set 1 of 3".
     public var progress: String
+    /// The side the set works, "Left", for an exercise done one side at a time.
+    public var side: String?
     /// The exercise's own equipment, as capsules; none for an exercise that needs none.
     public var equipment: [String]
     public var figures: [Figure]
@@ -233,11 +316,13 @@ public struct RowFocus: Equatable {
     public var spokenFigures: String
     public init(
         progress: String,
+        side: String? = nil,
         equipment: [String] = [],
         figures: [Figure],
         spokenFigures: String,
     ) {
         self.progress = progress
+        self.side = side
         self.equipment = equipment
         self.figures = figures
         self.spokenFigures = spokenFigures
@@ -276,9 +361,34 @@ public struct RowFocus: Equatable {
                 ],
                 spokenFigures: "",
             ),
-            standing: RowStanding(height: 300),
         )
     }
     .padding()
     .background(Color.pp(.background))
+}
+
+/// `text`'s words, each with the whitespace after it, so the words set side by side read as
+/// one string, and a word rolls only when it changes; grouped where no-break spaces join them,
+/// so a line wraps only at a breaking space. None empty.
+func rollingWords(_ text: String) -> [[String]] {
+    var groups: [[String]] = []
+    var group: [String] = []
+    var word = ""
+    for character in text {
+        word.append(character)
+        guard character.isWhitespace else { continue }
+        group.append(word)
+        word = ""
+        if String(character) != noBreakSpace {
+            groups.append(group)
+            group = []
+        }
+    }
+    if !word.isEmpty {
+        group.append(word)
+    }
+    if !group.isEmpty {
+        groups.append(group)
+    }
+    return groups
 }
