@@ -15,7 +15,8 @@ public struct PrimaryKeyButtonStyle: ButtonStyle {
     /// Above and below the label, inside the minimum height for one line, so a wrapped label's
     /// first and last lines stay clear of the round corners.
     @ScaledMetric(relativeTo: .title3) private var labelInset: CGFloat = 12
-    private static let ledge: CGFloat = 4
+    /// How far the key goes down onto its ledge when pressed, and how far the ledge shows below it.
+    fileprivate static let ledge: CGFloat = 4
     /// The press and the release: a quick ease-out both ways, so the key reads as struck.
     private static let press = Animation.easeOut(duration: 0.06)
 
@@ -106,9 +107,15 @@ private struct PrimaryKeyBar<Key: View>: ViewModifier {
                         .modifier(KeySwap(isOut: isSwappedOut))
                         .hiddenBehindDrawer()
                         // As far from the sides as from the bottom; with no home indicator, as
-                        // far as content is inset.
+                        // far as content is inset. On an iPhone 17 that is concentric with the
+                        // screen's corners: its 62 pt corners less the key's 28 pt radius is the
+                        // 34 pt inset.
                         .padding(.horizontal, bottomInset > 0 ? bottomInset : Spacing.md)
-                        .padding(.top, Spacing.sm)
+                        // The resting face, not the ledge under it, at that distance from the
+                        // bottom: the ledge and the pressed face sit below it, in the safe area.
+                        // The bar keeps its room, so the list under it doesn't move.
+                        .padding(.bottom, -PrimaryKeyButtonStyle.ledge)
+                        .padding(.top, Spacing.sm + PrimaryKeyButtonStyle.ledge)
                         .transition(KeyBarTransition(below: bottomInset))
                         .id(keyID)
                 }
