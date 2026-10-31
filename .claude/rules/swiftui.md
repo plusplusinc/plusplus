@@ -59,156 +59,161 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   following it took the list off the screen as Start went to land on the first exercise. The
   press also sets the scroll to where the list is: a scroll to the end leaves the position
   bound to the end, and it followed the room down.
-- Start plays in beats, each once the last has finished (`RoutineScreen+Workout.swift`). Its
-  key presses and releases as any key does, down onto its ledge and back up in 0.06 s each,
-  easing out, as the scratch app's log-set key does. On the press's action, a medium impact
-  plays and a "+1" (`PlusOneBurst`, `ppPlusOne` in `accent`) pops from the key's top edge,
-  centered, rising 30 pt as it grows from 0.7 to 1.25 and fades over 0.7 s, a keyframe
-  animation that rests at opacity 0. It is drawn over the screen from the key's anchor, not in
-  the bar: the bar's scroll edge effect grows to cover whatever the bar draws. A 0.4 s beat
-  follows (`pressHold`, slept with no tolerance), a second press doing nothing; the workout's
-  first frame takes a few more to draw, so the rows move about 0.5 s after the press, the +1
-  still rising; it is a `.task(id:)`, so the screen going away cancels it. Then, if the first
-  exercise is mostly out of view, the list scrolls to its top (`.snappy(0.35)`) and holds
-  0.2 s; and the first exercise grows into the current one as the list carries it up under the
-  bar, one motion (`.snappy(0.55)`, `growBeat`), while the key rides down off the screen with
-  the rows below it, as far and on the same frames (`primaryKeyBar`'s `drop`). An animated
-  `scrollTo` in that transaction held the growth back until it had nearly landed, so the list
-  is scrolled at once, its content drawn where it was by an offset (`GrowthLift`) that runs to
-  0 with the growth. The lift and the key's drop are `Animatable` modifiers, worked out frame by
-  frame with the row's layout: as plain offsets they ran ahead of the rows. The row's label
-  stands at a height running from its resting height on an animated `growth` (`StandingHeight`),
-  its content counted only past the end height, since new parts take their room at once, and
-  nothing under the name drawn below the height it stands at (`BottomClip`). The current
-  exercise is as tall as its content; Start drops the key a screen's height, so it is gone by
-  the time the growth ends. The bottom edge effect's band goes as the growth starts, or at the
-  press where the list's end showed above the key, as the room made under the end would raise
-  it. The rail stacks its rows in a layout of its own (`RailStack`), each row placed as its
-  height animates: the rail's `VStack` held the rows below at their old places mid-growth, then
-  let them jump. A resting row's label stands at least as tall as the row's minimum less its
-  insets (`restingLabelFloor`): growing from its own height, its first points of growth moved
-  nothing, and the rows below ran ahead and came back. End, in the
-  bar, asks "End this workout?" in a confirmation dialog, as the scratch app does: Finish workout
-  only once a set is logged (`Workout.offersFinish`), and Discard workout
-  as destructive. The dialog hangs on the whole screen, outside the navigation stack: on End, or
-  on the stack's content, iOS showed it as a popover with an arrow; there, it shows centered. Its
-  choice runs about 0.37 s after the tap (simulator, two runs), and the end's motion starts
-  there. The bar's keys fade with it (`barFade`, 0.2 s): End crossfades into ++ in one leading
-  item, and the time fades out of its key, whose glass (`endingWorkout` holding the item) goes
-  0.2 s later in an animated change, the bar fading it; an item the bar takes out goes with its
-  content on the frame. The small title in the bar is always in its item, faded in and out
-  (0.2 s) as the large one goes under the bar or comes out, and shown to VoiceOver only while it
-  shows: the bar draws its edge effect only while the title item has something showing, so a
-  title taken out took the band under the bar with it, on the frame. The current exercise
-  shrinks back as the rows below close up and the list scrolls back to its top
-  (0.4 s, `endBeat`, on a timing curve that eases out and stops: a spring's settling tail felt
-  slow and heavy), with Start away and the bottom band hidden. Once that lands (an `endBeat`
-  sleep from the motion's start: the animation's completion came a few frames after the rows
-  stopped), Start comes up on its own from below the screen's edge into place (`.smooth(0.2)`,
-  no overshoot), its band rising with its top: the key's transition is a
-  layout (`KeyRise`), so the bar, and the band covering it, stands only as tall as the key has
-  risen above the bar's bottom. The key's side insets are measured on the screen, not the key,
-  so a key coming in has them from its first frame; measured on the key, it came in 16 pt from
-  the sides and narrowed to 34 pt on the next animation, too big at first. The scroll
-  is animated, not lifted: drawn lifted at the top, the title showed over the status bar with no
-  edge effect under the bar. Room under the list's end, out of sight, holds the scroll still
-  while the row grows or shrinks. With Reduce Motion the +1 flashes in place and each change is
-  one crossfade (0.35 s, easing in and out), the haptic kept: the changed list is a new view
-  (`listChanges` as its id, in a `ZStack` so the two overlap), fading in over the old one, which
-  is drawn lifted by as far as the scroll jumps so it holds still, with what was under the bar
-  cut away (`TopClip`); nothing inside the new one animates. The rows' closure reads the
-  workout's values once, as values: read through `self`, the list going out redrew itself in
-  the workout it was fading into. The change runs a turn of the run loop after the lift, so the
-  old list is drawn lifted before it goes. At the end, Start fades in after the crossfade
-  (0.2 s).
-- The current exercise of a workout is the row of the next set to log, the first in the
-  routine's order not yet logged, grown (`RowLabel`'s `focus`, `RowFocus`): its node 14 pt in
-  `accent`, pulsing in brightness within its circle on one clock, the time itself
-  (`CurrentPulse`), which the bar of its current set shares, so the two never drift apart; its
-  name from `ppRowTitle` to `ppCurrentTitle` (`GrowingName`: both sizes laid out once at the
-  row's width, the one showing scaled from its top leading corner, so it grows as one drawn
-  piece; a font size animated frame by frame reflowed the text every frame, and crossfading
-  only where the two sizes break into different lines; the large one stands unscaled at rest,
-  where it doesn't show, as scaled down the accessibility audit read it as clipped); which set
-  it is on in place of the plan line ("Round 2 of 3" in a superset, the side set off in
-  `textPrimary`, "Set 1 of 3 · Left", its numbers then without "per side"), with its set bars
-  (`SetBars`) at the line's trailing end, centered on its first line, from its first set, or
-  under it at the accessibility sizes, where beside it eight bars squeezed the line to nothing;
-  its equipment as capsules; the plan's numbers large (104 pt SF Mono at the default size),
-  each with what it counts beside it, or under it where the two don't fit the width
-  (`FigureLayout`, not `ViewThatFits`, which sent the view graph round a cycle as the title
-  took focus, and hung the app); and its slide to log (`SlideToLog`) under them. The label is
-  as tall as its content, at every text size. Start, the way back (`CurrentExerciseButton`, a
-  floating key once the row is mostly scrolled out, its name wrapping rather than cut short),
-  a relaunch, a move to the next exercise, and Start from a routine pushed on the Routines
-  screen land the row just under the bar (`currentTopSpace`, 24 pt, its own space above it),
-  with everything above it under the bar; while it is landed, a change in height above it,
-  after a text size change or a rename, lands it again. The current row has no swipe; its
-  sheet's Delete stays. VoiceOver reads the row as one element and logs its set with an
-  action named as the slide is ("Log set"), the slide being inside the element.
-- The slide to log (`SlideToLog`, its timings in `SetMotion`) is a light key in a dark track as
-  wide as the exercise, "Log set" in the track, or "Log left", "Log right", "Log last set";
-  nothing fills the track behind the key. Its drag is a UIKit pan that begins only on a mostly
-  horizontal move, so a vertical swipe on it scrolls, and the rail's hold waits on it, so a
-  finger resting on the key never lifts the row. The key shows an arrow. Dragged past
-  two-thirds (`commit`), a haptic plays, medium for a set and light for a side; let go there,
-  the set logs and the key glides on to the end in a straight line at the finger's speed
-  (`SlideTrack.glide`), never slower than 0.3 tracks a second, so it never speeds up or slows
-  after a flick. The key has mass: let go short of the commit, it coasts as UIKit projects a
-  scroll's deceleration (`coastRate` 0.994, `SlideTrack.coast`); where that carries it past, as
-  a quick flick does, it glides to the end the same way, and only there the haptic plays and
-  the set logs; otherwise it springs back carrying that speed. Only at rest at the end does the
-  arrow become a check, at once, with no transition: the symbols' Replace left the arrow behind
-  on a moving key and drew the check in low. It rests 0.8 s, fades out (0.15 s), and comes back
-  at the start with its arrow (`onReturn`), fading in (0.2 s). The key scales as a large title,
-  about half as much as the body at the accessibility sizes: with the body it left "Log set" no
-  room, and held to the track's measured width the two fed each other, a layout loop.
-- A log that stays on the current exercise is saved at once, but shown as still to do
-  (`heldSet`) until the slide's key is back at the start, driven by its `onReturn`, not a timer,
-  so a fast glide and the roll stay together; VoiceOver's action, with no slide, shows it at
-  once. As it logs, the current node shrinks to half and fades to the rail's gray (0.2 s) and
-  rests so; as the key comes back, the progress line rolls word by word, only the words that
-  change ("Set 2 of 3" to "Set 3 of 3" rolls the 2 alone, a side word on its own), each pushed
-  up and out as its new one comes up (0.3 s), the bars with it, and the node pops back full and
-  green on a `.bouncy` spring past its size (`SetBeat`). The hold is a value on the row's
-  `RailPlace`, set by the rail (`Rail`'s `isSetHeld`), like the current row itself: an
-  environment value set on a row's label never reached its node, a sibling inside `railRow()`.
-  With Reduce Motion the node stays as it is.
-- A log that moves to another exercise is one motion (`ExerciseMove`, `SetMotion`), about
-  1.27 s down the rail and 1.25 s back up a superset's loop. The node left goes to its own color
-  at once, under a green blob (`RailPulse`, `PulseShape`) that is that node from the log: from
-  0.02 s its bottom is pulled out along the rail, a capsule drawn out by its speed (at most 3
-  times the node, its area kept, so it thins), joined to the node left by a neck whose sides are
-  two curves touching both circles (`PulseShape.neck`) until the curves meet and it snaps,
-  leaving the node in its own color, with no wobble. Its leading end joins the next node by a
-  neck too, and landed, a circle the current node's size, it plops: squashing to 1.25 by 0.8 and
-  wiggling back to round on a dying sine of two and a half swings through 0.35 s
-  (`squash(at:)`), with a light haptic (`landings`, lighter than the slide's), the node lit
-  under it as it lands (`isLanded`, `litID`), the blob dimming with the current pulse's clock
-  so neither hand-over shows a seam. Paths are joined with `Path.union`, which keeps every edge
-  antialiased; a blur-and-threshold metaball would have shrunk the shapes and drawn hard edges.
-  Down the rail (`SetMotion.Way.down`) the blob travels 0.5 s on a quartic ease-in-out
-  (`travelEase` 4, four times its average speed at the middle), slow as it pulls free and as it
-  joins, landing 0.52 s after the log; back up a loop at a round's end it travels 0.42 s on an
-  ease-out and gathers into a circle on the node (0.06 s), landing at 0.5 s. Either way nothing
-  else moves until the landing has been seen: the current exercise's parts all still show, and
-  the shift starts `landingHold` (0.3 s) after the landing, as the wiggle has mostly settled
-  (`moving(_:)`, 0.45 s on `timingCurve(0.6, 0, 0.1, 1)`, starting from rest and easing hard to
-  a stop with no overshoot). Then the parts go bottom first, each fading as it drops 6 pt; the
-  row shrinks back to a resting row as the next row grows into the current exercise and the
-  list scrolls it up under the bar, the scroll Start's (scrolled at once, drawn lifted, the lift
-  run to 0), so the rows between and below move one way only; and the next row's parts come in
-  top first, each rising 8 pt as it fades in (`exerciseMoveWay`), "Round 2 of 3" rolling to
-  the next round once the row shows it (`roundRoll`). The blob's keyframes end on a frame of
-  nothing: a timeline ending on a `MoveKeyframe` rests on the value before it, which left the
-  pulse on the node. After the workout's last planned set the row closes as the list settles on
-  its end (`closing`, 0.65 s, with no pulse), the room that landed it closing on the same curve
-  with the end held where it shows (`keepEndPinned`), and `FinishWorkoutRow` fades in under it:
-  a square + key on the rail, Add exercise, and Finish workout beside it in the primary key's
-  colors, both a key's height; Finish ends the workout at once, as End's Finish does. Set bars,
-  purple once done, gray to do, show on every started row until it is finished, where its node
-  turns purple. With Reduce Motion a move to another exercise is one crossfade, as Start's is,
-  with no pulse; the haptics stay.
+- Start plays in beats, each once the last has finished (`RoutineScreen+Workout.swift`). Its key
+  presses and releases as any key does, down onto its ledge and back up in 0.06 s each, easing
+  out, as the scratch app's log-set key does. On the press's action, a medium impact plays, from
+  the screen as `isStarting` turns on. A 0.4 s beat follows (`pressHold`, slept with no
+  tolerance), a second press doing nothing; the workout's first frame takes a few more to draw, so
+  the rows move about 0.5 s after the press; it is a `.task(id:)`, so the screen going away
+  cancels it. Then, if the first exercise is mostly out of view, the list scrolls to its top
+  (`.snappy(0.35)`) and holds 0.2 s; and the first exercise grows into the current one as the list
+  carries it up under the bar, one motion (`.snappy(0.55)`, `growBeat`), while the key rides down
+  off the screen with the rows below it, as far and on the same frames (`primaryKeyBar`'s `drop`).
+  An animated `scrollTo` in that transaction held the growth back until it had nearly landed, so
+  the list is scrolled at once, its content drawn where it was by an offset (`GrowthLift`) that
+  runs to 0 with the growth. The lift and the key's drop are `Animatable` modifiers, worked out
+  frame by frame with the row's layout: as plain offsets they ran ahead of the rows. The row's
+  label stands at a height running from its resting height on an animated `growth`
+  (`StandingHeight`), its content counted only past the end height, since new parts take their
+  room at once, and nothing under the name drawn below the height it stands at (`BottomClip`). The
+  current exercise is as tall as its content; Start drops the key a screen's height, so it is gone
+  by the time the growth ends. The workout's key then comes up from below the screen's edge as the
+  rows land, `keyReturnDelay` (0.45 s) from the growth's start, on `.smooth(0.2)`: the growth's
+  completion came a few frames after the rows stopped, and the key rose after a pause. The rail
+  stacks its rows in a layout of its own (`RailStack`), each row placed as its height animates:
+  the rail's `VStack` held the rows below at their old places mid-growth, then let them jump. A
+  resting row's label stands at least as tall as the row's minimum less its insets
+  (`restingLabelFloor`): growing from its own height, its first points of growth moved nothing,
+  and the rows below ran ahead and came back. End, in the bar, asks "End this workout?" in a
+  confirmation dialog, as the scratch app does: Finish workout only once a set is logged
+  (`Workout.offersFinish`), and Discard workout as destructive. The dialog hangs on the whole
+  screen, outside the navigation stack: on End, or on the stack's content, iOS showed it as a
+  popover with an arrow; there, it shows centered. Its choice runs about 0.37 s after the tap
+  (simulator, two runs), and the end's motion starts there. The bar's keys fade with it
+  (`barFade`, 0.2 s): End crossfades into ++ in one leading item, and the time fades out of its
+  key, whose glass (`endingWorkout` holding the item) goes 0.2 s later in an animated change, the
+  bar fading it; an item the bar takes out goes with its content on the frame. The small title in
+  the bar is always in its item, faded in and out (0.2 s) as the large one goes under the bar or
+  comes out, and shown to VoiceOver only while it shows: the bar draws its edge effect only while
+  the title item has something showing, so a title taken out took the band under the bar with it,
+  on the frame. The current exercise shrinks back as the rows below close up and the list scrolls
+  back to its top (0.4 s, `endBeat`, on a timing curve that eases out and stops: a spring's
+  settling tail felt slow and heavy), the workout's key going down out of the bottom edge as it
+  fades (`barFade`). Once that lands (an `endBeat` sleep from the motion's start: the animation's
+  completion came a few frames after the rows stopped), Start comes up on its own from below the
+  screen's edge into place (`.smooth(0.2)`, no overshoot), unfaded, the bar holding its full room
+  from the key's first frame, so the list under it doesn't move. The key's side insets are
+  measured on the screen, not the key, so a key coming in has them from its first frame; measured
+  on the key, it came in 16 pt from the sides and narrowed to 34 pt on the next animation, too big
+  at first. The scroll is animated, not lifted: drawn lifted at the top, the title showed over the
+  status bar with no edge effect under the bar. Room under the list's end, out of sight, holds the
+  scroll still while the row grows or shrinks. With Reduce Motion each change is one crossfade
+  (0.35 s, easing in and out), the haptic kept: the changed list is a new view (`listChanges` as
+  its id, in a `ZStack` so the two overlap), fading in over the old one, which is drawn lifted by
+  as far as the scroll jumps so it holds still, with what was under the bar cut away (`TopClip`);
+  nothing inside the new one animates. The rows' closure reads the workout's values once, as
+  values: read through `self`, the list going out redrew itself in the workout it was fading into.
+  The change runs a turn of the run loop after the lift, so the old list is drawn lifted before it
+  goes. The key fades in after the crossfade (0.2 s): the workout's key at Start, Start at the
+  end.
+- The current exercise of a workout is the row of the next set to log, the first in the routine's
+  order not yet logged, grown (`RowLabel`'s `focus`, `RowFocus`): its node 14 pt in `accent`,
+  pulsing in brightness within its circle on one clock, the time itself (`CurrentPulse`), which
+  the bar of its current set shares, so the two never drift apart; its name from `ppRowTitle` to
+  `ppCurrentTitle` (`GrowingName`: both sizes laid out once at the row's width, the one showing
+  scaled from its top leading corner, so it grows as one drawn piece; a font size animated frame
+  by frame reflowed the text every frame, and crossfading only where the two sizes break into
+  different lines; the large one stands unscaled at rest, where it doesn't show, as scaled down
+  the accessibility audit read it as clipped); which set it is on in place of the plan line
+  ("Round 2 of 3" in a superset, the side set off in `textPrimary`, "Set 1 of 3 · Left", its
+  numbers then without "per side"), with its set bars (`SetBars`) at the line's trailing end,
+  centered on its first line, from its first set, or under it at the accessibility sizes, where
+  beside it eight bars squeezed the line to nothing; its equipment as capsules; the plan's numbers
+  large (104 pt SF Mono at the default size), each with what it counts beside it, or under it
+  where the two don't fit the width (`FigureLayout`, not `ViewThatFits`, which sent the view graph
+  round a cycle as the title took focus, and hung the app). The label is as tall as its content,
+  at every text size. Start, the key's way back (below), a relaunch, a move to the next exercise,
+  and Start from a routine pushed on the Routines screen land the row just under the bar
+  (`currentTopSpace`, 24 pt, its own space above it), with everything above it under the bar;
+  while it is landed, a change in height above it, after a text size change or a rename, lands it
+  again. The current row has no swipe; its sheet's Delete stays. VoiceOver reads the row as one
+  element, with no action of its own to log: the key logs.
+- The screen has one key, at the bottom (`primaryKeyBar`, `RoutineScreen+Key.swift`): Start, then
+  in a workout the key that logs. It is a capsule in the primary key's colors
+  (`PrimaryKeyButtonStyle`, `ppPrimaryKey`, `.title3` semibold): a 56 pt face on a 4 pt ledge, its
+  corners half its one-line height, kept when its label wraps at the accessibility sizes, where a
+  `Capsule` went oval. Its resting face sits as far from the screen's bottom as from its sides,
+  the bottom safe area, which on an iPhone 17 is concentric with the screen's corners (62 pt less
+  the key's 28 pt radius is 34 pt), the ledge in the safe area below it; with no safe area below,
+  the ledge stays on the screen. Nothing is drawn behind it: the bottom scroll edge effect is
+  hidden, and the rows run on under the key. Its role (`KeyRole`): "Log set", or "Log left", "Log
+  right", "Log last set" (`Routine.logText(for:after:)`, read from the held set, so the words
+  change with the row, not before it), logging the current set at the numbers shown; while the
+  current exercise is mostly out of view (`CurrentPlace.isMostlyOut`, under 40 percent showing),
+  an arrow toward it and its name, wrapping rather than cut short, read "Go to current exercise"
+  and the name, whose tap scrolls back to it (`.snappy(0.4)`) and logs nothing; after the last
+  set, as its row closes, "Log last set" still, taking no tap; then "Finish workout", which ends
+  the workout at once, as End's Finish does. A tap that would log goes back instead when the row
+  is mostly out of view as it lands. The role holds while a finger is on the list (the scroll
+  phase interacting or tracking) and while the list rubber-bands past its top, so it never changes
+  under a thumb about to tap; once the finger lifts, it follows the row's live place as the list
+  coasts (`settleKeyRole()`). Within a kind (`KeyRole.Kind`) the words change in place, in one
+  `Text`: a branch per role crossfaded "Log last set" into itself as the row closed, and dimmed
+  it. Across kinds the key swaps (`swapKey(_:)`): the one showing drops out of the bottom edge,
+  unfaded, on `.easeIn(0.2)`, then the next rises on Start's own `.smooth(0.2)` as it clears
+  (`keySwap`), one key at a time, the bar keeping its room so the list under it never moves; each
+  kind is its own identity (`keyID`), so the key coming in is a fresh insertion, not the one going
+  revived. A tap mid-swap does nothing; with Reduce Motion each half fades over the same 0.2 s. On
+  a flick on the simulator the next key shows about 0.24 s after the lift and rests about 0.5 s
+  after it. Each log plays a haptic from the screen, medium for a set and light for a side, and a
+  "+1" (`PlusOneBurst`, `ppPlusOne` in `accent`) pops from the key's top edge, centered, rising 30
+  pt as it grows from 0.7 to 1.25 and fades over 0.7 s, a keyframe animation played by a count
+  (the logs, `primaryKeyBar`'s `plusOnes`) that rests at opacity 0; with Reduce Motion it flashes in place. It is drawn over
+  the screen from the key's anchor, not in the bar, so it rises above the bar's room.
+- A log that stays on the current exercise is saved at once, but shown as still to do (`heldSet`)
+  for `SetMotion.heldRoll` (0.5 s, about as the +1 has risen), a `.task(id:)` on the held set, so
+  the screen going away cancels it; a second tap inside it is dropped, as a double tap would be.
+  As it logs, the current node shrinks to half and fades to the rail's gray (0.2 s) and rests so;
+  as the beat ends, the progress line rolls word by word, only the words that change ("Set 2 of 3"
+  to "Set 3 of 3" rolls the 2 alone, a side word on its own), each pushed up and out as its new
+  one comes up (0.3 s), the bars with it, and the node pops back full and green on a `.bouncy`
+  spring past its size (`SetBeat`). The hold is a value on the row's `RailPlace`, set by the rail
+  (`Rail`'s `isSetHeld`), like the current row itself: an environment value set on a row's label
+  never reached its node, a sibling inside `railRow()`. With Reduce Motion the node stays as it
+  is.
+- A log that moves to another exercise is one motion (`ExerciseMove`, `SetMotion`), about 1.27 s
+  down the rail and 1.25 s back up a superset's loop. The node left goes to its own color at once,
+  under a green blob (`RailPulse`, `PulseShape`) that is that node from the log: from 0.02 s its
+  bottom is pulled out along the rail, a capsule drawn out by its speed (at most 3 times the node,
+  its area kept, so it thins), joined to the node left by a neck whose sides are two curves
+  touching both circles (`PulseShape.neck`) until the curves meet and it snaps, leaving the node
+  in its own color, with no wobble. Its leading end joins the next node by a neck too, and landed,
+  a circle the current node's size, it plops: squashing to 1.25 by 0.8 and wiggling back to round
+  on a dying sine of two and a half swings through 0.35 s (`squash(at:)`), with a light haptic
+  (`landings`, lighter than a set's log), the node lit under it as it lands (`isLanded`, `litID`),
+  the blob dimming with the current pulse's clock so neither hand-over shows a seam. Paths are
+  joined with `Path.union`, which keeps every edge antialiased; a blur-and-threshold metaball
+  would have shrunk the shapes and drawn hard edges. Down the rail (`SetMotion.Way.down`) the blob
+  travels 0.5 s on a quartic ease-in-out (`travelEase` 4, four times its average speed at the
+  middle), slow as it pulls free and as it joins, landing 0.52 s after the log; back up a loop at
+  a round's end it travels 0.42 s on an ease-out and gathers into a circle on the node (0.06 s),
+  landing at 0.5 s. Either way nothing else moves until the landing has been seen: the current
+  exercise's parts all still show, and the shift starts `landingHold` (0.3 s) after the landing,
+  as the wiggle has mostly settled (`moving(_:)`, 0.45 s on `timingCurve(0.6, 0, 0.1, 1)`,
+  starting from rest and easing hard to a stop with no overshoot). Then the parts go bottom first,
+  each fading as it drops 6 pt; the row shrinks back to a resting row as the next row grows into
+  the current exercise and the list scrolls it up under the bar, the scroll Start's (scrolled at
+  once, drawn lifted, the lift run to 0), so the rows between and below move one way only; and the
+  next row's parts come in top first, each rising 8 pt as it fades in (`exerciseMoveWay`), "Round
+  2 of 3" rolling to the next round once the row shows it (`roundRoll`). The blob's keyframes end
+  on a frame of nothing: a timeline ending on a `MoveKeyframe` rests on the value before it, which
+  left the pulse on the node. After the workout's last planned set the row closes as the list
+  settles on its end (`closing`, 0.65 s, with no pulse), the room that landed it closing on the
+  same curve with the end held where it shows (`keepEndPinned`), and once it has closed the key
+  swaps to Finish workout; the list ends in Add exercise, as it always does. Set bars, purple once
+  done, gray to do, show on every started row until it is finished, where its node turns purple.
+  With Reduce Motion a move to another exercise is one crossfade, as Start's is, with no pulse;
+  the haptics stay.
 - A row on a rail moves by holding and dragging (`RailDrag` holds every value). A hold of 0.4 s
   that moves under 10 pt lifts it; a press that moves first is a scroll, and a hold in the rail
   column, on the node, draws a superset instead (below). The hold is a UIKit long press (`RailLiftGesture`), put

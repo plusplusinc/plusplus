@@ -12,7 +12,7 @@ extension Font {
     public static let ppCaption = Font.system(.caption)
     public static let ppButton = Font.system(.body, weight: .semibold)
     /// The primary key's label, such as Start's.
-    public static let ppPrimaryKey = Font.system(.title3, weight: .heavy)
+    public static let ppPrimaryKey = Font.system(.title3, weight: .semibold)
     /// A row's name, such as an exercise's.
     public static let ppRowTitle = Font.system(.body, weight: .semibold)
     /// The line under a row's name.
