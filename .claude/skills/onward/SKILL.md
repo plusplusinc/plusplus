@@ -25,7 +25,7 @@ project board; agents' technical working files live in `.slices/`.
    when it is active, leave the card to it and say so. When the id is this session's own (a
    `/clear` keeps it), the card is yours: lead it.
    An open nightly retro PR (title "Retro of", `gh pr list --search "Retro of in:title"`)
-   comes before the card: rebase it, check each hunk against main, then trim, merge, or close
+   comes before the card: update it from main (`gh pr update-branch`), check each hunk against main, then trim, merge, or close
    it yourself, and tell the maintainer in a line what it changed.
    A standalone card that changes nothing the maintainer sees in the app (tooling, CI, tests,
    process) is yours alone, as `CLAUDE.md` says: align it against the code yourself, run it,
@@ -41,7 +41,8 @@ project board; agents' technical working files live in `.slices/`.
    design board and canvas drawn for its feature, for options drawn earlier and never picked
    (one card's alignment missed a control drawn for it a week before). Bring anything open,
    contradicted, or missing (an undesigned screen, content nobody chose, a gap no card covers),
-   each with a recommendation. Record the answers in the card, make cards for what lands out of
+   each with a recommendation, each option or earlier decision described by what it shows,
+   never by its canvas label ("3D") or a card's item id. Record the answers in the card, make cards for what lands out of
    scope, and start a product card only on the maintainer's yes.
 5. Otherwise say in two or three lines where the slice stands and what happens next, then do
    it. Ask only for product calls.
@@ -58,7 +59,12 @@ project board; agents' technical working files live in `.slices/`.
 - A slice with something to see on the phone runs as a loop with the maintainer (see the
   builder's "Rounds"). A round's prompt asks for the change and the install, never tests, lint,
   or docs (set-logging's rounds 5 to 8 asked for them and took 10 to 40 minutes each; the
-  maintainer wants a tuning round on the phone at once). Install each round from the slice worktree with `scripts/device.sh`; a
+  maintainer wants a tuning round on the phone at once). The look before installing still
+  holds for anything they haven't seen yet: only a retune of what they have seen skips it (a
+  new shrink of the current node went out unseen, never showed, and they found it hours
+  later). When they ask for something the code or the board records as tried and dropped, say
+  why it was dropped before building it (the symbols' Replace on a moving key, dropped for
+  leaving the arrow behind, took four rounds to be dropped again). Install each round from the slice worktree with `scripts/device.sh`; a
   fresh checkout is a cold build. It builds the worktree as it is, so uncommitted edits are fine
   for a first look, but say so. Tell the maintainer in a line what changed, that the build is
   unverified, and what to try: what to do and what they should see, never a check's name or what
@@ -146,7 +152,10 @@ project board; agents' technical working files live in `.slices/`.
   1-in-15 failure rate, a fix that did nothing still passes 30 runs about one time in eight.
   Without either, say so in the PR.
 - Push only when CI's answer is needed: when the PR opens, after a round of fixes, and before
-  the merge (the rebase "require up to date" asks for included). You and every subagent commit
+  the merge (bringing it up to date with `main`, as branch protection asks, included). Bring a
+  pushed branch up to date by merging `origin/main` into it, never by a local rebase: pushing a
+  rebase takes a force push, which the permission check denies to agents, so #127 waited an
+  hour on the maintainer's word. The squash merge flattens the merge commit. You and every subagent commit
   locally in between: rounds reach the phone by `scripts/device.sh`, not CI, and each push to a
   PR that changes the app spends a full Xcode Cloud run.
 - After every push to the PR, yours or a subagent's, watch its "PR check" to the end yourself

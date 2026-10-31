@@ -28,7 +28,8 @@ its last squash merge, a pull request that already merged. Before acting on find
 the branch and HEAD they name are the worktree's; if not, run again with the target named.
 
 Push only when CI's answer is needed: when opening the PR, after a round of fixes, and before
-the merge (a rebase onto `main` included). Commit locally between them; each push to a PR that
+the merge (bringing it up to date with `main` included: merge `origin/main` into a pushed
+branch, never rebase it locally, since its push would need a force push agents are denied). Commit locally between them; each push to a PR that
 changes the app spends a full Xcode Cloud run of the month's hours. Then:
 ```sh
 git push -u origin <branch>
@@ -57,7 +58,7 @@ or fails with it, naming the run. When it fails saying the month's Xcode Cloud h
 spent, tell the lead or the maintainer; no rerun helps until they are back.
 
 If a PR that changes the app still lists no "PlusPlus Workout Tracker | PR" check a minute after
-it opens or after a push to it, a rebase included, GitHub's event never reached Xcode Cloud,
+it opens or after a push to it, an update from `main` included, GitHub's event never reached Xcode Cloud,
 which happens intermittently and leaves no log on our side. Push an empty commit
 (`git commit --allow-empty -m "Start Xcode Cloud" && git push`); the push sends a fresh event.
 If a minute later there is still no check, run `gh pr close <n> && gh pr reopen <n>`. Each has

@@ -132,8 +132,9 @@ UI test budget, each a series of named `XCTContext.runActivity` checks:
 `RenameUITests/testRenameAtDefaultSize`, `RowDragUITests/testDragAndDeleteRows` (the rows
 seeded), `TitleWrappingUITests/testWrappedTitleAtLargestTextSize`,
 `RoutineAutosaveUITests/testRoutineSurvivesRelaunch`,
-`RoutineDrawerUITests/testDrawerSwitchesRoutines` (a routine seeded), and
-`WorkoutUITests/testWorkoutSurvivesRelaunch`. A new check joins the test for its launch only
+`RoutineDrawerUITests/testDrawerSwitchesRoutines` (a routine seeded),
+`WorkoutUITests/testWorkoutSurvivesRelaunch`, and
+`WorkoutFinishUITests/testFinishKeyKeepsTheWorkout` (one exercise seeded). A new check joins the test for its launch only
 when it names what only the running app shows (G) and the lower test that holds the rest, sets
 its state up by launch argument, and keeps its test within the UI budget; otherwise it goes in
 a cheaper tier. Every test launches with `-resetStore YES`, so it starts from a new routine and
