@@ -22,7 +22,8 @@ project board; agents' technical working files live in `.slices/`.
    branch, PR, phase, next step, and the leading session's id. An In Progress card can still
    belong to another running session, its wrap-up after the merge included: before acting on
    one, check that session (`get_session` with that id) and its worktree's processes, and
-   when it is active, leave the card to it and say so.
+   when it is active, leave the card to it and say so. When the id is this session's own (a
+   `/clear` keeps it), the card is yours: lead it.
    An open nightly retro PR (title "Retro of", `gh pr list --search "Retro of in:title"`)
    comes before the card: rebase it, check each hunk against main, then trim, merge, or close
    it yourself, and tell the maintainer in a line what it changed.
@@ -69,7 +70,9 @@ project board; agents' technical working files live in `.slices/`.
   iPhone is in reach the script makes an install link instead, printing why each paired iPhone was
   out of reach (say that, not a guess), and when the phone is locked the build installs but
   doesn't open, so tell them to open PlusPlus. Send them the link it prints. The work goes on
-  while they are away. The loop ends when they say it's right; then the builder runs its full pass
+  while they are away. The loop ends when they say it's right, and a reply that also raises
+  something to change (praise with one question about a detail) is a round, not that word: fix it in
+  a round and ask again. Then the builder runs its full pass
   and the verifier runs once. Their being away doesn't end it: work done while they are away is a
   round for them to try when they're back, and the full pass still waits for their word.
 - When you or the maintainer settle something while a builder works, send it to that builder
@@ -89,13 +92,17 @@ project board; agents' technical working files live in `.slices/`.
 - Reporting a phase as done, say where it went less deep than the card asked (what was compared
   only by name, sampled, or left out) before the maintainer has to ask. A fix to how something
   reaches them (a link, an install) is tried the way they will meet it before you call it fixed,
-  or called untried, with what would show it works: #120 and #121 were each called fixed, and
-  each design link still opened on the wrong question for them.
+  or called untried, with what would show it works. An untried way never replaces one that has
+  worked: keep sending the proven way until the new one has worked for them more than once
+  (#122 swapped a canvas per question, which had landed every time, for a `#page` link that had
+  landed once, and the next two links opened elsewhere).
 - A round that does what they asked only by adding something they didn't (a clip at an edge, an
   uneven gap) is not installed as a cost for them to judge: bring the ways to do it as a table,
   and build the one they pick. Read a request that names a size or a direction (smaller, to
   match, faster) against today's values in the code before you restate it; when the words and
-  the numbers disagree, ask.
+  the numbers disagree, ask. A note on how a motion feels (unnoticed, jarring) gets a
+  motion designer's read of why (where the eye is, what marks the arrival) with options,
+  before any number is tuned.
 - Name a part of the screen by what the maintainer sees and where it is, not the platform's term
   for it (home indicator, safe area, popover), and before asking about something in their build,
   say where it is and what it does.
@@ -123,9 +130,10 @@ project board; agents' technical working files live in `.slices/`.
   doing, for which card, and why that still serves the card, without being asked. Every line of
   text you write reaches them, the text before a tool call included, which arrives as a message
   of its own: plan in your head, and write nothing before a tool call but what tells them
-  something ("The canvas file hasn't changed, so my edit still applies" told them nothing). When
-  a subagent's notice brings only what you already told them, send nothing for it: a second
-  summary, or an ask repeated minutes after the first, is noise. A subagent or
+  something ("The canvas file hasn't changed, so my edit still applies" told them nothing). A
+  subagent's notice that brings only what you already told them still needs a reply, since a
+  turn with no text is sent back for one: make it a few words on what is still waiting, never a
+  second summary or the ask repeated. A subagent or
   a CI watch in the background says nothing until it ends, and a watch can outlive its run, so
   while one runs, wake yourself about every 15 minutes (a background wait that notifies you) to
   read where it is at that moment (a subagent's transcript's last entry, the PR's `gh pr
