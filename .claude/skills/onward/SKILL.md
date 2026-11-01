@@ -78,7 +78,10 @@ project board; agents' technical working files live in `.slices/`.
   doesn't open, so tell them to open PlusPlus. Send them the link it prints. The work goes on
   while they are away. The loop ends when they say it's right, and a reply that also raises
   something to change (praise with one question about a detail) is a round, not that word: fix it in
-  a round and ask again. Then the builder runs its full pass
+  a round and ask again. A change they ask for as the loop ends goes on the phone first, by you
+  from the worktree when a builder is busy, never as a step inside a longer job (the log key's
+  last two asks rode in a full pass's first step and reached them only after they asked, half
+  an hour later). Then the builder runs its full pass
   and the verifier runs once. Their being away doesn't end it: work done while they are away is a
   round for them to try when they're back, and the full pass still waits for their word.
 - When you or the maintainer settle something while a builder works, send it to that builder
@@ -108,7 +111,10 @@ project board; agents' technical working files live in `.slices/`.
   match, faster) against today's values in the code before you restate it; when the words and
   the numbers disagree, ask. A note on how a motion feels (unnoticed, jarring) gets a
   motion designer's read of why (where the eye is, what marks the arrival) with options,
-  before any number is tuned.
+  before any number is tuned, and so does a note on its speed: a proposed time or curve is
+  read against the ones the app already uses for the same kind of move (`.claude/rules/swiftui.md`)
+  and says where it sits among them (a 0.12 s key swap, quicker than anything else in the app,
+  went out as "brisk" and came back as too fast).
 - Name a part of the screen by what the maintainer sees and where it is, not the platform's term
   for it (home indicator, safe area, popover), and before asking about something in their build,
   say where it is and what it does.
