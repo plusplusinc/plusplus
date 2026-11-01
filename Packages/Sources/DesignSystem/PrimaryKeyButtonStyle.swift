@@ -8,7 +8,9 @@ import SwiftUI
 /// A capsule, its ends fully round, on a ledge of the same shape. A label that wraps, at the
 /// largest text sizes, makes the key taller with the same round corners and straight sides
 /// between them: as a capsule it went oval, and the label's first and last lines stood out past
-/// its edge.
+/// its edge. At the accessibility sizes the label's side padding is smaller, so a short label, as
+/// an exercise's name on the way back, stays on one line and the key a capsule; with none, a
+/// label that just fit ran into the round ends.
 public struct PrimaryKeyButtonStyle: ButtonStyle {
     /// A little taller than a key, such as Add exercise.
     @ScaledMetric(relativeTo: .title3) private var minHeight: CGFloat = 56
@@ -20,6 +22,7 @@ public struct PrimaryKeyButtonStyle: ButtonStyle {
     /// The press and the release: a quick ease-out both ways, so the key reads as struck.
     private static let press = Animation.easeOut(duration: 0.06)
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ObserveHotReload private var hotReload
 
     public init() { }
@@ -29,7 +32,7 @@ public struct PrimaryKeyButtonStyle: ButtonStyle {
         configuration.label
             .font(.ppPrimaryKey)
             .foregroundStyle(.pp(.onPrimaryKey))
-            .padding(.horizontal, Spacing.lg)
+            .padding(.horizontal, dynamicTypeSize.isAccessibilitySize ? Spacing.md : Spacing.lg)
             .padding(.vertical, labelInset)
             .frame(maxWidth: .infinity, minHeight: minHeight)
             .background(shape.fill(.pp(.primaryKey)))
@@ -95,6 +98,15 @@ private struct PrimaryKeyBar<Key: View>: ViewModifier {
     /// the key, so a key coming in has it from its first frame: measured on the key, it came in
     /// 16 pt from the sides, then narrowed to its place on the screen's next animation.
     @State private var bottomInset: CGFloat = 0
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// The key's inset from the screen's sides: as far as its bottom is from the screen's bottom,
+    /// with no home indicator as far as content is inset. At the accessibility sizes, where a key
+    /// many times taller is no longer concentric with the screen's corners anyway, as far as
+    /// content is inset, so its label has the width to stay on one line.
+    private var sideInset: CGFloat {
+        bottomInset > 0 && !dynamicTypeSize.isAccessibilitySize ? bottomInset : Spacing.md
+    }
 
     func body(content: Content) -> some View {
         content
@@ -112,7 +124,7 @@ private struct PrimaryKeyBar<Key: View>: ViewModifier {
                         // far as content is inset. On an iPhone 17 that is concentric with the
                         // screen's corners: its 62 pt corners less the key's 28 pt radius is the
                         // 34 pt inset.
-                        .padding(.horizontal, bottomInset > 0 ? bottomInset : Spacing.md)
+                        .padding(.horizontal, sideInset)
                         // The resting face, not the ledge under it, at that distance from the
                         // bottom: the ledge and the pressed face sit below it, in the safe area.
                         // The bar keeps its room, so the list under it doesn't move. With no

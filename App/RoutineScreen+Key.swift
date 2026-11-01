@@ -87,7 +87,7 @@ extension RoutineScreen {
     }
 
     /// A tap on the key. Out of a workout, Start. After the last set, Finish workout. Otherwise,
-    /// where the current exercise is mostly out of view when the tap lands, as on a list still
+    /// where the current exercise is scrolled away when the tap lands, as on a list still
     /// moving away under a finger that still says "Log set", the list goes back to it and nothing
     /// is logged: the key changes only once the finger lifts (`settleKeyRole()`), the place at
     /// once.
@@ -98,8 +98,9 @@ extension RoutineScreen {
             return finish(named: name)
         }
         guard let current = currentExercise, let set = currentSet else { return }
-        if keyWayBack != nil || currentPlace?.isMostlyOut == true {
-            withAnimation(.snappy(duration: 0.4), scrollToCurrent)
+        if keyWayBack != nil || currentPlace?.isScrolledAway == true {
+            // With Reduce Motion the list jumps back, as the key's swap only fades.
+            withAnimation(reduceMotion ? nil : .snappy(duration: 0.4), scrollToCurrent)
             return
         }
         // A second tap while the set just logged is held, as a double tap would be, is dropped.
@@ -112,8 +113,9 @@ extension RoutineScreen {
         log(set, of: current)
     }
 
-    /// Settles which way the key points: back to the current exercise while it is mostly out of
-    /// view, else none. Called as the row crosses that line, as the scroll phase changes, and
+    /// Settles which way the key points: back to the current exercise while it is scrolled away,
+    /// out of view, else none. Called as the row crosses that line, as the scroll phase changes,
+    /// and
     /// as a move lands. Held while a finger is on the list, so the key doesn't change under a
     /// thumb about to tap it; once the finger lifts, it follows the row as the list coasts,
     /// swapping as the row crosses the line rather than once the list stops (about 0.95 s after
@@ -127,7 +129,9 @@ extension RoutineScreen {
         guard !isMovingOn, !opensOnCurrent, !scrollBeat.isFingerOn, !scrollBeat.isPastTop else {
             return
         }
-        let way: VerticalEdge? = if let place = currentPlace, place.isMostlyOut, currentID != nil {
+        let way: VerticalEdge? = if let place = currentPlace, place.isScrolledAway,
+                                    currentID != nil
+        {
             place.isAbove ? .top : .bottom
         } else {
             nil

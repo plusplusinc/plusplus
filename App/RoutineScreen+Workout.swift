@@ -41,7 +41,7 @@ extension RoutineScreen {
     }
 
     /// Start in beats, each once the last has finished: if the first exercise is scrolled
-    /// mostly out of view, the list scrolls to its top and holds a moment; then the first
+    /// scrolled away, the list scrolls to its top and holds a moment; then the first
     /// exercise grows into the current one as the list scrolls it up under the bar, in one
     /// motion, and the key rides down off the screen with the rows below it. With Reduce
     /// Motion, the list crossfades into the workout.
@@ -61,10 +61,10 @@ extension RoutineScreen {
         bringFirstIntoView { grow(named: name) }
     }
 
-    /// Scrolls the list to its top if the first exercise is mostly out of view, then, once
+    /// Scrolls the list to its top if the first exercise is scrolled away, then, once
     /// the landing has had a beat to itself, calls `next`; at once if it is in view.
     private func bringFirstIntoView(then next: @escaping () -> Void) {
-        guard currentPlace?.isMostlyOut == true else { return next() }
+        guard currentPlace?.isScrolledAway == true else { return next() }
         let landed = {
             // A pause in the sequence, by design: nothing is waited for.
             Task {

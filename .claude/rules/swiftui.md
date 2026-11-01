@@ -65,7 +65,7 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   the screen as `isStarting` turns on. A 0.4 s beat follows (`pressHold`, slept with no
   tolerance), a second press doing nothing; the workout's first frame takes a few more to draw, so
   the rows move about 0.5 s after the press; it is a `.task(id:)`, so the screen going away
-  cancels it. Then, if the first exercise is mostly out of view, the list scrolls to its top
+  cancels it. Then, if the first exercise is scrolled away, the list scrolls to its top
   (`.snappy(0.35)`) and holds 0.2 s; and the first exercise grows into the current one as the list
   carries it up under the bar, one motion (`.snappy(0.55)`, `growBeat`), while the key rides down
   off the screen with the rows below it, as far and on the same frames (`primaryKeyBar`'s `drop`).
@@ -142,19 +142,22 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   in a workout the key that logs. It is a capsule in the primary key's colors
   (`PrimaryKeyButtonStyle`, `ppPrimaryKey`, `.title3` semibold): a 56 pt face on a 4 pt ledge, its
   corners half its one-line height, kept when its label wraps at the accessibility sizes, where a
-  `Capsule` went oval. Its resting face sits as far from the screen's bottom as from its sides,
+  `Capsule` went oval. At those sizes the label's side padding is 16 pt, not 24, and the key is
+  inset only as far as content is, so a short label, as "↓ Calf raise", stays on one line and the key a
+  capsule. Its resting face sits as far from the screen's bottom as from its sides,
   the bottom safe area, which on an iPhone 17 is concentric with the screen's corners (62 pt less
   the key's 28 pt radius is 34 pt), the ledge in the safe area below it; with no safe area below,
   the ledge stays on the screen. Nothing is drawn behind it: the bottom scroll edge effect is
   hidden, and the rows run on under the key. Its role (`KeyRole`): "Log set", or "Log left", "Log
   right", "Log last set" (`Routine.logText(for:after:)`, read from the held set, so the words
   change with the row, not before it), logging the current set at the numbers shown; while the
-  current exercise is mostly out of view (`CurrentPlace.isMostlyOut`, under 40 percent showing),
+  current exercise is scrolled away (`CurrentPlace.isScrolledAway`, a third or more of it out of
+  the part between the bars, which the scroll view's bounds already are),
   an arrow toward it and its name, wrapping rather than cut short, read "Go to current exercise"
-  and the name, whose tap scrolls back to it (`.snappy(0.4)`) and logs nothing; after the last
+  and the name, whose tap scrolls back to it (`.snappy(0.4)`, at once with Reduce Motion) and logs nothing; after the last
   set, as its row closes, "Log last set" still, taking no tap; then "Finish workout", which ends
   the workout at once, as End's Finish does. A tap that would log goes back instead when the row
-  is mostly out of view as it lands. The role holds while a finger is on the list (the scroll
+  is scrolled away as it lands. The role holds while a finger is on the list (the scroll
   phase interacting or tracking) and while the list rubber-bands past its top, so it never changes
   under a thumb about to tap; once the finger lifts, it follows the row's live place as the list
   coasts (`settleKeyRole()`). Within a kind (`KeyRole.Kind`) the words change in place, in one

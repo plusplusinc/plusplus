@@ -16,7 +16,7 @@ final nonisolated class WorkoutUITests: XCTestCase {
     @MainActor
     func testWorkoutSurvivesRelaunch() throws {
         let app = XCUIApplication()
-        // Long enough to scroll the current exercise, Pull-up once grown, mostly out of view
+        // Long enough to scroll the current exercise, Pull-up once grown, out of view
         // past the list's end: with eight rows, the end came up before it had.
         let seeded = [
             "barbell-bench-press", "pull-up", "goblet-squat", "band-pull-apart",

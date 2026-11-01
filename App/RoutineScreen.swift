@@ -43,7 +43,7 @@ struct RoutineScreen: View {
     /// The key kept out of its bar from the end of Start's grow until the workout's key comes
     /// up, and as a workout ends until the list has landed and Start comes up.
     @State var isKeyAway = false
-    /// While the current exercise is mostly out of view, which way the key points back to it,
+    /// While the current exercise is scrolled away, which way the key points back to it,
     /// held while a finger is on the list and following the row as the list coasts once it lifts
     /// (`settleKeyRole()`); none while it logs.
     @State var keyWayBack: VerticalEdge?
