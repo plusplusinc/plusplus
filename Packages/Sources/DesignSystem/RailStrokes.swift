@@ -67,6 +67,12 @@ nonisolated struct LoopPen {
             .intersection(Path(column))
     }
 
+    /// The middle of each head on the loop between a node at `top` and the next one down, at
+    /// `bottom`: one, halfway.
+    func headMiddles(from top: CGFloat, to bottom: CGFloat) -> [CGFloat] {
+        [(top + bottom) / 2]
+    }
+
     /// The head pointing up with its middle at `middle`, at `size` of its full size: the stretch
     /// of line it opens, from its base up to `gap` short of its tip, and what it adds, the head
     /// and the line's round end ahead of it.
@@ -182,12 +188,14 @@ nonisolated struct RailLoops: Shape {
         for index in ys.indices.dropLast() {
             let join = CGFloat(joins.value(at: index))
             let size = min(max(2 * join - 1, 0), 1)
-            let middle = (ys[index] + ys[index + 1]) / 2
-            guard size > 0.01, let loop = loops.first(where: { $0.top ... $0.bottom ~= middle })
-            else { continue }
-            let head = pen.head(middle: middle, x: loop.x, size: size)
-            opening.addPath(head.opening)
-            added.addPath(head.added)
+            guard size > 0.01 else { continue }
+            for middle in pen.headMiddles(from: ys[index], to: ys[index + 1]) {
+                guard let loop = loops.first(where: { $0.top ... $0.bottom ~= middle })
+                else { continue }
+                let head = pen.head(middle: middle, x: loop.x, size: size)
+                opening.addPath(head.opening)
+                added.addPath(head.added)
+            }
         }
         return line.subtracting(opening).union(added)
     }

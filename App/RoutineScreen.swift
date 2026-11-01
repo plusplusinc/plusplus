@@ -198,6 +198,7 @@ struct RoutineScreen: View {
                         done: finishedRows,
                         isSetHeld: heldSet != nil,
                         pulse: railPulse,
+                        isMoving: isMovingOn,
                         onMove: move,
                         regroup: regroup,
                     ) { item in
