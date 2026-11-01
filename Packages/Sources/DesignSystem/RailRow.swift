@@ -89,7 +89,12 @@ private struct RailNode: View {
                         settlingTo: place.isCurrent ? .accent
                             : place.isRaised ? .textPrimary : place.isDone ? .done : .rail,
                     )
-                    .frame(width: size, height: size)
+                    // Laid out at the current node's size in every state and drawn smaller, so
+                    // becoming current changes no layout: a frame that grew as the blob landed
+                    // re-laid the row out unanimated, and the node jumped to the row's end place
+                    // while its name still waited on the move's delay.
+                    .frame(width: currentSize, height: currentSize)
+                    .scaleEffect(size / currentSize)
                     .overlay {
                         if place.isCurrent {
                             Color.clear.currentPulse(in: Circle())
