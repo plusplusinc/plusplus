@@ -105,6 +105,37 @@ nonisolated struct LoopPen {
         }
     }
 
+    /// A row's stretch of loop at rest, as the row above each gap draws it (`GroupLoop`): from
+    /// the row's node at `node`, curving out of it where the group `starts` there, down to the
+    /// next row's, `nodeBelow` below the row's `height`, curving into it where the group `ends`
+    /// there, with its heads. Where the loop goes on past either node it is cut square at the
+    /// node, under the node's dot, so the next stretch meets it with no overlap and no seam
+    /// between the nodes.
+    func stretch(
+        node: CGPoint,
+        height: CGFloat,
+        nodeBelow: CGFloat,
+        starts: Bool,
+        ends: Bool,
+    ) -> Path {
+        let below = height + nodeBelow
+        let far = below - node.y + node.x + radius * 4
+        let top = starts ? node.y : node.y - far
+        let bottom = ends ? below : below + far
+        let x = runX(nodeX: node.x)
+        let cut = (top: starts ? top - far : node.y, bottom: ends ? bottom + far : below)
+        let line = self.line(top: top, bottom: bottom, nodeX: node.x, x: x)
+            .intersection(Path(CGRect(x: 0, y: cut.top, width: node.x, height: cut.bottom - cut.top)))
+        var opening = Path()
+        var added = Path()
+        for middle in headMiddles(from: node.y, to: below) where middle.size > 0.01 {
+            let head = self.head(middle: middle.middle, x: x, size: middle.size)
+            opening.addPath(head.opening)
+            added.addPath(head.added)
+        }
+        return line.subtracting(opening).union(added)
+    }
+
     /// The head pointing up with its middle at `middle`, at `size` of its full size: the stretch
     /// of line it opens, from its base up to `gap` short of its tip, and what it adds, the head
     /// and the line's round end ahead of it.

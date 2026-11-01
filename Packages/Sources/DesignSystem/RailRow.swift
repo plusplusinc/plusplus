@@ -286,28 +286,16 @@ private struct GroupLoop: View {
         .hotReloadable()
     }
 
-    /// The row's stretch of loop, from its node to the next row's, cut square where it meets the
-    /// stretch above or below, so the two meet with no overlap, with its heads.
+    /// The row's stretch of loop, from its node to the next row's (`LoopPen.stretch`).
     private var run: Path {
         guard link == .first || link == .middle else { return Path() }
-        let below = height + (nodeBelow ?? node.y)
-        let far = below - node.y + node.x + pen.radius * 4
-        let top = link == .first ? node.y : node.y - far
-        let bottom = endsBelow ? below : below + far
-        let x = pen.runX(nodeX: node.x)
-        // Square where another stretch goes on: at the node on a middle row, at the next node
-        // where the group goes on past it.
-        let cut = (top: link == .first ? top - far : node.y, bottom: endsBelow ? bottom + far : below)
-        let line = pen.line(top: top, bottom: bottom, nodeX: node.x, x: x)
-            .intersection(Path(CGRect(x: 0, y: cut.top, width: node.x, height: cut.bottom - cut.top)))
-        var opening = Path()
-        var added = Path()
-        for middle in pen.headMiddles(from: node.y, to: below) where middle.size > 0.01 {
-            let head = pen.head(middle: middle.middle, x: x, size: middle.size)
-            opening.addPath(head.opening)
-            added.addPath(head.added)
-        }
-        return line.subtracting(opening).union(added)
+        return pen.stretch(
+            node: node,
+            height: height,
+            nodeBelow: nodeBelow ?? node.y,
+            starts: link == .first,
+            ends: endsBelow,
+        )
     }
 }
 
