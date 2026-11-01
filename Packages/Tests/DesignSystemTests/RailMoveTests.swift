@@ -97,8 +97,7 @@ struct RailMoveTests {
             // The background, from the column's top, above the rail.
             let background = Array(pixels[(2 * 4) ..< (2 * 4 + 3)])
             return (0 ..< height).map { row in
-                // CGContext's rows run bottom up.
-                let start = ((height - 1 - row) * width + 2) * 4
+                let start = (row * width + 2) * 4
                 return zip(pixels[start ..< start + 3], background)
                     .contains { abs(Int($0) - Int($1)) > 24 }
             }
