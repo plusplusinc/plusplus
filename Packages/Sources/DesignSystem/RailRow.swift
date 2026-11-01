@@ -11,6 +11,9 @@ struct RailPlace {
     /// Whether the row draws its own stretch of line and loop: not while a row or its node is
     /// held, when the rail draws every stroke once (`HeldRailDrawing`, `RailDrawing`).
     var drawsOwnLine = true
+    /// Whether the row's stretch of loop eases its heads to a new length's, over a moment, rather
+    /// than placing them by its length on every frame: while Start or End resizes the rows.
+    var easesHeads = false
     /// The card held up off the rail, its node in the color of the text.
     var isRaised = false
     /// Where the row is in a group of rows on the rail, which a loop beside the line marks.
@@ -28,6 +31,11 @@ struct RailPlace {
     /// The current row with a set logged that stays on it, until the key is back at the start:
     /// its node rests small and gray (`SetBeat`).
     var isSetHeld = false
+    /// How far below the row's bottom the next row's node is, as the rail last measured it at
+    /// rest, and whether the row's group ends there: the row draws its group's loop from its node
+    /// to that one.
+    var nodeBelow: CGFloat?
+    var groupEndsBelow = false
 }
 
 /// Where a row is in a group of rows next to each other on a rail, a superset: on its own, or
@@ -181,6 +189,9 @@ private struct RailRow: ViewModifier {
                             height: proxy.size.height,
                             link: place.link,
                             flashes: place.flashes,
+                            nodeBelow: place.nodeBelow,
+                            endsBelow: place.groupEndsBelow,
+                            eases: place.easesHeads,
                         )
                         .opacity(place.isLoopHidden ? 0 : 1)
                         .animation(.snappy(duration: 0.2), value: place.isLoopHidden)
@@ -244,57 +255,62 @@ struct RailRowSwiped: PreferenceKey {
     }
 }
 
-/// A group's loop, drawn by each of its rows for its own stretch: a line beside the rail on its
-/// leading side, from the last row's node back up to the first's, as a superset goes round, in
-/// the rail's own gray. It curves out of the last row's node and into the first's on the corner of
-/// a continuous rounded rectangle, and runs straight up past the rows between, which it leaves
-/// alone. A pointed head halfway between each row's node and the next's shows the way up; the
-/// line stops a little short of its tip and picks up again beyond it with a round end, as a dashed
-/// line would. The node draws over its strokes. Each change of `flashes` flashes it in
-/// `railJoin`, as a new node does, then it settles back to the rail's gray.
+/// A group's loop, each stretch of it drawn by the row above it, from its node down to the next
+/// row's: a line beside the rail on its leading side, from the last row's node back up to the
+/// first's, as a superset goes round, in the rail's own gray. It curves out of the last row's node
+/// and into the first's on the corner of a continuous rounded rectangle, and runs straight up past
+/// the rows between, which it leaves alone. Pointed heads on each stretch show the way up, placed
+/// as every drawing of the loop places them (`LoopPen.headMiddles`); the line stops a little short
+/// of each tip and picks up again beyond it with a round end, as a dashed line would. A stretch is
+/// one row's, so its heads come from one measure of it, across the row's bottom edge too; the
+/// next row draws over it, its node over the stretch's end. Each change of `flashes` flashes it
+/// in `railJoin`, as a new node does, then it settles back to the rail's gray.
 private struct GroupLoop: View {
     let node: CGPoint
     let height: CGFloat
     let link: RailLink
     let flashes: Int
+    /// How far below the row's bottom the next row's node is: unknown, it is taken as this row's
+    /// own.
+    let nodeBelow: CGFloat?
+    /// Whether the group ends at the next row, whose node the stretch curves into.
+    let endsBelow: Bool
+    /// Whether the heads ease to a new length's (`RailPlace.easesHeads`).
+    let eases: Bool
     @ScaledLoopPen private var pen
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
     var body: some View {
         let (rest, joined) = (Color.pp(.rail), Color.pp(.railJoin))
+        let run = run
+        // Start and End change the row's height on every frame, faster than a head grows over
+        // the stretch's length (`LoopPen.headMiddles`), so there the heads ease to the stretch's
+        // own over a moment: a head arrives or leaves, and the others slide, over frames.
+        let level = run.map { pen.headLevel(span: $0.height + $0.nodeBelow - $0.node.y) } ?? 1
         KeyframeAnimator(initialValue: 0.0, trigger: flashes) { joining in
-            let color = rest.mix(with: joined, by: joining)
-            Canvas { context, _ in
-                context.fill(run, with: .color(color))
-            }
+            // A shape, not a canvas, so the stretch draws past the row's bottom edge.
+            LoopStretch(run: run, pen: pen, level: level)
+                .fill(rest.mix(with: joined, by: joining))
+                .animation(eases && !reduceMotion ? .smooth(duration: 0.3) : nil, value: level)
         } keyframes: { _ in
             RailEntry.groupFlash()
         }
+        // Past the row's bottom edge it lies over the next row, whose touches it leaves alone.
+        .allowsHitTesting(false)
         .hotReloadable()
     }
 
-    /// The row's stretch of loop, the loop's line cut square at the row's edges, so it meets the
-    /// next row's stretch with no overlap, and, on every row but the last, the head halfway down
-    /// to the next node. Rows stack with no spacing and every row's node sits as far down it, so
-    /// the next node is a row's height below this one.
-    private var run: Path {
-        let far = height + node.x + pen.radius * 4
-        let ends: (top: CGFloat, bottom: CGFloat)? = switch link {
-        case .solo: nil
-        case .first: (node.y, node.y + far)
-        case .middle: (-far, height + far)
-        case .last: (node.y - far, node.y)
-        }
-        guard let ends else { return Path() }
-        let x = pen.runX(nodeX: node.x)
-        let line = pen.line(top: ends.top, bottom: ends.bottom, nodeX: node.x, x: x)
-            .intersection(Path(CGRect(x: 0, y: 0, width: node.x, height: height)))
-        guard link == .first || link == .middle else { return line }
-        // Kept whole inside the row: on a row given space above its label, as the next exercise
-        // of a workout is, half its height below the node is at its bottom edge.
-        let middle = min(node.y + height / 2, height - pen.length / 2 - pen.gap - pen.lineWidth)
-        let head = pen.head(middle: middle, x: x)
-        return line.subtracting(head.opening).union(head.added)
+    /// The row's stretch of loop, from its node to the next row's: none on a group's last row.
+    private var run: LoopStretch.Run? {
+        guard link == .first || link == .middle else { return nil }
+        return LoopStretch.Run(
+            node: node,
+            height: height,
+            nodeBelow: nodeBelow ?? node.y,
+            starts: link == .first,
+            ends: endsBelow,
+        )
     }
 }
 

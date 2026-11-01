@@ -94,13 +94,14 @@ extension Rail {
         return points.count == ids.count ? (ids, points) : nil
     }
 
-    /// The rail's strokes drawn once, while a row's node is held, from the rows' nodes as they
-    /// show.
+    /// The rail's strokes drawn once, while a row's node is held or a workout moves on, from the
+    /// rows' nodes as they show.
     func drawing(_ nodes: [AnyHashable: Anchor<CGPoint>], in proxy: GeometryProxy) -> RailDrawing? {
         guard let (ids, points) = shownNodes(nodes, in: proxy), let first = points.first,
               let last = points.last
         else { return nil }
-        let joined = shownJoined
+        // A superset with a row swiped open shows no loop, as its rows' own strokes don't.
+        let joined = shownJoined.subtracting(loopsHidden(ids))
         let flags = ids.dropLast().map(joined.contains)
         return RailDrawing(
             nodeX: first.x,

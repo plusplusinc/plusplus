@@ -242,8 +242,22 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   it would do nothing, and announces the row it passed ("Moved above Plank").
 - A superset on a rail is a loop beside the line (`GroupLoop`, `LoopPen`): one stroke from its
   last node back up to its first, in the line's gray (`rail`, the resting nodes' gray, at least
-  3:1 on the background and on `well`), continuous corners, with a filled head in each gap between members,
-  halfway between their nodes, the stroke stopping short of its tip. A superset's top and bottom
+  3:1 on the background and on `well`), continuous corners, with filled heads in each gap between members,
+  the stroke stopping short of each tip. Every drawing places them by one rule
+  (`LoopPen.headMiddles`): spread evenly between two nodes, as many as stay a resting row's height
+  (64 pt at the default size, scaled with the text) apart from each other and from the nodes, so a
+  resting gap of one- or two-line rows holds one at its middle and the current exercise's
+  stretched gap several. As a gap
+  grows past room for another, the new head grows from nothing at its place, over the last quarter
+  of that spacing, while the others slide to theirs, and shrinks back the same way. A gap that
+  changes faster, at Start, at End, and as a workout moves on, crosses that quarter in a frame, so
+  there the heads ease instead (`LoopPen.headLevel`): the rail's drawing (`RailLoops`) carries
+  each gap's head level with its nodes over the move, and while Start or End resizes the rows
+  (`Rail`'s `isResizing`) a row's own stretch (`GroupLoop`) eases to its new level on
+  `.smooth(0.3)`, at once with
+  Reduce Motion. At rest the row
+  above each gap draws that gap's stretch whole, from its node to the next row's, past its own
+  bottom edge (`LoopPen.stretch`). A superset's top and bottom
   edges are each two slots for a row moved by its body, inside (the loop wraps the gap) and,
   `edgeSlotSpread` (24 pt) further, outside, each with the reorder's tick. A row held still
   over a plain neighbor pairs with it, as an app held on another makes a folder (`RailPairing`):
@@ -267,10 +281,14 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   what it picked up in the well, an end's whole superset or the row alone; the drag spans from
   the anchor to the row under the finger, with the reorder's tick at each change. A drop
   commits it with a light impact; the well fades (0.1 s), then the new loop shows `railJoin`
-  and cools as a new node does (`RailEntry.groupFlash()`). While anything is held, rows draw no strokes: the rail draws the
-  line and every loop once, as the drop would leave them (`RailDrawing` for a node's drag,
-  `HeldRailDrawing` for a body's), every end and head on a real node, the held row's at the
-  card, and the card draws the same drawing over its fill and over its shadow, so the shadow never
+  and cools as a new node does (`RailEntry.groupFlash()`). While anything is held, and while a workout moves on to
+  another exercise (`Rail`'s `isMoving`), rows draw no strokes: the rail draws the
+  line and every loop once, as the drop or the move would leave them (`RailDrawing` for a
+  node's drag and a move, `HeldRailDrawing` for a body's), every end and head on a real node, the
+  held row's at the card. A row's own stretch is a path drawn from its layout's end height at
+  once, inside a row still drawn at its height before, so on a move's animation two rows'
+  stretches parted for the whole move; the rail's drawing animates its nodes on the move's
+  transaction, as the rows' frames do. The card draws the same drawing over its fill and over its shadow, so the shadow never
   shades the line or a loop. Shapes animate their nodes and joins
   on the moving transaction; with Reduce Motion the rows jump, the loops crossfade (0.2 s),
   wells and room come and go at once, there is no flash, and the haptics stay. A row swiped open hides its superset's loop. VoiceOver

@@ -50,6 +50,13 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     private let isSetHeld: Bool
     /// A pulse from one row's node to another's, as a workout moves on (`RailPulse`).
     private let pulse: RailPulse<RowID>?
+    /// Whether a workout is moving on from one row to another: the rows change height on the
+    /// move's animation, so the rail draws every stroke once, as while a row is held.
+    private let isMoving: Bool
+    /// Whether a workout's Start or End is changing the current exercise's height: a stretch of
+    /// loop changes length faster than a head grows over it, so its heads ease to their new
+    /// places (`GroupLoop`).
+    private let isResizing: Bool
     let onMove: ((RowID, RailSlot<RowID>) -> Void)?
     let links: Set<RowID>
     let regroup: RailRegroup<RowID>?
@@ -111,6 +118,8 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         done: Set<Data.Element.ID> = [],
         isSetHeld: Bool = false,
         pulse: RailPulse<Data.Element.ID>? = nil,
+        isMoving: Bool = false,
+        isResizing: Bool = false,
         onMove: ((Data.Element.ID, RailSlot<Data.Element.ID>) -> Void)? = nil,
         regroup: RailRegroup<Data.Element.ID>? = nil,
         @ViewBuilder row: @escaping (Data.Element) -> Row,
@@ -124,6 +133,8 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
             done: done,
             isSetHeld: isSetHeld,
             pulse: pulse,
+            isMoving: isMoving,
+            isResizing: isResizing,
             onMove: onMove,
             regroup: regroup,
             drag: nil,
@@ -141,6 +152,8 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         done: Set<RowID> = [],
         isSetHeld: Bool = false,
         pulse: RailPulse<RowID>? = nil,
+        isMoving: Bool = false,
+        isResizing: Bool = false,
         onMove: ((RowID, RailSlot<RowID>) -> Void)? = nil,
         regroup: RailRegroup<RowID>? = nil,
         drag: RailDragState<RowID>?,
@@ -156,6 +169,8 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         self.done = done
         self.isSetHeld = isSetHeld
         self.pulse = pulse
+        self.isMoving = isMoving
+        self.isResizing = isResizing
         self.onMove = onMove
         self.regroup = regroup
         _drag = State(initialValue: drag)
@@ -175,12 +190,20 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         let first = shown.first?.id
         // Until the arriving row enters, the line ends at the node above it.
         let lastOnLine = shown.last { $0.id != arriving }?.id
-        let shownLinks = RailLink.links(shown.map(\.id), joined: shownJoined)
-        let hiddenLoops = loopsHidden(shown.map(\.id))
-        let shifts = pairShifts(shown.map(\.id))
+        let ids = shown.map(\.id)
+        let shownLinks = RailLink.links(ids, joined: shownJoined)
+        // The row below each: its node, and whether the group ends at it.
+        let below = Dictionary(uniqueKeysWithValues: zip(ids, ids.dropFirst()).map { id, next in
+            (id, (node: nodeInsets[next], ends: shownLinks[next] == .last))
+        })
+        let hiddenLoops = loopsHidden(ids)
+        let shifts = pairShifts(ids)
         let room = drag.map(roomAbove) ?? 0
-        // Held, the rail draws every stroke once, under the rows, rather than each row its own.
+        // Held, the rail draws every stroke once, under the rows, rather than each row its own;
+        // and while a workout moves on, as a row's own stretch of loop is drawn from its height
+        // at the move's end at once, inside a row still drawn at its height before.
         let isHeld = drag != nil || regrouping != nil
+        let drawsOnce = isHeld || isMoving
         RailStack {
             // Each row learns its place from the rail. Rows taken as a view's subviews could
             // not: a subview resolves in its container's environment, not one set on it.
@@ -191,13 +214,16 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                     isLast: isArriving || item.id == lastOnLine,
                     isArriving: isArriving,
                     isGap: item.id == drag?.lifted,
-                    drawsOwnLine: !isHeld,
+                    drawsOwnLine: !drawsOnce,
+                    easesHeads: isResizing && !drawsOnce,
                     link: shownLinks[item.id] ?? .solo,
                     flashes: flashes[item.id] ?? 0,
                     isLoopHidden: hiddenLoops.contains(item.id),
                     isCurrent: item.id == current,
                     isDone: done.contains(item.id),
                     isSetHeld: isSetHeld && item.id == current,
+                    nodeBelow: below[item.id]?.node,
+                    groupEndsBelow: below[item.id]?.ends ?? false,
                 )
                 // An arriving row's place opens with its entry's shot, so the end view is pushed
                 // down as far as the line has grown, on every frame.
@@ -241,7 +267,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         // with its row, would part or overlap until the rows settle, and the loops change shape
         // in one drawing as the rows move. It gives way to the rows' own at once.
         .backgroundPreferenceValue(RowNodes.self) { nodes in
-            if isHeld {
+            if drawsOnce {
                 GeometryReader { strokes(nodes, in: $0, cardY: cardY) }
                     .transition(.identity)
             }

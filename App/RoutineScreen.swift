@@ -83,6 +83,9 @@ struct RoutineScreen: View {
     @State var opensOnCurrent = false
     /// While the current exercise moves to the next row, when rows' heights are mid-motion.
     @State var isMovingOn = false
+    /// While Start grows the first exercise or End shrinks the current one back, when rows'
+    /// heights are mid-motion.
+    @State var isGrowingOrEnding = false
     /// After the last set, the room to land the current exercise, closing as its row does, the
     /// list's end held where it shows (`keepEndPinned(from:to:)`).
     @State var closingRoomTop: CGFloat?
@@ -198,6 +201,8 @@ struct RoutineScreen: View {
                         done: finishedRows,
                         isSetHeld: heldSet != nil,
                         pulse: railPulse,
+                        isMoving: isMovingOn,
+                        isResizing: isGrowingOrEnding,
                         onMove: move,
                         regroup: regroup,
                     ) { item in

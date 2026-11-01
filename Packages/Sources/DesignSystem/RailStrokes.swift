@@ -2,9 +2,10 @@ import SwiftUI
 
 /// How a superset's loop is drawn at the current text size: a line beside the rail on its leading
 /// side, curving into a node at each end on the corner of a continuous rounded rectangle, with a
-/// pointed head between each node and the next. A row at rest draws its own stretch of it
-/// (`GroupLoop`), and while a row or a node is held the rail draws every loop at once
-/// (`HeldLoop`, `RailLoops`), all with this pen, read through `ScaledLoopPen`, so they are the
+/// pointed heads between each node and the next. A row at rest draws its own stretch of it
+/// (`GroupLoop`), and while a row or a node is held, or a workout moves on, the rail draws every
+/// loop at once (`HeldLoop`, `RailLoops`), all with this pen, read through `ScaledLoopPen`, so they
+/// are the
 /// same strokes.
 /// The loop's pen at the current text size, the one source of its widths.
 @propertyWrapper
@@ -67,6 +68,67 @@ nonisolated struct LoopPen {
             .intersection(Path(column))
     }
 
+    /// About the least distance between two heads on a stretch, and between a node and the head
+    /// nearest it once a stretch holds more than one: a resting row's least height, so a resting
+    /// one-line or two-line row's stretch holds one head, at its middle.
+    var spacing: CGFloat {
+        railRowMinHeight * scale
+    }
+
+    /// A row's stretch of loop at rest, as the row above each gap draws it (`GroupLoop`): from
+    /// the row's node at `node`, curving out of it where the group `starts` there, down to the
+    /// next row's, `nodeBelow` below the row's `height`, curving into it where the group `ends`
+    /// there, with its heads, at `level` (`headMiddles`). Where the loop goes on past either node
+    /// it is cut square at the node, under the node's dot, so the next stretch meets it with no
+    /// overlap and no seam between the nodes.
+    func stretch(
+        node: CGPoint,
+        height: CGFloat,
+        nodeBelow: CGFloat,
+        starts: Bool,
+        ends: Bool,
+        level: CGFloat? = nil,
+    ) -> Path {
+        let below = height + nodeBelow
+        let far = below - node.y + node.x + radius * 4
+        let x = runX(nodeX: node.x)
+        // Past a node where the loop goes on, the line runs on far enough to be straight there.
+        let line = line(
+            top: starts ? node.y : node.y - far,
+            bottom: ends ? below : below + far,
+            nodeX: node.x,
+            x: x,
+        )
+        // Where it curves into a node, the clip leaves the curve whole.
+        let clip = CGRect(
+            x: 0,
+            y: node.y - (starts ? far : 0),
+            width: node.x,
+            height: below - node.y + (starts ? far : 0) + (ends ? far : 0),
+        )
+        return withHeads(
+            line.intersection(Path(clip)),
+            headMiddles(from: node.y, to: below, level: level).map { LoopHead(
+                middle: $0.middle,
+                x: x,
+                size: $0.size,
+            ) },
+        )
+    }
+
+    /// `line` with `heads` on it, each at its middle, its line's x, and its size: the line opened
+    /// below each tip, and the head and the line's round end ahead of it added.
+    func withHeads(_ line: Path, _ heads: [LoopHead]) -> Path {
+        var opening = Path()
+        var added = Path()
+        for middle in heads {
+            let head = head(middle: middle.middle, x: middle.x, size: middle.size)
+            opening.addPath(head.opening)
+            added.addPath(head.added)
+        }
+        return line.subtracting(opening).union(added)
+    }
+
     /// The head pointing up with its middle at `middle`, at `size` of its full size: the stretch
     /// of line it opens, from its base up to `gap` short of its tip, and what it adds, the head
     /// and the line's round end ahead of it.
@@ -88,7 +150,8 @@ nonisolated struct LoopPen {
     }
 }
 
-/// The rail's strokes while a row's node is held, drawn once for every row: the line from the
+/// The rail's strokes while a row's node is held or a workout moves on, drawn once for every row:
+/// the line from the
 /// first node to the last, and every superset's loop, as the rows show.
 ///
 /// The loops change in the transaction that moves the rows, stretching, shrinking, growing out of
@@ -155,19 +218,37 @@ struct RailDrawing: View {
 /// next. Both animate: a join going from 0 to 1 grows its stretch of loop from the row above
 /// down to the next, or, where only the row below's stretch stays joined, from it up; going back
 /// it draws in the same way. A loop shorter than its curves draws into its node as it shrinks,
-/// and a head shows once its stretch reaches halfway.
+/// and its heads show once its stretch reaches halfway. Each stretch's heads animate too, from
+/// its level at the old nodes to the new (`LoopPen.headLevel`), with the nodes: a head arrives or
+/// leaves over the whole move, however fast the stretch changes, rather than in the frame its
+/// length passes through `headMiddles`' short window.
 nonisolated struct RailLoops: Shape {
     let nodeX: CGFloat
     var nodes: RailVector
     var joins: RailVector
+    /// Each stretch's heads, as `LoopPen.headMiddles` takes them.
+    var levels: RailVector
     /// For each join, whether its stretch grows from the row below, the one it ends up attached
     /// to, rather than from the row above.
     let fromBelow: [Bool]
     let pen: LoopPen
 
-    var animatableData: AnimatablePair<RailVector, RailVector> {
-        get { AnimatablePair(nodes, joins) }
-        set { (nodes, joins) = (newValue.first, newValue.second) }
+    init(nodeX: CGFloat, nodes: RailVector, joins: RailVector, fromBelow: [Bool], pen: LoopPen) {
+        self.nodeX = nodeX
+        self.nodes = nodes
+        self.joins = joins
+        self.fromBelow = fromBelow
+        self.pen = pen
+        levels = RailVector(zip(nodes.values, nodes.values.dropFirst()).map { top, bottom in
+            Double(pen.headLevel(span: CGFloat(bottom - top)))
+        })
+    }
+
+    var animatableData: AnimatablePair<AnimatablePair<RailVector, RailVector>, RailVector> {
+        get { AnimatablePair(AnimatablePair(nodes, joins), levels) }
+        set {
+            (nodes, joins, levels) = (newValue.first.first, newValue.first.second, newValue.second)
+        }
     }
 
     func path(in _: CGRect) -> Path {
@@ -177,19 +258,19 @@ nonisolated struct RailLoops: Shape {
         for loop in loops {
             line.addPath(pen.line(top: loop.top, bottom: loop.bottom, nodeX: nodeX, x: loop.x))
         }
-        var opening = Path()
-        var added = Path()
+        var heads: [LoopHead] = []
         for index in ys.indices.dropLast() {
             let join = CGFloat(joins.value(at: index))
             let size = min(max(2 * join - 1, 0), 1)
-            let middle = (ys[index] + ys[index + 1]) / 2
-            guard size > 0.01, let loop = loops.first(where: { $0.top ... $0.bottom ~= middle })
-            else { continue }
-            let head = pen.head(middle: middle, x: loop.x, size: size)
-            opening.addPath(head.opening)
-            added.addPath(head.added)
+            guard size > 0.01 else { continue }
+            let level = CGFloat(levels.value(at: index))
+            for middle in pen.headMiddles(from: ys[index], to: ys[index + 1], level: level) {
+                guard let loop = loops.first(where: { $0.top ... $0.bottom ~= middle.middle })
+                else { continue }
+                heads.append(LoopHead(middle: middle.middle, x: loop.x, size: size * middle.size))
+            }
         }
-        return line.subtracting(opening).union(added)
+        return pen.withHeads(line, heads)
     }
 
     /// The loops as drawn now: the stretches between joined nodes, each as far along as its join,
@@ -219,6 +300,14 @@ nonisolated struct RailLoops: Shape {
             return LoopRun(top: run.top, bottom: run.bottom, x: pen.runX(nodeX: nodeX, out: out))
         }
     }
+}
+
+/// A head on a loop as drawn: its middle, the x of the line it is on, and its size against its
+/// full size.
+nonisolated struct LoopHead {
+    var middle: CGFloat
+    var x: CGFloat
+    var size: CGFloat
 }
 
 /// A loop as drawn at a moment: its top and bottom, and how far out it runs.
