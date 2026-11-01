@@ -115,17 +115,10 @@ nonisolated struct HeldLoop: Shape {
         }
         let out = min((bottom - top) / (4 * pen.radius), 1)
         let x = pen.runX(nodeX: nodeX, out: out)
-        let line = pen.line(top: top, bottom: bottom, nodeX: nodeX, x: x)
-        var opening = Path()
-        var added = Path()
-        for (upper, lower) in zip(points, points.dropFirst()) {
-            for middle in pen.headMiddles(from: upper, to: lower) where middle.size > 0.01 {
-                let head = pen.head(middle: middle.middle, x: x, size: middle.size)
-                opening.addPath(head.opening)
-                added.addPath(head.added)
-            }
+        let heads = zip(points, points.dropFirst()).flatMap { upper, lower in
+            pen.headMiddles(from: upper, to: lower).map { ($0.middle, x, $0.size) }
         }
-        return line.subtracting(opening).union(added)
+        return pen.withHeads(pen.line(top: top, bottom: bottom, nodeX: nodeX, x: x), heads)
     }
 }
 

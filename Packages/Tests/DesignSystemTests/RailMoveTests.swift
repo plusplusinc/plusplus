@@ -50,9 +50,10 @@ struct RailMoveTests {
         static let inset: CGFloat = 16
     }
 
-    /// The loop's column in the window: the rail's node column is 44 pt wide, its nodes at its
-    /// middle, and the loop runs 12 pt out from them.
-    private static let loopX = Host.inset + 22 - 12
+    /// The loop's column in the window: the rail's nodes are at the middle of its 44 pt column,
+    /// and the loop runs beside them as the default text size's pen puts it.
+    private static let loopX = Host.inset
+        + LoopPen(lineWidth: railLineWidth, scale: 1, offset: 12).runX(nodeX: 22)
 
     /// Each frame shown while the move plays, the loop's column read from it: whether each pixel
     /// down it differs from the background.
@@ -142,7 +143,7 @@ struct RailMoveTests {
         }
         link.add(to: .main, forMode: .common)
         defer { link.invalidate() }
-        let deadline = Date.now.addingTimeInterval(2)
+        let deadline = Date.now.addingTimeInterval(1.2)
         while frames.columns.count < 12, Date.now < deadline {
             RunLoop.main.run(mode: .default, before: .now.addingTimeInterval(0.005))
         }

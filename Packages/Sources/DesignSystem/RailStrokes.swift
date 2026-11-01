@@ -83,13 +83,20 @@ nonisolated struct LoopPen {
     /// on. As the stretch grows to room for another, the new one grows from nothing at its place
     /// over the last quarter `spacing` before it, while the others slide to theirs, and as it
     /// shrinks the same runs back, so a head never jumps. A head shrinks away as the two nodes
-    /// meet.
+    /// meet. A head too small to see is left out.
     func headMiddles(from top: CGFloat, to bottom: CGFloat) -> [(middle: CGFloat, size: CGFloat)] {
+        allHeadMiddles(from: top, to: bottom).filter { $0.size > 0.01 }
+    }
+
+    private func allHeadMiddles(
+        from top: CGFloat,
+        to bottom: CGFloat,
+    ) -> [(middle: CGFloat, size: CGFloat)] {
         let span = bottom - top
         let meet = min(max((span - 2 * length) / (2 * length), 0), 1)
         guard meet > 0 else { return [] }
         let arrival = spacing / 4
-        let fit = max(Int(((span + arrival) / spacing).rounded(.down)) - 1, 1)
+        let fit = Int(((span + arrival) / spacing).rounded(.down)) - 1
         let spread = { (count: Int, index: Int) in
             top + span * CGFloat(index + 1) / CGFloat(count + 1)
         }
@@ -120,16 +127,37 @@ nonisolated struct LoopPen {
     ) -> Path {
         let below = height + nodeBelow
         let far = below - node.y + node.x + radius * 4
-        let top = starts ? node.y : node.y - far
-        let bottom = ends ? below : below + far
         let x = runX(nodeX: node.x)
-        let cut = (top: starts ? top - far : node.y, bottom: ends ? bottom + far : below)
-        let line = self.line(top: top, bottom: bottom, nodeX: node.x, x: x)
-            .intersection(Path(CGRect(x: 0, y: cut.top, width: node.x, height: cut.bottom - cut.top)))
+        // Past a node where the loop goes on, the line runs on far enough to be straight there.
+        let line = self.line(
+            top: starts ? node.y : node.y - far,
+            bottom: ends ? below : below + far,
+            nodeX: node.x,
+            x: x,
+        )
+        // Where it curves into a node, the clip leaves the curve whole.
+        let clip = CGRect(
+            x: 0,
+            y: node.y - (starts ? far : 0),
+            width: node.x,
+            height: below - node.y + (starts ? far : 0) + (ends ? far : 0),
+        )
+        return withHeads(
+            line.intersection(Path(clip)),
+            headMiddles(from: node.y, to: below).map { ($0.middle, x, $0.size) },
+        )
+    }
+
+    /// `line` with `heads` on it, each at its middle, its line's x, and its size: the line opened
+    /// below each tip, and the head and the line's round end ahead of it added.
+    func withHeads(
+        _ line: Path,
+        _ heads: [(middle: CGFloat, x: CGFloat, size: CGFloat)],
+    ) -> Path {
         var opening = Path()
         var added = Path()
-        for middle in headMiddles(from: node.y, to: below) where middle.size > 0.01 {
-            let head = self.head(middle: middle.middle, x: x, size: middle.size)
+        for middle in heads {
+            let head = self.head(middle: middle.middle, x: middle.x, size: middle.size)
             opening.addPath(head.opening)
             added.addPath(head.added)
         }
@@ -246,22 +274,18 @@ nonisolated struct RailLoops: Shape {
         for loop in loops {
             line.addPath(pen.line(top: loop.top, bottom: loop.bottom, nodeX: nodeX, x: loop.x))
         }
-        var opening = Path()
-        var added = Path()
+        var heads: [(middle: CGFloat, x: CGFloat, size: CGFloat)] = []
         for index in ys.indices.dropLast() {
             let join = CGFloat(joins.value(at: index))
             let size = min(max(2 * join - 1, 0), 1)
             guard size > 0.01 else { continue }
-            for head in pen.headMiddles(from: ys[index], to: ys[index + 1]) {
-                guard head.size > 0.01,
-                      let loop = loops.first(where: { $0.top ... $0.bottom ~= head.middle })
+            for middle in pen.headMiddles(from: ys[index], to: ys[index + 1]) {
+                guard let loop = loops.first(where: { $0.top ... $0.bottom ~= middle.middle })
                 else { continue }
-                let head = pen.head(middle: head.middle, x: loop.x, size: size * head.size)
-                opening.addPath(head.opening)
-                added.addPath(head.added)
+                heads.append((middle.middle, loop.x, size * middle.size))
             }
         }
-        return line.subtracting(opening).union(added)
+        return pen.withHeads(line, heads)
     }
 
     /// The loops as drawn now: the stretches between joined nodes, each as far along as its join,

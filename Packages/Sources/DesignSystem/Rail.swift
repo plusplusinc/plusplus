@@ -182,10 +182,14 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         let first = shown.first?.id
         // Until the arriving row enters, the line ends at the node above it.
         let lastOnLine = shown.last { $0.id != arriving }?.id
-        let shownLinks = RailLink.links(shown.map(\.id), joined: shownJoined)
-        let next = Dictionary(uniqueKeysWithValues: zip(shown.map(\.id), shown.dropFirst().map(\.id)))
-        let hiddenLoops = loopsHidden(shown.map(\.id))
-        let shifts = pairShifts(shown.map(\.id))
+        let ids = shown.map(\.id)
+        let shownLinks = RailLink.links(ids, joined: shownJoined)
+        // The row below each: its node, and whether the group ends at it.
+        let below = Dictionary(uniqueKeysWithValues: zip(ids, ids.dropFirst()).map { id, next in
+            (id, (node: nodeInsets[next], ends: shownLinks[next] == .last))
+        })
+        let hiddenLoops = loopsHidden(ids)
+        let shifts = pairShifts(ids)
         let room = drag.map(roomAbove) ?? 0
         // Held, the rail draws every stroke once, under the rows, rather than each row its own;
         // and while a workout moves on, as a row's own stretch of loop is drawn from its height
@@ -209,8 +213,8 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                     isCurrent: item.id == current,
                     isDone: done.contains(item.id),
                     isSetHeld: isSetHeld && item.id == current,
-                    nodeBelow: next[item.id].flatMap { nodeInsets[$0] },
-                    groupEndsBelow: next[item.id].map { shownLinks[$0] == .last } ?? false,
+                    nodeBelow: below[item.id]?.node,
+                    groupEndsBelow: below[item.id]?.ends ?? false,
                 )
                 // An arriving row's place opens with its entry's shot, so the end view is pushed
                 // down as far as the line has grown, on every frame.
