@@ -66,11 +66,13 @@ extension View {
     /// going, faded and below the edge, and faded in as it rose. While `isSwappedOut`, the key
     /// is down out of sight, unfaded both ways, with Reduce Motion only fading, and the bar
     /// keeps its room: a key swapped for another with no bar between
-    /// them moved the list under it.
+    /// them moved the list under it. While `keepsRoom`, a key not presented still holds its room
+    /// in the bar, unseen, so the list's bottom inset stays as the key goes and comes back.
     public func primaryKeyBar(
         isPresented: Bool,
         keyID: AnyHashable = 0,
         isSwappedOut: Bool = false,
+        keepsRoom: Bool = false,
         plusOnes: Int = 0,
         drop: CGFloat = 0,
         @ViewBuilder key: () -> some View,
@@ -79,6 +81,7 @@ extension View {
             isPresented: isPresented,
             keyID: keyID,
             isSwappedOut: isSwappedOut,
+            keepsRoom: keepsRoom,
             plusOnes: plusOnes,
             drop: drop,
             key: key(),
@@ -90,6 +93,7 @@ private struct PrimaryKeyBar<Key: View>: ViewModifier {
     let isPresented: Bool
     let keyID: AnyHashable
     let isSwappedOut: Bool
+    let keepsRoom: Bool
     let plusOnes: Int
     let drop: CGFloat
     let key: Key
@@ -108,36 +112,47 @@ private struct PrimaryKeyBar<Key: View>: ViewModifier {
         bottomInset > 0 && !dynamicTypeSize.isAccessibilitySize ? bottomInset : Spacing.md
     }
 
+    /// The key in its place in the bar.
+    private var placedKey: some View {
+        key
+            .buttonStyle(.primaryKey)
+            .anchorPreference(key: PrimaryKeyBounds.self, value: .bounds) { $0 }
+            .modifier(KeyDrop(drop: drop))
+            .modifier(KeySwap(isOut: isSwappedOut))
+            .hiddenBehindDrawer()
+            // As far from the sides as from the bottom; with no home indicator, as
+            // far as content is inset. On an iPhone 17 that is concentric with the
+            // screen's corners: its 62 pt corners less the key's 28 pt radius is the
+            // 34 pt inset.
+            .padding(.horizontal, sideInset)
+            // The resting face, not the ledge under it, at that distance from the
+            // bottom: the ledge and the pressed face sit below it, in the safe area.
+            // The bar keeps its room, so the list under it doesn't move. With no
+            // safe area below, the key rises by its ledge, which so stays on the
+            // screen. That rise is an offset, never the bar's height: `bottomInset`
+            // is measured only after the first layout, and a bar whose height
+            // followed it changed the list's inset a second time in its first
+            // frame, which SwiftUI logs as an `OnScrollGeometryChange` fault.
+            .padding(.bottom, -PrimaryKeyButtonStyle.ledge)
+            .offset(y: bottomInset > 0 ? 0 : -PrimaryKeyButtonStyle.ledge)
+            .padding(.top, Spacing.sm + PrimaryKeyButtonStyle.ledge)
+    }
+
     func body(content: Content) -> some View {
         content
             // No band behind the key: the list's rows run on under it.
             .scrollEdgeEffectHidden(true, for: .bottom)
             .safeAreaBar(edge: .bottom) {
-                if isPresented {
-                    key
-                        .buttonStyle(.primaryKey)
-                        .anchorPreference(key: PrimaryKeyBounds.self, value: .bounds) { $0 }
-                        .modifier(KeyDrop(drop: drop))
-                        .modifier(KeySwap(isOut: isSwappedOut))
-                        .hiddenBehindDrawer()
-                        // As far from the sides as from the bottom; with no home indicator, as
-                        // far as content is inset. On an iPhone 17 that is concentric with the
-                        // screen's corners: its 62 pt corners less the key's 28 pt radius is the
-                        // 34 pt inset.
-                        .padding(.horizontal, sideInset)
-                        // The resting face, not the ledge under it, at that distance from the
-                        // bottom: the ledge and the pressed face sit below it, in the safe area.
-                        // The bar keeps its room, so the list under it doesn't move. With no
-                        // safe area below, the key rises by its ledge, which so stays on the
-                        // screen. That rise is an offset, never the bar's height: `bottomInset`
-                        // is measured only after the first layout, and a bar whose height
-                        // followed it changed the list's inset a second time in its first
-                        // frame, which SwiftUI logs as an `OnScrollGeometryChange` fault.
-                        .padding(.bottom, -PrimaryKeyButtonStyle.ledge)
-                        .offset(y: bottomInset > 0 ? 0 : -PrimaryKeyButtonStyle.ledge)
-                        .padding(.top, Spacing.sm + PrimaryKeyButtonStyle.ledge)
-                        .transition(KeyBarTransition(below: bottomInset))
-                        .id(keyID)
+                // One stack, so a key coming in and the unseen one holding its room overlap
+                // rather than stack up for the transition's length.
+                ZStack {
+                    if isPresented {
+                        placedKey
+                            .transition(KeyBarTransition(below: bottomInset))
+                            .id(keyID)
+                    } else if keepsRoom {
+                        placedKey.hidden()
+                    }
                 }
             }
             // The screen's own inset, without the keyboard's when it is up: with the keyboard's

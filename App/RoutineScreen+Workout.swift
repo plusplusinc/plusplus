@@ -106,11 +106,14 @@ extension RoutineScreen {
         }
         // The workout's key comes up as the rows land, a beat in the sequence by design: the
         // animation's completion came a few frames after the rows had stopped, and the key rose
-        // after a pause.
+        // after a pause. Start leaves the bar with its room kept: taken with it, the list's
+        // bottom inset dropped 68 pt as the room under the list went, and the list sometimes
+        // stayed about 60 pt low.
         Task {
             try? await Task.sleep(for: .seconds(Self.keyReturnDelay), tolerance: .zero)
             withTransaction(\.disablesAnimations, true) {
                 isKeyAway = true
+                keepsKeyRoom = true
                 isStarting = false
                 startDrop = 0
             }
@@ -186,6 +189,7 @@ extension RoutineScreen {
     private func bringKeyBack() {
         withAnimation(.smooth(duration: Self.startReturn)) {
             isKeyAway = false
+            keepsKeyRoom = false
         }
     }
 
