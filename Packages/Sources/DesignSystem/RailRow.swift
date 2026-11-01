@@ -11,6 +11,9 @@ struct RailPlace {
     /// Whether the row draws its own stretch of line and loop: not while a row or its node is
     /// held, when the rail draws every stroke once (`HeldRailDrawing`, `RailDrawing`).
     var drawsOwnLine = true
+    /// Whether the row's stretch of loop eases its heads to a new length's, over a moment, rather
+    /// than placing them by its length on every frame: while Start or End resizes the rows.
+    var easesHeads = false
     /// The card held up off the rail, its node in the color of the text.
     var isRaised = false
     /// Where the row is in a group of rows on the rail, which a loop beside the line marks.
@@ -188,6 +191,7 @@ private struct RailRow: ViewModifier {
                             flashes: place.flashes,
                             nodeBelow: place.nodeBelow,
                             endsBelow: place.groupEndsBelow,
+                            eases: place.easesHeads,
                         )
                         .opacity(place.isLoopHidden ? 0 : 1)
                         .animation(.snappy(duration: 0.2), value: place.isLoopHidden)
@@ -271,15 +275,24 @@ private struct GroupLoop: View {
     let nodeBelow: CGFloat?
     /// Whether the group ends at the next row, whose node the stretch curves into.
     let endsBelow: Bool
+    /// Whether the heads ease to a new length's (`RailPlace.easesHeads`).
+    let eases: Bool
     @ScaledLoopPen private var pen
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
     var body: some View {
         let (rest, joined) = (Color.pp(.rail), Color.pp(.railJoin))
         let run = run
+        // Start and End change the row's height on every frame, faster than a head grows over
+        // the stretch's length (`LoopPen.headMiddles`), so there the heads ease to the stretch's
+        // own over a moment: a head arrives or leaves, and the others slide, over frames.
+        let level = run.map { pen.headLevel(span: $0.height + $0.nodeBelow - $0.node.y) } ?? 1
         KeyframeAnimator(initialValue: 0.0, trigger: flashes) { joining in
             // A shape, not a canvas, so the stretch draws past the row's bottom edge.
-            run.fill(rest.mix(with: joined, by: joining))
+            LoopStretch(run: run, pen: pen, level: level)
+                .fill(rest.mix(with: joined, by: joining))
+                .animation(eases && !reduceMotion ? .smooth(duration: 0.3) : nil, value: level)
         } keyframes: { _ in
             RailEntry.groupFlash()
         }
@@ -288,10 +301,10 @@ private struct GroupLoop: View {
         .hotReloadable()
     }
 
-    /// The row's stretch of loop, from its node to the next row's (`LoopPen.stretch`).
-    private var run: Path {
-        guard link == .first || link == .middle else { return Path() }
-        return pen.stretch(
+    /// The row's stretch of loop, from its node to the next row's: none on a group's last row.
+    private var run: LoopStretch.Run? {
+        guard link == .first || link == .middle else { return nil }
+        return LoopStretch.Run(
             node: node,
             height: height,
             nodeBelow: nodeBelow ?? node.y,

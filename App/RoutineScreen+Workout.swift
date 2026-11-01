@@ -93,11 +93,15 @@ extension RoutineScreen {
                 scrollPosition.scrollTo(y: target)
             }
         }
+        // While the rows change height, a loop's heads ease to their new places (`Rail`'s
+        // `isResizing`).
+        isGrowingOrEnding = true
         withAnimation(.snappy(duration: Self.growBeat)) {
             session.start(routineName: name)
             growthLift = 0
             startDrop = max(drop, 1)
         } completion: {
+            isGrowingOrEnding = false
             letRoomGo()
         }
         // The workout's key comes up as the rows land, a beat in the sequence by design: the
@@ -155,12 +159,19 @@ extension RoutineScreen {
             return crossfade(scrollingTo: 0, then: bringKeyBack, change)
         }
         // Room under the list's end, so the shrinking content doesn't pull the scroll up.
-        withTransaction(\.disablesAnimations, true) { isMakingRoom = true }
+        // While the rows change height, a loop's heads ease to their new places, as at Start.
+        withTransaction(\.disablesAnimations, true) {
+            isMakingRoom = true
+            isGrowingOrEnding = true
+        }
         withAnimation(.timingCurve(0.25, 0.1, 0.25, 1, duration: Self.endBeat)) {
             change()
             scrollPosition.scrollTo(edge: .top)
         } completion: {
-            withTransaction(\.disablesAnimations, true) { isMakingRoom = false }
+            withTransaction(\.disablesAnimations, true) {
+                isMakingRoom = false
+                isGrowingOrEnding = false
+            }
         }
         // Start comes back as the list lands, a beat in the sequence by design: the animation's
         // completion came a few frames after the rows had stopped.

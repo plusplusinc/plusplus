@@ -249,7 +249,13 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   resting gap of one- or two-line rows holds one at its middle and the current exercise's
   stretched gap several. As a gap
   grows past room for another, the new head grows from nothing at its place, over the last quarter
-  of that spacing, while the others slide to theirs, and shrinks back the same way. At rest the row
+  of that spacing, while the others slide to theirs, and shrinks back the same way. A gap that
+  changes faster, at Start, at End, and as a workout moves on, crosses that quarter in a frame, so
+  there the heads ease instead (`LoopPen.headLevel`): the rail's drawing (`RailLoops`) carries
+  each gap's head level with its nodes over the move, and while Start or End resizes the rows
+  (`Rail`'s `isResizing`) a row's own stretch (`GroupLoop`) eases to its new level on
+  `.smooth(0.3)`, at once with
+  Reduce Motion. At rest the row
   above each gap draws that gap's stretch whole, from its node to the next row's, past its own
   bottom edge (`LoopPen.stretch`). A superset's top and bottom
   edges are each two slots for a row moved by its body, inside (the loop wraps the gap) and,

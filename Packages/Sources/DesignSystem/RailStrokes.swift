@@ -75,57 +75,19 @@ nonisolated struct LoopPen {
         railRowMinHeight * scale
     }
 
-    /// The heads on the loop between a node at `top` and the next one down, at `bottom`: each
-    /// one's middle, and its size against its full size. Every drawing of the loop places its
-    /// heads here, so they draw the same strokes.
-    ///
-    /// The heads are spread evenly over the stretch, as many as keep about `spacing` apart from
-    /// each other and from the nodes, one at least: one at the middle, then two at thirds, and so
-    /// on. As the stretch grows to room for another, the new one grows from nothing at its place
-    /// over the last quarter `spacing` before it, while the others slide to theirs, and as it
-    /// shrinks the same runs back, so a head never jumps. A head shrinks away as the two nodes
-    /// meet. A head too small to see is left out.
-    func headMiddles(from top: CGFloat, to bottom: CGFloat) -> [(middle: CGFloat, size: CGFloat)] {
-        allHeadMiddles(from: top, to: bottom).filter { $0.size > 0.01 }
-    }
-
-    private func allHeadMiddles(
-        from top: CGFloat,
-        to bottom: CGFloat,
-    ) -> [(middle: CGFloat, size: CGFloat)] {
-        let span = bottom - top
-        let meet = min(max((span - 2 * length) / (2 * length), 0), 1)
-        guard meet > 0 else { return [] }
-        let arrival = spacing / 4
-        let fit = Int(((span + arrival) / spacing).rounded(.down)) - 1
-        let spread = { (count: Int, index: Int) in
-            top + span * CGFloat(index + 1) / CGFloat(count + 1)
-        }
-        guard fit > 1 else { return [(spread(1, 0), meet)] }
-        // How far the newest head has grown in, and where it is among the others: the middle one,
-        // or the lower of the two middle ones.
-        let grown = min(max((span - CGFloat(fit + 1) * spacing + arrival) / arrival, 0), 1)
-        let arriving = fit / 2
-        return (0 ..< fit).map { index in
-            let to = spread(fit, index)
-            guard index != arriving else { return (to, grown * meet) }
-            let from = spread(fit - 1, index < arriving ? index : index - 1)
-            return (from + (to - from) * grown, meet)
-        }
-    }
-
     /// A row's stretch of loop at rest, as the row above each gap draws it (`GroupLoop`): from
     /// the row's node at `node`, curving out of it where the group `starts` there, down to the
     /// next row's, `nodeBelow` below the row's `height`, curving into it where the group `ends`
-    /// there, with its heads. Where the loop goes on past either node it is cut square at the
-    /// node, under the node's dot, so the next stretch meets it with no overlap and no seam
-    /// between the nodes.
+    /// there, with its heads, at `level` (`headMiddles`). Where the loop goes on past either node
+    /// it is cut square at the node, under the node's dot, so the next stretch meets it with no
+    /// overlap and no seam between the nodes.
     func stretch(
         node: CGPoint,
         height: CGFloat,
         nodeBelow: CGFloat,
         starts: Bool,
         ends: Bool,
+        level: CGFloat? = nil,
     ) -> Path {
         let below = height + nodeBelow
         let far = below - node.y + node.x + radius * 4
@@ -146,7 +108,7 @@ nonisolated struct LoopPen {
         )
         return withHeads(
             line.intersection(Path(clip)),
-            headMiddles(from: node.y, to: below).map { LoopHead(
+            headMiddles(from: node.y, to: below, level: level).map { LoopHead(
                 middle: $0.middle,
                 x: x,
                 size: $0.size,
@@ -256,19 +218,37 @@ struct RailDrawing: View {
 /// next. Both animate: a join going from 0 to 1 grows its stretch of loop from the row above
 /// down to the next, or, where only the row below's stretch stays joined, from it up; going back
 /// it draws in the same way. A loop shorter than its curves draws into its node as it shrinks,
-/// and its heads show once its stretch reaches halfway.
+/// and its heads show once its stretch reaches halfway. Each stretch's heads animate too, from
+/// its level at the old nodes to the new (`LoopPen.headLevel`), with the nodes: a head arrives or
+/// leaves over the whole move, however fast the stretch changes, rather than in the frame its
+/// length passes through `headMiddles`' short window.
 nonisolated struct RailLoops: Shape {
     let nodeX: CGFloat
     var nodes: RailVector
     var joins: RailVector
+    /// Each stretch's heads, as `LoopPen.headMiddles` takes them.
+    var levels: RailVector
     /// For each join, whether its stretch grows from the row below, the one it ends up attached
     /// to, rather than from the row above.
     let fromBelow: [Bool]
     let pen: LoopPen
 
-    var animatableData: AnimatablePair<RailVector, RailVector> {
-        get { AnimatablePair(nodes, joins) }
-        set { (nodes, joins) = (newValue.first, newValue.second) }
+    init(nodeX: CGFloat, nodes: RailVector, joins: RailVector, fromBelow: [Bool], pen: LoopPen) {
+        self.nodeX = nodeX
+        self.nodes = nodes
+        self.joins = joins
+        self.fromBelow = fromBelow
+        self.pen = pen
+        levels = RailVector(zip(nodes.values, nodes.values.dropFirst()).map { top, bottom in
+            Double(pen.headLevel(span: CGFloat(bottom - top)))
+        })
+    }
+
+    var animatableData: AnimatablePair<AnimatablePair<RailVector, RailVector>, RailVector> {
+        get { AnimatablePair(AnimatablePair(nodes, joins), levels) }
+        set {
+            (nodes, joins, levels) = (newValue.first.first, newValue.first.second, newValue.second)
+        }
     }
 
     func path(in _: CGRect) -> Path {
@@ -283,7 +263,8 @@ nonisolated struct RailLoops: Shape {
             let join = CGFloat(joins.value(at: index))
             let size = min(max(2 * join - 1, 0), 1)
             guard size > 0.01 else { continue }
-            for middle in pen.headMiddles(from: ys[index], to: ys[index + 1]) {
+            let level = CGFloat(levels.value(at: index))
+            for middle in pen.headMiddles(from: ys[index], to: ys[index + 1], level: level) {
                 guard let loop = loops.first(where: { $0.top ... $0.bottom ~= middle.middle })
                 else { continue }
                 heads.append(LoopHead(middle: middle.middle, x: loop.x, size: size * middle.size))
