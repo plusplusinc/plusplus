@@ -283,6 +283,8 @@ private struct GroupLoop: View {
         } keyframes: { _ in
             RailEntry.groupFlash()
         }
+        // Past the row's bottom edge it lies over the next row, whose touches it leaves alone.
+        .allowsHitTesting(false)
         .hotReloadable()
     }
 

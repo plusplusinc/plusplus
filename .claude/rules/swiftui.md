@@ -246,7 +246,8 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   the stroke stopping short of each tip. Every drawing places them by one rule
   (`LoopPen.headMiddles`): spread evenly between two nodes, as many as stay a resting row's height
   (64 pt at the default size, scaled with the text) apart from each other and from the nodes, so a
-  resting gap holds one at its middle and the current exercise's stretched gap several. As a gap
+  resting gap of one- or two-line rows holds one at its middle and the current exercise's
+  stretched gap several. As a gap
   grows past room for another, the new head grows from nothing at its place, over the last quarter
   of that spacing, while the others slide to theirs, and shrinks back the same way. At rest the row
   above each gap draws that gap's stretch whole, from its node to the next row's, past its own

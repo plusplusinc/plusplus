@@ -116,7 +116,9 @@ nonisolated struct HeldLoop: Shape {
         let out = min((bottom - top) / (4 * pen.radius), 1)
         let x = pen.runX(nodeX: nodeX, out: out)
         let heads = zip(points, points.dropFirst()).flatMap { upper, lower in
-            pen.headMiddles(from: upper, to: lower).map { ($0.middle, x, $0.size) }
+            pen.headMiddles(from: upper, to: lower).map {
+                LoopHead(middle: $0.middle, x: x, size: $0.size)
+            }
         }
         return pen.withHeads(pen.line(top: top, bottom: bottom, nodeX: nodeX, x: x), heads)
     }

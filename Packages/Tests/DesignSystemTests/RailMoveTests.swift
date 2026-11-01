@@ -107,16 +107,26 @@ struct RailMoveTests {
 
     /// The longest stretch down the loop's column, between its first drawn point and its last,
     /// with nothing drawn.
-    private func longestBreak(_ column: [Bool]) -> (length: Int, at: Int, drawn: Int) {
+    private func longestBreak(_ column: [Bool]) -> Break {
         guard let first = column.firstIndex(of: true), let last = column.lastIndex(of: true)
-        else { return (0, 0, 0) }
+        else { return Break(length: 0, at: 0, drawn: 0) }
         var longest = (length: 0, at: 0)
         var run = 0
         for y in first ... last {
             run = column[y] ? 0 : run + 1
-            if run > longest.length { longest = (run, y - run + 1) }
+            if run > longest.length {
+                longest = (run, y - run + 1)
+            }
         }
-        return (longest.length, longest.at, last - first)
+        return Break(length: longest.length, at: longest.at, drawn: last - first)
+    }
+
+    /// A break in the loop's column, in points: how long and where, and how long the loop is
+    /// from its first drawn point to its last.
+    private struct Break {
+        var length: Int
+        var at: Int
+        var drawn: Int
     }
 
     @Test(
@@ -147,13 +157,19 @@ struct RailMoveTests {
         while frames.columns.count < 12, Date.now < deadline {
             RunLoop.main.run(mode: .default, before: .now.addingTimeInterval(0.005))
         }
-        try #require(frames.columns.count >= 12, "the screen showed only \(frames.columns.count) frames")
+        try #require(
+            frames.columns.count >= 12,
+            "the screen showed only \(frames.columns.count) frames",
+        )
 
         // A head's gap is 3 pt, and its antialiased edges a point either side.
         for (index, column) in frames.columns.enumerated() {
             let gap = longestBreak(column)
             #expect(gap.drawn > 40, "frame \(index): the loop is \(gap.drawn) pt long")
-            #expect(gap.length <= 5, "frame \(index): the loop breaks for \(gap.length) pt at y \(gap.at)")
+            #expect(
+                gap.length <= 5,
+                "frame \(index): the loop breaks for \(gap.length) pt at y \(gap.at)",
+            )
         }
     }
 }
