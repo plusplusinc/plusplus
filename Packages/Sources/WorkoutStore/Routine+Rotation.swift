@@ -54,6 +54,21 @@ extension Routine {
         return setOrder.first { !done.contains($0) }
     }
 
+    /// What the key that logs `set` says, having logged `logged`: "Log last set" on the workout's
+    /// last planned set, "Log left" or "Log right" on a side, and otherwise "Log set". Never the
+    /// next exercise's name, which shows below.
+    public func logText(for set: PlannedSet, after logged: [LoggedSet]) -> String {
+        let done = Set(logged.map(\.planned)).union([set])
+        guard setOrder.contains(where: { !done.contains($0) }) else {
+            return String(localized: "Log last set")
+        }
+        return switch set.side {
+        case .left: String(localized: "Log left")
+        case .right: String(localized: "Log right")
+        case nil: String(localized: "Log set")
+        }
+    }
+
     /// How many of the row's sets are done, a set counting once every side of it is, out of
     /// its planned sets: what its set bars show.
     public func progress(

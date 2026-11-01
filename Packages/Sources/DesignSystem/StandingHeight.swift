@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// The label's column, from its top, standing as tall as the row it is: as a row, its own height;
-/// as the current exercise, its grown column's own height, its name, set, equipment, numbers,
-/// and slide. `growth` runs from 0, a row, to 1, the current exercise, and the height with it, so
+/// as the current exercise, its grown column's own height, its name, set, equipment, and
+/// numbers. `growth` runs from 0, a row, to 1, the current exercise, and the height with it, so
 /// it grows and shrinks on the animation's curve; it is taller by however far the column runs
 /// past both that height and the one it is going to. The column takes its
 /// new height at once, its new parts fading in later: counted whole, it held the label at that

@@ -1,6 +1,6 @@
 import XCTest
 
-/// After the last planned set, the Finish workout key under the last exercise finishes at once,
+/// After the last planned set, the key at the bottom reads Finish workout and finishes at once,
 /// with no "End this workout?" dialog, and keeps the workout: a relaunch then opens a new
 /// routine, where after Discard it reopens this one (`RoutineStoreWorkoutTests` holds both
 /// launch rules and every saved field). Which set comes next is `WorkoutLoggingTests`', and
@@ -15,15 +15,12 @@ final nonisolated class WorkoutFinishUITests: XCTestCase {
         let app = XCUIApplication()
         let name = "Finish check"
         let title = app.launchSeeding(["push-up"], named: name)
-        XCTContext.runActivity(named: "Logging the last set shows Finish workout") { _ in
+        XCTContext.runActivity(named: "Logging the last set turns the key to Finish workout") { _ in
             app.buttons["Start"].tap()
             XCTAssertTrue(app.workoutTime.appears(), "Start began no workout")
-            let finish = app.buttons["workout.finish"]
-            XCTAssertFalse(finish.exists, "Finish workout showed before the last set")
             let row = app.exerciseRows.element(boundBy: 0)
             for set in 1 ... 3 {
-                XCTAssertFalse(finish.exists, "Finish workout showed before set \(set)")
-                app.slideToLog(on: row)
+                app.tapWorkoutKey(reading: set < 3 ? "Log set" : "Log last set")
                 if set < 3 {
                     let next = "Push-up, Set \(set + 1) of 3"
                     XCTAssertTrue(
@@ -33,14 +30,18 @@ final nonisolated class WorkoutFinishUITests: XCTestCase {
                     )
                 }
             }
-            XCTAssertTrue(finish.appears(), "No Finish workout after the last set")
+            XCTAssertEqual(
+                reading(app.workoutKey.label, becoming: "Finish workout", within: 3),
+                "Finish workout",
+                "The key did not turn to Finish workout after the last set",
+            )
+            XCTAssertTrue(
+                app.buttons["Add exercise"].exists,
+                "The list does not end in Add exercise",
+            )
         }
         XCTContext.runActivity(named: "Finish workout ends at once, with no dialog") { _ in
-            // The key appears while the logged exercise shrinks to a row above it, and rises
-            // with it: on Xcode Cloud a tap read from its first frame landed 100 points below.
-            let finish = app.buttons["workout.finish"]
-            XCTAssertTrue(finish.settles(), "Finish workout kept moving")
-            finish.tap()
+            app.tapWorkoutKey(reading: "Finish workout")
             XCTAssertTrue(app.buttons["Start"].appears(), "Finish workout left the workout running")
             XCTAssertFalse(app.buttons["Discard workout"].exists, "Finish workout asked first")
             XCTAssertFalse(app.endKey.exists, "End stayed after Finish workout")

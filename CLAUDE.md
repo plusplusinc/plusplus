@@ -31,13 +31,16 @@ neighbor pairs with it, at the larger set count; an end's dot moves that end, a 
 carries a row in or out, and VoiceOver joins and leaves with actions. While a row or dot is
 held, the superset the drag affects sits in a sunken area. Start, once the routine has an
 exercise, runs a workout on the same screen: the first exercise grows into the current one, its
-set, equipment, and numbers large, with no swipe; scrolled away, a floating key goes back to it.
-Sliding its key past two-thirds, or flicking it, logs the set at the numbers shown, saved at
-once: as the key comes back to the start the next set rolls in, one side then the other where
-the exercise is per side, and after its last set a green blob pulls out of the node, runs the
-rail, and plops into the next exercise's, which then grows as the last shrinks, a superset
-going round its members by round. Started rows show a bar per set, purple once done, and a finished
-row's node turns purple; after the last set, Finish workout ends the list. End takes ++'s place
+set, equipment, and numbers large, with no swipe. The key at the bottom, where Start was, a
+capsule that stays put, logs the set at the numbers shown with a tap, saved at once, with a
+haptic and a +1: "Log set", "Log left" then "Log right" where the exercise is per side, "Log
+last set". Half a second later the next set rolls in, and after an exercise's last set a green
+blob pulls out of the node, runs the rail, and plops into the next exercise's, which then grows
+as the last shrinks, a superset going round its members by round. Scrolled away, the key shows
+an arrow and the exercise's name and goes back to it; while a finger is on the list the key
+keeps its role, and across roles one key drops out of the bottom edge as the next rises.
+Started rows show a bar per set, purple once done, and a finished row's node turns purple;
+after the last set, the key reads Finish workout and finishes it. End takes ++'s place
 and asks "End this workout?": Finish workout, offered once a set is logged, keeps it, and
 launch then opens a new routine; Discard workout keeps nothing. The time, at top right, pauses
 and resumes. A workout survives a relaunch, keeps the screen on, and locks the drawer, and

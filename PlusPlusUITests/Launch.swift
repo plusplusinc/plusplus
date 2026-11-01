@@ -79,6 +79,26 @@ extension XCUIApplication {
         buttons["workout.time"]
     }
 
+    /// The key at the bottom while a workout runs, labeled by its role: Log set, Log last set,
+    /// Go to current exercise, or Finish workout. Found by its identifier, never by the label
+    /// Finish workout, which End's dialog also offers.
+    var workoutKey: XCUIElement {
+        buttons["workout.key"]
+    }
+
+    /// Taps the workout's key once it reads `label` and has stopped moving: a key rises, or
+    /// swaps for another, after a role change, and a tap mid-swap does nothing.
+    func tapWorkoutKey(reading label: String) {
+        let key = workoutKey
+        XCTAssertEqual(
+            reading(key.label, becoming: label, within: 3),
+            label,
+            "The key never read \(label)",
+        )
+        XCTAssertTrue(key.settles(), "The key kept moving")
+        key.tap()
+    }
+
     /// End, in the bar while a workout runs.
     var endKey: XCUIElement {
         navigationBars.buttons["End workout"]

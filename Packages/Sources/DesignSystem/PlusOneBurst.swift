@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// A "+1" that pops up from where it is placed each time `isOn` turns on: it rises
+/// A "+1" that pops up from where it is placed each time `trigger` changes: it rises
 /// 30 pt, growing from 0.7 to 1.25 as it fades, over 0.7 s. With Reduce Motion it flashes in
 /// place, neither rising nor growing. Green, as it is a count that went up. Only seen: it takes
 /// no touches and VoiceOver passes over it.
@@ -8,10 +8,10 @@ import SwiftUI
 /// A keyframe animation rests at its initial value, opacity 0, between plays, so the +1 can't be
 /// left standing.
 struct PlusOneBurst: View {
-    let isOn: Bool
+    /// A count, which plays the burst once each time it goes up: a Bool fired only on false to
+    /// true, which can't count logs in a row.
+    let trigger: Int
 
-    /// How many times `isOn` has turned on, which plays the burst once each.
-    @State private var plays = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObserveHotReload private var hotReload
 
@@ -32,7 +32,7 @@ struct PlusOneBurst: View {
             .fixedSize()
             .keyframeAnimator(
                 initialValue: Frame(scale: reduceMotion ? 1 : 0.7),
-                trigger: plays,
+                trigger: trigger,
             ) { text, frame in
                 text
                     .scaleEffect(frame.scale)
@@ -52,20 +52,15 @@ struct PlusOneBurst: View {
             }
             .allowsHitTesting(false)
             .accessibilityHidden(true)
-            .onChange(of: isOn) { _, isOn in
-                if isOn {
-                    plays += 1
-                }
-            }
             .hotReloadable()
     }
 }
 
 #Preview {
-    @Previewable @State var isOn = false
-    Button("Start", systemImage: "play.fill") { isOn.toggle() }
+    @Previewable @State var logs = 0
+    Button("Log set") { logs += 1 }
         .buttonStyle(.primaryKey)
-        .overlay(alignment: .top) { PlusOneBurst(isOn: isOn).offset(y: -24) }
+        .overlay(alignment: .top) { PlusOneBurst(trigger: logs).offset(y: -24) }
         .padding()
         .background(Color.pp(.background))
 }

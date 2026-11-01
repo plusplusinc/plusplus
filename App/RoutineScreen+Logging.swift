@@ -26,7 +26,7 @@ extension RoutineScreen {
     }
 
     /// A set logged that stays on the current exercise, saved at once, but shown as still to do
-    /// until the slide's key is back at the start, when the line rolls on (Dave, 2026-10-30).
+    /// for a beat after the key's tap (`SetMotion.heldRoll`), when the line rolls on.
     /// None once another set is logged, as in another workout.
     var heldSet: PlannedSet? {
         guard let held = unshownSet, session.workout?.sets.last?.planned == held else { return nil }
@@ -34,12 +34,12 @@ extension RoutineScreen {
     }
 
     /// The workout's sets as the screen shows them: all but a held one.
-    private var shownSets: [LoggedSet]? {
+    var shownSets: [LoggedSet]? {
         let held = heldSet
         return session.workout?.sets.filter { $0.planned != held }
     }
 
-    /// Whether every planned set of the workout is logged, so the Finish row ends the list.
+    /// Whether every planned set of the workout is logged, so the key finishes the workout.
     var isWorkoutDone: Bool {
         session.workout != nil && !routine.exercises.isEmpty && currentSet == nil
     }
@@ -70,36 +70,6 @@ extension RoutineScreen {
             spokenDetail: item.spokenDetail(locale: locale),
             focus: focus,
             bars: bars,
-            log: focus == nil ? nil : set.map { logStep($0, of: item) },
-        )
-    }
-
-    /// The slide for `set`: "Log last set" on the workout's last planned set, "Log left" or "Log
-    /// right" on a side, with a lighter haptic, and otherwise "Log set". Never the next exercise's
-    /// name, which shows below. It takes no drag until a move to it has ended: a log that came
-    /// as its slide faded in, before the move's end, was dropped, after the key's glide, haptic,
-    /// and check had shown it logged.
-    func logStep(_ set: PlannedSet, of item: RoutineExercise) -> LogStep {
-        let action = { log(set, of: item) }
-        let onReturn = {
-            withAnimation(.snappy(duration: SetMotion.roll)) { unshownSet = nil }
-        }
-        let weight: SlideToLog.Weight = set.side == nil ? .set : .side
-        let isLast = session.workout.map {
-            routine.nextSet(after: $0.logging(set, of: item, at: .now).sets) == nil
-        } ?? false
-        let label = switch (isLast, set.side) {
-        case (true, _): String(localized: "Log last set")
-        case (false, .left): String(localized: "Log left")
-        case (false, .right): String(localized: "Log right")
-        case (false, nil): String(localized: "Log set")
-        }
-        return LogStep(
-            label: label,
-            weight: weight,
-            isEnabled: !isMovingOn,
-            action: action,
-            onReturn: onReturn,
         )
     }
 
@@ -138,9 +108,9 @@ extension RoutineScreen {
         session.workout == nil ? routine.exercises.first?.id : currentID
     }
 
-    /// Logs the set the slide was on, at the numbers its row shows. Within one exercise it is held
-    /// from showing (`heldSet`), the current node small and gray, until the slide's key is back at
-    /// the start, when the progress line and the bars roll on. Moving to another, one motion from
+    /// Logs `set`, at the numbers its row shows. Within one exercise it is held from showing
+    /// (`heldSet`), the current node small and gray, for `SetMotion.heldRoll`, when the progress
+    /// line and the bars roll on. Moving to another, one motion from
     /// the log (`SetMotion`): the parts under the current exercise's name go, bottom first, and on
     /// one curve its row shrinks back to a resting row as the next row grows into the current
     /// exercise and the list scrolls it up under the bar, so the rows below move up once, with the
@@ -151,10 +121,10 @@ extension RoutineScreen {
     /// landing. The scroll is Start's: the
     /// list is scrolled at once to where the next row will land and drawn where it was, the lift
     /// run to 0 in the shift's transaction. After the last set, the row closes as the list settles
-    /// on its end and the Finish row shows under it.
+    /// on its end and the key becomes Finish workout.
     func log(_ set: PlannedSet, of row: RoutineExercise) {
-        // Neither the slide nor VoiceOver offers a log during a move (`logStep(_:of:)`): one
-        // would start a second move whose state the first one's end tears down.
+        // The key logs nothing during a move (`tapKey(named:)`): one would start a second move
+        // whose state the first one's end tears down.
         guard let workout = session.workout, !isMovingOn else { return }
         let next = routine.nextSet(after: workout.logging(set, of: row, at: .now).sets)
         guard next?.row != set.row else {
@@ -164,6 +134,9 @@ extension RoutineScreen {
         }
         let target = next.flatMap { landing(on: $0.row, leaving: row.id) }
         noteRestingPitch(of: next?.row)
+        // The key keeps the words it had until the next row shows its set, so it changes with
+        // the row: read live, it said the next exercise's set ("Log left") as the pulse set off.
+        heldKeyRole = keyRole
         guard !reduceMotion else {
             return crossfadeOn(to: next, scrollingTo: target) { session.log(set, of: row) }
         }
@@ -204,7 +177,7 @@ extension RoutineScreen {
 
     /// With Reduce Motion, moving on, or closing after the last set, is one crossfade, the tick
     /// played as the next node lights in it. A move like any other: the current exercise's place
-    /// changing under it doesn't land it again (`placeCurrent(_:)`), and its slide takes no drag
+    /// changing under it doesn't land it again (`placeCurrent(_:)`), and the key logs nothing
     /// until it is over. With no `target` worked out ahead, as after a relaunch, the list lands
     /// after.
     private func crossfadeOn(
@@ -215,11 +188,12 @@ extension RoutineScreen {
         unshownSet = nil
         isMovingOn = true
         let landed = {
-            isMovingOn = false
+            swapKey { isMovingOn = false }
             letRoomGo()
             if next != nil, target == nil {
                 scrollToCurrent()
             }
+            settleKeyRole()
         }
         crossfade(scrollingTo: target ?? scrollBeat.scrolledY, then: landed) {
             log()
@@ -246,6 +220,7 @@ extension RoutineScreen {
             )
             withAnimation(.snappy(duration: SetMotion.roll)) {
                 exerciseMove?.heldProgress = nil
+                heldKeyRole = nil
             }
             try? await Task.sleep(
                 for: .seconds(SetMotion.move(way) - SetMotion.roundRoll(way)),
@@ -257,12 +232,13 @@ extension RoutineScreen {
             if target == nil {
                 withAnimation(.snappy(duration: SetMotion.roll), scrollToCurrent)
             }
+            settleKeyRole()
         }
     }
 
     /// The workout's last planned set: the parts go, and the row closes back as the list settles
-    /// on its end, in one motion, the Finish row fading in under it once the row is mostly
-    /// closed. The room under the end that landed the row under the bar closes on the same curve,
+    /// on its end, in one motion, the key swapping to Finish workout once it is over. The room
+    /// under the end that landed the row under the bar closes on the same curve,
     /// and the list's end stays where it shows as the content shortens, so what is above it moves
     /// down, once, and never back.
     private func logLast(_ set: PlannedSet, of row: RoutineExercise) {
@@ -280,8 +256,9 @@ extension RoutineScreen {
                 tolerance: .zero,
             )
             closingRoomTop = nil
-            isMovingOn = false
+            swapKey { isMovingOn = false }
             letRoomGo()
+            settleKeyRole()
         }
     }
 
@@ -296,7 +273,7 @@ extension RoutineScreen {
         }
     }
 
-    /// Finishes the workout from the Finish row, at once, with no dialog, as End's Finish does.
+    /// Finishes the workout from the key, at once, with no dialog, as End's Finish does.
     func finish(named name: String) {
         end { session.finish(routineName: name) }
     }
@@ -325,9 +302,10 @@ extension RoutineScreen {
         rowFrames.restingPitch[id] = after - top
     }
 
-    /// Whether Start shows: with exercises to start, and out of a workout but for its going.
-    var showsStart: Bool {
-        !routine.exercises.isEmpty && !isStartAway && (session.workout == nil || isStarting)
+    /// Whether the key shows, Start or the workout's: with exercises, and not away for Start's
+    /// grow or a workout's end.
+    var showsKey: Bool {
+        !routine.exercises.isEmpty && !isKeyAway
     }
 }
 

@@ -8,9 +8,10 @@ nonisolated struct CurrentPlace: Equatable {
     /// Whether the row was placed in a list with a height, not in the first pass, before the
     /// scroll view has its size, which lays the row out at no width, its place far off.
     var isLaidOut: Bool
-    /// Scrolled fully or mostly out of view, under 40 percent of as much as could show, where
-    /// the way back to it shows.
-    var isMostlyOut: Bool
+    /// A third or more of it out of view, between the bars, where the way back to it shows: at
+    /// 60 percent out, the key stood over the current exercise's numbers and still read "Log
+    /// set".
+    var isScrolledAway: Bool
     /// Whether the row is above the part showing, so the way back to it is up.
     var isAbove: Bool
     /// How far the label's top, with the current exercise's space above it, is from the top of
@@ -26,15 +27,16 @@ nonisolated struct CurrentPlace: Equatable {
     init(_ proxy: GeometryProxy) {
         let row = CGRect(origin: .zero, size: proxy.size)
         contentTop = proxy.frame(in: .list).minY
+        // The part between the bars: the scroll view's bounds leave out what is under them.
         guard let visible = proxy.bounds(of: .scrollView) else {
-            (isLaidOut, isMostlyOut, isAbove) = (true, false, false)
+            (isLaidOut, isScrolledAway, isAbove) = (true, false, false)
             return
         }
         let overlap = row.intersection(visible)
         let most = min(row.height, visible.height)
         let shown = overlap.isNull || most <= 0 ? 0 : overlap.height / most
         isLaidOut = visible.height > 0
-        isMostlyOut = shown < 0.4
+        isScrolledAway = shown < 2 / 3
         isAbove = row.midY < visible.midY
     }
 }
@@ -106,33 +108,6 @@ extension View {
                 action(place)
             }
         }
-    }
-}
-
-/// The way back to the current exercise, floating over the list while it is scrolled away: an
-/// arrow toward it, and its name.
-struct CurrentExerciseButton: View {
-    let name: String
-    let isAbove: Bool
-    let action: () -> Void
-
-    @ObserveHotReload private var hotReload
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: Spacing.xs) {
-                Image(systemName: isAbove ? "arrow.up" : "arrow.down")
-                // Whole, wrapping at the largest text sizes rather than cut short.
-                Text(name)
-            }
-            .font(.ppButton)
-        }
-        .buttonStyle(.glass)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Go to current exercise, \(name)")
-        .accessibilityAddTraits(.isButton)
-        .accessibilityIdentifier("workout.current")
-        .hotReloadable()
     }
 }
 

@@ -95,7 +95,7 @@ nonisolated struct RailRoute: Equatable {
 }
 
 /// The green pulse traveling a route, as a blob of something viscous, `time` seconds after the
-/// slide's log. From the log it is the node it leaves, round; from `SetMotion.travelStart`, that
+/// log. From the log it is the node it leaves, round; from `SetMotion.travelStart`, that
 /// node is pulled out along the route:
 /// the mass, a circle at `size`, the current node's, slides off a circle at `restingSize`, the
 /// node left behind, and a neck between them (`neck(_:_:)`) thins as they part, until it snaps

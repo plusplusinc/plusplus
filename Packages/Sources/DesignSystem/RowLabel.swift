@@ -5,8 +5,8 @@ import SwiftUI
 /// words when `spokenDetail` is given.
 ///
 /// Given a `focus`, it is the current exercise of a workout: the name grows large, and the detail
-/// gives way to which set it is on, the exercise's equipment, the plan's numbers, large, and the
-/// slide that logs the set, the label growing to their height. Changed in an animation, the name
+/// gives way to which set it is on, the exercise's equipment, and the plan's numbers, large, the
+/// label growing to their height. Changed in an animation, the name
 /// scales between its two sizes (`GrowingName`), and the parts under it come in, and go, in turn
 /// (`SetMotion`).
 public struct RowLabel: View {
@@ -14,8 +14,6 @@ public struct RowLabel: View {
     private let detail: [String]
     private let spokenDetail: String?
     private let focus: RowFocus?
-    /// Logs the current exercise's set, given with `focus`: the slide under its numbers.
-    private let log: LogStep?
     /// How far the exercise is through its sets in a workout, shown as bars at the trailing
     /// end of its detail line, or of its progress line on the current exercise.
     private let bars: SetProgress?
@@ -41,13 +39,11 @@ public struct RowLabel: View {
         spokenDetail: String? = nil,
         focus: RowFocus? = nil,
         bars: SetProgress? = nil,
-        log: LogStep? = nil,
     ) {
         self.title = title
         self.detail = detail
         self.spokenDetail = spokenDetail
         self.focus = focus
-        self.log = log
         self.bars = bars
     }
 
@@ -118,17 +114,6 @@ public struct RowLabel: View {
                     if let focus {
                         figures(focus)
                             .part(.figures)
-                    }
-                    if focus != nil, let log {
-                        SlideToLog(
-                            log.label,
-                            weight: log.weight,
-                            isEnabled: log.isEnabled,
-                            onLog: log.action,
-                            onReturn: log.onReturn,
-                        )
-                        .layoutPriority(1)
-                        .part(.slide)
                     }
                 }
             }
