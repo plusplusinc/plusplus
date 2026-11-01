@@ -67,10 +67,42 @@ nonisolated struct LoopPen {
             .intersection(Path(column))
     }
 
-    /// The middle of each head on the loop between a node at `top` and the next one down, at
-    /// `bottom`: one, halfway.
-    func headMiddles(from top: CGFloat, to bottom: CGFloat) -> [CGFloat] {
-        [(top + bottom) / 2]
+    /// About the least distance between two heads on a stretch, and between a node and the head
+    /// nearest it once a stretch holds more than one: a resting row's height, so a resting row's
+    /// stretch holds one head, at its middle.
+    var spacing: CGFloat {
+        railRowMinHeight * scale
+    }
+
+    /// The heads on the loop between a node at `top` and the next one down, at `bottom`: each
+    /// one's middle, and its size against its full size. Every drawing of the loop places its
+    /// heads here, so they draw the same strokes.
+    ///
+    /// The heads are spread evenly over the stretch, as many as keep about `spacing` apart from
+    /// each other and from the nodes, one at least: one at the middle, then two at thirds, and so
+    /// on. As the stretch grows to room for another, the new one grows from nothing at its place
+    /// over the last quarter `spacing` before it, while the others slide to theirs, and as it
+    /// shrinks the same runs back, so a head never jumps. A head shrinks away as the two nodes
+    /// meet.
+    func headMiddles(from top: CGFloat, to bottom: CGFloat) -> [(middle: CGFloat, size: CGFloat)] {
+        let span = bottom - top
+        let meet = min(max((span - 2 * length) / (2 * length), 0), 1)
+        guard meet > 0 else { return [] }
+        let arrival = spacing / 4
+        let fit = max(Int(((span + arrival) / spacing).rounded(.down)) - 1, 1)
+        let spread = { (count: Int, index: Int) in
+            top + span * CGFloat(index + 1) / CGFloat(count + 1)
+        }
+        guard fit > 1 else { return [(spread(1, 0), meet)] }
+        // How far the newest head has grown in, and where it is among the others: in the middle.
+        let grown = min(max((span - CGFloat(fit + 1) * spacing + arrival) / arrival, 0), 1)
+        let arriving = fit / 2
+        return (0 ..< fit).map { index in
+            let to = spread(fit, index)
+            guard index != arriving else { return (to, grown * meet) }
+            let from = spread(fit - 1, index < arriving ? index : index - 1)
+            return (from + (to - from) * grown, meet)
+        }
     }
 
     /// The head pointing up with its middle at `middle`, at `size` of its full size: the stretch
@@ -189,10 +221,11 @@ nonisolated struct RailLoops: Shape {
             let join = CGFloat(joins.value(at: index))
             let size = min(max(2 * join - 1, 0), 1)
             guard size > 0.01 else { continue }
-            for middle in pen.headMiddles(from: ys[index], to: ys[index + 1]) {
-                guard let loop = loops.first(where: { $0.top ... $0.bottom ~= middle })
+            for head in pen.headMiddles(from: ys[index], to: ys[index + 1]) {
+                guard head.size > 0.01,
+                      let loop = loops.first(where: { $0.top ... $0.bottom ~= head.middle })
                 else { continue }
-                let head = pen.head(middle: middle, x: loop.x, size: size)
+                let head = pen.head(middle: head.middle, x: loop.x, size: size * head.size)
                 opening.addPath(head.opening)
                 added.addPath(head.added)
             }

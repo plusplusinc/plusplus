@@ -183,6 +183,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         // Until the arriving row enters, the line ends at the node above it.
         let lastOnLine = shown.last { $0.id != arriving }?.id
         let shownLinks = RailLink.links(shown.map(\.id), joined: shownJoined)
+        let next = Dictionary(uniqueKeysWithValues: zip(shown.map(\.id), shown.dropFirst().map(\.id)))
         let hiddenLoops = loopsHidden(shown.map(\.id))
         let shifts = pairShifts(shown.map(\.id))
         let room = drag.map(roomAbove) ?? 0
@@ -208,6 +209,8 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                     isCurrent: item.id == current,
                     isDone: done.contains(item.id),
                     isSetHeld: isSetHeld && item.id == current,
+                    nodeBelow: next[item.id].flatMap { nodeInsets[$0] },
+                    groupEndsBelow: next[item.id].map { shownLinks[$0] == .last } ?? false,
                 )
                 // An arriving row's place opens with its entry's shot, so the end view is pushed
                 // down as far as the line has grown, on every frame.

@@ -3,7 +3,7 @@ import SwiftUI
 /// A row's content inset above and below as the design has it, at least as tall as two lines, so
 /// a one-line row keeps the rhythm of a two-line one.
 struct RailRowContentFrame: ViewModifier {
-    @ScaledMetric(relativeTo: .body) private var minHeight: CGFloat = 64
+    @ScaledMetric(relativeTo: .body) private var minHeight = railRowMinHeight
     @ObserveHotReload private var hotReload
 
     func body(content: Content) -> some View {
@@ -14,6 +14,9 @@ struct RailRowContentFrame: ViewModifier {
             .hotReloadable()
     }
 }
+
+/// A resting row's least height at the default text size, as tall as two lines.
+nonisolated let railRowMinHeight: CGFloat = 64
 
 extension EnvironmentValues {
     /// The height a row's content stands at, at least, between its insets: a label growing from

@@ -95,8 +95,8 @@ nonisolated struct HeldSpine: Shape {
     }
 }
 
-/// A loop through `members`' nodes, from the topmost to the bottommost, with a head between each
-/// node and the next above it, as they are now. A head shrinks away as two nodes meet.
+/// A loop through `members`' nodes, from the topmost to the bottommost, with its heads between
+/// each node and the next above it, as they are now (`LoopPen.headMiddles`).
 nonisolated struct HeldLoop: Shape {
     let nodeX: CGFloat
     let members: [Int]
@@ -119,11 +119,11 @@ nonisolated struct HeldLoop: Shape {
         var opening = Path()
         var added = Path()
         for (upper, lower) in zip(points, points.dropFirst()) {
-            let size = min(max((lower - upper - 2 * pen.length) / (2 * pen.length), 0), 1)
-            guard size > 0.01 else { continue }
-            let head = pen.head(middle: (upper + lower) / 2, x: x, size: size)
-            opening.addPath(head.opening)
-            added.addPath(head.added)
+            for middle in pen.headMiddles(from: upper, to: lower) where middle.size > 0.01 {
+                let head = pen.head(middle: middle.middle, x: x, size: middle.size)
+                opening.addPath(head.opening)
+                added.addPath(head.added)
+            }
         }
         return line.subtracting(opening).union(added)
     }
