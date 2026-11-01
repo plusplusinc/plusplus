@@ -2,9 +2,9 @@ import SwiftUI
 
 /// How a superset's loop is drawn at the current text size: a line beside the rail on its leading
 /// side, curving into a node at each end on the corner of a continuous rounded rectangle, with a
-/// pointed head between each node and the next. A row at rest draws its own stretch of it
-/// (`GroupLoop`), and while a row or a node is held the rail draws every loop at once
-/// (`HeldLoop`, `RailLoops`), all with this pen, read through `ScaledLoopPen`, so they are the
+/// pointed heads between each node and the next. A row at rest draws its own stretch of it
+/// (`GroupLoop`), and while a row or a node is held, or a workout moves on, the rail draws every
+/// loop at once (`HeldLoop`, `RailLoops`), all with this pen, read through `ScaledLoopPen`, so they are the
 /// same strokes.
 /// The loop's pen at the current text size, the one source of its widths.
 @propertyWrapper
@@ -157,7 +157,7 @@ nonisolated struct LoopPen {
     }
 }
 
-/// The rail's strokes while a row's node is held, drawn once for every row: the line from the
+/// The rail's strokes while a row's node is held or a workout moves on, drawn once for every row: the line from the
 /// first node to the last, and every superset's loop, as the rows show.
 ///
 /// The loops change in the transaction that moves the rows, stretching, shrinking, growing out of
@@ -224,7 +224,7 @@ struct RailDrawing: View {
 /// next. Both animate: a join going from 0 to 1 grows its stretch of loop from the row above
 /// down to the next, or, where only the row below's stretch stays joined, from it up; going back
 /// it draws in the same way. A loop shorter than its curves draws into its node as it shrinks,
-/// and a head shows once its stretch reaches halfway.
+/// and its heads show once its stretch reaches halfway.
 nonisolated struct RailLoops: Shape {
     let nodeX: CGFloat
     var nodes: RailVector

@@ -94,8 +94,8 @@ extension Rail {
         return points.count == ids.count ? (ids, points) : nil
     }
 
-    /// The rail's strokes drawn once, while a row's node is held, from the rows' nodes as they
-    /// show.
+    /// The rail's strokes drawn once, while a row's node is held or a workout moves on, from the
+    /// rows' nodes as they show.
     func drawing(_ nodes: [AnyHashable: Anchor<CGPoint>], in proxy: GeometryProxy) -> RailDrawing? {
         guard let (ids, points) = shownNodes(nodes, in: proxy), let first = points.first,
               let last = points.last
