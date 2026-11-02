@@ -55,6 +55,8 @@ extension RoutineScreen {
             ) {
                 session.start(routineName: name)
                 isStarting = false
+                // The bar's room goes for the crossfade: the room under the list holds it, and
+                // measured, the list stayed put (13 Starts, 2026-11-01).
                 isKeyAway = true
             }
         }
