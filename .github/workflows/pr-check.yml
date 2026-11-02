@@ -1,7 +1,7 @@
 # The one required check on every pull request to main, "PR check" (docs/pr-check.md). A PR whose
 # changed files all match the base branch's .github/no-code-paths gets scripts/lint.sh on those
 # files and passes; any other waits for Xcode Cloud's result on the same commit and passes or
-# fails with it.
+# fails with it. Either way, it first fails a PR whose diff undoes a recent commit on main.
 # Branch protection names only "PR check"; renaming it means updating the rule.
 name: PR check
 
@@ -75,9 +75,23 @@ jobs:
           fi
           echo "$ROUTE"
 
+      # The whole history, which the revert guard reads back through main's recent commits.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
+
+      # The base's script, as in Route.
+      - name: Revert nothing main gained
+        run: |
+          check="$RUNNER_TEMP/pr-check.sh"
+          git show "$PR_CHECK_BASE:scripts/pr-check.sh" > "$check" || cp scripts/pr-check.sh "$check"
+          if ! grep -q '^    reverts)' "$check"; then
+            # Only the PR that adds the guard finds none in the base's script.
+            echo "no reverts command in the base's scripts/pr-check.sh; running the PR's"
+            cp scripts/pr-check.sh "$check"
+          fi
+          bash "$check" reverts "$PR_CHECK_BASE" "$SHA"
 
       # The base's script, as in Route. The PR's checkout is only linted, on the docs-only path,
       # by a scripts/lint.sh that path cannot have changed.
@@ -85,7 +99,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          git fetch --quiet --depth=1 origin "$PR_CHECK_BASE"
           check="$RUNNER_TEMP/pr-check.sh"
           git show "$PR_CHECK_BASE:scripts/pr-check.sh" > "$check" || cp scripts/pr-check.sh "$check"
           if [ "$ROUTE" = docs ]; then

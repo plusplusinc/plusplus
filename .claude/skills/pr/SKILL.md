@@ -30,8 +30,23 @@ the branch and HEAD they name are the worktree's; if not, run again with the tar
 Push only when CI's answer is needed: when opening the PR, after a round of fixes, and before
 the merge (bringing it up to date with `main` included: merge `origin/main` into a pushed
 branch, never rebase it locally, since its push would need a force push agents are denied). Commit locally between them; each push to a PR that
-changes the app spends a full Xcode Cloud run of the month's hours. Then:
+changes the app spends a full Xcode Cloud run of the month's hours.
+
+To squash a branch's commits into one, which is never required since the merge squashes them,
+reset onto the branch's own base: `git reset --soft $(git merge-base HEAD origin/main)`, after
+merging `origin/main` if it moved. Never `git reset --soft origin/main`: a soft reset keeps the
+working tree, so onto a newer `main` the commit records the branch's stale copies of every file
+`main` changed meanwhile, and the diff undoes them. #136 undid #134 so, with green CI, since the
+snapshots went back along with the code.
+
+Before every push that opens or updates the PR, read `git diff --stat origin/main...HEAD` and
+check each file against the change's scope. Stop on any file outside it and name it, to the
+lead when you are a subagent, before pushing: a stale copy shows up there as a file the change
+never meant to touch. `scripts/pr-check.sh reverts origin/main HEAD` runs the check "PR check"
+makes of the same thing (`docs/pr-check.md`). Then:
 ```sh
+git fetch origin main
+git diff --stat origin/main...HEAD                     # every file in the change's scope?
 git push -u origin <branch>
 gh pr create --title "<title>" --body-file - <<'BODY'   # or gh pr edit to update the body
 <body>

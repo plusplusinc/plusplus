@@ -165,7 +165,9 @@ project board; agents' technical working files live in `.slices/`.
   the merge (bringing it up to date with `main`, as the `main` ruleset asks, included). Bring a
   pushed branch up to date by merging `origin/main` into it, never by a local rebase: pushing a
   rebase takes a force push, which the permission check denies to agents, so #127 waited an
-  hour on the maintainer's word. The squash merge flattens the merge commit. You and every subagent commit
+  hour on the maintainer's word. The squash merge flattens the merge commit, so a branch never
+  needs squashing; one that does squashes onto `git merge-base HEAD origin/main`, never with
+  `git reset --soft origin/main`, which undoes what `main` gained meanwhile (#136 undid #134). You and every subagent commit
   locally in between: rounds reach the phone by `scripts/device.sh`, not CI, and each push to a
   PR that changes the app spends a full Xcode Cloud run.
 - After every push to the PR, yours or a subagent's, watch its "PR check" to the end yourself

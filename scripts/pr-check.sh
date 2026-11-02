@@ -8,6 +8,7 @@
 #   scripts/pr-check.sh files <pr>           # the PR's changed paths, renames' old paths too
 #   scripts/pr-check.sh classify < paths     # "docs", or "app: <first path that is app code>"
 #   scripts/pr-check.sh xcode-cloud          # .github/no-code-paths as Xcode Cloud's rule, JSON
+#   scripts/pr-check.sh reverts <base> <head> # fails if head's diff undoes a recent commit on base
 #
 # Needs `gh` signed in (GH_TOKEN in CI). Polls about once a minute. Run it inside a checkout.
 # It reads the no-code list from PR_CHECK_BASE (default origin/main), never the working tree,
@@ -28,7 +29,7 @@ MINUTES=40
 START_MINUTES=10
 
 usage() {
-    sed -n '2,12p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2
+    sed -n '2,13p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2
     exit 2
 }
 
@@ -144,6 +145,82 @@ they are back, start the run again and re-run this check. $url"
     esac
 }
 
+# Fails when the diff from base and head's merge base to head undoes, in some file, every line one
+# of the merge base's last REVERT_WINDOW commits changed there: a line it added is gone, a line it
+# removed is back, a binary file is back to the copy before it. A squash onto a newer main with
+# `git reset --soft origin/main` does that, recording the branch's stale copies of whatever main
+# changed meanwhile (#136 undid #134 so). A revert made with `git revert`, whose message says
+# "This reverts commit <sha>" (a short sha too), is meant, and passes.
+REVERT_WINDOW=30
+reverts() {
+    git -C "$ROOT" rev-parse --quiet --verify "$1^{commit}" > /dev/null &&
+        git -C "$ROOT" rev-parse --quiet --verify "$2^{commit}" > /dev/null ||
+        fail "reverts needs commits $1 and $2 here, with their history: fetch them"
+    local found
+    found=$(cd "$ROOT" && python3 -I - "$1" "$2" "$REVERT_WINDOW" <<'PY'
+import collections, re, subprocess, sys
+
+base, head, window = sys.argv[1:]
+
+def git(*args):
+    return subprocess.run(["git", *args], capture_output=True, check=True).stdout
+
+def blob(commit, path):
+    found = subprocess.run(["git", "rev-parse", "--quiet", "--verify", f"{commit}:{path}"],
+                           capture_output=True)
+    return found.stdout.strip() or None
+
+def lines(sha):
+    if sha is None:
+        return collections.Counter()
+    return collections.Counter(line for line in git("cat-file", "blob", sha).splitlines()
+                               if line.strip())
+
+def sign(n):
+    return (n > 0) - (n < 0)
+
+def undone(path, parent, commit, merge_base, binary):
+    before, after, now, then = (blob(c, path) for c in (parent, commit, head, merge_base))
+    if binary:
+        return now == before and then != before
+    before, after, now, then = map(lines, (before, after, now, then))
+    standing = [line for line in before.keys() | after.keys()
+                if after[line] != before[line] and sign(then[line] - before[line]) == sign(after[line] - before[line])]
+    return bool(standing) and all((now[line] - before[line]) * sign(after[line] - before[line]) <= 0
+                                  for line in standing)
+
+merge_base = git("merge-base", base, head).decode().strip()
+changed = set(git("diff", "--name-only", "-z", "--no-renames", merge_base, head).split(b"\0")) - {b""}
+messages = git("log", "--format=%B", f"{merge_base}..{head}").decode()
+meant = re.findall(r"This reverts commit ([0-9a-f]{7,40})", messages)
+for commit in git("rev-list", "--first-parent", "-n", window, merge_base).decode().split():
+    parents = git("rev-list", "--parents", "-n", "1", commit).decode().split()[1:]
+    if not parents or any(commit.startswith(sha) for sha in meant):
+        continue
+    stat = git("diff", "--numstat", "-z", "--no-renames", parents[0], commit).split(b"\0")
+    paths = []
+    for entry in stat:
+        if not entry:
+            continue
+        added, _, path = entry.split(b"\t", 2)
+        if path in changed and undone(path.decode(), parents[0], commit, merge_base, added == b"-"):
+            paths.append(path.decode())
+    if paths:
+        subject = git("log", "-1", "--format=%h %s", commit).decode().strip()
+        listed = ", ".join(paths[:5]) + (f", and {len(paths) - 5} more" if len(paths) > 5 else "")
+        print(f"{subject}: undone in {listed}")
+PY
+    )
+    if [ -n "$found" ]; then
+        echo "$found" >&2
+        fail "this diff undoes what the commits above added to main. A squash onto a newer main \
+(git reset --soft origin/main) does that: merge origin/main into the branch instead, and squash, \
+if at all, onto git merge-base HEAD origin/main (/pr). A revert that is meant is made with git \
+revert, whose \"This reverts commit <sha>\" line passes this check."
+    fi
+    echo "reverts nothing main added in its last $REVERT_WINDOW commits"
+}
+
 route() {
     local paths verdict
     require_base
@@ -196,5 +273,6 @@ case "${1:-}" in
     classify) require_base; classify ;;
     wait) [ "$#" -ge 2 ] || usage; wait_for "$2" "${3:-}" ;;
     xcode-cloud) require_base; xcode_cloud_rule ;;
+    reverts) [ "$#" -eq 3 ] || usage; reverts "$2" "$3" ;;
     *) usage ;;
 esac
