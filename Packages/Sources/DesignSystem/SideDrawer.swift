@@ -31,7 +31,6 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
     /// an opacity transition faded it in but, on removal, dropped it in one frame.
     @State private var isDrawerFaded = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @ObserveHotReload private var hotReload
 
     public init(
         isOpen: Binding<Bool>,
@@ -131,7 +130,6 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
                 settle(open: open)
             }
         }
-        .hotReloadable()
     }
 
     /// Moves the drawer with a swipe, and settles it where the swipe leaves it.

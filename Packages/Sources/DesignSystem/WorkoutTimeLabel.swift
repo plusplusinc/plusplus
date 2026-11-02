@@ -11,8 +11,6 @@ public struct WorkoutTimeLabel: View {
     private let text: String
     private let isPaused: Bool
 
-    @ObserveHotReload private var hotReload
-
     public init(_ text: String, isPaused: Bool) {
         self.text = text
         self.isPaused = isPaused
@@ -39,7 +37,6 @@ public struct WorkoutTimeLabel: View {
         .fixedSize()
         // The icon's replace and the time's color change play on a pause or a resume.
         .animation(.snappy(duration: 0.2), value: isPaused)
-        .hotReloadable()
     }
 
     private static let pause = "pause.fill"

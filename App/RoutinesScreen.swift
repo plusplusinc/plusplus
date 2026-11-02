@@ -12,7 +12,6 @@ struct RoutinesScreen: View {
     /// shows, so a routine opened from it moves to the top unseen, not as it slides away.
     @State private var order: [Routine.ID] = []
     @Environment(\.locale) private var locale
-    @ObserveHotReload private var hotReload
 
     var body: some View {
         NavigationStack {
@@ -55,7 +54,6 @@ struct RoutinesScreen: View {
             await session.refreshRecent(weightUnit: weightUnit)
             takeOrder()
         }
-        .hotReloadable()
     }
 
     private func row(_ routine: Routine) -> some View {

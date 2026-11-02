@@ -106,7 +106,6 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     @Environment(\.railEdges) var edges
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @ScaledLoopPen var pen
-    @ObserveHotReload private var hotReload
 
     /// A rail whose rows a hold lifts and a drag moves, when `onMove` is given: it is called
     /// with the row and where it was dropped, unless that is where it started.
@@ -326,7 +325,6 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         .sensoryFeedback(.impact(weight: .light), trigger: lifts)
         .sensoryFeedback(RailDrag.slotChange, trigger: ticks)
         .sensoryFeedback(RailDrag.pairFormed, trigger: pairs)
-        .hotReloadable()
     }
 
     /// Where the card's top is: under the finger, or, for a moment drawn, placed from its gap.

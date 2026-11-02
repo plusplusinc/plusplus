@@ -45,7 +45,6 @@ public struct EditableTitle: View {
     /// The suggestion an edit started from, so committing it unchanged leaves it a suggestion.
     @State private var editedSuggestion: String?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @ObserveHotReload private var hotReload
 
     public init(
         text: Binding<String>,
@@ -164,7 +163,6 @@ public struct EditableTitle: View {
                 draft = newText
             }
         }
-        .hotReloadable()
     }
 
     private var touchTarget: some View {

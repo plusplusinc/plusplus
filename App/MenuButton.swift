@@ -6,7 +6,6 @@ struct MenuButton: View {
     let session: RoutineSession
 
     @AccessibilityFocusState private var isFocused: Bool
-    @ObserveHotReload private var hotReload
 
     private static let markWidth: CGFloat = 20
     /// A plus sits on the font's math axis, about a point below the middle of its line, so the
@@ -34,6 +33,5 @@ struct MenuButton: View {
                 isFocused = true
             }
         }
-        .hotReloadable()
     }
 }

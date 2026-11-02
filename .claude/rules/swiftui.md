@@ -338,6 +338,3 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   draw any moment. Back to New routine it crossfades (0.3 s), as does everything with Reduce
   Motion, with no blue. Editing stops it at once and opens on the final name.
 - Every new component gets a `#Preview` and goes through `assertThemedSnapshots`.
-- Every view, `ButtonStyle`, and `ViewModifier` declares `@ObserveHotReload private var
-  hotReload` and ends its body with `.hotReloadable()`, so hot reload redraws it. Both compile
-  away in Release.

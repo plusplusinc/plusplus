@@ -23,7 +23,6 @@ public struct PrimaryKeyButtonStyle: ButtonStyle {
     private static let press = Animation.easeOut(duration: 0.06)
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @ObserveHotReload private var hotReload
 
     public init() { }
 
@@ -41,7 +40,6 @@ public struct PrimaryKeyButtonStyle: ButtonStyle {
             .animation(Self.press, value: configuration.isPressed)
             .background(shape.fill(.pp(.borderStrong)).offset(y: Self.ledge))
             .padding(.bottom, Self.ledge)
-            .hotReloadable()
     }
 }
 

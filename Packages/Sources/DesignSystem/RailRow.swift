@@ -75,7 +75,6 @@ private struct RailNode: View {
     @ScaledMetric(relativeTo: .body) private var lineWidth = railLineWidth
     @Environment(\.railPlace) private var place
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @ObserveHotReload private var hotReload
 
     var body: some View {
         let pop = RailEntry.pop(reduceMotion: reduceMotion)
@@ -128,21 +127,17 @@ private struct RailNode: View {
                     .entry(RailEntry.step(at: landing), value: place.isArriving)
             }
             .accessibilityHidden(true)
-            .hotReloadable()
     }
 }
 
 /// The rail column as a row's node holds it: the key's icon, held invisibly, gives it the key's
 /// width and baseline at every text size.
 struct RailNodeColumn: View {
-    @ObserveHotReload private var hotReload
-
     var body: some View {
         Image(systemName: "plus")
             .font(.ppButton)
             .hidden()
             .railColumn()
-            .hotReloadable()
     }
 }
 
@@ -160,7 +155,6 @@ private struct RailRow: ViewModifier {
     @ScaledMetric(relativeTo: .body) private var nodeSize = railNodeSize
     @Environment(\.railPlace) private var place
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @ObserveHotReload private var hotReload
 
     func body(content: Content) -> some View {
         RailRowLayout(nodeSize: nodeSize) {
@@ -211,7 +205,6 @@ private struct RailRow: ViewModifier {
                 }
             }
         }
-        .hotReloadable()
     }
 
     /// The row's stretch of line, above its node and below it.
@@ -287,7 +280,6 @@ private struct GroupLoop: View {
     let eases: Bool
     @ScaledLoopPen private var pen
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @ObserveHotReload private var hotReload
 
     var body: some View {
         let (rest, joined) = (Color.pp(.rail), Color.pp(.railJoin))
@@ -306,7 +298,6 @@ private struct GroupLoop: View {
         }
         // Past the row's bottom edge it lies over the next row, whose touches it leaves alone.
         .allowsHitTesting(false)
-        .hotReloadable()
     }
 
     /// The row's stretch of loop, from its node to the next row's: none on a group's last row.

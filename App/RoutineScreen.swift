@@ -105,7 +105,6 @@ struct RoutineScreen: View {
     @State var rowFrames = RowFrames()
     @Environment(\.locale) var locale
     @Environment(\.accessibilityReduceMotion) var reduceMotion
-    @ObserveHotReload private var hotReload
 
     static let defaultName = String(localized: "New routine")
 
@@ -155,7 +154,6 @@ struct RoutineScreen: View {
         .sensoryFeedback(.impact(weight: .medium), trigger: setLogs)
         .sensoryFeedback(.impact(weight: .light), trigger: sideLogs)
         .sensoryFeedback(.impact(weight: .medium), trigger: isStarting) { !$0 && $1 }
-        .hotReloadable()
     }
 
     private var screen: some View {

@@ -25,7 +25,6 @@ struct HeldRailDrawing: View {
     let groups: [HeldGroup]
     @ScaledLoopPen private var pen
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @ObserveHotReload private var hotReload
 
     var body: some View {
         let ys = RailNodeVector(nodes.mapValues(Double.init))
@@ -58,7 +57,6 @@ struct HeldRailDrawing: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
-        .hotReloadable()
     }
 }
 

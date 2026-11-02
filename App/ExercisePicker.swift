@@ -12,7 +12,6 @@ struct ExercisePicker: View {
 
     @State private var query = ""
     @Environment(\.dismiss) private var dismiss
-    @ObserveHotReload private var hotReload
 
     var body: some View {
         let exercises = Exercise.builtIn.matching(query)
@@ -54,7 +53,6 @@ struct ExercisePicker: View {
                 }
             }
         }
-        .hotReloadable()
     }
 }
 

@@ -20,7 +20,6 @@ struct GrowingName: View, Animatable {
 
     @State private var heights = Heights()
     @Environment(\.fontResolutionContext) private var fontContext
-    @ObserveHotReload private var hotReload
 
     var body: some View {
         let ratio = ratio
@@ -45,7 +44,6 @@ struct GrowingName: View, Animatable {
                 .scaleEffect(growth == 0 ? 1 : scale, anchor: .topLeading)
                 .opacity(largeOpacity)
         }
-        .hotReloadable()
     }
 
     private func name(_ font: Font) -> some View {

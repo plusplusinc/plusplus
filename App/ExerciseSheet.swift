@@ -14,7 +14,6 @@ struct ExerciseSheet: View {
     @State private var open: PlanPart?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.locale) private var locale
-    @ObserveHotReload private var hotReload
 
     var body: some View {
         NavigationStack {
@@ -65,7 +64,6 @@ struct ExerciseSheet: View {
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
         .presentationBackground(Color.pp(.background))
-        .hotReloadable()
     }
 
     /// In a superset, sets are rounds, shared with its partners.
