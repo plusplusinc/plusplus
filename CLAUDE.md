@@ -166,7 +166,7 @@ See `docs/agent-tooling.md`.
 
 **`main` only moves through pull requests. Never commit to it directly**, not even a one-line
 fix. A ruleset enforces this server-side. Work in a worktree; the main checkout stays on
-`main`, driving the maintainer's simulator and the nightly retro.
+`main` for the nightly retro and session-start tidying.
 
 ```sh
 git fetch origin main

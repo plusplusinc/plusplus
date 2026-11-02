@@ -19,8 +19,6 @@ APP="$DERIVED_DATA/Build/Products/Debug-iphonesimulator/$SCHEME.app"
 BUNDLE_ID=$(app_bundle_id)
 
 boot_simulator
-# DeviceHub replaced the Simulator app in Xcode 27.1.
-open -a DeviceHub > /dev/null 2>&1 || true
 xcrun simctl install "$SIMULATOR_NAME" "$APP"
 xcrun simctl terminate "$SIMULATOR_NAME" "$BUNDLE_ID" 2> /dev/null || true
 xcrun simctl launch "$SIMULATOR_NAME" "$BUNDLE_ID" > /dev/null

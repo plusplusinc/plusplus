@@ -72,17 +72,14 @@ One `PostToolUse` hook, `.claude/hooks/on-edit.sh`, runs `scripts/lint.sh --fix`
 an agent edits and returns remaining findings to the agent. Because it is the same script CI
 runs, nothing the hook accepts can fail later.
 
-A second `PostToolUse` hook, `.claude/hooks/refresh-sim.sh`, runs in the background and keeps
-the simulator's app matching the main checkout, leaving edits that hot reload can apply to the
-app (its header says which). In a linked worktree it does nothing, so an agent never installs on
-the maintainer's simulator. At `Stop` and `SubagentStop` it runs again with `--report`,
-asynchronously, and wakes the agent when the app no longer builds or crashed since the last
-turn, once per crash. The `/pr` skill and CI are still the gates.
-
 A `SessionStart` hook runs `scripts/tidy.sh` in the background from the main checkout, logging
 to `.build/tidy.log`. It removes worktrees and local branches whose work has landed: their tip is
 in `main` or in a merged PR. Merges are squashed, so git alone can't tell a branch is done.
-Agents' worktrees with commits outlive the agent, and nothing else removes them.
+Agents' worktrees with commits outlive the agent, and nothing else removes them. It also keeps the
+simulator runtimes on the newest iOS, the one Xcode's SDK targets: it downloads that runtime when
+it is missing (the download runs on after the hook's two minutes, logging to
+`.build/runtime-download.log`) and, once it is installed, deletes the older ones and the
+simulators left on them. `scripts/common.sh` moves each checkout's simulator onto it.
 
 ## Rules
 
@@ -160,7 +157,8 @@ Code session's variables leak into a run; and a second run can start.
 
 `claude --worktree <name>` gives an agent its own checkout under `.claude/worktrees/`.
 DerivedData is already isolated per worktree because `scripts/common.sh` keys it to the
-checkout. Each worktree also builds and tests on a simulator of its own, "PlusPlus <worktree>":
+checkout. Each checkout, the main one included, also builds and tests on a simulator of its
+own, "PlusPlus <folder>":
 `scripts/common.sh` creates it on first use, an iPhone 17 on the newest installed iOS runtime
 that runs it, so two sessions never share an app, its data, or its settings. `PLUSPLUS_SIMULATOR`
 still overrides it. `scripts/tidy.sh`
@@ -177,7 +175,7 @@ worktree simulator only while fewer than `PLUSPLUS_MAX_BOOTED_SIMS` (2) are boot
 boot waits up to five minutes, then exits 75 naming the holders. One left booted and unused for
 30 minutes (`PLUSPLUS_SIM_IDLE_MINUTES`) is shut down by the next boot that is waiting, or by
 `scripts/tidy.sh`. `scripts/sim.sh list` shows each booted one with its worktree and idle time.
-The maintainer's simulator never counts and is never shut down.
+A simulator named by `PLUSPLUS_SIMULATOR` never counts and is never shut down.
 
 The feature subagents in `.claude/agents/` run one at a time in a slice's worktree, because
 each phase needs the last one's files. Agent teams, Claude Code's experimental parallel mode, stay off; the lead proposes one only for work that is genuinely
@@ -187,7 +185,7 @@ touch disjoint files.
 ## When the simulator, not the app, fails a test
 
 A simulator keeps its settings across sessions, so one agent's leftovers can fail the next
-one's UI test with nothing wrong in the app. On a worktree's own simulator, `scripts/test.sh sim` runs
+one's UI test with nothing wrong in the app. On a checkout's own simulator, `scripts/test.sh sim` runs
 `scripts/sim.sh reset` first: light appearance, large text, and a keyboard that is not
 minimized. On any other simulator it leaves the settings alone, since that one is a person's. A reboot is
 `xcrun simctl shutdown "PlusPlus <worktree>"`, and the next script boots it again;

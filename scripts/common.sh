@@ -13,25 +13,20 @@ SCHEME="PlusPlus"
 PACKAGE="$ROOT/Packages"
 DERIVED_DATA="$ROOT/.build/DerivedData"
 RESULTS="$ROOT/.build/results"
-# Each linked worktree, whose .git is a file, is an agent's, and builds and tests on a simulator
-# of its own, "PlusPlus <worktree>", so two worktrees never share an app, its data, or its
-# settings. ensure_simulator creates it on first use and records it in the clone's shared git
-# directory, and scripts/tidy.sh deletes it with the worktree, or after one removed by hand. The main checkout defaults to iPhone 17, the maintainer's. scripts/test.sh resets, and
-# scripts/sim.sh erases, only the worktree's own simulator, so an agent that leaves out
-# PLUSPLUS_SIMULATOR never reaches a person's.
+# Each checkout, the main one and each linked worktree, builds and tests on a simulator of its
+# own, "PlusPlus <folder>", so two never share an app, its data, or its settings.
+# ensure_simulator creates it on first use and records it in the clone's shared git directory,
+# and scripts/tidy.sh deletes a worktree's with the worktree, or after one removed by hand.
+# scripts/test.sh resets, and scripts/sim.sh erases, only the checkout's own simulator, so a
+# script that leaves out PLUSPLUS_SIMULATOR never reaches a person's.
 
 #   worktree_simulator <worktree path>
 worktree_simulator() {
     echo "PlusPlus $(basename "$1")"
 }
 
-if [ -f "$ROOT/.git" ]; then
-    OWN_SIMULATOR=$(worktree_simulator "$ROOT")
-    SIMULATOR_NAME="${PLUSPLUS_SIMULATOR:-$OWN_SIMULATOR}"
-else
-    OWN_SIMULATOR=""
-    SIMULATOR_NAME="${PLUSPLUS_SIMULATOR:-iPhone 17}"
-fi
+OWN_SIMULATOR=$(worktree_simulator "$ROOT")
+SIMULATOR_NAME="${PLUSPLUS_SIMULATOR:-$OWN_SIMULATOR}"
 DESTINATION="platform=iOS Simulator,name=$SIMULATOR_NAME"
 
 mkdir -p "$DERIVED_DATA" "$RESULTS"
@@ -60,10 +55,10 @@ for d in matches:
 ' "$1"
 }
 
-# Whether the scripts are pointed at the worktree's own simulator, the only one they reset or
-# erase; false in the main checkout and when PLUSPLUS_SIMULATOR names another.
+# Whether the scripts are pointed at the checkout's own simulator, the only one they reset or
+# erase; false when PLUSPLUS_SIMULATOR names another.
 is_own_simulator() {
-    [ -n "$OWN_SIMULATOR" ] && [ "$SIMULATOR_NAME" = "$OWN_SIMULATOR" ]
+    [ "$SIMULATOR_NAME" = "$OWN_SIMULATOR" ]
 }
 
 # Each worktree simulator has a record, "<git common dir>/plusplus-simulators/<worktree>", whose
@@ -81,8 +76,8 @@ mark_simulator_used() {
 }
 
 # How many worktree simulators may be booted at once. Each takes about 2 GB and some 250
-# processes; four at once filled a 48 GB Mac and most of its swap (2026-11-01). The maintainer's
-# simulator never counts and never waits. Override with PLUSPLUS_MAX_BOOTED_SIMS in the
+# processes; four at once filled a 48 GB Mac and most of its swap (2026-11-01). A simulator named by
+# PLUSPLUS_SIMULATOR never counts and never waits. Override with PLUSPLUS_MAX_BOOTED_SIMS in the
 # environment (`env` in .claude/settings.local.json reaches every agent).
 MAX_BOOTED_SIMS="${PLUSPLUS_MAX_BOOTED_SIMS:-2}"
 # How long a boot waits for a free place before it gives up, short enough to finish inside an
@@ -90,7 +85,7 @@ MAX_BOOTED_SIMS="${PLUSPLUS_MAX_BOOTED_SIMS:-2}"
 BOOT_WAIT_SECONDS="${PLUSPLUS_SIM_WAIT_SECONDS:-300}"
 
 # Prints "<name>\t<udid>\t<idle seconds>\t<worktree path or ->" for each booted worktree
-# simulator: one with a record, so the maintainer's and any other person's never show.
+# simulator: one with a record, so a person's never shows.
 booted_worktree_simulators() {
     local records
     records=$(simulator_records)
@@ -185,11 +180,11 @@ idle_worktree_simulators() {
     done < <(booted_worktree_simulators)
 }
 
-# Shuts down the worktree's own simulator, if it is booted. Never any other: another worktree's
-# agent may be mid-run, and the maintainer's is theirs.
+# Shuts down the checkout's own simulator, if it is booted. Never any other: another worktree's
+# agent may be mid-run, and any other is a person's.
 shutdown_own_simulator() {
     if ! is_own_simulator; then
-        echo "shutdown acts only on a worktree's own simulator, not \"$SIMULATOR_NAME\"" >&2
+        echo "shutdown acts only on the checkout's own simulator, not \"$SIMULATOR_NAME\"" >&2
         return 1
     fi
     local udid state
@@ -199,9 +194,10 @@ shutdown_own_simulator() {
     echo "shut down \"$OWN_SIMULATOR\""
 }
 
-# Creates the worktree's own simulator when it does not exist yet: an iPhone 17 on the newest
-# installed iOS runtime that runs it (a beta runtime can carry only a new device). Does nothing
-# for any other simulator.
+# Creates the checkout's own simulator, an iPhone 17 on the newest installed iOS runtime that runs
+# it (a beta runtime can carry only a new device), and replaces one left on an older runtime, so
+# every run uses the newest iOS. Does nothing for any other simulator; to try an older iOS, name
+# one with PLUSPLUS_SIMULATOR.
 ensure_simulator() {
     is_own_simulator || return 0
     # The record outlives the worktree, so scripts/tidy.sh can delete the simulator of a worktree
@@ -210,22 +206,32 @@ ensure_simulator() {
     local plan
     plan=$(xcrun simctl list --json devices runtimes | python3 -c '
 import json, sys
-own = sys.argv[1]
+name = sys.argv[1]
 device_type = "com.apple.CoreSimulator.SimDeviceType.iPhone-17"
 data = json.load(sys.stdin)
-if any(d["name"] == own for ds in data["devices"].values() for d in ds):
-    sys.exit()
 runtimes = [r for r in data["runtimes"] if r["platform"] == "iOS" and r["isAvailable"]
             and any(t["identifier"] == device_type for t in r["supportedDeviceTypes"])]
 if not runtimes:
     sys.exit(f"no installed iOS runtime runs {device_type}; install one in Xcode > Settings > Components")
 newest = max(runtimes, key=lambda r: [int(p) for p in r["version"].split(".")])
-print(device_type, newest["identifier"])
+existing = [(runtime, d) for runtime, ds in data["devices"].items() for d in ds if d["name"] == name]
+if any(runtime == newest["identifier"] for runtime, _ in existing):
+    sys.exit()
+old = " ".join(d["udid"] for _, d in existing) or "-"
+print(device_type, newest["identifier"], old)
 ' "$SIMULATOR_NAME") || return 1
     [ -n "$plan" ] || return 0
-    local device_type runtime
-    read -r device_type runtime <<< "$plan"
-    echo "creating simulator \"$SIMULATOR_NAME\" ($device_type, $runtime)" >&2
+    local device_type runtime old udid
+    read -r device_type runtime old <<< "$plan"
+    if [ "$old" != - ]; then
+        for udid in $old; do
+            echo "replacing simulator \"$SIMULATOR_NAME\" ($udid) with one on $runtime" >&2
+            xcrun simctl shutdown "$udid" 2> /dev/null || true
+            xcrun simctl delete "$udid"
+        done
+    else
+        echo "creating simulator \"$SIMULATOR_NAME\" ($device_type, $runtime)" >&2
+    fi
     xcrun simctl create "$SIMULATOR_NAME" "$device_type" "$runtime" > /dev/null
 }
 
