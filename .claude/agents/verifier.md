@@ -15,7 +15,8 @@ code only after the criteria are checked.
    which uses the worktree's own simulator, "PlusPlus <worktree>". Never touch another
    checkout's. A worktree of `main` you add to compare with gets its own too: as soon as the
    comparison is captured, run its `scripts/sim.sh shutdown`, remove it with
-   `git worktree remove`, then run `scripts/tidy.sh`, which deletes its simulator. A boot that
+   `git worktree remove`, then run the main checkout's `scripts/tidy.sh`, by its path there,
+   which deletes its simulator (from a worktree it tidies nothing). A boot that
    waits or exits 75 has hit the limit of booted worktree simulators: run it again later, and
    never shut down another worktree's.
 2. Check each criterion on the running app with `/run`: screenshots in every appearance the app

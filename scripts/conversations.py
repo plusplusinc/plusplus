@@ -6,7 +6,8 @@
 
 <since> is a local date (2026-10-13, meaning midnight), a local time (2026-10-13T21:30), or a
 time with an offset (2026-10-13T04:00:00Z). Prints, per session and oldest first, what the
-maintainer typed and the text the assistant showed, with local times. Dropped: tool calls and
+maintainer typed (mid-turn messages included) and the text the assistant showed, with local
+times. Dropped: tool calls and
 their results, thinking, system reminders, skill bodies, command output, task notifications,
 and messages from other sessions. A slash command shows as "/name args", and AskUserQuestion
 as its questions with their option labels, then the answers and any notes. Subagents show only
@@ -15,8 +16,10 @@ transcript, for reading around a specific moment. The nightly retro's own sessio
 "Nightly retro", see the retro skill) is skipped, so a run never reads the last run's digest.
 
 Reads the transcripts Claude Code keeps under ~/.claude/projects/: the folder for the main
-checkout and one per worktree under .claude/worktrees/, whichever checkout this runs from.
-Files not modified since <since> are not opened. With a file, writes the conversation there
+checkout and one per worktree under .claude/worktrees/, whichever checkout this runs from, and
+from the folders of the checkout's parent folders inside the home folder, the sessions that
+worked in the checkout (a session started one folder up keeps its transcript there; the lead
+sessions of #133 to #140 did). Files not modified since <since> are not opened. With a file, writes the conversation there
 (making its folder) and prints only the first line: how many sessions, or "No sessions since".
 
 With --retro-reply, prints instead the last reply of the newest "Nightly retro" session in the
@@ -73,18 +76,44 @@ def local(timestamp, fmt="%H:%M"):
     return moment.astimezone().strftime(fmt)
 
 
-def project_folders():
-    """The main checkout's transcript folder and its worktrees'. Claude Code names a project's
-    folder after its path, with every character that is not a letter or digit turned into '-'."""
+PROJECTS = Path.home() / ".claude" / "projects"
+
+
+def main_checkout():
     script_dir = Path(__file__).resolve().parent
     git_dir = subprocess.run(
         ["git", "-C", str(script_dir), "rev-parse", "--path-format=absolute", "--git-common-dir"],
         capture_output=True, text=True, check=True,
     ).stdout.strip()
-    main_checkout = str(Path(git_dir).parent)
-    name = re.sub(r"[^A-Za-z0-9]", "-", main_checkout)
-    projects = Path.home() / ".claude" / "projects"
-    return [projects / name] + sorted(projects.glob(name + "--claude-worktrees-*"))
+    return Path(git_dir).parent
+
+
+def folder_name(path):
+    """Claude Code names a project's folder after its path, with every character that is not a
+    letter or digit turned into '-'."""
+    return re.sub(r"[^A-Za-z0-9]", "-", str(path))
+
+
+def project_folders():
+    """The main checkout's transcript folder and its worktrees'."""
+    name = folder_name(main_checkout())
+    return [PROJECTS / name] + sorted(PROJECTS.glob(name + "--claude-worktrees-*"))
+
+
+def parent_folders():
+    """The transcript folders of the checkout's parent folders below the home folder, whose
+    sessions count only where they worked in the checkout (worked_in)."""
+    home = Path.home()
+    return [PROJECTS / folder_name(parent) for parent in main_checkout().parents
+            if parent != home and home in parent.parents]
+
+
+def worked_in(path, checkout):
+    """Whether any entry of the transcript ran with its working folder in the checkout or one of
+    its worktrees."""
+    cwd = re.compile(r'"cwd":"' + re.escape(str(checkout)) + r'[/"]')
+    with open(path, encoding="utf-8", errors="replace") as lines:
+        return any(cwd.search(line) for line in lines)
 
 
 def entries(path, since):
@@ -141,6 +170,21 @@ def typed(entry):
     if shell:
         return "! " + shell.group(1).strip()
     return text
+
+
+def queued(entry):
+    """A message the maintainer typed while the assistant was mid-turn, which Claude Code keeps
+    as a queued-command attachment rather than a user entry, or None."""
+    attachment = entry.get("attachment")
+    if not isinstance(attachment, dict) or attachment.get("type") != "queued_command":
+        return None
+    if attachment.get("commandMode", "prompt") != "prompt":
+        return None
+    if (attachment.get("origin") or {}).get("kind") not in (None, "human"):
+        return None
+    text = REMINDER.sub("", attachment.get("prompt") or "").strip()
+    # The desktop app queues its own notices this way too.
+    return None if not text or text.startswith("<ci-monitor-event>") else text
 
 
 def shown(entry, asked):
@@ -260,6 +304,8 @@ def session(path, since):
             who, text = "Maintainer", typed(entry) or answered(entry, asked)
         elif kind == "assistant":
             who, text = "Claude", shown(entry, asked)
+        elif kind == "attachment":
+            who, text = "Maintainer", queued(entry)
         else:
             continue
         if text:
@@ -342,12 +388,15 @@ def main():
         usage()
     since = Since(parse_since(sys.argv[1]))
     found = []
-    for folder in project_folders():
+    checkout = main_checkout()
+    folders = [(folder, False) for folder in project_folders()] + [(folder, True) for folder in parent_folders()]
+    for folder, must_have_worked_in in folders:
         for path in folder.glob("*.jsonl"):
-            if path.stat().st_mtime >= since.epoch:
-                result = session(path, since)
-                if result:
-                    found.append(result)
+            if path.stat().st_mtime < since.epoch or (must_have_worked_in and not worked_in(path, checkout)):
+                continue
+            result = session(path, since)
+            if result:
+                found.append(result)
     shown_since = since.moment.astimezone().strftime("%a %d %b %H:%M")
     summary = f"# {len(found)} sessions since {shown_since}" if found else f"No sessions since {shown_since}."
     text = "\n\n".join([summary] + [text for _, text in sorted(found)]) + "\n"

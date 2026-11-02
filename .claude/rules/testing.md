@@ -32,7 +32,11 @@ shows (G), and is weighed by H and I, since it costs the most.
 - **D. Deterministic**: same code, same result, in any order; no sleeps, no retries.
   ([Fowler](https://martinfowler.com/articles/nonDeterminism.html);
   [WWDC22 110361](https://developer.apple.com/videos/play/wwdc2022/110361/))
-- **E. Behavioral**: it fails when behavior changes, not when code moves.
+- **E. Behavioral**: it fails when behavior changes, not when code moves. A test that restates a
+  tuned value (a duration, a curve, a spring) fails on every retune and passes the bug it was
+  written for: test what the value does (a travel only goes forward, never past the node), or
+  nothing (#138's `SetBeatTests` asserted the beat's animations while the bug was that the
+  beat never ran).
   ([Beck](https://testdesiderata.com/); [Google Testing Blog](https://testing.googleblog.com/2013/08/testing-on-toilet-test-behavior-not.html))
 - **F. Specific**: its name says the guarantee, and a failure names its cause.
   ([WWDC20 10091](https://developer.apple.com/videos/play/wwdc2020/10091/);

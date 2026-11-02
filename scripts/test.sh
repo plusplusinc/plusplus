@@ -6,6 +6,7 @@
 #   scripts/test.sh sim      # the app scheme on the simulator: package, snapshot, and UI tests;
 #                            # in a worktree, on its own simulator after scripts/sim.sh reset
 #   scripts/test.sh sim WorkoutStoreTests/WorkoutStoreContainerTests   # -only-testing filter
+#   scripts/test.sh sim PlusPlusUITests/WorkoutUITests PlusPlusUITests/RowDragUITests  # several
 #
 # The package declares a macOS platform so its tests run with `swift test` and no simulator.
 # Tests that need UIKit are compiled out there and run in the simulator tier, whose test
@@ -15,10 +16,14 @@
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
 MODE="${1:-fast}"
-ONLY="${2:-}"
+ONLY=("${@:2}")
 
 case "$MODE" in
     fast)
+        if [ "${#ONLY[@]}" -gt 0 ]; then
+            echo "fast runs the whole package; a test filter is for sim: scripts/test.sh sim ${ONLY[*]}" >&2
+            exit 64
+        fi
         log="$RESULTS/fast.log"
         status=0
         swift test --package-path "$PACKAGE" --disable-xctest --quiet 2>&1 | tee "$log" ||
@@ -43,7 +48,9 @@ case "$MODE" in
             echo "not resetting \"$SIMULATOR_NAME\": only the checkout's own simulator is reset" >&2
         fi
         only=()
-        [ -n "$ONLY" ] && only=(-only-testing:"$ONLY")
+        for identifier in ${ONLY[@]+"${ONLY[@]}"}; do
+            only+=(-only-testing:"$identifier")
+        done
         status=0
         run_xcodebuild test test ${only[@]+"${only[@]}"} || status=$?
         # The summary also fails a run that executed no tests; xcodebuild's own failure wins.
@@ -52,7 +59,7 @@ case "$MODE" in
         [ "$status" -eq 0 ] || exit "$status"
         ;;
     *)
-        echo "usage: scripts/test.sh [fast|sim] [only-testing-identifier]" >&2
+        echo "usage: scripts/test.sh [fast|sim] [only-testing-identifier...]" >&2
         exit 64
         ;;
 esac

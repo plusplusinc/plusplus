@@ -7,8 +7,8 @@ It is read before the merge, too: keep today and the change apart ("With this ch
 never the result in the plain present.
 
 The retro runs in a session that never saw this work and reads the conversation's text, not
-what was run, so the body has to carry what it needs: the Card, Verified, and Friction lines, and any decision
-the diff does not explain. A change someone can see shows its before and after here, as images
+what was run, so the body has to carry what it needs: the Card, Verified, and Friction lines, which
+"PR check" fails a body without, and any decision the diff does not explain. A change someone can see shows its before and after here, as images
 from scripts/pr-media.sh, never as a path to a local file. -->
 
 <!-- One or two plain sentences: what someone notices, and why. -->

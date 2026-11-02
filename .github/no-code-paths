@@ -13,7 +13,9 @@
 # Not listed, since Xcode Cloud runs them before it builds: ci_scripts/, Brewfile,
 # scripts/lint.sh, scripts/common.sh, scripts/check-us-english.sh, .swiftformat, .swiftlint.yml.
 # Not listed, and never no-code whatever this file says, since they decide the check: this file,
-# scripts/pr-check.sh, and .github/workflows/.
+# scripts/pr-check.sh, and .github/workflows/. Not listed either: scripts/pr-check-test.py, which
+# changes along with the check. scripts/pr-check-test.py fails when a script is neither listed
+# nor named here.
 .claude/
 .github/pull_request_template.md
 .github/rulesets/
@@ -31,6 +33,7 @@ scripts/device.sh
 scripts/nightly-retro.sh
 scripts/nightly-tooling-test.py
 scripts/nightly-tooling.py
+scripts/pr-media.sh
 scripts/run.sh
 scripts/sim.sh
 scripts/test.sh
