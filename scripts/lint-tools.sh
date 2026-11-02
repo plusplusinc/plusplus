@@ -4,7 +4,6 @@
 # releases, checked against its SHA-256 and kept in the main checkout's .build/tools/, which every
 # worktree of the clone shares. A new release changes nothing until a PR raises a version here.
 #
-#   scripts/lint-tools.sh install         # fetch both, if not already there
 #   scripts/lint-tools.sh path <tool>     # print the tool's binary, fetching it first if needed
 #
 # To raise a version: change it and its checksum below (the release page lists each asset's
@@ -12,81 +11,53 @@
 # the new rules find.
 set -euo pipefail
 
-#   <tool> <version> <release asset URL> <sha256 of the asset>
+#   <tool> <version> <sha256 of the asset> <release asset URL, {v} for the version>
 TOOLS=(
-    "swiftformat 0.64.5 https://github.com/nicklockwood/SwiftFormat/releases/download/0.64.5/swiftformat.zip ec017c91fdd46233e5a22dc43ff9564a3cc4b37023d3b4681b6c7d7b781de113"
-    "swiftlint 0.65.1 https://github.com/realm/SwiftLint/releases/download/0.65.1/portable_swiftlint.zip c1e429b0599cf1b516f369a2d9ec04eaf0e436f3c12b637df8851fa52ff694d0"
+    "swiftformat 0.64.5 ec017c91fdd46233e5a22dc43ff9564a3cc4b37023d3b4681b6c7d7b781de113 https://github.com/nicklockwood/SwiftFormat/releases/download/{v}/swiftformat.zip"
+    "swiftlint 0.65.1 c1e429b0599cf1b516f369a2d9ec04eaf0e436f3c12b637df8851fa52ff694d0 https://github.com/realm/SwiftLint/releases/download/{v}/portable_swiftlint.zip"
 )
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-# The main checkout, also from a linked worktree, so one download serves every worktree.
-MAIN=$(dirname "$(git -C "$ROOT" rev-parse --path-format=absolute --git-common-dir)")
-TOOLS_DIR="$MAIN/.build/tools"
+# The main checkout, also from a linked worktree, so one download serves every worktree. Two
+# steps, so a git failure stops the script rather than leaving dirname with "".
+COMMON=$(git -C "$ROOT" rev-parse --path-format=absolute --git-common-dir)
+TOOLS_DIR="$(dirname "$COMMON")/.build/tools"
 
-usage() {
-    sed -n '7,8p' "${BASH_SOURCE[0]}" | sed 's/^# *//' >&2
-    exit 64
-}
-
-# Prints the binary of a tool, fetching it when it is missing.
+# Downloads a tool's asset, checks it, and moves its unzipped folder into place whole, so an
+# interrupted fetch never leaves a half-written binary.
 #
-#   tool_path <tool>
-tool_path() {
-    local entry name version url sha
-    for entry in "${TOOLS[@]}"; do
-        read -r name version url sha <<< "$entry"
-        [ "$name" = "$1" ] || continue
-        local dir="$TOOLS_DIR/$name-$version"
-        if [ ! -x "$dir/$name" ]; then
-            fetch "$name" "$version" "$url" "$sha" "$dir" >&2 || {
-                echo "could not install $name $version into $dir; run scripts/lint-tools.sh install (needs the network)" >&2
-                return 1
-            }
-        fi
-        echo "$dir/$name"
-        return 0
-    done
-    echo "unknown tool: $1 (swiftformat or swiftlint)" >&2
-    return 64
-}
-
+#   fetch <tool> <version> <sha256> <url> <dir>
 fetch() {
-    local name=$1 version=$2 url=$3 sha=$4 dir=$5
+    local name=$1 version=$2 sha=$3 url=$4 dir=$5 tmp actual
     echo "installing $name $version into $dir"
-    local tmp status=0
     tmp=$(mktemp -d "${TMPDIR:-/tmp}/lint-tools.XXXXXX")
-    unpack "$name" "$version" "$url" "$sha" "$tmp" || status=1
-    # Moved into place whole, so an interrupted fetch never leaves a half-written binary.
-    if [ "$status" -eq 0 ]; then
-        mkdir -p "$TOOLS_DIR" && rm -rf "$dir" && mv "$tmp/unzipped" "$dir" || status=1
-    fi
+    curl --fail --silent --show-error --location --retry 2 --output "$tmp/asset.zip" "$url" &&
+        actual=$(shasum -a 256 "$tmp/asset.zip" | cut -d' ' -f1) &&
+        { [ "$actual" = "$sha" ] ||
+            { echo "$name $version: checksum $actual does not match the pinned $sha" >&2; false; }; } &&
+        unzip -q "$tmp/asset.zip" -d "$tmp/unzipped" &&
+        { [ -x "$tmp/unzipped/$name" ] || { echo "$name $version: no $name in $url" >&2; false; }; } &&
+        mkdir -p "$TOOLS_DIR" && rm -rf "$dir" && mv "$tmp/unzipped" "$dir"
+    local status=$?
     rm -rf "$tmp"
     return "$status"
 }
 
-# Downloads the asset into <tmp>, checks it, and unzips it into <tmp>/unzipped.
-unpack() {
-    local name=$1 version=$2 url=$3 sha=$4 tmp=$5 actual
-    curl --fail --silent --show-error --location --retry 2 --output "$tmp/asset.zip" "$url" ||
-        return 1
-    actual=$(shasum -a 256 "$tmp/asset.zip" | cut -d' ' -f1)
-    if [ "$actual" != "$sha" ]; then
-        echo "$name $version: checksum $actual does not match the pinned $sha" >&2
-        return 1
-    fi
-    unzip -q "$tmp/asset.zip" -d "$tmp/unzipped" || return 1
-    [ -x "$tmp/unzipped/$name" ] || { echo "$name $version: no $name in $url" >&2; return 1; }
-}
+[ "${1:-}" = path ] && [ "$#" -eq 2 ] ||
+    { echo "usage: scripts/lint-tools.sh path <swiftformat|swiftlint>" >&2; exit 64; }
 
-case "${1:-}" in
-    install)
-        for entry in "${TOOLS[@]}"; do
-            tool_path "${entry%% *}" > /dev/null
-        done
-        ;;
-    path)
-        [ "$#" -eq 2 ] || usage
-        tool_path "$2"
-        ;;
-    *) usage ;;
-esac
+for entry in "${TOOLS[@]}"; do
+    read -r name version sha url <<< "$entry"
+    [ "$name" = "$2" ] || continue
+    dir="$TOOLS_DIR/$name-$version"
+    if [ ! -x "$dir/$name" ]; then
+        fetch "$name" "$version" "$sha" "${url//\{v\}/$version}" "$dir" >&2 || {
+            echo "could not install $name $version into $dir; check the network and run scripts/lint.sh again" >&2
+            exit 1
+        }
+    fi
+    echo "$dir/$name"
+    exit 0
+done
+echo "unknown tool: $2 (swiftformat or swiftlint)" >&2
+exit 64
