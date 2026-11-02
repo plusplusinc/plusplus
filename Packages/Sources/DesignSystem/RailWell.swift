@@ -129,7 +129,6 @@ struct HeldWellFill: View {
     let isReleased: Bool
     @State private var isShown: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @ObserveHotReload private var hotReload
 
     /// `hasRisen` draws it already shown, for a preview or a snapshot of a moment of a drag.
     init(outline: WellOutline, width: CGFloat, isReleased: Bool, hasRisen: Bool) {
@@ -148,7 +147,6 @@ struct HeldWellFill: View {
             .onAppear {
                 withAnimation(reduceMotion ? nil : RailDrag.lift) { isShown = true }
             }
-            .hotReloadable()
     }
 }
 

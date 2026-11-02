@@ -31,7 +31,6 @@ public struct RowLabel: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.restingLabelFloor) private var restingLabelFloor
     @Environment(\.exerciseMoveWay) private var exerciseMoveWay
-    @ObserveHotReload private var hotReload
 
     public init(
         title: String,
@@ -57,7 +56,6 @@ public struct RowLabel: View {
         content(detailText)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(spokenLabel)
-            .hotReloadable()
     }
 
     /// The name stays where it is as the row grows: the label stands at its height from the start,

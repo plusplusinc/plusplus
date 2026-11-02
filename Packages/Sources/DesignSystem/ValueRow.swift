@@ -17,7 +17,6 @@ public struct ValueRow: View {
     private let onStep: (Int) -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @ObserveHotReload private var hotReload
 
     /// How a row opens and closes: the caller animates `isOpen` with it.
     public static let motion = Animation.snappy(duration: 0.25)
@@ -55,7 +54,6 @@ public struct ValueRow: View {
             region
         }
         .background(Color.pp(.surface), in: .rect(cornerRadius: Self.inset + Radius.key))
-        .hotReloadable()
     }
 
     /// The whole row opens and closes its stepper. It's a tap, not a `Button`: a button's label

@@ -80,11 +80,9 @@ enum ScreenTitle {
 private struct ScreenTitleFont: ViewModifier {
     let design: Font.Design
     @ScaledMetric(relativeTo: ScreenTitle.textStyle) private var size = ScreenTitle.size
-    @ObserveHotReload private var hotReload
 
     func body(content: Content) -> some View {
         content
             .font(.system(size: size, weight: .bold, design: design))
-            .hotReloadable()
     }
 }

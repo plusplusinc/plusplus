@@ -13,7 +13,6 @@ struct PlusOneBurst: View {
     let trigger: Int
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @ObserveHotReload private var hotReload
 
     /// How long a burst lasts.
     static let duration = 0.7
@@ -52,7 +51,6 @@ struct PlusOneBurst: View {
             }
             .allowsHitTesting(false)
             .accessibilityHidden(true)
-            .hotReloadable()
     }
 }
 

@@ -9,8 +9,6 @@ public struct KeyButtonStyle: ButtonStyle {
     /// Comfortably above the 44pt minimum touch target at the default text size.
     private static let minHeight: CGFloat = 48
 
-    @ObserveHotReload private var hotReload
-
     public init() { }
 
     public func makeBody(configuration: Configuration) -> some View {
@@ -26,7 +24,6 @@ public struct KeyButtonStyle: ButtonStyle {
             .overlay(shape.strokeBorder(.pp(.borderStrong)))
             .contentShape(shape)
             .keyPress(isPressed: configuration.isPressed)
-            .hotReloadable()
     }
 }
 

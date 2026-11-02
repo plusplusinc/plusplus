@@ -143,7 +143,6 @@ private struct JoiningRail: ViewModifier {
     let trigger: Bool
     let rest: ColorToken
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @ObserveHotReload private var hotReload
 
     func body(content: Content) -> some View {
         // The tokens resolve here, on the main actor; the animator's frames only mix the two.
@@ -159,7 +158,6 @@ private struct JoiningRail: ViewModifier {
                 }
             }
         }
-        .hotReloadable()
     }
 }
 
@@ -220,7 +218,6 @@ private struct Committing: ViewModifier {
     let isArriving: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var commits = 0
-    @ObserveHotReload private var hotReload
 
     func body(content: Content) -> some View {
         let (time, isArriving) = (RailEntry.popStart(reduceMotion: reduceMotion), isArriving)
@@ -237,7 +234,6 @@ private struct Committing: ViewModifier {
                     }
             }
             .sensoryFeedback(.impact(weight: .light), trigger: commits)
-            .hotReloadable()
     }
 }
 

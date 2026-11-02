@@ -25,7 +25,6 @@ public struct SetBars: View {
     @ScaledMetric(relativeTo: .subheadline) private var height: CGFloat = 5
     @ScaledMetric(relativeTo: .subheadline) private var gap: CGFloat = 3
     @ScaledMetric(relativeTo: .subheadline) private var corner: CGFloat = 1.5
-    @ObserveHotReload private var hotReload
 
     public init(_ progress: SetProgress, isCurrent: Bool = false) {
         self.progress = progress
@@ -39,7 +38,6 @@ public struct SetBars: View {
             }
         }
         .accessibilityHidden(true)
-        .hotReloadable()
     }
 
     /// One view per bar whatever it shows, so a bar turning green or purple changes its fill in

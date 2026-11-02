@@ -22,7 +22,6 @@ struct DrawerMenu: View {
     @State private var held: Contents?
     @AccessibilityFocusState private var isTitleFocused: Bool
     @Environment(\.locale) private var locale
-    @ObserveHotReload private var hotReload
 
     var body: some View {
         // Built once a pass: each build reads the session's routines and sorts them.
@@ -63,7 +62,6 @@ struct DrawerMenu: View {
             Task { await session.refreshRecent(weightUnit: weightUnit) }
         }
         .task { isTitleFocused = true }
-        .hotReloadable()
     }
 
     /// The new routine showing, if one is, then the routines last opened or edited, three in

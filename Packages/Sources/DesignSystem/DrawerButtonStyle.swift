@@ -11,8 +11,6 @@ public struct DrawerButtonStyle: ButtonStyle {
     private let isSelected: Bool
     private let isNested: Bool
 
-    @ObserveHotReload private var hotReload
-
     public init(isSelected: Bool, isNested: Bool = false) {
         self.isSelected = isSelected
         self.isNested = isNested
@@ -27,7 +25,6 @@ public struct DrawerButtonStyle: ButtonStyle {
             .contentShape(.rect)
             .keyPress(isPressed: configuration.isPressed)
             .accessibilityAddTraits(isSelected ? .isSelected : [])
-            .hotReloadable()
     }
 }
 

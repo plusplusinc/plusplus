@@ -35,7 +35,6 @@ struct EditableTitleContent: View {
 
     @ScaledMetric(relativeTo: ScreenTitle.textStyle) private var fontSize = ScreenTitle.size
     @ScaledMetric(relativeTo: ScreenTitle.textStyle) private var drop = ScreenTitle.cursorDrop
-    @ObserveHotReload private var hotReload
 
     var body: some View {
         // The breath runs on SwiftUI's clock, only while there is one.
@@ -43,7 +42,6 @@ struct EditableTitleContent: View {
             field(cursorOpacity: breathes ? 1 - (1 - Self.pulseOpacity(at: context.date)) *
                 cursorTint : 1)
         }
-        .hotReloadable()
     }
 
     @ViewBuilder

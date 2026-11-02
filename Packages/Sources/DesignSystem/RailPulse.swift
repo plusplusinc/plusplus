@@ -290,7 +290,6 @@ struct RailPulseRun: View {
     @ScaledMetric(relativeTo: .body) private var size = currentNodeSize
     @ScaledMetric(relativeTo: .body) private var restingSize = railNodeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @ObserveHotReload private var hotReload
 
     var body: some View {
         // Always in place, so the first run is a change it sees: put in with its first run, it
@@ -313,6 +312,5 @@ struct RailPulseRun: View {
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
-        .hotReloadable()
     }
 }

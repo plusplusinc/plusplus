@@ -171,7 +171,6 @@ struct RailDrawing: View {
     let shape: AnyHashable
     @ScaledLoopPen private var pen
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @ObserveHotReload private var hotReload
 
     var body: some View {
         Group {
@@ -188,7 +187,6 @@ struct RailDrawing: View {
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
-        .hotReloadable()
     }
 
     private var strokes: some View {

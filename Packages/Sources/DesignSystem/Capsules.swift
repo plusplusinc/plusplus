@@ -4,7 +4,6 @@ import SwiftUI
 public struct Capsules: View {
     private let labels: [String]
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @ObserveHotReload private var hotReload
 
     public init(_ labels: [String]) {
         self.labels = labels
@@ -32,7 +31,6 @@ public struct Capsules: View {
             value: labels,
         )
         .accessibilityElement(children: .combine)
-        .hotReloadable()
     }
 }
 

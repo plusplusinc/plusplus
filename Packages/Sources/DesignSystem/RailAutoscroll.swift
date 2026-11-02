@@ -214,7 +214,6 @@ extension EnvironmentValues {
 private struct RailAutoscroll: ViewModifier {
     @Binding var position: ScrollPosition
     @State private var edges = RailEdges()
-    @ObserveHotReload private var hotReload
 
     func body(content: Content) -> some View {
         content
@@ -234,7 +233,6 @@ private struct RailAutoscroll: ViewModifier {
                 // above the rail moves.
                 RailFrames(edges: edges, isStepping: edges.isStepping)
             }
-            .hotReloadable()
     }
 }
 

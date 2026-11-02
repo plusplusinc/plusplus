@@ -4,14 +4,12 @@ import SwiftUI
 /// a one-line row keeps the rhythm of a two-line one.
 struct RailRowContentFrame: ViewModifier {
     @ScaledMetric(relativeTo: .body) private var minHeight = railRowMinHeight
-    @ObserveHotReload private var hotReload
 
     func body(content: Content) -> some View {
         content
             .environment(\.restingLabelFloor, minHeight - RailRowMetrics.verticalInset * 2)
             .padding(.vertical, RailRowMetrics.verticalInset)
             .frame(minHeight: minHeight, alignment: .top)
-            .hotReloadable()
     }
 }
 

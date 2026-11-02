@@ -5,8 +5,6 @@ import SwiftUI
 public struct NameRow: View {
     private let name: String
 
-    @ObserveHotReload private var hotReload
-
     public init(_ name: String) {
         self.name = name
     }
@@ -20,7 +18,6 @@ public struct NameRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.vertical, Spacing.md)
             .contentShape(.rect)
-            .hotReloadable()
     }
 }
 

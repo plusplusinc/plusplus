@@ -67,7 +67,6 @@ struct CardLook: ViewModifier {
     let holes: [CGRect]
     @State private var hasRisen: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @ObserveHotReload private var hotReload
 
     /// `hasRisen` draws it already risen, for a preview or a snapshot of a moment of a drag.
     init(
@@ -103,7 +102,6 @@ struct CardLook: ViewModifier {
             .onAppear {
                 withAnimation(reduceMotion ? nil : RailDrag.lift) { hasRisen = true }
             }
-            .hotReloadable()
     }
 }
 
@@ -126,7 +124,6 @@ struct LiftedCard: View, Animatable {
     /// Where the rail shows no strokes, in the rail's space.
     var holes: [CGRect] = []
     @ScaledMetric(relativeTo: .body) private var nodeSize = railNodeSize
-    @ObserveHotReload private var hotReload
 
     var animatableData: AnimatablePair<Double, CGFloat> {
         get { AnimatablePair(lifted, top) }
@@ -161,7 +158,6 @@ struct LiftedCard: View, Animatable {
                     }
                 }
         }
-        .hotReloadable()
     }
 }
 
@@ -175,7 +171,6 @@ struct CardFill: View {
     let node: CGPoint
     let size: CGSize
     @ScaledMetric(relativeTo: .body) private var nodeSize = railNodeSize
-    @ObserveHotReload private var hotReload
 
     var body: some View {
         let (inset, leading) = Self.insets(node: node, nodeSize: nodeSize)
@@ -186,7 +181,6 @@ struct CardFill: View {
             .frame(width: max(size.width - 2 * leading, 0), height: size.height)
             .frame(width: size.width, height: size.height, alignment: .leading)
             .offset(x: leading)
-            .hotReloadable()
     }
 
     /// How far the node, at `node` from the fill's top leading corner, is in from its top, and

@@ -20,23 +20,6 @@ in `Config/Local.xcconfig` (gitignored):
 DEVELOPMENT_TEAM = XXXXXXXXXX
 ```
 
-### Hot reload
-
-With [InjectionNext](https://github.com/johnno1962/InjectionNext) 2.0.1 or later in
-`/Applications`, these two lines in `Config/Local.xcconfig` make saved edits appear in the
-running simulator app in about a second, keeping its state. Simulator Debug builds only;
-device, Release, and CI builds never see them.
-
-```
-OTHER_LDFLAGS[config=Debug][sdk=iphonesimulator*] = $(inherited) -Xlinker -interposable /Applications/InjectionNext.app/Contents/Resources/lib$(PLATFORM_NAME)Injection.dylib
-EMIT_FRONTEND_COMMAND_LINES[config=Debug][sdk=iphonesimulator*] = YES
-```
-
-Launch with `scripts/run.sh`, which tells the app where the sources are. The first save or two
-after a launch only loads the build logs. A view redraws on reload when it declares
-`@ObserveHotReload private var hotReload` and ends its body with `.hotReloadable()`. Changes to
-stored properties or to which files exist need a relaunch, which `scripts/run.sh` does.
-
 ## Everyday commands
 
 ```sh
