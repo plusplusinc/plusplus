@@ -2,7 +2,7 @@
 # The private project board, where briefs live. See the /brief skill.
 #
 #   scripts/board.sh list                              # every item, in board order: id, status, feature, title
-#   scripts/board.sh show <item-id>...                 # title, status, and body of each, in one request
+#   scripts/board.sh show <item-id>...                 # title, status, link, and body of each, in one request
 #   scripts/board.sh readme                            # the board's README: the design per feature
 #   scripts/board.sh readme <<'README'                 # replace the README with stdin
 #   scripts/board.sh add <title> <<'CARD'              # a draft item in Todo; prints its id
@@ -103,6 +103,7 @@ gql() {
 ITEM='
     fragment Item on ProjectV2Item {
         id
+        fullDatabaseId
         project { number owner { ... on Organization { login } } }
         status: fieldValueByName(name: "Status") { ... on ProjectV2ItemFieldSingleSelectValue { name } }
         feature: fieldValueByName(name: "Feature") { ... on ProjectV2ItemFieldSingleSelectValue { name } }
@@ -252,7 +253,7 @@ case "$command" in
         # One card prints bare; several each get a header line naming the id.
         jq -r '(length > 1) as $many
             | [.[] | (if $many then "==> \(.id) <==\n" else "" end)
-                + "\(.content.title // "")\n[\(.status.name // "-")]\n\n\(.content.body // "")"] | join("\n\n")' <<< "$found"
+                + "\(.content.title // "")\n[\(.status.name // "-")] https://github.com/orgs/\(.project.owner.login)/projects/\(.project.number)?pane=issue&itemId=\(.fullDatabaseId)\n\n\(.content.body // "")"] | join("\n\n")' <<< "$found"
         ;;
     readme)
         [ $# -eq 0 ] || usage

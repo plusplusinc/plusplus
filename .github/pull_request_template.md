@@ -11,7 +11,7 @@ what was run, so the body has to carry what it needs: the three lines below, and
 the diff does not explain. A change someone can see shows its before and after here, as images
 from scripts/pr-media.sh, never as a path to a local file. -->
 
-Card: <!-- the board card this PR came from; "Closes #N" when it was published as an issue; or "none" and why -->
+Card: <!-- the board card this PR came from, as [title](link from `scripts/board.sh show`); "Closes #N" when it was published as an issue; or "none" and why -->
 
 Verified: <!-- exactly what was run: lint, which test tier, which screenshots were looked at -->
 

@@ -77,8 +77,9 @@ in a minute by someone who wasn't there, the maintainer first:
 - **Card, Verified, Friction**, each as a few short bullets. Verified gives what was run and the
   times against their budgets; Friction says what was retried, what was corrected and who found
   it (the maintainer, an agent review, the verifier, CI), and what took longer than it should
-  have, written from the session, not from the diff. The Card line names the board card, written
-  as "Closes #N" when the card was published as an issue so the merge closes it. The template
+  have, written from the session, not from the diff. The Card line links the board card by its
+  title, `[title](url)` with the link `scripts/board.sh show` prints after its status, never its
+  `PVTI_` id; or "Closes #N" when the card was published as an issue, so the merge closes it. The template
   says why the retro needs these.
 
 Bullets and short paragraphs over long ones: a paragraph past four lines is two, or a list.
