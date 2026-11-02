@@ -82,7 +82,10 @@ turn, once per crash. The `/pr` skill and CI are still the gates.
 A `SessionStart` hook runs `scripts/tidy.sh` in the background from the main checkout, logging
 to `.build/tidy.log`. It removes worktrees and local branches whose work has landed: their tip is
 in `main` or in a merged PR. Merges are squashed, so git alone can't tell a branch is done.
-Agents' worktrees with commits outlive the agent, and nothing else removes them.
+Agents' worktrees with commits outlive the agent, and nothing else removes them. It also keeps the
+simulator runtimes on the newest iOS, the one Xcode's SDK targets: it downloads that runtime when
+it is missing and, once it is installed, deletes the older ones and the simulators left on them.
+`scripts/common.sh` moves the main checkout's and each worktree's simulator onto it.
 
 ## Rules
 

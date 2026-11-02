@@ -14,7 +14,8 @@
 # a simulator. A worktree simulator booted but unused for 30 minutes (PLUSPLUS_SIM_IDLE_MINUTES)
 # is shut down, not deleted. A file or folder in .slices/ goes too once every board card it names
 # (by item id, PVTI_...) is Done, unless it is named after a live worktree or branch; one that names none, or a
-# card the board doesn't have, is kept.
+# card the board doesn't have, is kept. Last, it keeps the simulator runtimes on the newest iOS,
+# Xcode's SDK: it downloads that runtime when missing, then deletes older ones (see the end).
 #
 #   scripts/tidy.sh            # remove, and print each thing removed
 #   scripts/tidy.sh --dry-run  # print what would be removed
@@ -193,4 +194,39 @@ if [ -d "$SLICES" ]; then
             echo "tidy: kept .slices/: reading the board failed: $(tail -1 <<< "$rows")"
         fi
     fi
+fi
+
+# Simulator runtimes: the newest iOS is the one Xcode's SDK targets. When its runtime is missing,
+# download it (several GB, one download at a time); once it is installed, delete every older iOS
+# runtime and the simulators left without one, so old runtimes never fill the disk. To test an
+# older iOS on purpose, download it by hand; the next session's tidy deletes it again.
+sdk=$(xcrun --sdk iphonesimulator --show-sdk-version)
+plan=$(xcrun simctl runtime list -j | python3 -c '
+import json, sys
+sdk = [int(p) for p in sys.argv[1].split(".")]
+ios = [r for r in json.load(sys.stdin).values()
+       if r["platformIdentifier"] == "com.apple.platform.iphonesimulator"]
+version = lambda r: [int(p) for p in r["version"].split(".")]
+current = [r for r in ios if version(r)[:2] == sdk[:2]]
+print(current[0]["state"] if current else "missing")
+for r in ios:
+    if version(r)[:2] < sdk[:2]:
+        print(r["identifier"], r["version"])
+' "$sdk")
+read -r current_state <<< "$plan"
+if [ "$current_state" = missing ]; then
+    LOCK="$ROOT/.build/runtime-download.lock"
+    echo "tidy: download the iOS $sdk simulator runtime"
+    if [ "$DRY_RUN" -eq 0 ] && mkdir "$LOCK" 2> /dev/null; then
+        trap 'rmdir "$LOCK"' EXIT
+        xcodebuild -downloadPlatform iOS -buildVersion "$sdk" > /dev/null ||
+            echo "tidy: downloading the iOS $sdk simulator runtime failed" >&2
+    fi
+elif [ "$current_state" = Ready ]; then
+    while read -r id version; do
+        [ -n "$id" ] || continue
+        echo "tidy: delete the iOS $version simulator runtime"
+        [ "$DRY_RUN" -eq 1 ] || xcrun simctl runtime delete "$id" || true
+    done < <(tail -n +2 <<< "$plan")
+    run xcrun simctl delete unavailable
 fi

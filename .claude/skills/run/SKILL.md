@@ -14,7 +14,7 @@ scripts/run.sh [name]
 ```
 
 Builds Debug, boots the default simulator (iPhone 17 in the main checkout; in a worktree, its own
-"PlusPlus <worktree>", created on first use; override with
+"PlusPlus <worktree>"; either is created when missing; override with
 `PLUSPLUS_SIMULATOR="iPhone 17 Pro"`), installs and launches the app,
 waits two seconds for the first frame, and writes `.build/screenshots/<name>.png`. The path is printed last; Read it.
 About 15 seconds on a warm build from a shut-down simulator.
@@ -78,7 +78,9 @@ rows, which the next round's per-frame tracking found at once.
   [AXe](https://github.com/cameroncooke/AXe) (`axe touch`, `axe type`, `axe describe-ui`), which
   is on the maintainer's Mac but not in the `Brewfile`. Use it for a one-off tap or to read a
   frame. Anything multi-step, or that has to come out the same twice, belongs in a
-  `PlusPlusUITests` test, and XCUITest's taps and swipes land where AXe's do not:
+  `PlusPlusUITests` test, and XCUITest's taps and swipes land where AXe's do not.
+  Claude's own simulator tool is not for agents: it asks the maintainer to approve each simulator,
+  and every worktree's is new, so an unattended session stalls on it. Where AXe falls short:
   - The routine screen, and the sheets it presents, sit inside `swipeActionsContainer()`, which
     drops a synthetic tap that goes down and up in the same instant. `axe tap` therefore does
     nothing at all there, on a button or a search field, and reads as a dead control; hold the

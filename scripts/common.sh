@@ -25,12 +25,13 @@ worktree_simulator() {
     echo "PlusPlus $(basename "$1")"
 }
 
+MAIN_SIMULATOR="iPhone 17"
 if [ -f "$ROOT/.git" ]; then
     OWN_SIMULATOR=$(worktree_simulator "$ROOT")
     SIMULATOR_NAME="${PLUSPLUS_SIMULATOR:-$OWN_SIMULATOR}"
 else
     OWN_SIMULATOR=""
-    SIMULATOR_NAME="${PLUSPLUS_SIMULATOR:-iPhone 17}"
+    SIMULATOR_NAME="${PLUSPLUS_SIMULATOR:-$MAIN_SIMULATOR}"
 fi
 DESTINATION="platform=iOS Simulator,name=$SIMULATOR_NAME"
 
@@ -203,33 +204,47 @@ shutdown_own_simulator() {
     echo "shut down \"$OWN_SIMULATOR\""
 }
 
-# Creates the worktree's own simulator when it does not exist yet: an iPhone 17 on the newest
-# installed iOS runtime that runs it (a beta runtime can carry only a new device). Does nothing
-# for any other simulator.
+# Creates the worktree's own simulator, or the main checkout's iPhone 17, as an iPhone 17 on the
+# newest installed iOS runtime that runs it (a beta runtime can carry only a new device), and
+# replaces one left on an older runtime, so every run uses the newest iOS. Does nothing for any
+# other simulator; to try an older iOS, name one with PLUSPLUS_SIMULATOR.
 ensure_simulator() {
-    is_own_simulator || return 0
-    # The record outlives the worktree, so scripts/tidy.sh can delete the simulator of a worktree
-    # removed with `git worktree remove`.
-    mark_simulator_used
+    if is_own_simulator; then
+        # The record outlives the worktree, so scripts/tidy.sh can delete the simulator of a
+        # worktree removed with `git worktree remove`.
+        mark_simulator_used
+    elif [ "$SIMULATOR_NAME" != "$MAIN_SIMULATOR" ]; then
+        return 0
+    fi
     local plan
     plan=$(xcrun simctl list --json devices runtimes | python3 -c '
 import json, sys
-own = sys.argv[1]
+name = sys.argv[1]
 device_type = "com.apple.CoreSimulator.SimDeviceType.iPhone-17"
 data = json.load(sys.stdin)
-if any(d["name"] == own for ds in data["devices"].values() for d in ds):
-    sys.exit()
 runtimes = [r for r in data["runtimes"] if r["platform"] == "iOS" and r["isAvailable"]
             and any(t["identifier"] == device_type for t in r["supportedDeviceTypes"])]
 if not runtimes:
     sys.exit(f"no installed iOS runtime runs {device_type}; install one in Xcode > Settings > Components")
 newest = max(runtimes, key=lambda r: [int(p) for p in r["version"].split(".")])
-print(device_type, newest["identifier"])
+existing = [(runtime, d) for runtime, ds in data["devices"].items() for d in ds if d["name"] == name]
+if any(runtime == newest["identifier"] for runtime, _ in existing):
+    sys.exit()
+old = " ".join(d["udid"] for _, d in existing) or "-"
+print(device_type, newest["identifier"], old)
 ' "$SIMULATOR_NAME") || return 1
     [ -n "$plan" ] || return 0
-    local device_type runtime
-    read -r device_type runtime <<< "$plan"
-    echo "creating simulator \"$SIMULATOR_NAME\" ($device_type, $runtime)" >&2
+    local device_type runtime old udid
+    read -r device_type runtime old <<< "$plan"
+    if [ "$old" != - ]; then
+        for udid in $old; do
+            echo "replacing simulator \"$SIMULATOR_NAME\" ($udid) with one on $runtime" >&2
+            xcrun simctl shutdown "$udid" 2> /dev/null || true
+            xcrun simctl delete "$udid"
+        done
+    else
+        echo "creating simulator \"$SIMULATOR_NAME\" ($device_type, $runtime)" >&2
+    fi
     xcrun simctl create "$SIMULATOR_NAME" "$device_type" "$runtime" > /dev/null
 }
 
