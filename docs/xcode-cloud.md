@@ -3,8 +3,8 @@
 Xcode Cloud builds and tests every pull request that changes the app, whose result the "PR
 check" reports (`docs/pr-check.md`), and ships each `v*` tag to TestFlight. Workflow
 definitions live in App Store Connect, not in the repo. Two files here belong to it:
-`ci_scripts/ci_post_clone.sh`, which installs the `Brewfile` tools and runs `scripts/lint.sh`
-before any build action, and `PlusPlus.xcodeproj/xcshareddata/xcodecloud/manifest.json`, which
+`ci_scripts/ci_post_clone.sh`, which installs the `Brewfile` tools and the pinned SwiftFormat
+and SwiftLint (`scripts/lint-tools.sh`) and runs `scripts/lint.sh` before any build action, and `PlusPlus.xcodeproj/xcshareddata/xcodecloud/manifest.json`, which
 records the Xcode Cloud product the project belongs to. Xcode writes the manifest back whenever
 a workflow is edited, so it is committed rather than deleted; it holds a product id and target
 name, nothing secret, and nothing in the build reads it.

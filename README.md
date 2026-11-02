@@ -6,7 +6,7 @@ SwiftData + CloudKit, iOS 27 and up.
 ## Getting started
 
 ```sh
-brew bundle              # formatting, lint, readable build output
+brew bundle              # readable build output; scripts/lint.sh fetches its pinned tools
 open PlusPlus.xcodeproj
 ```
 
