@@ -1,7 +1,7 @@
 ---
 name: pr
 description: Open or update a pull request for the current branch the way this repo expects, with lint and tests green first.
-allowed-tools: Bash(scripts/lint.sh:*), Bash(scripts/test.sh:*), Bash(scripts/ci-times.py:*), Bash(git:*), Bash(gh pr:*)
+allowed-tools: Bash(scripts/lint.sh:*), Bash(scripts/test.sh:*), Bash(scripts/ci-times.py:*), Bash(git:*), Bash(gh pr:*), Bash(scripts/pr-media.sh:*), Bash(ffmpeg:*)
 ---
 
 Branching and merge rules are in CLAUDE.md. Every diff also leaves the repo's prose true: read
@@ -72,6 +72,20 @@ maintainer, an agent review, the verifier, CI), and what took longer than it sho
 issue so the merge closes it. Write Friction from the session, not from the diff, and put any
 decision the diff does not explain in the body; the template says why the retro needs them.
 `--fill` skips the template.
+
+A change someone can see carries its before and after in the body itself, never as a path to a
+local file, which no reader of the PR can open: screenshots of `main` and the branch at the same
+moment, and a recording of each where the change is motion. `scripts/pr-media.sh <pr> <file>...`
+pushes them to the `pr-media` branch and prints the Markdown image lines; a recording becomes a
+looping GIF. Say in a line above each image what it shows and which side is which. The PR's
+number exists only once `gh pr create` prints it, so open the PR, then add the images with
+`gh pr edit`. To put two recordings side by side, trimmed to the moment, make the GIF first and
+pass that:
+```sh
+ffmpeg -v error -ss <before start s> -t <seconds> -i before.mov -ss <after start s> -t <seconds> -i after.mov \
+  -filter_complex "[0:v]fps=20,scale=300:-2[a];[1:v]fps=20,scale=300:-2[b];[a][b]hstack,split[x][y];[x]palettegen=max_colors=96[p];[y][p]paletteuse=dither=bayer:bayer_scale=4" \
+  -loop 0 before-after.gif
+```
 
 Write the body as the commit message it becomes, true before the merge too: today and the
 change kept apart, as CLAUDE.md's "Tense tells the truth" says. The title is already the

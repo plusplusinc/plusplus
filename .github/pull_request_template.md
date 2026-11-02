@@ -5,7 +5,8 @@ never the result in the plain present.
 
 The retro runs in a session that never saw this work and reads the conversation's text, not
 what was run, so the body has to carry what it needs: the three lines below, and any decision
-the diff does not explain. -->
+the diff does not explain. A change someone can see shows its before and after here, as images
+from scripts/pr-media.sh, never as a path to a local file. -->
 
 Card: <!-- the board card this PR came from; "Closes #N" when it was published as an issue; or "none" and why -->
 
