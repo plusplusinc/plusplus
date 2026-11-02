@@ -6,8 +6,9 @@ import SwiftUI
 /// Moving to another exercise is one motion from the log, about 1.25 s:
 /// - **Pulse**: the node left is pulled out into a blob of green (`PulseShape`): its bottom edge
 ///   stretches into a neck that thins and snaps, leaving the node behind in its own color, and
-///   the mass runs along the rail, drawn out the faster it goes, to the next node, which it joins
-///   (`travelStart`, `travel(_:)`). There it plops in, squashing and wiggling back to a circle
+///   the mass runs along the rail, drawn out the faster it goes, to the next node, which it hits
+///   moving and joins, gathering into a circle on it (`travelStart`, `travel(_:)`, `collapse`).
+///   There it plops in, squashing and wiggling back to a circle
 ///   (`plop`), with a light haptic, and the node lights as it plops (`landing(_:)`).
 /// - **Hold**: nothing else moves until the landing has been seen: the pulse travels and plops on
 ///   a still screen, the current exercise's parts all still showing, for `landingHold` after it
@@ -112,26 +113,19 @@ public enum SetMotion {
     /// and still hits the node moving, never creeping into it.
     nonisolated static let travelLanding = 0.6
 
-    /// Down the rail, the set-off's end: the share of the travel the pulse spends speeding up,
-    /// where it reaches its top speed. Past halfway, it pulls free more gently than it lands:
-    /// 0.7, where the symmetric quartic had it at 0.5, as Dave asked (2026-11-01).
-    nonisolated static let travelTopSpeedAt = 0.7
-    /// Down the rail, the landing's end: the power of the pulse's ease into the node, which slows
-    /// it to a stop, so it arrives a circle. Its top speed, against its average, is the same: 4,
-    /// the quartic Dave asked for after the quintic's 1.875 (2026-10-30). The set-off eases in on
-    /// the same power over its longer share, so the two meet at the top speed without a kink.
-    nonisolated static let travelEase = 4.0
-    /// Up a loop, after the pulse reaches the node, how long its stretch takes to gather into a
-    /// circle on it; down the rail it arrives a circle, its ease having slowed it to a stop.
+    /// Down the rail, the power of the pulse's one ease in, from pulling free to the node: it
+    /// charges up slowly as its neck stretches and snaps, then shoots down the rail, still
+    /// speeding up as it hits the node, at this many times its average speed. 5, one curve where
+    /// round 1 had a set-off and a landing, as Dave asked: "charge and hit" (2026-11-01).
+    nonisolated static let travelPower = 5.0
+    /// After the pulse reaches the node, how long its stretch takes to gather into a circle on
+    /// it: it hits the node moving, both down the rail and up a loop.
     nonisolated static let collapse = 0.06
 
     /// When the pulse lands on the next row's node as a circle and plops in, with a light
     /// haptic, and the node lights under it, from the log.
     public nonisolated static func landing(_ way: Way) -> Double {
-        switch way {
-        case .down: travelStart + travel(.down)
-        case .loop: travelStart + travel(.loop) + collapse
-        }
+        travelStart + travel(way) + collapse
     }
 
     /// The plop: the landed pulse squashing and wiggling back to a circle on the node, a damped
@@ -217,18 +211,12 @@ public enum SetMotion {
     }
 
     /// Where along the travel, from 0 to 1, the pulse is a share `time` of the way through it. Down
-    /// the rail, a power ease in and out (`travelEase`) whose top speed comes at
-    /// `travelTopSpeedAt`: slow as its neck stretches and pulls free, gathering speed over most of
-    /// the run, and slowing to a stop as it joins the next node. Each end covers as much of the
-    /// distance as of the time. Up a loop, a quadratic ease-out, fastest as it sets off and
-    /// landing at `travelLanding`.
+    /// the rail, a power ease in (`travelPower`): slow as its neck stretches and pulls free, and
+    /// speeding up all the way to the next node, fastest as it hits it. Up a loop, a quadratic
+    /// ease-out, fastest as it sets off and landing at `travelLanding`.
     nonisolated static func distance(at time: Double, _ way: Way) -> Double {
         switch way {
-        case .down:
-            time < travelTopSpeedAt
-                ? travelTopSpeedAt * pow(time / travelTopSpeedAt, travelEase)
-                : 1 - (1 - travelTopSpeedAt)
-                * pow((1 - time) / (1 - travelTopSpeedAt), travelEase)
+        case .down: pow(time, travelPower)
         case .loop: (2 - travelLanding) * time - (1 - travelLanding) * time * time
         }
     }
@@ -236,13 +224,7 @@ public enum SetMotion {
     /// The pulse's speed at a share `time` of its travel, against its average.
     nonisolated static func speed(at time: Double, _ way: Way) -> Double {
         switch way {
-        case .down:
-            travelEase * pow(
-                time < travelTopSpeedAt
-                    ? time / travelTopSpeedAt
-                    : (1 - time) / (1 - travelTopSpeedAt),
-                travelEase - 1,
-            )
+        case .down: travelPower * pow(time, travelPower - 1)
         case .loop: (2 - travelLanding) - 2 * (1 - travelLanding) * time
         }
     }

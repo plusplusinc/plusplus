@@ -101,9 +101,11 @@ nonisolated struct RailRoute: Equatable {
 /// node left behind, and a neck between them (`neck(_:_:)`) thins as they part, until it snaps
 /// and only the mass draws. It runs along the route as a capsule drawn out by its speed, thinner
 /// the longer it is, its area kept, and once its leading end touches the next node, a circle at
-/// `restingSize` there joins it by a neck too. Landed (`SetMotion.landing(_:)`), it is a circle
-/// on the node, which squashes and wiggles back to round through `SetMotion.plop`
-/// (`SetMotion.squash(at:)`) over the node, lit as it lands; then nothing draws.
+/// `restingSize` there joins it by a neck too. It hits the node moving, its leading end stops
+/// there, and the rest gathers into a circle on it (`SetMotion.collapse`). Landed
+/// (`SetMotion.landing(_:)`), it is a circle on the node, which squashes and wiggles back to
+/// round through `SetMotion.plop` (`SetMotion.squash(at:)`) over the node, lit as it lands; then
+/// nothing draws.
 nonisolated struct PulseShape: Shape {
     /// Seconds since the log; below 0, as between runs, there is no pulse.
     var time: Double
@@ -168,7 +170,8 @@ nonisolated struct PulseShape: Shape {
             size + Self.stretch * CGFloat(SetMotion.speed(at: share, way)) * total / travel,
             size * Self.longest,
         )
-        // Up a loop it reaches the node still moving, and gathers into a circle on it.
+        // It reaches the node still moving, stretched, and gathers into a circle on it, its
+        // leading end held on the node as the rest catches up.
         let gathered = (time - start - travel) / SetMotion.collapse
         if gathered > 0 {
             length = size + (length - size) * CGFloat(max(1 - gathered, 0))
