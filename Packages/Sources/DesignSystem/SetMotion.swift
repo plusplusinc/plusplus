@@ -3,15 +3,17 @@ import SwiftUI
 /// Every timing in logging a set and moving on, in one place, so a tweak tried on the phone is one
 /// line and a rebuild.
 ///
-/// Moving to another exercise is one motion from the log, about 1.25 s:
+/// Moving to another exercise is one motion from the log, 0.93 s down the rail and 1.1 s back up
+/// a superset's loop (`move(_:)`):
 /// - **Pulse**: the node left is pulled out into a blob of green (`PulseShape`): its bottom edge
 ///   stretches into a neck that thins and snaps, leaving the node behind in its own color, and
-///   the mass runs along the rail, drawn out the faster it goes, to the next node, which it joins
-///   (`travelStart`, `travel(_:)`). There it plops in, squashing and wiggling back to a circle
+///   the mass runs along the rail, drawn out the faster it goes, to the next node, which it hits
+///   moving and joins, gathering into a circle on it (`travelStart`, `travel(_:)`, `collapse`).
+///   There it plops in, squashing and wiggling back to a circle
 ///   (`plop`), with a light haptic, and the node lights as it plops (`landing(_:)`).
 /// - **Hold**: nothing else moves until the landing has been seen: the pulse travels and plops on
 ///   a still screen, the current exercise's parts all still showing, for `landingHold` after it
-///   lands, about when its wiggle has mostly settled.
+///   lands, as its first squash has sprung back.
 /// - **Leave**: what the current exercise grew to show goes, bottom first, each part fading as it
 ///   drops a few points: the numbers, then the equipment and the progress line, as the shift
 ///   starts.
@@ -83,8 +85,9 @@ public enum SetMotion {
     /// Moving to another exercise, the shift's length.
     nonisolated static let moveShift = 0.45
     /// How long after the pulse lands the shift starts: the plop plays on a still screen, and the
-    /// shift starts about when its wiggle has mostly settled. Longer, the landing holds longer.
-    nonisolated static let landingHold = 0.3
+    /// shift starts as its first squash has sprung back, the wiggle settling as the rows move.
+    /// Longer, the landing holds longer. 0.15 s, as Dave asked for a shorter pause (2026-11-01).
+    nonisolated static let landingHold = 0.15
     /// Moving to another exercise, when the shift starts, from the log.
     public nonisolated static func moveShiftStart(_ way: Way) -> Double {
         landing(way) + landingHold
@@ -98,11 +101,11 @@ public enum SetMotion {
     /// When the pulse sets off, from the log: at once, ahead of everything it pulls.
     nonisolated static let travelStart = 0.02
     /// The pulse traveling from the node left to the next one's, from its pulling free to its
-    /// joining. Down the rail, slow enough to watch it go; up a loop, ahead of the shift, which
-    /// settles a beat after it lands.
+    /// joining. Down the rail, a short charge and a shot, as Dave found the longer run sluggish
+    /// (2026-11-01); up a loop, ahead of the shift, which settles a beat after it lands.
     nonisolated static func travel(_ way: Way) -> Double {
         switch way {
-        case .down: 0.5
+        case .down: 0.25
         case .loop: 0.42
         }
     }
@@ -111,20 +114,19 @@ public enum SetMotion {
     /// and still hits the node moving, never creeping into it.
     nonisolated static let travelLanding = 0.6
 
-    /// Down the rail, the power of the pulse's ease at each end: its top speed, against its
-    /// average. 4 is the quartic ease-in-out Dave asked for after the quintic's 1.875 (2026-10-30).
-    nonisolated static let travelEase = 4.0
-    /// Up a loop, after the pulse reaches the node, how long its stretch takes to gather into a
-    /// circle on it; down the rail it arrives a circle, its ease having slowed it to a stop.
+    /// Down the rail, the power of the pulse's one ease in, from pulling free to the node: it
+    /// charges up slowly as its neck stretches and snaps, then shoots down the rail, still
+    /// speeding up as it hits the node, at this many times its average speed, as Dave asked:
+    /// "charge and hit" (2026-11-01).
+    nonisolated static let travelPower = 6.0
+    /// After the pulse reaches the node, how long its stretch takes to gather into a circle on
+    /// it: it hits the node moving, both down the rail and up a loop.
     nonisolated static let collapse = 0.06
 
     /// When the pulse lands on the next row's node as a circle and plops in, with a light
     /// haptic, and the node lights under it, from the log.
     public nonisolated static func landing(_ way: Way) -> Double {
-        switch way {
-        case .down: travelStart + travel(.down)
-        case .loop: travelStart + travel(.loop) + collapse
-        }
+        travelStart + travel(way) + collapse
     }
 
     /// The plop: the landed pulse squashing and wiggling back to a circle on the node, a damped
@@ -210,15 +212,12 @@ public enum SetMotion {
     }
 
     /// Where along the travel, from 0 to 1, the pulse is a share `time` of the way through it. Down
-    /// the rail, a power ease-in-out (`travelEase`): slow as its neck stretches and pulls free,
-    /// fastest halfway, and slowing to a stop as it joins the next node. Up a loop, a quadratic
+    /// the rail, a power ease in (`travelPower`): slow as its neck stretches and pulls free, and
+    /// speeding up all the way to the next node, fastest as it hits it. Up a loop, a quadratic
     /// ease-out, fastest as it sets off and landing at `travelLanding`.
     nonisolated static func distance(at time: Double, _ way: Way) -> Double {
         switch way {
-        case .down:
-            time < 0.5
-                ? pow(2 * time, travelEase) / 2
-                : 1 - pow(2 - 2 * time, travelEase) / 2
+        case .down: pow(time, travelPower)
         case .loop: (2 - travelLanding) * time - (1 - travelLanding) * time * time
         }
     }
@@ -226,7 +225,7 @@ public enum SetMotion {
     /// The pulse's speed at a share `time` of its travel, against its average.
     nonisolated static func speed(at time: Double, _ way: Way) -> Double {
         switch way {
-        case .down: travelEase * pow(1 - abs(2 * time - 1), travelEase - 1)
+        case .down: travelPower * pow(time, travelPower - 1)
         case .loop: (2 - travelLanding) - 2 * (1 - travelLanding) * time
         }
     }

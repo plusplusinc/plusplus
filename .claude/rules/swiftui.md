@@ -176,16 +176,18 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
 - A log that stays on the current exercise is saved at once, but shown as still to do (`heldSet`)
   for `SetMotion.heldRoll` (0.5 s, about as the +1 has risen), a `.task(id:)` on the held set, so
   the screen going away cancels it; a second tap inside it is dropped, as a double tap would be.
-  As it logs, the current node shrinks to half and fades to the rail's gray (0.2 s) and rests so;
-  as the beat ends, the progress line rolls word by word, only the words that change ("Set 2 of 3"
-  to "Set 3 of 3" rolls the 2 alone, a side word on its own), each pushed up and out as its new
-  one comes up (0.3 s), the bars with it, and the node pops back full and green on a `.bouncy`
-  spring past its size (`SetBeat`). The hold is a value on the row's `RailPlace`, set by the rail
+  As it logs, the current node shrinks to half and fades to the rail's gray (0.2 s, ease-in-out)
+  and rests so; as the beat ends, the progress line rolls word by word, only the words that
+  change ("Set 2 of 3" to "Set 3 of 3" rolls the 2 alone, a side word on its own), each pushed up and out as its new
+  one comes up (0.3 s), the bars with it, and the node pops back full and green (0.12 s) on a
+  `.bouncy` spring past its size (`SetBeat`). Both run on `.animation(_:body:)`, from wherever the
+  node is drawn: a `keyframeAnimator` whose initial value followed its trigger ran from held to
+  held, and the node snapped small. The hold is a value on the row's `RailPlace`, set by the rail
   (`Rail`'s `isSetHeld`), like the current row itself: an environment value set on a row's label
   never reached its node, a sibling inside `railRow()`. With Reduce Motion the node stays as it
   is.
-- A log that moves to another exercise is one motion (`ExerciseMove`, `SetMotion`), about 1.27 s
-  down the rail and 1.25 s back up a superset's loop. The node left goes to its own color at once,
+- A log that moves to another exercise is one motion (`ExerciseMove`, `SetMotion`), 0.93 s
+  down the rail and 1.1 s back up a superset's loop. The node left goes to its own color at once,
   under a green blob (`RailPulse`, `PulseShape`) that is that node from the log: from 0.02 s its
   bottom is pulled out along the rail, a capsule drawn out by its speed (at most 3 times the node,
   its area kept, so it thins), joined to the node left by a neck whose sides are two curves
@@ -197,12 +199,13 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   the blob dimming with the current pulse's clock so neither hand-over shows a seam. Paths are
   joined with `Path.union`, which keeps every edge antialiased; a blur-and-threshold metaball
   would have shrunk the shapes and drawn hard edges. Down the rail (`SetMotion.Way.down`) the blob
-  travels 0.5 s on a quartic ease-in-out (`travelEase` 4, four times its average speed at the
-  middle), slow as it pulls free and as it joins, landing 0.52 s after the log; back up a loop at
-  a round's end it travels 0.42 s on an ease-out and gathers into a circle on the node (0.06 s),
-  landing at 0.5 s. Either way nothing else moves until the landing has been seen: the current
-  exercise's parts all still show, and the shift starts `landingHold` (0.3 s) after the landing,
-  as the wiggle has mostly settled (`moving(_:)`, 0.45 s on `timingCurve(0.6, 0, 0.1, 1)`,
+  travels 0.25 s on one ease-in (distance u^6, `travelPower`), slow as it pulls free and fastest,
+  six times its average speed, as it hits the node; back up a loop at a round's end it travels
+  0.42 s on an ease-out. Either way it reaches the node still moving and gathers into a circle on
+  it (`collapse`, 0.06 s), its leading end held on the node, landing 0.33 s after the log down the
+  rail and 0.5 s up a loop. Nothing else moves until the landing has been seen: the current
+  exercise's parts all still show, and the shift starts `landingHold` (0.15 s) after the landing,
+  as the plop's first squash has sprung back (`moving(_:)`, 0.45 s on `timingCurve(0.6, 0, 0.1, 1)`,
   starting from rest and easing hard to a stop with no overshoot). Then the parts go bottom first,
   each fading as it drops 6 pt; the row shrinks back to a resting row as the next row grows into
   the current exercise and the list scrolls it up under the bar, the scroll Start's (scrolled at
