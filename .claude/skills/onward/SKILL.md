@@ -98,6 +98,10 @@ project board; agents' technical working files live in `.slices/`.
 - A number a recommendation or a card turns on (a price, a quota, a machine's speed) is read
   from its source or measured, the cheapest way, before you recommend it or anything is built
   on it: a card whose go or no-go rests on one measures it as its first step.
+- When a subagent reports, passed, failed, or stopped, run the slice worktree's
+  `scripts/sim.sh shutdown`, and the same in any worktree of `main` it added, so its simulator
+  is not left booted when it skipped its own. Only that worktree's simulator: never
+  `simctl shutdown all` or another session's by name.
 - Reporting a phase as done, say where it went less deep than the card asked (what was compared
   only by name, sampled, or left out) before the maintainer has to ask. A fix to how something
   reaches them (a link, an install) is tried the way they will meet it before you call it fixed,

@@ -11,8 +11,9 @@
 # unmerged PRs are never cleaned up; their work may still be wanted. A removed worktree's own
 # simulator, "PlusPlus <worktree>" (see scripts/common.sh), is shut down and deleted with it, and
 # so is the recorded simulator of a worktree removed by hand; this is the only script that deletes
-# a simulator. A file or folder in .slices/ goes too once every board card it names (by item id,
-# PVTI_...) is Done, unless it is named after a live worktree or branch; one that names none, or a
+# a simulator. A worktree simulator booted but unused for 30 minutes (PLUSPLUS_SIM_IDLE_MINUTES)
+# is shut down, not deleted. A file or folder in .slices/ goes too once every board card it names
+# (by item id, PVTI_...) is Done, unless it is named after a live worktree or branch; one that names none, or a
 # card the board doesn't have, is kept.
 #
 #   scripts/tidy.sh            # remove, and print each thing removed
@@ -130,6 +131,12 @@ if [ -d "$RECORDS" ]; then
         fi
     done
 fi
+
+# A worktree simulator left booted and idle by an agent that ended without shutting it down.
+while IFS=$'\t' read -r name udid; do
+    echo "tidy: shut down simulator \"$name\", idle over $((IDLE_SHUTDOWN_SECONDS / 60))m"
+    [ "$DRY_RUN" -eq 1 ] || xcrun simctl shutdown "$udid" || true
+done < <(idle_worktree_simulators)
 
 checked_out=$(git worktree list --porcelain | awk '/^branch /{print substr($0,19)}')
 while read -r branch; do

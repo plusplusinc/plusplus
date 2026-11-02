@@ -13,6 +13,9 @@
 #                                           # about 25 s, and scripts/run.sh reinstalls the app
 #   scripts/sim.sh motion <recording.mov>   # each move in a recording, frame by frame, and its
 #                                           # pauses; reads the file, touches no simulator
+#   scripts/sim.sh shutdown                 # in a worktree, shut down its own simulator; run it
+#                                           # when your task reports, passed or failed
+#   scripts/sim.sh list                     # booted worktree simulators: worktree, idle time
 #
 # Appearance, content size, and the keyboard are simulator settings, so they survive relaunches
 # and reboots: whatever the last session left behind is what the next screenshot or UI test
@@ -54,7 +57,7 @@ reset_keyboard() {
         device defaults write "$domain" "$key" -bool false
         echo "turned off keyboard minimization; rebooting $SIMULATOR_NAME" >&2
         xcrun simctl shutdown "$SIMULATOR_NAME"
-        xcrun simctl bootstatus "$SIMULATOR_NAME" -b > /dev/null
+        boot_simulator
     fi
 }
 
@@ -111,7 +114,26 @@ motion() {
             }'
 }
 
+# Every command but these uses the simulator, which counts as use for its idle time.
 case "${1:-}" in
+    motion | shutdown | list | "") ;;
+    *) mark_simulator_used ;;
+esac
+
+case "${1:-}" in
+    shutdown)
+        shutdown_own_simulator
+        ;;
+    list)
+        rows=$(booted_worktree_simulators)
+        [ -n "$rows" ] || { echo "no worktree simulators booted (limit $MAX_BOOTED_SIMS)"; exit 0; }
+        echo "booted worktree simulators (limit $MAX_BOOTED_SIMS):"
+        awk -F'\t' '{
+            m = int($3 / 60)
+            idle = m < 60 ? m "m" : int(m / 60) "h" m % 60 "m"
+            printf "  %-32s idle %-7s %s\n", $1, idle, ($4 == "-" ? "worktree gone" : $4)
+        }' <<< "$rows"
+        ;;
     motion)
         [ -f "${2:-}" ] || { echo "usage: scripts/sim.sh motion <recording.mov>" >&2; exit 64; }
         motion "$2"
@@ -143,8 +165,7 @@ case "${1:-}" in
         settle
         ;;
     reset)
-        ensure_simulator
-        xcrun simctl bootstatus "$SIMULATOR_NAME" -b > /dev/null
+        boot_simulator
         reset_keyboard
         ui appearance light
         ui content_size large
@@ -164,8 +185,7 @@ case "${1:-}" in
         "${BASH_SOURCE[0]}" reset
         ;;
     relaunch)
-        ensure_simulator
-        xcrun simctl bootstatus "$SIMULATOR_NAME" -b > /dev/null
+        boot_simulator
         bundle_id=$(app_bundle_id)
         xcrun simctl terminate "$SIMULATOR_NAME" "$bundle_id" 2> /dev/null || true
         xcrun simctl launch "$SIMULATOR_NAME" "$bundle_id" > /dev/null
@@ -175,7 +195,7 @@ case "${1:-}" in
             --predicate "process == \"$SCHEME\" AND (subsystem == \"$SUBSYSTEM\" OR messageType >= 16)"
         ;;
     *)
-        sed -n '2,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2
+        sed -n '2,19p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2
         exit 64
         ;;
 esac
