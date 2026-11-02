@@ -74,7 +74,7 @@ struct GrowingName: View, Animatable {
     }
 
     /// How each size is drawn at `growth`, given the font sizes' ratio and the two measured sizes.
-    struct Drawing: Equatable {
+    struct Drawing {
         /// The small name's scale, both ways.
         var smallScale: CGFloat
         /// The large name's scale, across and up and down.
@@ -83,14 +83,14 @@ struct GrowingName: View, Animatable {
         var largeOpacity: CGFloat
 
         init(growth: CGFloat, ratio: CGFloat, sizes: Sizes) {
-            // The large name's scale up and down: a row's size at 0, its own at 1.
-            let scale = 1 / ratio + (1 - 1 / ratio) * growth
             let crossfades = !sizes.breakAlike(ratio: ratio)
-            // Across, where the large name is drawn throughout: the small name's width at 0, so
-            // the hand-off at rest lands on the same width; the font sizes' ratio up and down,
-            // which keeps the letters' height.
-            let resting = sizes.restingWidthScale(ratio: ratio)
-            let widthScale = crossfades ? scale : resting + (1 - resting) * growth
+            // Each way, from its scale at rest (at 0) to the large name's own size (at 1). Up and
+            // down, a row's size by the font sizes' ratio, which keeps the letters' height.
+            // Across, where the large name is drawn throughout, the small name's measured width,
+            // so the hand-off at rest lands on the same width.
+            let scale = 1 / ratio + (1 - 1 / ratio) * growth
+            let resting = crossfades ? 1 / ratio : sizes.restingWidthScale(ratio: ratio)
+            let widthScale = resting + (1 - resting) * growth
             smallScale = scale * ratio
             // Unscaled at rest, where it doesn't show: scaled down to a row's size, its text at
             // the large size in a frame that much smaller read as clipped in the accessibility

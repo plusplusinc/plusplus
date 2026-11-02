@@ -18,6 +18,11 @@ struct GrowingNameTests {
         large: CGSize(width: 340, height: 68),
     )
 
+    /// The font sizes' ratio's scale at `growth`: a row's size at 0, the large name's own at 1.
+    private func ratioScale(_ growth: CGFloat) -> CGFloat {
+        1 / ratio + (1 - 1 / ratio) * growth
+    }
+
     @Test("Breaking alike, the large name shrinks across into the small name's measured width")
     func shrinksIntoMeasuredWidth() {
         let nearRest = GrowingName.Drawing(growth: 0.0001, ratio: ratio, sizes: oneLine)
@@ -33,7 +38,7 @@ struct GrowingNameTests {
         for growth: CGFloat in [0.25, 0.5, 0.75] {
             let drawing = GrowingName.Drawing(growth: growth, ratio: ratio, sizes: oneLine)
             #expect(abs(drawing.largeScale.width - (resting + (1 - resting) * growth)) < 0.0001)
-            #expect(abs(drawing.largeScale.height - (17 / 28 + (1 - 17 / 28) * growth)) < 0.0001)
+            #expect(abs(drawing.largeScale.height - ratioScale(growth)) < 0.0001)
             #expect(drawing.largeOpacity == 1)
         }
         let grown = GrowingName.Drawing(growth: 1, ratio: ratio, sizes: oneLine)
@@ -52,7 +57,7 @@ struct GrowingNameTests {
     @Test("Breaking differently, the two crossfade, both scaled by the font sizes' ratio alone")
     func crossfadesWhenBreakingDifferently() {
         let drawing = GrowingName.Drawing(growth: 0.25, ratio: ratio, sizes: wrapsAtLarge)
-        let scale = 17 / 28 + (1 - 17 / 28) * 0.25
+        let scale = ratioScale(0.25)
         #expect(abs(drawing.largeScale.width - scale) < 0.0001)
         #expect(abs(drawing.largeScale.height - scale) < 0.0001)
         #expect(abs(drawing.smallScale - scale * ratio) < 0.0001)
@@ -62,7 +67,7 @@ struct GrowingNameTests {
     @Test("Before both sizes are measured, the font sizes' ratio scales both ways")
     func unmeasured() {
         let drawing = GrowingName.Drawing(growth: 0.5, ratio: ratio, sizes: .init())
-        let scale = 17 / 28 + (1 - 17 / 28) * 0.5
+        let scale = ratioScale(0.5)
         #expect(abs(drawing.largeScale.width - scale) < 0.0001)
         #expect(abs(drawing.largeScale.height - scale) < 0.0001)
     }
