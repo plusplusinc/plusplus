@@ -5,8 +5,10 @@ import XCTest
 /// routine, where after Discard it reopens this one (`RoutineStoreWorkoutTests` holds both
 /// launch rules and every saved field). Which set comes next is `WorkoutLoggingTests`', and
 /// how the row looks is `WorkoutRailSnapshotTests`'; this is the key's wire to finishing, which
-/// nothing in the app shows afterward, so a break that discarded the sets would go unseen. Its
-/// own test, since it launches with one exercise seeded and its own name.
+/// nothing in the app shows afterward, so a break that discarded the sets would go unseen. On
+/// the way, it reads where Start leaves the list, which only the running app's scroll view
+/// shows: on a one-exercise routine, a break left it low in most runs. Its own test, since it
+/// launches with one exercise seeded and its own name.
 ///
 /// `nonisolated` because XCTestCase's initializers are; the test drives the UI on the main actor.
 final nonisolated class WorkoutFinishUITests: XCTestCase {
@@ -15,10 +17,22 @@ final nonisolated class WorkoutFinishUITests: XCTestCase {
         let app = XCUIApplication()
         let name = "Finish check"
         let title = app.launchSeeding(["push-up"], named: name)
-        XCTContext.runActivity(named: "Logging the last set turns the key to Finish workout") { _ in
+        let row = app.exerciseRows.element(boundBy: 0)
+        XCTContext.runActivity(named: "Start leaves the list resting on the exercise") { _ in
             app.buttons["Start"].tap()
             XCTAssertTrue(app.workoutTime.appears(), "Start began no workout")
-            let row = app.exerciseRows.element(boundBy: 0)
+            // Read once the workout's key is up, past Start's hand-off to it: a bottom inset that
+            // changed there left this routine's list 52.7 pt low in most runs.
+            XCTAssertEqual(
+                reading(app.workoutKey.label, becoming: "Log set", within: 3),
+                "Log set",
+                "The workout's key never came up",
+            )
+            let bar = app.navigationBars.firstMatch.frame.maxY
+            let top = reading(row.frame.minY, until: { abs($0 - bar) < 1 }, within: 1)
+            XCTAssertLessThan(abs(top - bar), 1, "After Start, the list rests \(top - bar) pt low")
+        }
+        XCTContext.runActivity(named: "Logging the last set turns the key to Finish workout") { _ in
             for set in 1 ... 3 {
                 app.tapWorkoutKey(reading: set < 3 ? "Log set" : "Log last set")
                 if set < 3 {
