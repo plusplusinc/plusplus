@@ -35,8 +35,8 @@ shows (G), and is weighed by H and I, since it costs the most.
 - **E. Behavioral**: it fails when behavior changes, not when code moves. A test that restates a
   tuned value (a duration, a curve, a spring) fails on every retune and passes the bug it was
   written for: test what the value does (a travel only goes forward, never past the node), or
-  nothing (#138's `SetBeatTests` asserted the beat's animations while the bug was that the
-  beat never ran).
+  nothing (#138's `SetBeatTests` assert the beat's animations; the bug it fixed was that the
+  beat never ran, which they would not catch).
   ([Beck](https://testdesiderata.com/); [Google Testing Blog](https://testing.googleblog.com/2013/08/testing-on-toilet-test-behavior-not.html))
 - **F. Specific**: its name says the guarantee, and a failure names its cause.
   ([WWDC20 10091](https://developer.apple.com/videos/play/wwdc2020/10091/);
