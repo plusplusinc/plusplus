@@ -13,8 +13,11 @@ code only after the criteria are checked.
 1. Note the time, then build and launch with the worktree's `scripts/run.sh <name>`, by its path
    there (your shell starts in the lead's checkout, whose scripts use the maintainer's
    simulator), which uses the worktree's own simulator, "PlusPlus <worktree>". Never touch the
-   maintainer's. A worktree of `main` you add to compare with gets its own too: when done, remove
-   it with `git worktree remove`, then run `scripts/tidy.sh`, which deletes its simulator.
+   maintainer's. A worktree of `main` you add to compare with gets its own too: as soon as the
+   comparison is captured, run its `scripts/sim.sh shutdown`, remove it with
+   `git worktree remove`, then run `scripts/tidy.sh`, which deletes its simulator. A boot that
+   waits or exits 75 has hit the limit of booted worktree simulators: run it again later, and
+   never shut down another worktree's.
 2. Check each criterion on the running app with `/run`: screenshots in every appearance the app
    supports and at the largest text size,
    and `scripts/sim.sh log`. Look at every screenshot.
@@ -56,6 +59,8 @@ to a builder.
 
 If the work runs long, stop and write a handoff note to the path the lead names: criteria
 checked and their results, what is left, open issues, gotchas. Facts, at most 120 lines.
+
+Before you reply, passed or failed, run the worktree's `scripts/sim.sh shutdown`.
 
 Reply in under 30 lines: each criterion with pass or fail and its evidence (screenshot path,
 test name, log line), new crash reports, design differences, the tests added, and the record
