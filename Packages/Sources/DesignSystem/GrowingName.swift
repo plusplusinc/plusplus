@@ -25,36 +25,16 @@ struct GrowingName: View, Animatable {
     @Environment(\.fontResolutionContext) private var fontContext
 
     var body: some View {
-        let ratio = ratio
-        // The large name's scale: a row's size at 0, its own at 1.
-        let scale = 1 / ratio + (1 - 1 / ratio) * growth
-        let crossfades = !sizes.breakAlike(ratio: ratio)
-        // Across, where the large name is drawn throughout: the small name's width at 0, so the
-        // hand-off at rest lands on the same width; the font sizes' ratio up and down, which
-        // keeps the letters' height.
-        let resting = sizes.restingWidthScale(ratio: ratio)
-        let widthScale = crossfades ? scale : resting + (1 - resting) * growth
-        let largeOpacity: CGFloat = switch growth {
-        case ...0: 0
-        case 1...: 1
-        default: crossfades ? growth : 1
-        }
+        let drawing = Drawing(growth: growth, ratio: ratio, sizes: sizes)
         GrowingNameLayout(growth: growth) {
             name(.ppRowTitle)
                 .onGeometryChange(for: CGSize.self, of: \.size) { sizes.small = $0 }
-                .scaleEffect(scale * ratio, anchor: .topLeading)
-                .opacity(1 - largeOpacity)
+                .scaleEffect(drawing.smallScale, anchor: .topLeading)
+                .opacity(1 - drawing.largeOpacity)
             name(.ppCurrentTitle)
                 .onGeometryChange(for: CGSize.self, of: \.size) { sizes.large = $0 }
-                // Unscaled at rest, where it doesn't show: scaled down to a row's size, its text
-                // at the large size in a frame that much smaller read as clipped in the
-                // accessibility audit.
-                .scaleEffect(
-                    x: growth == 0 ? 1 : widthScale,
-                    y: growth == 0 ? 1 : scale,
-                    anchor: .topLeading,
-                )
-                .opacity(largeOpacity)
+                .scaleEffect(drawing.largeScale, anchor: .topLeading)
+                .opacity(drawing.largeOpacity)
         }
     }
 
@@ -73,7 +53,7 @@ struct GrowingName: View, Animatable {
     }
 
     /// Both sizes laid out at the row's width.
-    private struct Sizes: Equatable {
+    struct Sizes: Equatable {
         var small: CGSize = .zero
         var large: CGSize = .zero
 
@@ -90,6 +70,39 @@ struct GrowingName: View, Animatable {
         func restingWidthScale(ratio: CGFloat) -> CGFloat {
             guard small.width > 0, large.width > 0 else { return 1 / ratio }
             return small.width / large.width
+        }
+    }
+
+    /// How each size is drawn at `growth`, given the font sizes' ratio and the two measured sizes.
+    struct Drawing: Equatable {
+        /// The small name's scale, both ways.
+        var smallScale: CGFloat
+        /// The large name's scale, across and up and down.
+        var largeScale: CGSize
+        /// The large name's opacity; the small's is what's left of 1.
+        var largeOpacity: CGFloat
+
+        init(growth: CGFloat, ratio: CGFloat, sizes: Sizes) {
+            // The large name's scale up and down: a row's size at 0, its own at 1.
+            let scale = 1 / ratio + (1 - 1 / ratio) * growth
+            let crossfades = !sizes.breakAlike(ratio: ratio)
+            // Across, where the large name is drawn throughout: the small name's width at 0, so
+            // the hand-off at rest lands on the same width; the font sizes' ratio up and down,
+            // which keeps the letters' height.
+            let resting = sizes.restingWidthScale(ratio: ratio)
+            let widthScale = crossfades ? scale : resting + (1 - resting) * growth
+            smallScale = scale * ratio
+            // Unscaled at rest, where it doesn't show: scaled down to a row's size, its text at
+            // the large size in a frame that much smaller read as clipped in the accessibility
+            // audit.
+            largeScale = growth == 0
+                ? CGSize(width: 1, height: 1)
+                : CGSize(width: widthScale, height: scale)
+            largeOpacity = switch growth {
+            case ...0: 0
+            case 1...: 1
+            default: crossfades ? growth : 1
+            }
         }
     }
 }
