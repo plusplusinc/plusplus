@@ -1,11 +1,11 @@
 # The PR check
 
 Every pull request to `main` runs one required GitHub Actions check, "PR check"
-(`.github/workflows/pr-check.yml`), on each push; branch protection requires only it. Its logic is
+(`.github/workflows/pr-check.yml`), on each push; the `main` ruleset requires only it. Its logic is
 `scripts/pr-check.sh`, which runs the same way on a Mac:
 
 - **A PR that changes no app code**, one whose changed files all match `.github/no-code-paths`
-  (docs, `.claude/`, the PR template, the root Markdown files, the scripts no build runs), gets
+  (docs, `.claude/`, the PR template, the rulesets, the root Markdown files, the scripts no build runs), gets
   `scripts/lint.sh` on its changed files and passes, in a minute or two. Xcode Cloud starts no
   run for it, since its PR workflow skips the same list.
 - **Any other PR** waits for Xcode Cloud's commit status, "PlusPlus Workout Tracker | PR", on the
@@ -68,23 +68,32 @@ scripts/pr-check.sh wait <sha> [minutes]    # Xcode Cloud's result on a commit, 
 
 `gh pr checks <n> --watch --interval 60` waits on it from a PR.
 
-## Branch protection
+## Rulesets
 
-On `main`: require a pull request, require "PR check" with the branch up to date, squash merges
-only, delete branches on merge. Renaming the job means updating the rule, since it names the
-check. Change the required check only once the workflow that runs it, under that name, is on
-`main`: until then only the PR that adds it produces it, so every other PR waits on that one.
-Set once with the first command; the second changes only the required check:
+Two rulesets, kept as JSON in `.github/rulesets/`, hold the rules. Nobody bypasses either, admins
+included.
+
+- **`main`** (`main.json`): a pull request, merged by squash only; "PR check" passing with the
+  branch up to date; linear history; no force push and no deletion. Renaming the job means
+  updating the rule, since it names the check. Change the required check only once the workflow
+  that runs it, under that name, is on `main`: until then only the PR that adds it produces it,
+  so every other PR waits on that one.
+- **`release tags`** (`release-tags.json`): a `v*` tag can be created but never moved or
+  deleted, since each one is a TestFlight build. To remove a bad tag, set the ruleset's
+  enforcement to `disabled`, delete the tag, and set it back to `active`.
+
+Edit the JSON, then apply it by name (`POST repos/plusplusinc/plusplus/rulesets --input <file>`
+creates one that does not exist yet). `gh ruleset check main` shows what applies to a branch.
 
 ```sh
-gh api -X PUT repos/plusplusinc/plusplus/branches/main/protection \
-  -f required_status_checks[strict]=true \
-  -f 'required_status_checks[contexts][]=PR check' \
-  -F enforce_admins=true \
-  -f required_pull_request_reviews[required_approving_review_count]=0 \
-  -F restrictions=null
-gh api -X PATCH repos/plusplusinc/plusplus/branches/main/protection/required_status_checks \
-  -F strict=true -f 'contexts[]=PR check'
+id=$(gh api repos/plusplusinc/plusplus/rulesets --jq '.[] | select(.name=="main").id')
+gh api -X PUT repos/plusplusinc/plusplus/rulesets/$id --input .github/rulesets/main.json
+```
+
+Repository settings outside the rulesets: squash merges only, the commit taken from the PR's
+title and body, and branches deleted on merge.
+
+```sh
 gh repo edit plusplusinc/plusplus --enable-squash-merge --enable-merge-commit=false \
   --enable-rebase-merge=false --delete-branch-on-merge
 ```

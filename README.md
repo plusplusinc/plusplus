@@ -59,7 +59,7 @@ scripts/lint.sh --fix    # SwiftFormat, SwiftLint, US English
 | `Config/` | Every build setting, as xcconfig. Nothing lives in the pbxproj. |
 | `scripts/` | Build, test, lint, and run, shared by humans, agents, and CI. |
 | `ci_scripts/` | Xcode Cloud hooks. |
-| `.github/` | The PR check, its no-code list, and the PR template. |
+| `.github/` | The PR check, its no-code list, the PR template, and the rulesets. |
 | `.claude/` | Agent rules, skills, and hooks. See `docs/agent-tooling.md`. |
 
 The dependency rules between the packages are the architecture; they are spelled out in

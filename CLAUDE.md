@@ -165,7 +165,7 @@ See `docs/agent-tooling.md`.
 ## Branching
 
 **`main` only moves through pull requests. Never commit to it directly**, not even a one-line
-fix. Branch protection enforces this server-side. Work in a worktree; the main checkout stays on
+fix. A ruleset enforces this server-side. Work in a worktree; the main checkout stays on
 `main`, driving the maintainer's simulator and the nightly retro.
 
 ```sh
