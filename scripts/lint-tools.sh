@@ -23,25 +23,29 @@ ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 COMMON=$(git -C "$ROOT" rev-parse --path-format=absolute --git-common-dir)
 TOOLS_DIR="$(dirname "$COMMON")/.build/tools"
 
-# Downloads a tool's asset, checks it, and moves its unzipped folder into place whole, so an
-# interrupted fetch never leaves a half-written binary.
+# Downloads a tool's asset and checks it, in a folder beside the tools so the last step is a
+# rename on one volume: the tool appears whole or not at all. Fetches that race, from two
+# worktrees, each finish; the first to land wins and none deletes another's.
 #
 #   fetch <tool> <version> <sha256> <url> <dir>
-fetch() {
-    local name=$1 version=$2 sha=$3 url=$4 dir=$5 tmp actual
+fetch() (
+    # Each step exits on its own: set -e does nothing in a function called from `||`.
+    name=$1 version=$2 sha=$3 url=$4 dir=$5
     echo "installing $name $version into $dir"
-    tmp=$(mktemp -d "${TMPDIR:-/tmp}/lint-tools.XXXXXX")
-    curl --fail --silent --show-error --location --retry 2 --output "$tmp/asset.zip" "$url" &&
-        actual=$(shasum -a 256 "$tmp/asset.zip" | cut -d' ' -f1) &&
-        { [ "$actual" = "$sha" ] ||
-            { echo "$name $version: checksum $actual does not match the pinned $sha" >&2; false; }; } &&
-        unzip -q "$tmp/asset.zip" -d "$tmp/unzipped" &&
-        { [ -x "$tmp/unzipped/$name" ] || { echo "$name $version: no $name in $url" >&2; false; }; } &&
-        mkdir -p "$TOOLS_DIR" && rm -rf "$dir" && mv "$tmp/unzipped" "$dir"
-    local status=$?
-    rm -rf "$tmp"
-    return "$status"
-}
+    mkdir -p "$TOOLS_DIR" || exit 1
+    tmp=$(mktemp -d "$TOOLS_DIR/.fetch.XXXXXX") || exit 1
+    trap 'rm -rf "$tmp"' EXIT
+    curl --fail --silent --show-error --location --retry 2 --output "$tmp/asset.zip" "$url" ||
+        exit 1
+    actual=$(shasum -a 256 "$tmp/asset.zip" | cut -d' ' -f1)
+    if [ "$actual" != "$sha" ]; then
+        echo "$name $version: checksum $actual does not match the pinned $sha" >&2
+        exit 1
+    fi
+    unzip -q "$tmp/asset.zip" -d "$tmp/unzipped" || exit 1
+    [ -x "$tmp/unzipped/$name" ] || { echo "$name $version: no $name in $url" >&2; exit 1; }
+    [ -x "$dir/$name" ] || mv "$tmp/unzipped" "$dir"
+)
 
 [ "${1:-}" = path ] && [ "$#" -eq 2 ] ||
     { echo "usage: scripts/lint-tools.sh path <swiftformat|swiftlint>" >&2; exit 64; }
