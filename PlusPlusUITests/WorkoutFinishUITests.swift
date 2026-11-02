@@ -23,7 +23,11 @@ final nonisolated class WorkoutFinishUITests: XCTestCase {
             XCTAssertTrue(app.workoutTime.appears(), "Start began no workout")
             // Read once the workout's key is up, past Start's hand-off to it: a bottom inset that
             // changed there left this routine's list 52.7 pt low in most runs.
-            XCTAssertEqual(reading(app.workoutKey.label, becoming: "Log set", within: 3), "Log set")
+            XCTAssertEqual(
+                reading(app.workoutKey.label, becoming: "Log set", within: 3),
+                "Log set",
+                "The workout's key never came up",
+            )
             let bar = app.navigationBars.firstMatch.frame.maxY
             let top = reading(row.frame.minY, until: { abs($0 - bar) < 1 }, within: 1)
             XCTAssertLessThan(abs(top - bar), 1, "After Start, the list rests \(top - bar) pt low")
