@@ -11,7 +11,7 @@ import SwiftUI
 ///   (`plop`), with a light haptic, and the node lights as it plops (`landing(_:)`).
 /// - **Hold**: nothing else moves until the landing has been seen: the pulse travels and plops on
 ///   a still screen, the current exercise's parts all still showing, for `landingHold` after it
-///   lands, about when its wiggle has mostly settled.
+///   lands, as its first squash has sprung back.
 /// - **Leave**: what the current exercise grew to show goes, bottom first, each part fading as it
 ///   drops a few points: the numbers, then the equipment and the progress line, as the shift
 ///   starts.
@@ -83,8 +83,9 @@ public enum SetMotion {
     /// Moving to another exercise, the shift's length.
     nonisolated static let moveShift = 0.45
     /// How long after the pulse lands the shift starts: the plop plays on a still screen, and the
-    /// shift starts about when its wiggle has mostly settled. Longer, the landing holds longer.
-    nonisolated static let landingHold = 0.3
+    /// shift starts as its first squash has sprung back, the wiggle settling as the rows move.
+    /// Longer, the landing holds longer. 0.15 s, half the 0.3 s before, as Dave asked (2026-11-01).
+    nonisolated static let landingHold = 0.15
     /// Moving to another exercise, when the shift starts, from the log.
     public nonisolated static func moveShiftStart(_ way: Way) -> Double {
         landing(way) + landingHold
@@ -111,8 +112,14 @@ public enum SetMotion {
     /// and still hits the node moving, never creeping into it.
     nonisolated static let travelLanding = 0.6
 
-    /// Down the rail, the power of the pulse's ease at each end: its top speed, against its
-    /// average. 4 is the quartic ease-in-out Dave asked for after the quintic's 1.875 (2026-10-30).
+    /// Down the rail, the set-off's end: the share of the travel the pulse spends speeding up,
+    /// where it reaches its top speed. Past halfway, it pulls free more gently than it lands:
+    /// 0.7, where the symmetric quartic had it at 0.5, as Dave asked (2026-11-01).
+    nonisolated static let travelTopSpeedAt = 0.7
+    /// Down the rail, the landing's end: the power of the pulse's ease into the node, which slows
+    /// it to a stop, so it arrives a circle. Its top speed, against its average, is the same: 4,
+    /// the quartic Dave asked for after the quintic's 1.875 (2026-10-30). The set-off eases in on
+    /// the same power over its longer share, so the two meet at the top speed without a kink.
     nonisolated static let travelEase = 4.0
     /// Up a loop, after the pulse reaches the node, how long its stretch takes to gather into a
     /// circle on it; down the rail it arrives a circle, its ease having slowed it to a stop.
@@ -210,15 +217,18 @@ public enum SetMotion {
     }
 
     /// Where along the travel, from 0 to 1, the pulse is a share `time` of the way through it. Down
-    /// the rail, a power ease-in-out (`travelEase`): slow as its neck stretches and pulls free,
-    /// fastest halfway, and slowing to a stop as it joins the next node. Up a loop, a quadratic
-    /// ease-out, fastest as it sets off and landing at `travelLanding`.
+    /// the rail, a power ease in and out (`travelEase`) whose top speed comes at
+    /// `travelTopSpeedAt`: slow as its neck stretches and pulls free, gathering speed over most of
+    /// the run, and slowing to a stop as it joins the next node. Each end covers as much of the
+    /// distance as of the time. Up a loop, a quadratic ease-out, fastest as it sets off and
+    /// landing at `travelLanding`.
     nonisolated static func distance(at time: Double, _ way: Way) -> Double {
         switch way {
         case .down:
-            time < 0.5
-                ? pow(2 * time, travelEase) / 2
-                : 1 - pow(2 - 2 * time, travelEase) / 2
+            time < travelTopSpeedAt
+                ? travelTopSpeedAt * pow(time / travelTopSpeedAt, travelEase)
+                : 1 - (1 - travelTopSpeedAt)
+                * pow((1 - time) / (1 - travelTopSpeedAt), travelEase)
         case .loop: (2 - travelLanding) * time - (1 - travelLanding) * time * time
         }
     }
@@ -226,7 +236,13 @@ public enum SetMotion {
     /// The pulse's speed at a share `time` of its travel, against its average.
     nonisolated static func speed(at time: Double, _ way: Way) -> Double {
         switch way {
-        case .down: travelEase * pow(1 - abs(2 * time - 1), travelEase - 1)
+        case .down:
+            travelEase * pow(
+                time < travelTopSpeedAt
+                    ? time / travelTopSpeedAt
+                    : (1 - time) / (1 - travelTopSpeedAt),
+                travelEase - 1,
+            )
         case .loop: (2 - travelLanding) - 2 * (1 - travelLanding) * time
         }
     }
