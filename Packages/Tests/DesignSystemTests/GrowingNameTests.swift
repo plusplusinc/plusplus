@@ -64,6 +64,18 @@ struct GrowingNameTests {
         #expect(drawing.largeOpacity == 0.25)
     }
 
+    @Test("As many lines broken at other words crossfade, like a different number of lines")
+    func crossfadesWhenBreakingAtOtherWords() {
+        // Two lines both ways, the widest far narrower at the large size than the ratio has it.
+        let otherWords = GrowingName.Sizes(
+            small: CGSize(width: 300, height: 44),
+            large: CGSize(width: 330, height: 72),
+        )
+        let drawing = GrowingName.Drawing(growth: 0.25, ratio: ratio, sizes: otherWords)
+        #expect(abs(drawing.largeScale.width - ratioScale(0.25)) < 0.0001)
+        #expect(drawing.largeOpacity == 0.25)
+    }
+
     @Test("Before both sizes are measured, the font sizes' ratio scales both ways")
     func unmeasured() {
         let drawing = GrowingName.Drawing(growth: 0.5, ratio: ratio, sizes: .init())

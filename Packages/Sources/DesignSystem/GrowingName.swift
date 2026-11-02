@@ -57,12 +57,17 @@ struct GrowingName: View, Animatable {
         var small: CGSize = .zero
         var large: CGSize = .zero
 
-        /// Whether the two sizes break into as many lines: the large as tall as the small
-        /// scaled up, give or take less than a line.
+        /// Whether the two sizes break into the same lines: the large as tall as the small
+        /// scaled up, give or take less than a line, and as wide, give or take a tenth. The
+        /// system font's width per point differs between the sizes by only a few percent, so
+        /// as many lines broken at other words show as widest lines far further apart.
         func breakAlike(ratio: CGFloat) -> Bool {
             guard small.height > 0 else { return true }
             let lines = large.height / (small.height * ratio)
-            return lines > 0.75 && lines < 1.33
+            guard lines > 0.75, lines < 1.33 else { return false }
+            guard small.width > 0, large.width > 0 else { return true }
+            let widths = small.width * ratio / large.width
+            return widths > 0.9 && widths < 1.1
         }
 
         /// The large name's scale across at rest: the small's width over its own, or the font
