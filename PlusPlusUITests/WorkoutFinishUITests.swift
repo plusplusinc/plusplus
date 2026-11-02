@@ -22,7 +22,7 @@ final nonisolated class WorkoutFinishUITests: XCTestCase {
             app.buttons["Start"].tap()
             XCTAssertTrue(app.workoutTime.appears(), "Start began no workout")
             // Read once the workout's key is up, past Start's hand-off to it: a bottom inset that
-            // changed there left a short routine's list about 50 pt low in most runs.
+            // changed there left this routine's list 52.7 pt low in most runs.
             XCTAssertEqual(reading(app.workoutKey.label, becoming: "Log set", within: 3), "Log set")
             let bar = app.navigationBars.firstMatch.frame.maxY
             let top = reading(row.frame.minY, until: { abs($0 - bar) < 1 }, within: 1)

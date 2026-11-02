@@ -112,27 +112,20 @@ private struct PrimaryKeyBar<Key: View>: ViewModifier {
         bottomInset > 0 && !dynamicTypeSize.isAccessibilitySize ? bottomInset : Spacing.md
     }
 
-    /// The key in its place in the bar.
-    private var placedKey: some View {
-        key
-            .buttonStyle(.primaryKey)
-            .anchorPreference(key: PrimaryKeyBounds.self, value: .bounds) { $0 }
-            .modifier(KeyDrop(drop: drop))
-            .modifier(KeySwap(isOut: isSwappedOut))
-            .hiddenBehindDrawer()
-            // As far from the sides as from the bottom; with no home indicator, as
-            // far as content is inset. On an iPhone 17 that is concentric with the
-            // screen's corners: its 62 pt corners less the key's 28 pt radius is the
-            // 34 pt inset.
+    /// `face`, the key as drawn, in its place in the bar, where it sizes the bar's room.
+    private func placed(_ face: some View) -> some View {
+        face
+            // As far from the sides as from the bottom; with no home indicator, as far as content
+            // is inset. On an iPhone 17 that is concentric with the screen's corners: its 62 pt
+            // corners less the key's 28 pt radius is the 34 pt inset.
             .padding(.horizontal, sideInset)
-            // The resting face, not the ledge under it, at that distance from the
-            // bottom: the ledge and the pressed face sit below it, in the safe area.
-            // The bar keeps its room, so the list under it doesn't move. With no
-            // safe area below, the key rises by its ledge, which so stays on the
-            // screen. That rise is an offset, never the bar's height: `bottomInset`
-            // is measured only after the first layout, and a bar whose height
-            // followed it changed the list's inset a second time in its first
-            // frame, which SwiftUI logs as an `OnScrollGeometryChange` fault.
+            // The resting face, not the ledge under it, at that distance from the bottom: the ledge
+            // and the pressed face sit below it, in the safe area. The bar keeps its room, so the
+            // list under it doesn't move. With no safe area below, the key rises by its ledge,
+            // which so stays on the screen. That rise is an offset, never the bar's height:
+            // `bottomInset` is measured only after the first layout, and a bar whose height
+            // followed it changed the list's inset a second time in its first frame, which SwiftUI
+            // logs as an `OnScrollGeometryChange` fault.
             .padding(.bottom, -PrimaryKeyButtonStyle.ledge)
             .offset(y: bottomInset > 0 ? 0 : -PrimaryKeyButtonStyle.ledge)
             .padding(.top, Spacing.sm + PrimaryKeyButtonStyle.ledge)
@@ -147,11 +140,21 @@ private struct PrimaryKeyBar<Key: View>: ViewModifier {
                 // rather than stack up for the transition's length.
                 ZStack {
                     if isPresented {
-                        placedKey
-                            .transition(KeyBarTransition(below: bottomInset))
-                            .id(keyID)
+                        placed(
+                            key
+                                .buttonStyle(.primaryKey)
+                                .anchorPreference(key: PrimaryKeyBounds.self, value: .bounds) {
+                                    $0
+                                }
+                                .modifier(KeyDrop(drop: drop))
+                                .modifier(KeySwap(isOut: isSwappedOut))
+                                .hiddenBehindDrawer(),
+                        )
+                        .transition(KeyBarTransition(below: bottomInset))
+                        .id(keyID)
                     } else if keepsRoom {
-                        placedKey.hidden()
+                        // Only what sizes it: no bounds for the +1, and no drop or swap to run.
+                        placed(key.buttonStyle(.primaryKey)).hidden()
                     }
                 }
             }
