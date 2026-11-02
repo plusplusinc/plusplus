@@ -81,6 +81,7 @@ private struct RailNode: View {
         let pop = RailEntry.pop(reduceMotion: reduceMotion)
         let landing = RailEntry.popStart(reduceMotion: reduceMotion)
         let size = place.isCurrent ? currentSize : size
+        let beat = SetBeat(held: place.isSetHeld && place.isCurrent && !reduceMotion)
         RailNodeColumn()
             .overlay {
                 Circle()
@@ -102,18 +103,16 @@ private struct RailNode: View {
                     }
                     // A set done that stays on this exercise: the node shrinks and grays as the set
                     // logs, rests so while the key does, and pops back green as the line rolls.
-                    .keyframeAnimator(
-                        initialValue: SetBeat(held: place.isSetHeld),
-                        trigger: place.isSetHeld,
-                    ) { node, value in
-                        let shown = place.isCurrent && !reduceMotion
-                        node
-                            .overlay {
-                                Circle().fill(.pp(.rail)).opacity(shown ? value.gray : 0)
-                            }
-                            .scaleEffect(shown ? value.scale : 1)
-                    } keyframes: { _ in
-                        SetBeat.keyframes(held: place.isSetHeld)
+                    // Animated from where the node is drawn, either way: a keyframe animator's
+                    // initial value flipped to held with its trigger, so the shrink ran from held
+                    // to held and the node snapped small.
+                    .animation(SetBeat.grayAnimation(held: place.isSetHeld)) { node in
+                        node.overlay {
+                            Circle().fill(.pp(.rail)).opacity(beat.gray)
+                        }
+                    }
+                    .animation(SetBeat.scaleAnimation(held: place.isSetHeld)) { node in
+                        node.scaleEffect(beat.scale)
                     }
                     .anchorPreference(key: NodeCenter.self, value: .center) { $0 }
                     .anchorPreference(key: RailNodes.self, value: .center) { [$0] }
@@ -360,20 +359,13 @@ struct SetBeat {
         gray = held ? 1 : 0
     }
 
-    /// To held, or back from it, from wherever the node is.
-    @KeyframesBuilder<Self>
-    static func keyframes(held: Bool) -> some Keyframes<Self> {
-        let end = Self(held: held)
-        KeyframeTrack(\.scale) {
-            if held {
-                CubicKeyframe(end.scale, duration: 0.2)
-            } else {
-                // Its own settling time: cut at 0.4 s, it stopped 2 % large.
-                SpringKeyframe(end.scale, spring: .bouncy)
-            }
-        }
-        KeyframeTrack(\.gray) {
-            CubicKeyframe(end.gray, duration: held ? 0.2 : 0.12)
-        }
+    /// To held, or back from it, from wherever the node is drawn.
+    static func scaleAnimation(held: Bool) -> Animation {
+        // The pop back takes the spring's own settling time: cut at 0.4 s, it stopped 2 % large.
+        held ? .easeInOut(duration: 0.2) : .bouncy
+    }
+
+    static func grayAnimation(held: Bool) -> Animation {
+        .easeInOut(duration: held ? 0.2 : 0.12)
     }
 }
