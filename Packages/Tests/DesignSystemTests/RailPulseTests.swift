@@ -147,34 +147,41 @@ struct RailPulseTests {
         #expect(SetMotion.speed(at: 1, .loop) > 0)
     }
 
-    @Test("Down the rail, the travel eases in and out, fastest halfway, and only ever goes forward")
+    @Test("Down the rail, the travel eases in, fastest as it hits the node, and only goes forward")
     func downTravel() {
         #expect(SetMotion.distance(at: 0, .down) == 0)
         #expect(abs(SetMotion.distance(at: 1, .down) - 1) < 1e-9)
-        #expect(abs(SetMotion.distance(at: 0.5, .down) - 0.5) < 1e-9)
-        #expect(SetMotion.speed(at: 0.5, .down) > SetMotion.speed(at: 0.1, .down))
-        #expect(SetMotion.speed(at: 0.5, .down) > SetMotion.speed(at: 0.9, .down))
+        // Charging up, a 64th of the way at half its time; it hits the node at six times its
+        // average speed.
+        #expect(abs(SetMotion.distance(at: 0.5, .down) - 1.0 / 64) < 1e-9)
+        #expect(abs(SetMotion.speed(at: 1, .down) - 6) < 1e-9)
         var last = 0.0
+        var lastSpeed = 0.0
         for step in 0 ... 100 {
             let distance = SetMotion.distance(at: Double(step) / 100, .down)
+            let speed = SetMotion.speed(at: Double(step) / 100, .down)
             #expect(distance >= last)
+            #expect(speed >= lastSpeed)
             last = distance
+            lastSpeed = speed
         }
     }
 
     @Test(
-        "Nothing moves until the pulse has landed and mostly plopped; then the shift runs",
+        "Nothing moves until the pulse has landed and its first squash sprung back; then the shift runs",
         arguments: [SetMotion.Way.down, .loop],
     )
     @MainActor
     func beats(way: SetMotion.Way) {
-        // Half a second across, slow enough to watch it travel, the whole move about 1.25 s.
-        #expect(abs(SetMotion.landing(way) - 0.51) < 0.02)
-        #expect(abs(SetMotion.move(way) - 1.25) < 0.05)
-        // The shift and the parts going hold until a beat after the landing, the wiggle mostly
-        // settled, so the landing plays on a still screen.
+        // Down the rail a quarter-second run lands at 0.33 s and the whole move takes 0.93 s;
+        // up a loop, a 0.42 s run lands at 0.5 s and the move takes 1.1 s.
+        let (landing, move) = way == .down ? (0.33, 0.93) : (0.5, 1.1)
+        #expect(abs(SetMotion.landing(way) - landing) < 1e-9)
+        #expect(abs(SetMotion.move(way) - move) < 1e-9)
+        // The shift and the parts going hold until 0.15 s after the landing, as the plop's first
+        // squash has sprung back, so the landing plays on a still screen.
         let start = SetMotion.moveShiftStart(way)
-        #expect(abs(start - SetMotion.landing(way) - SetMotion.landingHold) < 1e-9)
+        #expect(abs(start - SetMotion.landing(way) - 0.15) < 1e-9)
         #expect(abs(SetMotion.squash(at: SetMotion.landingHold)) < 0.25)
         #expect(SetMotion.leaveDelay(.figures, way: way) == start)
         #expect(SetMotion.detailOut(way: way) == .easeIn(duration: 0.06).delay(start))

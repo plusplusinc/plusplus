@@ -2,32 +2,31 @@ import SwiftUI
 import Testing
 @testable import DesignSystem
 
-/// The current node's beat as a set logs that stays on its exercise, read from the keyframes the
-/// node plays: held from the log until the key is back at the start, then popped back.
+/// The current node's beat as a set logs that stays on its exercise: the values it is drawn at,
+/// held or not, and the animations it runs between them from wherever it is drawn.
 @Suite("Set beat")
 struct SetBeatTests {
-    @Test("As a set logs, the node shrinks to half and grays, and rests so")
+    @Test("As a set logs, the node shrinks to half and grays over 0.2 s, and rests so")
     func holds() {
-        let timeline = KeyframeTimeline(initialValue: SetBeat()) { SetBeat.keyframes(held: true) }
-        let middle = timeline.value(time: 0.1)
-        #expect(middle.scale < 1 && middle.scale > 0.5)
-        #expect(middle.gray > 0 && middle.gray < 1)
-        let held = timeline.value(time: timeline.duration)
+        let held = SetBeat(held: true)
         #expect(held.scale == 0.5)
         #expect(held.gray == 1)
+        #expect(SetBeat.scaleAnimation(held: true) == .easeInOut(duration: 0.2))
+        #expect(SetBeat.grayAnimation(held: true) == .easeInOut(duration: 0.2))
     }
 
-    @Test("Let go, it pops back past its full size, green again, and settles at it")
+    @Test("Let go, it pops back past its full size on a spring, green again in 0.12 s")
     func pops() {
-        let timeline = KeyframeTimeline(initialValue: SetBeat(held: true)) {
-            SetBeat.keyframes(held: false)
-        }
-        let steps = stride(from: 0.0, through: timeline.duration, by: 1.0 / 120)
-        let largest = steps.map { timeline.value(time: $0).scale }.max() ?? 0
+        let shown = SetBeat(held: false)
+        #expect(shown.scale == 1)
+        #expect(shown.gray == 0)
+        #expect(SetBeat.scaleAnimation(held: false) == .bouncy)
+        #expect(SetBeat.grayAnimation(held: false) == .easeInOut(duration: 0.12))
+        // The spring overshoots its full size by more than 2 %, and settles at it.
+        let spring = Spring.bouncy
+        let steps = stride(from: 0.0, through: spring.settlingDuration, by: 1.0 / 120)
+        let largest = steps.map { spring.value(target: 1.0, time: $0) }.max() ?? 0
         #expect(largest > 1.02)
-        #expect(timeline.value(time: 0.12).gray == 0)
-        let end = timeline.value(time: timeline.duration)
-        #expect(abs(end.scale - 1) < 0.01)
-        #expect(end.gray == 0)
+        #expect(abs(spring.value(target: 1.0, time: spring.settlingDuration) - 1) < 0.01)
     }
 }

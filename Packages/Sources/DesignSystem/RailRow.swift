@@ -80,7 +80,7 @@ private struct RailNode: View {
     var body: some View {
         let pop = RailEntry.pop(reduceMotion: reduceMotion)
         let landing = RailEntry.popStart(reduceMotion: reduceMotion)
-        let size = place.isCurrent ? currentSize : size
+        let drawnSize = place.isCurrent ? currentSize : size
         let beat = SetBeat(held: place.isSetHeld && place.isCurrent && !reduceMotion)
         RailNodeColumn()
             .overlay {
@@ -90,12 +90,11 @@ private struct RailNode: View {
                         settlingTo: place.isCurrent ? .accent
                             : place.isRaised ? .textPrimary : place.isDone ? .done : .rail,
                     )
-                    // Laid out at the current node's size in every state and drawn smaller, so
-                    // becoming current changes no layout: a frame that grew as the blob landed
-                    // re-laid the row out unanimated, and the node jumped to the row's end place
-                    // while its name still waited on the move's delay.
+                    // Laid out at the current node's size in every state and drawn smaller
+                    // (below), so becoming current changes no layout: a frame that grew as the
+                    // blob landed re-laid the row out unanimated, and the node jumped to the row's
+                    // end place while its name still waited on the move's delay.
                     .frame(width: currentSize, height: currentSize)
-                    .scaleEffect(size / currentSize)
                     .overlay {
                         if place.isCurrent {
                             Color.clear.currentPulse(in: Circle())
@@ -114,11 +113,14 @@ private struct RailNode: View {
                     .animation(SetBeat.scaleAnimation(held: place.isSetHeld)) { node in
                         node.scaleEffect(beat.scale)
                     }
+                    // Scaled with its pulse and gray, so they grow with the node.
+                    .scaleEffect(drawnSize / currentSize)
                     .anchorPreference(key: NodeCenter.self, value: .center) { $0 }
                     .anchorPreference(key: RailNodes.self, value: .center) { [$0] }
                     // It pops from the line's tip as the line lands: shown at the line's width
-                    // and grown to its own size in the same moment.
-                    .scaleEffect(place.isArriving ? lineWidth / size : 1)
+                    // and grown to its own size in the same moment. On the drawn size's scale,
+                    // so the two give the line's width.
+                    .scaleEffect(place.isArriving ? lineWidth / drawnSize : 1)
                     .entry(pop, value: place.isArriving)
                     .scaleEffect(place.isArriving ? 0 : 1)
                     .entry(RailEntry.step(at: landing), value: place.isArriving)
