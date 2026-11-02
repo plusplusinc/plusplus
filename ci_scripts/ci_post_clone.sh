@@ -1,9 +1,11 @@
 #!/bin/bash
 # Xcode Cloud runs this right after cloning, before any build action.
 #
-# Installs the tools Xcode does not ship, then fails the workflow early on any formatting,
-# lint, or spelling finding so a red build says "lint" and not something cryptic from deep
-# inside xcodebuild. Tests run through the scheme's test action, configured in the workflow.
+# Installs the tools Xcode does not ship, then fails the workflow early on any formatting, lint,
+# or spelling finding so a red build says "lint" and not something cryptic from deep inside
+# xcodebuild. scripts/lint.sh fetches SwiftFormat and SwiftLint at their pinned versions itself
+# (scripts/lint-tools.sh). Tests run through the scheme's test action, configured in the
+# workflow.
 set -euo pipefail
 
 cd "$CI_PRIMARY_REPOSITORY_PATH"

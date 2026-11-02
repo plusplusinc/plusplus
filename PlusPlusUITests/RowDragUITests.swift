@@ -19,11 +19,11 @@ final nonisolated class RowDragUITests: XCTestCase {
     }
 }
 
+@MainActor
 extension RowDragUITests {
     /// The system's swipe actions: a swipe opens a row's Delete, a tap on Start closes it, and
     /// a full swipe deletes outright. What a delete does to a superset is
     /// `RoutineSupersetTests`', and Start going with the last row `RoutineAutosaveUITests`'.
-    @MainActor
     func deleteExercises(in app: XCUIApplication) {
         let delete = app.buttons["Delete"]
         XCTContext.runActivity(named: "A swipe opens a row, and Delete deletes it") { _ in

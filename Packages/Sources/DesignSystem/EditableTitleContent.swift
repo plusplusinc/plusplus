@@ -44,7 +44,6 @@ struct EditableTitleContent: View {
         }
     }
 
-    @ViewBuilder
     private func field(cursorOpacity: Double) -> some View {
         #if os(iOS)
         TitleTextView(
