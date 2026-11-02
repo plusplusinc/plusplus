@@ -30,6 +30,8 @@ scripts/sim.sh reset                    # light, large, keyboard not minimized; 
 scripts/sim.sh relaunch                 # terminate and launch the installed build; boots the simulator if needed
 scripts/sim.sh log [minutes]            # the app's own log lines plus errors and faults; last 5 minutes by default
 scripts/sim.sh erase                    # in a worktree, erase its own simulator and reset it; the app is gone after
+scripts/sim.sh shutdown                 # in a worktree, shut down its own simulator; run it when your task reports
+scripts/sim.sh list                     # booted worktree simulators, each with its worktree and idle time
 ```
 
 `shots` is the whole checklist in one command and leaves the device at the defaults. Every

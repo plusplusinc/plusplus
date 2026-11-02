@@ -5,6 +5,8 @@
 #   scripts/run.sh set-logging        # ...to .build/screenshots/set-logging.png
 #   PLUSPLUS_SIMULATOR="iPhone 17 Pro" scripts/run.sh
 #
+# In a worktree the boot waits while too many worktree simulators are booted (see boot_simulator
+# in scripts/common.sh), and the simulator stays booted until `scripts/sim.sh shutdown`.
 # The screenshot path is printed last so an agent can Read it. Once the app is up,
 # scripts/sim.sh drives it (appearance, Dynamic Type, more screenshots, log) without rebuilding.
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
@@ -16,7 +18,7 @@ NAME="${1:-app}"
 APP="$DERIVED_DATA/Build/Products/Debug-iphonesimulator/$SCHEME.app"
 BUNDLE_ID=$(app_bundle_id)
 
-xcrun simctl bootstatus "$SIMULATOR_NAME" -b > /dev/null
+boot_simulator
 # DeviceHub replaced the Simulator app in Xcode 27.1.
 open -a DeviceHub > /dev/null 2>&1 || true
 xcrun simctl install "$SIMULATOR_NAME" "$APP"

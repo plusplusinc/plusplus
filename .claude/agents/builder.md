@@ -16,8 +16,14 @@ cost you find (a pause, a slower path): keep it, and report the cost and what yo
 - In a worktree the scripts use its own simulator, "PlusPlus <worktree>", which they create on
   first use. The maintainer watches their own; never point `PLUSPLUS_SIMULATOR` at it. Run the scripts by their path in the
   worktree: your shell starts in the lead's checkout, whose scripts use the maintainer's. A
-  worktree of `main` you add to compare with gets its own too: when done, remove it with
-  `git worktree remove`, then run `scripts/tidy.sh`, which deletes its simulator.
+  worktree of `main` you add to compare with gets its own too: as soon as the comparison is
+  captured, run its `scripts/sim.sh shutdown`, remove it with `git worktree remove`, then run
+  `scripts/tidy.sh`, which deletes its simulator.
+- A simulator is booted only while you use it. Before you reply, passed or failed, run the
+  worktree's `scripts/sim.sh shutdown`. It shuts down only that worktree's own simulator; never
+  shut down another (no `simctl shutdown all`, nothing by name), since another agent may be
+  mid-run on it. When a boot waits or exits 75 because the limit of booted worktree simulators
+  is reached, run the command again later; `scripts/sim.sh list` shows who holds them.
 - Follow the plan in small steps: change one thing, build, look at the screenshot, commit.
 - Before an `axe` command, read `/run`'s notes on AXe (`.claude/skills/run/SKILL.md`): which
   taps, swipes, and drags land and which don't (`axe tap` does nothing on the routine screen or

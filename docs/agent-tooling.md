@@ -167,8 +167,17 @@ still overrides it. `scripts/tidy.sh`
 shuts it down and deletes it when it removes the worktree, and is the only script that deletes a
 simulator. `scripts/common.sh` records each worktree simulator in the clone's `.git`, so a worktree
 removed with `git worktree remove` (one of `main`, added to compare with) has its simulator
-deleted at the next `scripts/tidy.sh`. Each booted simulator adds about 250 processes, so two or three concurrent iOS
-worktrees is the practical ceiling on one machine.
+deleted at the next `scripts/tidy.sh`.
+
+A simulator is booted only while something uses it. Each booted one adds about 250 processes and
+2 GB; four at once filled a 48 GB Mac and most of its swap (2026-11-01). So an agent runs its
+worktree's `scripts/sim.sh shutdown` when its task reports, passed or failed, and the
+shutdown reaches only that worktree's own simulator, never another agent's. The scripts boot a
+worktree simulator only while fewer than `PLUSPLUS_MAX_BOOTED_SIMS` (2) are booted; past that a
+boot waits up to five minutes, then exits 75 naming the holders. One left booted and unused for
+30 minutes (`PLUSPLUS_SIM_IDLE_MINUTES`) is shut down by the next boot that is waiting, or by
+`scripts/tidy.sh`. `scripts/sim.sh list` shows each booted one with its worktree and idle time.
+The maintainer's simulator never counts and is never shut down.
 
 The feature subagents in `.claude/agents/` run one at a time in a slice's worktree, because
 each phase needs the last one's files. Agent teams, Claude Code's experimental parallel mode, stay off; the lead proposes one only for work that is genuinely
