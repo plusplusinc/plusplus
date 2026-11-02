@@ -16,6 +16,7 @@
 # scripts/pr-check.sh, and .github/workflows/.
 .claude/
 .github/pull_request_template.md
+.github/rulesets/
 docs/
 AGENTS.md
 CLAUDE.md

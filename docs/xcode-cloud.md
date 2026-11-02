@@ -39,7 +39,7 @@ not let a team member be added to an internal group. Internal builds skip Beta A
 Review, and `ITSAppUsesNonExemptEncryption` in `Config/Base.xcconfig` answers the export
 compliance question so the build is available as soon as processing finishes.
 
-Merges to `main` do not build; the PR run already tested that code, since branch protection
+Merges to `main` do not build; the PR run already tested that code, since the `main` ruleset
 requires a branch to be up to date before it merges. Builds reach TestFlight only when a `v*` tag
 is pushed, one build per tag.
 
@@ -88,7 +88,7 @@ workflow's post-actions, so those two go through App Store Connect in the browse
 start conditions (`asc xcode-cloud workflows update`). The Xcode
 MCP server has no Xcode Cloud tools.
 
-## Branch protection
+## Rulesets
 
-Branch protection requires "PR check", not Xcode Cloud's status, since Xcode Cloud does not run
-on every PR; `docs/pr-check.md` has the rule and the commands that set it.
+The `main` ruleset requires "PR check", not Xcode Cloud's status, since Xcode Cloud does not run
+on every PR; `docs/pr-check.md` has the rulesets and the commands that apply them.

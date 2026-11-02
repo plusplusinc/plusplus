@@ -162,7 +162,7 @@ project board; agents' technical working files live in `.slices/`.
   1-in-15 failure rate, a fix that did nothing still passes 30 runs about one time in eight.
   Without either, say so in the PR.
 - Push only when CI's answer is needed: when the PR opens, after a round of fixes, and before
-  the merge (bringing it up to date with `main`, as branch protection asks, included). Bring a
+  the merge (bringing it up to date with `main`, as the `main` ruleset asks, included). Bring a
   pushed branch up to date by merging `origin/main` into it, never by a local rebase: pushing a
   rebase takes a force push, which the permission check denies to agents, so #127 waited an
   hour on the maintainer's word. The squash merge flattens the merge commit. You and every subagent commit
