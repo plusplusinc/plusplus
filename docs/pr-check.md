@@ -15,6 +15,18 @@ Every pull request to `main` runs one required GitHub Actions check, "PR check"
   they are. Once the hours are back, start the run again (`asc xcode-cloud run`, or push) and
   re-run the check.
 
+Either way, "PR check" first fails a PR whose diff undoes a recent commit on `main`
+(`scripts/pr-check.sh reverts <base> <head>`): for each of the merge base's last 30 commits, it
+looks at the files the PR's diff also changes, and fails when, in one of them, every line that
+commit changed is undone (a line it added gone, a line it removed back) or a binary file is back
+to its copy before it. It names each commit and file. A squash onto a newer `main`,
+`git reset --soft origin/main`, does that: the commit keeps the branch's stale copies of what
+`main` changed meanwhile, which is how #136 undid #134 with every other check green, its
+snapshots reverted along with the code. A revert that is meant is made with `git revert`, whose
+"This reverts commit <sha>" line, a short sha too, exempts that commit. The guard reads history,
+so this job checks out the whole of it; `scripts/pr-check-test.py`, which `scripts/test.sh`
+runs, replays #136's case in a temporary repository.
+
 A first job, "Route", reads which of the two a PR is; "PR check" then lints or waits. Both run
 on `ubuntu-24.04`, free on a public repository, and when Route fails, "PR check" fails too,
 pointing to Route's log. The docs-only lint needs no Swift tools: `scripts/lint.sh` given paths
@@ -64,6 +76,7 @@ scripts/pr-check.sh files <pr> | scripts/pr-check.sh classify   # docs, or the f
 scripts/pr-check.sh route <pr>              # docs or xcode-cloud, as Route decides
 scripts/pr-check.sh lint <pr>               # the docs-only path
 scripts/pr-check.sh wait <sha> [minutes]    # Xcode Cloud's result on a commit, as CI reads it
+scripts/pr-check.sh reverts origin/main HEAD   # the revert guard on the branch
 ```
 
 `gh pr checks <n> --watch --interval 60` waits on it from a PR.

@@ -35,6 +35,11 @@ cost you find (a pause, a slower path): keep it, and report the cost and what yo
 - Push only when CI's answer is needed: when opening the PR, after a round of fixes, and before
   the merge. Commit locally in between, rounds included; each push to a PR that changes the app
   spends a full Xcode Cloud run.
+- Bring the branch up to date by merging `origin/main` into it, never by a rebase. Squash, if at
+  all, onto the branch's own base, `git reset --soft $(git merge-base HEAD origin/main)`, never
+  onto `origin/main`: there the commit keeps the branch's stale copies of whatever `main` changed
+  meanwhile and undoes it (#136 undid #134). Before each push, read `git diff --stat
+  origin/main...HEAD`, and stop on a file outside the change's scope, naming it to the lead.
 - Wait for everything you start before your turn ends: a builder whose turn ends while a
   command or agent it started is still running is made to hand back, unfinished. Run long
   commands in the foreground, and start `/simplify`'s helper agents with

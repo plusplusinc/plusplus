@@ -25,9 +25,11 @@ case "$MODE" in
             status=$?
         xcresult package "$log"
         [ "$status" -eq 0 ] || exit "$status"
-        # The scripts' own tests: the night runner's gates and the times' parsing. Nothing else
-        # runs them, CI included, and they need no simulator or network (about 5 s).
+        # The scripts' own tests: the night runner's gates, the PR check's revert guard, and the
+        # times' parsing. Nothing else runs them, CI included, and they need no simulator or
+        # network (about 7 s).
         python3 -I "$ROOT/scripts/nightly-tooling-test.py" > "$RESULTS/scripts.log" 2>&1 &&
+            python3 -I "$ROOT/scripts/pr-check-test.py" >> "$RESULTS/scripts.log" 2>&1 &&
             python3 -I -m doctest "$ROOT/scripts/xcresult.py" >> "$RESULTS/scripts.log" 2>&1 ||
             { cat "$RESULTS/scripts.log"; echo "script tests failed" >&2; exit 1; }
         ;;
