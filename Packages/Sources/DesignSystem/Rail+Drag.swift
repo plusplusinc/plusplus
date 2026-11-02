@@ -14,12 +14,12 @@ extension Rail {
             guard onMove != nil else { return }
             let candidates = candidates(lifting: id)
             guard let origin = RailDrag.origin(
-                of: id,
-                in: data.map(\.id),
-                candidates: candidates,
-                groups: groups,
-            ),
-                let own = candidates.first(where: { $0.slot == origin })
+                      of: id,
+                      in: data.map(\.id),
+                      candidates: candidates,
+                      groups: groups,
+                  ),
+                  let own = candidates.first(where: { $0.slot == origin })
             else { return }
             cardTop = own.gapTop
             drag = RailDragState(

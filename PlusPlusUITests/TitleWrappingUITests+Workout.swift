@@ -4,11 +4,11 @@ import XCTest
 /// and End's dialog under the audit, and where Start and a relaunch land. Here the equipment
 /// under the title stands taller than the screen, so the current exercise starts out below it,
 /// and Start's scroll to the top runs far.
+@MainActor
 extension TitleWrappingUITests {
     /// From the Routines screen the drawer left, with exercises added for their equipment: Start
     /// and a relaunch land on the current exercise, and a workout's bar, paused, and End's dialog
     /// pass the audit. Running, the bar differs only in its key's shorter Pause.
-    @MainActor
     func workoutAtAX5(in app: XCUIApplication) throws {
         try XCTContext
             .runActivity(named: "A workout at AX5 lands, and its bar passes the audit") { _ in
@@ -43,7 +43,6 @@ extension TitleWrappingUITests {
     }
 
     /// The current exercise's row just under the bar, the key not going back to it.
-    @MainActor
     private func assertLandedOnTheCurrentExercise(in app: XCUIApplication, after step: String) {
         let current = app.exerciseRows.firstMatch
         let bar = app.navigationBars.firstMatch.frame.maxY

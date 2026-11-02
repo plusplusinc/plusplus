@@ -4,8 +4,8 @@ import XCTest
 /// nine rows, which run past one screen. Where the gap goes, a drop in place included, is
 /// unit-tested in the package (`RailDragTests`, `RoutineMoveTests`), and the card and gap are
 /// snapshot-tested; this checks what needs real touches and the scroll view.
+@MainActor
 extension RowDragUITests {
-    @MainActor
     func reorderExercises(in app: XCUIApplication) {
         let rows = app.exerciseRows
         let first = rows.element(boundBy: 0)
@@ -51,7 +51,6 @@ extension RowDragUITests {
     /// A row held at the bottom edge scrolls the list to its end and lands there; the list
     /// goes back to its top for the checks after it. The top edge runs through the same
     /// `railAutoscroll`, and each edge's speed and arming is `RailDragTests`'.
-    @MainActor
     private func dragToTheBottomEdge(in app: XCUIApplication) {
         let first = app.exerciseRows.element(boundBy: 0)
         let start = app.buttons["Start"]

@@ -33,7 +33,6 @@ struct RailDragState<ID: Hashable> {
 extension View {
     /// A hold on this row lifts it, on iOS. A press in the rail column, on the node, holds the
     /// node when `allowsColumn`, and otherwise does nothing.
-    @ViewBuilder
     func liftable(
         isEnabled: Bool,
         columnWidth: CGFloat,

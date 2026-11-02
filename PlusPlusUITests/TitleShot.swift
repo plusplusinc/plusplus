@@ -221,12 +221,12 @@ struct Ink {
 
 private struct UnreadableScreenshot: Error { }
 
+@MainActor
 extension XCTestCase {
     /// Keeps the screenshot, the whole screen now by default, in the result bundle when the test
     /// fails, an attachment's default lifetime. Nothing reads a passing run's, and on Xcode
     /// Cloud the time after the tests grows with the bundle: 47 kept on success made 14 MB of
     /// its 21.6 MB.
-    @MainActor
     func attach(_ screenshot: XCUIScreenshot = XCUIScreen.main.screenshot(), named name: String) {
         let attachment = XCTAttachment(screenshot: screenshot)
         attachment.name = name

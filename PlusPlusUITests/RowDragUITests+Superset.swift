@@ -9,8 +9,8 @@ import XCTest
 /// it.
 /// XCTest drags in one straight move, so a drag that turns back before its drop, the span
 /// shrinking under the finger, is held by the rule's tests and tried on the phone.
+@MainActor
 extension RowDragUITests {
-    @MainActor
     func supersetExercises(in app: XCUIApplication) {
         let rows = app.exerciseRows
         let row = { rows.element(boundBy: $0) }
@@ -31,7 +31,6 @@ extension RowDragUITests {
 
     /// A row's body carries it into a superset and back out, and a press that moves at once on
     /// the node scrolls the list.
-    @MainActor
     private func moveRowsIntoAndOutOfASuperset(in app: XCUIApplication) {
         let rows = app.exerciseRows
         let row = { rows.element(boundBy: $0) }
@@ -67,7 +66,6 @@ extension RowDragUITests {
     /// A row's card resting over a plain row pairs the two in a new superset. A drop without
     /// the rest, a nudge, and a member just out of its own are the rest's arithmetic
     /// (`RailPairingTests`).
-    @MainActor
     private func pairPlainRows(in app: XCUIApplication) {
         let rows = app.exerciseRows
         let row = { rows.element(boundBy: $0) }

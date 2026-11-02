@@ -104,17 +104,16 @@ extension XCUIElement {
     }
 }
 
+@MainActor
 extension XCUIElement {
     /// Taps the middle of the element. XCTest's `tap()` went to a stepper key's top-left corner,
     /// on the edge of the row above it, whose tap closed the stepper instead.
-    @MainActor
     func tapAtCenter() {
         center.tap()
     }
 
     /// The middle of the element. On a row, that is on its name and detail line, where a hold
     /// lifts it.
-    @MainActor
     var center: XCUICoordinate {
         coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
     }

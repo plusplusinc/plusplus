@@ -241,9 +241,9 @@ final nonisolated class WorkoutUITests: XCTestCase {
     }
 }
 
+@MainActor
 extension XCUIElement {
     /// The time key's value, "1 minute, 5 seconds", in seconds.
-    @MainActor
     var seconds: Int {
         let spoken = value as? String ?? ""
         return spoken.split(separator: ", ").reduce(0) { total, part in
