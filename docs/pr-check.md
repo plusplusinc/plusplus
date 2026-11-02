@@ -75,8 +75,9 @@ The files that decide the check, the list, `scripts/pr-check.sh`, and `.github/w
 never on it: the check counts a PR that changes them as app code whatever the list says, so it
 waits for Xcode Cloud, which runs on it. The workflow file itself is still the PR's, since a
 `pull_request` job runs the PR's own copy, so a PR could edit it to skip all of this; the diff,
-read before the merge, shows that. Xcode Cloud runs `ci_scripts/`, the `Brewfile`, and `scripts/lint.sh`
-with what it sources before it builds, so those are not on it.
+read before the merge, shows that. Xcode Cloud runs `ci_scripts/`, the `Brewfile`,
+`scripts/lint-tools.sh`, and `scripts/lint.sh` with what it sources before it builds, so those
+are not on it.
 
 ## Running it locally
 

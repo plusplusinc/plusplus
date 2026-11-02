@@ -80,8 +80,9 @@ extension Rail {
     /// and its name reads in full: the partner and every row past it, by the drag's `shift`,
     /// down for a partner below, with the end view, and up for one above.
     func pairShifts(_ ids: [RowID]) -> (rows: [RowID: CGFloat], end: CGFloat) {
-        guard let drag, let joining = shownPair else { return ([:], 0) }
-        guard let gap = ids.firstIndex(of: drag.lifted) else { return ([:], 0) }
+        guard let drag, let joining = shownPair, let gap = ids.firstIndex(of: drag.lifted) else {
+            return ([:], 0)
+        }
         let moved = joining == .below ? ids.suffix(from: gap + 1) : ids.prefix(gap)
         let shift = joining == .below ? drag.shift : -drag.shift
         let rows = Dictionary(moved.map { ($0, shift) }) { first, _ in first }

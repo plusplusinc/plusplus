@@ -73,9 +73,8 @@ extension RoutineScreen {
     /// list off the screen, as `add` says.
     func keepEndInView(from old: ScrollGeometry, to new: ScrollGeometry) {
         guard isOpeningPlace, !isMakingRoom, !isScrollingByHand,
-              new.contentSize.height > old.contentSize.height
-        else { return }
-        guard new.endY > new.scrolledY else { return }
+              new.contentSize.height > old.contentSize.height,
+              new.endY > new.scrolledY else { return }
         withTransaction(\.disablesAnimations, true) {
             scrollPosition.scrollTo(y: new.endY)
         }

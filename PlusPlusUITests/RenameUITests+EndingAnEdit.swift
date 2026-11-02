@@ -5,8 +5,8 @@ import XCTest
 /// which also does its own thing. Only the keyboard moves. Return in place is the hosted
 /// `EditableTitleFocusTests`'. A tap on Start or ++, and a node's hold, go through the same
 /// end-on-touch hook as the touches here, and are left to use.
+@MainActor
 extension RenameUITests {
-    @MainActor
     func endEditsWithoutMoving(in app: XCUIApplication, keyboard: XCUIElement) {
         let capsules = app.equipment
         XCTContext.runActivity(named: "A tap on empty space ends the edit in place") { _ in
@@ -32,7 +32,6 @@ extension RenameUITests {
 
     /// A scroll and a row's hold each end the edit as they start, and still do their own thing.
     /// The row's drag is undone, so the checks after this start from the same rows.
-    @MainActor
     private func endEditsByDragging(in app: XCUIApplication, keyboard: XCUIElement) {
         let rows = app.exerciseRows
         let row = { rows.element(boundBy: $0) }
@@ -74,7 +73,6 @@ extension RenameUITests {
 
     /// Starts an edit with a tap on the title and ends it with `end`, then watches the title,
     /// the capsules, and the first row for as long as UIKit could take to move them: none may.
-    @MainActor
     private func endEditWithoutMoving(
         in app: XCUIApplication,
         keyboard: XCUIElement,

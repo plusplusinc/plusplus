@@ -78,7 +78,7 @@ PROTECTED = [
     # installs, and the resolved packages.
     ".github/*", "scripts/pr-check.sh", "ci_scripts/*", "*.xcodeproj/*", "*.xcworkspace/*",
     "*.xctestplan", "Config/*.xcconfig", "*.entitlements", "Packages/Package.swift",
-    "*Package.resolved", "Brewfile", "Brewfile.lock.json", "scripts/lint.sh",
+    "*Package.resolved", "Brewfile", "Brewfile.lock.json", "scripts/lint.sh", "scripts/lint-tools.sh",
     "scripts/check-us-english.sh", "scripts/common.sh", ".swiftlint.yml", "*/.swiftlint.yml",
     ".swiftformat", "*/.swiftformat",
     # What steers the night's agents and their gates: the runner and its helpers, everything in

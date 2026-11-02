@@ -2,12 +2,12 @@ import XCTest
 
 /// Adding exercises, within `testRenameAtDefaultSize`, so it shares its launch. Deleting is
 /// `RowDragUITests`'.
+@MainActor
 extension RenameUITests {
     /// The picker opens fast and without the keyboard, and a pick adds a row. The rest of the
     /// rows are seeded by a relaunch, and one more is added through the picker's search onto
     /// them. Search's list and empty state are left to use, and the add's scroll to Add exercise
     /// is `TitleWrappingUITests`' at AX5.
-    @MainActor
     func addExercises(in app: XCUIApplication, keyboard: XCUIElement) {
         let search = app.searchFields.firstMatch
         XCTContext.runActivity(named: "Add exercise opens the picker") { _ in
@@ -54,7 +54,6 @@ extension RenameUITests {
     /// Start rides above the keyboard while the title is edited, rather than staying behind it.
     /// A long press on the title shows the edit menu, and a long name shortened goes back to one
     /// line.
-    @MainActor
     func startClearsKeyboard(in app: XCUIApplication, keyboard: XCUIElement) throws {
         let title = app.routineTitle
         let start = app.buttons["Start"]

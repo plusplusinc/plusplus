@@ -24,17 +24,17 @@ whole_tree=$([ "$#" -eq 0 ] && echo true || echo false)
 status=0
 if $whole_tree || [ "${#swift_files[@]}" -gt 0 ]; then
     # Required only for Swift. A docs-only path list gets only the US English check.
-    for tool in swiftformat swiftlint; do
-        command -v "$tool" > /dev/null ||
-            { echo "$tool is not installed: run 'brew bundle'" >&2; exit 1; }
-    done
+    # The pinned versions (scripts/lint-tools.sh), never whatever is on PATH, so a new release
+    # changes nothing here or on Xcode Cloud until a PR raises the pin.
+    swiftformat=$(scripts/lint-tools.sh path swiftformat) || exit 1
+    swiftlint=$(scripts/lint-tools.sh path swiftlint) || exit 1
     targets=("${swift_files[@]+"${swift_files[@]}"}")
     if $fix; then
-        swiftformat --quiet ${targets[@]+"${targets[@]}"} $($whole_tree && echo .)
-        swiftlint lint --fix --quiet --force-exclude ${targets[@]+"${targets[@]}"} > /dev/null || true
+        "$swiftformat" --quiet ${targets[@]+"${targets[@]}"} $($whole_tree && echo .)
+        "$swiftlint" lint --fix --quiet --force-exclude ${targets[@]+"${targets[@]}"} > /dev/null || true
     fi
-    swiftformat --lint --quiet ${targets[@]+"${targets[@]}"} $($whole_tree && echo .) || status=1
-    swiftlint lint --strict --quiet --force-exclude ${targets[@]+"${targets[@]}"} || status=1
+    "$swiftformat" --lint --quiet ${targets[@]+"${targets[@]}"} $($whole_tree && echo .) || status=1
+    "$swiftlint" lint --strict --quiet --force-exclude ${targets[@]+"${targets[@]}"} || status=1
 fi
 
 scripts/check-us-english.sh "$@" || status=1

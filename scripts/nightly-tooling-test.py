@@ -169,7 +169,7 @@ class Paths(unittest.TestCase):
                 "scripts/nightly-retro.sh", ".claude/skills/nightly-card/SKILL.md", "scripts/xcresult.py",
                 "scripts/tidy.sh", ".claude/hooks/on-edit.sh",
                 # What CI runs or installs, and what steers the night's agents.
-                "PlusPlus.xcodeproj/xcshareddata/xcschemes/PlusPlus.xcscheme", "scripts/lint.sh",
+                "PlusPlus.xcodeproj/xcshareddata/xcschemes/PlusPlus.xcscheme", "scripts/lint.sh", "scripts/lint-tools.sh",
                 "scripts/check-us-english.sh", "Brewfile", "Packages/Package.resolved",
                 ".github/pull_request_template.md", ".claude/agents/verifier.md", ".claude/skills/pr/SKILL.md",
                 ".claude/rules/testing.md", "CLAUDE.md", "AGENTS.md", ".mcp.json"]
