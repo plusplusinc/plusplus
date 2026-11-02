@@ -13,26 +13,20 @@ SCHEME="PlusPlus"
 PACKAGE="$ROOT/Packages"
 DERIVED_DATA="$ROOT/.build/DerivedData"
 RESULTS="$ROOT/.build/results"
-# Each linked worktree, whose .git is a file, is an agent's, and builds and tests on a simulator
-# of its own, "PlusPlus <worktree>", so two worktrees never share an app, its data, or its
-# settings. ensure_simulator creates it on first use and records it in the clone's shared git
-# directory, and scripts/tidy.sh deletes it with the worktree, or after one removed by hand. The main checkout defaults to iPhone 17, the maintainer's. scripts/test.sh resets, and
-# scripts/sim.sh erases, only the worktree's own simulator, so an agent that leaves out
-# PLUSPLUS_SIMULATOR never reaches a person's.
+# Each checkout, the main one and each linked worktree, builds and tests on a simulator of its
+# own, "PlusPlus <folder>", so two never share an app, its data, or its settings.
+# ensure_simulator creates it on first use and records it in the clone's shared git directory,
+# and scripts/tidy.sh deletes a worktree's with the worktree, or after one removed by hand.
+# scripts/test.sh resets, and scripts/sim.sh erases, only the checkout's own simulator, so a
+# script that leaves out PLUSPLUS_SIMULATOR never reaches a person's.
 
 #   worktree_simulator <worktree path>
 worktree_simulator() {
     echo "PlusPlus $(basename "$1")"
 }
 
-MAIN_SIMULATOR="iPhone 17"
-if [ -f "$ROOT/.git" ]; then
-    OWN_SIMULATOR=$(worktree_simulator "$ROOT")
-    SIMULATOR_NAME="${PLUSPLUS_SIMULATOR:-$OWN_SIMULATOR}"
-else
-    OWN_SIMULATOR=""
-    SIMULATOR_NAME="${PLUSPLUS_SIMULATOR:-$MAIN_SIMULATOR}"
-fi
+OWN_SIMULATOR=$(worktree_simulator "$ROOT")
+SIMULATOR_NAME="${PLUSPLUS_SIMULATOR:-$OWN_SIMULATOR}"
 DESTINATION="platform=iOS Simulator,name=$SIMULATOR_NAME"
 
 mkdir -p "$DERIVED_DATA" "$RESULTS"
@@ -65,10 +59,10 @@ for d in matches:
 ' "$1"
 }
 
-# Whether the scripts are pointed at the worktree's own simulator, the only one they reset or
-# erase; false in the main checkout and when PLUSPLUS_SIMULATOR names another.
+# Whether the scripts are pointed at the checkout's own simulator, the only one they reset or
+# erase; false when PLUSPLUS_SIMULATOR names another.
 is_own_simulator() {
-    [ -n "$OWN_SIMULATOR" ] && [ "$SIMULATOR_NAME" = "$OWN_SIMULATOR" ]
+    [ "$SIMULATOR_NAME" = "$OWN_SIMULATOR" ]
 }
 
 # Each worktree simulator has a record, "<git common dir>/plusplus-simulators/<worktree>", whose
@@ -86,8 +80,8 @@ mark_simulator_used() {
 }
 
 # How many worktree simulators may be booted at once. Each takes about 2 GB and some 250
-# processes; four at once filled a 48 GB Mac and most of its swap (2026-11-01). The maintainer's
-# simulator never counts and never waits. Override with PLUSPLUS_MAX_BOOTED_SIMS in the
+# processes; four at once filled a 48 GB Mac and most of its swap (2026-11-01). A simulator named by
+# PLUSPLUS_SIMULATOR never counts and never waits. Override with PLUSPLUS_MAX_BOOTED_SIMS in the
 # environment (`env` in .claude/settings.local.json reaches every agent).
 MAX_BOOTED_SIMS="${PLUSPLUS_MAX_BOOTED_SIMS:-2}"
 # How long a boot waits for a free place before it gives up, short enough to finish inside an
@@ -95,7 +89,7 @@ MAX_BOOTED_SIMS="${PLUSPLUS_MAX_BOOTED_SIMS:-2}"
 BOOT_WAIT_SECONDS="${PLUSPLUS_SIM_WAIT_SECONDS:-300}"
 
 # Prints "<name>\t<udid>\t<idle seconds>\t<worktree path or ->" for each booted worktree
-# simulator: one with a record, so the maintainer's and any other person's never show.
+# simulator: one with a record, so a person's never shows.
 booted_worktree_simulators() {
     local records
     records=$(simulator_records)
@@ -190,11 +184,11 @@ idle_worktree_simulators() {
     done < <(booted_worktree_simulators)
 }
 
-# Shuts down the worktree's own simulator, if it is booted. Never any other: another worktree's
-# agent may be mid-run, and the maintainer's is theirs.
+# Shuts down the checkout's own simulator, if it is booted. Never any other: another worktree's
+# agent may be mid-run, and any other is a person's.
 shutdown_own_simulator() {
     if ! is_own_simulator; then
-        echo "shutdown acts only on a worktree's own simulator, not \"$SIMULATOR_NAME\"" >&2
+        echo "shutdown acts only on the checkout's own simulator, not \"$SIMULATOR_NAME\"" >&2
         return 1
     fi
     local udid state
@@ -204,18 +198,15 @@ shutdown_own_simulator() {
     echo "shut down \"$OWN_SIMULATOR\""
 }
 
-# Creates the worktree's own simulator, or the main checkout's iPhone 17, as an iPhone 17 on the
-# newest installed iOS runtime that runs it (a beta runtime can carry only a new device), and
-# replaces one left on an older runtime, so every run uses the newest iOS. Does nothing for any
-# other simulator; to try an older iOS, name one with PLUSPLUS_SIMULATOR.
+# Creates the checkout's own simulator, an iPhone 17 on the newest installed iOS runtime that runs
+# it (a beta runtime can carry only a new device), and replaces one left on an older runtime, so
+# every run uses the newest iOS. Does nothing for any other simulator; to try an older iOS, name
+# one with PLUSPLUS_SIMULATOR.
 ensure_simulator() {
-    if is_own_simulator; then
-        # The record outlives the worktree, so scripts/tidy.sh can delete the simulator of a
-        # worktree removed with `git worktree remove`.
-        mark_simulator_used
-    elif [ "$SIMULATOR_NAME" != "$MAIN_SIMULATOR" ]; then
-        return 0
-    fi
+    is_own_simulator || return 0
+    # The record outlives the worktree, so scripts/tidy.sh can delete the simulator of a worktree
+    # removed with `git worktree remove`.
+    mark_simulator_used
     local plan
     plan=$(xcrun simctl list --json devices runtimes | python3 -c '
 import json, sys

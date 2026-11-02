@@ -13,8 +13,8 @@ drives it once it is there. Neither needs Xcode open.
 scripts/run.sh [name]
 ```
 
-Builds Debug, boots the default simulator (iPhone 17 in the main checkout; in a worktree, its own
-"PlusPlus <worktree>"; either is created when missing; override with
+Builds Debug, boots the checkout's own simulator, "PlusPlus <folder>" (created when missing, an iPhone 17
+on the newest iOS; override with
 `PLUSPLUS_SIMULATOR="iPhone 17 Pro"`), installs and launches the app,
 waits two seconds for the first frame, and writes `.build/screenshots/<name>.png`. The path is printed last; Read it.
 About 15 seconds on a warm build from a shut-down simulator.

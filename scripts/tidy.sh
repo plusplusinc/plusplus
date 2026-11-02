@@ -215,13 +215,15 @@ for r in ios:
 ' "$sdk")
 read -r current_state <<< "$plan"
 if [ "$current_state" = missing ]; then
-    LOCK="$ROOT/.build/runtime-download.lock"
-    echo "tidy: download the iOS $sdk simulator runtime"
-    if [ "$DRY_RUN" -eq 0 ] && mkdir "$LOCK" 2> /dev/null; then
-        trap 'rmdir "$LOCK"' EXIT
-        xcodebuild -downloadPlatform iOS -buildVersion "$sdk" > /dev/null ||
-            echo "tidy: downloading the iOS $sdk simulator runtime failed" >&2
-    fi
+    echo "tidy: download the iOS $sdk simulator runtime, logging to .build/runtime-download.log"
+    # The session hook stops tidy after two minutes, so the download runs in a session of its
+    # own, which outlives it. lockf skips it while another is running; its lock dies with it.
+    [ "$DRY_RUN" -eq 1 ] || python3 -I -c '
+import subprocess, sys
+log = open(sys.argv[1], "a")
+subprocess.Popen(sys.argv[2:], start_new_session=True, stdin=subprocess.DEVNULL, stdout=log, stderr=log)
+' "$ROOT/.build/runtime-download.log" lockf -t 0 "$ROOT/.build/runtime-download.lock" \
+        xcodebuild -downloadPlatform iOS -buildVersion "$sdk"
 elif [ "$current_state" = Ready ]; then
     while read -r id version; do
         [ -n "$id" ] || continue
