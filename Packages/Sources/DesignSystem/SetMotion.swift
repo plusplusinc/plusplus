@@ -100,11 +100,11 @@ public enum SetMotion {
     /// When the pulse sets off, from the log: at once, ahead of everything it pulls.
     nonisolated static let travelStart = 0.02
     /// The pulse traveling from the node left to the next one's, from its pulling free to its
-    /// joining. Down the rail, a short charge and a shot, 0.35 s where it was 0.5 s, as Dave found
+    /// joining. Down the rail, a short charge and a shot, 0.25 s where it was 0.5 s, as Dave found
     /// it sluggish (2026-11-01); up a loop, ahead of the shift, which settles a beat after it lands.
     nonisolated static func travel(_ way: Way) -> Double {
         switch way {
-        case .down: 0.35
+        case .down: 0.25
         case .loop: 0.42
         }
     }
