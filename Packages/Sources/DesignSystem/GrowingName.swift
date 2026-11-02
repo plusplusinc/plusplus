@@ -6,7 +6,10 @@ import SwiftUI
 /// drawn piece: a font size animated frame by frame reflowed its text on every frame, stepped
 /// where the system font changes its optical size, and could break its lines differently partway.
 /// Where the two sizes break into the same number of lines, the large name is drawn throughout,
-/// scaled down; where they don't, as a long name can, the two crossfade as they scale. The name's
+/// scaled down, and across from the small name's measured width at 0: the system font sets words
+/// narrower per point at the large size, so the font sizes' ratio alone left it about 3% narrower
+/// than the name it hands off to, which then stepped wider. Where they don't, as a long name can,
+/// the two crossfade as they scale by the font sizes' ratio. The name's
 /// height and first baseline run between the two sizes', so the rail's node, on that baseline,
 /// moves with it.
 struct GrowingName: View, Animatable {
@@ -18,14 +21,19 @@ struct GrowingName: View, Animatable {
         set { growth = newValue }
     }
 
-    @State private var heights = Heights()
+    @State private var sizes = Sizes()
     @Environment(\.fontResolutionContext) private var fontContext
 
     var body: some View {
         let ratio = ratio
         // The large name's scale: a row's size at 0, its own at 1.
         let scale = 1 / ratio + (1 - 1 / ratio) * growth
-        let crossfades = !heights.breakAlike(ratio: ratio)
+        let crossfades = !sizes.breakAlike(ratio: ratio)
+        // Across, where the large name is drawn throughout: the small name's width at 0, so the
+        // hand-off at rest lands on the same width; the font sizes' ratio up and down, which
+        // keeps the letters' height.
+        let resting = sizes.restingWidthScale(ratio: ratio)
+        let widthScale = crossfades ? scale : resting + (1 - resting) * growth
         let largeOpacity: CGFloat = switch growth {
         case ...0: 0
         case 1...: 1
@@ -33,15 +41,19 @@ struct GrowingName: View, Animatable {
         }
         GrowingNameLayout(growth: growth) {
             name(.ppRowTitle)
-                .onGeometryChange(for: CGFloat.self, of: \.size.height) { heights.small = $0 }
+                .onGeometryChange(for: CGSize.self, of: \.size) { sizes.small = $0 }
                 .scaleEffect(scale * ratio, anchor: .topLeading)
                 .opacity(1 - largeOpacity)
             name(.ppCurrentTitle)
-                .onGeometryChange(for: CGFloat.self, of: \.size.height) { heights.large = $0 }
+                .onGeometryChange(for: CGSize.self, of: \.size) { sizes.large = $0 }
                 // Unscaled at rest, where it doesn't show: scaled down to a row's size, its text
                 // at the large size in a frame that much smaller read as clipped in the
                 // accessibility audit.
-                .scaleEffect(growth == 0 ? 1 : scale, anchor: .topLeading)
+                .scaleEffect(
+                    x: growth == 0 ? 1 : widthScale,
+                    y: growth == 0 ? 1 : scale,
+                    anchor: .topLeading,
+                )
                 .opacity(largeOpacity)
         }
     }
@@ -60,17 +72,24 @@ struct GrowingName: View, Animatable {
         return small > 0 ? max(large / small, 1) : 1
     }
 
-    /// Both sizes' heights at the row's width.
-    private struct Heights: Equatable {
-        var small: CGFloat = 0
-        var large: CGFloat = 0
+    /// Both sizes laid out at the row's width.
+    private struct Sizes: Equatable {
+        var small: CGSize = .zero
+        var large: CGSize = .zero
 
         /// Whether the two sizes break into as many lines: the large as tall as the small
         /// scaled up, give or take less than a line.
         func breakAlike(ratio: CGFloat) -> Bool {
-            guard small > 0 else { return true }
-            let lines = large / (small * ratio)
+            guard small.height > 0 else { return true }
+            let lines = large.height / (small.height * ratio)
             return lines > 0.75 && lines < 1.33
+        }
+
+        /// The large name's scale across at rest: the small's width over its own, or the font
+        /// sizes' ratio before both are measured.
+        func restingWidthScale(ratio: CGFloat) -> CGFloat {
+            guard small.width > 0, large.width > 0 else { return 1 / ratio }
+            return small.width / large.width
         }
     }
 }
