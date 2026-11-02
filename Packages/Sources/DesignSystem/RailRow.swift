@@ -81,7 +81,8 @@ private struct RailNode: View {
         let pop = RailEntry.pop(reduceMotion: reduceMotion)
         let landing = RailEntry.popStart(reduceMotion: reduceMotion)
         let drawnSize = place.isCurrent ? currentSize : size
-        let isHeld = place.isSetHeld && place.isCurrent && !reduceMotion
+        // Only ever on the current row (`Rail`'s `isSetHeld`).
+        let isHeld = place.isSetHeld && !reduceMotion
         let beat = SetBeat(held: isHeld)
         RailNodeColumn()
             .overlay {

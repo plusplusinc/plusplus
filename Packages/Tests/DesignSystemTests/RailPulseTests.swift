@@ -167,8 +167,23 @@ struct RailPulseTests {
         }
     }
 
+    @Test("Down the rail, it hits the node stretched and gathers on it, never past the node's edge")
+    func downGather() {
+        let hit = SetMotion.travelStart + SetMotion.travel(.down)
+        let boxes = (0 ... 6).map { blob(hit + SetMotion.collapse * Double($0) / 6).boundingRect }
+        // Still drawn out as it hits: its tail more than a node's length behind the node.
+        #expect(boxes[0].minY < 64 - 14)
+        for (before, after) in zip(boxes, boxes.dropFirst()) {
+            // Its tail catches up while its front stays on the node, never past its edge.
+            #expect(after.minY > before.minY)
+            #expect(after.maxY > 64 && after.maxY <= 64 + 14 / 2 + 1e-9)
+        }
+        // Gathered, it is the round circle that plops.
+        #expect(abs(boxes[6].height - 14) < 0.01 && abs(boxes[6].width - 14) < 0.01)
+    }
+
     @Test(
-        "Nothing moves until the pulse has landed and its first squash sprung back; then the shift runs",
+        "Nothing moves until the pulse has landed and its first squash sprung back; then the shift",
         arguments: [SetMotion.Way.down, .loop],
     )
     @MainActor
