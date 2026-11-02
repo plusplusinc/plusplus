@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""`scripts/pr-check.sh reverts` against branches built in a temporary repository: no network.
+"""`scripts/pr-check.sh reverts` against branches built in a temporary repository, its `body`
+check, and the no-code list's coverage of scripts/: no network.
 
     python3 scripts/pr-check-test.py
 
@@ -103,6 +104,40 @@ class Reverts(unittest.TestCase):
         result = self.check()
         self.assertEqual(result.returncode, 1)
         self.assertIn("undone in RailRow.swift", result.stderr)
+
+
+class Body(unittest.TestCase):
+    """`scripts/pr-check.sh body`: the Card, Verified, and Friction lines the retro reads."""
+
+    def check(self, text):
+        return subprocess.run(["bash", str(CHECK), "body"], input=text, capture_output=True, text=True,
+                              cwd=CHECK.parent)
+
+    def test_lines_and_headings_pass_crlf_included(self):
+        for text in ("Summary.\n\nCard: none, asked in the session\n\nVerified: lint\n\nFriction: none\n",
+                     "Summary.\r\n\r\nCard: [t](u)\r\n## Verified\r\n- lint\r\n## Friction\r\n- none\r\n",
+                     "**Card:** x\n**Verified**: y\nVerified, the rest (abc): z\nFriction: none\n"):
+            self.assertEqual(self.check(text).returncode, 0, text)
+
+    def test_a_body_without_them_fails_naming_each(self):
+        result = self.check("Today X. With this change, Y.\n\nChecked locally:\n- lint\n")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Card Verified Friction", result.stderr)
+
+
+class NoCodeList(unittest.TestCase):
+    """Every script is on .github/no-code-paths or named in its "Not listed" lines, so a new one
+    no build runs never starts an Xcode Cloud run by being forgotten (#137's pr-media.sh did)."""
+
+    def test_every_script_is_listed_or_named_as_not(self):
+        lines = (CHECK.parent.parent / ".github" / "no-code-paths").read_text().splitlines()
+        entries = {line.strip() for line in lines if line.strip() and not line.startswith("#")}
+        comments = " ".join(line for line in lines if line.startswith("#"))
+        for script in sorted(CHECK.parent.iterdir()):
+            listed = {"scripts/", "scripts/" + script.name, script.name} & entries
+            named = "scripts/" + script.name in comments
+            self.assertTrue(listed or named, f"scripts/{script.name} is neither on .github/no-code-paths "
+                            "nor named there as not listed: list it if no build or test reads it")
 
 
 if __name__ == "__main__":

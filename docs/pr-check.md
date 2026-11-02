@@ -27,6 +27,10 @@ snapshots reverted along with the code. A revert that is meant is made with `git
 so this job checks out the whole of it; `scripts/pr-check-test.py`, which `scripts/test.sh`
 runs, replays #136's case in a temporary repository.
 
+It also fails a PR whose body lacks the Card, Verified, and Friction lines the nightly retro reads
+(`scripts/pr-check.sh body`, the body on stdin), each as `Name:` or a `## Name` heading; the
+check runs again when the body is edited, so `gh pr edit` that adds them clears it.
+
 A first job, "Route", reads which of the two a PR is; "PR check" then lints or waits. Both run
 on `ubuntu-24.04`, free on a public repository, and when Route fails, "PR check" fails too,
 pointing to Route's log. The docs-only lint needs no Swift tools: `scripts/lint.sh` given paths
@@ -34,7 +38,7 @@ with no Swift file runs only the US English check, and Swift, `.swiftformat`, an
 `.swiftlint.yml` all count as app code, which Xcode Cloud lints whole in
 `ci_scripts/ci_post_clone.sh`. The jobs read and nothing more (`contents`, `pull-requests`,
 `statuses`, `checks`), the token reaches only the steps that run the base's script, their one
-action is pinned to a commit, a new push cancels the run it supersedes, and the check's time
+action is pinned to a commit, a new push or an edit cancels the run it supersedes, and the check's time
 limit, 45 minutes, sits above Xcode Cloud's longest PR run so far (about 20 minutes, queue
 included) and above the script's 40-minute wait.
 
@@ -45,10 +49,15 @@ from the PR's base commit, never the PR, so a PR cannot widen the list it is che
 locally both default to `origin/main` (`PR_CHECK_BASE` names another). Anything not on it counts as app
 code, so a path nobody thought of gets tested. Its entries mean what Xcode Cloud's Files and
 Folders matchers mean: `folder/` is everything in that folder at any depth, a bare `name` is a
-file of that name in any folder, and `folder/name` is that file in that folder. Xcode Cloud
+file of that name in any folder, and `folder/name` is that file in that folder. A new file or
+folder no build or test reads goes on the list, rather than somewhere already on it;
+`scripts/pr-check-test.py` fails when a script is neither on it nor named in its header as not
+listed. Xcode Cloud
 holds a copy, in the PR workflow's pull-request start condition ("don't start if all files
 match"), which only the App Store Connect API or its UI changes. After editing the list, update
-the copy, keeping the rest of the start condition as it is:
+the copy, keeping the rest of the start condition as it is. Agents are denied the update
+(`.claude/settings.json`), as they are every write below to the repository's settings, so the
+maintainer runs it; an agent prints the rule and leaves the command for them:
 
 ```sh
 PR_CHECK_BASE=HEAD scripts/pr-check.sh xcode-cloud   # the branch's list as Xcode Cloud's rule

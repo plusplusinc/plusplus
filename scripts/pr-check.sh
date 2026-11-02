@@ -9,6 +9,7 @@
 #   scripts/pr-check.sh classify < paths     # "docs", or "app: <first path that is app code>"
 #   scripts/pr-check.sh xcode-cloud          # .github/no-code-paths as Xcode Cloud's rule, JSON
 #   scripts/pr-check.sh reverts <base> <head> # fails if head's diff undoes a recent commit on base
+#   scripts/pr-check.sh body < body          # fails if a PR body lacks its Card, Verified, Friction
 #
 # Needs `gh` signed in (GH_TOKEN in CI). Polls about once a minute. Run it inside a checkout.
 # It reads the no-code list from PR_CHECK_BASE (default origin/main), never the working tree,
@@ -29,7 +30,7 @@ MINUTES=40
 START_MINUTES=10
 
 usage() {
-    sed -n '2,13p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2
+    sed -n '2,14p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2
     exit 2
 }
 
@@ -250,6 +251,20 @@ lint() {
     scripts/lint.sh "${existing[@]}"
 }
 
+# The lines the nightly retro reads in every PR body (.github/pull_request_template.md), each as
+# "Name:" (or "Name, ...:") or a "## Name" heading, bold or not. A body edited on GitHub arrives with CRLF endings.
+body() {
+    local text name missing=()
+    text=$(tr -d '\r')
+    for name in Card Verified Friction; do
+        grep -Eq "^(#+ *)?(\*\*)?$name(\*\*)?( *[:,]|\**$)" <<< "$text" || missing+=("$name")
+    done
+    if [ "${#missing[@]}" -gt 0 ]; then
+        fail "the PR body lacks a line for each of: ${missing[*]}. The nightly retro reads them: add them as in .github/pull_request_template.md (\"none\" is an answer) with gh pr edit, and the check runs again"
+    fi
+    echo "the body has its Card, Verified, and Friction lines"
+}
+
 xcode_cloud_rule() {
     entries | python3 -I -c '
 import json, sys
@@ -274,5 +289,6 @@ case "${1:-}" in
     wait) [ "$#" -ge 2 ] || usage; wait_for "$2" "${3:-}" ;;
     xcode-cloud) require_base; xcode_cloud_rule ;;
     reverts) [ "$#" -eq 3 ] || usage; reverts "$2" "$3" ;;
+    body) [ "$#" -eq 1 ] || usage; body ;;
     *) usage ;;
 esac

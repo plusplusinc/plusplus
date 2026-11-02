@@ -55,6 +55,10 @@ gh pr checks --watch --interval 60                     # "PR check" is the one t
 scripts/ci-times.py <branch>                           # the run's times against the budgets
 ```
 
+Right after a push, the watch can return at once with the previous commit's checks (#139's did):
+trust its answer only once `gh run list --commit $(git rev-parse HEAD) --workflow pr-check.yml`
+lists a run for the pushed commit.
+
 Merge a branch's PR from its own worktree with no number (`gh pr merge --squash --auto` takes
 the branch's): a number written before `gh pr create` prints it is a guess, and one merged the
 night's retro (#123) in place of the PR just opened.
@@ -96,7 +100,8 @@ in a minute by someone who wasn't there, the maintainer first:
   times against their budgets; Friction says what was retried, what was corrected and who found
   it (the maintainer, an agent review, the verifier, CI), and what took longer than it should
   have, written from the session, not from the diff. The template
-  says why the retro needs these.
+  says why the retro needs these, and "PR check" fails a body without the Card, Verified, and
+  Friction lines, whoever opens the PR, `/pr` or not.
 
 Bullets and short paragraphs over long ones: a paragraph past four lines is two, or a list.
 Frame-by-frame measurements and long test lists go in a PR comment (the verifier's record comment

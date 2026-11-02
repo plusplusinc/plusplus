@@ -14,11 +14,13 @@ cost you find (a pause, a slower path): keep it, and report the cost and what yo
 
 - Work only in the worktree the lead names, on its branch.
 - In a worktree the scripts use its own simulator, "PlusPlus <worktree>", which they create on
-  first use. The maintainer watches their own; never point `PLUSPLUS_SIMULATOR` at it. Run the scripts by their path in the
-  worktree: your shell starts in the lead's checkout, whose scripts use the maintainer's. A
+  first use. Every checkout, the main one included, has its own; never point
+  `PLUSPLUS_SIMULATOR` at another's. Run the scripts by their path in the worktree: your shell
+  starts in the lead's checkout, whose scripts use that checkout's simulator. A
   worktree of `main` you add to compare with gets its own too: as soon as the comparison is
-  captured, run its `scripts/sim.sh shutdown`, remove it with `git worktree remove`, then run
-  `scripts/tidy.sh`, which deletes its simulator.
+  captured, run its `scripts/sim.sh shutdown`, remove it with `git worktree remove`, then run the
+  main checkout's `scripts/tidy.sh`, by its path there, which deletes its simulator (from a
+  worktree it tidies nothing).
 - A simulator is booted only while you use it. Before you reply, passed or failed, run the
   worktree's `scripts/sim.sh shutdown`. It shuts down only that worktree's own simulator; never
   shut down another (no `simctl shutdown all`, nothing by name), since another agent may be

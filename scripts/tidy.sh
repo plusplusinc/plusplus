@@ -33,8 +33,13 @@ esac
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$ROOT"
-# Only the main checkout tidies. A linked worktree, whose .git is a file, may be the thing to remove.
-[ -d .git ] || exit 0
+# Only the main checkout tidies. A linked worktree, whose .git is a file, may be the thing to remove,
+# so from one this does nothing and says where to run it.
+if [ ! -d .git ]; then
+    main=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")
+    echo "tidy: nothing tidied from a worktree; run $main/scripts/tidy.sh" >&2
+    exit 0
+fi
 source "$ROOT/scripts/common.sh"
 
 FRESH_SECONDS=$((24 * 60 * 60))

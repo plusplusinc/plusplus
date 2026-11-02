@@ -118,7 +118,10 @@ project board; agents' technical working files live in `.slices/`.
   before any number is tuned, and so does a note on its speed: a proposed time or curve is
   read against the ones the app already uses for the same kind of move (`.claude/rules/swiftui.md`)
   and says where it sits among them (a 0.12 s key swap, quicker than anything else in the app,
-  went out as "brisk" and came back as too fast).
+  went out as "brisk" and came back as too fast). Options for a note on speed differ in length,
+  not only in curve at a length set earlier: a newer note that asks for faster may lift an
+  earlier "same duration", so ask (four curves at the blob's 0.5 s read as one, and the run came
+  right only at 0.25 s).
 - Name a part of the screen by what the maintainer sees and where it is, not the platform's term
   for it (home indicator, safe area, popover), and before asking about something in their build,
   say where it is and what it does.
