@@ -81,7 +81,8 @@ private struct RailNode: View {
         let pop = RailEntry.pop(reduceMotion: reduceMotion)
         let landing = RailEntry.popStart(reduceMotion: reduceMotion)
         let drawnSize = place.isCurrent ? currentSize : size
-        let beat = SetBeat(held: place.isSetHeld && place.isCurrent && !reduceMotion)
+        let isHeld = place.isSetHeld && place.isCurrent && !reduceMotion
+        let beat = SetBeat(held: isHeld)
         RailNodeColumn()
             .overlay {
                 Circle()
@@ -105,12 +106,12 @@ private struct RailNode: View {
                     // Animated from where the node is drawn, either way: a keyframe animator's
                     // initial value flipped to held with its trigger, so the shrink ran from held
                     // to held and the node snapped small.
-                    .animation(SetBeat.grayAnimation(held: place.isSetHeld)) { node in
+                    .animation(SetBeat.grayAnimation(held: isHeld)) { node in
                         node.overlay {
                             Circle().fill(.pp(.rail)).opacity(beat.gray)
                         }
                     }
-                    .animation(SetBeat.scaleAnimation(held: place.isSetHeld)) { node in
+                    .animation(SetBeat.scaleAnimation(held: isHeld)) { node in
                         node.scaleEffect(beat.scale)
                     }
                     // Scaled with its pulse and gray, so they grow with the node.
