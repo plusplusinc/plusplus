@@ -152,6 +152,7 @@ scripts/sim.sh <command>     # drive the simulator: shots, appearance, reset, er
 scripts/lint.sh [--fix]      # SwiftFormat, SwiftLint, US English, as CI runs them
 scripts/board.sh <command>   # the private project board; run bare to list its commands
 scripts/pr-check.sh <command> # the PR check's logic, run against a PR or commit
+scripts/pr-media.sh <pr> <file>... # put screenshots and recordings in a PR's body
 ```
 
 Reach an external service through its own CLI (`gh`, `asc`). A wrapper script or MCP server
