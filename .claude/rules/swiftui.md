@@ -123,7 +123,9 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   `ppCurrentTitle` (`GrowingName`: both sizes laid out once at the row's width, the one showing
   scaled from its top leading corner, so it grows as one drawn piece; a font size animated frame
   by frame reflowed the text every frame, and crossfading only where the two sizes break into
-  different lines; the large one stands unscaled at rest, where it doesn't show, as scaled down
+  different lines; where they break alike, the large one scales across from the small one's
+  measured width, since the system font sets words narrower per point at the large size and the
+  font sizes' ratio alone left it stepping wider at the hand-off; the large one stands unscaled at rest, where it doesn't show, as scaled down
   the accessibility audit read it as clipped); which set it is on in place of the plan line
   ("Round 2 of 3" in a superset, the side set off in `textPrimary`, "Set 1 of 3 · Left", its
   numbers then without "per side"), with its set bars (`SetBars`) at the line's trailing end,
