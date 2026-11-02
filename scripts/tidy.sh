@@ -14,7 +14,8 @@
 # a simulator. A worktree simulator booted but unused for 30 minutes (PLUSPLUS_SIM_IDLE_MINUTES)
 # is shut down, not deleted. A file or folder in .slices/ goes too once every board card it names
 # (by item id, PVTI_...) is Done, unless it is named after a live worktree or branch; one that names none, or a
-# card the board doesn't have, is kept.
+# card the board doesn't have, is kept. Last, it keeps the simulator runtimes on the newest iOS,
+# Xcode's SDK: it downloads that runtime when missing, then deletes older ones (see the end).
 #
 #   scripts/tidy.sh            # remove, and print each thing removed
 #   scripts/tidy.sh --dry-run  # print what would be removed
@@ -193,4 +194,46 @@ if [ -d "$SLICES" ]; then
             echo "tidy: kept .slices/: reading the board failed: $(tail -1 <<< "$rows")"
         fi
     fi
+fi
+
+# Simulator runtimes: the newest iOS is the one Xcode's SDK targets. When no runtime of it runs
+# the iPhone 17 the scripts use (a runtime can carry only a new device), download Xcode's (several
+# GB); once one does, delete every older iOS runtime and the simulators left without one, so old
+# runtimes never fill the disk. To test an older iOS on purpose, download it by hand; the next
+# session's tidy deletes it again.
+sdk=$(xcrun --sdk iphonesimulator --show-sdk-version)
+# "ready" or "missing", then "<image id> <version>" for each older iOS runtime.
+plan=$(python3 -I -c '
+import json, subprocess, sys
+def simctl(*args):
+    return json.loads(subprocess.run(["xcrun", "simctl", *args], capture_output=True, check=True).stdout)
+version = lambda v: [int(p) for p in v.split(".")][:2]
+sdk = version(sys.argv[1])
+iphone = "com.apple.CoreSimulator.SimDeviceType.iPhone-17"
+runs = any(r["platform"] == "iOS" and r["isAvailable"] and version(r["version"]) == sdk
+           and any(t["identifier"] == iphone for t in r["supportedDeviceTypes"])
+           for r in simctl("list", "--json", "runtimes")["runtimes"])
+print("ready" if runs else "missing")
+for image in simctl("runtime", "list", "-j").values():
+    if image["platformIdentifier"] == "com.apple.platform.iphonesimulator" and version(image["version"]) < sdk:
+        print(image["identifier"], image["version"])
+' "$sdk")
+read -r current <<< "$plan"
+if [ "$current" = missing ]; then
+    echo "tidy: download the iOS $sdk simulator runtime, logging to .build/runtime-download.log"
+    # The session hook stops tidy after two minutes, so the download runs in a session of its
+    # own, which outlives it. lockf skips it while another is running; its lock dies with it.
+    [ "$DRY_RUN" -eq 1 ] || python3 -I -c '
+import subprocess, sys
+log = open(sys.argv[1], "a")
+subprocess.Popen(sys.argv[2:], start_new_session=True, stdin=subprocess.DEVNULL, stdout=log, stderr=log)
+' "$ROOT/.build/runtime-download.log" lockf -t 0 "$ROOT/.build/runtime-download.lock" \
+        xcodebuild -downloadPlatform iOS
+else
+    while read -r id version; do
+        [ -n "$id" ] || continue
+        echo "tidy: delete the iOS $version simulator runtime"
+        [ "$DRY_RUN" -eq 1 ] || xcrun simctl runtime delete "$id" || true
+    done < <(tail -n +2 <<< "$plan")
+    run xcrun simctl delete unavailable
 fi

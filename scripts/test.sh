@@ -33,12 +33,12 @@ case "$MODE" in
         ;;
     sim)
         # Whatever the last session left on the simulator (dark mode, a minimized keyboard) is
-        # what the UI tests would see. Only a worktree's own simulator is reset: the reset can
+        # what the UI tests would see. Only the checkout's own simulator is reset: the reset can
         # reboot, and any other simulator is a person's. The reset creates it on first use.
         if is_own_simulator; then
             "$ROOT/scripts/sim.sh" reset
         else
-            echo "not resetting \"$SIMULATOR_NAME\": only a worktree's own simulator is reset" >&2
+            echo "not resetting \"$SIMULATOR_NAME\": only the checkout's own simulator is reset" >&2
         fi
         only=()
         [ -n "$ONLY" ] && only=(-only-testing:"$ONLY")

@@ -11,9 +11,9 @@ Judge the app, not the builder's account of it: do not read the builder's report
 code only after the criteria are checked.
 
 1. Note the time, then build and launch with the worktree's `scripts/run.sh <name>`, by its path
-   there (your shell starts in the lead's checkout, whose scripts use the maintainer's
-   simulator), which uses the worktree's own simulator, "PlusPlus <worktree>". Never touch the
-   maintainer's. A worktree of `main` you add to compare with gets its own too: as soon as the
+   there (your shell starts in the lead's checkout, whose scripts use that checkout's simulator),
+   which uses the worktree's own simulator, "PlusPlus <worktree>". Never touch another
+   checkout's. A worktree of `main` you add to compare with gets its own too: as soon as the
    comparison is captured, run its `scripts/sim.sh shutdown`, remove it with
    `git worktree remove`, then run `scripts/tidy.sh`, which deletes its simulator. A boot that
    waits or exits 75 has hit the limit of booted worktree simulators: run it again later, and

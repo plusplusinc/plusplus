@@ -25,7 +25,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
 SHOTS="$ROOT/.build/screenshots"
 SUBSYSTEM="com.plusplusinc.plusplus"
-# `erase` erases only the worktree's own simulator, $OWN_SIMULATOR. Raw `simctl erase` and
+# `erase` erases only the checkout's own simulator, $OWN_SIMULATOR. Raw `simctl erase` and
 # `simctl delete` are denied to agents, since they take any device, or `all`, and a wrong argument
 # would wipe a person's simulators; this script is the permission boundary.
 
@@ -173,7 +173,7 @@ case "${1:-}" in
         ;;
     erase)
         if ! is_own_simulator; then
-            echo "erase acts only on a worktree's own simulator, not \"$SIMULATOR_NAME\"" >&2
+            echo "erase acts only on the checkout's own simulator, not \"$SIMULATOR_NAME\"" >&2
             exit 1
         fi
         ensure_simulator
