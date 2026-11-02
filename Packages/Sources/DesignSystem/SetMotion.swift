@@ -100,11 +100,11 @@ public enum SetMotion {
     /// When the pulse sets off, from the log: at once, ahead of everything it pulls.
     nonisolated static let travelStart = 0.02
     /// The pulse traveling from the node left to the next one's, from its pulling free to its
-    /// joining. Down the rail, slow enough to watch it go; up a loop, ahead of the shift, which
-    /// settles a beat after it lands.
+    /// joining. Down the rail, a short charge and a shot, 0.35 s where it was 0.5 s, as Dave found
+    /// it sluggish (2026-11-01); up a loop, ahead of the shift, which settles a beat after it lands.
     nonisolated static func travel(_ way: Way) -> Double {
         switch way {
-        case .down: 0.5
+        case .down: 0.35
         case .loop: 0.42
         }
     }
@@ -115,9 +115,10 @@ public enum SetMotion {
 
     /// Down the rail, the power of the pulse's one ease in, from pulling free to the node: it
     /// charges up slowly as its neck stretches and snaps, then shoots down the rail, still
-    /// speeding up as it hits the node, at this many times its average speed. 5, one curve where
-    /// round 1 had a set-off and a landing, as Dave asked: "charge and hit" (2026-11-01).
-    nonisolated static let travelPower = 5.0
+    /// speeding up as it hits the node, at this many times its average speed. 6, one curve where
+    /// round 1 had a set-off and a landing, as Dave asked: "charge and hit" (2026-11-01), steeper
+    /// than the 5 tried first.
+    nonisolated static let travelPower = 6.0
     /// After the pulse reaches the node, how long its stretch takes to gather into a circle on
     /// it: it hits the node moving, both down the rail and up a loop.
     nonisolated static let collapse = 0.06
