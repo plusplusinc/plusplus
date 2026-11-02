@@ -3,7 +3,8 @@ import SwiftUI
 /// Every timing in logging a set and moving on, in one place, so a tweak tried on the phone is one
 /// line and a rebuild.
 ///
-/// Moving to another exercise is one motion from the log, about 1.25 s:
+/// Moving to another exercise is one motion from the log, 0.93 s down the rail and 1.1 s back up
+/// a superset's loop (`move(_:)`):
 /// - **Pulse**: the node left is pulled out into a blob of green (`PulseShape`): its bottom edge
 ///   stretches into a neck that thins and snaps, leaving the node behind in its own color, and
 ///   the mass runs along the rail, drawn out the faster it goes, to the next node, which it hits
@@ -85,7 +86,7 @@ public enum SetMotion {
     nonisolated static let moveShift = 0.45
     /// How long after the pulse lands the shift starts: the plop plays on a still screen, and the
     /// shift starts as its first squash has sprung back, the wiggle settling as the rows move.
-    /// Longer, the landing holds longer. 0.15 s, half the 0.3 s before, as Dave asked (2026-11-01).
+    /// Longer, the landing holds longer. 0.15 s, as Dave asked for a shorter pause (2026-11-01).
     nonisolated static let landingHold = 0.15
     /// Moving to another exercise, when the shift starts, from the log.
     public nonisolated static func moveShiftStart(_ way: Way) -> Double {
@@ -100,8 +101,8 @@ public enum SetMotion {
     /// When the pulse sets off, from the log: at once, ahead of everything it pulls.
     nonisolated static let travelStart = 0.02
     /// The pulse traveling from the node left to the next one's, from its pulling free to its
-    /// joining. Down the rail, a short charge and a shot, 0.25 s where it was 0.5 s, as Dave found
-    /// it sluggish (2026-11-01); up a loop, ahead of the shift, which settles a beat after it lands.
+    /// joining. Down the rail, a short charge and a shot, as Dave found the longer run sluggish
+    /// (2026-11-01); up a loop, ahead of the shift, which settles a beat after it lands.
     nonisolated static func travel(_ way: Way) -> Double {
         switch way {
         case .down: 0.25
@@ -115,9 +116,8 @@ public enum SetMotion {
 
     /// Down the rail, the power of the pulse's one ease in, from pulling free to the node: it
     /// charges up slowly as its neck stretches and snaps, then shoots down the rail, still
-    /// speeding up as it hits the node, at this many times its average speed. 6, one curve where
-    /// round 1 had a set-off and a landing, as Dave asked: "charge and hit" (2026-11-01), steeper
-    /// than the 5 tried first.
+    /// speeding up as it hits the node, at this many times its average speed, as Dave asked:
+    /// "charge and hit" (2026-11-01).
     nonisolated static let travelPower = 6.0
     /// After the pulse reaches the node, how long its stretch takes to gather into a circle on
     /// it: it hits the node moving, both down the rail and up a loop.
