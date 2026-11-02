@@ -1,5 +1,8 @@
-<!-- Merges are squashed: this body becomes the commit message on main. One paragraph on what
-and why; short sections only when the change has distinct parts. Review notes go in a comment.
+<!-- Merges are squashed: this body becomes the commit message on main. Readable in a minute:
+one or two plain sentences on what someone notices and why, then "What changes" as short
+bullets (or a today-against-this-PR table), the before and after, and "How" for reviewers.
+The pr skill has the shape; #138 is the model. Review notes and long measurements go in a
+comment.
 It is read before the merge, too: keep today and the change apart ("With this change, ..."),
 never the result in the plain present.
 

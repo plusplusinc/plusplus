@@ -64,14 +64,26 @@ which happens intermittently and leaves no log on our side. Push an empty commit
 If a minute later there is still no check, run `gh pr close <n> && gh pr reopen <n>`. Each has
 started a missed run, and closing and reopening has also once started nothing.
 
-The body follows `.github/pull_request_template.md`: one paragraph on what and why, short
-sections only if the change has distinct parts, a "Verified" line stating exactly what was run,
-a "Friction" line saying what was retried, what was corrected and who found it (the
-maintainer, an agent review, the verifier, CI), and what took longer than it should have, and a
-"Card" line naming the board card, written as "Closes #N" when the card was published as an
-issue so the merge closes it. Write Friction from the session, not from the diff, and put any
-decision the diff does not explain in the body; the template says why the retro needs them.
-`--fill` skips the template.
+The body follows `.github/pull_request_template.md`, and #138 is its model. Write it to be read
+in a minute by someone who wasn't there, the maintainer first:
+- **Open with one or two plain sentences**: what someone using the app notices, or what changes
+  for the agents, and why. No code names, file names, or numbers there.
+- **What changes**: short bullets, or a table of today against this PR when values change
+  (timings, sizes). One fact per bullet, in plain words. Say what stays the same if a reader
+  would wonder.
+- **Before and after**, for a change someone can see (below).
+- **How**, for a reviewer: a few bullets with the code names, the tests and what each pins, and
+  any decision the diff doesn't explain. Leave out what the diff already says.
+- **Card, Verified, Friction**, each as a few short bullets. Verified gives what was run and the
+  times against their budgets; Friction says what was retried, what was corrected and who found
+  it (the maintainer, an agent review, the verifier, CI), and what took longer than it should
+  have, written from the session, not from the diff. The Card line names the board card, written
+  as "Closes #N" when the card was published as an issue so the merge closes it. The template
+  says why the retro needs these.
+
+Bullets and short paragraphs over long ones: a paragraph past four lines is two, or a list.
+Frame-by-frame measurements and long test lists go in a PR comment (the verifier's record comment
+is one), not the body. `--fill` skips the template.
 
 A change someone can see carries its before and after in the body itself, never as a path to a
 local file, which no reader of the PR can open: screenshots of `main` and the branch at the same
