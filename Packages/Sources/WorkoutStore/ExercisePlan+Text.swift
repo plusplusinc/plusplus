@@ -19,16 +19,18 @@ extension RoutineExercise {
         )
     }
 
-    /// The detail line in words, for VoiceOver: "3 sets of 10 reps per side, 50 pounds".
-    public func spokenDetail(locale: Locale = .current) -> String {
+    /// The detail line in words, for VoiceOver: "3 sets of 10 reps per side, 50 pounds", then
+    /// the rest line's `rest` in seconds when given, ", 3 minutes rest".
+    public func spokenDetail(locale: Locale = .current, rest: Int? = nil) -> String {
         let sets = plan.sets.formatted(.number.locale(locale))
-        return line(
+        let rest = rest.map { TimeText.spoken(seconds: $0, locale: locale) + " rest" }
+        return (line(
             amount: plan.target.spokenText(locale: locale),
             sets: "\(sets) sets of ",
             weight: shownWeight?.spokenText(locale: locale),
             spoken: true,
-        )
-        .joined(separator: ", ")
+        ) + [rest].compactMap(\.self))
+            .joined(separator: ", ")
     }
 
     /// The amount, after the sets count unless there is one set, and per side when it is, then

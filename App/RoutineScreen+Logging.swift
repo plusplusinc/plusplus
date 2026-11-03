@@ -67,7 +67,8 @@ extension RoutineScreen {
         return RowLabel(
             title: item.exercise.name,
             detail: item.detailParts(locale: locale),
-            spokenDetail: item.spokenDetail(locale: locale),
+            spokenDetail: item.spokenDetail(locale: locale, rest: routine.shownRest(of: item.id)),
+            secondLine: routine.restLine(of: item.id, locale: locale),
             focus: focus,
             bars: bars,
         )
