@@ -1,0 +1,24 @@
+# Dependabot's version updates: a PR a week per ecosystem when something has a new release, with
+# every update in that ecosystem grouped into it. Each goes through "PR check" like any PR; its
+# body check passes Dependabot's own PRs (scripts/pr-check.sh body). SwiftFormat and SwiftLint are
+# pinned in scripts/lint-tools.sh, which Dependabot can't read: `scripts/lint-tools.sh outdated`
+# covers them, and the nightly run makes a card for each it names.
+version: 2
+updates:
+  # swift-snapshot-testing and what it depends on, in Packages/Package.resolved.
+  - package-ecosystem: swift
+    directory: /Packages
+    schedule:
+      interval: weekly
+    groups:
+      swift:
+        patterns: ["*"]
+
+  # The actions .github/workflows/ pin to a commit, with the version in a comment.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns: ["*"]
