@@ -64,8 +64,9 @@ def when(stamp):
     return datetime.fromisoformat(stamp.replace("Z", "+00:00"))
 
 
-def over(seconds, budget, overage=" OVER BUDGET"):
-    return f"{seconds:.1f} s (budget {budget:.3g} s){overage if seconds > budget else ''}"
+def over(seconds, budget, overage=None):
+    mark = overage or " OVER BUDGET"
+    return f"{seconds:.1f} s (budget {budget:.3g} s){mark if seconds > budget else ''}"
 
 
 def parallel_targets(plan_text):
@@ -98,13 +99,13 @@ def bundle_times(tests, parallel):
 
 
 def overage(target, per_test, on_ci):
-    """What a test over its own budget reads. On Xcode Cloud a READ_LOCALLY target's test can read
-    over for the machine, not itself, so its line says what decides (.claude/rules/testing.md,
-    Budgets)."""
+    """What a test over its own budget reads in place of OVER BUDGET, or None. On Xcode Cloud a
+    READ_LOCALLY target's test can read over for the machine, not itself, so its line says what
+    decides (.claude/rules/testing.md, Budgets)."""
     if on_ci and target in READ_LOCALLY:
-        return (f", over on Xcode Cloud: slow if over {per_test / LOCAL_RATIO:.3g} s locally"
-                " (.claude/rules/testing.md)")
-    return " OVER BUDGET"
+        return (", over on Xcode Cloud: slow if it logs fopen, or reads over "
+                f"{per_test / LOCAL_RATIO:.3g} s in the whole target locally (.claude/rules/testing.md)")
+    return None
 
 
 def budget_lines(tests, parallel, on_ci):
@@ -115,7 +116,7 @@ def budget_lines(tests, parallel, on_ci):
     >>> for line in budget_lines(rows, set(), on_ci=True):
     ...     print(line)
     DesignSystemTests 3.6 s (budget 30 s)
-      A/slow() 3.5 s (budget 2 s), over on Xcode Cloud: slow if over 1.6 s locally (.claude/rules/testing.md)
+      A/slow() 3.5 s (budget 2 s), over on Xcode Cloud: slow if it logs fopen, or reads over 1.6 s in the whole target locally (.claude/rules/testing.md)
     >>> for line in budget_lines(rows, set(), on_ci=False):
     ...     print(line)
     DesignSystemTests 3.6 s (budget 24 s)
