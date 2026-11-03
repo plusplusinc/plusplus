@@ -23,7 +23,8 @@ extension EnvironmentValues {
     @Entry var restingLabelFloor: CGFloat = 0
 }
 
-/// A row's node column and its content side by side, on their first lines' baselines, the content
+/// A row's node column and its content side by side, the column's baseline where the content puts
+/// it (`railNodeBaseline`: its first line's baseline, unless a grown name raises it), the content
 /// ending as far in from the row's trailing edge as the node's edge is from its leading one: the
 /// lifted card is centered on the row. The inset is worked out here, in the pass that sizes the
 /// row, from the column's width; read from the node after layout, it narrowed the content a pass
@@ -54,8 +55,9 @@ struct RailRowLayout: Layout {
     }
 
     /// Where the column and the content go in the row, and the row's size: as an `HStack` with
-    /// no spacing aligned on `.firstTextBaseline` places them, the content offered the width the
-    /// column and the trailing inset leave.
+    /// no spacing aligned on `.firstTextBaseline` places them, the content's line read from
+    /// `railNodeBaseline`, and the content offered the width the column and the trailing inset
+    /// leave.
     private func frames(
         _ proposal: ProposedViewSize,
         _ subviews: Subviews,
@@ -71,9 +73,9 @@ struct RailRowLayout: Layout {
             height: proposal.height,
         )
         let content = subviews[1].dimensions(in: offer)
-        let baseline = max(column[.firstTextBaseline], content[.firstTextBaseline])
-        let columnTop = baseline - column[.firstTextBaseline]
-        let contentTop = baseline - content[.firstTextBaseline]
+        let line = max(column[.firstTextBaseline], content[.railNodeBaseline])
+        let columnTop = line - column[.firstTextBaseline]
+        let contentTop = line - content[.railNodeBaseline]
         return Frames(
             column: CGRect(x: 0, y: columnTop, width: column.width, height: column.height),
             content: CGRect(
