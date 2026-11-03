@@ -134,11 +134,31 @@ private struct RailNode: View {
 /// width and baseline at every text size.
 struct RailNodeColumn: View {
     var body: some View {
+        RailNodeGlyph()
+            .railColumn()
+    }
+}
+
+/// The key's icon, held invisibly: what a node centers on, on a row's first line.
+struct RailNodeGlyph: View {
+    var body: some View {
         Image(systemName: "plus")
             .font(.ppButton)
             .hidden()
-            .railColumn()
     }
+}
+
+extension VerticalAlignment {
+    /// Where a row's content puts its node's center, given above its first baseline: a name drawn
+    /// larger than a row's raises the node with its letters (`GrowingName`). Not given, it is the
+    /// first baseline itself, and the node column sits on that baseline as the key's icon would.
+    private nonisolated enum RailNodeCenter: AlignmentID {
+        static func defaultValue(in context: ViewDimensions) -> CGFloat {
+            context[.firstTextBaseline]
+        }
+    }
+
+    nonisolated static let railNodeCenter = VerticalAlignment(RailNodeCenter.self)
 }
 
 /// Where a row's node's center is, so the row's stretch of line can run through it.

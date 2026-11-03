@@ -10,8 +10,9 @@ import SwiftUI
 /// narrower per point at the large size, so the font sizes' ratio alone left it about 3% narrower
 /// than the name it hands off to, which then stepped wider. Where they don't, as a long name can,
 /// the two crossfade as they scale by the font sizes' ratio. The name's
-/// height and first baseline run between the two sizes', so the rail's node, on that baseline,
-/// moves with it.
+/// height and first baseline run between the two sizes'. The rail's node centers where it sits
+/// on a row's name, that far above the baseline grown by the letters' scale (`railNodeCenter`):
+/// on the baseline alone, it kept a row's height above it and sat low on the large name.
 struct GrowingName: View, Animatable {
     let title: String
     var growth: CGFloat
@@ -26,7 +27,7 @@ struct GrowingName: View, Animatable {
 
     var body: some View {
         let drawing = Drawing(growth: growth, ratio: ratio, sizes: sizes)
-        GrowingNameLayout(growth: growth) {
+        GrowingNameLayout(growth: growth, letterScale: drawing.smallScale) {
             name(.ppRowTitle)
                 .onGeometryChange(for: CGSize.self, of: \.size) { sizes.small = $0 }
                 .scaleEffect(drawing.smallScale, anchor: .topLeading)
@@ -35,6 +36,8 @@ struct GrowingName: View, Animatable {
                 .onGeometryChange(for: CGSize.self, of: \.size) { sizes.large = $0 }
                 .scaleEffect(drawing.largeScale, anchor: .topLeading)
                 .opacity(drawing.largeOpacity)
+            RailNodeGlyph()
+                .accessibilityHidden(true)
         }
     }
 
@@ -114,9 +117,12 @@ struct GrowingName: View, Animatable {
 
 /// The two sizes of a name over each other at the top leading corner, as tall as the size growing
 /// in is, `growth` of the way from the small's height to the large's, with its first baseline as
-/// far between theirs.
+/// far between theirs. Its third subview is the node's glyph, which a node centers on at a row's
+/// size: the node's center is as far above the baseline as the glyph's, times `letterScale`.
 private struct GrowingNameLayout: Layout {
     var growth: CGFloat
+    /// How large the letters are drawn against a row's name.
+    var letterScale: CGFloat
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
         let (small, large) = sizes(proposal, subviews)
@@ -145,15 +151,20 @@ private struct GrowingNameLayout: Layout {
         subviews: Subviews,
         cache _: inout (),
     ) -> CGFloat? {
-        guard guide == .firstTextBaseline, subviews.count == 2 else { return nil }
+        guard guide == .firstTextBaseline || guide == .railNodeCenter, subviews.count == 3 else {
+            return nil
+        }
         let offer = ProposedViewSize(width: proposal.width, height: nil)
         let small = subviews[0].dimensions(in: offer)[.firstTextBaseline]
         let large = subviews[1].dimensions(in: offer)[.firstTextBaseline]
-        return bounds.minY + small + (large - small) * growth
+        let baseline = bounds.minY + small + (large - small) * growth
+        guard guide == .railNodeCenter else { return baseline }
+        let glyph = subviews[2].dimensions(in: .unspecified)
+        return baseline - (glyph[.firstTextBaseline] - glyph.height / 2) * letterScale
     }
 
     private func sizes(_ proposal: ProposedViewSize, _ subviews: Subviews) -> (CGSize, CGSize) {
-        guard subviews.count == 2 else { return (.zero, .zero) }
+        guard subviews.count == 3 else { return (.zero, .zero) }
         let offer = ProposedViewSize(width: proposal.width, height: nil)
         return (subviews[0].sizeThatFits(offer), subviews[1].sizeThatFits(offer))
     }

@@ -23,7 +23,8 @@ extension EnvironmentValues {
     @Entry var restingLabelFloor: CGFloat = 0
 }
 
-/// A row's node column and its content side by side, on their first lines' baselines, the content
+/// A row's node column and its content side by side, on their first lines' baselines, or the node
+/// on the center the content gives it (`railNodeCenter`), the content
 /// ending as far in from the row's trailing edge as the node's edge is from its leading one: the
 /// lifted card is centered on the row. The inset is worked out here, in the pass that sizes the
 /// row, from the column's width; read from the node after layout, it narrowed the content a pass
@@ -54,8 +55,8 @@ struct RailRowLayout: Layout {
     }
 
     /// Where the column and the content go in the row, and the row's size: as an `HStack` with
-    /// no spacing aligned on `.firstTextBaseline` places them, the content offered the width the
-    /// column and the trailing inset leave.
+    /// no spacing aligned on `.firstTextBaseline` places them, or on the node's center, the content
+    /// offered the width the column and the trailing inset leave.
     private func frames(
         _ proposal: ProposedViewSize,
         _ subviews: Subviews,
@@ -71,9 +72,15 @@ struct RailRowLayout: Layout {
             height: proposal.height,
         )
         let content = subviews[1].dimensions(in: offer)
-        let baseline = max(column[.firstTextBaseline], content[.firstTextBaseline])
-        let columnTop = baseline - column[.firstTextBaseline]
-        let contentTop = baseline - content[.firstTextBaseline]
+        // The node is centered in its column. Where the content gives its center, the column's
+        // center goes there; otherwise the two meet on their first baselines.
+        let nodeCenter = content[.railNodeCenter]
+        let (columnLine, contentLine) = nodeCenter < content[.firstTextBaseline]
+            ? (column.height / 2, nodeCenter)
+            : (column[.firstTextBaseline], content[.firstTextBaseline])
+        let line = max(columnLine, contentLine)
+        let columnTop = line - columnLine
+        let contentTop = line - contentLine
         return Frames(
             column: CGRect(x: 0, y: columnTop, width: column.width, height: column.height),
             content: CGRect(
