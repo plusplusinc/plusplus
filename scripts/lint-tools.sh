@@ -5,6 +5,10 @@
 # worktree of the clone shares. A new release changes nothing until a PR raises a version here.
 #
 #   scripts/lint-tools.sh path <tool>     # print the tool's binary, fetching it first if needed
+#   scripts/lint-tools.sh outdated        # "<tool> <pinned> <latest>" for each with a newer release
+#
+# Dependabot can't read these pins, so the nightly run (scripts/nightly-tooling.py) runs
+# `outdated` and makes a card, "Update <tool> to <latest>", for each tool it names.
 #
 # To raise a version: change it and its checksum below (the release page lists each asset's
 # sha256), run scripts/lint.sh --fix, and fix or turn off in .swiftformat or .swiftlint.yml what
@@ -47,8 +51,35 @@ fetch() (
     [ -x "$dir/$name" ] || mv "$tmp/unzipped" "$dir"
 )
 
+# Each tool's latest GitHub release against its pin, one REST request a tool. A tool whose
+# release can't be read is named on stderr and fails the command, after the others are checked.
+outdated() {
+    local entry name version sha url repo latest status=0 found=0
+    for entry in "${TOOLS[@]}"; do
+        read -r name version sha url <<< "$entry"
+        repo=$(sed -E 's#^https://github.com/([^/]+/[^/]+)/.*#\1#' <<< "$url")
+        if ! latest=$(gh api "repos/$repo/releases/latest" --jq .tag_name); then
+            echo "could not read $name's latest release from $repo: check gh auth status and the network" >&2
+            status=1
+            continue
+        fi
+        latest=${latest#v}
+        if [ "$latest" != "$version" ] &&
+            [ "$(printf '%s\n%s\n' "$version" "$latest" | sort -V | tail -1)" = "$latest" ]; then
+            echo "$name $version $latest"
+            found=1
+        fi
+    done
+    [ "$status" -ne 0 ] || [ "$found" -eq 1 ] || echo "every pinned tool is at its latest release" >&2
+    return "$status"
+}
+
+if [ "${1:-}" = outdated ] && [ "$#" -eq 1 ]; then
+    outdated
+    exit
+fi
 [ "${1:-}" = path ] && [ "$#" -eq 2 ] ||
-    { echo "usage: scripts/lint-tools.sh path <swiftformat|swiftlint>" >&2; exit 64; }
+    { echo "usage: scripts/lint-tools.sh path <swiftformat|swiftlint> | outdated" >&2; exit 64; }
 
 for entry in "${TOOLS[@]}"; do
     read -r name version sha url <<< "$entry"
