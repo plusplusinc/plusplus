@@ -13,8 +13,6 @@ public struct RowLabel: View {
     private let title: String
     private let detail: [String]
     private let spokenDetail: String?
-    /// A line of its own under the detail, in its font and color, fading with it.
-    private let secondLine: String?
     private let focus: RowFocus?
     /// How far the exercise is through its sets in a workout, shown as bars at the trailing
     /// end of its detail line, or of its progress line on the current exercise.
@@ -38,14 +36,12 @@ public struct RowLabel: View {
         title: String,
         detail: [String],
         spokenDetail: String? = nil,
-        secondLine: String? = nil,
         focus: RowFocus? = nil,
         bars: SetProgress? = nil,
     ) {
         self.title = title
         self.detail = detail
         self.spokenDetail = spokenDetail
-        self.secondLine = secondLine
         self.focus = focus
         self.bars = bars
     }
@@ -95,7 +91,7 @@ public struct RowLabel: View {
             GrowingName(title: title, growth: focus == nil ? 0 : 1)
             // Out of a workout, a row with no detail has nothing under its name, not even
             // spacing.
-            if detailText != nil || secondLine != nil || focus != nil {
+            if detailText != nil || focus != nil {
                 VStack(alignment: .leading, spacing: Spacing.lg) {
                     // The detail line gives way to which set it is on, in the same place, the
                     // bars at its trailing end: beside it, or under it at the accessibility
@@ -132,12 +128,11 @@ public struct RowLabel: View {
     /// The detail line and the progress line, one over the other, as one gives way to the other.
     private func lines(_ detailText: String?) -> some View {
         ZStack(alignment: .topLeading) {
-            if detailText != nil || secondLine != nil {
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach([detailText, secondLine].compactMap(\.self), id: \.self) { line in
-                        Text(AttributedString.monoNumbers(line, font: .ppRowDetailNumber))
-                    }
-                }
+            if let detailText {
+                Text(AttributedString.monoNumbers(
+                    detailText,
+                    font: .ppRowDetailNumber,
+                ))
                 .font(.ppRowDetail)
                 .foregroundStyle(.pp(.textSecondary))
                 // Never over the progress line: back once it has gone, and gone as the name
@@ -257,7 +252,7 @@ public struct RowLabel: View {
                 focus.spokenFigures,
             ]
         } else {
-            [title, spokenDetail ?? (detail + [secondLine].compactMap(\.self)).joined(separator: ", ")]
+            [title, spokenDetail ?? detail.joined(separator: ", ")]
         }
         return (parts + [bars?.spoken ?? ""]).filter { !$0.isEmpty }.joined(separator: ", ")
     }
