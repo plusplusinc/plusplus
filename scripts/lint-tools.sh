@@ -64,8 +64,7 @@ outdated() {
             continue
         fi
         latest=${latest#v}
-        if [ "$latest" != "$version" ] &&
-            [ "$(printf '%s\n%s\n' "$version" "$latest" | sort -V | tail -1)" = "$latest" ]; then
+        if [ "$(printf '%s\n%s\n' "$version" "$latest" | sort -V | tail -1)" != "$version" ]; then
             echo "$name $version $latest"
             found=1
         fi

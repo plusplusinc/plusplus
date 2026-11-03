@@ -813,7 +813,7 @@ def board_cards(rows):
 
 
 def board(*args, stdin=None):
-    sh(str(ROOT / "scripts/board.sh"), *args, stdin=stdin)
+    return sh(str(ROOT / "scripts/board.sh"), *args, stdin=stdin)
 
 
 def classify(files):
@@ -882,8 +882,7 @@ class Night:
         self.me = None  # the account the verifier comments as, read once a night
         self.unarmed = []  # PRs merged to main tonight that the runner didn't arm
         self.unchecked = []  # what the runner couldn't make sure of, for the top of the digest
-        self.added = []  # the update cards the runner put on the board tonight
-        self.rows = None  # the board's items, as the update cards' step read them
+        self.added = []  # the titles of the update cards the runner put on the board tonight
         self.ended = "no card was eligible"
 
     def logs(self):
@@ -957,20 +956,20 @@ class Night:
 
     def add_update_cards(self):
         """A card at the top of Todo for each lint tool with a newer release that has none yet. A
-        failed read is noted at the top of the digest, and the night goes on."""
+        failed read is noted at the top of the digest, and the night goes on. The board's list
+        lags a card just added, so the night takes it only once the list shows it."""
         try:
             outdated = sh(str(ROOT / "scripts/lint-tools.sh"), "outdated", timeout=READ_TIMEOUT)
-            self.rows = board_rows()
+            cards = update_cards(outdated, board_rows()) if outdated.strip() else []
         except FAILURES as error:
             self.unchecked.append(f"which lint tools have a newer release ({error})")
             return
-        for title, body in update_cards(outdated, self.rows):
+        for title, body in cards:
             if self.dry_run:
                 log(f"Dry run: would add \"{title}\" at the top of Todo.")
                 continue
-            item = sh(str(ROOT / "scripts/board.sh"), "add", title, stdin=body).strip()
-            board("move", item, "top")
-            self.added.append((item, "Todo", "-", title, body))
+            board("move", board("add", title, stdin=body).strip(), "top")
+            self.added.append(title)
             log(f"Added \"{title}\" at the top of Todo.")
 
     def left_in_progress(self, card, error):
@@ -997,10 +996,8 @@ class Night:
         open_prs = gh_json("pr", "list", "--state", "open", "--json", "number,files")
         open_files = {pr["number"]: [f["path"] for f in pr["files"]] for pr in open_prs}
         # The cards and main's files, read once a night: the runner's own moves are in self.tried.
-        # The board's list lags a card just added, so tonight's update cards come first from here.
         if not hasattr(self, "cards_tonight"):
-            listed = board_cards(self.rows or board_rows())
-            self.cards_tonight = self.added + [c for c in listed if c[0] not in {a[0] for a in self.added}]
+            self.cards_tonight = board_cards(board_rows())
             self.repo_files = set(sh("git", "ls-tree", "-r", "--name-only", "origin/main").split())
         repo_files = self.repo_files
         for item, status, feature, title, body in self.cards_tonight:
@@ -1294,7 +1291,7 @@ class Night:
                      f"{month_hours(runs, now):.1f} h this month")
         lines.append("Tests: " + ", ".join(f"{t} {self.tests_before.get(t, 0)} → {after.get(t, 0)}"
                                            for t in sorted(set(self.tests_before) | set(after))))
-        lines += [f"Added: {card[3]}, at the top of Todo" for card in self.added]
+        lines += [f"Added: {title}, at the top of Todo" for title in self.added]
         lines += [f"Parked: {p}" for p in self.parked]
         lines += [f"Waiting: {w}" for w in self.waiting]
         lines += [f"Behind main: #{pr['number']} {pr['title']}" for pr in behind]

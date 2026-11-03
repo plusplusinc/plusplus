@@ -236,6 +236,8 @@ class UpdateCards(unittest.TestCase):
 class LintToolsOutdated(unittest.TestCase):
     """`scripts/lint-tools.sh outdated` against its real pins, with a stand-in for gh."""
 
+    PINS = dict(re.findall(r'"(swiftformat|swiftlint) (\S+) ', (SCRIPTS / "lint-tools.sh").read_text()))
+
     def outdated(self, swiftformat, swiftlint):
         bin_dir = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, bin_dir, True)
@@ -249,26 +251,23 @@ esac
 echo "$tag"
 """)
         gh.chmod(0o755)
-        pins = dict(re.findall(r'"(swiftformat|swiftlint) (\S+) ', (SCRIPTS / "lint-tools.sh").read_text()))
-        result = subprocess.run(["bash", str(SCRIPTS / "lint-tools.sh"), "outdated"], capture_output=True,
-                                text=True, env={**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}"})
-        return result, pins
+        return subprocess.run(["bash", str(SCRIPTS / "lint-tools.sh"), "outdated"], capture_output=True,
+                              text=True, env={**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}"})
 
     def test_a_newer_release_is_named_and_the_same_or_older_is_not(self):
-        result, pins = self.outdated("v9.99.10", "0.0.1")
+        result = self.outdated("v9.99.10", "0.0.1")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout, f"swiftformat {pins['swiftformat']} 9.99.10\n")
+        self.assertEqual(result.stdout, f"swiftformat {self.PINS['swiftformat']} 9.99.10\n")
 
     def test_tools_at_their_pin_print_nothing(self):
-        _, pins = self.outdated("0.0.1", "0.0.1")
-        result, _ = self.outdated(pins["swiftformat"], pins["swiftlint"])
+        result = self.outdated(self.PINS["swiftformat"], self.PINS["swiftlint"])
         self.assertEqual((result.returncode, result.stdout), (0, ""))
         self.assertIn("every pinned tool is at its latest release", result.stderr)
 
     def test_an_unreadable_release_fails_naming_the_tool_after_checking_the_rest(self):
-        result, pins = self.outdated("fail", "9.99.0")
+        result = self.outdated("fail", "9.99.0")
         self.assertEqual(result.returncode, 1)
-        self.assertEqual(result.stdout, f"swiftlint {pins['swiftlint']} 9.99.0\n")
+        self.assertEqual(result.stdout, f"swiftlint {self.PINS['swiftlint']} 9.99.0\n")
         self.assertIn("could not read swiftformat's latest release", result.stderr)
 
 
@@ -604,20 +603,16 @@ class Loop(unittest.TestCase):
         self.assertIn("Ended: No more cards: the usage window seven_day can't be read",
                       (night.dir / "digest.md").read_text())
 
-    def test_an_outdated_tool_becomes_the_top_card_and_is_taken_first(self):
-        moves = []
-        saved = nightly.board
-        self.addCleanup(setattr, nightly, "board", saved)
-        nightly.board = lambda *a, stdin=None: moves.append(a)
-
-        def sh(*args, **_):
-            if args[-1] == "outdated":
-                return "swiftformat 0.64.4 0.64.5\n"
-            return "PVTI_new\n" if args[1:3] == ("add", "Update swiftformat to 0.64.5") else ""
-
-        night = self.night(["merged"] * 4, weekly_resets=100, sh=sh)
-        self.assertEqual(moves[0], ("move", "PVTI_new", "top"))
-        self.assertEqual(night.taken, ["Update swiftformat to 0.64.5", "card 0", "card 1"])
+    def test_an_outdated_tool_becomes_the_top_card_and_the_digest_says_so(self):
+        calls = []
+        saved = nightly.board, nightly.tidy
+        self.addCleanup(lambda: (setattr(nightly, "board", saved[0]), setattr(nightly, "tidy", saved[1])))
+        nightly.board = lambda *a, stdin=None: calls.append(a) or ("PVTI_new\n" if a[0] == "add" else "")
+        nightly.tidy = lambda: None
+        sh = lambda *a, **k: "swiftformat 0.64.4 0.64.5\n" if a[-1] == "outdated" else ""  # noqa: E731
+        night = self.night(["merged"] * 4, weekly_resets=100, sh=sh, finish=True)
+        self.assertEqual(calls[:2], [("add", "Update swiftformat to 0.64.5"), ("move", "PVTI_new", "top")])
+        self.assertIn("Added: Update swiftformat to 0.64.5, at the top of Todo", (night.dir / "digest.md").read_text())
 
     def test_the_uncapped_night_takes_the_fourth(self):
         resets_at_seven = (STOP - NIGHT).total_seconds() / 3600
