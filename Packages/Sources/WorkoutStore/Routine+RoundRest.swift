@@ -1,14 +1,12 @@
 import Foundation
 
-// A superset's own gaps: the switch from one member to the next within a round, the rest after a
-// round, and the transition after the last round. Every member holds the same values, as they
-// hold one round count, each nil until stepped: nil reads as the default or, for the rest after a
-// round, as derived from the members' own rests.
+// A superset's own gaps: the rest after a round and the transition after the last round. Going
+// from one member to the next takes no time. Every member holds the same values, as they hold one
+// round count, each nil until stepped: nil reads as the default or, for the rest after a round, as
+// derived from the members' own rests.
 
 /// A superset's gap, as its sheet steps it.
 public enum RoundPart: Sendable {
-    /// Between one member's set and the next member's, within a round.
-    case switchPartners
     /// After a round's last member, before the next round.
     case afterRound
     /// After the last round, before the next exercise.
@@ -19,14 +17,12 @@ extension RoundRest {
     subscript(part: RoundPart) -> Int? {
         get {
             switch part {
-            case .switchPartners: switchPartners
             case .afterRound: afterRound
             case .transition: transition
             }
         }
         set {
             switch part {
-            case .switchPartners: switchPartners = newValue
             case .afterRound: afterRound = newValue
             case .transition: transition = newValue
             }
@@ -38,7 +34,7 @@ extension RoundRest {
     func filled(from others: some Sequence<RoundRest>) -> RoundRest {
         var filled = self
         for other in others {
-            for part in [RoundPart.switchPartners, .afterRound, .transition] where filled[part] == nil {
+            for part in [RoundPart.afterRound, .transition] where filled[part] == nil {
                 filled[part] = other[part]
             }
         }
@@ -47,27 +43,20 @@ extension RoundRest {
 }
 
 extension RoundPart {
-    /// "Switch", "Rest after round", "Transition".
+    /// "Rest after round", "Transition".
     public var label: String {
         switch self {
-        case .switchPartners: "Switch"
         case .afterRound: "Rest after round"
         case .transition: "Transition"
         }
     }
-
-    /// The switch moves 5 s a step, as a switch between sides; the others 15 s, as a rest.
-    var step: Int {
-        self == .switchPartners ? 5 : 15
-    }
 }
 
 extension Routine {
-    static let defaultRoundSwitch = 15
     static let defaultRoundTransition = 30
 
     /// A superset's gap for `id`'s superset, in seconds: the value set on its members, else the
-    /// default, a 15 s switch and a 30 s transition, or the rest after a round derived from the
+    /// default, a 30 s transition, or the rest after a round derived from the
     /// members. Nil for a plain row.
     public func roundValue(_ part: RoundPart, of id: RoutineExercise.ID) -> Int? {
         guard let row = exercises.first(where: { $0.id == id }), row.supersetID != nil
@@ -76,7 +65,6 @@ extension Routine {
             return set
         }
         return switch part {
-        case .switchPartners: Self.defaultRoundSwitch
         case .afterRound: derivedRestAfterRound(of: id)
         case .transition: Self.defaultRoundTransition
         }
@@ -115,7 +103,8 @@ extension Routine {
     private func steppedRound(_ part: RoundPart, of id: RoutineExercise.ID, by direction: Int)
         -> Int?
     {
-        roundValue(part, of: id)?.stepped(by: direction * part.step, within: PlanLimits.rest)
+        // 15 s a step, as a rest between sets.
+        roundValue(part, of: id)?.stepped(by: direction * 15, within: PlanLimits.rest)
     }
 
     /// The rest after a round when none is set: the longest of the members' own rests, less a

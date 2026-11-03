@@ -91,7 +91,6 @@ struct ExerciseSheet: View {
         if item.exercise.isPerSide {
             parts.append(.plan(.switchSides))
         }
-        parts.append(.round(.switchPartners))
         if item.plan.sets > 1 {
             parts.append(.round(.afterRound))
         }
@@ -152,7 +151,6 @@ struct ExerciseSheet: View {
         case .plan(.switchSides): "Between left and right"
         case .plan(.transition): "Before the next exercise"
         case .plan(.target), .plan(.weight): nil
-        case .round(.switchPartners): partners.map { "Between this and \($0)" }
         case .round(.afterRound): partners.map { "Shared with \($0)" }
         case .round(.transition): "After the superset, before the next exercise"
         }

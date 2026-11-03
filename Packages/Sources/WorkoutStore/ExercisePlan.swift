@@ -101,18 +101,15 @@ public struct ExercisePlan: Equatable, Sendable {
 }
 
 /// A superset's own gaps, the same on every member, each nil until set: a nil reads as derived
-/// from the members (the rest after a round) or as the default (the switch and the transition).
+/// from the members (the rest after a round) or as the default (the transition).
 /// Empty on a plain row.
 public struct RoundRest: Equatable, Sendable {
-    /// Between one member's set and the next member's, within a round.
-    public var switchPartners: Int?
     /// After a round's last member, before the next round.
     public var afterRound: Int?
     /// After the last round, before the next exercise.
     public var transition: Int?
 
-    public init(switchPartners: Int? = nil, afterRound: Int? = nil, transition: Int? = nil) {
-        self.switchPartners = switchPartners
+    public init(afterRound: Int? = nil, transition: Int? = nil) {
         self.afterRound = afterRound
         self.transition = transition
     }

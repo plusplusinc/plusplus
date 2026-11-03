@@ -67,7 +67,7 @@ enum RoutineSchemaV7: VersionedSchema {
         var switchSides: Int?
         var transition: Int?
         // Its superset's gaps, in seconds, the same on every member; nil until set, and on a plain
-        // row.
+        // row. `roundSwitch` is never read or written: a superset has no switch between members.
         var roundSwitch: Int?
         var roundRest: Int?
         var roundTransition: Int?

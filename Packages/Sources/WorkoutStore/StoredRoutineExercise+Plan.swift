@@ -22,7 +22,6 @@ extension StoredRoutineExercise {
 
     /// Writes a superset's gaps as they are, nil for one never set.
     func write(_ round: RoundRest) {
-        update(\.roundSwitch, to: round.switchPartners)
         update(\.roundRest, to: round.afterRound)
         update(\.roundTransition, to: round.transition)
     }
@@ -30,7 +29,6 @@ extension StoredRoutineExercise {
     /// The stored superset gaps, each nil when never set or out of range.
     var round: RoundRest {
         RoundRest(
-            switchPartners: Self.gap(roundSwitch),
             afterRound: Self.gap(roundRest),
             transition: Self.gap(roundTransition),
         )
