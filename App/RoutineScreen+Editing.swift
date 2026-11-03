@@ -15,6 +15,21 @@ extension RoutineScreen {
         }
     }
 
+    /// The gaps of `id`'s superset, read and stepped on every member; nil for a plain row.
+    func roundSteps(of id: RoutineExercise.ID) -> RoundSteps? {
+        guard routine.isInSuperset(id) else { return nil }
+        return RoundSteps(
+            value: { part in
+                (
+                    routine.roundText(part, of: id, locale: locale),
+                    routine.spokenRoundText(part, of: id, locale: locale),
+                )
+            },
+            canStep: { routine.canStepRound($0, of: id, by: $1) },
+            step: { routine.stepRound($0, of: id, by: $1) },
+        )
+    }
+
     /// Moves a row dropped on the rail, in the rail's transaction, so the order changes as the
     /// card settles into its gap; it saves once, as any change does.
     func move(_ id: RoutineExercise.ID, to slot: RailSlot<RoutineExercise.ID>) {

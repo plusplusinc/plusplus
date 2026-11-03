@@ -71,6 +71,8 @@ extension Routine {
         }
         let partner = index.map { rest[$0] }
         row.supersetID = partner?.supersetID
+        // The row takes the gaps of the superset it lands in; any of the one it left stay there.
+        row.roundRest = partner?.roundRest ?? RoundRest()
         if let partner, partner.supersetID != nil {
             row.plan.sets = partner.plan.sets
         }

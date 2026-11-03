@@ -339,6 +339,7 @@ struct RoutineScreen: View {
                 ExerciseSheet(
                     item: item,
                     partners: routine.partnerNames(of: opened.id),
+                    rounds: roundSteps(of: opened.id),
                 ) { delete(opened.id) }
             }
         }
