@@ -46,7 +46,7 @@ extension RoutineExercise {
     /// "per side".
     func qualified(_ text: String, _ part: PlanPart, spoken: Bool = false) -> String {
         switch part {
-        case .sets: text
+        case .sets, .rest, .switchSides, .transition: text
         case .target: exercise.isPerSide ? text + " per side" : text
         case .weight:
             exercise.load == .pair ? text + (spoken ? " per side" : "/side") : text
@@ -72,12 +72,7 @@ extension SetTarget {
         case let .reps(reps):
             return counted(reps, "rep", "reps", locale: locale)
         case let .time(seconds):
-            guard seconds >= TimeText.minutesFrom else {
-                return counted(seconds, "second", "seconds", locale: locale)
-            }
-            let minutes = counted(seconds / 60, "minute", "minutes", locale: locale)
-            guard seconds % 60 > 0 else { return minutes }
-            return minutes + " " + counted(seconds % 60, "second", "seconds", locale: locale)
+            return TimeText.spoken(seconds: seconds, locale: locale)
         }
     }
 }
@@ -112,6 +107,16 @@ enum TimeText {
     static func text(seconds: Int, locale: Locale) -> String {
         let parts = parts(seconds: seconds, locale: locale)
         return parts.number + noBreakSpace + parts.unit
+    }
+
+    /// "90 seconds", "2 minutes", "2 minutes 30 seconds".
+    static func spoken(seconds: Int, locale: Locale) -> String {
+        guard seconds >= minutesFrom else {
+            return counted(seconds, "second", "seconds", locale: locale)
+        }
+        let minutes = counted(seconds / 60, "minute", "minutes", locale: locale)
+        guard seconds % 60 > 0 else { return minutes }
+        return minutes + " " + counted(seconds % 60, "second", "seconds", locale: locale)
     }
 
     /// The number and its unit apart: "30" "s", "2" "min", "2:30" "min".

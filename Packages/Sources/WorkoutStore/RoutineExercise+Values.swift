@@ -14,6 +14,9 @@ extension RoutineExercise {
                 "Reps"
             }
         case .weight: "Weight"
+        case .rest: "Rest"
+        case .switchSides: "Switch sides"
+        case .transition: "Transition"
         }
     }
 
@@ -27,6 +30,8 @@ extension RoutineExercise {
             qualified(plan.target.number(locale: locale), .target)
         case .weight:
             qualified(plan.weight?.text(locale: locale) ?? "", .weight)
+        case .rest, .switchSides, .transition:
+            Self.gapText(gap(part), locale: locale)
         }
     }
 
@@ -40,12 +45,35 @@ extension RoutineExercise {
             qualified(plan.target.spokenText(locale: locale), .target)
         case .weight:
             qualified(plan.weight?.spokenText(locale: locale) ?? "", .weight, spoken: true)
+        case .rest, .switchSides, .transition:
+            Self.spokenGap(gap(part), locale: locale)
         }
     }
 
+    /// A gap's seconds, 0 when it has none.
+    private func gap(_ part: PlanPart) -> Int {
+        switch part {
+        case .rest: plan.rest
+        case .switchSides: plan.switchSides ?? 0
+        case .transition: plan.transition
+        case .sets, .target, .weight: 0
+        }
+    }
+
+    /// "None", "30 s", "2:30 min".
+    static func gapText(_ seconds: Int, locale: Locale) -> String {
+        seconds == 0 ? "None" : TimeText.text(seconds: seconds, locale: locale)
+    }
+
+    /// "None", "30 seconds", "2 minutes 30 seconds".
+    static func spokenGap(_ seconds: Int, locale: Locale) -> String {
+        seconds == 0 ? "None" : TimeText.spoken(seconds: seconds, locale: locale)
+    }
+
     /// Moves a part one step up (`direction` 1) or down (-1): a set or a rep at a time, a time
-    /// 5 s at a time, a weight its load's step in its unit. It stops at the limits a plan is
-    /// stored within, a time at 5 s, and a weight at one step, a bar's at the empty bar.
+    /// 5 s at a time, a weight its load's step in its unit, a rest or a transition 15 s and a
+    /// switch between sides 5 s. It stops at the limits a plan is stored within, a time at 5 s,
+    /// a weight at one step, a bar's at the empty bar, and a gap at none.
     public mutating func step(_ part: PlanPart, by direction: Int) {
         if let stepped = stepped(part, by: direction) {
             plan = stepped
@@ -85,11 +113,26 @@ extension RoutineExercise {
             else { return nil }
             weight.amount = amount
             plan.weight = weight
+        case .rest:
+            guard let rest = plan.rest.stepped(by: direction * Self.gapStep, within: PlanLimits.rest)
+            else { return nil }
+            plan.rest = rest
+        case .switchSides:
+            guard let seconds = plan.switchSides,
+                  let switched = seconds.stepped(by: direction * Self.timeStep, within: PlanLimits.rest)
+            else { return nil }
+            plan.switchSides = switched
+        case .transition:
+            guard let transition = plan.transition
+                .stepped(by: direction * Self.gapStep, within: PlanLimits.rest)
+            else { return nil }
+            plan.transition = transition
         }
         return plan
     }
 
     private static let timeStep = 5
+    private static let gapStep = 15
 }
 
 extension Comparable where Self: AdditiveArithmetic {

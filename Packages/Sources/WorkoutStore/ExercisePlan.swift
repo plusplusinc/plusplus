@@ -124,6 +124,12 @@ public enum PlanPart: Sendable {
     /// Reps or time.
     case target
     case weight
+    /// Between sets.
+    case rest
+    /// Between a per-side set's left and its right.
+    case switchSides
+    /// Before the next exercise.
+    case transition
 }
 
 extension Exercise {
@@ -131,5 +137,21 @@ extension Exercise {
     /// load.
     public var planParts: [PlanPart] {
         load == nil ? [.sets, .target] : [.sets, .target, .weight]
+    }
+}
+
+extension RoutineExercise {
+    /// The parts a plain row's sheet steps, in order: its plan's, then the rest only past one set,
+    /// the switch only per side, and the transition.
+    public var sheetParts: [PlanPart] {
+        var parts = exercise.planParts
+        if plan.sets > 1 {
+            parts.append(.rest)
+        }
+        if exercise.isPerSide {
+            parts.append(.switchSides)
+        }
+        parts.append(.transition)
+        return parts
     }
 }

@@ -25,7 +25,7 @@ struct ExerciseSheet: View {
                             Capsules(equipment.map(\.name))
                                 .padding(.bottom, Spacing.sm)
                         }
-                        ForEach(item.exercise.planParts, id: \.self) { part in
+                        ForEach(parts, id: \.self) { part in
                             ValueRow(
                                 label: label(of: part),
                                 note: note(on: part),
@@ -66,6 +66,12 @@ struct ExerciseSheet: View {
         .presentationBackground(Color.pp(.background))
     }
 
+    /// A plain row's parts, its gaps included; a superset member's plan alone, its own gaps kept
+    /// for when it leaves.
+    private var parts: [PlanPart] {
+        partners == nil ? item.sheetParts : item.exercise.planParts
+    }
+
     /// In a superset, sets are rounds, shared with its partners.
     private func isRounds(_ part: PlanPart) -> Bool {
         part == .sets && partners != nil
@@ -82,9 +88,15 @@ struct ExerciseSheet: View {
             : item.spokenValue(of: part, locale: locale)
     }
 
+    /// What a part is for, in gray under its label, where the label alone doesn't say.
     private func note(on part: PlanPart) -> String? {
-        guard isRounds(part), let partners else { return nil }
-        return "Shared with \(partners)"
+        switch part {
+        case .sets: partners.map { "Shared with \($0)" }
+        case .rest: "Between sets"
+        case .switchSides: "Between left and right"
+        case .transition: "Before the next exercise"
+        case .target, .weight: nil
+        }
     }
 
     /// Opens or closes a part's stepper. Once one has opened, the sheet scrolls only as far as
