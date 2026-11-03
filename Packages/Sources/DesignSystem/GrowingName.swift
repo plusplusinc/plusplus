@@ -38,7 +38,6 @@ struct GrowingName: View, Animatable {
                 .scaleEffect(drawing.largeScale, anchor: .topLeading)
                 .opacity(drawing.largeOpacity)
             RailNodeGlyph()
-                .accessibilityHidden(true)
         }
     }
 
