@@ -59,7 +59,9 @@ holds a copy, in the PR workflow's pull-request start condition ("don't start if
 match"), which only the App Store Connect API or its UI changes. After editing the list, update
 the copy, keeping the rest of the start condition as it is. Agents are denied the update
 (`.claude/settings.json`), as they are every write below to the repository's settings, so the
-maintainer runs it; an agent prints the rule and leaves the command for them:
+maintainer runs it. An agent writes the patch file itself and hands over only the last command,
+with the file's path, to run at the Mac (from the phone they can't); the first command only
+prints, so handing over that one costs them a round:
 
 ```sh
 PR_CHECK_BASE=HEAD scripts/pr-check.sh xcode-cloud   # the branch's list as Xcode Cloud's rule

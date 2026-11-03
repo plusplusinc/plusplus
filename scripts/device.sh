@@ -6,6 +6,7 @@
 #   PLUSPLUS_DEVICE="<name or UDID>" scripts/device.sh
 #   scripts/device.sh --link                           # a link, even with an iPhone in reach
 #   scripts/device.sh --list                           # the iPhone it would use, and why others not
+#   PLUSPLUS_OLDER_SCHEMA=1 scripts/device.sh          # install over a newer store schema anyway
 #
 # The phone is looked up each time, never stored, since the repo is public. It must be paired
 # with this Mac and reachable: devicectl marks it unavailable when it is away or off the Mac's
@@ -36,6 +37,40 @@ MAIN=$(dirname "$(git -C "$ROOT" rev-parse --path-format=absolute --git-common-d
 STAGING="$ROOT/.build/phone-link"
 SITE="$MAIN/.build/phone-link"
 mkdir -p "$STAGING"
+
+# Every worktree installs on the same phone, and a build whose store schema is older than the
+# one on the phone can't read its store, so the app opens with no routines (a build from main
+# over another session's branch did, 2026-11-02). The main checkout's .build/phone-schema
+# records the newest schema installed or linked, with its branch, and a build older than it is
+# refused, before building, unless PLUSPLUS_OLDER_SCHEMA=1, for when that branch was dropped.
+SCHEMA_RECORD="$MAIN/.build/phone-schema"
+
+# The newest Schema.Version the store declares, as 1.2.3.
+schema_version() {
+    grep -ho 'Schema\.Version([0-9, ]*)' "$PACKAGE"/Sources/WorkoutStore/*.swift |
+        tr -d 'SchemaVersion.() ' | tr , . | sort -V | tail -n 1
+}
+
+schema_guard() {
+    [ -f "$SCHEMA_RECORD" ] && [ "${PLUSPLUS_OLDER_SCHEMA:-}" != 1 ] || return 0
+    local ours theirs branch
+    ours=$(schema_version)
+    IFS=$'\t' read -r theirs branch < "$SCHEMA_RECORD"
+    [ "$(printf '%s\n%s\n' "$ours" "$theirs" | sort -V | tail -n 1)" = "$ours" ] && return 0
+    echo "refusing: this build's store schema is $ours, and the phone has $theirs from" \
+        "$branch, which this build can't read, so the app would open with no routines. Build" \
+        "on top of $branch, or, if that work was dropped, run again with" \
+        "PLUSPLUS_OLDER_SCHEMA=1." >&2
+    exit 65
+}
+
+record_schema() {
+    local branch
+    branch=$(git -C "$ROOT" branch --show-current)
+    [ -n "$branch" ] || branch="commit $(git -C "$ROOT" rev-parse --short HEAD)"
+    mkdir -p "$(dirname "$SCHEMA_RECORD")"
+    printf '%s\t%s\n' "$(schema_version)" "$branch" > "$SCHEMA_RECORD"
+}
 
 # One line per available iPhone, UDID then name, tab-separated, narrowed to PLUSPLUS_DEVICE
 # when it is set; each paired iPhone out of reach goes to stderr with why. devicectl also lists
@@ -221,6 +256,7 @@ JSON
     UNDEPLOYED=""
     rm -rf "$HELD"
     HELD=""
+    record_schema
 
     # New assets can take about a minute to reach every edge.
     local manifest="https://$host/$token/manifest.plist" deadline=$((SECONDS + 120))
@@ -242,6 +278,7 @@ case "${1:-}" in
         exit
         ;;
     --link)
+        schema_guard
         install_link
         exit
         ;;
@@ -251,6 +288,7 @@ case "${1:-}" in
         ;;
 esac
 
+schema_guard
 IPHONES=$(available_iphones)
 COUNT=$(grep -c . <<< "$IPHONES" || true)
 
@@ -279,6 +317,7 @@ if ! xcrun devicectl device install app --quiet --device "$UDID" "$APP"; then
     install_link
     exit
 fi
+record_schema
 # A locked phone takes the install but refuses the launch. The build is on the phone either way.
 if ! xcrun devicectl device process launch --quiet --terminate-existing --device "$UDID" \
     "$BUNDLE_ID"; then
