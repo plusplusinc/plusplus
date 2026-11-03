@@ -120,14 +120,19 @@ held main actor), or named with its time in the report that adds it. A run's fir
 carries the process's warm-up, so it can read over on its own (0.8 to 2.3 s for
 `DesignSystemTests`' first on Xcode Cloud, runs 321 to 366).
 
-On Xcode Cloud, 26 to 30 s into the test action, the freshly booted simulator starts
-relaunching KonaSynthesizer, an Intel-only speech extension that crashes under Rosetta (each
-launch is in the run's crash-log bundle). For 5 to 10 s the machine slows, and that lands in
-`DesignSystemTests`: whichever snapshots run then read up to 6 s (runs 322 to 366). So a
-`DesignSystemTests` test, other than the first, over budget on Xcode Cloud is slow only if it
-is also over 1.6 s in `scripts/test.sh sim DesignSystemTests` (the whole target: a filter to
-the one test would read its warm-up); otherwise it is the burst, and is left. Moving the
-target after the UI tests would only move the burst onto their 2 s waits.
+A snapshot whose reference matches only within the perceptual tolerance is compared through
+CoreImage and Metal, and the first such comparison in a run sets them up: 0.4 s locally, 0.6
+to 5.7 s on Xcode Cloud, where every snapshot otherwise renders byte for byte as it does
+locally. So a reference that no longer matches exactly is re-recorded (until #150, the editing
+title's, over budget in 6 of runs 321 to 366).
+
+Other `DesignSystemTests` tests have read 2.7 to 4.6 s on Xcode Cloud and under 1 s locally,
+a different few each run (runs 326, 360, 362, 366). In 326, 360, and 366 they ran while the
+freshly booted simulator relaunched KonaSynthesizer, an Intel-only speech extension that
+crashes under Rosetta, which starts 26 to 46 s into the test action; that is a correlation,
+since runs 321 and 358 had it with nothing over. So such a test is slow only if it is also over 1.6 s in
+`scripts/test.sh sim DesignSystemTests` (the whole target: a filter to the one test would
+read its warm-up), and `scripts/ci-times.py` marks it that way rather than over budget.
 
 ## Snapshots and hosted views
 
