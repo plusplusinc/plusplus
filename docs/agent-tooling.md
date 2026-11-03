@@ -125,7 +125,10 @@ the skill.
 it's installed and running, the retro's last reply, read from the transcript, and the tooling
 runner's last digest.
 
-After the retro, the same run hands over to `scripts/nightly-tooling.py`, which takes standalone
+After the retro, the same run hands over to `scripts/nightly-tooling.py`. It first adds a card,
+"Update <tool> to <version>", at the top of Todo for each lint tool `scripts/lint-tools.sh outdated`
+names (Dependabot can't read that pin; it covers the Swift package and the actions), unless the
+board has one by that title or an open one for the tool. Then it takes standalone
 cards carrying a `Nightly:` line (the /brief skill says which qualify) one at a time: up to three
 a night, or until a usage window reaches 0.9 on the night before the weekly limit resets, and
 never after 5 am. Its gates are code, tested against fixtures by

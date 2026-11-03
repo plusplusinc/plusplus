@@ -7,7 +7,9 @@
     scripts/nightly-tooling.py digest [<night-dir>]          # a night's digest; the last by default
 
 scripts/nightly-retro.sh run calls `run` after the retro, with the night's folder in
-.build/retro/, where the retro's stream-json log already is. `run` holds the night's gates, so
+.build/retro/, where the retro's stream-json log already is. It first puts a card, "Update <tool>
+to <version>", at the top of Todo for each lint tool `scripts/lint-tools.sh outdated` names, unless
+the board has one by that title or an open one for that tool. `run` holds the night's gates, so
 no agent can forget one: it starts cards only from midnight to 5 am, up to three a night, or,
 on the night before the weekly usage limit resets (its reset at or before 7 am), until a
 usage window reaches 0.9 or 5 am. Before each card it reads the last rate_limit_event in the
@@ -262,6 +264,40 @@ def likely_files(body, repo_files):
 def overlap(likely, files):
     return sorted(f for f in files for name in likely
                   if f == name or (name.endswith("/") and f.startswith(name)))
+
+
+def update_cards(outdated, rows):
+    """[(title, body)] of the card for each tool `scripts/lint-tools.sh outdated` names, "<tool>
+    <pinned> <latest>" a line, that the board has none for: none by its title, in any status, and
+    no other "Update <tool> to" card still open. rows are board_rows()'s."""
+    cards = []
+    for line in outdated.splitlines():
+        tool, pinned, latest = line.split()
+        title = f"Update {tool} to {latest}"
+        if any(t == title or (t.startswith(f"Update {tool} to ") and status != "Done")
+               for _, status, _, t in rows):
+            continue
+        cards.append((title, UPDATE_CARD.format(tool=tool, pinned=pinned, latest=latest)))
+    return cards
+
+
+UPDATE_CARD = """## Problem
+`scripts/lint-tools.sh` pins {tool} {pinned}, and {latest} is its latest release. Dependabot can't
+read that pin, so the nightly run made this card from `scripts/lint-tools.sh outdated`.
+
+## Acceptance criteria
+- `scripts/lint-tools.sh` pins {tool} {latest} with its release asset's SHA-256, and
+  `scripts/lint-tools.sh outdated` no longer names {tool}.
+- `scripts/lint.sh` passes on the whole repo: what the new version finds is fixed, or its rule is
+  turned off in `.swiftformat` or `.swiftlint.yml` with a comment saying why.
+
+Nightly: lint runs the tool's latest release; `scripts/lint-tools.sh outdated` stops naming it
+
+## Plan
+Standalone tooling. Raise the pin as the header of `scripts/lint-tools.sh` says, run
+`scripts/lint.sh --fix`, and fix what is left. The PR touches a protected path, so it waits for
+the maintainer.
+"""
 
 
 def xcode_cloud_gate(month_hours, runs):
@@ -754,13 +790,18 @@ def disable_auto(n):
         raise RuntimeError(f"auto-merge is still on for #{n}")
 
 
-def board_cards():
-    """[(id, status, feature, title, body)] in board order: one list and one show request."""
+def board_rows():
+    """[(id, status, feature, title)] of every item, in board order: one list request."""
     rows = []
     for line in sh(str(ROOT / "scripts/board.sh"), "list").splitlines():
         head, feature, title = line.split("\t", 2)
         item, status = head.split(None, 1)
         rows.append((item, status.strip(), feature, title))
+    return rows
+
+
+def board_cards(rows):
+    """[(id, status, feature, title, body)] of the standalone Todo cards in rows: one show request."""
     todo = [r for r in rows if r[1] == "Todo" and r[2] == "-"]
     if not todo:
         return []
@@ -841,6 +882,8 @@ class Night:
         self.me = None  # the account the verifier comments as, read once a night
         self.unarmed = []  # PRs merged to main tonight that the runner didn't arm
         self.unchecked = []  # what the runner couldn't make sure of, for the top of the digest
+        self.added = []  # the update cards the runner put on the board tonight
+        self.rows = None  # the board's items, as the update cards' step read them
         self.ended = "no card was eligible"
 
     def logs(self):
@@ -873,6 +916,7 @@ class Night:
             self.ended = log(f"No tooling cards: they start only from midnight to {CUTOFF_HOUR} am.")
             return
         cutoff, stop = self.window
+        self.add_update_cards()
         while True:
             info = last_rate_limit(self.logs())
             now = self.clock()
@@ -911,6 +955,24 @@ class Night:
             if result == "stop":
                 return
 
+    def add_update_cards(self):
+        """A card at the top of Todo for each lint tool with a newer release that has none yet. A
+        failed read is noted at the top of the digest, and the night goes on."""
+        try:
+            outdated = sh(str(ROOT / "scripts/lint-tools.sh"), "outdated", timeout=READ_TIMEOUT)
+            self.rows = board_rows()
+        except FAILURES as error:
+            self.unchecked.append(f"which lint tools have a newer release ({error})")
+            return
+        for title, body in update_cards(outdated, self.rows):
+            if self.dry_run:
+                log(f"Dry run: would add \"{title}\" at the top of Todo.")
+                continue
+            item = sh(str(ROOT / "scripts/board.sh"), "add", title, stdin=body).strip()
+            board("move", item, "top")
+            self.added.append((item, "Todo", "-", title, body))
+            log(f"Added \"{title}\" at the top of Todo.")
+
     def left_in_progress(self, card, error):
         """Says on the card, and in the digest, that the runner failed while taking it."""
         item, title, _ = card
@@ -935,8 +997,10 @@ class Night:
         open_prs = gh_json("pr", "list", "--state", "open", "--json", "number,files")
         open_files = {pr["number"]: [f["path"] for f in pr["files"]] for pr in open_prs}
         # The cards and main's files, read once a night: the runner's own moves are in self.tried.
+        # The board's list lags a card just added, so tonight's update cards come first from here.
         if not hasattr(self, "cards_tonight"):
-            self.cards_tonight = board_cards()
+            listed = board_cards(self.rows or board_rows())
+            self.cards_tonight = self.added + [c for c in listed if c[0] not in {a[0] for a in self.added}]
             self.repo_files = set(sh("git", "ls-tree", "-r", "--name-only", "origin/main").split())
         repo_files = self.repo_files
         for item, status, feature, title, body in self.cards_tonight:
@@ -1230,6 +1294,7 @@ class Night:
                      f"{month_hours(runs, now):.1f} h this month")
         lines.append("Tests: " + ", ".join(f"{t} {self.tests_before.get(t, 0)} → {after.get(t, 0)}"
                                            for t in sorted(set(self.tests_before) | set(after))))
+        lines += [f"Added: {card[3]}, at the top of Todo" for card in self.added]
         lines += [f"Parked: {p}" for p in self.parked]
         lines += [f"Waiting: {w}" for w in self.waiting]
         lines += [f"Behind main: #{pr['number']} {pr['title']}" for pr in behind]

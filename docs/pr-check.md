@@ -29,7 +29,9 @@ runs, replays #136's case in a temporary repository.
 
 It also fails a PR whose body lacks the Card, Verified, and Friction lines the nightly retro reads
 (`scripts/pr-check.sh body`, the body on stdin), each as `Name:` or a `## Name` heading; the
-check runs again when the body is edited, so `gh pr edit` that adds them clears it.
+check runs again when the body is edited, so `gh pr edit` that adds them clears it. Dependabot's
+PRs (`.github/dependabot.yml`) pass it: the workflow hands the script the PR's author, and
+`dependabot[bot]`'s body is the bot's own, with no session behind it.
 
 A first job, "Route", reads which of the two a PR is; "PR check" then lints or waits. Both run
 on `ubuntu-24.04`, free on a public repository, and when Route fails, "PR check" fails too,
