@@ -21,46 +21,21 @@ struct GrowingNameHandOffTests {
     private func inkWidth(_ title: String, growth: CGFloat, at category: UIContentSizeCategory)
         throws -> CGFloat
     {
-        let host = UIHostingController(
-            rootView: GrowingName(title: title, growth: growth)
+        let coverage = try Coverage(
+            of: GrowingName(title: title, growth: growth)
                 .frame(width: Self.width, alignment: .topLeading)
                 .fixedSize(horizontal: false, vertical: true),
+            at: category,
         )
-        host.view.backgroundColor = .clear
-        let window = UIWindow.sceneless(hosting: host, at: category)
-        window.settle()
         // The whole window: the name sits centered in it, and only how far it reaches across from
         // its own leading edge counts.
-        let bounds = host.view.bounds
-        let format = UIGraphicsImageRendererFormat()
-        format.scale = 3
-        format.opaque = false
-        let image = UIGraphicsImageRenderer(bounds: bounds, format: format).image { context in
-            host.view.layer.render(in: context.cgContext)
-        }
-        let cgImage = try #require(image.cgImage)
-        let (width, height) = (cgImage.width, cgImage.height)
-        var bytes = [UInt8](repeating: 0, count: width * height * 4)
-        bytes.withUnsafeMutableBytes { raw in
-            let context = CGContext(
-                data: raw.baseAddress,
-                width: width,
-                height: height,
-                bitsPerComponent: 8,
-                bytesPerRow: width * 4,
-                space: CGColorSpaceCreateDeviceRGB(),
-                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue,
-            )
-            context?.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
-        }
-        window.isHidden = true
-        // The columns furthest left and right with a pixel more than half covered.
-        func covered(_ column: Int) -> Bool {
-            (0 ..< height).contains { bytes[($0 * width + column) * 4 + 3] > 128 }
-        }
-        let first = try #require((0 ..< width).first(where: covered), "Nothing drawn for \(title)")
-        let last = try #require((0 ..< width).last(where: covered))
-        return CGFloat(last + 1 - first) / 3
+        let columns = 0 ..< coverage.width
+        let first = try #require(
+            columns.first { coverage.covered(column: $0) },
+            "Nothing drawn for \(title)",
+        )
+        let last = try #require(columns.last { coverage.covered(column: $0) })
+        return CGFloat(last + 1 - first) / CGFloat(Coverage.scale)
     }
 
     /// Names that break alike in both sizes at the text size, and one that breaks apart, which
