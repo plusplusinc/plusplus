@@ -35,6 +35,8 @@ TARGETS = {
     "DesignSystemTests": (30, 2, False),
     "PlusPlusUITests": (360, 90, True),
 }
+# Targets whose tests, over their own budget on Xcode Cloud, are judged by their local time.
+READ_LOCALLY = {"DesignSystemTests"}
 PACKAGE = 10  # scripts/test.sh on macOS, both swift test runs' test time, locally
 # A run's start-to-finish time has no budget: in runs 317 and 318 about 250 s of it was Xcode
 # Cloud's own steps (machine start, clone, the hand-off to the simulator, collecting results),
@@ -97,7 +99,23 @@ def bundle_times(tests, parallel):
 
 def budget_lines(tests, parallel, on_ci):
     """Lines for each target, and for each of its tests that is listed or over its own budget.
-    Only a serial target's tests are timed on their own."""
+    Only a serial target's tests are timed on their own.
+
+    On Xcode Cloud a DesignSystemTests test over its own budget is listed with its time, marked
+    to be read against the local run rather than as over budget: there a test can read over for
+    the machine, not itself, and only `scripts/test.sh sim DesignSystemTests` tells which
+    (.claude/rules/testing.md, Budgets). Locally it reads OVER BUDGET.
+
+    >>> rows = [("DesignSystemTests", "A/slow()", 3.5), ("DesignSystemTests", "A/fast()", 0.1)]
+    >>> for line in budget_lines(rows, set(), on_ci=True):
+    ...     print(line)
+    DesignSystemTests 3.6 s (budget 30 s)
+      A/slow() 3.5 s (budget 2 s), over on Xcode Cloud: slow if over 1.6 s locally (.claude/rules/testing.md)
+    >>> for line in budget_lines(rows, set(), on_ci=False):
+    ...     print(line)
+    DesignSystemTests 3.6 s (budget 24 s)
+      A/slow() 3.5 s (budget 1.6 s) OVER BUDGET
+    """
     lines = []
     by_target = bundle_times(tests, parallel)
     order = list(TARGETS)
@@ -109,7 +127,13 @@ def budget_lines(tests, parallel, on_ci):
         if not per_test or target in parallel:
             continue
         for t, name, s in sorted(tests, key=lambda row: -row[2]):
-            if t == target and (lists_all or s > per_test * scale):
+            if t != target or not (lists_all or s > per_test * scale):
+                continue
+            if on_ci and target in READ_LOCALLY and s > per_test:
+                local = per_test / LOCAL_RATIO
+                lines.append(f"  {name} {s:.1f} s (budget {per_test:.3g} s), over on Xcode Cloud: "
+                             f"slow if over {local:.3g} s locally (.claude/rules/testing.md)")
+            else:
                 lines.append(f"  {name} {over(s, per_test * scale)}")
     return lines
 
