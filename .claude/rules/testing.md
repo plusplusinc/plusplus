@@ -116,20 +116,18 @@ A target's budget holds its wall time. A serial target's is its tests' sum, and 
 Swift Testing target's its longest test's, since each is timed from their common start.
 
 A test over its budget is fixed at its cause (setup through the UI, a fixed wait, a launch, a
-held main actor), or named with its time in the report that adds it. The first test of a
-filtered run carries the process's warm-up, so it can read over on its own; so can a full run's
-(0.8 to 2.3 s for `DesignSystemTests`' first on Xcode Cloud, runs 321 to 366).
+held main actor), or named with its time in the report that adds it. A run's first test
+carries the process's warm-up, so it can read over on its own (0.8 to 2.3 s for
+`DesignSystemTests`' first on Xcode Cloud, runs 321 to 366).
 
-On Xcode Cloud, 26 to 30 s after the test action starts (46 s once in twelve runs), the freshly
-booted simulator starts launching KonaSynthesizer, a speech extension built for Intel that
-Rosetta translates and that crashes at launch, about 25 times a run; the run's crash-log
-bundle holds each launch. For its first 5 to 10 s the whole machine slows, and
-`DesignSystemTests`, which starts 19 to 25 s in, has whichever snapshots run then read up to
-6 s, one of them over 2 s in most runs (runs 322 to 366); the editing title's snapshots, about
-5 s in, take it often. The local runtime has no such executable. So a `DesignSystemTests` test
-over budget on Xcode Cloud is slow only when it is over its local budget in `scripts/test.sh
-sim` too; otherwise it is the burst, and is left. The target's order stays: run after the UI
-tests, it would put the burst on the first UI test, whose 2 s waits it could fail.
+On Xcode Cloud, 26 to 30 s into the test action, the freshly booted simulator starts
+relaunching KonaSynthesizer, an Intel-only speech extension that crashes under Rosetta (each
+launch is in the run's crash-log bundle). For 5 to 10 s the machine slows, and that lands in
+`DesignSystemTests`: whichever snapshots run then read up to 6 s (runs 322 to 366). So a
+`DesignSystemTests` test over budget on Xcode Cloud is slow only if it is also over its local
+budget in `scripts/test.sh sim DesignSystemTests` (the whole target: a filter to the one test
+would read its warm-up); otherwise it is the burst, and is left. Keep the target ahead of the
+UI tests, whose 2 s waits the burst could fail.
 
 ## Snapshots and hosted views
 
