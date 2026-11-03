@@ -538,10 +538,10 @@ class Loop(unittest.TestCase):
 
     BODY = "## Problem\nx\n\nNightly: faster CI; its time\n\n## Success\nRun it.\n"
 
-    def night(self, results, weekly_resets, take=None, event=None, finish=False, gh=lambda *a: [], sh=None):
+    def night(self, results, weekly_resets, take=None, event=None, finish=False, gh=lambda *a: []):
         cards = [(f"PVTI_{i}", "Todo", "-", f"card {i}", self.BODY) for i in range(4)]
         stubs = {"board_rows": lambda: [], "board_cards": lambda rows: cards, "xcode_cloud_runs": lambda: [],
-                 "gh_json": gh, "classify": lambda files: "app: x", "sh": sh or (lambda *a, **k: ""),
+                 "gh_json": gh, "classify": lambda files: "app: x", "sh": lambda *a, **k: "",
                  "test_counts": lambda rev: {}}
         saved = {name: getattr(nightly, name) for name in stubs}
         self.addCleanup(lambda: [setattr(nightly, n, f) for n, f in saved.items()])
@@ -609,10 +609,17 @@ class Loop(unittest.TestCase):
         self.addCleanup(lambda: (setattr(nightly, "board", saved[0]), setattr(nightly, "tidy", saved[1])))
         nightly.board = lambda *a, stdin=None: calls.append(a) or ("PVTI_new\n" if a[0] == "add" else "")
         nightly.tidy = lambda: None
-        sh = lambda *a, **k: "swiftformat 0.64.4 0.64.5\n" if a[-1] == "outdated" else ""  # noqa: E731
-        night = self.night(["merged"] * 4, weekly_resets=100, sh=sh, finish=True)
-        self.assertEqual(calls[:2], [("add", "Update swiftformat to 0.64.5"), ("move", "PVTI_new", "top")])
-        self.assertIn("Added: Update swiftformat to 0.64.5, at the top of Todo", (night.dir / "digest.md").read_text())
+        # swiftformat's release couldn't be read; swiftlint's line still makes its card.
+        outdated = subprocess.CompletedProcess([], 1, "swiftlint 0.65.0 0.65.1\n",
+                                               "could not read swiftformat's latest release\n")
+        saved_run = nightly.subprocess.run
+        self.addCleanup(setattr, nightly.subprocess, "run", saved_run)
+        nightly.subprocess.run = lambda *a, **k: outdated
+        night = self.night(["merged"] * 4, weekly_resets=100, finish=True)
+        self.assertEqual(calls[:2], [("add", "Update swiftlint to 0.65.1"), ("move", "PVTI_new", "top")])
+        digest = (night.dir / "digest.md").read_text()
+        self.assertIn("Added: Update swiftlint to 0.65.1, at the top of Todo", digest)
+        self.assertIn("Not checked: which lint tools have a newer release (could not read swiftformat's", digest)
 
     def test_the_uncapped_night_takes_the_fourth(self):
         resets_at_seven = (STOP - NIGHT).total_seconds() / 3600

@@ -286,8 +286,8 @@ UPDATE_CARD = """## Problem
 read that pin, so the nightly run made this card from `scripts/lint-tools.sh outdated`.
 
 ## Acceptance criteria
-- `scripts/lint-tools.sh` pins {tool} {latest} with its release asset's SHA-256, and
-  `scripts/lint-tools.sh outdated` no longer names {tool}.
+- `scripts/lint-tools.sh` pins {tool}'s latest release ({latest} when this card was made) with its
+  release asset's SHA-256, and `scripts/lint-tools.sh outdated` no longer names {tool}.
 - `scripts/lint.sh` passes on the whole repo: what the new version finds is fixed, or its rule is
   turned off in `.swiftformat` or `.swiftlint.yml` with a comment saying why.
 
@@ -955,22 +955,25 @@ class Night:
                 return
 
     def add_update_cards(self):
-        """A card at the top of Todo for each lint tool with a newer release that has none yet. A
-        failed read is noted at the top of the digest, and the night goes on. The board's list
-        lags a card just added, so the night takes it only once the list shows it."""
+        """A card at the top of Todo for each lint tool with a newer release that has none yet,
+        in `outdated`'s order. A failure is noted at the top of the digest, and the night goes on.
+        The board's list lags a card just added, so the night takes it once the list shows it."""
         try:
-            outdated = sh(str(ROOT / "scripts/lint-tools.sh"), "outdated", timeout=READ_TIMEOUT)
-            cards = update_cards(outdated, board_rows()) if outdated.strip() else []
+            # A tool whose release can't be read fails the command; the others' lines still count.
+            result = subprocess.run([str(ROOT / "scripts/lint-tools.sh"), "outdated"], cwd=ROOT,
+                                    capture_output=True, text=True, timeout=READ_TIMEOUT)
+            if result.returncode != 0:
+                self.unchecked.append(f"which lint tools have a newer release ({result.stderr.strip()})")
+            cards = update_cards(result.stdout, board_rows()) if result.stdout.strip() else []
+            for title, body in reversed(cards):  # each goes on top, so the first goes last
+                if self.dry_run:
+                    log(f"Dry run: would add \"{title}\" at the top of Todo.")
+                    continue
+                board("move", board("add", title, stdin=body).strip(), "top")
+                self.added.append(title)
+                log(f"Added \"{title}\" at the top of Todo.")
         except FAILURES as error:
-            self.unchecked.append(f"which lint tools have a newer release ({error})")
-            return
-        for title, body in cards:
-            if self.dry_run:
-                log(f"Dry run: would add \"{title}\" at the top of Todo.")
-                continue
-            board("move", board("add", title, stdin=body).strip(), "top")
-            self.added.append(title)
-            log(f"Added \"{title}\" at the top of Todo.")
+            self.unchecked.append(f"adding the lint tools' update cards ({error})")
 
     def left_in_progress(self, card, error):
         """Says on the card, and in the digest, that the runner failed while taking it."""
