@@ -10,9 +10,10 @@ import SwiftUI
 /// narrower per point at the large size, so the font sizes' ratio alone left it about 3% narrower
 /// than the name it hands off to, which then stepped wider. Where they don't, as a long name can,
 /// the two crossfade as they scale by the font sizes' ratio. The name's
-/// height and first baseline run between the two sizes'. The rail's node centers where it sits
-/// on a row's name, that far above the baseline grown by the letters' scale (`railNodeCenter`):
-/// on the baseline alone, it kept a row's height above it and sat low on the large name.
+/// height and first baseline run between the two sizes'. The rail's node keeps the place it has
+/// on a row's name, its center that far above the baseline grown by the letters' scale
+/// (`railNodeBaseline`): on the baseline alone, it kept a row's height above it and sat low on the
+/// large name.
 struct GrowingName: View, Animatable {
     let title: String
     var growth: CGFloat
@@ -118,7 +119,8 @@ struct GrowingName: View, Animatable {
 /// The two sizes of a name over each other at the top leading corner, as tall as the size growing
 /// in is, `growth` of the way from the small's height to the large's, with its first baseline as
 /// far between theirs. Its third subview is the node's glyph, which a node centers on at a row's
-/// size: the node's center is as far above the baseline as the glyph's, times `letterScale`.
+/// size: the node's center is as far above the baseline as the glyph's, times `letterScale`, so the
+/// node column's baseline (`railNodeBaseline`) rises that offset times `letterScale - 1`.
 private struct GrowingNameLayout: Layout {
     var growth: CGFloat
     /// How large the letters are drawn against a row's name.
@@ -139,9 +141,11 @@ private struct GrowingNameLayout: Layout {
         cache _: inout (),
     ) {
         let offer = ProposedViewSize(width: proposal.width, height: nil)
-        for subview in subviews {
+        for subview in subviews.prefix(2) {
             subview.place(at: bounds.origin, anchor: .topLeading, proposal: offer)
         }
+        // Offered as `explicitAlignment` measures it, so it is measured once.
+        subviews.last?.place(at: bounds.origin, anchor: .topLeading, proposal: .unspecified)
     }
 
     func explicitAlignment(
@@ -151,16 +155,16 @@ private struct GrowingNameLayout: Layout {
         subviews: Subviews,
         cache _: inout (),
     ) -> CGFloat? {
-        guard guide == .firstTextBaseline || guide == .railNodeCenter, subviews.count == 3 else {
+        guard guide == .firstTextBaseline || guide == .railNodeBaseline, subviews.count == 3 else {
             return nil
         }
         let offer = ProposedViewSize(width: proposal.width, height: nil)
         let small = subviews[0].dimensions(in: offer)[.firstTextBaseline]
         let large = subviews[1].dimensions(in: offer)[.firstTextBaseline]
         let baseline = bounds.minY + small + (large - small) * growth
-        guard guide == .railNodeCenter else { return baseline }
+        guard guide == .railNodeBaseline else { return baseline }
         let glyph = subviews[2].dimensions(in: .unspecified)
-        return baseline - (glyph[.firstTextBaseline] - glyph.height / 2) * letterScale
+        return baseline - (glyph[.firstTextBaseline] - glyph.height / 2) * (letterScale - 1)
     }
 
     private func sizes(_ proposal: ProposedViewSize, _ subviews: Subviews) -> (CGSize, CGSize) {

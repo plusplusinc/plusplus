@@ -5,7 +5,8 @@ import SwiftUI
 import UIKit
 
 /// Where a view draws, pixel by pixel: `root` hosted on a clear background in a phone-sized
-/// window at `category`, rendered at 3 pixels a point.
+/// window at `category`, rendered at 3 pixels a point, only as far as its own size, where the
+/// window centers it.
 @MainActor
 struct Coverage {
     static let scale = 3
@@ -24,7 +25,15 @@ struct Coverage {
         format.opaque = false
         // The window has no scene, so it is never on a screen for `drawHierarchy` to copy; its
         // layers render all the same.
-        let image = UIGraphicsImageRenderer(bounds: host.view.bounds, format: format).image {
+        let bounds = host.view.bounds
+        let size = host.sizeThatFits(in: bounds.size)
+        let drawn = CGRect(
+            x: bounds.midX - size.width / 2,
+            y: bounds.midY - size.height / 2,
+            width: size.width,
+            height: size.height,
+        ).integral
+        let image = UIGraphicsImageRenderer(bounds: drawn, format: format).image {
             host.view.layer.render(in: $0.cgContext)
         }
         guard let cgImage = image.cgImage else { throw Unrendered() }
@@ -50,19 +59,27 @@ struct Coverage {
         self.alpha = alpha
     }
 
-    /// Whether the pixel at `x` across and `y` down is more than half covered.
-    func covered(_ x: Int, _ y: Int) -> Bool {
-        alpha[y * width + x] > 128
+    /// The columns, left to right, with a pixel more than half covered in `rows`.
+    func coveredColumns(in rows: Range<Int>? = nil) -> [Int] {
+        let rows = rows ?? 0 ..< height
+        return (0 ..< width).filter { x in rows.contains { alpha[$0 * width + x] > 128 } }
     }
 
-    /// Whether any pixel of column `x` is more than half covered, in `rows` if given.
-    func covered(column x: Int, rows: Range<Int>? = nil) -> Bool {
-        (rows ?? 0 ..< height).contains { covered(x, $0) }
+    /// The rows, top to bottom, with a pixel more than half covered in `columns`.
+    func coveredRows(in columns: Range<Int>? = nil) -> [Int] {
+        let columns = columns ?? 0 ..< width
+        return (0 ..< height).filter { y in columns.contains { alpha[y * width + $0] > 128 } }
     }
 
-    /// Whether any pixel of row `y` is more than half covered, in `columns` if given.
-    func covered(row y: Int, columns: Range<Int>? = nil) -> Bool {
-        (columns ?? 0 ..< width).contains { covered($0, y) }
+    /// `indices`, ascending, as runs of consecutive ones.
+    static func runs(_ indices: [Int]) -> [ClosedRange<Int>] {
+        indices.reduce(into: []) { runs, index in
+            if let last = runs.last, last.upperBound == index - 1 {
+                runs[runs.count - 1] = last.lowerBound ... index
+            } else {
+                runs.append(index ... index)
+            }
+        }
     }
 
     private struct Unrendered: Error { }

@@ -34,34 +34,20 @@ struct RailNodeCenterTests {
                 .fixedSize(horizontal: false, vertical: true),
             at: category,
         )
-        let columns = 0 ..< coverage.width
-        // The node is the first run of drawn columns from the leading edge, and the name starts
-        // at the next drawn column after it.
-        let nodeStart = try #require(
-            columns.first { coverage.covered(column: $0) },
-            "Nothing drawn",
+        // The node is the first run of drawn columns from the leading edge, and the name is
+        // what is drawn after it.
+        let columns = Coverage.runs(coverage.coveredColumns())
+        let node = try #require(columns.first, "Nothing drawn")
+        let name = try #require(columns.dropFirst().first, "No name beside the node")
+        let nodeRows = try #require(
+            Coverage.runs(coverage.coveredRows(in: node.lowerBound ..< node.upperBound + 1)).first,
         )
-        let nodeEnd = try #require((nodeStart ..< coverage.width).first {
-            !coverage.covered(column: $0)
-        })
-        let nameStart = try #require((nodeEnd ..< coverage.width).first {
-            coverage.covered(column: $0)
-        }, "No name beside the node")
-        let rows = 0 ..< coverage.height
-        let nodeTop = try #require(rows.first { coverage.covered(
-            row: $0,
-            columns: nodeStart ..< nodeEnd,
-        ) })
-        let nodeBottom = try #require(rows.last { coverage.covered(
-            row: $0,
-            columns: nodeStart ..< nodeEnd,
-        ) })
-        let nameColumns = nameStart ..< coverage.width
-        let inkTop = try #require(rows.first { coverage.covered(row: $0, columns: nameColumns) })
-        // The first line ends at the first row under its letters with nothing drawn.
-        let baseline = try #require((inkTop ..< coverage.height).first {
-            !coverage.covered(row: $0, columns: nameColumns)
-        })
+        // The name's first line, from its letters' top to the baseline, with no descender.
+        let line = try #require(
+            Coverage.runs(coverage.coveredRows(in: name.lowerBound ..< coverage.width)).first,
+        )
+        let (nodeTop, nodeBottom, inkTop, baseline) =
+            (nodeRows.lowerBound, nodeRows.upperBound, line.lowerBound, line.upperBound + 1)
         let nodeCenter = CGFloat(nodeTop + nodeBottom + 1) / 2
         return Place(
             nodeCenter: nodeCenter,

@@ -27,14 +27,10 @@ struct GrowingNameHandOffTests {
                 .fixedSize(horizontal: false, vertical: true),
             at: category,
         )
-        // The whole window: the name sits centered in it, and only how far it reaches across from
-        // its own leading edge counts.
-        let columns = 0 ..< coverage.width
-        let first = try #require(
-            columns.first { coverage.covered(column: $0) },
-            "Nothing drawn for \(title)",
-        )
-        let last = try #require(columns.last { coverage.covered(column: $0) })
+        // Only how far the letters reach across from their own leading edge counts.
+        let columns = coverage.coveredColumns()
+        let first = try #require(columns.first, "Nothing drawn for \(title)")
+        let last = try #require(columns.last)
         return CGFloat(last + 1 - first) / CGFloat(Coverage.scale)
     }
 

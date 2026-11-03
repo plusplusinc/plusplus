@@ -117,8 +117,9 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   goes. The key fades in after the crossfade (0.2 s): the workout's key at Start, Start at the
   end.
 - The current exercise of a workout is the row of the next set to log, the first in the routine's
-  order not yet logged, grown (`RowLabel`'s `focus`, `RowFocus`): its node 14 pt in `accent`,
-  pulsing in brightness within its circle on one clock, the time itself (`CurrentPulse`), which
+  order not yet logged, grown (`RowLabel`'s `focus`, `RowFocus`): its node 14 pt in `accent`, as
+  high on its name's first line as a row's node on its name, raised with the letters as the name
+  grows (`railNodeBaseline`), pulsing in brightness within its circle on one clock, the time itself (`CurrentPulse`), which
   the bar of its current set shares, so the two never drift apart; its name from `ppRowTitle` to
   `ppCurrentTitle` (`GrowingName`: both sizes laid out once at the row's width, the one showing
   scaled from its top leading corner, so it grows as one drawn piece; a font size animated frame

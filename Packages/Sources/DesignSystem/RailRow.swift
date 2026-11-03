@@ -149,16 +149,15 @@ struct RailNodeGlyph: View {
 }
 
 extension VerticalAlignment {
-    /// Where a row's content puts its node's center, given above its first baseline: a name drawn
-    /// larger than a row's raises the node with its letters (`GrowingName`). Not given, it is the
-    /// first baseline itself, and the node column sits on that baseline as the key's icon would.
-    private nonisolated enum RailNodeCenter: AlignmentID {
+    /// Where a row's content puts its node column's baseline: its first baseline, unless a name
+    /// drawn larger than a row's raises the node with its letters (`GrowingName`).
+    private nonisolated enum RailNodeBaseline: AlignmentID {
         static func defaultValue(in context: ViewDimensions) -> CGFloat {
             context[.firstTextBaseline]
         }
     }
 
-    nonisolated static let railNodeCenter = VerticalAlignment(RailNodeCenter.self)
+    nonisolated static let railNodeBaseline = VerticalAlignment(RailNodeBaseline.self)
 }
 
 /// Where a row's node's center is, so the row's stretch of line can run through it.
