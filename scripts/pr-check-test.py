@@ -109,9 +109,9 @@ class Reverts(unittest.TestCase):
 class Body(unittest.TestCase):
     """`scripts/pr-check.sh body`: the Card, Verified, and Friction lines the retro reads."""
 
-    def check(self, text):
+    def check(self, text, author="mrdavidjcole"):
         return subprocess.run(["bash", str(CHECK), "body"], input=text, capture_output=True, text=True,
-                              cwd=CHECK.parent)
+                              cwd=CHECK.parent, env={**os.environ, "PR_AUTHOR": author})
 
     def test_lines_and_headings_pass_crlf_included(self):
         for text in ("Summary.\n\nCard: none, asked in the session\n\nVerified: lint\n\nFriction: none\n",
@@ -123,6 +123,12 @@ class Body(unittest.TestCase):
         result = self.check("Today X. With this change, Y.\n\nChecked locally:\n- lint\n")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Card Verified Friction", result.stderr)
+
+    def test_dependabots_own_body_passes_and_no_one_elses(self):
+        dependabot = "Bumps the swift group with 1 update: swift-snapshot-testing.\n\nUpdates `x` from 1.19.4 to 1.19.5\n"
+        self.assertEqual(self.check(dependabot, author="dependabot[bot]").returncode, 0)
+        for author in ("dependabot", "renovate[bot]", ""):
+            self.assertNotEqual(self.check(dependabot, author=author).returncode, 0, author)
 
 
 class NoCodeList(unittest.TestCase):

@@ -1,0 +1,22 @@
+# Dependabot's version updates: a PR a week per ecosystem when something has a new release, with
+# every update in that ecosystem grouped into it, through "PR check" like any PR (docs/pr-check.md).
+# The lint tools' pins, which it can't read, are scripts/lint-tools.sh's (docs/agent-tooling.md).
+version: 2
+updates:
+  # swift-snapshot-testing and what it depends on, in Packages/Package.resolved.
+  - package-ecosystem: swift
+    directory: /Packages
+    schedule:
+      interval: weekly
+    groups:
+      swift:
+        patterns: ["*"]
+
+  # The actions .github/workflows/ pin to a commit, with the version in a comment.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns: ["*"]

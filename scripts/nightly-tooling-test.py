@@ -8,6 +8,7 @@ import importlib.util
 import io
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -17,6 +18,7 @@ import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
 
+SCRIPTS = Path(__file__).resolve().parent
 spec = importlib.util.spec_from_file_location("nightly", Path(__file__).with_name("nightly-tooling.py"))
 nightly = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(nightly)
@@ -205,6 +207,68 @@ class Eligibility(unittest.TestCase):
         self.assertIn("Nightly", nightly.eligibility("Todo", "-", self.BODY.replace("Nightly:", "Later:")))
         self.assertIn("Backlog", nightly.eligibility("Backlog", "-", self.BODY))
         self.assertIn("check", nightly.eligibility("Todo", "-", self.BODY.replace("## Success\nRun it: it passes.\n", "")))
+
+
+class UpdateCards(unittest.TestCase):
+    """The card the night adds for a lint tool `scripts/lint-tools.sh outdated` names."""
+
+    OUTDATED = "swiftformat 0.64.4 0.64.5\nswiftlint 0.65.0 0.65.1\n"
+
+    def titles(self, rows):
+        return [title for title, _ in nightly.update_cards(self.OUTDATED, rows)]
+
+    def test_each_outdated_tool_gets_an_eligible_card(self):
+        cards = nightly.update_cards(self.OUTDATED, [("PVTI_1", "Todo", "-", "Speed up CI")])
+        self.assertEqual([t for t, _ in cards], ["Update swiftformat to 0.64.5", "Update swiftlint to 0.65.1"])
+        for _, body in cards:
+            self.assertIsNone(nightly.eligibility("Todo", "-", body))
+
+    def test_a_card_by_its_title_in_any_status_is_never_duplicated(self):
+        self.assertEqual(self.titles([("PVTI_1", "Done", "-", "Update swiftformat to 0.64.5"),
+                                      ("PVTI_2", "Backlog", "-", "Update swiftlint to 0.65.1")]), [])
+
+    def test_an_open_card_for_an_older_release_holds_its_tool_back(self):
+        self.assertEqual(self.titles([("PVTI_1", "In Progress", "-", "Update swiftformat to 0.64.3"),
+                                      ("PVTI_2", "Done", "-", "Update swiftlint to 0.64.0")]),
+                         ["Update swiftlint to 0.65.1"])
+
+
+class LintToolsOutdated(unittest.TestCase):
+    """`scripts/lint-tools.sh outdated` against its real pins, with a stand-in for gh."""
+
+    PINS = dict(re.findall(r'"(swiftformat|swiftlint) (\S+) ', (SCRIPTS / "lint-tools.sh").read_text()))
+
+    def outdated(self, swiftformat, swiftlint):
+        bin_dir = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, bin_dir, True)
+        gh = bin_dir / "gh"
+        gh.write_text(f"""#!/bin/sh
+case "$2" in
+    *SwiftFormat*) tag={swiftformat} ;;
+    *SwiftLint*) tag={swiftlint} ;;
+esac
+[ "$tag" = fail ] && {{ echo "HTTP 503" >&2; exit 1; }}
+echo "$tag"
+""")
+        gh.chmod(0o755)
+        return subprocess.run(["bash", str(SCRIPTS / "lint-tools.sh"), "outdated"], capture_output=True,
+                              text=True, env={**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}"})
+
+    def test_a_newer_release_is_named_and_the_same_or_older_is_not(self):
+        result = self.outdated("v9.99.10", "0.0.1")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, f"swiftformat {self.PINS['swiftformat']} 9.99.10\n")
+
+    def test_tools_at_their_pin_print_nothing(self):
+        result = self.outdated(self.PINS["swiftformat"], self.PINS["swiftlint"])
+        self.assertEqual((result.returncode, result.stdout), (0, ""))
+        self.assertIn("every pinned tool is at its latest release", result.stderr)
+
+    def test_an_unreadable_release_fails_naming_the_tool_after_checking_the_rest(self):
+        result = self.outdated("fail", "9.99.0")
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(result.stdout, f"swiftlint {self.PINS['swiftlint']} 9.99.0\n")
+        self.assertIn("could not read swiftformat's latest release", result.stderr)
 
 
 class Verifier(unittest.TestCase):
@@ -476,8 +540,9 @@ class Loop(unittest.TestCase):
 
     def night(self, results, weekly_resets, take=None, event=None, finish=False, gh=lambda *a: []):
         cards = [(f"PVTI_{i}", "Todo", "-", f"card {i}", self.BODY) for i in range(4)]
-        stubs = {"board_cards": lambda: cards, "xcode_cloud_runs": lambda: [], "gh_json": gh,
-                 "classify": lambda files: "app: x", "sh": lambda *a, **k: "", "test_counts": lambda rev: {}}
+        stubs = {"board_rows": lambda: [], "board_cards": lambda rows: cards, "xcode_cloud_runs": lambda: [],
+                 "gh_json": gh, "classify": lambda files: "app: x", "sh": lambda *a, **k: "",
+                 "test_counts": lambda rev: {}}
         saved = {name: getattr(nightly, name) for name in stubs}
         self.addCleanup(lambda: [setattr(nightly, n, f) for n, f in saved.items()])
         for name, stub in stubs.items():
@@ -537,6 +602,24 @@ class Loop(unittest.TestCase):
         self.assertEqual(night.taken, [])
         self.assertIn("Ended: No more cards: the usage window seven_day can't be read",
                       (night.dir / "digest.md").read_text())
+
+    def test_an_outdated_tool_becomes_the_top_card_and_the_digest_says_so(self):
+        calls = []
+        saved = nightly.board, nightly.tidy
+        self.addCleanup(lambda: (setattr(nightly, "board", saved[0]), setattr(nightly, "tidy", saved[1])))
+        nightly.board = lambda *a, stdin=None: calls.append(a) or ("PVTI_new\n" if a[0] == "add" else "")
+        nightly.tidy = lambda: None
+        # swiftformat's release couldn't be read; swiftlint's line still makes its card.
+        outdated = subprocess.CompletedProcess([], 1, "swiftlint 0.65.0 0.65.1\n",
+                                               "could not read swiftformat's latest release\n")
+        saved_run = nightly.subprocess.run
+        self.addCleanup(setattr, nightly.subprocess, "run", saved_run)
+        nightly.subprocess.run = lambda *a, **k: outdated
+        night = self.night(["merged"] * 4, weekly_resets=100, finish=True)
+        self.assertEqual(calls[:2], [("add", "Update swiftlint to 0.65.1"), ("move", "PVTI_new", "top")])
+        digest = (night.dir / "digest.md").read_text()
+        self.assertIn("Added: Update swiftlint to 0.65.1, at the top of Todo", digest)
+        self.assertIn("Not checked: which lint tools have a newer release (could not read swiftformat's", digest)
 
     def test_the_uncapped_night_takes_the_fourth(self):
         resets_at_seven = (STOP - NIGHT).total_seconds() / 3600

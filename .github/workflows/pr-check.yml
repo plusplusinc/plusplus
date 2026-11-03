@@ -99,9 +99,11 @@ jobs:
           bash "$check" reverts "$PR_CHECK_BASE" "$SHA"
 
       # The base's script, as in Route. The body comes from the event, never into the script's text.
+      # The author too, since the script passes Dependabot's PRs, whose body is the bot's own.
       - name: Card, Verified, and Friction in the body
         env:
           BODY: ${{ github.event.pull_request.body }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
           check="$RUNNER_TEMP/pr-check.sh"
           git show "$PR_CHECK_BASE:scripts/pr-check.sh" > "$check" || cp scripts/pr-check.sh "$check"

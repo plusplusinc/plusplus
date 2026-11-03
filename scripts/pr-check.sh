@@ -10,6 +10,7 @@
 #   scripts/pr-check.sh xcode-cloud          # .github/no-code-paths as Xcode Cloud's rule, JSON
 #   scripts/pr-check.sh reverts <base> <head> # fails if head's diff undoes a recent commit on base
 #   scripts/pr-check.sh body < body          # fails if a PR body lacks its Card, Verified, Friction
+#                                            # PR_AUTHOR=dependabot[bot]: passes, the bot's own body
 #
 # Needs `gh` signed in (GH_TOKEN in CI). Polls about once a minute. Run it inside a checkout.
 # It reads the no-code list from PR_CHECK_BASE (default origin/main), never the working tree,
@@ -30,7 +31,7 @@ MINUTES=40
 START_MINUTES=10
 
 usage() {
-    sed -n '2,14p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2
+    sed -n '2,15p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2
     exit 2
 }
 
@@ -253,9 +254,15 @@ lint() {
 
 # The lines the nightly retro reads in every PR body (.github/pull_request_template.md), each as
 # "Name:" (or "Name, ...:") or a "## Name" heading, bold or not. A body edited on GitHub arrives with CRLF endings.
+# Dependabot writes its own body, with none of them and no session behind it, so its PRs pass.
+BODY_EXEMPT="dependabot[bot]"
 body() {
     local text name missing=()
     text=$(tr -d '\r')
+    if [ "${PR_AUTHOR:-}" = "$BODY_EXEMPT" ]; then
+        echo "$BODY_EXEMPT's PR: its body is the bot's own, with no Card, Verified, or Friction to check"
+        return
+    fi
     for name in Card Verified Friction; do
         grep -Eq "^(#+ *)?(\*\*)?$name(\*\*)?( *[:,]|\**$)" <<< "$text" || missing+=("$name")
     done
