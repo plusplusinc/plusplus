@@ -5,8 +5,8 @@ import SwiftUI
 import UIKit
 
 /// Where a view draws, pixel by pixel: `root` hosted on a clear background in a phone-sized
-/// window at `category`, rendered at 3 pixels a point, only as far as its own size, where the
-/// window centers it.
+/// window at `category`, rendered at 3 pixels a point, only as far as its own size and a
+/// margin, where the window centers it.
 @MainActor
 struct Coverage {
     static let scale = 3
@@ -32,7 +32,9 @@ struct Coverage {
             y: bounds.midY - size.height / 2,
             width: size.width,
             height: size.height,
-        ).integral
+        )
+        // A margin for what draws past the view's frame, as a letter's overhang can.
+        .insetBy(dx: -8, dy: -8).integral
         let image = UIGraphicsImageRenderer(bounds: drawn, format: format).image {
             host.view.layer.render(in: $0.cgContext)
         }

@@ -303,11 +303,8 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         .padding(.top, edges?.room ?? room)
         .background(alignment: .topLeading) {
             // The rail column as a row's node has it, measured at the current text size.
-            Image(systemName: "plus")
-                .font(.ppButton)
-                .railColumn()
+            RailNodeColumn()
                 .fixedSize()
-                .hidden()
                 .onGeometryChange(for: CGFloat.self, of: \.size.width) { columnWidth = $0 }
         }
         // Torn down mid-hold, by a row or its node, the list stops scrolling for it.
