@@ -8,17 +8,22 @@ struct ExerciseTags: Equatable, Sendable {
     /// What it works along the way.
     let secondary: Set<Muscle>
     let kind: Kind
+    /// Moves one joint (a curl, a fly, a pull-apart), so it rests like an isolation lift, while
+    /// its movement still names Push and Pull days.
+    let singleJoint: Bool
 
     init(
         _ movement: Movement?,
         _ primary: Set<Muscle>,
         _ secondary: Set<Muscle> = [],
         _ kind: Kind = .strength,
+        singleJoint: Bool = false,
     ) {
         self.movement = movement
         self.primary = primary
         self.secondary = secondary
         self.kind = kind
+        self.singleJoint = singleJoint
     }
 
     enum Movement: Sendable {

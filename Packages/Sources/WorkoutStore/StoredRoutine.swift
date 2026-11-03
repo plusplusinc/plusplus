@@ -5,14 +5,15 @@ import SwiftData
 // on, so they are final now. Every rule in swiftdata.md holds: defaults or optionals, nothing
 // unique, an optional relationship with an inverse.
 
-typealias StoredRoutine = RoutineSchemaV4.StoredRoutine
-typealias StoredRoutineExercise = RoutineSchemaV4.StoredRoutineExercise
+typealias StoredRoutine = RoutineSchemaV7.StoredRoutine
+typealias StoredRoutineExercise = RoutineSchemaV7.StoredRoutineExercise
 
-/// As #91 shipped it, with `openedAt`, before workouts. Its models are still today's routines.
-enum RoutineSchemaV4: VersionedSchema {
-    static let versionIdentifier = Schema.Version(4, 0, 0)
+/// Today's routines: V4's, with each row's rest, switch between sides, and transition, and a
+/// superset's own gaps on every member. Its workouts are still V6's.
+enum RoutineSchemaV7: VersionedSchema {
+    static let versionIdentifier = Schema.Version(7, 0, 0)
     static var models: [any PersistentModel.Type] {
-        [StoredRoutine.self, StoredRoutineExercise.self]
+        [StoredRoutine.self, StoredRoutineExercise.self, StoredWorkout.self, StoredSet.self]
     }
 
     @Model
@@ -59,6 +60,17 @@ enum RoutineSchemaV4: VersionedSchema {
         /// The superset the row is in, shared with the rows next to it in it; nil for a plain row,
         /// and for every row saved before supersets.
         var supersetID: UUID?
+        // The row's own gaps, in seconds, stored with its plan; nil for a row saved before them.
+        // Kept while the row is in a superset, so leaving it brings them back.
+        var rest: Int?
+        /// Nil also on a row not done per side.
+        var switchSides: Int?
+        var transition: Int?
+        // Its superset's gaps, in seconds, the same on every member; nil until set, and on a plain
+        // row.
+        var roundSwitch: Int?
+        var roundRest: Int?
+        var roundTransition: Int?
 
         init(id: UUID, exerciseID: String, position: Int) {
             self.id = id

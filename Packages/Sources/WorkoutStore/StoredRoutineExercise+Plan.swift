@@ -15,6 +15,29 @@ extension StoredRoutineExercise {
         update(\.seconds, to: newSeconds)
         update(\.weight, to: plan.weight?.amount)
         update(\.weightUnit, to: plan.weight?.unit.rawValue)
+        update(\.rest, to: plan.rest)
+        update(\.switchSides, to: plan.switchSides)
+        update(\.transition, to: plan.transition)
+    }
+
+    /// Writes a superset's gaps as they are, nil for one never set.
+    func write(_ round: RoundRest) {
+        update(\.roundSwitch, to: round.switchPartners)
+        update(\.roundRest, to: round.afterRound)
+        update(\.roundTransition, to: round.transition)
+    }
+
+    /// The stored superset gaps, each nil when never set or out of range.
+    var round: RoundRest {
+        RoundRest(
+            switchPartners: Self.gap(roundSwitch),
+            afterRound: Self.gap(roundRest),
+            transition: Self.gap(roundTransition),
+        )
+    }
+
+    private static func gap(_ seconds: Int?) -> Int? {
+        seconds.flatMap { PlanLimits.rest.contains($0) ? $0 : nil }
     }
 
     /// The stored plan, field by field: a field never stored, out of range, or for another
@@ -34,6 +57,9 @@ extension StoredRoutineExercise {
             sets: sets.flatMap { PlanLimits.sets.contains($0) ? $0 : nil } ?? fallback.sets,
             target: target,
             weight: exercise.load == nil ? nil : storedWeight ?? fallback.weight,
+            rest: Self.gap(rest) ?? fallback.rest,
+            switchSides: exercise.isPerSide ? Self.gap(switchSides) ?? fallback.switchSides : nil,
+            transition: Self.gap(transition) ?? fallback.transition,
         )
     }
 

@@ -5,11 +5,17 @@ import SwiftData
 typealias StoredWorkout = RoutineSchemaV6.StoredWorkout
 typealias StoredSet = RoutineSchemaV6.StoredSet
 
-/// Today's routines, workouts, and the sets done in them.
+/// As #127 shipped it, with logged sets, its routines still V4's. Its workouts and sets are
+/// still today's.
 enum RoutineSchemaV6: VersionedSchema {
     static let versionIdentifier = Schema.Version(6, 0, 0)
     static var models: [any PersistentModel.Type] {
-        [StoredRoutine.self, StoredRoutineExercise.self, StoredWorkout.self, StoredSet.self]
+        [
+            RoutineSchemaV4.StoredRoutine.self,
+            RoutineSchemaV4.StoredRoutineExercise.self,
+            StoredWorkout.self,
+            StoredSet.self,
+        ]
     }
 
     /// The stored shape of a workout. Its routine is an id, not a relationship, so deleting the
