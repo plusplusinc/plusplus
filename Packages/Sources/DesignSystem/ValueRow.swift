@@ -3,15 +3,18 @@ import SwiftUI
 /// A value under its label on a rounded fill, the label leading and the value trailing, with
 /// numbers in SF Mono, and an optional note under the label. Tapping anywhere on it opens a − / +
 /// stepper inside it, under the value, and tapping again closes it. A key that can't step is
-/// disabled. An optional tag sits, quiet, before the value ("Auto"). While it's open, an optional
-/// accessory sits under the stepper inside its fill, past a hairline, and an optional footer
-/// sits under the fill, as a grouped list's footer does. VoiceOver reads the row as one element,
-/// its value in words and then its tag, and steps it with a swipe up or down.
+/// disabled. An optional tag sits, quiet, before the value ("Auto"): always laid out, it only
+/// fades with `showsTag`, so nothing in the row moves or rewraps as it comes and goes. While
+/// it's open, an optional accessory sits under the stepper inside its fill, past a hairline, and
+/// an optional footer sits under the fill, as a grouped list's footer does. VoiceOver reads the
+/// row as one element, its value in words and then its tag while it shows, and steps it with a
+/// swipe up or down.
 public struct ValueRow<Accessory: View, Footer: View>: View {
     private let label: String
     private let note: String?
     private let value: String
     private let tag: String?
+    private let showsTag: Bool
     private let accessory: Accessory?
     private let footer: Footer?
     private let spokenValue: String
@@ -25,11 +28,12 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
     @Environment(\.displayScale) private var displayScale
 
     /// One inset on every side of the fill, for everything in it: the label, the value, the
-    /// keys, the accessory, and the room between them. The keys sit that far inside, so the
-    /// fill's corners are concentric with theirs.
+    /// keys, the accessory, and the room between them.
     private static var inset: CGFloat { Spacing.md }
     private static var keyHeight: CGFloat { 60 }
-    private static var cornerRadius: CGFloat { inset + Radius.key }
+    /// Tighter than concentric with the keys (inset + `Radius.key`), which made a closed row
+    /// read as a pill.
+    private static var cornerRadius: CGFloat { Spacing.sm + Radius.key }
 
     /// `onStep` gets 1 for a step up and -1 for a step down, each only while its `can` is true.
     public init(
@@ -37,6 +41,7 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
         note: String? = nil,
         value: String,
         tag: String? = nil,
+        showsTag: Bool = true,
         spokenValue: String,
         isOpen: Bool,
         canDecrease: Bool,
@@ -51,6 +56,7 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
             note: note,
             value: value,
             tag: tag,
+            showsTag: showsTag,
             spokenValue: spokenValue,
             isOpen: isOpen,
             canDecrease: canDecrease,
@@ -68,6 +74,7 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
         note: String?,
         value: String,
         tag: String?,
+        showsTag: Bool,
         spokenValue: String,
         isOpen: Bool,
         canDecrease: Bool,
@@ -81,6 +88,7 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
         self.note = note
         self.value = value
         self.tag = tag
+        self.showsTag = showsTag
         self.accessory = accessory
         self.footer = footer
         self.spokenValue = spokenValue
@@ -136,21 +144,20 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
             if !stacked {
                 Spacer()
             }
+            // The tag sits on the value's far side from the label's edge: before it in a row,
+            // after it when stacked, so its reserved room never pushes the value off that edge.
             HStack(spacing: Spacing.sm) {
-                if let tag {
-                    Text(tag)
-                        .font(.ppCaption)
-                        .foregroundStyle(.pp(.textSecondary))
-                        .padding(.horizontal, Spacing.sm)
-                        .padding(.vertical, Spacing.xxs)
-                        .background(Color.pp(.background), in: .rect(cornerRadius: Radius.sm))
-                        .transition(.opacity)
+                if !stacked {
+                    tagView
                 }
                 Text(AttributedString.monoNumbers(value, font: .ppRowTitleNumber))
                     .font(.ppRowTitle)
                     .contentTransition(.numericText())
                     .foregroundStyle(.pp(.textPrimary))
                     .multilineTextAlignment(stacked ? .leading : .trailing)
+                if stacked {
+                    tagView
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -160,7 +167,7 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
         .onTapGesture(perform: onToggle)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(note.map { "\(label), \($0)" } ?? label)
-        .accessibilityValue(tag.map { "\(spokenValue), \($0)" } ?? spokenValue)
+        .accessibilityValue(spokenValueAndTag)
         .accessibilityHint(isOpen ? "Closes its stepper." : "Opens a stepper.")
         .accessibilityAddTraits(.isButton)
         .accessibilityAction { onToggle() }
@@ -209,6 +216,25 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
         .clipped()
     }
 
+    /// Always laid out, so nothing moves as it shows or hides; hidden, VoiceOver skips it.
+    @ViewBuilder private var tagView: some View {
+        if let tag {
+            Text(tag)
+                .font(.ppCaption)
+                .foregroundStyle(.pp(.textSecondary))
+                .padding(.horizontal, Spacing.sm)
+                .padding(.vertical, Spacing.xxs)
+                .background(Color.pp(.background), in: .rect(cornerRadius: Radius.sm))
+                .opacity(showsTag ? 1 : 0)
+                .accessibilityHidden(!showsTag)
+        }
+    }
+
+    private var spokenValueAndTag: String {
+        guard showsTag, let tag else { return spokenValue }
+        return "\(spokenValue), \(tag)"
+    }
+
     private func stepKey(_ title: String, _ image: String, by direction: Int) -> some View {
         Button {
             step(by: direction)
@@ -244,6 +270,7 @@ extension ValueRow where Accessory == EmptyView, Footer == EmptyView {
         note: String? = nil,
         value: String,
         tag: String? = nil,
+        showsTag: Bool = true,
         spokenValue: String,
         isOpen: Bool,
         canDecrease: Bool,
@@ -256,6 +283,7 @@ extension ValueRow where Accessory == EmptyView, Footer == EmptyView {
             note: note,
             value: value,
             tag: tag,
+            showsTag: showsTag,
             spokenValue: spokenValue,
             isOpen: isOpen,
             canDecrease: canDecrease,
