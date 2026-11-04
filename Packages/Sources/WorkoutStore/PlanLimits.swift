@@ -7,6 +7,6 @@ enum PlanLimits {
     static let seconds = 1 ... 5999
     /// In the weight's own unit, ending on a value every step lands on: 5 lb, 2 kg, 2.5 kg.
     static let weight = 1.0 ... 1000.0
-    /// A rest, a switch between sides, or a transition, in seconds: none to 10 min.
+    /// A rest, in seconds: none to 10 min.
     static let rest = 0 ... 600
 }

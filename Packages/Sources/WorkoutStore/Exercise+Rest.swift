@@ -21,13 +21,4 @@ extension Exercise {
         default: return 120
         }
     }
-
-    /// The switch from one side to the other a new per-side row starts with; nil for an
-    /// exercise not done per side.
-    var defaultSwitchSides: Int? {
-        isPerSide ? 10 : nil
-    }
-
-    /// The transition to the next exercise a new row starts with.
-    static let defaultTransition = 30
 }

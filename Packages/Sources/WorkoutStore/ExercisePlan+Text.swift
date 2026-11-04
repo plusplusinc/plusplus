@@ -46,7 +46,7 @@ extension RoutineExercise {
     /// "per side".
     func qualified(_ text: String, _ part: PlanPart, spoken: Bool = false) -> String {
         switch part {
-        case .sets, .rest, .switchSides, .transition: text
+        case .sets, .rest: text
         case .target: exercise.isPerSide ? text + " per side" : text
         case .weight:
             exercise.load == .pair ? text + (spoken ? " per side" : "/side") : text

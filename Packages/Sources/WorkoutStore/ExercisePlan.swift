@@ -70,48 +70,31 @@ struct StartingWeight: Equatable, Sendable {
 }
 
 /// An exercise's values in a routine: every set the same, so one sets count, one target, and one
-/// weight, and the gaps around them, in seconds.
+/// weight, and the rest after each, in seconds.
 public struct ExercisePlan: Equatable, Sendable {
     public var sets: Int
     public var target: SetTarget
     /// Nil only for an exercise with no load; one that holds a weight always has one.
     public var weight: Weight?
-    /// Between one set and the next; 0 for none.
+    /// After each set, the last included, which is the way to the next exercise; 0 for none.
     public var rest: Int
-    /// Between a per-side set's left and its right; nil for an exercise not done per side.
-    public var switchSides: Int?
-    /// After the last set, before the next exercise.
-    public var transition: Int
 
-    public init(
-        sets: Int,
-        target: SetTarget,
-        weight: Weight? = nil,
-        rest: Int = 0,
-        switchSides: Int? = nil,
-        transition: Int = 0,
-    ) {
+    public init(sets: Int, target: SetTarget, weight: Weight? = nil, rest: Int = 0) {
         self.sets = sets
         self.target = target
         self.weight = weight
         self.rest = rest
-        self.switchSides = switchSides
-        self.transition = transition
     }
 }
 
-/// A superset's own gaps, the same on every member, each nil until set: a nil reads as derived
-/// from the members (the rest after a round) or as the default (the transition).
-/// Empty on a plain row.
+/// A superset's own rest, the same on every member, nil until set: a nil reads as derived from
+/// the members. Empty on a plain row.
 public struct RoundRest: Equatable, Sendable {
-    /// After a round's last member, before the next round.
+    /// After each round, the last included.
     public var afterRound: Int?
-    /// After the last round, before the next exercise.
-    public var transition: Int?
 
-    public init(afterRound: Int? = nil, transition: Int? = nil) {
+    public init(afterRound: Int? = nil) {
         self.afterRound = afterRound
-        self.transition = transition
     }
 }
 
@@ -121,12 +104,8 @@ public enum PlanPart: Sendable {
     /// Reps or time.
     case target
     case weight
-    /// Between sets.
+    /// After each set.
     case rest
-    /// Between a per-side set's left and its right.
-    case switchSides
-    /// Before the next exercise.
-    case transition
 }
 
 extension Exercise {
@@ -138,17 +117,8 @@ extension Exercise {
 }
 
 extension RoutineExercise {
-    /// The parts a plain row's sheet steps, in order: its plan's, then the rest only past one set,
-    /// the switch only per side, and the transition.
+    /// The parts a plain row's sheet steps, in order: its plan's, then its rest.
     public var sheetParts: [PlanPart] {
-        var parts = exercise.planParts
-        if plan.sets > 1 {
-            parts.append(.rest)
-        }
-        if exercise.isPerSide {
-            parts.append(.switchSides)
-        }
-        parts.append(.transition)
-        return parts
+        exercise.planParts + [.rest]
     }
 }

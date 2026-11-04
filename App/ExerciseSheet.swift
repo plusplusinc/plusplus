@@ -82,20 +82,11 @@ struct ExerciseSheet: View {
         .presentationBackground(Color.pp(.background))
     }
 
-    /// A plain row's parts, its gaps included. A superset member's plan, its own switch between
-    /// sides if per side, then the superset's gaps, the rest after a round only past one round;
-    /// its own rest and transition are kept, unread, for when it leaves.
+    /// A plain row's parts, its rest included. A superset member's plan, then the superset's
+    /// rest after each round; its own rest is kept, unread, for when it leaves.
     private var parts: [SheetPart] {
         guard rounds != nil else { return item.sheetParts.map(SheetPart.plan) }
-        var parts = item.exercise.planParts.map(SheetPart.plan)
-        if item.exercise.isPerSide {
-            parts.append(.plan(.switchSides))
-        }
-        if item.plan.sets > 1 {
-            parts.append(.round(.afterRound))
-        }
-        parts.append(.round(.transition))
-        return parts
+        return item.exercise.planParts.map(SheetPart.plan) + [.round(.afterRound)]
     }
 
     /// In a superset, sets are rounds, shared with its partners.
@@ -147,12 +138,9 @@ struct ExerciseSheet: View {
     private func note(on part: SheetPart) -> String? {
         switch part {
         case .plan(.sets): partners.map { "Shared with \($0)" }
-        case .plan(.rest): "Between sets"
-        case .plan(.switchSides): "Between left and right"
-        case .plan(.transition): "Before the next exercise"
+        case .plan(.rest): "After each set"
         case .plan(.target), .plan(.weight): nil
-        case .round(.afterRound): partners.map { "Shared with \($0)" }
-        case .round(.transition): "After the superset, before the next exercise"
+        case .round(.afterRound): "After each round" + (partners.map { ", shared with \($0)" } ?? "")
         }
     }
 

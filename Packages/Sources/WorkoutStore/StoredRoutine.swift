@@ -8,8 +8,8 @@ import SwiftData
 typealias StoredRoutine = RoutineSchemaV7.StoredRoutine
 typealias StoredRoutineExercise = RoutineSchemaV7.StoredRoutineExercise
 
-/// Today's routines: V4's, with each row's rest, switch between sides, and transition, and a
-/// superset's own gaps on every member. Its workouts are still V6's.
+/// Today's routines: V4's, with each row's rest and a superset's rest after a round on every
+/// member. Its workouts are still V6's.
 enum RoutineSchemaV7: VersionedSchema {
     static let versionIdentifier = Schema.Version(7, 0, 0)
     static var models: [any PersistentModel.Type] {
@@ -60,16 +60,19 @@ enum RoutineSchemaV7: VersionedSchema {
         /// The superset the row is in, shared with the rows next to it in it; nil for a plain row,
         /// and for every row saved before supersets.
         var supersetID: UUID?
-        // The row's own gaps, in seconds, stored with its plan; nil for a row saved before them.
-        // Kept while the row is in a superset, so leaving it brings them back.
+        /// The row's own rest after each set, in seconds; nil for a row saved before it. Kept
+        /// while the row is in a superset, so leaving it brings it back.
         var rest: Int?
-        /// Nil also on a row not done per side.
+        /// Never read or written: rest is the only time a row sets.
         var switchSides: Int?
+        /// Never read or written: rest is the only time a row sets.
         var transition: Int?
-        // Its superset's gaps, in seconds, the same on every member; nil until set, and on a plain
-        // row. `roundSwitch` is never read or written: a superset has no switch between members.
+        /// Never read or written: a superset has no switch between members.
         var roundSwitch: Int?
+        /// Its superset's rest after each round, in seconds, the same on every member; nil until
+        /// set, and on a plain row.
         var roundRest: Int?
+        /// Never read or written: a superset's rest after its last round is its rest.
         var roundTransition: Int?
 
         init(id: UUID, exerciseID: String, position: Int) {
