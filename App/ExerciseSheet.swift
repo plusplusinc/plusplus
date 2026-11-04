@@ -2,20 +2,17 @@ import DesignSystem
 import SwiftUI
 import WorkoutStore
 
-/// A value the sheet steps: one of the row's plan, or one of its superset's rest, shared with its
-/// partners.
-enum SheetPart: Hashable {
-    case plan(PlanPart)
-    case round(RoundPart)
-}
-
-/// A superset's rest, read and stepped through the routine, since every member holds them.
+/// A superset's rest after each round, read and stepped through the routine, since every member
+/// holds it.
 struct RoundSteps {
-    let value: (RoundPart) -> (text: String, spoken: String)
-    let canStep: (RoundPart, Int) -> Bool
-    let step: (RoundPart, Int) -> Void
+    let value: () -> (text: String, spoken: String)
+    let canStep: (Int) -> Bool
+    let step: (Int) -> Void
     /// Whether its rest is derived from the members, and a switch to set that.
     let isAuto: Binding<Bool>
+    /// What a rest set by hand stays put through, by the members' sets: "reps", "the time", or
+    /// "reps or time".
+    let change: String
 }
 
 /// A routine row's values, a `ValueRow` for each part its exercise has, under the exercise's
@@ -25,6 +22,8 @@ struct ExerciseSheet: View {
     @Binding var item: RoutineExercise
     /// The names of the exercises in a superset with it, which share its round count, or nil.
     let partners: String?
+    /// The values it steps, in order (`Routine.sheetParts(of:)`).
+    let parts: [SheetPart]
     /// Its superset's rest; nil for a plain row.
     var rounds: RoundSteps?
     let onDelete: () -> Void
@@ -89,13 +88,6 @@ struct ExerciseSheet: View {
         .presentationBackground(Color.pp(.background))
     }
 
-    /// A plain row's parts, its rest included. A superset member's plan, then the superset's
-    /// rest after each round; its own rest is kept, unread, for when it leaves.
-    private var parts: [SheetPart] {
-        guard rounds != nil else { return item.sheetParts.map(SheetPart.plan) }
-        return item.exercise.planParts.map(SheetPart.plan) + [.round(.afterRound)]
-    }
-
     /// In a superset, sets are rounds, shared with its partners.
     private func isRounds(_ part: SheetPart) -> Bool {
         part == .plan(.sets) && partners != nil
@@ -105,14 +97,14 @@ struct ExerciseSheet: View {
         switch part {
         case .plan where isRounds(part): "Rounds"
         case let .plan(plan): item.label(of: plan)
-        case let .round(round): round.label
+        case .restAfterRound: "Rest"
         }
     }
 
     private func value(of part: SheetPart) -> String {
         switch part {
         case let .plan(plan): item.value(of: plan, locale: locale)
-        case let .round(round): rounds?.value(round).text ?? ""
+        case .restAfterRound: rounds?.value().text ?? ""
         }
     }
 
@@ -121,21 +113,21 @@ struct ExerciseSheet: View {
         switch part {
         case let .plan(plan) where isRounds(part): item.value(of: plan, locale: locale)
         case let .plan(plan): item.spokenValue(of: plan, locale: locale)
-        case let .round(round): rounds?.value(round).spoken ?? ""
+        case .restAfterRound: rounds?.value().spoken ?? ""
         }
     }
 
     private func canStep(_ part: SheetPart, by direction: Int) -> Bool {
         switch part {
         case let .plan(plan): item.canStep(plan, by: direction)
-        case let .round(round): rounds?.canStep(round, direction) ?? false
+        case .restAfterRound: rounds?.canStep(direction) ?? false
         }
     }
 
     private func step(_ part: SheetPart, by direction: Int) {
         switch part {
         case let .plan(plan): item.step(plan, by: direction)
-        case let .round(round): rounds?.step(round, direction)
+        case .restAfterRound: rounds?.step(direction)
         }
     }
 
@@ -144,7 +136,7 @@ struct ExerciseSheet: View {
     private func isAuto(_ part: SheetPart) -> Binding<Bool>? {
         switch part {
         case .plan(.rest): $item.isRestAuto.animation(Self.change)
-        case .round: rounds?.isAuto.animation(Self.change)
+        case .restAfterRound: rounds?.isAuto.animation(Self.change)
         case .plan: nil
         }
     }
@@ -168,12 +160,7 @@ struct ExerciseSheet: View {
     /// sheet, scrolled to the open row, kept its end in view by sliding the row's keys from under
     /// the finger, and a second tap landed on the row and closed it.
     private func restFooter(isAuto: Bool, of part: SheetPart) -> some View {
-        let timed = if case .time = item.plan.target, rounds == nil {
-            true
-        } else {
-            false
-        }
-        let change = timed ? "the time" : "reps"
+        let change = rounds?.change ?? [item].restChange
         let held = "Stays at \(value(of: part)) when you change \(change)."
         let spokenHeld = "Stays at \(spokenValue(of: part)) when you change \(change)."
         return ZStack(alignment: .topLeading) {
@@ -204,7 +191,7 @@ struct ExerciseSheet: View {
         case .plan(.sets): partners.map { "Shared with \($0)" }
         case .plan(.rest): "After each set"
         case .plan(.target), .plan(.weight): nil
-        case .round(.afterRound):
+        case .restAfterRound:
             "After each round" + (partners.map { ", shared with \($0)" } ?? "")
         }
     }
@@ -233,6 +220,10 @@ struct ExerciseSheet: View {
     )
     Color.pp(.background)
         .sheet(isPresented: .constant(true)) {
-            ExerciseSheet(item: $item, partners: "Pull-up") { }
+            ExerciseSheet(
+                item: $item,
+                partners: nil,
+                parts: item.exercise.planParts.map(SheetPart.plan) + [.plan(.rest)],
+            ) { }
         }
 }

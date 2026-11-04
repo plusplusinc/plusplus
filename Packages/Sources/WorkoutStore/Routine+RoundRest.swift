@@ -4,26 +4,7 @@ import Foundation
 // exercise. Going from one member to the next takes no time. Every member holds the same value, as
 // they hold one round count, nil until stepped: nil reads as derived from the members' own rests.
 
-/// A superset's rest, as its sheet steps it.
-public enum RoundPart: Sendable {
-    /// After each round.
-    case afterRound
-}
-
 extension RoundRest {
-    subscript(part: RoundPart) -> Int? {
-        get {
-            switch part {
-            case .afterRound: afterRound
-            }
-        }
-        set {
-            switch part {
-            case .afterRound: afterRound = newValue
-            }
-        }
-    }
-
     /// This one, or, while it is automatic, the first of `others` set by hand, so a value set
     /// on any member of rows that join wins over an automatic one; a value kept for later is
     /// taken from the first that has one.
@@ -37,64 +18,50 @@ extension RoundRest {
     }
 }
 
-extension RoundPart {
-    /// "Rest".
-    public var label: String {
-        switch self {
-        case .afterRound: "Rest"
-        }
-    }
-}
-
 extension Routine {
+    /// The parts `id`'s sheet steps, in order: a plain row's plan, then its rest; a superset
+    /// member's plan, then its superset's rest after each round, its own rest kept, unread, for
+    /// when it leaves. Every row has a rest, a one-set row's and a one-round superset's too.
+    public func sheetParts(of id: RoutineExercise.ID) -> [SheetPart] {
+        guard let row = exercises.first(where: { $0.id == id }) else { return [] }
+        let plan = row.exercise.planParts.map(SheetPart.plan)
+        return plan + [row.supersetID == nil ? .plan(.rest) : .restAfterRound]
+    }
+
     /// A superset's rest for `id`'s superset, in seconds: the value set on its members, else the
     /// rest after a round derived from the members. Nil for a plain row.
-    public func roundValue(_ part: RoundPart, of id: RoutineExercise.ID) -> Int? {
+    public func restAfterRound(of id: RoutineExercise.ID) -> Int? {
         guard let row = exercises.first(where: { $0.id == id }), row.supersetID != nil
         else { return nil }
-        if !row.roundRest.isAuto, let set = row.roundRest[part] {
+        if !row.roundRest.isAuto, let set = row.roundRest.afterRound {
             return set
         }
-        return switch part {
-        case .afterRound: derivedRestAfterRound(of: id)
-        }
+        return derivedRestAfterRound(of: id)
     }
 
     /// "None", "15 s", "2:30 min"; empty for a plain row.
-    public func roundText(_ part: RoundPart, of id: RoutineExercise.ID, locale: Locale = .current)
-        -> String
-    {
-        roundValue(part, of: id).map { RoutineExercise.restText($0, locale: locale) } ?? ""
+    public func restAfterRoundText(of id: RoutineExercise.ID, locale: Locale = .current) -> String {
+        restAfterRound(of: id).map { RoutineExercise.restText($0, locale: locale) } ?? ""
     }
 
     /// The rest in words, for VoiceOver.
-    public func spokenRoundText(
-        _ part: RoundPart,
-        of id: RoutineExercise.ID,
-        locale: Locale = .current,
-    ) -> String {
-        roundValue(part, of: id).map { RoutineExercise.spokenRest($0, locale: locale) } ?? ""
+    public func spokenRestAfterRound(of id: RoutineExercise.ID, locale: Locale = .current)
+        -> String
+    {
+        restAfterRound(of: id).map { RoutineExercise.spokenRest($0, locale: locale) } ?? ""
     }
 
-    public func canStepRound(
-        _ part: RoundPart,
-        of id: RoutineExercise.ID,
-        by direction: Int,
-    ) -> Bool {
-        steppedRound(part, of: id, by: direction) != nil
+    public func canStepRestAfterRound(of id: RoutineExercise.ID, by direction: Int) -> Bool {
+        restAfterRound(of: id)?.steppedRest(by: direction) != nil
     }
 
     /// Moves a superset's rest a step, from what it reads now, and sets it on every member.
-    public mutating func stepRound(
-        _ part: RoundPart,
-        of id: RoutineExercise.ID,
-        by direction: Int,
-    ) {
-        guard let value = steppedRound(part, of: id, by: direction),
+    public mutating func stepRestAfterRound(of id: RoutineExercise.ID, by direction: Int) {
+        guard let value = restAfterRound(of: id)?.steppedRest(by: direction),
               let superset = exercises.first(where: { $0.id == id })?.supersetID
         else { return }
         for row in exercises.indices where exercises[row].supersetID == superset {
-            exercises[row].roundRest[part] = value
+            exercises[row].roundRest.afterRound = value
             exercises[row].roundRest.isAuto = false
         }
     }
@@ -119,15 +86,6 @@ extension Routine {
         for row in exercises.indices where exercises[row].supersetID == superset {
             exercises[row].roundRest = shared
         }
-    }
-
-    private func steppedRound(_ part: RoundPart, of id: RoutineExercise.ID, by direction: Int)
-        -> Int?
-    {
-        roundValue(part, of: id)?.stepped(
-            by: direction * PlanLimits.restStep,
-            within: PlanLimits.rest,
-        )
     }
 
     /// The rest after a round when none is set: the longest of the members' own rests, less a

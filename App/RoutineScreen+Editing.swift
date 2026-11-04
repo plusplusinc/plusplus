@@ -19,19 +19,21 @@ extension RoutineScreen {
     func roundSteps(of id: RoutineExercise.ID) -> RoundSteps? {
         guard routine.isInSuperset(id) else { return nil }
         return RoundSteps(
-            value: { part in
+            value: {
                 (
-                    routine.roundText(part, of: id, locale: locale),
-                    routine.spokenRoundText(part, of: id, locale: locale),
+                    routine.restAfterRoundText(of: id, locale: locale),
+                    routine.spokenRestAfterRound(of: id, locale: locale),
                 )
             },
-            canStep: { routine.canStepRound($0, of: id, by: $1) },
-            step: { routine.stepRound($0, of: id, by: $1) },
+            canStep: { routine.canStepRestAfterRound(of: id, by: $0) },
+            step: { routine.stepRestAfterRound(of: id, by: $0) },
             isAuto: Binding {
                 routine.isRoundAuto(of: id)
             } set: { isAuto in
                 routine.setRoundAuto(isAuto, of: id)
             },
+            change: (routine.exercises.filter { $0.id == id } + routine.partners(of: id))
+                .restChange,
         )
     }
 

@@ -38,7 +38,7 @@ extension RoutineStoreUpgradeTests {
             #expect(routine.exercises.allSatisfy { $0.plan.rest == nil && $0.isRestAuto })
             #expect(routine.exercises.map(\.rest) == [60, 90])
             #expect(routine.exercises.allSatisfy { $0.roundRest == RoundRest() })
-            #expect(routine.roundValue(.afterRound, of: routine.exercises[0].id) == 30)
+            #expect(routine.restAfterRound(of: routine.exercises[0].id) == 30)
         }
     }
 }

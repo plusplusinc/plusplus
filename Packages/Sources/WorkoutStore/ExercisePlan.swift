@@ -131,9 +131,24 @@ extension Exercise {
     }
 }
 
-extension RoutineExercise {
-    /// The parts a plain row's sheet steps, in order: its plan's, then its rest.
-    public var sheetParts: [PlanPart] {
-        exercise.planParts + [.rest]
+/// A value a routine row's sheet steps: one of its plan, or, in a superset, the rest after each
+/// round, shared with its partners.
+public enum SheetPart: Hashable, Sendable {
+    case plan(PlanPart)
+    case restAfterRound
+}
+
+extension Collection<RoutineExercise> {
+    /// What a rest set by hand on these rows stays put through: "reps", "the time" where every
+    /// set is timed, or "reps or time" where some are.
+    public var restChange: String {
+        let timed = filter {
+            if case .time = $0.plan.target {
+                true
+            } else {
+                false
+            }
+        }.count
+        return timed == 0 ? "reps" : timed == count ? "the time" : "reps or time"
     }
 }

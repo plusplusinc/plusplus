@@ -3,8 +3,9 @@ import SwiftUI
 /// A value under its label on a rounded fill, the label leading and the value trailing, with
 /// numbers in SF Mono, and an optional note under the label. Tapping anywhere on it opens a − / +
 /// stepper inside it, under the value, and tapping again closes it. A key that can't step is
-/// disabled. An optional tag sits, quiet, before the value ("Auto"): always laid out, it only
-/// fades with `showsTag`, so nothing in the row moves or rewraps as it comes and goes. While
+/// disabled. An optional tag sits, quiet, before the value ("Auto"), or under it at the
+/// accessibility sizes: always laid out, it only fades with `showsTag`, so nothing in the row
+/// moves or rewraps as it comes and goes. While
 /// it's open, an optional accessory sits under the stepper inside its fill, past a hairline, and
 /// an optional footer sits under the fill, as a grouped list's footer does. VoiceOver reads the
 /// row as one element, its value in words and then its tag while it shows, and steps it with a
@@ -121,9 +122,13 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
             if !stacked {
                 Spacer()
             }
-            // The tag sits on the value's far side from the label's edge: before it in a row,
-            // after it when stacked, so its reserved room never pushes the value off that edge.
-            HStack(spacing: Spacing.sm) {
+            // The tag sits before the value in a row, on its far side from the label. Stacked, it
+            // takes its own line under the value, so its reserved room never narrows the value
+            // and breaks it mid-unit ("2:30" over "min").
+            let valueLayout = stacked
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: Spacing.sm))
+                : AnyLayout(HStackLayout(spacing: Spacing.sm))
+            valueLayout {
                 if !stacked {
                     tagView
                 }

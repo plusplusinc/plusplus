@@ -59,9 +59,9 @@ extension RoutineExercise {
     }
 
     /// Moves a part one step up (`direction` 1) or down (-1): a set or a rep at a time, a time
-    /// 5 s at a time, a weight its load's step in its unit, and a rest 15 s. It stops at the limits
-    /// a plan is stored within, a time at 5 s, a weight at one step, a bar's at the empty bar,
-    /// and a rest at none.
+    /// 5 s at a time, a weight its load's step in its unit, and a rest to the next 15 s mark. It
+    /// stops at the limits a plan is stored within, a time at 5 s, a weight at one step, a bar's
+    /// at the empty bar, and a rest at none.
     public mutating func step(_ part: PlanPart, by direction: Int) {
         if let stepped = stepped(part, by: direction) {
             plan = stepped
@@ -102,11 +102,7 @@ extension RoutineExercise {
             weight.amount = amount
             plan.weight = weight
         case .rest:
-            guard let rest = rest.stepped(
-                by: direction * PlanLimits.restStep,
-                within: PlanLimits.rest,
-            )
-            else { return nil }
+            guard let rest = rest.steppedRest(by: direction) else { return nil }
             plan.rest = rest
             plan.isRestAuto = false
         }
@@ -114,6 +110,17 @@ extension RoutineExercise {
     }
 
     private static let timeStep = 5
+}
+
+extension Int {
+    /// A rest moved to the next 15 s mark up (`direction` 1) or down (-1), so a rest off the
+    /// marks, a timed set's own time, lands on one (50 s goes to 60 or 45) and moves by 15 s from
+    /// there; held to a rest's limits, nil at the end it moves toward.
+    func steppedRest(by direction: Int) -> Int? {
+        let step = PlanLimits.restStep
+        let mark = direction > 0 ? (self / step + 1) * step : (self - 1) / step * step
+        return stepped(by: mark - self, within: PlanLimits.rest)
+    }
 }
 
 extension Comparable where Self: AdditiveArithmetic {
