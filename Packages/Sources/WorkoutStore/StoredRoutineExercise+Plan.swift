@@ -3,7 +3,8 @@ import OSLog
 extension StoredRoutineExercise {
     /// Writes every field of the plan, clearing the ones it doesn't use, and setting only the
     /// fields that differ, so an unchanged row stays clean. A row's plan is stored even when it
-    /// is the default, so it keeps what was shown if a later version's default changes.
+    /// is the default, so it keeps what was shown if a later version's default changes; a rest
+    /// the user never set stays nil, so it follows the reps.
     func write(_ plan: ExercisePlan) {
         let (newReps, newSeconds): (Int?, Int?) =
             switch plan.target {
@@ -15,6 +16,23 @@ extension StoredRoutineExercise {
         update(\.seconds, to: newSeconds)
         update(\.weight, to: plan.weight?.amount)
         update(\.weightUnit, to: plan.weight?.unit.rawValue)
+        update(\.rest, to: plan.rest)
+        update(\.isRestAuto, to: plan.isRestAuto)
+    }
+
+    /// Writes a superset's rest as they are, nil for one never set.
+    func write(_ round: RoundRest) {
+        update(\.roundRest, to: round.afterRound)
+        update(\.isRoundRestAuto, to: round.isAuto)
+    }
+
+    /// The stored superset rest, each nil when never set or out of range.
+    var round: RoundRest {
+        RoundRest(afterRound: Self.storedRest(roundRest), isAuto: isRoundRestAuto)
+    }
+
+    private static func storedRest(_ seconds: Int?) -> Int? {
+        seconds.flatMap { PlanLimits.rest.contains($0) ? $0 : nil }
     }
 
     /// The stored plan, field by field: a field never stored, out of range, or for another
@@ -34,6 +52,8 @@ extension StoredRoutineExercise {
             sets: sets.flatMap { PlanLimits.sets.contains($0) ? $0 : nil } ?? fallback.sets,
             target: target,
             weight: exercise.load == nil ? nil : storedWeight ?? fallback.weight,
+            rest: Self.storedRest(rest),
+            isRestAuto: isRestAuto,
         )
     }
 

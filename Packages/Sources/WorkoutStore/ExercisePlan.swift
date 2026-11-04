@@ -70,17 +70,46 @@ struct StartingWeight: Equatable, Sendable {
 }
 
 /// An exercise's values in a routine: every set the same, so one sets count, one target, and one
-/// weight.
+/// weight, and the rest after each, in seconds.
 public struct ExercisePlan: Equatable, Sendable {
     public var sets: Int
     public var target: SetTarget
     /// Nil only for an exercise with no load; one that holds a weight always has one.
     public var weight: Weight?
+    /// After each set, the last included, which is the way to the next exercise, in seconds; 0
+    /// for none. The last rest the user set, nil if never, kept while `isRestAuto`, so turning
+    /// that off brings it back (`RoutineExercise.rest`).
+    public var rest: Int?
+    /// Whether the rest follows the reps or time as they change, as it does until the user sets
+    /// one.
+    public var isRestAuto: Bool
 
-    public init(sets: Int, target: SetTarget, weight: Weight? = nil) {
+    public init(
+        sets: Int,
+        target: SetTarget,
+        weight: Weight? = nil,
+        rest: Int? = nil,
+        isRestAuto: Bool = true,
+    ) {
         self.sets = sets
         self.target = target
         self.weight = weight
+        self.rest = rest
+        self.isRestAuto = isRestAuto
+    }
+}
+
+/// A superset's own rest, the same on every member: while automatic, derived from the members;
+/// the last value set by hand kept for when it isn't. Empty on a plain row.
+public struct RoundRest: Equatable, Sendable {
+    /// After each round, the last included: the last set by hand, nil if never.
+    public var afterRound: Int?
+    /// Whether the rest is derived from the members, as it is until the user sets one.
+    public var isAuto: Bool
+
+    public init(afterRound: Int? = nil, isAuto: Bool = true) {
+        self.afterRound = afterRound
+        self.isAuto = isAuto
     }
 }
 
@@ -90,6 +119,8 @@ public enum PlanPart: Sendable {
     /// Reps or time.
     case target
     case weight
+    /// After each set.
+    case rest
 }
 
 extension Exercise {
@@ -97,5 +128,27 @@ extension Exercise {
     /// load.
     public var planParts: [PlanPart] {
         load == nil ? [.sets, .target] : [.sets, .target, .weight]
+    }
+}
+
+/// A value a routine row's sheet steps: one of its plan, or, in a superset, the rest after each
+/// round, shared with its partners.
+public enum SheetPart: Hashable, Sendable {
+    case plan(PlanPart)
+    case restAfterRound
+}
+
+extension Collection<RoutineExercise> {
+    /// What a rest set by hand on these rows stays put through: "reps", "the time" where every
+    /// set is timed, or "reps or time" where some are.
+    public var restChange: String {
+        let timed = filter {
+            if case .time = $0.plan.target {
+                true
+            } else {
+                false
+            }
+        }.count
+        return timed == 0 ? "reps" : timed == count ? "the time" : "reps or time"
     }
 }

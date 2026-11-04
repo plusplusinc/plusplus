@@ -47,6 +47,7 @@ public struct Exercise: Identifiable, Equatable, Sendable {
 
     /// The values a new row starts with, a weight in `unit` included for an exercise that holds
     /// one: the empty bar for a bar, else a light, safe start in the steps real kit comes in.
+    /// Its rest is unset, so it follows the reps.
     public func defaultPlan(in unit: WeightUnit) -> ExercisePlan {
         var plan = plan
         plan.weight = startingWeight(in: unit)

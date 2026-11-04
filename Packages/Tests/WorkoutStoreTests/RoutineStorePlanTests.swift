@@ -42,6 +42,42 @@ struct RoutineStorePlanTests {
         #expect(try await relaunch().launch(weightUnit: .pounds).routine == routine)
     }
 
+    @Test("Rest round-trips: automatic, set by hand, and a hand rest kept while automatic")
+    func restRoundTrip() async throws {
+        var remembered = try RoutineExercise.builtIn("Barbell bench press")
+        remembered.step(.rest, by: 1)
+        remembered.isRestAuto = true
+        let routine = try Routine(exercises: [
+            RoutineExercise.builtIn("Push-up"),
+            RoutineExercise.builtIn("Biceps curl") {
+                $0.rest = 0
+                $0.isRestAuto = false
+            },
+            remembered,
+        ])
+        try await relaunch().save(routine)
+        let reopened = try #require(try await relaunch().launch(weightUnit: .pounds).routine)
+        #expect(reopened == routine)
+        #expect(reopened.exercises.map(\.rest) == [60, 0, 150])
+        var back = reopened.exercises[2]
+        back.isRestAuto = false
+        #expect(back.rest == 165)
+    }
+
+    @Test("A rest never set is stored as nil, to follow the reps; one out of range reads as unset")
+    func restStoredUnset() async throws {
+        try await storedRow("Push-up") { row in
+            #expect(row.rest == nil)
+            #expect(row.isRestAuto)
+            row.rest = 900
+            row.isRestAuto = false
+        }
+        let row = try #require(try await relaunch().launch(weightUnit: .pounds).routine?
+            .exercises.first)
+        #expect(row.plan.rest == nil)
+        #expect(row.rest == 60)
+    }
+
     @Test("Two rows of one exercise keep their own values, and a kept row's change is saved")
     func rowsApart() async throws {
         let store = relaunch()

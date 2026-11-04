@@ -152,14 +152,23 @@ struct ComponentSnapshotTests {
     }
 
     /// The exercise sheet's content, as the app composes it under its bar: the exercise's
-    /// equipment, then a row for each value. The sheet and its bar are the system's, seen on the
-    /// simulator.
-    private func sheetContent(open: Int?, sharedWith partner: String? = nil) -> some View {
+    /// equipment, then a row for each value, the last its rest, with its Auto tag, and, open,
+    /// the Auto switch past a hairline and the footer under the fill. The sheet and its bar are
+    /// the system's, seen on the simulator.
+    private func sheetContent(
+        open: Int?,
+        sharedWith partner: String? = nil,
+        isAuto: Bool = true,
+    ) -> some View {
         let values = [
             (partner == nil ? "Sets" : "Rounds", "3", partner == nil ? "3 sets" : "3"),
             ("Reps", "10 per side", "10 reps per side"),
             ("Weight", "20 lb/side", "20 pounds per side"),
         ]
+        let rest = isAuto ? "90\u{00A0}s" : "75\u{00A0}s"
+        let footer = isAuto
+            ? "Auto rest follows your reps and the exercise. Heavier sets rest longer."
+            : "Stays at \(rest) when you change reps."
         return VStack(alignment: .leading, spacing: Spacing.sm) {
             Capsules(["Dumbbells", "Bench"])
                 .padding(.bottom, Spacing.sm)
@@ -176,13 +185,31 @@ struct ComponentSnapshotTests {
                     onStep: { _ in },
                 )
             }
+            ValueRow(
+                label: "Rest",
+                note: partner.map { "After each round, shared with \($0)" } ?? "After each set",
+                value: rest,
+                tag: "Auto",
+                showsTag: isAuto,
+                spokenValue: rest,
+                isOpen: open == values.count,
+                canDecrease: true,
+                canIncrease: true,
+                onToggle: { },
+                onStep: { _ in },
+                accessory: Toggle("Auto", isOn: .constant(isAuto))
+                    .font(.ppRowTitle)
+                    .foregroundStyle(.pp(.textPrimary))
+                    .padding(.trailing, Spacing.xxs),
+                footer: Text(footer),
+            )
         }
         .padding(Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.pp(.background))
     }
 
-    @Test("A sheet's values with every stepper closed")
+    @Test("A sheet's values with every stepper closed, rest tagged Auto")
     func sheetClosed() {
         assertThemedSnapshots(of: sheetContent(open: nil), width: Self.screenWidth)
     }
@@ -192,8 +219,21 @@ struct ComponentSnapshotTests {
         assertThemedSnapshots(of: sheetContent(open: 1), width: Self.screenWidth)
     }
 
+    /// Rest open: the Auto switch past a hairline inside the fill, the footer under it. Set by
+    /// hand, the tag is gone but its room kept, and the footer says the rest stays.
+    @Test("Rest open, automatic and set by hand")
+    func sheetRestOpen() {
+        assertThemedSnapshots(
+            of: VStack(spacing: Spacing.lg) {
+                sheetContent(open: 3)
+                sheetContent(open: 3, isAuto: false)
+            },
+            width: Self.screenWidth,
+        )
+    }
+
     /// A superset member's sheet: its sets are rounds, with a note naming whom they're shared
-    /// with, under the label, at rest and open.
+    /// with, under the label, at rest and open, and its rest after each round shared too.
     @Test("A member's rounds, shared, closed and open")
     func sheetSharedRounds() {
         let partner = "Barbell bench press"

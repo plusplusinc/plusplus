@@ -10,17 +10,21 @@ public struct RoutineExercise: Identifiable, Equatable, Sendable {
     /// The superset the row is in, shared by the rows next to it in the same one; nil for a
     /// plain row. `Routine` keeps supersets whole and at least two rows long.
     public var supersetID: UUID?
+    /// The superset's own rest, the same on every member; empty on a plain row.
+    public var roundRest: RoundRest
 
     public init(
         id: UUID = UUID(),
         exercise: Exercise,
         plan: ExercisePlan,
         supersetID: UUID? = nil,
+        roundRest: RoundRest = RoundRest(),
     ) {
         self.id = id
         self.exercise = exercise
         self.plan = plan
         self.supersetID = supersetID
+        self.roundRest = roundRest
     }
 
     /// A new row, at its exercise's defaults, a weight in `weightUnit`, the region's.

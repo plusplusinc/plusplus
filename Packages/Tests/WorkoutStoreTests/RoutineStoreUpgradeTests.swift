@@ -222,7 +222,7 @@ struct RoutineStoreUpgradeTests {
 
     /// Today's routines as #91 stored them: two, each with a superset of two rows with plans,
     /// one opened after the other's edit.
-    private static func writeBeforeWorkouts(to url: URL) throws {
+    static func writeBeforeWorkouts(to url: URL) throws {
         let schema = Schema([
             RoutineSchemaV4.StoredRoutine.self,
             RoutineSchemaV4.StoredRoutineExercise.self,

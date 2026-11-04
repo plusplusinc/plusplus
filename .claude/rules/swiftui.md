@@ -35,6 +35,16 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   a text view only moves the caret.
 - Prefer stock components for navigation, toolbars, and sheets; the system applies Liquid Glass
   there. Do not set `UIDesignRequiresCompatibility`.
+- The exercise sheet is a column of `ValueRow`s on one inset: everything inside a row's fill
+  (label, value, − / + keys, hairline, accessory) sits `Spacing.md` from its edges and from
+  each other, siblings (rows, keys, chips) `Spacing.sm` apart, corners `Spacing.sm +
+  Radius.key`; a row with a note is padded as one without. A row's `tag` ("Auto") is always
+  laid out and only fades with `showsTag`, so nothing moves or rewraps as it comes and goes,
+  and VoiceOver reads it only while it shows. Open, a row's `accessory` sits under the keys
+  past a hairline in `separator` (two pixels), and its `footer` under the fill, both laid out
+  at their tallest so a change that swaps the footer's text moves no key. Rest's accessory is
+  a system `Toggle` ("Auto"), its track nudged in by `Spacing.xxs`, since it draws past its
+  frame.
 - Every tappable element that is not a `Button` gets `.accessibilityAddTraits(.isButton)`;
   icon-only controls get `.accessibilityLabel`; decorative images get
   `.accessibilityHidden(true)`.

@@ -5,14 +5,15 @@ import SwiftData
 // on, so they are final now. Every rule in swiftdata.md holds: defaults or optionals, nothing
 // unique, an optional relationship with an inverse.
 
-typealias StoredRoutine = RoutineSchemaV4.StoredRoutine
-typealias StoredRoutineExercise = RoutineSchemaV4.StoredRoutineExercise
+typealias StoredRoutine = RoutineSchemaV7.StoredRoutine
+typealias StoredRoutineExercise = RoutineSchemaV7.StoredRoutineExercise
 
-/// As #91 shipped it, with `openedAt`, before workouts. Its models are still today's routines.
-enum RoutineSchemaV4: VersionedSchema {
-    static let versionIdentifier = Schema.Version(4, 0, 0)
+/// Today's routines: V4's, with each row's rest and a superset's rest after a round on every
+/// member, each automatic or set by hand. Its workouts are still V6's.
+enum RoutineSchemaV7: VersionedSchema {
+    static let versionIdentifier = Schema.Version(7, 0, 0)
     static var models: [any PersistentModel.Type] {
-        [StoredRoutine.self, StoredRoutineExercise.self]
+        [StoredRoutine.self, StoredRoutineExercise.self, StoredWorkout.self, StoredSet.self]
     }
 
     @Model
@@ -59,6 +60,17 @@ enum RoutineSchemaV4: VersionedSchema {
         /// The superset the row is in, shared with the rows next to it in it; nil for a plain row,
         /// and for every row saved before supersets.
         var supersetID: UUID?
+        /// The row's own rest after each set, in seconds: the last set by hand, kept while its
+        /// rest is automatic so turning that off brings it back; nil if never set. Kept while the
+        /// row is in a superset, so leaving it brings it back.
+        var rest: Int?
+        /// Whether the row's rest follows its reps or time; true for a row saved before rest.
+        var isRestAuto = true
+        /// Its superset's rest after each round, in seconds, the same on every member: the last
+        /// set by hand; nil if never, and on a plain row.
+        var roundRest: Int?
+        /// Whether its superset's rest follows its members, the same on every member.
+        var isRoundRestAuto = true
 
         init(id: UUID, exerciseID: String, position: Int) {
             self.id = id

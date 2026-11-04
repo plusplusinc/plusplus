@@ -46,7 +46,8 @@ extension Routine {
     /// last row is one of its ends: held, it moves that end, and the superset becomes the rows from
     /// its other end to `reach`, its rows left out going plain. Any other row draws a new superset,
     /// from itself to `reach`. Either way the rows spanned take the held row's round count, which
-    /// for an end is its superset's.
+    /// for an end is its superset's, and its rest, taken from a spanned row that set it where its
+    /// own is automatic.
     ///
     /// Rows in the span leave whatever superset they were in. What remains of a superset the span
     /// cut through stays one where two or more rows remain next to each other, and a lone row goes
@@ -74,6 +75,9 @@ extension Routine {
             if superset != nil {
                 rows[row].plan.sets = rounds
             }
+        }
+        if superset != nil {
+            rows.shareRoundRest(exercises[from].roundRest, over: span)
         }
         rows.normalizeSupersets()
         var routine = self
@@ -139,7 +143,8 @@ extension Routine {
     }
 
     /// Joins `id` with its neighbor on `side`: the supersets either is in, or the plain row, become
-    /// one superset, with `id`'s round count. Unlike a drag, which draws a superset of just the
+    /// one superset, with `id`'s round count and its rest, each it never set taken from a row
+    /// that set it. Unlike a drag, which draws a superset of just the
     /// rows it spans, a join takes nothing out of a superset.
     public mutating func join(_ id: RoutineExercise.ID, _ side: RoutineNeighbor) {
         guard canJoin(id, side), let pair = neighborIndices(of: id, side) else { return }
@@ -153,6 +158,7 @@ extension Routine {
             exercises[row].supersetID = superset
             exercises[row].plan.sets = rounds
         }
+        exercises.shareRoundRest(exercises[pair.index].roundRest, over: first ... last)
     }
 
     /// Takes `id` out of its superset as a plain row: in place at either end of it, and from the
@@ -205,7 +211,8 @@ extension Routine {
 extension [RoutineExercise] {
     /// Restores what every superset holds to: in one piece, so a second run of an id gets an id
     /// of its own; at least two rows, so a run of one goes plain; and one round count, its first
-    /// row's.
+    /// row's, and one rest, its first row's or, where that is automatic, the first member's set
+    /// by hand. A plain row has no superset's rest.
     mutating func normalizeSupersets() {
         var seen = Set<UUID>()
         var start = startIndex
@@ -228,8 +235,13 @@ extension [RoutineExercise] {
                     self[row].supersetID = kept
                     self[row].plan.sets = rounds
                 }
+                shareRoundRest(self[start].roundRest, over: start ..< end)
             }
             start = end
+        }
+        // A plain row keeps no superset's rest, so a later join never brings back a stale one.
+        for row in indices where self[row].supersetID == nil {
+            self[row].roundRest = RoundRest()
         }
     }
 }

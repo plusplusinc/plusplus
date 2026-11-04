@@ -14,6 +14,7 @@ extension RoutineExercise {
                 "Reps"
             }
         case .weight: "Weight"
+        case .rest: "Rest"
         }
     }
 
@@ -27,6 +28,8 @@ extension RoutineExercise {
             qualified(plan.target.number(locale: locale), .target)
         case .weight:
             qualified(plan.weight?.text(locale: locale) ?? "", .weight)
+        case .rest:
+            Self.restText(rest, locale: locale)
         }
     }
 
@@ -40,12 +43,25 @@ extension RoutineExercise {
             qualified(plan.target.spokenText(locale: locale), .target)
         case .weight:
             qualified(plan.weight?.spokenText(locale: locale) ?? "", .weight, spoken: true)
+        case .rest:
+            Self.spokenRest(rest, locale: locale)
         }
     }
 
+    /// "None", "30 s", "2:30 min".
+    static func restText(_ seconds: Int, locale: Locale) -> String {
+        seconds == 0 ? "None" : TimeText.text(seconds: seconds, locale: locale)
+    }
+
+    /// "None", "30 seconds", "2 minutes 30 seconds".
+    static func spokenRest(_ seconds: Int, locale: Locale) -> String {
+        seconds == 0 ? "None" : TimeText.spoken(seconds: seconds, locale: locale)
+    }
+
     /// Moves a part one step up (`direction` 1) or down (-1): a set or a rep at a time, a time
-    /// 5 s at a time, a weight its load's step in its unit. It stops at the limits a plan is
-    /// stored within, a time at 5 s, and a weight at one step, a bar's at the empty bar.
+    /// 5 s at a time, a weight its load's step in its unit, and a rest to the next 15 s mark. It
+    /// stops at the limits a plan is stored within, a time at 5 s, a weight at one step, a bar's
+    /// at the empty bar, and a rest at none.
     public mutating func step(_ part: PlanPart, by direction: Int) {
         if let stepped = stepped(part, by: direction) {
             plan = stepped
@@ -85,6 +101,10 @@ extension RoutineExercise {
             else { return nil }
             weight.amount = amount
             plan.weight = weight
+        case .rest:
+            guard let rest = rest.steppedRest(by: direction) else { return nil }
+            plan.rest = rest
+            plan.isRestAuto = false
         }
         return plan
     }
@@ -92,10 +112,21 @@ extension RoutineExercise {
     private static let timeStep = 5
 }
 
+extension Int {
+    /// A rest moved to the next 15 s mark up (`direction` 1) or down (-1), so a rest off the
+    /// marks, a timed set's own time, lands on one (50 s goes to 60 or 45) and moves by 15 s from
+    /// there; held to a rest's limits, nil at the end it moves toward.
+    func steppedRest(by direction: Int) -> Int? {
+        let step = PlanLimits.restStep
+        let mark = direction > 0 ? (self / step + 1) * step : (self - 1) / step * step
+        return stepped(by: mark - self, within: PlanLimits.rest)
+    }
+}
+
 extension Comparable where Self: AdditiveArithmetic {
     /// The value moved by `delta` and held within `range`, or nil if it's already at the end
     /// `delta` moves toward, so a step never moves the wrong way.
-    fileprivate func stepped(by delta: Self, within range: ClosedRange<Self>) -> Self? {
+    func stepped(by delta: Self, within range: ClosedRange<Self>) -> Self? {
         let canMove = delta > .zero ? self < range.upperBound
             : delta < .zero && self > range.lowerBound
         return canMove ? min(max(self + delta, range.lowerBound), range.upperBound) : nil

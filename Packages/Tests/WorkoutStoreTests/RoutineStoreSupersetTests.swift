@@ -36,6 +36,23 @@ struct RoutineStoreSupersetTests {
         #expect(reopened?.joinedToNext == [rows[1].id, rows[3].id, rows[4].id])
     }
 
+    @Test("A superset's rest reopens on every member: set by hand, and kept while automatic")
+    func roundRestRoundTrip() async throws {
+        var routine = try grouped()
+        routine.stepRestAfterRound(of: rows[1].id, by: 1)
+        routine.stepRestAfterRound(of: rows[3].id, by: -1)
+        routine.setRoundAuto(true, of: rows[3].id)
+        try await relaunch().save(routine)
+        let reopened = try #require(try await relaunch().launch(weightUnit: .pounds).routine)
+        #expect(reopened == routine)
+        #expect(!reopened.isRoundAuto(of: rows[2].id))
+        #expect(reopened.isRoundAuto(of: rows[5].id))
+        var back = reopened
+        back.setRoundAuto(false, of: rows[4].id)
+        #expect(back.restAfterRound(of: rows[5].id)
+            == routine.exercises[3].roundRest.afterRound)
+    }
+
     @Test("A cut superset reopens as it was cut, the row left over plain")
     func cutReopens() async throws {
         let store = relaunch()

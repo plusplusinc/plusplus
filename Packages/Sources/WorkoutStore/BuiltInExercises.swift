@@ -69,7 +69,7 @@ extension Exercise {
             muscleGroup: .chest,
             equipment: [.rings],
             plan: .init(sets: 3, target: .reps(8)),
-            tags: .init(.push, [.chest, .triceps], [.frontDelts]),
+            tags: .init(.push, [.chest, .triceps], [.frontDelts], nearMax: true),
         ),
         Self(
             id: "doorway-chest-stretch",
@@ -85,7 +85,7 @@ extension Exercise {
             muscleGroup: .back,
             equipment: [.pullUpBar],
             plan: .init(sets: 3, target: .reps(6)),
-            tags: .init(.pull, [.lats], [.biceps, .upperBack, .forearms]),
+            tags: .init(.pull, [.lats], [.biceps, .upperBack, .forearms], nearMax: true),
         ),
         Self(
             id: "chin-up",
@@ -93,7 +93,7 @@ extension Exercise {
             muscleGroup: .back,
             equipment: [.pullUpBar],
             plan: .init(sets: 3, target: .reps(6)),
-            tags: .init(.pull, [.lats, .biceps], [.upperBack, .forearms]),
+            tags: .init(.pull, [.lats, .biceps], [.upperBack, .forearms], nearMax: true),
         ),
         Self(
             id: "inverted-row",
@@ -189,7 +189,7 @@ extension Exercise {
             muscleGroup: .shoulders,
             equipment: [.band],
             plan: .init(sets: 3, target: .reps(15)),
-            tags: .init(.pull, [.rearDelts, .upperBack]),
+            tags: .init(.pull, [.rearDelts, .upperBack], singleJoint: true),
         ),
         Self(
             id: "incline-reverse-fly",
@@ -199,7 +199,7 @@ extension Exercise {
             plan: .init(sets: 3, target: .reps(12)),
             load: .pair,
             startsAt: StartingWeight(pounds: 10, kilograms: 4),
-            tags: .init(.pull, [.rearDelts], [.upperBack]),
+            tags: .init(.pull, [.rearDelts], [.upperBack], singleJoint: true),
         ),
         Self(
             id: "band-external-rotation",
@@ -239,7 +239,7 @@ extension Exercise {
             muscleGroup: .shoulders,
             equipment: [.band],
             plan: .init(sets: 3, target: .reps(15)),
-            tags: .init(.pull, [.rearDelts, .upperBack]),
+            tags: .init(.pull, [.rearDelts, .upperBack], singleJoint: true),
         ),
         Self(
             id: "cross-body-shoulder-stretch",
@@ -266,7 +266,7 @@ extension Exercise {
             plan: .init(sets: 3, target: .reps(12)),
             load: .pair,
             startsAt: StartingWeight(pounds: 15, kilograms: 6),
-            tags: .init(.pull, [.biceps], [.forearms]),
+            tags: .init(.pull, [.biceps], [.forearms], singleJoint: true),
         ),
         Self(
             id: "hammer-curl",
@@ -276,7 +276,7 @@ extension Exercise {
             plan: .init(sets: 3, target: .reps(12)),
             load: .pair,
             startsAt: StartingWeight(pounds: 15, kilograms: 6),
-            tags: .init(.pull, [.biceps, .forearms]),
+            tags: .init(.pull, [.biceps, .forearms], singleJoint: true),
         ),
         Self(
             id: "triceps-extension",
@@ -286,7 +286,7 @@ extension Exercise {
             plan: .init(sets: 3, target: .reps(12)),
             load: .single,
             startsAt: StartingWeight(pounds: 20, kilograms: 8),
-            tags: .init(.push, [.triceps]),
+            tags: .init(.push, [.triceps], singleJoint: true),
         ),
     ]
 }

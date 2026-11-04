@@ -19,8 +19,8 @@ time. Every `@Model` follows these from the start:
 
 `RoutineStore` is the one `@ModelActor`, opened through
 `WorkoutStoreContainer.make(mode:schema:migrationPlan:)` with its own schema, versioned: every
-stored shape shipped so far is a `VersionedSchema` (`RoutineSchemaV1` to `V6`, the older ones in
-`RoutineSchema+Shipped.swift`), and `RoutineMigrationPlan` runs a lightweight stage between each,
+stored shape shipped so far is a `VersionedSchema` (`RoutineSchemaV1` to `V7`, the older ones in
+`RoutineSchema+Shipped.swift`, V6's workouts in `StoredWorkout.swift`), and `RoutineMigrationPlan` runs a lightweight stage between each,
 since each change only added an attribute or a model. Staged migration refuses a store whose
 shape matches none of the plan's versions, so a shipped version never changes: a stored change
 is a new version, a new stage, and a test that opens the last shape, written on disk, under it
@@ -34,7 +34,11 @@ so a stored number never changes meaning if an exercise's measure does), and `we
 before plans existed reads as its exercise's default, field by field, as does a value out of
 range or for the other measure; a weight never stored, or in an unknown unit, reads as the
 exercise's starting weight in the region's unit, which `launch(weightUnit:)` is given. A
-saved weight keeps its own unit. Every save stores every
+saved weight keeps its own unit. Since V7 a row also carries its rest: `rest`, the seconds the
+user last set, nil if never, and `isRestAuto`, true while rest follows the reps or time, which
+keeps `rest` for when Auto goes off; and its superset's `roundRest` and `isRoundRestAuto`, the
+same on every member, nil and true on a plain row. A rest out of range reads as never set, and
+a store from before V7 opens with every rest automatic. Every save stores every
 row's plan, default or not, setting only the fields that changed, so an unchanged row stays
 clean. A row's `supersetID`, optional, joins it to the rows next to it with the same id; a
 routine is normalized as it loads (`normalizeSupersets()`): a split run gets a second id, a run

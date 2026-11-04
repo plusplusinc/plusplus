@@ -3,12 +3,21 @@ import SwiftUI
 /// A value under its label on a rounded fill, the label leading and the value trailing, with
 /// numbers in SF Mono, and an optional note under the label. Tapping anywhere on it opens a − / +
 /// stepper inside it, under the value, and tapping again closes it. A key that can't step is
-/// disabled. VoiceOver reads it as one element, its value in words, and steps it with a swipe up
-/// or down.
-public struct ValueRow: View {
+/// disabled. An optional tag sits, quiet, before the value ("Auto"), or under it at the
+/// accessibility sizes: always laid out, it only fades with `showsTag`, so nothing in the row
+/// moves or rewraps as it comes and goes. While
+/// it's open, an optional accessory sits under the stepper inside its fill, past a hairline, and
+/// an optional footer sits under the fill, as a grouped list's footer does. VoiceOver reads the
+/// row as one element, its value in words and then its tag while it shows, and steps it with a
+/// swipe up or down.
+public struct ValueRow<Accessory: View, Footer: View>: View {
     private let label: String
     private let note: String?
     private let value: String
+    private let tag: String?
+    private let showsTag: Bool
+    private let accessory: Accessory?
+    private let footer: Footer?
     private let spokenValue: String
     private let isOpen: Bool
     private let canDecrease: Bool
@@ -17,29 +26,49 @@ public struct ValueRow: View {
     private let onStep: (Int) -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.displayScale) private var displayScale
 
-    /// How a row opens and closes: the caller animates `isOpen` with it.
-    public static let motion = Animation.snappy(duration: 0.25)
-    /// The value's key and the stepper's keys sit this far inside their row on every side, so
-    /// the row's corners are concentric with theirs.
-    private static let inset = Spacing.sm
-    private static let keyHeight: CGFloat = 60
+    /// One inset on every side of the fill, for everything in it: the label, the value, the
+    /// keys, the accessory, and the room between them.
+    private static var inset: CGFloat {
+        Spacing.md
+    }
+
+    private static var keyHeight: CGFloat {
+        60
+    }
+
+    /// Tighter than concentric with the keys (inset + `Radius.key`), which made a closed row
+    /// read as a pill.
+    private static var cornerRadius: CGFloat {
+        Spacing.sm + Radius.key
+    }
 
     /// `onStep` gets 1 for a step up and -1 for a step down, each only while its `can` is true.
+    /// Without an accessory there's no hairline, and without a footer no room under the fill:
+    /// pass nil, not an empty view, for a row that has none.
     public init(
         label: String,
         note: String? = nil,
         value: String,
+        tag: String? = nil,
+        showsTag: Bool = true,
         spokenValue: String,
         isOpen: Bool,
         canDecrease: Bool,
         canIncrease: Bool,
         onToggle: @escaping () -> Void,
         onStep: @escaping (Int) -> Void,
+        accessory: Accessory?,
+        footer: Footer?,
     ) {
         self.label = label
         self.note = note
         self.value = value
+        self.tag = tag
+        self.showsTag = showsTag
+        self.accessory = accessory
+        self.footer = footer
         self.spokenValue = spokenValue
         self.isOpen = isOpen
         self.canDecrease = canDecrease
@@ -49,11 +78,27 @@ public struct ValueRow: View {
     }
 
     public var body: some View {
-        VStack(spacing: 0) {
-            header
-            region
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(spacing: 0) {
+                header
+                region
+            }
+            .background(Color.pp(.surface), in: .rect(cornerRadius: Self.cornerRadius))
+            if let footer {
+                // Inset to the label, in a grouped list's footer type, and shown only while open.
+                footer
+                    .font(.ppRowDetail)
+                    .foregroundStyle(.pp(.textSecondary))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, Self.inset)
+                    .padding(.vertical, Spacing.sm)
+                    .opacity(isOpen ? 1 : 0)
+                    .accessibilityHidden(!isOpen)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(height: isOpen ? nil : 0, alignment: .top)
+                    .clipped()
+            }
         }
-        .background(Color.pp(.surface), in: .rect(cornerRadius: Self.inset + Radius.key))
     }
 
     /// The whole row opens and closes its stepper. It's a tap, not a `Button`: a button's label
@@ -61,8 +106,8 @@ public struct ValueRow: View {
     /// At the accessibility sizes the value goes under its label, so neither breaks mid-word.
     private var header: some View {
         let stacked = dynamicTypeSize.isAccessibilitySize
-        let layout = stacked ? AnyLayout(VStackLayout(alignment: .leading, spacing: 0))
-            : AnyLayout(HStackLayout())
+        let layout = stacked ? AnyLayout(VStackLayout(alignment: .leading, spacing: Spacing.sm))
+            : AnyLayout(HStackLayout(spacing: Spacing.sm))
         return layout {
             VStack(alignment: .leading, spacing: Spacing.xxs) {
                 Text(label)
@@ -74,26 +119,37 @@ public struct ValueRow: View {
                         .foregroundStyle(.pp(.textSecondary))
                 }
             }
-            .padding(.top, stacked ? Spacing.sm : 0)
             if !stacked {
                 Spacer()
             }
-            Text(AttributedString.monoNumbers(value, font: .ppRowTitleNumber))
-                .font(.ppRowTitle)
-                .contentTransition(.numericText())
-                .foregroundStyle(.pp(.textPrimary))
-                .multilineTextAlignment(stacked ? .leading : .trailing)
-                .padding(.horizontal, stacked ? 0 : Spacing.md - Spacing.xs)
-                .padding(.vertical, Spacing.sm)
+            // The tag sits before the value in a row, on its far side from the label. Stacked, it
+            // takes its own line under the value, so its reserved room never narrows the value
+            // and breaks it mid-unit ("2:30" over "min").
+            let valueLayout = stacked
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: Spacing.sm))
+                : AnyLayout(HStackLayout(spacing: Spacing.sm))
+            valueLayout {
+                if !stacked {
+                    tagView
+                }
+                Text(AttributedString.monoNumbers(value, font: .ppRowTitleNumber))
+                    .font(.ppRowTitle)
+                    .contentTransition(.numericText())
+                    .foregroundStyle(.pp(.textPrimary))
+                    .multilineTextAlignment(stacked ? .leading : .trailing)
+                if stacked {
+                    tagView
+                }
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.leading, Spacing.md)
-        .padding([.vertical, .trailing], Self.inset)
+        // The same room above and below whether or not there's a note.
+        .padding(Self.inset)
         .contentShape(.rect)
         .onTapGesture(perform: onToggle)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(note.map { "\(label), \($0)" } ?? label)
-        .accessibilityValue(spokenValue)
+        .accessibilityValue(spokenValueAndTag)
         .accessibilityHint(isOpen ? "Closes its stepper." : "Opens a stepper.")
         .accessibilityAddTraits(.isButton)
         .accessibilityAction { onToggle() }
@@ -110,13 +166,28 @@ public struct ValueRow: View {
     /// height allows, so nothing draws past its edges, and the stepper, held to its top, fades
     /// in and out as it opens and closes.
     private var region: some View {
-        HStack(spacing: Spacing.sm) {
-            stepKey("Decrease", "minus", by: -1)
-                .disabled(!canDecrease)
-            stepKey("Increase", "plus", by: 1)
-                .disabled(!canIncrease)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: Spacing.sm) {
+                stepKey("Decrease", "minus", by: -1)
+                    .disabled(!canDecrease)
+                stepKey("Increase", "plus", by: 1)
+                    .disabled(!canIncrease)
+            }
+            // The header's padding is the room above the keys.
+            .padding([.bottom, .horizontal], Self.inset)
+            if let accessory {
+                // A Settings group's divider: inset to the label, two pixels thick.
+                Rectangle()
+                    .fill(.pp(.separator))
+                    .frame(height: 2 / displayScale)
+                    .padding(.leading, Self.inset)
+                accessory
+                    .padding(Self.inset)
+            }
         }
-        .padding([.horizontal, .bottom], Self.inset)
+        // At its own height even while closed, so nothing in it, and no gap measured from it,
+        // changes as it opens.
+        .fixedSize(horizontal: false, vertical: true)
         .opacity(isOpen ? 1 : 0)
         .allowsHitTesting(isOpen)
         .accessibilityHidden(!isOpen)
@@ -125,6 +196,25 @@ public struct ValueRow: View {
         .frame(maxWidth: .infinity)
         .frame(height: isOpen ? nil : 0, alignment: .top)
         .clipped()
+    }
+
+    /// Always laid out, so nothing moves as it shows or hides; hidden, VoiceOver skips it.
+    @ViewBuilder private var tagView: some View {
+        if let tag {
+            Text(tag)
+                .font(.ppCaption)
+                .foregroundStyle(.pp(.textSecondary))
+                .padding(.horizontal, Spacing.sm)
+                .padding(.vertical, Spacing.xxs)
+                .background(Color.pp(.background), in: .rect(cornerRadius: Radius.sm))
+                .opacity(showsTag ? 1 : 0)
+                .accessibilityHidden(!showsTag)
+        }
+    }
+
+    private var spokenValueAndTag: String {
+        guard showsTag, let tag else { return spokenValue }
+        return "\(spokenValue), \(tag)"
     }
 
     private func stepKey(_ title: String, _ image: String, by direction: Int) -> some View {
@@ -149,6 +239,44 @@ public struct ValueRow: View {
         withAnimation(.snappy(duration: 0.15)) {
             onStep(direction)
         }
+    }
+}
+
+extension ValueRow where Accessory == EmptyView, Footer == EmptyView {
+    /// How a row opens and closes: the caller animates `isOpen` with it.
+    public static var motion: Animation {
+        .snappy(duration: 0.25)
+    }
+
+    /// A row with nothing under its stepper or its fill.
+    public init(
+        label: String,
+        note: String? = nil,
+        value: String,
+        tag: String? = nil,
+        showsTag: Bool = true,
+        spokenValue: String,
+        isOpen: Bool,
+        canDecrease: Bool,
+        canIncrease: Bool,
+        onToggle: @escaping () -> Void,
+        onStep: @escaping (Int) -> Void,
+    ) {
+        self.init(
+            label: label,
+            note: note,
+            value: value,
+            tag: tag,
+            showsTag: showsTag,
+            spokenValue: spokenValue,
+            isOpen: isOpen,
+            canDecrease: canDecrease,
+            canIncrease: canIncrease,
+            onToggle: onToggle,
+            onStep: onStep,
+            accessory: nil,
+            footer: nil,
+        )
     }
 }
 
