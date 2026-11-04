@@ -35,6 +35,8 @@ TARGETS = {
     "DesignSystemTests": (30, 2, False),
     "PlusPlusUITests": (360, 90, True),
 }
+# Targets whose tests, over their own budget on Xcode Cloud, are judged by their local time.
+READ_LOCALLY = {"DesignSystemTests"}
 PACKAGE = 10  # scripts/test.sh on macOS, both swift test runs' test time, locally
 # A run's start-to-finish time has no budget: in runs 317 and 318 about 250 s of it was Xcode
 # Cloud's own steps (machine start, clone, the hand-off to the simulator, collecting results),
@@ -62,8 +64,9 @@ def when(stamp):
     return datetime.fromisoformat(stamp.replace("Z", "+00:00"))
 
 
-def over(seconds, budget):
-    return f"{seconds:.1f} s (budget {budget:.3g} s){' OVER BUDGET' if seconds > budget else ''}"
+def over(seconds, budget, overage=None):
+    mark = overage or " OVER BUDGET"
+    return f"{seconds:.1f} s (budget {budget:.3g} s){mark if seconds > budget else ''}"
 
 
 def parallel_targets(plan_text):
@@ -95,9 +98,30 @@ def bundle_times(tests, parallel):
     return times
 
 
+def overage(target, per_test, on_ci):
+    """What a test over its own budget reads in place of OVER BUDGET, or None. On Xcode Cloud a
+    READ_LOCALLY target's test can read over for the machine, not itself, so its line says what
+    decides (.claude/rules/testing.md, Budgets)."""
+    if on_ci and target in READ_LOCALLY:
+        return (", over on Xcode Cloud: slow if it logs fopen, or reads over "
+                f"{per_test / LOCAL_RATIO:.3g} s in the whole target locally (.claude/rules/testing.md)")
+    return None
+
+
 def budget_lines(tests, parallel, on_ci):
     """Lines for each target, and for each of its tests that is listed or over its own budget.
-    Only a serial target's tests are timed on their own."""
+    Only a serial target's tests are timed on their own.
+
+    >>> rows = [("DesignSystemTests", "A/slow()", 3.5), ("DesignSystemTests", "A/fast()", 0.1)]
+    >>> for line in budget_lines(rows, set(), on_ci=True):
+    ...     print(line)
+    DesignSystemTests 3.6 s (budget 30 s)
+      A/slow() 3.5 s (budget 2 s), over on Xcode Cloud: slow if it logs fopen, or reads over 1.6 s in the whole target locally (.claude/rules/testing.md)
+    >>> for line in budget_lines(rows, set(), on_ci=False):
+    ...     print(line)
+    DesignSystemTests 3.6 s (budget 24 s)
+      A/slow() 3.5 s (budget 1.6 s) OVER BUDGET
+    """
     lines = []
     by_target = bundle_times(tests, parallel)
     order = list(TARGETS)
@@ -110,7 +134,7 @@ def budget_lines(tests, parallel, on_ci):
             continue
         for t, name, s in sorted(tests, key=lambda row: -row[2]):
             if t == target and (lists_all or s > per_test * scale):
-                lines.append(f"  {name} {over(s, per_test * scale)}")
+                lines.append(f"  {name} {over(s, per_test * scale, overage(target, per_test, on_ci))}")
     return lines
 
 
