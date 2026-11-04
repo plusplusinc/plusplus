@@ -22,11 +22,21 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
     private let onStep: (Int) -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.displayScale) private var displayScale
+    @State private var accessoryHeight: CGFloat = 0
 
     /// The value's key and the stepper's keys sit this far inside their row on every side, so
     /// the row's corners are concentric with theirs.
     private static var inset: CGFloat { Spacing.sm }
     private static var keyHeight: CGFloat { 60 }
+    private static var cornerRadius: CGFloat { inset + Radius.key }
+
+    /// An accessory as tall as a capsule control, a switch, sits this far from the fill's bottom
+    /// and trailing edges, so the control's end is concentric with the fill's corner; the
+    /// hairline has as much room above it and below it.
+    private var accessoryGap: CGFloat {
+        max(Self.cornerRadius - accessoryHeight / 2, 0)
+    }
 
     /// `onStep` gets 1 for a step up and -1 for a step down, each only while its `can` is true.
     public init(
@@ -94,7 +104,7 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
                 header
                 region
             }
-            .background(Color.pp(.surface), in: .rect(cornerRadius: Self.inset + Radius.key))
+            .background(Color.pp(.surface), in: .rect(cornerRadius: Self.cornerRadius))
             if let footer {
                 // Inset to the label, in a grouped list's footer type, and shown only while open.
                 footer
@@ -131,7 +141,9 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
                         .foregroundStyle(.pp(.textSecondary))
                 }
             }
-            .padding(.top, stacked ? Spacing.sm : 0)
+            // As far from the fill's edges as the value is, so a row with a note has the room
+            // above and below that a row without one has.
+            .padding(stacked ? .top : .vertical, Spacing.sm)
             if !stacked {
                 Spacer()
             }
@@ -185,16 +197,23 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
                 stepKey("Increase", "plus", by: 1)
                     .disabled(!canIncrease)
             }
-            .padding(Self.inset)
+            .padding([.top, .horizontal], Self.inset)
+            .padding(.bottom, accessory == nil ? Self.inset : accessoryGap)
             if let accessory {
-                // The system's hairline, inset to the label as a list's separator is.
-                Divider()
+                // A Settings group's divider: inset to the label, two pixels thick.
+                Rectangle()
+                    .fill(.pp(.separator))
+                    .frame(height: 2 / displayScale)
                     .padding(.leading, Spacing.md)
                 accessory
-                    .padding(.horizontal, Spacing.md)
-                    .padding(.vertical, Spacing.sm)
+                    .onGeometryChange(for: CGFloat.self, of: \.size.height) { accessoryHeight = $0 }
+                    .padding(.leading, Spacing.md)
+                    .padding([.top, .bottom, .trailing], accessoryGap)
             }
         }
+        // At its own height even while closed, so nothing in it, and no gap measured from it,
+        // changes as it opens.
+        .fixedSize(horizontal: false, vertical: true)
         .opacity(isOpen ? 1 : 0)
         .allowsHitTesting(isOpen)
         .accessibilityHidden(!isOpen)

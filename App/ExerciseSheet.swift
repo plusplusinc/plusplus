@@ -61,6 +61,10 @@ struct ExerciseSheet: View {
                                     Toggle("Auto", isOn: auto)
                                         .font(.ppRowTitle)
                                         .foregroundStyle(.pp(.textPrimary))
+                                        // The switch draws its track about 2 pt past its frame's
+                                        // trailing edge (measured on iOS 27); this keeps the track
+                                        // itself concentric with the row's corner.
+                                        .padding(.trailing, Spacing.xxs)
                                 }
                             } footer: {
                                 if let auto {

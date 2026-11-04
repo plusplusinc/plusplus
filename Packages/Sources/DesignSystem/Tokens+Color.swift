@@ -34,6 +34,9 @@ public enum ColorToken: String, CaseIterable, Sendable {
     /// both appearances, further than `surface`.
     case selectionFill = "ppSelectionFill"
     /// The soft shadow all around something lifted off the screen, such as a held row's card.
+    /// The line between two parts of one fill, as in a Settings group: in an open value row,
+    /// between its keys and the control under them. Further from `surface` than the system's.
+    case separator = "ppSeparator"
     case shadow = "ppShadow"
     case surface = "ppSurface"
     /// The fill of something lifted off the screen, such as a row held to be moved: lighter
