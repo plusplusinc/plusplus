@@ -2,14 +2,14 @@ import DesignSystem
 import SwiftUI
 import WorkoutStore
 
-/// A value the sheet steps: one of the row's plan, or one of its superset's gaps, shared with its
+/// A value the sheet steps: one of the row's plan, or one of its superset's rest, shared with its
 /// partners.
 enum SheetPart: Hashable {
     case plan(PlanPart)
     case round(RoundPart)
 }
 
-/// A superset's gaps, read and stepped through the routine, since every member holds them.
+/// A superset's rest, read and stepped through the routine, since every member holds them.
 struct RoundSteps {
     let value: (RoundPart) -> (text: String, spoken: String)
     let canStep: (RoundPart, Int) -> Bool
@@ -25,7 +25,7 @@ struct ExerciseSheet: View {
     @Binding var item: RoutineExercise
     /// The names of the exercises in a superset with it, which share its round count, or nil.
     let partners: String?
-    /// Its superset's gaps; nil for a plain row.
+    /// Its superset's rest; nil for a plain row.
     var rounds: RoundSteps?
     let onDelete: () -> Void
 
@@ -57,23 +57,8 @@ struct ExerciseSheet: View {
                                 canIncrease: canStep(part, by: 1),
                                 onToggle: { toggle(part, scroller) },
                                 onStep: { step(part, by: $0) },
-                                accessory: {
-                                    if let auto {
-                                        Toggle("Auto", isOn: auto)
-                                            .font(.ppRowTitle)
-                                            .foregroundStyle(.pp(.textPrimary))
-                                            // The switch draws its track about 2 pt past its
-                                            // frame's trailing edge (measured on iOS 27); this
-                                            // keeps the track itself as far from the row's edge
-                                            // as the label is.
-                                            .padding(.trailing, Spacing.xxs)
-                                    }
-                                },
-                                footer: {
-                                    if let auto {
-                                        restFooter(isAuto: auto.wrappedValue, of: part)
-                                    }
-                                },
+                                accessory: auto.map(autoSwitch),
+                                footer: auto.map { restFooter(isAuto: $0.wrappedValue, of: part) },
                             )
                             .id(part)
                         }
@@ -166,6 +151,16 @@ struct ExerciseSheet: View {
 
     /// As a step changes a value.
     private static let change = Animation.snappy(duration: 0.15)
+
+    /// Inside an open rest, under its keys.
+    private func autoSwitch(_ isOn: Binding<Bool>) -> some View {
+        Toggle("Auto", isOn: isOn)
+            .font(.ppRowTitle)
+            .foregroundStyle(.pp(.textPrimary))
+            // The switch draws its track about 2 pt past its frame's trailing edge (measured on
+            // iOS 27); this keeps the track itself as far from the row's edge as the label is.
+            .padding(.trailing, Spacing.xxs)
+    }
 
     /// Under an open rest: what automatic rest follows while it's on, and that a rest set by
     /// hand stays put while it's off. Both are laid out, the other one clear, so the footer keeps

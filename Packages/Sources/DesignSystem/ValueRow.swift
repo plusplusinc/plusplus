@@ -44,45 +44,14 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
     }
 
     /// `onStep` gets 1 for a step up and -1 for a step down, each only while its `can` is true.
+    /// Without an accessory there's no hairline, and without a footer no room under the fill:
+    /// pass nil, not an empty view, for a row that has none.
     public init(
         label: String,
         note: String? = nil,
         value: String,
         tag: String? = nil,
         showsTag: Bool = true,
-        spokenValue: String,
-        isOpen: Bool,
-        canDecrease: Bool,
-        canIncrease: Bool,
-        onToggle: @escaping () -> Void,
-        onStep: @escaping (Int) -> Void,
-        @ViewBuilder accessory: () -> Accessory,
-        @ViewBuilder footer: () -> Footer,
-    ) {
-        self.init(
-            label: label,
-            note: note,
-            value: value,
-            tag: tag,
-            showsTag: showsTag,
-            spokenValue: spokenValue,
-            isOpen: isOpen,
-            canDecrease: canDecrease,
-            canIncrease: canIncrease,
-            onToggle: onToggle,
-            onStep: onStep,
-            accessory: accessory(),
-            footer: footer(),
-        )
-    }
-
-    /// Without an accessory there's no hairline, and without a footer no room under the fill.
-    fileprivate init(
-        label: String,
-        note: String?,
-        value: String,
-        tag: String?,
-        showsTag: Bool,
         spokenValue: String,
         isOpen: Bool,
         canDecrease: Bool,

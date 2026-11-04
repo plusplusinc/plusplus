@@ -197,13 +197,11 @@ struct ComponentSnapshotTests {
                 canIncrease: true,
                 onToggle: { },
                 onStep: { _ in },
-                accessory: {
-                    Toggle("Auto", isOn: .constant(isAuto))
-                        .font(.ppRowTitle)
-                        .foregroundStyle(.pp(.textPrimary))
-                        .padding(.trailing, Spacing.xxs)
-                },
-                footer: { Text(footer) },
+                accessory: Toggle("Auto", isOn: .constant(isAuto))
+                    .font(.ppRowTitle)
+                    .foregroundStyle(.pp(.textPrimary))
+                    .padding(.trailing, Spacing.xxs),
+                footer: Text(footer),
             )
         }
         .padding(Spacing.md)

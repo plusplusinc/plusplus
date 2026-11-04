@@ -4,7 +4,7 @@ import Foundation
 // exercise. Going from one member to the next takes no time. Every member holds the same value, as
 // they hold one round count, nil until stepped: nil reads as derived from the members' own rests.
 
-/// A superset's gap, as its sheet steps it.
+/// A superset's rest, as its sheet steps it.
 public enum RoundPart: Sendable {
     /// After each round.
     case afterRound
@@ -47,7 +47,7 @@ extension RoundPart {
 }
 
 extension Routine {
-    /// A superset's gap for `id`'s superset, in seconds: the value set on its members, else the
+    /// A superset's rest for `id`'s superset, in seconds: the value set on its members, else the
     /// rest after a round derived from the members. Nil for a plain row.
     public func roundValue(_ part: RoundPart, of id: RoutineExercise.ID) -> Int? {
         guard let row = exercises.first(where: { $0.id == id }), row.supersetID != nil
@@ -64,16 +64,16 @@ extension Routine {
     public func roundText(_ part: RoundPart, of id: RoutineExercise.ID, locale: Locale = .current)
         -> String
     {
-        roundValue(part, of: id).map { RoutineExercise.gapText($0, locale: locale) } ?? ""
+        roundValue(part, of: id).map { RoutineExercise.restText($0, locale: locale) } ?? ""
     }
 
-    /// The gap in words, for VoiceOver.
+    /// The rest in words, for VoiceOver.
     public func spokenRoundText(
         _ part: RoundPart,
         of id: RoutineExercise.ID,
         locale: Locale = .current,
     ) -> String {
-        roundValue(part, of: id).map { RoutineExercise.spokenGap($0, locale: locale) } ?? ""
+        roundValue(part, of: id).map { RoutineExercise.spokenRest($0, locale: locale) } ?? ""
     }
 
     public func canStepRound(
@@ -84,7 +84,7 @@ extension Routine {
         steppedRound(part, of: id, by: direction) != nil
     }
 
-    /// Moves a superset's gap a step, from what it reads now, and sets it on every member.
+    /// Moves a superset's rest a step, from what it reads now, and sets it on every member.
     public mutating func stepRound(
         _ part: RoundPart,
         of id: RoutineExercise.ID,
@@ -124,8 +124,10 @@ extension Routine {
     private func steppedRound(_ part: RoundPart, of id: RoutineExercise.ID, by direction: Int)
         -> Int?
     {
-        // 15 s a step, as a rest between sets.
-        roundValue(part, of: id)?.stepped(by: direction * 15, within: PlanLimits.rest)
+        roundValue(part, of: id)?.stepped(
+            by: direction * PlanLimits.restStep,
+            within: PlanLimits.rest,
+        )
     }
 
     /// The rest after a round when none is set: the longest of the members' own rests, less a
@@ -147,7 +149,7 @@ extension Routine {
 }
 
 extension [RoutineExercise] {
-    /// Gives the rows at `indices` one superset's gaps: `source`'s, each it never set taken from
+    /// Gives the rows at `indices` one superset's rest: `source`'s, each it never set taken from
     /// the first of the rows that set it.
     mutating func shareRoundRest(_ source: RoundRest, over indices: some Collection<Int>) {
         let shared = source.filled(from: indices.map { self[$0].roundRest })

@@ -9,4 +9,6 @@ enum PlanLimits {
     static let weight = 1.0 ... 1000.0
     /// A rest, in seconds: none to 10 min.
     static let rest = 0 ... 600
+    /// A rest's step, a row's or a superset's.
+    static let restStep = 15
 }

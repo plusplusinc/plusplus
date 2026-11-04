@@ -15,7 +15,7 @@ extension RoutineScreen {
         }
     }
 
-    /// The gaps of `id`'s superset, read and stepped on every member; nil for a plain row.
+    /// The rest of `id`'s superset, read and stepped on every member; nil for a plain row.
     func roundSteps(of id: RoutineExercise.ID) -> RoundSteps? {
         guard routine.isInSuperset(id) else { return nil }
         return RoundSteps(

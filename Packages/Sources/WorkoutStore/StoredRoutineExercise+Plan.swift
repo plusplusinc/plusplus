@@ -20,18 +20,18 @@ extension StoredRoutineExercise {
         update(\.isRestAuto, to: plan.isRestAuto)
     }
 
-    /// Writes a superset's gaps as they are, nil for one never set.
+    /// Writes a superset's rest as they are, nil for one never set.
     func write(_ round: RoundRest) {
         update(\.roundRest, to: round.afterRound)
         update(\.isRoundRestAuto, to: round.isAuto)
     }
 
-    /// The stored superset gaps, each nil when never set or out of range.
+    /// The stored superset rest, each nil when never set or out of range.
     var round: RoundRest {
-        RoundRest(afterRound: Self.gap(roundRest), isAuto: isRoundRestAuto)
+        RoundRest(afterRound: Self.storedRest(roundRest), isAuto: isRoundRestAuto)
     }
 
-    private static func gap(_ seconds: Int?) -> Int? {
+    private static func storedRest(_ seconds: Int?) -> Int? {
         seconds.flatMap { PlanLimits.rest.contains($0) ? $0 : nil }
     }
 
@@ -52,7 +52,7 @@ extension StoredRoutineExercise {
             sets: sets.flatMap { PlanLimits.sets.contains($0) ? $0 : nil } ?? fallback.sets,
             target: target,
             weight: exercise.load == nil ? nil : storedWeight ?? fallback.weight,
-            rest: Self.gap(rest),
+            rest: Self.storedRest(rest),
             isRestAuto: isRestAuto,
         )
     }
