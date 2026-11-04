@@ -11,6 +11,9 @@ struct ExerciseTags: Equatable, Sendable {
     /// Moves one joint (a curl, a fly, a pull-apart), so it rests like an isolation lift, while
     /// its movement still names Push and Pull days.
     let singleJoint: Bool
+    /// Bodyweight near most people's max (a pull-up, a dip), so it rests as a loaded lift does,
+    /// not a step shorter.
+    let nearMax: Bool
 
     init(
         _ movement: Movement?,
@@ -18,12 +21,14 @@ struct ExerciseTags: Equatable, Sendable {
         _ secondary: Set<Muscle> = [],
         _ kind: Kind = .strength,
         singleJoint: Bool = false,
+        nearMax: Bool = false,
     ) {
         self.movement = movement
         self.primary = primary
         self.secondary = secondary
         self.kind = kind
         self.singleJoint = singleJoint
+        self.nearMax = nearMax
     }
 
     enum Movement: Sendable {

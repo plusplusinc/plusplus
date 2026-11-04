@@ -14,6 +14,8 @@ struct RoundSteps {
     let value: (RoundPart) -> (text: String, spoken: String)
     let canStep: (RoundPart, Int) -> Bool
     let step: (RoundPart, Int) -> Void
+    /// Whether its rest is derived from the members, and a switch to set that.
+    let isAuto: Binding<Bool>
 }
 
 /// A routine row's values, a `ValueRow` for each part its exercise has, under the exercise's
@@ -42,17 +44,23 @@ struct ExerciseSheet: View {
                                 .padding(.bottom, Spacing.sm)
                         }
                         ForEach(parts, id: \.self) { part in
+                            let auto = isAuto(part)
                             ValueRow(
                                 label: label(of: part),
                                 note: note(on: part),
                                 value: value(of: part),
+                                tag: auto?.wrappedValue == true ? "Auto" : nil,
                                 spokenValue: spokenValue(of: part),
                                 isOpen: open == part,
                                 canDecrease: canStep(part, by: -1),
                                 canIncrease: canStep(part, by: 1),
                                 onToggle: { toggle(part, scroller) },
                                 onStep: { step(part, by: $0) },
-                            )
+                            ) {
+                                if let auto {
+                                    AutoRestSwitch(isOn: auto, explanation: explanation)
+                                }
+                            }
                             .id(part)
                         }
                     }
@@ -134,6 +142,30 @@ struct ExerciseSheet: View {
         }
     }
 
+    /// Whether a rest part is automatic, as a switch; nil for a part that isn't a rest. The
+    /// switch animates the value and its tag as it goes.
+    private func isAuto(_ part: SheetPart) -> Binding<Bool>? {
+        switch part {
+        case .plan(.rest): $item.isRestAuto.animation(Self.change)
+        case .round: rounds?.isAuto.animation(Self.change)
+        case .plan: nil
+        }
+    }
+
+    /// As a step changes a value.
+    private static let change = Animation.snappy(duration: 0.15)
+
+    /// What automatic rest follows, under its switch while it's on.
+    private var explanation: String {
+        if rounds != nil {
+            return "Auto rest follows the exercises in this superset."
+        }
+        if case .time = item.plan.target {
+            return "Auto rest matches the set's time."
+        }
+        return "Auto rest follows your reps and the exercise: heavier sets rest longer."
+    }
+
     /// What a part is for, in gray under its label, where the label alone doesn't say.
     private func note(on part: SheetPart) -> String? {
         switch part {
@@ -157,6 +189,32 @@ struct ExerciseSheet: View {
                 scroller.scrollTo(part)
             }
         }
+    }
+}
+
+/// The switch under a rest's stepper, on while the rest is automatic, with what it follows
+/// under it while on. Stepping the rest sets it by hand, which turns it off.
+private struct AutoRestSwitch: View {
+    @Binding var isOn: Bool
+    let explanation: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            Toggle("Auto", isOn: $isOn)
+                .font(.ppRowTitle)
+                .foregroundStyle(.pp(.textPrimary))
+            // Its room stays while off, so the first step, which turns it off, moves nothing:
+            // the sheet, scrolled to the open row, kept its end in view by sliding the row's
+            // keys from under the finger, and a second tap landed on the row and closed it.
+            Text(explanation)
+                .font(.ppRowDetail)
+                .foregroundStyle(.pp(.textSecondary))
+                .fixedSize(horizontal: false, vertical: true)
+                .opacity(isOn ? 1 : 0)
+                .accessibilityHidden(!isOn)
+        }
+        .padding(.horizontal, Spacing.md - Spacing.sm)
+        .padding(.vertical, Spacing.xs)
     }
 }
 

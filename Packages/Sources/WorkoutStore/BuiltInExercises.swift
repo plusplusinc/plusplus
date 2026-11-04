@@ -69,7 +69,7 @@ extension Exercise {
             muscleGroup: .chest,
             equipment: [.rings],
             plan: .init(sets: 3, target: .reps(8)),
-            tags: .init(.push, [.chest, .triceps], [.frontDelts]),
+            tags: .init(.push, [.chest, .triceps], [.frontDelts], nearMax: true),
         ),
         Self(
             id: "doorway-chest-stretch",
@@ -85,7 +85,7 @@ extension Exercise {
             muscleGroup: .back,
             equipment: [.pullUpBar],
             plan: .init(sets: 3, target: .reps(6)),
-            tags: .init(.pull, [.lats], [.biceps, .upperBack, .forearms]),
+            tags: .init(.pull, [.lats], [.biceps, .upperBack, .forearms], nearMax: true),
         ),
         Self(
             id: "chin-up",
@@ -93,7 +93,7 @@ extension Exercise {
             muscleGroup: .back,
             equipment: [.pullUpBar],
             plan: .init(sets: 3, target: .reps(6)),
-            tags: .init(.pull, [.lats, .biceps], [.upperBack, .forearms]),
+            tags: .init(.pull, [.lats, .biceps], [.upperBack, .forearms], nearMax: true),
         ),
         Self(
             id: "inverted-row",

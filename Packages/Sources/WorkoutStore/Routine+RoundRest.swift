@@ -24,16 +24,16 @@ extension RoundRest {
         }
     }
 
-    /// This one's values, each it never set taken from the first of `others` that set it, so a
-    /// value set on any member of rows that join wins over an empty one.
+    /// This one, or, while it is automatic, the first of `others` set by hand, so a value set
+    /// on any member of rows that join wins over an automatic one; a value kept for later is
+    /// taken from the first that has one.
     func filled(from others: some Sequence<RoundRest>) -> RoundRest {
-        var filled = self
-        for other in others {
-            for part in [RoundPart.afterRound] where filled[part] == nil {
-                filled[part] = other[part]
-            }
+        guard isAuto else { return self }
+        let others = Array(others)
+        if let set = others.first(where: { !$0.isAuto }) {
+            return set
         }
-        return filled
+        return RoundRest(afterRound: afterRound ?? others.lazy.compactMap(\.afterRound).first)
     }
 }
 
@@ -52,7 +52,7 @@ extension Routine {
     public func roundValue(_ part: RoundPart, of id: RoutineExercise.ID) -> Int? {
         guard let row = exercises.first(where: { $0.id == id }), row.supersetID != nil
         else { return nil }
-        if let set = row.roundRest[part] {
+        if !row.roundRest.isAuto, let set = row.roundRest[part] {
             return set
         }
         return switch part {
@@ -87,6 +87,29 @@ extension Routine {
         else { return }
         for row in exercises.indices where exercises[row].supersetID == superset {
             exercises[row].roundRest[part] = value
+            exercises[row].roundRest.isAuto = false
+        }
+    }
+
+    /// Whether `id`'s superset derives its rest from its members; false for a plain row.
+    public func isRoundAuto(of id: RoutineExercise.ID) -> Bool {
+        guard let row = exercises.first(where: { $0.id == id }), row.supersetID != nil
+        else { return false }
+        return row.roundRest.isAuto
+    }
+
+    /// Makes `id`'s superset derive its rest from its members (on), keeping the rest set by
+    /// hand for later, or brings that back (off), or, if there is none, keeps the rest it reads
+    /// now; on every member.
+    public mutating func setRoundAuto(_ isAuto: Bool, of id: RoutineExercise.ID) {
+        guard let superset = exercises.first(where: { $0.id == id })?.supersetID else { return }
+        var shared = exercises.first { $0.id == id }?.roundRest ?? RoundRest()
+        if !isAuto, shared.afterRound == nil {
+            shared.afterRound = derivedRestAfterRound(of: id)
+        }
+        shared.isAuto = isAuto
+        for row in exercises.indices where exercises[row].supersetID == superset {
+            exercises[row].roundRest = shared
         }
     }
 

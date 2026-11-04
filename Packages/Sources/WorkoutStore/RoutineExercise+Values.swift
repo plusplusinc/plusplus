@@ -104,6 +104,7 @@ extension RoutineExercise {
             guard let rest = rest.stepped(by: direction * Self.gapStep, within: PlanLimits.rest)
             else { return nil }
             plan.rest = rest
+            plan.isRestAuto = false
         }
         return plan
     }

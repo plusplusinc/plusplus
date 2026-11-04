@@ -27,6 +27,11 @@ extension RoutineScreen {
             },
             canStep: { routine.canStepRound($0, of: id, by: $1) },
             step: { routine.stepRound($0, of: id, by: $1) },
+            isAuto: Binding {
+                routine.isRoundAuto(of: id)
+            } set: { isAuto in
+                routine.setRoundAuto(isAuto, of: id)
+            },
         )
     }
 

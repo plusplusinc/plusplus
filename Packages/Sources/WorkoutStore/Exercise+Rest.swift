@@ -8,7 +8,7 @@ extension Exercise {
     /// | ≥ 13  | 90 s                | 60 s                | 45 s         |
     ///
     /// With no load (bodyweight or a band) one step shorter: one row down, and from the last row
-    /// the next kind's, never under 45 s.
+    /// the next kind's, never under 45 s; not for bodyweight near most people's max (a pull-up).
     func defaultRest(for target: SetTarget) -> Int {
         if tags.kind == .stretch {
             return 0
@@ -19,7 +19,7 @@ extension Exercise {
         case let .reps(reps):
             let row = reps <= 5 ? 0 : reps <= 12 ? 1 : 2
             let column = restKind.rawValue
-            guard load == nil else { return Self.restTable[row][column] }
+            guard load == nil, !tags.nearMax else { return Self.restTable[row][column] }
             return row < 2 ? Self.restTable[row + 1][column]
                 : Self.restTable[2][min(column + 1, RestKind.singleJoint.rawValue)]
         }
@@ -50,8 +50,26 @@ extension Exercise {
 }
 
 extension RoutineExercise {
-    /// The rest after each set: the one the user set, else the exercise's for these reps or time.
+    /// The rest after each set: the exercise's for these reps or time while automatic, else the
+    /// one the user set.
     public var rest: Int {
-        plan.rest ?? exercise.defaultRest(for: plan.target)
+        plan.isRestAuto ? autoRest : plan.rest ?? autoRest
+    }
+
+    private var autoRest: Int {
+        exercise.defaultRest(for: plan.target)
+    }
+
+    /// Whether the rest is automatic, following the reps or time. Turning it on keeps the rest
+    /// set by hand for later; turning it off brings that back, or, if there is none, keeps the
+    /// rest it reads now.
+    public var isRestAuto: Bool {
+        get { plan.isRestAuto }
+        set {
+            if !newValue, plan.rest == nil {
+                plan.rest = autoRest
+            }
+            plan.isRestAuto = newValue
+        }
     }
 }

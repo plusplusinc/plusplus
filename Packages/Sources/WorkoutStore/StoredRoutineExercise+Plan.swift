@@ -17,16 +17,18 @@ extension StoredRoutineExercise {
         update(\.weight, to: plan.weight?.amount)
         update(\.weightUnit, to: plan.weight?.unit.rawValue)
         update(\.rest, to: plan.rest)
+        update(\.isRestAuto, to: plan.isRestAuto)
     }
 
     /// Writes a superset's gaps as they are, nil for one never set.
     func write(_ round: RoundRest) {
         update(\.roundRest, to: round.afterRound)
+        update(\.isRoundRestAuto, to: round.isAuto)
     }
 
     /// The stored superset gaps, each nil when never set or out of range.
     var round: RoundRest {
-        RoundRest(afterRound: Self.gap(roundRest))
+        RoundRest(afterRound: Self.gap(roundRest), isAuto: isRoundRestAuto)
     }
 
     private static func gap(_ seconds: Int?) -> Int? {
@@ -51,6 +53,7 @@ extension StoredRoutineExercise {
             target: target,
             weight: exercise.load == nil ? nil : storedWeight ?? fallback.weight,
             rest: Self.gap(rest),
+            isRestAuto: isRestAuto,
         )
     }
 

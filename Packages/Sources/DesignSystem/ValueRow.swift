@@ -3,12 +3,15 @@ import SwiftUI
 /// A value under its label on a rounded fill, the label leading and the value trailing, with
 /// numbers in SF Mono, and an optional note under the label. Tapping anywhere on it opens a − / +
 /// stepper inside it, under the value, and tapping again closes it. A key that can't step is
-/// disabled. VoiceOver reads it as one element, its value in words, and steps it with a swipe up
-/// or down.
-public struct ValueRow: View {
+/// disabled. An optional tag sits, quiet, before the value ("Auto"), and an optional footer
+/// under the stepper shows while it's open. VoiceOver reads it as one element, its value in words
+/// and then its tag, and steps it with a swipe up or down.
+public struct ValueRow<Footer: View>: View {
     private let label: String
     private let note: String?
     private let value: String
+    private let tag: String?
+    private let footer: Footer
     private let spokenValue: String
     private let isOpen: Bool
     private let canDecrease: Bool
@@ -18,28 +21,30 @@ public struct ValueRow: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    /// How a row opens and closes: the caller animates `isOpen` with it.
-    public static let motion = Animation.snappy(duration: 0.25)
     /// The value's key and the stepper's keys sit this far inside their row on every side, so
     /// the row's corners are concentric with theirs.
-    private static let inset = Spacing.sm
-    private static let keyHeight: CGFloat = 60
+    private static var inset: CGFloat { Spacing.sm }
+    private static var keyHeight: CGFloat { 60 }
 
     /// `onStep` gets 1 for a step up and -1 for a step down, each only while its `can` is true.
     public init(
         label: String,
         note: String? = nil,
         value: String,
+        tag: String? = nil,
         spokenValue: String,
         isOpen: Bool,
         canDecrease: Bool,
         canIncrease: Bool,
         onToggle: @escaping () -> Void,
         onStep: @escaping (Int) -> Void,
+        @ViewBuilder footer: () -> Footer,
     ) {
         self.label = label
         self.note = note
         self.value = value
+        self.tag = tag
+        self.footer = footer()
         self.spokenValue = spokenValue
         self.isOpen = isOpen
         self.canDecrease = canDecrease
@@ -78,13 +83,24 @@ public struct ValueRow: View {
             if !stacked {
                 Spacer()
             }
-            Text(AttributedString.monoNumbers(value, font: .ppRowTitleNumber))
-                .font(.ppRowTitle)
-                .contentTransition(.numericText())
-                .foregroundStyle(.pp(.textPrimary))
-                .multilineTextAlignment(stacked ? .leading : .trailing)
-                .padding(.horizontal, stacked ? 0 : Spacing.md - Spacing.xs)
-                .padding(.vertical, Spacing.sm)
+            HStack(spacing: Spacing.sm) {
+                if let tag {
+                    Text(tag)
+                        .font(.ppCaption)
+                        .foregroundStyle(.pp(.textSecondary))
+                        .padding(.horizontal, Spacing.sm)
+                        .padding(.vertical, Spacing.xxs)
+                        .background(Color.pp(.background), in: .rect(cornerRadius: Radius.sm))
+                        .transition(.opacity)
+                }
+                Text(AttributedString.monoNumbers(value, font: .ppRowTitleNumber))
+                    .font(.ppRowTitle)
+                    .contentTransition(.numericText())
+                    .foregroundStyle(.pp(.textPrimary))
+                    .multilineTextAlignment(stacked ? .leading : .trailing)
+            }
+            .padding(.horizontal, stacked ? 0 : Spacing.md - Spacing.xs)
+            .padding(.vertical, Spacing.sm)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.leading, Spacing.md)
@@ -93,7 +109,7 @@ public struct ValueRow: View {
         .onTapGesture(perform: onToggle)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(note.map { "\(label), \($0)" } ?? label)
-        .accessibilityValue(spokenValue)
+        .accessibilityValue(tag.map { "\(spokenValue), \($0)" } ?? spokenValue)
         .accessibilityHint(isOpen ? "Closes its stepper." : "Opens a stepper.")
         .accessibilityAddTraits(.isButton)
         .accessibilityAction { onToggle() }
@@ -110,11 +126,14 @@ public struct ValueRow: View {
     /// height allows, so nothing draws past its edges, and the stepper, held to its top, fades
     /// in and out as it opens and closes.
     private var region: some View {
-        HStack(spacing: Spacing.sm) {
-            stepKey("Decrease", "minus", by: -1)
-                .disabled(!canDecrease)
-            stepKey("Increase", "plus", by: 1)
-                .disabled(!canIncrease)
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            HStack(spacing: Spacing.sm) {
+                stepKey("Decrease", "minus", by: -1)
+                    .disabled(!canDecrease)
+                stepKey("Increase", "plus", by: 1)
+                    .disabled(!canIncrease)
+            }
+            footer
         }
         .padding([.horizontal, .bottom], Self.inset)
         .opacity(isOpen ? 1 : 0)
@@ -149,6 +168,38 @@ public struct ValueRow: View {
         withAnimation(.snappy(duration: 0.15)) {
             onStep(direction)
         }
+    }
+}
+
+extension ValueRow where Footer == EmptyView {
+    /// How a row opens and closes: the caller animates `isOpen` with it.
+    public static var motion: Animation { .snappy(duration: 0.25) }
+
+    /// A row with nothing under its stepper.
+    public init(
+        label: String,
+        note: String? = nil,
+        value: String,
+        tag: String? = nil,
+        spokenValue: String,
+        isOpen: Bool,
+        canDecrease: Bool,
+        canIncrease: Bool,
+        onToggle: @escaping () -> Void,
+        onStep: @escaping (Int) -> Void,
+    ) {
+        self.init(
+            label: label,
+            note: note,
+            value: value,
+            tag: tag,
+            spokenValue: spokenValue,
+            isOpen: isOpen,
+            canDecrease: canDecrease,
+            canIncrease: canIncrease,
+            onToggle: onToggle,
+            onStep: onStep,
+        ) { EmptyView() }
     }
 }
 
