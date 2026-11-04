@@ -58,7 +58,13 @@ struct ExerciseSheet: View {
                                 onStep: { step(part, by: $0) },
                             ) {
                                 if let auto {
-                                    AutoRestSwitch(isOn: auto, explanation: explanation)
+                                    Toggle("Auto", isOn: auto)
+                                        .font(.ppRowTitle)
+                                        .foregroundStyle(.pp(.textPrimary))
+                                }
+                            } footer: {
+                                if let auto {
+                                    restFooter(isAuto: auto.wrappedValue, of: part)
                                 }
                             }
                             .id(part)
@@ -155,7 +161,28 @@ struct ExerciseSheet: View {
     /// As a step changes a value.
     private static let change = Animation.snappy(duration: 0.15)
 
-    /// What automatic rest follows, under its switch while it's on.
+    /// Under an open rest: what automatic rest follows while it's on, and that a rest set by
+    /// hand stays put while it's off. Both are laid out, the other one clear, so the footer keeps
+    /// the taller one's height: the first step, which turns Auto off, moves nothing. Otherwise the
+    /// sheet, scrolled to the open row, kept its end in view by sliding the row's keys from under
+    /// the finger, and a second tap landed on the row and closed it.
+    private func restFooter(isAuto: Bool, of part: SheetPart) -> some View {
+        let timed = if case .time = item.plan.target, rounds == nil { true } else { false }
+        let change = timed ? "the time" : "reps"
+        let held = "Stays at \(value(of: part)) when you change \(change)."
+        let spokenHeld = "Stays at \(spokenValue(of: part)) when you change \(change)."
+        return ZStack(alignment: .topLeading) {
+            Text(explanation)
+                .opacity(isAuto ? 1 : 0)
+                .accessibilityHidden(!isAuto)
+            Text(held)
+                .opacity(isAuto ? 0 : 1)
+                .accessibilityLabel(spokenHeld)
+                .accessibilityHidden(isAuto)
+        }
+    }
+
+    /// What automatic rest follows.
     private var explanation: String {
         if rounds != nil {
             return "Auto rest follows the exercises in this superset."
@@ -163,7 +190,7 @@ struct ExerciseSheet: View {
         if case .time = item.plan.target {
             return "Auto rest matches the set's time."
         }
-        return "Auto rest follows your reps and the exercise: heavier sets rest longer."
+        return "Auto rest follows your reps and the exercise. Heavier sets rest longer."
     }
 
     /// What a part is for, in gray under its label, where the label alone doesn't say.
@@ -189,32 +216,6 @@ struct ExerciseSheet: View {
                 scroller.scrollTo(part)
             }
         }
-    }
-}
-
-/// The switch under a rest's stepper, on while the rest is automatic, with what it follows
-/// under it while on. Stepping the rest sets it by hand, which turns it off.
-private struct AutoRestSwitch: View {
-    @Binding var isOn: Bool
-    let explanation: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.xs) {
-            Toggle("Auto", isOn: $isOn)
-                .font(.ppRowTitle)
-                .foregroundStyle(.pp(.textPrimary))
-            // Its room stays while off, so the first step, which turns it off, moves nothing:
-            // the sheet, scrolled to the open row, kept its end in view by sliding the row's
-            // keys from under the finger, and a second tap landed on the row and closed it.
-            Text(explanation)
-                .font(.ppRowDetail)
-                .foregroundStyle(.pp(.textSecondary))
-                .fixedSize(horizontal: false, vertical: true)
-                .opacity(isOn ? 1 : 0)
-                .accessibilityHidden(!isOn)
-        }
-        .padding(.horizontal, Spacing.md - Spacing.sm)
-        .padding(.vertical, Spacing.xs)
     }
 }
 

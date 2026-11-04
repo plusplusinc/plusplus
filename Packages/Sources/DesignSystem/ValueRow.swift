@@ -3,15 +3,17 @@ import SwiftUI
 /// A value under its label on a rounded fill, the label leading and the value trailing, with
 /// numbers in SF Mono, and an optional note under the label. Tapping anywhere on it opens a − / +
 /// stepper inside it, under the value, and tapping again closes it. A key that can't step is
-/// disabled. An optional tag sits, quiet, before the value ("Auto"), and an optional footer
-/// under the stepper shows while it's open. VoiceOver reads it as one element, its value in words
-/// and then its tag, and steps it with a swipe up or down.
-public struct ValueRow<Footer: View>: View {
+/// disabled. An optional tag sits, quiet, before the value ("Auto"). While it's open, an optional
+/// accessory sits under the stepper inside its fill, past a hairline, and an optional footer
+/// sits under the fill, as a grouped list's footer does. VoiceOver reads the row as one element,
+/// its value in words and then its tag, and steps it with a swipe up or down.
+public struct ValueRow<Accessory: View, Footer: View>: View {
     private let label: String
     private let note: String?
     private let value: String
     private let tag: String?
-    private let footer: Footer
+    private let accessory: Accessory?
+    private let footer: Footer?
     private let spokenValue: String
     private let isOpen: Bool
     private let canDecrease: Bool
@@ -38,13 +40,46 @@ public struct ValueRow<Footer: View>: View {
         canIncrease: Bool,
         onToggle: @escaping () -> Void,
         onStep: @escaping (Int) -> Void,
+        @ViewBuilder accessory: () -> Accessory,
         @ViewBuilder footer: () -> Footer,
+    ) {
+        self.init(
+            label: label,
+            note: note,
+            value: value,
+            tag: tag,
+            spokenValue: spokenValue,
+            isOpen: isOpen,
+            canDecrease: canDecrease,
+            canIncrease: canIncrease,
+            onToggle: onToggle,
+            onStep: onStep,
+            accessory: accessory(),
+            footer: footer(),
+        )
+    }
+
+    /// Without an accessory there's no hairline, and without a footer no room under the fill.
+    fileprivate init(
+        label: String,
+        note: String?,
+        value: String,
+        tag: String?,
+        spokenValue: String,
+        isOpen: Bool,
+        canDecrease: Bool,
+        canIncrease: Bool,
+        onToggle: @escaping () -> Void,
+        onStep: @escaping (Int) -> Void,
+        accessory: Accessory?,
+        footer: Footer?,
     ) {
         self.label = label
         self.note = note
         self.value = value
         self.tag = tag
-        self.footer = footer()
+        self.accessory = accessory
+        self.footer = footer
         self.spokenValue = spokenValue
         self.isOpen = isOpen
         self.canDecrease = canDecrease
@@ -54,11 +89,28 @@ public struct ValueRow<Footer: View>: View {
     }
 
     public var body: some View {
-        VStack(spacing: 0) {
-            header
-            region
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(spacing: 0) {
+                header
+                region
+            }
+            .background(Color.pp(.surface), in: .rect(cornerRadius: Self.inset + Radius.key))
+            if let footer {
+                // Inset to the label, in a grouped list's footer type, and shown only while open.
+                footer
+                    .font(.ppRowDetail)
+                    .foregroundStyle(.pp(.textSecondary))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, Spacing.md)
+                    .padding(.top, Spacing.sm)
+                    .padding(.bottom, Spacing.xs)
+                    .opacity(isOpen ? 1 : 0)
+                    .accessibilityHidden(!isOpen)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(height: isOpen ? nil : 0, alignment: .top)
+                    .clipped()
+            }
         }
-        .background(Color.pp(.surface), in: .rect(cornerRadius: Self.inset + Radius.key))
     }
 
     /// The whole row opens and closes its stepper. It's a tap, not a `Button`: a button's label
@@ -126,16 +178,23 @@ public struct ValueRow<Footer: View>: View {
     /// height allows, so nothing draws past its edges, and the stepper, held to its top, fades
     /// in and out as it opens and closes.
     private var region: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
+        VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: Spacing.sm) {
                 stepKey("Decrease", "minus", by: -1)
                     .disabled(!canDecrease)
                 stepKey("Increase", "plus", by: 1)
                     .disabled(!canIncrease)
             }
-            footer
+            .padding(Self.inset)
+            if let accessory {
+                // The system's hairline, inset to the label as a list's separator is.
+                Divider()
+                    .padding(.leading, Spacing.md)
+                accessory
+                    .padding(.horizontal, Spacing.md)
+                    .padding(.vertical, Spacing.sm)
+            }
         }
-        .padding([.horizontal, .bottom], Self.inset)
         .opacity(isOpen ? 1 : 0)
         .allowsHitTesting(isOpen)
         .accessibilityHidden(!isOpen)
@@ -171,11 +230,11 @@ public struct ValueRow<Footer: View>: View {
     }
 }
 
-extension ValueRow where Footer == EmptyView {
+extension ValueRow where Accessory == EmptyView, Footer == EmptyView {
     /// How a row opens and closes: the caller animates `isOpen` with it.
     public static var motion: Animation { .snappy(duration: 0.25) }
 
-    /// A row with nothing under its stepper.
+    /// A row with nothing under its stepper or its fill.
     public init(
         label: String,
         note: String? = nil,
@@ -199,7 +258,9 @@ extension ValueRow where Footer == EmptyView {
             canIncrease: canIncrease,
             onToggle: onToggle,
             onStep: onStep,
-        ) { EmptyView() }
+            accessory: nil,
+            footer: nil,
+        )
     }
 }
 
