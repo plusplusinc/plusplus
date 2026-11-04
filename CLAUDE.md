@@ -27,8 +27,8 @@ stepper, and Delete in its menu. The sheet alone shows the row's rest after each
 included: Auto, tagged, while it follows the reps (by planned reps and the kind of exercise,
 a row shorter for bodyweight; a timed set's own time; none for a stretch), until a step sets it
 by hand; an Auto switch inside the opened row brings either back. A superset's members share
-one rest after each round, from the longest member's less a minute, at least 30 s, or all of it
-when they share a primary muscle; leaving restores a row's own. Holding a row lifts it, and dragging moves it to a new place,
+one rest after each round, the longest member's less a minute, never under 30 s unless the
+longest is, or all of it when they share a primary muscle; leaving restores a row's own. Holding a row lifts it, and dragging moves it to a new place,
 scrolling the list near its edges; VoiceOver moves it with Move up and Move down. Holding a
 row's dot and dragging over other rows joins them into a superset, which a loop beside the rail
 marks and whose rows share one round count; a held row resting half a second over a plain

@@ -62,6 +62,8 @@ struct RestTests {
     func timedAndStretch() throws {
         #expect(try Self.rest("Plank", .time(seconds: 30)) == 30)
         #expect(try Self.rest("Plank", .time(seconds: 75)) == 75)
+        // Never past the longest rest, so it stores, steps, and reopens as it reads.
+        #expect(try Self.rest("Plank", .time(seconds: 900)) == 600)
         #expect(try Self.rest("Farmer\u{2019}s carry", .time(seconds: 45)) == 45)
         #expect(try Self.rest("Pigeon stretch", .time(seconds: 60)) == 0)
         #expect(try Self.rest("Cat-cow", .reps(10)) == 0)

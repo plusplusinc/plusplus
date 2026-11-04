@@ -1,6 +1,7 @@
 extension Exercise {
     /// The rest after each set for a set of `target`, in seconds: none for a stretch; a timed
-    /// set's own time; else by planned reps (5 or fewer, 6–12, 13 or more) and kind:
+    /// set's own time, up to the longest rest; else by planned reps (5 or fewer, 6–12, 13 or more)
+    /// and kind:
     ///
     /// | Reps  | Lower-body compound | Upper-body compound | Single-joint |
     /// | ≤ 5   | 3 min               | 2 min 30 s          | 2 min        |
@@ -15,7 +16,8 @@ extension Exercise {
         }
         switch target {
         case let .time(seconds):
-            return seconds
+            // Held to what a rest can be stored and stepped as.
+            return min(seconds, PlanLimits.rest.upperBound)
         case let .reps(reps):
             let row = reps <= 5 ? 0 : reps <= 12 ? 1 : 2
             let column = restKind.rawValue
