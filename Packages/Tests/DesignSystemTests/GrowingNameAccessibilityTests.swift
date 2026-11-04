@@ -48,6 +48,21 @@ enum AccessibilityTree {
         return leaves(under: host.view)
     }
 
+    /// Every node under `root`, each before its children.
+    static func nodes(of root: some View) throws -> [NSObject] {
+        try setAccessibilityEnabled(true)
+        defer { try? setAccessibilityEnabled(false) }
+        let host = UIHostingController(rootView: root)
+        let window = UIWindow.sceneless(hosting: host, at: .large)
+        defer { window.isHidden = true }
+        window.settle()
+        return nodes(under: host.view)
+    }
+
+    private static func nodes(under node: NSObject) -> [NSObject] {
+        [node] + automationElements(of: node).flatMap { nodes(under: $0) }
+    }
+
     private static func leaves(under node: NSObject) -> [NSObject] {
         let children = automationElements(of: node)
         return children.isEmpty ? [node] : children.flatMap { leaves(under: $0) }
