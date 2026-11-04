@@ -63,7 +63,7 @@ struct ExerciseSheet: View {
                                         .foregroundStyle(.pp(.textPrimary))
                                         // The switch draws its track about 2 pt past its frame's
                                         // trailing edge (measured on iOS 27); this keeps the track
-                                        // itself concentric with the row's corner.
+                                        // itself as far from the row's edge as the label is.
                                         .padding(.trailing, Spacing.xxs)
                                 }
                             } footer: {

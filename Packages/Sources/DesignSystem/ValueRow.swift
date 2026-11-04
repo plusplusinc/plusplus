@@ -23,7 +23,6 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.displayScale) private var displayScale
-    @State private var accessoryHeight: CGFloat = 0
 
     /// The value's key and the stepper's keys sit this far inside their row on every side, so
     /// the row's corners are concentric with theirs.
@@ -31,12 +30,9 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
     private static var keyHeight: CGFloat { 60 }
     private static var cornerRadius: CGFloat { inset + Radius.key }
 
-    /// An accessory as tall as a capsule control, a switch, sits this far from the fill's bottom
-    /// and trailing edges, so the control's end is concentric with the fill's corner; the
-    /// hairline has as much room above it and below it.
-    private var accessoryGap: CGFloat {
-        max(Self.cornerRadius - accessoryHeight / 2, 0)
-    }
+    /// An accessory sits as far from the fill's bottom and trailing edges as its label is from
+    /// the leading edge, and the hairline has as much room above it and below it.
+    private static var accessoryGap: CGFloat { Spacing.md }
 
     /// `onStep` gets 1 for a step up and -1 for a step down, each only while its `can` is true.
     public init(
@@ -198,7 +194,7 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
                     .disabled(!canIncrease)
             }
             .padding([.top, .horizontal], Self.inset)
-            .padding(.bottom, accessory == nil ? Self.inset : accessoryGap)
+            .padding(.bottom, accessory == nil ? Self.inset : Self.accessoryGap)
             if let accessory {
                 // A Settings group's divider: inset to the label, two pixels thick.
                 Rectangle()
@@ -206,9 +202,8 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
                     .frame(height: 2 / displayScale)
                     .padding(.leading, Spacing.md)
                 accessory
-                    .onGeometryChange(for: CGFloat.self, of: \.size.height) { accessoryHeight = $0 }
                     .padding(.leading, Spacing.md)
-                    .padding([.top, .bottom, .trailing], accessoryGap)
+                    .padding([.top, .bottom, .trailing], Self.accessoryGap)
             }
         }
         // At its own height even while closed, so nothing in it, and no gap measured from it,
