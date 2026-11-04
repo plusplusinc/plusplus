@@ -19,6 +19,13 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parent
+
+# A card's claude runs with the night's pre-push hook in GIT_CONFIG_*, which refused this file's
+# pushes to its scratch repos when a card ran the tests (#150). The tests' own git starts without
+# it; a test of the hook adds it back through Night.git_env().
+for name in [name for name in os.environ if name.startswith("GIT_CONFIG_")]:
+    del os.environ[name]
+
 spec = importlib.util.spec_from_file_location("nightly", Path(__file__).with_name("nightly-tooling.py"))
 nightly = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(nightly)
