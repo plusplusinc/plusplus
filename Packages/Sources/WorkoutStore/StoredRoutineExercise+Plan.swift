@@ -3,7 +3,8 @@ import OSLog
 extension StoredRoutineExercise {
     /// Writes every field of the plan, clearing the ones it doesn't use, and setting only the
     /// fields that differ, so an unchanged row stays clean. A row's plan is stored even when it
-    /// is the default, so it keeps what was shown if a later version's default changes.
+    /// is the default, so it keeps what was shown if a later version's default changes; a rest
+    /// the user never set stays nil, so it follows the reps.
     func write(_ plan: ExercisePlan) {
         let (newReps, newSeconds): (Int?, Int?) =
             switch plan.target {
@@ -49,7 +50,7 @@ extension StoredRoutineExercise {
             sets: sets.flatMap { PlanLimits.sets.contains($0) ? $0 : nil } ?? fallback.sets,
             target: target,
             weight: exercise.load == nil ? nil : storedWeight ?? fallback.weight,
-            rest: Self.gap(rest) ?? fallback.rest,
+            rest: Self.gap(rest),
         )
     }
 

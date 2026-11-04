@@ -77,9 +77,11 @@ public struct ExercisePlan: Equatable, Sendable {
     /// Nil only for an exercise with no load; one that holds a weight always has one.
     public var weight: Weight?
     /// After each set, the last included, which is the way to the next exercise; 0 for none.
-    public var rest: Int
+    /// Nil until the user sets it, so it follows the reps or time as they change
+    /// (`RoutineExercise.rest`).
+    public var rest: Int?
 
-    public init(sets: Int, target: SetTarget, weight: Weight? = nil, rest: Int = 0) {
+    public init(sets: Int, target: SetTarget, weight: Weight? = nil, rest: Int? = nil) {
         self.sets = sets
         self.target = target
         self.weight = weight

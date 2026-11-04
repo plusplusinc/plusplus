@@ -29,7 +29,7 @@ extension RoutineExercise {
         case .weight:
             qualified(plan.weight?.text(locale: locale) ?? "", .weight)
         case .rest:
-            Self.gapText(plan.rest, locale: locale)
+            Self.gapText(rest, locale: locale)
         }
     }
 
@@ -44,7 +44,7 @@ extension RoutineExercise {
         case .weight:
             qualified(plan.weight?.spokenText(locale: locale) ?? "", .weight, spoken: true)
         case .rest:
-            Self.spokenGap(plan.rest, locale: locale)
+            Self.spokenGap(rest, locale: locale)
         }
     }
 
@@ -101,7 +101,7 @@ extension RoutineExercise {
             weight.amount = amount
             plan.weight = weight
         case .rest:
-            guard let rest = plan.rest.stepped(by: direction * Self.gapStep, within: PlanLimits.rest)
+            guard let rest = rest.stepped(by: direction * Self.gapStep, within: PlanLimits.rest)
             else { return nil }
             plan.rest = rest
         }

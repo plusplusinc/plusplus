@@ -1,24 +1,57 @@
-// How long a new row rests, by what kind of work it is, so every built-in starts somewhere a
-// lifter would put it and a new exercise needs no number of its own.
-
 extension Exercise {
-    /// The rest between sets a new row starts with, in seconds, the first rule that fits: none
-    /// for a stretch, 60 s for conditioning, 30 s for a hold, an anti-rotation, or balance work,
-    /// 90 s for a single-joint lift or one with no movement pattern, 3 min for a barbell
-    /// compound, and 2 min for any other compound.
-    var defaultRest: Int {
-        switch tags.kind {
-        case .stretch: return 0
-        case .conditioning: return 60
-        case .balance: return 30
-        case .strength: break
+    /// The rest after each set for a set of `target`, in seconds: none for a stretch; a timed
+    /// set's own time; else by planned reps (5 or fewer, 6–12, 13 or more) and kind:
+    ///
+    /// | Reps  | Lower-body compound | Upper-body compound | Single-joint |
+    /// | ≤ 5   | 3 min               | 2 min 30 s          | 2 min        |
+    /// | 6–12  | 2 min               | 90 s                | 60 s         |
+    /// | ≥ 13  | 90 s                | 60 s                | 45 s         |
+    ///
+    /// With no load (bodyweight or a band) one step shorter: one row down, and from the last row
+    /// the next kind's, never under 45 s.
+    func defaultRest(for target: SetTarget) -> Int {
+        if tags.kind == .stretch {
+            return 0
         }
+        switch target {
+        case let .time(seconds):
+            return seconds
+        case let .reps(reps):
+            let row = reps <= 5 ? 0 : reps <= 12 ? 1 : 2
+            let column = restKind.rawValue
+            guard load == nil else { return Self.restTable[row][column] }
+            return row < 2 ? Self.restTable[row + 1][column]
+                : Self.restTable[2][min(column + 1, RestKind.singleJoint.rawValue)]
+        }
+    }
+
+    private static let restTable = [
+        [180, 150, 120],
+        [120, 90, 60],
+        [90, 60, 45],
+    ]
+
+    /// Squat, hinge, and lunge patterns are lower-body compounds; push and pull, upper; anything
+    /// else (a single-joint lift, a hold, a rotation, no pattern at all) rests as single-joint.
+    private var restKind: RestKind {
+        guard !tags.singleJoint else { return .singleJoint }
         switch tags.movement {
-        case .hold, .rotation: return 30
-        case nil: return 90
-        case _ where tags.singleJoint: return 90
-        case _ where load == .bar: return 180
-        default: return 120
+        case .squat, .hinge, .lunge: return .lowerCompound
+        case .push, .pull: return .upperCompound
+        default: return .singleJoint
         }
+    }
+
+    private enum RestKind: Int {
+        case lowerCompound
+        case upperCompound
+        case singleJoint
+    }
+}
+
+extension RoutineExercise {
+    /// The rest after each set: the one the user set, else the exercise's for these reps or time.
+    public var rest: Int {
+        plan.rest ?? exercise.defaultRest(for: plan.target)
     }
 }

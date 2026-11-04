@@ -104,7 +104,7 @@ extension Routine {
     private func derivedRestAfterRound(of id: RoutineExercise.ID) -> Int {
         guard let row = exercises.first(where: { $0.id == id }) else { return 0 }
         let members = [row] + partners(of: id)
-        let longest = members.map(\.plan.rest).max() ?? 0
+        let longest = members.map(\.rest).max() ?? 0
         let primaries = members.map(\.exercise.tags.primary)
         let sharesMuscle = primaries.indices.contains { first in
             primaries.indices.contains { second in
