@@ -57,21 +57,24 @@ struct ExerciseSheet: View {
                                 canIncrease: canStep(part, by: 1),
                                 onToggle: { toggle(part, scroller) },
                                 onStep: { step(part, by: $0) },
-                            ) {
-                                if let auto {
-                                    Toggle("Auto", isOn: auto)
-                                        .font(.ppRowTitle)
-                                        .foregroundStyle(.pp(.textPrimary))
-                                        // The switch draws its track about 2 pt past its frame's
-                                        // trailing edge (measured on iOS 27); this keeps the track
-                                        // itself as far from the row's edge as the label is.
-                                        .padding(.trailing, Spacing.xxs)
-                                }
-                            } footer: {
-                                if let auto {
-                                    restFooter(isAuto: auto.wrappedValue, of: part)
-                                }
-                            }
+                                accessory: {
+                                    if let auto {
+                                        Toggle("Auto", isOn: auto)
+                                            .font(.ppRowTitle)
+                                            .foregroundStyle(.pp(.textPrimary))
+                                            // The switch draws its track about 2 pt past its
+                                            // frame's trailing edge (measured on iOS 27); this
+                                            // keeps the track itself as far from the row's edge
+                                            // as the label is.
+                                            .padding(.trailing, Spacing.xxs)
+                                    }
+                                },
+                                footer: {
+                                    if let auto {
+                                        restFooter(isAuto: auto.wrappedValue, of: part)
+                                    }
+                                },
+                            )
                             .id(part)
                         }
                     }
@@ -131,10 +134,8 @@ struct ExerciseSheet: View {
     /// Rounds read as the bare count under their label, "Rounds, 3", not "3 sets".
     private func spokenValue(of part: SheetPart) -> String {
         switch part {
-        case let .plan(plan):
-            isRounds(part)
-                ? item.value(of: plan, locale: locale)
-                : item.spokenValue(of: plan, locale: locale)
+        case let .plan(plan) where isRounds(part): item.value(of: plan, locale: locale)
+        case let .plan(plan): item.spokenValue(of: plan, locale: locale)
         case let .round(round): rounds?.value(round).spoken ?? ""
         }
     }
@@ -172,7 +173,11 @@ struct ExerciseSheet: View {
     /// sheet, scrolled to the open row, kept its end in view by sliding the row's keys from under
     /// the finger, and a second tap landed on the row and closed it.
     private func restFooter(isAuto: Bool, of part: SheetPart) -> some View {
-        let timed = if case .time = item.plan.target, rounds == nil { true } else { false }
+        let timed = if case .time = item.plan.target, rounds == nil {
+            true
+        } else {
+            false
+        }
         let change = timed ? "the time" : "reps"
         let held = "Stays at \(value(of: part)) when you change \(change)."
         let spokenHeld = "Stays at \(spokenValue(of: part)) when you change \(change)."
@@ -204,7 +209,8 @@ struct ExerciseSheet: View {
         case .plan(.sets): partners.map { "Shared with \($0)" }
         case .plan(.rest): "After each set"
         case .plan(.target), .plan(.weight): nil
-        case .round(.afterRound): "After each round" + (partners.map { ", shared with \($0)" } ?? "")
+        case .round(.afterRound):
+            "After each round" + (partners.map { ", shared with \($0)" } ?? "")
         }
     }
 

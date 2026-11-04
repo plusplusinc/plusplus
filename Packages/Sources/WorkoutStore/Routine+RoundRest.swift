@@ -76,12 +76,20 @@ extension Routine {
         roundValue(part, of: id).map { RoutineExercise.spokenGap($0, locale: locale) } ?? ""
     }
 
-    public func canStepRound(_ part: RoundPart, of id: RoutineExercise.ID, by direction: Int) -> Bool {
+    public func canStepRound(
+        _ part: RoundPart,
+        of id: RoutineExercise.ID,
+        by direction: Int,
+    ) -> Bool {
         steppedRound(part, of: id, by: direction) != nil
     }
 
     /// Moves a superset's gap a step, from what it reads now, and sets it on every member.
-    public mutating func stepRound(_ part: RoundPart, of id: RoutineExercise.ID, by direction: Int) {
+    public mutating func stepRound(
+        _ part: RoundPart,
+        of id: RoutineExercise.ID,
+        by direction: Int,
+    ) {
         guard let value = steppedRound(part, of: id, by: direction),
               let superset = exercises.first(where: { $0.id == id })?.supersetID
         else { return }

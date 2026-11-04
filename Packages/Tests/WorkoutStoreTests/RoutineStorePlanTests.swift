@@ -64,7 +64,7 @@ struct RoutineStorePlanTests {
         #expect(back.rest == 165)
     }
 
-    @Test("A rest never set is stored as nil, so it follows the reps; one out of range reads as never set")
+    @Test("A rest never set is stored as nil, to follow the reps; one out of range reads as unset")
     func restStoredUnset() async throws {
         try await storedRow("Push-up") { row in
             #expect(row.rest == nil)

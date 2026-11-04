@@ -70,9 +70,9 @@ extension SetTarget {
     func spokenText(locale: Locale) -> String {
         switch self {
         case let .reps(reps):
-            return counted(reps, "rep", "reps", locale: locale)
+            counted(reps, "rep", "reps", locale: locale)
         case let .time(seconds):
-            return TimeText.spoken(seconds: seconds, locale: locale)
+            TimeText.spoken(seconds: seconds, locale: locale)
         }
     }
 }

@@ -66,7 +66,8 @@ struct RestTests {
         #expect(try Self.rest("Pigeon stretch", .time(seconds: 60)) == 0)
         #expect(try Self.rest("Cat-cow", .reps(10)) == 0)
         for exercise in Exercise.builtIn where exercise.tags.kind == .stretch {
-            #expect(exercise.defaultRest(for: exercise.defaultPlan(in: .pounds).target) == 0, "\(exercise.name)")
+            let target = exercise.defaultPlan(in: .pounds).target
+            #expect(exercise.defaultRest(for: target) == 0, "\(exercise.name)")
         }
     }
 

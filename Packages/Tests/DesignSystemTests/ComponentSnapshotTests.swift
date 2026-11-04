@@ -166,7 +166,8 @@ struct ComponentSnapshotTests {
             ("Weight", "20 lb/side", "20 pounds per side"),
         ]
         let rest = isAuto ? "90\u{00A0}s" : "75\u{00A0}s"
-        let footer = isAuto ? "Auto rest follows your reps and the exercise. Heavier sets rest longer."
+        let footer = isAuto
+            ? "Auto rest follows your reps and the exercise. Heavier sets rest longer."
             : "Stays at \(rest) when you change reps."
         return VStack(alignment: .leading, spacing: Spacing.sm) {
             Capsules(["Dumbbells", "Bench"])
@@ -196,14 +197,14 @@ struct ComponentSnapshotTests {
                 canIncrease: true,
                 onToggle: { },
                 onStep: { _ in },
-            ) {
-                Toggle("Auto", isOn: .constant(isAuto))
-                    .font(.ppRowTitle)
-                    .foregroundStyle(.pp(.textPrimary))
-                    .padding(.trailing, Spacing.xxs)
-            } footer: {
-                Text(footer)
-            }
+                accessory: {
+                    Toggle("Auto", isOn: .constant(isAuto))
+                        .font(.ppRowTitle)
+                        .foregroundStyle(.pp(.textPrimary))
+                        .padding(.trailing, Spacing.xxs)
+                },
+                footer: { Text(footer) },
+            )
         }
         .padding(Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)

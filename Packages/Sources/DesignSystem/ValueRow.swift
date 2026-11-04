@@ -29,11 +29,19 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
 
     /// One inset on every side of the fill, for everything in it: the label, the value, the
     /// keys, the accessory, and the room between them.
-    private static var inset: CGFloat { Spacing.md }
-    private static var keyHeight: CGFloat { 60 }
+    private static var inset: CGFloat {
+        Spacing.md
+    }
+
+    private static var keyHeight: CGFloat {
+        60
+    }
+
     /// Tighter than concentric with the keys (inset + `Radius.key`), which made a closed row
     /// read as a pill.
-    private static var cornerRadius: CGFloat { Spacing.sm + Radius.key }
+    private static var cornerRadius: CGFloat {
+        Spacing.sm + Radius.key
+    }
 
     /// `onStep` gets 1 for a step up and -1 for a step down, each only while its `can` is true.
     public init(
@@ -262,7 +270,9 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
 
 extension ValueRow where Accessory == EmptyView, Footer == EmptyView {
     /// How a row opens and closes: the caller animates `isOpen` with it.
-    public static var motion: Animation { .snappy(duration: 0.25) }
+    public static var motion: Animation {
+        .snappy(duration: 0.25)
+    }
 
     /// A row with nothing under its stepper or its fill.
     public init(
