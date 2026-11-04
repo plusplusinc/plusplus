@@ -24,15 +24,12 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.displayScale) private var displayScale
 
-    /// The value's key and the stepper's keys sit this far inside their row on every side, so
-    /// the row's corners are concentric with theirs.
-    private static var inset: CGFloat { Spacing.sm }
+    /// One inset on every side of the fill, for everything in it: the label, the value, the
+    /// keys, the accessory, and the room between them. The keys sit that far inside, so the
+    /// fill's corners are concentric with theirs.
+    private static var inset: CGFloat { Spacing.md }
     private static var keyHeight: CGFloat { 60 }
     private static var cornerRadius: CGFloat { inset + Radius.key }
-
-    /// An accessory sits as far from the fill's bottom and trailing edges as its label is from
-    /// the leading edge, and the hairline has as much room above it and below it.
-    private static var accessoryGap: CGFloat { Spacing.md }
 
     /// `onStep` gets 1 for a step up and -1 for a step down, each only while its `can` is true.
     public init(
@@ -107,9 +104,8 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
                     .font(.ppRowDetail)
                     .foregroundStyle(.pp(.textSecondary))
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, Spacing.md)
-                    .padding(.top, Spacing.sm)
-                    .padding(.bottom, Spacing.xs)
+                    .padding(.horizontal, Self.inset)
+                    .padding(.vertical, Spacing.sm)
                     .opacity(isOpen ? 1 : 0)
                     .accessibilityHidden(!isOpen)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -124,8 +120,8 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
     /// At the accessibility sizes the value goes under its label, so neither breaks mid-word.
     private var header: some View {
         let stacked = dynamicTypeSize.isAccessibilitySize
-        let layout = stacked ? AnyLayout(VStackLayout(alignment: .leading, spacing: 0))
-            : AnyLayout(HStackLayout())
+        let layout = stacked ? AnyLayout(VStackLayout(alignment: .leading, spacing: Spacing.sm))
+            : AnyLayout(HStackLayout(spacing: Spacing.sm))
         return layout {
             VStack(alignment: .leading, spacing: Spacing.xxs) {
                 Text(label)
@@ -137,9 +133,6 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
                         .foregroundStyle(.pp(.textSecondary))
                 }
             }
-            // As far from the fill's edges as the value is, so a row with a note has the room
-            // above and below that a row without one has.
-            .padding(stacked ? .top : .vertical, Spacing.sm)
             if !stacked {
                 Spacer()
             }
@@ -159,12 +152,10 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
                     .foregroundStyle(.pp(.textPrimary))
                     .multilineTextAlignment(stacked ? .leading : .trailing)
             }
-            .padding(.horizontal, stacked ? 0 : Spacing.md - Spacing.xs)
-            .padding(.vertical, Spacing.sm)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.leading, Spacing.md)
-        .padding([.vertical, .trailing], Self.inset)
+        // The same room above and below whether or not there's a note.
+        .padding(Self.inset)
         .contentShape(.rect)
         .onTapGesture(perform: onToggle)
         .accessibilityElement(children: .ignore)
@@ -193,17 +184,16 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
                 stepKey("Increase", "plus", by: 1)
                     .disabled(!canIncrease)
             }
-            .padding([.top, .horizontal], Self.inset)
-            .padding(.bottom, accessory == nil ? Self.inset : Self.accessoryGap)
+            // The header's padding is the room above the keys.
+            .padding([.bottom, .horizontal], Self.inset)
             if let accessory {
                 // A Settings group's divider: inset to the label, two pixels thick.
                 Rectangle()
                     .fill(.pp(.separator))
                     .frame(height: 2 / displayScale)
-                    .padding(.leading, Spacing.md)
+                    .padding(.leading, Self.inset)
                 accessory
-                    .padding(.leading, Spacing.md)
-                    .padding([.top, .bottom, .trailing], Self.accessoryGap)
+                    .padding(Self.inset)
             }
         }
         // At its own height even while closed, so nothing in it, and no gap measured from it,

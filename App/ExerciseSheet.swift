@@ -75,7 +75,7 @@ struct ExerciseSheet: View {
                         }
                     }
                     .padding(.horizontal, Spacing.md)
-                    .padding(.top, Spacing.sm)
+                    .padding(.vertical, Spacing.md)
                 }
             }
             .background(Color.pp(.background))
