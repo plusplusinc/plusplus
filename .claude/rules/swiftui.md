@@ -44,7 +44,12 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   past a hairline in `separator` (two pixels), and its `footer` under the fill, both laid out
   at their tallest so a change that swaps the footer's text moves no key. Rest's accessory is
   a system `Toggle` ("Auto"), its track nudged in by `Spacing.xxs`, since it draws past its
-  frame.
+  frame. The sheet passes the accessory and footer as optional values, never through an
+  `if let` in a view builder, which makes a view that is never nil (it drew Rest's hairline
+  under every open row, which the snapshots, building rows directly, didn't show).
+- Anything that shows and hides beside or above other content (a tag, a line, a control) keeps
+  its room laid out and fades, so nothing near it moves or rewraps as it comes and goes. Before
+  a round goes to the phone, step through each state change it adds and look at what moves.
 - Every tappable element that is not a `Button` gets `.accessibilityAddTraits(.isButton)`;
   icon-only controls get `.accessibilityLabel`; decorative images get
   `.accessibilityHidden(true)`.

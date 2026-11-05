@@ -97,7 +97,9 @@ When the lead asks, or when the work has gone long enough that early detail is f
 a point where the branch builds and write a handoff note to the path the lead names. Facts, not
 narrative, at most 120 lines: current state and last commit; what is done and how it was
 verified; what is left, in order; decisions received from the lead; open issues; gotchas that
-cost time. A fresh builder continues from it in the same worktree.
+cost time. A line on what builds or passes names the commit it was run at, and a round that
+changes it rewrites the line (#152's note still said tests didn't compile after a round had
+fixed them). A fresh builder continues from it in the same worktree.
 
 ## Report
 
