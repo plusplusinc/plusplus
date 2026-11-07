@@ -161,7 +161,10 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   the bottom safe area, which on an iPhone 17 is concentric with the screen's corners (62 pt less
   the key's 28 pt radius is 34 pt), the ledge in the safe area below it; with no safe area below,
   the ledge stays on the screen. Nothing is drawn behind it: the bottom scroll edge effect is
-  hidden, and the rows run on under the key. Its role (`KeyRole`): "Log set", or "Log left", "Log
+  hidden, and the rows run on under the key. The rail's line runs 42 pt in, down from the center
+  of ++, 4 pt of room before the rail column (`railColumnLead`) and none after it, so it passes
+  under the key's round end, which covers a node level with its middle: 4 pt further out, a
+  sliver of the node showed past the end. Its role (`KeyRole`): "Log set", or "Log left", "Log
   right", "Log last set" (`Routine.logText(for:after:)`, read from the held set, so the words
   change with the row, not before it), logging the current set at the numbers shown; while the
   current exercise is scrolled away (`CurrentPlace.isScrolledAway`, a third or more of it out of

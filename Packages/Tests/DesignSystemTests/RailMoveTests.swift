@@ -51,9 +51,10 @@ struct RailMoveTests {
     }
 
     /// The loop's column in the window: the rail's nodes are at the middle of its 44 pt column,
-    /// and the loop runs beside them as the default text size's pen puts it.
+    /// past the room before it, and the loop runs beside them as the default text size's pen puts
+    /// it.
     private static let loopX = Host.inset
-        + LoopPen(lineWidth: railLineWidth, scale: 1, offset: 12).runX(nodeX: 22)
+        + LoopPen(lineWidth: railLineWidth, scale: 1, offset: 12).runX(nodeX: railColumnLead + 22)
 
     /// Each frame shown while the move plays, the loop's column read from it: whether each pixel
     /// down it differs from the background.

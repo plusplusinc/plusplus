@@ -126,6 +126,8 @@ private struct RailNode: View {
                     .scaleEffect(place.isArriving ? 0 : 1)
                     .entry(RailEntry.step(at: landing), value: place.isArriving)
             }
+            // Past the node, so it centers on the column's own width.
+            .padding(.leading, railColumnLead)
             .accessibilityHidden(true)
     }
 }
@@ -135,7 +137,7 @@ private struct RailNode: View {
 struct RailNodeColumn: View {
     var body: some View {
         RailNodeGlyph()
-            .railColumn()
+            .railColumnCenter()
     }
 }
 
@@ -332,8 +334,14 @@ private struct GroupLoop: View {
     }
 }
 
-/// The rail column's width at the default text size.
+/// The rail column's width at the default text size, centered on the rail's line.
 private let railColumnWidth: CGFloat = 44
+
+/// Room before the rail column, so its line runs down from the center of ++, 42 pt in, and
+/// under the primary key's round end, which covers a node beside it where a line 4 pt further
+/// out let a sliver of the node show. Only before it: what follows keeps its distance from the
+/// line.
+nonisolated let railColumnLead: CGFloat = 4
 
 /// The line's width at the default text size: one value, so a new node pops from the line's tip.
 let railLineWidth: CGFloat = 2
@@ -355,6 +363,11 @@ extension View {
     /// The rail column: the leading strip where rows put their nodes and a key its icon. At
     /// large text sizes it grows with what it holds, keeping an inset, rather than clipping it.
     func railColumn() -> some View {
+        railColumnCenter().padding(.leading, railColumnLead)
+    }
+
+    /// The rail column without the room before it: what a node centers on.
+    func railColumnCenter() -> some View {
         padding(.horizontal, Spacing.sm).frame(minWidth: railColumnWidth)
     }
 }
