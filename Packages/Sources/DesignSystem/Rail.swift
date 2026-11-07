@@ -304,7 +304,6 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         .background(alignment: .topLeading) {
             // The rail column as a row's node has it, measured at the current text size.
             RailNodeColumn()
-                .padding(.leading, railColumnLead)
                 .fixedSize()
                 .onGeometryChange(for: CGFloat.self, of: \.size.width) { columnWidth = $0 }
         }

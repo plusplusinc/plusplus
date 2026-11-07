@@ -67,8 +67,9 @@ struct RailRowLayout: Layout {
             return Frames(column: .zero, content: .zero, offer: .zero, size: .zero)
         }
         let column = subviews[0].dimensions(in: .unspecified)
-        // The node's leading edge: the room before the column, then half what the node leaves.
-        let inset = max((column.width + railColumnLead - nodeSize) / 2, 0)
+        // The node's leading edge: the room before the column, then half of what the node leaves
+        // of the rest.
+        let inset = max(railColumnLead + (column.width - railColumnLead - nodeSize) / 2, 0)
         let offer = ProposedViewSize(
             width: proposal.width.map { max($0 - column.width - inset, 0) },
             height: proposal.height,
