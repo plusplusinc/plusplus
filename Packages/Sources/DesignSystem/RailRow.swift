@@ -83,68 +83,49 @@ private struct RailNode: View {
         // Only ever on the current row (`Rail`'s `isSetHeld`).
         let isHeld = place.isSetHeld && !reduceMotion
         let beat = SetBeat(held: isHeld)
-        RailNodeColumn()
-            .overlay {
-                Circle()
-                    .joiningRail(
-                        when: place.isArriving,
-                        settlingTo: place.isCurrent ? .accent
-                            : place.isRaised ? .textPrimary : place.isDone ? .done : .rail,
-                    )
-                    // Laid out at the current node's size in every state and drawn smaller
-                    // (below), so becoming current changes no layout: a frame that grew as the
-                    // blob landed re-laid the row out unanimated, and the node jumped to the row's
-                    // end place while its name still waited on the move's delay.
-                    .frame(width: currentSize, height: currentSize)
-                    .overlay {
-                        if place.isCurrent {
-                            Color.clear.currentPulse(in: Circle())
-                        }
+        RailNodeColumn {
+            Circle()
+                .joiningRail(
+                    when: place.isArriving,
+                    settlingTo: place.isCurrent ? .accent
+                        : place.isRaised ? .textPrimary : place.isDone ? .done : .rail,
+                )
+                // Laid out at the current node's size in every state and drawn smaller
+                // (below), so becoming current changes no layout: a frame that grew as the
+                // blob landed re-laid the row out unanimated, and the node jumped to the row's
+                // end place while its name still waited on the move's delay.
+                .frame(width: currentSize, height: currentSize)
+                .overlay {
+                    if place.isCurrent {
+                        Color.clear.currentPulse(in: Circle())
                     }
-                    // A set done that stays on this exercise: the node shrinks and grays as the set
-                    // logs, rests so while the key does, and pops back green as the line rolls.
-                    // Animated from where the node is drawn, either way: a keyframe animator's
-                    // initial value flipped to held with its trigger, so the shrink ran from held
-                    // to held and the node snapped small.
-                    .animation(SetBeat.grayAnimation(held: isHeld)) { node in
-                        node.overlay {
-                            Circle().fill(.pp(.rail)).opacity(beat.gray)
-                        }
+                }
+                // A set done that stays on this exercise: the node shrinks and grays as the set
+                // logs, rests so while the key does, and pops back green as the line rolls.
+                // Animated from where the node is drawn, either way: a keyframe animator's
+                // initial value flipped to held with its trigger, so the shrink ran from held
+                // to held and the node snapped small.
+                .animation(SetBeat.grayAnimation(held: isHeld)) { node in
+                    node.overlay {
+                        Circle().fill(.pp(.rail)).opacity(beat.gray)
                     }
-                    .animation(SetBeat.scaleAnimation(held: isHeld)) { node in
-                        node.scaleEffect(beat.scale)
-                    }
-                    // Scaled with its pulse and gray, so they grow with the node.
-                    .scaleEffect(drawnSize / currentSize)
-                    .anchorPreference(key: NodeCenter.self, value: .center) { $0 }
-                    .anchorPreference(key: RailNodes.self, value: .center) { [$0] }
-                    // It pops from the line's tip as the line lands: shown at the line's width
-                    // and grown to its own size in the same moment. On the drawn size's scale,
-                    // so the two give the line's width.
-                    .scaleEffect(place.isArriving ? lineWidth / drawnSize : 1)
-                    .entry(pop, value: place.isArriving)
-                    .scaleEffect(place.isArriving ? 0 : 1)
-                    .entry(RailEntry.step(at: landing), value: place.isArriving)
-            }
-            .accessibilityHidden(true)
-    }
-}
-
-/// The rail column as a row's node holds it: the key's icon, held invisibly, gives it the key's
-/// width and baseline at every text size.
-struct RailNodeColumn: View {
-    var body: some View {
-        RailNodeGlyph()
-            .railColumn()
-    }
-}
-
-/// The key's icon, held invisibly: what a node centers on, on a row's first line.
-struct RailNodeGlyph: View {
-    var body: some View {
-        Image(systemName: "plus")
-            .font(.ppButton)
-            .hidden()
+                }
+                .animation(SetBeat.scaleAnimation(held: isHeld)) { node in
+                    node.scaleEffect(beat.scale)
+                }
+                // Scaled with its pulse and gray, so they grow with the node.
+                .scaleEffect(drawnSize / currentSize)
+                .anchorPreference(key: NodeCenter.self, value: .center) { $0 }
+                .anchorPreference(key: RailNodes.self, value: .center) { [$0] }
+                // It pops from the line's tip as the line lands: shown at the line's width
+                // and grown to its own size in the same moment. On the drawn size's scale,
+                // so the two give the line's width.
+                .scaleEffect(place.isArriving ? lineWidth / drawnSize : 1)
+                .entry(pop, value: place.isArriving)
+                .scaleEffect(place.isArriving ? 0 : 1)
+                .entry(RailEntry.step(at: landing), value: place.isArriving)
+        }
+        .accessibilityHidden(true)
     }
 }
 
@@ -332,9 +313,6 @@ private struct GroupLoop: View {
     }
 }
 
-/// The rail column's width at the default text size.
-private let railColumnWidth: CGFloat = 44
-
 /// The line's width at the default text size: one value, so a new node pops from the line's tip.
 let railLineWidth: CGFloat = 2
 
@@ -350,12 +328,6 @@ extension View {
     /// of a two-line one.
     public func railRow() -> some View {
         modifier(RailRow())
-    }
-
-    /// The rail column: the leading strip where rows put their nodes and a key its icon. At
-    /// large text sizes it grows with what it holds, keeping an inset, rather than clipping it.
-    func railColumn() -> some View {
-        padding(.horizontal, Spacing.sm).frame(minWidth: railColumnWidth)
     }
 }
 
