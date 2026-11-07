@@ -6,8 +6,9 @@ private nonisolated let railColumnWidth: CGFloat = 44
 /// Room before the rail column, so its line runs down from the center of ++ and under the
 /// primary key's round end, which covers a node beside it where a line 4 pt further out let a
 /// sliver of the node show. It is the toolbar's 20 pt margin before ++ less the screen's 16 pt
-/// one, so the column lines up with ++. Only before it: what follows keeps its distance from
-/// the line.
+/// one, so at the default text size the line runs under ++'s center; at larger sizes the column
+/// grows with its icon and the line moves right of it. Only before it: what follows keeps its
+/// distance from the line.
 nonisolated let railColumnLead: CGFloat = 4
 
 /// How far a node's center is from the rail column's leading edge, at the default text size.
