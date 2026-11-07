@@ -78,7 +78,10 @@ Before handing off, make sure the maintainer and the card agree. Restate it as w
 and do. Settled points name where they were settled (the board README, a design board, a
 decision). Open points are listed with a recommendation each: screens with no design, content
 nobody has chosen (lists, copy, defaults), conflicts with earlier decisions, and gaps between this
-card and its neighbors. Check the card is one step that merges on its own and leaves the app
+card and its neighbors. A training default (a rest, reps, a load, a time) comes from the
+exercise-science evidence, its sources cited on the card, and says which numbers are the card's
+own rule rather than the research's; a card whose defaults have none gets them checked, even
+when already aligned (the rest card's 90 s for every strength lift was). Check the card is one step that merges on its own and leaves the app
 working; one bundling pieces that could each merge gets the split proposed as an open point. A
 limit it proposes (a control turned off, an edit locked) names what would break today without it;
 one that guards a case a later card brings belongs to that card. An open point that is a choice

@@ -128,7 +128,9 @@ project board; agents' technical working files live in `.slices/`.
 - A problem found outside the card, by the verifier or anyone, gets checked on `main` before
   the merge (its code, or a worktree of `main`), and becomes a card when `main` has it too,
   the slice's to fix when it doesn't; never leave it as a question for the maintainer.
-- A screen with no design gets options drawn before it is built. The first is the platform's
+- A screen with no design, or a question of where a setting lives and how it's set, gets options
+  drawn before it is built or asked (a table of where rest could live left the maintainer asking
+  what one option looked like). The first is the platform's
   own control for the job (principle 4, "Native bones"), and each other option says what it does
   that the system one can't. An API offered as an option is one whose Apple doc (sosumi) says it
   works on iPhone. Draw them as phone-size frames on a Design canvas, a claude.ai artifact made
