@@ -50,7 +50,8 @@ code only after the criteria are checked.
    A `test` line ends with its tier and its seconds in your run:
    `- test, new: <criterion in a few words>, <tier>, <s> s`.
    The kind is `criterion` (one failed), `test` (one you added for a criterion no test proved),
-   `design` (a difference), or `crash`. `known` means the PR body or the lead's prompt already
+   `design` (a difference), `crash`, or `other` (anything else, such as a failing test or a
+   tier over budget that the PR didn't cause). `known` means the PR body or the lead's prompt already
    names it; `new` means neither does. The repo is public: describe the app in your own words,
    never quote the card, and leave out anything personal.
 
