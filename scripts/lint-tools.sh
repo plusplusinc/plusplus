@@ -17,7 +17,7 @@ set -euo pipefail
 
 #   <tool> <version> <sha256 of the asset> <release asset URL, {v} for the version>
 TOOLS=(
-    "swiftformat 0.64.5 ec017c91fdd46233e5a22dc43ff9564a3cc4b37023d3b4681b6c7d7b781de113 https://github.com/nicklockwood/SwiftFormat/releases/download/{v}/swiftformat.zip"
+    "swiftformat 0.64.6 70e6b2057647fb1c54d620ebbb6649274de56534c57f91f67461a129ebaaba3e https://github.com/nicklockwood/SwiftFormat/releases/download/{v}/swiftformat.zip"
     "swiftlint 0.65.1 c1e429b0599cf1b516f369a2d9ec04eaf0e436f3c12b637df8851fa52ff694d0 https://github.com/realm/SwiftLint/releases/download/{v}/portable_swiftlint.zip"
 )
 
