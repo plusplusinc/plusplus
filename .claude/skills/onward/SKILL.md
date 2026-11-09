@@ -87,7 +87,8 @@ project board; agents' technical working files live in `.slices/`.
 - When you or the maintainer settle something while a builder works, send it to that builder
   at once (SendMessage) and add it to the slice's handoff note, so the next builder has it too.
   A change the maintainer proposes and you agree with is settled: build it, never ask again.
-  A brief to a designer or a builder lists what they chose as fixed, never open to question (a
+  A brief to a designer or a builder keeps what they chose in every set of options; an
+  alternative that looks clearly better goes beside it, with the reason, never in its place (a
   designer told it could drop the Auto switch they had asked for drew four options without one).
   What you add to it is not: a cause you infer for something they felt, or a consequence you
   derive (a new shape, a new timing), goes to them as a question before any builder gets it.
