@@ -97,6 +97,9 @@ project board; agents' technical working files live in `.slices/`.
 - When you or the maintainer settle something while a builder works, send it to that builder
   at once (SendMessage) and add it to the slice's handoff note, so the next builder has it too.
   A change the maintainer proposes and you agree with is settled: build it, never ask again.
+  A brief to a designer or a builder keeps what they chose in every set of options; an
+  alternative that looks clearly better goes beside it, with the reason, never in its place (a
+  designer told it could drop the Auto switch they had asked for drew four options without one).
   What you add to it is not: a cause you infer for something they felt, or a consequence you
   derive (a new shape, a new timing), goes to them as a question before any builder gets it.
 - While the maintainer is still weighing a rule (asking whether it holds together, or offering
@@ -127,8 +130,13 @@ project board; agents' technical working files live in `.slices/`.
 - A round that does what they asked only by adding something they didn't (a clip at an edge, an
   uneven gap) is not installed as a cost for them to judge: bring the ways to do it as a table,
   and build the one they pick. Read a request that names a size or a direction (smaller, to
-  match, faster) against today's values in the code before you restate it; when the words and
-  the numbers disagree, ask. A note on how a motion feels (unnoticed, jarring) gets a
+  match, faster, enough room) against today's values in the code, and work out what it comes
+  to before anything is built; when the words and the numbers disagree, ask first (lining the
+  Auto switch up with its box's corner came to 5 pt where they had asked for enough room, and
+  went to the phone before the table did). Spacing is yours to settle as an iOS designer
+  would: a note on one gap gets the whole surface set on the tokens' one rhythm, with what you
+  chose, not that gap alone (the Rest row's gaps took four rounds before the sheet's spacing
+  was handed over whole). A note on how a motion feels (unnoticed, jarring) gets a
   motion designer's read of why (where the eye is, what marks the arrival) with options,
   before any number is tuned, and so does a note on its speed: a proposed time or curve is
   read against the ones the app already uses for the same kind of move (`.claude/rules/swiftui.md`)

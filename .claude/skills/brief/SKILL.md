@@ -21,7 +21,10 @@ card is in In Progress.
 ## 2. Look before writing
 
 `scripts/board.sh list` for an existing card on the same thing; `git log` and `gh pr list` for
-prior work; the code for what exists; the memory for product context. A brief that ignores a
+prior work; the code for what exists; the memory for product context. A default drawn from
+research is set by each variable the research ties it to, not only by the kinds the code
+already has (the rest card's first evidence-based table went by kind of exercise and ignored
+how heavy a set is, which the studies turn on). A brief that ignores a
 card already in Todo is a duplicate, not a brief.
 
 ## 3. Write the card
