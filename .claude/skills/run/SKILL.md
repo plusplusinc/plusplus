@@ -1,6 +1,6 @@
 ---
 name: run
-description: Build, install, launch, and drive the app on the iOS simulator. Use to run the app, take screenshots, switch dark mode or Dynamic Type, relaunch without rebuilding, or read the app's log, and to verify UI work visually before calling it done.
+description: Build, install, launch, and drive the app on the iOS simulator. Use to run the app, take screenshots, switch dark mode or Dynamic Type, relaunch without rebuilding, or read the app's log, and to verify UI work visually before calling it done. Read it before any `axe` tap, swipe, or drag: several do nothing unless held long enough.
 allowed-tools: Bash(scripts/run.sh:*), Bash(scripts/sim.sh:*), Bash(xcrun simctl:*), Read, mcp__xcode__XcodeOpenWorkspace, mcp__xcode__RenderPreview
 ---
 

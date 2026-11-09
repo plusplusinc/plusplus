@@ -39,6 +39,14 @@ case "$MODE" in
             { cat "$RESULTS/scripts.log"; echo "script tests failed" >&2; exit 1; }
         ;;
     sim)
+        # zsh leaves an unquoted $VAR whole, so a list of filters can arrive as one argument
+        # with spaces, which matches no test.
+        for identifier in ${ONLY[@]+"${ONLY[@]}"}; do
+            if [[ "$identifier" =~ [[:space:]] ]]; then
+                echo "\"$identifier\" has a space: pass each filter as its own argument (zsh doesn't split an unquoted \$VAR; use \${=VAR} or an array)" >&2
+                exit 64
+            fi
+        done
         # Whatever the last session left on the simulator (dark mode, a minimized keyboard) is
         # what the UI tests would see. Only the checkout's own simulator is reset: the reset can
         # reboot, and any other simulator is a person's. The reset creates it on first use.
