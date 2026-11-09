@@ -63,9 +63,10 @@ project board; agents' technical working files live in `.slices/`.
   builder's "Rounds"). A round's prompt asks for the change and the install, never tests, lint,
   or docs (set-logging's rounds 5 to 8 asked for them and took 10 to 40 minutes each; the
   maintainer wants a tuning round on the phone at once). The look before installing still
-  holds for anything they haven't seen yet: only a retune of what they have seen skips it (a
-  new shrink of the current node went out unseen, never showed, and they found it hours
-  later). When they ask for something the code or the board records as tried and dropped, say
+  holds for anything they haven't seen yet: only a retune of a number they have seen skips it,
+  never a round answering how something reads (a new shrink of the current node went out
+  unseen, never showed, and they found it hours later; a quieter key shadow went out unseen
+  and read as more noticeable). When they ask for something the code or the board records as tried and dropped, say
   why it was dropped before building it (the symbols' Replace on a moving key, dropped for
   leaving the arrow behind, took four rounds to be dropped again). Install each round from the slice worktree with `scripts/device.sh`; a
   fresh checkout is a cold build. It builds the worktree as it is, so uncommitted edits are fine
@@ -73,7 +74,13 @@ project board; agents' technical working files live in `.slices/`.
   unverified, and what to try: what to do and what they should see, never a check's name or what
   it looks for.
   Before installing, check each thing they asked for in the round's screenshots, on content like
-  theirs (as many exercises, equipment, long names). Then give their feedback to a fresh builder
+  theirs (as many exercises, equipment, long names), and what else the change moves: measure
+  each gap, margin, and centering it touches against the build they last saw, in the states it
+  reaches (a held row, a superset's well). What they corrected earlier in the slice stays fixed
+  in every later round, and anything else that moved is a cost they didn't ask for (below).
+  On #154, narrowing the rail's column shrank the gap to the names unmentioned; after they said
+  the gap was better before, a later round widened it the other way; and a preview's padding
+  pushed the held card off-center. They caught each on the phone. Then give their feedback to a fresh builder
   named for that round, which starts from the slice's handoff note and brings it up to date before
   it reports; resume a builder only to finish its own round. Wi-Fi first, link second: when no
   iPhone is in reach the script makes an install link instead, printing why each paired iPhone was
@@ -136,7 +143,9 @@ project board; agents' technical working files live in `.slices/`.
 - A problem found outside the card, by the verifier or anyone, gets checked on `main` before
   the merge (its code, or a worktree of `main`), and becomes a card when `main` has it too,
   the slice's to fix when it doesn't; never leave it as a question for the maintainer.
-- A screen with no design gets options drawn before it is built. The first is the platform's
+- A screen with no design, or a question of where a setting lives and how it's set, gets options
+  drawn before it is built or asked (a table of where rest could live left the maintainer asking
+  what one option looked like). The first is the platform's
   own control for the job (principle 4, "Native bones"), and each other option says what it does
   that the system one can't. An API offered as an option is one whose Apple doc (sosumi) says it
   works on iPhone. Draw them as phone-size frames on a Design canvas, a claude.ai artifact made
