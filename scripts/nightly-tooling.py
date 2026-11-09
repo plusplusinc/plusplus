@@ -98,7 +98,7 @@ TEST_PATTERN = r"@Test([^A-Za-z]|$)|func test[A-Z_]"
 FEWER_TESTS = "Fewer tests:"  # the PR body's line that explains a drop, naming its target
 FAILURES = (RuntimeError, OSError, ValueError, KeyError, subprocess.SubprocessError)
 # The lines a verifier record may hold after its header (.claude/agents/verifier.md).
-RECORD_LINE = re.compile(r"- (criterion|test|design|crash), (new|known): \S")
+RECORD_LINE = re.compile(r"- (criterion|test|design|crash|other), (new|known): \S")
 
 
 def log(message):

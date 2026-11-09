@@ -30,7 +30,7 @@ code only after the criteria are checked.
    prints, then commit them to the slice branch and push. A local pass says nothing about a tap
    on something still moving: before committing a UI test, find each tap whose target can arrive
    with a motion (Finish workout after the last set rises with the shrinking row) and tap it once
-   it `settles()` (#127's Finish test failed Xcode Cloud run 328 that way). Xcode Cloud runs the full suite on
+   it `settles()`. Xcode Cloud runs the full suite on
    the push. Any wait has a real time limit.
 4. List `~/Library/Logs/DiagnosticReports/PlusPlus-*` for reports newer than the time noted.
    A crash goes in the report once you have the steps that trigger it and its crash report;

@@ -5,7 +5,7 @@ description: Lead the next card on the board, a feature slice or a standalone ta
 
 The main session runs this as the lead described in `CLAUDE.md` ("Building features"). The
 maintainer clears the context between slices, so everything needed to continue lives on the
-project board; agents' technical working files live in `.slices/`.
+project board.
 
 ## Start
 
@@ -28,8 +28,7 @@ project board; agents' technical working files live in `.slices/`.
    comes before the card: update it from main (`gh pr update-branch`), check each hunk against main, then trim, merge, or close
    it yourself, and tell the maintainer in a line what it changed.
    A standalone card that changes nothing the maintainer sees in the app (tooling, CI, tests,
-   process) is yours alone, as `CLAUDE.md` says: align it against the code yourself, run it,
-   merge it green, and say in a line what landed. Run one alongside a product slice (a builder
+   process) is yours alone, as `CLAUDE.md` says: align it against the code yourself. Run one alongside a product slice (a builder
    in its own worktree) rather than spending the maintainer's turn on it; with them engaged,
    lead the next product card.
 3. Read the `.slices/` files that State names: the newest handoff or verify report. Read
@@ -38,11 +37,10 @@ project board; agents' technical working files live in `.slices/`.
    skill's "Align"). Restate it as what the maintainer will see and do, reading each thing the
    app does today from `main`'s code before you say it, then check its Aligned list against the
    README, what merged since it was written, its neighbors on the board, and the pages of every
-   design board and canvas drawn for its feature, for options drawn earlier and never picked
-   (one card's alignment missed a control drawn for it a week before). Count the settings the
+   design board and canvas drawn for its feature, for options drawn earlier and never picked.
+   Count the settings the
    card puts on one row or sheet, and check each against principle 3 ("Adding is cheap, removing
-   is not"), even one aligned before: the rest card's sheet reached four times to set for one
-   exercise before the maintainer called it too many. Bring anything open,
+   is not"), even one aligned before. Bring anything open,
    contradicted, or missing (an undesigned screen, content nobody chose, a gap no card covers),
    each with a recommendation, each option or earlier decision described by what it shows,
    never by its canvas label ("3D") or a card's item id. Record the answers in the card, make cards for what lands out of
@@ -61,14 +59,10 @@ project board; agents' technical working files live in `.slices/`.
   straight to a builder with the card's Plan as its plan.
 - A slice with something to see on the phone runs as a loop with the maintainer (see the
   builder's "Rounds"). A round's prompt asks for the change and the install, never tests, lint,
-  or docs (set-logging's rounds 5 to 8 asked for them and took 10 to 40 minutes each; the
-  maintainer wants a tuning round on the phone at once). The look before installing still
+  or docs (the maintainer wants a tuning round on the phone at once). The look before installing still
   holds for anything they haven't seen yet: only a retune of a number they have seen skips it,
-  never a round answering how something reads (a new shrink of the current node went out
-  unseen, never showed, and they found it hours later; a quieter key shadow went out unseen
-  and read as more noticeable). When they ask for something the code or the board records as tried and dropped, say
-  why it was dropped before building it (the symbols' Replace on a moving key, dropped for
-  leaving the arrow behind, took four rounds to be dropped again). Install each round from the slice worktree with `scripts/device.sh`; a
+  never a round answering how something reads. When they ask for something the code or the board records as tried and dropped, say
+  why it was dropped before building it. Install each round from the slice worktree with `scripts/device.sh`; a
   fresh checkout is a cold build. It builds the worktree as it is, so uncommitted edits are fine
   for a first look, but say so. Tell the maintainer in a line what changed, that the build is
   unverified, and what to try: what to do and what they should see, never a check's name or what
@@ -78,9 +72,7 @@ project board; agents' technical working files live in `.slices/`.
   each gap, margin, and centering it touches against the build they last saw, in the states it
   reaches (a held row, a superset's well). What they corrected earlier in the slice stays fixed
   in every later round, and anything else that moved is a cost they didn't ask for (below).
-  On #154, narrowing the rail's column shrank the gap to the names unmentioned; after they said
-  the gap was better before, a later round widened it the other way; and a preview's padding
-  pushed the held card off-center. They caught each on the phone. Then give their feedback to a fresh builder
+  Then give their feedback to a fresh builder
   named for that round, which starts from the slice's handoff note and brings it up to date before
   it reports; resume a builder only to finish its own round. Wi-Fi first, link second: when no
   iPhone is in reach the script makes an install link instead, printing why each paired iPhone was
@@ -89,17 +81,15 @@ project board; agents' technical working files live in `.slices/`.
   while they are away. The loop ends when they say it's right, and a reply that also raises
   something to change (praise with one question about a detail) is a round, not that word: fix it in
   a round and ask again. A change they ask for as the loop ends goes on the phone first, by you
-  from the worktree when a builder is busy, never as a step inside a longer job (the log key's
-  last two asks rode in a full pass's first step and reached them only after they asked, half
-  an hour later). Then the builder runs its full pass
+  from the worktree when a builder is busy, never as a step inside a longer job. Then the
+  builder runs its full pass
   and the verifier runs once. Their being away doesn't end it: work done while they are away is a
   round for them to try when they're back, and the full pass still waits for their word.
 - When you or the maintainer settle something while a builder works, send it to that builder
   at once (SendMessage) and add it to the slice's handoff note, so the next builder has it too.
   A change the maintainer proposes and you agree with is settled: build it, never ask again.
   A brief to a designer or a builder keeps what they chose in every set of options; an
-  alternative that looks clearly better goes beside it, with the reason, never in its place (a
-  designer told it could drop the Auto switch they had asked for drew four options without one).
+  alternative that looks clearly better goes beside it, with the reason, never in its place.
   What you add to it is not: a cause you infer for something they felt, or a consequence you
   derive (a new shape, a new timing), goes to them as a question before any builder gets it.
 - While the maintainer is still weighing a rule (asking whether it holds together, or offering
@@ -109,8 +99,7 @@ project board; agents' technical working files live in `.slices/`.
   open, when the last one asks which of several, or when the reply arrived within seconds of
   your message, ask which it answers before acting on it. A reply that states something instead
   of answering, or that a letter would turn into its opposite ("can" where "can't" fits), is
-  restated as the reading you will build and confirmed first (one read as "zero time is fine"
-  meant "zero time can't be", and a build went out without the setting). An option they turned
+  restated as the reading you will build and confirmed first. An option they turned
   down in the slice comes back only with something new that makes its case, named as such,
   never as the one beside your recommendation by default.
 - A number a recommendation or a card turns on (a price, a quota, a machine's speed) is read
@@ -124,27 +113,20 @@ project board; agents' technical working files live in `.slices/`.
   only by name, sampled, or left out) before the maintainer has to ask. A fix to how something
   reaches them (a link, an install) is tried the way they will meet it before you call it fixed,
   or called untried, with what would show it works. An untried way never replaces one that has
-  worked: keep sending the proven way until the new one has worked for them more than once
-  (#122 swapped a canvas per question, which had landed every time, for a `#page` link that had
-  landed once, and the next two links opened elsewhere).
+  worked: keep sending the proven way until the new one has worked for them more than once.
 - A round that does what they asked only by adding something they didn't (a clip at an edge, an
   uneven gap) is not installed as a cost for them to judge: bring the ways to do it as a table,
   and build the one they pick. Read a request that names a size or a direction (smaller, to
   match, faster, enough room) against today's values in the code, and work out what it comes
-  to before anything is built; when the words and the numbers disagree, ask first (lining the
-  Auto switch up with its box's corner came to 5 pt where they had asked for enough room, and
-  went to the phone before the table did). Spacing is yours to settle as an iOS designer
+  to before anything is built; when the words and the numbers disagree, ask first. Spacing is yours to settle as an iOS designer
   would: a note on one gap gets the whole surface set on the tokens' one rhythm, with what you
-  chose, not that gap alone (the Rest row's gaps took four rounds before the sheet's spacing
-  was handed over whole). A note on how a motion feels (unnoticed, jarring) gets a
+  chose, not that gap alone. A note on how a motion feels (unnoticed, jarring) gets a
   motion designer's read of why (where the eye is, what marks the arrival) with options,
   before any number is tuned, and so does a note on its speed: a proposed time or curve is
   read against the ones the app already uses for the same kind of move (`.claude/rules/swiftui.md`)
-  and says where it sits among them (a 0.12 s key swap, quicker than anything else in the app,
-  went out as "brisk" and came back as too fast). Options for a note on speed differ in length,
+  and says where it sits among them. Options for a note on speed differ in length,
   not only in curve at a length set earlier: a newer note that asks for faster may lift an
-  earlier "same duration", so ask (four curves at the blob's 0.5 s read as one, and the run came
-  right only at 0.25 s).
+  earlier "same duration", so ask.
 - Name a part of the screen by what the maintainer sees and where it is, not the platform's term
   for it (home indicator, safe area, popover), and before asking about something in their build,
   say where it is and what it does.
@@ -152,8 +134,7 @@ project board; agents' technical working files live in `.slices/`.
   the merge (its code, or a worktree of `main`), and becomes a card when `main` has it too,
   the slice's to fix when it doesn't; never leave it as a question for the maintainer.
 - A screen with no design, or a question of where a setting lives and how it's set, gets options
-  drawn before it is built or asked (a table of where rest could live left the maintainer asking
-  what one option looked like). The first is the platform's
+  drawn before it is built or asked. The first is the platform's
   own control for the job (principle 4, "Native bones"), and each other option says what it does
   that the system one can't. An API offered as an option is one whose Apple doc (sosumi) says it
   works on iPhone. Draw them as phone-size frames on a Design canvas, a claude.ai artifact made
@@ -165,9 +146,7 @@ project board; agents' technical working files live in `.slices/`.
   with no project thread. The link opens on exactly what is being asked: each open question gets a small canvas of its own
   holding only its options, and that canvas's link is the one sent; the feature's canvas keeps
   the rest. Neither a `#page-<id>` link nor a canvas's `launch` page reliably lands a returning
-  viewer on a page (the first worked once, then failed with a fresh tag; the second reopens the
-  page they last saw). Since
-  2026-10-28 a session started from the phone, and the subagents it starts, have the Artifact
+  viewer on a page. A session started from the phone, and the subagents it starts, have the Artifact
   tool; check with ToolSearch before anyone draws, and without it publish through an interactive
   `claude` on the Mac, as agent memory describes.
 - No time estimates. While a phase runs, tell the maintainer in a line now and then what it is
@@ -192,10 +171,9 @@ project board; agents' technical working files live in `.slices/`.
 - Push only when CI's answer is needed: when the PR opens, after a round of fixes, and before
   the merge (bringing it up to date with `main`, as the `main` ruleset asks, included). Bring a
   pushed branch up to date by merging `origin/main` into it, never by a local rebase: pushing a
-  rebase takes a force push, which the permission check denies to agents, so #127 waited an
-  hour on the maintainer's word. The squash merge flattens the merge commit, so a branch never
+  rebase takes a force push, which the permission check denies to agents. The squash merge flattens the merge commit, so a branch never
   needs squashing; one that does squashes onto `git merge-base HEAD origin/main`, never with
-  `git reset --soft origin/main`, which undoes what `main` gained meanwhile (#136 undid #134). You and every subagent commit
+  `git reset --soft origin/main`, which undoes what `main` gained meanwhile. You and every subagent commit
   locally in between: rounds reach the phone by `scripts/device.sh`, not CI, and each push to a
   PR that changes the app spends a full Xcode Cloud run.
 - After every push to the PR, yours or a subagent's, watch its "PR check" to the end yourself
@@ -212,9 +190,6 @@ project board; agents' technical working files live in `.slices/`.
   rename, a new rule) gets its own card through `/brief`, and you recommend that; the card grows
   only when the maintainer picks that over a card, and then you say how far past its starting
   criteria it now reaches.
-- Telling the maintainer what a round or a change will do before it's built, keep today and the
-  change apart ("Today …; with this round, …"); in the plain present it reads as how the app
-  works now.
 - Before saying what state anything is in, read it at that moment, even mid-summary: an agent
   running (its transcript's last entry and when it happened), a PR open or merged
   (`gh pr view`), a run passed. What you read earlier in the turn may have changed. An interrupt of your turn can stop background agents: after one,

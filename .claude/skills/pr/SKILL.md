@@ -20,7 +20,7 @@ because the first two change code and the rest verify it:
    times against their budgets; name any test over budget in the body, with its time.
 5. For UI changes, a screenshot from `/run` has been looked at.
 
-Steps 1 and 2 are skipped for a diff with no Swift in it. Give both the same target, filled in:
+Give steps 1 and 2 the same target, filled in:
 `<branch> against origin/main, checked out at <worktree>; say which branch and HEAD you
 reviewed`. They, and every agent they start, begin in the session's own checkout, not in a
 worktree you `cd` into, and with no target they review whatever is checked out there: on `main`,
@@ -36,8 +36,7 @@ To squash a branch's commits into one, which is never required since the merge s
 reset onto the branch's own base: `git reset --soft $(git merge-base HEAD origin/main)`, after
 merging `origin/main` if it moved. Never `git reset --soft origin/main`: a soft reset keeps the
 working tree, so onto a newer `main` the commit records the branch's stale copies of every file
-`main` changed meanwhile, and the diff undoes them. #136 undid #134 so, with green CI, since the
-snapshots went back along with the code.
+`main` changed meanwhile, and the diff undoes them.
 
 Before every push that opens or updates the PR, read `git diff --stat origin/main...HEAD` and
 check each file against the change's scope. Stop on any file outside it and name it, to the
@@ -55,20 +54,20 @@ gh pr checks --watch --interval 60                     # "PR check" is the one t
 scripts/ci-times.py <branch>                           # the run's times against the budgets
 ```
 
-Right after a push, the watch can return at once with the previous commit's checks (#139's did):
+Right after a push, the watch can return at once with the previous commit's checks:
 trust its answer only once `gh run list --commit $(git rev-parse HEAD) --workflow pr-check.yml`
 lists a run for the pushed commit.
 
 Merge a branch's PR from its own worktree with no number (`gh pr merge --squash --auto` takes
-the branch's): a number written before `gh pr create` prints it is a guess, and one merged the
-night's retro (#123) in place of the PR just opened.
+the branch's): a number written before `gh pr create` prints it is a guess, and a wrong one
+merges another PR.
 
 Once Xcode Cloud's run finishes, put `scripts/ci-times.py`'s lines for it in the body's Verified
 line with `gh pr edit`.
 
 The body goes in on stdin, as above, for `gh pr edit` too, never from a file: the scratchpad is
-shared by the lead and every subagent, and a body read back from a file there that another
-session had overwritten put a private card's text in a public PR's body (#118).
+shared by the lead and every subagent, and another session can overwrite a body file there
+with a private card's text.
 
 "PR check" (`docs/pr-check.md`) lints a PR whose changed files are all in
 `.github/no-code-paths` and passes in a minute or two; Xcode Cloud starts no run for it. For any
@@ -80,8 +79,7 @@ If a PR that changes the app still lists no "PlusPlus Workout Tracker | PR" chec
 it opens or after a push to it, an update from `main` included, GitHub's event never reached Xcode Cloud,
 which happens intermittently and leaves no log on our side. Push an empty commit
 (`git commit --allow-empty -m "Start Xcode Cloud" && git push`); the push sends a fresh event.
-If a minute later there is still no check, run `gh pr close <n> && gh pr reopen <n>`. Each has
-started a missed run, and closing and reopening has also once started nothing.
+If a minute later there is still no check, run `gh pr close <n> && gh pr reopen <n>`.
 
 The body follows `.github/pull_request_template.md`, and #138 is its model. Write it to be read
 in a minute by someone who wasn't there, the maintainer first:

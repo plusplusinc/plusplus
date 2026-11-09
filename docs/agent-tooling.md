@@ -125,6 +125,11 @@ the skill.
 it's installed and running, the retro's last reply, read from the transcript, and the tooling
 runner's last digest.
 
+Plugged in, the Mac stays awake with the lid open or closed. Claude Code runs under
+`caffeinate -s`, which keeps the Mac awake on power but doesn't stop it sleeping when the lid
+closes; an Amphetamine trigger for when the power adapter is connected, with closed-display
+mode, does.
+
 After the retro, the same run hands over to `scripts/nightly-tooling.py`. It first adds a card,
 "Update <tool> to <version>", at the top of Todo for each lint tool `scripts/lint-tools.sh outdated`
 names (Dependabot can't read that pin; it covers the Swift package and the actions), unless the

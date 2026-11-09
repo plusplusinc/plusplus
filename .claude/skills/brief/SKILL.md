@@ -23,8 +23,7 @@ card is in In Progress.
 `scripts/board.sh list` for an existing card on the same thing; `git log` and `gh pr list` for
 prior work; the code for what exists; the memory for product context. A default drawn from
 research is set by each variable the research ties it to, not only by the kinds the code
-already has (the rest card's first evidence-based table went by kind of exercise and ignored
-how heavy a set is, which the studies turn on). A brief that ignores a
+already has. A brief that ignores a
 card already in Todo is a duplicate, not a brief.
 
 ## 3. Write the card
@@ -84,7 +83,7 @@ nobody has chosen (lists, copy, defaults), conflicts with earlier decisions, and
 card and its neighbors. A training default (a rest, reps, a load, a time) comes from the
 exercise-science evidence, its sources cited on the card, and says which numbers are the card's
 own rule rather than the research's; a card whose defaults have none gets them checked, even
-when already aligned (the rest card's 90 s for every strength lift was). Check the card is one step that merges on its own and leaves the app
+when already aligned. Check the card is one step that merges on its own and leaves the app
 working; one bundling pieces that could each merge gets the split proposed as an open point. A
 limit it proposes (a control turned off, an edit locked) names what would break today without it;
 one that guards a case a later card brings belongs to that card. An open point that is a choice

@@ -2,7 +2,7 @@
 name: retro
 description: Over the work since the last retro, the merges to main and the conversations in this repo's Claude Code sessions, find what tripped the work up or fell short of what it aims for (docs/principles.md: the right product, built right, mostly autonomous), rank those findings by their evidence, fix them at the lowest altitude in a PR the maintainer reviews, check whether the last retro's fixes worked, and correct what the merges made false in the rules, skills, and docs. Gives the maintainer a private digest. Runs nightly on the maintainer's Mac as `/retro nightly`; use on request over a merge or a range of merges.
 argument-hint: "nightly | <PR number or range>"
-allowed-tools: Bash(git log:*), Bash(git diff:*), Bash(git show:*), Bash(git fetch:*), Bash(git worktree add:*), Bash(git worktree remove:*), Bash(gh pr view:*), Bash(gh pr list:*), Bash(gh pr checks:*), Bash(gh pr diff:*), Bash(gh api:*), Bash(asc xcode-cloud build-runs:*), Bash(asc xcode-cloud status:*), Bash(asc xcode-cloud doctor:*), Bash(asc xcode-cloud issues:*), Bash(asc xcode-cloud test-results:*), Bash(scripts/ci-times.py:*), Bash(scripts/board.sh:*), Bash(scripts/lint.sh:*), Bash(scripts/conversations.py:*), Bash(date:*), Read, Write, Edit, Glob, Grep, Agent
+allowed-tools: Bash(git log:*), Bash(git diff:*), Bash(git show:*), Bash(git fetch:*), Bash(git worktree add:*), Bash(git worktree remove:*), Bash(gh pr view:*), Bash(gh pr list:*), Bash(gh pr checks:*), Bash(gh pr diff:*), Bash(gh api:*), Bash(asc xcode-cloud build-runs:*), Bash(asc xcode-cloud status:*), Bash(asc xcode-cloud doctor:*), Bash(asc xcode-cloud issues:*), Bash(asc xcode-cloud test-results:*), Bash(scripts/ci-times.py:*), Bash(scripts/board.sh:*), Bash(scripts/lint.sh:*), Bash(scripts/conversations.py:*), Bash(date:*), Bash(wc:*), Read, Write, Edit, Glob, Grep, Agent
 ---
 
 **With the argument `nightly`, this is the nightly run: skip to "How it runs" and do
@@ -27,12 +27,15 @@ Output: a short report, a private digest, and one PR when there is something to 
   reintroduces what that merge fixed. Report every stale hunk, so the maintainer can close the
   PR rather than merge it. A finding two retros have already deferred to the same open PR gets
   fixed on `main` instead, and the body names the hunk to drop.
-- **A verified finding is fixed the first time.** A finding is verified by clear evidence that
-  it happened (a run, a log, a moment in a session), never by how many times it happened, and
-  never by a guess that it might. It gets the fix at the lowest altitude that would have
-  prevented it (section 3): a check that makes it impossible where one can, else the script,
-  skill, agent definition, rule, or doc. Only a finding no change in the repo can prevent (a
-  session usage limit, an outage) is reported without a fix, and the body says why. The
+- **A verified finding gets a check the first time; prose waits for evidence.** A finding is
+  verified by clear evidence that it happened (a run, a log, a moment in a session), never by a
+  guess that it might. Where a script or hook can make it impossible, that fix lands the first
+  time. A finding only prose can prevent (a line in a rule, skill, agent definition, doc, or
+  `CLAUDE.md`) gets its line the first time only when the maintainer corrected the lead (rank 1)
+  or it cost rework after a merge; otherwise it goes in the ledger as seen once, and gets its
+  line when it is seen again. Every prose line is read in every session that loads it, and one
+  sighting is weak evidence that it will recur. Only a finding no change in the repo can prevent
+  (a session usage limit, an outage) is reported without a fix, and the body says why. The
   record of past findings is the bodies of earlier retro PRs:
   `gh pr list --state all --search "Retro of in:title"` (without `--state all` only open PRs
   are searched).
@@ -62,14 +65,14 @@ transcript; open one only around a moment, never whole. For each PR: `gh pr diff
 `gh api repos/{owner}/{repo}/pulls/N/comments` for inline review; its Xcode Cloud runs and why any failed (`gh pr checks`, and
 `asc xcode-cloud doctor` with the App Store Connect key), and its last run's times against the
 budgets (`scripts/ci-times.py --run <number>`); its board card; its Friction line. And the last
-merged retro PR's body, for its fixes.
+merged retro PR's body, for its fixes, and the ledger (below).
 
 ## 2. Rank the findings
 
 A finding is what tripped the work up (friction, waste, a missed chance, anything odd) or fell
 short of an aim. Rank by evidence, in this order: highest is what says most about where the lead's
-picture of the maintainer's intent was wrong. The rank orders the findings; it doesn't decide
-which get fixed, since every verified one does (the stopping rules).
+picture of the maintainer's intent was wrong. The rank orders the findings; the stopping rules decide which
+get fixed now.
 
 1. **The maintainer corrected the lead**: said what they meant after the lead built or proposed
    something else, or reversed a call it made. A correction an agent review, the verifier, or CI
@@ -114,7 +117,8 @@ waiting. The body is the record the next retro reads:
 - The findings, ranked, each with its evidence (the PR, the run, the session, never a quote) and
   where its fix went, or, for one no change in the repo can prevent, why; past the first few,
   one line each.
-- One line per fix the last merged retro made: worked, came back, or too early to tell.
+- One line per fix the last merged retro made: worked, came back, or too early to tell. On a
+  prune night, one line per line it cut, with its prediction (the ledger below).
 - One line for the sweep: what it corrected, and where.
 - Card, Friction, and Verified, which names `scripts/lint.sh` at least.
 - On the first run after a month ends, one line on that month's Xcode Cloud PR hours against the
@@ -125,7 +129,30 @@ waiting. The body is the record the next retro reads:
 
 Then report the findings, the fixes, what needs the maintainer's decision, the verifier's record
 (below), and the digest. The report and the digest each carry one CI line: the covered PRs'
-last runs, start to finish, and any tier over budget.
+last runs, start to finish, and any tier over budget, and one line on the agent docs' size
+against the last report's,
+`wc -lw CLAUDE.md .claude/rules/*.md .claude/agents/*.md .claude/skills/*/SKILL.md`, naming
+any file past its cap: 200 lines for `CLAUDE.md`, 500 for a `SKILL.md`.
+
+## The ledger, and the monthly prune
+
+Prose rules earn their place on evidence, the way the verifier's record judges the verifier.
+The ledger is `<main checkout>/.slices/rules-ledger.md`, gitignored, so it can name sessions.
+One row per prose rule a finding bears on: its file, the rule in a few words, when and why it
+was added, and two counts. Each retro adds one to **helped** when the work shows the rule
+steering it right, and one to **hurt** when the rule misled, contradicted another, or cost
+reading with nothing to show. Findings seen once wait there too, with where they were seen.
+Edit rows in place; never rewrite the ledger whole.
+
+On the first run after a month ends, and on request (after a model upgrade, ask for one), the
+retro also prunes the rules, skills, agent definitions, and `CLAUDE.md`, line by line, starting
+with any file past its cap. A line goes or is tightened when the ledger shows it hurt more than
+it helped, when the code, a script, a hook, or another doc already enforces or says it, or when
+it tells the story of how it came to be rather than what to do. A line with no evidence either
+way stays. Edit line by line: rewriting a whole file loses the detail that made it work. For
+each line cut, the body predicts what, if anything, goes wrong without it, and a later retro that
+sees that failure restores the line and counts the cut as hurt. Where Claude Code has
+`/skill-doctor`, run it over `.claude/skills/` that night and treat what it finds as findings.
 
 ## The verifier's record
 
@@ -165,12 +192,8 @@ morning; `run` starts one now, as launchd does. Each run's output and errors go 
 `.build/retro/<date>/`. After the retro, `scripts/nightly-tooling.py` runs the night's tooling
 cards (its header has the gates); the retro itself does nothing for them.
 
-Plugged in, the Mac stays awake with the lid open or closed. Claude Code runs under
-`caffeinate -s`, which keeps the Mac awake on power but doesn't stop it sleeping when the lid
-closes; an Amphetamine trigger for when the power adapter is connected, with closed-display
-mode, does. launchd runs a midnight missed while the Mac slept once it wakes; a night missed
-while it was off is covered by the next run. When a night is missed, `show` and the log say
-why. The run is named "Nightly retro", which keeps it out of `scripts/conversations.py`, so a
+launchd runs a midnight missed while the Mac slept once it wakes; a night missed while it was
+off is covered by the next run, and `show` and the log say why. The run is named "Nightly retro", which keeps it out of `scripts/conversations.py`, so a
 run never reads the last run's digest. Each `/retro nightly` does this, in order:
 
 1. **Note the start.** `date -u +%Y-%m-%dT%H:%M:%SZ`, kept to save in step 5, so work that

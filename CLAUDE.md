@@ -6,8 +6,8 @@ product believes, and what the work aims for (the right product, built right, mo
 autonomous), are in `docs/principles.md`.
 
 This file is the constitution: loaded every session, kept short. Detail lives in
-`.claude/rules/*.md`, which load when you touch matching files, and in `docs/`. If this file and a
-rules file disagree, this file wins.
+`.claude/rules/*.md`, which load when you touch matching files (read the one for an area before
+planning work in it), and in `docs/`. If this file and a rules file disagree, this file wins.
 
 **Status: routines, saved, a drawer between them, and a workout logged set by set on one.** The app launches into the routine last
 opened or edited, or a new, empty one, which you can name and add built-in exercises to. ++, or
@@ -126,7 +126,7 @@ not offered as a card. Working files go in `.slices/`.
 The maintainer's time is for the product. Tooling, CI, tests, and process (a standalone card
 that changes nothing they see in the app, and the nightly retro's PR) are the lead's to find,
 card, align, build, verify, and merge on its own once CI is green, never asking whether to,
-alongside a product slice where it can, telling them in a line what landed (Dave, 2026-10-28). It checks first that the
+alongside a product slice where it can, telling them in a line what landed. It checks first that the
 change is worth its cost and safe to undo. What reaches outside the repo or can't be undone
 still waits for their word: spending money, or Xcode Cloud hours beyond the plan, a `v*` tag,
 an account's settings, deleting what isn't the lead's.
@@ -169,9 +169,9 @@ See `docs/agent-tooling.md`.
 
 ## Branching
 
-**`main` only moves through pull requests. Never commit to it directly**, not even a one-line
-fix. A ruleset enforces this server-side. Work in a worktree; the main checkout stays on
-`main` for the nightly retro and session-start tidying.
+`main` only moves through pull requests, which a ruleset enforces, so never commit to it
+directly. Work in a worktree; the main checkout stays on `main` for the nightly retro and
+session-start tidying.
 
 ```sh
 git fetch origin main
@@ -184,15 +184,6 @@ CI must be green before a PR merges. **Merges are squashed**: the PR title and b
 one commit on `main`, so write the body as a commit message that is also true before the
 merge ("Tense tells the truth"). Notes about review order or "as
 discussed" belong in a PR comment, not the body.
-
-## Rules files
-
-Loaded automatically when you touch matching files; read them before working in that area.
-
-- `.claude/rules/swift.md`: concurrency defaults, `@Observable`, no force unwraps.
-- `.claude/rules/swiftui.md`: plain SwiftUI, tokens, Dynamic Type, accessibility.
-- `.claude/rules/swiftdata.md`: `StorageMode` and the CloudKit schema constraints.
-- `.claude/rules/testing.md`: tiers, the snapshot helper, naming.
 
 ## Gotchas
 

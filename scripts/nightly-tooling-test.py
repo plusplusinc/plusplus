@@ -288,6 +288,10 @@ class Verifier(unittest.TestCase):
         _, failures, unread = nightly.verifier_record(["Verifier record, abc1234\n- criterion, new: a\n- crash, new: b\n- No findings"])
         self.assertEqual((len(failures), unread), (2, []))
 
+    def test_an_other_line_is_read_and_not_a_failure(self):
+        _, failures, unread = nightly.verifier_record(["Verifier record, abc1234\n- other, known: a tier over budget on main"])
+        self.assertEqual((failures, unread), ([], []))
+
     def test_a_line_off_the_format_is_unread_never_a_pass(self):
         for line in ["- Criterion, new: it failed", "  - criterion, new: it failed", "- criterion new: it failed",
                      "* criterion, new: it failed", "- criterion, New: it failed", "it failed"]:

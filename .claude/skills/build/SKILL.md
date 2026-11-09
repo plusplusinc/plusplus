@@ -10,8 +10,5 @@ It uses a stable derived-data path under `.build/`, so incremental builds stay w
 through xcbeautify so output is short. On failure it prints one line per error from the result
 bundle at `.build/results/build.xcresult`; line numbers are already 1-based.
 
-Fix the first error first. Swift's later errors are frequently consequences of the first one.
 Do not add `@unchecked Sendable`, force unwraps, or `nonisolated` to make a concurrency error go
 away; read `.claude/rules/swift.md` and fix the isolation properly.
-
-Never claim a change builds without having run this.

@@ -40,7 +40,7 @@ cost you find (a pause, a slower path): keep it, and report the cost and what yo
 - Bring the branch up to date by merging `origin/main` into it, never by a rebase. Squash, if at
   all, onto the branch's own base, `git reset --soft $(git merge-base HEAD origin/main)`, never
   onto `origin/main`: there the commit keeps the branch's stale copies of whatever `main` changed
-  meanwhile and undoes it (#136 undid #134). Before each push, read `git diff --stat
+  meanwhile and undoes it. Before each push, read `git diff --stat
   origin/main...HEAD`, and stop on a file outside the change's scope, naming it to the lead.
 - Wait for everything you start before your turn ends: a builder whose turn ends while a
   command or agent it started is still running is made to hand back, unfinished. Run long
@@ -89,7 +89,7 @@ says nothing about motion. A stall, jump, wobble, or overlap you found is fixed 
 not listed for the maintainer to find on the phone. A round that only retunes values of a
 motion the maintainer has already seen (a duration, a delay, a size, a curve) skips the
 recording: it builds, commits, and installs with `scripts/device.sh` first, and anything else
-waits until after (the maintainer asked for these on the phone at once, 2026-10-30).
+waits until after (the maintainer wants these on the phone at once).
 
 ## Checkpoint
 
@@ -98,8 +98,7 @@ a point where the branch builds and write a handoff note to the path the lead na
 narrative, at most 120 lines: current state and last commit; what is done and how it was
 verified; what is left, in order; decisions received from the lead; open issues; gotchas that
 cost time. A line on what builds or passes names the commit it was run at, and a round that
-changes it rewrites the line (#152's note still said tests didn't compile after a round had
-fixed them). A fresh builder continues from it in the same worktree.
+changes it rewrites the line. A fresh builder continues from it in the same worktree.
 
 ## Report
 

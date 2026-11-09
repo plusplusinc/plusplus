@@ -32,8 +32,6 @@ puts a failed card's PR back to draft. A hook enforces what follows; a denied ca
 - Write only in the worktree you were given and the main checkout's `.slices/` (gitignored),
   which takes the handoff note and any scratch files; a command naming the main checkout's other
   files, the night's folder, or a config dotfile in the home folder is denied.
-- Run code from a file: no `python3 -c`, `node -e`, `| sh`, or heredoc into a shell. Write the
-  script in the worktree or `.slices/` and run that.
 - Never merge, never arm auto-merge, and never move the card: the runner does those.
 - A test count drop needs a line in the PR body starting `Fewer tests:` that names the test
   target and says why, or the runner parks the card. A test commented out, or disabled (`.disabled`, `.enabled(if: false)`, `#if false`,
