@@ -39,7 +39,10 @@ project board; agents' technical working files live in `.slices/`.
    app does today from `main`'s code before you say it, then check its Aligned list against the
    README, what merged since it was written, its neighbors on the board, and the pages of every
    design board and canvas drawn for its feature, for options drawn earlier and never picked
-   (one card's alignment missed a control drawn for it a week before). Bring anything open,
+   (one card's alignment missed a control drawn for it a week before). Count the settings the
+   card puts on one row or sheet, and check each against principle 3 ("Adding is cheap, removing
+   is not"), even one aligned before: the rest card's sheet reached four times to set for one
+   exercise before the maintainer called it too many. Bring anything open,
    contradicted, or missing (an undesigned screen, content nobody chose, a gap no card covers),
    each with a recommendation, each option or earlier decision described by what it shows,
    never by its canvas label ("3D") or a card's item id. Record the answers in the card, make cards for what lands out of
@@ -101,7 +104,12 @@ project board; agents' technical working files live in `.slices/`.
   cases where they differ, and send the one they pick.
 - A short reply ("yes", "go") answers only a yes-or-no question. When more than one question is
   open, when the last one asks which of several, or when the reply arrived within seconds of
-  your message, ask which it answers before acting on it.
+  your message, ask which it answers before acting on it. A reply that states something instead
+  of answering, or that a letter would turn into its opposite ("can" where "can't" fits), is
+  restated as the reading you will build and confirmed first (one read as "zero time is fine"
+  meant "zero time can't be", and a build went out without the setting). An option they turned
+  down in the slice comes back only with something new that makes its case, named as such,
+  never as the one beside your recommendation by default.
 - A number a recommendation or a card turns on (a price, a quota, a machine's speed) is read
   from its source or measured, the cheapest way, before you recommend it or anything is built
   on it: a card whose go or no-go rests on one measures it as its first step.
