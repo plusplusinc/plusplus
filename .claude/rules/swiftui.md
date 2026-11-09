@@ -4,9 +4,7 @@ paths: ["App/**", "Packages/Sources/DesignSystem/**"]
 
 # SwiftUI and design system
 
-Plain SwiftUI: views host presentation logic, `@Observable` stores injected through
-`.environment()` host state, stateless services host side effects. No view-model class per
-screen. Leaf views take plain values and closures so they preview and snapshot without a store.
+Leaf views take plain values and closures so they preview and snapshot without a store.
 
 - No raw colors, spacing, font sizes, or corner radii at call sites. Use `Color.pp(.token)`,
   `Font.pp*` or a `.pp*Font()` modifier, `Spacing`, and `Radius` from `DesignSystem`. If a
@@ -45,18 +43,17 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   at their tallest so a change that swaps the footer's text moves no key. Rest's accessory is
   a system `Toggle` ("Auto"), its track nudged in by `Spacing.xxs`, since it draws past its
   frame. The sheet passes the accessory and footer as optional values, never through an
-  `if let` in a view builder, which makes a view that is never nil (it drew Rest's hairline
-  under every open row, which the snapshots, building rows directly, didn't show).
+  `if let` in a view builder, which makes a view that is never nil.
 - Anything that shows and hides beside or above other content (a tag, a line, a control) keeps
   its room laid out and fades, so nothing near it moves or rewraps as it comes and goes. Before
   a round goes to the phone, step through each state change it adds and look at what moves.
 - Every tappable element that is not a `Button` gets `.accessibilityAddTraits(.isButton)`;
   icon-only controls get `.accessibilityLabel`; decorative images get
   `.accessibilityHidden(true)`.
-- Motion is snappy: `.snappy`, never a bare `withAnimation` or the default spring, and quicker
-  than its default where it answers a tap: rows going onto and off a rail use `.railChange`,
-  and a key comes back from a press with `keyPressAnimation(isPressed:)`. A row added to a rail
-  enters in one landing (`RailEntry`). As it is let go, the line grows down from the node above
+- Motion is snappy: every animation names its curve, `.snappy` unless this file names another,
+  never a bare `withAnimation` or the default spring, and quicker than `.snappy`'s default
+  where it answers a tap: rows going onto and off a rail use `.railChange`, and a key comes
+  back from a press with `keyPressAnimation(isPressed:)`. A row added to a rail enters in one landing (`RailEntry`). As it is let go, the line grows down from the node above
   in the rail's gray (0.2 s) on a quartic ease-in from a running start, and the row's place
   opens with it on the same curve, pushing Add exercise down exactly as far as the line grows,
   or, past the visible area, scrolling in step so the key stays put. As the line reaches it, the
@@ -76,7 +73,7 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   bound to the end, and it followed the room down.
 - Start plays in beats, each once the last has finished (`RoutineScreen+Workout.swift`). Its key
   presses and releases as any key does, down onto its ledge and back up in 0.06 s each, easing
-  out, as the scratch app's log-set key does. On the press's action, a medium impact plays, from
+  out. On the press's action, a medium impact plays, from
   the screen as `isStarting` turns on. A 0.4 s beat follows (`pressHold`, slept with no
   tolerance), a second press doing nothing; the workout's first frame takes a few more to draw, so
   the rows move about 0.5 s after the press; it is a `.task(id:)`, so the screen going away
@@ -100,11 +97,11 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   resting row's label stands at least as tall as the row's minimum less its insets
   (`restingLabelFloor`): growing from its own height, its first points of growth moved nothing,
   and the rows below ran ahead and came back. End, in the bar, asks "End this workout?" in a
-  confirmation dialog, as the scratch app does: Finish workout only once a set is logged
+  confirmation dialog: Finish workout only once a set is logged
   (`Workout.offersFinish`), and Discard workout as destructive. The dialog hangs on the whole
   screen, outside the navigation stack: on End, or on the stack's content, iOS showed it as a
-  popover with an arrow; there, it shows centered. Its choice runs about 0.37 s after the tap
-  (simulator, two runs), and the end's motion starts there. The bar's keys fade with it
+  popover with an arrow; there, it shows centered. Its choice runs about 0.37 s after the tap,
+  and the end's motion starts there. The bar's keys fade with it
   (`barFade`, 0.2 s): End crossfades into ++ in one leading item, and the time fades out of its
   key, whose glass (`endingWorkout` holding the item) goes 0.2 s later in an animated change, the
   bar fading it; an item the bar takes out goes with its content on the frame. The small title in
@@ -118,9 +115,7 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   completion came a few frames after the rows stopped), Start comes up on its own from below the
   screen's edge into place (`.smooth(0.2)`, no overshoot), unfaded, the bar holding its full room
   from the key's first frame, so the list under it doesn't move. The key's side insets are
-  measured on the screen, not the key, so a key coming in has them from its first frame; measured
-  on the key, it came in 16 pt from the sides and narrowed to 34 pt on the next animation, too big
-  at first. The scroll is animated, not lifted: drawn lifted at the top, the title showed over the
+  measured on the screen, not the key, so a key coming in has them from its first frame. The scroll is animated, not lifted: drawn lifted at the top, the title showed over the
   status bar with no edge effect under the bar. Room under the list's end, out of sight, holds the
   scroll still while the row grows or shrinks. With Reduce Motion each change is one crossfade
   (0.35 s, easing in and out), the haptic kept: the changed list is a new view (`listChanges` as
@@ -148,13 +143,13 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   centered on its first line, from its first set, or under it at the accessibility sizes, where
   beside it eight bars squeezed the line to nothing; its equipment as capsules; the plan's numbers
   large (104 pt SF Mono at the default size), each with what it counts beside it, or under it
-  where the two don't fit the width (`FigureLayout`, not `ViewThatFits`, which sent the view graph
-  round a cycle as the title took focus, and hung the app). The label is as tall as its content,
+  where the two don't fit the width (`FigureLayout`, not `ViewThatFits`, which hung the app as the
+  title took focus). The label is as tall as its content,
   at every text size. Start, the key's way back (below), a relaunch, a move to the next exercise,
   and Start from a routine pushed on the Routines screen land the row just under the bar
   (`currentTopSpace`, 24 pt, its own space above it), with everything above it under the bar;
   while it is landed, a change in height above it, after a text size change or a rename, lands it
-  again. The current row has no swipe; its sheet's Delete stays. VoiceOver reads the row as one
+  again. The current row's sheet keeps its Delete. VoiceOver reads the row as one
   element, with no action of its own to log: the key logs.
 - The screen has one key, at the bottom (`primaryKeyBar`, `RoutineScreen+Key.swift`): Start, then
   in a workout the key that logs. It is a capsule in the primary key's colors
@@ -238,8 +233,7 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   left the pulse on the node. After the workout's last planned set the row closes as the list
   settles on its end (`closing`, 0.65 s, with no pulse), the room that landed it closing on the
   same curve with the end held where it shows (`keepEndPinned`), and once it has closed the key
-  swaps to Finish workout; the list ends in Add exercise, as it always does. Set bars, purple once
-  done, gray to do, show on every started row until it is finished, where its node turns purple.
+  swaps to Finish workout; the list ends in Add exercise, as it always does.
   With Reduce Motion a move to another exercise is one crossfade, as Start's is, with no pulse;
   the haptics stay.
 - A row on a rail moves by holding and dragging (`RailDrag` holds every value). A hold of 0.4 s
@@ -292,8 +286,7 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   while the card stays 8 pt or more over it, and comes apart with the reorder's tick once it
   eases back toward its gap or the gap moves. A neighbor in a superset never pairs, nor does a
   rest at the slot just outside the superset the row was lifted from, so a member dragged out
-  leaves it; over a bar nothing pairs. Dropped, a rest-made pair takes the larger of its rows'
-  set counts. While a row or a node is held, the superset the hold changes sits in a well
+  leaves it; over a bar nothing pairs. While a row or a node is held, the superset the hold changes sits in a well
   (`RailWell.swift`), flat in `well` with no shadow, drawn by the rail under its strokes: for a
   body's drag, the one the held row is in or would be in if dropped now, wrapping the card
   where it is an end; for a node's, its field. Its top corners are concentric with the loop's
@@ -340,16 +333,16 @@ screen. Leaf views take plain values and closures so they preview and snapshot w
   name, with as much space to the icon's left as above and below it (the dot, for a routine,
   marked with `DrawerIconBounds`), ending 16 pt short of the drawer's trailing edge, and one
   always does. The three routines are the last opened or edited, in the order they were last
-  edited (`lastEdited(first:editedAt:)`), so opening one never moves it. New is an action and is never
-  marked: while an untouched new routine shows, it has its own row at the top of the three,
+  edited (`lastEdited(first:editedAt:)`), so opening one never moves it.
+  While an untouched new routine shows, it has its own row at the top of the three,
   New routine in the title's placeholder gray (`textSecondary`), its node lit and marked, above
   the two routines last opened or edited. A nested place's icon, a routine's `DrawerNode` or
   New's plus, sits in the column of the place above's icon, on the name's first line.
-  Nothing in the drawer changes while any of it shows: `DrawerMenu` takes its rows and its mark
+  `DrawerMenu` takes its rows and its mark
   from the session as it enters the hierarchy and holds them until it leaves, so a tap that
   switches routines, or a swipe, never moves or re-marks a row; the next opening once it has fully closed reads afresh. As it leaves, it reads the saved routines from the store again, so a launch read that failed or landed late is made good by the next opening.
   The Routines screen lists each routine as a `NameRow`, its name in the drawer's font
-  (`ppRoutineName`, SF Pro, as it can't be edited there), with no lines between rows.
+  (`ppRoutineName`, SF Pro, as it can't be edited there).
 - A generated name arrives in the title on its own clock (`SuggestionTiming`, one
   `TimelineView`): the old name fades out (0.15 s), then the new one types in, a character
   every 20 ms, each letter shuffling through the name's other letters in `railJoin` for 50 ms,

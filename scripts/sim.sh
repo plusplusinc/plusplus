@@ -9,11 +9,11 @@
 #   scripts/sim.sh reset                    # light, large, keyboard not minimized
 #   scripts/sim.sh relaunch                 # terminate and launch the installed build
 #   scripts/sim.sh log [minutes]            # the app's own log lines, plus errors and faults
-#   scripts/sim.sh erase                    # in a worktree, erase its own simulator and reset it;
+#   scripts/sim.sh erase                    # erase this checkout's own simulator and reset it;
 #                                           # about 25 s, and scripts/run.sh reinstalls the app
 #   scripts/sim.sh motion <recording.mov>   # each move in a recording, frame by frame, and its
 #                                           # pauses; reads the file, touches no simulator
-#   scripts/sim.sh shutdown                 # in a worktree, shut down its own simulator; run it
+#   scripts/sim.sh shutdown                 # shut down this checkout's own simulator; run it
 #                                           # when your task reports, passed or failed
 #   scripts/sim.sh list                     # booted worktree simulators: worktree, idle time
 #

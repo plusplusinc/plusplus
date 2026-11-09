@@ -12,7 +12,7 @@ Swift Testing (`@Test`, `#expect`, `#require`) for everything except UI automati
 performance, which stay on XCTest by Apple's own guidance.
 
 Put a test in the cheapest tier that can hold it, and judge every test, new or old, by the
-rubric below. Each tier's time is printed against its budget on every run.
+rubric below.
 
 ## The rubric
 
@@ -35,8 +35,7 @@ shows (G), and is weighed by H and I, since it costs the most.
 - **E. Behavioral**: it fails when behavior changes, not when code moves. A test that restates a
   tuned value (a duration, a curve, a spring) fails on every retune and passes the bug it was
   written for: test what the value does (a travel only goes forward, never past the node), or
-  nothing (#138's `SetBeatTests` assert the beat's animations; the bug it fixed was that the
-  beat never ran, which they would not catch).
+  nothing.
   ([Beck](https://testdesiderata.com/); [Google Testing Blog](https://testing.googleblog.com/2013/08/testing-on-toilet-test-behavior-not.html))
 - **F. Specific**: its name says the guarantee, and a failure names its cause.
   ([WWDC20 10091](https://developer.apple.com/videos/play/wwdc2020/10091/);
@@ -110,7 +109,7 @@ one test at a time on both.
 | the UI tests together | 360 s | 288 s |
 
 A PR run's start-to-finish time is printed with no budget: about 250 s of it is Xcode Cloud's
-own steps, which vary by tens of seconds from run to run (runs 317 and 318).
+own steps, which vary by tens of seconds from run to run.
 
 A target's budget holds its wall time. A serial target's is its tests' sum, and a parallel
 Swift Testing target's its longest test's, since each is timed from their common start.
@@ -163,8 +162,8 @@ so a read after one waits for the state it checks: `value(becoming:)` for the va
 XCTest's `tap()` goes to its top-left corner, on the edge of the row above, which closes it.
 Tap anything that may still be moving, such as Add exercise just after an add, once it
 `settles()`: a view takes taps where it is laid out mid-move, so a tap read from a moving
-frame can land on the row arriving there. Passing locally proves nothing about this; on
-Xcode Cloud it failed six runs of #70.
+frame can land on the row arriving there. Passing locally proves nothing about this, since
+Xcode Cloud's timing differs.
 
 ## Every test
 
@@ -177,15 +176,15 @@ don't add another; if not, say why it doesn't.
   the explicit width, the precision, and the appearances: dark, and dark at AX5 (the image
   named `xxxl` is `accessibilityExtraExtraExtraLarge`), as users see the app, which shows only
   in dark. Light renders only in `TokenSnapshotTests`, through `includingLight`, while the light
-  palette exists; light screen snapshots return with the card "Choose light, dark, or automatic
-  appearance". Every pixel must match within perceptual
+  palette exists; light screen snapshots will return with the card "Choose light, dark, or
+  automatic appearance". Every pixel must match within perceptual
   0.98: a looser pixel share lets a `_` move a cell or vanish unseen. Do not call `assertSnapshot`
   directly. Re-record by deleting a suite's files, or its whole folder, under `__Snapshots__/`.
 - The scheme's test plan, `PlusPlus.xctestplan`, holds four settings to keep, and it is the
   only place Xcode Cloud reads them from. `DesignSystemTests` is `parallelizable: false`, as
   above. `PlusPlusUITests` is left serial: on Xcode Cloud with its classes on five clones of the
-  simulator (runs 315 and 316), a screenshot took about 3 s rather than 0.3 s, and each run
-  failed a different UI test on timing. It pins the app language to English (US): UIKit sizes the
+  simulator, a screenshot took about 3 s rather than 0.3 s, and each run failed a different UI
+  test on timing. It pins the app language to English (US): UIKit sizes the
   system font's line height to fit the fallback fonts for the device's preferred languages, and
   Xcode Cloud's simulators list 34 of them, so unpinned text lays out taller there. Its
   `diagnosticCollectionPolicy` is `Never`: otherwise every failing run ends with `simctl

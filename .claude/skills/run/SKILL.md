@@ -26,11 +26,11 @@ scripts/sim.sh shots [name]             # <name>.light.png, .dark.png, .xxxl.png
 scripts/sim.sh screenshot [name]        # one capture of whatever is on screen now
 scripts/sim.sh appearance light|dark
 scripts/sim.sh content-size <category>  # large is the default; accessibility-extra-extra-extra-large the top
-scripts/sim.sh reset                    # light, large, keyboard not minimized; scripts/test.sh sim runs it on the worktree's
+scripts/sim.sh reset                    # light, large, keyboard not minimized; scripts/test.sh sim runs it on the checkout's own
 scripts/sim.sh relaunch                 # terminate and launch the installed build; boots the simulator if needed
 scripts/sim.sh log [minutes]            # the app's own log lines plus errors and faults; last 5 minutes by default
-scripts/sim.sh erase                    # in a worktree, erase its own simulator and reset it; the app is gone after
-scripts/sim.sh shutdown                 # in a worktree, shut down its own simulator; run it when your task reports
+scripts/sim.sh erase                    # erase the checkout's own simulator and reset it; the app is gone after
+scripts/sim.sh shutdown                 # shut down the checkout's own simulator; run it when your task reports
 scripts/sim.sh list                     # booted worktree simulators, each with its worktree and idle time
 ```
 
@@ -57,15 +57,12 @@ A still says nothing about motion, and watching it play says little more: record
 (`xcrun simctl io <device> recordVideo <file>.mov`) and step through the frames with `ffmpeg`
 (in the `Brewfile`). Recordings written this way have uneven frame timestamps, so find a moment
 by what its frame shows, not by counting frames. Look at the frames full size, or cropped to the
-part that moves, never scaled down: at a few hundred pixels wide, three one-frame cuts in the
-bar went unseen until the phone showed them. The add animation was tuned by feel over six
-rounds; the frames showed a third of a second of dead time in it at once. Looking is not
+part that moves, never scaled down: at a few hundred pixels wide, a one-frame cut goes unseen.
+Looking is not
 measuring: `scripts/sim.sh motion <file>.mov` lists each move's length, every frame's change,
 and the pauses inside it, so a stall or a second motion on another curve shows as numbers. Where
 a position matters (a row landing, rows below following), track it per frame, by its pixels in
-the frames or by logging its frame during the move. On 2026-10-28 a round stepped through at full
-size still went to the phone with a 0.13 s stall and an 83 pt one-frame jump in a move between
-rows, which the next round's per-frame tracking found at once.
+the frames or by logging its frame during the move.
 
 ## Gotchas
 
@@ -73,7 +70,6 @@ rows, which the next round's per-frame tracking found at once.
   the simulator. A session that ended in dark mode makes the next `run.sh` screenshot dark.
   Use `shots`, or `reset` when finished. A UI test that fails with nothing wrong in the app is
   often the simulator: `docs/agent-tooling.md` lists the symptoms seen so far and their fixes.
-- The default content size is `large`, not `medium`.
 - `sim.sh` has no tap layer. Taps and the accessibility tree come from
   [AXe](https://github.com/cameroncooke/AXe) (`axe touch`, `axe type`, `axe describe-ui`), which
   is on the maintainer's Mac but not in the `Brewfile`. Use it for a one-off tap or to read a
@@ -90,7 +86,8 @@ rows, which the next round's per-frame tracking found at once.
   - `axe swipe` has to last about two seconds to register as a swipe, a drag that ends in a
     full swipe holds the touch for about fifteen seconds and no other AXe command can open a
     session until it lets go, and accessibility reads time out often.
-- `log` is empty today: the screen creates no store, and nothing else logs. Errors reading
+- `log` is quiet on a healthy run: the app logs a notice when keeping the screen on changes,
+  and an error or fault when its store fails to open or load. Errors reading
   "Connection interrupted" timestamped at a simulator shutdown are the app losing its XPC
   connections, not a bug.
 - Only the iOS app exists. watchOS is in the plan and the package platforms, but there is no

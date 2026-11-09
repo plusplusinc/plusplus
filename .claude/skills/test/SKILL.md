@@ -11,8 +11,7 @@ allowed-tools: Bash(scripts/test.sh:*), Bash(xcrun xcresulttool:*)
   snapshot and UI tests. Xcode Cloud runs this on every PR that changes the app, so run it
   locally only to reproduce a CI failure. After a change to `DesignSystem` or the app, run the
   affected suites instead, as in the next line.
-- `scripts/test.sh sim Target/Suite/testName()`: one test. The identifier must be verbatim; a
-  typo matches no tests, and the run fails.
+- `scripts/test.sh sim Target/Suite/testName()`: one test. The identifier must be verbatim.
 
 The simulator run writes `.build/results/test.xcresult` and prints a one-line summary plus each
 failure's message. Every run, fast or sim, then prints its times against the budgets in
