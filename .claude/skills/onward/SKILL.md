@@ -101,7 +101,8 @@ project board; agents' technical working files live in `.slices/`.
   of answering, or that a letter would turn into its opposite ("can" where "can't" fits), is
   restated as the reading you will build and confirmed first (one read as "zero time is fine"
   meant "zero time can't be", and a build went out without the setting). An option they turned
-  down in the slice is not offered again, even as the one beside your recommendation.
+  down in the slice comes back only with something new that makes its case, named as such,
+  never as the one beside your recommendation by default.
 - A number a recommendation or a card turns on (a price, a quota, a machine's speed) is read
   from its source or measured, the cheapest way, before you recommend it or anything is built
   on it: a card whose go or no-go rests on one measures it as its first step.
