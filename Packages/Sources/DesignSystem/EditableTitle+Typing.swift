@@ -40,7 +40,9 @@ extension EditableTitle {
         return letters[Int(mix % UInt64(letters.count))]
     }
 
-    /// How far `text` has typed in, `elapsed` seconds after it started.
+    /// How far `text` has typed in, `elapsed` seconds after it started. Worked out from the time
+    /// alone, never stepped from the last frame, so nothing drifts and a snapshot can draw any
+    /// moment.
     public static func typingFrame(of text: String, at elapsed: TimeInterval) -> TypingFrame {
         let characters = Array(text)
         let lead = SuggestionTiming.leadInterval

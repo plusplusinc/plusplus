@@ -20,6 +20,7 @@ public enum SuggestionTiming {
     public static let pulsePeriod: TimeInterval = 1.8
     /// How far the `_` fades at the bottom of a breath.
     public static let pulseLowestOpacity = 0.4
-    /// With Reduce Motion on, the new suggestion crossfades in instead of typing.
+    /// With Reduce Motion on, the new suggestion crossfades in instead of typing, with no blue;
+    /// going back to the placeholder crossfades too.
     public static let crossfade: TimeInterval = 0.3
 }

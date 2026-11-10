@@ -188,6 +188,8 @@ nonisolated struct PulseShape: Shape {
                 mass.addLine(to: point)
             }
         }
+        // The parts are joined with `Path.union`, which keeps every edge antialiased: a
+        // blur-and-threshold metaball shrinks the shapes and draws their edges hard.
         var shape = mass
             .strokedPath(StrokeStyle(lineWidth: width, lineCap: .round, lineJoin: .round))
             .union(head.path)

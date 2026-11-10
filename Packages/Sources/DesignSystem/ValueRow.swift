@@ -29,7 +29,8 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
     @Environment(\.displayScale) private var displayScale
 
     /// One inset on every side of the fill, for everything in it: the label, the value, the
-    /// keys, the accessory, and the room between them.
+    /// keys, the accessory, and the room between them. Siblings, the keys here and a sheet's rows
+    /// and chips, sit `Spacing.sm` apart.
     private static var inset: CGFloat {
         Spacing.md
     }
@@ -46,7 +47,9 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
 
     /// `onStep` gets 1 for a step up and -1 for a step down, each only while its `can` is true.
     /// Without an accessory there's no hairline, and without a footer no room under the fill:
-    /// pass nil, not an empty view, for a row that has none.
+    /// pass nil, not an empty view, for a row that has none. Pass an optional value
+    /// (`value.map { … }`), never an `if let` in a view builder, which builds a view that is never
+    /// nil.
     public init(
         label: String,
         note: String? = nil,

@@ -82,7 +82,9 @@ extension Rail {
     /// Lets the held row go, into its gap or, `goingBack`, back where it started: the card lowers
     /// into the gap as `onMove` reorders the data to match the rows shown, in one transaction, so
     /// no row moves. Back where it started, nothing moves, and the rows close up around it. Once
-    /// it has settled, the row draws in its place again.
+    /// it has settled, the row draws in its place again. A drop plays no haptic and shows no
+    /// `railJoin`: nothing is arriving, the row was on the rail all along; a pair a drop makes
+    /// was already felt as it formed.
     private func settle(_ released: RailDragState<RowID>, goingBack: Bool) {
         let slot = goingBack ? released.origin : released.slot
         var settling = released

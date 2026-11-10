@@ -57,6 +57,10 @@ extension View {
 /// were clear, so whatever the card's offset from its gap, card and rail line up and nothing shows
 /// twice; it draws no stroke of its own. Past its edges it draws them over its shadow too, as
 /// `LiftedCard` says. Released, it lowers to look like the row at rest.
+///
+/// It lifts by its fill and shadow alone, level and unscaled, with no border or grip: tilted or
+/// grown, as other lists lift a row, its node would leave the rail's line, and the strokes it
+/// draws would no longer meet the rail's at its edges.
 struct CardLook: ViewModifier {
     let isReleased: Bool
     /// The rail's drawing, and the card's top in the rail's space, which places it.
