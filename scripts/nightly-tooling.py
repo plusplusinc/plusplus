@@ -19,7 +19,8 @@ then decides on the PR itself: auto-merge is armed only after a passing verifier
 for a PR touching a protected path or only .claude/ and docs/, which wait for the maintainer;
 a failed card's PR goes back to draft. It ends with a private digest, saved in the night's
 folder, which `scripts/nightly-retro.sh show` prints. --dry-run reads everything and prints the
-card it would take and the command it would run, then stops before changing anything.
+card it would take and the command it would run, then stops before changing anything. Each run
+also moves to Done the cards a night parked or left waiting whose PR has merged since.
 
 `hook` is the PreToolUse hook `run` gives each card's claude through --settings. It runs before
 the permission rules, and its deny wins over their allow. It reads each Bash command as the shell
@@ -800,16 +801,27 @@ def board_rows():
     return rows
 
 
-def board_cards(rows):
-    """[(id, status, feature, title, body)] of the standalone Todo cards in rows: one show request."""
-    todo = [r for r in rows if r[1] == "Todo" and r[2] == "-"]
-    if not todo:
+def board_bodies(rows):
+    """[(id, status, feature, title, body)] of rows: one show request."""
+    if not rows:
         return []
-    shown = sh(str(ROOT / "scripts/board.sh"), "show", *[r[0] for r in todo][:100])
+    shown = sh(str(ROOT / "scripts/board.sh"), "show", *[r[0] for r in rows][:100])
     # show prints a "==> id <==" header before each card only when it shows more than one.
     bodies = (dict(re.findall(r"^==> (\S+) <==\n(.*?)(?=^==> |\Z)", shown, re.M | re.S))
-              if len(todo) > 1 else {todo[0][0]: shown})
-    return [(*r, bodies.get(r[0], "")) for r in todo]
+              if len(rows) > 1 else {rows[0][0]: shown})
+    return [(*r, bodies.get(r[0], "")) for r in rows]
+
+
+def board_cards(rows):
+    """[(id, status, feature, title, body)] of the standalone Todo cards in rows: one show request."""
+    return board_bodies([r for r in rows if r[1] == "Todo" and r[2] == "-"])
+
+
+def left_pr(body):
+    """The PR a night parked or left waiting, as the card's State names it, else None."""
+    match = re.search(r"PR #(\d+) (?:is a draft with auto-merge off|waits for the maintainer)",
+                      section(body, "State"))
+    return int(match[1]) if match else None
 
 
 def board(*args, stdin=None):
@@ -883,6 +895,7 @@ class Night:
         self.unarmed = []  # PRs merged to main tonight that the runner didn't arm
         self.unchecked = []  # what the runner couldn't make sure of, for the top of the digest
         self.added = []  # the titles of the update cards the runner put on the board tonight
+        self.closed = []  # cards moved to Done tonight, since a day session merged their PR
         self.ended = "no card was eligible"
 
     def logs(self):
@@ -911,6 +924,7 @@ class Night:
                                                            "number,autoMergeRequest") if pr.get("autoMergeRequest")}
         sh("git", "fetch", "--quiet", "origin", "main")
         self.tests_before = test_counts("origin/main")
+        self.close_merged()
         if not self.window:
             self.ended = log(f"No tooling cards: they start only from midnight to {CUTOFF_HOUR} am.")
             return
@@ -974,6 +988,25 @@ class Night:
                 log(f"Added \"{title}\" at the top of Todo.")
         except FAILURES as error:
             self.unchecked.append(f"adding the lint tools' update cards ({error})")
+
+    def close_merged(self):
+        """Moves to Done each In Progress card whose PR a night parked or left waiting and a day
+        session has merged since, which nothing in that session does. A failure is noted at the
+        top of the digest, and the night goes on."""
+        try:
+            rows = [r for r in board_rows() if r[1] == "In Progress" and r[2] == "-"]
+            for item, _, _, title, body in board_bodies(rows):
+                n = left_pr(body)
+                if not n or gh_json("pr", "view", str(n), "--json", "state")["state"] != "MERGED":
+                    continue
+                if self.dry_run:
+                    log(f"Dry run: would move \"{title}\" to Done, since #{n} merged.")
+                    continue
+                board("status", item, "Done")
+                self.closed.append(f"{title}, since #{n} merged")
+                log(f"Moved \"{title}\" to Done: #{n} merged.")
+        except FAILURES as error:
+            self.unchecked.append(f"moving cards whose PR merged to Done ({error})")
 
     def left_in_progress(self, card, error):
         """Says on the card, and in the digest, that the runner failed while taking it."""
@@ -1295,6 +1328,7 @@ class Night:
         lines.append("Tests: " + ", ".join(f"{t} {self.tests_before.get(t, 0)} → {after.get(t, 0)}"
                                            for t in sorted(set(self.tests_before) | set(after))))
         lines += [f"Added: {title}, at the top of Todo" for title in self.added]
+        lines += [f"Done: {c}" for c in self.closed]
         lines += [f"Parked: {p}" for p in self.parked]
         lines += [f"Waiting: {w}" for w in self.waiting]
         lines += [f"Behind main: #{pr['number']} {pr['title']}" for pr in behind]

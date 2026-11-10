@@ -216,6 +216,47 @@ class Eligibility(unittest.TestCase):
         self.assertIn("check", nightly.eligibility("Todo", "-", self.BODY.replace("## Success\nRun it: it passes.\n", "")))
 
 
+class CloseMerged(unittest.TestCase):
+    """An In Progress card a night parked, or left waiting, goes to Done once its PR merges."""
+
+    PARKED = ("## Problem\nx\n\n## State\n- Parked by the nightly run: why. PR #150 is a draft with "
+              "auto-merge off.\n- Next: a daytime /onward reads the PR and the handoff in `.slices/`.\n")
+    WAITING = "## Problem\nx\n\n## State\n- PR #156 waits for the maintainer, unmerged: why.\n"
+
+    def test_the_state_names_the_pr(self):
+        self.assertEqual(nightly.left_pr(self.PARKED), 150)
+        self.assertEqual(nightly.left_pr(self.WAITING), 156)
+        self.assertIsNone(nightly.left_pr("## Problem\nPR #150 is a draft with auto-merge off.\n"))
+        self.assertIsNone(nightly.left_pr("## State\n- Next: plan it.\n"))
+
+    def close(self, states, dry_run=False):
+        cards = [("PVTI_1", "In Progress", "-", "parked", self.PARKED),
+                 ("PVTI_2", "In Progress", "-", "waiting", self.WAITING),
+                 ("PVTI_3", "Todo", "-", "queued", self.PARKED)]
+        calls = []
+        stubs = {"board_rows": lambda: [c[:4] for c in cards],
+                 "board_bodies": lambda rows: [c for c in cards if c[:4] in rows],
+                 "gh_json": lambda *a: {"state": states[a[2]]},
+                 "board": lambda *a, stdin=None: calls.append(a)}
+        saved = {name: getattr(nightly, name) for name in stubs}
+        self.addCleanup(lambda: [setattr(nightly, n, f) for n, f in saved.items()])
+        for name, stub in stubs.items():
+            setattr(nightly, name, stub)
+        night = nightly.Night(tempfile.mkdtemp(), NIGHT, dry_run)
+        self.addCleanup(shutil.rmtree, night.dir, True)
+        with contextlib.redirect_stdout(io.StringIO()):
+            night.close_merged()
+        return night, calls
+
+    def test_only_a_merged_prs_card_moves(self):
+        night, calls = self.close({"150": "MERGED", "156": "OPEN"})
+        self.assertEqual(calls, [("status", "PVTI_1", "Done")])
+        self.assertEqual(night.closed, ["parked, since #150 merged"])
+
+    def test_a_dry_run_moves_nothing(self):
+        self.assertEqual(self.close({"150": "MERGED", "156": "MERGED"}, dry_run=True)[1], [])
+
+
 class UpdateCards(unittest.TestCase):
     """The card the night adds for a lint tool `scripts/lint-tools.sh outdated` names."""
 
