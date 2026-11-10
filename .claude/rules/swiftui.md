@@ -23,9 +23,9 @@ Leaf views take plain values and closures so they preview and snapshot without a
 - Let the system wrap text and measure what it laid out (a hidden copy, or the view's own
   layout); never work wraps or line counts out from character widths, which emoji, CJK, and
   glyphs SF Mono lacks break.
-- Text input is SwiftUI's `TextField`. The title's field is the one UIKit text view
-  (`TitleTextView`), for what `TextField` doesn't expose: sizing from its own layout, refusing
-  Return before a newline lands, and placing the `_` from its line fragments.
+- The one UIKit text view is the title's (`TitleTextView`), for what `TextField` doesn't
+  expose: sizing from its own layout, refusing Return before a newline lands, and placing the
+  `_` from its line fragments.
 - Prefer stock components for navigation, toolbars, and sheets; the system applies Liquid Glass
   there. Do not set `UIDesignRequiresCompatibility`.
 - Anything that shows and hides beside or above other content (a tag, a line, a control) keeps
@@ -38,8 +38,9 @@ Leaf views take plain values and closures so they preview and snapshot without a
 - Motion is snappy: every animation names its curve, `.snappy` unless the code it joins names
   another, never a bare `withAnimation` or the default spring, and quicker than `.snappy`'s
   default where it answers a tap: rows going onto and off a rail use `.railChange`, and a key
-  comes back from a press with `keyPressAnimation(isPressed:)`. A motion that has to land and
-  stop eases out on a timing curve, not a spring, whose settling tail reads slow and heavy.
+  comes back from a press with `keyPressAnimation(isPressed:)`. A longer motion that has to stop
+  dead, as End's shrink (`endBeat`) and a move's shift (`SetMotion.moving(_:)`), eases out on a
+  timing curve: there `.snappy`'s settling tail read slow and heavy.
 - With Reduce Motion, replace or drop the motion (usually with a crossfade), never the haptics:
   gate animations and transitions on `accessibilityReduceMotion`, not `sensoryFeedback`.
 - Every new component gets a `#Preview` and goes through `assertThemedSnapshots`.
