@@ -76,7 +76,10 @@ struct RoutineScreen: View {
     @State var underBarCut: CGFloat = 0
     /// At Start, how far the list's content is drawn below where it is scrolled to, run down to 0.
     @State var growthLift: CGFloat = 0
-    /// While the first exercise grows at Start, room under the list's end to scroll it to the top.
+    /// From Start's press until the first exercise has grown, through a move to the next exercise,
+    /// and while End shrinks the current one back: room under the list's end, out of sight, so
+    /// the list can scroll the row to the top and holds still as rows change height. While it is
+    /// on, the list's end is that room, so an added row's scroll to the end must not run.
     @State var isMakingRoom = false
     /// Where the first exercise, the current one in a workout, is against the part showing.
     @State var currentPlace: CurrentPlace?
@@ -232,7 +235,8 @@ struct RoutineScreen: View {
                             }
                             .accessibilityAddTraits(.isButton)
                             .accessibilityValue(supersetValue(item.id))
-                            // None where it would do nothing: at an end, or with one row.
+                            // None where it would do nothing: at an end, or with one row. None
+                            // logs a set, on the current exercise either: the key logs.
                             .accessibilityActions {
                                 if let up = routine.slotMovingUp(item.id) {
                                     Button("Move up") { step(item.id, to: up, wentUp: true) }

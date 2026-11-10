@@ -21,7 +21,8 @@ public enum ColorToken: String, CaseIterable, Sendable {
     /// The fill of the one primary key on a screen, such as Start.
     case primaryKey = "ppPrimaryKey"
     /// The line that runs down a rail and its nodes at rest, one gray, and the loop beside it
-    /// that marks a group of rows, a superset.
+    /// that marks a group of rows, a superset. At least 3:1 on `background` and on `well`, where a
+    /// held superset's loop and line show.
     case rail = "ppRail"
     /// Something joining a rail, for the moment it joins: an added row's node draws in it, then
     /// settles to `rail`; a group's loop as a drop makes the group, then settling to
