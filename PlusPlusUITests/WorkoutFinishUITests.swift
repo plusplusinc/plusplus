@@ -29,10 +29,12 @@ final nonisolated class WorkoutFinishUITests: XCTestCase {
                 "The workout's key never came up",
             )
             // The key comes up near the end of the grow's spring (`RoutineScreen.keyReturnDelay`,
-            // `growBeat`), so the row may still be moving: read where it rests once it holds
-            // still, not within a clock's window, which one slow accessibility query can use up
-            // (a slow Xcode Cloud run read it 9.7 pt low).
-            XCTAssertTrue(row.settles(within: 3), "After Start, the list never came to rest")
+            // `growBeat`), so read where the row rests once its top holds still, not within a
+            // clock's window: on a slow runner one accessibility query can outlast the window.
+            XCTAssertTrue(
+                settling(row.frame.minY, still: 0.25, within: 3),
+                "After Start, the list never came to rest",
+            )
             let bar = app.navigationBars.firstMatch.frame.maxY
             let top = row.frame.minY
             XCTAssertLessThan(abs(top - bar), 1, "After Start, the list rests \(top - bar) pt low")
