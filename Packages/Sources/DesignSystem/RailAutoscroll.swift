@@ -50,10 +50,8 @@ final class RailEdges {
     /// Room added below the list's end, so it can scroll as far as a held row's room above the
     /// rail asks even when it is shorter than the screen. It goes once the room above has closed
     /// with no row held. The rail pads its bottom by it, in the content, not as a content margin,
-    /// which takes as much out of the height a `containerRelativeFrame` reads, a pass late: room
-    /// under the list sized from that height, as a workout's to land the current exercise, would
-    /// shrink as this grows, and grow back a pass after it goes, the list for that pass shorter
-    /// than the screen.
+    /// which takes as much out of the height a `containerRelativeFrame` in the content reads, a
+    /// pass late, so anything sized from it would shrink and grow back out of step.
     private(set) var roomBelow: CGFloat = 0
 
     /// The part of the scroll view the list shows in, between the bars.

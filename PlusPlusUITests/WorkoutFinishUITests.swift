@@ -7,7 +7,8 @@ import XCTest
 /// how the row looks is `WorkoutRailSnapshotTests`'; this is the key's wire to finishing, which
 /// nothing in the app shows afterward, so a break that discarded the sets would go unseen. On
 /// the way, it reads where Start leaves the list, which only the running app's scroll view
-/// shows: on a one-exercise routine, a break left it low in most runs. Its own test, since it
+/// shows: on a one-exercise routine, a break left it low in most runs; and that the exercise,
+/// held until it lifts and let go in place, stays there. Its own test, since it
 /// launches with one exercise seeded and its own name. The exercise has one set
 /// (`-seedSets 1`), so one log reaches the workout's end; logs that stay on an exercise are
 /// `WorkoutUITests`'.
