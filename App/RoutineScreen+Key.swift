@@ -110,7 +110,12 @@ extension RoutineScreen {
         } else {
             sideLogs += 1
         }
-        log(set, of: current)
+        // Stored at once, at the numbers the row shows; then shown, now or once the step playing
+        // is over. The key takes no tap while one plays, so today it starts now.
+        session.log(set, of: current)
+        if playback.log(set) {
+            play(set)
+        }
     }
 
     /// Settles which way the key points: back to the current exercise while it is scrolled away,
@@ -180,12 +185,15 @@ extension RoutineScreen {
     /// After a log that stays on the exercise, the beat the set is held for before the line
     /// rolls on. A task on the held set, so the screen going away cancels it.
     func rollHeldSet() async {
-        guard unshownSet != nil else { return }
+        guard playback.held != nil else { return }
         do {
             try await Task.sleep(for: .seconds(SetMotion.heldRoll), tolerance: .zero)
         } catch {
             return
         }
-        withAnimation(.snappy(duration: SetMotion.roll)) { unshownSet = nil }
+        withAnimation(.snappy(duration: SetMotion.roll)) { playback.show() }
+        if let waiting = playback.end() {
+            play(waiting)
+        }
     }
 }

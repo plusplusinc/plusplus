@@ -9,10 +9,16 @@ extension RoutineScreen {
         session.workout.map { LiveWorkout(routine: routine, workout: $0) }
     }
 
-    /// The workout as the screen draws it: `live` less a set logged and not yet shown
-    /// (`heldSet`). Everything drawn reads it.
+    /// The workout as the screen draws it: `live` less the sets logged and not yet shown
+    /// (`WorkoutPlayback.unshown`). Everything drawn reads it.
     var shown: LiveWorkout? {
-        live?.hiding(unshownSet.map { [$0] } ?? [])
+        live?.hiding(playback.unshown)
+    }
+
+    /// While a step to another exercise, or past the last set, plays: rows' heights are
+    /// mid-motion, and the key logs nothing.
+    var isMovingOn: Bool {
+        playback.isMovingOn
     }
 
     /// The exercise the workout is on, as drawn. None once every set is logged.
@@ -30,7 +36,9 @@ extension RoutineScreen {
     /// for a beat after the key's tap (`SetMotion.heldRoll`), when the line rolls on.
     /// None once another set is logged, as in another workout.
     var heldSet: PlannedSet? {
-        guard let held = unshownSet, session.workout?.sets.last?.planned == held else { return nil }
+        guard let held = playback.held, session.workout?.sets.last?.planned == held else {
+            return nil
+        }
         return held
     }
 
@@ -84,36 +92,41 @@ extension RoutineScreen {
         session.workout == nil ? routine.exercises.first?.id : currentID
     }
 
-    /// Logs `set`, at the numbers its row shows. Within one exercise it is held from showing
-    /// (`heldSet`), the current node small and gray, for `SetMotion.heldRoll`, when the progress
-    /// line and the bars roll on. Moving to another, one motion from
-    /// the log (`SetMotion`): the parts under the current exercise's name go, bottom first, and on
-    /// one curve its row shrinks back to a resting row as the next row grows into the current
-    /// exercise and the list scrolls it up under the bar, so the rows below move up once, with the
-    /// scroll. The node left is pulled out first into a blob of green that runs along the rail to
-    /// the next node and plops into it, with a light tick, the node lighting as it settles
-    /// (`PulseShape`), on a still screen: down the rail and round a superset's loop alike, the
-    /// current exercise's parts go and the shift starts only `SetMotion.landingHold` after the
-    /// landing. The scroll is Start's: the
+    /// Plays the step that logging `set` leads to, the set already stored: the screen's one
+    /// entry for showing a log, whoever made it. The step is judged from the workout as drawn
+    /// then (`shown`), so a set that waited its turn is judged against what the screen has.
+    ///
+    /// Within one exercise the set is held from showing (`heldSet`), the current node small and
+    /// gray, for `SetMotion.heldRoll`, when the progress line and the bars roll on
+    /// (`rollHeldSet()`). Moving to another, one motion from the log (`SetMotion`): the parts
+    /// under the current exercise's name go, bottom first, and on one curve its row shrinks back
+    /// to a resting row as the next row grows into the current exercise and the list scrolls it
+    /// up under the bar, so the rows below move up once, with the scroll. The node left is pulled
+    /// out first into a blob of green that runs along the rail to the next node and plops into
+    /// it, with a light tick, the node lighting as it settles (`PulseShape`), on a still screen:
+    /// down the rail and round a superset's loop alike, the current exercise's parts go and the
+    /// shift starts only `SetMotion.landingHold` after the landing. The scroll is Start's: the
     /// list is scrolled at once to where the next row will land and drawn where it was, the lift
-    /// run to 0 in the shift's transaction. After the last set, the row closes as the list settles
-    /// on its end and the key becomes Finish workout.
-    func log(_ set: PlannedSet, of row: RoutineExercise) {
-        // The key logs nothing during a move (`tapKey()`): one would start a second move
-        // whose state the first one's end tears down.
-        guard let live, !isMovingOn else { return }
-        let step = live.step(logging: set)
-        guard step != .nextSet else {
-            unshownSet = set
-            session.log(set, of: row)
-            return
+    /// run to 0 in the shift's transaction. After the last set, the row closes as the list
+    /// settles on its end and the key becomes Finish workout.
+    func play(_ set: PlannedSet) {
+        let step = shown?.step(logging: set) ?? .nextSet
+        playback.start(step, for: set)
+        guard let row = routine.exercises.first(where: { $0.id == set.row }) else {
+            // Its row is gone: nothing to show it on.
+            playback.show()
+            return endStep()
         }
         let next: PlannedSet?
         let isBack: Bool
         let startsRound: Bool
-        if case let .nextExercise(to, back, round) = step {
+        switch step {
+        case .nextSet:
+            // `rollHeldSet()` shows it, keyed on the held set.
+            return
+        case let .nextExercise(to, back, round):
             (next, isBack, startsRound) = (to, back, round)
-        } else {
+        case .last:
             (next, isBack, startsRound) = (nil, false, false)
         }
         let target = next.flatMap { landing(on: $0.row, leaving: row.id) }
@@ -122,15 +135,13 @@ extension RoutineScreen {
         // the row: read live, it said the next exercise's set ("Log left") as the pulse set off.
         heldKeyRole = keyRole
         guard !reduceMotion else {
-            return crossfadeOn(to: next, scrollingTo: target) { session.log(set, of: row) }
+            return crossfadeOn(to: next, scrollingTo: target)
         }
-        guard let next else { return logLast(set, of: row) }
-        unshownSet = nil
+        guard let next else { return closeLast() }
         // At a superset round's end, the round just done rolls to the next once the first member
         // has grown to show it.
         let held = startsRound ? focus(of: row, on: set).progress : nil
         let way: SetMotion.Way = isBack ? .loop : .down
-        isMovingOn = true
         // The node left goes to its own color at once, under the pulse pulling out of it, which
         // leaves it behind in that color as its neck snaps.
         withTransaction(\.disablesAnimations, true) {
@@ -144,7 +155,7 @@ extension RoutineScreen {
         // One transaction: the parts going and coming each on their own delays
         // (`part(_:)`), both rows' heights, their names, and the lift on the shift's curve.
         withAnimation(SetMotion.moving(way)) {
-            session.log(set, of: row)
+            playback.show()
             growthLift = 0
         }
         railPulse = RailPulse(
@@ -156,28 +167,33 @@ extension RoutineScreen {
         land(way, scrollingTo: target)
     }
 
+    /// The step playing is over: plays the set that waited longest, if one did.
+    private func endStep() {
+        if let waiting = playback.end() {
+            play(waiting)
+        }
+    }
+
     /// With Reduce Motion, moving on, or closing after the last set, is one crossfade, the tick
     /// played as the next node lights in it. A move like any other: the current exercise's place
     /// changing under it doesn't land it again (`placeCurrent(_:)`), and the key logs nothing
     /// until it is over. With no `target` worked out ahead, as after a relaunch, the list lands
     /// after.
-    private func crossfadeOn(
-        to next: PlannedSet?,
-        scrollingTo target: CGFloat?,
-        _ log: @escaping () -> Void,
-    ) {
-        unshownSet = nil
-        isMovingOn = true
+    private func crossfadeOn(to next: PlannedSet?, scrollingTo target: CGFloat?) {
         let landed = {
-            swapKey { isMovingOn = false }
+            var waiting: PlannedSet?
+            swapKey { waiting = playback.end() }
             letRoomGo()
             if next != nil, target == nil {
                 scrollToCurrent()
             }
             settleKeyRole()
+            if let waiting {
+                play(waiting)
+            }
         }
         crossfade(scrollingTo: target ?? scrollBeat.scrolledY, then: landed) {
-            log()
+            playback.show()
             if next != nil {
                 landings += 1
             }
@@ -208,12 +224,15 @@ extension RoutineScreen {
                 tolerance: .zero,
             )
             exerciseMove = nil
-            isMovingOn = false
+            let waiting = playback.end()
             letRoomGo()
             if target == nil {
                 withAnimation(.snappy(duration: SetMotion.roll), scrollToCurrent)
             }
             settleKeyRole()
+            if let waiting {
+                play(waiting)
+            }
         }
     }
 
@@ -222,13 +241,12 @@ extension RoutineScreen {
     /// under the end that landed the row under the bar closes on the same curve,
     /// and the list's end stays where it shows as the content shortens, so what is above it moves
     /// down, once, and never back.
-    private func logLast(_ set: PlannedSet, of row: RoutineExercise) {
-        isMovingOn = true
+    private func closeLast() {
         withTransaction(\.disablesAnimations, true) {
             closingRoomTop = currentPlace?.landingY ?? scrollBeat.scrolledY
         }
         withAnimation(SetMotion.closing) {
-            session.log(set, of: row)
+            playback.show()
             closingRoomTop = 0
         }
         Task {
@@ -237,9 +255,13 @@ extension RoutineScreen {
                 tolerance: .zero,
             )
             closingRoomTop = nil
-            swapKey { isMovingOn = false }
+            var waiting: PlannedSet?
+            swapKey { waiting = playback.end() }
             letRoomGo()
             settleKeyRole()
+            if let waiting {
+                play(waiting)
+            }
         }
     }
 

@@ -88,8 +88,6 @@ struct RoutineScreen: View {
     @State var listHeight: CGFloat = 0
     /// Back in a workout after a relaunch, the list opens on the current exercise, once grown.
     @State var opensOnCurrent = false
-    /// While the current exercise moves to the next row, when rows' heights are mid-motion.
-    @State var isMovingOn = false
     /// While Start grows the first exercise or End shrinks the current one back, when rows'
     /// heights are mid-motion.
     @State var isGrowingOrEnding = false
@@ -103,9 +101,9 @@ struct RoutineScreen: View {
     /// Counts the moves to another exercise that have landed on its node, each with a light tick,
     /// lighter than a log's.
     @State var landings = 0
-    /// The last set logged, while it stays on the current exercise, for a beat after the key's
-    /// tap (`heldSet`).
-    @State var unshownSet: PlannedSet?
+    /// The sets logged and stored but not yet shown, and the step the screen is playing
+    /// (`play(_:)`).
+    @State var playback = WorkoutPlayback()
     @State var rowFrames = RowFrames()
     @Environment(\.locale) var locale
     @Environment(\.accessibilityReduceMotion) var reduceMotion
@@ -318,7 +316,7 @@ struct RoutineScreen: View {
             key(role)
         }
         .task(id: isStarting) { await holdStart() }
-        .task(id: unshownSet) { await rollHeldSet() }
+        .task(id: playback.held) { await rollHeldSet() }
         // One row open at a time, closed by a scroll or a tap anywhere else, Start included,
         // so the container holds Start's bar as well as the scroll view.
         .swipeActionsContainer()
