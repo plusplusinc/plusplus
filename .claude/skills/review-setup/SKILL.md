@@ -56,6 +56,17 @@ month. Read only what changed since.
   definition or rule the work outgrew. Each gap names where it was seen: the retro PR, the
   ledger row, the session. Its fix goes at the lowest altitude that holds it, as the retro's.
 
+## 2b. Look outward
+
+Also look for what we don't use yet, in these places only: Anthropic's engineering posts and
+Claude Code's docs for new capabilities; the skill and plugin catalogs and the MCP registry;
+Apple's developer news and WWDC sessions, for frameworks that bear on a card in Todo; and a few
+well-regarded write-ups on agent-led development and on iOS engineering practice. Report a
+candidate only when it answers a present need (friction on record or a queued card), with its
+cost and what it replaces; at most three go under "Worth trying", each with the cheapest trial
+that would settle it. "Looked outward and found nothing worth trying" is a valid result, stated
+plainly.
+
 ## 3. Card
 
 For each change worth doing, look for a card by title first, then add one with
