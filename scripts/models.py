@@ -7,19 +7,24 @@
 `check` reads the table and compares it with what sets each model: an agent definition's `model:`
 and `effort:` in .claude/agents/, and a nightly script's <NAME>_MODEL and <NAME>_EFFORT for a row
 set in "scripts/<file> <NAME>". It fails naming each disagreement, a definition with no row, a
-model the Agent tool can't take on a one-off row, and a verifier on the builder's model. It warns,
-without failing, while .claude/settings.json has no PreToolUse entry running `hook` on the Agent
-tool, which only the maintainer adds (agents can't edit that file). scripts/lint.sh runs it.
+model the Agent tool can't take on a one-off row, and a verifier on the builder's model. In each
+script in scripts/ but the tests, it also fails on a <NAME>_MODEL with no row, and on a start of
+claude passing no --model the table covers: in shell, a non-comment line (backslash continuations
+joined) with the word `claude` followed by `-p` or `--print`; in Python, a list starting with the
+string "claude" that holds "-p" or "--print". It warns, without failing, while the project's
+settings have no PreToolUse entry running `hook` on the Agent tool, which only the maintainer adds
+(agents can't edit .claude/settings.json). scripts/lint.sh runs it.
 
 `hook` refuses an Agent call that would run on a model the table didn't choose: a one-off subagent
 type with no definition naming a model (general-purpose, Explore, Plan, claude-code-guide, ...)
-called with no `model`, and one of this repo's agents called with a `model` of another family than
-its definition's, since the call's `model` wins over the definition's
-(code.claude.com/docs/en/sub-agents). It always allows a fork, a plugin's agent (a `:` in its
-type), and an agent defined in ~/.claude/agents/, which are the maintainer's. It exits 2 with the
-reason on stderr, which Claude Code hands the caller. It only narrows: any error of its own allows
-the call, exiting 1 with a line on stderr and in .build/agent-hook.log, so a bug in it can't stop
-every subagent.
+called with no `model` or one that isn't an alias, and one of this repo's agents whose definition
+names a model called with any `model`, since the call's wins over the definition's
+(code.claude.com/docs/en/sub-agents) and an alias would drop the pin at the next release. It
+always allows a fork, a plugin's agent (a `:` in its type), an agent defined in ~/.claude/agents/,
+which are the maintainer's, and any payload that isn't an Agent call or lacks its tool_input. It
+exits 2 with the reason on stderr, which Claude Code hands the caller. It only narrows: any error
+of its own allows the call, exiting 1 with a line on stderr and in .build/agent-hook.log, so a bug
+in it can't stop every subagent.
 
 Tests: python3 scripts/models-test.py, which scripts/test.sh runs.
 """
@@ -41,7 +46,8 @@ NONE = "—"  # an Effort the row can't set: the Agent tool here takes no effort
 USER_SETTINGS = "user settings"  # the lead's row: the maintainer's choice, not the repo's
 AGENT_TOOL = "Agent tool"  # a one-off subagent's row: the model the caller passes
 FORK = "fork"  # inherits the caller's model
-HOOK_COMMAND = 'python3 "$CLAUDE_PROJECT_DIR/scripts/models.py" hook'  # the settings entry's command
+# The settings entry's command; a checkout without this script (an older branch's worktree) allows the call.
+HOOK_COMMAND = '[ -f "$CLAUDE_PROJECT_DIR/scripts/models.py" ] || exit 0; python3 "$CLAUDE_PROJECT_DIR/scripts/models.py" hook'
 
 
 def cells(line):
@@ -98,6 +104,41 @@ def assigned(text, name):
     return match[1] if match else None
 
 
+def starts(text, shell):
+    """Each start of a `claude` session in a script's text, as the text of the command.
+
+    Shell: a line, not a comment, joined with any lines its trailing backslashes continue, where
+    the word `claude` is followed later by `-p` or `--print`. Python: a list whose first element
+    is the string "claude" and which holds "-p" or "--print"."""
+    if shell:
+        lines = re.sub(r"\\\n", " ", text).splitlines()
+        return [line for line in lines if not line.lstrip().startswith("#")
+                and re.search(r"(^|[\s;&|(\"'])claude(\s.*)?\s(-p|--print)\b", line)]
+    return [m[0] for m in re.finditer(r"\[\s*\"claude\"[^\]]*\]", text) if re.search(r"\"(-p|--print)\"", m[0])]
+
+
+def uncovered(root, covered):
+    """Where a script in scripts/ (its tests aside) sets or starts a model the table doesn't cover:
+    a <NAME>_MODEL with no row "scripts/<file> <NAME>", and a start of claude passing no such
+    <NAME>_MODEL to --model."""
+    found = []
+    for path in sorted(Path(root, "scripts").glob("*")):
+        if path.suffix not in (".sh", ".py") or path.stem.endswith("-test"):
+            continue
+        where = f"scripts/{path.name}"
+        text = path.read_text()
+        names = {name for name in re.findall(r"^\s*([A-Z]+)_MODEL\s*=", text, re.M)}
+        for name in sorted(names):
+            if f"{where} {name}" not in covered:
+                found.append(f"{where}: {name}_MODEL has no row \"{where} {name}\" in {TABLE}'s \"{SECTION}\" table")
+        passed = r"--model\s+\\?\"?\$(\w+)_MODEL" if path.suffix == ".sh" else r"\"--model\",\s*(\w+)_MODEL\b"
+        for command in starts(text, path.suffix == ".sh"):
+            match = re.search(passed, command)
+            if not match or f"{where} {match[1]}" not in covered:
+                found.append(f"{where}: a claude start passes no model the table sets: {' '.join(command.split())[:100]}")
+    return found
+
+
 def problems(root):
     """What disagrees with the table, one line each; empty when everything agrees."""
     root = Path(root)
@@ -152,6 +193,7 @@ def problems(root):
                 found.append(f"{script}: {var} is set but never passed")
     for where in sorted(agents.keys() - {row["Set in"] for row in rows}):
         found.append(f"{where} has no row in {TABLE}'s \"{SECTION}\" table")
+    found += uncovered(root, {row["Set in"] for row in rows})
     builder, verifier = roles.get("builder"), roles.get("verifier")
     if builder and verifier and family(builder["Model"]) == family(verifier["Model"]):
         found.append(f"verifier: runs on the builder's model, {builder['Model']}; the table needs them to differ")
@@ -191,10 +233,12 @@ def check(root=ROOT):
 
 def refusal(call, root, home):
     """Why the hook refuses an Agent call, or None to let it run."""
-    tool = call.get("tool_input") or {}
+    tool = call.get("tool_input") if isinstance(call, dict) else None
+    if not isinstance(tool, dict) or call.get("tool_name") != "Agent":
+        return None  # not an Agent call, or not one this hook can read
     kind = tool.get("subagent_type") or "general-purpose"
     model = tool.get("model")
-    if kind == FORK or ":" in kind:
+    if not isinstance(kind, str) or kind == FORK or ":" in kind:
         return None
     # The repo's definitions first: Claude Code runs a project agent over a user one of its name.
     ours = definitions(Path(root) / ".claude/agents").get(kind)
@@ -202,12 +246,12 @@ def refusal(call, root, home):
         return None
     named = (ours or {}).get("model")
     if named:
-        if model and family(named) and family(model) != family(named):
+        if model is not None:
             return (f"{kind} runs on {named}, which {TABLE}'s \"{SECTION}\" sets in "
-                    f".claude/agents/{ours['path'].name}; a `model` of {model} would override it. "
-                    "Start it again without `model`.")
+                    f".claude/agents/{ours['path'].name}; a call's `model` overrides it, and an alias "
+                    "drops the pin at the next release. Start it again without `model`: the definition sets it.")
         return None
-    if model:
+    if model in ALIASES:
         return None
     kinds = [f"{r['Role']} {r['Model']}" for r in table((Path(root) / TABLE).read_text()) if r["Set in"] == AGENT_TOOL]
     return (f"A {kind} subagent needs a `model`: pass the one {TABLE}'s \"{SECTION}\" gives its kind of "

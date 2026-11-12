@@ -8,7 +8,9 @@ import contextlib
 import importlib.util
 import io
 import json
+import os
 import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -74,7 +76,31 @@ class Check(Fixture):
 
     def test_a_model_set_but_never_passed_fails(self):
         self.edit("scripts/nightly-retro.sh", '--model \\"$RETRO_MODEL\\"', "")
-        self.assertEqual(models.problems(self.root), ["scripts/nightly-retro.sh: RETRO_MODEL is set but never passed"])
+        found = models.problems(self.root)
+        self.assertEqual(found[0], "scripts/nightly-retro.sh: RETRO_MODEL is set but never passed")
+        self.assertTrue(found[1].startswith("scripts/nightly-retro.sh: a claude start passes no model the table sets"))
+
+    def test_a_scripts_model_with_no_row_fails(self):
+        self.edit("docs/agent-tooling.md", "| retro | `scripts/nightly-retro.sh RETRO`", "| retro | user settings")
+        self.assertIn('scripts/nightly-retro.sh: RETRO_MODEL has no row "scripts/nightly-retro.sh RETRO" in '
+                      'docs/agent-tooling.md\'s "Models by task" table', models.problems(self.root))
+
+    def test_every_start_of_claude_is_found(self):
+        self.assertEqual(len(models.starts((ROOT / "scripts/nightly-tooling.py").read_text(), shell=False)), 2)
+        self.assertEqual(len(models.starts((ROOT / "scripts/nightly-retro.sh").read_text(), shell=True)), 1)
+
+    def test_a_start_with_no_table_model_fails(self):
+        for script, line in (("scripts/nightly-tooling.py", '\nsubprocess.run(["claude", "-p", "/retro"])\n'),
+                             ("scripts/nightly-tooling.py", '\nsubprocess.run(["claude", "-p", "--model", "opus"])\n'),
+                             ("scripts/nightly-retro.sh", '\n    claude -p "/retro" >> out\n'),
+                             ("scripts/nightly-retro.sh", '\n  x && claude --name y \\\n    --print "/z"\n')):
+            with self.subTest(line=line):
+                file = self.root / script
+                before = file.read_text()
+                file.write_text(before + line)
+                self.assertEqual(len(models.problems(self.root)), 1)
+                self.assertIn("a claude start passes no model the table sets", models.problems(self.root)[0])
+                file.write_text(before)
 
     def test_a_definition_with_no_row_fails(self):
         (self.root / ".claude/agents/scout.md").write_text("---\nname: scout\nmodel: haiku\n---\n")
@@ -121,12 +147,36 @@ class Hook(Fixture):
             with self.subTest(kind=kind):
                 self.assertEqual(self.run_hook(subagent_type=kind, prompt="Go"), 0)
 
-    def test_a_repo_agent_runs_on_its_definitions_family(self):
-        self.assertEqual(self.run_hook(subagent_type="builder", prompt="Build"), 0)
-        self.assertEqual(self.run_hook(subagent_type="builder", model="opus", prompt="Build"), 0)
+    def test_a_repo_agent_called_with_no_model_runs(self):
+        for kind in ("planner", "builder", "verifier"):
+            with self.subTest(kind=kind):
+                self.assertEqual(self.run_hook(subagent_type=kind, prompt="Go"), 0)
 
-    def test_a_repo_agent_given_another_family_is_refused(self):
-        self.assertEqual(self.run_hook(subagent_type="verifier", model="opus", prompt="Verify"), 2)
+    def test_a_repo_agent_given_any_model_is_refused(self):
+        for kind, model in (("builder", "opus"), ("verifier", "opus"), ("planner", "fable")):
+            with self.subTest(kind=kind, model=model):
+                self.assertEqual(self.run_hook(subagent_type=kind, model=model, prompt="Go"), 2)
+                self.assertIn("without `model`", self.stderr.getvalue())
+
+    def test_a_one_off_with_a_model_that_isnt_an_alias_is_refused(self):
+        for model in ("inherit", "banana", " ", "claude-haiku-5-5"):
+            with self.subTest(model=model):
+                self.assertEqual(self.run_hook(subagent_type="general-purpose", model=model, prompt="Go"), 2)
+                self.assertIn('"Models by task"', self.stderr.getvalue())
+
+    def test_other_tools_and_shapes_run(self):
+        for payload in ({"tool_name": "Bash", "tool_input": {"command": "ls"}}, {"tool_name": "Agent"},
+                        {"tool_name": "Agent", "tool_input": "Go"}, [], {"tool_input": {"prompt": "Go"}}):
+            with self.subTest(payload=payload):
+                self.assertEqual(models.hook(io.StringIO(json.dumps(payload)), self.root, self.home), 0)
+
+    def test_the_entry_allows_the_call_where_the_script_is_missing(self):
+        call = json.dumps({"tool_name": "Agent", "tool_input": {"subagent_type": "general-purpose", "prompt": "Go"}})
+        for project, status in ((self.home, 0), (ROOT, 2)):
+            with self.subTest(project=project):
+                run = subprocess.run(["/bin/sh", "-c", models.HOOK_COMMAND], input=call, capture_output=True,
+                                     text=True, env=dict(os.environ, CLAUDE_PROJECT_DIR=str(project)))
+                self.assertEqual(run.returncode, status, run.stderr)
 
     def test_a_users_agent_of_a_repo_agents_name_is_no_way_round(self):
         (self.home / ".claude/agents/verifier.md").write_text("---\nname: verifier\nmodel: opus\n---\n")
