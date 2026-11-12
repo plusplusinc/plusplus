@@ -24,11 +24,13 @@ COPIED = ["docs/agent-tooling.md", ".claude/agents", "scripts/nightly-retro.sh",
 class Fixture(unittest.TestCase):
     def setUp(self):
         self.root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.root)
         for path in COPIED:
             source, target = ROOT / path, self.root / path
             target.parent.mkdir(parents=True, exist_ok=True)
             (shutil.copytree if source.is_dir() else shutil.copy)(source, target)
         self.home = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.home)
         (self.home / ".claude/agents").mkdir(parents=True)
         (self.home / ".claude/agents/shot-doctor.md").write_text("---\nname: shot-doctor\nmodel: fable\n---\n")
 

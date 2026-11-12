@@ -103,11 +103,11 @@ def problems(root):
     root = Path(root)
     rows = table((root / TABLE).read_text())
     found = []
-    roles = {}
-    agents = definitions(root / ".claude/agents")
+    roles = {row["Role"]: row for row in rows}
+    agents = {str(d["path"].relative_to(root)): d for d in definitions(root / ".claude/agents").values()}
+    scripts = {}
     for row in rows:
         role, where, model, effort = row["Role"], row["Set in"], row["Model"], row["Effort"]
-        roles[role] = row
         if where == USER_SETTINGS:
             continue
         if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", row["Set"]):
@@ -123,7 +123,7 @@ def problems(root):
         if effort not in EFFORTS:
             found.append(f"{role}: effort \"{effort}\" is not one of {', '.join(sorted(EFFORTS))}")
         if where.startswith(".claude/agents/"):
-            definition = next((d for d in agents.values() if d["path"] == root / where), None)
+            definition = agents.get(where)
             if definition is None:
                 found.append(f"{role}: {where} doesn't exist")
                 continue
@@ -137,7 +137,9 @@ def problems(root):
                          ".claude/agents/<file>.md, scripts/<file> <NAME>")
             continue
         try:
-            text = (root / script).read_text()
+            if script not in scripts:
+                scripts[script] = (root / script).read_text()
+            text = scripts[script]
         except OSError:
             found.append(f"{role}: {script} doesn't exist")
             continue
@@ -148,10 +150,8 @@ def problems(root):
                 found.append(f"{script}: {var} is \"{have or 'unset'}\", the table says \"{want}\"")
             elif len(re.findall(rf"\b{var}\b", text)) < 2:
                 found.append(f"{script}: {var} is set but never passed")
-    for definition in agents.values():
-        where = str(definition["path"].relative_to(root))
-        if not any(r["Set in"] == where for r in rows):
-            found.append(f"{where} has no row in {TABLE}'s \"{SECTION}\" table")
+    for where in sorted(agents.keys() - {row["Set in"] for row in rows}):
+        found.append(f"{where} has no row in {TABLE}'s \"{SECTION}\" table")
     builder, verifier = roles.get("builder"), roles.get("verifier")
     if builder and verifier and family(builder["Model"]) == family(verifier["Model"]):
         found.append(f"verifier: runs on the builder's model, {builder['Model']}; the table needs them to differ")

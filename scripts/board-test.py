@@ -5,6 +5,7 @@
 """
 import json
 import os
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -32,6 +33,7 @@ Plain words.
 class Readme(unittest.TestCase):
     def setUp(self):
         self.folder = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.folder)
         response = {"data": {"organization": {"projectV2": {"id": "PVT_1", "readme": README}}}}
         (self.folder / "response.json").write_text(json.dumps(response))
         # gh api graphql --include: headers, a blank line, then the body. Each call's arguments

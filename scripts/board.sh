@@ -275,12 +275,13 @@ case "$command" in
             query($owner: String!, $number: Int!) {
                 organization(login: $owner) { projectV2(number: $number) { readme } }
             }' -f owner="$OWNER" -F number="$NUMBER") || exit
+        readme=$(jq -r '.data.organization.projectV2.readme // ""' <<< "$response")
         if [ $# -eq 0 ]; then
-            jq -r '.data.organization.projectV2.readme // ""' <<< "$response"
+            printf '%s\n' "$readme"
             exit
         fi
         # A README saved from GitHub's web editor ends its lines with \r\n.
-        readme=$(jq -r '.data.organization.projectV2.readme // ""' <<< "$response" | tr -d '\r')
+        readme=$(tr -d '\r' <<< "$readme")
         section=$(awk -v heading="## Feature: $1" '
             /^## / { line = $0; sub(/[ \t]+$/, "", line); inside = (line == heading) }
             inside' <<< "$readme")
