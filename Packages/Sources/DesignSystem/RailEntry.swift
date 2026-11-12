@@ -14,7 +14,9 @@ extension Transaction {
 /// brief hold, the node's blue cools to its own color on an ease-out, an afterglow mostly gone at
 /// once. The first row has no line: its place opens over the same time, then it lands. With
 /// Reduce Motion the place opens at once, nothing is blue, there is no shot or overshoot; the
-/// haptic stays.
+/// haptic stays. Nothing waits on it: the key, scrolling, swiping a row, and the title all work
+/// while it plays, so nothing here may gate input; only the arriving row's own tap waits until it
+/// has entered.
 enum RailEntry {
     /// The content's landing: short, so it settles as the node's pop does.
     static let landing: TimeInterval = 0.08

@@ -29,7 +29,9 @@ struct RailPlace {
     /// A row whose sets are all done in a workout: its node is filled purple.
     var isDone = false
     /// The current row with a set logged that stays on it, until the key is back at the start:
-    /// its node rests small and gray (`SetBeat`).
+    /// its node rests small and gray (`SetBeat`). It is a value on the place, set by the rail, as
+    /// `isCurrent` is: an environment value set on the row's label never reaches its node, a
+    /// sibling inside `railRow()`.
     var isSetHeld = false
     /// How far below the row's bottom the next row's node is, as the rail last measured it at
     /// rest, and whether the row's group ends there: the row draws its group's loop from its node

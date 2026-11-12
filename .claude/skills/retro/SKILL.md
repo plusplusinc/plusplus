@@ -142,7 +142,9 @@ One row per prose rule a finding bears on: its file, the rule in a few words, wh
 was added, and two counts. Each retro adds one to **helped** when the work shows the rule
 steering it right, and one to **hurt** when the rule misled, contradicted another, or cost
 reading with nothing to show. Findings seen once wait there too, with where they were seen.
-Edit rows in place; never rewrite the ledger whole.
+Edit rows in place; never rewrite the ledger whole, or copy another over it. A session in a
+worktree, which Claude Code won't let edit the main checkout, appends its rows under a
+`## To merge` heading with the shell (`cat >> … <<'ROWS'`), and the next retro moves them.
 
 On the first run after a month ends, and on request (after a model upgrade, ask for one), the
 retro also prunes the rules, skills, agent definitions, and `CLAUDE.md`, line by line, starting
