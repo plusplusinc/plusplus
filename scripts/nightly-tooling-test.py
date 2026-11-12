@@ -669,6 +669,28 @@ class AgentTally(unittest.TestCase):
         self.assertEqual((night / nightly.TALLY).read_text(),
                          "No tally tonight: gh api graphql failed: gh: not signed in\n")
 
+    def test_the_command_counts_the_prs_github_says_merged(self):
+        # Like GitHub, the stand-in answers only the fields the query asks for, so the night's
+        # tally counts these PRs only when scripts/agent-record.py's query asks when each merged.
+        bin_dir = self.night / "bin"
+        bin_dir.mkdir()
+        merged = f"{datetime.now().astimezone() - timedelta(days=2):%Y-%m-%dT%H:%M:%SZ}"
+        (bin_dir / "gh").write_text(f"""#!/usr/bin/env python3
+import json, sys
+query = " ".join(sys.argv)
+fields = {{"mergedAt": {merged!r}}} if "mergedAt" in query else {{}}
+nodes = [dict(number=n, comments=dict(nodes=[]), commits=dict(nodes=[]), **fields) for n in (41, 42)]
+print(json.dumps({{"data": {{"search": {{"pageInfo": {{"hasNextPage": False, "endCursor": None}}, "nodes": nodes}},
+                             "rateLimit": {{"cost": 1, "remaining": 4999}}}}}}))
+""")
+        (bin_dir / "gh").chmod(0o755)
+        night = self.night / "night"
+        out = subprocess.run([sys.executable, str(SCRIPTS / "nightly-tooling.py"), "tally", str(night)],
+                             capture_output=True, text=True, timeout=60,
+                             env={**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}"})
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn(": 2 merged,", (night / nightly.TALLY).read_text())
+
 
 class Digest(unittest.TestCase):
     def test_a_merged_pr_has_its_undo_line(self):
