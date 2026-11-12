@@ -92,7 +92,9 @@ finding.
 
 Each covered PR that changed the app is read against "What the codebase is for" in
 `docs/principles.md`: a cost out of proportion to the idea, a product concept with no name in
-the code or with two, a decision no test holds, a workaround its Friction line names, a slower
+the code or with two, a decision no test holds, a state machine left implicit (flags read in
+combination, steps ordered by delays, a status worked out in more than one place), a workaround
+its Friction line names, a slower
 loop. A miss is a finding, and its fix is in the code, so it becomes a card (`/brief`), with a
 `Nightly:` line when it changes nothing the maintainer sees, never a prose rule.
 

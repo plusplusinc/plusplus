@@ -147,7 +147,9 @@ already passes through:
    special-cased, or written a second time. It goes in the Friction line.
 3. **Each night, the retro reads the merges against this section** (`.claude/skills/retro/`):
    a cost out of proportion to the idea, a product concept with no name in the code or with
-   two, a decision no test holds, a slower loop. Each becomes a card, which the lead or the
+   two, a decision no test holds, a state machine left implicit (flags read in combination,
+   steps ordered by delays, a status worked out in more than one place) where a named set
+   of states and transitions would say it, a slower loop. Each becomes a card, which the lead or the
    night builds without the maintainer when it changes nothing they see.
 4. **Each month, and before a large feature, the lead reviews the whole codebase** against
    the five points and the top of the board's queue, and cards what the coming work will need.
