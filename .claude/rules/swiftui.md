@@ -34,7 +34,9 @@ Leaf views take plain values and closures so they preview and snapshot without a
 - Every tappable element that is not a `Button` gets `.accessibilityAddTraits(.isButton)`;
   icon-only controls get `.accessibilityLabel`; decorative images get
   `.accessibilityHidden(true)`, but a view already `.hidden()` gets nothing more: the modifier
-  gives the empty view an unlabeled element of its own.
+  gives the empty view an unlabeled element of its own. A decorative text, such as the key's
+  +1, gets an empty `accessibilityRepresentation`: marked `accessibilityHidden`, it stays in
+  the tree that automation and `axe describe-ui` read, even at opacity 0.
 - Motion is snappy: every animation names its curve, `.snappy` unless the code it joins names
   another, never a bare `withAnimation` or the default spring, and quicker than `.snappy`'s
   default where it answers a tap: rows going onto and off a rail use `.railChange`, and a key
