@@ -126,8 +126,9 @@ it logs `fopen failed for data file` twice; re-record its reference (the editing
 before #150, over budget in 6 of runs 321 to 366).
 
 Other `DesignSystemTests` tests have read 2.7 to 4.6 s on Xcode Cloud and under 1 s locally, a
-different few each run (runs 326, 360, 362, 366). Three of those ran while the freshly booted
-simulator relaunched KonaSynthesizer, an Intel-only speech extension crashing under Rosetta,
+different few each run (runs 326, 360, 362, 366), and up to 7.7 s on Xcode Cloud in runs 374 and
+376, #150's last. In three of the first four runs, it ran while the freshly booted simulator
+relaunched KonaSynthesizer, an Intel-only speech extension crashing under Rosetta,
 which starts 26 to 46 s into the test action: a correlation, since runs 321 and 358 had it with
 nothing over. So such a test, with no `fopen` line, is slow only if it is also over 1.6 s in
 `scripts/test.sh sim DesignSystemTests` (the whole target: a filter to the one test would read
