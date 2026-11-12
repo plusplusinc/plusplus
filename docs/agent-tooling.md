@@ -170,11 +170,9 @@ what's new (Claude Code's changelog, Apple's release notes, the Brewfile tools' 
 the retros' friction since: what to keep, what to swap or cut, and what is missing. It edits
 nothing itself: it writes a private report to `.slices/review-setup/` and cards each change
 worth doing, this file's corrections included, and what costs money, changes an account, widens
-what agents may do, or touches the maintainer's own setup is a question in the report.
-`scripts/nightly-retro.sh` starts it with `scripts/nightly-tooling.py review` between the retro
-and the cards, from midnight to 5 am, on the first night of a month with no report yet; the
-newest report's date and the Xcode its first line names say when the next is due, so a run by
-hand counts. Its reply's last line goes in the tooling digest.
+what agents may do, or touches the maintainer's own setup is a question in the report. The
+nightly run starts it between the retro and the cards (`scripts/nightly-tooling.py`'s header
+says when); a run by hand counts, since the newest report says when the last one ran.
 
 ## Parallel work
 

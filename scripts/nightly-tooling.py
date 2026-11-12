@@ -28,7 +28,7 @@ also moves to Done the cards a night parked or left waiting whose PR has merged 
 scripts/nightly-retro.sh run calls `review` between the retro and `run`. From midnight to 5 am,
 on the first night of a month with no setup review's report in .slices/review-setup/ yet, or on
 a new major Xcode since the last report, it runs one `claude -p` with `/review-setup nightly` in
-the main checkout. Its reply's last line goes in the digest.
+the main checkout, for at most 90 minutes. Its reply's last line goes in the digest.
 
 `hook` is the PreToolUse hook `run` gives each card's claude through --settings. It runs before
 the permission rules, and its deny wins over their allow. It reads each Bash command as the shell
@@ -105,6 +105,7 @@ DAY_ONLY = (".claude/", "docs/")  # a PR entirely under these waits for the day
 RETRO_TITLE = "Retro of"  # how every retro PR's title starts (.claude/skills/retro/SKILL.md)
 REVIEW_REPORTS = ".slices/review-setup"  # in the main checkout (.claude/skills/review-setup/)
 REVIEW_STREAM = "review-setup.jsonl"  # the setup review's stream-json, in the night's folder
+REVIEW_LIMIT = timedelta(minutes=90)  # a setup review is stopped after this, or at the 5 am cutoff
 TEST_DIRS = ("Packages/Tests", "PlusPlusUITests")
 TEST_PATTERN = r"@Test([^A-Za-z]|$)|func test[A-Z_]"
 FEWER_TESTS = "Fewer tests:"  # the PR body's line that explains a drop, naming its target
@@ -1185,16 +1186,8 @@ class Night:
               f"branch `{branch}`; handoff `{handoff}`.\n")
         log(f"Card {n}: \"{title}\" in {worktree}; usage before: {usage_line(info)}.")
         stream = self.dir / f"card-{n}.jsonl"
-        deadline = stop + KILL_GRACE
-        with stream.open("w") as out:
-            process = subprocess.Popen(self.command(item, worktree, branch, settings), cwd=worktree,
-                                       env=self.git_env(), stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT,
-                                       text=True)
-            try:
-                process.wait(timeout=max(60, (deadline - datetime.now().astimezone()).total_seconds()))
-            except subprocess.TimeoutExpired:
-                process.terminate()
-                process.wait()
+        run_claude(self.command(item, worktree, branch, settings), stream, worktree, stop + KILL_GRACE,
+                   env=self.git_env())
         # Whatever happens next, no PR the card opened merges unless the runner arms it below.
         extra = [n for n in self.disarm() if n not in self.armed | self.seen]
         self.seen |= set(extra)
@@ -1395,7 +1388,7 @@ class Night:
         lines += [f"Usage: {u}" for u in self.usage]
         if (self.dir / REVIEW_STREAM).exists():
             reply = last_reply((self.dir / REVIEW_STREAM).read_text(errors="replace").splitlines())
-            lines.append(f"Setup review: {reply or 'it ended with no reply; its stream is ' + REVIEW_STREAM}")
+            lines.append(f"Setup review: {reply or 'no reply; its stream is in the night folder'}")
         lines.append(f"Ended: {self.ended}")
         return lines
 
@@ -1430,11 +1423,16 @@ def review(folder, now):
         return
     log(f"Setup review: {why}.")
     folder.mkdir(parents=True, exist_ok=True)
-    deadline = night_window(now)[1] + KILL_GRACE
-    with (folder / REVIEW_STREAM).open("w") as out:
-        process = subprocess.Popen(["claude", "--name", "Setup review", "-p", "--permission-mode", "auto",
-                                    "--output-format", "stream-json", "--verbose", "/review-setup nightly"],
-                                   cwd=main_checkout(), stdin=subprocess.DEVNULL, stdout=out,
+    # Capped well inside the night, so a long review still leaves the cards their hours.
+    run_claude(["claude", "--name", "Setup review", "-p", "--permission-mode", "auto", "--output-format",
+                "stream-json", "--verbose", "/review-setup nightly"], folder / REVIEW_STREAM, main_checkout(),
+               min(night_window(now)[0], datetime.now().astimezone() + REVIEW_LIMIT))
+
+
+def run_claude(command, stream, cwd, deadline, env=None):
+    """Runs a claude -p command to its end, its output to stream, stopping it at the deadline."""
+    with stream.open("w") as out:
+        process = subprocess.Popen(command, cwd=cwd, env=env, stdin=subprocess.DEVNULL, stdout=out,
                                    stderr=subprocess.STDOUT, text=True)
         try:
             process.wait(timeout=max(60, (deadline - datetime.now().astimezone()).total_seconds()))
