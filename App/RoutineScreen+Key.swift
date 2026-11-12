@@ -41,16 +41,16 @@ extension RoutineScreen {
 
     /// What the key is for, as the workout stands.
     private var liveKeyRole: KeyRole {
-        guard let workout = session.workout, !isStarting else { return .start }
-        if isWorkoutDone {
+        guard let shown, !isStarting else { return .start }
+        if shown.isDone {
             return isMovingOn ? .log(String(localized: "Log last set")) : .finish
         }
-        if let way = keyWayBack, let current = currentExercise {
+        if let way = keyWayBack, let current = shown.currentExercise {
             return .back(name: current.exercise.name, isAbove: way == .top)
         }
-        // The held set until the line rolls on, so the key changes with the row, not before it.
-        guard let set = heldSet ?? currentSet else { return .finish }
-        return .log(routine.logText(for: set, after: shownSets ?? workout.sets))
+        // As drawn, the held set until the line rolls on, so the key changes with the row, not
+        // before it.
+        return shown.logText.map(KeyRole.log) ?? .finish
     }
 
     /// The key that `primaryKeyBar` holds, for `role`. Within a kind, one key whose words
@@ -94,10 +94,10 @@ extension RoutineScreen {
     func tapKey(named name: String) {
         guard session.workout != nil, !isStarting else { return pressStart() }
         guard !isMovingOn, !isKeySwapping else { return }
-        if isWorkoutDone {
+        if live?.isDone == true {
             return finish(named: name)
         }
-        guard let current = currentExercise, let set = currentSet else { return }
+        guard let current = live?.currentExercise, let set = live?.currentSet else { return }
         if keyWayBack != nil || currentPlace?.isScrolledAway == true {
             // With Reduce Motion the list jumps back, as the key's swap only fades.
             withAnimation(reduceMotion ? nil : .snappy(duration: 0.4), scrollToCurrent)

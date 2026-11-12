@@ -167,7 +167,8 @@ struct RoutineScreen: View {
         // Read once here, so the rows' closure holds them as values: a list crossfading out keeps
         // drawing its rows with what it had, rather than the workout it is fading into.
         let currentID = currentID
-        let currentSet = currentSet
+        let shown = shown
+        let currentSet = shown?.currentSet
         let rowBars = rowBars
         let tracksRows = session.workout != nil || isStarting
         let underBar = underBarCut
@@ -202,7 +203,7 @@ struct RoutineScreen: View {
                         links: routine.joinedToNext,
                         arriving: arriving,
                         current: litID,
-                        done: finishedRows,
+                        done: shown?.finishedRows ?? [],
                         isSetHeld: heldSet != nil,
                         pulse: railPulse,
                         isMoving: isMovingOn,

@@ -4,19 +4,20 @@ import WorkoutStore
 
 /// A workout's sets: the current exercise and its set, a log, and the move on to the next.
 extension RoutineScreen {
-    /// The exercise a workout is on: the row of the set it does next. None once every set is
-    /// logged.
-    var currentExercise: RoutineExercise? {
-        currentSet.flatMap { set in routine.exercises.first { $0.id == set.row } }
+    /// The workout on the routine as stored, every log in it: what the key's taps read.
+    var live: LiveWorkout? {
+        session.workout.map { LiveWorkout(routine: routine, workout: $0) }
     }
 
+    /// The workout as the screen draws it: `live` less a set logged and not yet shown
+    /// (`heldSet`). Everything drawn reads it.
+    var shown: LiveWorkout? {
+        live?.hiding(unshownSet.map { [$0] } ?? [])
+    }
+
+    /// The exercise the workout is on, as drawn. None once every set is logged.
     var currentID: RoutineExercise.ID? {
-        currentExercise?.id
-    }
-
-    /// The set a workout does next, the first in the routine's order not yet logged.
-    var currentSet: PlannedSet? {
-        session.workout.flatMap { routine.nextSet(after: $0.sets) }
+        shown?.currentSet?.row
     }
 
     /// The row whose node is lit on the rail: the current exercise, but while a move to it is on
@@ -31,17 +32,6 @@ extension RoutineScreen {
     var heldSet: PlannedSet? {
         guard let held = unshownSet, session.workout?.sets.last?.planned == held else { return nil }
         return held
-    }
-
-    /// The workout's sets as the screen shows them: all but a held one.
-    var shownSets: [LoggedSet]? {
-        let held = heldSet
-        return session.workout?.sets.filter { $0.planned != held }
-    }
-
-    /// Whether every planned set of the workout is logged, so the key finishes the workout.
-    var isWorkoutDone: Bool {
-        session.workout != nil && !routine.exercises.isEmpty && currentSet == nil
     }
 
     /// The current exercise as it grows into `set`: at a superset round's end, it shows the round
@@ -63,7 +53,7 @@ extension RoutineScreen {
         on set: PlannedSet?,
         bars: SetProgress?,
     ) -> RowLabel {
-        let focus = item.id == current ? (heldSet ?? set).map { focus(of: item, on: $0) } : nil
+        let focus = item.id == current ? set.map { focus(of: item, on: $0) } : nil
         return RowLabel(
             title: item.exercise.name,
             detail: item.detailParts(locale: locale),
@@ -73,32 +63,18 @@ extension RoutineScreen {
         )
     }
 
-    /// The rows whose sets are all logged in the workout, whose nodes show them done.
-    var finishedRows: Set<RoutineExercise.ID> {
-        guard let sets = session.workout?.sets else { return [] }
-        return Set(routine.exercises.lazy.map(\.id).filter { id in
-            let progress = routine.progress(of: id, logged: sets)
-            return progress.total > 0 && progress.done == progress.total
-        })
-    }
-
     /// Each row's bars (`bars(of:)`), for the rows' closure to hold as values.
     var rowBars: [RoutineExercise.ID: SetProgress] {
         routine.exercises.reduce(into: [:]) { bars, item in bars[item.id] = self.bars(of: item.id) }
     }
 
-    /// The set bars a row shows in a workout: on the current exercise always, from its first set;
-    /// on any other only once started and until finished, where its node shows it done.
+    /// The set bars a row shows in a workout (`LiveWorkout.bars(of:)`), as drawn.
     func bars(of id: RoutineExercise.ID) -> SetProgress? {
-        guard let sets = shownSets else { return nil }
-        let progress = routine.progress(of: id, logged: sets)
-        guard id == currentID
-            || routine.isStarted(id, logged: sets) && progress.done < progress.total
-        else { return nil }
+        guard let (done, total) = shown?.bars(of: id) else { return nil }
         return SetProgress(
-            done: progress.done,
-            total: progress.total,
-            spoken: spokenProgress(done: progress.done, total: progress.total, locale: locale),
+            done: done,
+            total: total,
+            spoken: spokenProgress(done: done, total: total, locale: locale),
         )
     }
 
@@ -125,12 +101,20 @@ extension RoutineScreen {
     func log(_ set: PlannedSet, of row: RoutineExercise) {
         // The key logs nothing during a move (`tapKey(named:)`): one would start a second move
         // whose state the first one's end tears down.
-        guard let workout = session.workout, !isMovingOn else { return }
-        let next = routine.nextSet(after: workout.logging(set, of: row, at: .now).sets)
-        guard next?.row != set.row else {
+        guard let live, !isMovingOn else { return }
+        let step = live.step(logging: set)
+        guard step != .nextSet else {
             unshownSet = set
             session.log(set, of: row)
             return
+        }
+        let next: PlannedSet?
+        let isBack: Bool
+        let startsRound: Bool
+        if case let .nextExercise(to, back, round) = step {
+            (next, isBack, startsRound) = (to, back, round)
+        } else {
+            (next, isBack, startsRound) = (nil, false, false)
         }
         let target = next.flatMap { landing(on: $0.row, leaving: row.id) }
         noteRestingPitch(of: next?.row)
@@ -142,13 +126,10 @@ extension RoutineScreen {
         }
         guard let next else { return logLast(set, of: row) }
         unshownSet = nil
-        let rows = routine.exercises.map(\.id)
-        let isUp = (rows.firstIndex(of: next.row) ?? 0) < (rows.firstIndex(of: row.id) ?? 0)
         // At a superset round's end, the round just done rolls to the next once the first member
         // has grown to show it.
-        let held = isUp && next.round != set.round && routine.isInSuperset(next.row)
-            ? focus(of: row, on: set).progress : nil
-        let way: SetMotion.Way = isUp ? .loop : .down
+        let held = startsRound ? focus(of: row, on: set).progress : nil
+        let way: SetMotion.Way = isBack ? .loop : .down
         isMovingOn = true
         // The node left goes to its own color at once, under the pulse pulling out of it, which
         // leaves it behind in that color as its neck snaps.
