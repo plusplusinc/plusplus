@@ -139,7 +139,8 @@ a night, or until a usage window reaches 0.9 on the night before the weekly limi
 never after 5 am. Its gates are code, tested against fixtures by
 `python3 scripts/nightly-tooling-test.py`, which `scripts/test.sh` runs: the time of night, the
 usage limits read from the night's own stream-json (never a probe call), this month's Xcode Cloud hours and the night's
-runs, overlap with open PRs, and, once a card's lead (the nightly-card skill) ends, a passing
+runs, overlap with open PRs (a retro PR's `.claude/` and `docs/` Markdown aside, and a card held
+back named atop the digest), and, once a card's lead (the nightly-card skill) ends, a passing
 verifier record before it arms auto-merge, while a PR touching a protected path (what CI runs,
 and what steers the night's agents) or only `.claude/` and `docs/` waits for the maintainer and
 a failed one goes back to draft. A PreToolUse hook it passes each card's claude runs before the

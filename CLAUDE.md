@@ -125,16 +125,16 @@ Anything the maintainer throws out, or the lead finds along the way, becomes a c
 `/brief`, which looks for one already there and places it in that queue; a small tooling or
 process change the lead recommends in answer to their question is made then, in its own PR,
 not offered as a card. Working files go in `.slices/`.
-The maintainer's time is for the product. Tooling, CI, tests, and process (a standalone card
-that changes nothing they see in the app, and the nightly retro's PR) are the lead's to find,
-card, align, build, verify, and merge on its own once CI is green, never asking whether to,
-alongside a product slice where it can, telling them in a line what landed. A message about such
-work says what it means for the app in plain words, never the runs, tests, or files behind it,
-and comes only with news; where a condition they set for it fails, the lead makes the call and
-asks only for a yes. It checks first that the change is worth its cost and safe to undo. What
-reaches outside the repo or can't be undone still waits for their word: spending money, or
-Xcode Cloud hours beyond the plan, a `v*` tag, an account's settings, deleting what isn't the
-lead's.
+The maintainer's time is for the product. Tooling, CI, tests, process, and bugs with a clear fix (a
+standalone card that changes nothing they see in the app, or a bug whose right behavior is settled,
+and the nightly retro's PR) are the lead's to find, card, align, build, verify, and merge on its own
+once CI is green, never asking whether to, alongside a product slice where it can, telling them in a
+line what landed; a fix that needs a choice of look, wording, or behavior is theirs. A message about
+such work says what it means for the app in plain words, never the runs, tests, or files behind it,
+and comes only with news; where a condition they set for it fails, the lead makes the call and asks
+only for a yes. It checks first that the change is worth its cost and safe to undo. What reaches
+outside the repo or can't be undone still waits for their word: spending money, or Xcode Cloud hours
+beyond the plan, a `v*` tag, an account's settings, deleting what isn't the lead's.
 
 ## Working in the project
 
