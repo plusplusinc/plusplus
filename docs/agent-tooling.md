@@ -81,6 +81,73 @@ it is missing (the download runs on after the hook's two minutes, logging to
 `.build/runtime-download.log`) and, once it is installed, deletes the older ones and the
 simulators left on them. `scripts/common.sh` moves each checkout's simulator onto it.
 
+`scripts/models.py hook` is written to run as a `PreToolUse` hook on the Agent tool, holding
+subagents to the table in "Models by task", below. It is not wired yet: `.claude/settings.json`
+denies agents its own edits, so the maintainer adds the entry by hand, and until then
+`scripts/models.py check` prints a warning. The entry, under `hooks`, allows the call in a
+checkout that has no `scripts/models.py` (an older branch's worktree):
+
+```json
+"PreToolUse": [
+  { "matcher": "Agent", "hooks": [ { "type": "command", "command": "[ -f \"$CLAUDE_PROJECT_DIR/scripts/models.py\" ] || exit 0; python3 \"$CLAUDE_PROJECT_DIR/scripts/models.py\" hook" } ] }
+]
+```
+
+## Models by task
+
+Each role's model is set here and nowhere else decides it. `scripts/models.py check`, which
+`scripts/lint.sh` runs, fails when an agent definition in `.claude/agents/` or a nightly script
+disagrees with this table, when a definition or a script's `<NAME>_MODEL` has no row, when a
+script in `scripts/` starts `claude -p` without passing a `--model` the table sets, and when the
+verifier shares the builder's model. "Set in" says where each is set: a definition's `model:` and `effort:`, a nightly
+script's `<NAME>_MODEL` and `<NAME>_EFFORT`, which it passes as `--model` and `--effort`, or the
+Agent tool's `model`, which the lead passes for a one-off subagent by its kind of task. A
+definition's `model:` takes a full model ID such as `claude-opus-5-5`, so definitions and scripts
+pin one and a new release changes nothing until a trial here does; the Agent tool's `model` takes
+only an alias (`fable`, `opus`, `sonnet`, `haiku`), which follows the newest of its family
+([subagents](https://code.claude.com/docs/en/sub-agents#choose-a-model)). The Agent tool here
+takes no effort (as of 2026-11-11, Claude Code 2.1.322: its schema has no `effort` parameter),
+so the one-off rows' Effort reads "—".
+
+Once the hook's entry is added, it refuses an Agent call of a type with no definition naming a
+model (general-purpose, Explore, Plan, claude-code-guide, claude) that passes no `model`, or one
+that isn't an alias, naming this table. It also refuses any `model` passed to one of this repo's
+agents whose definition names one: the call's would override the definition's, and an alias
+would drop the pin at the next release, so the planner, builder, and verifier are called with no
+`model`. It always allows a fork, a plugin's agent (a `:` in the type), an agent defined in
+`~/.claude/agents/`, which are the maintainer's, and any call that isn't to the Agent tool or
+lacks its input, and any error of its own allows the call.
+
+| Role | Set in | Model | Effort | Why | Set | Evidence |
+|---|---|---|---|---|---|---|
+| lead | user settings | `opus[1m]`, or the app's choice | medium | The maintainer's setting, not the repo's; a change there is a question for them | — | Fable 5.2 on 2026-11-11, in a session started from the phone, while the settings name `opus[1m]` |
+| planner | `.claude/agents/planner.md` | `claude-fable-5-2` | high | A plan's mistakes cost every later phase | 2026-11-11 | The card's starting choice; no record yet |
+| builder | `.claude/agents/builder.md` | `claude-opus-5-5` | high | Builds from a written plan, the longest phase, so a mid-tier model | 2026-11-11 | The card's starting choice; Opus built every slice before this table |
+| verifier | `.claude/agents/verifier.md` | `claude-fable-5-2` | high | Finds what the builder missed, so the strongest, and not the builder's model | 2026-11-11 | The card's starting choice; no record yet |
+| retro | `scripts/nightly-retro.sh RETRO` | `claude-fable-5-2` | high | Judges a day's work and edits the rules | 2026-11-11 | The card's starting choice; it ran on the interactive default before |
+| night card lead | `scripts/nightly-tooling.py CARD` | `claude-fable-5-2` | high | Leads a card alone, with no maintainer to catch it | 2026-11-11 | The card's starting choice; it ran on the interactive default before |
+| setup review | `scripts/nightly-tooling.py REVIEW` | `claude-fable-5-2` | high | Weighs the whole setup once a month | 2026-11-11 | The card's starting choice; it ran on the interactive default before |
+| lookup | Agent tool | `haiku` | — | Finds a file, a symbol, or a fact and returns it | 2026-11-11 | The card's starting choice; no record yet |
+| doc research | Agent tool | `haiku` | — | Reads documentation and quotes what it says | 2026-11-11 | The card's starting choice; no record yet |
+| repro | Agent tool | `sonnet` | — | Drives the simulator through `/run`'s steps, which the smallest model follows less surely | 2026-11-11 | A judgment, not measured; the first trial to run if repros come back right |
+| mechanical edit | Agent tool | `sonnet` | — | A rename or a move whose every step is given | 2026-11-11 | The card's starting choice; no record yet |
+| review | Agent tool | `fable` | — | `/simplify`'s and `/code-review`'s reviewers, and any second opinion | 2026-11-11 | The card's starting choice; no record yet |
+
+The table's efforts take no effect today. The maintainer's user settings set
+`CLAUDE_CODE_EFFORT_LEVEL=medium`, which Claude Code puts ahead of a definition's `effort:` and
+of `--effort` ([model configuration](https://code.claude.com/docs/en/model-config#adjust-effort-level),
+[subagents](https://code.claude.com/docs/en/sub-agents)), so every agent runs at `medium` while it
+is set. The definitions and scripts set theirs anyway, so they apply once it is gone.
+
+Which setting wins for a subagent's model, by
+[the subagents doc](https://code.claude.com/docs/en/sub-agents#choose-a-model): the Agent tool's
+`model`, then the definition's `model:`, then `CLAUDE_CODE_SUBAGENT_MODEL`, then the caller's
+model. Measured on 2026-11-11, while the maintainer's user settings set
+`CLAUDE_CODE_SUBAGENT_MODEL=opus`: a call passing `model: haiku` was served by
+`claude-haiku-5-5`, and a user-level agent whose definition says `model: fable`, called with no
+model, was served by `claude-fable-5-2`. Both a call's model and a definition's win over that
+setting.
+
 ## Rules
 
 `.claude/rules/*.md` carry the detail that would bloat `CLAUDE.md`. Each has a `paths:` list and

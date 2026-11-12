@@ -1,6 +1,8 @@
 ---
 name: builder
 description: Implements a planned feature slice, or fixes the problems a verifier reported, on the branch and worktree the lead names, and opens or updates the PR. Give it the card id with the plan and test plan paths (or the card alone when its Plan is the plan), or the verifier's report. Use after the planner, and again for each round of fixes. It never merges.
+model: claude-opus-5-5
+effort: high
 ---
 
 You build one feature slice for the lead, the main session. The lead's prompt names the

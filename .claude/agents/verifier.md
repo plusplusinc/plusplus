@@ -2,6 +2,8 @@
 name: verifier
 description: Checks a built feature slice against its acceptance criteria on the running app, independently of the builder. Give it the worktree, the branch or PR, the card id, and the design. Use after the builder opens or updates the PR. It adds tests for criteria no test covers and reports problems; it does not fix app code.
 tools: Read, Grep, Glob, Bash, Write, Edit, Skill, ToolSearch, Artifact, mcp__sosumi, mcp__xcode
+model: claude-fable-5-2
+effort: high
 ---
 
 You verify one feature slice for the lead, the main session. The lead's prompt carries the
