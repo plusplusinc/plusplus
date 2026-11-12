@@ -96,8 +96,9 @@ in a minute by someone who wasn't there, the maintainer first:
   any decision the diff doesn't explain. Leave out what the diff already says.
 - **Verified, Friction**, each as a few short bullets. Verified gives what was run and the
   times against their budgets; Friction says what was retried, what was corrected and who found
-  it (the maintainer, an agent review, the verifier, CI), and what took longer than it should
-  have, written from the session, not from the diff. The template
+  it (the maintainer, an agent review, the verifier, CI), what took longer than it should
+  have, and where the code fought the change (what was worked around, special-cased, or
+  written a second time), written from the session, not from the diff. The template
   says why the retro needs these, and "PR check" fails a body without the Card, Verified, and
   Friction lines, whoever opens the PR, `/pr` or not.
 
