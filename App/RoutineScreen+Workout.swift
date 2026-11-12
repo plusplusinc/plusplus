@@ -10,9 +10,9 @@ extension RoutineScreen {
     static let currentTopSpace = Spacing.lg
 
     /// Start's press: the key comes back up as any key does, a medium impact plays, and after a
-    /// beat `leave(named:)` runs. A second press in the meantime does nothing.
+    /// beat `leave()` runs. A second press in the meantime does nothing.
     func pressStart() {
-        guard !isStarting, !isKeyAway, session.workout == nil else { return }
+        guard !isStarting, keyAway == nil, session.workout == nil else { return }
         // The list's end lies under the first row until it grows, so a short routine may have
         // nowhere to scroll it to: room under the end, out of sight, lets it go. It goes in
         // ahead of the scroll: a scroll in the same transaction stops at the old end.
@@ -28,7 +28,7 @@ extension RoutineScreen {
 
     /// The beat after Start's press, then the key leaves. Run as `isStarting`
     /// changes, so the beat is cancelled if the screen goes away, and nothing has changed.
-    func holdStart(named name: String) async {
+    func holdStart() async {
         guard isStarting, session.workout == nil else { return }
         do {
             try await Task.sleep(for: .seconds(Self.pressHold), tolerance: .zero)
@@ -37,7 +37,7 @@ extension RoutineScreen {
             isMakingRoom = false
             return
         }
-        leave(named: name)
+        leave()
     }
 
     /// Start in beats, each once the last has finished: if the first exercise is
@@ -45,7 +45,7 @@ extension RoutineScreen {
     /// exercise grows into the current one as the list scrolls it up under the bar, in one
     /// motion, and the key rides down off the screen with the rows below it. With Reduce
     /// Motion, the list crossfades into the workout.
-    private func leave(named name: String) {
+    private func leave() {
         // What the first row gives back as it shrinks, which the move off it lands by.
         noteRestingPitch(of: routine.exercises.first?.id)
         guard !reduceMotion else {
@@ -53,14 +53,14 @@ extension RoutineScreen {
                 scrollingTo: currentPlace?.landingY ?? scrollBeat.scrolledY,
                 then: bringKeyBack,
             ) {
-                session.start(routineName: name)
+                session.start()
                 isStarting = false
                 // The bar's room goes for the crossfade: the room under the list holds it, and
                 // measured, the list stayed put (13 Starts, 2026-11-01).
-                isKeyAway = true
+                keyAway = keyAway ?? .givingUpRoom
             }
         }
-        bringFirstIntoView { grow(named: name) }
+        bringFirstIntoView { grow() }
     }
 
     /// Scrolls the list to its top if the first exercise is scrolled away, then, once
@@ -83,7 +83,7 @@ extension RoutineScreen {
     /// screen as they do. An animated scroll held the growth back until it
     /// had nearly landed, so the list is scrolled at once and drawn where it was, then both run
     /// in one animation.
-    private func grow(named name: String) {
+    private func grow() {
         // The grown exercise's height is its content's, known once it is laid out, so Start rides
         // a screen's height down, out of sight by the time the growth ends.
         let drop = listHeight
@@ -99,7 +99,7 @@ extension RoutineScreen {
         // `isResizing`).
         isGrowingOrEnding = true
         withAnimation(.snappy(duration: Self.growBeat)) {
-            session.start(routineName: name)
+            session.start()
             growthLift = 0
             startDrop = max(drop, 1)
         } completion: {
@@ -114,8 +114,7 @@ extension RoutineScreen {
         Task {
             try? await Task.sleep(for: .seconds(Self.keyReturnDelay), tolerance: .zero)
             withTransaction(\.disablesAnimations, true) {
-                isKeyAway = true
-                keepsKeyRoom = true
+                keyAway = .keepingRoom
                 isStarting = false
                 startDrop = 0
             }
@@ -159,7 +158,7 @@ extension RoutineScreen {
         }
         // The workout's key slides down as it fades, and Start stays away until the list has
         // landed: taken out with no animation, the key went on the frame.
-        withAnimation(.easeOut(duration: Self.barFade)) { isKeyAway = true }
+        withAnimation(.easeOut(duration: Self.barFade)) { keyAway = keyAway ?? .givingUpRoom }
         // Once the time has faded out of its key, the key's glass goes, the bar fading it: taken
         // out with no animation, it went on the frame. A beat in the sequence by design.
         Task {
@@ -196,8 +195,7 @@ extension RoutineScreen {
     /// or Start.
     private func bringKeyBack() {
         withAnimation(.smooth(duration: Self.startReturn)) {
-            isKeyAway = false
-            keepsKeyRoom = false
+            keyAway = nil
         }
     }
 

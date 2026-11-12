@@ -1,4 +1,5 @@
 import DesignSystem
+import Session
 import SwiftUI
 import WorkoutStore
 
@@ -133,7 +134,11 @@ struct DrawerMenu: View {
 
 #Preview {
     DrawerMenu(
-        session: RoutineSession(routine: Routine(name: "Upper body"), store: nil),
+        session: RoutineSession(
+            routine: Routine(name: "Upper body"),
+            store: nil,
+            namer: .muscleGroupsOnly,
+        ),
         namer: .muscleGroupsOnly,
     )
 }

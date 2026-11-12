@@ -57,8 +57,10 @@ feature, and change them with it.
   `RowLabel.swift` (`RowFocus`), `GrowingName`, `RailStack`, `RailEntry` (a row joining a rail).
 - The key at the bottom and the +1: `RoutineScreen+Key.swift`, `PrimaryKeyButtonStyle.swift`,
   `PlusOneBurst`.
-- Logging a set and moving on to the next exercise: `RoutineScreen+Logging.swift`, `SetMotion`,
-  `RailPulse`, `SetBeat` in `RailRow.swift`.
+- Logging a set and moving on to the next exercise: `RoutineScreen+Logging.swift` (`play(_:)`,
+  the one entry that shows a stored log), `SetMotion`, `RailPulse`, `SetBeat` in `RailRow.swift`.
+  Where a workout is and what a log leads to are `LiveWorkout`'s, and which logs are yet to
+  show `WorkoutPlayback`'s, both in `WorkoutStore`.
 - Dragging a row, and supersets: `RailDrag`, `RailLiftGesture`, `RailAutoscroll`, `LoopPen`
   (`LoopHeads.swift`), `RailPairing`, `RailWell.swift`, `RailRegroup`, `RailStrokes.swift`.
 - The ++ drawer and the Routines screen: `SideDrawer`, `DrawerSwipe`, `DrawerMenu`,
