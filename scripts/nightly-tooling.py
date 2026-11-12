@@ -13,7 +13,8 @@ the board has one by that title or an open one for that tool. `run` holds the ni
 no agent can forget one: it starts cards only from midnight to 5 am, up to three a night, or,
 on the night before the weekly usage limit resets (its reset at or before 7 am), until a
 usage window reaches 0.9 or 5 am. Before each card it reads the last rate_limit_event in the
-night's logs (no probe calls), this month's Xcode Cloud PR hours, and the open PRs' files. It
+night's logs (no probe calls), this month's Xcode Cloud PR hours, and the open PRs' files,
+skipping a card that names one (a retro PR's Markdown aside) and saying so atop the digest. It
 makes the card's worktree from main, runs one `claude -p` lead with the nightly-card skill,
 then decides on the PR itself: auto-merge is armed only after a passing verifier record, never
 for a PR touching a protected path or only .claude/ and docs/, which wait for the maintainer;
@@ -94,6 +95,7 @@ PROTECTED = [
 # The CI half repeats what .github/no-code-paths's header and scripts/pr-check.sh's GATE_PATTERN
 # name; a file added to either belongs here too.
 DAY_ONLY = (".claude/", "docs/")  # a PR entirely under these waits for the day
+RETRO_BRANCH = "retro/"  # the nightly retro's PR branches (.claude/skills/retro/SKILL.md)
 TEST_DIRS = ("Packages/Tests", "PlusPlusUITests")
 TEST_PATTERN = r"@Test([^A-Za-z]|$)|func test[A-Z_]"
 FEWER_TESTS = "Fewer tests:"  # the PR body's line that explains a drop, naming its target
@@ -260,6 +262,16 @@ def likely_files(body, repo_files):
         elif path and any(f.startswith(path + "/") for f in repo_files):
             names.add(path + "/")
     return names
+
+
+def clash_files(pr):
+    """The files of an open PR a card may collide with: all of them, but a retro PR's Markdown.
+    The nightly retro's PR waits for a day session to merge it and often edits the rules, so
+    counting its Markdown would hold back every card naming them; a clash there is a small merge."""
+    files = [f["path"] for f in pr["files"]]
+    if pr.get("headRefName", "").startswith(RETRO_BRANCH):
+        return [f for f in files if not f.endswith(".md")]
+    return files
 
 
 def overlap(likely, files):
@@ -896,6 +908,7 @@ class Night:
         self.unchecked = []  # what the runner couldn't make sure of, for the top of the digest
         self.added = []  # the titles of the update cards the runner put on the board tonight
         self.closed = []  # cards moved to Done tonight, since a day session merged their PR
+        self.held = []  # cards skipped for an open PR's files, for the top of the digest
         self.ended = "no card was eligible"
 
     def logs(self):
@@ -1029,8 +1042,8 @@ class Night:
         runs = xcode_cloud_runs()
         self.hours = month_hours(runs, self.clock())
         self.runs_tonight = runs_tonight(runs, self.start, self.dir)
-        open_prs = gh_json("pr", "list", "--state", "open", "--json", "number,files")
-        open_files = {pr["number"]: [f["path"] for f in pr["files"]] for pr in open_prs}
+        open_prs = gh_json("pr", "list", "--state", "open", "--json", "number,files,headRefName")
+        open_files = {pr["number"]: clash_files(pr) for pr in open_prs}
         # The cards and main's files, read once a night: the runner's own moves are in self.tried.
         if not hasattr(self, "cards_tonight"):
             self.cards_tonight = board_cards(board_rows())
@@ -1046,6 +1059,8 @@ class Night:
                 clashes = {n: f for n, f in clashes.items() if f}
                 if clashes:
                     why = "it may touch what " + ", ".join(f"#{n} ({', '.join(f)})" for n, f in clashes.items()) + " changes"
+                    self.held.append(f"\"{title}\" {why[3:]}; merge or close "
+                                     + " and ".join(f"#{n}" for n in clashes) + " so a night can take it")
             if not why:
                 # A card that names no files may change the app, so the budget applies to it too.
                 app = not likely or classify(sorted(likely)) != "docs"
@@ -1293,11 +1308,13 @@ class Night:
         tidy()
 
     def top_lines(self):
-        """What the digest says first: merges that skipped the gates, and what went unchecked."""
+        """What the digest says first: merges that skipped the gates, what went unchecked, and the
+        cards an open PR held back, so a day session merges or closes that PR first."""
         return [f"Merged without the runner: #{pr['number']} {pr['title']}, by "
                 f"{(pr.get('mergedBy') or {}).get('login', 'unknown')}; none of the night's gates ran on it. "
                 f"Review it; undo: git revert {((pr.get('mergeCommit') or {}).get('oid') or '?')[:7]}"
-                for pr in self.unarmed] + [f"Not checked: {u}" for u in dict.fromkeys(self.unchecked)]
+                for pr in self.unarmed] + [f"Not checked: {u}" for u in dict.fromkeys(self.unchecked)] + [
+                    f"Waits on an open PR: {h}" for h in self.held]
 
     def digest(self):
         now = datetime.now().astimezone()

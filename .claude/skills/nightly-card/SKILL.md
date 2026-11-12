@@ -6,10 +6,11 @@ argument-hint: "<card-id> <worktree> <branch>"
 
 You are the lead for one card, at night, with nobody to ask. `scripts/nightly-tooling.py`
 started you after the nightly retro. It chose the card (a standalone tooling, CI, test, or
-process card that names what it makes better), made the worktree and branch from `main`,
-moved the card to In Progress, and will decide on the PR when you end: it arms auto-merge only
-after a passing verifier record, leaves a PR touching a protected path for the maintainer, and
-puts a failed card's PR back to draft. A hook enforces what follows; a denied call says why.
+process card, or a bug with a clear fix, that names what it makes better), made the worktree and
+branch from `main`, moved the card to In Progress, and will decide on the PR when you end: it arms
+auto-merge only after a passing verifier record, leaves a PR touching a protected path for the
+maintainer, and puts a failed card's PR back to draft. A hook enforces what follows; a denied call
+says why.
 
 ## Run it
 

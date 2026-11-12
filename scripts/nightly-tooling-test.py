@@ -203,6 +203,60 @@ class Paths(unittest.TestCase):
         self.assertEqual(nightly.overlap({"scripts/tidy.sh"}, ["scripts/tidy.sh.bak", "docs/x.md"]), [])
 
 
+class OpenPRs(unittest.TestCase):
+    """A card waits for an open PR changing a file it names, unless that is a retro PR's Markdown."""
+
+    REPO = ".claude/rules/testing.md\nscripts/nightly-tooling.py\nPackages/Sources/App/Row.swift\ndocs/pr-check.md\n"
+    BODY = "## Problem\nx\n\nNightly: faster CI; its time\n\n## Success\nRun it.\n\n## Plan\n- Edit `{}`.\n"
+
+    def night(self, prs, names):
+        cards = [(f"PVTI_{i}", "Todo", "-", f"card {i}", self.BODY.format(name)) for i, name in enumerate(names)]
+        stubs = {"board_rows": lambda: [], "board_cards": lambda rows: cards, "xcode_cloud_runs": lambda: [],
+                 "gh_json": lambda *a: prs, "classify": lambda files: "docs",
+                 "sh": lambda *a, **k: self.REPO}
+        saved = {name: getattr(nightly, name) for name in stubs}
+        self.addCleanup(lambda: [setattr(nightly, n, f) for n, f in saved.items()])
+        for name, stub in stubs.items():
+            setattr(nightly, name, stub)
+        night = nightly.Night(tempfile.mkdtemp(), NIGHT, True)
+        self.addCleanup(shutil.rmtree, night.dir, True)
+        night.start = NIGHT
+        with contextlib.redirect_stdout(io.StringIO()):
+            card = night.next_card()
+        return night, card
+
+    @staticmethod
+    def pr(n, branch, *files):
+        return {"number": n, "headRefName": branch, "files": [{"path": f} for f in files]}
+
+    def test_a_retro_prs_markdown_holds_no_card_back(self):
+        retro = self.pr(161, "retro/2026-11-10", ".claude/rules/testing.md", "docs/pr-check.md")
+        night, card = self.night([retro], [".claude/rules/testing.md"])
+        self.assertEqual(card[1], "card 0")
+        self.assertEqual(night.held, [])
+
+    def test_a_script_or_swift_file_still_holds_a_card_back(self):
+        retro = self.pr(161, "retro/2026-11-10", ".claude/rules/testing.md", "scripts/nightly-tooling.py")
+        slice_ = self.pr(164, "plus-one-a11y", "Packages/Sources/App/Row.swift")
+        night, card = self.night([retro, slice_], ["scripts/nightly-tooling.py", "Packages/Sources/App/Row.swift"])
+        self.assertIsNone(card)
+        self.assertEqual(night.held, [
+            '"card 0" may touch what #161 (scripts/nightly-tooling.py) changes; merge or close #161 so a night can take it',
+            '"card 1" may touch what #164 (Packages/Sources/App/Row.swift) changes; merge or close #164 so a night can '
+            "take it"])
+
+    def test_any_other_prs_markdown_still_holds_a_card_back(self):
+        night, card = self.night([self.pr(158, "prune-docs", ".claude/rules/testing.md")], [".claude/rules/testing.md"])
+        self.assertIsNone(card)
+        self.assertIn("#158", night.held[0])
+
+    def test_the_held_cards_open_the_digest(self):
+        night, _ = self.night([self.pr(164, "plus-one-a11y", "Packages/Sources/App/Row.swift")],
+                              ["Packages/Sources/App/Row.swift"])
+        night.unchecked.append("x")
+        self.assertEqual(night.top_lines(), ["Not checked: x", "Waits on an open PR: " + night.held[0]])
+
+
 class Eligibility(unittest.TestCase):
     BODY = "## Problem\nx\n\nNightly: faster CI; the PR check's time\n\n## Success\nRun it: it passes.\n\n## Plan\n- y\n"
 
