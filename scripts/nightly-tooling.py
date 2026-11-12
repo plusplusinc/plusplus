@@ -2,6 +2,7 @@
 """After the nightly retro, runs eligible tooling cards one at a time, each with its own lead.
 
     scripts/nightly-tooling.py run <night-dir> [--dry-run] [--now 2026-10-29T01:30]
+    scripts/nightly-tooling.py review <night-dir>            # the setup review, when one is due
     scripts/nightly-tooling.py hook <night-dir> <worktree>   # a card's PreToolUse hook
     scripts/nightly-tooling.py pre-push <night-dir>          # a card's git pre-push hook
     scripts/nightly-tooling.py digest [<night-dir>]          # a night's digest; the last by default
@@ -23,6 +24,11 @@ a failed card's PR goes back to draft. It ends with a private digest, saved in t
 folder, which `scripts/nightly-retro.sh show` prints. --dry-run reads everything and prints the
 card it would take and the command it would run, then stops before changing anything. Each run
 also moves to Done the cards a night parked or left waiting whose PR has merged since.
+
+scripts/nightly-retro.sh run calls `review` between the retro and `run`. From midnight to 5 am,
+on the first night of a month with no setup review's report in .slices/review-setup/ yet, or on
+a new major Xcode since the last report, it runs one `claude -p` with `/review-setup nightly` in
+the main checkout. Its reply's last line goes in the digest.
 
 `hook` is the PreToolUse hook `run` gives each card's claude through --settings. It runs before
 the permission rules, and its deny wins over their allow. It reads each Bash command as the shell
@@ -97,6 +103,8 @@ PROTECTED = [
 # name; a file added to either belongs here too.
 DAY_ONLY = (".claude/", "docs/")  # a PR entirely under these waits for the day
 RETRO_TITLE = "Retro of"  # how every retro PR's title starts (.claude/skills/retro/SKILL.md)
+REVIEW_REPORTS = ".slices/review-setup"  # in the main checkout (.claude/skills/review-setup/)
+REVIEW_STREAM = "review-setup.jsonl"  # the setup review's stream-json, in the night's folder
 TEST_DIRS = ("Packages/Tests", "PlusPlusUITests")
 TEST_PATTERN = r"@Test([^A-Za-z]|$)|func test[A-Z_]"
 FEWER_TESTS = "Fewer tests:"  # the PR body's line that explains a drop, naming its target
@@ -225,6 +233,39 @@ def limit_hit(lines):
             if event.get("api_error_status") == 429 or re.search(r"hit your .*limit", text):
                 return True
     return False
+
+
+def xcode_major(text):
+    """The major version of the first "Xcode <version>" in text ("Xcode 27.1" gives "27"), or None."""
+    match = re.search(r"Xcode (\d+)", text or "")
+    return match.group(1) if match else None
+
+
+def last_review(folder):
+    """(month, Xcode major) of the newest setup review's report in folder, or None. The report's
+    name holds its date and its first line the Xcode it ran on (.claude/skills/review-setup/), so a
+    review run by hand counts too."""
+    reports = sorted(Path(folder).glob("report-20[0-9][0-9]-[0-9][0-9]-[0-9][0-9].md"))
+    if not reports:
+        return None
+    first = reports[-1].read_text(errors="replace").split("\n", 1)[0]
+    return reports[-1].stem.removeprefix("report-")[:7], xcode_major(first)
+
+
+def review_due(last, now, xcode):
+    """Why the setup review runs tonight, or None: once a month, at the first night with none
+    yet, and again on a new major Xcode. Only at night, like the cards, and a review that wrote
+    no report (a usage limit, a failure) is tried again the next night."""
+    if not night_window(now):
+        return None
+    if last is None:
+        return "no review has run yet"
+    month, major = last
+    if month != f"{now:%Y-%m}":
+        return f"none has run in {now:%B %Y} yet"
+    if xcode and major and xcode != major:
+        return f"Xcode {xcode} is out since the last review, on Xcode {major}"
+    return None
 
 
 def protected(files):
@@ -1352,6 +1393,9 @@ class Night:
         lines += [f"Waiting: {w}" for w in self.waiting]
         lines += [f"Behind main: #{pr['number']} {pr['title']}" for pr in behind]
         lines += [f"Usage: {u}" for u in self.usage]
+        if (self.dir / REVIEW_STREAM).exists():
+            reply = last_reply((self.dir / REVIEW_STREAM).read_text(errors="replace").splitlines())
+            lines.append(f"Setup review: {reply or 'it ended with no reply; its stream is ' + REVIEW_STREAM}")
         lines.append(f"Ended: {self.ended}")
         return lines
 
@@ -1370,6 +1414,33 @@ def last_reply(lines):
             reply = str(event.get("result") or "").strip().splitlines()
             return reply[-1] if reply else ""
     return ""
+
+
+def review(folder, now):
+    """Runs the setup review (/review-setup nightly) in the main checkout when review_due says so,
+    its stream-json in the night's folder, where the cards' usage gates read it after."""
+    folder = Path(folder)
+    try:
+        xcode = xcode_major(sh("xcodebuild", "-version", check=False))
+    except FAILURES:
+        xcode = None
+    why = review_due(last_review(main_checkout() / REVIEW_REPORTS), now, xcode)
+    if not why:
+        log("No setup review tonight.")
+        return
+    log(f"Setup review: {why}.")
+    folder.mkdir(parents=True, exist_ok=True)
+    deadline = night_window(now)[1] + KILL_GRACE
+    with (folder / REVIEW_STREAM).open("w") as out:
+        process = subprocess.Popen(["claude", "--name", "Setup review", "-p", "--permission-mode", "auto",
+                                    "--output-format", "stream-json", "--verbose", "/review-setup nightly"],
+                                   cwd=main_checkout(), stdin=subprocess.DEVNULL, stdout=out,
+                                   stderr=subprocess.STDOUT, text=True)
+        try:
+            process.wait(timeout=max(60, (deadline - datetime.now().astimezone()).total_seconds()))
+        except subprocess.TimeoutExpired:
+            process.terminate()
+            process.wait()
 
 
 def hook(folder, worktree):
@@ -1442,6 +1513,8 @@ def main(args):
         if "--now" in args:
             now = datetime.fromisoformat(args[args.index("--now") + 1]).astimezone()
         Night(args[1], now, "--dry-run" in args).run()
+    elif args[:1] == ["review"] and len(args) == 2:
+        review(args[1], datetime.now().astimezone())
     elif args[:1] == ["hook"] and len(args) == 3:
         hook(args[1], args[2])
     elif args[:1] == ["pre-push"] and len(args) == 2:

@@ -1,7 +1,8 @@
 #!/bin/bash
 # Runs the nightly retro (the retro skill's "How it runs"): a launchd agent starts one Claude Code
 # run in print mode at midnight in the main checkout, and the run exits when its report is done.
-# Then scripts/nightly-tooling.py runs the night's tooling cards, if any may run.
+# Then scripts/nightly-tooling.py runs the monthly setup review when one is due, and the night's
+# tooling cards, if any may run.
 # launchd needs no session to stay open, so a restart of the Mac changes nothing.
 #
 #   scripts/nightly-retro.sh install   # run it every midnight; replaces an earlier install
@@ -31,8 +32,8 @@ DOMAIN="gui/$(id -u)"
 NAME="Nightly retro"
 # The retro's claude process, wherever it runs, and not the caffeinate that started it.
 RETRO_PROCESS="(^|/)claude --name $NAME( |\$)"
-# The tooling runner, which starts after the retro.
-TOOLING_PROCESS="nightly-tooling\.py run "
+# The tooling runner, which starts after the retro: the monthly setup review, then the cards.
+TOOLING_PROCESS="nightly-tooling\.py (review|run) "
 
 die() {
     echo "$*" >&2
@@ -115,6 +116,7 @@ run() {
     # or not it succeeded; its own gates decide whether any card starts.
     env -i "${vars[@]}" /bin/zsh -lic "caffeinate -s claude --name \"$NAME\" -p --permission-mode auto \
         --output-format stream-json --verbose \"/retro nightly\" >> \"$night/retro.jsonl\";
+        caffeinate -s \"$main/scripts/nightly-tooling.py\" review \"$night\";
         caffeinate -s \"$main/scripts/nightly-tooling.py\" run \"$night\""
 }
 
@@ -138,7 +140,7 @@ case "${1:-}" in
     run) run ;;
     show) show ;;
     *)
-        sed -n '2,9s/^# \{0,1\}//p' "${BASH_SOURCE[0]}" >&2
+        sed -n '2,10s/^# \{0,1\}//p' "${BASH_SOURCE[0]}" >&2
         exit 64
         ;;
 esac

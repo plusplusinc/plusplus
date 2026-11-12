@@ -508,6 +508,46 @@ class Hook(unittest.TestCase):
         self.assertIsNone(self.decide("Bash", "git -C /w status && git --no-pager diff | head", now=late))
 
 
+class SetupReview(unittest.TestCase):
+    FIRST = datetime(2026, 12, 1, 0, 20).astimezone()  # the first night of December
+
+    def reports(self, *names, first="# Setup review, Xcode 27.1"):
+        folder = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, folder)
+        for name in names:
+            (folder / name).write_text(f"{first}\n\nKept: everything.\n")
+        return folder
+
+    def test_the_newest_report_says_when_and_on_which_xcode(self):
+        folder = self.reports("report-2026-10-30.md", "report-2026-11-11.md", "notes.md")
+        self.assertEqual(nightly.last_review(folder), ("2026-11", "27"))
+        self.assertIsNone(nightly.last_review(self.reports()))
+        self.assertEqual(nightly.last_review(self.reports("report-2026-11-11.md", first="# Setup review")),
+                         ("2026-11", None))
+
+    def test_xcodes_major_version(self):
+        self.assertEqual(nightly.xcode_major("Xcode 27.1\nBuild version 27A123\n"), "27")
+        self.assertEqual(nightly.xcode_major("Xcode 28"), "28")
+        self.assertIsNone(nightly.xcode_major("xcode-select: error: no developer tools"))
+        self.assertIsNone(nightly.xcode_major(None))
+
+    def test_due_once_a_month_at_the_first_night_with_none(self):
+        self.assertIn("December 2026", nightly.review_due(("2026-11", "27"), self.FIRST, "27"))
+        # A first night missed while the Mac was off is caught up the next night.
+        self.assertIsNotNone(nightly.review_due(("2026-11", "27"), self.FIRST.replace(day=3), "27"))
+        self.assertIsNone(nightly.review_due(("2026-12", "27"), self.FIRST.replace(day=2), "27"))
+        self.assertIsNotNone(nightly.review_due(None, self.FIRST, "27"))
+
+    def test_due_again_on_a_new_major_xcode(self):
+        self.assertIn("Xcode 28", nightly.review_due(("2026-12", "27"), self.FIRST.replace(day=9), "28"))
+        self.assertIsNone(nightly.review_due(("2026-12", "27"), self.FIRST.replace(day=9), None))
+        self.assertIsNone(nightly.review_due(("2026-12", None), self.FIRST.replace(day=9), "28"))
+
+    def test_only_at_night(self):
+        for hour in (5, 12, 23):
+            self.assertIsNone(nightly.review_due(None, self.FIRST.replace(hour=hour), "27"), hour)
+
+
 class Digest(unittest.TestCase):
     def test_a_merged_pr_has_its_undo_line(self):
         line = nightly.digest_block({"number": 120, "title": "Lint the UI tests"}, "0123456789abcdef",

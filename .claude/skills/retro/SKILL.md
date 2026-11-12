@@ -201,8 +201,9 @@ scripts/nightly-retro.sh install
 last reply and the tooling runner's last digest, which is how the lead reads the night in the
 morning; `run` starts one now, as launchd does. Each run's output and errors go to
 `.build/retro/nightly.log`, and each claude's stream-json to the night's folder,
-`.build/retro/<date>/`. After the retro, `scripts/nightly-tooling.py` runs the night's tooling
-cards (its header has the gates); the retro itself does nothing for them.
+`.build/retro/<date>/`. After the retro, `scripts/nightly-tooling.py` runs the monthly setup
+review when one is due (`.claude/skills/review-setup/`) and the night's tooling cards (its header
+has the gates); the retro itself does nothing for them.
 
 launchd runs a midnight missed while the Mac slept once it wakes; a night missed while it was
 off is covered by the next run, and `show` and the log say why. The run is named "Nightly retro", which keeps it out of `scripts/conversations.py`, so a
