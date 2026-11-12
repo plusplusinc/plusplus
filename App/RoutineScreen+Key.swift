@@ -34,6 +34,15 @@ extension RoutineScreen {
         }
     }
 
+    /// How the key is away from its bar.
+    enum KeyAway {
+        /// At Start, from the grow's end until the workout's key comes up: its room in the bar
+        /// stays, so the list's bottom inset doesn't change as Start goes and the next key comes.
+        case keepingRoom
+        /// At a workout's end, or Start's crossfade with Reduce Motion: its room goes with it.
+        case givingUpRoom
+    }
+
     /// What the key shows: while it swaps, the role it had, until it has gone.
     var keyRole: KeyRole {
         heldKeyRole ?? liveKeyRole
@@ -41,22 +50,22 @@ extension RoutineScreen {
 
     /// What the key is for, as the workout stands.
     private var liveKeyRole: KeyRole {
-        guard let workout = session.workout, !isStarting else { return .start }
-        if isWorkoutDone {
+        guard let shown, !isStarting else { return .start }
+        if shown.isDone {
             return isMovingOn ? .log(String(localized: "Log last set")) : .finish
         }
-        if let way = keyWayBack, let current = currentExercise {
+        if let way = keyWayBack, let current = shown.currentExercise {
             return .back(name: current.exercise.name, isAbove: way == .top)
         }
-        // The held set until the line rolls on, so the key changes with the row, not before it.
-        guard let set = heldSet ?? currentSet else { return .finish }
-        return .log(routine.logText(for: set, after: shownSets ?? workout.sets))
+        // As drawn, the held set until the line rolls on, so the key changes with the row, not
+        // before it.
+        return shown.logText.map(KeyRole.log) ?? .finish
     }
 
     /// The key that `primaryKeyBar` holds, for `role`. Within a kind, one key whose words
     /// change; across kinds, another key (`swapKey(_:)`).
-    func key(_ role: KeyRole, named name: String) -> some View {
-        Button { tapKey(named: name) } label: { keyLabel(role) }
+    func key(_ role: KeyRole) -> some View {
+        Button { tapKey() } label: { keyLabel(role) }
             .accessibilityLabel(spokenKey(role))
             // Not on Start, which the tests find by its label.
             .accessibilityIdentifier(role == .start ? "" : "workout.key")
@@ -90,27 +99,33 @@ extension RoutineScreen {
     /// where the current exercise is scrolled away when the tap lands, as on a list still
     /// moving away under a finger that still says "Log set", the list goes back to it and nothing
     /// is logged: the key changes only once the finger lifts (`settleKeyRole()`), the place at
-    /// once.
-    func tapKey(named name: String) {
-        guard session.workout != nil, !isStarting else { return pressStart() }
+    /// once. A log is stored through the session at once and shown through `play(_:)`.
+    func tapKey() {
+        guard let live, !isStarting else { return pressStart() }
         guard !isMovingOn, !isKeySwapping else { return }
-        if isWorkoutDone {
-            return finish(named: name)
+        if live.isDone {
+            return finish()
         }
-        guard let current = currentExercise, let set = currentSet else { return }
+        guard let current = live.currentExercise, let set = live.currentSet else { return }
         if keyWayBack != nil || currentPlace?.isScrolledAway == true {
             // With Reduce Motion the list jumps back, as the key's swap only fades.
             withAnimation(reduceMotion ? nil : .snappy(duration: 0.4), scrollToCurrent)
             return
         }
-        // A second tap while the set just logged is held, as a double tap would be, is dropped.
-        guard heldSet == nil else { return }
+        // A second tap while the set just logged is held, as a double tap would be, is dropped;
+        // a move already returned above.
+        guard playback.takesLog else { return }
         if set.side == nil {
             setLogs += 1
         } else {
             sideLogs += 1
         }
-        log(set, of: current)
+        // Stored at once, at the numbers the row shows; then shown. The guards above take a log
+        // only with no step playing, so today its step starts now.
+        session.log(set, of: current)
+        if playback.log(set) {
+            play(set)
+        }
     }
 
     /// Settles which way the key points: back to the current exercise while it is scrolled away,
@@ -178,14 +193,18 @@ extension RoutineScreen {
     static let keySwap = startReturn
 
     /// After a log that stays on the exercise, the beat the set is held for before the line
-    /// rolls on. A task on the held set, so the screen going away cancels it.
+    /// rolls on. A task on the held set, so the screen going away cancels it; cancelled, the set
+    /// shows at once, so the step still ends and the next log plays.
     func rollHeldSet() async {
-        guard unshownSet != nil else { return }
+        guard playback.held != nil else { return }
+        let rolls: Bool
         do {
             try await Task.sleep(for: .seconds(SetMotion.heldRoll), tolerance: .zero)
+            rolls = true
         } catch {
-            return
+            rolls = false
         }
-        withAnimation(.snappy(duration: SetMotion.roll)) { unshownSet = nil }
+        withAnimation(rolls ? .snappy(duration: SetMotion.roll) : nil) { playback.show() }
+        endStep()
     }
 }

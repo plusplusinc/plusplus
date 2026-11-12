@@ -1,5 +1,6 @@
 import DesignSystem
 import OSLog
+import Session
 import SwiftUI
 import WorkoutStore
 
@@ -44,6 +45,7 @@ struct RoutineLauncher: View {
                         routine: launch.routine,
                         workout: launch.workout,
                         store: store,
+                        namer: namer,
                     )
                     self.session = session
                     // The drawer names the routine last opened, which may not be this one.
@@ -57,25 +59,11 @@ struct RoutineLauncher: View {
         do {
             #if DEBUG
             if resetsStore {
-                try await store.deleteAll()
-                if let seed = LaunchOptions.seededRoutine {
-                    let unit = WeightUnit(region: locale)
-                    var routine = Routine(
-                        name: seed.name,
-                        exercises: seed.exercises.map { RoutineExercise(
-                            exercise: $0,
-                            weightUnit: unit,
-                        ) },
-                    )
-                    if let superset = seed.superset {
-                        for index in superset.dropLast()
-                            where routine.exercises.indices.contains(index + 1)
-                        {
-                            routine.join(routine.exercises[index].id, .below)
-                        }
-                    }
-                    try await store.save(routine)
-                }
+                try await LaunchOptions.resetStore(
+                    store,
+                    weightUnit: WeightUnit(region: locale),
+                    namer: namer,
+                )
             }
             #endif
             let launch = try await store.launch(weightUnit: WeightUnit(region: locale))

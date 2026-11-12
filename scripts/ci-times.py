@@ -52,17 +52,21 @@ def find_run(runs, branch=None, number=None):
     return next((newest[sha] for sha in log.stdout.split() if sha in newest), None)
 
 
-def target_of(class_name, design_system_types):
+def target_of(class_name, package_types):
     if class_name.endswith("UITests"):
         return "PlusPlusUITests"
-    return "DesignSystemTests" if class_name in design_system_types else "WorkoutStoreTests"
+    return package_types.get(class_name, "WorkoutStoreTests")
 
 
-def design_system_types(sha):
-    # The types DesignSystemTests declares at the run's commit, so no list here goes stale.
-    found = git("grep", "-h", "-o", "-E", r"(struct|class|enum|extension) +[A-Za-z_][A-Za-z0-9_]*", sha, "--",
-                "Packages/Tests/DesignSystemTests/").stdout
-    return {line.split()[-1] for line in found.splitlines()}
+def package_test_types(sha):
+    # The types each package test target but WorkoutStoreTests declares at the run's commit, so no
+    # list here goes stale; any other class is WorkoutStoreTests'.
+    types = {}
+    for target in ("DesignSystemTests", "SessionTests"):
+        found = git("grep", "-h", "-o", "-E", r"(struct|class|enum|extension) +[A-Za-z_][A-Za-z0-9_]*", sha,
+                    "--", f"Packages/Tests/{target}/").stdout
+        types.update({line.split()[-1]: target for line in found.splitlines()})
+    return types
 
 
 def main(argv):
@@ -100,7 +104,7 @@ def main(argv):
     results = asc("test-results", "list", "--action-id", test["id"], "--limit", "200", "--paginate")["data"]
     if git("cat-file", "-e", f"{sha}^{{commit}}").returncode != 0:
         git("fetch", "--quiet", "origin", sha)  # the run's test plan and suites are read from it
-    types = design_system_types(sha)
+    types = package_test_types(sha)
     rows = []
     for r in results:
         attrs = r["attributes"]

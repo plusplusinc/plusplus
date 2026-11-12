@@ -1,4 +1,5 @@
 import DesignSystem
+import Session
 import SwiftUI
 import WorkoutStore
 
@@ -41,11 +42,9 @@ struct RoutineScreen: View {
     /// How far Start rides down with the rows below the current exercise as it grows at Start.
     @State var startDrop: CGFloat = 0
     /// The key kept out of its bar from the end of Start's grow until the workout's key comes
-    /// up, and as a workout ends until the list has landed and Start comes up.
-    @State var isKeyAway = false
-    /// While the key is away at Start, whether its room in the bar stays, so the list's bottom
-    /// inset doesn't change as Start goes and the workout's key comes up.
-    @State var keepsKeyRoom = false
+    /// up, and as a workout ends until the list has landed and Start comes up; none while it
+    /// shows.
+    @State var keyAway: KeyAway?
     /// While the current exercise is scrolled away, which way the key points back to it,
     /// held while a finger is on the list and following the row as the list coasts once it lifts
     /// (`settleKeyRole()`); none while it logs.
@@ -87,8 +86,6 @@ struct RoutineScreen: View {
     @State var listHeight: CGFloat = 0
     /// Back in a workout after a relaunch, the list opens on the current exercise, once grown.
     @State var opensOnCurrent = false
-    /// While the current exercise moves to the next row, when rows' heights are mid-motion.
-    @State var isMovingOn = false
     /// While Start grows the first exercise or End shrinks the current one back, when rows'
     /// heights are mid-motion.
     @State var isGrowingOrEnding = false
@@ -102,9 +99,9 @@ struct RoutineScreen: View {
     /// Counts the moves to another exercise that have landed on its node, each with a light tick,
     /// lighter than a log's.
     @State var landings = 0
-    /// The last set logged, while it stays on the current exercise, for a beat after the key's
-    /// tap (`heldSet`).
-    @State var unshownSet: PlannedSet?
+    /// The sets logged and stored but not yet shown, and the step the screen is playing
+    /// (`play(_:)`).
+    @State var playback = WorkoutPlayback()
     @State var rowFrames = RowFrames()
     @Environment(\.locale) var locale
     @Environment(\.accessibilityReduceMotion) var reduceMotion
@@ -146,7 +143,6 @@ struct RoutineScreen: View {
         .endWorkoutDialog(
             isPresented: $isConfirmingEnd,
             session: session,
-            routineName: shownName ?? "",
             end: end,
         )
         // `onChange` skips the first value, so a routine opened and left alone is never saved.
@@ -161,14 +157,14 @@ struct RoutineScreen: View {
 
     private var screen: some View {
         let generatedName = generatedName
-        let shownName = shownName
         // Read once: the key's identity and the key are one role.
         let role = keyRole
         // Read once here, so the rows' closure holds them as values: a list crossfading out keeps
         // drawing its rows with what it had, rather than the workout it is fading into.
         let currentID = currentID
-        let currentSet = currentSet
-        let rowBars = rowBars
+        let shown = shown
+        let currentSet = shown?.currentSet
+        let rowBars = rowBars(in: shown)
         let tracksRows = session.workout != nil || isStarting
         let underBar = underBarCut
         return ScrollView {
@@ -202,7 +198,7 @@ struct RoutineScreen: View {
                         links: routine.joinedToNext,
                         arriving: arriving,
                         current: litID,
-                        done: finishedRows,
+                        done: shown?.finishedRows ?? [],
                         isSetHeld: heldSet != nil,
                         pulse: railPulse,
                         isMoving: isMovingOn,
@@ -311,14 +307,14 @@ struct RoutineScreen: View {
             isPresented: showsKey,
             keyID: role.kind,
             isSwappedOut: isKeySwapping,
-            keepsRoom: keepsKeyRoom,
+            keepsRoom: keyAway == .keepingRoom,
             plusOnes: setLogs + sideLogs,
             drop: startDrop,
         ) {
-            key(role, named: shownName ?? "")
+            key(role)
         }
-        .task(id: isStarting) { await holdStart(named: shownName ?? "") }
-        .task(id: unshownSet) { await rollHeldSet() }
+        .task(id: isStarting) { await holdStart() }
+        .task(id: playback.held) { await rollHeldSet() }
         // One row open at a time, closed by a scroll or a tap anywhere else, Start included,
         // so the container holds Start's bar as well as the scroll view.
         .swipeActionsContainer()
@@ -354,7 +350,7 @@ struct RoutineScreen: View {
 
 #Preview {
     RoutineScreen(
-        session: RoutineSession(routine: Routine(), store: nil),
+        session: RoutineSession(routine: Routine(), store: nil, namer: .muscleGroupsOnly),
         namer: .muscleGroupsOnly,
     )
 }

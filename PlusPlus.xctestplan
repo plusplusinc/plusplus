@@ -25,6 +25,13 @@
       }
     },
     {
+      "target" : {
+        "containerPath" : "container:Packages",
+        "identifier" : "SessionTests",
+        "name" : "SessionTests"
+      }
+    },
+    {
       "parallelizable" : false,
       "target" : {
         "containerPath" : "container:Packages",
