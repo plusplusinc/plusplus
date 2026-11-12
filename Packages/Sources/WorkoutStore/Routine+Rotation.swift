@@ -50,8 +50,12 @@ extension Routine {
     /// logged, or nil once every one is. One rule for a relaunch, a row added or deleted
     /// mid-workout, and a sets count lowered under what is logged.
     public func nextSet(after logged: [LoggedSet]) -> PlannedSet? {
-        let done = Set(logged.map(\.planned))
-        return setOrder.first { !done.contains($0) }
+        nextSet(notIn: Set(logged.map(\.planned)))
+    }
+
+    /// The first set in `setOrder` not in `done`.
+    func nextSet(notIn done: Set<PlannedSet>) -> PlannedSet? {
+        setOrder.first { !done.contains($0) }
     }
 
     /// What the key that logs `set` says, having logged `logged`: "Log last set" on the workout's

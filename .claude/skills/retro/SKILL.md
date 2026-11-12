@@ -136,7 +136,7 @@ waiting. The body is the record the next retro reads:
   started one.
 
 Then report the findings, the fixes, what needs the maintainer's decision, the verifier's record
-(below), and the digest. The report and the digest each carry one CI line: the covered PRs'
+and the agents' tally (below), and the digest. The report and the digest each carry one CI line: the covered PRs'
 last runs, start to finish, and any tier over budget, and one line on the agent docs' size
 against the last report's,
 `wc -lw CLAUDE.md .claude/rules/*.md .claude/agents/*.md .claude/skills/*/SKILL.md`, naming
@@ -187,6 +187,14 @@ finding and opens no PR:
     query: "repo:plusplusinc/plusplus is:pr in:comments \"Verifier record\"") {
     nodes { ... on PullRequest { number comments(last: 50) { nodes { body } } } } } }'
   ```
+
+## The agents' tally
+
+The digest also carries, as it prints, `scripts/agent-record.py tally <the date 30 days ago>`:
+each role and model's cost per PR, the builder's fix rounds and failed pushes, and the problems
+the verifier caught and the tests it added, from the PRs' `Agent record` comments
+(`docs/agent-tooling.md`, "Agent records"), with the PRs that have none named as such. It is not
+a finding and opens no PR.
 
 ## How it runs
 

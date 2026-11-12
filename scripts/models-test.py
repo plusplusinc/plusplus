@@ -129,16 +129,24 @@ class Check(Fixture):
                           ("planner", "builder", "verifier", "lookup", "repro", "edit", "reviewer")})
 
     def test_a_skill_passing_a_model_to_a_repo_agent_fails(self):
-        self.edit(".claude/skills/nightly-card/SKILL.md", "Start a `verifier`, again with no model,",
+        self.edit(".claude/skills/nightly-card/SKILL.md", "Start a `verifier`, with no `model`,",
                   'Start a `verifier` (`model: "opus"`),')
         found = models.problems(self.root)
         self.assertEqual(len(found), 1, found)
         self.assertRegex(found[0], r"^\.claude/skills/nightly-card/SKILL\.md:\d+: passes a model to `verifier`")
 
     def test_a_model_passed_to_a_built_in_agent_passes(self):
-        self.edit(".claude/skills/nightly-card/SKILL.md", "Start a `verifier`, again with no model,",
-                  "Start a `general-purpose` agent (`model: fable`), then a `verifier`, again with no model,")
+        self.edit(".claude/skills/nightly-card/SKILL.md", "Start a `verifier`, with no `model`,",
+                  "Start a `general-purpose` agent (`model: fable`), then a `verifier`, with no `model`,")
         self.assertEqual(models.problems(self.root), [])
+
+    def test_a_row_on_trial_passes_and_a_set_that_is_no_date_fails(self):
+        row = "| builder | `.claude/agents/builder.md` | `claude-opus-5-5` | high | Builds from a written plan, the longest phase, so a mid-tier model | 2026-11-11 |"
+        self.edit("docs/agent-tooling.md", row, row.replace("| 2026-11-11 |", "| 2026-12-01, trial for 5 PRs |"))
+        self.assertEqual(models.problems(self.root), [])
+        self.edit("docs/agent-tooling.md", "2026-12-01, trial for 5 PRs", "on trial")
+        self.assertEqual(models.problems(self.root), ['builder: Set is "on trial", not a date like 2026-11-11, '
+                                                      'or one on trial like "2026-11-11, trial for 5 PRs"'])
 
     def test_a_verifier_on_the_builders_model_fails(self):
         self.edit("docs/agent-tooling.md", "| verifier | `.claude/agents/verifier.md` | `claude-fable-5-2`",
