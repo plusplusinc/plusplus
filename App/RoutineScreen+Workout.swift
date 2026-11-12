@@ -12,7 +12,7 @@ extension RoutineScreen {
     /// Start's press: the key comes back up as any key does, a medium impact plays, and after a
     /// beat `leave()` runs. A second press in the meantime does nothing.
     func pressStart() {
-        guard !isStarting, !isKeyAway, session.workout == nil else { return }
+        guard !isStarting, keyAway == nil, session.workout == nil else { return }
         // The list's end lies under the first row until it grows, so a short routine may have
         // nowhere to scroll it to: room under the end, out of sight, lets it go. It goes in
         // ahead of the scroll: a scroll in the same transaction stops at the old end.
@@ -57,7 +57,7 @@ extension RoutineScreen {
                 isStarting = false
                 // The bar's room goes for the crossfade: the room under the list holds it, and
                 // measured, the list stayed put (13 Starts, 2026-11-01).
-                isKeyAway = true
+                keyAway = keyAway ?? .givingUpRoom
             }
         }
         bringFirstIntoView { grow() }
@@ -114,8 +114,7 @@ extension RoutineScreen {
         Task {
             try? await Task.sleep(for: .seconds(Self.keyReturnDelay), tolerance: .zero)
             withTransaction(\.disablesAnimations, true) {
-                isKeyAway = true
-                keepsKeyRoom = true
+                keyAway = .keepingRoom
                 isStarting = false
                 startDrop = 0
             }
@@ -153,7 +152,7 @@ extension RoutineScreen {
         }
         // The workout's key slides down as it fades, and Start stays away until the list has
         // landed: taken out with no animation, the key went on the frame.
-        withAnimation(.easeOut(duration: Self.barFade)) { isKeyAway = true }
+        withAnimation(.easeOut(duration: Self.barFade)) { keyAway = keyAway ?? .givingUpRoom }
         // Once the time has faded out of its key, the key's glass goes, the bar fading it: taken
         // out with no animation, it went on the frame. A beat in the sequence by design.
         Task {
@@ -190,8 +189,7 @@ extension RoutineScreen {
     /// or Start.
     private func bringKeyBack() {
         withAnimation(.smooth(duration: Self.startReturn)) {
-            isKeyAway = false
-            keepsKeyRoom = false
+            keyAway = nil
         }
     }
 

@@ -42,11 +42,9 @@ struct RoutineScreen: View {
     /// How far Start rides down with the rows below the current exercise as it grows at Start.
     @State var startDrop: CGFloat = 0
     /// The key kept out of its bar from the end of Start's grow until the workout's key comes
-    /// up, and as a workout ends until the list has landed and Start comes up.
-    @State var isKeyAway = false
-    /// While the key is away at Start, whether its room in the bar stays, so the list's bottom
-    /// inset doesn't change as Start goes and the workout's key comes up.
-    @State var keepsKeyRoom = false
+    /// up, and as a workout ends until the list has landed and Start comes up; none while it
+    /// shows.
+    @State var keyAway: KeyAway?
     /// While the current exercise is scrolled away, which way the key points back to it,
     /// held while a finger is on the list and following the row as the list coasts once it lifts
     /// (`settleKeyRole()`); none while it logs.
@@ -309,7 +307,7 @@ struct RoutineScreen: View {
             isPresented: showsKey,
             keyID: role.kind,
             isSwappedOut: isKeySwapping,
-            keepsRoom: keepsKeyRoom,
+            keepsRoom: keyAway == .keepingRoom,
             plusOnes: setLogs + sideLogs,
             drop: startDrop,
         ) {
