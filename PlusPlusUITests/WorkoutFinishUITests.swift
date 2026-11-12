@@ -34,15 +34,28 @@ final nonisolated class WorkoutFinishUITests: XCTestCase {
             // The key comes up near the end of the grow's spring (`RoutineScreen.keyReturnDelay`,
             // `growBeat`), so read where the row rests once its top holds still, not within a
             // clock's window: on a slow runner one accessibility query can outlast the window.
-            assertRestsUnderBar(row, in: app, after: "Start")
+            XCTAssertTrue(
+                settling(row.frame.minY, still: 0.25, within: 3),
+                "After Start, the list never came to rest",
+            )
+            let bar = app.navigationBars.firstMatch.frame.maxY
+            let top = row.frame.minY
+            XCTAssertLessThan(abs(top - bar), 1, "After Start, the list rests \(top - bar) pt low")
         }
         // Which slot a drop lands in is `RailDragTests`'; this is the scroll view's range across
         // the drop, which only the running app shows: on this list, shorter than the screen, the
         // room a held row adds below it once left it shorter than the screen for a pass on the
-        // drop, and the list jumped to its top.
+        // drop, and the list jumped to its top. Read against where the row was, not the bar, so
+        // it holds wherever Start left it.
         XCTContext.runActivity(named: "Held and let go in place, the exercise stays put") { _ in
+            let before = row.frame.minY
             row.center.holdAndDrag(to: row.center)
-            assertRestsUnderBar(row, in: app, after: "the drop")
+            XCTAssertTrue(
+                settling(row.frame.minY, still: 0.25, within: 3),
+                "After the drop, the list never came to rest",
+            )
+            let moved = row.frame.minY - before
+            XCTAssertLessThan(abs(moved), 1, "After the drop, the exercise moved \(moved) pt")
         }
         XCTContext.runActivity(named: "Logging the last set turns the key to Finish workout") { _ in
             app.tapWorkoutKey(reading: "Log last set")
@@ -71,21 +84,5 @@ final nonisolated class WorkoutFinishUITests: XCTestCase {
                 "Launch reopened the routine, as after a discard",
             )
         }
-    }
-
-    /// Once `row`'s top holds still after `moment`, it rests just under the bar.
-    @MainActor
-    private func assertRestsUnderBar(
-        _ row: XCUIElement,
-        in app: XCUIApplication,
-        after moment: String,
-    ) {
-        XCTAssertTrue(
-            settling(row.frame.minY, still: 0.25, within: 3),
-            "After \(moment), the list never came to rest",
-        )
-        let bar = app.navigationBars.firstMatch.frame.maxY
-        let top = row.frame.minY
-        XCTAssertLessThan(abs(top - bar), 1, "After \(moment), the list rests \(top - bar) pt low")
     }
 }
