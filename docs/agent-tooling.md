@@ -86,20 +86,27 @@ simulators left on them. `scripts/common.sh` moves each checkout's simulator ont
 Each role's model is set here and nowhere else decides it. `scripts/models.py check`, which
 `scripts/lint.sh` runs, fails when an agent definition in `.claude/agents/` or a nightly script
 disagrees with this table, when a definition or a script's `<NAME>_MODEL` has no row, when a
-row's definition or script doesn't exist, when a script in `scripts/` starts `claude -p` without
-passing a `--model` the table sets, and when the verifier shares the builder's model. "Set in"
-says where each is set: a definition's `model:` and `effort:`, or a nightly script's
-`<NAME>_MODEL` and `<NAME>_EFFORT`, which it passes as `--model` and `--effort`. A definition's
-`model:` takes a full model ID such as `claude-opus-5-5`, so definitions and scripts pin one and
-a new release changes nothing until a trial here does
+row's definition or script doesn't exist, when two definitions share a name, when a row set in a
+definition or a script names an alias rather than a full model ID, when a script in `scripts/`
+starts `claude -p` without passing a `--model` the table sets, and when the verifier shares the
+builder's model. "Set in" says where each is set: a definition's `model:` and `effort:`, or a
+nightly script's `<NAME>_MODEL` and `<NAME>_EFFORT`, which it passes as `--model` and
+`--effort`. Both take a full model ID such as `claude-opus-5-5`, so definitions and scripts pin
+one and a new release changes nothing until a trial here does
 ([subagents](https://code.claude.com/docs/en/sub-agents#choose-a-model)).
 
 A one-off task goes to the agent defined for its kind: `lookup`, `repro`, `edit`, or `reviewer`,
 started with no `model`, since a call's `model` overrides the definition's. Nothing enforces
-that: a general-purpose (or other built-in) subagent started with no `model` runs on
-`CLAUDE_CODE_SUBAGENT_MODEL` when it is set, else the caller's model, and the instruction is to
-use the four kinds. `/code-review` and `/simplify` start their own reviewers, on models this table
-doesn't set.
+that, and the instruction is to use the four kinds. A built-in started with no `model` runs, by
+[the subagents doc](https://code.claude.com/docs/en/sub-agents#built-in-subagents):
+general-purpose on `CLAUDE_CODE_SUBAGENT_MODEL` when it is set, else the caller's model; Plan on
+the caller's model and Explore on the caller's (or the `opus` alias's when the caller runs
+Fable), since that variable alone doesn't change either; claude-code-guide on Haiku and
+statusline-setup on Sonnet. `/code-review` and `/simplify` start their own reviewers, on models
+this table doesn't set. `/retro` starts its work in a general-purpose agent, which its text says
+to start with `model: fable`, the retro row's family: that one call follows the table by
+instruction, not by the check. `lookup` and `reviewer` keep Bash, which could write or commit;
+only their instructions keep them from changing anything.
 
 | Role | Set in | Model | Effort | Why | Set | Evidence |
 |---|---|---|---|---|---|---|

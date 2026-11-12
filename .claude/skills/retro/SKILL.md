@@ -226,7 +226,7 @@ run never reads the last run's digest. Each `/retro nightly` does this, in order
    prints one line: how many sessions, or "No sessions since".
 4. **Hand it to a subagent**, unless there is neither a merge nor a session, in which case
    print one line, "Nightly retro: nothing since <last run>.", and go to step 5. Start one
-   `general-purpose` agent in the foreground, and pass it: the PR numbers, the last-run time,
+   `general-purpose` agent in the foreground with `model: fable`, and pass it: the PR numbers, the last-run time,
    the extract's absolute path, and these instructions. Create a worktree from `origin/main`
    with `git worktree add --no-track -b retro/<today's date> <main checkout>/.claude/worktrees/retro-<today's date> origin/main`
    (add `-2` to both when the branch exists), work only there, with absolute paths. Follow

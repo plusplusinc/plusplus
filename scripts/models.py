@@ -6,7 +6,8 @@
 `check` reads the table and compares it with what sets each model: an agent definition's `model:`
 and `effort:` in .claude/agents/, and a nightly script's <NAME>_MODEL and <NAME>_EFFORT for a row
 set in "scripts/<file> <NAME>". It fails naming each disagreement, a definition with no row, a row
-whose definition or script doesn't exist, and a verifier on the builder's model. In each script in
+whose definition or script doesn't exist, two definitions of one name, a model that isn't a full
+ID, and a verifier on the builder's model. In each script in
 scripts/ but the tests, it also fails on a <NAME>_MODEL with no row, and on a start of claude
 passing no --model the table covers: in shell, a non-comment line (backslash continuations joined)
 with the word `claude` followed by `-p` or `--print`; in Python, a list starting with the string
@@ -56,17 +57,10 @@ def frontmatter(text):
     return dict(re.findall(r"^(\w+):\s*(.*?)\s*$", match[1], re.M)) if match else {}
 
 
-def definitions(folder):
-    """{name: frontmatter} for each definition in an agents folder, keyed by its `name:`, which is
-    what the Agent tool's subagent_type matches, or else its file name."""
-    found = {}
-    for path in sorted(Path(folder).glob("*.md")):
-        try:
-            front = frontmatter(path.read_text())
-        except OSError:
-            continue
-        found[front.get("name") or path.stem] = dict(front, path=path)
-    return found
+def definitions(root):
+    """{path: frontmatter} for each definition in root's .claude/agents/, the path relative to root."""
+    return {str(path.relative_to(root)): frontmatter(path.read_text())
+            for path in sorted(Path(root, ".claude/agents").glob("*.md"))}
 
 
 def family(model):
@@ -124,7 +118,13 @@ def problems(root):
     rows = table((root / TABLE).read_text())
     found = []
     roles = {row["Role"]: row for row in rows}
-    agents = {str(d["path"].relative_to(root)): d for d in definitions(root / ".claude/agents").values()}
+    agents = definitions(root)
+    names = {}
+    for where, front in agents.items():
+        names.setdefault(front.get("name") or Path(where).stem, []).append(where)
+    for name, wheres in sorted(names.items()):
+        if len(wheres) > 1:
+            found.append(f"{' and '.join(wheres)} share the name \"{name}\", so Claude Code runs only one of them")
     scripts = {}
     for row in rows:
         role, where, model, effort = row["Role"], row["Set in"], row["Model"], row["Effort"]
@@ -132,8 +132,11 @@ def problems(root):
             continue
         if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", row["Set"]):
             found.append(f"{role}: Set is \"{row['Set']}\", not a date like 2026-11-11")
-        if family(model) is None:
-            found.append(f"{role}: \"{model}\" is neither an alias ({', '.join(sorted(ALIASES))}) nor a model id")
+        if model in ALIASES:
+            found.append(f"{where}: \"{model}\" is an alias, which follows its family's newest release; "
+                         "a definition or a script pins a full model ID such as claude-opus-5-5")
+        elif family(model) is None:
+            found.append(f"{role}: \"{model}\" is not a model ID such as claude-opus-5-5")
         if effort not in EFFORTS:
             found.append(f"{role}: effort \"{effort}\" is not one of {', '.join(sorted(EFFORTS))}")
         if where.startswith(".claude/agents/"):

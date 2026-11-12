@@ -102,6 +102,25 @@ class Check(Fixture):
         (self.root / ".claude/agents/reviewer.md").unlink()
         self.assertEqual(models.problems(self.root), ["reviewer: .claude/agents/reviewer.md doesn't exist"])
 
+    def test_an_alias_fails_where_a_row_pins_a_model(self):
+        self.edit("docs/agent-tooling.md", "| `claude-haiku-5-5` |", "| `haiku` |")
+        self.edit(".claude/agents/lookup.md", "model: claude-haiku-5-5", "model: haiku")
+        self.edit("scripts/nightly-retro.sh", "RETRO_MODEL=claude-fable-5-2", "RETRO_MODEL=fable")
+        self.edit("docs/agent-tooling.md", "| `scripts/nightly-retro.sh RETRO` | `claude-fable-5-2` |",
+                  "| `scripts/nightly-retro.sh RETRO` | `fable` |")
+        found = models.problems(self.root)
+        self.assertEqual(len(found), 2, found)
+        self.assertTrue(found[0].startswith('scripts/nightly-retro.sh RETRO: "fable" is an alias'))
+        self.assertTrue(found[1].startswith('.claude/agents/lookup.md: "haiku" is an alias'))
+
+    def test_two_definitions_of_one_name_fail(self):
+        (self.root / ".claude/agents/finder.md").write_text(
+            (self.root / ".claude/agents/lookup.md").read_text())
+        found = models.problems(self.root)
+        self.assertIn('.claude/agents/finder.md and .claude/agents/lookup.md share the name "lookup", '
+                      "so Claude Code runs only one of them", found)
+        self.assertNotIn("lookup: .claude/agents/lookup.md doesn't exist", found)
+
     def test_the_table_sets_the_seven_definitions(self):
         rows = models.table((ROOT / models.TABLE).read_text())
         self.assertEqual({row["Set in"] for row in rows if row["Set in"].startswith(".claude/agents/")},
