@@ -3,7 +3,7 @@ import SwiftUI
 /// A "+1" that pops up from where it is placed each time `trigger` changes: it rises
 /// 30 pt, growing from 0.7 to 1.25 as it fades, over 0.7 s. With Reduce Motion it flashes in
 /// place, neither rising nor growing. Green, as it is a count that went up. Only seen: it takes
-/// no touches and VoiceOver passes over it.
+/// no touches, and nothing of it is in the accessibility tree.
 ///
 /// A keyframe animation rests at its initial value, opacity 0, between plays, so the +1 can't be
 /// left standing.
