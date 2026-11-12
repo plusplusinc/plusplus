@@ -62,6 +62,8 @@ public final class RoutineSession {
     private enum WorkoutWrite {
         case save(Workout)
         case discard(Workout.ID)
+        /// Every write before it has landed.
+        case landed(CheckedContinuation<Void, Never>)
     }
 
     public enum Screen {
@@ -264,6 +266,15 @@ public final class RoutineSession {
         }
     }
 
+    /// Returns once every change sent so far has landed in the store: the routine's edits, as a
+    /// switch lets them land, then the workout's writes, in their order. For tests, which wait on
+    /// it rather than on time.
+    func writesLanded() async {
+        await finishSaving()
+        (saves, saving) = Self.startSaving(to: store)
+        await withCheckedContinuation { done in workoutWrites.yield(.landed(done)) }
+    }
+
     private static func startSaving(
         to store: RoutineStore?,
     ) -> (AsyncStream<RoutineSave>.Continuation, Task<Void, Never>) {
@@ -296,6 +307,7 @@ public final class RoutineSession {
                     switch write {
                     case let .save(workout): try await store?.save(workout)
                     case let .discard(id): try await store?.discardWorkout(id)
+                    case let .landed(done): done.resume()
                     }
                 } catch {
                     Logger.session.error("The workout didn't save: \(error)")
