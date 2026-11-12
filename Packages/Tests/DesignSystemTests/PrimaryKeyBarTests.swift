@@ -48,6 +48,20 @@ struct PrimaryKeyBarTests {
         #expect(first > window.safeAreaInsets.bottom, "the bar took no room from the list")
         #expect(insets.seen == [first], "the bar's room changed after its first layout")
     }
+
+    /// The +1 that pops off the key is only seen: between bursts, at opacity 0 and marked
+    /// `accessibilityHidden`, it still stood in the tree as a "+1" text over the key, and with the
+    /// mark on its resting place, an unlabeled node did. With the key, a plain button, the bar's
+    /// only node, what automation and `axe describe-ui` read at rest is the screen and the key.
+    @Test("At rest, the key's +1 puts nothing in the accessibility tree")
+    func plusOneLeavesNoNodeAtRest() throws {
+        let leaves = try AccessibilityTree.leaves(
+            of: Text(verbatim: "Bench press").frame(maxHeight: .infinity)
+                .primaryKeyBar(isPresented: true, plusOnes: 3) { Button("Log set") { } },
+        )
+        let labels = leaves.map { $0.accessibilityLabel ?? "unlabeled at \($0.accessibilityFrame)" }
+        #expect(labels == ["Bench press", "Log set"])
+    }
 }
 
 #endif

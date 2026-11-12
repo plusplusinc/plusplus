@@ -6,7 +6,8 @@ import SwiftUI
 /// no touches and VoiceOver passes over it.
 ///
 /// A keyframe animation rests at its initial value, opacity 0, between plays, so the +1 can't be
-/// left standing.
+/// left standing, and while it rests the +1 is not drawn at all, so nothing of it stays in the
+/// accessibility tree.
 struct PlusOneBurst: View {
     /// A count, which plays the burst once each time it goes up: a Bool fired only on false to
     /// true, which can't count logs in a row.
@@ -33,10 +34,16 @@ struct PlusOneBurst: View {
                 initialValue: Frame(scale: reduceMotion ? 1 : 0.7),
                 trigger: trigger,
             ) { text, frame in
-                text
-                    .scaleEffect(frame.scale)
-                    .offset(y: -frame.lift)
-                    .opacity(frame.opacity)
+                // Left out between bursts: at opacity 0 and marked `accessibilityHidden`, it still
+                // stood in the tree automation and `axe describe-ui` read, and the mark on the
+                // empty place left an unlabeled node there.
+                if frame.opacity > 0 {
+                    text
+                        .scaleEffect(frame.scale)
+                        .offset(y: -frame.lift)
+                        .opacity(frame.opacity)
+                        .accessibilityHidden(true)
+                }
             } keyframes: { _ in
                 KeyframeTrack(\.opacity) {
                     LinearKeyframe(1, duration: 0.05)
@@ -50,7 +57,6 @@ struct PlusOneBurst: View {
                 }
             }
             .allowsHitTesting(false)
-            .accessibilityHidden(true)
     }
 }
 
