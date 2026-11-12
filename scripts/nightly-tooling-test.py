@@ -285,86 +285,6 @@ class ClaudeUpdate(unittest.TestCase):
             self.assertEqual(night.top_lines(), ["Claude Code 2.1.316 → 2.1.322", "Not checked: x"])
 
 
-class AgentTally(unittest.TestCase):
-    """The agents' tallies the night writes for the retro and the setup review."""
-
-    def setUp(self):
-        self.night = Path(tempfile.mkdtemp())
-        self.addCleanup(shutil.rmtree, self.night)
-        self.fetched = []
-
-    def fetch(self, since):
-        self.fetched.append(since)
-        return [{"number": 1, "mergedAt": "2026-10-20T10:00:00Z"}, {"number": 2, "mergedAt": "2026-11-05T10:00:00Z"},
-                {"number": 3, "mergedAt": "2026-11-11T23:00:00Z"}], 2, 4998
-
-    @staticmethod
-    def tally(prs, since):
-        return f"since {since}: " + " ".join(f"#{pr['number']}" for pr in prs)
-
-    def test_one_fetch_writes_each_file_from_its_own_date(self):
-        nightly.write_tallies(self.night, {
-            nightly.TALLY: [("", "2026-10-13")],
-            nightly.REVIEW_TALLY: [("Since the last setup review, 2026-11-01:", "2026-11-01"),
-                                   ("Trial: builder on claude-sonnet-5-5, 2026-11-10, trial for 5 PRs; since its start:",
-                                    "2026-11-10")]}, self.fetch, self.tally)
-        self.assertEqual(self.fetched, ["2026-10-13"])
-        retro = (self.night / nightly.TALLY).read_text()
-        self.assertTrue(retro.startswith("since 2026-10-13: #1 #2 #3\n"), retro)
-        self.assertIn("cost 2 GraphQL points; 4998 left", retro)
-        review = (self.night / nightly.REVIEW_TALLY).read_text()
-        self.assertIn("Since the last setup review, 2026-11-01:\nsince 2026-11-01: #2 #3", review)
-        self.assertIn("since its start:\nsince 2026-11-10: #3", review)
-
-    def test_a_failed_fetch_writes_why_in_each_file_and_goes_on(self):
-        def fails(since):
-            raise subprocess.CalledProcessError(1, ["gh", "api", "graphql", "-f", "query=…"],
-                                                stderr="error\ngh: not signed in\n")
-        nightly.write_tallies(self.night, {nightly.TALLY: [("", "2026-10-13")],
-                                           nightly.REVIEW_TALLY: [("x", "2026-11-01")]}, fails, self.tally)
-        for name in (nightly.TALLY, nightly.REVIEW_TALLY):
-            self.assertEqual((self.night / name).read_text(),
-                             "No tally tonight: gh api graphql failed: gh: not signed in\n")
-
-    def test_a_hung_fetch_says_how_long_not_the_query(self):
-        def hangs(since):
-            raise subprocess.TimeoutExpired(["gh", "api", "graphql", "-f", "query=" + "x" * 500], 120)
-        nightly.write_tallies(self.night, {nightly.TALLY: [("", "2026-10-13")]}, hangs, self.tally)
-        self.assertEqual((self.night / nightly.TALLY).read_text(), "No tally tonight: gh api graphql took over 120 s\n")
-
-    def test_the_review_starts_at_its_last_report_and_each_trial(self):
-        now = datetime(2026, 12, 1, 0, 20).astimezone()
-        self.assertEqual(nightly.review_parts("2026-11-11", now, [("builder", "claude-sonnet-5-5",
-                                                                   "2026-11-20, trial for 5 PRs")]),
-                         [("Since the last setup review, 2026-11-11:", "2026-11-11"),
-                          ("Trial: builder on claude-sonnet-5-5, 2026-11-20, trial for 5 PRs; since its start:",
-                           "2026-11-20")])
-        self.assertEqual(nightly.review_parts(None, now, []),
-                         [("No setup review's report yet, so over the last 30 days:", "2026-11-01")])
-        self.assertEqual(nightly.review_parts(None, now, "ValueError: no table")[1],
-                         ("Trials not read: ValueError: no table", None))
-
-    def test_the_last_reports_whole_date(self):
-        for name in ("report-2026-10-30.md", "report-2026-11-11.md", "notes.md"):
-            (self.night / name).write_text("# Setup review\n")
-        self.assertEqual(nightly.last_review_date(self.night), "2026-11-11")
-        (self.night / "report-2026-10-30.md").unlink()
-        (self.night / "report-2026-11-11.md").unlink()
-        self.assertIsNone(nightly.last_review_date(self.night))
-
-    def test_the_command_with_gh_refusing_writes_why_and_exits_cleanly(self):
-        bin_dir = self.night / "bin"
-        bin_dir.mkdir()
-        (bin_dir / "gh").write_text("#!/bin/sh\necho 'gh: not signed in' >&2\nexit 1\n")
-        (bin_dir / "gh").chmod(0o755)
-        night = self.night / "2026-11-12"
-        out = subprocess.run([sys.executable, str(SCRIPTS / "nightly-tooling.py"), "tally", str(night)],
-                             capture_output=True, text=True, env={**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}"})
-        self.assertEqual(out.returncode, 0, out.stderr)
-        self.assertEqual((night / nightly.TALLY).read_text(),
-                         "No tally tonight: gh api graphql failed: gh: not signed in\n")
-
-
 class Eligibility(unittest.TestCase):
     BODY = "## Problem\nx\n\nNightly: faster CI; the PR check's time\n\n## Success\nRun it: it passes.\n\n## Plan\n- y\n"
 
@@ -668,6 +588,86 @@ class SetupReview(unittest.TestCase):
     def test_only_at_night(self):
         for hour in (5, 12, 23):
             self.assertIsNone(nightly.review_due(None, self.FIRST.replace(hour=hour), "27"), hour)
+
+
+class AgentTally(unittest.TestCase):
+    """The agents' tallies the night writes for the retro and the setup review."""
+
+    def setUp(self):
+        self.night = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.night)
+        self.fetched = []
+
+    def fetch(self, since):
+        self.fetched.append(since)
+        return [{"number": 1, "mergedAt": "2026-10-20T10:00:00Z"}, {"number": 2, "mergedAt": "2026-11-05T10:00:00Z"},
+                {"number": 3, "mergedAt": "2026-11-11T23:00:00Z"}], 2, 4998
+
+    @staticmethod
+    def tally(prs, since):
+        return f"since {since}: " + " ".join(f"#{pr['number']}" for pr in prs)
+
+    def test_one_fetch_writes_each_file_from_its_own_date(self):
+        nightly.write_tallies(self.night, {
+            nightly.TALLY: [("", "2026-10-13")],
+            nightly.REVIEW_TALLY: [("Since the last setup review, 2026-11-01:", "2026-11-01"),
+                                   ("Trial: builder on claude-sonnet-5-5, 2026-11-10, trial for 5 PRs; since its start:",
+                                    "2026-11-10")]}, self.fetch, self.tally)
+        self.assertEqual(self.fetched, ["2026-10-13"])
+        retro = (self.night / nightly.TALLY).read_text()
+        self.assertTrue(retro.startswith("since 2026-10-13: #1 #2 #3\n"), retro)
+        self.assertIn("cost 2 GraphQL points; 4998 left", retro)
+        review = (self.night / nightly.REVIEW_TALLY).read_text()
+        self.assertIn("Since the last setup review, 2026-11-01:\nsince 2026-11-01: #2 #3", review)
+        self.assertIn("since its start:\nsince 2026-11-10: #3", review)
+
+    def test_a_failed_fetch_writes_why_in_each_file_and_goes_on(self):
+        def fails(since):
+            raise subprocess.CalledProcessError(1, ["gh", "api", "graphql", "-f", "query=…"],
+                                                stderr="error\ngh: not signed in\n")
+        nightly.write_tallies(self.night, {nightly.TALLY: [("", "2026-10-13")],
+                                           nightly.REVIEW_TALLY: [("x", "2026-11-01")]}, fails, self.tally)
+        for name in (nightly.TALLY, nightly.REVIEW_TALLY):
+            self.assertEqual((self.night / name).read_text(),
+                             "No tally tonight: gh api graphql failed: gh: not signed in\n")
+
+    def test_a_hung_fetch_says_how_long_not_the_query(self):
+        def hangs(since):
+            raise subprocess.TimeoutExpired(["gh", "api", "graphql", "-f", "query=" + "x" * 500], 120)
+        nightly.write_tallies(self.night, {nightly.TALLY: [("", "2026-10-13")]}, hangs, self.tally)
+        self.assertEqual((self.night / nightly.TALLY).read_text(), "No tally tonight: gh api graphql took over 120 s\n")
+
+    def test_the_review_starts_at_its_last_report_and_each_trial(self):
+        now = datetime(2026, 12, 1, 0, 20).astimezone()
+        self.assertEqual(nightly.review_parts("2026-11-11", now, [("builder", "claude-sonnet-5-5",
+                                                                   "2026-11-20, trial for 5 PRs")]),
+                         [("Since the last setup review, 2026-11-11:", "2026-11-11"),
+                          ("Trial: builder on claude-sonnet-5-5, 2026-11-20, trial for 5 PRs; since its start:",
+                           "2026-11-20")])
+        self.assertEqual(nightly.review_parts(None, now, []),
+                         [("No setup review's report yet, so over the last 30 days:", "2026-11-01")])
+        self.assertEqual(nightly.review_parts(None, now, "ValueError: no table")[1],
+                         ("Trials not read: ValueError: no table", None))
+
+    def test_the_last_reports_whole_date(self):
+        for name in ("report-2026-10-30.md", "report-2026-11-11.md", "notes.md"):
+            (self.night / name).write_text("# Setup review\n")
+        self.assertEqual(nightly.last_review_date(self.night), "2026-11-11")
+        (self.night / "report-2026-10-30.md").unlink()
+        (self.night / "report-2026-11-11.md").unlink()
+        self.assertIsNone(nightly.last_review_date(self.night))
+
+    def test_the_command_with_gh_refusing_writes_why_and_exits_cleanly(self):
+        bin_dir = self.night / "bin"
+        bin_dir.mkdir()
+        (bin_dir / "gh").write_text("#!/bin/sh\necho 'gh: not signed in' >&2\nexit 1\n")
+        (bin_dir / "gh").chmod(0o755)
+        night = self.night / "2026-11-12"
+        out = subprocess.run([sys.executable, str(SCRIPTS / "nightly-tooling.py"), "tally", str(night)],
+                             capture_output=True, text=True, env={**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}"})
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual((night / nightly.TALLY).read_text(),
+                         "No tally tonight: gh api graphql failed: gh: not signed in\n")
 
 
 class Digest(unittest.TestCase):
