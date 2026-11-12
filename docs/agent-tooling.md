@@ -165,14 +165,15 @@ Code session's variables leak into a run; and a second run can start.
 ## The monthly setup review
 
 This file records today's choices and why; the setup review (`.claude/skills/review-setup/`)
-keeps it true. Once a month, and again on a new major Xcode, it weighs the whole setup against
-what's new (Claude Code's changelog, Apple's release notes, the Brewfile tools' releases) and
+keeps it true. Once a month, and again once a newer major Xcode is installed, it weighs the whole
+setup against what's new (Claude Code's changelog, Apple's release notes, the tools' releases) and
 the retros' friction since: what to keep, what to swap or cut, and what is missing. It edits
 nothing itself: it writes a private report to `.slices/review-setup/` and cards each change
 worth doing, this file's corrections included, and what costs money, changes an account, widens
 what agents may do, or touches the maintainer's own setup is a question in the report. The
 nightly run starts it between the retro and the cards (`scripts/nightly-tooling.py`'s header
-says when); a run by hand counts, since the newest report says when the last one ran.
+says when); a run by hand counts for its month, since the newest report says when the last one
+ran. The runner denies that run Edit, commits, pushes, PR writes, `brew`, and `asc`.
 
 ## Parallel work
 

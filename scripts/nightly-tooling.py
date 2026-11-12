@@ -27,8 +27,9 @@ also moves to Done the cards a night parked or left waiting whose PR has merged 
 
 scripts/nightly-retro.sh run calls `review` between the retro and `run`. From midnight to 5 am,
 on the first night of a month with no setup review's report in .slices/review-setup/ yet, or on
-a new major Xcode since the last report, it runs one `claude -p` with `/review-setup nightly` in
-the main checkout, for at most 90 minutes. Its reply's last line goes in the digest.
+a newer major Xcode installed since the last report, it runs one `claude -p` with
+`/review-setup nightly` in the main checkout, for at most 90 minutes, on at most two nights a
+month, and without the tools in REVIEW_DENIED. Its reply's last line goes in the digest.
 
 `hook` is the PreToolUse hook `run` gives each card's claude through --settings. It runs before
 the permission rules, and its deny wins over their allow. It reads each Bash command as the shell
@@ -106,6 +107,11 @@ RETRO_TITLE = "Retro of"  # how every retro PR's title starts (.claude/skills/re
 REVIEW_REPORTS = ".slices/review-setup"  # in the main checkout (.claude/skills/review-setup/)
 REVIEW_STREAM = "review-setup.jsonl"  # the setup review's stream-json, in the night's folder
 REVIEW_LIMIT = timedelta(minutes=90)  # a setup review is stopped after this, or at the 5 am cutoff
+REVIEW_TRIES = 2  # nights a month that may start a setup review, so a failing one doesn't eat every night's cards
+# What the unattended setup review may never do, whatever auto mode allows: it writes its report
+# and cards only (.claude/skills/review-setup/).
+REVIEW_DENIED = ["Edit", "NotebookEdit", "Bash(git push:*)", "Bash(git commit:*)", "Bash(gh pr merge:*)",
+                 "Bash(gh pr create:*)", "Bash(gh pr edit:*)", "Bash(gh pr close:*)", "Bash(brew:*)", "Bash(asc:*)"]
 TEST_DIRS = ("Packages/Tests", "PlusPlusUITests")
 TEST_PATTERN = r"@Test([^A-Za-z]|$)|func test[A-Z_]"
 FEWER_TESTS = "Fewer tests:"  # the PR body's line that explains a drop, naming its target
@@ -253,19 +259,26 @@ def last_review(folder):
     return reports[-1].stem.removeprefix("report-")[:7], xcode_major(first)
 
 
-def review_due(last, now, xcode):
+def review_tries(retro, now):
+    """How many nights this month started a setup review: the night folders in .build/retro/ that
+    hold its stream."""
+    return len(list(Path(retro).glob(f"{now:%Y-%m}-[0-9][0-9]/{REVIEW_STREAM}")))
+
+
+def review_due(last, now, xcode, tries=0):
     """Why the setup review runs tonight, or None: once a month, at the first night with none
-    yet, and again on a new major Xcode. Only at night, like the cards, and a review that wrote
-    no report (a usage limit, a failure) is tried again the next night."""
-    if not night_window(now):
+    yet, and again once a newer major Xcode is installed. Only at night, like the cards. A review
+    that wrote no report (a usage limit, the time cap) is tried once more, the next night."""
+    if not night_window(now) or tries >= REVIEW_TRIES:
         return None
     if last is None:
         return "no review has run yet"
     month, major = last
     if month != f"{now:%Y-%m}":
         return f"none has run in {now:%B %Y} yet"
-    if xcode and major and xcode != major:
-        return f"Xcode {xcode} is out since the last review, on Xcode {major}"
+    # Newer only: switching to a beta and back starts one review, not two.
+    if xcode and major and int(xcode) > int(major):
+        return f"Xcode {xcode} is installed since the last review, on Xcode {major}"
     return None
 
 
@@ -1417,7 +1430,8 @@ def review(folder, now):
         xcode = xcode_major(sh("xcodebuild", "-version", check=False))
     except FAILURES:
         xcode = None
-    why = review_due(last_review(main_checkout() / REVIEW_REPORTS), now, xcode)
+    main = main_checkout()
+    why = review_due(last_review(main / REVIEW_REPORTS), now, xcode, review_tries(main / ".build/retro", now))
     if not why:
         log("No setup review tonight.")
         return
@@ -1425,8 +1439,8 @@ def review(folder, now):
     folder.mkdir(parents=True, exist_ok=True)
     # Capped well inside the night, so a long review still leaves the cards their hours.
     run_claude(["claude", "--name", "Setup review", "-p", "--permission-mode", "auto", "--output-format",
-                "stream-json", "--verbose", "/review-setup nightly"], folder / REVIEW_STREAM, main_checkout(),
-               min(night_window(now)[0], datetime.now().astimezone() + REVIEW_LIMIT))
+                "stream-json", "--verbose", "--disallowedTools", *REVIEW_DENIED, "--", "/review-setup nightly"],
+               folder / REVIEW_STREAM, main, min(night_window(now)[0], datetime.now().astimezone() + REVIEW_LIMIT))
 
 
 def run_claude(command, stream, cwd, deadline, env=None):

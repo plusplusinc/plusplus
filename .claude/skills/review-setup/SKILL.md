@@ -1,6 +1,6 @@
 ---
 name: review-setup
-description: Review the whole setup (tools, packages, CI, scripts, skills, hooks, agent definitions, rules, MCP servers, Claude Code features, Xcode, iOS, and Swift) against what's new and the friction since the last review, asking what to keep, what to swap or cut, and what is missing. Writes a report the maintainer reads in two minutes and cards each change worth doing. The nightly runner starts it as `/review-setup nightly` once a month and after a major Xcode release; use on request.
+description: Review the whole setup (tools, packages, CI, scripts, skills, hooks, agent definitions, rules, MCP servers, Claude Code features, Xcode, iOS, and Swift) against what's new and the friction since the last review, asking what to keep, what to swap or cut, and what is missing. Writes a report the maintainer reads in two minutes and cards each change worth doing. The nightly runner starts it as `/review-setup nightly` once a month and once a newer major Xcode is installed; use on request.
 argument-hint: "[nightly]"
 allowed-tools: Bash(git log:*), Bash(git diff:*), Bash(git show:*), Bash(git fetch:*), Bash(gh pr list:*), Bash(gh pr view:*), Bash(gh api:*), Bash(gh release:*), Bash(scripts/board.sh:*), Bash(scripts/conversations.py:*), Bash(scripts/lint-tools.sh:*), Bash(scripts/ci-times.py:*), Bash(claude --version), Bash(xcodebuild -version), Bash(swift --version), Bash(brew outdated:*), Bash(date:*), Read, Write, Glob, Grep, WebFetch, mcp__sosumi__searchAppleDocumentation, mcp__sosumi__fetchAppleDocumentation
 ---
@@ -31,16 +31,16 @@ edit: a change it finds is a card, built like any other, and that includes makin
 The last review is the newest `.slices/review-setup/report-<date>.md`; with none, look back a
 month. Read only what changed since.
 
-- **The setup today**: `Brewfile` and `Brewfile.lock.json`, `scripts/lint-tools.sh`,
-  `Packages/Package.swift`, `ci_scripts/`, `.github/`, `docs/xcode-cloud.md` and the budgets in
+- **The setup today**: `Brewfile`, `scripts/lint-tools.sh`, `Packages/Package.swift`, `ci_scripts/`, `.github/`, `docs/xcode-cloud.md` and the budgets in
   `scripts/xcresult.py`, `scripts/`, `.claude/` (skills, agents, rules, hooks, `settings.json`),
   `.mcp.json`, `docs/agent-tooling.md`, and `claude --version`, `xcodebuild -version`,
   `swift --version`.
 - **What's new**, kept modest: Claude Code's changelog
   (`https://raw.githubusercontent.com/anthropics/claude-code/main/CHANGELOG.md`) since the last
   review, and its docs for the features in use (skills, hooks, subagents, settings); Xcode's and
-  iOS's release notes through sosumi; each Brewfile tool's releases since its pin
-  (`gh release list -R <owner/repo> -L 5`).
+  iOS's release notes through sosumi; `brew outdated` for the Brewfile's tools and AXe, and the
+  release notes of a major version among them. The pinned lint tools and the Swift package get
+  update cards and PRs without this review (`scripts/lint-tools.sh outdated`, Dependabot).
 - **The friction since**: the retro PRs' bodies (`gh pr list --state all --search "Retro of in:title created:>=<since>"`),
   the ledger (`.slices/rules-ledger.md`: findings seen once, rules counted hurt), the Friction
   lines of PRs merged since, and `scripts/conversations.py <since>` read only around a moment.

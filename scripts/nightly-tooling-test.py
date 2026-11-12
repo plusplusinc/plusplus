@@ -538,10 +538,26 @@ class SetupReview(unittest.TestCase):
         self.assertIsNone(nightly.review_due(("2026-12", "27"), self.FIRST.replace(day=2), "27"))
         self.assertIsNotNone(nightly.review_due(None, self.FIRST, "27"))
 
-    def test_due_again_on_a_new_major_xcode(self):
+    def test_due_again_on_a_newer_major_xcode(self):
         self.assertIn("Xcode 28", nightly.review_due(("2026-12", "27"), self.FIRST.replace(day=9), "28"))
+        # Back from a beta is no new Xcode.
+        self.assertIsNone(nightly.review_due(("2026-12", "28"), self.FIRST.replace(day=9), "27"))
         self.assertIsNone(nightly.review_due(("2026-12", "27"), self.FIRST.replace(day=9), None))
         self.assertIsNone(nightly.review_due(("2026-12", None), self.FIRST.replace(day=9), "28"))
+
+    def test_a_review_that_wrote_no_report_is_tried_once_more(self):
+        retro = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, retro)
+        for night in ("2026-11-01", "2026-12-01", "2026-12-02"):
+            (retro / night).mkdir()
+        (retro / "2026-12-03").mkdir()  # a night with no review
+        (retro / "2026-11-01" / nightly.REVIEW_STREAM).touch()
+        (retro / "2026-12-01" / nightly.REVIEW_STREAM).touch()
+        self.assertEqual(nightly.review_tries(retro, self.FIRST), 1)
+        self.assertIsNotNone(nightly.review_due(("2026-11", "27"), self.FIRST.replace(day=2), "27", tries=1))
+        (retro / "2026-12-02" / nightly.REVIEW_STREAM).touch()
+        self.assertEqual(nightly.review_tries(retro, self.FIRST), 2)
+        self.assertIsNone(nightly.review_due(("2026-11", "27"), self.FIRST.replace(day=3), "27", tries=2))
 
     def test_only_at_night(self):
         for hour in (5, 12, 23):
