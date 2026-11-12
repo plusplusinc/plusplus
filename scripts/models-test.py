@@ -15,7 +15,8 @@ spec = importlib.util.spec_from_file_location("models", ROOT / "scripts" / "mode
 models = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(models)
 
-COPIED = ["docs/agent-tooling.md", ".claude/agents", "scripts/nightly-retro.sh", "scripts/nightly-tooling.py"]
+COPIED = ["docs/agent-tooling.md", ".claude/agents", ".claude/skills", "scripts/nightly-retro.sh",
+          "scripts/nightly-tooling.py"]
 
 
 class Fixture(unittest.TestCase):
@@ -126,6 +127,18 @@ class Check(Fixture):
         self.assertEqual({row["Set in"] for row in rows if row["Set in"].startswith(".claude/agents/")},
                          {f".claude/agents/{name}.md" for name in
                           ("planner", "builder", "verifier", "lookup", "repro", "edit", "reviewer")})
+
+    def test_a_skill_passing_a_model_to_a_repo_agent_fails(self):
+        self.edit(".claude/skills/nightly-card/SKILL.md", "Start a `verifier`, again with no model,",
+                  'Start a `verifier` (`model: "opus"`),')
+        found = models.problems(self.root)
+        self.assertEqual(len(found), 1, found)
+        self.assertRegex(found[0], r"^\.claude/skills/nightly-card/SKILL\.md:\d+: passes a model to `verifier`")
+
+    def test_a_model_passed_to_a_built_in_agent_passes(self):
+        self.edit(".claude/skills/nightly-card/SKILL.md", "Start a `verifier`, again with no model,",
+                  "Start a `general-purpose` agent (`model: fable`), then a `verifier`, again with no model,")
+        self.assertEqual(models.problems(self.root), [])
 
     def test_a_verifier_on_the_builders_model_fails(self):
         self.edit("docs/agent-tooling.md", "| verifier | `.claude/agents/verifier.md` | `claude-fable-5-2`",

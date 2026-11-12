@@ -141,6 +141,16 @@ def update_note(folder):
     return [text] if "→" in text else []
 
 
+def checkout_note(folder):
+    """The digest's line when scripts/nightly-retro.sh run couldn't bring the main checkout up to
+    origin/main, from main-checkout.txt, which it writes only then: the night ran older scripts."""
+    try:
+        text = (Path(folder) / "main-checkout.txt").read_text(errors="replace").strip()
+    except OSError:
+        return []
+    return [f"Not checked: {text}"] if text else []
+
+
 def log(message):
     print(f"{datetime.now().strftime('%H:%M')} {message}", flush=True)
     return message
@@ -1378,12 +1388,13 @@ class Night:
         tidy()
 
     def top_lines(self):
-        """What the digest says first: merges that skipped the gates, the night's Claude Code update
+        """What the digest says first: merges that skipped the gates, a main checkout the night
+        couldn't bring up to date, the night's Claude Code update
         when it changed the version or failed, what went unchecked, and the cards an open PR held back, so a day session merges or closes that PR first."""
         return [f"Merged without the runner: #{pr['number']} {pr['title']}, by "
                 f"{(pr.get('mergedBy') or {}).get('login', 'unknown')}; none of the night's gates ran on it. "
                 f"Review it; undo: git revert {((pr.get('mergeCommit') or {}).get('oid') or '?')[:7]}"
-                for pr in self.unarmed] + update_note(self.dir) + [f"Not checked: {u}" for u in dict.fromkeys(self.unchecked)] + [
+                for pr in self.unarmed] + checkout_note(self.dir) + update_note(self.dir) + [f"Not checked: {u}" for u in dict.fromkeys(self.unchecked)] + [
                     f"Waits on an open PR: {h}" for h in self.held]
 
     def digest(self):
