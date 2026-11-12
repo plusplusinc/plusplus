@@ -162,6 +162,21 @@ doing these by hand gets three things wrong, which its header explains: the agen
 the main checkout's paths, which a tracked file can't hold in a public repo; the calling Claude
 Code session's variables leak into a run; and a second run can start.
 
+## The monthly setup review
+
+This file records today's choices and why; the setup review (`.claude/skills/review-setup/`)
+keeps it true. Once a month, and again once a newer major Xcode is installed, it weighs the whole
+setup against what's new (Claude Code's changelog, Apple's release notes, the tools' releases) and
+the retros' friction since: what to keep, what to swap or cut, and what is missing. It also
+looks outward, at a fixed short list of places, for what we don't use yet, and names at most
+three things worth trying, each answering a present need, with the cheapest trial. It edits
+nothing itself: it writes a private report to `.slices/review-setup/` and cards each change
+worth doing, this file's corrections included, and what costs money, changes an account, widens
+what agents may do, or touches the maintainer's own setup is a question in the report. The
+nightly run starts it between the retro and the cards (`scripts/nightly-tooling.py`'s header
+says when); a run by hand counts for its month, since the newest report says when the last one
+ran. The runner denies that run Edit, commits, pushes, PR writes, `brew`, and `asc`.
+
 ## Parallel work
 
 `claude --worktree <name>` gives an agent its own checkout under `.claude/worktrees/`.
