@@ -45,6 +45,7 @@ struct RoutineLauncher: View {
                         routine: launch.routine,
                         workout: launch.workout,
                         store: store,
+                        namer: namer,
                     )
                     self.session = session
                     // The drawer names the routine last opened, which may not be this one.

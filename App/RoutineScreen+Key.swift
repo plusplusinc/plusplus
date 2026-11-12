@@ -55,8 +55,8 @@ extension RoutineScreen {
 
     /// The key that `primaryKeyBar` holds, for `role`. Within a kind, one key whose words
     /// change; across kinds, another key (`swapKey(_:)`).
-    func key(_ role: KeyRole, named name: String) -> some View {
-        Button { tapKey(named: name) } label: { keyLabel(role) }
+    func key(_ role: KeyRole) -> some View {
+        Button { tapKey() } label: { keyLabel(role) }
             .accessibilityLabel(spokenKey(role))
             // Not on Start, which the tests find by its label.
             .accessibilityIdentifier(role == .start ? "" : "workout.key")
@@ -91,11 +91,11 @@ extension RoutineScreen {
     /// moving away under a finger that still says "Log set", the list goes back to it and nothing
     /// is logged: the key changes only once the finger lifts (`settleKeyRole()`), the place at
     /// once.
-    func tapKey(named name: String) {
+    func tapKey() {
         guard session.workout != nil, !isStarting else { return pressStart() }
         guard !isMovingOn, !isKeySwapping else { return }
         if live?.isDone == true {
-            return finish(named: name)
+            return finish()
         }
         guard let current = live?.currentExercise, let set = live?.currentSet else { return }
         if keyWayBack != nil || currentPlace?.isScrolledAway == true {

@@ -23,7 +23,6 @@ extension View {
     func endWorkoutDialog(
         isPresented: Binding<Bool>,
         session: RoutineSession,
-        routineName: String,
         end: @escaping (@escaping () -> Void) -> Void,
     ) -> some View {
         confirmationDialog(
@@ -34,7 +33,7 @@ extension View {
             // Only with something to keep: until a set is done, it can only be discarded.
             if session.workout?.offersFinish == true {
                 Button("Finish workout") {
-                    end { session.finish(routineName: routineName) }
+                    end { session.finish() }
                 }
             }
             Button("Discard workout", role: .destructive) {

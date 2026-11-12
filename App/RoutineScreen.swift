@@ -147,7 +147,6 @@ struct RoutineScreen: View {
         .endWorkoutDialog(
             isPresented: $isConfirmingEnd,
             session: session,
-            routineName: shownName ?? "",
             end: end,
         )
         // `onChange` skips the first value, so a routine opened and left alone is never saved.
@@ -162,7 +161,6 @@ struct RoutineScreen: View {
 
     private var screen: some View {
         let generatedName = generatedName
-        let shownName = shownName
         // Read once: the key's identity and the key are one role.
         let role = keyRole
         // Read once here, so the rows' closure holds them as values: a list crossfading out keeps
@@ -317,9 +315,9 @@ struct RoutineScreen: View {
             plusOnes: setLogs + sideLogs,
             drop: startDrop,
         ) {
-            key(role, named: shownName ?? "")
+            key(role)
         }
-        .task(id: isStarting) { await holdStart(named: shownName ?? "") }
+        .task(id: isStarting) { await holdStart() }
         .task(id: unshownSet) { await rollHeldSet() }
         // One row open at a time, closed by a scroll or a tap anywhere else, Start included,
         // so the container holds Start's bar as well as the scroll view.
@@ -356,7 +354,7 @@ struct RoutineScreen: View {
 
 #Preview {
     RoutineScreen(
-        session: RoutineSession(routine: Routine(), store: nil),
+        session: RoutineSession(routine: Routine(), store: nil, namer: .muscleGroupsOnly),
         namer: .muscleGroupsOnly,
     )
 }

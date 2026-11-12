@@ -35,6 +35,8 @@ public final class RoutineSession {
 
     /// Nil when the store didn't open: switching works in memory, and nothing saves.
     @ObservationIgnored private let store: RoutineStore?
+    /// Names a workout after its routine, at Start and again at Finish.
+    @ObservationIgnored private let namer: RoutineNamer
     /// Where every change to the routine goes, to be saved one at a time in the order they
     /// happened, so an older version can never land last. Only the newest unsaved one waits.
     @ObservationIgnored private var saves: AsyncStream<RoutineSave>.Continuation
@@ -44,7 +46,13 @@ public final class RoutineSession {
     /// only the newest would drop the end, leaving the first in progress in the store.
     @ObservationIgnored private let workoutWrites: AsyncStream<WorkoutWrite>.Continuation
 
-    public init(routine: Routine, workout: Workout? = nil, store: RoutineStore?) {
+    public init(
+        routine: Routine,
+        workout: Workout? = nil,
+        store: RoutineStore?,
+        namer: RoutineNamer,
+    ) {
+        self.namer = namer
         opened = routine
         current = routine
         self.workout = workout
@@ -95,12 +103,12 @@ public final class RoutineSession {
     }
 
     /// Starts a workout on the open routine, shown at the root, so no back button or swipe
-    /// leaves it. `routineName` is the name it shows.
-    public func start(routineName: String, at now: Date = .now) {
+    /// leaves it, named as the routine shows now.
+    public func start(at now: Date = .now) {
         guard workout == nil else { return }
         // The workout first: a screen shown at the root reads it as it is made, to open on the
         // current exercise.
-        let started = Workout(routineID: current.id, routineName: routineName, startedAt: now)
+        let started = Workout(routineID: current.id, routineName: shownName, startedAt: now)
         workout = started
         workoutWrites.yield(.save(started))
         if screen != .routine || isRoutinePushed {
@@ -109,6 +117,11 @@ public final class RoutineSession {
             isRoutinePushed = false
         }
         isDrawerOpen = false
+    }
+
+    /// The name the open routine shows, which a workout on it keeps: empty for New routine.
+    private var shownName: String {
+        namer.shownName(of: current) ?? ""
     }
 
     /// Pauses the workout, or resumes it if paused.
@@ -128,10 +141,10 @@ public final class RoutineSession {
     }
 
     /// Finishes the workout, keeping it with the name the routine shows now.
-    public func finish(routineName: String, at now: Date = .now) {
+    public func finish(at now: Date = .now) {
         guard let workout else { return }
         var finished = workout.finishing(at: now)
-        finished.routineName = routineName
+        finished.routineName = shownName
         self.workout = nil
         workoutWrites.yield(.save(finished))
         deleteIfCleared()

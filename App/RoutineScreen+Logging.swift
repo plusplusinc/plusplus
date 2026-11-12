@@ -99,7 +99,7 @@ extension RoutineScreen {
     /// run to 0 in the shift's transaction. After the last set, the row closes as the list settles
     /// on its end and the key becomes Finish workout.
     func log(_ set: PlannedSet, of row: RoutineExercise) {
-        // The key logs nothing during a move (`tapKey(named:)`): one would start a second move
+        // The key logs nothing during a move (`tapKey()`): one would start a second move
         // whose state the first one's end tears down.
         guard let live, !isMovingOn else { return }
         let step = live.step(logging: set)
@@ -255,8 +255,8 @@ extension RoutineScreen {
     }
 
     /// Finishes the workout from the key, at once, with no dialog, as End's Finish does.
-    func finish(named name: String) {
-        end { session.finish(routineName: name) }
+    func finish() {
+        end { session.finish() }
     }
 
     /// Where the list lands `next`'s row under the bar once `leaving`, the current row, has

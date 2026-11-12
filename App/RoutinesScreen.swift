@@ -83,7 +83,11 @@ struct RoutinesScreen: View {
 
 #Preview {
     RoutinesScreen(
-        session: RoutineSession(routine: Routine(name: "Upper body"), store: nil),
+        session: RoutineSession(
+            routine: Routine(name: "Upper body"),
+            store: nil,
+            namer: .muscleGroupsOnly,
+        ),
         namer: .muscleGroupsOnly,
     )
 }

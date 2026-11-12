@@ -19,7 +19,7 @@ struct RoutineSessionTests {
     }
 
     private func session(_ routine: Routine = Routine()) -> RoutineSession {
-        RoutineSession(routine: routine, store: relaunch())
+        RoutineSession(routine: routine, store: relaunch(), namer: .muscleGroupsOnly)
     }
 
     private static func upper() throws -> Routine {
@@ -64,11 +64,11 @@ struct RoutineSessionTests {
     @Test("A workout's end is saved even with the next start queued behind it")
     func endBeforeNextStart() async throws {
         let session = try session(Self.upper())
-        session.start(routineName: "Upper", at: Date(timeIntervalSinceReferenceDate: 10))
+        session.start(at: Date(timeIntervalSinceReferenceDate: 10))
         let first = try #require(session.workout)
         await session.writesLanded()
-        session.finish(routineName: "Upper", at: Date(timeIntervalSinceReferenceDate: 20))
-        session.start(routineName: "Upper", at: Date(timeIntervalSinceReferenceDate: 30))
+        session.finish(at: Date(timeIntervalSinceReferenceDate: 20))
+        session.start(at: Date(timeIntervalSinceReferenceDate: 30))
         let second = try #require(session.workout)
         await session.writesLanded()
         let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkout>())
@@ -78,17 +78,33 @@ struct RoutineSessionTests {
         #expect(stored.first { $0.id == second.id }?.isInProgress == true)
     }
 
+    @Test("Finish writes the name the routine shows then, not the one at Start")
+    func finishName() async throws {
+        var routine = try Self.upper()
+        routine.name = ""
+        let session = session(routine)
+        session.start()
+        let generated = try #require(RoutineNamer.muscleGroupsOnly.shownName(of: routine))
+        #expect(session.workout?.routineName == generated)
+        routine.name = "Push day"
+        session.save(routine)
+        session.finish()
+        await session.writesLanded()
+        let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkout>())
+        #expect(stored.map(\.workout.routineName) == ["Push day"])
+    }
+
     @Test("A routine emptied during a workout is kept until the workout ends, then deleted")
     func emptiedDuringWorkout() async throws {
         let routine = try Self.upper()
         let session = session(routine)
         session.save(routine)
-        session.start(routineName: "Upper")
+        session.start()
         session.save(Routine(id: routine.id))
         await session.writesLanded()
         let kept = try await relaunch().openRoutine(routine.id, weightUnit: .pounds)
         #expect(kept?.isEmpty == true)
-        session.finish(routineName: "Upper")
+        session.finish()
         await session.writesLanded()
         #expect(try await relaunch().openRoutine(routine.id, weightUnit: .pounds) == nil)
     }
@@ -99,7 +115,7 @@ struct RoutineSessionTests {
         let row = routine.exercises[0]
         let session = session(routine)
         session.save(routine)
-        session.start(routineName: "Upper")
+        session.start()
         let set = PlannedSet(row: row.id, round: 1)
         session.log(set, of: row)
         await session.writesLanded()
