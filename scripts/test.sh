@@ -31,7 +31,7 @@ case "$MODE" in
         xcresult package "$log"
         [ "$status" -eq 0 ] || exit "$status"
         # The scripts' own tests: the night runner's gates, the PR check's revert guard, the
-        # models check and hook, board.sh's readme, the agent records' tally, and the times' parsing. Nothing else runs them, CI included, and they need no simulator or
+        # models check, board.sh's readme, the agent records' tally, and the times' parsing. Nothing else runs them, CI included, and they need no simulator or
         # network (about 7 s).
         python3 -I "$ROOT/scripts/nightly-tooling-test.py" > "$RESULTS/scripts.log" 2>&1 &&
             python3 -I "$ROOT/scripts/pr-check-test.py" >> "$RESULTS/scripts.log" 2>&1 &&
