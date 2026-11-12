@@ -50,9 +50,9 @@ struct PlusOneBurst: View {
                 }
             }
             .allowsHitTesting(false)
-            // An empty representation, so nothing of it is in the tree, playing or at rest:
-            // `accessibilityHidden` kept VoiceOver off it, but automation and `axe describe-ui`
-            // still read a "+1" over the key, and between bursts, at opacity 0, too.
+            // An empty representation, as `hiddenBehindDrawer` uses: `accessibilityHidden` kept
+            // VoiceOver off it, but automation and `axe describe-ui` still read a "+1" over the
+            // key, between bursts too, at opacity 0.
             .accessibilityRepresentation { }
     }
 }
