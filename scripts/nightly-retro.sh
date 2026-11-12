@@ -38,7 +38,7 @@ NAME="Nightly retro"
 # The retro's claude process, wherever it runs, and not the caffeinate that started it.
 RETRO_PROCESS="(^|/)claude --name $NAME( |\$)"
 # The tooling runner, which starts after the retro: the monthly setup review, then the cards.
-TOOLING_PROCESS="nightly-tooling\.py (review|run) "
+TOOLING_PROCESS="nightly-tooling\.py (review|run) |nightly-retro\.sh update "
 
 # The longest `claude update` may take; a hung one must not hold the night.
 UPDATE_LIMIT=180
@@ -135,7 +135,7 @@ bounded() {
     shift
     "$@" &
     pid=$!
-    (sleep "$limit"; kill "$pid" 2> /dev/null) &
+    (sleep "$limit"; kill "$pid" 2> /dev/null; sleep 5; kill -9 "$pid" 2> /dev/null) &
     dog=$!
     wait "$pid" || status=$?
     kill "$dog" 2> /dev/null || true
@@ -146,14 +146,18 @@ bounded() {
 # Called inside the login zsh run builds, where claude is on the PATH. It always returns 0.
 update() {
     local night=$1 before after output status=0 line why
-    before=$(claude --version 2> /dev/null | awk '{print $1}') || before=unknown
+    before=$(claude --version 2> /dev/null | awk '{print $1}')
     output=$(mktemp)
     bounded "$UPDATE_LIMIT" claude update > "$output" 2>&1 < /dev/null || status=$?
-    after=$(claude --version 2> /dev/null | awk '{print $1}') || after=unknown
+    after=$(claude --version 2> /dev/null | awk '{print $1}')
+    if [ "$status" -eq 0 ] && [ -z "$after" ]; then
+        status=1
+        echo "claude --version failed after the update" > "$output"
+    fi
     if [ "$status" -ne 0 ]; then
         why=$(tail -n 1 "$output" | cut -c1-120)
         [ "$status" -ne 143 ] || why="timed out after ${UPDATE_LIMIT}s"
-        line="Claude Code update failed: ${why:-no output} (exit $status); running $after"
+        line="Claude Code update failed: ${why:-no output} (exit $status); running ${after:-$before}"
     elif [ "$before" != "$after" ]; then
         line="Claude Code $before → $after"
     else

@@ -125,7 +125,7 @@ def update_note(folder):
     scripts/nightly-retro.sh run writes: a failure goes with the unchecked, a version change is one
     plain line, and "already the latest" is left out."""
     try:
-        text = (Path(folder) / "claude-update.txt").read_text().strip()
+        text = (Path(folder) / "claude-update.txt").read_text(errors="replace").strip()
     except OSError:
         return []
     if text.startswith("Claude Code update failed"):
@@ -1370,8 +1370,8 @@ class Night:
         tidy()
 
     def top_lines(self):
-        """What the digest says first: merges that skipped the gates, what went unchecked, and the
-        cards an open PR held back, so a day session merges or closes that PR first."""
+        """What the digest says first: merges that skipped the gates, the night's Claude Code update
+        when it changed the version or failed, what went unchecked, and the cards an open PR held back, so a day session merges or closes that PR first."""
         return [f"Merged without the runner: #{pr['number']} {pr['title']}, by "
                 f"{(pr.get('mergedBy') or {}).get('login', 'unknown')}; none of the night's gates ran on it. "
                 f"Review it; undo: git revert {((pr.get('mergeCommit') or {}).get('oid') or '?')[:7]}"
