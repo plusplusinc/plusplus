@@ -115,8 +115,24 @@ A target's budget holds its wall time. A serial target's is its tests' sum, and 
 Swift Testing target's its longest test's, since each is timed from their common start.
 
 A test over its budget is fixed at its cause (setup through the UI, a fixed wait, a launch, a
-held main actor), or named with its time in the report that adds it. The first test of a
-filtered run carries the process's warm-up, so it can read over on its own.
+held main actor), or named with its time in the report that adds it. A run's first test
+carries the process's warm-up, so it can read over on its own (0.8 to 2.3 s for
+`DesignSystemTests`' first on Xcode Cloud, runs 321 to 366).
+
+A snapshot whose reference matches only within the perceptual tolerance is compared through
+CoreImage, and the first such comparison in a run sets it up: 0.4 s locally, 0.6 to 5.7 s on
+Xcode Cloud, which renders on the same runtime byte for byte as a Mac does. The test that pays
+it logs `fopen failed for data file` twice; re-record its reference (the editing title's,
+before #150, over budget in 6 of runs 321 to 366).
+
+Other `DesignSystemTests` tests have read 2.7 to 4.6 s on Xcode Cloud and under 1 s locally, a
+different few each run (runs 326, 360, 362, 366), and up to 7.7 s on Xcode Cloud in runs 374 and
+376, #150's last. In three of the first four runs, it ran while the freshly booted simulator
+relaunched KonaSynthesizer, an Intel-only speech extension crashing under Rosetta,
+which starts 26 to 46 s into the test action: a correlation, since runs 321 and 358 had it with
+nothing over. So such a test, with no `fopen` line, is slow only if it is also over 1.6 s in
+`scripts/test.sh sim DesignSystemTests` (the whole target: a filter to the one test would read
+its warm-up), and `scripts/ci-times.py` marks it so rather than over budget.
 
 ## Snapshots and hosted views
 

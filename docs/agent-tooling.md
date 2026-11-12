@@ -125,6 +125,12 @@ the skill.
 it's installed and running, the retro's last reply, read from the transcript, and the tooling
 runner's last digest.
 
+Before the retro starts, the run updates the command-line Claude Code (`claude update`, bounded
+to three minutes; a failure is logged and the night runs on the installed version), so each night
+uses the latest, and the digest's top says when the version changed or the update failed. A
+running session keeps its version until it exits, so nothing in flight breaks. The desktop app's
+Code tab runs its own copy, which updates with the app, at a relaunch between sessions.
+
 Plugged in, the Mac stays awake with the lid open or closed. Claude Code runs under
 `caffeinate -s`, which keeps the Mac awake on power but doesn't stop it sleeping when the lid
 closes; an Amphetamine trigger for when the power adapter is connected, with closed-display
@@ -139,7 +145,8 @@ a night, or until a usage window reaches 0.9 on the night before the weekly limi
 never after 5 am. Its gates are code, tested against fixtures by
 `python3 scripts/nightly-tooling-test.py`, which `scripts/test.sh` runs: the time of night, the
 usage limits read from the night's own stream-json (never a probe call), this month's Xcode Cloud hours and the night's
-runs, overlap with open PRs, and, once a card's lead (the nightly-card skill) ends, a passing
+runs, overlap with open PRs (a retro PR's `.claude/` and `docs/` Markdown aside, and a card held
+back named atop the digest), and, once a card's lead (the nightly-card skill) ends, a passing
 verifier record before it arms auto-merge, while a PR touching a protected path (what CI runs,
 and what steers the night's agents) or only `.claude/` and `docs/` waits for the maintainer and
 a failed one goes back to draft. A PreToolUse hook it passes each card's claude runs before the
@@ -160,6 +167,21 @@ Its digest, in the night's folder, is what `show` prints after the retro's reply
 doing these by hand gets three things wrong, which its header explains: the agent's plist needs
 the main checkout's paths, which a tracked file can't hold in a public repo; the calling Claude
 Code session's variables leak into a run; and a second run can start.
+
+## The monthly setup review
+
+This file records today's choices and why; the setup review (`.claude/skills/review-setup/`)
+keeps it true. Once a month, and again once a newer major Xcode is installed, it weighs the whole
+setup against what's new (Claude Code's changelog, Apple's release notes, the tools' releases) and
+the retros' friction since: what to keep, what to swap or cut, and what is missing. It also
+looks outward, at a fixed short list of places, for what we don't use yet, and names at most
+three things worth trying, each answering a present need, with the cheapest trial. It edits
+nothing itself: it writes a private report to `.slices/review-setup/` and cards each change
+worth doing, this file's corrections included, and what costs money, changes an account, widens
+what agents may do, or touches the maintainer's own setup is a question in the report. The
+nightly run starts it between the retro and the cards (`scripts/nightly-tooling.py`'s header
+says when); a run by hand counts for its month, since the newest report says when the last one
+ran. The runner denies that run Edit, commits, pushes, PR writes, `brew`, and `asc`.
 
 ## Parallel work
 

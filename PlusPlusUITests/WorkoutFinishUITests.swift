@@ -28,8 +28,15 @@ final nonisolated class WorkoutFinishUITests: XCTestCase {
                 "Log set",
                 "The workout's key never came up",
             )
+            // The key comes up near the end of the grow's spring (`RoutineScreen.keyReturnDelay`,
+            // `growBeat`), so read where the row rests once its top holds still, not within a
+            // clock's window: on a slow runner one accessibility query can outlast the window.
+            XCTAssertTrue(
+                settling(row.frame.minY, still: 0.25, within: 3),
+                "After Start, the list never came to rest",
+            )
             let bar = app.navigationBars.firstMatch.frame.maxY
-            let top = reading(row.frame.minY, until: { abs($0 - bar) < 1 }, within: 1)
+            let top = row.frame.minY
             XCTAssertLessThan(abs(top - bar), 1, "After Start, the list rests \(top - bar) pt low")
         }
         XCTContext.runActivity(named: "Logging the last set turns the key to Finish workout") { _ in

@@ -90,6 +90,14 @@ Each test a covered PR added is checked against `.claude/rules/testing.md`: its 
 table there, and whether a test that already existed proves the same thing. A miss is a
 finding.
 
+Each covered PR that changed the app is read against "What the codebase is for" in
+`docs/principles.md`: a cost out of proportion to the idea, a product concept with no name in
+the code or with two, a decision no test holds, a state machine left implicit (flags read in
+combination, steps ordered by delays, a status worked out in more than one place), a workaround
+its Friction line names, a slower
+loop. A miss is a finding, and its fix is in the code, so it becomes a card (`/brief`), with a
+`Nightly:` line when it changes nothing the maintainer sees, never a prose rule.
+
 The sweep goes unranked: fix each statement in `CLAUDE.md`, `.claude/`, `docs/`, and the README
 that the merges it covers made false, deleting first.
 
@@ -142,7 +150,13 @@ One row per prose rule a finding bears on: its file, the rule in a few words, wh
 was added, and two counts. Each retro adds one to **helped** when the work shows the rule
 steering it right, and one to **hurt** when the rule misled, contradicted another, or cost
 reading with nothing to show. Findings seen once wait there too, with where they were seen.
-Edit rows in place; never rewrite the ledger whole.
+Edit rows in place; never rewrite the ledger whole, or copy another over it. A session in a
+worktree, which Claude Code won't let edit the main checkout, appends its rows under a
+`## To merge` heading with the shell (`cat >> … <<'ROWS'`), and the next retro moves them.
+
+On the first run after a month ends, the retro also reviews the whole codebase against "What
+the codebase is for" and the top of the board's Todo, and cards what the coming work will need,
+each with its evidence in the code; the lead runs the same review before a large feature.
 
 On the first run after a month ends, and on request (after a model upgrade, ask for one), the
 retro also prunes the rules, skills, agent definitions, and `CLAUDE.md`, line by line, starting
@@ -189,8 +203,9 @@ scripts/nightly-retro.sh install
 last reply and the tooling runner's last digest, which is how the lead reads the night in the
 morning; `run` starts one now, as launchd does. Each run's output and errors go to
 `.build/retro/nightly.log`, and each claude's stream-json to the night's folder,
-`.build/retro/<date>/`. After the retro, `scripts/nightly-tooling.py` runs the night's tooling
-cards (its header has the gates); the retro itself does nothing for them.
+`.build/retro/<date>/`. After the retro, `scripts/nightly-tooling.py` runs the monthly setup
+review when one is due (`.claude/skills/review-setup/`) and the night's tooling cards (its header
+has the gates); the retro itself does nothing for them.
 
 launchd runs a midnight missed while the Mac slept once it wakes; a night missed while it was
 off is covered by the next run, and `show` and the log say why. The run is named "Nightly retro", which keeps it out of `scripts/conversations.py`, so a

@@ -2,6 +2,7 @@
 """After the nightly retro, runs eligible tooling cards one at a time, each with its own lead.
 
     scripts/nightly-tooling.py run <night-dir> [--dry-run] [--now 2026-10-29T01:30]
+    scripts/nightly-tooling.py review <night-dir>            # the setup review, when one is due
     scripts/nightly-tooling.py hook <night-dir> <worktree>   # a card's PreToolUse hook
     scripts/nightly-tooling.py pre-push <night-dir>          # a card's git pre-push hook
     scripts/nightly-tooling.py digest [<night-dir>]          # a night's digest; the last by default
@@ -13,13 +14,22 @@ the board has one by that title or an open one for that tool. `run` holds the ni
 no agent can forget one: it starts cards only from midnight to 5 am, up to three a night, or,
 on the night before the weekly usage limit resets (its reset at or before 7 am), until a
 usage window reaches 0.9 or 5 am. Before each card it reads the last rate_limit_event in the
-night's logs (no probe calls), this month's Xcode Cloud PR hours, and the open PRs' files. It
+night's logs (no probe calls), this month's Xcode Cloud PR hours, and the open PRs' files: a
+card naming one waits, and the digest's top says for which PR, though a retro PR's Markdown
+under .claude/ and docs/ holds no card back. It
 makes the card's worktree from main, runs one `claude -p` lead with the nightly-card skill,
 then decides on the PR itself: auto-merge is armed only after a passing verifier record, never
 for a PR touching a protected path or only .claude/ and docs/, which wait for the maintainer;
 a failed card's PR goes back to draft. It ends with a private digest, saved in the night's
 folder, which `scripts/nightly-retro.sh show` prints. --dry-run reads everything and prints the
-card it would take and the command it would run, then stops before changing anything.
+card it would take and the command it would run, then stops before changing anything. Each run
+also moves to Done the cards a night parked or left waiting whose PR has merged since.
+
+scripts/nightly-retro.sh run calls `review` between the retro and `run`. From midnight to 5 am,
+on the first night of a month with no setup review's report in .slices/review-setup/ yet, or on
+a newer major Xcode installed since the last report, it runs one `claude -p` with
+`/review-setup nightly` in the main checkout, for at most 90 minutes, on at most two nights a
+month, and without the tools in REVIEW_DENIED. Its reply's last line goes in the digest.
 
 `hook` is the PreToolUse hook `run` gives each card's claude through --settings. It runs before
 the permission rules, and its deny wins over their allow. It reads each Bash command as the shell
@@ -93,12 +103,34 @@ PROTECTED = [
 # The CI half repeats what .github/no-code-paths's header and scripts/pr-check.sh's GATE_PATTERN
 # name; a file added to either belongs here too.
 DAY_ONLY = (".claude/", "docs/")  # a PR entirely under these waits for the day
+RETRO_TITLE = "Retro of"  # how every retro PR's title starts (.claude/skills/retro/SKILL.md)
+REVIEW_REPORTS = ".slices/review-setup"  # in the main checkout (.claude/skills/review-setup/)
+REVIEW_STREAM = "review-setup.jsonl"  # the setup review's stream-json, in the night's folder
+REVIEW_LIMIT = timedelta(minutes=90)  # a setup review is stopped after this, or at the 5 am cutoff
+REVIEW_TRIES = 2  # nights a month that may start a setup review, so a failing one doesn't eat every night's cards
+# What the unattended setup review may never do, whatever auto mode allows: it writes its report
+# and cards only (.claude/skills/review-setup/).
+REVIEW_DENIED = ["Edit", "NotebookEdit", "Bash(git push:*)", "Bash(git commit:*)", "Bash(gh pr merge:*)",
+                 "Bash(gh pr create:*)", "Bash(gh pr edit:*)", "Bash(gh pr close:*)", "Bash(brew:*)", "Bash(asc:*)"]
 TEST_DIRS = ("Packages/Tests", "PlusPlusUITests")
 TEST_PATTERN = r"@Test([^A-Za-z]|$)|func test[A-Z_]"
 FEWER_TESTS = "Fewer tests:"  # the PR body's line that explains a drop, naming its target
 FAILURES = (RuntimeError, OSError, ValueError, KeyError, subprocess.SubprocessError)
 # The lines a verifier record may hold after its header (.claude/agents/verifier.md).
 RECORD_LINE = re.compile(r"- (criterion|test|design|crash|other), (new|known): \S")
+
+
+def update_note(folder):
+    """The digest's line on the night's Claude Code update, from claude-update.txt, which
+    scripts/nightly-retro.sh run writes: a failure goes with the unchecked, a version change is one
+    plain line, and "already the latest" is left out."""
+    try:
+        text = (Path(folder) / "claude-update.txt").read_text(errors="replace").strip()
+    except OSError:
+        return []
+    if text.startswith("Claude Code update failed"):
+        return [f"Not checked: {text}"]
+    return [text] if "→" in text else []
 
 
 def log(message):
@@ -223,6 +255,46 @@ def limit_hit(lines):
     return False
 
 
+def xcode_major(text):
+    """The major version of the first "Xcode <version>" in text ("Xcode 27.1" gives "27"), or None."""
+    match = re.search(r"Xcode (\d+)", text or "")
+    return match.group(1) if match else None
+
+
+def last_review(folder):
+    """(month, Xcode major) of the newest setup review's report in folder, or None. The report's
+    name holds its date and its first line the Xcode it ran on (.claude/skills/review-setup/), so a
+    review run by hand counts too."""
+    reports = sorted(Path(folder).glob("report-20[0-9][0-9]-[0-9][0-9]-[0-9][0-9].md"))
+    if not reports:
+        return None
+    first = reports[-1].read_text(errors="replace").split("\n", 1)[0]
+    return reports[-1].stem.removeprefix("report-")[:7], xcode_major(first)
+
+
+def review_tries(retro, now):
+    """How many nights this month started a setup review: the night folders in .build/retro/ that
+    hold its stream."""
+    return len(list(Path(retro).glob(f"{now:%Y-%m}-[0-9][0-9]/{REVIEW_STREAM}")))
+
+
+def review_due(last, now, xcode, tries=0):
+    """Why the setup review runs tonight, or None: once a month, at the first night with none
+    yet, and again once a newer major Xcode is installed. Only at night, like the cards. A review
+    that wrote no report (a usage limit, the time cap) is tried once more, the next night."""
+    if not night_window(now) or tries >= REVIEW_TRIES:
+        return None
+    if last is None:
+        return "no review has run yet"
+    month, major = last
+    if month != f"{now:%Y-%m}":
+        return f"none has run in {now:%B %Y} yet"
+    # Newer only: switching to a beta and back starts one review, not two.
+    if xcode and major and int(xcode) > int(major):
+        return f"Xcode {xcode} is installed since the last review, on Xcode {major}"
+    return None
+
+
 def protected(files):
     return [f for f in files if any(fnmatch.fnmatch(f, p) for p in PROTECTED)]
 
@@ -259,6 +331,16 @@ def likely_files(body, repo_files):
         elif path and any(f.startswith(path + "/") for f in repo_files):
             names.add(path + "/")
     return names
+
+
+def clash_files(pr):
+    """The files of an open PR a card may collide with: all of them, but a retro PR's Markdown
+    under .claude/ and docs/. The retro's PR stays open until a day session merges it, often a
+    day, and edits the rules there, so counting them would hold back every card naming one."""
+    files = [f["path"] for f in pr["files"]]
+    if pr["title"].startswith(RETRO_TITLE):
+        return [f for f in files if not (f.endswith(".md") and f.startswith(DAY_ONLY))]
+    return files
 
 
 def overlap(likely, files):
@@ -800,16 +882,27 @@ def board_rows():
     return rows
 
 
-def board_cards(rows):
-    """[(id, status, feature, title, body)] of the standalone Todo cards in rows: one show request."""
-    todo = [r for r in rows if r[1] == "Todo" and r[2] == "-"]
-    if not todo:
+def board_bodies(rows):
+    """[(id, status, feature, title, body)] of rows: one show request."""
+    if not rows:
         return []
-    shown = sh(str(ROOT / "scripts/board.sh"), "show", *[r[0] for r in todo][:100])
+    shown = sh(str(ROOT / "scripts/board.sh"), "show", *[r[0] for r in rows][:100])
     # show prints a "==> id <==" header before each card only when it shows more than one.
     bodies = (dict(re.findall(r"^==> (\S+) <==\n(.*?)(?=^==> |\Z)", shown, re.M | re.S))
-              if len(todo) > 1 else {todo[0][0]: shown})
-    return [(*r, bodies.get(r[0], "")) for r in todo]
+              if len(rows) > 1 else {rows[0][0]: shown})
+    return [(*r, bodies.get(r[0], "")) for r in rows]
+
+
+def board_cards(rows):
+    """[(id, status, feature, title, body)] of the standalone Todo cards in rows: one show request."""
+    return board_bodies([r for r in rows if r[1] == "Todo" and r[2] == "-"])
+
+
+def left_pr(body):
+    """The PR a night parked or left waiting, as the card's State names it, else None."""
+    match = re.search(r"PR #(\d+) (?:is a draft with auto-merge off|waits for the maintainer)",
+                      section(body, "State"))
+    return int(match[1]) if match else None
 
 
 def board(*args, stdin=None):
@@ -883,6 +976,8 @@ class Night:
         self.unarmed = []  # PRs merged to main tonight that the runner didn't arm
         self.unchecked = []  # what the runner couldn't make sure of, for the top of the digest
         self.added = []  # the titles of the update cards the runner put on the board tonight
+        self.closed = []  # cards moved to Done tonight, since a day session merged their PR
+        self.held = []  # cards skipped for an open PR's files, for the top of the digest
         self.ended = "no card was eligible"
 
     def logs(self):
@@ -911,6 +1006,7 @@ class Night:
                                                            "number,autoMergeRequest") if pr.get("autoMergeRequest")}
         sh("git", "fetch", "--quiet", "origin", "main")
         self.tests_before = test_counts("origin/main")
+        self.close_merged()
         if not self.window:
             self.ended = log(f"No tooling cards: they start only from midnight to {CUTOFF_HOUR} am.")
             return
@@ -975,6 +1071,25 @@ class Night:
         except FAILURES as error:
             self.unchecked.append(f"adding the lint tools' update cards ({error})")
 
+    def close_merged(self):
+        """Moves to Done each In Progress card whose PR a night parked or left waiting and a day
+        session has merged since, which nothing in that session does. A failure is noted at the
+        top of the digest, and the night goes on."""
+        try:
+            rows = [r for r in board_rows() if r[1] == "In Progress" and r[2] == "-"]
+            for item, _, _, title, body in board_bodies(rows):
+                n = left_pr(body)
+                if not n or gh_json("pr", "view", str(n), "--json", "state")["state"] != "MERGED":
+                    continue
+                if self.dry_run:
+                    log(f"Dry run: would move \"{title}\" to Done, since #{n} merged.")
+                    continue
+                board("status", item, "Done")
+                self.closed.append(f"{title}, since #{n} merged")
+                log(f"Moved \"{title}\" to Done: #{n} merged.")
+        except FAILURES as error:
+            self.unchecked.append(f"moving cards whose PR merged to Done ({error})")
+
     def left_in_progress(self, card, error):
         """Says on the card, and in the digest, that the runner failed while taking it."""
         item, title, _ = card
@@ -996,8 +1111,8 @@ class Night:
         runs = xcode_cloud_runs()
         self.hours = month_hours(runs, self.clock())
         self.runs_tonight = runs_tonight(runs, self.start, self.dir)
-        open_prs = gh_json("pr", "list", "--state", "open", "--json", "number,files")
-        open_files = {pr["number"]: [f["path"] for f in pr["files"]] for pr in open_prs}
+        open_prs = gh_json("pr", "list", "--state", "open", "--json", "number,files,title")
+        open_files = {pr["number"]: clash_files(pr) for pr in open_prs}
         # The cards and main's files, read once a night: the runner's own moves are in self.tried.
         if not hasattr(self, "cards_tonight"):
             self.cards_tonight = board_cards(board_rows())
@@ -1012,7 +1127,10 @@ class Night:
                 clashes = {n: overlap(likely, files) for n, files in open_files.items()}
                 clashes = {n: f for n, f in clashes.items() if f}
                 if clashes:
-                    why = "it may touch what " + ", ".join(f"#{n} ({', '.join(f)})" for n, f in clashes.items()) + " changes"
+                    touch = "may touch what " + ", ".join(f"#{n} ({', '.join(f)})" for n, f in clashes.items()) + " changes"
+                    why = "it " + touch
+                    self.held.append(f"\"{title}\" {touch}; merge or close "
+                                     + " and ".join(f"#{n}" for n in clashes) + " so a night can take it")
             if not why:
                 # A card that names no files may change the app, so the budget applies to it too.
                 app = not likely or classify(sorted(likely)) != "docs"
@@ -1094,16 +1212,8 @@ class Night:
               f"branch `{branch}`; handoff `{handoff}`.\n")
         log(f"Card {n}: \"{title}\" in {worktree}; usage before: {usage_line(info)}.")
         stream = self.dir / f"card-{n}.jsonl"
-        deadline = stop + KILL_GRACE
-        with stream.open("w") as out:
-            process = subprocess.Popen(self.command(item, worktree, branch, settings), cwd=worktree,
-                                       env=self.git_env(), stdin=subprocess.DEVNULL, stdout=out, stderr=subprocess.STDOUT,
-                                       text=True)
-            try:
-                process.wait(timeout=max(60, (deadline - datetime.now().astimezone()).total_seconds()))
-            except subprocess.TimeoutExpired:
-                process.terminate()
-                process.wait()
+        run_claude(self.command(item, worktree, branch, settings), stream, worktree, stop + KILL_GRACE,
+                   env=self.git_env())
         # Whatever happens next, no PR the card opened merges unless the runner arms it below.
         extra = [n for n in self.disarm() if n not in self.armed | self.seen]
         self.seen |= set(extra)
@@ -1260,11 +1370,13 @@ class Night:
         tidy()
 
     def top_lines(self):
-        """What the digest says first: merges that skipped the gates, and what went unchecked."""
+        """What the digest says first: merges that skipped the gates, the night's Claude Code update
+        when it changed the version or failed, what went unchecked, and the cards an open PR held back, so a day session merges or closes that PR first."""
         return [f"Merged without the runner: #{pr['number']} {pr['title']}, by "
                 f"{(pr.get('mergedBy') or {}).get('login', 'unknown')}; none of the night's gates ran on it. "
                 f"Review it; undo: git revert {((pr.get('mergeCommit') or {}).get('oid') or '?')[:7]}"
-                for pr in self.unarmed] + [f"Not checked: {u}" for u in dict.fromkeys(self.unchecked)]
+                for pr in self.unarmed] + update_note(self.dir) + [f"Not checked: {u}" for u in dict.fromkeys(self.unchecked)] + [
+                    f"Waits on an open PR: {h}" for h in self.held]
 
     def digest(self):
         now = datetime.now().astimezone()
@@ -1295,10 +1407,14 @@ class Night:
         lines.append("Tests: " + ", ".join(f"{t} {self.tests_before.get(t, 0)} → {after.get(t, 0)}"
                                            for t in sorted(set(self.tests_before) | set(after))))
         lines += [f"Added: {title}, at the top of Todo" for title in self.added]
+        lines += [f"Done: {c}" for c in self.closed]
         lines += [f"Parked: {p}" for p in self.parked]
         lines += [f"Waiting: {w}" for w in self.waiting]
         lines += [f"Behind main: #{pr['number']} {pr['title']}" for pr in behind]
         lines += [f"Usage: {u}" for u in self.usage]
+        if (self.dir / REVIEW_STREAM).exists():
+            reply = last_reply((self.dir / REVIEW_STREAM).read_text(errors="replace").splitlines())
+            lines.append(f"Setup review: {reply or 'no reply; its stream is in the night folder'}")
         lines.append(f"Ended: {self.ended}")
         return lines
 
@@ -1317,6 +1433,39 @@ def last_reply(lines):
             reply = str(event.get("result") or "").strip().splitlines()
             return reply[-1] if reply else ""
     return ""
+
+
+def review(folder, now):
+    """Runs the setup review (/review-setup nightly) in the main checkout when review_due says so,
+    its stream-json in the night's folder, where the cards' usage gates read it after."""
+    folder = Path(folder)
+    try:
+        xcode = xcode_major(sh("xcodebuild", "-version", check=False))
+    except FAILURES:
+        xcode = None
+    main = main_checkout()
+    why = review_due(last_review(main / REVIEW_REPORTS), now, xcode, review_tries(main / ".build/retro", now))
+    if not why:
+        log("No setup review tonight.")
+        return
+    log(f"Setup review: {why}.")
+    folder.mkdir(parents=True, exist_ok=True)
+    # Capped well inside the night, so a long review still leaves the cards their hours.
+    run_claude(["claude", "--name", "Setup review", "-p", "--permission-mode", "auto", "--output-format",
+                "stream-json", "--verbose", "--disallowedTools", *REVIEW_DENIED, "--", "/review-setup nightly"],
+               folder / REVIEW_STREAM, main, min(night_window(now)[0], datetime.now().astimezone() + REVIEW_LIMIT))
+
+
+def run_claude(command, stream, cwd, deadline, env=None):
+    """Runs a claude -p command to its end, its output to stream, stopping it at the deadline."""
+    with stream.open("w") as out:
+        process = subprocess.Popen(command, cwd=cwd, env=env, stdin=subprocess.DEVNULL, stdout=out,
+                                   stderr=subprocess.STDOUT, text=True)
+        try:
+            process.wait(timeout=max(60, (deadline - datetime.now().astimezone()).total_seconds()))
+        except subprocess.TimeoutExpired:
+            process.terminate()
+            process.wait()
 
 
 def hook(folder, worktree):
@@ -1389,6 +1538,8 @@ def main(args):
         if "--now" in args:
             now = datetime.fromisoformat(args[args.index("--now") + 1]).astimezone()
         Night(args[1], now, "--dry-run" in args).run()
+    elif args[:1] == ["review"] and len(args) == 2:
+        review(args[1], datetime.now().astimezone())
     elif args[:1] == ["hook"] and len(args) == 3:
         hook(args[1], args[2])
     elif args[:1] == ["pre-push"] and len(args) == 2:

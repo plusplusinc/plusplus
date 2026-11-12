@@ -203,6 +203,88 @@ class Paths(unittest.TestCase):
         self.assertEqual(nightly.overlap({"scripts/tidy.sh"}, ["scripts/tidy.sh.bak", "docs/x.md"]), [])
 
 
+class OpenPRs(unittest.TestCase):
+    """A card waits for an open PR changing a file it names, unless that is a retro PR's Markdown."""
+
+    REPO = "CLAUDE.md\n.claude/rules/testing.md\nscripts/nightly-tooling.py\nPackages/Sources/App/Row.swift\ndocs/pr-check.md\n"
+    BODY = "## Problem\nx\n\nNightly: faster CI; its time\n\n## Success\nRun it.\n\n## Plan\n- Edit `{}`.\n"
+
+    def night(self, prs, names):
+        cards = [(f"PVTI_{i}", "Todo", "-", f"card {i}", self.BODY.format(name)) for i, name in enumerate(names)]
+        stubs = {"board_rows": lambda: [], "board_cards": lambda rows: cards, "xcode_cloud_runs": lambda: [],
+                 "gh_json": lambda *a: prs if a[-1] == "number,files,title" else self.fail(a), "classify": lambda files: "docs",
+                 "sh": lambda *a, **k: self.REPO}
+        saved = {name: getattr(nightly, name) for name in stubs}
+        self.addCleanup(lambda: [setattr(nightly, n, f) for n, f in saved.items()])
+        for name, stub in stubs.items():
+            setattr(nightly, name, stub)
+        night = nightly.Night(tempfile.mkdtemp(), NIGHT, True)
+        self.addCleanup(shutil.rmtree, night.dir, True)
+        night.start = NIGHT
+        with contextlib.redirect_stdout(io.StringIO()):
+            card = night.next_card()
+        return night, card
+
+    @staticmethod
+    def pr(n, title, *files):
+        return {"number": n, "title": title, "files": [{"path": f} for f in files]}
+
+    def test_a_retro_prs_markdown_holds_no_card_back(self):
+        retro = self.pr(161, "Retro of #150: x", ".claude/rules/testing.md", "docs/pr-check.md")
+        night, card = self.night([retro], [".claude/rules/testing.md"])
+        self.assertEqual(card[1], "card 0")
+        self.assertEqual(night.held, [])
+
+    def test_a_script_or_swift_file_still_holds_a_card_back(self):
+        retro = self.pr(161, "Retro of #150: x", ".claude/rules/testing.md", "scripts/nightly-tooling.py")
+        slice_ = self.pr(164, "Keep the +1 out", "Packages/Sources/App/Row.swift")
+        night, card = self.night([retro, slice_], ["scripts/nightly-tooling.py", "Packages/Sources/App/Row.swift"])
+        self.assertIsNone(card)
+        self.assertEqual(night.held[0], '"card 0" may touch what #161 (scripts/nightly-tooling.py) changes; '
+                                        "merge or close #161 so a night can take it")
+        self.assertIn("#164 (Packages/Sources/App/Row.swift)", night.held[1])
+
+    def test_markdown_outside_the_rules_or_in_another_pr_still_holds_a_card_back(self):
+        night, card = self.night([self.pr(161, "Retro of #150: x", "CLAUDE.md"),
+                                  self.pr(158, "Prune the agent docs", ".claude/rules/testing.md")],
+                                 ["CLAUDE.md", ".claude/rules/testing.md"])
+        self.assertIsNone(card)
+        self.assertIn("#161 (CLAUDE.md)", night.held[0])
+        self.assertIn("#158", night.held[1])
+
+    def test_the_held_cards_open_the_digest(self):
+        night, _ = self.night([self.pr(164, "Keep the +1 out", "Packages/Sources/App/Row.swift")],
+                              ["Packages/Sources/App/Row.swift"])
+        night.unchecked.append("x")
+        self.assertEqual(night.top_lines(), ["Not checked: x", "Waits on an open PR: " + night.held[0]])
+
+
+class ClaudeUpdate(unittest.TestCase):
+    def note(self, text):
+        with tempfile.TemporaryDirectory() as folder:
+            if text is not None:
+                (Path(folder) / "claude-update.txt").write_text(text + "\n")
+            return nightly.update_note(folder)
+
+    def test_a_version_change_is_one_plain_line(self):
+        self.assertEqual(self.note("Claude Code 2.1.316 → 2.1.322"), ["Claude Code 2.1.316 → 2.1.322"])
+
+    def test_a_failed_update_is_not_checked(self):
+        line = "Claude Code update failed: no network (exit 1); running 2.1.316"
+        self.assertEqual(self.note(line), ["Not checked: " + line])
+
+    def test_already_the_latest_or_no_file_says_nothing(self):
+        self.assertEqual(self.note("Claude Code 2.1.322, already the latest"), [])
+        self.assertEqual(self.note(None), [])
+
+    def test_the_update_opens_the_digest(self):
+        with tempfile.TemporaryDirectory() as folder:
+            (Path(folder) / "claude-update.txt").write_text("Claude Code 2.1.316 → 2.1.322\n")
+            night = nightly.Night(folder, NIGHT, False)
+            night.unchecked.append("x")
+            self.assertEqual(night.top_lines(), ["Claude Code 2.1.316 → 2.1.322", "Not checked: x"])
+
+
 class Eligibility(unittest.TestCase):
     BODY = "## Problem\nx\n\nNightly: faster CI; the PR check's time\n\n## Success\nRun it: it passes.\n\n## Plan\n- y\n"
 
@@ -214,6 +296,47 @@ class Eligibility(unittest.TestCase):
         self.assertIn("Nightly", nightly.eligibility("Todo", "-", self.BODY.replace("Nightly:", "Later:")))
         self.assertIn("Backlog", nightly.eligibility("Backlog", "-", self.BODY))
         self.assertIn("check", nightly.eligibility("Todo", "-", self.BODY.replace("## Success\nRun it: it passes.\n", "")))
+
+
+class CloseMerged(unittest.TestCase):
+    """An In Progress card a night parked, or left waiting, goes to Done once its PR merges."""
+
+    PARKED = ("## Problem\nx\n\n## State\n- Parked by the nightly run: why. PR #150 is a draft with "
+              "auto-merge off.\n- Next: a daytime /onward reads the PR and the handoff in `.slices/`.\n")
+    WAITING = "## Problem\nx\n\n## State\n- PR #156 waits for the maintainer, unmerged: why.\n"
+
+    def test_the_state_names_the_pr(self):
+        self.assertEqual(nightly.left_pr(self.PARKED), 150)
+        self.assertEqual(nightly.left_pr(self.WAITING), 156)
+        self.assertIsNone(nightly.left_pr("## Problem\nPR #150 is a draft with auto-merge off.\n"))
+        self.assertIsNone(nightly.left_pr("## State\n- Next: plan it.\n"))
+
+    def close(self, states, dry_run=False):
+        cards = [("PVTI_1", "In Progress", "-", "parked", self.PARKED),
+                 ("PVTI_2", "In Progress", "-", "waiting", self.WAITING),
+                 ("PVTI_3", "Todo", "-", "queued", self.PARKED)]
+        calls = []
+        stubs = {"board_rows": lambda: [c[:4] for c in cards],
+                 "board_bodies": lambda rows: [c for c in cards if c[:4] in rows],
+                 "gh_json": lambda *a: {"state": states[a[2]]},
+                 "board": lambda *a, stdin=None: calls.append(a)}
+        saved = {name: getattr(nightly, name) for name in stubs}
+        self.addCleanup(lambda: [setattr(nightly, n, f) for n, f in saved.items()])
+        for name, stub in stubs.items():
+            setattr(nightly, name, stub)
+        night = nightly.Night(tempfile.mkdtemp(), NIGHT, dry_run)
+        self.addCleanup(shutil.rmtree, night.dir, True)
+        with contextlib.redirect_stdout(io.StringIO()):
+            night.close_merged()
+        return night, calls
+
+    def test_only_a_merged_prs_card_moves(self):
+        night, calls = self.close({"150": "MERGED", "156": "OPEN"})
+        self.assertEqual(calls, [("status", "PVTI_1", "Done")])
+        self.assertEqual(night.closed, ["parked, since #150 merged"])
+
+    def test_a_dry_run_moves_nothing(self):
+        self.assertEqual(self.close({"150": "MERGED", "156": "MERGED"}, dry_run=True)[1], [])
 
 
 class UpdateCards(unittest.TestCase):
@@ -409,6 +532,62 @@ class Hook(unittest.TestCase):
                         "cat x\nscripts/build.sh", "git -C /w push"]:
             self.assertIn("past 7", self.decide("Bash", command, now=late), command)
         self.assertIsNone(self.decide("Bash", "git -C /w status && git --no-pager diff | head", now=late))
+
+
+class SetupReview(unittest.TestCase):
+    FIRST = datetime(2026, 12, 1, 0, 20).astimezone()  # the first night of December
+
+    def reports(self, *names, first="# Setup review, Xcode 27.1"):
+        folder = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, folder)
+        for name in names:
+            (folder / name).write_text(f"{first}\n\nKept: everything.\n")
+        return folder
+
+    def test_the_newest_report_says_when_and_on_which_xcode(self):
+        folder = self.reports("report-2026-10-30.md", "report-2026-11-11.md", "notes.md")
+        self.assertEqual(nightly.last_review(folder), ("2026-11", "27"))
+        self.assertIsNone(nightly.last_review(self.reports()))
+        self.assertEqual(nightly.last_review(self.reports("report-2026-11-11.md", first="# Setup review")),
+                         ("2026-11", None))
+
+    def test_xcodes_major_version(self):
+        self.assertEqual(nightly.xcode_major("Xcode 27.1\nBuild version 27A123\n"), "27")
+        self.assertEqual(nightly.xcode_major("Xcode 28"), "28")
+        self.assertIsNone(nightly.xcode_major("xcode-select: error: no developer tools"))
+        self.assertIsNone(nightly.xcode_major(None))
+
+    def test_due_once_a_month_at_the_first_night_with_none(self):
+        self.assertIn("December 2026", nightly.review_due(("2026-11", "27"), self.FIRST, "27"))
+        # A first night missed while the Mac was off is caught up the next night.
+        self.assertIsNotNone(nightly.review_due(("2026-11", "27"), self.FIRST.replace(day=3), "27"))
+        self.assertIsNone(nightly.review_due(("2026-12", "27"), self.FIRST.replace(day=2), "27"))
+        self.assertIsNotNone(nightly.review_due(None, self.FIRST, "27"))
+
+    def test_due_again_on_a_newer_major_xcode(self):
+        self.assertIn("Xcode 28", nightly.review_due(("2026-12", "27"), self.FIRST.replace(day=9), "28"))
+        # Back from a beta is no new Xcode.
+        self.assertIsNone(nightly.review_due(("2026-12", "28"), self.FIRST.replace(day=9), "27"))
+        self.assertIsNone(nightly.review_due(("2026-12", "27"), self.FIRST.replace(day=9), None))
+        self.assertIsNone(nightly.review_due(("2026-12", None), self.FIRST.replace(day=9), "28"))
+
+    def test_a_review_that_wrote_no_report_is_tried_once_more(self):
+        retro = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, retro)
+        for night in ("2026-11-01", "2026-12-01", "2026-12-02"):
+            (retro / night).mkdir()
+        (retro / "2026-12-03").mkdir()  # a night with no review
+        (retro / "2026-11-01" / nightly.REVIEW_STREAM).touch()
+        (retro / "2026-12-01" / nightly.REVIEW_STREAM).touch()
+        self.assertEqual(nightly.review_tries(retro, self.FIRST), 1)
+        self.assertIsNotNone(nightly.review_due(("2026-11", "27"), self.FIRST.replace(day=2), "27", tries=1))
+        (retro / "2026-12-02" / nightly.REVIEW_STREAM).touch()
+        self.assertEqual(nightly.review_tries(retro, self.FIRST), 2)
+        self.assertIsNone(nightly.review_due(("2026-11", "27"), self.FIRST.replace(day=3), "27", tries=2))
+
+    def test_only_at_night(self):
+        for hour in (5, 12, 23):
+            self.assertIsNone(nightly.review_due(None, self.FIRST.replace(hour=hour), "27"), hour)
 
 
 class Digest(unittest.TestCase):

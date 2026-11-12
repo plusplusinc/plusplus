@@ -28,7 +28,10 @@ project board.
    comes before the card: update it from main (`gh pr update-branch`), check each hunk against main, then trim, merge, or close
    it yourself, and tell the maintainer in a line what it changed.
    A standalone card that changes nothing the maintainer sees in the app (tooling, CI, tests,
-   process) is yours alone, as `CLAUDE.md` says: align it against the code yourself. Run one alongside a product slice (a builder
+   process), or fixes a bug with a clear fix (its right behavior already settled in the board
+   README, a merged card, or how the rest of the app behaves, so it asks no product question),
+   is yours alone, as `CLAUDE.md` says: align it against the code yourself, and tell them in a
+   line once it merges. A bug whose fix needs a choice of look, wording, or behavior goes to them. Run one alongside a product slice (a builder
    in its own worktree) rather than spending the maintainer's turn on it; with them engaged,
    lead the next product card.
 3. Read the `.slices/` files that State names: the newest handoff or verify report. Read
@@ -123,7 +126,8 @@ project board.
   chose, not that gap alone. A note on how a motion feels (unnoticed, jarring) gets a
   motion designer's read of why (where the eye is, what marks the arrival) with options,
   before any number is tuned, and so does a note on its speed: a proposed time or curve is
-  read against the ones the app already uses for the same kind of move (`.claude/rules/swiftui.md`)
+  read against the ones the app already uses for the same kind of move (the named constants
+  the map in `.claude/rules/swiftui.md` points to)
   and says where it sits among them. Options for a note on speed differ in length,
   not only in curve at a length set earlier: a newer note that asks for faster may lift an
   earlier "same duration", so ask.

@@ -40,7 +40,7 @@ extension RoutineScreen {
         leave(named: name)
     }
 
-    /// Start in beats, each once the last has finished: if the first exercise is scrolled
+    /// Start in beats, each once the last has finished: if the first exercise is
     /// scrolled away, the list scrolls to its top and holds a moment; then the first
     /// exercise grows into the current one as the list scrolls it up under the bar, in one
     /// motion, and the key rides down off the screen with the rows below it. With Reduce

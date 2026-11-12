@@ -2,8 +2,10 @@
 
 A native iOS and watchOS workout tracker. Swift 6, SwiftUI, SwiftData + CloudKit. iOS 27 is the
 minimum and new platform APIs are adopted freely. It gets used mid-set, one-handed. What the
-product believes, and what the work aims for (the right product, built right, mostly
-autonomous), are in `docs/principles.md`.
+product believes, what the work aims for (the right product, built right, mostly autonomous),
+and who owns what are in `docs/principles.md`: the maintainer owns the product and its
+decisions, and the lead owns the codebase, whose worth is how quickly and safely it turns
+product intent into excellent behavior.
 
 This file is the constitution: loaded every session, kept short. Detail lives in
 `.claude/rules/*.md`, which load when you touch matching files (read the one for an area before
@@ -123,13 +125,16 @@ Anything the maintainer throws out, or the lead finds along the way, becomes a c
 `/brief`, which looks for one already there and places it in that queue; a small tooling or
 process change the lead recommends in answer to their question is made then, in its own PR,
 not offered as a card. Working files go in `.slices/`.
-The maintainer's time is for the product. Tooling, CI, tests, and process (a standalone card
-that changes nothing they see in the app, and the nightly retro's PR) are the lead's to find,
-card, align, build, verify, and merge on its own once CI is green, never asking whether to,
-alongside a product slice where it can, telling them in a line what landed. It checks first that the
-change is worth its cost and safe to undo. What reaches outside the repo or can't be undone
-still waits for their word: spending money, or Xcode Cloud hours beyond the plan, a `v*` tag,
-an account's settings, deleting what isn't the lead's.
+The maintainer's time is for the product. Tooling, CI, tests, process, and bugs with a clear fix (a
+standalone card that changes nothing they see in the app, or a bug whose right behavior is settled,
+and the nightly retro's PR) are the lead's to find, card, align, build, verify, and merge on its own
+once CI is green, never asking whether to, alongside a product slice where it can, telling them in a
+line what landed; a fix that needs a choice of look, wording, or behavior is theirs. A message about
+such work says what it means for the app in plain words, never the runs, tests, or files behind it,
+and comes only with news; where a condition they set for it fails, the lead makes the call and asks
+only for a yes. It checks first that the change is worth its cost and safe to undo. What reaches
+outside the repo or can't be undone still waits for their word: spending money, or Xcode Cloud hours
+beyond the plan, a `v*` tag, an account's settings, deleting what isn't the lead's.
 
 ## Working in the project
 
@@ -178,12 +183,13 @@ git fetch origin main
 git worktree add --no-track .claude/worktrees/<topic> -b <topic> origin/main
 git push -u origin <topic>
 gh pr create --title "<title>" --body-file -   # body on stdin; --fill skips the PR template
+gh pr update-branch <topic>   # merges main in; a rebase of a pushed branch needs a denied force push
 ```
 
 CI must be green before a PR merges. **Merges are squashed**: the PR title and body become the
 one commit on `main`, so write the body as a commit message that is also true before the
-merge ("Tense tells the truth"). Notes about review order or "as
-discussed" belong in a PR comment, not the body.
+merge ("Tense tells the truth"). Notes about review order or "as discussed" belong in a PR
+comment, not the body.
 
 ## Gotchas
 

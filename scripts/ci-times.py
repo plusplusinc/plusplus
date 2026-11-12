@@ -6,7 +6,8 @@
 
 Prints the run's number and commit, its time from start to finish (no budget: much of it is
 Xcode Cloud's own steps, see scripts/xcresult.py), and, once it has finished, each test target's time and each UI test's, as
-scripts/test.sh sim prints them locally. Reported, never failed: it exits 0 whatever the
+scripts/test.sh sim prints them locally, except that a DesignSystemTests test over its own
+budget is marked to be read against the local run (scripts/xcresult.py, overage). Reported, never failed: it exits 0 whatever the
 times, 1 only when it can't find the run. It reads App Store Connect through `asc`, with three
 calls: the workflow's last 50 runs, then, once it has finished, its actions and its test results. On Xcode
 Cloud a parameterized test reports one time, so a serial target's time can read low by its

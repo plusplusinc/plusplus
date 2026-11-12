@@ -45,11 +45,15 @@ every heading present even when its answer is one line:
   (before and after for any UI). For a hunch, the spike and what answer would end it.
 - **Nightly:** a standalone card the nightly run may take (`scripts/nightly-tooling.py`) gets a
   line `Nightly: <what it makes better>; <how we'd notice>`, and nothing else does. It qualifies
-  when it changes nothing the maintainer sees in the app, makes speed, reliability, cost,
-  safety, or the quality of product work better, has a Success check or acceptance criteria
+  when it either changes nothing the maintainer sees in the app and makes speed, reliability,
+  cost, safety, or the quality of product work better, or fixes a bug with a clear fix, one whose
+  right behavior is already settled (the board README, a merged card, or how the rest of the app
+  behaves) so it asks no product question; a bug whose fix needs a choice of look, wording, or
+  behavior goes to the maintainer. Either way it has a Success check or acceptance criteria
   the verifier can run, touches only files in the repo, and is more than prose (a change only to
   `.claude/` and `docs/` waits for the day). Name the files it will touch in backticks: the run
-  skips a card whose files an open PR changes.
+  skips a card whose files an open PR changes, leaving out a retro PR's Markdown under `.claude/`
+  and `docs/`.
 - **Tense** follows CLAUDE.md: a card is read before the work, during it, and after it, and
   every sentence has to be true whenever it is read.
   - Problem describes today in the present tense: "Today a routine is a list of names." Any
@@ -118,5 +122,8 @@ Reply with the card id, the classification, where it landed in the queue and why
 points still waiting on an answer with your recommendation for each, and the one thing in the
 brief the maintainer is most likely to disagree with. The maintainer approves by
 leaving it there and vetoes by reordering or parking it; do not move it to In Progress
-yourself. A card that changes nothing they see in the app (tooling, CI, tests, process) needs
-no approval: say in a line that it exists and where it sits, and `/onward` runs it.
+yourself. A card that changes nothing they see in the app (tooling, CI, tests, process), or a
+bug with a clear fix (its right behavior already settled, so it asks no product question), needs
+no approval: file it standalone with its `Nightly:` line, say in a line that it exists and where
+it sits, and `/onward` or the night runs it; they hear of it in a line once it merges. A bug
+whose fix needs a choice of look, wording, or behavior waits for their approval.
