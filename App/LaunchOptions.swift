@@ -45,8 +45,10 @@ enum LaunchOptions {
             name: defaults.string(forKey: "seedName") ?? "",
             exercises: ids.split(separator: ",").compactMap { Exercise.builtIn(id: String($0)) },
             superset: ends.count == 2 && ends[0] < ends[1] ? ends[0] ... ends[1] : nil,
-            sets: defaults.string(forKey: "seedSets").flatMap { Int($0) },
-            loggedSets: defaults.string(forKey: "seedWorkout").flatMap { Int($0) },
+            // At least a set per row, and no fewer than none logged.
+            sets: defaults.string(forKey: "seedSets").flatMap { Int($0) }.map { max($0, 1) },
+            loggedSets: defaults.string(forKey: "seedWorkout").flatMap { Int($0) }
+                .map { max($0, 0) },
         )
     }
 

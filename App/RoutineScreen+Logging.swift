@@ -34,13 +34,10 @@ extension RoutineScreen {
     }
 
     /// A set logged that stays on the current exercise, saved at once, but shown as still to do
-    /// for a beat after the key's tap (`SetMotion.heldRoll`), when the line rolls on.
-    /// None once another set is logged, as in another workout.
+    /// for a beat after the key's tap (`SetMotion.heldRoll`), when the line rolls on
+    /// (`WorkoutPlayback.held`).
     var heldSet: PlannedSet? {
-        guard let held = playback.held, session.workout?.sets.last?.planned == held else {
-            return nil
-        }
-        return held
+        playback.held
     }
 
     /// The current exercise as it grows into `set`: at a superset round's end, it shows the round
