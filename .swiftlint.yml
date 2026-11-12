@@ -103,10 +103,16 @@ custom_rules:
     regex: '^import (SwiftUI|UIKit)\b'
     message: "WorkoutStore has no UI dependencies"
     severity: error
+  session_imports:
+    name: "Session imports"
+    included: "Packages/Sources/Session/.*"
+    regex: '^import (SwiftUI|UIKit|DesignSystem)\b'
+    message: "Session holds state over the store, with no UI framework"
+    severity: error
   design_system_imports:
     name: "DesignSystem imports"
     included: "Packages/Sources/DesignSystem/.*"
-    regex: '^import WorkoutStore\b'
+    regex: '^import (WorkoutStore|Session)\b'
     message: "DesignSystem never imports domain code; components take strings and numbers"
     severity: error
   fixed_font_size:

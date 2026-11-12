@@ -54,7 +54,9 @@ and resumes. A workout survives a relaunch, keeps the screen on, and locks the d
 every edit stays on. The app shows only in dark
 appearance (`Config/Base.xcconfig`); the light palette is seen only in snapshots.
 `WorkoutStore` holds the domain types, the stored models behind `RoutineStore` in a versioned
-schema, workouts with their time and logged sets, the namer, the order sets go in and the next one, and the routines' recency. Nothing syncs yet.
+schema, workouts with their time and logged sets, the namer, the order sets go in and the next one, the routines' recency, a workout in progress on its routine (`LiveWorkout`), and the
+logs a screen has yet to show (`WorkoutPlayback`). `Session` holds `RoutineSession`, the open
+routine, its saves, and its workout. Nothing syncs yet.
 
 ## Architecture
 
@@ -64,15 +66,18 @@ the arrows; SwiftLint custom rules catch the imports and idioms it cannot.
 
 ```
 App ──> DesignSystem   (SwiftUI only, no domain code)
+ ├────> Session ──> WorkoutStore   (the open routine and its workout, observable; no UI)
  └────> WorkoutStore   (domain types, SwiftData, and routine naming; no UI)
 ```
+
+`Session` ships inside the `WorkoutStore` product, so the app links it with no project change.
 
 **These arrows are the rule, not a description.** New code goes in the lowest layer that can
 hold it, and a new layer gets a target when it has code. Nothing imports `App`.
 
 Plain SwiftUI, no view-model layer: views hold presentation logic, `@Observable` stores hold
-state, stateless services hold side effects, free functions hold the math. The app and
-`DesignSystem` are main-actor by default; `WorkoutStore` is nonisolated.
+state, stateless services hold side effects, free functions hold the math. The app,
+`DesignSystem`, and `Session` are main-actor by default; `WorkoutStore` is nonisolated.
 
 ## How we work
 

@@ -1,4 +1,5 @@
 import DesignSystem
+import Session
 import SwiftUI
 import WorkoutStore
 
@@ -82,7 +83,11 @@ struct RoutinesScreen: View {
 
 #Preview {
     RoutinesScreen(
-        session: RoutineSession(routine: Routine(name: "Upper body"), store: nil),
+        session: RoutineSession(
+            routine: Routine(name: "Upper body"),
+            store: nil,
+            namer: .muscleGroupsOnly,
+        ),
         namer: .muscleGroupsOnly,
     )
 }

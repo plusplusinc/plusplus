@@ -23,7 +23,8 @@ let package = Package(
     name: "PlusPlusKit",
     platforms: [.iOS(.v27), .watchOS(.v27), .macOS(.v27)],
     products: [
-        .library(name: "WorkoutStore", targets: ["WorkoutStore"]),
+        // `Session` rides in this product, so the app links it with no change to the project.
+        .library(name: "WorkoutStore", targets: ["WorkoutStore", "Session"]),
         .library(name: "DesignSystem", targets: ["DesignSystem"]),
     ],
     dependencies: [
@@ -31,6 +32,9 @@ let package = Package(
     ],
     targets: [
         .target(name: "WorkoutStore", swiftSettings: strict),
+        // Observable state over the store, with no UI framework: the routine open and its
+        // workout. Main-actor, as the screens that read it are.
+        .target(name: "Session", dependencies: ["WorkoutStore"], swiftSettings: mainActorByDefault),
         .target(
             name: "DesignSystem",
             resources: [.process("Resources")],
@@ -40,6 +44,11 @@ let package = Package(
             name: "WorkoutStoreTests",
             dependencies: ["WorkoutStore"],
             swiftSettings: strict,
+        ),
+        .testTarget(
+            name: "SessionTests",
+            dependencies: ["Session", "WorkoutStore"],
+            swiftSettings: mainActorByDefault,
         ),
         .testTarget(
             name: "DesignSystemTests",
