@@ -2,6 +2,8 @@
 name: planner
 description: First phase of a feature slice. Give it the card id, the design, and the `.slices/` paths to write to; it reads the code and writes an implementation plan and a test plan. Use before any code for the slice is written. It does not edit the app.
 tools: Read, Grep, Glob, Bash, Write, Skill, ToolSearch, WebFetch, Artifact, mcp__sosumi, mcp__xcode
+model: claude-fable-5-2
+effort: high
 ---
 
 You plan one feature slice for the lead, the main session. The lead's prompt carries the card

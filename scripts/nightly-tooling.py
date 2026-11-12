@@ -97,7 +97,8 @@ PROTECTED = [
     # .claude/ (agents, skills, rules, hooks, permissions), the instructions every session loads,
     # and the tools.
     "scripts/nightly-tooling.py", "scripts/nightly-tooling-test.py", "scripts/nightly-retro.sh",
-    "scripts/xcresult.py", "scripts/tidy.sh", "scripts/board.sh", ".claude/*", "CLAUDE.md",
+    "scripts/xcresult.py", "scripts/tidy.sh", "scripts/board.sh", "scripts/models.py",
+    "scripts/models-test.py", "scripts/board-test.py", ".claude/*", "CLAUDE.md",
     "AGENTS.md", ".mcp.json",
 ]
 # The CI half repeats what .github/no-code-paths's header and scripts/pr-check.sh's GATE_PATTERN
@@ -112,6 +113,13 @@ REVIEW_TRIES = 2  # nights a month that may start a setup review, so a failing o
 # and cards only (.claude/skills/review-setup/).
 REVIEW_DENIED = ["Edit", "NotebookEdit", "Bash(git push:*)", "Bash(git commit:*)", "Bash(gh pr merge:*)",
                  "Bash(gh pr create:*)", "Bash(gh pr edit:*)", "Bash(gh pr close:*)", "Bash(brew:*)", "Bash(asc:*)"]
+# The models and efforts of a night card's lead and the setup review, from docs/agent-tooling.md's
+# "Models by task", passed explicitly so the night never follows the interactive default;
+# scripts/models.py check, which scripts/lint.sh runs, fails when they disagree with the table.
+CARD_MODEL = "claude-fable-5-2"
+CARD_EFFORT = "high"
+REVIEW_MODEL = "claude-fable-5-2"
+REVIEW_EFFORT = "high"
 TEST_DIRS = ("Packages/Tests", "PlusPlusUITests")
 TEST_PATTERN = r"@Test([^A-Za-z]|$)|func test[A-Z_]"
 FEWER_TESTS = "Fewer tests:"  # the PR body's line that explains a drop, naming its target
@@ -1146,7 +1154,7 @@ class Night:
 
     def command(self, item, worktree, branch, settings):
         return ["claude", "--name", "Nightly card", "-p", "--permission-mode", "auto",
-                "--output-format", "stream-json", "--verbose", "--settings", str(settings),
+                "--model", CARD_MODEL, "--effort", CARD_EFFORT, "--output-format", "stream-json", "--verbose", "--settings", str(settings),
                 f"/nightly-card {item} {worktree} {branch}"]
 
     def paths(self, title):
@@ -1451,7 +1459,8 @@ def review(folder, now):
     log(f"Setup review: {why}.")
     folder.mkdir(parents=True, exist_ok=True)
     # Capped well inside the night, so a long review still leaves the cards their hours.
-    run_claude(["claude", "--name", "Setup review", "-p", "--permission-mode", "auto", "--output-format",
+    run_claude(["claude", "--name", "Setup review", "-p", "--permission-mode", "auto",
+                "--model", REVIEW_MODEL, "--effort", REVIEW_EFFORT, "--output-format",
                 "stream-json", "--verbose", "--disallowedTools", *REVIEW_DENIED, "--", "/review-setup nightly"],
                folder / REVIEW_STREAM, main, min(night_window(now)[0], datetime.now().astimezone() + REVIEW_LIMIT))
 
