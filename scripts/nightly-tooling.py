@@ -36,9 +36,9 @@ scripts/nightly-retro.sh run calls `tally` before the retro, so neither agent ru
 scripts/agent-record.py, which their skills' allowed tools don't hold. It writes the retro's agents'
 tally, over the PRs merged in the last 30 days, to agent-tally.txt in the night's folder, and, when
 the setup review runs tonight, the review's, since its last report and since each trial's start
-(docs/agent-tooling.md's "Models by task"), to agent-tally-review.txt, all from one fetch. A
-GraphQL request is cut off after two minutes; a tally that fails writes "No tally tonight: <why>"
-in its file instead, and the night goes on. `review` writes the review's file itself when the
+(docs/agent-tooling.md's "Models by task"), to agent-tally-review.txt, all from one fetch. The
+fetch's requests are cut off after three minutes together; a tally that fails or runs past that
+writes "No tally tonight: <why>" in its file instead, and the night goes on. `review` writes the review's file itself when the
 night's `tally` didn't.
 
 `hook` is the PreToolUse hook `run` gives each card's claude through --settings. It runs before
@@ -122,6 +122,7 @@ REVIEW_LIMIT = timedelta(minutes=90)  # a setup review is stopped after this, or
 TALLY = "agent-tally.txt"  # the retro's agents' tally, in the night's folder (.claude/skills/retro/)
 REVIEW_TALLY = "agent-tally-review.txt"  # the setup review's (.claude/skills/review-setup/)
 TALLY_DAYS = 30  # the retro's tally covers the PRs merged in these last days
+TALLY_LIMIT = 180  # seconds the night waits for a tally's GitHub requests, all of them together
 REVIEW_TRIES = 2  # nights a month that may start a setup review, so a failing one doesn't eat every night's cards
 # What the unattended setup review may never do, whatever auto mode allows: it writes its report
 # and cards only (.claude/skills/review-setup/).
@@ -356,7 +357,7 @@ def write_tallies(folder, wanted, fetch, tally):
             said = (error.stderr or "").strip().splitlines()
             why = f"{' '.join(error.cmd[:3])} failed: {said[-1] if said else 'no output'}"
         elif isinstance(error, subprocess.TimeoutExpired):  # its text holds the whole query
-            why = f"{' '.join(error.cmd[:3])} took over {error.timeout:.0f} s"
+            why = f"GitHub's answers took over {error.timeout:.0f} s"
         texts = dict.fromkeys(wanted, f"No tally tonight: {why}\n")
     for name, text in texts.items():
         (Path(folder) / name).write_text(text)
@@ -1543,7 +1544,8 @@ def tallies(folder, now, review_only=False):
         record = agent_record()
         if why:
             wanted[REVIEW_TALLY] = review_parts(last_review_date(main / REVIEW_REPORTS), now, trial_rows(record))
-        texts = write_tallies(folder, wanted, record.fetch, record.tally) if wanted else {}
+        texts = write_tallies(folder, wanted, lambda since: record.fetch(since, limit=TALLY_LIMIT),
+                              record.tally) if wanted else {}
     except Exception as error:  # noqa: BLE001 - before the fetch: still one line saying why, never fatal
         texts = {REVIEW_TALLY if review_only else TALLY: f"No tally tonight: {type(error).__name__}: {error}\n"}
         for name, text in texts.items():

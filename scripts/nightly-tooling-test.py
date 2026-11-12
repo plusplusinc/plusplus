@@ -635,7 +635,47 @@ class AgentTally(unittest.TestCase):
         def hangs(since):
             raise subprocess.TimeoutExpired(["gh", "api", "graphql", "-f", "query=" + "x" * 500], 120)
         nightly.write_tallies(self.night, {nightly.TALLY: [("", "2026-10-13")]}, hangs, self.tally)
-        self.assertEqual((self.night / nightly.TALLY).read_text(), "No tally tonight: gh api graphql took over 120 s\n")
+        self.assertEqual((self.night / nightly.TALLY).read_text(), "No tally tonight: GitHub's answers took over 120 s\n")
+
+    def stand_in_gh(self, script):
+        """A gh on the PATH, running script, for this test only."""
+        folder = self.night / "bin"
+        folder.mkdir(exist_ok=True)
+        (folder / "gh").write_text(f"#!/bin/sh\n{script}\n")
+        (folder / "gh").chmod(0o755)
+        path = os.environ["PATH"]
+        os.environ["PATH"] = f"{folder}:{path}"
+        self.addCleanup(os.environ.__setitem__, "PATH", path)
+
+    def test_one_hung_request_is_cut_off_at_its_limit(self):
+        self.stand_in_gh("sleep 30")
+        record = nightly.agent_record()
+        record.GH_LIMIT = 0.5
+        start = time.monotonic()
+        with self.assertRaises(subprocess.TimeoutExpired) as caught:
+            record.fetch("2026-10-13")
+        self.assertLess(time.monotonic() - start, 5)
+        self.assertEqual(caught.exception.timeout, 0.5)
+
+    def test_a_fetch_that_pages_is_cut_off_at_the_whole_limit(self):
+        # Each page answers in a fifth of a second, far inside its own limit, and twenty pages take
+        # four seconds: only the bound on them all ends the fetch before its last page.
+        def page(more):
+            return json.dumps({"data": {"search": {"pageInfo": {"hasNextPage": more, "endCursor": "x"}, "nodes": []},
+                                        "rateLimit": {"cost": 1, "remaining": 4999}}})
+        count = self.night / "pages"
+        self.stand_in_gh(f"sleep 0.2\necho . >> '{count}'\n"
+                         f"if [ $(wc -l < '{count}') -lt 20 ]; then echo '{page(True)}'; else echo '{page(False)}'; fi")
+        record = nightly.agent_record()
+        start = time.monotonic()
+        with self.assertRaises(subprocess.TimeoutExpired) as caught:
+            record.fetch("2026-10-13", limit=1)
+        self.assertLess(time.monotonic() - start, 3)
+        self.assertEqual(caught.exception.timeout, 1)
+        count.unlink()
+        nightly.write_tallies(self.night, {nightly.TALLY: [("", "2026-10-13")]},
+                              lambda since: record.fetch(since, limit=1), self.tally)
+        self.assertEqual((self.night / nightly.TALLY).read_text(), "No tally tonight: GitHub's answers took over 1 s\n")
 
     def test_the_review_starts_at_its_last_report_and_each_trial(self):
         now = datetime(2026, 12, 1, 0, 20).astimezone()

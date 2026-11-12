@@ -43,6 +43,7 @@ import json
 import re
 import subprocess
 import sys
+import time
 from collections import defaultdict
 from pathlib import Path
 
@@ -142,10 +143,10 @@ def repo():
     return re.search(r"github\.com[:/](.+?)(\.git)?$", url)[1]
 
 
-def graphql(*fields):
+def graphql(*fields, timeout=GH_LIMIT):
     args = ["gh", "api", "graphql"] + [arg for field in fields for arg in ("-f", field)]
     return json.loads(subprocess.run(args, capture_output=True, text=True, check=True,
-                                     timeout=GH_LIMIT).stdout)["data"]
+                                     timeout=timeout).stdout)["data"]
 
 
 def bodies(pr):
@@ -157,13 +158,25 @@ def rollups(pr):
     return [rollup for c in pr["commits"]["nodes"] if (rollup := (c["commit"] or {}).get("statusCheckRollup"))]
 
 
-def fetch(since):
+def fetch(since, limit=None):
     """The merged PRs, with the checks of each recorded PR's commits that read failed, and the
-    GraphQL points the requests cost and left."""
+    GraphQL points the requests cost and left. Each request may take GH_LIMIT seconds, or, given
+    a limit, all of them together that many: past it, TimeoutExpired, its timeout the limit."""
+    until = time.monotonic() + limit if limit else None
+
+    def ask(*fields):
+        left = GH_LIMIT if until is None else until - time.monotonic()
+        try:
+            if left <= 0:
+                raise subprocess.TimeoutExpired(["gh", "api", "graphql"], 0)
+            return graphql(*fields, timeout=left)
+        except subprocess.TimeoutExpired as error:
+            raise subprocess.TimeoutExpired(error.cmd, limit or GH_LIMIT) from None
+
     query = f"repo:{repo()} is:pr is:merged base:main merged:>={since}"
     prs, cost, after = [], 0, None
     while True:
-        data = graphql(f"query={QUERY}", f"q={query}", *([f"after={after}"] if after else []))
+        data = ask(f"query={QUERY}", f"q={query}", *([f"after={after}"] if after else []))
         prs += [node for node in data["search"]["nodes"] if node]
         cost += data["rateLimit"]["cost"]
         remaining = data["rateLimit"]["remaining"]
@@ -176,7 +189,7 @@ def fetch(since):
               and rollup.get("state") in ROLLUP_FAILED and "contexts" not in rollup}
     ids = sorted(unread)
     for start in range(0, len(ids), 100):
-        data = graphql("query=" + CHECKS % ", ".join(json.dumps(i) for i in ids[start:start + 100]))
+        data = ask("query=" + CHECKS % ", ".join(json.dumps(i) for i in ids[start:start + 100]))
         for node in data["nodes"]:
             if node and node.get("statusCheckRollup"):
                 unread[node["id"]]["contexts"] = node["statusCheckRollup"]["contexts"]
