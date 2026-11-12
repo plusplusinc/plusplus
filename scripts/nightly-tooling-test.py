@@ -206,7 +206,7 @@ class Paths(unittest.TestCase):
 class OpenPRs(unittest.TestCase):
     """A card waits for an open PR changing a file it names, unless that is a retro PR's Markdown."""
 
-    REPO = ".claude/rules/testing.md\nscripts/nightly-tooling.py\nPackages/Sources/App/Row.swift\ndocs/pr-check.md\n"
+    REPO = "CLAUDE.md\n.claude/rules/testing.md\nscripts/nightly-tooling.py\nPackages/Sources/App/Row.swift\ndocs/pr-check.md\n"
     BODY = "## Problem\nx\n\nNightly: faster CI; its time\n\n## Success\nRun it.\n\n## Plan\n- Edit `{}`.\n"
 
     def night(self, prs, names):
@@ -226,32 +226,34 @@ class OpenPRs(unittest.TestCase):
         return night, card
 
     @staticmethod
-    def pr(n, branch, *files):
-        return {"number": n, "headRefName": branch, "files": [{"path": f} for f in files]}
+    def pr(n, title, *files):
+        return {"number": n, "title": title, "files": [{"path": f} for f in files]}
 
     def test_a_retro_prs_markdown_holds_no_card_back(self):
-        retro = self.pr(161, "retro/2026-11-10", ".claude/rules/testing.md", "docs/pr-check.md")
+        retro = self.pr(161, "Retro of #150: x", ".claude/rules/testing.md", "docs/pr-check.md")
         night, card = self.night([retro], [".claude/rules/testing.md"])
         self.assertEqual(card[1], "card 0")
         self.assertEqual(night.held, [])
 
     def test_a_script_or_swift_file_still_holds_a_card_back(self):
-        retro = self.pr(161, "retro/2026-11-10", ".claude/rules/testing.md", "scripts/nightly-tooling.py")
-        slice_ = self.pr(164, "plus-one-a11y", "Packages/Sources/App/Row.swift")
+        retro = self.pr(161, "Retro of #150: x", ".claude/rules/testing.md", "scripts/nightly-tooling.py")
+        slice_ = self.pr(164, "Keep the +1 out", "Packages/Sources/App/Row.swift")
         night, card = self.night([retro, slice_], ["scripts/nightly-tooling.py", "Packages/Sources/App/Row.swift"])
         self.assertIsNone(card)
-        self.assertEqual(night.held, [
-            '"card 0" may touch what #161 (scripts/nightly-tooling.py) changes; merge or close #161 so a night can take it',
-            '"card 1" may touch what #164 (Packages/Sources/App/Row.swift) changes; merge or close #164 so a night can '
-            "take it"])
+        self.assertEqual(night.held[0], '"card 0" may touch what #161 (scripts/nightly-tooling.py) changes; '
+                                        "merge or close #161 so a night can take it")
+        self.assertIn("#164 (Packages/Sources/App/Row.swift)", night.held[1])
 
-    def test_any_other_prs_markdown_still_holds_a_card_back(self):
-        night, card = self.night([self.pr(158, "prune-docs", ".claude/rules/testing.md")], [".claude/rules/testing.md"])
+    def test_markdown_outside_the_rules_or_in_another_pr_still_holds_a_card_back(self):
+        night, card = self.night([self.pr(161, "Retro of #150: x", "CLAUDE.md"),
+                                  self.pr(158, "Prune the agent docs", ".claude/rules/testing.md")],
+                                 ["CLAUDE.md", ".claude/rules/testing.md"])
         self.assertIsNone(card)
-        self.assertIn("#158", night.held[0])
+        self.assertIn("#161 (CLAUDE.md)", night.held[0])
+        self.assertIn("#158", night.held[1])
 
     def test_the_held_cards_open_the_digest(self):
-        night, _ = self.night([self.pr(164, "plus-one-a11y", "Packages/Sources/App/Row.swift")],
+        night, _ = self.night([self.pr(164, "Keep the +1 out", "Packages/Sources/App/Row.swift")],
                               ["Packages/Sources/App/Row.swift"])
         night.unchecked.append("x")
         self.assertEqual(night.top_lines(), ["Not checked: x", "Waits on an open PR: " + night.held[0]])

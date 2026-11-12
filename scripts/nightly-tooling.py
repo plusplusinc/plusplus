@@ -14,7 +14,7 @@ no agent can forget one: it starts cards only from midnight to 5 am, up to three
 on the night before the weekly usage limit resets (its reset at or before 7 am), until a
 usage window reaches 0.9 or 5 am. Before each card it reads the last rate_limit_event in the
 night's logs (no probe calls), this month's Xcode Cloud PR hours, and the open PRs' files,
-skipping a card that names one (a retro PR's Markdown aside) and saying so atop the digest. It
+skipping a card that names one (a retro PR's .claude/ and docs/ Markdown aside), atop the digest. It
 makes the card's worktree from main, runs one `claude -p` lead with the nightly-card skill,
 then decides on the PR itself: auto-merge is armed only after a passing verifier record, never
 for a PR touching a protected path or only .claude/ and docs/, which wait for the maintainer;
@@ -95,7 +95,7 @@ PROTECTED = [
 # The CI half repeats what .github/no-code-paths's header and scripts/pr-check.sh's GATE_PATTERN
 # name; a file added to either belongs here too.
 DAY_ONLY = (".claude/", "docs/")  # a PR entirely under these waits for the day
-RETRO_BRANCH = "retro/"  # the nightly retro's PR branches (.claude/skills/retro/SKILL.md)
+RETRO_TITLE = "Retro of"  # how every retro PR's title starts (.claude/skills/retro/SKILL.md)
 TEST_DIRS = ("Packages/Tests", "PlusPlusUITests")
 TEST_PATTERN = r"@Test([^A-Za-z]|$)|func test[A-Z_]"
 FEWER_TESTS = "Fewer tests:"  # the PR body's line that explains a drop, naming its target
@@ -265,12 +265,12 @@ def likely_files(body, repo_files):
 
 
 def clash_files(pr):
-    """The files of an open PR a card may collide with: all of them, but a retro PR's Markdown.
-    The nightly retro's PR waits for a day session to merge it and often edits the rules, so
-    counting its Markdown would hold back every card naming them; a clash there is a small merge."""
+    """The files of an open PR a card may collide with: all of them, but a retro PR's Markdown
+    under .claude/ and docs/. The retro's PR stays open until a day session merges it, often a
+    day, and edits the rules there, so counting them would hold back every card naming one."""
     files = [f["path"] for f in pr["files"]]
-    if pr.get("headRefName", "").startswith(RETRO_BRANCH):
-        return [f for f in files if not f.endswith(".md")]
+    if pr["title"].startswith(RETRO_TITLE):
+        return [f for f in files if not (f.endswith(".md") and f.startswith(DAY_ONLY))]
     return files
 
 
@@ -1042,7 +1042,7 @@ class Night:
         runs = xcode_cloud_runs()
         self.hours = month_hours(runs, self.clock())
         self.runs_tonight = runs_tonight(runs, self.start, self.dir)
-        open_prs = gh_json("pr", "list", "--state", "open", "--json", "number,files,headRefName")
+        open_prs = gh_json("pr", "list", "--state", "open", "--json", "number,files,title")
         open_files = {pr["number"]: clash_files(pr) for pr in open_prs}
         # The cards and main's files, read once a night: the runner's own moves are in self.tried.
         if not hasattr(self, "cards_tonight"):
@@ -1058,8 +1058,9 @@ class Night:
                 clashes = {n: overlap(likely, files) for n, files in open_files.items()}
                 clashes = {n: f for n, f in clashes.items() if f}
                 if clashes:
-                    why = "it may touch what " + ", ".join(f"#{n} ({', '.join(f)})" for n, f in clashes.items()) + " changes"
-                    self.held.append(f"\"{title}\" {why[3:]}; merge or close "
+                    touch = "may touch what " + ", ".join(f"#{n} ({', '.join(f)})" for n, f in clashes.items()) + " changes"
+                    why = "it " + touch
+                    self.held.append(f"\"{title}\" {touch}; merge or close "
                                      + " and ".join(f"#{n}" for n in clashes) + " so a night can take it")
             if not why:
                 # A card that names no files may change the app, so the budget applies to it too.

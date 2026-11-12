@@ -52,7 +52,8 @@ every heading present even when its answer is one line:
   safety, or the quality of product work better, has a Success check or acceptance criteria
   the verifier can run, touches only files in the repo, and is more than prose (a change only to
   `.claude/` and `docs/` waits for the day). Name the files it will touch in backticks: the run
-  skips a card whose files an open PR changes, a retro PR's Markdown aside.
+  skips a card whose files an open PR changes, leaving out a retro PR's Markdown under `.claude/`
+  and `docs/`.
 - **Tense** follows CLAUDE.md: a card is read before the work, during it, and after it, and
   every sentence has to be true whenever it is read.
   - Problem describes today in the present tense: "Today a routine is a list of names." Any
