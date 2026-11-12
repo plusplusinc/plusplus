@@ -1,5 +1,6 @@
 import DesignSystem
 import OSLog
+import Session
 import SwiftUI
 import WorkoutStore
 

@@ -32,6 +32,7 @@ LOCAL_RATIO = 1.25
 # Per test target: (all its tests, any one of them or None, whether every test is listed).
 TARGETS = {
     "WorkoutStoreTests": (10, None, False),
+    "SessionTests": (5, None, False),
     "DesignSystemTests": (30, 2, False),
     "PlusPlusUITests": (360, 90, True),
 }

@@ -64,15 +64,18 @@ the arrows; SwiftLint custom rules catch the imports and idioms it cannot.
 
 ```
 App ──> DesignSystem   (SwiftUI only, no domain code)
+ ├────> Session ──> WorkoutStore   (the open routine and its workout, observable; no UI)
  └────> WorkoutStore   (domain types, SwiftData, and routine naming; no UI)
 ```
+
+`Session` ships inside the `WorkoutStore` product, so the app links it with no project change.
 
 **These arrows are the rule, not a description.** New code goes in the lowest layer that can
 hold it, and a new layer gets a target when it has code. Nothing imports `App`.
 
 Plain SwiftUI, no view-model layer: views hold presentation logic, `@Observable` stores hold
-state, stateless services hold side effects, free functions hold the math. The app and
-`DesignSystem` are main-actor by default; `WorkoutStore` is nonisolated.
+state, stateless services hold side effects, free functions hold the math. The app,
+`DesignSystem`, and `Session` are main-actor by default; `WorkoutStore` is nonisolated.
 
 ## How we work
 
