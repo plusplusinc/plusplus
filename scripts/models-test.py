@@ -54,6 +54,19 @@ class Check(Fixture):
         self.edit(".claude/agents/builder.md", "model: claude-opus-5-5\n", "")
         self.assertEqual(len(models.problems(self.root)), 1)
 
+    def test_a_definition_or_script_on_another_effort_fails(self):
+        self.edit(".claude/agents/planner.md", "effort: high", "effort: low")
+        self.edit("scripts/nightly-retro.sh", "RETRO_EFFORT=high", "RETRO_EFFORT=medium")
+        self.assertEqual(models.problems(self.root),
+                         ['.claude/agents/planner.md: effort: is "low", the table says "high"',
+                          'scripts/nightly-retro.sh: RETRO_EFFORT is "medium", the table says "high"'])
+
+    def test_a_malformed_table_fails_the_check(self):
+        self.edit("docs/agent-tooling.md", "| Role | Set in | Model |", "| Role | Where | Model |")
+        self.assertEqual(models.check(self.root), 1)
+        self.edit("docs/agent-tooling.md", "## Models by task", "## Models")
+        self.assertEqual(models.check(self.root), 1)
+
     def test_a_script_on_another_model_fails(self):
         self.edit("scripts/nightly-tooling.py", 'CARD_MODEL = "claude-fable-5-2"', 'CARD_MODEL = "claude-opus-5-5"')
         self.assertEqual(models.problems(self.root),
