@@ -90,6 +90,12 @@ Each test a covered PR added is checked against `.claude/rules/testing.md`: its 
 table there, and whether a test that already existed proves the same thing. A miss is a
 finding.
 
+Each covered PR that changed the app is read against "What the codebase is for" in
+`docs/principles.md`: a cost out of proportion to the idea, a product concept with no name in
+the code or with two, a decision no test holds, a workaround its Friction line names, a slower
+loop. A miss is a finding, and its fix is in the code, so it becomes a card (`/brief`), with a
+`Nightly:` line when it changes nothing the maintainer sees, never a prose rule.
+
 The sweep goes unranked: fix each statement in `CLAUDE.md`, `.claude/`, `docs/`, and the README
 that the merges it covers made false, deleting first.
 
@@ -145,6 +151,10 @@ reading with nothing to show. Findings seen once wait there too, with where they
 Edit rows in place; never rewrite the ledger whole, or copy another over it. A session in a
 worktree, which Claude Code won't let edit the main checkout, appends its rows under a
 `## To merge` heading with the shell (`cat >> … <<'ROWS'`), and the next retro moves them.
+
+On the first run after a month ends, the retro also reviews the whole codebase against "What
+the codebase is for" and the top of the board's Todo, and cards what the coming work will need,
+each with its evidence in the code; the lead runs the same review before a large feature.
 
 On the first run after a month ends, and on request (after a model upgrade, ask for one), the
 retro also prunes the rules, skills, agent definitions, and `CLAUDE.md`, line by line, starting

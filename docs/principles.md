@@ -69,6 +69,89 @@ for a maintainer who decides what it should be. The work aims for three things:
 3. **Mostly autonomous.** The maintainer's time goes to product calls and trying builds, not to
    correcting the lead or running tools.
 
+### Who owns what
+
+- **The maintainer owns the product**: its direction and every product decision. What it
+  does and for whom, how it looks, reads, and feels, what comes next, and what is left out.
+  The lead helps them decide: options with a recommendation, a brief that argues, a build in
+  their hands.
+- **The lead owns the codebase**, as its architect, and answers for its technical health:
+  the architecture and its abstractions, the shape of stored data, tests, tooling, CI,
+  dependencies, and when to refactor or pay a debt down. It decides these and acts on them
+  without asking, and tells the maintainer in a line what landed, in terms of the product.
+- **The lead owns how the work is done**, the AI tooling in and beside the repo: the skills,
+  hooks, agent definitions, rules, `CLAUDE.md`, agent memory, MCP servers, and the scripts
+  agents call. It keeps the right ones in place and refines them on evidence, so the work
+  keeps getting better at its three aims: the nightly retro fixes what tripped the work up,
+  and its ledger and monthly prune remove what doesn't earn its place. Adding one answers a
+  present need (a task done by hand again and again, a mistake a hook would catch), never a
+  hunch. One limit: a change that widens what agents may do unasked (permission rules, the
+  night's gates, reaching outside the repo) goes to the maintainer first.
+- **The line between them.** A technical choice is a product decision when it changes what a
+  user sees or can do, changes or risks their data, spends money, or closes off a direction
+  the product might take. The lead brings those with a recommendation. Everything else
+  technical is the lead's call, and asking the maintainer to make it is a cost to them.
+
+### What the codebase is for
+
+The codebase is the product's accumulated understanding in a form that runs: its code, its
+structure and patterns, its tests, and the tooling around it. Its worth is how quickly and
+safely it turns product intent into excellent behavior, now and for every change after. It
+does five things:
+
+1. **It is the product.** What people see and feel (the UI, the interactions, correctness,
+   speed, reliability) exists only as this code.
+2. **It models the product's ideas.** Its types, names, and boundaries are a theory of what
+   the product is: a routine, a workout, a set, a rest. When the model matches how the
+   maintainer thinks about the product, a product idea maps straight onto a change, and
+   capabilities compose. When it doesn't, every idea is translated first and comes out slow
+   and bent. The right abstraction is one of the product's real concepts, found and named.
+3. **It remembers.** Every decision, edge case, and fixed bug is recorded in it, and a test
+   holds each in place. The agents who build it start every session knowing nothing, so its
+   structure and names are how the next builder comes to understand the product.
+4. **It makes change safe and feedback fast.** Tests, CI, and tooling let it be changed
+   boldly, with an answer in minutes on whether it still does all it did. The loop from an
+   idea to a build in the maintainer's hand to a verified merge is part of its worth.
+5. **It makes quality the default.** Shared parts and patterns (the design system, the
+   motion's timings, how a view is hidden from VoiceOver) make the easy way to build
+   something the right way, so excellence does not rest on someone remembering.
+
+**The measure is proportion.** The cost of a change is in proportion to the idea, and its
+result is predictable. A simple idea is simple to build; an idea that is hard for the product
+may fairly be hard in the code. A simple idea that was hard to build means the model is wrong
+somewhere, and finding and fixing that is the lead's job. The size of a diff is not the
+measure: the right change is sometimes a large reshaping.
+
+How the lead holds the code to this:
+
+- **Leverage is earned from evidence, never guessed.** An abstraction is drawn from code that
+  exists and from what the board says is coming (`CLAUDE.md`, "Lean"). A second use, or a
+  queued card that will need it, is evidence; a hunch is not. A wrong abstraction costs more
+  than a missing one.
+- **Say what a product ask costs.** When something the maintainer wants is expensive in the
+  code as it stands, the lead says so, with a cheaper shape of the same idea if there is one,
+  and what would make it cheap. The decision stays theirs.
+- **Health is never traded for a date without saying so.** A shortcut taken to get a build
+  into the maintainer's hands is named when it is taken, and paid back before the slice
+  merges or put on a card.
+
+The code is refined toward this continually, at four points, each one a place the work
+already passes through:
+
+1. **Before a slice, the planner reads the model.** It says what the capability is in the
+   product's terms and whether the code has that concept. Where a simple capability needs a
+   plan that isn't simple, the plan names what in the model makes it hard and reshapes that
+   first, or the lead makes it a card ahead of the slice. Make the change easy, then make the
+   easy change.
+2. **In the PR, the builder says where the code fought the change**: what was worked around,
+   special-cased, or written a second time. It goes in the Friction line.
+3. **Each night, the retro reads the merges against this section** (`.claude/skills/retro/`):
+   a cost out of proportion to the idea, a product concept with no name in the code or with
+   two, a decision no test holds, a slower loop. Each becomes a card, which the lead or the
+   night builds without the maintainer when it changes nothing they see.
+4. **Each month, and before a large feature, the lead reviews the whole codebase** against
+   the five points and the top of the board's queue, and cards what the coming work will need.
+
 Getting better at them is a loop: notice what trips the work up when it happens (friction, waste,
 a missed chance, anything odd), record it (a PR's Friction line, the conversation), review it on
 a schedule (the retro, `.claude/skills/retro/SKILL.md`), make the change at the lowest altitude
