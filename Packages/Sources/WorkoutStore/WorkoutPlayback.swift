@@ -8,8 +8,6 @@ public struct WorkoutPlayback: Equatable, Sendable {
     public struct Playing: Equatable, Sendable {
         public let set: PlannedSet
         public let step: LiveWorkout.Step
-        /// Whether the screen draws the set yet: from the transaction that shows it.
-        public var isShown: Bool
     }
 
     public private(set) var playing: Playing?
@@ -28,13 +26,12 @@ public struct WorkoutPlayback: Equatable, Sendable {
 
     /// `set`'s step starts to play.
     public mutating func start(_ step: LiveWorkout.Step, for set: PlannedSet) {
-        playing = Playing(set: set, step: step, isShown: false)
+        playing = Playing(set: set, step: step)
     }
 
     /// The playing step's set is drawn: called inside the transaction that shows it.
     public mutating func show() {
         guard let set = playing?.set else { return }
-        playing?.isShown = true
         unshown.removeAll { $0 == set }
     }
 
@@ -46,7 +43,9 @@ public struct WorkoutPlayback: Equatable, Sendable {
 
     /// The set logged that stays on its exercise, shown as still to do until the line rolls on.
     public var held: PlannedSet? {
-        guard let playing, playing.step == .nextSet, !playing.isShown else { return nil }
+        guard let playing, playing.step == .nextSet, unshown.contains(playing.set) else {
+            return nil
+        }
         return playing.set
     }
 

@@ -101,12 +101,12 @@ extension RoutineScreen {
     /// is logged: the key changes only once the finger lifts (`settleKeyRole()`), the place at
     /// once. A log is stored through the session at once and shown through `play(_:)`.
     func tapKey() {
-        guard session.workout != nil, !isStarting else { return pressStart() }
+        guard let live, !isStarting else { return pressStart() }
         guard !isMovingOn, !isKeySwapping else { return }
-        if live?.isDone == true {
+        if live.isDone {
             return finish()
         }
-        guard let current = live?.currentExercise, let set = live?.currentSet else { return }
+        guard let current = live.currentExercise, let set = live.currentSet else { return }
         if keyWayBack != nil || currentPlace?.isScrolledAway == true {
             // With Reduce Motion the list jumps back, as the key's swap only fades.
             withAnimation(reduceMotion ? nil : .snappy(duration: 0.4), scrollToCurrent)
@@ -201,8 +201,6 @@ extension RoutineScreen {
             return
         }
         withAnimation(.snappy(duration: SetMotion.roll)) { playback.show() }
-        if let waiting = playback.end() {
-            play(waiting)
-        }
+        endStep()
     }
 }

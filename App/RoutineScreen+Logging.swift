@@ -72,19 +72,18 @@ extension RoutineScreen {
         )
     }
 
-    /// Each row's bars (`bars(of:)`), for the rows' closure to hold as values.
-    var rowBars: [RoutineExercise.ID: SetProgress] {
-        routine.exercises.reduce(into: [:]) { bars, item in bars[item.id] = self.bars(of: item.id) }
-    }
-
-    /// The set bars a row shows in a workout (`LiveWorkout.bars(of:)`), as drawn.
-    func bars(of id: RoutineExercise.ID) -> SetProgress? {
-        guard let (done, total) = shown?.bars(of: id) else { return nil }
-        return SetProgress(
-            done: done,
-            total: total,
-            spoken: spokenProgress(done: done, total: total, locale: locale),
-        )
+    /// The set bars each row shows in `shown` (`LiveWorkout.bars(of:)`), for the rows' closure
+    /// to hold as values.
+    func rowBars(in shown: LiveWorkout?) -> [RoutineExercise.ID: SetProgress] {
+        guard let shown else { return [:] }
+        return routine.exercises.reduce(into: [:]) { bars, item in
+            guard let (done, total) = shown.bars(of: item.id) else { return }
+            bars[item.id] = SetProgress(
+                done: done,
+                total: total,
+                spoken: spokenProgress(done: done, total: total, locale: locale),
+            )
+        }
     }
 
     /// The row that grows, or stands grown: the current exercise, or, out of a workout, the
@@ -169,8 +168,14 @@ extension RoutineScreen {
     }
 
     /// The step playing is over: plays the set that waited longest, if one did.
-    private func endStep() {
-        if let waiting = playback.end() {
+    func endStep() {
+        playWaiting(playback.end())
+    }
+
+    /// Plays `waiting`, the set `WorkoutPlayback.end()` returned, once the step before it has
+    /// wound up.
+    private func playWaiting(_ waiting: PlannedSet?) {
+        if let waiting {
             play(waiting)
         }
     }
@@ -189,9 +194,7 @@ extension RoutineScreen {
                 scrollToCurrent()
             }
             settleKeyRole()
-            if let waiting {
-                play(waiting)
-            }
+            playWaiting(waiting)
         }
         crossfade(scrollingTo: target ?? scrollBeat.scrolledY, then: landed) {
             playback.show()
@@ -231,9 +234,7 @@ extension RoutineScreen {
                 withAnimation(.snappy(duration: SetMotion.roll), scrollToCurrent)
             }
             settleKeyRole()
-            if let waiting {
-                play(waiting)
-            }
+            playWaiting(waiting)
         }
     }
 
@@ -260,9 +261,7 @@ extension RoutineScreen {
             swapKey { waiting = playback.end() }
             letRoomGo()
             settleKeyRole()
-            if let waiting {
-                play(waiting)
-            }
+            playWaiting(waiting)
         }
     }
 

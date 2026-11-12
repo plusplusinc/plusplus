@@ -23,7 +23,8 @@ struct RoutineSessionTests {
     }
 
     private static func upper() throws -> Routine {
-        let bench = try RoutineExercise.builtIn("Barbell bench press")
+        let exercise = try #require(Exercise.builtIn(id: "barbell-bench-press"))
+        let bench = RoutineExercise(exercise: exercise, weightUnit: .pounds)
         return Routine(name: "Upper", exercises: [bench])
     }
 
@@ -123,18 +124,5 @@ struct RoutineSessionTests {
         #expect(stored.sets.map(\.planned) == [set])
         #expect(stored.sets.first?.target == row.plan.target)
         #expect(stored.sets.first?.weight == row.shownWeight)
-    }
-}
-
-extension RoutineExercise {
-    /// A row of the built-in exercise named `name`, its default plan changed by `edit`.
-    static func builtIn(
-        _ name: String,
-        _ edit: (inout ExercisePlan) -> Void = { _ in },
-    ) throws -> RoutineExercise {
-        let exercise = try #require(Exercise.builtIn.first { $0.name == name })
-        var plan = exercise.defaultPlan(in: .pounds)
-        edit(&plan)
-        return RoutineExercise(exercise: exercise, plan: plan)
     }
 }

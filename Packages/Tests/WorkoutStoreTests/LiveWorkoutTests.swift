@@ -26,12 +26,12 @@ struct LiveWorkoutTests {
     }
 
     private func superset(_ first: String, _ second: String, sets: Int) throws -> Routine {
-        let id = UUID()
-        var memberA = try RoutineExercise.builtIn(first) { $0.sets = sets }
-        var memberB = try RoutineExercise.builtIn(second) { $0.sets = sets }
-        memberA.supersetID = id
-        memberB.supersetID = id
-        return Routine(exercises: [memberA, memberB])
+        var routine = try Routine(exercises: [
+            RoutineExercise.builtIn(first) { $0.sets = sets },
+            RoutineExercise.builtIn(second) { $0.sets = sets },
+        ])
+        routine.join(routine.exercises[0].id, .below)
+        return routine
     }
 
     @Test("The current set and exercise are the first set not logged, and its row")

@@ -67,7 +67,7 @@ struct WorkoutPlaybackTests {
         #expect(playback.unshown == [set(1), set(2)])
         playback.show()
         #expect(playback.unshown == [set(2)])
-        #expect(playback.playing?.isShown == true)
+        #expect(playback.playing?.set == set(1), "Still playing until it ends")
     }
 
     @Test("Only a step to another exercise, or the last, is moving on")

@@ -45,10 +45,8 @@ enum LaunchOptions {
             name: defaults.string(forKey: "seedName") ?? "",
             exercises: ids.split(separator: ",").compactMap { Exercise.builtIn(id: String($0)) },
             superset: ends.count == 2 && ends[0] < ends[1] ? ends[0] ... ends[1] : nil,
-            sets: defaults.object(forKey: "seedSets") == nil ? nil : defaults
-                .integer(forKey: "seedSets"),
-            loggedSets: defaults.object(forKey: "seedWorkout") == nil
-                ? nil : defaults.integer(forKey: "seedWorkout"),
+            sets: defaults.string(forKey: "seedSets").flatMap { Int($0) },
+            loggedSets: defaults.string(forKey: "seedWorkout").flatMap { Int($0) },
         )
     }
 

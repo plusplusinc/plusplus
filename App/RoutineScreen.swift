@@ -164,7 +164,7 @@ struct RoutineScreen: View {
         let currentID = currentID
         let shown = shown
         let currentSet = shown?.currentSet
-        let rowBars = rowBars
+        let rowBars = rowBars(in: shown)
         let tracksRows = session.workout != nil || isStarting
         let underBar = underBarCut
         return ScrollView {
