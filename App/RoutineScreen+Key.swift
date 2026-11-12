@@ -112,15 +112,16 @@ extension RoutineScreen {
             withAnimation(reduceMotion ? nil : .snappy(duration: 0.4), scrollToCurrent)
             return
         }
-        // A second tap while the set just logged is held, as a double tap would be, is dropped.
-        guard heldSet == nil else { return }
+        // A second tap while the set just logged is held, as a double tap would be, is dropped;
+        // a move already returned above.
+        guard playback.takesLog else { return }
         if set.side == nil {
             setLogs += 1
         } else {
             sideLogs += 1
         }
-        // Stored at once, at the numbers the row shows; then shown, now or once the step playing
-        // is over. The key takes no tap while one plays, so today it starts now.
+        // Stored at once, at the numbers the row shows; then shown. The guards above take a log
+        // only with no step playing, so today its step starts now.
         session.log(set, of: current)
         if playback.log(set) {
             play(set)

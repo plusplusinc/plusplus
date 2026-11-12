@@ -54,4 +54,12 @@ public struct WorkoutPlayback: Equatable, Sendable {
         guard let step = playing?.step else { return false }
         return step != .nextSet
     }
+
+    /// Whether the key takes a log: not while a set is held, so a second tap in its beat, as a
+    /// double tap would be, is dropped, and not while the workout moves on. Either way the
+    /// stored workout is already past the set drawn as current, and a log taken then would land
+    /// on a set, or an exercise, not yet shown.
+    public var takesLog: Bool {
+        held == nil && !isMovingOn
+    }
 }
