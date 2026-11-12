@@ -22,7 +22,7 @@ Design: a link.
 ### Decided
 - One.
 
-## Feature: Drawer\r
+## Feature:  Drawer\r
 The drawer.\r
 
 ## Voice
@@ -56,10 +56,10 @@ class Readme(unittest.TestCase):
         self.assertEqual(run.returncode, 0, run.stderr)
         self.assertEqual(run.stdout, "## Feature: Routine screen\nDesign: a link.\n\n### Decided\n- One.\n")
 
-    def test_a_section_saved_with_crlf_reads_without_it(self):
+    def test_a_section_saved_with_crlf_and_a_double_space_still_matches(self):
         run = self.board("Drawer")
         self.assertEqual(run.returncode, 0, run.stderr)
-        self.assertEqual(run.stdout, "## Feature: Drawer\nThe drawer.\n")
+        self.assertEqual(run.stdout, "## Feature:  Drawer\nThe drawer.\n")
 
     def test_an_unknown_feature_fails_naming_the_features(self):
         run = self.board("Routines")

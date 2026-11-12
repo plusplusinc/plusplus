@@ -98,18 +98,11 @@ PROTECTED = [
     # and the tools.
     "scripts/nightly-tooling.py", "scripts/nightly-tooling-test.py", "scripts/nightly-retro.sh",
     "scripts/xcresult.py", "scripts/tidy.sh", "scripts/board.sh", "scripts/models.py",
-    "scripts/models-test.py", ".claude/*", "CLAUDE.md",
+    "scripts/models-test.py", "scripts/board-test.py", ".claude/*", "CLAUDE.md",
     "AGENTS.md", ".mcp.json",
 ]
 # The CI half repeats what .github/no-code-paths's header and scripts/pr-check.sh's GATE_PATTERN
 # name; a file added to either belongs here too.
-# The models and efforts of a night card's lead and the setup review, from docs/agent-tooling.md's
-# "Models by task", passed explicitly so the night never follows the interactive default;
-# scripts/models.py check, which scripts/lint.sh runs, fails when they disagree with the table.
-CARD_MODEL = "claude-fable-5-2"
-CARD_EFFORT = "high"
-REVIEW_MODEL = "claude-fable-5-2"
-REVIEW_EFFORT = "high"
 DAY_ONLY = (".claude/", "docs/")  # a PR entirely under these waits for the day
 RETRO_TITLE = "Retro of"  # how every retro PR's title starts (.claude/skills/retro/SKILL.md)
 REVIEW_REPORTS = ".slices/review-setup"  # in the main checkout (.claude/skills/review-setup/)
@@ -120,6 +113,13 @@ REVIEW_TRIES = 2  # nights a month that may start a setup review, so a failing o
 # and cards only (.claude/skills/review-setup/).
 REVIEW_DENIED = ["Edit", "NotebookEdit", "Bash(git push:*)", "Bash(git commit:*)", "Bash(gh pr merge:*)",
                  "Bash(gh pr create:*)", "Bash(gh pr edit:*)", "Bash(gh pr close:*)", "Bash(brew:*)", "Bash(asc:*)"]
+# The models and efforts of a night card's lead and the setup review, from docs/agent-tooling.md's
+# "Models by task", passed explicitly so the night never follows the interactive default;
+# scripts/models.py check, which scripts/lint.sh runs, fails when they disagree with the table.
+CARD_MODEL = "claude-fable-5-2"
+CARD_EFFORT = "high"
+REVIEW_MODEL = "claude-fable-5-2"
+REVIEW_EFFORT = "high"
 TEST_DIRS = ("Packages/Tests", "PlusPlusUITests")
 TEST_PATTERN = r"@Test([^A-Za-z]|$)|func test[A-Z_]"
 FEWER_TESTS = "Fewer tests:"  # the PR body's line that explains a drop, naming its target

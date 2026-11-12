@@ -115,6 +115,10 @@ class Hook(Fixture):
     def test_a_repo_agent_given_another_family_is_refused(self):
         self.assertEqual(self.run_hook(subagent_type="verifier", model="opus", prompt="Verify"), 2)
 
+    def test_a_users_agent_of_a_repo_agents_name_is_no_way_round(self):
+        (self.home / ".claude/agents/verifier.md").write_text("---\nname: verifier\nmodel: opus\n---\n")
+        self.assertEqual(self.run_hook(subagent_type="verifier", model="opus", prompt="Verify"), 2)
+
     def test_its_own_error_allows_the_call(self):
         (self.root / "docs/agent-tooling.md").unlink()
         self.assertEqual(self.run_hook(subagent_type="general-purpose", prompt="Go"), 1)

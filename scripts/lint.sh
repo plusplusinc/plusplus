@@ -48,7 +48,15 @@ if $whole_tree; then
         grep -nE '^\s*[A-Z_]+ = .*;$' "$pbxproj" >&2
         status=1
     fi
-    # Each agent's model matches docs/agent-tooling.md's "Models by task".
+fi
+
+# Each agent's model matches docs/agent-tooling.md's "Models by task": on the whole tree, and on a
+# path list holding what sets a model, as a docs-only PR's lint is.
+models=$whole_tree
+for path in "$@"; do
+    case "$path" in docs/agent-tooling.md | .claude/agents/* | scripts/nightly-*) models=true ;; esac
+done
+if $models; then
     python3 -I scripts/models.py check || status=1
 fi
 

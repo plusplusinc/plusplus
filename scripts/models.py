@@ -159,14 +159,17 @@ def problems(root):
 
 
 def hook_wired(root):
-    """Whether .claude/settings.json runs `hook` before the Agent tool."""
-    try:
-        settings = json.loads((Path(root) / ".claude/settings.json").read_text())
-    except (OSError, ValueError):
-        return False
-    return any(entry.get("matcher") == "Agent" and hook.get("command", "").strip() == HOOK_COMMAND
+    """Whether the project's settings run `hook` before the Agent tool."""
+    for name in ("settings.json", "settings.local.json"):
+        try:
+            settings = json.loads((Path(root) / ".claude" / name).read_text())
+        except (OSError, ValueError):
+            continue
+        if any(entry.get("matcher") == "Agent" and re.search(r"scripts/models\.py\"? hook\b", hook.get("command", ""))
                for entry in settings.get("hooks", {}).get("PreToolUse", [])
-               for hook in entry.get("hooks", []))
+               for hook in entry.get("hooks", [])):
+            return True
+    return False
 
 
 def check(root=ROOT):
@@ -191,9 +194,12 @@ def refusal(call, root, home):
     tool = call.get("tool_input") or {}
     kind = tool.get("subagent_type") or "general-purpose"
     model = tool.get("model")
-    if kind == FORK or ":" in kind or kind in definitions(Path(home) / ".claude/agents"):
+    if kind == FORK or ":" in kind:
         return None
+    # The repo's definitions first: Claude Code runs a project agent over a user one of its name.
     ours = definitions(Path(root) / ".claude/agents").get(kind)
+    if ours is None and kind in definitions(Path(home) / ".claude/agents"):
+        return None
     named = (ours or {}).get("model")
     if named:
         if model and family(named) and family(model) != family(named):

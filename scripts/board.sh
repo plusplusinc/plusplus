@@ -283,7 +283,7 @@ case "$command" in
         # A README saved from GitHub's web editor ends its lines with \r\n.
         readme=$(tr -d '\r' <<< "$readme")
         section=$(awk -v heading="## Feature: $1" '
-            /^## / { line = $0; sub(/[ \t]+$/, "", line); inside = (line == heading) }
+            /^## / { line = $0; sub(/[ \t]+$/, "", line); sub(/^## Feature:[ \t]+/, "## Feature: ", line); inside = (line == heading) }
             inside' <<< "$readme")
         if [ -z "$section" ]; then
             names=$(sed -n 's/^## Feature: *//p' <<< "$readme" | sed 's/[[:space:]]*$//' | paste -sd '|' - | sed 's/|/, /g')
