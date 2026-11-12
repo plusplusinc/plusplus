@@ -10,7 +10,11 @@ file paths for your output. You report only to the lead; questions for the maint
 through it.
 
 1. Read the code the slice touches, the rules in `.claude/rules/` for those areas, the design,
-   and `docs/principles.md`. Note where the design and the code disagree.
+   and `docs/principles.md`. Note where the design and the code disagree. Say what the
+   capability is in the product's terms and whether the code's model has that concept
+   (`docs/principles.md`, "What the codebase is for"). Where a simple capability needs a plan
+   that isn't simple, name what in the model makes it hard, and plan that reshaping as the
+   first steps, or tell the lead it is a card of its own.
 2. Read the card with `scripts/board.sh show <id>`. Do not edit or move it.
 3. Write the implementation plan to the path the lead names: which layer each piece goes in
    (the arrows in `CLAUDE.md`), the model change, the views, the order of small steps, each one

@@ -86,30 +86,63 @@ for a maintainer who decides what it should be. The work aims for three things:
 
 ### What the codebase is for
 
-1. **To deliver the product's observable behavior**: the UI, the interactions, the
-   performance, what it does, and that it does it every time.
-2. **To make the next product change small.** The codebase's value is leverage: how little
-   has to change underneath for the product to gain a capability. That comes from the right
-   abstractions, small parts that compose, so a new capability is mostly an arrangement of
-   what exists.
+The codebase is the product's accumulated understanding in a form that runs: its code, its
+structure and patterns, its tests, and the tooling around it. Its worth is how quickly and
+safely it turns product intent into excellent behavior, now and for every change after. It
+does five things:
 
-The second job is the lead's standing work, and it has a measure: the size of the change a
-new capability took. A small capability that needed a large change is a finding, for the
-retro and for a card.
+1. **It is the product.** What people see and feel (the UI, the interactions, correctness,
+   speed, reliability) exists only as this code.
+2. **It models the product's ideas.** Its types, names, and boundaries are a theory of what
+   the product is: a routine, a workout, a set, a rest. When the model matches how the
+   maintainer thinks about the product, a product idea maps straight onto a change, and
+   capabilities compose. When it doesn't, every idea is translated first and comes out slow
+   and bent. The right abstraction is one of the product's real concepts, found and named.
+3. **It remembers.** Every decision, edge case, and fixed bug is recorded in it, and a test
+   holds each in place. The agents who build it start every session knowing nothing, so its
+   structure and names are how the next builder comes to understand the product.
+4. **It makes change safe and feedback fast.** Tests, CI, and tooling let it be changed
+   boldly, with an answer in minutes on whether it still does all it did. The loop from an
+   idea to a build in the maintainer's hand to a verified merge is part of its worth.
+5. **It makes quality the default.** Shared parts and patterns (the design system, the
+   motion's timings, how a view is hidden from VoiceOver) make the easy way to build
+   something the right way, so excellence does not rest on someone remembering.
 
-- **Before a slice, make the change easy.** Ask what shape the code would have for this
-  capability to be small, and get it to that shape first, as part of the slice or as a card
-  of its own ahead of it. Then make the easy change.
+**The measure is proportion.** The cost of a change is in proportion to the idea, and its
+result is predictable. A simple idea is simple to build; an idea that is hard for the product
+may fairly be hard in the code. A simple idea that was hard to build means the model is wrong
+somewhere, and finding and fixing that is the lead's job. The size of a diff is not the
+measure: the right change is sometimes a large reshaping.
+
+How the lead holds the code to this:
+
 - **Leverage is earned from evidence, never guessed.** An abstraction is drawn from code that
-  exists and from what the board says is coming, not from what might be needed
-  (`CLAUDE.md`, "Lean"). A second use, or a queued card that will need it, is evidence; a
-  hunch is not. A wrong abstraction costs more than a missing one.
+  exists and from what the board says is coming (`CLAUDE.md`, "Lean"). A second use, or a
+  queued card that will need it, is evidence; a hunch is not. A wrong abstraction costs more
+  than a missing one.
 - **Say what a product ask costs.** When something the maintainer wants is expensive in the
-  code as it stands, the lead says so, with a cheaper shape of the same idea if there is
-  one, and what would make it cheap. The decision stays theirs.
+  code as it stands, the lead says so, with a cheaper shape of the same idea if there is one,
+  and what would make it cheap. The decision stays theirs.
 - **Health is never traded for a date without saying so.** A shortcut taken to get a build
   into the maintainer's hands is named when it is taken, and paid back before the slice
-  merges or carded.
+  merges or put on a card.
+
+The code is refined toward this continually, at four points, each one a place the work
+already passes through:
+
+1. **Before a slice, the planner reads the model.** It says what the capability is in the
+   product's terms and whether the code has that concept. Where a simple capability needs a
+   plan that isn't simple, the plan names what in the model makes it hard and reshapes that
+   first, or the lead makes it a card ahead of the slice. Make the change easy, then make the
+   easy change.
+2. **In the PR, the builder says where the code fought the change**: what was worked around,
+   special-cased, or written a second time. It goes in the Friction line.
+3. **Each night, the retro reads the merges against this section** (`.claude/skills/retro/`):
+   a cost out of proportion to the idea, a product concept with no name in the code or with
+   two, a decision no test holds, a slower loop. Each becomes a card, which the lead or the
+   night builds without the maintainer when it changes nothing they see.
+4. **Each month, and before a large feature, the lead reviews the whole codebase** against
+   the five points and the top of the board's queue, and cards what the coming work will need.
 
 Getting better at them is a loop: notice what trips the work up when it happens (friction, waste,
 a missed chance, anything odd), record it (a PR's Friction line, the conversation), review it on

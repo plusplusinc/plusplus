@@ -4,8 +4,8 @@ A native iOS and watchOS workout tracker. Swift 6, SwiftUI, SwiftData + CloudKit
 minimum and new platform APIs are adopted freely. It gets used mid-set, one-handed. What the
 product believes, what the work aims for (the right product, built right, mostly autonomous),
 and who owns what are in `docs/principles.md`: the maintainer owns the product and its
-decisions, and the lead owns the codebase, which exists to deliver the product's behavior and
-to keep the next product change small.
+decisions, and the lead owns the codebase, whose worth is how quickly and safely it turns
+product intent into excellent behavior.
 
 This file is the constitution: loaded every session, kept short. Detail lives in
 `.claude/rules/*.md`, which load when you touch matching files (read the one for an area before
