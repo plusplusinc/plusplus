@@ -17,15 +17,18 @@ says why.
 1. `scripts/board.sh show <card-id>`: its Problem, Plan, Success, and acceptance criteria. The
    card is approved; there is no alignment step and no maintainer to ask. A product call the
    card leaves open is a reason to stop, not to guess: end with `parked: <the question>`.
-2. Start a `builder` (pass `model: "opus"`), in the foreground, with the card id, the worktree
-   and branch, the card's Plan as the plan, and the handoff path `.slices/<branch>-handoff.md`
-   in the main checkout. It opens the PR with `/pr`.
-3. Start a `verifier` (`model: "opus"`), in the foreground, with the worktree, the branch and
+2. Start a `builder`, with no `model` (its definition sets it), in the foreground, with the card
+   id, the worktree and branch, the card's Plan as the plan, and the handoff path
+   `.slices/<branch>-handoff.md` in the main checkout. It opens the PR with `/pr`.
+3. Start a `verifier`, with no `model`, in the foreground, with the worktree, the branch and
    PR, and the card id. It leaves the "Verifier record" comment the runner reads.
 4. When the verifier reports a failed criterion or a crash, start one more builder for those
    findings, then the verifier once more. After that, end with what is still failing; the
    runner parks the card.
-5. End your turn with one last line: `PR #<n>` when the PR is ready for the runner, or
+5. After each agent hands back, add its line to the PR's agent record, as `/onward` says:
+   `scripts/agent-record.py line <role> '<its usage line>'` (`--round 2` for the fix round), then
+   `scripts/agent-record.py post <pr> '<line>'...`.
+6. End your turn with one last line: `PR #<n>` when the PR is ready for the runner, or
    `parked: <why>` when it isn't.
 
 ## The night's limits

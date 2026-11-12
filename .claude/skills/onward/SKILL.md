@@ -114,6 +114,13 @@ project board.
   `scripts/sim.sh shutdown`, and the same in any worktree of `main` it added, so its simulator
   is not left booted when it skipped its own. Only that worktree's simulator: never
   `simctl shutdown all` or another session's by name.
+- Each subagent that hands back, stopped or thrown away included, gets a line in the PR's agent
+  record (`docs/agent-tooling.md`, "Agent records"):
+  `scripts/agent-record.py line <role> '<its notification's usage line>'`, the role being the
+  agent's name (`lookup`, `builder`), with `--round <n>` for
+  a fix round, `--after <tokens>` for a resumed one, and `--note` for a run that changed nothing.
+  Post each as it comes, `scripts/agent-record.py post <pr> '<line>'...`; the lines from before the
+  PR exists (the planner's, the first builder's) go with the first post, once the builder opens it.
 - Reporting a phase as done, say where it went less deep than the card asked (what was compared
   only by name, sampled, or left out) before the maintainer has to ask. A fix to how something
   reaches them (a link, an install) is tried the way they will meet it before you call it fixed,

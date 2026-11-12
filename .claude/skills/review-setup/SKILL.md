@@ -67,6 +67,37 @@ cost and what it replaces; at most three go under "Worth trying", each with the 
 that would settle it. "Looked outward and found nothing worth trying" is a valid result, stated
 plainly.
 
+## 2c. Models
+
+Each role's model is set in `docs/agent-tooling.md`'s "Models by task" and changed only by a
+trial weighed on the record (its "Agent records" section).
+
+- **The tally**: `scripts/agent-record.py tally <the last review's date>`, once. When it names more
+  PRs with no record than with one, the record is the finding, not the models: say so, and
+  propose no trial on it.
+- **A trial running**: a row whose Set reads `<date>, trial for <n> PRs`. Once `tally <that
+  date>` shows the role on its trial model in that many PRs, compare it with the model it
+  replaced (its Evidence names it) on the tally from before the date: cost per PR, and fix rounds
+  and failed pushes for the builder, problems caught for the verifier. Keep it or revert it, and
+  card that edit: the row's Set becomes the date it was decided, its Evidence the two models'
+  numbers and the PR range. Not yet that many PRs: say how many so far, in a line.
+- **At most one new trial**, only when no trial runs and the tally gives a reason (a role whose
+  cost per PR is high for what its record shows, or a cheaper model's runs that held up): one
+  role, one model, a stated number of PRs (5 unless the tally suggests otherwise), and what on
+  the tally would keep it. Its card's Plan changes the row (model, `<start date>, trial for <n>
+  PRs`, the old model in Evidence) and what sets it, together, so `scripts/models.py check`
+  passes. No reason on the tally is "no trial", in a line.
+- **Which models exist**: Anthropic's models overview
+  (`https://platform.claude.com/docs/en/about-claude/models/overview`, its "Latest models" table:
+  each model's API ID and default effort), and Claude Code's
+  [model configuration](https://code.claude.com/docs/en/model-config) for what each alias picks
+  by default. A model newer than any the table pins, or an alias or default that changed since
+  the last review, gets one trial card naming the roles it could serve and why. It waits in Todo
+  until no other trial runs.
+
+The tally, the trial's state, and what the models page showed each take a line under "Kept" or
+"Worth trying".
+
 ## 3. Card
 
 For each change worth doing, look for a card by title first, then add one with
