@@ -212,7 +212,7 @@ class OpenPRs(unittest.TestCase):
     def night(self, prs, names):
         cards = [(f"PVTI_{i}", "Todo", "-", f"card {i}", self.BODY.format(name)) for i, name in enumerate(names)]
         stubs = {"board_rows": lambda: [], "board_cards": lambda rows: cards, "xcode_cloud_runs": lambda: [],
-                 "gh_json": lambda *a: prs, "classify": lambda files: "docs",
+                 "gh_json": lambda *a: prs if a[-1] == "number,files,title" else self.fail(a), "classify": lambda files: "docs",
                  "sh": lambda *a, **k: self.REPO}
         saved = {name: getattr(nightly, name) for name in stubs}
         self.addCleanup(lambda: [setattr(nightly, n, f) for n, f in saved.items()])

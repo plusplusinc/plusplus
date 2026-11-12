@@ -45,11 +45,11 @@ every heading present even when its answer is one line:
   (before and after for any UI). For a hunch, the spike and what answer would end it.
 - **Nightly:** a standalone card the nightly run may take (`scripts/nightly-tooling.py`) gets a
   line `Nightly: <what it makes better>; <how we'd notice>`, and nothing else does. It qualifies
-  when it changes nothing the maintainer sees in the app, or fixes a bug with a clear fix, one
-  whose right behavior is already settled (the board README, a merged card, or how the rest of
-  the app behaves) so it asks no product question; a bug whose fix needs a choice of look,
-  wording, or behavior goes to the maintainer. It also makes speed, reliability, cost,
-  safety, or the quality of product work better, has a Success check or acceptance criteria
+  when it either changes nothing the maintainer sees in the app and makes speed, reliability,
+  cost, safety, or the quality of product work better, or fixes a bug with a clear fix, one whose
+  right behavior is already settled (the board README, a merged card, or how the rest of the app
+  behaves) so it asks no product question; a bug whose fix needs a choice of look, wording, or
+  behavior goes to the maintainer. Either way it has a Success check or acceptance criteria
   the verifier can run, touches only files in the repo, and is more than prose (a change only to
   `.claude/` and `docs/` waits for the day). Name the files it will touch in backticks: the run
   skips a card whose files an open PR changes, leaving out a retro PR's Markdown under `.claude/`

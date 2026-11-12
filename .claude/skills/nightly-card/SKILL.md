@@ -1,6 +1,6 @@
 ---
 name: nightly-card
-description: Lead one tooling card unattended at night, with a builder and a verifier, up to a PR the nightly runner decides on. Only scripts/nightly-tooling.py starts this, as `/nightly-card <card-id> <worktree> <branch>`; never use it by hand or in a session with the maintainer.
+description: Lead one tooling or clear-fix bug card unattended at night, with a builder and a verifier, up to a PR the nightly runner decides on. Only scripts/nightly-tooling.py starts this, as `/nightly-card <card-id> <worktree> <branch>`; never use it by hand or in a session with the maintainer.
 argument-hint: "<card-id> <worktree> <branch>"
 ---
 

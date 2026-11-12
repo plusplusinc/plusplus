@@ -13,8 +13,9 @@ the board has one by that title or an open one for that tool. `run` holds the ni
 no agent can forget one: it starts cards only from midnight to 5 am, up to three a night, or,
 on the night before the weekly usage limit resets (its reset at or before 7 am), until a
 usage window reaches 0.9 or 5 am. Before each card it reads the last rate_limit_event in the
-night's logs (no probe calls), this month's Xcode Cloud PR hours, and the open PRs' files,
-skipping a card that names one (a retro PR's .claude/ and docs/ Markdown aside), atop the digest. It
+night's logs (no probe calls), this month's Xcode Cloud PR hours, and the open PRs' files: a
+card naming one waits, and the digest's top says for which PR, though a retro PR's Markdown
+under .claude/ and docs/ holds no card back. It
 makes the card's worktree from main, runs one `claude -p` lead with the nightly-card skill,
 then decides on the PR itself: auto-merge is armed only after a passing verifier record, never
 for a PR touching a protected path or only .claude/ and docs/, which wait for the maintainer;

@@ -124,7 +124,7 @@ Anything the maintainer throws out, or the lead finds along the way, becomes a c
 process change the lead recommends in answer to their question is made then, in its own PR,
 not offered as a card. Working files go in `.slices/`.
 The maintainer's time is for the product. Tooling, CI, tests, process, and bugs with a clear fix (a
-standalone card that changes nothing they see in the app or whose right behavior is already settled,
+standalone card that changes nothing they see in the app, or a bug whose right behavior is settled,
 and the nightly retro's PR) are the lead's to find, card, align, build, verify, and merge on its own
 once CI is green, never asking whether to, alongside a product slice where it can, telling them in a
 line what landed; a fix that needs a choice of look, wording, or behavior is theirs. A message about
