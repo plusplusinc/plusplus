@@ -264,10 +264,7 @@ struct RoutineScreen: View {
                 .padding(.bottom, Spacing.md)
                 // In the content, not a margin, so the visible height the row is sized from
                 // stays.
-                .roomToLand(
-                    top: closingRoomTop
-                        ?? (currentID != nil || isMovingOn ? currentPlace?.landingY : nil),
-                )
+                .roomToLand(top: landingRoomTop)
                 .roomBelow(isMakingRoom)
                 // When the keyboard rises, UIKit scrolls the focused field to sit at least 5pt
                 // below the top of the visible area. Starting there keeps the title still.
@@ -288,7 +285,9 @@ struct RoutineScreen: View {
             .coordinateSpace(.list)
         }
         .scrollPosition($scrollPosition)
-        .railAutoscroll($scrollPosition)
+        // The room to land, sized from what the scroll view shows, would shrink by any room a
+        // held row added below the list.
+        .railAutoscroll($scrollPosition, addsRoomBelow: landingRoomTop == nil)
         .onScrollGeometryChange(for: ScrollGeometry.self, of: \.self) { old, new in
             keepEndInView(from: old, to: new)
             keepEndPinned(from: old, to: new)

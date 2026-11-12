@@ -135,6 +135,12 @@ extension RoutineScreen {
         withTransaction(\.disablesAnimations, true) { isMakingRoom = false }
     }
 
+    /// Where in the list the row the room to land (`roomToLand(top:)`) lands under the bar has
+    /// its top, while there is that room: in a workout, or as it closes at the end of one.
+    var landingRoomTop: CGFloat? {
+        closingRoomTop ?? (currentID != nil || isMovingOn ? currentPlace?.landingY : nil)
+    }
+
     /// Ends the workout with `change`, Start's grow in reverse, in one motion: the current
     /// exercise shrinks back to a resting row as the rows below close up, and the list scrolls
     /// back to its top. Once that lands, Start comes up on its own from below the screen's edge,

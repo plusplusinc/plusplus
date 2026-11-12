@@ -39,6 +39,7 @@ final nonisolated class WorkoutFinishUITests: XCTestCase {
             let top = row.frame.minY
             XCTAssertLessThan(abs(top - bar), 1, "After Start, the list rests \(top - bar) pt low")
         }
+        heldAndLetGoItStaysPut(row, in: app)
         XCTContext.runActivity(named: "Logging the last set turns the key to Finish workout") { _ in
             for set in 1 ... 3 {
                 app.tapWorkoutKey(reading: set < 3 ? "Log set" : "Log last set")
@@ -74,6 +75,30 @@ final nonisolated class WorkoutFinishUITests: XCTestCase {
                 title.value as? String,
                 name,
                 "Launch reopened the routine, as after a discard",
+            )
+        }
+    }
+
+    /// Holding the current exercise until it lifts and letting go where it was leaves it under
+    /// the bar. Which slot a drop lands in is `RailDragTests`'; this is the scroll view's range
+    /// across the drop, which only the running app shows: on a list shorter than the screen, the
+    /// room a held row added under the list went before the workout's room grew back, and the
+    /// list jumped to its top, the exercise 52.7 pt low.
+    @MainActor
+    private func heldAndLetGoItStaysPut(_ row: XCUIElement, in app: XCUIApplication) {
+        XCTContext.runActivity(named: "Held and let go in place, the exercise stays put") { _ in
+            let bar = app.navigationBars.firstMatch.frame.maxY
+            row.center.holdAndDrag(to: row.center)
+            XCTAssertTrue(
+                settling(row.frame.minY, still: 0.25, within: 3),
+                "After the drop, the list never came to rest",
+            )
+            let top = row.frame.minY
+            attach(named: "held-and-let-go")
+            XCTAssertLessThan(
+                abs(top - bar),
+                1,
+                "After the drop, the list rests \(top - bar) pt low",
             )
         }
     }
