@@ -211,9 +211,9 @@ project board.
   thread with its own goal that would outlast a few tool calls and doesn't feed the card (an
   unrelated bug, a side investigation the maintainer raises) becomes its own session
   (`start_session`), not more turns here.
-- Every one-off subagent call (general-purpose, Explore, Plan, and the like) passes the `model`
-  that `docs/agent-tooling.md`'s "Models by task" gives its kind of task; the planner, builder,
-  and verifier take theirs from their definitions, so pass them none.
+- A one-off task starts its kind's own agent (`lookup`, `repro`, `edit`, `reviewer`), not
+  general-purpose, Explore, or Plan. Every agent of this repo takes its model from its
+  definition (`docs/agent-tooling.md`, "Models by task"), so pass none.
 - Rewrite the card's State section (`scripts/board.sh state <id> <<'STATE'`, quoted so
   backticks stay text) whenever a phase ends, so a cleared context can resume mid-slice. It
   names this session's id, so another session can tell whether the card is still led.
