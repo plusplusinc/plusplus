@@ -125,6 +125,12 @@ the skill.
 it's installed and running, the retro's last reply, read from the transcript, and the tooling
 runner's last digest.
 
+Before the retro starts, the run updates the command-line Claude Code (`claude update`, bounded
+to three minutes; a failure is logged and the night runs on the installed version), so each night
+uses the latest, and the digest's top says when the version changed or the update failed. A
+running session keeps its version until it exits, so nothing in flight breaks. The desktop app's
+Code tab runs its own copy, which updates with the app, at a relaunch between sessions.
+
 Plugged in, the Mac stays awake with the lid open or closed. Claude Code runs under
 `caffeinate -s`, which keeps the Mac awake on power but doesn't stop it sleeping when the lid
 closes; an Amphetamine trigger for when the power adapter is connected, with closed-display

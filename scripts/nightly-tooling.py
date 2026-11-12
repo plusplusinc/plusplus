@@ -120,6 +120,19 @@ FAILURES = (RuntimeError, OSError, ValueError, KeyError, subprocess.SubprocessEr
 RECORD_LINE = re.compile(r"- (criterion|test|design|crash|other), (new|known): \S")
 
 
+def update_note(folder):
+    """The digest's line on the night's Claude Code update, from claude-update.txt, which
+    scripts/nightly-retro.sh run writes: a failure goes with the unchecked, a version change is one
+    plain line, and "already the latest" is left out."""
+    try:
+        text = (Path(folder) / "claude-update.txt").read_text().strip()
+    except OSError:
+        return []
+    if text.startswith("Claude Code update failed"):
+        return [f"Not checked: {text}"]
+    return [text] if "→" in text else []
+
+
 def log(message):
     print(f"{datetime.now().strftime('%H:%M')} {message}", flush=True)
     return message
@@ -1362,7 +1375,7 @@ class Night:
         return [f"Merged without the runner: #{pr['number']} {pr['title']}, by "
                 f"{(pr.get('mergedBy') or {}).get('login', 'unknown')}; none of the night's gates ran on it. "
                 f"Review it; undo: git revert {((pr.get('mergeCommit') or {}).get('oid') or '?')[:7]}"
-                for pr in self.unarmed] + [f"Not checked: {u}" for u in dict.fromkeys(self.unchecked)] + [
+                for pr in self.unarmed] + update_note(self.dir) + [f"Not checked: {u}" for u in dict.fromkeys(self.unchecked)] + [
                     f"Waits on an open PR: {h}" for h in self.held]
 
     def digest(self):

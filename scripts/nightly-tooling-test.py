@@ -259,6 +259,32 @@ class OpenPRs(unittest.TestCase):
         self.assertEqual(night.top_lines(), ["Not checked: x", "Waits on an open PR: " + night.held[0]])
 
 
+class ClaudeUpdate(unittest.TestCase):
+    def note(self, text):
+        with tempfile.TemporaryDirectory() as folder:
+            if text is not None:
+                (Path(folder) / "claude-update.txt").write_text(text + "\n")
+            return nightly.update_note(folder)
+
+    def test_a_version_change_is_one_plain_line(self):
+        self.assertEqual(self.note("Claude Code 2.1.316 → 2.1.322"), ["Claude Code 2.1.316 → 2.1.322"])
+
+    def test_a_failed_update_is_not_checked(self):
+        line = "Claude Code update failed: no network (exit 1); running 2.1.316"
+        self.assertEqual(self.note(line), ["Not checked: " + line])
+
+    def test_already_the_latest_or_no_file_says_nothing(self):
+        self.assertEqual(self.note("Claude Code 2.1.322, already the latest"), [])
+        self.assertEqual(self.note(None), [])
+
+    def test_the_update_opens_the_digest(self):
+        with tempfile.TemporaryDirectory() as folder:
+            (Path(folder) / "claude-update.txt").write_text("Claude Code 2.1.316 → 2.1.322\n")
+            night = nightly.Night(folder, NIGHT, False)
+            night.unchecked.append("x")
+            self.assertEqual(night.top_lines(), ["Claude Code 2.1.316 → 2.1.322", "Not checked: x"])
+
+
 class Eligibility(unittest.TestCase):
     BODY = "## Problem\nx\n\nNightly: faster CI; the PR check's time\n\n## Success\nRun it: it passes.\n\n## Plan\n- y\n"
 

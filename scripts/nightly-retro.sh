@@ -20,6 +20,11 @@
 # own (CLAUDECODE, CLAUDE_CODE_*, and others), which must not reach the retro's claude. It runs
 # claude in an interactive login zsh, since claude is on the PATH only through ~/.zshrc.
 #
+# Before the retro, run updates Claude Code (`claude update`, bounded, and never fatal: a failed one
+# runs the night on the installed version), and writes one line saying what happened to the night's
+# claude-update.txt, which the tooling runner's digest reads. A running session keeps its version
+# until it exits, so this never breaks one in flight; the desktop app's copy updates with the app.
+#
 # show reads the reply from the run's transcript (scripts/conversations.py --retro-reply), which
 # holds it whole, including while a run is still going, then the tooling runner's last digest.
 set -euo pipefail
@@ -34,6 +39,9 @@ NAME="Nightly retro"
 RETRO_PROCESS="(^|/)claude --name $NAME( |\$)"
 # The tooling runner, which starts after the retro: the monthly setup review, then the cards.
 TOOLING_PROCESS="nightly-tooling\.py (review|run) "
+
+# The longest `claude update` may take; a hung one must not hold the night.
+UPDATE_LIMIT=180
 
 die() {
     echo "$*" >&2
@@ -114,10 +122,45 @@ run() {
     # The retro's stream goes to the night's folder: show reads its reply from the transcript, and
     # the tooling runner reads the usage limits from the stream. The runner runs after it whether
     # or not it succeeded; its own gates decide whether any card starts.
-    env -i "${vars[@]}" /bin/zsh -lic "caffeinate -s claude --name \"$NAME\" -p --permission-mode auto \
+    env -i "${vars[@]}" /bin/zsh -lic "\"$main/scripts/nightly-retro.sh\" update \"$night\";
+        caffeinate -s claude --name \"$NAME\" -p --permission-mode auto \
         --output-format stream-json --verbose \"/retro nightly\" >> \"$night/retro.jsonl\";
         caffeinate -s \"$main/scripts/nightly-tooling.py\" review \"$night\";
         caffeinate -s \"$main/scripts/nightly-tooling.py\" run \"$night\""
+}
+
+# Runs a command for at most $1 seconds; a killed one returns 143.
+bounded() {
+    local limit=$1 pid dog status=0
+    shift
+    "$@" &
+    pid=$!
+    (sleep "$limit"; kill "$pid" 2> /dev/null) &
+    dog=$!
+    wait "$pid" || status=$?
+    kill "$dog" 2> /dev/null || true
+    return "$status"
+}
+
+# Updates Claude Code before the retro starts, and records one line in the night's folder and log.
+# Called inside the login zsh run builds, where claude is on the PATH. It always returns 0.
+update() {
+    local night=$1 before after output status=0 line why
+    before=$(claude --version 2> /dev/null | awk '{print $1}') || before=unknown
+    output=$(mktemp)
+    bounded "$UPDATE_LIMIT" claude update > "$output" 2>&1 < /dev/null || status=$?
+    after=$(claude --version 2> /dev/null | awk '{print $1}') || after=unknown
+    if [ "$status" -ne 0 ]; then
+        why=$(tail -n 1 "$output" | cut -c1-120)
+        [ "$status" -ne 143 ] || why="timed out after ${UPDATE_LIMIT}s"
+        line="Claude Code update failed: ${why:-no output} (exit $status); running $after"
+    elif [ "$before" != "$after" ]; then
+        line="Claude Code $before → $after"
+    else
+        line="Claude Code $after, already the latest"
+    fi
+    rm -f "$output"
+    echo "$line" | tee "$night/claude-update.txt"
 }
 
 show() {
@@ -138,6 +181,7 @@ show() {
 case "${1:-}" in
     install) install ;;
     run) run ;;
+    update) update "${2:?usage: nightly-retro.sh update <night-dir>}" ;;
     show) show ;;
     *)
         sed -n '2,10s/^# \{0,1\}//p' "${BASH_SOURCE[0]}" >&2
