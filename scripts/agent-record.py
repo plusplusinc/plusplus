@@ -31,7 +31,9 @@ it cost. It counts only comments by the repo's owner, members, or collaborators.
 it prints runs, tokens and minutes per PR, and, for the builder, fix rounds and failed pushes per
 PR, and for the verifier, per PR, the problems it caught that the builder missed (its record's
 `new` lines but `test`) and the tests it added (`test, new`). A PR with no agent record is named
-as having none, never counted as zeros. It needs `gh`.
+as having none, never counted as zeros. It needs `gh`. At night, `scripts/nightly-tooling.py tally`
+calls the same fetch and tally and writes them to the night's folder for the retro and the setup
+review.
 
 Tests: python3 scripts/agent-record-test.py, with a stand-in `gh`, which scripts/test.sh runs.
 """
@@ -51,13 +53,14 @@ GENERAL = "general-purpose"  # no row: the model it fell to is passed
 TRUSTED = {"OWNER", "MEMBER", "COLLABORATOR"}
 ROLLUP_FAILED = {"FAILURE", "ERROR"}
 RUN_FAILED = {"FAILURE", "TIMED_OUT", "STARTUP_FAILURE"}  # a check run's conclusion; CANCELLED is none
+GH_LIMIT = 120  # seconds one GraphQL request may take, so a hung gh never holds the night's tally
 LINE = re.compile(r"^- (?P<role>[\w -]+?), (?P<model>[\w.\[\]-]+), round (?P<round>\d+): (?P<tokens>\d+) tokens, "
                   r"(?P<tools>\d+) tool uses, (?P<minutes>\d+(\.\d)?) min(; (?P<note>.+))?$")
 FINDING = re.compile(r"^- (?P<kind>\w+), new:")
 QUERY = """query($q: String!, $after: String) {
   search(type: ISSUE, first: 100, query: $q, after: $after) {
     pageInfo { hasNextPage endCursor }
-    nodes { ... on PullRequest { number
+    nodes { ... on PullRequest { number mergedAt
       comments(first: 100) { nodes { body authorAssociation } }
       commits(first: 100) { nodes { commit { id statusCheckRollup { state } } } } } } }
   rateLimit { cost remaining } }"""
@@ -141,7 +144,8 @@ def repo():
 
 def graphql(*fields):
     args = ["gh", "api", "graphql"] + [arg for field in fields for arg in ("-f", field)]
-    return json.loads(subprocess.run(args, capture_output=True, text=True, check=True).stdout)["data"]
+    return json.loads(subprocess.run(args, capture_output=True, text=True, check=True,
+                                     timeout=GH_LIMIT).stdout)["data"]
 
 
 def bodies(pr):
@@ -290,6 +294,9 @@ def main(argv):
             return 0
     except ValueError as error:
         print(f"agent-record: {error}", file=sys.stderr)
+        return 1
+    except subprocess.TimeoutExpired as error:
+        print(f"agent-record: {' '.join(error.cmd[:3])} took over {GH_LIMIT} s", file=sys.stderr)
         return 1
     except subprocess.CalledProcessError as error:
         print(f"agent-record: {' '.join(error.cmd[:3])} failed: {(error.stderr or '').strip()} "

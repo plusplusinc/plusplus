@@ -222,6 +222,11 @@ uses the latest, and the digest's top says when the version changed or the updat
 running session keeps its version until it exits, so nothing in flight breaks. The desktop app's
 Code tab runs its own copy, which updates with the app, at a relaunch between sessions.
 
+Then `scripts/nightly-tooling.py tally` writes the agents' tallies (see "Agent records") to the
+night's folder, the retro's and, on a night with a setup review, the review's, from one fetch, so
+neither agent needs `scripts/agent-record.py` among its allowed tools; a tally that fails writes
+"No tally tonight: <why>" in its place, and the night goes on.
+
 Plugged in, the Mac stays awake with the lid open or closed. Claude Code runs under
 `caffeinate -s`, which keeps the Mac awake on power but doesn't stop it sleeping when the lid
 closes; an Amphetamine trigger for when the power adapter is connected, with closed-display

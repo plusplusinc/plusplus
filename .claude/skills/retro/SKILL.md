@@ -190,11 +190,19 @@ finding and opens no PR:
 
 ## The agents' tally
 
-The digest also carries, as it prints, `scripts/agent-record.py tally <the date 30 days ago>`:
+The digest also carries, as it is, the agents' tally over the PRs merged in the last 30 days:
 each role and model's cost per PR, the builder's fix rounds and failed pushes, and the problems
 the verifier caught and the tests it added, from the PRs' `Agent record` comments
 (`docs/agent-tooling.md`, "Agent records"), with the PRs that have none named as such. It is not
 a finding and opens no PR.
+
+At night, read it from `<main checkout>/.build/retro/<today>/agent-tally.txt` (`date +%F`),
+which `scripts/nightly-retro.sh run` writes before the retro starts; never run the command then.
+A file that reads "No tally tonight: <why>" means the tally failed tonight: the digest says that
+line in place of the tally, and nothing else changes. A missing file at night is the same, with
+the reason "agent-tally.txt is missing". Run by hand in a session, where there is no night's
+file, run `scripts/agent-record.py tally <the date 30 days ago>` yourself, which a person can
+approve.
 
 ## How it runs
 
@@ -235,7 +243,7 @@ run never reads the last run's digest. Each `/retro nightly` does this, in order
 4. **Hand it to a subagent**, unless there is neither a merge nor a session, in which case
    print one line, "Nightly retro: nothing since <last run>.", and go to step 5. Start one
    `general-purpose` agent in the foreground with `model: fable`, and pass it: the PR numbers, the last-run time,
-   the extract's absolute path, and these instructions. Create a worktree from `origin/main`
+   the extract's absolute path, the night's `agent-tally.txt`'s ("The agents' tally"), and these instructions. Create a worktree from `origin/main`
    with `git worktree add --no-track -b retro/<today's date> <main checkout>/.claude/worktrees/retro-<today's date> origin/main`
    (add `-2` to both when the branch exists), work only there, with absolute paths. Follow
    `.claude/skills/retro/SKILL.md` as it is in that worktree, including "Never, in any run".
