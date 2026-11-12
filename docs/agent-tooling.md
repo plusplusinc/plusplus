@@ -81,42 +81,32 @@ it is missing (the download runs on after the hook's two minutes, logging to
 `.build/runtime-download.log`) and, once it is installed, deletes the older ones and the
 simulators left on them. `scripts/common.sh` moves each checkout's simulator onto it.
 
-`scripts/models.py hook` is written to run as a `PreToolUse` hook on the Agent tool, holding
-subagents to the table in "Models by task", below. It is not wired yet: `.claude/settings.json`
-denies agents its own edits, so the maintainer adds the entry by hand, and until then
-`scripts/models.py check` prints a warning. The entry, under `hooks`, allows the call in a
-checkout that has no `scripts/models.py` (an older branch's worktree):
-
-```json
-"PreToolUse": [
-  { "matcher": "Agent", "hooks": [ { "type": "command", "command": "[ -f \"$CLAUDE_PROJECT_DIR/scripts/models.py\" ] || exit 0; python3 \"$CLAUDE_PROJECT_DIR/scripts/models.py\" hook" } ] }
-]
-```
-
 ## Models by task
 
 Each role's model is set here and nowhere else decides it. `scripts/models.py check`, which
 `scripts/lint.sh` runs, fails when an agent definition in `.claude/agents/` or a nightly script
 disagrees with this table, when a definition or a script's `<NAME>_MODEL` has no row, when a
-script in `scripts/` starts `claude -p` without passing a `--model` the table sets, and when the
-verifier shares the builder's model. "Set in" says where each is set: a definition's `model:` and `effort:`, a nightly
-script's `<NAME>_MODEL` and `<NAME>_EFFORT`, which it passes as `--model` and `--effort`, or the
-Agent tool's `model`, which the lead passes for a one-off subagent by its kind of task. A
-definition's `model:` takes a full model ID such as `claude-opus-5-5`, so definitions and scripts
-pin one and a new release changes nothing until a trial here does; the Agent tool's `model` takes
-only an alias (`fable`, `opus`, `sonnet`, `haiku`), which follows the newest of its family
-([subagents](https://code.claude.com/docs/en/sub-agents#choose-a-model)). The Agent tool here
-takes no effort (as of 2026-11-11, Claude Code 2.1.322: its schema has no `effort` parameter),
-so the one-off rows' Effort reads "—".
+row's definition or script doesn't exist, when two definitions share a name, when a row set in a
+definition or a script names an alias rather than a full model ID, when a script in `scripts/`
+starts `claude -p` without passing a `--model` the table sets, and when the verifier shares the
+builder's model. "Set in" says where each is set: a definition's `model:` and `effort:`, or a
+nightly script's `<NAME>_MODEL` and `<NAME>_EFFORT`, which it passes as `--model` and
+`--effort`. Both take a full model ID such as `claude-opus-5-5`, so definitions and scripts pin
+one and a new release changes nothing until a trial here does
+([subagents](https://code.claude.com/docs/en/sub-agents#choose-a-model)).
 
-Once the hook's entry is added, it refuses an Agent call of a type with no definition naming a
-model (general-purpose, Explore, Plan, claude-code-guide, claude) that passes no `model`, or one
-that isn't an alias, naming this table. It also refuses any `model` passed to one of this repo's
-agents whose definition names one: the call's would override the definition's, and an alias
-would drop the pin at the next release, so the planner, builder, and verifier are called with no
-`model`. It always allows a fork, a plugin's agent (a `:` in the type), an agent defined in
-`~/.claude/agents/`, which are the maintainer's, and any call that isn't to the Agent tool or
-lacks its input, and any error of its own allows the call.
+A one-off task goes to the agent defined for its kind: `lookup`, `repro`, `edit`, or `reviewer`,
+started with no `model`, since a call's `model` overrides the definition's. Nothing enforces
+that, and the instruction is to use the four kinds. A built-in started with no `model` runs, by
+[the subagents doc](https://code.claude.com/docs/en/sub-agents#built-in-subagents):
+general-purpose on `CLAUDE_CODE_SUBAGENT_MODEL` when it is set, else the caller's model; Plan on
+the caller's model and Explore on the caller's (or the `opus` alias's when the caller runs
+Fable), since that variable alone doesn't change either; claude-code-guide on Haiku and
+statusline-setup on Sonnet. `/code-review` and `/simplify` start their own reviewers, on models
+this table doesn't set. `/retro` starts its work in a general-purpose agent, which its text says
+to start with `model: fable`, the retro row's family: that one call follows the table by
+instruction, not by the check. `lookup` and `reviewer` keep Bash, which could write or commit;
+only their instructions keep them from changing anything.
 
 | Role | Set in | Model | Effort | Why | Set | Evidence |
 |---|---|---|---|---|---|---|
@@ -127,11 +117,10 @@ lacks its input, and any error of its own allows the call.
 | retro | `scripts/nightly-retro.sh RETRO` | `claude-fable-5-2` | high | Judges a day's work and edits the rules | 2026-11-11 | The card's starting choice; it ran on the interactive default before |
 | night card lead | `scripts/nightly-tooling.py CARD` | `claude-fable-5-2` | high | Leads a card alone, with no maintainer to catch it | 2026-11-11 | The card's starting choice; it ran on the interactive default before |
 | setup review | `scripts/nightly-tooling.py REVIEW` | `claude-fable-5-2` | high | Weighs the whole setup once a month | 2026-11-11 | The card's starting choice; it ran on the interactive default before |
-| lookup | Agent tool | `haiku` | — | Finds a file, a symbol, or a fact and returns it | 2026-11-11 | The card's starting choice; no record yet |
-| doc research | Agent tool | `haiku` | — | Reads documentation and quotes what it says | 2026-11-11 | The card's starting choice; no record yet |
-| repro | Agent tool | `sonnet` | — | Drives the simulator through `/run`'s steps, which the smallest model follows less surely | 2026-11-11 | A judgment, not measured; the first trial to run if repros come back right |
-| mechanical edit | Agent tool | `sonnet` | — | A rename or a move whose every step is given | 2026-11-11 | The card's starting choice; no record yet |
-| review | Agent tool | `fable` | — | `/simplify`'s and `/code-review`'s reviewers, and any second opinion | 2026-11-11 | The card's starting choice; no record yet |
+| lookup | `.claude/agents/lookup.md` | `claude-haiku-5-5` | low | Finds a file, a symbol, or a fact, or reads documentation and quotes what it says | 2026-11-11 | The card's starting choice; no record yet |
+| repro | `.claude/agents/repro.md` | `claude-sonnet-5-5` | medium | Drives the simulator through `/run`'s steps, which the smallest model follows less surely | 2026-11-11 | A judgment, not measured; the first trial to run if repros come back right |
+| edit | `.claude/agents/edit.md` | `claude-sonnet-5-5` | medium | A rename or a move whose every step is given | 2026-11-11 | The card's starting choice; no record yet |
+| reviewer | `.claude/agents/reviewer.md` | `claude-fable-5-2` | high | A second opinion on a diff, a plan, or a decision; not `/simplify`'s or `/code-review`'s reviewers, which those skills start | 2026-11-11 | The card's starting choice; no record yet |
 
 The table's efforts take no effect today. The maintainer's user settings set
 `CLAUDE_CODE_EFFORT_LEVEL=medium`, which Claude Code puts ahead of a definition's `effort:` and
@@ -147,6 +136,41 @@ model. Measured on 2026-11-11, while the maintainer's user settings set
 `claude-haiku-5-5`, and a user-level agent whose definition says `model: fable`, called with no
 model, was served by `claude-fable-5-2`. Both a call's model and a definition's win over that
 setting.
+
+A row on trial says so in its Set column, `2026-12-01, trial for 5 PRs`, and its Evidence names
+the model it replaced; `scripts/models.py check` takes either form. `/review-setup` runs the
+trials and writes their result back here.
+
+## Agent records
+
+Each PR carries a record of its agents as comments that start `Agent record`, the way each
+verifier run leaves one that starts `Verifier record`: a comment can be added after the merge
+without touching the squash commit, and the tally reads both in the same request. One line per
+agent run, written by `scripts/agent-record.py line` from the usage line of the run's task
+notification, never by hand:
+
+```
+Agent record
+- builder, claude-opus-5-5, round 1: 205129 tokens, 126 tool uses, 20.7 min
+- builder, claude-opus-5-5, round 2: 30471 tokens, 33 tool uses, 3.9 min
+```
+
+The role is a row above, a one-off by its agent's name, and the model is the row's: a `--model`
+that differs is refused. Only the lead's row, which names no single model, and a plain
+`general-purpose` agent, which has none, take `--model`, the model the run was on; it is stored
+as its full id, so the tally groups an alias with the same model. Round 1 is the build, and each
+fix round after a verifier is the next. A resumed agent's notification counts its earlier runs'
+tokens but only this run's tool uses and time (measured 2026-11-11), so `--after <their token
+total>` keeps only this run's tokens. `scripts/agent-record.py post <pr> <line>...` adds the lines
+as one comment; the lead adds them as `/onward` says.
+
+`scripts/agent-record.py tally <since>` reads the PRs merged since a date, once, and prints per
+role and model the runs, tokens and minutes per PR, the builder's fix rounds and failed pushes
+per PR (a run cancelled by the next push is no failure), and the verifier's problems caught (its
+record's `new` lines but `test`) and tests added per PR. A PR with no record is named as having
+none and left out of the numbers. It costs about 2 GraphQL points per 100 PRs, plus about 1 to
+read the checks of recorded PRs' failed-looking commits, and prints what it cost. Only comments
+by the repo's owner, members, or collaborators count, since the repo is public.
 
 ## Rules
 
@@ -274,7 +298,7 @@ boot waits up to five minutes, then exits 75 naming the holders. One left booted
 `scripts/tidy.sh`. `scripts/sim.sh list` shows each booted one with its worktree and idle time.
 A simulator named by `PLUSPLUS_SIMULATOR` never counts and is never shut down.
 
-The feature subagents in `.claude/agents/` run one at a time in a slice's worktree, because
+The feature subagents in `.claude/agents/`, the planner, builder, and verifier, run one at a time in a slice's worktree, because
 each phase needs the last one's files. Agent teams, Claude Code's experimental parallel mode, stay off; the lead proposes one only for work that is genuinely
 parallel: a review through several lenses, debugging with competing hypotheses, or slices that
 touch disjoint files.

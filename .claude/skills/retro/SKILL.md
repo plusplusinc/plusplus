@@ -136,7 +136,7 @@ waiting. The body is the record the next retro reads:
   started one.
 
 Then report the findings, the fixes, what needs the maintainer's decision, the verifier's record
-(below), and the digest. The report and the digest each carry one CI line: the covered PRs'
+and the agents' tally (below), and the digest. The report and the digest each carry one CI line: the covered PRs'
 last runs, start to finish, and any tier over budget, and one line on the agent docs' size
 against the last report's,
 `wc -lw CLAUDE.md .claude/rules/*.md .claude/agents/*.md .claude/skills/*/SKILL.md`, naming
@@ -188,6 +188,14 @@ finding and opens no PR:
     nodes { ... on PullRequest { number comments(last: 50) { nodes { body } } } } } }'
   ```
 
+## The agents' tally
+
+The digest also carries, as it prints, `scripts/agent-record.py tally <the date 30 days ago>`:
+each role and model's cost per PR, the builder's fix rounds and failed pushes, and the problems
+the verifier caught and the tests it added, from the PRs' `Agent record` comments
+(`docs/agent-tooling.md`, "Agent records"), with the PRs that have none named as such. It is not
+a finding and opens no PR.
+
 ## How it runs
 
 On the maintainer's Mac, in the main checkout: a launchd agent starts one Claude Code run in
@@ -226,7 +234,7 @@ run never reads the last run's digest. Each `/retro nightly` does this, in order
    prints one line: how many sessions, or "No sessions since".
 4. **Hand it to a subagent**, unless there is neither a merge nor a session, in which case
    print one line, "Nightly retro: nothing since <last run>.", and go to step 5. Start one
-   `general-purpose` agent in the foreground, and pass it: the PR numbers, the last-run time,
+   `general-purpose` agent in the foreground with `model: fable`, and pass it: the PR numbers, the last-run time,
    the extract's absolute path, and these instructions. Create a worktree from `origin/main`
    with `git worktree add --no-track -b retro/<today's date> <main checkout>/.claude/worktrees/retro-<today's date> origin/main`
    (add `-2` to both when the branch exists), work only there, with absolute paths. Follow
