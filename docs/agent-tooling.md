@@ -148,6 +148,37 @@ model. Measured on 2026-11-11, while the maintainer's user settings set
 model, was served by `claude-fable-5-2`. Both a call's model and a definition's win over that
 setting.
 
+A row on trial says so in its Set column, `2026-12-01, trial for 5 PRs`, and its Evidence names
+the model it replaced; `scripts/models.py check` takes either form. `/review-setup` runs the
+trials and writes their result back here.
+
+## Agent records
+
+Each PR carries a record of its agents as comments that start `Agent record`, the way each
+verifier run leaves one that starts `Verifier record`: a comment can be added after the merge
+without touching the squash commit, and the tally reads both in the same request. One line per
+agent run, written by `scripts/agent-record.py line` from the usage line of the run's task
+notification, never by hand:
+
+```
+Agent record
+- builder, claude-opus-5-5, round 1: 205129 tokens, 126 tool uses, 20.7 min
+- builder, claude-opus-5-5, round 2: 30471 tokens, 33 tool uses, 3.9 min
+```
+
+The model is the role's row above unless `--model` names the one the run was on; a role with no
+row (a plain general-purpose agent) takes `--model`, the default it fell to. Round 1 is the
+build, and each fix round after a verifier is the next. A resumed agent's notification counts
+its earlier runs' tokens, so `--after <their total>` keeps only this run's. `scripts/agent-record.py
+post <pr> <line>...` adds the lines as one comment; the lead adds them as `/onward` says.
+
+`scripts/agent-record.py tally <since>` reads the PRs merged since a date, once, and prints per
+role and model the runs, tokens and minutes per PR, the builder's fix rounds and failed pushes
+per PR, and the verifier's `new` findings per PR. A PR with no record is named as having none
+and left out of the numbers. It costs about 2 GraphQL points per 100 PRs and prints what it
+cost. Only comments by the repo's owner, members, or collaborators count, since the repo is
+public.
+
 ## Rules
 
 `.claude/rules/*.md` carry the detail that would bloat `CLAUDE.md`. Each has a `paths:` list and

@@ -104,7 +104,9 @@ in a minute by someone who wasn't there, the maintainer first:
 
 Bullets and short paragraphs over long ones: a paragraph past four lines is two, or a list.
 Frame-by-frame measurements and long test lists go in a PR comment (the verifier's record comment
-is one), not the body. `--fill` skips the template.
+is one), not the body. `--fill` skips the template. The agent record is comments too, never the
+body: the lead posts a line for each agent run as it hands back, the builder that opens the PR
+included (`/onward`), so a builder writes none.
 
 A change someone can see carries its before and after in the body itself, never as a path to a
 local file, which no reader of the PR can open: screenshots of `main` and the branch at the same

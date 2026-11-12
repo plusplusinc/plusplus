@@ -42,6 +42,7 @@ COLUMNS = ["Role", "Set in", "Model", "Effort", "Why", "Set", "Evidence"]
 ALIASES = {"fable", "opus", "sonnet", "haiku"}  # all the Agent tool's `model` takes
 MODEL_ID = re.compile(r"claude-([a-z]+)-\d+(-\d+)*$")
 EFFORTS = {"low", "medium", "high", "xhigh", "max"}
+SET = re.compile(r"\d{4}-\d{2}-\d{2}(, trial for \d+ PRs)?")  # a row on trial says for how many PRs
 NONE = "—"  # an Effort the row can't set: the Agent tool here takes no effort
 USER_SETTINGS = "user settings"  # the lead's row: the maintainer's choice, not the repo's
 AGENT_TOOL = "Agent tool"  # a one-off subagent's row: the model the caller passes
@@ -151,8 +152,9 @@ def problems(root):
         role, where, model, effort = row["Role"], row["Set in"], row["Model"], row["Effort"]
         if where == USER_SETTINGS:
             continue
-        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", row["Set"]):
-            found.append(f"{role}: Set is \"{row['Set']}\", not a date like 2026-11-11")
+        if not SET.fullmatch(row["Set"]):
+            found.append(f"{role}: Set is \"{row['Set']}\", not a date like 2026-11-11, or one on trial "
+                         "like \"2026-11-11, trial for 5 PRs\"")
         if where == AGENT_TOOL:
             if model not in ALIASES:
                 found.append(f"{role}: the Agent tool takes only an alias ({', '.join(sorted(ALIASES))}), not \"{model}\"")

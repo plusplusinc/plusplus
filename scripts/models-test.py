@@ -111,6 +111,14 @@ class Check(Fixture):
         self.edit("docs/agent-tooling.md", "| lookup | Agent tool | `haiku` | — |", "| lookup | Agent tool | `claude-haiku-5-5` | low |")
         self.assertEqual(len(models.problems(self.root)), 2)
 
+    def test_a_row_on_trial_passes_and_a_set_that_is_no_date_fails(self):
+        row = "| builder | `.claude/agents/builder.md` | `claude-opus-5-5` | high | Builds from a written plan, the longest phase, so a mid-tier model | 2026-11-11 |"
+        self.edit("docs/agent-tooling.md", row, row.replace("| 2026-11-11 |", "| 2026-12-01, trial for 5 PRs |"))
+        self.assertEqual(models.problems(self.root), [])
+        self.edit("docs/agent-tooling.md", "2026-12-01, trial for 5 PRs", "on trial")
+        self.assertEqual(models.problems(self.root), ['builder: Set is "on trial", not a date like 2026-11-11, '
+                                                      'or one on trial like "2026-11-11, trial for 5 PRs"'])
+
     def test_a_verifier_on_the_builders_model_fails(self):
         self.edit("docs/agent-tooling.md", "| verifier | `.claude/agents/verifier.md` | `claude-fable-5-2`",
                   "| verifier | `.claude/agents/verifier.md` | `claude-opus-5-5`")
