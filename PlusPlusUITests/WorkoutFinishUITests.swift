@@ -33,15 +33,16 @@ final nonisolated class WorkoutFinishUITests: XCTestCase {
             // The key comes up near the end of the grow's spring (`RoutineScreen.keyReturnDelay`,
             // `growBeat`), so read where the row rests once its top holds still, not within a
             // clock's window: on a slow runner one accessibility query can outlast the window.
-            XCTAssertTrue(
-                settling(row.frame.minY, still: 0.25, within: 3),
-                "After Start, the list never came to rest",
-            )
-            let bar = app.navigationBars.firstMatch.frame.maxY
-            let top = row.frame.minY
-            XCTAssertLessThan(abs(top - bar), 1, "After Start, the list rests \(top - bar) pt low")
+            assertRestsUnderBar(row, in: app, after: "Start")
         }
-        heldAndLetGoItStaysPut(row, in: app)
+        // Which slot a drop lands in is `RailDragTests`'; this is the scroll view's range across
+        // the drop, which only the running app shows: on this list, shorter than the screen, the
+        // room a held row adds below it once left it shorter than the screen for a pass on the
+        // drop, and the list jumped to its top.
+        XCTContext.runActivity(named: "Held and let go in place, the exercise stays put") { _ in
+            row.center.holdAndDrag(to: row.center)
+            assertRestsUnderBar(row, in: app, after: "the drop")
+        }
         XCTContext.runActivity(named: "Logging the last set turns the key to Finish workout") { _ in
             app.tapWorkoutKey(reading: "Log last set")
             XCTAssertEqual(
@@ -71,27 +72,19 @@ final nonisolated class WorkoutFinishUITests: XCTestCase {
         }
     }
 
-    /// Holding the current exercise until it lifts and letting go where it was leaves it under
-    /// the bar. Which slot a drop lands in is `RailDragTests`'; this is the scroll view's range
-    /// across the drop, which only the running app shows: on a list shorter than the screen, the
-    /// room a held row added under the list went before the workout's room grew back, and the
-    /// list jumped to its top, the exercise 52.7 pt low.
+    /// Once `row`'s top holds still after `moment`, it rests just under the bar.
     @MainActor
-    private func heldAndLetGoItStaysPut(_ row: XCUIElement, in app: XCUIApplication) {
-        XCTContext.runActivity(named: "Held and let go in place, the exercise stays put") { _ in
-            let bar = app.navigationBars.firstMatch.frame.maxY
-            row.center.holdAndDrag(to: row.center)
-            XCTAssertTrue(
-                settling(row.frame.minY, still: 0.25, within: 3),
-                "After the drop, the list never came to rest",
-            )
-            let top = row.frame.minY
-            attach(named: "held-and-let-go")
-            XCTAssertLessThan(
-                abs(top - bar),
-                1,
-                "After the drop, the list rests \(top - bar) pt low",
-            )
-        }
+    private func assertRestsUnderBar(
+        _ row: XCUIElement,
+        in app: XCUIApplication,
+        after moment: String,
+    ) {
+        XCTAssertTrue(
+            settling(row.frame.minY, still: 0.25, within: 3),
+            "After \(moment), the list never came to rest",
+        )
+        let bar = app.navigationBars.firstMatch.frame.maxY
+        let top = row.frame.minY
+        XCTAssertLessThan(abs(top - bar), 1, "After \(moment), the list rests \(top - bar) pt low")
     }
 }

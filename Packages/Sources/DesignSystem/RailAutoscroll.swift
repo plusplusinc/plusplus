@@ -5,18 +5,8 @@ extension View {
     /// bottom of the area the list shows in, into the band at that edge, the list scrolls, faster
     /// the nearer the edge, and the card stays under the finger as the rows pass under it. Let go
     /// outside that area, over a bar, the row goes back where it was.
-    ///
-    /// `addsRoomBelow` false is for a list that keeps room under its end sized from what the
-    /// scroll view shows, as a workout's room to land the current exercise: the room a held row
-    /// adds below the list (`RailEdges.roomBelow`) is a content margin, which takes as much out of
-    /// what the scroll view shows, so that room shrank by as much, and the list scrolled no
-    /// further. On the drop the margin went a pass before the room grew back, the list was for
-    /// that pass shorter than the screen, and it jumped to its top.
-    public func railAutoscroll(
-        _ position: Binding<ScrollPosition>,
-        addsRoomBelow: Bool = true,
-    ) -> some View {
-        modifier(RailAutoscroll(position: position, addsRoomBelow: addsRoomBelow))
+    public func railAutoscroll(_ position: Binding<ScrollPosition>) -> some View {
+        modifier(RailAutoscroll(position: position))
     }
 }
 
@@ -59,10 +49,12 @@ final class RailEdges {
     @ObservationIgnored private var roomMove = RailRoomMove()
     /// Room added below the list's end, so it can scroll as far as a held row's room above the
     /// rail asks even when it is shorter than the screen. It goes once the room above has closed
-    /// with no row held.
+    /// with no row held. The rail pads its bottom by it, in the content, not as a content margin,
+    /// which takes as much out of the height a `containerRelativeFrame` reads, a pass late: room
+    /// under the list sized from that height, as a workout's to land the current exercise, would
+    /// shrink as this grows, and grow back a pass after it goes, the list for that pass shorter
+    /// than the screen.
     private(set) var roomBelow: CGFloat = 0
-    /// Whether a lift may add `roomBelow` (`railAutoscroll(_:addsRoomBelow:)`).
-    @ObservationIgnored fileprivate var addsRoomBelow = true
 
     /// The part of the scroll view the list shows in, between the bars.
     private var visible: ClosedRange<CGFloat>? {
@@ -90,7 +82,7 @@ final class RailEdges {
         fingerY = y
         travel = RailDrag.Travel(from: y)
         scrolledTo = nil
-        if addsRoomBelow, let scroll {
+        if let scroll {
             let end = scroll.contentSize.height - scroll.containerSize.height
             roomBelow = max(roomBelow, room - end)
         }
@@ -225,13 +217,10 @@ extension EnvironmentValues {
 
 private struct RailAutoscroll: ViewModifier {
     @Binding var position: ScrollPosition
-    let addsRoomBelow: Bool
     @State private var edges = RailEdges()
 
     func body(content: Content) -> some View {
         content
-            .contentMargins(.bottom, edges.roomBelow, for: .scrollContent)
-            .onChange(of: addsRoomBelow, initial: true) { edges.addsRoomBelow = $1 }
             .environment(\.railEdges, edges)
             // The scroll view's frame, which `visible` and the finger are measured in.
             .coordinateSpace(.named(RailDrag.scrollSpace))

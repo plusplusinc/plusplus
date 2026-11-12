@@ -301,6 +301,9 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         // Room above the rows for what a held row's superset shows past the rail's top, which
         // the list scrolls by, so the rows stay put and what is above the rail moves up.
         .padding(.top, edges?.room ?? room)
+        // Room below the list's end, so the list can scroll as far as that room asks
+        // (`RailEdges.roomBelow`).
+        .padding(.bottom, edges?.roomBelow ?? 0)
         .background(alignment: .topLeading) {
             // The rail column as a row's node has it, measured at the current text size.
             RailNodeColumn()
