@@ -1,7 +1,7 @@
 #!/bin/bash
 # Formatting, lint, and spelling, the same way CI runs them.
 #
-#   scripts/lint.sh                  # whole tree, check only; non-zero on any finding
+#   scripts/lint.sh                  # whole tree, and each agent's model, check only; non-zero on any finding
 #   scripts/lint.sh --fix            # apply SwiftFormat and SwiftLint autocorrections first
 #   scripts/lint.sh --fix <paths>    # only these files; what the edit hook runs
 #
@@ -48,6 +48,8 @@ if $whole_tree; then
         grep -nE '^\s*[A-Z_]+ = .*;$' "$pbxproj" >&2
         status=1
     fi
+    # Each agent's model matches docs/agent-tooling.md's "Models by task".
+    python3 -I scripts/models.py check || status=1
 fi
 
 [ "$status" -eq 0 ] && echo "lint ok"

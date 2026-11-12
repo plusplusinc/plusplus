@@ -40,6 +40,11 @@ RETRO_PROCESS="(^|/)claude --name $NAME( |\$)"
 # The tooling runner, which starts after the retro: the monthly setup review, then the cards.
 TOOLING_PROCESS="nightly-tooling\.py (review|run) |nightly-retro\.sh update "
 
+# The retro's model and effort, from docs/agent-tooling.md's "Models by task", passed explicitly so
+# the night never follows the interactive default; scripts/lint.sh fails when they disagree.
+RETRO_MODEL=claude-fable-5-2
+RETRO_EFFORT=high
+
 # The longest `claude update` may take; a hung one must not hold the night.
 UPDATE_LIMIT=180
 
@@ -124,6 +129,7 @@ run() {
     # or not it succeeded; its own gates decide whether any card starts.
     env -i "${vars[@]}" /bin/zsh -lic "\"$main/scripts/nightly-retro.sh\" update \"$night\";
         caffeinate -s claude --name \"$NAME\" -p --permission-mode auto \
+        --model \"$RETRO_MODEL\" --effort \"$RETRO_EFFORT\" \
         --output-format stream-json --verbose \"/retro nightly\" >> \"$night/retro.jsonl\";
         caffeinate -s \"$main/scripts/nightly-tooling.py\" review \"$night\";
         caffeinate -s \"$main/scripts/nightly-tooling.py\" run \"$night\""

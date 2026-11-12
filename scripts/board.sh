@@ -4,6 +4,7 @@
 #   scripts/board.sh list                              # every item, in board order: id, status, feature, title
 #   scripts/board.sh show <item-id>...                 # title, status, link, and body of each, in one request
 #   scripts/board.sh readme                            # the board's README: the design per feature
+#   scripts/board.sh readme <feature>                  # one feature's section, "## Feature: <feature>"
 #   scripts/board.sh readme <<'README'                 # replace the README with stdin
 #   scripts/board.sh add <title> <<'CARD'              # a draft item in Todo; prints its id
 #   scripts/board.sh body <item-id> <<'CARD'           # replace a draft item's body
@@ -19,7 +20,9 @@
 # an empty-bodied card; `body` and `state` refuse empty input rather than blank the card. `state`
 # takes the section's content without its heading and replaces everything from `## State` to
 # the end of the body, State being the last section, or appends the section when there is none.
-# `readme` writes the README when stdin has text and reads it otherwise. GitHub's item list
+# `readme` with no feature writes the README when stdin has text and reads it otherwise; with a
+# feature it only reads, printing that section to the next `## ` heading (the whole README runs
+# to hundreds of lines), and fails with the features' names when none matches. GitHub's item list
 # lags its writes: an item `add` just made, or a place `move` just set, can take minutes to
 # show in `list`, while `show <item-id>` reads the item at once. Neither is lost; check the
 # order again later rather than looking for a fault.
@@ -256,21 +259,37 @@ case "$command" in
                 + "\(.content.title // "")\n[\(.status.name // "-")] https://github.com/orgs/\(.project.owner.login)/projects/\(.project.number)?pane=issue&itemId=\(.fullDatabaseId)\n\n\(.content.body // "")"] | join("\n\n")' <<< "$found"
         ;;
     readme)
-        [ $# -eq 0 ] || usage
-        readme=$(stdin_body)
-        if [[ $readme =~ [^[:space:]] ]]; then
-            project=$(project_id) || exit
-            gql -f query='
-                mutation($project: ID!, $readme: String!) {
-                    updateProjectV2(input: {projectId: $project, readme: $readme}) { clientMutationId }
-                }' -f project="$project" -f readme="$readme" > /dev/null
-        else
-            response=$(gql -f query='
-                query($owner: String!, $number: Int!) {
-                    organization(login: $owner) { projectV2(number: $number) { readme } }
-                }' -f owner="$OWNER" -F number="$NUMBER") || exit
-            jq -r '.data.organization.projectV2.readme // ""' <<< "$response"
+        [ $# -le 1 ] || usage
+        if [ $# -eq 0 ]; then
+            readme=$(stdin_body)
+            if [[ $readme =~ [^[:space:]] ]]; then
+                project=$(project_id) || exit
+                gql -f query='
+                    mutation($project: ID!, $readme: String!) {
+                        updateProjectV2(input: {projectId: $project, readme: $readme}) { clientMutationId }
+                    }' -f project="$project" -f readme="$readme" > /dev/null
+                exit
+            fi
         fi
+        response=$(gql -f query='
+            query($owner: String!, $number: Int!) {
+                organization(login: $owner) { projectV2(number: $number) { readme } }
+            }' -f owner="$OWNER" -F number="$NUMBER") || exit
+        if [ $# -eq 0 ]; then
+            jq -r '.data.organization.projectV2.readme // ""' <<< "$response"
+            exit
+        fi
+        # A README saved from GitHub's web editor ends its lines with \r\n.
+        readme=$(jq -r '.data.organization.projectV2.readme // ""' <<< "$response" | tr -d '\r')
+        section=$(awk -v heading="## Feature: $1" '
+            /^## / { line = $0; sub(/[ \t]+$/, "", line); inside = (line == heading) }
+            inside' <<< "$readme")
+        if [ -z "$section" ]; then
+            names=$(sed -n 's/^## Feature: *//p' <<< "$readme" | sed 's/[[:space:]]*$//' | paste -sd '|' - | sed 's/|/, /g')
+            echo "no feature named '$1' in the board's README; its features: ${names:-none}" >&2
+            exit 1
+        fi
+        printf '%s\n' "$section"
         ;;
     add)
         [ $# -eq 1 ] || usage

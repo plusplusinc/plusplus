@@ -9,9 +9,11 @@ project board.
 
 ## Start
 
-1. Read the board's README (`scripts/board.sh readme`): the settled design per feature and the
-   standing setup. Telling the maintainer a settled rule, use its words there; a paraphrase
-   drifts.
+1. Once step 2 has chosen the card, read its feature's section of the board's README
+   (`scripts/board.sh readme <feature>`; a standalone card has none): the settled design. The
+   whole README (hundreds of lines) is not for this context; its other sections go to a lookup
+   subagent when a question needs them. Telling the maintainer a settled rule, use its words
+   there; a paraphrase drifts.
 2. Find the card: the In Progress card, otherwise the topmost Todo card (`scripts/board.sh
    list` prints the board's order, then `scripts/board.sh show <id>`). The board's order is
    one queue: a card with a Feature is a slice of that feature, one without is a standalone
@@ -203,6 +205,15 @@ project board.
   explanation sends the maintainer back to ask what #N was.
 - When a subagent runs long, have it write `.slices/sliceN-handoff.md` and continue with a
   fresh one in the same worktree.
+- Keep this context for decisions. Never read whole the board README, a dump of cards (`show`
+  with many ids), a session transcript, or a large diff: send it to a subagent that returns what
+  the question needs, or write it to a file under `.slices/` and read only the part you need. A
+  thread with its own goal that would outlast a few tool calls and doesn't feed the card (an
+  unrelated bug, a side investigation the maintainer raises) becomes its own session
+  (`start_session`), not more turns here.
+- Every one-off subagent call (general-purpose, Explore, Plan, and the like) passes the `model`
+  that `docs/agent-tooling.md`'s "Models by task" gives its kind of task; the planner, builder,
+  and verifier take theirs from their definitions, so pass them none.
 - Rewrite the card's State section (`scripts/board.sh state <id> <<'STATE'`, quoted so
   backticks stay text) whenever a phase ends, so a cleared context can resume mid-slice. It
   names this session's id, so another session can tell whether the card is still led.
@@ -219,8 +230,9 @@ project board.
    without a word; after any merge to `main`, check every PR that waits), move the card to Done, run
    `scripts/tidy.sh` (it removes the merged worktree and branch; it also runs at every session
    start), and delete the slice's `.slices/sliceN-*` files.
-3. Record decisions made during the slice in the board README (read it with `scripts/board.sh
-   readme`, then write the whole new text back with `scripts/board.sh readme <<'README'`), and
-   re-plan the later cards if they changed.
+3. Record decisions made during the slice in the board README: save it to a file
+   (`scripts/board.sh readme > .slices/readme.md`), read and edit only the feature's section
+   there, write the whole file back (`scripts/board.sh readme < .slices/readme.md`), and delete
+   the file. Re-plan the later cards if they changed.
 4. Tell the maintainer the slice is merged and that it's a good moment to `/clear` and run
    `/onward` again.
