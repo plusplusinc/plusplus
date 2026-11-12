@@ -73,8 +73,9 @@ Cheapest first. The tests' display names are the inventory of what each tier hol
 
 | Guarantee | Tier |
 |---|---|
-| A rule or arithmetic: the store, the launch rule, names, plans, moves, supersets, a drag's, drawer's, or pairing's math, a workout's time | Package (`WorkoutStoreTests`, `DesignSystemTests` logic): macOS and the simulator, milliseconds |
+| A rule or arithmetic: the store, the launch rule, names, plans, moves, supersets, a drag's, drawer's, or pairing's math, a workout's time, where a workout is and what a log leads to | Package (`WorkoutStoreTests`, `DesignSystemTests` logic): macOS and the simulator, milliseconds |
 | What a saved store reopens as, and a schema upgrade on disk | Package, over an in-memory container (a second store on it is a relaunch) or a file |
+| The order the session sends its writes in, and what it names a workout | Package (`SessionTests`), over an in-memory container, waiting on `writesLanded()` |
 | How a component looks at a moment, in dark: at rest, editing, mid-drag, at AX5 | Snapshot, through `assertThemedSnapshots` |
 | What layout does over time: a live text size change, every layout pass, focus, the frame clock | Hosted view, in a `UIWindow.sceneless` |
 | What a script in `scripts/` decides: the night runner's gates, parsing CI's output | Its `unittest` file or doctest, which `scripts/test.sh` runs; CI doesn't |
@@ -103,6 +104,7 @@ one test at a time on both.
 |---|---|---|
 | Package on macOS, both runs' test time | | 10 s |
 | `WorkoutStoreTests` | 10 s | 8 s |
+| `SessionTests` | 5 s | 4 s |
 | `DesignSystemTests` | 30 s | 24 s |
 | a `DesignSystemTests` test | 2 s | 1.6 s |
 | each UI test | 90 s | 72 s |
@@ -153,14 +155,16 @@ seeded), `TitleWrappingUITests/testWrappedTitleAtLargestTextSize`,
 `RoutineAutosaveUITests/testRoutineSurvivesRelaunch`,
 `RoutineDrawerUITests/testDrawerSwitchesRoutines` (a routine seeded),
 `WorkoutUITests/testWorkoutSurvivesRelaunch`, and
-`WorkoutFinishUITests/testFinishKeyKeepsTheWorkout` (one exercise seeded). A new check joins the test for its launch only
+`WorkoutFinishUITests/testFinishKeyKeepsTheWorkout` (one exercise of one set seeded). A new check joins the test for its launch only
 when it names what only the running app shows (G) and the lower test that holds the rest, sets
 its state up by launch argument, and keeps its test within the UI budget; otherwise it goes in
 a cheaper tier. Every test launches with `-resetStore YES`, so it starts from a new routine and
 not the one the last test saved, and with `-noUIKitAnimations YES`; the relaunch tests add
 `-fallbackNames YES`, muscle-group names, which a test can predict where the standard names
 follow the routine's fresh id; and `-seedExercises <id,id,…>` with `-seedName <name>` starts
-from a routine of those built-in exercises (all `LaunchOptions`, Debug only). With UIKit's
+from a routine of those built-in exercises, `-seedSets <n>` giving each that many sets and
+`-seedWorkout <n>` opening a workout on it with its first `n` sets logged (all `LaunchOptions`,
+Debug only). With UIKit's
 animations off, the keyboard and sheets appear at once, and XCTest's wait for animations can't
 stall (`LaunchOptions.turnsOffUIKitAnimations` says why). SwiftUI's animations still run, so a
 test that reads what one moves waits for its end state; an added row is in the accessibility

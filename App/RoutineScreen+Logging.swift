@@ -2,7 +2,8 @@ import DesignSystem
 import SwiftUI
 import WorkoutStore
 
-/// A workout's sets: the current exercise and its set, a log, and the move on to the next.
+/// A workout's sets as the screen draws them, and `play(_:)`, which shows what a stored log leads
+/// to: the next set, the move to the next exercise, or the close after the last.
 extension RoutineScreen {
     /// The workout on the routine as stored, every log in it: what the key's taps read.
     var live: LiveWorkout? {

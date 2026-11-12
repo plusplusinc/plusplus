@@ -54,7 +54,9 @@ and resumes. A workout survives a relaunch, keeps the screen on, and locks the d
 every edit stays on. The app shows only in dark
 appearance (`Config/Base.xcconfig`); the light palette is seen only in snapshots.
 `WorkoutStore` holds the domain types, the stored models behind `RoutineStore` in a versioned
-schema, workouts with their time and logged sets, the namer, the order sets go in and the next one, and the routines' recency. Nothing syncs yet.
+schema, workouts with their time and logged sets, the namer, the order sets go in and the next one, the routines' recency, a workout in progress on its routine (`LiveWorkout`), and the
+logs a screen has yet to show (`WorkoutPlayback`). `Session` holds `RoutineSession`, the open
+routine, its saves, and its workout. Nothing syncs yet.
 
 ## Architecture
 
