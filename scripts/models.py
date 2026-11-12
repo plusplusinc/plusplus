@@ -11,7 +11,9 @@ ID, and a verifier on the builder's model. In each script in
 scripts/ but the tests, it also fails on a <NAME>_MODEL with no row, and on a start of claude
 passing no --model the table covers: in shell, a non-comment line (backslash continuations joined)
 with the word `claude` followed by `-p` or `--print`; in Python, a list starting with the string
-"claude" that holds "-p" or "--print". scripts/lint.sh runs it.
+"claude" that holds "-p" or "--print". In each skill and agent definition, it fails on a line that
+names one of this repo's agents in backticks and passes it a `model:`, which would override the
+definition's. scripts/lint.sh runs it.
 
 Tests: python3 scripts/models-test.py, which scripts/test.sh runs.
 """
@@ -113,6 +115,21 @@ def uncovered(root, covered):
     return found
 
 
+def passed(root, names):
+    """Where a skill or an agent definition tells a caller to pass a model to one of this repo's
+    agents: a line naming the agent in backticks with a `model:` after it. A call's model
+    overrides the definition's, so the table would not hold for that call."""
+    found = []
+    agent = re.compile(rf"`({'|'.join(map(re.escape, sorted(names)))})`.*\bmodel:\s*\S")
+    for path in sorted(Path(root, ".claude/skills").glob("*/SKILL.md")) + sorted(Path(root, ".claude/agents").glob("*.md")):
+        for number, line in enumerate(path.read_text().splitlines(), 1):
+            match = agent.search(line)
+            if match:
+                found.append(f"{path.relative_to(root)}:{number}: passes a model to `{match[1]}`, whose "
+                             "definition sets it; a call's model overrides the definition's, so pass none")
+    return found
+
+
 def problems(root):
     """What disagrees with the table, one line each; empty when everything agrees."""
     root = Path(root)
@@ -172,6 +189,8 @@ def problems(root):
     for where in sorted(agents.keys() - {row["Set in"] for row in rows}):
         found.append(f"{where} has no row in {TABLE}'s \"{SECTION}\" table")
     found += uncovered(root, {row["Set in"] for row in rows})
+    if names:
+        found += passed(root, names)
     builder, verifier = roles.get("builder"), roles.get("verifier")
     if builder and verifier and family(builder["Model"]) == family(verifier["Model"]):
         found.append(f"verifier: runs on the builder's model, {builder['Model']}; the table needs them to differ")

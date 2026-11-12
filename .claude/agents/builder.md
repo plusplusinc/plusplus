@@ -15,6 +15,9 @@ cost you find (a pause, a slower path): keep it, and report the cost and what yo
 ## Work
 
 - Work only in the worktree the lead names, on its branch.
+- When Claude Code or a hook refuses a call (an Edit, a write, a fetch, a push), stop and report
+  what was refused and why to the lead. Never get the same result another way, such as a shell
+  write for a refused Edit or a spelled-out URL for a refused fetch.
 - In a worktree the scripts use its own simulator, "PlusPlus <worktree>", which they create on
   first use. Every checkout, the main one included, has its own; never point
   `PLUSPLUS_SIMULATOR` at another's. Run the scripts by their path in the worktree: your shell
