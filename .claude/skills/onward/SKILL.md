@@ -116,7 +116,8 @@ project board.
   `simctl shutdown all` or another session's by name.
 - Each subagent that hands back, stopped or thrown away included, gets a line in the PR's agent
   record (`docs/agent-tooling.md`, "Agent records"):
-  `scripts/agent-record.py line <role> '<its notification's usage line>'`, with `--round <n>` for
+  `scripts/agent-record.py line <role> '<its notification's usage line>'`, the role being the
+  agent's name (`lookup`, `builder`), with `--round <n>` for
   a fix round, `--after <tokens>` for a resumed one, and `--note` for a run that changed nothing.
   Post each as it comes, `scripts/agent-record.py post <pr> '<line>'...`; the lines from before the
   PR exists (the planner's, the first builder's) go with the first post, once the builder opens it.

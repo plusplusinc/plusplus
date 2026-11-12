@@ -166,18 +166,22 @@ Agent record
 - builder, claude-opus-5-5, round 2: 30471 tokens, 33 tool uses, 3.9 min
 ```
 
-The model is the role's row above unless `--model` names the one the run was on; a role with no
-row (a plain general-purpose agent) takes `--model`, the default it fell to. Round 1 is the
-build, and each fix round after a verifier is the next. A resumed agent's notification counts
-its earlier runs' tokens, so `--after <their total>` keeps only this run's. `scripts/agent-record.py
-post <pr> <line>...` adds the lines as one comment; the lead adds them as `/onward` says.
+The role is a row above, a one-off by its agent's name, and the model is the row's: a `--model`
+that differs is refused. Only the lead's row, which names no single model, and a plain
+`general-purpose` agent, which has none, take `--model`, the model the run was on; it is stored
+as its full id, so the tally groups an alias with the same model. Round 1 is the build, and each
+fix round after a verifier is the next. A resumed agent's notification counts its earlier runs'
+tokens but only this run's tool uses and time (measured 2026-11-11), so `--after <their token
+total>` keeps only this run's tokens. `scripts/agent-record.py post <pr> <line>...` adds the lines
+as one comment; the lead adds them as `/onward` says.
 
 `scripts/agent-record.py tally <since>` reads the PRs merged since a date, once, and prints per
 role and model the runs, tokens and minutes per PR, the builder's fix rounds and failed pushes
-per PR, and the verifier's `new` findings per PR. A PR with no record is named as having none
-and left out of the numbers. It costs about 2 GraphQL points per 100 PRs and prints what it
-cost. Only comments by the repo's owner, members, or collaborators count, since the repo is
-public.
+per PR (a run cancelled by the next push is no failure), and the verifier's problems caught (its
+record's `new` lines but `test`) and tests added per PR. A PR with no record is named as having
+none and left out of the numbers. It costs about 2 GraphQL points per 100 PRs, plus about 1 to
+read the checks of recorded PRs' failed-looking commits, and prints what it cost. Only comments
+by the repo's owner, members, or collaborators count, since the repo is public.
 
 ## Rules
 

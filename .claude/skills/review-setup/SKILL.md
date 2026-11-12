@@ -78,7 +78,7 @@ trial weighed on the record (its "Agent records" section).
 - **A trial running**: a row whose Set reads `<date>, trial for <n> PRs`. Once `tally <that
   date>` shows the role on its trial model in that many PRs, compare it with the model it
   replaced (its Evidence names it) on the tally from before the date: cost per PR, and fix rounds
-  and failed pushes for the builder, new findings for the verifier. Keep it or revert it, and
+  and failed pushes for the builder, problems caught for the verifier. Keep it or revert it, and
   card that edit: the row's Set becomes the date it was decided, its Evidence the two models'
   numbers and the PR range. Not yet that many PRs: say how many so far, in a line.
 - **At most one new trial**, only when no trial runs and the tally gives a reason (a role whose

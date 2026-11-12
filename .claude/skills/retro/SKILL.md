@@ -191,10 +191,10 @@ finding and opens no PR:
 ## The agents' tally
 
 The digest also carries, as it prints, `scripts/agent-record.py tally <the date 30 days ago>`:
-each role and model's cost per PR, the builder's fix rounds and failed pushes, and the verifier's
-new findings, from the PRs' `Agent record` comments (`docs/agent-tooling.md`, "Agent records"),
-with the PRs that have none named as such. It is not a finding and opens no PR; a covered PR
-with no agent record, led since the record began, is a finding of rank 3.
+each role and model's cost per PR, the builder's fix rounds and failed pushes, and the problems
+the verifier caught and the tests it added, from the PRs' `Agent record` comments
+(`docs/agent-tooling.md`, "Agent records"), with the PRs that have none named as such. It is not
+a finding and opens no PR.
 
 ## How it runs
 
