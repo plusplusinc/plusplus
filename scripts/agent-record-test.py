@@ -162,6 +162,23 @@ if args[:2] == ["api", "graphql"]:
                           "No PR has an agent record, so there is nothing to tally."])
         self.assertNotIn("tokens/PR", run.stdout)
 
+    def test_a_run_cancelled_by_the_next_push_is_no_failed_push(self):
+        # #171's merge commit, as GitHub returns it: its Xcode Cloud run was cancelled when the
+        # next push started one, which the rollup reports as FAILURE, and nothing failed.
+        cancelled = {"state": "FAILURE", "contexts": {"nodes": [
+            {"__typename": "CheckRun", "name": "Route", "status": "COMPLETED", "conclusion": "SUCCESS"},
+            {"__typename": "CheckRun", "name": "PR check", "status": "COMPLETED", "conclusion": "CANCELLED"},
+            {"__typename": "StatusContext", "context": "PlusPlus Workout Tracker | PR", "state": "FAILURE",
+             "description": "cancelled"},
+            {"__typename": "CheckRun", "name": "PlusPlus Workout Tracker | PR | Test - iOS", "status": "COMPLETED",
+             "conclusion": "CANCELLED"}]}}
+        number = pr(171, [(RECORD_171, "OWNER")], ("SUCCESS",))
+        number["commits"]["nodes"].insert(0, {"commit": {"statusCheckRollup": cancelled}})
+        self.pages([[number]])
+        run = self.run_script("tally", "2026-11-01")
+        self.assertEqual(run.returncode, 0, run.stderr)
+        self.assertIn("failed pushes 0", run.stdout)
+
     def test_a_bad_date_prints_usage(self):
         self.assertEqual(self.run_script("tally", "November").returncode, 64)
 
