@@ -118,6 +118,7 @@ extension RoutineScreen {
                 isStarting = false
                 startDrop = 0
             }
+            // Before or after the grow's end, either way: the room goes only once both are over.
             letRoomGo()
             // On a later turn of the run loop, once Start has gone: in the same update, away
             // and back cancel out, and the key jumped back up from its drop.
@@ -128,9 +129,11 @@ extension RoutineScreen {
     /// Takes away the screen's room under the list's end once Start or a move to the next
     /// exercise is over. The room to land the current exercise under the bar
     /// (`roomToLand(top:visible:)`) stays, worked out in each layout pass, so it holds the list
-    /// wherever the growth is.
+    /// wherever the growth is. Not while the rows still change height: let go mid-grow, the
+    /// content was short for a frame, and the scroll view clamped the list down to stay.
     func letRoomGo() {
-        guard isMakingRoom, !isStarting, !isMovingOn, session.workout != nil else { return }
+        guard isMakingRoom, !isStarting, !isMovingOn, !isGrowingOrEnding,
+              session.workout != nil else { return }
         withTransaction(\.disablesAnimations, true) { isMakingRoom = false }
     }
 
