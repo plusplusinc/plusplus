@@ -33,7 +33,7 @@ extension View {
 /// shows, its second subview's height, reaches past its height. So while it is on, the content is
 /// never too short for the scroll view to reach `top`, whatever else under it comes or goes, and
 /// however short the first subview is. `top` animates, so the room can close over a motion.
-struct RoomToLand: Layout {
+private struct RoomToLand: Layout {
     var top: CGFloat
     let isOn: Bool
 

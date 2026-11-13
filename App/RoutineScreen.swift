@@ -77,10 +77,9 @@ struct RoutineScreen: View {
     @State var growthLift: CGFloat = 0
     /// From Start's press until the first exercise has grown, through a move to the next exercise,
     /// and while End shrinks the current one back: room under the list's end, out of sight, so
-    /// the list can scroll the row to the top and holds still as rows change height. At Start the
-    /// landing's own room (`landingRoomTop`) already holds the landing, so this room's going
-    /// moves nothing. While it is on, the list's end is that room, so an added row's scroll to
-    /// the end must not run.
+    /// the list can scroll the row to the top and holds still as rows change height; at Start,
+    /// `landingRoomTop` holds the landing. While it is on, the list's end is that room, so an
+    /// added row's scroll to the end must not run.
     @State var isMakingRoom = false
     /// Where the first exercise, the current one in a workout, is against the part showing.
     @State var currentPlace: CurrentPlace?

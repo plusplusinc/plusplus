@@ -4,7 +4,7 @@
 import SwiftUI
 import Testing
 import UIKit
-@testable import DesignSystem
+import DesignSystem
 
 /// The room that lets a list land a row under the bar (`roomToLand(top:)`): while it is on, the
 /// content is never too short for the scroll view to reach the landing, so the room under the

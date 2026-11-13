@@ -139,9 +139,7 @@ extension RoutineScreen {
     }
 
     /// Takes away the screen's room under the list's end once Start or a move to the next
-    /// exercise is over. It can go at any moment: the room to land the current exercise under
-    /// the bar (`landingRoomTop`) is already at its height, so what is left is never shorter
-    /// than the landing needs.
+    /// exercise is over. It can go at any moment: `landingRoomTop` holds the landing.
     func letRoomGo() {
         guard isMakingRoom, !isStarting, !isMovingOn, session.workout != nil else { return }
         withTransaction(\.disablesAnimations, true) { isMakingRoom = false }
