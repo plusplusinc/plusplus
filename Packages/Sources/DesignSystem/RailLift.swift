@@ -63,6 +63,8 @@ extension View {
 /// the rail's at its edges.
 struct CardLook: ViewModifier {
     let isReleased: Bool
+    /// The held row is the current exercise, whose card starts above its node, not at its top.
+    let isCurrent: Bool
     /// The rail's drawing, and the card's top in the rail's space, which places it.
     let strokes: HeldRailDrawing?
     let top: CGFloat
@@ -79,11 +81,13 @@ struct CardLook: ViewModifier {
     init(
         isReleased: Bool,
         hasRisen: Bool = false,
+        isCurrent: Bool = false,
         strokes: HeldRailDrawing? = nil,
         top: CGFloat = 0,
         holes: [CGRect] = [],
     ) {
         self.isReleased = isReleased
+        self.isCurrent = isCurrent
         self.strokes = strokes
         self.top = top
         self.holes = holes
@@ -101,6 +105,7 @@ struct CardLook: ViewModifier {
                     LiftedCard(
                         node: node,
                         plainNodeY: plainNodeY,
+                        isCurrent: isCurrent,
                         lifted: isRaised ? 1 : 0,
                         strokes: strokes,
                         top: top,
@@ -157,6 +162,9 @@ struct LiftedCard: View, Animatable {
     let node: Anchor<CGPoint>
     /// How far down a plain row its node is, which shapes the card.
     let plainNodeY: CGFloat
+    /// The current exercise's card, which starts `plainNodeY` above its node, as a plain row's
+    /// does, rather than at the row's top: its node sits well down the row, on its large name.
+    var isCurrent = false
     /// How far risen it is, from 0 at rest to 1 held.
     var lifted: Double
     var strokes: HeldRailDrawing?
@@ -177,9 +185,7 @@ struct LiftedCard: View, Animatable {
         let away = rest.map { min(abs(top - $0) / RailDrag.settleReach, 1) } ?? 0
         GeometryReader { proxy in
             let at = proxy[node]
-            // On a plain row, 0; on the current exercise, whose node sits lower on its large
-            // name, the card starts `plainNodeY` above the node, as it does on a plain row.
-            let inset = max(at.y - plainNodeY, 0)
+            let inset = isCurrent ? max(at.y - plainNodeY, 0) : 0
             CardFill(nodeX: at.x, plainNodeY: plainNodeY, top: inset, size: proxy.size)
                 .shadow(color: .pp(.shadow), radius: RailDrag.liftedShadow)
                 .opacity(max(lifted, away))

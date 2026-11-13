@@ -42,7 +42,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     let data: Data
     private let arriving: RowID?
     /// The row a workout is on, whose node shows it in green, pulsing.
-    private let current: RowID?
+    let current: RowID?
     /// The rows whose sets are all done in a workout, whose nodes show it in purple.
     private let done: Set<RowID>
     /// Whether the current row has a set logged that stays on it, not yet shown: its node rests
