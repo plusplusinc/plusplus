@@ -1196,27 +1196,36 @@ def io_of(call):
     return buffer.getvalue()
 
 
-def scratch_clone(test, merged=""):
+def scratch_clone(test):
     """A main checkout at <root>/main with tidy.sh and common.sh, its origin a local bare repo, and
-    a stand-in gh whose `pr list` prints `merged` ("<branch> <head sha> <number>" lines). Returns the
-    root, a git runner in the checkout, and the environment that finds the stand-in."""
+    a stand-in gh whose `pr list` prints <root>/merged ("<branch> <head sha> <number>" lines, none
+    until a test writes them). Returns the root, a command runner in the checkout, and a function
+    that runs tidy whole there and returns what it printed."""
     root = Path(os.path.realpath(tempfile.mkdtemp()))
     test.addCleanup(shutil.rmtree, root, True)
     def run(*a, cwd=root / "main"):
         return subprocess.run(a, cwd=cwd, check=True, capture_output=True, text=True).stdout.strip()
     run("git", "init", "-q", "--bare", "-b", "main", str(root / "origin.git"), cwd=root)
     run("git", "clone", "-q", str(root / "origin.git"), "main", cwd=root)
+    run("git", "config", "user.email", "t@example.com")
+    run("git", "config", "user.name", "t")
     (root / "main/scripts").mkdir()
     for name in ("tidy.sh", "common.sh"):
-        shutil.copy(Path(__file__).with_name(name), root / "main/scripts" / name)
+        shutil.copy(SCRIPTS / name, root / "main/scripts" / name)
     bin_dir = root / "bin"
     bin_dir.mkdir()
-    (root / "merged").write_text(merged)
+    (root / "merged").write_text("")
     (bin_dir / "gh").write_text(f"#!/bin/bash\n[ \"$1 $2\" = 'pr list' ] && cat '{root / 'merged'}'\nexit 0\n")
     (bin_dir / "gh").chmod(0o755)
-    run("git", "-c", "user.email=t@example.com", "-c", "user.name=t", "commit", "-q", "--allow-empty", "-m", "base")
+    run("git", "commit", "-q", "--allow-empty", "-m", "base")
     run("git", "push", "-q", "origin", "main")
-    return root, run, {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}"}
+    env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}"}
+    def tidy():
+        out = subprocess.run([str(root / "main/scripts/tidy.sh")], cwd=root / "main", env=env,
+                             capture_output=True, text=True)
+        test.assertEqual(out.returncode, 0, out.stderr)
+        return out.stdout
+    return root, run, tidy
 
 
 class TidySlices(unittest.TestCase):
@@ -1225,7 +1234,7 @@ class TidySlices(unittest.TestCase):
     ROWS = "PVTI_done  Done\t-\tA\nPVTI_todo  In Progress\t-\tB\n"
 
     def tidy(self, slices, rows=ROWS, board_fails=False):
-        root, run, env = scratch_clone(self)
+        root, run, tidy = scratch_clone(self)
         board = root / "main/scripts/board.sh"
         board.write_text("#!/bin/bash\n" + ("echo 'quota spent' >&2; exit 1\n" if board_fails
                                              else f"[ \"$1\" = list ] && printf '{rows}'\n"))
@@ -1239,11 +1248,9 @@ class TidySlices(unittest.TestCase):
         for path in (root / "main/.slices").rglob("*"):
             if not path.name.startswith("fresh"):
                 os.utime(path, (old, old))
-        out = subprocess.run([str(root / "main/scripts/tidy.sh")], cwd=root / "main", env=env,
-                             capture_output=True, text=True)
-        self.assertEqual(out.returncode, 0, out.stderr)
+        out = tidy()
         left = sorted(str(p.relative_to(root / "main/.slices")) for p in (root / "main/.slices").rglob("*") if p.is_file())
-        return left, out.stdout
+        return left, out
 
     def test_only_entries_whose_cards_are_all_done_go(self):
         left, out = self.tidy({"done-plan.md": "Card PVTI_done.", "mixed.md": "PVTI_done, then PVTI_todo",
@@ -1268,35 +1275,28 @@ class TidyWorktrees(unittest.TestCase):
     verifier's tidy removed the live lead's worktree), and removes it once none does."""
 
     def finished_worktree(self):
-        root, run, env = scratch_clone(self)
+        root, run, tidy = scratch_clone(self)
         worktree = root / "main/.claude/worktrees/done-card"
         run("git", "worktree", "add", "-q", "-b", "done-card", str(worktree))
-        run("git", "-c", "user.email=t@example.com", "-c", "user.name=t", "commit", "-q", "--allow-empty",
-            "-m", "work", cwd=worktree)
+        run("git", "commit", "-q", "--allow-empty", "-m", "work", cwd=worktree)
         (worktree / "Sources").mkdir()
         (root / "merged").write_text(f"done-card {run('git', 'rev-parse', 'HEAD', cwd=worktree)} 1\n")
-        return root, worktree, run, env
-
-    def tidy(self, root, env):
-        out = subprocess.run([str(root / "main/scripts/tidy.sh")], cwd=root / "main", env=env,
-                             capture_output=True, text=True)
-        self.assertEqual(out.returncode, 0, out.stderr)
-        return out.stdout
+        return worktree, run, tidy
 
     def test_a_worktree_a_session_works_in_stays_and_tidy_says_so(self):
-        root, worktree, run, env = self.finished_worktree()
+        worktree, run, tidy = self.finished_worktree()
         # A session working in a folder of the worktree, the way a Claude session's process does.
         session = subprocess.Popen(["sleep", "60"], cwd=worktree / "Sources")
         self.addCleanup(session.wait)
         self.addCleanup(session.kill)
-        out = self.tidy(root, env)
+        out = tidy()
         self.assertTrue(worktree.exists())
         self.assertIn(f"tidy: kept {worktree}: finished, but sleep (pid {session.pid}) works in it", out)
         self.assertIn("done-card", run("git", "branch", "--list", "done-card"))
 
     def test_a_finished_worktree_no_process_works_in_goes(self):
-        root, worktree, run, env = self.finished_worktree()
-        out = self.tidy(root, env)
+        worktree, run, tidy = self.finished_worktree()
+        out = tidy()
         self.assertFalse(worktree.exists())
         self.assertIn(f"tidy: git worktree remove {worktree}", out)
         self.assertEqual(run("git", "branch", "--list", "done-card"), "")

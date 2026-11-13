@@ -8,8 +8,9 @@
 # alone cannot tell it is done; the PR can. Kept: a worktree with uncommitted changes, a branch
 # with commits no merged PR contains, and a worktree touched in the last day whose branch has no
 # merged PR (an agent's fresh worktree starts at main with nothing committed yet), and a worktree
-# that any running process, a Claude session or a shell, has as its working directory, which tidy
-# names in a line (on 2026-11-11 a verifier's tidy removed the live lead's worktree). Closed but
+# that a running process has as its working directory, such as a Claude session started in it or a
+# shell in it, which tidy names in a line (on 2026-11-11 a verifier's tidy removed the live lead's
+# worktree). A session started elsewhere that works in a worktree by path does not count. Closed but
 # unmerged PRs are never cleaned up; their work may still be wanted. A removed worktree's own
 # simulator, "PlusPlus <worktree>" (see scripts/common.sh), is shut down and deleted with it, and
 # so is the recorded simulator of a worktree removed by hand; this is the only script that deletes
@@ -111,18 +112,24 @@ idle_seconds() {
 }
 
 # "<pid>\t<command>\t<working directory>" for every running process this user can see, read once.
+# lsof fails on a process it cannot read, so its status says nothing; an empty list, which tidy's
+# own process alone rules out, means it listed nothing.
 CWDS=$(lsof -a -d cwd -Fpcn 2> /dev/null |
     awk '/^p/ { pid = substr($0, 2) } /^c/ { cmd = substr($0, 2) } /^n/ { print pid "\t" cmd "\t" substr($0, 2) }' ||
     true)
 
-# Prints "<command> (pid <pid>)" of a process working in this worktree or a folder inside it,
-# nothing when none is. Tidy's own callers are not exempt: a subagent runs inside its lead's
-# process, so the process that ran tidy may be the live session the worktree belongs to. An agent
-# done with a worktree removes it with `git worktree remove` and leaves tidy its simulator.
+# Prints why a worktree stays in use: "<command> (pid <pid>) works in it" for a process working in
+# it or a folder inside it, or that it could not be checked; nothing when no process uses it. Tidy's
+# own callers are not exempt: a subagent runs inside its lead's process, so the process that ran
+# tidy may be the live session the worktree belongs to. An agent done with a worktree removes it
+# with `git worktree remove` and leaves tidy its simulator.
 in_use_by() {
     local path
-    path=$(cd "$1" && pwd -P) || { echo "a process it could not check for"; return; }
-    awk -F'\t' -v p="$path" '$3 == p || index($3, p "/") == 1 { print $2 " (pid " $1 ")"; exit }' <<< "$CWDS"
+    if [ -z "$CWDS" ] || ! path=$(cd "$1" && pwd -P); then
+        echo "tidy could not check which processes work in it"
+        return
+    fi
+    awk -F'\t' -v p="$path" '$3 == p || index($3, p "/") == 1 { print $2 " (pid " $1 ") works in it"; exit }' <<< "$CWDS"
 }
 
 # Worktrees first: a branch cannot be deleted while one has it checked out.
@@ -133,9 +140,9 @@ while IFS=$'\t' read -r path branch; do
     tip=$(git -C "$path" rev-parse HEAD)
     if { [ -n "$branch" ] && in_merged_pr "$branch" "$tip"; } ||
         { in_main "$tip" && [ "$(idle_seconds "$path")" -gt "$FRESH_SECONDS" ]; }; then
-        user=$(in_use_by "$path")
-        if [ -n "$user" ]; then
-            echo "tidy: kept $path: finished, but $user works in it"
+        use=$(in_use_by "$path")
+        if [ -n "$use" ]; then
+            echo "tidy: kept $path: finished, but $use"
             continue
         fi
         run git worktree remove "$path"
