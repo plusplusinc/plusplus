@@ -63,8 +63,6 @@ extension View {
 /// the rail's at its edges.
 struct CardLook: ViewModifier {
     let isReleased: Bool
-    /// The held row is the current exercise, whose card starts above its node, not at its top.
-    let isCurrent: Bool
     /// The rail's drawing, and the card's top in the rail's space, which places it.
     let strokes: HeldRailDrawing?
     let top: CGFloat
@@ -82,13 +80,11 @@ struct CardLook: ViewModifier {
     init(
         isReleased: Bool,
         hasRisen: Bool = false,
-        isCurrent: Bool = false,
         strokes: HeldRailDrawing? = nil,
         top: CGFloat = 0,
         holes: [CGRect] = [],
     ) {
         self.isReleased = isReleased
-        self.isCurrent = isCurrent
         self.strokes = strokes
         self.top = top
         self.holes = holes
@@ -107,7 +103,6 @@ struct CardLook: ViewModifier {
                     LiftedCard(
                         node: node,
                         plainNodeY: plainNodeY,
-                        isCurrent: isCurrent,
                         marks: marks,
                         lifted: isRaised ? 1 : 0,
                         strokes: strokes,
@@ -155,7 +150,8 @@ private struct PlainRowNode: View {
     }
 }
 
-/// A held row's card: `CardFill` behind the row, as tall as it, with a soft shadow all around
+/// A held row's card: `CardFill` behind the row, from its top down (the current exercise's from
+/// `topInset`), with a soft shadow all around
 /// that fades in and out with it. At rest, it is not drawn. Let go, it fades as it settles, but
 /// not while it is still a row's height or so from where it settles, `rest`: sent back from under
 /// a bar, it crosses rows on its way, and a card already faded would show their text through its
@@ -165,10 +161,8 @@ struct LiftedCard: View, Animatable {
     let node: Anchor<CGPoint>
     /// How far down a plain row its node is, which shapes the card.
     let plainNodeY: CGFloat
-    /// The current exercise's card, which starts below the row's top (`topInset`): its node sits
-    /// well down the row, on its large name.
-    var isCurrent = false
-    /// Where the current exercise's name and figures are, which place its card's top.
+    /// Where the current exercise's name and figures are, which place its card's top: only the
+    /// current exercise marks figures, so a plain row's card starts at its top.
     var marks = CardMarks.Value()
     /// How far risen it is, from 0 at rest to 1 held.
     var lifted: Double
@@ -224,10 +218,9 @@ extension LiftedCard {
     /// between two insets above the card's top: a plain row's, `plainNodeY`, and the one that
     /// leaves as much room above the name's capitals as below the last baseline, so the card
     /// sits balanced on the large name without starting as far above it as the row does. Never
-    /// above the row's own top. A plain row's card starts at the top.
+    /// above the row's own top. A plain row's card, with no figures marked, starts at the top.
     func topInset(at node: CGPoint, proxy: GeometryProxy) -> CGFloat {
-        guard isCurrent else { return 0 }
-        return Self.topInset(
+        Self.topInset(
             nodeY: node.y,
             plainNodeY: plainNodeY,
             capTop: marks.nameTop.map { proxy[$0].y },
@@ -236,8 +229,7 @@ extension LiftedCard {
         )
     }
 
-    /// `topInset(at:proxy:)` from plain numbers, in the row's space, `height` tall. Without the
-    /// name's marks, the node sits a plain row's inset down.
+    /// `topInset(at:proxy:)` from plain numbers, in the row's space, `height` tall.
     static func topInset(
         nodeY: CGFloat,
         plainNodeY: CGFloat,
@@ -245,8 +237,8 @@ extension LiftedCard {
         lastBaseline: CGFloat?,
         height: CGFloat,
     ) -> CGFloat {
+        guard let capTop, let lastBaseline else { return 0 }
         let plain = nodeY - plainNodeY
-        guard let capTop, let lastBaseline else { return max(plain, 0) }
         let balanced = capTop - (height - lastBaseline)
         return max((plain + balanced) / 2, 0)
     }
@@ -271,9 +263,8 @@ struct CardMarks: PreferenceKey {
 
 /// The raised fill of a held row's card, with no shadow or border, behind a row or a stretch of
 /// rows, `size` big, whose first node is `nodeX` from its leading edge, from `top` down to the
-/// bottom. It is shaped as a plain
-/// row's card, whose node is `plainNodeY` down it, whichever row it is, never from how far down its
-/// own row the node is: on a plain row the node sits as far in from the fill's leading edge as from
+/// bottom. It is shaped as a plain row's card, whose node is `plainNodeY` down it, whichever row
+/// it is, never from how far down its own row the node is: on a plain row the node sits as far in from the fill's leading edge as from
 /// its top, and the corners are close to concentric with the node, their radius that inset plus
 /// half the node, which is `plainNodeY`. It is centered across `size`, so on a screen whose rows
 /// are, its edges are as far from the screen's, and a row's content stops that inset short of its
@@ -305,7 +296,7 @@ nonisolated struct CardOutline: Shape {
     var top: CGFloat = 0
 
     /// The card's own rectangle in a frame `rect`.
-    func fill(in rect: CGRect) -> CGRect {
+    func cardRect(in rect: CGRect) -> CGRect {
         let leading = nodeX - plainNodeY
         return CGRect(
             x: rect.minX + leading,
@@ -317,7 +308,7 @@ nonisolated struct CardOutline: Shape {
 
     func path(in rect: CGRect) -> Path {
         RoundedRectangle(cornerRadius: plainNodeY, style: .continuous)
-            .path(in: fill(in: rect))
+            .path(in: cardRect(in: rect))
     }
 }
 
@@ -330,9 +321,7 @@ nonisolated struct CardShadowReach: Shape {
 
     func path(in rect: CGRect) -> Path {
         // From the card's own top, which on the current exercise is below the frame's.
-        var around = rect
-        around.origin.y += card.top
-        around.size.height = max(around.height - card.top, 0)
+        let around = rect.divided(atDistance: card.top, from: .minYEdge).remainder
         var path = Path(around.insetBy(dx: -reach, dy: -reach))
         path.addPath(card.path(in: rect.insetBy(dx: 1, dy: 1)))
         return path

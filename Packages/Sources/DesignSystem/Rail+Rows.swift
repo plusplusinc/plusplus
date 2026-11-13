@@ -209,7 +209,6 @@ extension Rail {
                 .modifier(CardLook(
                     isReleased: drag.isReleased,
                     hasRisen: momentOffset != nil,
-                    isCurrent: drag.lifted == current,
                     strokes: strokes,
                     top: y,
                     holes: cutouts,

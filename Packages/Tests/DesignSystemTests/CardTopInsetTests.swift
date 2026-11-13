@@ -23,11 +23,11 @@ struct CardTopInsetTests {
         #expect(inset == 0)
     }
 
-    @Test("Without the name's marks, the node sits a plain row's inset down the card")
-    func withoutMarks() {
+    @Test("A row with no figures marked, a plain row, starts its card at its top")
+    func plainRow() {
         let inset = LiftedCard.topInset(
-            nodeY: 50, plainNodeY: 20, capTop: nil, lastBaseline: nil, height: 120,
+            nodeY: 50, plainNodeY: 20, capTop: 40, lastBaseline: nil, height: 120,
         )
-        #expect(inset == 30)
+        #expect(inset == 0)
     }
 }
