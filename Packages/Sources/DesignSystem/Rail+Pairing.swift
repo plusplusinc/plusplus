@@ -92,10 +92,15 @@ extension Rail {
     /// While dropping the held row would leave it in a superset, that superset as it shows: its
     /// rows where they are drawn, the held row's at the card's top, `cardY`, not at its gap, so
     /// the well wraps the card with no empty strip beside it, reaching past the card where it is
-    /// an end. As the card settles, it takes the look of the rows' place, fading as it goes.
+    /// an end, from where its fill starts, `cardInset` below `cardY`. As the card settles, it takes
+    /// the look of the rows' place, fading as it goes.
     /// Nil over a bar, when the drop would leave the row on its own, or until the rows have
     /// reported their nodes.
-    func heldWell(_ drag: RailDragState<RowID>, cardY: CGFloat) -> HeldWell? {
+    func heldWell(
+        _ drag: RailDragState<RowID>,
+        cardY: CGFloat,
+        cardInset: CGFloat = 0,
+    ) -> HeldWell? {
         guard !drag.isOverBar else { return nil }
         let rows = shownRows.map(\.id)
         let groups = RailDrag.groups(rows, joined: shownJoined)
@@ -118,7 +123,7 @@ extension Rail {
         // Let go, the card settles into its gap as a row, and the well into the rows' place as it
         // fades.
         let card = drag.isReleased ? WellCard() : WellCard(
-            top: cardY <= first ? cardY : nil,
+            top: cardY <= first ? cardY + cardInset : nil,
             bottom: cardBottom >= last ? cardBottom : nil,
         )
         let span = min(first, cardY) ... max(last, cardBottom)

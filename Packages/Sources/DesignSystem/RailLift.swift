@@ -151,12 +151,12 @@ private struct PlainRowNode: View {
 }
 
 /// A held row's card: `CardFill` behind the row, from its top down (the current exercise's from
-/// `topInset`), with a soft shadow all around
-/// that fades in and out with it. At rest, it is not drawn. Let go, it fades as it settles, but
-/// not while it is still a row's height or so from where it settles, `rest`: sent back from under
-/// a bar, it crosses rows on its way, and a card already faded would show their text through its
-/// own. Over the fill, and over the shadow as far as it reaches, it draws the rail's strokes, so
-/// the line and the loops keep one shade through the card and past its edges.
+/// `topInset`), with a soft shadow all around that fades in and out with it. At rest, it is not
+/// drawn. Let go, it fades as it settles, but not while it is still a row's height or so from
+/// where it settles, `rest`: sent back from under a bar, it crosses rows on its way, and a card
+/// already faded would show their text through its own. Over the fill, and over the shadow as far
+/// as it reaches, it draws the rail's strokes, so the line and the loops keep one shade through
+/// the card and past its edges.
 struct LiftedCard: View, Animatable {
     let node: Anchor<CGPoint>
     /// How far down a plain row its node is, which shapes the card.
@@ -188,6 +188,7 @@ struct LiftedCard: View, Animatable {
             CardFill(nodeX: at.x, plainNodeY: plainNodeY, top: inset, size: proxy.size)
                 .shadow(color: .pp(.shadow), radius: RailDrag.liftedShadow)
                 .opacity(max(lifted, away))
+                .preference(key: HeldCardInset.self, value: inset)
             // Not faded with the card: they are the rail's own strokes, so they look the same at
             // any lift, where faded, the fill and the shadow fading under them would shade them.
             // Drawn once, over the fill uncut, since the rail's cutouts don't reach a card held
@@ -261,14 +262,24 @@ struct CardMarks: PreferenceKey {
     }
 }
 
+/// How far below its row's top the held card's fill starts, `LiftedCard.topInset`, for the rail
+/// to wrap a superset's well around the fill rather than the row.
+struct HeldCardInset: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
 /// The raised fill of a held row's card, with no shadow or border, behind a row or a stretch of
 /// rows, `size` big, whose first node is `nodeX` from its leading edge, from `top` down to the
 /// bottom. It is shaped as a plain row's card, whose node is `plainNodeY` down it, whichever row
-/// it is, never from how far down its own row the node is: on a plain row the node sits as far in from the fill's leading edge as from
-/// its top, and the corners are close to concentric with the node, their radius that inset plus
-/// half the node, which is `plainNodeY`. It is centered across `size`, so on a screen whose rows
-/// are, its edges are as far from the screen's, and a row's content stops that inset short of its
-/// trailing edge.
+/// it is, never from how far down its own row the node is: on a plain row the node sits as far
+/// in from the fill's leading edge as from its top, and the corners are close to concentric with
+/// the node, their radius that inset plus half the node, which is `plainNodeY`. It is centered
+/// across `size`, so on a screen whose rows are, its edges are as far from the screen's, and a
+/// row's content stops that inset short of its trailing edge.
 struct CardFill: View {
     let nodeX: CGFloat
     let plainNodeY: CGFloat
