@@ -7,7 +7,9 @@
 # on GitHub). Merges are squashed, so a merged branch's own commits never reach main and git
 # alone cannot tell it is done; the PR can. Kept: a worktree with uncommitted changes, a branch
 # with commits no merged PR contains, and a worktree touched in the last day whose branch has no
-# merged PR (an agent's fresh worktree starts at main with nothing committed yet). Closed but
+# merged PR (an agent's fresh worktree starts at main with nothing committed yet), and a worktree
+# that any running process, a Claude session or a shell, has as its working directory, which tidy
+# names in a line (on 2026-11-11 a verifier's tidy removed the live lead's worktree). Closed but
 # unmerged PRs are never cleaned up; their work may still be wanted. A removed worktree's own
 # simulator, "PlusPlus <worktree>" (see scripts/common.sh), is shut down and deleted with it, and
 # so is the recorded simulator of a worktree removed by hand; this is the only script that deletes
@@ -44,7 +46,15 @@ source "$ROOT/scripts/common.sh"
 
 FRESH_SECONDS=$((24 * 60 * 60))
 
-git fetch --quiet --prune origin
+# Fetches over HTTPS with gh's token, whatever the clone's remote or git's credential setup: a
+# session started from the phone has no SSH key, and gh, which tidy needs below, is signed in.
+fetch() {
+    GIT_TERMINAL_PROMPT=0 git -c credential.helper= -c 'credential.helper=!gh auth git-credential' \
+        -c url.https://github.com/.insteadOf=git@github.com: \
+        -c url.https://github.com/.insteadOf=ssh://git@github.com/ fetch --quiet "$@"
+}
+
+fetch --prune origin
 # "<branch> <head sha> <number>" for every merged PR.
 MERGED=$(gh pr list --state merged --limit 500 --json headRefName,headRefOid,number \
     --jq '.[] | "\(.headRefName) \(.headRefOid) \(.number)"')
@@ -76,7 +86,7 @@ in_merged_pr() {
         [ "$name" = "$branch" ] || continue
         [ "$tip" = "$head" ] && return 0
         git cat-file -e "$head^{commit}" 2> /dev/null ||
-            git fetch --quiet origin "pull/$number/head" 2> /dev/null || continue
+            fetch origin "pull/$number/head" 2> /dev/null || continue
         git merge-base --is-ancestor "$tip" "$head" && return 0
         # `gh pr update-branch --rebase` rewrites a PR's commits, so a worktree's older tip is no
         # ancestor of the merged head; it is still merged when each of its commits has its patch
@@ -100,6 +110,21 @@ idle_seconds() {
     echo $(($(date +%s) - ${newest:-0}))
 }
 
+# "<pid>\t<command>\t<working directory>" for every running process this user can see, read once.
+CWDS=$(lsof -a -d cwd -Fpcn 2> /dev/null |
+    awk '/^p/ { pid = substr($0, 2) } /^c/ { cmd = substr($0, 2) } /^n/ { print pid "\t" cmd "\t" substr($0, 2) }' ||
+    true)
+
+# Prints "<command> (pid <pid>)" of a process working in this worktree or a folder inside it,
+# nothing when none is. Tidy's own callers are not exempt: a subagent runs inside its lead's
+# process, so the process that ran tidy may be the live session the worktree belongs to. An agent
+# done with a worktree removes it with `git worktree remove` and leaves tidy its simulator.
+in_use_by() {
+    local path
+    path=$(cd "$1" && pwd -P) || { echo "a process it could not check for"; return; }
+    awk -F'\t' -v p="$path" '$3 == p || index($3, p "/") == 1 { print $2 " (pid " $1 ")"; exit }' <<< "$CWDS"
+}
+
 # Worktrees first: a branch cannot be deleted while one has it checked out.
 freed=()
 while IFS=$'\t' read -r path branch; do
@@ -108,6 +133,11 @@ while IFS=$'\t' read -r path branch; do
     tip=$(git -C "$path" rev-parse HEAD)
     if { [ -n "$branch" ] && in_merged_pr "$branch" "$tip"; } ||
         { in_main "$tip" && [ "$(idle_seconds "$path")" -gt "$FRESH_SECONDS" ]; }; then
+        user=$(in_use_by "$path")
+        if [ -n "$user" ]; then
+            echo "tidy: kept $path: finished, but $user works in it"
+            continue
+        fi
         run git worktree remove "$path"
         delete_simulator "$path" || true
         freed+=("$branch")
