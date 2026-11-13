@@ -177,7 +177,10 @@ struct LiftedCard: View, Animatable {
         let away = rest.map { min(abs(top - $0) / RailDrag.settleReach, 1) } ?? 0
         GeometryReader { proxy in
             let at = proxy[node]
-            CardFill(nodeX: at.x, plainNodeY: plainNodeY, size: proxy.size)
+            // On a plain row, 0; on the current exercise, whose node sits lower on its large
+            // name, the card starts `plainNodeY` above the node, as it does on a plain row.
+            let inset = max(at.y - plainNodeY, 0)
+            CardFill(nodeX: at.x, plainNodeY: plainNodeY, top: inset, size: proxy.size)
                 .shadow(color: .pp(.shadow), radius: RailDrag.liftedShadow)
                 .opacity(max(lifted, away))
             // Not faded with the card: they are the rail's own strokes, so they look the same at
@@ -188,9 +191,9 @@ struct LiftedCard: View, Animatable {
                 .offset(y: -top)
                 .mask {
                     ZStack(alignment: .topLeading) {
-                        CardFill(nodeX: at.x, plainNodeY: plainNodeY, size: proxy.size)
+                        CardFill(nodeX: at.x, plainNodeY: plainNodeY, top: inset, size: proxy.size)
                         CardShadowReach(
-                            card: CardOutline(nodeX: at.x, plainNodeY: plainNodeY),
+                            card: CardOutline(nodeX: at.x, plainNodeY: plainNodeY, top: inset),
                             // The shadow fades out within about 1.8 times its radius, measured.
                             reach: 3 * RailDrag.liftedShadow,
                         )
@@ -206,7 +209,8 @@ struct LiftedCard: View, Animatable {
 }
 
 /// The raised fill of a held row's card, with no shadow or border, behind a row or a stretch of
-/// rows, `size` big, whose first node is `nodeX` from its leading edge. It is shaped as a plain
+/// rows, `size` big, whose first node is `nodeX` from its leading edge, from `top` down to the
+/// bottom. It is shaped as a plain
 /// row's card, whose node is `plainNodeY` down it, whichever row it is, never from how far down its
 /// own row the node is: on a plain row the node sits as far in from the fill's leading edge as from
 /// its top, and the corners are close to concentric with the node, their radius that inset plus
@@ -216,6 +220,9 @@ struct LiftedCard: View, Animatable {
 struct CardFill: View {
     let nodeX: CGFloat
     let plainNodeY: CGFloat
+    /// How far below the frame's top the card starts: on the current exercise, as far above its
+    /// node as a plain row's card is above its own.
+    var top: CGFloat = 0
     let size: CGSize
 
     var body: some View {
@@ -224,9 +231,9 @@ struct CardFill: View {
         // concentric with the node.
         RoundedRectangle(cornerRadius: plainNodeY, style: .continuous)
             .fill(.pp(.surfaceRaised))
-            .frame(width: max(size.width - 2 * leading, 0), height: size.height)
-            .frame(width: size.width, height: size.height, alignment: .leading)
-            .offset(x: leading)
+            .frame(width: max(size.width - 2 * leading, 0), height: max(size.height - top, 0))
+            .frame(width: size.width, height: size.height, alignment: .topLeading)
+            .offset(x: leading, y: top)
     }
 }
 
@@ -234,17 +241,22 @@ struct CardFill: View {
 nonisolated struct CardOutline: Shape {
     let nodeX: CGFloat
     let plainNodeY: CGFloat
+    var top: CGFloat = 0
+
+    /// The card's own rectangle in a frame `rect`.
+    func fill(in rect: CGRect) -> CGRect {
+        let leading = nodeX - plainNodeY
+        return CGRect(
+            x: rect.minX + leading,
+            y: rect.minY + top,
+            width: max(rect.width - 2 * leading, 0),
+            height: max(rect.height - top, 0),
+        )
+    }
 
     func path(in rect: CGRect) -> Path {
-        let leading = nodeX - plainNodeY
-        let fill = CGRect(
-            x: rect.minX + leading,
-            y: rect.minY,
-            width: max(rect.width - 2 * leading, 0),
-            height: rect.height,
-        )
-        return RoundedRectangle(cornerRadius: plainNodeY, style: .continuous)
-            .path(in: fill)
+        RoundedRectangle(cornerRadius: plainNodeY, style: .continuous)
+            .path(in: fill(in: rect))
     }
 }
 
@@ -256,7 +268,11 @@ nonisolated struct CardShadowReach: Shape {
     let reach: CGFloat
 
     func path(in rect: CGRect) -> Path {
-        var path = Path(rect.insetBy(dx: -reach, dy: -reach))
+        // From the card's own top, which on the current exercise is below the frame's.
+        var around = rect
+        around.origin.y += card.top
+        around.size.height = max(around.height - card.top, 0)
+        var path = Path(around.insetBy(dx: -reach, dy: -reach))
         path.addPath(card.path(in: rect.insetBy(dx: 1, dy: 1)))
         return path
     }
