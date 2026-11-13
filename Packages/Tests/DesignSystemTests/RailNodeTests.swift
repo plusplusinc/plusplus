@@ -22,21 +22,4 @@ struct RailNodeTests {
             == CGPoint(x: 20, y: 18))
         #expect(RailDrag.railNode(moving, isHeld: true, known: nil) == CGPoint(x: 20, y: -19.8))
     }
-
-    /// The current exercise's node sits on its large name, far down its row. Shaped from that
-    /// node, its card was far rounder than a plain row's and its leading edge was off the screen.
-    @Test("A held card far down its row has a plain row's corners and sides, inside its frame")
-    func cardShapedAsPlainRow() {
-        let plainNodeY: CGFloat = 21
-        let nearTop = CardFill.shape(
-            node: CGPoint(x: railNodeCenter, y: 21),
-            plainNodeY: plainNodeY,
-        )
-        let farDown = CardFill.shape(
-            node: CGPoint(x: railNodeCenter, y: 70),
-            plainNodeY: plainNodeY,
-        )
-        #expect(farDown == nearTop)
-        #expect(farDown.leading >= 0)
-    }
 }

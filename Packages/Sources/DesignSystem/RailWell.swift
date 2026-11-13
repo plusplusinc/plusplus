@@ -55,8 +55,7 @@ nonisolated struct WellOutline: Equatable {
     ///
     /// Where the held card is an end, `card`, that end is concentric with the card's corners
     /// instead (`CardFill`: centered on its node, as round as a plain row's node is far down it),
-    /// as
-    /// far past the card as the sides are out from it. The sides keep the loop's rule either
+    /// as far past the card as the sides are out from it. The sides keep the loop's rule either
     /// way, so the well stays centered on the rows, and the card, as wide as the rows less its
     /// node's inset either side, sits inside it.
     init(rows: ClosedRange<CGFloat>, node: CGPoint, pen: LoopPen, card: WellCard = WellCard()) {
