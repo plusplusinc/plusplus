@@ -72,11 +72,18 @@ plainly.
 Each role's model is set in `docs/agent-tooling.md`'s "Models by task" and changed only by a
 trial weighed on the record (its "Agent records" section).
 
-- **The tally**: `scripts/agent-record.py tally <the last review's date>`, once. When it names more
+- **The tally**: the agents' tally since the last review's date. With `nightly`, read it from
+  `<main checkout>/.build/retro/<today>/agent-tally-review.txt` (`date +%F`), which
+  `scripts/nightly-tooling.py` writes before the review starts, from the last report's date (a
+  month back with none), with a part per trial since its start; never run the command then. A
+  file that reads "No tally tonight: <why>", or a missing one, means no tally tonight: say that
+  line under "Kept", and weigh no model change on it. Run by hand, run
+  `scripts/agent-record.py tally <the last review's date>` yourself, once, and `tally <its
+  date>` for each trial, which a person can approve. When the tally names more
   PRs with no record than with one, the record is the finding, not the models: say so, and
   propose no trial on it.
-- **A trial running**: a row whose Set reads `<date>, trial for <n> PRs`. Once `tally <that
-  date>` shows the role on its trial model in that many PRs, compare it with the model it
+- **A trial running**: a row whose Set reads `<date>, trial for <n> PRs`. Once its tally since
+  that date shows the role on its trial model in that many PRs, compare it with the model it
   replaced (its Evidence names it) on the tally from before the date: cost per PR, and fix rounds
   and failed pushes for the builder, problems caught for the verifier. Keep it or revert it, and
   card that edit: the row's Set becomes the date it was decided, its Evidence the two models'

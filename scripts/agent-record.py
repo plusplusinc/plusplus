@@ -31,7 +31,9 @@ it cost. It counts only comments by the repo's owner, members, or collaborators.
 it prints runs, tokens and minutes per PR, and, for the builder, fix rounds and failed pushes per
 PR, and for the verifier, per PR, the problems it caught that the builder missed (its record's
 `new` lines but `test`) and the tests it added (`test, new`). A PR with no agent record is named
-as having none, never counted as zeros. It needs `gh`.
+as having none, never counted as zeros. It needs `gh`. At night, `scripts/nightly-tooling.py tally`
+calls the same fetch and tally and writes them to the night's folder for the retro and the setup
+review.
 
 Tests: python3 scripts/agent-record-test.py, with a stand-in `gh`, which scripts/test.sh runs.
 """
@@ -41,6 +43,7 @@ import json
 import re
 import subprocess
 import sys
+import time
 from collections import defaultdict
 from pathlib import Path
 
@@ -51,13 +54,14 @@ GENERAL = "general-purpose"  # no row: the model it fell to is passed
 TRUSTED = {"OWNER", "MEMBER", "COLLABORATOR"}
 ROLLUP_FAILED = {"FAILURE", "ERROR"}
 RUN_FAILED = {"FAILURE", "TIMED_OUT", "STARTUP_FAILURE"}  # a check run's conclusion; CANCELLED is none
+GH_LIMIT = 120  # seconds one GraphQL request may take, so a hung gh never holds the night's tally
 LINE = re.compile(r"^- (?P<role>[\w -]+?), (?P<model>[\w.\[\]-]+), round (?P<round>\d+): (?P<tokens>\d+) tokens, "
                   r"(?P<tools>\d+) tool uses, (?P<minutes>\d+(\.\d)?) min(; (?P<note>.+))?$")
 FINDING = re.compile(r"^- (?P<kind>\w+), new:")
 QUERY = """query($q: String!, $after: String) {
   search(type: ISSUE, first: 100, query: $q, after: $after) {
     pageInfo { hasNextPage endCursor }
-    nodes { ... on PullRequest { number
+    nodes { ... on PullRequest { number mergedAt
       comments(first: 100) { nodes { body authorAssociation } }
       commits(first: 100) { nodes { commit { id statusCheckRollup { state } } } } } } }
   rateLimit { cost remaining } }"""
@@ -139,9 +143,10 @@ def repo():
     return re.search(r"github\.com[:/](.+?)(\.git)?$", url)[1]
 
 
-def graphql(*fields):
+def graphql(*fields, timeout=GH_LIMIT):
     args = ["gh", "api", "graphql"] + [arg for field in fields for arg in ("-f", field)]
-    return json.loads(subprocess.run(args, capture_output=True, text=True, check=True).stdout)["data"]
+    return json.loads(subprocess.run(args, capture_output=True, text=True, check=True,
+                                     timeout=timeout).stdout)["data"]
 
 
 def bodies(pr):
@@ -153,13 +158,25 @@ def rollups(pr):
     return [rollup for c in pr["commits"]["nodes"] if (rollup := (c["commit"] or {}).get("statusCheckRollup"))]
 
 
-def fetch(since):
+def fetch(since, limit=None):
     """The merged PRs, with the checks of each recorded PR's commits that read failed, and the
-    GraphQL points the requests cost and left."""
+    GraphQL points the requests cost and left. Each request may take GH_LIMIT seconds, or, given
+    a limit, all of them together that many: past it, TimeoutExpired, its timeout the limit."""
+    until = time.monotonic() + limit if limit else None
+
+    def ask(*fields):
+        left = GH_LIMIT if until is None else until - time.monotonic()
+        try:
+            if left <= 0:
+                raise subprocess.TimeoutExpired(["gh", "api", "graphql"], 0)
+            return graphql(*fields, timeout=left)
+        except subprocess.TimeoutExpired as error:
+            raise subprocess.TimeoutExpired(error.cmd, limit or GH_LIMIT) from None
+
     query = f"repo:{repo()} is:pr is:merged base:main merged:>={since}"
     prs, cost, after = [], 0, None
     while True:
-        data = graphql(f"query={QUERY}", f"q={query}", *([f"after={after}"] if after else []))
+        data = ask(f"query={QUERY}", f"q={query}", *([f"after={after}"] if after else []))
         prs += [node for node in data["search"]["nodes"] if node]
         cost += data["rateLimit"]["cost"]
         remaining = data["rateLimit"]["remaining"]
@@ -172,7 +189,7 @@ def fetch(since):
               and rollup.get("state") in ROLLUP_FAILED and "contexts" not in rollup}
     ids = sorted(unread)
     for start in range(0, len(ids), 100):
-        data = graphql("query=" + CHECKS % ", ".join(json.dumps(i) for i in ids[start:start + 100]))
+        data = ask("query=" + CHECKS % ", ".join(json.dumps(i) for i in ids[start:start + 100]))
         for node in data["nodes"]:
             if node and node.get("statusCheckRollup"):
                 unread[node["id"]]["contexts"] = node["statusCheckRollup"]["contexts"]
@@ -290,6 +307,9 @@ def main(argv):
             return 0
     except ValueError as error:
         print(f"agent-record: {error}", file=sys.stderr)
+        return 1
+    except subprocess.TimeoutExpired as error:
+        print(f"agent-record: {' '.join(error.cmd[:3])} took over {GH_LIMIT} s", file=sys.stderr)
         return 1
     except subprocess.CalledProcessError as error:
         print(f"agent-record: {' '.join(error.cmd[:3])} failed: {(error.stderr or '').strip()} "

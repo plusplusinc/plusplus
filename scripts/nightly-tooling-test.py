@@ -638,6 +638,148 @@ class SetupReview(unittest.TestCase):
             self.assertIsNone(nightly.review_due(None, self.FIRST.replace(hour=hour), "27"), hour)
 
 
+class AgentTally(unittest.TestCase):
+    """The agents' tallies the night writes for the retro and the setup review."""
+
+    def setUp(self):
+        self.night = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.night)
+        self.fetched = []
+
+    def fetch(self, since):
+        self.fetched.append(since)
+        return [{"number": 1, "mergedAt": "2026-10-20T10:00:00Z"}, {"number": 2, "mergedAt": "2026-11-05T10:00:00Z"},
+                {"number": 3, "mergedAt": "2026-11-11T23:00:00Z"}], 2, 4998
+
+    @staticmethod
+    def tally(prs, since):
+        return f"since {since}: " + " ".join(f"#{pr['number']}" for pr in prs)
+
+    def test_one_fetch_writes_each_file_from_its_own_date(self):
+        nightly.write_tallies(self.night, {
+            nightly.TALLY: [("", "2026-10-13")],
+            nightly.REVIEW_TALLY: [("Since the last setup review, 2026-11-01:", "2026-11-01"),
+                                   ("Trial: builder on claude-sonnet-5-5, 2026-11-10, trial for 5 PRs; since its start:",
+                                    "2026-11-10")]}, self.fetch, self.tally)
+        self.assertEqual(self.fetched, ["2026-10-13"])
+        retro = (self.night / nightly.TALLY).read_text()
+        self.assertTrue(retro.startswith("since 2026-10-13: #1 #2 #3\n"), retro)
+        self.assertIn("cost 2 GraphQL points; 4998 left", retro)
+        review = (self.night / nightly.REVIEW_TALLY).read_text()
+        self.assertIn("Since the last setup review, 2026-11-01:\nsince 2026-11-01: #2 #3", review)
+        self.assertIn("since its start:\nsince 2026-11-10: #3", review)
+
+    def test_a_failed_fetch_writes_why_in_each_file_and_goes_on(self):
+        def fails(since):
+            raise subprocess.CalledProcessError(1, ["gh", "api", "graphql", "-f", "query=…"],
+                                                stderr="error\ngh: not signed in\n")
+        nightly.write_tallies(self.night, {nightly.TALLY: [("", "2026-10-13")],
+                                           nightly.REVIEW_TALLY: [("x", "2026-11-01")]}, fails, self.tally)
+        for name in (nightly.TALLY, nightly.REVIEW_TALLY):
+            self.assertEqual((self.night / name).read_text(),
+                             "No tally tonight: gh api graphql failed: gh: not signed in\n")
+
+    def test_a_hung_fetch_says_how_long_not_the_query(self):
+        def hangs(since):
+            raise subprocess.TimeoutExpired(["gh", "api", "graphql", "-f", "query=" + "x" * 500], 120)
+        nightly.write_tallies(self.night, {nightly.TALLY: [("", "2026-10-13")]}, hangs, self.tally)
+        self.assertEqual((self.night / nightly.TALLY).read_text(), "No tally tonight: GitHub's answers took over 120 s\n")
+
+    def stand_in_gh(self, script):
+        """A gh on the PATH, running script, for this test only."""
+        folder = self.night / "bin"
+        folder.mkdir(exist_ok=True)
+        (folder / "gh").write_text(f"#!/bin/sh\n{script}\n")
+        (folder / "gh").chmod(0o755)
+        path = os.environ["PATH"]
+        os.environ["PATH"] = f"{folder}:{path}"
+        self.addCleanup(os.environ.__setitem__, "PATH", path)
+
+    def test_one_hung_request_is_cut_off_at_its_limit(self):
+        self.stand_in_gh("sleep 30")
+        record = nightly.agent_record()
+        record.GH_LIMIT = 0.5
+        start = time.monotonic()
+        with self.assertRaises(subprocess.TimeoutExpired) as caught:
+            record.fetch("2026-10-13")
+        self.assertLess(time.monotonic() - start, 5)
+        self.assertEqual(caught.exception.timeout, 0.5)
+
+    def test_a_fetch_that_pages_is_cut_off_at_the_whole_limit(self):
+        # Each page answers in a fifth of a second, far inside its own limit, and twenty pages take
+        # four seconds: only the bound on them all ends the fetch before its last page.
+        def page(more):
+            return json.dumps({"data": {"search": {"pageInfo": {"hasNextPage": more, "endCursor": "x"}, "nodes": []},
+                                        "rateLimit": {"cost": 1, "remaining": 4999}}})
+        count = self.night / "pages"
+        self.stand_in_gh(f"sleep 0.2\necho . >> '{count}'\n"
+                         f"if [ $(wc -l < '{count}') -lt 20 ]; then echo '{page(True)}'; else echo '{page(False)}'; fi")
+        record = nightly.agent_record()
+        start = time.monotonic()
+        with self.assertRaises(subprocess.TimeoutExpired) as caught:
+            record.fetch("2026-10-13", limit=1)
+        self.assertLess(time.monotonic() - start, 3)
+        self.assertEqual(caught.exception.timeout, 1)
+        count.unlink()
+        nightly.write_tallies(self.night, {nightly.TALLY: [("", "2026-10-13")]},
+                              lambda since: record.fetch(since, limit=1), self.tally)
+        self.assertEqual((self.night / nightly.TALLY).read_text(), "No tally tonight: GitHub's answers took over 1 s\n")
+
+    def test_the_review_starts_at_its_last_report_and_each_trial(self):
+        now = datetime(2026, 12, 1, 0, 20).astimezone()
+        self.assertEqual(nightly.review_parts("2026-11-11", now, [("builder", "claude-sonnet-5-5",
+                                                                   "2026-11-20, trial for 5 PRs")]),
+                         [("Since the last setup review, 2026-11-11:", "2026-11-11"),
+                          ("Trial: builder on claude-sonnet-5-5, 2026-11-20, trial for 5 PRs; since its start:",
+                           "2026-11-20")])
+        self.assertEqual(nightly.review_parts(None, now, []),
+                         [("No setup review's report yet, so over the last 30 days:", "2026-11-01")])
+        self.assertEqual(nightly.review_parts(None, now, "ValueError: no table")[1],
+                         ("Trials not read: ValueError: no table", None))
+
+    def test_the_last_reports_whole_date(self):
+        for name in ("report-2026-10-30.md", "report-2026-11-11.md", "notes.md"):
+            (self.night / name).write_text("# Setup review\n")
+        self.assertEqual(nightly.last_review_date(self.night), "2026-11-11")
+        (self.night / "report-2026-10-30.md").unlink()
+        (self.night / "report-2026-11-11.md").unlink()
+        self.assertIsNone(nightly.last_review_date(self.night))
+
+    def test_the_command_with_gh_refusing_writes_why_and_exits_cleanly(self):
+        bin_dir = self.night / "bin"
+        bin_dir.mkdir()
+        (bin_dir / "gh").write_text("#!/bin/sh\necho 'gh: not signed in' >&2\nexit 1\n")
+        (bin_dir / "gh").chmod(0o755)
+        night = self.night / "2026-11-12"
+        out = subprocess.run([sys.executable, str(SCRIPTS / "nightly-tooling.py"), "tally", str(night)],
+                             capture_output=True, text=True, env={**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}"})
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual((night / nightly.TALLY).read_text(),
+                         "No tally tonight: gh api graphql failed: gh: not signed in\n")
+
+    def test_the_command_counts_the_prs_github_says_merged(self):
+        # Like GitHub, the stand-in answers only the fields the query asks for, so the night's
+        # tally counts these PRs only when scripts/agent-record.py's query asks when each merged.
+        bin_dir = self.night / "bin"
+        bin_dir.mkdir()
+        merged = f"{datetime.now().astimezone() - timedelta(days=2):%Y-%m-%dT%H:%M:%SZ}"
+        (bin_dir / "gh").write_text(f"""#!/usr/bin/env python3
+import json, sys
+query = " ".join(sys.argv)
+fields = {{"mergedAt": {merged!r}}} if "mergedAt" in query else {{}}
+nodes = [dict(number=n, comments=dict(nodes=[]), commits=dict(nodes=[]), **fields) for n in (41, 42)]
+print(json.dumps({{"data": {{"search": {{"pageInfo": {{"hasNextPage": False, "endCursor": None}}, "nodes": nodes}},
+                             "rateLimit": {{"cost": 1, "remaining": 4999}}}}}}))
+""")
+        (bin_dir / "gh").chmod(0o755)
+        night = self.night / "night"
+        out = subprocess.run([sys.executable, str(SCRIPTS / "nightly-tooling.py"), "tally", str(night)],
+                             capture_output=True, text=True, timeout=60,
+                             env={**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}"})
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn(": 2 merged,", (night / nightly.TALLY).read_text())
+
+
 class Digest(unittest.TestCase):
     def test_a_merged_pr_has_its_undo_line(self):
         line = nightly.digest_block({"number": 120, "title": "Lint the UI tests"}, "0123456789abcdef",

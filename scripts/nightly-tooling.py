@@ -2,6 +2,7 @@
 """After the nightly retro, runs eligible tooling cards one at a time, each with its own lead.
 
     scripts/nightly-tooling.py run <night-dir> [--dry-run] [--now 2026-10-29T01:30]
+    scripts/nightly-tooling.py tally <night-dir>             # the agents' tallies, for the retro and the review
     scripts/nightly-tooling.py review <night-dir>            # the setup review, when one is due
     scripts/nightly-tooling.py hook <night-dir> <worktree>   # a card's PreToolUse hook
     scripts/nightly-tooling.py pre-push <night-dir>          # a card's git pre-push hook
@@ -31,6 +32,15 @@ a newer major Xcode installed since the last report, it runs one `claude -p` wit
 `/review-setup nightly` in the main checkout, for at most 90 minutes, on at most two nights a
 month, and without the tools in REVIEW_DENIED. Its reply's last line goes in the digest.
 
+scripts/nightly-retro.sh run calls `tally` before the retro, so neither agent runs
+scripts/agent-record.py, which their skills' allowed tools don't hold. It writes the retro's agents'
+tally, over the PRs merged in the last 30 days, to agent-tally.txt in the night's folder, and, when
+the setup review runs tonight, the review's, since its last report and since each trial's start
+(docs/agent-tooling.md's "Models by task"), to agent-tally-review.txt, all from one fetch. The
+fetch's requests are cut off after three minutes together; a tally that fails or runs past that
+writes "No tally tonight: <why>" in its file instead, and the night goes on. `review` writes the review's file itself when the
+night's `tally` didn't.
+
 `hook` is the PreToolUse hook `run` gives each card's claude through --settings. It runs before
 the permission rules, and its deny wins over their allow. It reads each Bash command as the shell
 would split it, `bash -c`, `eval`, and `$(...)` included, and denies a merge of a PR (`gh pr
@@ -55,6 +65,7 @@ putting them at the top of the digest.
 Tests: python3 scripts/nightly-tooling-test.py, against fixtures, with no network.
 """
 import fnmatch
+import importlib.util
 import json
 import os
 import re
@@ -108,6 +119,10 @@ RETRO_TITLE = "Retro of"  # how every retro PR's title starts (.claude/skills/re
 REVIEW_REPORTS = ".slices/review-setup"  # in the main checkout (.claude/skills/review-setup/)
 REVIEW_STREAM = "review-setup.jsonl"  # the setup review's stream-json, in the night's folder
 REVIEW_LIMIT = timedelta(minutes=90)  # a setup review is stopped after this, or at the 5 am cutoff
+TALLY = "agent-tally.txt"  # the retro's agents' tally, in the night's folder (.claude/skills/retro/)
+REVIEW_TALLY = "agent-tally-review.txt"  # the setup review's (.claude/skills/review-setup/)
+TALLY_DAYS = 30  # the retro's tally covers the PRs merged in these last days
+TALLY_LIMIT = 180  # seconds the night waits for a tally's GitHub requests, all of them together
 REVIEW_TRIES = 2  # nights a month that may start a setup review, so a failing one doesn't eat every night's cards
 # What the unattended setup review may never do, whatever auto mode allows: it writes its report
 # and cards only (.claude/skills/review-setup/).
@@ -311,6 +326,70 @@ def review_due(last, now, xcode, tries=0):
     if xcode and major and int(xcode) > int(major):
         return f"Xcode {xcode} is installed since the last review, on Xcode {major}"
     return None
+
+
+def last_review_date(folder):
+    """The date of the newest setup review's report in folder, YYYY-MM-DD, or None: the review's
+    tally starts there, as the skill's "Collect" does."""
+    reports = sorted(Path(folder).glob("report-20[0-9][0-9]-[0-9][0-9]-[0-9][0-9].md"))
+    return reports[-1].stem.removeprefix("report-") if reports else None
+
+
+def review_parts(last, now, trials):
+    """The setup review's tally as (heading, since) parts: since its last report, else over the last
+    TALLY_DAYS (the skill looks back a month with none), then one per row on trial, since its date.
+    trials is [(role, model, set)], or a string saying why the table wasn't read."""
+    since = last or f"{now - timedelta(days=TALLY_DAYS):%Y-%m-%d}"
+    parts = [(f"Since the last setup review, {last}:" if last else
+              f"No setup review's report yet, so over the last {TALLY_DAYS} days:", since)]
+    if isinstance(trials, str):
+        return parts + [(f"Trials not read: {trials}", None)]
+    return parts + [(f"Trial: {role} on {model}, {set_}; since its start:", set_[:10]) for role, model, set_ in trials]
+
+
+def write_tallies(folder, wanted, fetch, tally):
+    """Writes each file in wanted ({name: [(heading, since)]}) to the night's folder, from one fetch
+    since the earliest date (scripts/agent-record.py's fetch and tally), so the night spends one set
+    of GitHub requests. A part whose since is None is its heading alone. Any failure writes one line
+    to each file, "No tally tonight: <why>", never an empty file, and never stops the night."""
+    dates = [since for parts in wanted.values() for _, since in parts if since]
+    try:
+        prs, cost, remaining = fetch(min(dates))
+        texts = {}
+        for name, parts in wanted.items():
+            blocks = ["\n".join(filter(None, [heading, since and tally(
+                [p for p in prs if (p.get("mergedAt") or "")[:10] >= since], since)])) for heading, since in parts]
+            texts[name] = "\n\n".join(blocks) + (f"\n\nOne fetch, since {min(dates)}, cost {cost} GraphQL "
+                                                 f"points; {remaining} left this hour.\n")
+    except Exception as error:  # noqa: BLE001 - a tally must never stop the night, whatever went wrong
+        why = f"{type(error).__name__}: {error}"
+        if isinstance(error, subprocess.CalledProcessError):
+            said = (error.stderr or "").strip().splitlines()
+            why = f"{' '.join(error.cmd[:3])} failed: {said[-1] if said else 'no output'}"
+        elif isinstance(error, subprocess.TimeoutExpired):  # its text holds the whole query
+            why = f"GitHub's answers took over {error.timeout:.0f} s"
+        texts = dict.fromkeys(wanted, f"No tally tonight: {why}\n")
+    for name, text in texts.items():
+        (Path(folder) / name).write_text(text)
+    return texts
+
+
+def agent_record():
+    """scripts/agent-record.py as a module, whose name has a dash."""
+    spec = importlib.util.spec_from_file_location("agent_record", ROOT / "scripts/agent-record.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def trial_rows(record):
+    """[(role, model, set)] of the "Models by task" rows on trial, or why the table wasn't read."""
+    try:
+        models = record.models()
+        rows = models.table((ROOT / models.TABLE).read_text())
+    except FAILURES as error:
+        return f"{type(error).__name__}: {error}"
+    return [(row["Role"], row["Model"], row["Set"]) for row in rows if "trial" in row["Set"]]
 
 
 def protected(files):
@@ -1454,21 +1533,51 @@ def last_reply(lines):
     return ""
 
 
-def review(folder, now):
-    """Runs the setup review (/review-setup nightly) in the main checkout when review_due says so,
-    its stream-json in the night's folder, where the cards' usage gates read it after."""
-    folder = Path(folder)
+def review_reason(now):
+    """(why the setup review runs tonight or None, the main checkout)."""
     try:
         xcode = xcode_major(sh("xcodebuild", "-version", check=False))
     except FAILURES:
         xcode = None
     main = main_checkout()
-    why = review_due(last_review(main / REVIEW_REPORTS), now, xcode, review_tries(main / ".build/retro", now))
+    return review_due(last_review(main / REVIEW_REPORTS), now, xcode, review_tries(main / ".build/retro", now)), main
+
+
+def tallies(folder, now, review_only=False):
+    """Writes the agents' tallies to the night's folder before the agents that read them start: the
+    retro's over the last TALLY_DAYS, and, when the setup review runs tonight, the review's, both
+    from one fetch. review_only writes the review's alone, when it has none yet."""
+    folder = Path(folder)
+    folder.mkdir(parents=True, exist_ok=True)
+    wanted = {} if review_only else {TALLY: [("", f"{now - timedelta(days=TALLY_DAYS):%Y-%m-%d}")]}
+    try:
+        why, main = review_reason(now)
+        record = agent_record()
+        if why:
+            wanted[REVIEW_TALLY] = review_parts(last_review_date(main / REVIEW_REPORTS), now, trial_rows(record))
+        texts = write_tallies(folder, wanted, lambda since: record.fetch(since, limit=TALLY_LIMIT),
+                              record.tally) if wanted else {}
+    except Exception as error:  # noqa: BLE001 - before the fetch: still one line saying why, never fatal
+        texts = {REVIEW_TALLY if review_only else TALLY: f"No tally tonight: {type(error).__name__}: {error}\n"}
+        for name, text in texts.items():
+            (folder / name).write_text(text)
+    for name, text in texts.items():
+        log(f"{name}: {text.splitlines()[0][:160]}")
+
+
+def review(folder, now):
+    """Runs the setup review (/review-setup nightly) in the main checkout when review_due says so,
+    its stream-json in the night's folder, where the cards' usage gates read it after. The night's
+    `tally` wrote its agents' tally before the retro; one it didn't is written here."""
+    folder = Path(folder)
+    why, main = review_reason(now)
     if not why:
         log("No setup review tonight.")
         return
     log(f"Setup review: {why}.")
     folder.mkdir(parents=True, exist_ok=True)
+    if not (folder / REVIEW_TALLY).exists():
+        tallies(folder, now, review_only=True)
     # Capped well inside the night, so a long review still leaves the cards their hours.
     run_claude(["claude", "--name", "Setup review", "-p", "--permission-mode", "auto",
                 "--model", REVIEW_MODEL, "--effort", REVIEW_EFFORT, "--output-format",
@@ -1560,6 +1669,8 @@ def main(args):
         Night(args[1], now, "--dry-run" in args).run()
     elif args[:1] == ["review"] and len(args) == 2:
         review(args[1], datetime.now().astimezone())
+    elif args[:1] == ["tally"] and len(args) == 2:
+        tallies(args[1], datetime.now().astimezone())
     elif args[:1] == ["hook"] and len(args) == 3:
         hook(args[1], args[2])
     elif args[:1] == ["pre-push"] and len(args) == 2:

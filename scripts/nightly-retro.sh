@@ -25,6 +25,8 @@
 # runs the night on the installed version), and writes one line saying what happened to the night's
 # claude-update.txt, which the tooling runner's digest reads. A running session keeps its version
 # until it exits, so this never breaks one in flight; the desktop app's copy updates with the app.
+# Then `scripts/nightly-tooling.py tally` writes the agents' tallies the retro and the setup review
+# read to the night's folder (its header says which), never stopping the night.
 #
 # show reads the reply from the run's transcript (scripts/conversations.py --retro-reply), which
 # holds it whole, including while a run is still going, then the tooling runner's last digest.
@@ -134,6 +136,7 @@ run() {
     # the tooling runner reads the usage limits from the stream. The runner runs after it whether
     # or not it succeeded; its own gates decide whether any card starts.
     env -i "${vars[@]}" /bin/zsh -lic "\"$main/scripts/nightly-retro.sh\" update \"$night\";
+        \"$main/scripts/nightly-tooling.py\" tally \"$night\";
         caffeinate -s claude --name \"$NAME\" -p --permission-mode auto \
         --model \"$RETRO_MODEL\" --effort \"$RETRO_EFFORT\" \
         --output-format stream-json --verbose \"/retro nightly\" >> \"$night/retro.jsonl\";
