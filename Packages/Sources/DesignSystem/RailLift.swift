@@ -69,6 +69,10 @@ struct CardLook: ViewModifier {
     /// Where the rail under the card shows no strokes, in the rail's space (`Rail.cutouts`).
     let holes: [CGRect]
     @State private var hasRisen: Bool
+    /// How far down a plain row its node is (`PlainRowNode`), which shapes the card. Measured on
+    /// the card, at the card's own place on the pixel grid, so a plain row's card is shaped from
+    /// exactly its own node.
+    @State private var plainNodeY: CGFloat?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// `hasRisen` draws it already risen, for a preview or a snapshot of a moment of a drag.
@@ -91,9 +95,12 @@ struct CardLook: ViewModifier {
         content
             .environment(\.railPlace, RailPlace(drawsOwnLine: false, isRaised: isRaised))
             .backgroundPreferenceValue(RailNodes.self) { nodes in
-                if let node = nodes.first {
+                // Not drawn until a plain row's node is measured: from the row's own node, the
+                // current exercise's card would show, for a frame, past the screen's edges.
+                if let node = nodes.first, let plainNodeY {
                     LiftedCard(
                         node: node,
+                        plainNodeY: plainNodeY,
                         lifted: isRaised ? 1 : 0,
                         strokes: strokes,
                         top: top,
@@ -102,9 +109,41 @@ struct CardLook: ViewModifier {
                     )
                 }
             }
+            .background(alignment: .topLeading) { PlainRowNode(y: $plainNodeY) }
             .onAppear {
                 withAnimation(reduceMotion ? nil : RailDrag.lift) { hasRisen = true }
             }
+    }
+}
+
+/// How far down a plain row its node is, measured from a hidden one-line row at the current text
+/// size: what shapes a held card, whichever row it is. The rows' own nodes can't give it in a
+/// routine whose only row is the current exercise, its node on its large name well down the row.
+private struct PlainRowNode: View {
+    @Binding var y: CGFloat?
+
+    var body: some View {
+        Text(verbatim: "A")
+            .font(.ppRowTitle)
+            .railRow()
+            // A plain row's place, whatever row the card is.
+            .environment(\.railPlace, RailPlace())
+            .fixedSize()
+            .hidden()
+            .backgroundPreferenceValue(RailNodes.self) { nodes in
+                GeometryReader { proxy in
+                    let measured = nodes.first.map { proxy[$0].y }
+                    Color.clear.onChange(of: measured, initial: true) { _, new in
+                        if let new {
+                            y = new
+                        }
+                    }
+                }
+            }
+            // Its node is no row's: nothing past here reads it.
+            .transformPreference(RailNodes.self) { $0 = [] }
+            .accessibilityHidden(true)
+            .allowsHitTesting(false)
     }
 }
 
@@ -116,6 +155,8 @@ struct CardLook: ViewModifier {
 /// the line and the loops keep one shade through the card and past its edges.
 struct LiftedCard: View, Animatable {
     let node: Anchor<CGPoint>
+    /// How far down a plain row its node is, which shapes the card.
+    let plainNodeY: CGFloat
     /// How far risen it is, from 0 at rest to 1 held.
     var lifted: Double
     var strokes: HeldRailDrawing?
@@ -126,7 +167,6 @@ struct LiftedCard: View, Animatable {
     var rest: CGFloat?
     /// Where the rail shows no strokes, in the rail's space.
     var holes: [CGRect] = []
-    @ScaledMetric(relativeTo: .body) private var nodeSize = railNodeSize
 
     var animatableData: AnimatablePair<Double, CGFloat> {
         get { AnimatablePair(lifted, top) }
@@ -136,7 +176,8 @@ struct LiftedCard: View, Animatable {
     var body: some View {
         let away = rest.map { min(abs(top - $0) / RailDrag.settleReach, 1) } ?? 0
         GeometryReader { proxy in
-            CardFill(node: proxy[node], size: proxy.size)
+            let at = proxy[node]
+            CardFill(nodeX: at.x, plainNodeY: plainNodeY, size: proxy.size)
                 .shadow(color: .pp(.shadow), radius: RailDrag.liftedShadow)
                 .opacity(max(lifted, away))
             // Not faded with the card: they are the rail's own strokes, so they look the same at
@@ -147,9 +188,9 @@ struct LiftedCard: View, Animatable {
                 .offset(y: -top)
                 .mask {
                     ZStack(alignment: .topLeading) {
-                        CardFill(node: proxy[node], size: proxy.size)
+                        CardFill(nodeX: at.x, plainNodeY: plainNodeY, size: proxy.size)
                         CardShadowReach(
-                            card: CardOutline(node: proxy[node], nodeSize: nodeSize),
+                            card: CardOutline(nodeX: at.x, plainNodeY: plainNodeY),
                             // The shadow fades out within about 1.8 times its radius, measured.
                             reach: 3 * RailDrag.liftedShadow,
                         )
@@ -165,52 +206,44 @@ struct LiftedCard: View, Animatable {
 }
 
 /// The raised fill of a held row's card, with no shadow or border, behind a row or a stretch of
-/// rows, `size` big, whose first node is at `node`, from its top leading corner. The node sits as
-/// far in from the fill's leading edge as from its top, and its corners are close to concentric
-/// with the node: their radius is that inset plus the node's. It is centered across `size`, so on
-/// a screen whose rows are, its edges are as far from the screen's, and a row's content stops that
-/// inset short of its trailing edge.
+/// rows, `size` big, whose first node is `nodeX` from its leading edge. It is shaped as a plain
+/// row's card, whose node is `plainNodeY` down it, whichever row it is, never from how far down its
+/// own row the node is: on a plain row the node sits as far in from the fill's leading edge as from
+/// its top, and the corners are close to concentric with the node, their radius that inset plus
+/// half the node, which is `plainNodeY`. It is centered across `size`, so on a screen whose rows
+/// are, its edges are as far from the screen's, and a row's content stops that inset short of its
+/// trailing edge.
 struct CardFill: View {
-    let node: CGPoint
+    let nodeX: CGFloat
+    let plainNodeY: CGFloat
     let size: CGSize
-    @ScaledMetric(relativeTo: .body) private var nodeSize = railNodeSize
 
     var body: some View {
-        let (inset, leading) = Self.insets(node: node, nodeSize: nodeSize)
+        let leading = nodeX - plainNodeY
         // Continuous, like the app's other shapes, at the cost of sitting about a point off true
         // concentric with the node.
-        RoundedRectangle(cornerRadius: inset + nodeSize / 2, style: .continuous)
+        RoundedRectangle(cornerRadius: plainNodeY, style: .continuous)
             .fill(.pp(.surfaceRaised))
             .frame(width: max(size.width - 2 * leading, 0), height: size.height)
             .frame(width: size.width, height: size.height, alignment: .leading)
             .offset(x: leading)
     }
-
-    /// How far the node, at `node` from the fill's top leading corner, is in from its top, and
-    /// where the fill's leading edge is: as far in from it as from the top.
-    nonisolated static func insets(
-        node: CGPoint,
-        nodeSize: CGFloat,
-    ) -> (top: CGFloat, leading: CGFloat) {
-        let top = node.y - nodeSize / 2
-        return (top, node.x - nodeSize / 2 - top)
-    }
 }
 
 /// `CardFill`'s shape in its frame, to within the pixel its layout rounds to.
 nonisolated struct CardOutline: Shape {
-    let node: CGPoint
-    let nodeSize: CGFloat
+    let nodeX: CGFloat
+    let plainNodeY: CGFloat
 
     func path(in rect: CGRect) -> Path {
-        let (inset, leading) = CardFill.insets(node: node, nodeSize: nodeSize)
+        let leading = nodeX - plainNodeY
         let fill = CGRect(
             x: rect.minX + leading,
             y: rect.minY,
             width: max(rect.width - 2 * leading, 0),
             height: rect.height,
         )
-        return RoundedRectangle(cornerRadius: inset + nodeSize / 2, style: .continuous)
+        return RoundedRectangle(cornerRadius: plainNodeY, style: .continuous)
             .path(in: fill)
     }
 }
