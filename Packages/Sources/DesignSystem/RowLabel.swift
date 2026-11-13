@@ -222,8 +222,8 @@ public struct RowLabel: View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(focus.figures, id: \.self) { figure in
                 FigureLayout(spacing: Spacing.sm) {
-                    number(figure)
-                    unit(figure)
+                    number(figure).modifier(BaselineMark())
+                    unit(figure).modifier(BaselineMark())
                 }
             }
         }
@@ -374,4 +374,17 @@ func rollingWords(_ text: String) -> [[String]] {
         groups.append(group)
     }
     return groups
+}
+
+/// Marks a text's last baseline for the held card (`CardMarks`).
+private struct BaselineMark: ViewModifier {
+    func body(content: Content) -> some View {
+        content.overlay(alignment: Alignment(horizontal: .leading, vertical: .lastTextBaseline)) {
+            Color.clear
+                .frame(width: 0, height: 0)
+                .anchorPreference(key: CardMarks.self, value: .center) {
+                    CardMarks.Value(baselines: [$0])
+                }
+        }
+    }
 }

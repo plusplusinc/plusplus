@@ -1,3 +1,4 @@
+import CoreText
 import SwiftUI
 
 /// A row's name, `ppRowTitle` on a row and `ppCurrentTitle` on the current exercise, growing
@@ -34,6 +35,14 @@ struct GrowingName: View, Animatable {
                 .scaleEffect(drawing.smallScale, anchor: .topLeading)
                 .opacity(1 - drawing.largeOpacity)
             name(.ppCurrentTitle)
+                .overlay(alignment: Alignment(horizontal: .leading, vertical: .firstTextBaseline)) {
+                    Color.clear
+                        .frame(width: 0, height: capHeight)
+                        .alignmentGuide(.firstTextBaseline) { $0[.bottom] }
+                        .anchorPreference(key: CardMarks.self, value: .top) {
+                            CardMarks.Value(nameTop: $0)
+                        }
+                }
                 .onGeometryChange(for: CGSize.self, of: \.size) { sizes.large = $0 }
                 .scaleEffect(drawing.largeScale, anchor: .topLeading)
                 .opacity(drawing.largeOpacity)
@@ -46,6 +55,10 @@ struct GrowingName: View, Animatable {
             .font(font)
             .foregroundStyle(.pp(.textPrimary))
             .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var capHeight: CGFloat {
+        CTFontGetCapHeight(Font.ppCurrentTitle.resolve(in: fontContext).ctFont)
     }
 
     /// The large size against the small.
