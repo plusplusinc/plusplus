@@ -95,7 +95,9 @@ struct CardLook: ViewModifier {
         content
             .environment(\.railPlace, RailPlace(drawsOwnLine: false, isRaised: isRaised))
             .backgroundPreferenceValue(RailNodes.self) { nodes in
-                if let node = nodes.first {
+                // Not drawn until a plain row's node is measured: from the row's own node, the
+                // current exercise's card would show, for a frame, past the screen's edges.
+                if let node = nodes.first, let plainNodeY {
                     LiftedCard(
                         node: node,
                         plainNodeY: plainNodeY,
@@ -124,6 +126,8 @@ private struct PlainRowNode: View {
         Text(verbatim: "A")
             .font(.ppRowTitle)
             .railRow()
+            // A plain row's place, whatever row the card is.
+            .environment(\.railPlace, RailPlace())
             .fixedSize()
             .hidden()
             .backgroundPreferenceValue(RailNodes.self) { nodes in
@@ -151,9 +155,8 @@ private struct PlainRowNode: View {
 /// the line and the loops keep one shade through the card and past its edges.
 struct LiftedCard: View, Animatable {
     let node: Anchor<CGPoint>
-    /// How far down a plain row its node is, which shapes the card; until measured, the card's own
-    /// node's.
-    var plainNodeY: CGFloat?
+    /// How far down a plain row its node is, which shapes the card.
+    let plainNodeY: CGFloat
     /// How far risen it is, from 0 at rest to 1 held.
     var lifted: Double
     var strokes: HeldRailDrawing?
@@ -174,7 +177,6 @@ struct LiftedCard: View, Animatable {
         let away = rest.map { min(abs(top - $0) / RailDrag.settleReach, 1) } ?? 0
         GeometryReader { proxy in
             let at = proxy[node]
-            let plainNodeY = plainNodeY ?? at.y
             CardFill(nodeX: at.x, plainNodeY: plainNodeY, size: proxy.size)
                 .shadow(color: .pp(.shadow), radius: RailDrag.liftedShadow)
                 .opacity(max(lifted, away))
