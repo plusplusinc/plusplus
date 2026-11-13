@@ -1301,6 +1301,58 @@ class TidyWorktrees(unittest.TestCase):
         self.assertIn(f"tidy: git worktree remove {worktree}", out)
         self.assertEqual(run("git", "branch", "--list", "done-card"), "")
 
+    def test_an_agents_cleanup_removes_its_worktree_and_tidy_deletes_its_simulator(self):
+        # The builder's and verifier's cleanup: `git worktree remove` from a shell still inside the
+        # worktree, then the main checkout's tidy. xcrun is a stand-in that lists one simulator, the
+        # worktree's, and records each call.
+        worktree, run, tidy = self.finished_worktree()
+        root = worktree.parents[3]
+        records = root / "main/.git/plusplus-simulators"
+        records.mkdir()
+        (records / "done-card").write_text("")
+        devices = {"devices": {"iOS": [{"name": "PlusPlus done-card", "udid": "UDID-1", "state": "Shutdown"}]}}
+        runtimes = {"runtimes": [{"platform": "iOS", "isAvailable": True, "version": "1.0", "supportedDeviceTypes": [
+            {"identifier": "com.apple.CoreSimulator.SimDeviceType.iPhone-17"}]}]}
+        (root / "bin/xcrun").write_text(f"""#!/bin/bash
+echo "$*" >> '{root / "xcrun-calls"}'
+case "$*" in
+    "--sdk iphonesimulator --show-sdk-version") echo 1.0 ;;
+    "simctl list --json runtimes") echo '{json.dumps(runtimes)}' ;;
+    "simctl runtime list -j") echo '{{}}' ;;
+    "simctl list devices"*) echo '{json.dumps(devices)}' ;;
+esac
+""")
+        (root / "bin/xcrun").chmod(0o755)
+        run("git", "worktree", "remove", str(worktree), cwd=worktree)
+        self.assertFalse(worktree.exists())
+        out = tidy()
+        self.assertIn('tidy: delete simulator "PlusPlus done-card"', out)
+        self.assertIn("simctl delete UDID-1", (root / "xcrun-calls").read_text().splitlines())
+        self.assertEqual(list(records.iterdir()), [])
+        self.assertEqual(run("git", "branch", "--list", "done-card"), "")
+
+
+class TidyFetch(unittest.TestCase):
+    """scripts/tidy.sh fetches from GitHub over HTTPS whatever the clone's remote, so a session with
+    no SSH key can run it. Nothing leaves the machine: the clone's proxy is a closed local port, so
+    the fetch fails there, naming the address it asked for, and ssh is a stand-in that records a call."""
+
+    def test_an_ssh_remote_is_fetched_over_https_and_ssh_never_runs(self):
+        for remote in ("git@github.com:scratch/repo.git", "ssh://git@github.com/scratch/repo.git"):
+            with self.subTest(remote=remote):
+                root, run, _ = scratch_clone(self)
+                run("git", "remote", "set-url", "origin", remote)
+                run("git", "config", "http.proxy", "http://127.0.0.1:1")
+                ssh = root / "bin/ssh"
+                ssh.write_text(f"#!/bin/bash\necho called >> '{root / 'ssh-calls'}'\nexit 255\n")
+                ssh.chmod(0o755)
+                env = {**os.environ, "PATH": f"{root / 'bin'}:{os.environ['PATH']}", "GIT_SSH_COMMAND": str(ssh)}
+                out = subprocess.run([str(root / "main/scripts/tidy.sh"), "--dry-run"], cwd=root / "main",
+                                     env=env, capture_output=True, text=True)
+                self.assertFalse((root / "ssh-calls").exists(), out.stderr)
+                self.assertIn("'https://github.com/scratch/repo.git/'", out.stderr)
+                self.assertIn("127.0.0.1", out.stderr)
+
 
 class Reverify(unittest.TestCase):
     """Ways around the gates the re-verify found (2026-10-28) that no test above covers."""
