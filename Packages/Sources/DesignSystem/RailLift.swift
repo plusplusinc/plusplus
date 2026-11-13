@@ -75,6 +75,7 @@ struct CardLook: ViewModifier {
     /// the card, at the card's own place on the pixel grid, so a plain row's card is shaped from
     /// exactly its own node.
     @State private var plainNodeY: CGFloat?
+    @State private var marks = CardMarks.Value()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// `hasRisen` draws it already risen, for a preview or a snapshot of a moment of a drag.
@@ -98,6 +99,7 @@ struct CardLook: ViewModifier {
         let isRaised = hasRisen && !isReleased
         content
             .environment(\.railPlace, RailPlace(drawsOwnLine: false, isRaised: isRaised))
+            .onPreferenceChange(CardMarks.self) { marks = $0 }
             .backgroundPreferenceValue(RailNodes.self) { nodes in
                 // Not drawn until a plain row's node is measured: from the row's own node, the
                 // current exercise's card would show, for a frame, past the screen's edges.
@@ -106,6 +108,7 @@ struct CardLook: ViewModifier {
                         node: node,
                         plainNodeY: plainNodeY,
                         isCurrent: isCurrent,
+                        marks: marks,
                         lifted: isRaised ? 1 : 0,
                         strokes: strokes,
                         top: top,
@@ -162,9 +165,11 @@ struct LiftedCard: View, Animatable {
     let node: Anchor<CGPoint>
     /// How far down a plain row its node is, which shapes the card.
     let plainNodeY: CGFloat
-    /// The current exercise's card, which starts `plainNodeY` above its node, as a plain row's
-    /// does, rather than at the row's top: its node sits well down the row, on its large name.
+    /// The current exercise's card, which starts below the row's top (`topInset`): its node sits
+    /// well down the row, on its large name.
     var isCurrent = false
+    /// Where the current exercise's name and figures are, which place its card's top.
+    var marks = CardMarks.Value()
     /// How far risen it is, from 0 at rest to 1 held.
     var lifted: Double
     var strokes: HeldRailDrawing?
@@ -185,7 +190,7 @@ struct LiftedCard: View, Animatable {
         let away = rest.map { min(abs(top - $0) / RailDrag.settleReach, 1) } ?? 0
         GeometryReader { proxy in
             let at = proxy[node]
-            let inset = isCurrent ? max(at.y - plainNodeY, 0) : 0
+            let inset = topInset(at: at, proxy: proxy)
             CardFill(nodeX: at.x, plainNodeY: plainNodeY, top: inset, size: proxy.size)
                 .shadow(color: .pp(.shadow), radius: RailDrag.liftedShadow)
                 .opacity(max(lifted, away))
@@ -211,6 +216,40 @@ struct LiftedCard: View, Animatable {
                     }
                 }
         }
+    }
+}
+
+extension LiftedCard {
+    /// How far below the frame's top the current exercise's card starts. Its node sits halfway
+    /// between two insets above the card's top: a plain row's, `plainNodeY`, and the one that
+    /// leaves as much room above the name's capitals as below the last baseline, so the card
+    /// sits balanced on the large name without starting as far above it as the row does. Never
+    /// above the row's own top. A plain row's card starts at the top.
+    func topInset(at node: CGPoint, proxy: GeometryProxy) -> CGFloat {
+        guard isCurrent else { return 0 }
+        let plain = node.y - plainNodeY
+        guard let capTop = marks.nameTop.map({ proxy[$0].y }),
+              let lowest = marks.baselines.map({ proxy[$0].y }).max()
+        else { return max(plain, 0) }
+        let balanced = capTop - (proxy.size.height - lowest)
+        return max((plain + balanced) / 2, 0)
+    }
+}
+
+/// On the current exercise's row, where its large name's capitals start and each of its figures'
+/// last baseline is, which place its held card's top (`LiftedCard.topInset`).
+struct CardMarks: PreferenceKey {
+    struct Value: Equatable {
+        var nameTop: Anchor<CGPoint>?
+        var baselines: [Anchor<CGPoint>] = []
+    }
+
+    static let defaultValue = Value()
+
+    static func reduce(value: inout Value, nextValue: () -> Value) {
+        let next = nextValue()
+        value.nameTop = value.nameTop ?? next.nameTop
+        value.baselines += next.baselines
     }
 }
 
