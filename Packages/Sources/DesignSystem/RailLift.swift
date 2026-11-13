@@ -227,11 +227,27 @@ extension LiftedCard {
     /// above the row's own top. A plain row's card starts at the top.
     func topInset(at node: CGPoint, proxy: GeometryProxy) -> CGFloat {
         guard isCurrent else { return 0 }
-        let plain = node.y - plainNodeY
-        guard let capTop = marks.nameTop.map({ proxy[$0].y }),
-              let lowest = marks.baselines.map({ proxy[$0].y }).max()
-        else { return max(plain, 0) }
-        let balanced = capTop - (proxy.size.height - lowest)
+        return Self.topInset(
+            nodeY: node.y,
+            plainNodeY: plainNodeY,
+            capTop: marks.nameTop.map { proxy[$0].y },
+            lastBaseline: marks.baselines.map { proxy[$0].y }.max(),
+            height: proxy.size.height,
+        )
+    }
+
+    /// `topInset(at:proxy:)` from plain numbers, in the row's space, `height` tall. Without the
+    /// name's marks, the node sits a plain row's inset down.
+    static func topInset(
+        nodeY: CGFloat,
+        plainNodeY: CGFloat,
+        capTop: CGFloat?,
+        lastBaseline: CGFloat?,
+        height: CGFloat,
+    ) -> CGFloat {
+        let plain = nodeY - plainNodeY
+        guard let capTop, let lastBaseline else { return max(plain, 0) }
+        let balanced = capTop - (height - lastBaseline)
         return max((plain + balanced) / 2, 0)
     }
 }
@@ -265,8 +281,8 @@ struct CardMarks: PreferenceKey {
 struct CardFill: View {
     let nodeX: CGFloat
     let plainNodeY: CGFloat
-    /// How far below the frame's top the card starts: on the current exercise, as far above its
-    /// node as a plain row's card is above its own.
+    /// How far below the frame's top the card starts: 0 on a plain row, `LiftedCard.topInset` on
+    /// the current exercise.
     var top: CGFloat = 0
     let size: CGSize
 

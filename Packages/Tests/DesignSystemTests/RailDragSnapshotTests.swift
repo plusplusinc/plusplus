@@ -226,7 +226,7 @@ struct RailDragSnapshotTests {
     ] + rows.prefix(2)
 
     /// Its node is far down the row, but the card has a held plain row's corners and side insets
-    /// (`liftedInPlace`), inside the screen.
+    /// (`liftedInPlace`), inside the screen, and starts above its name, not at the row's top.
     @Test("The current exercise held lifts into a plain row's card, inside the screen")
     func currentLifted() {
         let rows = Self.workoutRows
