@@ -146,6 +146,11 @@ project board.
 - A problem found outside the card, by the verifier or anyone, gets checked on `main` before
   the merge (its code, or a worktree of `main`), and becomes a card when `main` has it too,
   the slice's to fix when it doesn't; never leave it as a question for the maintainer.
+- A tooling design that ends in a step for the maintainer (run a command, paste a settings
+  entry, allow a tool) is a design to redo, not a question to bring. First look for the way
+  that needs neither: Claude Code's own mechanism (an agent definition's `model:`, a skill's
+  frontmatter), or a plain script doing the step so no agent needs the permission, and build
+  that. Bring the ask only when none exists, saying what was ruled out.
 - A screen with no design, or a question of where a setting lives and how it's set, gets options
   drawn before it is built or asked. The first is the platform's
   own control for the job (principle 4, "Native bones"), and each other option says what it does

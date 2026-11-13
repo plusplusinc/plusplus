@@ -20,10 +20,13 @@
 # own (CLAUDECODE, CLAUDE_CODE_*, and others), which must not reach the retro's claude. It runs
 # claude in an interactive login zsh, since claude is on the PATH only through ~/.zshrc.
 #
-# Before the retro, run updates Claude Code (`claude update`, bounded, and never fatal: a failed one
+# run first fast-forwards the main checkout to origin/main (catch_up, below), then goes on in the
+# script's new copy. Before the retro, run updates Claude Code (`claude update`, bounded, and never fatal: a failed one
 # runs the night on the installed version), and writes one line saying what happened to the night's
 # claude-update.txt, which the tooling runner's digest reads. A running session keeps its version
 # until it exits, so this never breaks one in flight; the desktop app's copy updates with the app.
+# Then `scripts/nightly-tooling.py tally` writes the agents' tallies the retro and the setup review
+# read to the night's folder (its header says which), never stopping the night.
 #
 # show reads the reply from the run's transcript (scripts/conversations.py --retro-reply), which
 # holds it whole, including while a run is still going, then the tooling runner's last digest.
@@ -123,16 +126,47 @@ run() {
     cd "$main"
     night="$main/.build/retro/$(date +%F)"
     mkdir -p "$night"
+    if [ -z "${NIGHTLY_CAUGHT_UP:-}" ]; then
+        catch_up "$main" "$night"
+        # The fast-forward may have changed this file: the night goes on in its new copy.
+        NIGHTLY_CAUGHT_UP=1 exec /bin/bash "$main/scripts/nightly-retro.sh" run
+    fi
     echo "== $(date '+%Y-%m-%d %H:%M %Z') nightly retro in $main"
     # The retro's stream goes to the night's folder: show reads its reply from the transcript, and
     # the tooling runner reads the usage limits from the stream. The runner runs after it whether
     # or not it succeeded; its own gates decide whether any card starts.
     env -i "${vars[@]}" /bin/zsh -lic "\"$main/scripts/nightly-retro.sh\" update \"$night\";
+        \"$main/scripts/nightly-tooling.py\" tally \"$night\";
         caffeinate -s claude --name \"$NAME\" -p --permission-mode auto \
         --model \"$RETRO_MODEL\" --effort \"$RETRO_EFFORT\" \
         --output-format stream-json --verbose \"/retro nightly\" >> \"$night/retro.jsonl\";
         caffeinate -s \"$main/scripts/nightly-tooling.py\" review \"$night\";
         caffeinate -s \"$main/scripts/nightly-tooling.py\" run \"$night\""
+}
+
+# Brings the main checkout's main to origin/main, since the night runs that checkout's scripts and
+# skills and nothing else moves it: only a fast-forward, only of a checkout on main with no tracked
+# changes. Otherwise it leaves the checkout as it is and writes why to the night's
+# main-checkout.txt, which the tooling runner's digest puts at its top. It always returns 0.
+catch_up() {
+    local main=$1 night=$2 branch why=""
+    branch=$(git -C "$main" symbolic-ref --quiet --short HEAD || true)
+    if [ "$branch" != main ]; then
+        why="it is on ${branch:-a detached HEAD}, not main"
+    elif [ -n "$(git -C "$main" status --porcelain --untracked-files=no)" ]; then
+        why="it has uncommitted changes"
+    elif ! git -C "$main" fetch --quiet origin main 2> /dev/null; then
+        why="fetching origin failed"
+    elif ! git -C "$main" merge --ff-only --quiet origin/main > /dev/null 2>&1; then
+        why="its main has commits origin/main doesn't"
+    fi
+    if [ -n "$why" ]; then
+        echo "Main checkout not brought up to date: $why; the night runs $(git -C "$main" rev-parse --short HEAD)" |
+            tee "$night/main-checkout.txt"
+    else
+        rm -f "$night/main-checkout.txt"
+        echo "Main checkout at $(git -C "$main" log -1 --format='%h %s')"
+    fi
 }
 
 # Runs a command for at most $1 seconds; a killed one returns 143.
@@ -190,8 +224,16 @@ show() {
 
 case "${1:-}" in
     install) install ;;
-    run) run ;;
+    # Each arm that can change this file exits before bash reads past the case.
+    run)
+        run
+        exit
+        ;;
     update) update "${2:?usage: nightly-retro.sh update <night-dir>}" ;;
+    catch-up)
+        catch_up "$(main_checkout)" "${2:?usage: nightly-retro.sh catch-up <night-dir>}"
+        exit
+        ;;
     show) show ;;
     *)
         sed -n '2,10s/^# \{0,1\}//p' "${BASH_SOURCE[0]}" >&2
