@@ -1649,9 +1649,10 @@ def pre_push(folder):
     try:
         state = json.loads((folder / "state.json").read_text())
         # git gives the hook a line per ref it pushes: local ref, local commit, remote ref, remote
-        # commit. A deleted ref's local commit is all zeros.
+        # commit. A deleted ref's local commit is all zeros. `scripts/pr-media.sh` pushes to
+        # pr-media, which shares no history with main and has no PR, so it starts no run.
         refs = [line.split() for line in sys.stdin.read().splitlines()]
-        revs = [ref[1] for ref in refs if len(ref) == 4 and ref[1].strip("0")]
+        revs = [ref[1] for ref in refs if len(ref) == 4 and ref[1].strip("0") and ref[2] != "refs/heads/pr-media"]
         why = run_budget(folder, os.getcwd(), state, record=True, revs=revs)
     except Exception as error:  # noqa: BLE001 - an error must refuse, whatever it is
         why = f"the nightly pre-push hook failed ({type(error).__name__}: {error})"
