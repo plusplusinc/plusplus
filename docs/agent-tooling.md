@@ -81,6 +81,10 @@ it is missing (the download runs on after the hook's two minutes, logging to
 `.build/runtime-download.log`) and, once it is installed, deletes the older ones and the
 simulators left on them. `scripts/common.sh` moves each checkout's simulator onto it.
 
+Before writing a hook or a script that makes Claude Code behave a certain way, check whether its
+own configuration does it: an agent definition's `model:` and `tools:`, a permission rule, a
+setting. Built in, it needs no code, and no edit to `.claude/settings.json` by the maintainer.
+
 ## Models by task
 
 Each role's model is set here and nowhere else decides it. `scripts/models.py check`, which
@@ -97,7 +101,8 @@ one and a new release changes nothing until a trial here does
 
 A one-off task goes to the agent defined for its kind: `lookup`, `repro`, `edit`, or `reviewer`,
 started with no `model`, since a call's `model` overrides the definition's. Nothing enforces
-that, and the instruction is to use the four kinds. A built-in started with no `model` runs, by
+that at the call, and the instruction is to use the four kinds; the check fails a skill or a
+definition whose text passes a `model:` to one of this repo's agents. A built-in started with no `model` runs, by
 [the subagents doc](https://code.claude.com/docs/en/sub-agents#built-in-subagents):
 general-purpose on `CLAUDE_CODE_SUBAGENT_MODEL` when it is set, else the caller's model; Plan on
 the caller's model and Explore on the caller's (or the `opus` alias's when the caller runs
@@ -216,7 +221,9 @@ the skill.
 it's installed and running, the retro's last reply, read from the transcript, and the tooling
 runner's last digest.
 
-Before the retro starts, the run updates the command-line Claude Code (`claude update`, bounded
+The night runs the main checkout's scripts and skills, so the run first fast-forwards that
+checkout to `origin/main`; one off `main` or with tracked changes stays as it is, and the
+digest's top says so. Before the retro starts, the run also updates the command-line Claude Code (`claude update`, bounded
 to three minutes; a failure is logged and the night runs on the installed version), so each night
 uses the latest, and the digest's top says when the version changed or the update failed. A
 running session keeps its version until it exits, so nothing in flight breaks. The desktop app's

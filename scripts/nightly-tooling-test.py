@@ -285,6 +285,54 @@ class ClaudeUpdate(unittest.TestCase):
             self.assertEqual(night.top_lines(), ["Claude Code 2.1.316 → 2.1.322", "Not checked: x"])
 
 
+class CatchUp(unittest.TestCase):
+    """scripts/nightly-retro.sh catch-up in a scratch main checkout, one commit behind its origin."""
+
+    def setUp(self):
+        self.root = Path(os.path.realpath(tempfile.mkdtemp()))
+        self.addCleanup(shutil.rmtree, self.root, True)
+        self.night = self.root / "night"
+        self.night.mkdir()
+        self.git("init", "-q", "-b", "main", cwd=self.root / "origin")
+        (self.root / "origin/scripts").mkdir()
+        shutil.copy(SCRIPTS / "nightly-retro.sh", self.root / "origin/scripts/nightly-retro.sh")
+        (self.root / "origin/README").write_text("base\n")
+        self.git("add", "-A", cwd=self.root / "origin")
+        self.git("commit", "-q", "-m", "base", cwd=self.root / "origin")
+        self.git("clone", "-q", str(self.root / "origin"), str(self.root / "main"), cwd=self.root)
+        self.git("commit", "-q", "--allow-empty", "-m", "merged since", cwd=self.root / "origin")
+
+    def git(self, *args, cwd):
+        cwd.mkdir(parents=True, exist_ok=True)
+        return subprocess.run(["git", "-c", "user.email=t@example.com", "-c", "user.name=t", *args], cwd=cwd,
+                              check=True, capture_output=True, text=True).stdout.strip()
+
+    def catch_up(self):
+        out = subprocess.run(["bash", str(self.root / "main/scripts/nightly-retro.sh"), "catch-up", str(self.night)],
+                             capture_output=True, text=True)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        return self.git("log", "-1", "--format=%s", cwd=self.root / "main")
+
+    def test_a_clean_main_fast_forwards(self):
+        self.assertEqual(self.catch_up(), "merged since")
+        self.assertFalse((self.night / "main-checkout.txt").exists())
+
+    def test_a_changed_checkout_stays_and_says_why(self):
+        (self.root / "main/README").write_text("edited\n")
+        self.assertEqual(self.catch_up(), "base")
+        self.assertIn("it has uncommitted changes", (self.night / "main-checkout.txt").read_text())
+        self.assertTrue(nightly.checkout_note(self.night)[0].startswith(
+            "Not checked: Main checkout not brought up to date: it has uncommitted changes; the night runs "))
+
+    def test_another_branch_stays_and_says_why(self):
+        self.git("checkout", "-q", "-b", "side", cwd=self.root / "main")
+        self.assertEqual(self.catch_up(), "base")
+        self.assertIn("it is on side, not main", (self.night / "main-checkout.txt").read_text())
+
+    def test_no_file_says_nothing(self):
+        self.assertEqual(nightly.checkout_note(self.night), [])
+
+
 class Eligibility(unittest.TestCase):
     BODY = "## Problem\nx\n\nNightly: faster CI; the PR check's time\n\n## Success\nRun it: it passes.\n\n## Plan\n- y\n"
 
