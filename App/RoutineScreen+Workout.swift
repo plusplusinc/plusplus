@@ -22,6 +22,9 @@ extension RoutineScreen {
             scrollPosition.scrollTo(y: scrollBeat.scrolledY)
             isMakingRoom = true
             startDrop = 0
+            // Where a workout that ended left its current exercise: the first row reports its
+            // own place from the press, and the landing's room waits for it.
+            currentPlace = nil
         }
         isStarting = true
     }

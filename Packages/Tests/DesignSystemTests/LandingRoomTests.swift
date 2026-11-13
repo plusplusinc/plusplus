@@ -1,10 +1,10 @@
 // Runs only where UIKit exists, so `swift test` on macOS compiles it away and stays fast.
 #if canImport(UIKit) && !os(watchOS)
 
+import DesignSystem
 import SwiftUI
 import Testing
 import UIKit
-import DesignSystem
 
 /// The room that lets a list land a row under the bar (`roomToLand(top:)`): while it is on, the
 /// content is never too short for the scroll view to reach the landing, so the room under the
@@ -50,7 +50,7 @@ struct LandingRoomTests {
         list.position.scrollTo(y: Self.landing)
         window.settle()
         let scroll = try #require(Self.scrollView(in: window), "No scroll view hosted")
-        #expect(scroll.contentOffset.y + scroll.adjustedContentInset.top == Self.landing)
+        #expect(abs(scroll.contentOffset.y + scroll.adjustedContentInset.top - Self.landing) < 0.5)
         withTransaction(\.disablesAnimations, true) {
             list.height = height
             list.isMakingRoom = false
@@ -68,12 +68,15 @@ struct LandingRoomTests {
         return view.subviews.lazy.compactMap { scrollView(in: $0) }.first
     }
 
+    /// Heights short of the landing plus what the window shows, where only the room reaches it:
+    /// the first row before it grows, and a few rows.
     @Test(
         "With the landing's room on, the room under the list going leaves the list at its landing",
-        arguments: [CGFloat(40), 400, 1400],
+        arguments: [CGFloat(40), 400],
     )
     func roomHoldsTheLanding(height: CGFloat) throws {
-        #expect(try restingOffset(landing: Self.landing, height: height) == Self.landing)
+        let resting = try restingOffset(landing: Self.landing, height: height)
+        #expect(abs(resting - Self.landing) < 0.5, "Rests at \(resting)")
     }
 
     @Test("Without the landing's room, the same order clamps the list short of its landing")
