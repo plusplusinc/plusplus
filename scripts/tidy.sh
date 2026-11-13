@@ -129,7 +129,12 @@ in_use_by() {
         echo "tidy could not check which processes work in it"
         return
     fi
-    awk -F'\t' -v p="$path" '$3 == p || index($3, p "/") == 1 { print $2 " (pid " $1 ") works in it"; exit }' <<< "$CWDS"
+    local pid cmd
+    IFS=$'\t' read -r pid cmd < <(WORKTREE="$path" awk -F'\t' '
+        $3 == ENVIRON["WORKTREE"] || index($3, ENVIRON["WORKTREE"] "/") == 1 { print $1 "\t" $2; exit }
+    ' <<< "$CWDS") || return 0
+    # lsof's name for a Claude session is its version (2.1.323); ps names the program, claude.
+    echo "$(ps -o comm= -p "$pid" 2> /dev/null || echo "$cmd") (pid $pid) works in it"
 }
 
 # Worktrees first: a branch cannot be deleted while one has it checked out.
