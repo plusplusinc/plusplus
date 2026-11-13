@@ -260,14 +260,14 @@ struct RoutineScreen: View {
                 .padding(.bottom, Spacing.md)
                 // In the content, not a margin, so the visible height the row is sized from
                 // stays.
-                .roomToLand(
-                    top: closingRoomTop
-                        ?? (currentID != nil || isMovingOn ? currentPlace?.landingY : nil),
-                )
+                .roomToLand(top: landingRoomTop)
                 .roomBelow(isMakingRoom)
                 // When the keyboard rises, UIKit scrolls the focused field to sit at least 5pt
                 // below the top of the visible area. Starting there keeps the title still.
                 .padding(.top, Spacing.sm)
+                // Inside the lift, so a row's place is where it lies in the content, as a scroll
+                // position counts, and not where it is drawn as Start's grow runs the lift down.
+                .coordinateSpace(.list)
                 .clipShape(TopClip(height: underBar))
                 .modifier(GrowthLift(lift: growthLift))
                 // Crossfading, the changed list comes in already changed: only its fade
@@ -281,7 +281,6 @@ struct RoutineScreen: View {
                 .id(listChanges)
                 .transition(.opacity)
             }
-            .coordinateSpace(.list)
         }
         .scrollPosition($scrollPosition)
         .railAutoscroll($scrollPosition)

@@ -125,10 +125,23 @@ extension RoutineScreen {
         }
     }
 
+    /// Where the list lands the current exercise while it is landing on it or resting on it:
+    /// from Start's press, through the workout and through a move to the next exercise; after
+    /// the last set, the room closing with its row. None out of a workout.
+    ///
+    /// On from Start's press, at its full height, before the grow's animated transaction: the
+    /// scroll view's own content size follows the content's on that transaction's curve, behind
+    /// it. Switched on with the grow, the room grew in with it, and when the room under the list
+    /// went mid-grow the scroll view's trailing size, 45 to 130 pt short, clamped the list down.
+    var landingRoomTop: CGFloat? {
+        let isLanding = currentID != nil || isMovingOn || isStarting
+        return closingRoomTop ?? (isLanding ? currentPlace?.landingY : nil)
+    }
+
     /// Takes away the screen's room under the list's end once Start or a move to the next
-    /// exercise is over. The room to land the current exercise under the bar
-    /// (`roomToLand(top:visible:)`) stays, worked out in each layout pass, so it holds the list
-    /// wherever the growth is.
+    /// exercise is over. It can go at any moment: the room to land the current exercise under
+    /// the bar (`landingRoomTop`) is already at its height, so what is left is never shorter
+    /// than the landing needs.
     func letRoomGo() {
         guard isMakingRoom, !isStarting, !isMovingOn, session.workout != nil else { return }
         withTransaction(\.disablesAnimations, true) { isMakingRoom = false }
