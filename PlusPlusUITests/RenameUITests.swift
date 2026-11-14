@@ -15,10 +15,17 @@ final nonisolated class RenameUITests: XCTestCase {
     /// moved shows only by watching it for longer than that.
     static let keyboardAvoidanceWindow: TimeInterval = 2
 
+    /// The seeded routine's name, unlike the name the rename types.
+    static let seededName = "Push and pull day"
+
     @MainActor
     func testRenameAtDefaultSize() throws {
         let app = XCUIApplication()
-        let title = app.launchNewRoutine()
+        // The rows the later checks need are seeded at this launch, and the rename runs on a new
+        // routine opened after it, so the test launches once.
+        app.launchSeeding(XCUIApplication.renameRows.seeded.map(\.id), named: Self.seededName)
+        app.openNewRoutine()
+        let title = app.routineTitle
         let addExercise = app.buttons["Add exercise"]
         let keyboard = app.keyboards.element
         let field = title.frame
@@ -91,6 +98,7 @@ final nonisolated class RenameUITests: XCTestCase {
         XCTAssertTrue(keyboard.appears())
 
         XCTContext.runActivity(named: "Editing starts in place") { _ in
+            // Also past the keyboard's tip's arrival, which the read after needs.
             let watched = watchFrames(of: [title, addExercise], for: Self.keyboardAvoidanceWindow)
             XCTAssertEqual(watched[0], field, "The title's frame moved")
             XCTAssertEqual(watched[1], button, "Add exercise moved")
