@@ -5,8 +5,9 @@ import XCTest
 @MainActor
 extension RenameUITests {
     /// The picker opens fast and without the keyboard, and a pick adds a row. The rest of the
-    /// rows are seeded by a relaunch, and one more is added through the picker's search onto
-    /// them. Search's list and empty state are left to use, and the add's scroll to Add exercise
+    /// rows are seeded at the test's launch, in a routine the drawer then opens, and one more
+    /// is added through the picker's search onto them. Search's list and empty state are left to
+    /// use, and the add's scroll to Add exercise
     /// is `TitleWrappingUITests`' at AX5.
     func addExercises(in app: XCUIApplication, keyboard: XCUIElement) {
         let search = app.searchFields.firstMatch
@@ -25,7 +26,9 @@ extension RenameUITests {
             XCTAssertTrue(app.buttons["Start"].appears())
         }
         XCTContext.runActivity(named: "An add through search lands after seeded rows") { _ in
-            app.launchSeeding(seeded.map(\.id), named: "Arm and back day")
+            app.openDrawer(andTap: Self.seededName)
+            XCTAssertEqual(app.routineTitle.value(becoming: Self.seededName), Self.seededName)
+            XCTAssertEqual(app.exerciseCount(becoming: seeded.count), seeded.count)
             app.addExercise(added.label, searching: added.query)
             attach(named: "nine-exercises")
         }
@@ -45,8 +48,8 @@ extension RenameUITests {
         }
         XCTContext.runActivity(named: "A tap on the small title scrolls back to the top") { _ in
             // The ninth row pushed Add exercise below Start, and the add scrolled to it.
-            app.scrollToTop(titled: "Arm and back day")
-            let smallTitle = app.navigationBars.firstMatch.buttons["Arm and back day"]
+            app.scrollToTop(titled: Self.seededName)
+            let smallTitle = app.navigationBars.firstMatch.buttons[Self.seededName]
             XCTAssertTrue(smallTitle.disappears(), "The small title stayed with the title in view")
         }
     }
