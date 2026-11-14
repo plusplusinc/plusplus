@@ -173,11 +173,17 @@ extension XCUIElement {
 }
 
 extension XCUICoordinate {
-    /// Holds here long enough for a row to lift, drags slowly to `target`, holds there for
-    /// `hold` seconds, and lets go.
+    /// Holds here long enough for a row to lift, drags to `target` at an unhurried hand's
+    /// speed, holds there for `hold` seconds, and lets go. XCTest's `.slow`, about 200 pt/s,
+    /// took most of a second a drag.
     @MainActor
     func holdAndDrag(to target: XCUICoordinate, holding hold: TimeInterval = 0.3) {
-        press(forDuration: 0.8, thenDragTo: target, withVelocity: .slow, thenHoldForDuration: hold)
+        press(
+            forDuration: 0.8,
+            thenDragTo: target,
+            withVelocity: XCUIGestureVelocity(600),
+            thenHoldForDuration: hold,
+        )
     }
 
     /// `points` further down, or up when negative.

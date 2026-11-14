@@ -10,10 +10,12 @@ import XCTest
 ///
 /// `nonisolated` because XCTestCase's initializers are; the test drives the UI on the main actor.
 final nonisolated class RenameUITests: XCTestCase {
-    /// UIKit scrolls the focused field once the keyboard has risen, about 0.8s after the tap,
-    /// while the keyboard's element reports its final frame from the start. Whether the title
-    /// moved shows only by watching it for longer than that.
-    static let keyboardAvoidanceWindow: TimeInterval = 2
+    /// UIKit scrolls the focused field once the keyboard has risen, about 0.8s after the tap
+    /// with UIKit's animations on, while the keyboard's element reports its final frame from
+    /// the start. Whether the title moved shows only by watching it for longer than that. The
+    /// watch starts once the keyboard is seen, after XCTest's tap has waited for the app to
+    /// idle, so a second of it covers past 1.4 s from the tap on Xcode Cloud.
+    static let keyboardAvoidanceWindow: TimeInterval = 1
 
     /// The seeded routine's name, unlike the name the rename types.
     static let seededName = "Push and pull day"
@@ -98,7 +100,8 @@ final nonisolated class RenameUITests: XCTestCase {
         XCTAssertTrue(keyboard.appears())
 
         XCTContext.runActivity(named: "Editing starts in place") { _ in
-            let watched = watchFrames(of: [title, addExercise], for: Self.keyboardAvoidanceWindow)
+            // Two seconds here, past the keyboard's tip's arrival, which the read after needs.
+            let watched = watchFrames(of: [title, addExercise], for: 2)
             XCTAssertEqual(watched[0], field, "The title's frame moved")
             XCTAssertEqual(watched[1], button, "Add exercise moved")
         }
