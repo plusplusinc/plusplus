@@ -120,8 +120,7 @@ extension RoutineScreen {
     /// settles on its end and the key becomes Finish workout.
     func play(_ set: PlannedSet, leadingTo step: LiveWorkout.Step) {
         // In the tap's own transaction, as the stored log is: entered with animations disabled,
-        // a move's shift started up to four frames late round a superset, and the last set's
-        // room went at once, the list jumping to its top.
+        // the last set's room went at once, the list jumping to its top.
         phase.log(set, leadingTo: step, moves: !reduceMotion)
         let next: PlannedSet?
         let isBack: Bool
