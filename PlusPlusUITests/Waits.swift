@@ -2,14 +2,12 @@ import XCTest
 
 extension XCUIElement {
     /// XCTest's waits check their condition about once a second, the first time a second after
-    /// they start, so each wait for something that came a moment later cost a second (18 waits,
-    /// 20 s of run 418's UI tests). These read `exists` until it holds, a query at a time.
-    @MainActor
+    /// they start, so each wait for something that came a moment later cost a second. These
+    /// read `exists` until it holds, a query at a time.
     func appears(within timeout: TimeInterval = 2) -> Bool {
         reading(exists, becoming: true, within: timeout)
     }
 
-    @MainActor
     func disappears(within timeout: TimeInterval = 2) -> Bool {
         !reading(exists, becoming: false, within: timeout)
     }

@@ -84,7 +84,7 @@ extension RowDragUITests {
 extension XCUIApplication {
     /// Each row's VoiceOver value: whom it's in a superset with, or empty for a plain row.
     var supersetValues: [String] {
-        snapshots(identified: "routine.exercise").map { $0.value as? String ?? "" }
+        exerciseRowSnapshots.map { $0.value as? String ?? "" }
     }
 
     /// The rows' supersets as a letter a row: a run of members shares a letter, A for the

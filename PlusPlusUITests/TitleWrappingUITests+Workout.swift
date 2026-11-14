@@ -6,10 +6,11 @@ import XCTest
 /// and Start's scroll to the top runs far.
 @MainActor
 extension TitleWrappingUITests {
-    /// On the routine the checks before made, its two rows joined, with exercises after them for
-    /// their equipment, seeded, since adding is checked above and four adds cost more than a
-    /// launch: Start and a relaunch land on the current exercise, and a workout's bar, paused,
-    /// and End's dialog pass the audit. Running, the bar differs only in its key's shorter Pause.
+    /// On a routine like the one the checks before made, its two rows joined, with four more
+    /// for their equipment, seeded at a launch of its own, since adding is checked above and
+    /// four adds cost more than a launch: Start and a relaunch land on the current exercise, and
+    /// a workout's bar, paused, and End's dialog pass the audit. Running, the bar differs only
+    /// in its key's shorter Pause.
     func workoutAtAX5(in app: XCUIApplication) throws {
         try XCTContext
             .runActivity(named: "A workout at AX5 lands, and its bar passes the audit") { _ in
