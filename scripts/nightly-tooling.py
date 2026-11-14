@@ -847,15 +847,29 @@ class Fence:
     worktree's Claude Code settings, which the running session reloads. What a command names may
     not be the night's own files: the main checkout (the runner, its hooks, the night's folder,
     git's config), the runner's own checkout, or a dotfile in the home folder (gh's, git's, Claude
-    Code's, and asc's config)."""
+    Code's, and asc's config).
 
-    def __init__(self, worktree, main, night, cwd=None):
+    A worktree the card's lead starts an agent in with the Agent tool's `isolation: "worktree"`,
+    such as its verifier's, is the card's too: Claude Code makes each at
+    <main>/.claude/worktrees/agent-<id>, so one made since the card started (card_start) is
+    writable like the card's own. One made before it, by a session of the day, is not."""
+
+    def __init__(self, worktree, main, night, cwd=None, card_start=None):
         self.cwd = self.real(cwd or worktree)
-        worktree = self.real(worktree)
-        self.writable = [worktree, self.real(main) / ".slices"]
-        self.live = [worktree / ".claude/settings*.json", worktree / ".mcp.json"]
+        worktrees = [self.real(worktree)] + self.agent_worktrees(self.real(main), card_start)
+        self.writable = worktrees + [self.real(main) / ".slices"]
+        self.live = [w / name for w in worktrees for name in (".claude/settings*.json", ".mcp.json")]
         self.home = self.real("~")
         self.guarded_roots = [self.real(main), self.real(ROOT), self.real(night), self.home / "Library/LaunchAgents"]
+
+    @staticmethod
+    def agent_worktrees(main, card_start):
+        """The agent worktrees made since card_start, read from the time of each one's .git file,
+        which `git worktree add` writes once. None without a card_start."""
+        if card_start is None:
+            return []
+        return sorted(path for path in (main / ".claude/worktrees").glob("agent-*")
+                      if (path / ".git").is_file() and (path / ".git").stat().st_mtime >= card_start.timestamp())
 
     @staticmethod
     def real(path, cwd=None):
@@ -1298,7 +1312,8 @@ class Night:
         sh("git", "worktree", "add", "--no-track", str(worktree), "-b", branch, "origin/main")
         stop = self.window[1]
         (self.dir / "state.json").write_text(json.dumps(
-            {"start": self.start.isoformat(), "stop": stop.isoformat(), "hours": self.hours,
+            {"start": self.start.isoformat(), "card_start": datetime.now().astimezone().isoformat(),
+             "stop": stop.isoformat(), "hours": self.hours,
              "handoff": str(worktree.parents[2] / handoff)}))
         settings = self.dir / f"card-{n}-settings.json"
         self.settings(worktree, settings)
@@ -1615,7 +1630,9 @@ def hook_check(folder, worktree):
     state = json.loads((folder / "state.json").read_text())
     now = datetime.now().astimezone()
     # The runner makes each worktree in <main checkout>/.claude/worktrees/.
-    fence = Fence(worktree, Path(worktree).resolve().parents[2], folder, call.get("cwd"))
+    card_start = state.get("card_start")
+    fence = Fence(worktree, Path(worktree).resolve().parents[2], folder, call.get("cwd"),
+                  card_start and datetime.fromisoformat(card_start))
     # A push's start is recorded by the pre-push hook it then meets; a PR's here.
     tool_input = call.get("tool_input") or {}
     return hook_decision(call["tool_name"], tool_input.get("command") or "", now,
