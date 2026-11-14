@@ -84,7 +84,7 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
             XCTAssertTrue(app.drawerTitle.disappears(), "Routines did not close the drawer")
             let rows = app.buttons.matching(identifier: "routines.row")
             let listed = ["Chest", "Back"]
-            let labels = { rows.allElementsBoundByIndex.map(\.label) }
+            let labels = { app.snapshots(identified: "routines.row").map(\.label) }
             XCTAssertEqual(reading(labels(), becoming: listed, within: 2), listed)
             attach(named: "routines-screen")
             openDrawer(in: app)
@@ -119,7 +119,7 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
     private func drawerListsThree(in app: XCUIApplication, title: XCUIElement) {
         XCTContext.runActivity(named: "An untouched new one isn't listed; the drawer has 3") { _ in
             let rows = app.buttons.matching(identifier: "routines.row")
-            let labels = { rows.allElementsBoundByIndex.map(\.label) }
+            let labels = { app.snapshots(identified: "routines.row").map(\.label) }
             let listedBefore = Set(labels())
             XCTAssertEqual(listedBefore, ["Chest", "Back"], "The untouched new one was listed")
             var latest = ""

@@ -124,7 +124,35 @@ extension XCUIElement {
 extension XCUIApplication {
     /// The rows' exercise names, top to bottom.
     var exerciseNames: [String] {
-        exerciseRows.allElementsBoundByIndex.map { String($0.label.prefix { $0 != "," }) }
+        exerciseRowLabels.map { String($0.prefix { $0 != "," }) }
+    }
+
+    /// The rows' labels, top to bottom.
+    var exerciseRowLabels: [String] {
+        snapshots(identified: "routine.exercise").map(\.label)
+    }
+
+    /// The elements with the identifier `identifier`, in the query's order, as one snapshot of
+    /// the app's tree reads them. Reading each one's label through its element resolves the
+    /// query again per element, about 0.07 s each on Xcode Cloud, so nine rows read in a loop
+    /// took most of a second a pass.
+    func snapshots(identified identifier: String) -> [any XCUIElementSnapshot] {
+        do {
+            return try Self.snapshots(identified: identifier, in: snapshot())
+        } catch {
+            XCTFail("The app's tree couldn't be read: \(error)")
+            return []
+        }
+    }
+
+    private static func snapshots(
+        identified identifier: String,
+        in snapshot: any XCUIElementSnapshot,
+    ) -> [any XCUIElementSnapshot] {
+        if snapshot.identifier == identifier {
+            return [snapshot]
+        }
+        return snapshot.children.flatMap { snapshots(identified: identifier, in: $0) }
     }
 
     /// Taps the small copy of the title `name` in the bar, and waits for the title to come back

@@ -34,9 +34,12 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
             XCTAssertEqual(title.value as? String, "Chest and back")
             // Moved, joined, and with the rounds the sheet gave both; the second pull-up keeps
             // the reps its sheet gave it, and the first its own.
-            XCTAssertEqual(app.exerciseRows.allElementsBoundByIndex.map(\.label), Self.joined)
+            XCTAssertEqual(app.exerciseRowLabels, Self.joined)
             XCTAssertEqual(app.supersets, "AA.")
-            XCTAssertTrue(title.inkIsWhite(against: gray), "The generated name came back gray")
+            XCTAssertTrue(
+                title.inkIs(white: true, against: gray),
+                "The generated name came back gray",
+            )
             attach(named: "after-relaunch")
         }
         try typedNameStays(in: app, title: title, gray: gray)
@@ -54,7 +57,10 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
             app.addExercise(Self.pullUp, searching: "pull-up")
             app.addExercise(Self.gobletSquat, searching: "goblet")
             XCTAssertEqual(title.value(becoming: "Full body"), "Full body")
-            XCTAssertTrue(title.inkIsWhite(against: gray), "The generated name is not white")
+            XCTAssertTrue(
+                title.inkIs(white: true, against: gray),
+                "The generated name is not white",
+            )
             attach(named: "generated-name")
         }
         XCTContext.runActivity(named: "A deleted exercise leaves the name") { _ in
@@ -82,7 +88,7 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
             app.buttons["Close"].tap()
             XCTAssertTrue(reps.disappears(), "Close left the sheet up")
             XCTAssertEqual(
-                app.exerciseRows.allElementsBoundByIndex.map(\.label),
+                app.exerciseRowLabels,
                 [
                     "Barbell bench press, 3 sets of 5 reps, 45 pounds",
                     "Pull-up, 3 sets of 6 reps",
@@ -129,7 +135,7 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
             attach(named: "sheet-shared-rounds")
             app.buttons["Close"].tap()
             XCTAssertTrue(rounds.disappears(), "Close left the sheet up")
-            let labels = { app.exerciseRows.allElementsBoundByIndex.map(\.label) }
+            let labels = { app.exerciseRowLabels }
             XCTAssertEqual(reading(labels(), becoming: Self.joined, within: 2), Self.joined)
         }
     }
@@ -148,7 +154,7 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
             app.addExercise(Self.gobletSquat, searching: "goblet")
             // The name comes with the row, so it would already have changed.
             XCTAssertEqual(title.value as? String, "Push pull")
-            XCTAssertTrue(title.inkIsWhite(against: gray), "The typed name is not white")
+            XCTAssertTrue(title.inkIs(white: true, against: gray), "The typed name is not white")
             attach(named: "typed-name")
         }
     }
@@ -173,7 +179,7 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
             title.typeText(String(repeating: delete, count: "Push pull".count) + "\n")
             XCTAssertTrue(keyboard.disappears())
             XCTAssertEqual(title.value(becoming: "New routine"), "New routine")
-            XCTAssertFalse(title.inkIsWhite(against: gray), "New routine is not gray")
+            XCTAssertTrue(title.inkIs(white: false, against: gray), "New routine is not gray")
             attach(named: "cleared")
             app.relaunch()
             XCTAssertEqual(title.value as? String, "New routine")
@@ -184,15 +190,16 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
 
 @MainActor
 extension XCUIElement {
-    /// Whether the title's strongest ink is a name's, well past the placeholder's `gray`, once
-    /// a name has typed in or the placeholder has crossfaded back. After two seconds, whatever
-    /// it last was.
-    func inkIsWhite(against gray: Int) -> Bool {
+    /// Whether the title's strongest ink is a name's, well past the placeholder's `gray`, or
+    /// not, as `white` asks, once a name has typed in or the placeholder has crossfaded back.
+    /// Returns as soon as it is; after two seconds, false. Waiting for the gray as such, not for
+    /// white to fail to come, spared that check its whole two seconds.
+    func inkIs(white: Bool, against gray: Int) -> Bool {
         let frame = frame
         return reading(
             ((try? Ink.ofTitle(in: frame).contrast) ?? 0) > gray * 5 / 4,
-            becoming: true,
+            becoming: white,
             within: 2,
-        )
+        ) == white
     }
 }

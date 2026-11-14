@@ -30,7 +30,7 @@ extension RenameUITests {
             attach(named: "nine-exercises")
         }
         XCTContext.runActivity(named: "Rows read as name and plan") { _ in
-            let labels = app.exerciseRows.allElementsBoundByIndex.map(\.label)
+            let labels = app.exerciseRowLabels
             XCTAssertEqual(labels, [
                 "Barbell bench press, 3 sets of 5 reps, 45 pounds",
                 "Band pull-apart, 3 sets of 15 reps",
