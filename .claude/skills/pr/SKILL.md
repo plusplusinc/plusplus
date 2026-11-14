@@ -93,7 +93,10 @@ in a minute by someone who wasn't there, the maintainer first:
   would wonder.
 - **Before and after**, for a change someone can see (below).
 - **How**, for a reviewer: a few bullets with the code names, the tests and what each pins, and
-  any decision the diff doesn't explain. Leave out what the diff already says.
+  any decision the diff doesn't explain. Leave out what the diff already says. Each bullet's
+  subject is the change ("Moves the offset into `DrawerSlide`", "Adds one test per
+  transition"), which is true before the merge and after it; a bullet on how the code then
+  behaves says "With this change".
 - **Verified, Friction**, each as a few short bullets. Verified gives what was run and the
   times against their budgets; Friction says what was retried, what was corrected and who found
   it (the maintainer, an agent review, the verifier, CI), what took longer than it should

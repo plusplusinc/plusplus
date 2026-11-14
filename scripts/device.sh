@@ -72,6 +72,20 @@ record_schema() {
     printf '%s\t%s\n' "$(schema_version)" "$branch" > "$SCHEMA_RECORD"
 }
 
+# A branch cut before a fix merged puts the bug that fix removed back on the phone, where it gets
+# reported and diagnosed a second time (a build cut minutes before its fix merged did,
+# 2026-11-13). After an install or a link, this names what main has that the build lacks; it
+# refuses nothing, and with no network it reads the last fetch.
+behind_main() {
+    local missing
+    git -C "$ROOT" fetch --quiet origin main 2> /dev/null || true
+    missing=$(git -C "$ROOT" log --format='  %s' HEAD..origin/main 2> /dev/null) || return 0
+    [ -n "$missing" ] || return 0
+    echo "this build lacks what merged to main after its branch was cut; say so with the build," \
+        "or merge origin/main and install again:"
+    echo "$missing"
+}
+
 # One line per available iPhone, UDID then name, tab-separated, narrowed to PLUSPLUS_DEVICE
 # when it is set; each paired iPhone out of reach goes to stderr with why. devicectl also lists
 # simulators, watches, and devices it cannot reach. It reads devicectl's `properties`, which
@@ -269,6 +283,7 @@ JSON
         sleep 5
     done
     echo "install link: https://$host/$token/"
+    behind_main
 }
 
 case "${1:-}" in
@@ -323,6 +338,8 @@ if ! xcrun devicectl device process launch --quiet --terminate-existing --device
     "$BUNDLE_ID"; then
     echo "installed on $NAME, but not launched (devicectl says why above; usually it is locked):" \
         "open PlusPlus there"
+    behind_main
     exit 0
 fi
 echo "launched on $NAME"
+behind_main
