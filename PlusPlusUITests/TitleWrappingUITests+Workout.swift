@@ -8,9 +8,9 @@ import XCTest
 extension TitleWrappingUITests {
     /// On a routine like the one the checks before made, its two rows joined, with four more
     /// for their equipment, seeded at a launch of its own, since adding is checked above and
-    /// four adds cost more than a launch: Start and a relaunch land on the current exercise, and
-    /// a workout's bar, paused, and End's dialog pass the audit. Running, the bar differs only
-    /// in its key's shorter Pause.
+    /// four adds cost more than a launch, and pushed from the Routines screen as before: Start
+    /// and a relaunch land on the current exercise, and a workout's bar, paused, and End's
+    /// dialog pass the audit. Running, the bar differs only in its key's shorter Pause.
     func workoutAtAX5(in app: XCUIApplication) throws {
         try XCTContext
             .runActivity(named: "A workout at AX5 lands, and its bar passes the audit") { _ in
@@ -22,6 +22,13 @@ extension TitleWrappingUITests {
                     textSize: Self.largestTextSize,
                     arguments: ["-seedSuperset", "0,1"],
                 )
+                // Pushed from the Routines screen, as a routine opened there is, with a back
+                // chevron in the bar in place of ++.
+                app.buttons["Menu"].tap()
+                XCTAssertTrue(app.drawerTitle.appears(), "++ did not open the drawer")
+                app.buttons["Routines"].tap()
+                XCTAssertTrue(app.drawerTitle.disappears(), "Routines did not close the drawer")
+                app.buttons.matching(identifier: "routines.row").firstMatch.tap()
                 XCTAssertTrue(app.buttons["Start"].appears(), "The routine opened no Start")
                 app.buttons["Start"].tap()
                 let time = app.workoutTime

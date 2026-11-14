@@ -175,10 +175,7 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
             title.typeText(String(repeating: delete, count: "Push pull".count) + "\n")
             XCTAssertTrue(keyboard.disappears())
             XCTAssertEqual(title.value(becoming: "New routine"), "New routine")
-            XCTAssertFalse(
-                title.inkIsWhite(becoming: false, against: gray),
-                "New routine is not gray",
-            )
+            XCTAssertFalse(title.inkIsWhite(against: gray), "New routine is not gray")
             attach(named: "cleared")
             app.relaunch()
             XCTAssertEqual(title.value as? String, "New routine")
@@ -190,14 +187,13 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
 @MainActor
 extension XCUIElement {
     /// Whether the title's strongest ink is a name's, well past the placeholder's `gray`, once
-    /// it reads `expected`: a name typed in, or the placeholder crossfaded back. After two
-    /// seconds, whatever it last was. Waiting for gray as such, rather than for white that
-    /// should not come, returns as soon as the gray shows.
-    func inkIsWhite(becoming expected: Bool = true, against gray: Int) -> Bool {
+    /// a name has typed in or the placeholder has crossfaded back. After two seconds, whatever
+    /// it last was.
+    func inkIsWhite(against gray: Int) -> Bool {
         let frame = frame
         return reading(
             ((try? Ink.ofTitle(in: frame).contrast) ?? 0) > gray * 5 / 4,
-            becoming: expected,
+            becoming: true,
             within: 2,
         )
     }

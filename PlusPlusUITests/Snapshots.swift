@@ -11,7 +11,9 @@ extension XCUIApplication {
         where matches: (any XCUIElementSnapshot) -> Bool,
     ) -> [any XCUIElementSnapshot] {
         do {
-            return try Self.snapshots(where: matches, in: snapshot())
+            var found: [any XCUIElementSnapshot] = []
+            try Self.collect(matches, in: snapshot(), into: &found)
+            return found
         } catch {
             XCTFail("The app's tree couldn't be read: \(error)")
             return []
@@ -23,11 +25,16 @@ extension XCUIApplication {
         snapshots { $0.identifier == identifier }
     }
 
-    private static func snapshots(
-        where matches: (any XCUIElementSnapshot) -> Bool,
+    private static func collect(
+        _ matches: (any XCUIElementSnapshot) -> Bool,
         in snapshot: any XCUIElementSnapshot,
-    ) -> [any XCUIElementSnapshot] {
-        (matches(snapshot) ? [snapshot] : [])
-            + snapshot.children.flatMap { snapshots(where: matches, in: $0) }
+        into found: inout [any XCUIElementSnapshot],
+    ) {
+        if matches(snapshot) {
+            found.append(snapshot)
+        }
+        for child in snapshot.children {
+            collect(matches, in: child, into: &found)
+        }
     }
 }

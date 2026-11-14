@@ -21,7 +21,7 @@ extension XCUIApplication {
 
     /// The Routines screen's rows' labels, top to bottom.
     var routineRowLabels: [String] {
-        snapshots(identified: "routines.row").map(\.label)
+        snapshots { $0.elementType == .button && $0.identifier == "routines.row" }.map(\.label)
     }
 
     /// The routine's equipment, the capsules under its title.
