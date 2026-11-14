@@ -55,7 +55,7 @@ extension RoutineExercise {
     /// The rest after each set: the exercise's for these reps or time while automatic, else the
     /// one the user set.
     public var rest: Int {
-        plan.isRestAuto ? autoRest : plan.rest ?? autoRest
+        plan.rest.seconds(derived: autoRest)
     }
 
     private var autoRest: Int {
@@ -66,12 +66,7 @@ extension RoutineExercise {
     /// set by hand for later; turning it off brings that back, or, if there is none, keeps the
     /// rest it reads now.
     public var isRestAuto: Bool {
-        get { plan.isRestAuto }
-        set {
-            if !newValue, plan.rest == nil {
-                plan.rest = autoRest
-            }
-            plan.isRestAuto = newValue
-        }
+        get { plan.rest.isAuto }
+        set { plan.rest = plan.rest.settingAuto(newValue, derived: autoRest) }
     }
 }
