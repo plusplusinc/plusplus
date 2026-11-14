@@ -151,8 +151,12 @@ they are back, start the run again and re-run this check. $url"
 # of the merge base's last REVERT_WINDOW commits changed there: a line it added is gone, a line it
 # removed is back, a binary file is back to the copy before it. A squash onto a newer main with
 # `git reset --soft origin/main` does that, recording the branch's stale copies of whatever main
-# changed meanwhile (#136 undid #134 so). A revert made with `git revert`, whose message says
-# "This reverts commit <sha>" (a short sha too), is meant, and passes.
+# changed meanwhile (#136 undid #134 so). A file head moves is judged at its new path, so an old
+# copy brought back under a new name still counts. A file head deletes outright counts only when
+# every file the commit changed is undone too: deleting a file a recent commit added, while the
+# rest of that commit stands, is the change's intent, but a stale squash undoes all of a commit,
+# including one that only added files. A revert made with `git revert`, whose message says "This
+# reverts commit <sha>" (a short sha too), is meant, and passes.
 REVERT_WINDOW=30
 reverts() {
     git -C "$ROOT" rev-parse --quiet --verify "$1^{commit}" > /dev/null &&
@@ -182,7 +186,8 @@ def sign(n):
     return (n > 0) - (n < 0)
 
 def undone(path, parent, commit, merge_base, binary):
-    before, after, now, then = (blob(c, path) for c in (parent, commit, head, merge_base))
+    before, after, then = (blob(c, path) for c in (parent, commit, merge_base))
+    now = blob(head, moved.get(path, path))
     if binary:
         return now == before and then != before
     before, after, now, then = map(lines, (before, after, now, then))
@@ -193,6 +198,9 @@ def undone(path, parent, commit, merge_base, binary):
 
 merge_base = git("merge-base", base, head).decode().strip()
 changed = set(git("diff", "--name-only", "-z", "--no-renames", merge_base, head).split(b"\0")) - {b""}
+# Renames as git detects them (half the content alike): old path to new, as text.
+renames = git("diff", "--name-status", "-z", "-M", "--diff-filter=R", merge_base, head).split(b"\0")
+moved = {renames[i + 1].decode(): renames[i + 2].decode() for i in range(0, len(renames) - 2, 3)}
 messages = git("log", "--format=%B", f"{merge_base}..{head}").decode()
 meant = re.findall(r"This reverts commit ([0-9a-f]{7,40})", messages)
 for commit in git("rev-list", "--first-parent", "-n", window, merge_base).decode().split():
@@ -200,14 +208,18 @@ for commit in git("rev-list", "--first-parent", "-n", window, merge_base).decode
     if not parents or any(commit.startswith(sha) for sha in meant):
         continue
     stat = git("diff", "--numstat", "-z", "--no-renames", parents[0], commit).split(b"\0")
-    paths = []
+    touched, paths = 0, []
     for entry in stat:
         if not entry:
             continue
+        touched += 1
         added, _, path = entry.split(b"\t", 2)
         if path in changed and undone(path.decode(), parents[0], commit, merge_base, added == b"-"):
             paths.append(path.decode())
-    if paths:
+    # A path head still has, here or moved, is judged alone; one it deletes only with the rest.
+    kept = [path for path in paths if path in moved or blob(head, path)]
+    if kept or (paths and len(paths) == touched):
+        paths = [f"{path} (at {moved[path]})" if path in moved else path for path in paths]
         subject = git("log", "-1", "--format=%h %s", commit).decode().strip()
         listed = ", ".join(paths[:5]) + (f", and {len(paths) - 5} more" if len(paths) > 5 else "")
         print(f"{subject}: undone in {listed}")

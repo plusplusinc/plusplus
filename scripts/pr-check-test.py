@@ -105,6 +105,81 @@ class Reverts(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("undone in RailRow.swift", result.stderr)
 
+    def land(self, message, files):
+        """Commits files to main, as a later PR would, and leaves the branch checked out."""
+        self.git("switch", "-q", "main")
+        for name, content in files.items():
+            self.write(name, content)
+        self.commit(message)
+        self.git("switch", "-q", "tooling")
+
+    def land_playback(self):
+        # #174's shape: a new type and its tests, and the screen that uses it.
+        self.land("Give the workout one home (#174)", {
+            "Playback.swift": "struct Playback {\n    var queue: [Int] = []\n}\n",
+            "PlaybackTests.swift": "@Test func drains() {\n    #expect(Playback().queue.isEmpty)\n}\n",
+            "Screen.swift": "struct Screen {\n    let playback = Playback()\n}\n",
+        })
+
+    def test_deleting_files_a_recent_commit_added_passes_while_the_rest_of_it_stands(self):
+        # PR 194's case: a type #174 added is replaced, so its file and tests go.
+        self.land_playback()
+        self.git("merge", "-q", "--no-edit", "main")
+        self.git("rm", "-q", "Playback.swift", "PlaybackTests.swift")
+        self.write("Screen.swift", "struct Screen {\n    let playback = Playback()\n    let phase = Phase()\n}\n")
+        self.write("Phase.swift", "enum Phase {\n    case resting, logging\n}\n")
+        self.commit("Replace the playback with a phase")
+        result = self.check()
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_a_squash_onto_a_main_that_only_added_files_fails(self):
+        # A stale squash deletes every file main added meanwhile: all of that commit is undone.
+        self.land("Add the playback", {"Playback.swift": "struct Playback {}\n", "playback.png": b"\x89PNG"})
+        self.git("reset", "--soft", "main")
+        self.commit("Cap how many boot at once")
+        result = self.check()
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("Add the playback: undone in Playback.swift, playback.png", result.stderr)
+
+    def test_deleting_one_file_does_not_excuse_undoing_another(self):
+        # The deletion passes; RailRow.swift, back to before #134, is judged as ever.
+        self.land_playback()
+        self.git("merge", "-q", "--no-edit", "main")
+        self.git("rm", "-q", "Playback.swift")
+        self.write("RailRow.swift", ROW)
+        self.commit("Drop the playback")
+        result = self.check()
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("Keep the dot in place (#134): undone in RailRow.swift\n", result.stderr)
+        self.assertNotIn("#174", result.stderr)
+
+    def test_an_old_copy_brought_back_under_a_new_name_fails(self):
+        # A stale branch that moved the file would bring the old copy back so; a move that is
+        # meant keeps the lines main added, as the next test does. The commit's other file
+        # stands, so only following the move catches it. Git finds a move by half the content
+        # alike, which a file this short barely misses with one line changed, hence the rows.
+        rail = "".join(f"    let row{n} = RailRow()\n" for n in range(8))
+        old = f"struct Rail {{\n{rail}    var gap = 4\n}}\n"
+        self.land("Add the rail", {"Rail.swift": old})
+        self.land("Space the rows (#140)", {"Rail.swift": old.replace("gap = 4", "gap = 8"),
+                                            "rail.png": b"\x89PNG spaced"})
+        self.git("merge", "-q", "--no-edit", "main")
+        self.git("rm", "-q", "Rail.swift")
+        (self.repo / "Rail").mkdir()
+        self.write("Rail/Rail.swift", old)
+        self.commit("Move the rail")
+        result = self.check()
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("Space the rows (#140): undone in Rail.swift (at Rail/Rail.swift)\n", result.stderr)
+
+    def test_a_move_that_keeps_mains_lines_passes(self):
+        self.git("merge", "-q", "--no-edit", "main")
+        (self.repo / "Rail").mkdir()
+        self.git("mv", "RailRow.swift", "Rail/RailRow.swift")
+        self.commit("Move the row")
+        result = self.check()
+        self.assertEqual(result.returncode, 0, result.stderr)
+
 
 class Body(unittest.TestCase):
     """`scripts/pr-check.sh body`: the Card, Verified, and Friction lines the retro reads."""
