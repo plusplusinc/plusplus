@@ -20,8 +20,11 @@ says why.
 2. Start a `builder`, with no `model` (its definition sets it), in the foreground, with the card
    id, the worktree and branch, the card's Plan as the plan, and the handoff path
    `.slices/<branch>-handoff.md` in the main checkout. It opens the PR with `/pr`.
-3. Start a `verifier`, with no `model`, in the foreground, with the worktree, the branch and
-   PR, and the card id. It leaves the "Verifier record" comment the runner reads.
+3. Start a `verifier`, with no `model`, in the foreground and with `isolation: "worktree"`, with
+   the builder's worktree, the branch and PR, and the card id. It checks the PR's commit out in
+   its own worktree, pushes any test it adds to the branch with `git push origin HEAD:<branch>`,
+   and leaves the "Verifier record" comment the runner reads. A builder that runs after it
+   is told to start with `git pull origin <branch>` in its worktree, which brings those tests in.
 4. When the verifier reports a failed criterion or a crash, start one more builder for those
    findings, then the verifier once more. After that, end with what is still failing; the
    runner parks the card.
@@ -35,7 +38,9 @@ says why.
 
 - Write only in the worktree you were given and the main checkout's `.slices/` (gitignored),
   which takes the handoff note and any scratch files; a command naming the main checkout's other
-  files, the night's folder, or a config dotfile in the home folder is denied.
+  files, the night's folder, or a config dotfile in the home folder is denied. An isolation
+  worktree made for one of your agents since the card started (`.claude/worktrees/agent-<id>`)
+  counts as yours.
 - Never merge, never arm auto-merge, and never move the card: the runner does those.
 - A test count drop needs a line in the PR body starting `Fewer tests:` that names the test
   target and says why, or the runner parks the card. A test commented out, or disabled (`.disabled`, `.enabled(if: false)`, `#if false`,

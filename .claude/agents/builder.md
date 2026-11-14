@@ -14,7 +14,10 @@ cost you find (a pause, a slower path): keep it, and report the cost and what yo
 
 ## Work
 
-- Work only in the worktree the lead names, on its branch.
+- Work only in the worktree the lead names, on its branch. A local-only change for a capture,
+  such as a slowed animation, is made and reverted there, never in another agent's worktree or
+  the lead's. A verifier pushes the tests it adds to the branch from its own worktree, so after
+  one has run, start with `git pull origin <branch>`.
 - When Claude Code or a hook refuses a call (an Edit, a write, a fetch, a push), stop and report
   what was refused and why to the lead. Never get the same result another way, such as a shell
   write for a refused Edit or a spelled-out URL for a refused fetch.
