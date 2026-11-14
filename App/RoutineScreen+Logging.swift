@@ -119,8 +119,7 @@ extension RoutineScreen {
         let startsRound: Bool
         switch step {
         case .nextSet:
-            // `rollHeldSet()` shows it, keyed on the held set.
-            return
+            return rollHeldSet()
         case let .nextExercise(to, back, round):
             (next, isBack, startsRound) = (to, back, round)
         case .last:
@@ -189,11 +188,15 @@ extension RoutineScreen {
             settleWayBack()
             playWaiting(waiting)
         }
-        crossfade(scrollingTo: target ?? scrollBeat.scrolledY, then: landed) {
-            playback.show()
-            if next != nil {
-                landings += 1
+        beginCrossfade(scrollingTo: target ?? scrollBeat.scrolledY)
+        sequence.run {
+            try await crossfade {
+                playback.show()
+                if next != nil {
+                    landings += 1
+                }
             }
+            landed()
         }
     }
 
@@ -201,25 +204,20 @@ extension RoutineScreen {
     /// roll once the next row shows it, then the move's end, timed from the log by design: nothing
     /// is waited for. With no `target` worked out ahead, as after a relaunch, the list lands after.
     private func land(_ way: SetMotion.Way, scrollingTo target: CGFloat?) {
-        Task {
-            try? await Task.sleep(for: .seconds(SetMotion.landing(way)), tolerance: .zero)
+        sequence.run {
+            let start = ContinuousClock.now
+            try await beat(until: start + .seconds(SetMotion.landing(way)))
             landings += 1
             // At once, under the plop, which is the lit node's size and green.
             withTransaction(\.disablesAnimations, true) {
                 exerciseMove?.isLanded = true
             }
-            try? await Task.sleep(
-                for: .seconds(SetMotion.roundRoll(way) - SetMotion.landing(way)),
-                tolerance: .zero,
-            )
+            try await beat(until: start + .seconds(SetMotion.roundRoll(way)))
             withAnimation(.snappy(duration: SetMotion.roll)) {
                 exerciseMove?.heldProgress = nil
                 exerciseMove?.hasRolled = true
             }
-            try? await Task.sleep(
-                for: .seconds(SetMotion.move(way) - SetMotion.roundRoll(way)),
-                tolerance: .zero,
-            )
+            try await beat(until: start + .seconds(SetMotion.move(way)))
             exerciseMove = nil
             let waiting = playback.end()
             letRoomGo()
@@ -244,11 +242,9 @@ extension RoutineScreen {
             playback.show()
             closingRoomTop = 0
         }
-        Task {
-            try? await Task.sleep(
-                for: .seconds(SetMotion.closeStart + SetMotion.close),
-                tolerance: .zero,
-            )
+        sequence.run {
+            let start = ContinuousClock.now
+            try await beat(until: start + .seconds(SetMotion.closeStart + SetMotion.close))
             closingRoomTop = nil
             let waiting = playback.end()
             letRoomGo()

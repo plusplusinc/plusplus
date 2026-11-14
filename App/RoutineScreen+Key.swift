@@ -173,18 +173,14 @@ extension RoutineScreen {
     }
 
     /// After a log that stays on the exercise, the beat the set is held for before the line
-    /// rolls on. A task on the held set, so the screen going away cancels it; cancelled, the set
-    /// shows at once, so the step still ends and the next log plays.
-    func rollHeldSet() async {
-        guard playback.held != nil else { return }
-        let rolls: Bool
-        do {
-            try await Task.sleep(for: .seconds(SetMotion.heldRoll), tolerance: .zero)
-            rolls = true
-        } catch {
-            rolls = false
+    /// rolls on, timed from the log. On the screen's sequence, so the screen going away stops it
+    /// and shows the set at once (`stopSequence()`).
+    func rollHeldSet() {
+        sequence.run {
+            let start = ContinuousClock.now
+            try await beat(until: start + .seconds(SetMotion.heldRoll))
+            withAnimation(.snappy(duration: SetMotion.roll)) { playback.show() }
+            endStep()
         }
-        withAnimation(rolls ? .snappy(duration: SetMotion.roll) : nil) { playback.show() }
-        endStep()
     }
 }

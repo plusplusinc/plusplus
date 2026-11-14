@@ -99,6 +99,8 @@ struct RoutineScreen: View {
     /// The sets logged and stored but not yet shown, and the step the screen is playing
     /// (`play(_:)`).
     @State var playback = WorkoutPlayback()
+    /// The timed beats of the logged set's sequence playing, which the screen going away stops.
+    @State var sequence = SequenceTask()
     @State var rowFrames = RowFrames()
     @Environment(\.locale) var locale
     @Environment(\.accessibilityReduceMotion) var reduceMotion
@@ -308,7 +310,7 @@ struct RoutineScreen: View {
             key(role, isOut: isOut)
         }
         .task(id: isStarting) { await holdStart() }
-        .task(id: playback.held) { await rollHeldSet() }
+        .onDisappear { stopSequence() }
         // One row open at a time, closed by a scroll or a tap anywhere else, Start included,
         // so the container holds Start's bar as well as the scroll view.
         .swipeActionsContainer()
