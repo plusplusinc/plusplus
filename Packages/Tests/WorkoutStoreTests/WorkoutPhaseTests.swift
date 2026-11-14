@@ -7,10 +7,10 @@ import Testing
 struct WorkoutPhaseTests {
     private static let row = UUID()
     private static let other = UUID()
-    private static let logged = PlannedSet(row: row, round: 1)
+    static let logged = PlannedSet(row: row, round: 1)
     private static let next = PlannedSet(row: other, round: 1)
 
-    private static let down = LiveWorkout.Step.nextExercise(
+    static let down = LiveWorkout.Step.nextExercise(
         to: next,
         isBack: false,
         startsRound: false,
@@ -22,25 +22,27 @@ struct WorkoutPhaseTests {
     )
 
     /// A beat of a sequence, applied by name.
-    private enum Beat: CaseIterable {
+    enum Beat: CaseIterable {
         case show
         case land
+        case shift
         case roll
         case settle
     }
 
     /// Applies `beat` to `phase`: whether it changed it.
-    private static func apply(_ beat: Beat, to phase: inout WorkoutPhase) -> Bool {
+    static func apply(_ beat: Beat, to phase: inout WorkoutPhase) -> Bool {
         switch beat {
         case .show: phase.show()
         case .land: phase.land()
+        case .shift: phase.shift()
         case .roll: phase.roll()
         case .settle: phase.settle()
         }
     }
 
     /// `phase` after `beats`, each of which must apply.
-    private static func after(_ beats: [Beat], from phase: WorkoutPhase) -> WorkoutPhase {
+    static func after(_ beats: [Beat], from phase: WorkoutPhase) -> WorkoutPhase {
         var phase = phase
         for beat in beats {
             let applied = apply(beat, to: &phase)
@@ -49,14 +51,14 @@ struct WorkoutPhaseTests {
         return phase
     }
 
-    private static func logging(_ step: LiveWorkout.Step, moves: Bool = true) -> WorkoutPhase {
+    static func logging(_ step: LiveWorkout.Step, moves: Bool = true) -> WorkoutPhase {
         var phase = WorkoutPhase.running
         phase.log(logged, leadingTo: step, moves: moves)
         return phase
     }
 
     /// One of each phase, at every beat a sequence passes through.
-    private static var everyPhase: [WorkoutPhase] {
+    static var everyPhase: [WorkoutPhase] {
         let move = logging(down)
         let others = [(LiveWorkout.Step.last, true), (down, false), (.last, false)].flatMap {
             let phase = logging($0, moves: $1)
@@ -69,7 +71,7 @@ struct WorkoutPhaseTests {
             move,
             after([.show], from: move),
             after([.show, .land], from: move),
-            after([.show, .land, .roll], from: move),
+            after([.show, .land, .shift, .roll], from: move),
         ] + others
     }
 
@@ -105,7 +107,7 @@ struct WorkoutPhaseTests {
 
     @Test("A move is hidden until shown, its node unlit until landed, its beats only in order")
     func move() throws {
-        let order: [Beat] = [.show, .land, .roll, .settle]
+        let order: [Beat] = [.show, .land, .shift, .roll, .settle]
         var phase = Self.logging(Self.down)
         #expect(phase.isMovingOn)
         #expect(phase.hidden == [Self.logged])
@@ -138,7 +140,7 @@ struct WorkoutPhaseTests {
         for beats in [[], [.show], [.show, .land]] as [[Beat]] {
             #expect(Self.after(beats, from: move).keySet == Self.logged, "\(beats)")
         }
-        #expect(Self.after([.show, .land, .roll], from: move).keySet == nil)
+        #expect(Self.after([.show, .land, .shift, .roll], from: move).keySet == nil)
         for (step, moves) in [(LiveWorkout.Step.last, true), (Self.down, false), (.last, false)] {
             let phase = Self.logging(step, moves: moves)
             #expect(phase.keySet == Self.logged)
@@ -153,7 +155,7 @@ struct WorkoutPhaseTests {
         let phase = Self.logging(Self.round)
         #expect(try #require(phase.move).holdsRound)
         #expect(try #require(Self.after([.show, .land], from: phase).move).holdsRound)
-        let rolled = Self.after([.show, .land, .roll], from: phase)
+        let rolled = Self.after([.show, .land, .shift, .roll], from: phase)
         #expect(try #require(rolled.move).holdsRound == false)
         #expect(try #require(Self.logging(Self.down).move).holdsRound == false)
     }
@@ -206,10 +208,11 @@ struct WorkoutPhaseTests {
 
     @Test("Stopped at once, each phase is where its sequence was going")
     func settleAtOnce() {
-        for phase in Self.everyPhase {
+        for phase in Self.everyPhase + Self.startAndEnd {
             var stopped = phase
             stopped.settleAtOnce()
-            #expect(stopped == (phase == .idle ? .idle : .running), "\(phase)")
+            let workoutGoes = phase == .idle || phase == .starting(.pressed) || phase.isEnding
+            #expect(stopped == (workoutGoes ? .idle : .running), "\(phase)")
         }
     }
 }
