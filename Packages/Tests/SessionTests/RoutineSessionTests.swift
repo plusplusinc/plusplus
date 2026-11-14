@@ -62,7 +62,7 @@ struct RoutineSessionTests {
         #expect(try await relaunch().openRoutine(routine.id, weightUnit: .pounds)?.name == "Three")
     }
 
-    @Test("An edit made while the next routine is being read is saved")
+    @Test("An edit made while the next routine is being read is saved before it shows")
     func editDuringRead() async throws {
         let routine = try Self.upper()
         let session = session(routine)
@@ -72,21 +72,16 @@ struct RoutineSessionTests {
         let switching = Task {
             await session.switchTo(pushed: false) {
                 readStarted.yield()
-                for await _ in release {
-                    break
-                }
+                _ = await release.first { _ in true }
                 return other
             }
         }
-        for await _ in reading {
-            break
-        }
+        _ = await reading.first { _ in true }
         var edited = routine
         edited.name = "Push day"
         session.save(edited)
         releaseRead.yield()
         await switching.value
-        await session.writesLanded()
         #expect(session.current == other)
         #expect(try await relaunch().openRoutine(routine.id, weightUnit: .pounds) == edited)
     }
