@@ -918,19 +918,6 @@ class Loop(unittest.TestCase):
 
     BODY = "## Problem\nx\n\nNightly: faster CI; its time\n\n## Success\nRun it.\n"
 
-    def setUp(self):
-        # GitHub, as a gh on the PATH, has a newer release of every lint tool than its pin, as on
-        # the night swiftformat 0.64.7 came out: a night that asked it would add update cards, so
-        # each test says what `outdated` prints instead of reading the real releases. Any call
-        # that still reaches gh shows up as those cards rather than as a network read.
-        bin_dir = Path(tempfile.mkdtemp())
-        self.addCleanup(shutil.rmtree, bin_dir, True)
-        (bin_dir / "gh").write_text("#!/bin/sh\necho v99.0.0\n")
-        (bin_dir / "gh").chmod(0o755)
-        path = os.environ["PATH"]
-        self.addCleanup(os.environ.__setitem__, "PATH", path)
-        os.environ["PATH"] = f"{bin_dir}:{path}"
-
     def night(self, results, weekly_resets, take=None, event=None, finish=False, gh=lambda *a: [],
               outdated=subprocess.CompletedProcess([], 0, "", "")):
         cards = [(f"PVTI_{i}", "Todo", "-", f"card {i}", self.BODY) for i in range(4)]
@@ -969,6 +956,16 @@ class Loop(unittest.TestCase):
                          ["card 0", "card 1", "card 2"])
 
     def test_a_crash_mid_card_leaves_a_state_and_a_digest(self):
+        # GitHub, as a gh on the PATH, has a newer release of every lint tool than its pin, as on
+        # the night swiftformat 0.64.7 came out. A night that asked it would add an update card
+        # and fail on the stubbed board's reply before the crash; night() says what `outdated`
+        # prints instead.
+        bin_dir = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, bin_dir, True)
+        (bin_dir / "gh").write_text("#!/bin/sh\necho v99.0.0\n")
+        (bin_dir / "gh").chmod(0o755)
+        self.addCleanup(os.environ.__setitem__, "PATH", os.environ["PATH"])
+        os.environ["PATH"] = f"{bin_dir}:{os.environ['PATH']}"
         board_calls = []
         saved = nightly.board, nightly.tidy
         self.addCleanup(lambda: (setattr(nightly, "board", saved[0]), setattr(nightly, "tidy", saved[1])))

@@ -106,10 +106,14 @@ class Reverts(unittest.TestCase):
         self.assertIn("undone in RailRow.swift", result.stderr)
 
     def land(self, message, files):
-        """Commits files to main, as a later PR would, and leaves the branch checked out."""
+        """Commits files to main, as a later PR would, None deleting one, and leaves the branch
+        checked out."""
         self.git("switch", "-q", "main")
         for name, content in files.items():
-            self.write(name, content)
+            if content is None:
+                self.git("rm", "-q", name)
+            else:
+                self.write(name, content)
         self.commit(message)
         self.git("switch", "-q", "tooling")
 
@@ -144,10 +148,7 @@ class Reverts(unittest.TestCase):
     def test_a_squash_still_fails_when_main_has_since_dropped_the_commits_other_file(self):
         # What a later commit took away no longer stands, so it can't excuse the deletion.
         self.land("Add the playback", {"Playback.swift": "struct Playback {}\n", "Notes.md": "playback\n"})
-        self.git("switch", "-q", "main")
-        self.git("rm", "-q", "Notes.md")
-        self.commit("Drop the notes")
-        self.git("switch", "-q", "tooling")
+        self.land("Drop the notes", {"Notes.md": None})
         self.git("reset", "--soft", "main")
         self.commit("Cap how many boot at once")
         result = self.check()
