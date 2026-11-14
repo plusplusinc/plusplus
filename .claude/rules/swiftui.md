@@ -58,10 +58,11 @@ feature, and change them with it.
 - The key at the bottom and the +1: `RoutineScreen+Key.swift`, `PrimaryKeyButtonStyle.swift`,
   `PlusOneBurst`. The bar swaps the key on its own as its kind changes: the swap's stage is
   `KeyStage`, held by `StagedKey` in `KeySwap.swift`.
-- Logging a set and moving on to the next exercise: `RoutineScreen+Logging.swift` (`play(_:)`,
+- Logging a set and moving on to the next exercise: `RoutineScreen+Logging.swift` (`play(_:leadingTo:)`,
   the one entry that shows a stored log), `SetMotion`, `RailPulse`, `SetBeat` in `RailRow.swift`.
-  Where a workout is and what a log leads to are `LiveWorkout`'s, and which logs are yet to
-  show `WorkoutPlayback`'s, both in `WorkoutStore`.
+  Where a workout is and what a log leads to are `LiveWorkout`'s, and where the screen is in
+  showing a log `WorkoutPhase`'s, both in `WorkoutStore`; its timed beats run on the screen's
+  one `SequenceTask` (`RoutineScreen+Sequence.swift`).
 - Dragging a row, and supersets: `RailDrag`, `RailLiftGesture`, `RailAutoscroll`, `LoopPen`
   (`LoopHeads.swift`), `RailPairing`, `RailWell.swift`, `RailRegroup`, `RailStrokes.swift`.
 - The ++ drawer and the Routines screen: `SideDrawer`, `DrawerSwipe`, `DrawerMenu`,
@@ -87,7 +88,14 @@ Each of these cost a round on this app; the code at the named spot works around 
 - Stack views whose heights animate in a custom `Layout` (`RailStack`), not a `VStack`, which
   places the views below from stale heights and then jumps.
 - Time the next beat from the animation's start with `Task.sleep(for:tolerance: .zero)`, not from
-  `withAnimation`'s completion, which fires a few frames after the motion stops.
+  `withAnimation`'s completion, which fires a few frames after the motion stops. A logged set's
+  beats sleep to deadlines from the sequence's start (`beat(until:)`).
+- Enter a logged set's `WorkoutPhase` in the tap's own transaction, never with animations
+  disabled: disabled, the last set's room went at once and the list jumped to its top
+  (`play(_:leadingTo:)`).
+- A value that has to change inside a motion's animated transaction is state of its own, not
+  derived: derived from the phase, the close's room went to the landing and back to 0 in one
+  turn, never changed inside the close's animation, and the list jumped (`closingRoomTop`).
 - Never clear state that must hold for a motion from `withAnimation`'s completion: in about 2 of
   50 of Start's grows, with no scroll in the transaction, SwiftUI ran it 12 to 28 ms in, before
   the first frame, while the rows went on growing. Change a count on the motion's own animation

@@ -57,6 +57,7 @@ extension RoutineScreen {
                 then: bringKeyBack,
             ) {
                 session.start()
+                phase = WorkoutPhase(hasWorkout: true)
                 isStarting = false
                 // The bar's room goes for the crossfade: the room under the list holds it, and
                 // measured, the list stayed put (13 Starts, 2026-11-01).
@@ -100,6 +101,8 @@ extension RoutineScreen {
         }
         withAnimation(.snappy(duration: Self.growBeat)) {
             session.start()
+            // At rest in the workout: nothing drawn changes with it.
+            phase = WorkoutPhase(hasWorkout: true)
             growthLift = 0
             startDrop = max(drop, 1)
             // On the rows' own animation: until it has ended, a loop's heads ease to their new
@@ -219,9 +222,21 @@ extension RoutineScreen {
     /// edge effect, and it showed through.
     func crossfade(
         scrollingTo y: CGFloat,
-        then: (() -> Void)? = nil,
+        then: @escaping () -> Void,
         _ change: @escaping () -> Void,
     ) {
+        beginCrossfade(scrollingTo: y)
+        // The change on a later turn of the run loop, once the list going out has been drawn
+        // lifted and cut: in the same update, it went out with neither.
+        Task {
+            try? await crossfade(change)
+            then()
+        }
+    }
+
+    /// The crossfade's first half, in the caller's turn: the list going out drawn lifted and cut,
+    /// where it shows, the list scrolled to `y` under it.
+    func beginCrossfade(scrollingTo y: CGFloat) {
         let from = scrollBeat.scrolledY
         withTransaction(\.disablesAnimations, true) {
             isCrossfading = true
@@ -229,20 +244,27 @@ extension RoutineScreen {
             underBarCut = max(from - y, 0)
             scrollPosition.scrollTo(y: y)
         }
-        // The change on a later turn of the run loop, once the list going out has been drawn
-        // lifted and cut: in the same update, it went out with neither.
-        Task {
-            withAnimation(.easeInOut(duration: Self.crossfadeDuration)) {
-                listChanges += 1
-                growthLift = 0
-                underBarCut = 0
-                change()
-            } completion: {
-                withTransaction(\.disablesAnimations, true) { isCrossfading = false }
-                letRoomGo()
-                then?()
-            }
+    }
+
+    /// The crossfade itself, on a later turn than `beginCrossfade(scrollingTo:)`: the changed
+    /// list fading in over the one going out. Returns once the fade has finished, as its
+    /// animation's completion reports; throws if the sequence awaiting it was cancelled, and then
+    /// clears nothing.
+    func crossfade(_ change: () -> Void) async throws {
+        let (finished, finish) = AsyncStream<Void>.makeStream()
+        withAnimation(.easeInOut(duration: Self.crossfadeDuration)) {
+            listChanges += 1
+            growthLift = 0
+            underBarCut = 0
+            change()
+        } completion: {
+            finish.finish()
         }
+        // Ends as the fade finishes, or at once if the sequence is cancelled.
+        for await _ in finished { }
+        try Task.checkCancellation()
+        withTransaction(\.disablesAnimations, true) { isCrossfading = false }
+        letRoomGo()
     }
 
     /// Notes where the first exercise is, which a relaunch waits for. In a workout, where the

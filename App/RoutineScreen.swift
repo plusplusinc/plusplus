@@ -87,18 +87,21 @@ struct RoutineScreen: View {
     /// that animation has really ended (`listResizes(_:)`).
     @State var resizes = 0
     /// After the last set, the room to land the current exercise, closing as its row does, the
-    /// list's end held where it shows (`keepEndPinned(from:to:)`).
+    /// list's end held where it shows (`keepEndPinned(from:to:)`). Its own value, not derived from
+    /// the phase: it has to change in the close's animated transaction, and a number set to
+    /// the landing and back to 0 in one turn, as a derived one would be, did not change at all,
+    /// so the room went at once and the list jumped to its top.
     @State var closingRoomTop: CGFloat?
-    /// While a log moves the workout to another exercise, until the next one has grown.
-    @State var exerciseMove: ExerciseMove?
     /// The pulse that carries the workout from one exercise's node to the next one's.
     @State var railPulse: RailPulse<RoutineExercise.ID>?
     /// Counts the moves to another exercise that have landed on its node, each with a light tick,
     /// lighter than a log's.
     @State var landings = 0
-    /// The sets logged and stored but not yet shown, and the step the screen is playing
-    /// (`play(_:)`).
-    @State var playback = WorkoutPlayback()
+    /// Where the workout is in its sequence: at rest, or showing a set just logged
+    /// (`play(_:leadingTo:)`). Every change to it lands in a transaction the screen names.
+    @State var phase: WorkoutPhase
+    /// The timed beats of the logged set's sequence playing, which the screen going away stops.
+    @State var sequence = SequenceTask()
     @State var rowFrames = RowFrames()
     @Environment(\.locale) var locale
     @Environment(\.accessibilityReduceMotion) var reduceMotion
@@ -109,6 +112,7 @@ struct RoutineScreen: View {
     init(session: RoutineSession, namer: RoutineNamer, isPushed: Bool = false) {
         _routine = State(initialValue: session.opened)
         _opensOnCurrent = State(initialValue: session.workout != nil)
+        _phase = State(initialValue: WorkoutPhase(hasWorkout: session.workout != nil))
         self.session = session
         self.namer = namer
         self.isPushed = isPushed
@@ -201,7 +205,7 @@ struct RoutineScreen: View {
                         regroup: regroup,
                     ) { item in
                         rowLabel(item, current: currentID, on: currentSet, bars: rowBars[item.id])
-                            .environment(\.exerciseMoveWay, exerciseMove?.way)
+                            .environment(\.exerciseMoveWay, moveWay)
                             .id(item.id)
                             .padding(.top, item.id == currentID ? Self.currentTopSpace : 0)
                             // Only while it is read: as the list scrolls, every change redraws the
@@ -308,7 +312,7 @@ struct RoutineScreen: View {
             key(role, isOut: isOut)
         }
         .task(id: isStarting) { await holdStart() }
-        .task(id: playback.held) { await rollHeldSet() }
+        .onDisappear { stopSequence() }
         // One row open at a time, closed by a scroll or a tap anywhere else, Start included,
         // so the container holds Start's bar as well as the scroll view.
         .swipeActionsContainer()
