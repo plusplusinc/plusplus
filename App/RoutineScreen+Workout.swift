@@ -98,15 +98,14 @@ extension RoutineScreen {
                 scrollPosition.scrollTo(y: target)
             }
         }
-        // While the rows change height, a loop's heads ease to their new places (`Rail`'s
-        // `isResizing`).
-        isGrowingOrEnding = true
         withAnimation(.snappy(duration: Self.growBeat)) {
             session.start()
             growthLift = 0
             startDrop = max(drop, 1)
+            // On the rows' own animation: until it has ended, a loop's heads ease to their new
+            // places (`listResizes(_:)`).
+            resizes += 1
         } completion: {
-            isGrowingOrEnding = false
             letRoomGo()
         }
         // The workout's key comes up as the rows land, a beat in the sequence by design: the
@@ -176,20 +175,17 @@ extension RoutineScreen {
         guard !reduceMotion else {
             return crossfade(scrollingTo: 0, then: bringKeyBack, change)
         }
-        // Room under the list's end, so the shrinking content doesn't pull the scroll up.
-        // While the rows change height, a loop's heads ease to their new places, as at Start.
-        withTransaction(\.disablesAnimations, true) {
-            isMakingRoom = true
-            isGrowingOrEnding = true
-        }
+        // On the rows' own animation: until it has ended, room under the list's end holds, so the
+        // shrinking content doesn't pull the scroll up, and a loop's heads ease to their new
+        // places, as at Start (`listResizes(_:)`). Cleared from the animation's completion, the
+        // room went before the first frame when SwiftUI ran it early, and the list slammed to its
+        // top.
         withAnimation(.timingCurve(0.25, 0.1, 0.25, 1, duration: Self.endBeat)) {
             change()
             scrollPosition.scrollTo(edge: .top)
-        } completion: {
-            withTransaction(\.disablesAnimations, true) {
-                isMakingRoom = false
-                isGrowingOrEnding = false
-            }
+            resizes += 1
+            // Any room a move to the next exercise left: the resize holds the room from here.
+            isMakingRoom = false
         }
         // Start comes back as the list lands, a beat in the sequence by design: the animation's
         // completion came a few frames after the rows had stopped.
