@@ -129,22 +129,6 @@ private struct PrimaryKeyBar<Face: Equatable & Identifiable, Key: View>: ViewMod
     let drop: CGFloat
     let key: (Face) -> Key
 
-    init(
-        isPresented: Bool,
-        face: Face,
-        keepsRoom: Bool,
-        plusOnes: Int,
-        drop: CGFloat,
-        key: @escaping (Face) -> Key,
-    ) {
-        self.isPresented = isPresented
-        self.face = face
-        self.keepsRoom = keepsRoom
-        self.plusOnes = plusOnes
-        self.drop = drop
-        self.key = key
-    }
-
     /// The screen's bottom safe area, less the keyboard's, measured on the screen rather than on
     /// the key, so a key coming in has it from its first frame: measured on the key, it came in
     /// 16 pt from the sides, then narrowed to its place on the screen's next animation.

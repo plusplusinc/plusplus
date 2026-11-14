@@ -120,7 +120,9 @@ extension RoutineScreen {
             }
             letRoomGo()
             // On a later turn of the run loop, once Start has gone: in the same update, away
-            // and back cancel out, and the key jumped back up from its drop.
+            // and back cancel out, and the key jumped back up from its drop. Still before the
+            // bar's reactions run, so the bar draws it back from what it already holds
+            // (`KeyStage.dropped`).
             Task { bringKeyBack() }
         }
     }

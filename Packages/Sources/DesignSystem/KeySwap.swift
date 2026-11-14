@@ -53,7 +53,7 @@ struct StagedKey<Face: Equatable & Identifiable, Content: View>: View {
         var next = stage
         if next.follow(to: new) {
             withAnimation(.easeIn(duration: PrimaryKeyButtonStyle.swapHalf)) { stage = next }
-        } else {
+        } else if next != stage {
             stage = next
         }
     }

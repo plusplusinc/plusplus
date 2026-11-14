@@ -12,8 +12,9 @@ enum KeyStage<Face: Equatable & Identifiable>: Equatable {
     /// The next key, placed below the edge with no animation, about to rise: the live face,
     /// which may still change while it is out of sight.
     case arriving
-    /// Ridden down out of sight by the screen, as Start at a workout's start: in no swap, the
-    /// live face, so whatever key it is now comes back up under the screen's own animation.
+    /// Being ridden down out of sight by the screen, from the ride's start, as Start at a
+    /// workout's start: in no swap, the live face, so whatever key it is now comes back up under
+    /// the screen's own animation. The screen keeps the face while the key is still in sight.
     case dropped
 
     /// What the bar draws, with `live` the face it is given now. Showing, the live face while it
@@ -63,16 +64,11 @@ enum KeyStage<Face: Equatable & Identifiable>: Equatable {
         }
     }
 
-    /// Whether the key is down out of sight in a swap, leaving or about to rise.
+    /// Whether the key is down out of sight in a swap, leaving or about to rise; it takes no tap.
     var isOut: Bool {
         switch self {
         case .showing, .dropped: false
         case .leaving, .arriving: true
         }
-    }
-
-    /// Whether the key takes taps: not in a swap.
-    var takesTaps: Bool {
-        !isOut
     }
 }

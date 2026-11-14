@@ -7,8 +7,8 @@ import UIKit
 @testable import DesignSystem
 
 /// How the bar swaps its key on its own, read from the first layouts after a change, as
-/// automation reads the key. No real time is waited on: each swap's halves run 0.2 s, and these
-/// read only what the bar draws before them.
+/// automation reads the key. No real time is waited on: each half of a swap runs
+/// `PrimaryKeyButtonStyle.swapHalf`, and these read only what the bar draws before it.
 extension PrimaryKeyBarTests {
     fileprivate struct Face: Equatable, Identifiable {
         let id: Int
@@ -19,8 +19,12 @@ extension PrimaryKeyBarTests {
     @Observable
     fileprivate final class Inputs {
         var isPresented = true
-        var face = Face(id: 1, words: "Log set")
+        var face: Face
         var drop: CGFloat = 0
+
+        init(face: Face) {
+            self.face = face
+        }
     }
 
     fileprivate struct SwapHost: View {
@@ -39,14 +43,26 @@ extension PrimaryKeyBarTests {
         }
     }
 
-    /// The bar hosted in a window on `face`, laid out once.
+    /// The bar hosted in a window on a face, laid out once, with the accessibility tree on.
     fileprivate struct Hosted {
-        let inputs = Inputs()
+        let inputs: Inputs
         let host: UIHostingController<SwapHost>
         let window: UIWindow
 
-        init(face: Face = Face(id: 1, words: "Log set")) {
-            inputs.face = face
+        /// Runs `test` on the bar hosted on `face`, then takes the window down.
+        static func on(
+            _ face: Face = Face(id: 1, words: "Log set"),
+            _ test: (Self) throws -> Void,
+        ) throws {
+            try AccessibilityTree.whileOn {
+                let bar = Self(face: face)
+                defer { bar.window.isHidden = true }
+                try test(bar)
+            }
+        }
+
+        private init(face: Face) {
+            inputs = Inputs(face: face)
             host = UIHostingController(rootView: SwapHost(inputs: inputs))
             window = UIWindow.sceneless(hosting: host, at: .large)
             window.settle()
@@ -67,10 +83,8 @@ extension PrimaryKeyBarTests {
     }
 
     @Test("A key that becomes another kind keeps its words in the first layout after")
-    func otherKindKeepsWords() async throws {
-        try await AccessibilityTree.whileOn {
-            let bar = Hosted()
-            defer { bar.window.isHidden = true }
+    func otherKindKeepsWords() throws {
+        try Hosted.on { bar in
             bar.inputs.face = Face(id: 2, words: "Finish workout")
             bar.window.settle()
             #expect(bar.keys.map(\.label) == ["Log set"])
@@ -78,10 +92,8 @@ extension PrimaryKeyBarTests {
     }
 
     @Test("Within a kind, the key's words change at once")
-    func sameKindChangesWords() async throws {
-        try await AccessibilityTree.whileOn {
-            let bar = Hosted()
-            defer { bar.window.isHidden = true }
+    func sameKindChangesWords() throws {
+        try Hosted.on { bar in
             bar.inputs.face = Face(id: 1, words: "Log right")
             bar.window.settle()
             #expect(bar.keys.map(\.label) == ["Log right"])
@@ -89,10 +101,8 @@ extension PrimaryKeyBarTests {
     }
 
     @Test("A key that changed kind while away comes back as the new one")
-    func awayComesBackNew() async throws {
-        try await AccessibilityTree.whileOn {
-            let bar = Hosted()
-            defer { bar.window.isHidden = true }
+    func awayComesBackNew() throws {
+        try Hosted.on { bar in
             bar.inputs.isPresented = false
             bar.window.settle()
             bar.inputs.face = Face(id: 2, words: "Finish workout")
@@ -104,16 +114,15 @@ extension PrimaryKeyBarTests {
     }
 
     /// Start's return, as the screen plays it: Start ridden down out of sight; then, with no
-    /// animation, away with its room kept and the face the workout's key; then, on a later turn,
-    /// back under the return's animation. Away and back fall within one update, so the bar's
-    /// reactions run only after it draws the key back. Kept by the bar from before, the stage
-    /// drew Start in that update and the reaction then changed it to Log set unanimated: on the
-    /// phone, Log set appeared at rest in one frame (2026-11-13).
+    /// animation, away with its room kept and the face the workout's key; then back under the
+    /// return's animation. In the app, the key came back before the bar's reactions ran, with
+    /// the state it had before it went (logged 2026-11-13), which this forces by bringing it
+    /// back with no layout between. Drawn from that state, the key came back as Start and the
+    /// reaction then changed it to Log set unanimated: on the phone, Log set appeared at rest in
+    /// one frame.
     @Test("A key ridden out of sight comes back as the new kind, rising, in its first layout")
-    func droppedComesBackRising() async throws {
-        try await AccessibilityTree.whileOn {
-            let bar = Hosted(face: Face(id: 0, words: "Start"))
-            defer { bar.window.isHidden = true }
+    func droppedComesBackRising() throws {
+        try Hosted.on(Face(id: 0, words: "Start")) { bar in
             let rest = try #require(bar.keys.first).frame
             withTransaction(\.disablesAnimations, true) { bar.inputs.drop = 600 }
             bar.window.settle()
@@ -122,7 +131,9 @@ extension PrimaryKeyBarTests {
                 bar.inputs.face = Face(id: 1, words: "Log set")
                 bar.inputs.drop = 0
             }
-            withAnimation(.smooth(duration: 0.2)) { bar.inputs.isPresented = true }
+            withAnimation(.smooth(duration: PrimaryKeyButtonStyle.swapHalf)) {
+                bar.inputs.isPresented = true
+            }
             bar.layOutOnce()
             let back = bar.keys
             #expect(back.map(\.label) == ["Log set"])

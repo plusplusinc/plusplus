@@ -86,13 +86,10 @@ struct KeyStageTests {
         #expect(stage == .showing(log))
     }
 
-    @Test("Only a showing key takes taps; a leaving or arriving one is out")
-    func taps() {
-        #expect(KeyStage.showing(log).takesTaps)
+    @Test("A leaving or arriving key is out, and takes no tap; a showing one is in")
+    func out() {
         #expect(!KeyStage.showing(log).isOut)
         #expect(KeyStage.leaving(log).isOut)
-        #expect(!KeyStage.leaving(log).takesTaps)
         #expect(KeyStage<Face>.arriving.isOut)
-        #expect(!KeyStage<Face>.arriving.takesTaps)
     }
 }

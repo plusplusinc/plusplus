@@ -162,6 +162,7 @@ extension RoutineScreen {
         } else {
             nil
         }
+        guard way != keyWayBack else { return }
         keyWayBack = way
     }
 
