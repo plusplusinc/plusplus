@@ -14,7 +14,9 @@ card is in In Progress.
   like a solution ("add a timer"), find the problem behind it ("rest between sets is guessed")
   and check it is the right one to solve before the one after it. Push back in the brief itself, with an alternative, when it is not.
 - **Bug**: something does not do what it already promises. Reproduce it first (`/run`, tests,
-  the log), write the reproduction into the brief, skip the argument.
+  the log), write the reproduction into the brief, skip the argument. A flaky test's card states
+  the cause only as far as evidence shows it, keeps the app's part in scope until the cause is
+  known, and asks for the fix to be proved from that cause, never by a count of clean runs.
 - **Hunch**: a question that needs evidence. The brief proposes a spike and its shape:
   throwaway branch, promotable prototype, or shipped behind a flag. Say which and why.
 

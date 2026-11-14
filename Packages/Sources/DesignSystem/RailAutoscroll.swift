@@ -49,7 +49,9 @@ final class RailEdges {
     @ObservationIgnored private var roomMove = RailRoomMove()
     /// Room added below the list's end, so it can scroll as far as a held row's room above the
     /// rail asks even when it is shorter than the screen. It goes once the room above has closed
-    /// with no row held.
+    /// with no row held. The rail pads its bottom by it, in the content, not as a content margin,
+    /// which takes as much out of the height a `containerRelativeFrame` in the content reads, a
+    /// pass late, so anything sized from it would shrink and grow back out of step.
     private(set) var roomBelow: CGFloat = 0
 
     /// The part of the scroll view the list shows in, between the bars.
@@ -217,7 +219,6 @@ private struct RailAutoscroll: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .contentMargins(.bottom, edges.roomBelow, for: .scrollContent)
             .environment(\.railEdges, edges)
             // The scroll view's frame, which `visible` and the finger are measured in.
             .coordinateSpace(.named(RailDrag.scrollSpace))

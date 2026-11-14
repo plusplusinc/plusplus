@@ -79,6 +79,9 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     @State var flashes: [RowID: Int] = [:]
     /// How far down each row its node is, at rest.
     @State var nodeInsets: [RowID: CGFloat] = [:]
+    /// How far below its row's top the held card's fill starts (`HeldCardInset`): on the current
+    /// exercise, where its superset's well wraps it.
+    @State var heldCardInset: CGFloat = 0
     /// Where a row's node is from its top leading corner, as the rows report it, the same on
     /// every row: what places a superset's well.
     @State var railNode: CGPoint?
@@ -183,7 +186,9 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     public var body: some View {
         let shown = shownRows
         let cardY = drag.map(cardY)
-        let well = drag.flatMap { drag in cardY.flatMap { heldWell(drag, cardY: $0) } }
+        let well = drag.flatMap { drag in
+            cardY.flatMap { heldWell(drag, cardY: $0, cardInset: heldCardInset) }
+        }
         // The lifted row is in the gap, so the line runs from the first row left on the rail to
         // the last, through the gap where the gap is between them.
         let first = shown.first?.id
@@ -298,9 +303,13 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                 .allowsHitTesting(false)
             }
         }
+        .onPreferenceChange(HeldCardInset.self) { heldCardInset = $0 }
         // Room above the rows for what a held row's superset shows past the rail's top, which
         // the list scrolls by, so the rows stay put and what is above the rail moves up.
         .padding(.top, edges?.room ?? room)
+        // Room below the list's end, so the list can scroll as far as that room asks
+        // (`RailEdges.roomBelow`).
+        .padding(.bottom, edges?.roomBelow ?? 0)
         .background(alignment: .topLeading) {
             // The rail column as a row's node has it, measured at the current text size.
             RailNodeColumn()

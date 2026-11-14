@@ -1141,6 +1141,24 @@ class PrePush(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("pre-push hook failed", result.stderr)
 
+    def test_a_push_to_pr_media_goes(self):
+        # As scripts/pr-media.sh makes it: a commit with no history shared with main. Read
+        # through the budget, it has no merge base and would be refused (PR #177's night).
+        (self.night.dir / "state.json").write_text(json.dumps({"start": NIGHT.isoformat()}))  # no hours: fails
+        blob = subprocess.run(["git", "hash-object", "-w", "--stdin"], cwd=self.root / "w", input="png\n",
+                              capture_output=True, text=True, check=True).stdout.strip()
+        env = {**os.environ, "GIT_INDEX_FILE": str(self.root / "media-index")}
+        subprocess.run(["git", "update-index", "--add", "--cacheinfo", f"100644,{blob},177/x.png"],
+                       cwd=self.root / "w", env=env, check=True)
+        tree = subprocess.run(["git", "write-tree"], cwd=self.root / "w", env=env, capture_output=True, text=True,
+                              check=True).stdout.strip()
+        commit = subprocess.run(["git", "-c", "user.email=t@example.com", "-c", "user.name=t", "commit-tree", tree,
+                                 "-m", "media"], cwd=self.root / "w", capture_output=True, text=True,
+                                check=True).stdout.strip()
+        result = subprocess.run(["git", "push", "-q", "origin", f"{commit}:refs/heads/pr-media"], cwd=self.root / "w",
+                                env=self.night.git_env(), capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_a_failure_refuses_the_push(self):
         (self.night.dir / "state.json").unlink()
         result = self.push_from_python("App/X.swift")

@@ -144,6 +144,12 @@ model. Measured on 2026-11-11, while the maintainer's user settings set
 model, was served by `claude-fable-5-2`. Both a call's model and a definition's win over that
 setting.
 
+A session runs the agent definitions its own checkout had when it started. On 2026-11-12 a lead
+session started before #171 ran its planner and verifiers on Opus through five PRs, and starting
+`reviewer`, defined since, failed with "not found". So after a merge that changes
+`.claude/agents/`, the lead brings its checkout up to `main` and starts a fresh session before the
+next agent whose model matters.
+
 A row on trial says so in its Set column, `2026-12-01, trial for 5 PRs`, and its Evidence names
 the model it replaced; `scripts/models.py check` takes either form. `/review-setup` runs the
 trials and writes their result back here.
