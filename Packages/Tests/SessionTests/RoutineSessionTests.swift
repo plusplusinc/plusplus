@@ -62,7 +62,7 @@ struct RoutineSessionTests {
         #expect(try await relaunch().openRoutine(routine.id, weightUnit: .pounds)?.name == "Three")
     }
 
-    @Test("An edit made while the next routine is being read is saved before it shows")
+    @Test("An edit made while the next routine is being read is saved")
     func editDuringRead() async throws {
         let routine = try Self.upper()
         let session = session(routine)
