@@ -14,80 +14,83 @@ struct KeyStageTests {
     private let back = Face(id: 2, words: "Bench press")
     private let finish = Face(id: 3, words: "Finish workout")
 
-    @Test("Within a kind, the key stays showing and draws the live words")
+    @Test("Showing, the same key's new words draw at once and are followed in place")
     func withinAKind() {
         var stage = KeyStage.showing(log)
-        stage.follow(logRight, isPresented: true)
-        #expect(stage == .showing(logRight))
         #expect(stage.face(for: logRight) == logRight)
+        let changed = stage.follow(to: logRight)
+        #expect(!changed)
+        #expect(stage == .showing(logRight))
     }
 
-    @Test("A change of kind starts the key leaving, drawing the old words whatever is live")
+    @Test("Another key's face, not yet followed, draws the key as it was")
+    func beforeFollowing() {
+        let stage = KeyStage.showing(logRight)
+        #expect(stage.face(for: finish) == logRight)
+    }
+
+    @Test("A change of kind starts the key leaving, drawing its own words whatever is live")
     func changeOfKind() {
-        var stage = KeyStage.showing(log)
-        stage.follow(finish, isPresented: true)
-        #expect(stage == .leaving(log, next: finish))
-        #expect(stage.face(for: finish) == log)
-        #expect(stage.face(for: back) == log)
+        var stage = KeyStage.showing(logRight)
+        let changed = stage.follow(to: finish)
+        #expect(changed)
+        #expect(stage == .leaving(logRight))
+        #expect(stage.face(for: finish) == logRight)
+        #expect(stage.face(for: back) == logRight)
     }
 
-    @Test("Before the reaction has run, a showing key given another kind draws the face it had")
-    func beforeTheReaction() {
-        #expect(KeyStage.showing(log).face(for: finish) == log)
+    @Test("While leaving or arriving, further changes change nothing")
+    func whileOut() {
+        var leaving = KeyStage.leaving(log)
+        let leavingChanged = leaving.follow(to: back)
+        #expect(!leavingChanged)
+        #expect(leaving == .leaving(log))
+        var arriving = KeyStage<Face>.arriving
+        let arrivingChanged = arriving.follow(to: back)
+        #expect(!arrivingChanged)
+        #expect(arriving == .arriving)
     }
 
-    @Test("While leaving, further changes move only what comes next")
-    func whileLeaving() {
-        var stage = KeyStage.leaving(log, next: finish)
-        stage.follow(back, isPresented: true)
-        #expect(stage == .leaving(log, next: back))
-        #expect(stage.face(for: back) == log)
-    }
-
-    @Test("Once gone, the next key is the face live then, below the edge; then it shows")
+    @Test("Once gone, the next key is the live face below the edge; then it shows as the live one")
     func onceGone() {
-        var stage = KeyStage.leaving(log, next: finish)
-        stage.follow(back, isPresented: true)
-        stage.advance()
-        #expect(stage == .arriving(back))
-        stage.advance()
-        #expect(stage == .showing(back))
-        stage.advance()
-        #expect(stage == .showing(back))
-    }
-
-    @Test("A change of kind while the next key is below the edge makes it that key")
-    func whileArriving() {
-        var stage = KeyStage.arriving(finish)
-        stage.follow(back, isPresented: true)
-        #expect(stage == .arriving(back))
+        var stage = KeyStage.leaving(log)
+        stage.advance(live: finish)
+        #expect(stage == .arriving)
         #expect(stage.face(for: back) == back)
+        stage.advance(live: back)
+        #expect(stage == .showing(back))
+        stage.advance(live: finish)
+        #expect(stage == .showing(back))
     }
 
-    @Test("A change of kind once showing again starts another leave")
-    func anotherLeave() {
-        var stage = KeyStage.arriving(finish)
-        stage.advance()
-        stage.follow(log, isPresented: true)
-        #expect(stage == .leaving(finish, next: log))
+    @Test("Dropped out of sight, the key is in no swap and comes back as the live face")
+    func dropped() {
+        var stage = KeyStage.leaving(log)
+        stage.drop(true, live: log)
+        #expect(stage == .dropped)
+        #expect(!stage.isOut)
+        #expect(stage.face(for: finish) == finish)
+        let changed = stage.follow(to: back)
+        #expect(!changed)
+        #expect(stage == .dropped)
+        stage.drop(false, live: back)
+        #expect(stage == .showing(back))
     }
 
-    @Test("Not presented, any change from any stage becomes showing the live face")
-    func notPresented() {
-        for start in [KeyStage.showing(log), .leaving(log, next: finish), .arriving(finish)] {
-            var stage = start
-            stage.follow(back, isPresented: false)
-            #expect(stage == .showing(back))
-        }
+    @Test("Back up from no drop, a showing key stays as it was")
+    func undroppedShowing() {
+        var stage = KeyStage.showing(log)
+        stage.drop(false, live: finish)
+        #expect(stage == .showing(log))
     }
 
     @Test("Only a showing key takes taps; a leaving or arriving one is out")
     func taps() {
         #expect(KeyStage.showing(log).takesTaps)
         #expect(!KeyStage.showing(log).isOut)
-        #expect(KeyStage.leaving(log, next: finish).isOut)
-        #expect(!KeyStage.leaving(log, next: finish).takesTaps)
-        #expect(KeyStage.arriving(finish).isOut)
-        #expect(!KeyStage.arriving(finish).takesTaps)
+        #expect(KeyStage.leaving(log).isOut)
+        #expect(!KeyStage.leaving(log).takesTaps)
+        #expect(KeyStage<Face>.arriving.isOut)
+        #expect(!KeyStage<Face>.arriving.takesTaps)
     }
 }

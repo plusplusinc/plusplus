@@ -128,9 +128,6 @@ private struct PrimaryKeyBar<Face: Equatable & Identifiable, Key: View>: ViewMod
     let drop: CGFloat
     let key: (Face) -> Key
 
-    /// Where the key is in a swap for another, from the face it showed.
-    @State private var stage: KeyStage<Face>
-
     init(
         isPresented: Bool,
         face: Face,
@@ -145,7 +142,6 @@ private struct PrimaryKeyBar<Face: Equatable & Identifiable, Key: View>: ViewMod
         self.plusOnes = plusOnes
         self.drop = drop
         self.key = key
-        _stage = State(initialValue: .showing(face))
     }
 
     /// The screen's bottom safe area, less the keyboard's, measured on the screen rather than on
@@ -188,35 +184,32 @@ private struct PrimaryKeyBar<Face: Equatable & Identifiable, Key: View>: ViewMod
             .safeAreaBar(edge: .bottom) {
                 // One stack, so a key coming in and the unseen one holding its room overlap
                 // rather than stack up for the transition's length.
-                let shown = stage.face(for: face)
                 ZStack {
                     if isPresented {
-                        placed(
-                            key(shown)
-                                .buttonStyle(.primaryKey)
-                                .anchorPreference(key: PrimaryKeyBounds.self, value: .bounds) {
-                                    $0
-                                }
-                                .modifier(KeyDrop(drop: drop))
-                                .modifier(KeySwap(isOut: stage.isOut))
-                                .disabled(!stage.takesTaps)
-                                .hiddenBehindDrawer(),
-                        )
+                        StagedKey(
+                            face: face,
+                            isDropped: drop > 0,
+                            below: bottomInset,
+                        ) { shown, isOut in
+                            placed(
+                                key(shown)
+                                    .buttonStyle(.primaryKey)
+                                    .anchorPreference(key: PrimaryKeyBounds.self, value: .bounds) {
+                                        $0
+                                    }
+                                    .modifier(KeyDrop(drop: drop))
+                                    .modifier(KeySwap(isOut: isOut))
+                                    .disabled(isOut)
+                                    .hiddenBehindDrawer(),
+                            )
+                        }
                         .transition(KeyBarTransition(below: bottomInset))
-                        // Another key comes in afresh: one put back just after it went otherwise
-                        // took up the one going, faded and below the edge, and faded in as it rose.
-                        .id(shown.id)
                     } else if keepsRoom {
                         // Only what sizes it: no bounds for the +1, and no drop or swap to run.
-                        placed(key(shown).buttonStyle(.primaryKey)).hidden()
+                        placed(key(face).buttonStyle(.primaryKey)).hidden()
                     }
                 }
             }
-            .onChange(of: face) { follow() }
-            .onChange(of: isPresented) { follow() }
-            // The swap's beats, owned by the bar: its going away, or a key no longer presented,
-            // cancels them.
-            .task(id: stage.isOut) { await swap() }
             // The screen's own inset, without the keyboard's when it is up: with the keyboard's
             // height as the side insets, the key stood tall and narrow over it, and the bar,
             // wider than the screen, pushed the whole screen off its left edge. Measured inside
@@ -245,41 +238,6 @@ private struct PrimaryKeyBar<Face: Equatable & Identifiable, Key: View>: ViewMod
                 }
                 .allowsHitTesting(false)
             }
-    }
-}
-
-extension PrimaryKeyBar {
-    /// Follows the face and whether it is presented. Each write names its transaction, since
-    /// this can run inside another change's animation, as a row's.
-    private func follow() {
-        var next = stage
-        next.follow(face, isPresented: isPresented)
-        guard next != stage else { return }
-        if case .leaving = next, !stage.isOut {
-            // Easing in, so it is still in sight until it clears the edge, and the next one comes
-            // up straight after: easing out, it crept out of sight over its last frames.
-            withAnimation(.easeIn(duration: PrimaryKeyButtonStyle.swapHalf)) { stage = next }
-        } else {
-            withTransaction(\.disablesAnimations, true) { stage = next }
-        }
-    }
-
-    /// Once the key going is out of sight, the next one in its place below the edge, rising on a
-    /// later turn of the run loop. Timed, not on the animation's completion, which came a few
-    /// frames after the key had gone.
-    private func swap() async {
-        guard stage.isOut else { return }
-        do {
-            try await Task.sleep(for: .seconds(PrimaryKeyButtonStyle.swapHalf), tolerance: .zero)
-        } catch {
-            return
-        }
-        // Out of sight, the key becomes the next one with no transition of its own.
-        withTransaction(\.disablesAnimations, true) { stage.advance() }
-        // From out of sight: in the same update, the next key took up the old one's place.
-        await Task.yield()
-        guard !Task.isCancelled else { return }
-        withAnimation(.smooth(duration: PrimaryKeyButtonStyle.swapHalf)) { stage.advance() }
     }
 }
 
@@ -312,40 +270,6 @@ private struct KeyDrop: ViewModifier, Animatable {
     }
 }
 
-/// The key down out of sight while `isOut`, as far as its height and what lies below it, in
-/// place: the bar keeps its room. No further, so the key coming in starts up as the one going
-/// clears the edge: with 8 pt more, the two halves had frames with no key between them. Unfaded
-/// both ways: faded going, it was all but gone three frames before it cleared the edge. With
-/// Reduce Motion it stays put and fades each way. Measured as it is drawn, so a
-/// key that starts out of sight is out of sight from its first frame.
-private struct KeySwap: ViewModifier, Animatable {
-    /// How far out the key is, 0 to 1, which an animation runs through.
-    var progress: CGFloat
-
-    init(isOut: Bool) {
-        progress = isOut ? 1 : 0
-    }
-
-    nonisolated var animatableData: CGFloat {
-        get { progress }
-        set { progress = newValue }
-    }
-
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    func body(content: Content) -> some View {
-        let progress = progress
-        let moves = !reduceMotion
-        content
-            .visualEffect { content, proxy in
-                content.offset(y: moves
-                    ? progress * (proxy.size.height + proxy.safeAreaInsets.bottom)
-                    : 0)
-            }
-            .opacity(reduceMotion ? 1 - progress : 1)
-    }
-}
-
 /// Where the primary key is, for the +1 that pops off its top.
 private struct PrimaryKeyBounds: PreferenceKey {
     static let defaultValue: Anchor<CGRect>? = nil
@@ -357,7 +281,7 @@ private struct PrimaryKeyBounds: PreferenceKey {
 
 /// The key coming up from below the screen's edge, unfaded, and going back down as it fades;
 /// with Reduce Motion, only fading. `below` is how far the screen runs on below the bar.
-private struct KeyBarTransition: Transition {
+struct KeyBarTransition: Transition {
     let below: CGFloat
 
     func body(content: Content, phase: TransitionPhase) -> some View {
