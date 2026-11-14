@@ -50,6 +50,12 @@ extension ButtonStyle where Self == PrimaryKeyButtonStyle {
     }
 }
 
+extension PrimaryKeyButtonStyle {
+    /// Each half of a bar's key swapping for another: the key going down and out, then the next
+    /// coming up and in.
+    public static let swapHalf = 0.2
+}
+
 extension View {
     /// A screen's primary key in a bar at its bottom while `isPresented`, sliding up in from
     /// below the screen's edge and down out of it as it fades, or with Reduce Motion fading in
@@ -58,43 +64,72 @@ extension View {
     /// hidden, which a `safeAreaBar` would otherwise draw behind the bar. Its sides are as far
     /// from the screen's edges as its bottom is from the screen's bottom. Each time `plusOnes`
     /// goes up, a +1 pops off the key's top. `drop` moves the key down by that much, at least off
-    /// the screen, which an
-    /// animation carries it along at its own pace. A change of `keyID` makes the key another
-    /// one, which comes in afresh: a key put back just after it went otherwise took up the one
-    /// going, faded and below the edge, and faded in as it rose. While `isSwappedOut`, the key
-    /// is down out of sight, unfaded both ways, with Reduce Motion only fading, and the bar
-    /// keeps its room: a key swapped for another with no bar between
-    /// them moved the list under it. While `keepsRoom`, a key not presented still holds its room
-    /// in the bar, unseen, so the list's bottom inset stays as the key goes and comes back.
+    /// the screen, which an animation carries it along at its own pace.
+    ///
+    /// `key` draws `face`, the key as things stand. A face of another `id` is another key, which
+    /// the bar swaps in on its own (`KeyStage`): the one showing goes down out of the screen's
+    /// bottom edge with its words as they were, then the next comes up in from it, each in
+    /// `PrimaryKeyButtonStyle.swapHalf`, never two keys at once and never both words on one;
+    /// with Reduce Motion, each fades. The bar keeps its room throughout, so the list under it
+    /// stays put: with the bar gone between them, a list at its end moved down. While it swaps,
+    /// `key` is told it is out (`isOut`), and its action does nothing then: the key stays
+    /// enabled, as VoiceOver reads it, rather than dimmed for the swap's length. Within one id,
+    /// the words change in place. A face that changes
+    /// while the key is not presented, or while `drop` has it out of sight, comes back as the
+    /// new key, with no swap, under the animation that brings it back. While
+    /// `keepsRoom`, a key not presented still holds its room in the bar, unseen, so the list's
+    /// bottom inset stays as the key goes and comes back.
+    public func primaryKeyBar<Face: Equatable & Identifiable, Key: View>(
+        isPresented: Bool,
+        face: Face,
+        keepsRoom: Bool = false,
+        plusOnes: Int = 0,
+        drop: CGFloat = 0,
+        @ViewBuilder key: @escaping (Face, _ isOut: Bool) -> Key,
+    ) -> some View {
+        modifier(PrimaryKeyBar(
+            isPresented: isPresented,
+            face: face,
+            keepsRoom: keepsRoom,
+            plusOnes: plusOnes,
+            drop: drop,
+            key: key,
+        ))
+    }
+
+    /// A bar whose key is always the same one, as Start alone.
     public func primaryKeyBar(
         isPresented: Bool,
-        keyID: AnyHashable = 0,
-        isSwappedOut: Bool = false,
         keepsRoom: Bool = false,
         plusOnes: Int = 0,
         drop: CGFloat = 0,
         @ViewBuilder key: () -> some View,
     ) -> some View {
-        modifier(PrimaryKeyBar(
+        let key = key()
+        return primaryKeyBar(
             isPresented: isPresented,
-            keyID: keyID,
-            isSwappedOut: isSwappedOut,
+            face: OneFace(),
             keepsRoom: keepsRoom,
             plusOnes: plusOnes,
             drop: drop,
-            key: key(),
-        ))
+        ) { _, _ in key }
     }
 }
 
-private struct PrimaryKeyBar<Key: View>: ViewModifier {
+/// The face of a bar with one key.
+private struct OneFace: Equatable, Identifiable {
+    var id: Int {
+        0
+    }
+}
+
+private struct PrimaryKeyBar<Face: Equatable & Identifiable, Key: View>: ViewModifier {
     let isPresented: Bool
-    let keyID: AnyHashable
-    let isSwappedOut: Bool
+    let face: Face
     let keepsRoom: Bool
     let plusOnes: Int
     let drop: CGFloat
-    let key: Key
+    let key: (Face, _ isOut: Bool) -> Key
 
     /// The screen's bottom safe area, less the keyboard's, measured on the screen rather than on
     /// the key, so a key coming in has it from its first frame: measured on the key, it came in
@@ -138,21 +173,26 @@ private struct PrimaryKeyBar<Key: View>: ViewModifier {
                 // rather than stack up for the transition's length.
                 ZStack {
                     if isPresented {
-                        placed(
-                            key
-                                .buttonStyle(.primaryKey)
-                                .anchorPreference(key: PrimaryKeyBounds.self, value: .bounds) {
-                                    $0
-                                }
-                                .modifier(KeyDrop(drop: drop))
-                                .modifier(KeySwap(isOut: isSwappedOut))
-                                .hiddenBehindDrawer(),
-                        )
+                        StagedKey(
+                            face: face,
+                            isDropped: drop > 0,
+                            below: bottomInset,
+                        ) { shown, isOut in
+                            placed(
+                                key(shown, isOut)
+                                    .buttonStyle(.primaryKey)
+                                    .anchorPreference(key: PrimaryKeyBounds.self, value: .bounds) {
+                                        $0
+                                    }
+                                    .modifier(KeyDrop(drop: drop))
+                                    .modifier(KeySwap(isOut: isOut))
+                                    .hiddenBehindDrawer(),
+                            )
+                        }
                         .transition(KeyBarTransition(below: bottomInset))
-                        .id(keyID)
                     } else if keepsRoom {
                         // Only what sizes it: no bounds for the +1, and no drop or swap to run.
-                        placed(key.buttonStyle(.primaryKey)).hidden()
+                        placed(key(face, true).buttonStyle(.primaryKey)).hidden()
                     }
                 }
             }
@@ -216,40 +256,6 @@ private struct KeyDrop: ViewModifier, Animatable {
     }
 }
 
-/// The key down out of sight while `isOut`, as far as its height and what lies below it, in
-/// place: the bar keeps its room. No further, so the key coming in starts up as the one going
-/// clears the edge: with 8 pt more, the two halves had frames with no key between them. Unfaded
-/// both ways: faded going, it was all but gone three frames before it cleared the edge. With
-/// Reduce Motion it stays put and fades each way. Measured as it is drawn, so a
-/// key that starts out of sight is out of sight from its first frame.
-private struct KeySwap: ViewModifier, Animatable {
-    /// How far out the key is, 0 to 1, which an animation runs through.
-    var progress: CGFloat
-
-    init(isOut: Bool) {
-        progress = isOut ? 1 : 0
-    }
-
-    nonisolated var animatableData: CGFloat {
-        get { progress }
-        set { progress = newValue }
-    }
-
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    func body(content: Content) -> some View {
-        let progress = progress
-        let moves = !reduceMotion
-        content
-            .visualEffect { content, proxy in
-                content.offset(y: moves
-                    ? progress * (proxy.size.height + proxy.safeAreaInsets.bottom)
-                    : 0)
-            }
-            .opacity(reduceMotion ? 1 - progress : 1)
-    }
-}
-
 /// Where the primary key is, for the +1 that pops off its top.
 private struct PrimaryKeyBounds: PreferenceKey {
     static let defaultValue: Anchor<CGRect>? = nil
@@ -261,7 +267,7 @@ private struct PrimaryKeyBounds: PreferenceKey {
 
 /// The key coming up from below the screen's edge, unfaded, and going back down as it fades;
 /// with Reduce Motion, only fading. `below` is how far the screen runs on below the bar.
-private struct KeyBarTransition: Transition {
+struct KeyBarTransition: Transition {
     let below: CGFloat
 
     func body(content: Content, phase: TransitionPhase) -> some View {

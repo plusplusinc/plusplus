@@ -6,7 +6,7 @@ import WorkoutStore
 /// to the current exercise while it is scrolled away, and finishes the workout.
 extension RoutineScreen {
     /// What the key is for now.
-    enum KeyRole: Equatable {
+    enum KeyRole: Equatable, Identifiable {
         case start
         /// Logs the current set, saying which ("Log set", "Log left", "Log last set"). After the
         /// last set, as its row closes, it still says "Log last set", and takes no tap.
@@ -32,6 +32,11 @@ extension RoutineScreen {
             case .finish: .finish
             }
         }
+
+        /// The key's identity in its bar, which swaps it for another as it changes.
+        var id: Kind {
+            kind
+        }
     }
 
     /// How the key is away from its bar.
@@ -43,16 +48,20 @@ extension RoutineScreen {
         case givingUpRoom
     }
 
-    /// What the key shows: while it swaps, the role it had, until it has gone.
-    var keyRole: KeyRole {
-        heldKeyRole ?? liveKeyRole
-    }
-
-    /// What the key is for, as the workout stands.
-    private var liveKeyRole: KeyRole {
+    /// What the key is for, as the workout stands. The bar swaps the key as its kind changes
+    /// (`primaryKeyBar`).
+    var liveKeyRole: KeyRole {
         guard let shown, !isStarting else { return .start }
+        // While the workout moves on from a set, the key is still that set's until the next row
+        // shows its own, so it changes with the row: read from the workout, it said the next
+        // exercise's set ("Log left") as the pulse set off. After the last set, through the close.
+        if isMovingOn, exerciseMove?.hasRolled != true, let set = playback.playing?.set,
+           let text = live?.hiding(playback.unshown + [set]).logText
+        {
+            return .log(text)
+        }
         if shown.isDone {
-            return isMovingOn ? .log(String(localized: "Log last set")) : .finish
+            return .finish
         }
         if let way = keyWayBack, let current = shown.currentExercise {
             return .back(name: current.exercise.name, isAbove: way == .top)
@@ -63,9 +72,15 @@ extension RoutineScreen {
     }
 
     /// The key that `primaryKeyBar` holds, for `role`. Within a kind, one key whose words
-    /// change; across kinds, another key (`swapKey(_:)`).
-    func key(_ role: KeyRole) -> some View {
-        Button { tapKey() } label: { keyLabel(role) }
+    /// change; across kinds, another key, which the bar swaps in. While the bar has it out in a
+    /// swap, a tap or a VoiceOver activation does nothing, and the key stays enabled, so
+    /// VoiceOver doesn't read it dimmed for the swap's length.
+    func key(_ role: KeyRole, isOut: Bool) -> some View {
+        Button {
+            if !isOut {
+                tapKey()
+            }
+        } label: { keyLabel(role) }
             .accessibilityLabel(spokenKey(role))
             // Not on Start, which the tests find by its label.
             .accessibilityIdentifier(role == .start ? "" : "workout.key")
@@ -98,11 +113,13 @@ extension RoutineScreen {
     /// A tap on the key. Out of a workout, Start. After the last set, Finish workout. Otherwise,
     /// where the current exercise is scrolled away when the tap lands, as on a list still
     /// moving away under a finger that still says "Log set", the list goes back to it and nothing
-    /// is logged: the key changes only once the finger lifts (`settleKeyRole()`), the place at
+    /// is logged: the key changes only once the finger lifts (`settleWayBack()`), the place at
     /// once. A log is stored through the session at once and shown through `play(_:)`.
     func tapKey() {
         guard let live, !isStarting else { return pressStart() }
-        guard !isMovingOn, !isKeySwapping else { return }
+        // Nothing while the workout moves on to the next exercise; while the key swaps, `key`
+        // drops the tap.
+        guard !isMovingOn else { return }
         if live.isDone {
             return finish()
         }
@@ -129,18 +146,18 @@ extension RoutineScreen {
     }
 
     /// Settles which way the key points: back to the current exercise while it is scrolled away,
-    /// out of view, else none. Called as the row crosses that line, as the scroll phase changes,
-    /// and
-    /// as a move lands. Held while a finger is on the list, so the key doesn't change under a
-    /// thumb about to tap it; once the finger lifts, it follows the row as the list coasts,
-    /// swapping as the row crosses the line rather than once the list stops (about 0.95 s after
-    /// a flick, with the swap's 0.45 s after that, the key lagged the list). Not while moving
+    /// out of view, else none, which the bar swaps the key for. Called as the row crosses that
+    /// line, as the scroll phase changes, and as a move lands. Held while a finger is on the list,
+    /// so the key doesn't change under a thumb about to tap it; once the finger lifts, it follows
+    /// the row as the list coasts, swapping as the row crosses the line rather than once the list
+    /// stops (about 0.95 s after a flick, with the swap's 0.45 s after that, the key lagged the
+    /// list). Not while moving
     /// on, whose row passes through the edge, nor before a relaunch has opened on the current
     /// exercise. Nor while the list rubber-bands past its top: a flick back to the top pulled
     /// the current exercise mostly below the screen for a moment, and the key went from back
     /// up, to Log set, to back down, to Log set within 0.2 s. Past the end, the rows only go
     /// further the way they were going.
-    func settleKeyRole() {
+    func settleWayBack() {
         guard !isMovingOn, !opensOnCurrent, !scrollBeat.isFingerOn, !scrollBeat.isPastTop else {
             return
         }
@@ -152,45 +169,8 @@ extension RoutineScreen {
             nil
         }
         guard way != keyWayBack else { return }
-        swapKey { keyWayBack = way }
+        keyWayBack = way
     }
-
-    /// Makes `change`, and where it changes the key's kind, swaps the key: the one showing goes
-    /// down out of the screen's bottom edge with its words as they were, then the new one comes
-    /// up in from it, one after the other, never two keys at once and never both words on one
-    /// (with Reduce Motion, each fades). The bar keeps its room throughout, so the list under it
-    /// stays put: with the bar gone between them, a list at its end moved down, which changed
-    /// whether the current exercise was in view, and the key back with it. A tap while it swaps
-    /// does nothing. Within a kind, the
-    /// words change in place. During a swap, `change` is made at once and the key coming in
-    /// shows the workout as it stands then.
-    func swapKey(_ change: () -> Void) {
-        guard !isKeySwapping else { return change() }
-        let shown = keyRole
-        heldKeyRole = shown
-        change()
-        guard liveKeyRole.kind != shown.kind else {
-            heldKeyRole = nil
-            return
-        }
-        // Easing in, so it is still in sight until it clears the edge, and the next one comes up
-        // straight after: easing out, it crept out of sight over its last frames. Timed, not on
-        // the animation's completion, which came a few frames after the key had gone.
-        withAnimation(.easeIn(duration: Self.keySwap)) { isKeySwapping = true }
-        Task {
-            try? await Task.sleep(for: .seconds(Self.keySwap), tolerance: .zero)
-            // Out of sight, the key becomes the next one with no transition of its own.
-            withTransaction(\.disablesAnimations, true) { heldKeyRole = nil }
-            // On a later turn of the run loop, from out of sight, as `bringKeyBack()`.
-            Task {
-                withAnimation(.smooth(duration: Self.keySwap)) { isKeySwapping = false }
-            }
-        }
-    }
-
-    /// Each half of a key swap: the key going down and out, then the next coming up and in on
-    /// Start's own curve, as Start comes back after End.
-    static let keySwap = startReturn
 
     /// After a log that stays on the exercise, the beat the set is held for before the line
     /// rolls on. A task on the held set, so the screen going away cancels it; cancelled, the set

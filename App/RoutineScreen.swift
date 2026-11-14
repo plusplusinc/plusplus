@@ -47,13 +47,8 @@ struct RoutineScreen: View {
     @State var keyAway: KeyAway?
     /// While the current exercise is scrolled away, which way the key points back to it,
     /// held while a finger is on the list and following the row as the list coasts once it lifts
-    /// (`settleKeyRole()`); none while it logs.
+    /// (`settleWayBack()`); none while it logs.
     @State var keyWayBack: VerticalEdge?
-    /// While the key swaps (`swapKey(_:)`), the role of the key going, until it has gone.
-    @State var heldKeyRole: KeyRole?
-    /// From a key swap's start until the next key is coming in: the key down out of sight, its
-    /// room in the bar kept, and taps do nothing.
-    @State var isKeySwapping = false
     /// The key's logs of a set, each with a medium impact, and of a side, each with a light one;
     /// each log pops a +1 off the key.
     @State var setLogs = 0
@@ -159,8 +154,6 @@ struct RoutineScreen: View {
 
     private var screen: some View {
         let generatedName = generatedName
-        // Read once: the key's identity and the key are one role.
-        let role = keyRole
         // Read once here, so the rows' closure holds them as values: a list crossfading out keeps
         // drawing its rows with what it had, rather than the workout it is fading into.
         let currentID = currentID
@@ -294,26 +287,25 @@ struct RoutineScreen: View {
         .onScrollPhaseChange { _, phase in
             isScrollingByHand = phase == .interacting || phase == .decelerating
             scrollBeat.phaseChanged(to: phase)
-            settleKeyRole()
+            settleWayBack()
         }
         .onScrollGeometryChange(for: Bool.self, of: Self.endIsInView(of:)) { isEndInView = $1 }
         .onScrollGeometryChange(for: CGFloat.self, of: \.scrolledY) { old, new in
             scrollBeat.listMoved(to: new)
             // Back from past the top, where the key's role was held.
             if old < 0, new >= 0 {
-                settleKeyRole()
+                settleWayBack()
             }
         }
         .onGeometryChange(for: CGFloat.self, of: \.size.height) { listHeight = $0 }
         .primaryKeyBar(
             isPresented: showsKey,
-            keyID: role.kind,
-            isSwappedOut: isKeySwapping,
+            face: liveKeyRole,
             keepsRoom: keyAway == .keepingRoom,
             plusOnes: setLogs + sideLogs,
             drop: startDrop,
-        ) {
-            key(role)
+        ) { role, isOut in
+            key(role, isOut: isOut)
         }
         .task(id: isStarting) { await holdStart() }
         .task(id: playback.held) { await rollHeldSet() }

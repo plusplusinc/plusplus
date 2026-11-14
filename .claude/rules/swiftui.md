@@ -56,7 +56,8 @@ feature, and change them with it.
 - Start, End, and the current exercise: `RoutineScreen+Workout.swift`, `CurrentExercise.swift`,
   `RowLabel.swift` (`RowFocus`), `GrowingName`, `RailStack`, `RailEntry` (a row joining a rail).
 - The key at the bottom and the +1: `RoutineScreen+Key.swift`, `PrimaryKeyButtonStyle.swift`,
-  `PlusOneBurst`.
+  `PlusOneBurst`. The bar swaps the key on its own as its kind changes: the swap's stage is
+  `KeyStage`, held by `StagedKey` in `KeySwap.swift`.
 - Logging a set and moving on to the next exercise: `RoutineScreen+Logging.swift` (`play(_:)`,
   the one entry that shows a stored log), `SetMotion`, `RailPulse`, `SetBeat` in `RailRow.swift`.
   Where a workout is and what a log leads to are `LiveWorkout`'s, and which logs are yet to
@@ -98,6 +99,10 @@ Each of these cost a round on this app; the code at the named spot works around 
 - Words that stay the same across states stay in one `Text` whose string changes; a view-builder
   branch per state crossfades even identical words. A view that replaces another gets its own
   `.id`, or a view put back mid-transition revives the one going.
+- A view that goes away and comes back within one update is drawn back before any `onChange`
+  reaction runs, and with the `@State` it had: a reaction that then changes what it draws lands
+  outside the animation that brought it back, and it pops. Draw the update from state that is
+  already right, as `KeyStage.dropped` is while the screen has ridden the key out of sight.
 - In a view that crossfades by identity, read state into locals before the content closure;
   read through `self`, the outgoing copy redraws with the new state.
 - Pass an optional view as a value (`x.map { … }`), never through an `if let` in a
