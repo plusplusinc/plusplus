@@ -5,7 +5,9 @@
 # Finished means the branch tip is in origin/main, or is the head (or an ancestor of the head) of
 # a merged PR, or every one of its commits' patches is in a merged PR's head (the PR was rebased
 # on GitHub). Merges are squashed, so a merged branch's own commits never reach main and git
-# alone cannot tell it is done; the PR can. Kept: a worktree with uncommitted changes, a branch
+# alone cannot tell it is done; the PR can. A worktree left detached is finished once a merged PR's
+# head, under any branch name, contains its commit (a verifier's isolation worktree that Claude Code
+# kept sits detached at the PR's commit). Kept: a worktree with uncommitted changes, a branch
 # with commits no merged PR contains, and a worktree touched in the last day whose branch has no
 # merged PR (an agent's fresh worktree starts at main with nothing committed yet), and a worktree
 # that a running process has as its working directory, such as a Claude session started in it or a
@@ -105,6 +107,16 @@ in_main() {
     git merge-base --is-ancestor "$1" origin/main
 }
 
+# Whether some merged PR's head contains this tip, whatever its branch: a worktree left detached at
+# a PR's commit, such as a verifier's own when Claude Code kept it, names no branch to look the PR
+# up by. Only heads already in this clone count; one git call answers for all of them.
+LOCAL_HEADS=
+in_any_merged_pr() {
+    [ -n "$LOCAL_HEADS" ] || LOCAL_HEADS=$(awk '{ print $2 }' <<< "$MERGED" |
+        git cat-file --batch-check='%(objectname) %(objecttype)' | awk '$2 == "commit" { print $1 }')
+    [ -n "$LOCAL_HEADS" ] && [ -z "$(printf '%s\n--not\n%s\n' "$1" "$LOCAL_HEADS" | git rev-list --stdin -n 1)" ]
+}
+
 # Seconds since anything in a worktree's git state changed (index, HEAD, a commit).
 idle_seconds() {
     local git_dir newest
@@ -150,13 +162,15 @@ left_branch() {
     return 0
 }
 
-# Worktrees first: a branch cannot be deleted while one has it checked out.
-freed=()
+# Worktrees first: a branch cannot be deleted while one has it checked out. The removed ones are
+# kept in a list, so that a dry run, which removes nothing, still lists the branches they free.
+removed=()
 while IFS=$'\t' read -r path branch; do
     [ "$path" = "$ROOT" ] && continue
     [ -z "$(git -C "$path" status --porcelain)" ] || continue
     tip=$(git -C "$path" rev-parse HEAD)
     if { [ -n "$branch" ] && in_merged_pr "$branch" "$tip"; } ||
+        { [ -z "$branch" ] && in_any_merged_pr "$tip"; } ||
         { in_main "$tip" && [ "$(idle_seconds "$path")" -gt "$FRESH_SECONDS" ]; }; then
         use=$(in_use_by "$path")
         if [ -n "$use" ]; then
@@ -165,7 +179,7 @@ while IFS=$'\t' read -r path branch; do
         fi
         run git worktree remove "$path"
         delete_simulator "$path" || true
-        freed+=("$branch")
+        removed+=("$path")
     elif [ -n "$branch" ] && prs=$(awk -v b="$branch" '$1 == b { print "#" $3 }' <<< "$MERGED" | paste -sd, -) &&
         [ -n "$prs" ]; then
         # A conflict resolved while GitHub rebased the PR changes a patch, so nothing here can
@@ -199,18 +213,16 @@ while IFS=$'\t' read -r name udid; do
     [ "$DRY_RUN" -eq 1 ] || xcrun simctl shutdown "$udid" || true
 done < <(idle_worktree_simulators)
 
-# Each worktree's branch, or for a detached one the branch it left.
+# Each remaining worktree's branch, or for a detached one the branch it left.
 checked_out=$(git worktree list --porcelain |
-    awk '/^worktree /{path=substr($0,10)} /^branch /{print "branch\t" substr($0,19)} /^detached/{print "detached\t" path}' |
-    while IFS=$'\t' read -r kind name; do
-        if [ "$kind" = branch ]; then echo "$name"; else left_branch "$name"; fi
+    awk '/^worktree /{path=substr($0,10)} /^branch /{print path "\t" substr($0,19)} /^detached/{print path "\t"}' |
+    while IFS=$'\t' read -r path branch; do
+        printf '%s\n' "${removed[@]+"${removed[@]}"}" | grep -qxF "$path" && continue
+        if [ -n "$branch" ]; then echo "$branch"; else left_branch "$path"; fi
     done)
 while read -r branch; do
     [ "$branch" = main ] && continue
-    if grep -qxF "$branch" <<< "$checked_out" &&
-        ! printf '%s\n' "${freed[@]+"${freed[@]}"}" | grep -qxF "$branch"; then
-        continue
-    fi
+    grep -qxF "$branch" <<< "$checked_out" && continue
     tip=$(git rev-parse "refs/heads/$branch")
     if in_main "$tip" || in_merged_pr "$branch" "$tip"; then
         run git branch -D "$branch"

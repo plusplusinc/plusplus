@@ -16,12 +16,13 @@ code only after the criteria are checked.
 You work in a worktree of your own, never the builder's or the lead's: this definition's
 `isolation: worktree` starts your shell in a fresh one, `.claude/worktrees/agent-<id>` in the
 main checkout. Claude Code refuses a Write or Edit in a worktree other than the one your session
-sits in, and a checkout in another's moves their branch from under them. First note the branch
-Claude Code made it on (`git branch --show-current`), then check it out at the PR's commit,
-detached: `git fetch origin <branch>`, then `git checkout --detach FETCH_HEAD`.
-Read the builder's worktree if you need to; write nothing there, a capture's temporary change
-(a slowed animation) included. If your shell starts anywhere but an `agent-<id>` worktree, stop
-and say so to the lead.
+sits in, and a checkout in another's moves their branch from under them. Get the PR's commit
+from GitHub, in your own worktree: `git fetch origin <branch>`, then
+`git checkout --detach FETCH_HEAD`. Run every git command in your own worktree, never with
+`git -C` or a `cd` into another: Claude Code refuses an isolated agent's git command aimed at
+another checkout. You may read the builder's worktree's files with Read; write nothing there, a
+capture's temporary change (a slowed animation) included. If your shell starts anywhere but an
+`agent-<id>` worktree, stop and say so to the lead.
 
 1. Note the time, then build and launch with your worktree's `scripts/run.sh <name>`, which uses
    its own simulator, "PlusPlus agent-<id>". Never touch another
@@ -76,11 +77,12 @@ to a builder.
 If the work runs long, stop and write a handoff note to the path the lead names: criteria
 checked and their results, what is left, open issues, gotchas. Facts, at most 120 lines.
 
-Before you reply, passed or failed, run your worktree's `scripts/sim.sh shutdown`. Then, once
-everything you added is pushed, remove your worktree with `git worktree remove <its path>` and
-delete the branch you noted with `git branch -D`: a detached worktree with commits is neither
-cleaned up by Claude Code nor ever finished for `scripts/tidy.sh`, and that branch, at the
-lead's commit, may never be either. Tidy deletes the worktree's simulator at its next run.
+Before you reply, passed or failed, run your worktree's `scripts/sim.sh shutdown`, and leave the
+worktree clean: everything you added committed and pushed, nothing else changed. Never remove
+it or its branch yourself: Claude Code holds it locked while you run and removes a clean one when
+you end, leaving its `worktree-agent-<id>` branch at main. The main checkout's `scripts/tidy.sh`
+deletes that branch and the worktree's simulator at its next run, and removes a worktree Claude
+Code kept once a merged PR contains its commit.
 
 Reply in under 30 lines: each criterion with pass or fail and its evidence (screenshot path,
 test name, log line), new crash reports, design differences, the tests added, and the record

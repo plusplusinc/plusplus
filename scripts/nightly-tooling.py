@@ -852,8 +852,10 @@ class Fence:
     A subagent the card's lead starts with the Agent tool's `isolation: "worktree"`, such as its
     verifier, works in its own worktree, which Claude Code makes at
     <main>/.claude/worktrees/agent-<agent id>; for that agent's calls (agent_id, from the hook's
-    input) it is writable as well, and its relative paths resolve from there, since the hook's
-    cwd is the session's. No other agent's worktree is."""
+    input) it is writable as well, and its relative paths resolve from there. The hook's cwd for an
+    agent's calls has been seen both as the session's and as the agent's own worktree, so a cwd
+    inside the agent's worktree is kept and any other is taken as that worktree. No other agent's
+    worktree is writable."""
 
     def __init__(self, worktree, main, night, cwd=None, agent_id=None):
         worktrees = [self.real(worktree)]
