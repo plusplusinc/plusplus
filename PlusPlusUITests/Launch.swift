@@ -61,6 +61,28 @@ extension XCUIApplication {
         XCTAssertTrue(routineTitle.appears(within: 10), "No title after relaunch")
     }
 
+    /// Opens a new, empty routine with the drawer's New, as a launch with `-resetStore` starts
+    /// on: a test that also needs a seeded routine launches into that one and comes here, a
+    /// couple of taps where a second launch costs 5 to 7 s on Xcode Cloud.
+    func openNewRoutine() {
+        openDrawer(andTap: "New")
+        XCTAssertEqual(routineTitle.value(becoming: "New routine"), "New routine")
+        XCTAssertEqual(exerciseRows.count, 0, "New opened a routine with rows")
+        // The screen slides back from the drawer's side.
+        XCTAssertTrue(routineTitle.settles(), "The title kept moving after the drawer shut")
+    }
+
+    /// Opens the drawer with ++ and taps the place labeled `label` in it.
+    func openDrawer(andTap label: String) {
+        buttons["Menu"].tap()
+        XCTAssertTrue(drawerTitle.appears(), "++ did not open the drawer")
+        // The drawer slides in, and a tap read from a frame mid-slide lands where it is going.
+        let place = buttons[label]
+        XCTAssertTrue(place.settles(), "\(label) kept moving")
+        place.tap()
+        XCTAssertTrue(drawerTitle.disappears(), "\(label) did not close the drawer")
+    }
+
     /// A swipe in from the screen's left edge, which opens the drawer or pops a pushed screen.
     func edgeSwipe() {
         let edge = coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0.5))
