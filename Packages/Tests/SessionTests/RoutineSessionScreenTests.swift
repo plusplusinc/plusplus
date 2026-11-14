@@ -34,11 +34,19 @@ struct RoutineSessionScreenTests {
         return session
     }
 
+    /// `routine` with a bench press added, saved to the session.
+    private func addingExercise(to routine: Routine, in session: RoutineSession) throws -> Routine {
+        let exercise = try #require(Exercise.builtIn(id: "barbell-bench-press"))
+        var edited = routine
+        edited.exercises = [RoutineExercise(exercise: exercise, weightUnit: .pounds)]
+        session.save(edited)
+        return edited
+    }
+
     @Test("A session opens on the routine at the root")
     func opensAtRoot() {
         let session = session()
         #expect(session.screen == .routine)
-        #expect(!session.isRoutinePushed)
         #expect(session.showing == .routine)
     }
 
@@ -48,7 +56,6 @@ struct RoutineSessionScreenTests {
         session.isDrawerOpen = true
         session.showRoutines()
         #expect(session.screen == .routines)
-        #expect(!session.isRoutinePushed)
         #expect(session.showing == .routines)
         #expect(!session.isDrawerOpen)
     }
@@ -90,19 +97,15 @@ struct RoutineSessionScreenTests {
         #expect(session.current == saved)
     }
 
-    @Test("A push asked for at the root leaves the routine at the root")
-    func noPushAtRoot() {
-        let session = session()
-        session.isRoutinePushed = true
-        #expect(session.screen == .routine)
-        #expect(!session.isRoutinePushed)
-    }
-
-    @Test("A push asked for again over a pushed routine keeps it pushed")
-    func pushOverPushed() async {
-        let session = await pushedSession()
-        session.isRoutinePushed = true
-        #expect(session.screen == .pushedRoutine)
+    @Test("Setting pushed true changes nothing, so a routine at the root is never pushed")
+    func pushedTrueChangesNothing() {
+        let atRoot = session()
+        atRoot.isRoutinePushed = true
+        #expect(atRoot.screen == .routine)
+        let onList = session()
+        onList.showRoutines()
+        onList.isRoutinePushed = true
+        #expect(onList.screen == .routines)
     }
 
     @Test("A routine opened from the drawer over a pushed one shows at the root")
@@ -135,13 +138,9 @@ struct RoutineSessionScreenTests {
     @Test("Start on a pushed routine shows its workout at the root, as the routine is now")
     func startPushed() async throws {
         let session = await pushedSession()
-        let exercise = try #require(Exercise.builtIn(id: "barbell-bench-press"))
-        var edited = saved
-        edited.exercises = [RoutineExercise(exercise: exercise, weightUnit: .pounds)]
-        session.save(edited)
+        let edited = try addingExercise(to: saved, in: session)
         session.start()
         #expect(session.screen == .routine)
-        #expect(!session.isRoutinePushed)
         #expect(session.opened == edited)
         #expect(session.workout?.routineID == saved.id)
     }
@@ -150,10 +149,7 @@ struct RoutineSessionScreenTests {
     func startAtRoot() throws {
         let routine = Routine(name: "Upper")
         let session = session(routine)
-        let exercise = try #require(Exercise.builtIn(id: "barbell-bench-press"))
-        var edited = routine
-        edited.exercises = [RoutineExercise(exercise: exercise, weightUnit: .pounds)]
-        session.save(edited)
+        _ = try addingExercise(to: routine, in: session)
         session.start()
         #expect(session.screen == .routine)
         #expect(session.opened == routine)

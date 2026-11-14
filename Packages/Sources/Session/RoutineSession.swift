@@ -83,15 +83,13 @@ public final class RoutineSession {
 
     /// Whether the open routine is pushed onto the Routines screen: the binding its navigation
     /// stack presents the routine with. The back button and the back swipe set it false,
-    /// showing the list again. Setting it true pushes only from the list, so a routine at the
-    /// root is never pushed.
+    /// showing the list again. Setting it true does nothing: a push goes through `open` or
+    /// `startNew`.
     public var isRoutinePushed: Bool {
         get { screen == .pushedRoutine }
         set {
-            switch (screen, newValue) {
-            case (.pushedRoutine, false): screen = .routines
-            case (.routines, true): screen = .pushedRoutine
-            default: break
+            if !newValue, screen == .pushedRoutine {
+                screen = .routines
             }
         }
     }
