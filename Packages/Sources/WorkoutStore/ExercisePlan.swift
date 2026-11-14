@@ -76,40 +76,59 @@ public struct ExercisePlan: Equatable, Sendable {
     public var target: SetTarget
     /// Nil only for an exercise with no load; one that holds a weight always has one.
     public var weight: Weight?
-    /// After each set, the last included, which is the way to the next exercise, in seconds; 0
-    /// for none. The last rest the user set, nil if never, kept while `isRestAuto`, so turning
-    /// that off brings it back (`RoutineExercise.rest`).
-    public var rest: Int?
-    /// Whether the rest follows the reps or time as they change, as it does until the user sets
-    /// one.
-    public var isRestAuto: Bool
+    /// After each set, the last included, which is the way to the next exercise.
+    public var rest: Rest
 
     public init(
         sets: Int,
         target: SetTarget,
         weight: Weight? = nil,
-        rest: Int? = nil,
-        isRestAuto: Bool = true,
+        rest: Rest = .auto(kept: nil),
     ) {
         self.sets = sets
         self.target = target
         self.weight = weight
         self.rest = rest
-        self.isRestAuto = isRestAuto
     }
 }
 
-/// A superset's own rest, the same on every member: while automatic, derived from the members;
-/// the last value set by hand kept for when it isn't. Empty on a plain row.
-public struct RoundRest: Equatable, Sendable {
-    /// After each round, the last included: the last set by hand, nil if never.
-    public var afterRound: Int?
-    /// Whether the rest is derived from the members, as it is until the user sets one.
-    public var isAuto: Bool
+/// A rest, a row's after each set or a superset's after each round: Auto, following what it is
+/// derived from as that changes, as it does until the user sets one; or set by hand, in seconds,
+/// 0 for none. Auto keeps the last rest set by hand, so turning it off brings that back.
+public enum Rest: Equatable, Sendable {
+    /// Derived, keeping the last rest set by hand, nil if never.
+    case auto(kept: Int?)
+    /// Set by hand, in seconds.
+    case byHand(Int)
 
-    public init(afterRound: Int? = nil, isAuto: Bool = true) {
-        self.afterRound = afterRound
-        self.isAuto = isAuto
+    public var isAuto: Bool {
+        if case .auto = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    /// The last rest set by hand: the one in use, or the one Auto keeps; nil if never.
+    var lastByHand: Int? {
+        switch self {
+        case let .auto(kept): kept
+        case let .byHand(seconds): seconds
+        }
+    }
+
+    /// The seconds it reads, `derived` while it is Auto.
+    func seconds(derived: Int) -> Int {
+        switch self {
+        case .auto: derived
+        case let .byHand(seconds): seconds
+        }
+    }
+
+    /// Auto turned on, keeping the rest set by hand for later, or off, bringing that back, or,
+    /// if there is none, keeping `derived`, the rest it reads now.
+    func settingAuto(_ isOn: Bool, derived: Int) -> Rest {
+        isOn ? .auto(kept: lastByHand) : .byHand(lastByHand ?? derived)
     }
 }
 

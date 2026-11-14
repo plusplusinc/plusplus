@@ -10,15 +10,16 @@ public struct RoutineExercise: Identifiable, Equatable, Sendable {
     /// The superset the row is in, shared by the rows next to it in the same one; nil for a
     /// plain row. `Routine` keeps supersets whole and at least two rows long.
     public var supersetID: UUID?
-    /// The superset's own rest, the same on every member; empty on a plain row.
-    public var roundRest: RoundRest
+    /// The superset's own rest after each round, the same on every member, while Auto derived
+    /// from the members; Auto, never set, on a plain row.
+    public var roundRest: Rest
 
     public init(
         id: UUID = UUID(),
         exercise: Exercise,
         plan: ExercisePlan,
         supersetID: UUID? = nil,
-        roundRest: RoundRest = RoundRest(),
+        roundRest: Rest = .auto(kept: nil),
     ) {
         self.id = id
         self.exercise = exercise

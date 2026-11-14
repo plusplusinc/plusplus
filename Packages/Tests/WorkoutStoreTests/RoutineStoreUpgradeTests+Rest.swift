@@ -35,9 +35,9 @@ extension RoutineStoreUpgradeTests {
             .routinesByRecency(weightUnit: .pounds).routines
         #expect(routines.count == 2)
         for routine in routines {
-            #expect(routine.exercises.allSatisfy { $0.plan.rest == nil && $0.isRestAuto })
+            #expect(routine.exercises.allSatisfy { $0.plan.rest == .auto(kept: nil) })
             #expect(routine.exercises.map(\.rest) == [60, 90])
-            #expect(routine.exercises.allSatisfy { $0.roundRest == RoundRest() })
+            #expect(routine.exercises.allSatisfy { $0.roundRest == .auto(kept: nil) })
             #expect(routine.restAfterRound(of: routine.exercises[0].id) == 30)
         }
     }

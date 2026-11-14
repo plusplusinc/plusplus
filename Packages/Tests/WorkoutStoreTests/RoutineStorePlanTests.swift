@@ -50,8 +50,7 @@ struct RoutineStorePlanTests {
         let routine = try Routine(exercises: [
             RoutineExercise.builtIn("Push-up"),
             RoutineExercise.builtIn("Biceps curl") {
-                $0.rest = 0
-                $0.isRestAuto = false
+                $0.rest = .byHand(0)
             },
             remembered,
         ])
@@ -74,7 +73,7 @@ struct RoutineStorePlanTests {
         }
         let row = try #require(try await relaunch().launch(weightUnit: .pounds).routine?
             .exercises.first)
-        #expect(row.plan.rest == nil)
+        #expect(row.plan.rest == .auto(kept: nil))
         #expect(row.rest == 60)
     }
 

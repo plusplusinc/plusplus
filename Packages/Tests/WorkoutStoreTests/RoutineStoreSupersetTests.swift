@@ -50,7 +50,7 @@ struct RoutineStoreSupersetTests {
         var back = reopened
         back.setRoundAuto(false, of: rows[4].id)
         #expect(back.restAfterRound(of: rows[5].id)
-            == routine.exercises[3].roundRest.afterRound)
+            == routine.exercises[3].roundRest.lastByHand)
     }
 
     @Test("A cut superset reopens as it was cut, the row left over plain")

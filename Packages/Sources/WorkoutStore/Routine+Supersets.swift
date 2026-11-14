@@ -241,7 +241,7 @@ extension [RoutineExercise] {
         }
         // A plain row keeps no superset's rest, so a later join never brings back a stale one.
         for row in indices where self[row].supersetID == nil {
-            self[row].roundRest = RoundRest()
+            self[row].roundRest = .auto(kept: nil)
         }
     }
 }
