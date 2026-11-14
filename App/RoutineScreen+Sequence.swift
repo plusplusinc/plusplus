@@ -41,10 +41,11 @@ extension RoutineScreen {
             phase.settleAtOnce()
             closingRoomTop = nil
             isCrossfading = false
+            // Start's ride down is over, whether the workout began or not.
+            startDrop = 0
             if session.workout == nil {
                 // Start pressed and stopped before the workout began: nothing has changed.
                 isMakingRoom = false
-                startDrop = 0
             }
         }
         letRoomGo()

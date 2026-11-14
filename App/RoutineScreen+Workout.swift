@@ -57,6 +57,7 @@ extension RoutineScreen {
             // The change on a later turn of the run loop, once the list going out has been drawn
             // lifted and cut: in the same update, it went out with neither.
             try await laterTurn()
+            try check(pressed)
             try await crossfade {
                 session.start()
                 // The bar's room goes for the crossfade: the room under the list holds it, and
@@ -176,13 +177,15 @@ extension RoutineScreen {
     /// finishes its shrink on the move's own curve. As Dave decided, having tried it
     /// (2026-11-14).
     func end(_ change: @escaping () -> Void) {
-        guard let workout = session.workout else { return }
+        // Once only: a second End before the first's change has run is refused.
+        var ended = phase
+        guard let workout = session.workout, ended.end(workout) else { return }
         sequence.cancel()
         let tookOver = phase != .running
         withTransaction(\.disablesAnimations, true) {
             // The next workout's key starts from the log, whatever this one's last showed.
             keyWayBack = nil
-            phase.end(workout)
+            phase = ended
             if tookOver {
                 growthLift = shownLift.value
                 railPulse = nil
@@ -196,7 +199,12 @@ extension RoutineScreen {
             return sequence.run {
                 let start = ContinuousClock.now
                 try await laterTurn()
-                try await crossfade(change) {
+                try await crossfade {
+                    change()
+                    // Any room Start or a move was keeping: there is no landing after End.
+                    isMakingRoom = false
+                    closingRoomTop = nil
+                } meanwhile: {
                     try await beat(until: start + .seconds(Self.barFade))
                     fadeTime()
                 }

@@ -45,7 +45,10 @@ public final class ScrollBeat {
                 scroll()
                 self.giveUp = Task {
                     await giveUp()
-                    finishWaiting()
+                    // Cancelled, this wait has already ended, and another may have begun.
+                    if !Task.isCancelled {
+                        finishWaiting()
+                    }
                 }
             }
         } onCancel: {

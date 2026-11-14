@@ -203,7 +203,9 @@ extension RoutineScreen {
             }
             // Nothing drawn reads it: from here, End lets the row left finish its shrink.
             try await beat(until: start + .seconds(SetMotion.moveShiftStart(way)))
-            phase.shift()
+            withTransaction(\.disablesAnimations, true) {
+                phase.shift()
+            }
             try await beat(until: start + .seconds(SetMotion.roundRoll(way)))
             withAnimation(.snappy(duration: SetMotion.roll)) {
                 phase.roll()

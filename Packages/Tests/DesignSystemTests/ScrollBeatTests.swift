@@ -53,6 +53,48 @@ struct ScrollBeatTests {
         #expect(!stoppedEarly, "A scroll still moving does not end the wait")
     }
 
+    @Test("A wait that ended does not end the next one when its give-up returns late")
+    @MainActor
+    func endedWaitLeavesNextAlone() async {
+        let beat = ScrollBeat()
+        let gate = Gate()
+        let first = await wait(on: beat) { await gate.wait() }
+        beat.phaseChanged(to: .idle)
+        await first.value
+        var ended = false
+        var scrolled = false
+        let second = Task {
+            await beat.settled(after: { scrolled = true }, orWhen: Self.never)
+            ended = true
+        }
+        while !scrolled {
+            await Task.yield()
+        }
+        // The first wait's give-up, cancelled when it ended, returns only now.
+        gate.open()
+        for _ in 0 ..< 10 {
+            await Task.yield()
+        }
+        #expect(!ended)
+        second.cancel()
+        await second.value
+    }
+
+    /// A give-up that returns only when opened, cancelled or not.
+    @MainActor
+    private final class Gate {
+        private var opened: CheckedContinuation<Void, Never>?
+
+        func wait() async {
+            await withCheckedContinuation { opened = $0 }
+        }
+
+        func open() {
+            opened?.resume()
+            opened = nil
+        }
+    }
+
     @Test("Cancelled, the wait ends")
     func cancelEnds() async {
         let beat = ScrollBeat()
