@@ -79,6 +79,13 @@ struct KeyStageTests {
         #expect(stage == .showing(back))
     }
 
+    @Test("Dropped, a swap's beat that still runs changes nothing")
+    func droppedIgnoresBeats() {
+        var stage = KeyStage<Face>.dropped
+        stage.advance(live: finish)
+        #expect(stage == .dropped)
+    }
+
     @Test("Back up from no drop, a showing key stays as it was")
     func undroppedShowing() {
         var stage = KeyStage.showing(log)
