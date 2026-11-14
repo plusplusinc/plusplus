@@ -1380,6 +1380,29 @@ class TidyWorktrees(unittest.TestCase):
         self.assertEqual(run("git", "branch", "--list", "worktree-agent-w2"), "worktree-agent-w2")
         self.assertNotIn("agent-w2", out)
 
+    def test_a_detached_worktree_with_work_past_a_merged_prs_head_stays(self):
+        # A merged PR's head containing a detached worktree's commit says the commit landed, not what
+        # was made after it: a commit on top of the merged head, or a file not committed there, keeps
+        # the worktree and the branch it left, in a dry run too.
+        root, run, tidy = scratch_clone(self)
+        head = run("git", "commit-tree", "HEAD^{tree}", "-p", "HEAD", "-m", "merged head")
+        (root / "merged").write_text(f"night-card {head} 7\n")
+        ahead = self.agent_worktree(root, run, "c1")
+        run("git", "checkout", "-q", "--detach", head, cwd=ahead)
+        run("git", "commit", "-q", "--allow-empty", "-m", "a test made after the merge", cwd=ahead)
+        dirty = self.agent_worktree(root, run, "d1")
+        run("git", "checkout", "-q", "--detach", head, cwd=dirty)
+        (dirty / "NewTests.swift").write_text("// not committed\n")
+        for args in (["--dry-run"], []):
+            with self.subTest(args=args):
+                out = tidy(*args)
+                self.assertNotIn("agent-c1", out)
+                self.assertNotIn("agent-d1", out)
+        self.assertTrue(ahead.exists())
+        self.assertTrue((dirty / "NewTests.swift").exists())
+        self.assertEqual(run("git", "branch", "--list", "worktree-agent-c1", "worktree-agent-d1"),
+                         "worktree-agent-c1\n  worktree-agent-d1")
+
     def test_an_agents_cleanup_removes_its_worktree_and_tidy_deletes_its_simulator(self):
         # The builder's and verifier's cleanup: `git worktree remove` from a shell still inside the
         # worktree, then the main checkout's tidy. xcrun is a stand-in that lists one simulator, the
