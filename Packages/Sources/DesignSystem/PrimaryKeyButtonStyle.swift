@@ -71,8 +71,10 @@ extension View {
     /// bottom edge with its words as they were, then the next comes up in from it, each in
     /// `PrimaryKeyButtonStyle.swapHalf`, never two keys at once and never both words on one;
     /// with Reduce Motion, each fades. The bar keeps its room throughout, so the list under it
-    /// stays put: with the bar gone between them, a list at its end moved down. The key takes
-    /// no tap while it swaps. Within one id, the words change in place. A face that changes
+    /// stays put: with the bar gone between them, a list at its end moved down. While it swaps,
+    /// `key` is told it is out (`isOut`), and its action does nothing then: the key stays
+    /// enabled, as VoiceOver reads it, rather than dimmed for the swap's length. Within one id,
+    /// the words change in place. A face that changes
     /// while the key is not presented, or while `drop` has it out of sight, comes back as the
     /// new key, with no swap, under the animation that brings it back. While
     /// `keepsRoom`, a key not presented still holds its room in the bar, unseen, so the list's
@@ -83,7 +85,7 @@ extension View {
         keepsRoom: Bool = false,
         plusOnes: Int = 0,
         drop: CGFloat = 0,
-        @ViewBuilder key: @escaping (Face) -> Key,
+        @ViewBuilder key: @escaping (Face, _ isOut: Bool) -> Key,
     ) -> some View {
         modifier(PrimaryKeyBar(
             isPresented: isPresented,
@@ -110,7 +112,7 @@ extension View {
             keepsRoom: keepsRoom,
             plusOnes: plusOnes,
             drop: drop,
-        ) { _ in key }
+        ) { _, _ in key }
     }
 }
 
@@ -127,7 +129,7 @@ private struct PrimaryKeyBar<Face: Equatable & Identifiable, Key: View>: ViewMod
     let keepsRoom: Bool
     let plusOnes: Int
     let drop: CGFloat
-    let key: (Face) -> Key
+    let key: (Face, _ isOut: Bool) -> Key
 
     /// The screen's bottom safe area, less the keyboard's, measured on the screen rather than on
     /// the key, so a key coming in has it from its first frame: measured on the key, it came in
@@ -177,21 +179,20 @@ private struct PrimaryKeyBar<Face: Equatable & Identifiable, Key: View>: ViewMod
                             below: bottomInset,
                         ) { shown, isOut in
                             placed(
-                                key(shown)
+                                key(shown, isOut)
                                     .buttonStyle(.primaryKey)
                                     .anchorPreference(key: PrimaryKeyBounds.self, value: .bounds) {
                                         $0
                                     }
                                     .modifier(KeyDrop(drop: drop))
                                     .modifier(KeySwap(isOut: isOut))
-                                    .disabled(isOut)
                                     .hiddenBehindDrawer(),
                             )
                         }
                         .transition(KeyBarTransition(below: bottomInset))
                     } else if keepsRoom {
                         // Only what sizes it: no bounds for the +1, and no drop or swap to run.
-                        placed(key(face).buttonStyle(.primaryKey)).hidden()
+                        placed(key(face, true).buttonStyle(.primaryKey)).hidden()
                     }
                 }
             }

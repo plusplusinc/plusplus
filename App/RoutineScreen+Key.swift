@@ -72,9 +72,15 @@ extension RoutineScreen {
     }
 
     /// The key that `primaryKeyBar` holds, for `role`. Within a kind, one key whose words
-    /// change; across kinds, another key, which the bar swaps in.
-    func key(_ role: KeyRole) -> some View {
-        Button { tapKey() } label: { keyLabel(role) }
+    /// change; across kinds, another key, which the bar swaps in. While the bar has it out in a
+    /// swap, a tap or a VoiceOver activation does nothing, and the key stays enabled, so
+    /// VoiceOver doesn't read it dimmed for the swap's length.
+    func key(_ role: KeyRole, isOut: Bool) -> some View {
+        Button {
+            if !isOut {
+                tapKey()
+            }
+        } label: { keyLabel(role) }
             .accessibilityLabel(spokenKey(role))
             // Not on Start, which the tests find by its label.
             .accessibilityIdentifier(role == .start ? "" : "workout.key")
@@ -111,8 +117,8 @@ extension RoutineScreen {
     /// once. A log is stored through the session at once and shown through `play(_:)`.
     func tapKey() {
         guard let live, !isStarting else { return pressStart() }
-        // Nothing while the workout moves on to the next exercise; while the key swaps, the bar
-        // takes no tap (`primaryKeyBar`).
+        // Nothing while the workout moves on to the next exercise; while the key swaps, `key`
+        // drops the tap.
         guard !isMovingOn else { return }
         if live.isDone {
             return finish()

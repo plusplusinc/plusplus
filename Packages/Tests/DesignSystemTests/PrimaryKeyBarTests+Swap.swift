@@ -37,8 +37,10 @@ extension PrimaryKeyBarTests {
                     face: inputs.face,
                     keepsRoom: true,
                     drop: inputs.drop,
-                ) { face in
+                ) { face, isOut in
+                    // What the bar tells the key, where the tests can read it.
                     Button(face.words) { }
+                        .accessibilityValue(isOut ? "out" : "")
                 }
         }
     }
@@ -75,6 +77,11 @@ extension PrimaryKeyBarTests {
             }
         }
 
+        /// The key's one node in the tree.
+        var leaf: NSObject? {
+            AccessibilityTree.leaves(under: host.view).first { $0.accessibilityLabel != nil }
+        }
+
         /// Lets the last change reach one layout, and no more.
         func layOutOnce() {
             window.layoutIfNeeded()
@@ -89,6 +96,22 @@ extension PrimaryKeyBarTests {
             // One layout, well inside the swap's first half on a loaded machine.
             bar.layOutOnce()
             #expect(bar.keys.map(\.label) == ["Log set"])
+        }
+    }
+
+    /// Disabled while out, the key read as dimmed to VoiceOver for each swap's first half; on
+    /// `main` it stayed enabled and the screen dropped the tap. The key's action is what drops it,
+    /// told by the bar that the key is out.
+    @Test("A leaving key stays enabled, with its words, and is told it is out")
+    func leavingStaysEnabled() throws {
+        try Hosted.on { bar in
+            #expect(bar.leaf?.accessibilityValue != "out")
+            bar.inputs.face = Face(id: 2, words: "Finish workout")
+            bar.layOutOnce()
+            let leaf = try #require(bar.leaf)
+            #expect(leaf.accessibilityLabel == "Log set")
+            #expect(leaf.accessibilityValue == "out")
+            #expect(!leaf.accessibilityTraits.contains(.notEnabled), "the key went dimmed")
         }
     }
 

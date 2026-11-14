@@ -304,8 +304,8 @@ struct RoutineScreen: View {
             keepsRoom: keyAway == .keepingRoom,
             plusOnes: setLogs + sideLogs,
             drop: startDrop,
-        ) { role in
-            key(role)
+        ) { role, isOut in
+            key(role, isOut: isOut)
         }
         .task(id: isStarting) { await holdStart() }
         .task(id: playback.held) { await rollHeldSet() }
