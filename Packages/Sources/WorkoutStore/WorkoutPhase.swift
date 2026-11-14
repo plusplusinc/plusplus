@@ -27,9 +27,8 @@ public enum WorkoutPhase: Equatable, Sendable {
     /// A move from one exercise to another, from the log until the next has grown and its parts
     /// have come in.
     public struct Move: Equatable, Sendable {
-        /// The set logged, and the next exercise's set it leads to.
+        /// The set logged.
         public let set: PlannedSet
-        public let next: PlannedSet
         /// Whether the next row is above the one left: round a superset's loop, or to a row moved
         /// above.
         public let isBack: Bool
@@ -86,10 +85,9 @@ public enum WorkoutPhase: Equatable, Sendable {
         switch step {
         case .nextSet:
             self = .held(set)
-        case let .nextExercise(next, isBack, startsRound) where moves:
+        case let .nextExercise(_, isBack, startsRound) where moves:
             self = .movingOn(Move(
                 set: set,
-                next: next,
                 isBack: isBack,
                 startsRound: startsRound,
                 beat: .logged,

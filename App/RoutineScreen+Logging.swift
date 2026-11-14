@@ -43,23 +43,23 @@ extension RoutineScreen {
     /// Which way the move to another exercise under way goes along the rail, which sets the
     /// pulse's travel and when the shift starts.
     var moveWay: SetMotion.Way? {
-        phase.move.map { $0.isBack ? .loop : .down }
+        phase.move?.way
     }
 
     /// The current exercise as it grows into `set`: at a superset round's end, it shows the round
     /// just done, as the logged set's row showed it, until the move rolls it to the new one.
     func focus(of item: RoutineExercise, on set: PlannedSet) -> RowFocus {
-        var focus = ownFocus(of: item, on: set)
+        var focus = item.focus(on: set, inSuperset: routine.isInSuperset(item.id), locale: locale)
         if let move = phase.move, move.holdsRound,
            let left = routine.exercises.first(where: { $0.id == move.set.row })
         {
-            focus.progress = ownFocus(of: left, on: move.set).progress
+            focus.progress = left.progressText(
+                set: move.set.round,
+                inSuperset: routine.isInSuperset(left.id),
+                locale: locale,
+            )
         }
         return focus
-    }
-
-    private func ownFocus(of item: RoutineExercise, on set: PlannedSet) -> RowFocus {
-        item.focus(on: set, inSuperset: routine.isInSuperset(item.id), locale: locale)
     }
 
     /// A row's label: the current exercise, grown, on `set`; else a row, with its `bars`. Given
@@ -138,7 +138,7 @@ extension RoutineScreen {
             return crossfadeOn(to: next, scrollingTo: target)
         }
         guard let next else { return closeLast() }
-        let way: SetMotion.Way = isBack ? .loop : .down
+        let way = SetMotion.Way(isBack: isBack)
         // The node left goes to its own color at once, under the pulse pulling out of it, which
         // leaves it behind in that color as its neck snaps. At a superset round's end, the next
         // row shows the round just done until it rolls on (`focus(of:on:)`).
@@ -280,6 +280,20 @@ extension RoutineScreen {
     /// grow or a workout's end.
     var showsKey: Bool {
         !routine.exercises.isEmpty && keyAway == nil
+    }
+}
+
+extension SetMotion.Way {
+    /// The way along the rail to a row above the one left (`isBack`), round a loop, or below.
+    init(isBack: Bool) {
+        self = isBack ? .loop : .down
+    }
+}
+
+extension WorkoutPhase.Move {
+    /// Which way the move goes along the rail.
+    var way: SetMotion.Way {
+        SetMotion.Way(isBack: isBack)
     }
 }
 
