@@ -1025,6 +1025,13 @@ def classify(files):
               timeout=READ_TIMEOUT).strip()
 
 
+def outdated_tools():
+    """`scripts/lint-tools.sh outdated`, which asks GitHub for each lint tool's latest release.
+    A tool whose release can't be read fails the command; the others' lines still print."""
+    return subprocess.run([str(ROOT / "scripts/lint-tools.sh"), "outdated"], cwd=ROOT,
+                          capture_output=True, text=True, timeout=READ_TIMEOUT)
+
+
 def xcode_cloud_runs(limit=200):
     out = sh("asc", "xcode-cloud", "build-runs", "--workflow-id", PR_WORKFLOW, "--sort", "-number",
              "--limit", str(limit), timeout=READ_TIMEOUT)
@@ -1166,9 +1173,7 @@ class Night:
         in `outdated`'s order. A failure is noted at the top of the digest, and the night goes on.
         The board's list lags a card just added, so the night takes it once the list shows it."""
         try:
-            # A tool whose release can't be read fails the command; the others' lines still count.
-            result = subprocess.run([str(ROOT / "scripts/lint-tools.sh"), "outdated"], cwd=ROOT,
-                                    capture_output=True, text=True, timeout=READ_TIMEOUT)
+            result = outdated_tools()
             if result.returncode != 0:
                 self.unchecked.append(f"which lint tools have a newer release ({result.stderr.strip()})")
             cards = update_cards(result.stdout, board_rows()) if result.stdout.strip() else []
