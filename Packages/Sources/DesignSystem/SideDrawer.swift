@@ -21,7 +21,7 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
 
     /// How far open the drawer is going: 0 or 1 from the moment a settle starts, and the
     /// finger's place during a swipe. What is drawn while a settle runs is `drawn`.
-    @State private var shown: CGFloat
+    @State private var heading: CGFloat
     /// Where the drawer is going, so a change of `isOpen` that a swipe made doesn't move it twice;
     /// a change of it plays the haptic.
     @State private var target: Bool
@@ -57,7 +57,7 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
         self.swipeOpens = swipeOpens
         fixedProgress = progress
         let open = isOpen.wrappedValue || (progress ?? 0) > 0
-        _shown = State(initialValue: progress ?? (isOpen.wrappedValue ? 1 : 0))
+        _heading = State(initialValue: progress ?? (isOpen.wrappedValue ? 1 : 0))
         _target = State(initialValue: isOpen.wrappedValue)
         _isDrawerInView = State(initialValue: open)
         self.drawer = drawer()
@@ -65,7 +65,7 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
     }
 
     public var body: some View {
-        let progress = fixedProgress ?? shown
+        let progress = fixedProgress ?? heading
         GeometryReader { proxy in
             let drawerWidth = max(proxy.size.width - DrawerMetrics.sliver, 0)
             ZStack(alignment: .leading) {
@@ -145,7 +145,7 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
             swipeStart = start
             isDrawerInView = true
             let progress = DrawerDrag.progress(translation: translation, width: width, from: start)
-            withTransaction(Transaction(animation: nil)) { shown = progress }
+            withTransaction(Transaction(animation: nil)) { heading = progress }
         case let .ended(translation, velocity):
             let start = swipeStart ?? drawn.value
             swipeStart = nil
@@ -175,22 +175,22 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
         let end: CGFloat = open ? 1 : 0
         guard !reduceMotion else {
             // A swipe that leaves the drawer open, where it already shows, changes nothing.
-            if open, shown != end || isDrawerFaded {
+            if open, heading != end || isDrawerFaded {
                 withTransaction(Transaction(animation: nil)) {
                     isDrawerFaded = true
-                    shown = end
+                    heading = end
                 }
             }
             withAnimation(DrawerMetrics.fade) { isDrawerFaded = !open } completion: {
                 if open == target {
-                    shown = end
+                    heading = end
                 }
                 rest(open: open)
             }
             return
         }
         let animation = Animation.interpolatingSpring(DrawerMetrics.slide, initialVelocity: speed)
-        withAnimation(animation) { shown = end } completion: { rest(open: open) }
+        withAnimation(animation) { heading = end } completion: { rest(open: open) }
     }
 
     /// Ends a settle: unless another has taken over since, or a finger holds the drawer, the
@@ -206,14 +206,14 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
 
 /// How far open a `SideDrawer` is drawn, written as each frame is drawn and read only as a
 /// swipe begins, so it is a plain reference: a change to it redraws nothing.
-private final class DrawnProgress {
+final class DrawnProgress {
     var value: CGFloat = 0
 }
 
 /// Slides the screen aside by how far open the drawer is, and records that progress as each
 /// frame draws it, a settle's spring included. It draws the offset itself: a modifier that only
 /// passed its content through had its body skipped, so it recorded nothing as the spring ran.
-private struct DrawerSlide: ViewModifier, Animatable {
+struct DrawerSlide: ViewModifier, Animatable {
     var progress: CGFloat
     let width: CGFloat
     let drawn: DrawnProgress
