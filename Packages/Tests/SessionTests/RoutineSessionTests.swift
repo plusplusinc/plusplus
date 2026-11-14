@@ -72,11 +72,15 @@ struct RoutineSessionTests {
         let switching = Task {
             await session.switchTo(pushed: false) {
                 readStarted.yield()
-                _ = await release.first { _ in true }
+                for await _ in release {
+                    break
+                }
                 return other
             }
         }
-        _ = await reading.first { _ in true }
+        for await _ in reading {
+            break
+        }
         var edited = routine
         edited.name = "Push day"
         session.save(edited)
