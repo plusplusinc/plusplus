@@ -72,30 +72,16 @@ struct ListResizeTests {
         }
     }
 
-    private struct Run {
-        let frames: Frames
-        let reads: Reads
-        let start: CFTimeInterval
-        /// What the update that starts the animation read, before any frame.
-        let isFirstResizing: Bool
-        /// How far the list was scrolled, and how much of it shows.
-        let scrolled: CGFloat
-        let visible: CGFloat
-    }
-
     private static let duration = 0.4
 
-    private static func scrollView(in view: UIView) -> UIScrollView? {
-        if let scroll = view as? UIScrollView {
-            return scroll
-        }
-        return view.subviews.lazy.compactMap { scrollView(in: $0) }.first
-    }
-
-    /// Hosts a list scrolled down with the room under its end on, then shrinks its rows on an
-    /// animation, as End does, and turns the room's own flag off in the next update, as a
-    /// completion run early did. Plays the frames until a little past the animation's end.
-    private func end() throws -> Run {
+    /// A list scrolled down with the room under its end on shrinks its rows on an animation, as
+    /// End does, and the room's own flag goes in the next update, as a completion run early did.
+    /// One run of the frames for both guarantees, as each costs the animation's time.
+    @Test("""
+    The list reads as resizing from the update that starts the animation until it ends, and \
+    the room under it stays until then
+    """)
+    func roomStaysWhileRowsResize() throws {
         let list = Content()
         let reads = Reads()
         let window = UIWindow.sceneless(
@@ -106,7 +92,7 @@ struct ListResizeTests {
         window.settle()
         list.position.scrollTo(y: 600)
         window.settle()
-        let scroll = try #require(Self.scrollView(in: window), "No scroll view hosted")
+        let scroll = try #require(window.firstScrollView, "No scroll view hosted")
         let scrolled = scroll.contentOffset.y + scroll.adjustedContentInset.top
         let visible = scroll.bounds.height - scroll.adjustedContentInset.top
             - scroll.adjustedContentInset.bottom
@@ -120,57 +106,42 @@ struct ListResizeTests {
         }
         // The update that starts it, before any frame.
         window.layoutIfNeeded()
-        let first = reads.changes.last?.isResizing ?? false
+        #expect(
+            reads.changes.last?.isResizing == true,
+            "The update that starts the animation reads it as done",
+        )
         withTransaction(\.disablesAnimations, true) { list.isMakingRoom = false }
         window.layoutIfNeeded()
         frames.frame(link)
         link.add(to: .main, forMode: .common)
         defer { link.invalidate() }
+        // Until a few frames after it reads as done, or well past the animation's end.
         let deadline = Date.now.addingTimeInterval(Self.duration + 0.4)
-        while Date.now < deadline {
+        var ended: CFTimeInterval?
+        while Date.now < deadline, ended.map({ CACurrentMediaTime() - $0 < 0.05 }) ?? true {
             RunLoop.main.run(mode: .default, before: .now.addingTimeInterval(0.005))
+            ended = ended ?? reads.changes.last { !$0.isResizing && $0.time > start }?.time
         }
-        return Run(
-            frames: frames,
-            reads: reads,
-            start: start,
-            isFirstResizing: first,
-            scrolled: scrolled,
-            visible: visible,
-        )
-    }
 
-    @Test("The list reads as resizing from the update that starts the animation until it ends")
-    func readsResizingForTheWholeAnimation() throws {
-        let run = try end()
-        #expect(run.isFirstResizing, "The update that starts the animation reads it as done")
-        let ended = try #require(
-            run.reads.changes.last { !$0.isResizing && $0.time > run.start },
-            "Still resizing after the animation",
-        )
+        let end = try #require(ended, "Still resizing after the animation")
         #expect(
-            ended.time - run.start > Self.duration * 0.9,
-            "Read as done \(ended.time - run.start) s into a \(Self.duration) s animation",
+            end - start > Self.duration * 0.9,
+            "Read as done \(end - start) s into a \(Self.duration) s animation",
         )
-    }
-
-    @Test("While the rows shrink, the room under the list stays, and goes once they have")
-    func roomStaysWhileRowsShrink() throws {
-        let run = try end()
-        let heights = run.frames.heights
+        let heights = frames.heights
         try #require(heights.count >= 12, "Only \(heights.count) frames shown")
         // The first frame: room for the list to stay where it is scrolled to, not the shrunk
         // rows' end, which clamped it to its top.
         #expect(
-            heights[0].height >= run.scrolled + run.visible,
-            "First frame's content \(heights[0].height) pt, scrolled to \(run.scrolled) pt",
+            heights[0].height >= scrolled + visible,
+            "First frame's content \(heights[0].height) pt, scrolled to \(scrolled) pt",
         )
         // Until the animation is nearly over, the content follows its curve, a step a frame.
-        let during = heights.filter { $0.time - run.start < Self.duration * 0.9 }
+        let during = heights.filter { $0.time - start < Self.duration * 0.9 }
         let steps = zip(during, during.dropFirst()).map { $0.height - $1.height }
-        #expect(steps.allSatisfy { $0 < run.visible / 4 }, "Steps: \(steps)")
+        #expect(steps.allSatisfy { $0 < visible / 4 }, "Steps: \(steps)")
         // Once it is over, the room has gone: only the rows are left.
-        #expect(heights.last?.height ?? 0 < run.scrolled, "Ends \(heights.last?.height ?? 0) pt")
+        #expect(heights.last?.height ?? 0 < scrolled, "Ends \(heights.last?.height ?? 0) pt")
     }
 }
 

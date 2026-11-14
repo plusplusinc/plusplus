@@ -8,7 +8,7 @@ extension View {
     /// coming or going, changes it at once: as a height read back from the scroll view, it
     /// changed the list a second time in the frame.
     public func roomBelow(_ isOn: Bool) -> some View {
-        RoomBelow(isOn: isOn) { self }
+        modifier(RoomBelow(isOn: isOn))
     }
 
     /// While `top` is set, room under this view, out of sight, so the list can scroll to `top`,
@@ -59,12 +59,11 @@ private struct RoomToLand: Layout {
 }
 
 /// Its content, with room under it while `isOn` or while the list's rows resize.
-private struct RoomBelow<Content: View>: View {
+private struct RoomBelow: ViewModifier {
     let isOn: Bool
-    @ViewBuilder let content: Content
     @Environment(\.isListResizing) private var isResizing
 
-    var body: some View {
+    func body(content: Content) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             content
             if isOn || isResizing {

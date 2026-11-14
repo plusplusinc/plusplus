@@ -105,8 +105,6 @@ extension RoutineScreen {
             // On the rows' own animation: until it has ended, a loop's heads ease to their new
             // places (`listResizes(_:)`).
             resizes += 1
-        } completion: {
-            letRoomGo()
         }
         // The workout's key comes up as the rows land, a beat in the sequence by design: the
         // animation's completion came a few frames after the rows had stopped, and the key rose
@@ -177,9 +175,7 @@ extension RoutineScreen {
         }
         // On the rows' own animation: until it has ended, room under the list's end holds, so the
         // shrinking content doesn't pull the scroll up, and a loop's heads ease to their new
-        // places, as at Start (`listResizes(_:)`). Cleared from the animation's completion, the
-        // room went before the first frame when SwiftUI ran it early, and the list slammed to its
-        // top.
+        // places, as at Start (`listResizes(_:)`).
         withAnimation(.timingCurve(0.25, 0.1, 0.25, 1, duration: Self.endBeat)) {
             change()
             scrollPosition.scrollTo(edge: .top)

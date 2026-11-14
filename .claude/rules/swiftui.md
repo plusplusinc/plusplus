@@ -83,6 +83,9 @@ Each of these cost a round on this app; the code at the named spot works around 
   places the views below from stale heights and then jumps.
 - Time the next beat from the animation's start with `Task.sleep(for:tolerance: .zero)`, not from
   `withAnimation`'s completion, which fires a few frames after the motion stops.
+- Never clear state that must hold for a motion from `withAnimation`'s completion: SwiftUI
+  sometimes runs it before the first frame. Change a count on the motion's own animation and
+  read the animated value against its target (`listResizes(_:)`).
 - A `keyframeAnimator` whose initial value follows its trigger runs from the new value to the
   new value, and the view snaps. Animate a state that flips with its trigger with
   `.animation(_:body:)` on the view that draws it. A keyframe timeline ending on a
