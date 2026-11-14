@@ -62,6 +62,10 @@ project board.
   the card id; it reads the criteria with `scripts/board.sh show`. Every file path you give a
   subagent is under `.slices/`. Size the team to the card: a small task with no UI can go
   straight to a builder with the card's Plan as its plan.
+- Start each verifier with the Agent tool's `isolation: "worktree"`, and say so in its prompt,
+  naming the builder's worktree and the branch: a verifier that shares your checkout is refused
+  writes in the builder's worktree, so it works in a worktree of its own, never the builder's or
+  yours.
 - A slice with something to see on the phone runs as a loop with the maintainer (see the
   builder's "Rounds"). A round's prompt asks for the change and the install, never tests, lint,
   or docs (the maintainer wants a tuning round on the phone at once). The look before installing still
