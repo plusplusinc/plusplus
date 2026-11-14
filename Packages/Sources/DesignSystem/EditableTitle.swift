@@ -241,7 +241,8 @@ public struct EditableTitle: View {
     /// Waits, and says whether typing in should go on: not cancelled by a newer title, and
     /// not stopped by editing, which has already settled the title.
     private func pause(_ duration: Duration) async -> Bool {
-        await (try? Task.sleep(for: duration)) != nil && !isEditing
+        // A newer title can cancel this after the sleep has ended but before it resumes.
+        await (try? Task.sleep(for: duration)) != nil && !Task.isCancelled && !isEditing
     }
 
     /// The resting title as it is, with nothing typing in.
