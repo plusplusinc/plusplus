@@ -19,7 +19,8 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
     /// How far open, 0 to 1, fixed for a snapshot; nil follows `isOpen` and the finger.
     private let fixedProgress: CGFloat?
 
-    /// How far open the drawer is drawn: settles to 0 or 1, and follows a swipe in between.
+    /// How far open the drawer is going: 0 or 1 from the moment a settle starts, and the
+    /// finger's place during a swipe. What is drawn while a settle runs is `drawn`.
     @State private var shown: CGFloat
     /// Where the drawer is going, so a change of `isOpen` that a swipe made doesn't move it twice;
     /// a change of it plays the haptic.
@@ -27,6 +28,8 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
     @State private var isDrawerInView: Bool
     /// How far open the drawer was as the swipe following the finger began; nil with none.
     @State private var swipeStart: CGFloat?
+    /// How far open the drawer is drawn, mid-settle included, where a swipe starts from.
+    @State private var drawn = DrawnProgress()
     /// The drawer faded out, with Reduce Motion, before it fades in or once it has faded out:
     /// an opacity transition faded it in but, on removal, dropped it in one frame.
     @State private var isDrawerFaded = false
@@ -109,7 +112,7 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
                                 .accessibilityHidden(true)
                         }
                     }
-                    .offset(x: progress * drawerWidth)
+                    .modifier(DrawerSlide(progress: progress, width: drawerWidth, drawn: drawn))
             }
             // Played as the drawer starts toward a new side: `target` changes only then, so a
             // swipe that springs back, or a finger still dragging, plays nothing.
@@ -138,13 +141,13 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
         case let .changed(translation):
             // With Reduce Motion nothing follows the finger: the release fades.
             guard !reduceMotion else { return }
-            let start = swipeStart ?? shown
+            let start = swipeStart ?? drawn.value
             swipeStart = start
             isDrawerInView = true
             let progress = DrawerDrag.progress(translation: translation, width: width, from: start)
             withTransaction(Transaction(animation: nil)) { shown = progress }
         case let .ended(translation, velocity):
-            let start = swipeStart ?? shown
+            let start = swipeStart ?? drawn.value
             swipeStart = nil
             if reduceMotion {
                 settle(open: DrawerDrag.swipeOpens(translation: translation, fromOpen: isOpen))
@@ -198,6 +201,31 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
             isDrawerInView = false
             isDrawerFaded = false
         }
+    }
+}
+
+/// How far open a `SideDrawer` is drawn, written as each frame is drawn and read only as a
+/// swipe begins, so it is a plain reference: a change to it redraws nothing.
+private final class DrawnProgress {
+    var value: CGFloat = 0
+}
+
+/// Slides the screen aside by how far open the drawer is, and records that progress as each
+/// frame draws it, a settle's spring included. It draws the offset itself: a modifier that only
+/// passed its content through had its body skipped, so it recorded nothing as the spring ran.
+private struct DrawerSlide: ViewModifier, Animatable {
+    var progress: CGFloat
+    let width: CGFloat
+    let drawn: DrawnProgress
+
+    var animatableData: CGFloat {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    func body(content: Content) -> some View {
+        drawn.value = progress
+        return content.offset(x: progress * width)
     }
 }
 
