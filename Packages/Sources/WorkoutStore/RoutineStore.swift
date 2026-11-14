@@ -181,7 +181,7 @@ public actor RoutineStore {
                 row.position = position
             }
             row.write(item.plan)
-            row.write(item.roundRest)
+            row.write(roundRest: item.roundRest)
             if row.supersetID != item.supersetID {
                 row.supersetID = item.supersetID
             }
@@ -236,7 +236,7 @@ public actor RoutineStore {
                 exercise: exercise,
                 plan: row.plan(for: exercise, weightUnit: weightUnit),
                 supersetID: row.supersetID,
-                roundRest: row.round,
+                roundRest: row.storedRoundRest,
             )
         }
         // A row left out, or a store written elsewhere, can leave a superset broken or of one.
