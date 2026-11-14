@@ -163,7 +163,6 @@ while IFS=$'\t' read -r path branch; do
             echo "tidy: kept $path: finished, but $use"
             continue
         fi
-        [ -n "$branch" ] || branch=$(left_branch "$path")
         run git worktree remove "$path"
         delete_simulator "$path" || true
         freed+=("$branch")

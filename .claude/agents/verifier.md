@@ -16,8 +16,9 @@ code only after the criteria are checked.
 You work in a worktree of your own, never the builder's or the lead's: this definition's
 `isolation: worktree` starts your shell in a fresh one, `.claude/worktrees/agent-<id>` in the
 main checkout. Claude Code refuses a Write or Edit in a worktree other than the one your session
-sits in, and a checkout in another's moves their branch from under them. First check it out at
-the PR's commit, detached: `git fetch origin <branch>`, then `git checkout --detach FETCH_HEAD`.
+sits in, and a checkout in another's moves their branch from under them. First note the branch
+Claude Code made it on (`git branch --show-current`), then check it out at the PR's commit,
+detached: `git fetch origin <branch>`, then `git checkout --detach FETCH_HEAD`.
 Read the builder's worktree if you need to; write nothing there, a capture's temporary change
 (a slowed animation) included. If your shell starts anywhere but an `agent-<id>` worktree, stop
 and say so to the lead.
@@ -76,9 +77,10 @@ If the work runs long, stop and write a handoff note to the path the lead names:
 checked and their results, what is left, open issues, gotchas. Facts, at most 120 lines.
 
 Before you reply, passed or failed, run your worktree's `scripts/sim.sh shutdown`. Then, once
-everything you added is pushed, remove your worktree with `git worktree remove <its path>`: a
-detached one with commits is neither cleaned up by Claude Code nor ever finished for
-`scripts/tidy.sh`, which deletes its simulator at its next run.
+everything you added is pushed, remove your worktree with `git worktree remove <its path>` and
+delete the branch you noted with `git branch -D`: a detached worktree with commits is neither
+cleaned up by Claude Code nor ever finished for `scripts/tidy.sh`, and that branch, at the
+lead's commit, may never be either. Tidy deletes the worktree's simulator at its next run.
 
 Reply in under 30 lines: each criterion with pass or fail and its evidence (screenshot path,
 test name, log line), new crash reports, design differences, the tests added, and the record

@@ -1596,6 +1596,10 @@ class WritesStayInTheWorktree(unittest.TestCase):
             self.assertFalse(fence(None).may_write(worktrees / "agent-a1/x"))
             self.assertFalse(fence("c3").may_write(worktrees / "agent-c3/x"))
             self.assertFalse(fence("../night-card/../agent-a1").may_write(worktrees / "agent-a1/x"))
+            self.assertFalse(fence(7).may_write(worktrees / "agent-a1/x"))
+            # A call that says it runs inside the agent's worktree keeps its own directory.
+            inside = nightly.Fence(worktrees / "night-card", main, Path(root, "night"), worktrees / "agent-a1/Packages", "a1")
+            self.assertEqual(inside.resolve("x"), worktrees / "agent-a1/Packages/x")
 
     def test_another_tools_paths_are_checked_too(self):
         self.assertIsNotNone(decide(tool="mcp__xcode__XcodeWrite", inputs=[str(nightly.ROOT / "App/A.swift"), "x"]))

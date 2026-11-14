@@ -858,9 +858,10 @@ class Fence:
     def __init__(self, worktree, main, night, cwd=None, agent_id=None):
         worktrees = [self.real(worktree)]
         own = self.real(main) / ".claude/worktrees" / f"agent-{agent_id}"
-        if agent_id and re.fullmatch(r"[0-9a-z]+", agent_id) and (own / ".git").is_file():
+        if isinstance(agent_id, str) and re.fullmatch(r"[\w-]+", agent_id) and (own / ".git").is_file():
             worktrees.append(own)
-            cwd = own
+            if cwd is None or not (self.real(cwd) == own or own in self.real(cwd).parents):
+                cwd = own
         self.cwd = self.real(cwd or worktree)
         self.writable = worktrees + [self.real(main) / ".slices"]
         self.live = [w / name for w in worktrees for name in (".claude/settings*.json", ".mcp.json")]
