@@ -16,11 +16,8 @@ public final class RoutineSession {
     /// The open routine as it is now, edits included.
     public private(set) var current: Routine
     public var isDrawerOpen = false
-    /// The screen the drawer slides aside: the routine, or the list of routines.
+    /// Where the app is: the routine, the Routines screen, or a routine pushed on it.
     public private(set) var screen = Screen.routine
-    /// Whether the open routine is pushed onto the Routines screen, opened from its list. Its
-    /// back button and back swipe set this false, showing the list again.
-    public var isRoutinePushed = false
     /// The workout running the open routine, from Start until Finish or Discard.
     public private(set) var workout: Workout?
 
@@ -74,9 +71,29 @@ public final class RoutineSession {
         case landed(CheckedContinuation<Void, Never>)
     }
 
+    /// Where the app is, under the drawer.
     public enum Screen {
+        /// The open routine, at the root.
         case routine
+        /// The Routines screen, its list showing.
         case routines
+        /// The open routine, pushed onto the Routines screen from its list.
+        case pushedRoutine
+    }
+
+    /// Whether the open routine is pushed onto the Routines screen: the binding its navigation
+    /// stack presents the routine with. The back button and the back swipe set it false,
+    /// showing the list again. Setting it true pushes only from the list, so a routine at the
+    /// root is never pushed.
+    public var isRoutinePushed: Bool {
+        get { screen == .pushedRoutine }
+        set {
+            switch (screen, newValue) {
+            case (.pushedRoutine, false): screen = .routines
+            case (.routines, true): screen = .pushedRoutine
+            default: break
+            }
+        }
     }
 
     /// Every saved routine, latest first, with the open one first as it is now.
@@ -111,10 +128,10 @@ public final class RoutineSession {
         let started = Workout(routineID: current.id, routineName: shownName, startedAt: now)
         workout = started
         workoutWrites.yield(.save(started))
-        if screen != .routine || isRoutinePushed {
+        if screen != .routine {
+            // A fresh screen at the root, opening on the routine as it is now.
             opened = current
             screen = .routine
-            isRoutinePushed = false
         }
         isDrawerOpen = false
     }
@@ -168,7 +185,7 @@ public final class RoutineSession {
 
     /// What the drawer marks as showing: the Routines screen, the open routine, or a new one.
     public var showing: Showing {
-        if screen == .routines, !isRoutinePushed {
+        if screen == .routines {
             return .routines
         }
         return current.isEmpty ? .new : .routine
@@ -200,7 +217,6 @@ public final class RoutineSession {
     /// Shows the Routines screen and closes the drawer.
     public func showRoutines() {
         screen = .routines
-        isRoutinePushed = false
         closeDrawer()
     }
 
@@ -257,8 +273,7 @@ public final class RoutineSession {
         switches += 1
         opened = routine
         current = routine
-        screen = pushed ? .routines : .routine
-        isRoutinePushed = pushed
+        screen = pushed ? .pushedRoutine : .routine
     }
 
     private func closeDrawer() {
