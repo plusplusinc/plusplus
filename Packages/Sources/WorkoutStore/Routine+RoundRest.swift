@@ -2,7 +2,8 @@ import Foundation
 
 // A superset's own rest, after each round, the last included, which is the way to the next
 // exercise. Going from one member to the next takes no time. Every member holds the same value, as
-// they hold one round count, Auto until stepped: derived from the members' own rests.
+// they hold one round count, Auto, derived from the members' own rests, until a step or the Auto
+// switch sets it by hand.
 
 extension Rest {
     /// This one, or, while it is Auto, the first of `others` set by hand, so a value set on any
