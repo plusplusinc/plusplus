@@ -32,6 +32,7 @@ extension RoutineScreen {
         sequence.cancel()
         withTransaction(\.disablesAnimations, true) {
             phase.settleAtOnce()
+            closingRoomTop = nil
             isCrossfading = false
         }
         letRoomGo()

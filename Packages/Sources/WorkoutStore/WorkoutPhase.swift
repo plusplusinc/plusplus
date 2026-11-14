@@ -196,12 +196,6 @@ public enum WorkoutPhase: Equatable, Sendable {
         self == .running
     }
 
-    /// Whether the last set's row is closing, the list's end held where it shows.
-    public var isClosing: Bool {
-        guard case .closing = self else { return false }
-        return true
-    }
-
     /// The move to another exercise under way, if one is.
     public var move: Move? {
         guard case let .movingOn(move) = self else { return nil }

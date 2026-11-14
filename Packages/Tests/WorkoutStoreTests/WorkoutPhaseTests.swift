@@ -158,21 +158,21 @@ struct WorkoutPhaseTests {
         #expect(try #require(Self.logging(Self.down).move).holdsRound == false)
     }
 
-    @Test("The last set closes, holding the list's end until over; with no motion it fades on")
+    @Test("The last set closes, settling only once shown; with no motion it fades on")
     func last() {
         var phase = Self.logging(.last)
-        #expect(phase.isClosing)
+        #expect(phase == .closing(Self.logged, isShown: false))
         #expect(phase.isMovingOn)
         #expect(phase.hidden == [Self.logged])
         let settledEarly = phase.settle()
         #expect(!settledEarly, "Not before it shows")
         phase = Self.after([.show], from: phase)
-        #expect(phase.isClosing)
+        #expect(phase == .closing(Self.logged, isShown: true))
         #expect(phase.hidden.isEmpty)
         phase = Self.after([.settle], from: phase)
-        #expect(!phase.isClosing)
+        #expect(phase == .running)
         let fading = Self.logging(.last, moves: false)
-        #expect(!fading.isClosing)
+        #expect(fading == .fadingOn(Self.logged, isShown: false))
         #expect(fading.isMovingOn)
         #expect(fading.move == nil)
     }

@@ -119,11 +119,14 @@ extension RoutineScreen {
     /// run to 0 in the shift's transaction. After the last set, the row closes as the list
     /// settles on its end and the key becomes Finish workout.
     func play(_ set: PlannedSet, leadingTo step: LiveWorkout.Step) {
+        // In the tap's own transaction, as the stored log is: entered with animations disabled,
+        // a move's shift started up to four frames late round a superset, and the last set's
+        // room went at once, the list jumping to its top.
+        phase.log(set, leadingTo: step, moves: !reduceMotion)
         let next: PlannedSet?
         let isBack: Bool
         switch step {
         case .nextSet:
-            phase.log(set, leadingTo: step, moves: !reduceMotion)
             return rollHeldSet()
         case let .nextExercise(to, back, _):
             (next, isBack) = (to, back)
@@ -133,16 +136,14 @@ extension RoutineScreen {
         let target = next.flatMap { landing(on: $0.row, leaving: set.row) }
         noteRestingPitch(of: next?.row)
         guard !reduceMotion else {
-            phase.log(set, leadingTo: step, moves: false)
             return crossfadeOn(to: next, scrollingTo: target)
         }
-        guard let next else { return closeLast(set) }
+        guard let next else { return closeLast() }
         let way: SetMotion.Way = isBack ? .loop : .down
         // The node left goes to its own color at once, under the pulse pulling out of it, which
         // leaves it behind in that color as its neck snaps. At a superset round's end, the next
         // row shows the round just done until it rolls on (`focus(of:on:)`).
         withTransaction(\.disablesAnimations, true) {
-            phase.log(set, leadingTo: step, moves: true)
             if let target {
                 isMakingRoom = true
                 growthLift = target - scrollBeat.scrolledY
@@ -213,33 +214,27 @@ extension RoutineScreen {
         }
     }
 
-    /// The workout's last planned set, `set`: the parts go, and the row closes back as the list
+    /// The workout's last planned set: the parts go, and the row closes back as the list
     /// settles on its end, in one motion, the key swapping to Finish workout once it is over. The
     /// room under the end that landed the row under the bar closes on the same curve, and the
     /// list's end stays where it shows as the content shortens, so what is above it moves down,
     /// once, and never back.
-    private func closeLast(_ set: PlannedSet) {
+    private func closeLast() {
         withTransaction(\.disablesAnimations, true) {
-            closingRoom = currentPlace?.landingY ?? scrollBeat.scrolledY
-            phase.log(set, leadingTo: .last, moves: true)
+            closingRoomTop = currentPlace?.landingY ?? scrollBeat.scrolledY
         }
         withAnimation(SetMotion.closing) {
             phase.show()
-            closingRoom = 0
+            closingRoomTop = 0
         }
         sequence.run {
             let start = ContinuousClock.now
             try await beat(until: start + .seconds(SetMotion.closeStart + SetMotion.close))
+            closingRoomTop = nil
             phase.settle()
             letRoomGo()
             settleWayBack()
         }
-    }
-
-    /// After the last set, the room to land the current exercise, closing as its row does, the
-    /// list's end held where it shows (`keepEndPinned(from:to:)`); none otherwise.
-    var closingRoomTop: CGFloat? {
-        phase.isClosing ? closingRoom : nil
     }
 
     /// After the last set, while the room under the list's end closes, keeps the end where it

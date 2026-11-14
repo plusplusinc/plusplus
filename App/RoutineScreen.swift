@@ -86,9 +86,12 @@ struct RoutineScreen: View {
     /// changing it on the motion's own animation, so the list knows its rows are mid-motion until
     /// that animation has really ended (`listResizes(_:)`).
     @State var resizes = 0
-    /// After the last set, the room to land the current exercise, run down to 0 as its row
-    /// closes; read only while it closes (`closingRoomTop`).
-    @State var closingRoom: CGFloat = 0
+    /// After the last set, the room to land the current exercise, closing as its row does, the
+    /// list's end held where it shows (`keepEndPinned(from:to:)`). Its own value, not derived from
+    /// the phase: it has to change in the close's animated transaction, and a number set to
+    /// the landing and back to 0 in one turn, as a derived one would be, did not change at all,
+    /// so the room went at once and the list jumped to its top.
+    @State var closingRoomTop: CGFloat?
     /// The pulse that carries the workout from one exercise's node to the next one's.
     @State var railPulse: RailPulse<RoutineExercise.ID>?
     /// Counts the moves to another exercise that have landed on its node, each with a light tick,
