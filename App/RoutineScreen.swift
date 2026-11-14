@@ -87,9 +87,10 @@ struct RoutineScreen: View {
     @State var listHeight: CGFloat = 0
     /// Back in a workout after a relaunch, the list opens on the current exercise, once grown.
     @State var opensOnCurrent = false
-    /// While Start grows the first exercise or End shrinks the current one back, when rows'
-    /// heights are mid-motion.
-    @State var isGrowingOrEnding = false
+    /// Counts Start's grows of the first exercise and End's shrinks of the current one, each
+    /// changing it on the motion's own animation, so the list knows its rows are mid-motion until
+    /// that animation has really ended (`listResizes(_:)`).
+    @State var resizes = 0
     /// After the last set, the room to land the current exercise, closing as its row does, the
     /// list's end held where it shows (`keepEndPinned(from:to:)`).
     @State var closingRoomTop: CGFloat?
@@ -203,7 +204,6 @@ struct RoutineScreen: View {
                         isSetHeld: heldSet != nil,
                         pulse: railPulse,
                         isMoving: isMovingOn,
-                        isResizing: isGrowingOrEnding,
                         onMove: move,
                         regroup: regroup,
                     ) { item in
@@ -263,6 +263,8 @@ struct RoutineScreen: View {
                 // stays.
                 .roomToLand(top: landingRoomTop)
                 .roomBelow(isMakingRoom)
+                // Outside the rail and the room under the list, which both read it.
+                .listResizes(resizes)
                 // When the keyboard rises, UIKit scrolls the focused field to sit at least 5pt
                 // below the top of the visible area. Starting there keeps the title still.
                 .padding(.top, Spacing.sm)

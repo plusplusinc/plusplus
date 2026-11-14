@@ -53,10 +53,6 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     /// Whether a workout is moving on from one row to another: the rows change height on the
     /// move's animation, so the rail draws every stroke once, as while a row is held.
     private let isMoving: Bool
-    /// Whether a workout's Start or End is changing the current exercise's height: a stretch of
-    /// loop changes length faster than a head grows over it, so its heads ease to their new
-    /// places (`GroupLoop`).
-    private let isResizing: Bool
     let onMove: ((RowID, RailSlot<RowID>) -> Void)?
     let links: Set<RowID>
     let regroup: RailRegroup<RowID>?
@@ -108,6 +104,10 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     /// The scroll view's edges, when it scrolls for a held row (`railAutoscroll`).
     @Environment(\.railEdges) var edges
     @Environment(\.accessibilityReduceMotion) var reduceMotion
+    /// Whether the rows are resizing on an animation, as at a workout's Start and End
+    /// (`listResizes(_:)`): a stretch of loop changes length faster than a head grows over it,
+    /// so its heads ease to their new places (`GroupLoop`).
+    @Environment(\.isListResizing) private var isResizing
     @ScaledLoopPen var pen
 
     /// A rail whose rows a hold lifts and a drag moves, when `onMove` is given: it is called
@@ -121,7 +121,6 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         isSetHeld: Bool = false,
         pulse: RailPulse<Data.Element.ID>? = nil,
         isMoving: Bool = false,
-        isResizing: Bool = false,
         onMove: ((Data.Element.ID, RailSlot<Data.Element.ID>) -> Void)? = nil,
         regroup: RailRegroup<Data.Element.ID>? = nil,
         @ViewBuilder row: @escaping (Data.Element) -> Row,
@@ -136,7 +135,6 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
             isSetHeld: isSetHeld,
             pulse: pulse,
             isMoving: isMoving,
-            isResizing: isResizing,
             onMove: onMove,
             regroup: regroup,
             drag: nil,
@@ -155,7 +153,6 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         isSetHeld: Bool = false,
         pulse: RailPulse<RowID>? = nil,
         isMoving: Bool = false,
-        isResizing: Bool = false,
         onMove: ((RowID, RailSlot<RowID>) -> Void)? = nil,
         regroup: RailRegroup<RowID>? = nil,
         drag: RailDragState<RowID>?,
@@ -172,7 +169,6 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         self.isSetHeld = isSetHeld
         self.pulse = pulse
         self.isMoving = isMoving
-        self.isResizing = isResizing
         self.onMove = onMove
         self.regroup = regroup
         _drag = State(initialValue: drag)

@@ -21,6 +21,17 @@ extension UIWindow {
         return window
     }
 
+    /// The first scroll view in this window, as a hosted `ScrollView` makes one.
+    var firstScrollView: UIScrollView? {
+        func find(in view: UIView) -> UIScrollView? {
+            if let scroll = view as? UIScrollView {
+                return scroll
+            }
+            return view.subviews.lazy.compactMap { find(in: $0) }.first
+        }
+        return find(in: self)
+    }
+
     /// Lets every update the last step started reach the layout.
     func settle() {
         for _ in 0 ..< 10 {

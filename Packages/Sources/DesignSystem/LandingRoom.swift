@@ -1,17 +1,14 @@
 import SwiftUI
 
 extension View {
-    /// While `isOn`, room under this view as tall as the scroll view it is in shows, out of sight,
-    /// so the list can scroll its end up to the top. Sized in the same layout pass as the list,
-    /// so a change to what shows, as a workout's margin coming or going, changes it at once: as
-    /// a height read back from the scroll view, it changed the list a second time in the frame.
+    /// While `isOn`, and while the list's rows resize (`listResizes(_:)`), room under this view
+    /// as tall as the scroll view it is in shows, out of sight, so the list can scroll its end up
+    /// to the top, and rows shrinking as it scrolls back to its top don't pull it up short. Sized
+    /// in the same layout pass as the list, so a change to what shows, as a workout's margin
+    /// coming or going, changes it at once: as a height read back from the scroll view, it
+    /// changed the list a second time in the frame.
     public func roomBelow(_ isOn: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            self
-            if isOn {
-                Color.clear.containerRelativeFrame(.vertical)
-            }
-        }
+        modifier(RoomBelow(isOn: isOn))
     }
 
     /// While `top` is set, room under this view, out of sight, so the list can scroll to `top`,
@@ -58,5 +55,20 @@ private struct RoomToLand: Layout {
         subviews.first?.place(at: bounds.origin, anchor: .topLeading, proposal: proposal)
         // Measured only: placed at the top with no size of its own in the room.
         subviews.dropFirst().first?.place(at: bounds.origin, anchor: .topLeading, proposal: .zero)
+    }
+}
+
+/// Its content, with room under it while `isOn` or while the list's rows resize.
+private struct RoomBelow: ViewModifier {
+    let isOn: Bool
+    @Environment(\.isListResizing) private var isResizing
+
+    func body(content: Content) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            content
+            if isOn || isResizing {
+                Color.clear.containerRelativeFrame(.vertical)
+            }
+        }
     }
 }

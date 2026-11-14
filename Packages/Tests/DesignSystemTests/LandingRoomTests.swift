@@ -49,7 +49,7 @@ struct LandingRoomTests {
         window.settle()
         list.position.scrollTo(y: Self.landing)
         window.settle()
-        let scroll = try #require(Self.scrollView(in: window), "No scroll view hosted")
+        let scroll = try #require(window.firstScrollView, "No scroll view hosted")
         #expect(abs(scroll.contentOffset.y + scroll.adjustedContentInset.top - Self.landing) < 0.5)
         withTransaction(\.disablesAnimations, true) {
             list.height = height
@@ -60,13 +60,6 @@ struct LandingRoomTests {
     }
 
     private static let landing: CGFloat = 200
-
-    private static func scrollView(in view: UIView) -> UIScrollView? {
-        if let scroll = view as? UIScrollView {
-            return scroll
-        }
-        return view.subviews.lazy.compactMap { scrollView(in: $0) }.first
-    }
 
     /// Heights short of the landing plus what the window shows, where only the room reaches it:
     /// the first row before it grows, and a few rows.
