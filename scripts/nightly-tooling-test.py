@@ -1319,6 +1319,22 @@ class TidyWorktrees(unittest.TestCase):
         self.assertIn(f"tidy: git worktree remove {worktree}", out)
         self.assertEqual(run("git", "branch", "--list", "done-card"), "")
 
+    def test_a_session_worktree_left_detached_keeps_the_branch_it_left(self):
+        # A session's fresh branch starts at main, so its tip is in main. On 2026-11-13 an agent
+        # checked a PR's commit out in its lead's worktree, detached, and another agent's tidy then
+        # deleted the lead's branch, which no worktree had checked out any more.
+        root, run, tidy = scratch_clone(self)
+        worktree = root / "main/.claude/worktrees/lead-session"
+        run("git", "worktree", "add", "-q", "-b", "lead-session", str(worktree))
+        run("git", "checkout", "-q", "--detach", "HEAD", cwd=worktree)
+        # A branch merely left behind, checked out nowhere and never left by a live worktree, goes.
+        run("git", "branch", "old-done")
+        out = tidy()
+        self.assertTrue(worktree.exists())
+        self.assertEqual(run("git", "branch", "--list", "lead-session"), "lead-session")
+        self.assertNotIn("lead-session", out)
+        self.assertIn("tidy: git branch -D old-done", out)
+
     def test_an_agents_cleanup_removes_its_worktree_and_tidy_deletes_its_simulator(self):
         # The builder's and verifier's cleanup: `git worktree remove` from a shell still inside the
         # worktree, then the main checkout's tidy. xcrun is a stand-in that lists one simulator, the

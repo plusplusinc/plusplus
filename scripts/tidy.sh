@@ -10,7 +10,9 @@
 # merged PR (an agent's fresh worktree starts at main with nothing committed yet), and a worktree
 # that a running process has as its working directory, such as a Claude session started in it or a
 # shell in it, which tidy names in a line (on 2026-11-11 a verifier's tidy removed the live lead's
-# worktree). A session started elsewhere that works in a worktree by path does not count. Closed but
+# worktree). A session started elsewhere that works in a worktree by path does not count. A
+# worktree left detached keeps the branch it last left (on 2026-11-13 an agent detached its lead's
+# worktree and a tidy deleted the lead's fresh branch, which was at main). Closed but
 # unmerged PRs are never cleaned up; their work may still be wanted. A removed worktree's own
 # simulator, "PlusPlus <worktree>" (see scripts/common.sh), is shut down and deleted with it, and
 # so is the recorded simulator of a worktree removed by hand; this is the only script that deletes
@@ -137,6 +139,17 @@ in_use_by() {
     echo "$(ps -o comm= -p "$pid" 2> /dev/null || echo "$cmd") (pid $pid) works in it"
 }
 
+# The branch a detached worktree last left, from its HEAD's reflog: "checkout: moving from <branch>
+# to <commit>". A session's worktree left detached, such as one an agent checked a PR's commit out
+# in, still belongs to that branch, and a session's fresh branch, at main, would read as finished.
+left_branch() {
+    local from
+    while read -r from; do
+        git show-ref --verify --quiet "refs/heads/$from" && echo "$from" && return
+    done < <(git -C "$1" reflog --format=%gs 2> /dev/null | sed -n 's/^checkout: moving from \([^ ]*\) to .*/\1/p')
+    return 0
+}
+
 # Worktrees first: a branch cannot be deleted while one has it checked out.
 freed=()
 while IFS=$'\t' read -r path branch; do
@@ -150,10 +163,11 @@ while IFS=$'\t' read -r path branch; do
             echo "tidy: kept $path: finished, but $use"
             continue
         fi
+        [ -n "$branch" ] || branch=$(left_branch "$path")
         run git worktree remove "$path"
         delete_simulator "$path" || true
         freed+=("$branch")
-    elif prs=$(awk -v b="$branch" '$1 == b { print "#" $3 }' <<< "$MERGED" | paste -sd, -) &&
+    elif [ -n "$branch" ] && prs=$(awk -v b="$branch" '$1 == b { print "#" $3 }' <<< "$MERGED" | paste -sd, -) &&
         [ -n "$prs" ]; then
         # A conflict resolved while GitHub rebased the PR changes a patch, so nothing here can
         # prove the work landed. Say so rather than keep it silently.
@@ -186,7 +200,11 @@ while IFS=$'\t' read -r name udid; do
     [ "$DRY_RUN" -eq 1 ] || xcrun simctl shutdown "$udid" || true
 done < <(idle_worktree_simulators)
 
-checked_out=$(git worktree list --porcelain | awk '/^branch /{print substr($0,19)}')
+checked_out=$(
+    git worktree list --porcelain | awk '/^branch /{print substr($0,19)}'
+    git worktree list --porcelain | awk '/^worktree /{path=substr($0,10)} /^detached/{print path}' |
+        while read -r path; do left_branch "$path"; done
+)
 while read -r branch; do
     [ "$branch" = main ] && continue
     if grep -qxF "$branch" <<< "$checked_out" &&
