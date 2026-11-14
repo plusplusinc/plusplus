@@ -2,8 +2,8 @@ import DesignSystem
 import SwiftUI
 import WorkoutStore
 
-/// A workout's sets as the screen draws them, and `play(_:)`, which shows what a stored log leads
-/// to: the next set, the move to the next exercise, or the close after the last.
+/// A workout's sets as the screen draws them, and `play(_:leadingTo:)`, which shows what a
+/// stored log leads to: the next set, the move to the next exercise, or the close after the last.
 extension RoutineScreen {
     /// The workout on the routine as stored, every log in it: what the key's taps read.
     var live: LiveWorkout? {
@@ -121,7 +121,8 @@ extension RoutineScreen {
     func play(_ set: PlannedSet, leadingTo step: LiveWorkout.Step) {
         // In the tap's own transaction, as the stored log is: entered with animations disabled,
         // the last set's room went at once, the list jumping to its top.
-        phase.log(set, leadingTo: step, moves: !reduceMotion)
+        // Only from rest: the key takes a log only then, so a refused one has nothing to show.
+        guard phase.log(set, leadingTo: step, moves: !reduceMotion) else { return }
         let next: PlannedSet?
         let isBack: Bool
         switch step {

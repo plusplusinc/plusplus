@@ -112,7 +112,7 @@ extension RoutineScreen {
     /// where the current exercise is scrolled away when the tap lands, as on a list still
     /// moving away under a finger that still says "Log set", the list goes back to it and nothing
     /// is logged: the key changes only once the finger lifts (`settleWayBack()`), the place at
-    /// once. A log is stored through the session at once and shown through `play(_:)`.
+    /// once. A log is stored through the session at once and shown through `play(_:leadingTo:)`.
     func tapKey() {
         guard let live, !isStarting else { return pressStart() }
         // Nothing while the workout moves on to the next exercise; while the key swaps, `key`
