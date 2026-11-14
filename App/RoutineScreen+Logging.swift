@@ -128,9 +128,6 @@ extension RoutineScreen {
         }
         let target = next.flatMap { landing(on: $0.row, leaving: row.id) }
         noteRestingPitch(of: next?.row)
-        // The key keeps the words it had until the next row shows its set, so it changes with
-        // the row: read live, it said the next exercise's set ("Log left") as the pulse set off.
-        heldKeyRole = keyRole
         guard !reduceMotion else {
             return crossfadeOn(to: next, scrollingTo: target)
         }
@@ -218,7 +215,7 @@ extension RoutineScreen {
             )
             withAnimation(.snappy(duration: SetMotion.roll)) {
                 exerciseMove?.heldProgress = nil
-                heldKeyRole = nil
+                exerciseMove?.hasRolled = true
             }
             try? await Task.sleep(
                 for: .seconds(SetMotion.move(way) - SetMotion.roundRoll(way)),
@@ -319,6 +316,9 @@ struct ExerciseMove {
     var heldProgress: String?
     /// Whether the pulse has landed on the next row's node, which then lights.
     var isLanded = false
+    /// Whether the next row shows its own set, rolled on from the round just done: until then,
+    /// the key keeps the words of the set logged.
+    var hasRolled = false
 }
 
 /// Where each row is in the list's content, and each row's height when last at rest, read as

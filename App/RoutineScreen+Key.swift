@@ -51,8 +51,16 @@ extension RoutineScreen {
     /// What the key is for, as the workout stands.
     private var liveKeyRole: KeyRole {
         guard let shown, !isStarting else { return .start }
+        // While the workout moves on from a set, the key is still that set's until the next row
+        // shows its own, so it changes with the row: read from the workout, it said the next
+        // exercise's set ("Log left") as the pulse set off. After the last set, through the close.
+        if isMovingOn, exerciseMove?.hasRolled != true, let set = playback.playing?.set,
+           let text = live?.hiding(playback.unshown + [set]).logText
+        {
+            return .log(text)
+        }
         if shown.isDone {
-            return isMovingOn ? .log(String(localized: "Log last set")) : .finish
+            return .finish
         }
         if let way = keyWayBack, let current = shown.currentExercise {
             return .back(name: current.exercise.name, isAbove: way == .top)
