@@ -53,6 +53,35 @@ struct EditableTitleTests {
         #expect(EditableTitle.typingDuration(of: text) < 0.5)
     }
 
+    @Test("A suggestion changed and changed back inside the fade-out shows again")
+    func restingChangedBack() {
+        // A to B: the run for B fades A out, then is cancelled by A before it settles, so A is
+        // still drawn, faded out. The run for A then brings it back rather than leaving it.
+        #expect(Self.step(shown: "Push", resting: "Pull") == .typeIn)
+        #expect(Self.step(shown: "Push", resting: "Push") == .fadeBack)
+    }
+
+    @Test("A suggestion that changes once types in, or crossfades or snaps where it can't")
+    func restingChangedOnce() {
+        #expect(Self.step(shown: "Push", resting: "Pull") == .typeIn)
+        #expect(Self.step(shown: "Push", resting: "New routine", crossfades: true) == .crossfade)
+        #expect(Self.step(shown: "Push", resting: "Pull", canType: false) == .snap)
+    }
+
+    private static func step(
+        shown: String,
+        resting: String,
+        crossfades: Bool = false,
+        canType: Bool = true,
+    ) -> EditableTitle.RestingStep {
+        EditableTitle.restingStep(
+            shown: shown,
+            resting: resting,
+            crossfades: crossfades,
+            canType: canType,
+        )
+    }
+
     @Test("Return ends editing and inserts nothing")
     func newlineReturn() {
         #expect(EditableTitle.newlineEdit("\n") == ("", true))
