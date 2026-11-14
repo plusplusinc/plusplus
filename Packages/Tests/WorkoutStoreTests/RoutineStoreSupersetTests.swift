@@ -50,7 +50,23 @@ struct RoutineStoreSupersetTests {
         var back = reopened
         back.setRoundAuto(false, of: rows[4].id)
         #expect(back.restAfterRound(of: rows[5].id)
-            == routine.exercises[3].roundRest.afterRound)
+            == routine.exercises[3].roundRest.lastByHand)
+    }
+
+    @Test("A superset's rest stored by hand with no seconds in range reopens as Auto")
+    func roundRestStoredUnset() async throws {
+        try await relaunch().save(grouped())
+        let context = ModelContext(container)
+        for row in try context.fetch(FetchDescriptor<StoredRoutineExercise>())
+            where row.supersetID != nil
+        {
+            row.roundRest = 900
+            row.isRoundRestAuto = false
+        }
+        try context.save()
+        let reopened = try #require(try await relaunch().launch(weightUnit: .pounds).routine)
+        #expect(reopened.exercises.allSatisfy { $0.roundRest == .neverSet })
+        #expect(reopened.isRoundAuto(of: rows[1].id))
     }
 
     @Test("A cut superset reopens as it was cut, the row left over plain")

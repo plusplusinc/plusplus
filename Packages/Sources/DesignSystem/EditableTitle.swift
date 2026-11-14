@@ -173,18 +173,31 @@ public struct EditableTitle: View {
 
     /// Brings the drawn title to the resting one: a suggestion typed in at rest, the placeholder
     /// or anything with Reduce Motion crossfaded, and at once where it can't be seen or the title
-    /// is being edited. A newer one cancels this and starts over.
+    /// is being edited. A newer one cancels this and starts over, and where the drawn title is
+    /// already the resting one, brings it back from any fade-out a cancelled run left.
     private func showRestingTitle() async {
-        guard shownTitle != restingTitle else { return }
-        // Only a suggestion types in. Going back to the placeholder, or with Reduce Motion, it
-        // crossfades.
-        let crossfades = reduceMotion || suggestion == nil
-        guard !crossfades, !isEditing, draft.isEmpty else {
-            withAnimation(crossfades ? .snappy(duration: SuggestionTiming.crossfade) : nil) {
-                settle()
-            }
-            return
+        let step = Self.restingStep(
+            shown: shownTitle,
+            resting: restingTitle,
+            // Only a suggestion types in. Going back to the placeholder, or with Reduce Motion,
+            // it crossfades.
+            crossfades: reduceMotion || suggestion == nil,
+            canType: !isEditing && draft.isEmpty,
+        )
+        switch step {
+        case .fadeBack:
+            withAnimation(.snappy(duration: SuggestionTiming.fadeOut)) { settle() }
+        case .crossfade:
+            withAnimation(.snappy(duration: SuggestionTiming.crossfade)) { settle() }
+        case .snap:
+            settle()
+        case .typeIn:
+            await typeIn()
         }
+    }
+
+    /// Fades the drawn title out, then types the resting one in.
+    private func typeIn() async {
         typingStart = nil
         withAnimation(.snappy(duration: SuggestionTiming.fadeOut)) {
             shownOpacity = 0
@@ -196,10 +209,40 @@ public struct EditableTitle: View {
         typingStart = nil
     }
 
+    /// How a run of `showRestingTitle()` brings the drawn title to the resting one.
+    enum RestingStep: Equatable {
+        /// The drawn title is already the resting one: make sure it shows, fading back in where
+        /// a fade-out was under way. A run that a newer title cancels returns without settling,
+        /// so a title that changes and changes back inside the fade-out is drawn, faded out.
+        case fadeBack
+        /// Crossfade to the resting title.
+        case crossfade
+        /// Show the resting title at once, where it can't type in.
+        case snap
+        /// Fade the drawn title out and type the resting one in.
+        case typeIn
+    }
+
+    static func restingStep(
+        shown: String,
+        resting: String,
+        crossfades: Bool,
+        canType: Bool,
+    ) -> RestingStep {
+        if shown == resting {
+            return .fadeBack
+        }
+        if crossfades {
+            return .crossfade
+        }
+        return canType ? .typeIn : .snap
+    }
+
     /// Waits, and says whether typing in should go on: not cancelled by a newer title, and
     /// not stopped by editing, which has already settled the title.
     private func pause(_ duration: Duration) async -> Bool {
-        await (try? Task.sleep(for: duration)) != nil && !isEditing
+        // A newer title can cancel this after the sleep has ended but before it resumes.
+        await (try? Task.sleep(for: duration)) != nil && !Task.isCancelled && !isEditing
     }
 
     /// The resting title as it is, with nothing typing in.

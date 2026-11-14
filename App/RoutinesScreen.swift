@@ -33,7 +33,7 @@ struct RoutinesScreen: View {
             .background { Color.pp(.background).ignoresSafeArea() }
             .onAppear(perform: takeOrder)
             .onDisappear(perform: takeOrder)
-            .navigationDestination(isPresented: $session.isRoutinePushed) {
+            .navigationDestination(isPresented: isRoutinePushed) {
                 // Each routine opened gives a fresh screen: scroll, sheets, and title.
                 RoutineScreen(session: session, namer: namer, isPushed: true)
                     .id(session.opened.id)
@@ -66,6 +66,18 @@ struct RoutinesScreen: View {
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("routines.row")
+    }
+
+    /// The stack's push: the session's pushed routine, which the back button and the back swipe
+    /// pop.
+    private var isRoutinePushed: Binding<Bool> {
+        Binding {
+            session.screen == .pushedRoutine
+        } set: { isPushed in
+            if !isPushed {
+                session.popRoutine()
+            }
+        }
     }
 
     private var shown: [Routine] {

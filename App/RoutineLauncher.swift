@@ -21,7 +21,7 @@ struct RoutineLauncher: View {
             // and a workout keeps the drawer shut.
             SideDrawer(
                 isOpen: $session.isDrawerOpen,
-                swipeOpens: !session.isRoutinePushed && !session.isDrawerLocked,
+                swipeOpens: session.screen != .pushedRoutine && !session.isDrawerLocked,
             ) {
                 DrawerMenu(session: session, namer: namer)
             } content: {
@@ -31,7 +31,7 @@ struct RoutineLauncher: View {
                     // and title.
                     RoutineScreen(session: session, namer: namer)
                         .id(session.opened.id)
-                case .routines:
+                case .routines, .pushedRoutine:
                     RoutinesScreen(session: session, namer: namer)
                 }
             }

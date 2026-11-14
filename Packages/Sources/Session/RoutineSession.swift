@@ -16,11 +16,8 @@ public final class RoutineSession {
     /// The open routine as it is now, edits included.
     public private(set) var current: Routine
     public var isDrawerOpen = false
-    /// The screen the drawer slides aside: the routine, or the list of routines.
+    /// Where the app is: the routine, the Routines screen, or a routine pushed on it.
     public private(set) var screen = Screen.routine
-    /// Whether the open routine is pushed onto the Routines screen, opened from its list. Its
-    /// back button and back swipe set this false, showing the list again.
-    public var isRoutinePushed = false
     /// The workout running the open routine, from Start until Finish or Discard.
     public private(set) var workout: Workout?
 
@@ -74,9 +71,22 @@ public final class RoutineSession {
         case landed(CheckedContinuation<Void, Never>)
     }
 
+    /// Where the app is, under the drawer.
     public enum Screen {
+        /// The open routine, at the root.
         case routine
+        /// The Routines screen, its list showing.
         case routines
+        /// The open routine, pushed onto the Routines screen from its list.
+        case pushedRoutine
+    }
+
+    /// Pops the routine pushed onto the Routines screen, showing the list again, as its back
+    /// button and back swipe do. A push goes through `open` or `startNew`.
+    public func popRoutine() {
+        if screen == .pushedRoutine {
+            screen = .routines
+        }
     }
 
     /// Every saved routine, latest first, with the open one first as it is now.
@@ -111,10 +121,10 @@ public final class RoutineSession {
         let started = Workout(routineID: current.id, routineName: shownName, startedAt: now)
         workout = started
         workoutWrites.yield(.save(started))
-        if screen != .routine || isRoutinePushed {
+        if screen != .routine {
+            // A fresh screen at the root, opening on the routine as it is now.
             opened = current
             screen = .routine
-            isRoutinePushed = false
         }
         isDrawerOpen = false
     }
@@ -168,7 +178,7 @@ public final class RoutineSession {
 
     /// What the drawer marks as showing: the Routines screen, the open routine, or a new one.
     public var showing: Showing {
-        if screen == .routines, !isRoutinePushed {
+        if screen == .routines {
             return .routines
         }
         return current.isEmpty ? .new : .routine
@@ -200,7 +210,6 @@ public final class RoutineSession {
     /// Shows the Routines screen and closes the drawer.
     public func showRoutines() {
         screen = .routines
-        isRoutinePushed = false
         closeDrawer()
     }
 
@@ -236,16 +245,18 @@ public final class RoutineSession {
     }
 
     /// Lets the last edit land, then shows the routine `next` gives, if any, and closes the
-    /// drawer. A switch already under way takes the tap.
-    private func switchTo(pushed: Bool, _ next: () async -> Routine?) async {
+    /// drawer. An edit made while `next` runs lands before the next routine shows, too. A switch
+    /// already under way takes the tap. Internal so a test can hold `next`.
+    func switchTo(pushed: Bool, _ next: () async -> Routine?) async {
         guard !isSwitching else { return }
         isSwitching = true
         defer { isSwitching = false }
         await finishSaving()
-        if let routine = await next() {
+        let routine = await next()
+        await finishSaving()
+        if let routine {
             show(routine, pushed: pushed)
         }
-        (saves, saving) = Self.startSaving(to: store)
         closeDrawer()
     }
 
@@ -255,8 +266,7 @@ public final class RoutineSession {
         switches += 1
         opened = routine
         current = routine
-        screen = pushed ? .routines : .routine
-        isRoutinePushed = pushed
+        screen = pushed ? .pushedRoutine : .routine
     }
 
     private func closeDrawer() {
@@ -264,7 +274,8 @@ public final class RoutineSession {
     }
 
     /// Lets the last edit land: a finished stream still hands over what it holds. An edit made
-    /// while it lands reaches only `current`, so it is saved after.
+    /// while it lands reaches only `current`, so it is saved after. Then saving starts again, so
+    /// no edit ever goes to a finished stream.
     private func finishSaving() async {
         var landed = current
         saves.finish()
@@ -277,6 +288,7 @@ public final class RoutineSession {
                 Logger.session.error("The routine didn't save: \(error)")
             }
         }
+        (saves, saving) = Self.startSaving(to: store)
     }
 
     /// Returns once every change sent so far has landed in the store: the routine's edits, as a
@@ -284,7 +296,6 @@ public final class RoutineSession {
     /// it rather than on time.
     func writesLanded() async {
         await finishSaving()
-        (saves, saving) = Self.startSaving(to: store)
         await withCheckedContinuation { done in workoutWrites.yield(.landed(done)) }
     }
 
