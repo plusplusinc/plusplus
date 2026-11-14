@@ -56,7 +56,7 @@ extension RenameUITests {
                 reading(row(0).frame.minY < top, becoming: true, within: 2),
                 "The scroll that ended the edit didn't scroll the list",
             )
-            app.scrollToTop(titled: "Arm and back day")
+            app.scrollToTop(titled: Self.seededName)
         }
         XCTContext.runActivity(named: "A row's hold ends the edit and drags the row") { _ in
             let names = app.exerciseNames

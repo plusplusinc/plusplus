@@ -1,23 +1,31 @@
 import XCTest
 
-/// A workout at the largest text size, run within `testWrappedTitleAtLargestTextSize`: its bar
-/// and End's dialog under the audit, and where Start and a relaunch land. Here the equipment
-/// under the title stands taller than the screen, so the current exercise starts out below it,
-/// and Start's scroll to the top runs far.
+/// A workout at the largest text size, run first within `testWrappedTitleAtLargestTextSize`:
+/// its bar and End's dialog under the audit, and where Start and a relaunch land. Here the
+/// equipment under the title stands taller than the screen, so the current exercise starts out
+/// below it, and Start's scroll to the top runs far.
 @MainActor
 extension TitleWrappingUITests {
-    /// From the Routines screen the drawer left, with exercises added for their equipment: Start
-    /// and a relaunch land on the current exercise, and a workout's bar, paused, and End's dialog
-    /// pass the audit. Running, the bar differs only in its key's shorter Pause.
+    /// Launches at this size into a routine of two rows joined, with four more for their
+    /// equipment, seeded, since adding is the later checks', and pushes it from the Routines
+    /// screen: Start and a relaunch land on the current exercise, and a workout's bar, paused,
+    /// and End's dialog pass the audit. Running, the bar differs only in its key's shorter
+    /// Pause. Leaves the routine showing, the workout discarded.
     func workoutAtAX5(in app: XCUIApplication) throws {
         try XCTContext
             .runActivity(named: "A workout at AX5 lands, and its bar passes the audit") { _ in
+                app.launchSeeding(
+                    [
+                        "dumbbell-bench-press", "kneeling-hip-flexor-stretch", "pull-up",
+                        "goblet-squat", "band-pull-apart", "balance-board-hold",
+                    ],
+                    textSize: Self.largestTextSize,
+                    arguments: ["-seedSuperset", "0,1"],
+                )
+                // Pushed from the Routines screen, with a back chevron in the bar for ++.
+                app.openDrawer(andTap: "Routines")
                 app.buttons.matching(identifier: "routines.row").firstMatch.tap()
                 XCTAssertTrue(app.buttons["Start"].appears(), "The routine opened no Start")
-                app.addExercise("Pull-up, Pull-up bar", searching: "pull-up")
-                app.addExercise("Goblet squat, Kettlebell", searching: "goblet")
-                app.addExercise("Band pull-apart, Band", searching: "pull-apart")
-                app.addExercise("Balance board hold, Balance board", searching: "balance")
                 app.buttons["Start"].tap()
                 let time = app.workoutTime
                 XCTAssertTrue(time.appears(within: 3), "Start began no workout")

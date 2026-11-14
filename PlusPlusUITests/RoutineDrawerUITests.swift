@@ -84,8 +84,7 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
             XCTAssertTrue(app.drawerTitle.disappears(), "Routines did not close the drawer")
             let rows = app.buttons.matching(identifier: "routines.row")
             let listed = ["Chest", "Back"]
-            let labels = { rows.allElementsBoundByIndex.map(\.label) }
-            XCTAssertEqual(reading(labels(), becoming: listed, within: 2), listed)
+            XCTAssertEqual(reading(app.routineRowLabels, becoming: listed, within: 2), listed)
             attach(named: "routines-screen")
             openDrawer(in: app)
             XCTAssertTrue(app.buttons["Routines"].isSelected, "Routines isn't marked")
@@ -118,9 +117,7 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
     @MainActor
     private func drawerListsThree(in app: XCUIApplication, title: XCUIElement) {
         XCTContext.runActivity(named: "An untouched new one isn't listed; the drawer has 3") { _ in
-            let rows = app.buttons.matching(identifier: "routines.row")
-            let labels = { rows.allElementsBoundByIndex.map(\.label) }
-            let listedBefore = Set(labels())
+            let listedBefore = Set(app.routineRowLabels)
             XCTAssertEqual(listedBefore, ["Chest", "Back"], "The untouched new one was listed")
             var latest = ""
             for exercise in ["Backward arm circles", "Band pull-apart, Band"] {
@@ -133,7 +130,7 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
                 app.navigationBars.buttons.element(boundBy: 0).tap()
                 XCTAssertTrue(title.disappears(), "The chevron did not pop")
             }
-            XCTAssertEqual(reading(labels().count, becoming: 4, within: 2), 4)
+            XCTAssertEqual(reading(app.routineRowLabels.count, becoming: 4, within: 2), 4)
             openDrawer(in: app)
             let listed = drawerRoutines(in: app)
             XCTAssertEqual(listed.count, 3, "The drawer lists \(listed), not the latest three")
@@ -157,21 +154,10 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
     private func drawerRoutines(in app: XCUIApplication) -> [String] {
         // Read from one snapshot: buttons read one by one shift under the reading as the bars'
         // controls leave the tree, each on its own pass, after the drawer opens.
-        let labels: [String]
-        do {
-            labels = try buttonLabels(in: app.snapshot())
-        } catch {
-            XCTFail("The app's tree couldn't be read: \(error)")
-            return []
-        }
+        let labels = app.snapshots { $0.elementType == .button }.map(\.label)
         guard let routines = labels.firstIndex(of: "Routines"),
               let new = labels[routines...].firstIndex(of: "New")
         else { return [] }
         return Array(labels[routines + 1 ..< new])
-    }
-
-    private func buttonLabels(in snapshot: any XCUIElementSnapshot) -> [String] {
-        let own = snapshot.elementType == .button ? [snapshot.label] : []
-        return own + snapshot.children.flatMap { buttonLabels(in: $0) }
     }
 }

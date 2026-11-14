@@ -3,8 +3,25 @@ import XCTest
 /// The routine's exercise rows and the picker's, found by the identifiers the app sets.
 @MainActor
 extension XCUIApplication {
+    private static let exerciseRowID = "routine.exercise"
+
     var exerciseRows: XCUIElementQuery {
-        descendants(matching: .any).matching(identifier: "routine.exercise")
+        descendants(matching: .any).matching(identifier: Self.exerciseRowID)
+    }
+
+    /// The rows, top to bottom, from one snapshot, for reading every row's label or value.
+    var exerciseRowSnapshots: [any XCUIElementSnapshot] {
+        snapshots(identified: Self.exerciseRowID)
+    }
+
+    /// The rows' labels, top to bottom.
+    var exerciseRowLabels: [String] {
+        exerciseRowSnapshots.map(\.label)
+    }
+
+    /// The Routines screen's rows' labels, top to bottom.
+    var routineRowLabels: [String] {
+        snapshots { $0.elementType == .button && $0.identifier == "routines.row" }.map(\.label)
     }
 
     /// The routine's equipment, the capsules under its title.
@@ -124,7 +141,7 @@ extension XCUIElement {
 extension XCUIApplication {
     /// The rows' exercise names, top to bottom.
     var exerciseNames: [String] {
-        exerciseRows.allElementsBoundByIndex.map { String($0.label.prefix { $0 != "," }) }
+        exerciseRowLabels.map { String($0.prefix { $0 != "," }) }
     }
 
     /// Taps the small copy of the title `name` in the bar, and waits for the title to come back
@@ -156,11 +173,17 @@ extension XCUIElement {
 }
 
 extension XCUICoordinate {
-    /// Holds here long enough for a row to lift, drags slowly to `target`, holds there for
-    /// `hold` seconds, and lets go.
+    /// Holds here long enough for a row to lift, drags to `target` at an unhurried hand's
+    /// speed, holds there for `hold` seconds, and lets go. XCTest's `.slow`, about 200 pt/s,
+    /// took most of a second a drag.
     @MainActor
     func holdAndDrag(to target: XCUICoordinate, holding hold: TimeInterval = 0.3) {
-        press(forDuration: 0.8, thenDragTo: target, withVelocity: .slow, thenHoldForDuration: hold)
+        press(
+            forDuration: 0.8,
+            thenDragTo: target,
+            withVelocity: XCUIGestureVelocity(600),
+            thenHoldForDuration: hold,
+        )
     }
 
     /// `points` further down, or up when negative.

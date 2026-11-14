@@ -1,14 +1,15 @@
 import XCTest
 
 extension XCUIElement {
-    /// XCTest's waits first check their condition about a second after they start, even when it
-    /// already holds, which cost about a second a wait. These return at once when it holds.
+    /// XCTest's waits check their condition about once a second, the first time a second after
+    /// they start, so each wait for something that came a moment later cost a second. These
+    /// read `exists` until it holds, a query at a time.
     func appears(within timeout: TimeInterval = 2) -> Bool {
-        exists || waitForExistence(timeout: timeout)
+        reading(exists, becoming: true, within: timeout)
     }
 
     func disappears(within timeout: TimeInterval = 2) -> Bool {
-        !exists || waitForNonExistence(timeout: timeout)
+        !reading(exists, becoming: false, within: timeout)
     }
 
     /// Whether the element has stopped moving: its frame unchanged for `still` seconds, within

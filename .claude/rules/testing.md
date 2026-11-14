@@ -164,9 +164,10 @@ not the one the last test saved, and with `-noUIKitAnimations YES`; the relaunch
 follow the routine's fresh id; and `-seedExercises <id,id,…>` with `-seedName <name>` starts
 from a routine of those built-in exercises, `-seedSets <n>` giving each that many sets and
 `-seedWorkout <n>` opening a workout on it with its first `n` sets logged (all `LaunchOptions`,
-Debug only). With UIKit's
-animations off, the keyboard and sheets appear at once, and XCTest's wait for animations can't
-stall (`LaunchOptions.turnsOffUIKitAnimations` says why). SwiftUI's animations still run, so a
+Debug only). A test that needs both a seeded routine and a new one launches into the seeded
+one and opens the new one with the drawer's New (`openNewRoutine()`), not a second launch.
+With UIKit's animations off, the keyboard and sheets appear at once, and XCTest's wait for
+animations can't stall (`LaunchOptions.turnsOffUIKitAnimations` says why). SwiftUI's animations still run, so a
 test that reads what one moves waits for its end state; an added row is in the accessibility
 tree only once it has entered. Where the caret is shows in where typing lands, so they read it
 from the field's value; one check reads the drawn `_` from pixels, for the wire from the text
@@ -176,8 +177,10 @@ placeholder's gray.
 
 Wait with `appears()`, `disappears()`, `value(becoming:)`, and, for anything else read,
 `reading(_:becoming:within:)` from `Waits.swift`: XCTest's own waits spend a second before
-their first check. Typing, key presses, and taps can return before the app has handled them,
-so a read after one waits for the state it checks: `value(becoming:)` for the value, and
+their first check, and again between checks. Read many elements' labels or values from one
+snapshot (`exerciseRowLabels`, `snapshots(where:)`): each element read on its own resolves its
+query again, about 0.07 s on Xcode Cloud. Typing, key presses, and taps can return before the
+app has handled them, so a read after one waits for the state it checks: `value(becoming:)` for the value, and
 `Ink.withCursor(_:until:)` for where the `_` is. Tap a stepper key with `tapAtCenter()`:
 XCTest's `tap()` goes to its top-left corner, on the edge of the row above, which closes it.
 Tap anything that may still be moving, such as Add exercise just after an add, once it

@@ -10,10 +10,16 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
     /// Three lines at AX5.
     private static let threeLines = "Hot beat drills and abs"
 
+    static let largestTextSize = "UICTContentSizeCategoryAccessibilityXXXL"
+
     @MainActor
     func testWrappedTitleAtLargestTextSize() throws {
         let app = XCUIApplication()
-        let title = app.launchNewRoutine(textSize: "UICTContentSizeCategoryAccessibilityXXXL")
+        // The workout's routine is seeded at this launch, and the title's checks run on a new
+        // routine opened after it, so the test launches once.
+        try workoutAtAX5(in: app)
+        app.openNewRoutine()
+        let title = app.routineTitle
         let addExercise = app.buttons["Add exercise"]
         let keyboard = app.keyboards.element
 
@@ -69,6 +75,14 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
 
         try auditRowsAndPicker(in: app)
         assertAddClearsStartAtTheEnd(in: app, keyboard: keyboard, addExercise: addExercise)
+        dragARowAtAX5(in: app)
+        try supersetAtAX5(in: app)
+        try drawerAtAX5(in: app)
+    }
+
+    /// The second row held and dragged above the first moves there at this size.
+    @MainActor
+    private func dragARowAtAX5(in app: XCUIApplication) {
         XCTContext.runActivity(named: "A row drags at the largest text size") { _ in
             let rows = app.exerciseRows
             let (first, last) = (rows.element(boundBy: 0), rows.element(boundBy: 1))
@@ -81,9 +95,6 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             XCTAssertEqual(reading(app.exerciseNames, becoming: moved, within: 2), moved)
             attach(named: "reorder-ax5")
         }
-        try supersetAtAX5(in: app)
-        try drawerAtAX5(in: app)
-        try workoutAtAX5(in: app)
     }
 
     /// The drawer, its places kept whole, and the Routines screen pass the audit at this size.
