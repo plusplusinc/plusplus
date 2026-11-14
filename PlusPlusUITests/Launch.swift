@@ -29,16 +29,19 @@ extension XCUIApplication {
     }
 
     /// Launches into a routine of the built-in exercises `ids`, in order, named `name` or left
-    /// for the namer, as `launchNewRoutine` does with `arguments`, and waits for every row.
+    /// for the namer, as `launchNewRoutine` does at `textSize` with `arguments`, and waits for
+    /// every row.
     /// Seeding (`-seedExercises`) skips the picker, for a test that doesn't check adding.
     @discardableResult
     func launchSeeding(
         _ ids: [String],
         named name: String? = nil,
+        textSize category: String = "UICTContentSizeCategoryL",
         arguments: [String] = [],
     ) -> XCUIElement {
         let named = name.map { ["-seedName", $0] } ?? []
         let title = launchNewRoutine(
+            textSize: category,
             arguments: ["-seedExercises", ids.joined(separator: ",")] + named + arguments,
         )
         let count = exerciseCount(becoming: ids.count)
@@ -56,6 +59,28 @@ extension XCUIApplication {
         }
         launch()
         XCTAssertTrue(routineTitle.appears(within: 10), "No title after relaunch")
+    }
+
+    /// Opens a new, empty routine with the drawer's New, as a launch with `-resetStore` starts
+    /// on: a test that also needs a seeded routine launches into that one and comes here, a
+    /// couple of taps where a second launch costs 5 to 7 s on Xcode Cloud.
+    func openNewRoutine() {
+        openDrawer(andTap: "New")
+        XCTAssertEqual(routineTitle.value(becoming: "New routine"), "New routine")
+        XCTAssertEqual(exerciseRows.count, 0, "New opened a routine with rows")
+        // The screen slides back from the drawer's side.
+        XCTAssertTrue(routineTitle.settles(), "The title kept moving after the drawer shut")
+    }
+
+    /// Opens the drawer with ++ and taps the place labeled `label` in it.
+    func openDrawer(andTap label: String) {
+        buttons["Menu"].tap()
+        XCTAssertTrue(drawerTitle.appears(), "++ did not open the drawer")
+        // The drawer slides in, and a tap read from a frame mid-slide lands where it is going.
+        let place = buttons[label]
+        XCTAssertTrue(place.settles(), "\(label) kept moving")
+        place.tap()
+        XCTAssertTrue(drawerTitle.disappears(), "\(label) did not close the drawer")
     }
 
     /// A swipe in from the screen's left edge, which opens the drawer or pops a pushed screen.
