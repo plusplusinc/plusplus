@@ -142,10 +142,10 @@ extension RoutineScreen {
     /// Settles which way the key points: back to the current exercise while it is scrolled away,
     /// out of view, else none, which the bar swaps the key for. Called as the row crosses that
     /// line, as the scroll phase changes, and as a move lands. Held while a finger is on the list,
-    /// so the key doesn't change under a
-    /// thumb about to tap it; once the finger lifts, it follows the row as the list coasts,
-    /// swapping as the row crosses the line rather than once the list stops (about 0.95 s after
-    /// a flick, with the swap's 0.45 s after that, the key lagged the list). Not while moving
+    /// so the key doesn't change under a thumb about to tap it; once the finger lifts, it follows
+    /// the row as the list coasts, swapping as the row crosses the line rather than once the list
+    /// stops (about 0.95 s after a flick, with the swap's 0.45 s after that, the key lagged the
+    /// list). Not while moving
     /// on, whose row passes through the edge, nor before a relaunch has opened on the current
     /// exercise. Nor while the list rubber-bands past its top: a flick back to the top pulled
     /// the current exercise mostly below the screen for a moment, and the key went from back

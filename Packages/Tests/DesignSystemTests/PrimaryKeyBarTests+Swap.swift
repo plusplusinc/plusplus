@@ -86,7 +86,8 @@ extension PrimaryKeyBarTests {
     func otherKindKeepsWords() throws {
         try Hosted.on { bar in
             bar.inputs.face = Face(id: 2, words: "Finish workout")
-            bar.window.settle()
+            // One layout, well inside the swap's first half on a loaded machine.
+            bar.layOutOnce()
             #expect(bar.keys.map(\.label) == ["Log set"])
         }
     }
