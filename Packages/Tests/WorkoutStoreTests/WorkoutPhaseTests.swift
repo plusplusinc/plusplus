@@ -177,6 +177,22 @@ struct WorkoutPhaseTests {
         #expect(fading.move == nil)
     }
 
+    @Test("A close or a fade settles only once shown, and shows only once")
+    func closeAndFadeBeats() {
+        for (step, moves) in [(LiveWorkout.Step.last, true), (Self.down, false), (.last, false)] {
+            var phase = Self.logging(step, moves: moves)
+            let logged = phase
+            let settledEarly = phase.settle()
+            #expect(!settledEarly, "Not before it shows: \(logged)")
+            #expect(phase == logged)
+            phase = Self.after([.show], from: phase)
+            let shown = phase
+            let shownAgain = phase.show()
+            #expect(!shownAgain, "\(shown)")
+            #expect(phase == shown)
+        }
+    }
+
     @Test("With no motion, a step to another exercise has no move: nothing unlit, no round held")
     func noMotion() {
         let phase = Self.logging(Self.round, moves: false)
