@@ -236,16 +236,18 @@ public final class RoutineSession {
     }
 
     /// Lets the last edit land, then shows the routine `next` gives, if any, and closes the
-    /// drawer. A switch already under way takes the tap.
-    private func switchTo(pushed: Bool, _ next: () async -> Routine?) async {
+    /// drawer; an edit made while `next` runs is saved too. A switch already under way takes the
+    /// tap. Internal so a test can hold `next`.
+    func switchTo(pushed: Bool, _ next: () async -> Routine?) async {
         guard !isSwitching else { return }
         isSwitching = true
         defer { isSwitching = false }
         await finishSaving()
+        // Saving starts again before the read, so an edit made while it reads still lands.
+        (saves, saving) = Self.startSaving(to: store)
         if let routine = await next() {
             show(routine, pushed: pushed)
         }
-        (saves, saving) = Self.startSaving(to: store)
         closeDrawer()
     }
 
