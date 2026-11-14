@@ -107,11 +107,12 @@ extension RoutineScreen {
     /// A tap on the key. Out of a workout, Start. After the last set, Finish workout. Otherwise,
     /// where the current exercise is scrolled away when the tap lands, as on a list still
     /// moving away under a finger that still says "Log set", the list goes back to it and nothing
-    /// is logged: the key changes only once the finger lifts (`settleKeyRole()`), the place at
+    /// is logged: the key changes only once the finger lifts (`settleWayBack()`), the place at
     /// once. A log is stored through the session at once and shown through `play(_:)`.
     func tapKey() {
         guard let live, !isStarting else { return pressStart() }
-        // While the key swaps, the bar takes no tap.
+        // Nothing while the workout moves on to the next exercise; while the key swaps, the bar
+        // takes no tap (`primaryKeyBar`).
         guard !isMovingOn else { return }
         if live.isDone {
             return finish()
@@ -139,9 +140,9 @@ extension RoutineScreen {
     }
 
     /// Settles which way the key points: back to the current exercise while it is scrolled away,
-    /// out of view, else none. Called as the row crosses that line, as the scroll phase changes,
-    /// and
-    /// as a move lands. Held while a finger is on the list, so the key doesn't change under a
+    /// out of view, else none, which the bar swaps the key for. Called as the row crosses that
+    /// line, as the scroll phase changes, and as a move lands. Held while a finger is on the list,
+    /// so the key doesn't change under a
     /// thumb about to tap it; once the finger lifts, it follows the row as the list coasts,
     /// swapping as the row crosses the line rather than once the list stops (about 0.95 s after
     /// a flick, with the swap's 0.45 s after that, the key lagged the list). Not while moving
@@ -150,7 +151,7 @@ extension RoutineScreen {
     /// the current exercise mostly below the screen for a moment, and the key went from back
     /// up, to Log set, to back down, to Log set within 0.2 s. Past the end, the rows only go
     /// further the way they were going.
-    func settleKeyRole() {
+    func settleWayBack() {
         guard !isMovingOn, !opensOnCurrent, !scrollBeat.isFingerOn, !scrollBeat.isPastTop else {
             return
         }

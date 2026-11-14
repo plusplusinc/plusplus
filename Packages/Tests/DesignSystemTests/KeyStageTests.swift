@@ -49,6 +49,8 @@ struct KeyStageTests {
         let arrivingChanged = arriving.follow(to: back)
         #expect(!arrivingChanged)
         #expect(arriving == .arriving)
+        // Below the edge, the next key is whatever face is live as it rises.
+        #expect(arriving.face(for: back) == back)
     }
 
     @Test("Once gone, the next key is the live face below the edge; then it shows as the live one")

@@ -73,7 +73,8 @@ extension View {
     /// with Reduce Motion, each fades. The bar keeps its room throughout, so the list under it
     /// stays put: with the bar gone between them, a list at its end moved down. The key takes
     /// no tap while it swaps. Within one id, the words change in place. A face that changes
-    /// while the key is not presented comes back as the new key, with no swap. While
+    /// while the key is not presented, or while `drop` has it out of sight, comes back as the
+    /// new key, with no swap, under the animation that brings it back. While
     /// `keepsRoom`, a key not presented still holds its room in the bar, unseen, so the list's
     /// bottom inset stays as the key goes and comes back.
     public func primaryKeyBar<Face: Equatable & Identifiable, Key: View>(

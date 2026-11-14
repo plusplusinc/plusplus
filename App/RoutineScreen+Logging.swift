@@ -186,7 +186,7 @@ extension RoutineScreen {
             if next != nil, target == nil {
                 scrollToCurrent()
             }
-            settleKeyRole()
+            settleWayBack()
             playWaiting(waiting)
         }
         crossfade(scrollingTo: target ?? scrollBeat.scrolledY, then: landed) {
@@ -226,7 +226,7 @@ extension RoutineScreen {
             if target == nil {
                 withAnimation(.snappy(duration: SetMotion.roll), scrollToCurrent)
             }
-            settleKeyRole()
+            settleWayBack()
             playWaiting(waiting)
         }
     }
@@ -252,7 +252,7 @@ extension RoutineScreen {
             closingRoomTop = nil
             let waiting = playback.end()
             letRoomGo()
-            settleKeyRole()
+            settleWayBack()
             playWaiting(waiting)
         }
     }

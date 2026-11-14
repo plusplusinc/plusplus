@@ -260,7 +260,7 @@ extension RoutineScreen {
             scrollToCurrent()
         }
         openOnCurrentIfDue()
-        settleKeyRole()
+        settleWayBack()
     }
 
     /// Scrolls the current exercise's row up to just under the bar.
@@ -277,7 +277,7 @@ extension RoutineScreen {
         guard opensOnCurrent, currentPlace?.isLaidOut == true else { return }
         opensOnCurrent = false
         scrollToCurrent()
-        settleKeyRole()
+        settleWayBack()
     }
 
     /// The beat between Start's press and its leaving. The

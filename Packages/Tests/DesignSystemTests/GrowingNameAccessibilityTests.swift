@@ -59,11 +59,19 @@ enum AccessibilityTree {
         return nodes(under: host.view)
     }
 
+    /// Runs `body` with the tree on, for a test that hosts its own view and changes it after its
+    /// first layout, reading it with `leaves(under:)` between changes.
+    static func whileOn<T>(_ body: () async throws -> T) async throws -> T {
+        try setAccessibilityEnabled(true)
+        defer { try? setAccessibilityEnabled(false) }
+        return try await body()
+    }
+
     private static func nodes(under node: NSObject) -> [NSObject] {
         [node] + automationElements(of: node).flatMap { nodes(under: $0) }
     }
 
-    private static func leaves(under node: NSObject) -> [NSObject] {
+    static func leaves(under node: NSObject) -> [NSObject] {
         let children = automationElements(of: node)
         return children.isEmpty ? [node] : children.flatMap { leaves(under: $0) }
     }
