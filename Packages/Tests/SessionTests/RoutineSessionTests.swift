@@ -62,6 +62,50 @@ struct RoutineSessionTests {
         #expect(try await relaunch().openRoutine(routine.id, weightUnit: .pounds)?.name == "Three")
     }
 
+    @Test("An edit made while the next routine is being read is saved")
+    func editDuringRead() async throws {
+        let routine = try Self.upper()
+        let session = session(routine)
+        let other = Routine(name: "Lower")
+        let (reading, readStarted) = AsyncStream.makeStream(of: Void.self)
+        let (release, releaseRead) = AsyncStream.makeStream(of: Void.self)
+        let switching = Task {
+            await session.switchTo(pushed: false) {
+                readStarted.yield()
+                for await _ in release {
+                    break
+                }
+                return other
+            }
+        }
+        for await _ in reading {
+            break
+        }
+        var edited = routine
+        edited.name = "Push day"
+        session.save(edited)
+        releaseRead.yield()
+        await switching.value
+        #expect(session.current == other)
+        #expect(try await relaunch().openRoutine(routine.id, weightUnit: .pounds) == edited)
+    }
+
+    @Test("An edit made as the read ends is saved before the next routine shows")
+    func editAsReadEnds() async throws {
+        let routine = try Self.upper()
+        let session = session(routine)
+        let other = Routine(name: "Lower")
+        var edited = routine
+        edited.name = "Push day"
+        // The edit is still on its way to the store when the read returns.
+        await session.switchTo(pushed: false) { @MainActor [edited] in
+            session.save(edited)
+            return other
+        }
+        #expect(session.current == other)
+        #expect(try await relaunch().openRoutine(routine.id, weightUnit: .pounds) == edited)
+    }
+
     @Test("A workout's end is saved even with the next start queued behind it")
     func endBeforeNextStart() async throws {
         let session = try session(Self.upper())
