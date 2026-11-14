@@ -918,11 +918,12 @@ class Loop(unittest.TestCase):
 
     BODY = "## Problem\nx\n\nNightly: faster CI; its time\n\n## Success\nRun it.\n"
 
-    def night(self, results, weekly_resets, take=None, event=None, finish=False, gh=lambda *a: []):
+    def night(self, results, weekly_resets, take=None, event=None, finish=False, gh=lambda *a: [],
+              outdated=subprocess.CompletedProcess([], 0, "", "")):
         cards = [(f"PVTI_{i}", "Todo", "-", f"card {i}", self.BODY) for i in range(4)]
         stubs = {"board_rows": lambda: [], "board_cards": lambda rows: cards, "xcode_cloud_runs": lambda: [],
                  "gh_json": gh, "classify": lambda files: "app: x", "sh": lambda *a, **k: "",
-                 "test_counts": lambda rev: {}}
+                 "test_counts": lambda rev: {}, "outdated_tools": lambda: outdated}
         saved = {name: getattr(nightly, name) for name in stubs}
         self.addCleanup(lambda: [setattr(nightly, n, f) for n, f in saved.items()])
         for name, stub in stubs.items():
@@ -955,6 +956,16 @@ class Loop(unittest.TestCase):
                          ["card 0", "card 1", "card 2"])
 
     def test_a_crash_mid_card_leaves_a_state_and_a_digest(self):
+        # GitHub, as a gh on the PATH, has a newer release of every lint tool than its pin, as on
+        # the night swiftformat 0.64.7 came out. A night that asked it would add an update card
+        # and fail on the stubbed board's reply before the crash; night() says what `outdated`
+        # prints instead.
+        bin_dir = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, bin_dir, True)
+        (bin_dir / "gh").write_text("#!/bin/sh\necho v99.0.0\n")
+        (bin_dir / "gh").chmod(0o755)
+        self.addCleanup(os.environ.__setitem__, "PATH", os.environ["PATH"])
+        os.environ["PATH"] = f"{bin_dir}:{os.environ['PATH']}"
         board_calls = []
         saved = nightly.board, nightly.tidy
         self.addCleanup(lambda: (setattr(nightly, "board", saved[0]), setattr(nightly, "tidy", saved[1])))
@@ -992,10 +1003,7 @@ class Loop(unittest.TestCase):
         # swiftformat's release couldn't be read; swiftlint's line still makes its card.
         outdated = subprocess.CompletedProcess([], 1, "swiftlint 0.65.0 0.65.1\n",
                                                "could not read swiftformat's latest release\n")
-        saved_run = nightly.subprocess.run
-        self.addCleanup(setattr, nightly.subprocess, "run", saved_run)
-        nightly.subprocess.run = lambda *a, **k: outdated
-        night = self.night(["merged"] * 4, weekly_resets=100, finish=True)
+        night = self.night(["merged"] * 4, weekly_resets=100, finish=True, outdated=outdated)
         self.assertEqual(calls[:2], [("add", "Update swiftlint to 0.65.1"), ("move", "PVTI_new", "top")])
         digest = (night.dir / "digest.md").read_text()
         self.assertIn("Added: Update swiftlint to 0.65.1, at the top of Todo", digest)

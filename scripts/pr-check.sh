@@ -151,8 +151,10 @@ they are back, start the run again and re-run this check. $url"
 # of the merge base's last REVERT_WINDOW commits changed there: a line it added is gone, a line it
 # removed is back, a binary file is back to the copy before it. A squash onto a newer main with
 # `git reset --soft origin/main` does that, recording the branch's stale copies of whatever main
-# changed meanwhile (#136 undid #134 so). A revert made with `git revert`, whose message says
-# "This reverts commit <sha>" (a short sha too), is meant, and passes.
+# changed meanwhile (#136 undid #134 so). A file head moves is judged at its new path; one it
+# deletes outright counts only when all of the commit that still stands is undone too
+# (docs/pr-check.md says why). A revert made with `git revert`, whose message says "This reverts
+# commit <sha>" (a short sha too), is meant, and passes.
 REVERT_WINDOW=30
 reverts() {
     git -C "$ROOT" rev-parse --quiet --verify "$1^{commit}" > /dev/null &&
@@ -181,18 +183,33 @@ def lines(sha):
 def sign(n):
     return (n > 0) - (n < 0)
 
+# None when the commit's change to path no longer stands at the merge base; else whether head,
+# at the path or where it moved, undoes it.
 def undone(path, parent, commit, merge_base, binary):
-    before, after, now, then = (blob(c, path) for c in (parent, commit, head, merge_base))
+    before, after, then = (blob(c, path) for c in (parent, commit, merge_base))
+    now = blob(head, moved.get(path, path))
     if binary:
-        return now == before and then != before
+        return now == before if then != before else None
     before, after, now, then = map(lines, (before, after, now, then))
     standing = [line for line in before.keys() | after.keys()
                 if after[line] != before[line] and sign(then[line] - before[line]) == sign(after[line] - before[line])]
-    return bool(standing) and all((now[line] - before[line]) * sign(after[line] - before[line]) <= 0
-                                  for line in standing)
+    if not standing:
+        return None
+    return all((now[line] - before[line]) * sign(after[line] - before[line]) <= 0 for line in standing)
 
 merge_base = git("merge-base", base, head).decode().strip()
-changed = set(git("diff", "--name-only", "-z", "--no-renames", merge_base, head).split(b"\0")) - {b""}
+# One diff, renames found as git finds them (half the content alike): the paths head changes, its
+# moves as old path to new, and the paths it deletes outright.
+changed, moved, deleted = set(), {}, set()
+fields = iter(git("diff", "--name-status", "-z", "-M", merge_base, head).decode().split("\0")[:-1])
+for status in fields:
+    path = next(fields)
+    changed.add(path)
+    if status.startswith("R"):
+        moved[path] = next(fields)
+        changed.add(moved[path])
+    elif status == "D":
+        deleted.add(path)
 messages = git("log", "--format=%B", f"{merge_base}..{head}").decode()
 meant = re.findall(r"This reverts commit ([0-9a-f]{7,40})", messages)
 for commit in git("rev-list", "--first-parent", "-n", window, merge_base).decode().split():
@@ -200,17 +217,27 @@ for commit in git("rev-list", "--first-parent", "-n", window, merge_base).decode
     if not parents or any(commit.startswith(sha) for sha in meant):
         continue
     stat = git("diff", "--numstat", "-z", "--no-renames", parents[0], commit).split(b"\0")
-    paths = []
+    files = {}
     for entry in stat:
-        if not entry:
+        if entry:
+            added, _, path = entry.decode().split("\t", 2)
+            files[path] = added == "-"
+    judged = {path: undone(path, parents[0], commit, merge_base, files[path])
+              for path in files if path in changed}
+    paths = [path for path, gone in judged.items() if gone]
+    if not paths:
+        continue
+    # A path head still has, here or moved, is judged alone. One it deletes counts only when the
+    # rest of what the commit changed, as far as that still stands, is undone too.
+    if all(path in deleted for path in paths):
+        rest = (undone(path, parents[0], commit, merge_base, binary)
+                for path, binary in files.items() if path not in judged)
+        if len(paths) < sum(result is not None for result in [*judged.values(), *rest]):
             continue
-        added, _, path = entry.split(b"\t", 2)
-        if path in changed and undone(path.decode(), parents[0], commit, merge_base, added == b"-"):
-            paths.append(path.decode())
-    if paths:
-        subject = git("log", "-1", "--format=%h %s", commit).decode().strip()
-        listed = ", ".join(paths[:5]) + (f", and {len(paths) - 5} more" if len(paths) > 5 else "")
-        print(f"{subject}: undone in {listed}")
+    paths = [f"{path} (at {moved[path]})" if path in moved else path for path in paths]
+    subject = git("log", "-1", "--format=%h %s", commit).decode().strip()
+    listed = ", ".join(paths[:5]) + (f", and {len(paths) - 5} more" if len(paths) > 5 else "")
+    print(f"{subject}: undone in {listed}")
 PY
     )
     if [ -n "$found" ]; then
@@ -218,7 +245,8 @@ PY
         fail "this diff undoes what the commits above added to main. A squash onto a newer main \
 (git reset --soft origin/main) does that: merge origin/main into the branch instead, and squash, \
 if at all, onto git merge-base HEAD origin/main (/pr). A revert that is meant is made with git \
-revert, whose \"This reverts commit <sha>\" line passes this check."
+revert, whose \"This reverts commit <sha>\" line passes this check; deleting all a commit \
+added is such a revert."
     fi
     echo "reverts nothing main added in its last $REVERT_WINDOW commits"
 }
