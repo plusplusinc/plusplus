@@ -200,6 +200,9 @@ extension RoutineScreen {
             withTransaction(\.disablesAnimations, true) {
                 phase.land()
             }
+            // Nothing drawn reads it: from here, End lets the row left finish its shrink.
+            try await beat(until: start + .seconds(SetMotion.moveShiftStart(way)))
+            phase.shift()
             try await beat(until: start + .seconds(SetMotion.roundRoll(way)))
             withAnimation(.snappy(duration: SetMotion.roll)) {
                 phase.roll()
@@ -277,10 +280,10 @@ extension RoutineScreen {
         rowFrames.restingPitch[id] = after - top
     }
 
-    /// Whether the key shows, Start or the workout's: with exercises, and not away for Start's
-    /// grow or a workout's end.
+    /// Whether the key shows, Start or the workout's: with exercises, and not gone for Start's
+    /// grow or a workout's end (`WorkoutPhase.keyGone`).
     var showsKey: Bool {
-        !routine.exercises.isEmpty && keyAway == nil
+        !routine.exercises.isEmpty && phase.keyGone == nil
     }
 }
 

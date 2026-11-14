@@ -34,7 +34,7 @@ extension RoutineScreen {
         }
         // The time fades out of its glass, and then the glass goes, the bar fading it: the bar
         // took the item out with its content on the frame, and only the glass faded.
-        if let workout = session.workout ?? endingWorkout {
+        if let workout = session.workout ?? phase.endingWorkout {
             ToolbarItem(placement: .topBarTrailing) {
                 WorkoutTimeKey(session: session, workout: workout)
                     .opacity(session.workout == nil ? 0 : 1)

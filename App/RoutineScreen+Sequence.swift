@@ -25,6 +25,13 @@ func beat(until deadline: ContinuousClock.Instant) async throws {
     try Task.checkCancellation()
 }
 
+/// Resumes on a later turn of the run loop, after the update the caller's changes go into, or
+/// throws if the sequence was cancelled meanwhile.
+func laterTurn() async throws {
+    await Task.yield()
+    try Task.checkCancellation()
+}
+
 extension RoutineScreen {
     /// The screen going away: the sequence playing stops, and the workout drawn is where it was
     /// going, at once.
@@ -34,6 +41,11 @@ extension RoutineScreen {
             phase.settleAtOnce()
             closingRoomTop = nil
             isCrossfading = false
+            if session.workout == nil {
+                // Start pressed and stopped before the workout began: nothing has changed.
+                isMakingRoom = false
+                startDrop = 0
+            }
         }
         letRoomGo()
     }
