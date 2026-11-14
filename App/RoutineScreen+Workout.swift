@@ -63,7 +63,7 @@ extension RoutineScreen {
                 // measured, the list stayed put (13 Starts, 2026-11-01).
                 phase.fadeIn()
             }
-            return withAnimation(.smooth(duration: Self.startReturn)) { _ = phase.run() }
+            return keyReturns { phase.run() }
         }
         try await bringFirstIntoView()
         try check(pressed)
@@ -84,7 +84,7 @@ extension RoutineScreen {
         // reactions run, so the bar draws it back from what it already holds
         // (`KeyStage.dropped`).
         try await laterTurn()
-        withAnimation(.smooth(duration: Self.startReturn)) { _ = phase.run() }
+        keyReturns { phase.run() }
     }
 
     /// If the first exercise is scrolled away, scrolls the list to its top, then gives the
@@ -101,7 +101,6 @@ extension RoutineScreen {
             } orWhen: {
                 try? await Task.sleep(for: .seconds(Self.scrollGiveUp), tolerance: .zero)
             }
-            try Task.checkCancellation()
         }
         try await beat(until: .now + .seconds(Self.landingHold))
     }
@@ -201,7 +200,7 @@ extension RoutineScreen {
                     try await beat(until: start + .seconds(Self.barFade))
                     fadeTime()
                 }
-                withAnimation(.smooth(duration: Self.startReturn)) { _ = phase.rest() }
+                keyReturns { phase.rest() }
             }
         }
         if !tookOver {
@@ -225,7 +224,7 @@ extension RoutineScreen {
                 withTransaction(\.disablesAnimations, true) { startDrop = 0 }
                 try await laterTurn()
             }
-            withAnimation(.smooth(duration: Self.startReturn)) { _ = phase.rest() }
+            keyReturns { phase.rest() }
         }
     }
 
@@ -244,6 +243,12 @@ extension RoutineScreen {
             closingRoomTop = nil
             growthLift = 0
         }
+    }
+
+    /// A key comes back up into the bar, the workout's after Start, Start after End, with `step`,
+    /// the phase's last transition.
+    private func keyReturns(_ step: () -> Bool) {
+        withAnimation(.smooth(duration: Self.startReturn)) { _ = step() }
     }
 
     /// The time fades out of its key as the workout ends, and then the key's glass goes.
@@ -340,8 +345,9 @@ extension RoutineScreen {
     static let scrollDuration = 0.35
     /// How long Start waits for its scroll to the first exercise to report it has stopped
     /// before it carries on: about twice the longest measured, from the end of a ten-exercise
-    /// routine, 0.58 to 0.62 s from the scroll's start (2026-11-14). Carrying on, not waiting,
-    /// is Dave's call (2026-11-14).
+    /// routine, 0.58 to 0.62 s from the scroll's start (2026-11-14). No scroll was seen that
+    /// never reported stopping; this bounds the wait if one does. Carrying on, not waiting, is
+    /// Dave's call (2026-11-14).
     static let scrollGiveUp = 1.25
     /// The first exercise growing at Start, the rows below stepping aside.
     static let growBeat = 0.55

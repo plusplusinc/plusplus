@@ -29,9 +29,10 @@ public enum WorkoutPhase: Equatable, Sendable {
     /// From End's choice until Start has come back up: the workout as it was, for the bar.
     case ending(Ending)
 
-    /// Start's beats, in order. `pressed` covers the hold after the press and the scroll to the
+    /// Start's beats: `pressed`, then `growing` and `landed`, or with no motion `fadingIn`.
+    /// `pressed` covers the hold after the press and the scroll to the
     /// first exercise: nothing is drawn differently between them.
-    public enum StartBeat: Comparable, Sendable {
+    public enum StartBeat: Equatable, Sendable {
         /// Pressed: no workout yet.
         case pressed
         /// The workout exists, and the first exercise grows into the current one.
@@ -161,16 +162,14 @@ public enum WorkoutPhase: Equatable, Sendable {
     /// shown, so what End moves, it moves from where it is drawn.
     @discardableResult
     public mutating func end(_ workout: Workout) -> Bool {
-        let hidden: PlannedSet?
-        switch self {
-        case .idle, .starting(.pressed), .ending:
-            return false
-        case .starting, .running, .closing(_, true), .fadingOn(_, true):
-            hidden = nil
+        guard hasWorkout else { return false }
+        let hidden: PlannedSet? = switch self {
+        case .idle, .starting, .running, .closing(_, true), .fadingOn(_, true), .ending:
+            nil
         case let .held(set), let .closing(set, false), let .fadingOn(set, false):
-            hidden = set
+            set
         case let .movingOn(move):
-            hidden = move.beat < .shifting ? move.set : nil
+            move.beat < .shifting ? move.set : nil
         }
         self = .ending(Ending(workout: workout, hidden: hidden, beat: .began))
         return true
@@ -277,11 +276,15 @@ public enum WorkoutPhase: Equatable, Sendable {
 
     /// Where the sequence playing was going, at once: as the screen goes away.
     public mutating func settleAtOnce() {
+        self = hasWorkout ? .running : .idle
+    }
+
+    /// Whether there is a workout for End to end, or for a stop to settle into: none before
+    /// Start's grow, and none once ending.
+    private var hasWorkout: Bool {
         switch self {
-        case .idle, .starting(.pressed), .ending:
-            self = .idle
-        default:
-            self = .running
+        case .idle, .starting(.pressed), .ending: false
+        default: true
         }
     }
 
@@ -335,15 +338,6 @@ public enum WorkoutPhase: Equatable, Sendable {
     /// From Start's press until the first exercise has grown: the key is Start's.
     public var isStarting: Bool {
         self == .starting(.pressed) || self == .starting(.growing)
-    }
-
-    /// Whether the workout is ending.
-    public var isEnding: Bool {
-        if case .ending = self {
-            true
-        } else {
-            false
-        }
     }
 
     /// How the key is gone from its bar: as Start lands, with its room kept, until the workout's

@@ -60,6 +60,13 @@ extension WorkoutPhaseTests {
         ]
     }
 
+    static func isEnding(_ phase: WorkoutPhase) -> Bool {
+        if case .ending = phase {
+            return true
+        }
+        return false
+    }
+
     static func ending(from phase: WorkoutPhase) -> WorkoutPhase {
         var ended = phase
         ended.end(workout)
@@ -120,7 +127,7 @@ extension WorkoutPhaseTests {
     @Test("End applies from every phase with a workout, and from none without")
     func endFromEveryPhase() {
         let without: [WorkoutPhase] = [.idle, .starting(.pressed)]
-            + Self.startAndEnd.filter(\.isEnding)
+            + Self.startAndEnd.filter(Self.isEnding)
         for phase in Self.everyPhase + Self.startAndEnd {
             var ended = phase
             let applied = ended.end(Self.workout)
@@ -129,7 +136,7 @@ extension WorkoutPhaseTests {
                 #expect(ended == phase)
             } else {
                 #expect(applied, "\(phase)")
-                #expect(ended.isEnding)
+                #expect(Self.isEnding(ended))
                 #expect(ended.endingWorkout == Self.workout)
                 #expect(!ended.takesLog)
                 #expect(!ended.isMovingOn)

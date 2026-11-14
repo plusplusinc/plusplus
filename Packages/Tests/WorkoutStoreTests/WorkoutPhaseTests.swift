@@ -211,7 +211,7 @@ struct WorkoutPhaseTests {
         for phase in Self.everyPhase + Self.startAndEnd {
             var stopped = phase
             stopped.settleAtOnce()
-            let workoutGoes = phase == .idle || phase == .starting(.pressed) || phase.isEnding
+            let workoutGoes = phase == .idle || phase == .starting(.pressed) || Self.isEnding(phase)
             #expect(stopped == (workoutGoes ? .idle : .running), "\(phase)")
         }
     }
