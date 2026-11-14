@@ -164,9 +164,10 @@ not the one the last test saved, and with `-noUIKitAnimations YES`; the relaunch
 follow the routine's fresh id; and `-seedExercises <id,id,…>` with `-seedName <name>` starts
 from a routine of those built-in exercises, `-seedSets <n>` giving each that many sets and
 `-seedWorkout <n>` opening a workout on it with its first `n` sets logged (all `LaunchOptions`,
-Debug only). With UIKit's
-animations off, the keyboard and sheets appear at once, and XCTest's wait for animations can't
-stall (`LaunchOptions.turnsOffUIKitAnimations` says why). SwiftUI's animations still run, so a
+Debug only). A test that needs both a seeded routine and a new one launches into the seeded
+one and opens the new one with the drawer's New (`openNewRoutine()`), not a second launch.
+With UIKit's animations off, the keyboard and sheets appear at once, and XCTest's wait for
+animations can't stall (`LaunchOptions.turnsOffUIKitAnimations` says why). SwiftUI's animations still run, so a
 test that reads what one moves waits for its end state; an added row is in the accessibility
 tree only once it has entered. Where the caret is shows in where typing lands, so they read it
 from the field's value; one check reads the drawn `_` from pixels, for the wire from the text
