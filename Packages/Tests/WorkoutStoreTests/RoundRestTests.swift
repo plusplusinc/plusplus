@@ -96,7 +96,7 @@ struct RoundRestTests {
         #expect(routine.exercises.map(\.rest) == [200, 90])
         routine.leaveSuperset(second)
         #expect(routine.exercises.map(\.rest) == [200, 90])
-        #expect(routine.exercises.allSatisfy { $0.roundRest == .auto(kept: nil) })
+        #expect(routine.exercises.allSatisfy { $0.roundRest == .neverSet })
         #expect(routine.restAfterRound(of: first) == nil)
     }
 

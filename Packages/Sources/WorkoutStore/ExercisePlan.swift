@@ -83,7 +83,7 @@ public struct ExercisePlan: Equatable, Sendable {
         sets: Int,
         target: SetTarget,
         weight: Weight? = nil,
-        rest: Rest = .auto(kept: nil),
+        rest: Rest = .neverSet,
     ) {
         self.sets = sets
         self.target = target
@@ -100,6 +100,9 @@ public enum Rest: Equatable, Sendable {
     case auto(kept: Int?)
     /// Set by hand, in seconds.
     case byHand(Int)
+
+    /// Auto, never set by hand: where every rest starts.
+    public static let neverSet = Self.auto(kept: nil)
 
     public var isAuto: Bool {
         if case .auto = self {
@@ -118,17 +121,17 @@ public enum Rest: Equatable, Sendable {
     }
 
     /// The seconds it reads, `derived` while it is Auto.
-    func seconds(derived: Int) -> Int {
+    func seconds(derived: @autoclosure () -> Int) -> Int {
         switch self {
-        case .auto: derived
+        case .auto: derived()
         case let .byHand(seconds): seconds
         }
     }
 
     /// Auto turned on, keeping the rest set by hand for later, or off, bringing that back, or,
     /// if there is none, keeping `derived`, the rest it reads now.
-    func settingAuto(_ isOn: Bool, derived: Int) -> Rest {
-        isOn ? .auto(kept: lastByHand) : .byHand(lastByHand ?? derived)
+    func settingAuto(_ isOn: Bool, derived: @autoclosure () -> Int) -> Self {
+        isOn ? .auto(kept: lastByHand) : .byHand(lastByHand ?? derived())
     }
 }
 

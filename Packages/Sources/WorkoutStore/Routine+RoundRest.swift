@@ -8,13 +8,10 @@ extension Rest {
     /// This one, or, while it is Auto, the first of `others` set by hand, so a value set on any
     /// member of rows that join wins over an automatic one; a value kept for later is taken from
     /// the first that has one.
-    func filled(from others: some Sequence<Rest>) -> Rest {
+    func filled(from others: [Rest]) -> Rest {
         guard case let .auto(kept) = self else { return self }
-        let others = Array(others)
-        if let set = others.first(where: { !$0.isAuto }) {
-            return set
-        }
-        return .auto(kept: kept ?? others.lazy.compactMap(\.lastByHand).first)
+        return others.first { !$0.isAuto }
+            ?? .auto(kept: kept ?? others.lazy.compactMap(\.lastByHand).first)
     }
 }
 
@@ -73,9 +70,9 @@ extension Routine {
     /// hand for later, or brings that back (off), or, if there is none, keeps the rest it reads
     /// now; on every member.
     public mutating func setRoundAuto(_ isAuto: Bool, of id: RoutineExercise.ID) {
-        guard let superset = exercises.first(where: { $0.id == id })?.supersetID else { return }
-        let current = exercises.first { $0.id == id }?.roundRest ?? .auto(kept: nil)
-        let shared = current.settingAuto(isAuto, derived: derivedRestAfterRound(of: id))
+        guard let row = exercises.first(where: { $0.id == id }), let superset = row.supersetID
+        else { return }
+        let shared = row.roundRest.settingAuto(isAuto, derived: derivedRestAfterRound(of: id))
         for row in exercises.indices where exercises[row].supersetID == superset {
             exercises[row].roundRest = shared
         }

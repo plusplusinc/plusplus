@@ -19,7 +19,7 @@ public struct RoutineExercise: Identifiable, Equatable, Sendable {
         exercise: Exercise,
         plan: ExercisePlan,
         supersetID: UUID? = nil,
-        roundRest: Rest = .auto(kept: nil),
+        roundRest: Rest = .neverSet,
     ) {
         self.id = id
         self.exercise = exercise

@@ -73,7 +73,7 @@ struct RoutineStorePlanTests {
         }
         let row = try #require(try await relaunch().launch(weightUnit: .pounds).routine?
             .exercises.first)
-        #expect(row.plan.rest == .auto(kept: nil))
+        #expect(row.plan.rest == .neverSet)
         #expect(row.rest == 60)
     }
 

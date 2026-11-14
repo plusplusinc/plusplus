@@ -37,7 +37,7 @@ exercise's starting weight in the region's unit, which `launch(weightUnit:)` is 
 saved weight keeps its own unit. Since V7 a row also carries its rest: `rest`, the seconds the
 user last set, nil if never, and `isRestAuto`, true while rest follows the reps or time, which
 keeps `rest` for when Auto goes off; and its superset's `roundRest` and `isRoundRestAuto`, the
-same on every member, nil and true on a plain row. A rest out of range reads as never set, and
+same on every member, nil and true on a plain row. A rest out of range reads as never set, one set by hand with no seconds in range as Auto, and
 a store from before V7 opens with every rest automatic. Every save stores every
 row's plan, default or not, setting only the fields that changed, so an unchanged row stays
 clean. A row's `supersetID`, optional, joins it to the rows next to it with the same id; a
