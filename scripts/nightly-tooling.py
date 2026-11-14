@@ -847,13 +847,26 @@ class Fence:
     worktree's Claude Code settings, which the running session reloads. What a command names may
     not be the night's own files: the main checkout (the runner, its hooks, the night's folder,
     git's config), the runner's own checkout, or a dotfile in the home folder (gh's, git's, Claude
-    Code's, and asc's config)."""
+    Code's, and asc's config).
 
-    def __init__(self, worktree, main, night, cwd=None):
+    A subagent the card's lead starts with the Agent tool's `isolation: "worktree"`, such as its
+    verifier, works in its own worktree, which Claude Code makes at
+    <main>/.claude/worktrees/agent-<agent id>; for that agent's calls (agent_id, from the hook's
+    input) it is writable as well, and its relative paths resolve from there. The hook's cwd for an
+    agent's calls has been seen both as the session's and as the agent's own worktree, so a cwd
+    inside the agent's worktree is kept and any other is taken as that worktree. No other agent's
+    worktree is writable."""
+
+    def __init__(self, worktree, main, night, cwd=None, agent_id=None):
+        worktrees = [self.real(worktree)]
+        own = self.real(main) / ".claude/worktrees" / f"agent-{agent_id}"
+        if isinstance(agent_id, str) and re.fullmatch(r"[\w-]+", agent_id) and (own / ".git").is_file():
+            worktrees.append(own)
+            if cwd is None or not (self.real(cwd) == own or own in self.real(cwd).parents):
+                cwd = own
         self.cwd = self.real(cwd or worktree)
-        worktree = self.real(worktree)
-        self.writable = [worktree, self.real(main) / ".slices"]
-        self.live = [worktree / ".claude/settings*.json", worktree / ".mcp.json"]
+        self.writable = worktrees + [self.real(main) / ".slices"]
+        self.live = [w / name for w in worktrees for name in (".claude/settings*.json", ".mcp.json")]
         self.home = self.real("~")
         self.guarded_roots = [self.real(main), self.real(ROOT), self.real(night), self.home / "Library/LaunchAgents"]
 
@@ -912,7 +925,8 @@ def hook_decision(tool, command, now, stop, handoff, run_gate, fence, path="", i
     late = now >= stop
     late_reason = (f"It is past {STOP_HOUR} am, so the night starts nothing new. Commit what builds, "
                    f"write the handoff note to {handoff}, and end your turn.")
-    fenced = ("At night a card writes only in its worktree and the main checkout's .slices/, and no "
+    fenced = ("At night a card writes only in its worktree, an agent's own isolation worktree, and the "
+              "main checkout's .slices/, and no "
               "command names the night's own files (the main checkout, the runner, the night's folder, "
               "git's, gh's, asc's, or Claude Code's config): ")
     if tool in ("Edit", "Write", "NotebookEdit"):
@@ -1615,7 +1629,7 @@ def hook_check(folder, worktree):
     state = json.loads((folder / "state.json").read_text())
     now = datetime.now().astimezone()
     # The runner makes each worktree in <main checkout>/.claude/worktrees/.
-    fence = Fence(worktree, Path(worktree).resolve().parents[2], folder, call.get("cwd"))
+    fence = Fence(worktree, Path(worktree).resolve().parents[2], folder, call.get("cwd"), call.get("agent_id"))
     # A push's start is recorded by the pre-push hook it then meets; a PR's here.
     tool_input = call.get("tool_input") or {}
     return hook_decision(call["tool_name"], tool_input.get("command") or "", now,

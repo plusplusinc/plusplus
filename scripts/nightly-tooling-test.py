@@ -1238,8 +1238,8 @@ def scratch_clone(test):
     run("git", "commit", "-q", "--allow-empty", "-m", "base")
     run("git", "push", "-q", "origin", "main")
     env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}"}
-    def tidy():
-        out = subprocess.run([str(root / "main/scripts/tidy.sh")], cwd=root / "main", env=env,
+    def tidy(*args):
+        out = subprocess.run([str(root / "main/scripts/tidy.sh"), *args], cwd=root / "main", env=env,
                              capture_output=True, text=True)
         test.assertEqual(out.returncode, 0, out.stderr)
         return out.stdout
@@ -1318,6 +1318,90 @@ class TidyWorktrees(unittest.TestCase):
         self.assertFalse(worktree.exists())
         self.assertIn(f"tidy: git worktree remove {worktree}", out)
         self.assertEqual(run("git", "branch", "--list", "done-card"), "")
+
+    def test_a_session_worktree_left_detached_keeps_the_branch_it_left(self):
+        # A session's fresh branch starts at main, so its tip is in main. On 2026-11-13 an agent
+        # checked a PR's commit out in its lead's worktree, detached, and another agent's tidy then
+        # deleted the lead's branch, which no worktree had checked out any more.
+        root, run, tidy = scratch_clone(self)
+        worktree = root / "main/.claude/worktrees/lead-session"
+        run("git", "worktree", "add", "-q", "-b", "lead-session", str(worktree))
+        run("git", "checkout", "-q", "--detach", "HEAD", cwd=worktree)
+        # A branch merely left behind, checked out nowhere and never left by a live worktree, goes.
+        run("git", "branch", "old-done")
+        out = tidy()
+        self.assertTrue(worktree.exists())
+        self.assertEqual(run("git", "branch", "--list", "lead-session"), "lead-session")
+        self.assertNotIn("lead-session", out)
+        self.assertIn("tidy: git branch -D old-done", out)
+
+    def agent_worktree(self, root, run, agent):
+        """An isolation worktree as Claude Code makes one: agent-<id>, on worktree-agent-<id> at main."""
+        worktree = root / f"main/.claude/worktrees/agent-{agent}"
+        run("git", "worktree", "add", "-q", "-b", f"worktree-agent-{agent}", str(worktree))
+        return worktree
+
+    def test_a_removed_detached_worktree_frees_the_branch_it_left_in_the_same_run(self):
+        # A detached worktree at main, idle for over a day, goes; the branch it left, at main and now
+        # checked out nowhere, goes in the same run, and a dry run lists both and removes neither.
+        root, run, tidy = scratch_clone(self)
+        worktree = self.agent_worktree(root, run, "a1")
+        run("git", "checkout", "-q", "--detach", "HEAD", cwd=worktree)
+        old = time.time() - 2 * 86400
+        git_dir = Path(run("git", "rev-parse", "--absolute-git-dir", cwd=worktree))
+        for name in ("HEAD", "index", "logs/HEAD"):
+            os.utime(git_dir / name, (old, old))
+        for args in (["--dry-run"], []):
+            with self.subTest(args=args):
+                out = tidy(*args)
+                self.assertIn(f"tidy: git worktree remove {worktree}", out)
+                self.assertIn("tidy: git branch -D worktree-agent-a1", out)
+                self.assertEqual(worktree.exists(), bool(args))
+        self.assertEqual(run("git", "branch", "--list", "worktree-agent-a1"), "")
+
+    def test_a_verifiers_worktree_left_detached_at_a_merged_prs_commit_goes(self):
+        # A verifier checks the PR's commit out detached in its own worktree and commits a test there;
+        # the PR's head, merged under the card's branch, has a builder commit on top. A worktree
+        # detached at a commit no merged PR has stays, as does the branch it left.
+        root, run, tidy = scratch_clone(self)
+        verifier = self.agent_worktree(root, run, "v1")
+        run("git", "checkout", "-q", "--detach", "HEAD", cwd=verifier)
+        run("git", "commit", "-q", "--allow-empty", "-m", "verifier test", cwd=verifier)
+        tip = run("git", "rev-parse", "HEAD", cwd=verifier)
+        head = run("git", "commit-tree", f"{tip}^{{tree}}", "-p", tip, "-m", "builder fix")
+        unmerged = self.agent_worktree(root, run, "w2")
+        run("git", "checkout", "-q", "--detach", "HEAD", cwd=unmerged)
+        run("git", "commit", "-q", "--allow-empty", "-m", "unpushed", cwd=unmerged)
+        (root / "merged").write_text(f"night-card {head} 7\n")
+        out = tidy()
+        self.assertFalse(verifier.exists())
+        self.assertEqual(run("git", "branch", "--list", "worktree-agent-v1"), "")
+        self.assertTrue(unmerged.exists())
+        self.assertEqual(run("git", "branch", "--list", "worktree-agent-w2"), "worktree-agent-w2")
+        self.assertNotIn("agent-w2", out)
+
+    def test_a_detached_worktree_with_work_past_a_merged_prs_head_stays(self):
+        # A merged PR's head containing a detached worktree's commit says the commit landed, not what
+        # was made after it: a commit on top of the merged head, or a file not committed there, keeps
+        # the worktree and the branch it left, in a dry run too.
+        root, run, tidy = scratch_clone(self)
+        head = run("git", "commit-tree", "HEAD^{tree}", "-p", "HEAD", "-m", "merged head")
+        (root / "merged").write_text(f"night-card {head} 7\n")
+        ahead = self.agent_worktree(root, run, "c1")
+        run("git", "checkout", "-q", "--detach", head, cwd=ahead)
+        run("git", "commit", "-q", "--allow-empty", "-m", "a test made after the merge", cwd=ahead)
+        dirty = self.agent_worktree(root, run, "d1")
+        run("git", "checkout", "-q", "--detach", head, cwd=dirty)
+        (dirty / "NewTests.swift").write_text("// not committed\n")
+        for args in (["--dry-run"], []):
+            with self.subTest(args=args):
+                out = tidy(*args)
+                self.assertNotIn("agent-c1", out)
+                self.assertNotIn("agent-d1", out)
+        self.assertTrue(ahead.exists())
+        self.assertTrue((dirty / "NewTests.swift").exists())
+        self.assertEqual(run("git", "branch", "--list", "worktree-agent-c1", "worktree-agent-d1"),
+                         "worktree-agent-c1\n  worktree-agent-d1")
 
     def test_an_agents_cleanup_removes_its_worktree_and_tidy_deletes_its_simulator(self):
         # The builder's and verifier's cleanup: `git worktree remove` from a shell still inside the
@@ -1553,6 +1637,72 @@ class WritesStayInTheWorktree(unittest.TestCase):
             Path(root, "main/scripts").mkdir()
             (worktree / "out").symlink_to(Path(root, "main/scripts"))
             self.assertFalse(nightly.Fence(worktree, Path(root, "main"), Path(root, "night")).may_write(worktree / "out/x"))
+
+    def test_an_agents_own_isolation_worktree_is_writable_for_its_calls(self):
+        # The Agent tool makes an isolation worktree in the main checkout's .claude/worktrees/, as
+        # agent-<agent id>; a verifier works and commits in its own there. The hook's cwd is the
+        # session's, the card's worktree, so the agent's relative paths resolve from its own.
+        with tempfile.TemporaryDirectory() as root:
+            main = Path(os.path.realpath(root), "main")
+            worktrees = main / ".claude/worktrees"
+            for name in ("night-card", "agent-a1", "agent-b2"):
+                (worktrees / name).mkdir(parents=True)
+                (worktrees / name / ".git").write_text(f"gitdir: {main}/.git/worktrees/{name}\n")
+            (worktrees / "agent-c3/.git").mkdir(parents=True)  # not a linked worktree
+
+            def fence(agent):
+                return nightly.Fence(worktrees / "night-card", main, Path(root, "night"), worktrees / "night-card", agent)
+
+            self.assertTrue(fence("a1").may_write(worktrees / "agent-a1/Packages/Tests/A.swift"))
+            self.assertTrue(fence("a1").may_write("Packages/Tests/A.swift"))
+            self.assertEqual(fence("a1").resolve("x"), worktrees / "agent-a1/x")
+            self.assertFalse(fence("a1").guarded(str(worktrees / "agent-a1")))
+            self.assertFalse(fence("a1").may_write(worktrees / "agent-a1/.claude/settings.local.json"))
+            self.assertTrue(fence("a1").may_write(worktrees / "night-card/x"))
+            # Another agent's worktree, the card's own calls, and ids that name no worktree of one.
+            self.assertTrue(fence("a1").guarded(str(worktrees / "agent-b2/x")))
+            self.assertFalse(fence(None).may_write(worktrees / "agent-a1/x"))
+            self.assertFalse(fence("c3").may_write(worktrees / "agent-c3/x"))
+            self.assertFalse(fence("../night-card/../agent-a1").may_write(worktrees / "agent-a1/x"))
+            self.assertFalse(fence(7).may_write(worktrees / "agent-a1/x"))
+            # A call that says it runs inside the agent's worktree keeps its own directory.
+            inside = nightly.Fence(worktrees / "night-card", main, Path(root, "night"), worktrees / "agent-a1/Packages", "a1")
+            self.assertEqual(inside.resolve("x"), worktrees / "agent-a1/Packages/x")
+
+    def test_the_hook_reads_agent_id_and_either_cwd_from_its_input(self):
+        # The hook's input names the agent (agent_id) whose call it is. Its cwd for an agent's calls
+        # has been seen both as the session's, the card's worktree, and as the agent's own; either
+        # way the agent's relative paths land in its own worktree, and without agent_id they don't.
+        with tempfile.TemporaryDirectory() as root:
+            main = Path(os.path.realpath(root), "main")
+            worktrees = main / ".claude/worktrees"
+            for name in ("night-card", "agent-a1"):
+                (worktrees / name).mkdir(parents=True)
+                (worktrees / name / ".git").write_text(f"gitdir: {main}/.git/worktrees/{name}\n")
+            night = Path(root, "night")
+            night.mkdir()
+            stop = (datetime.now().astimezone() + timedelta(hours=1)).isoformat()
+            (night / "state.json").write_text(json.dumps({"stop": stop, "handoff": ".slices/h.md"}))
+
+            def check(path, cwd, agent=None):
+                call = {"tool_name": "Write", "cwd": str(cwd), "tool_input": {"file_path": path, "content": "x"}}
+                if agent:
+                    call["agent_id"] = agent
+                with contextlib.redirect_stdout(io.StringIO()):
+                    sys.stdin = io.StringIO(json.dumps(call))
+                    try:
+                        return nightly.hook_check(night, str(worktrees / "night-card"))
+                    finally:
+                        sys.stdin = sys.__stdin__
+
+            for cwd in (worktrees / "night-card", worktrees / "agent-a1"):
+                with self.subTest(cwd=cwd.name):
+                    self.assertIsNone(check("Packages/Tests/A.swift", cwd, "a1"))
+                    self.assertIsNone(check(str(worktrees / "agent-a1/Packages/Tests/A.swift"), cwd, "a1"))
+                    self.assertIsNotNone(check(str(worktrees / "agent-a1/Packages/Tests/A.swift"), cwd))
+                    self.assertIsNotNone(check(str(worktrees / "agent-a1/x"), cwd, "b2"))
+            # Tonight's case: the agent's own cwd and no agent_id fences its relative writes.
+            self.assertIsNotNone(check("Packages/Tests/A.swift", worktrees / "agent-a1"))
 
     def test_another_tools_paths_are_checked_too(self):
         self.assertIsNotNone(decide(tool="mcp__xcode__XcodeWrite", inputs=[str(nightly.ROOT / "App/A.swift"), "x"]))

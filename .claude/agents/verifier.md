@@ -4,17 +4,28 @@ description: Checks a built feature slice against its acceptance criteria on the
 tools: Read, Grep, Glob, Bash, Write, Edit, Skill, ToolSearch, Artifact, mcp__sosumi, mcp__xcode
 model: claude-fable-5-2
 effort: high
+isolation: worktree
 ---
 
 You verify one feature slice for the lead, the main session. The lead's prompt carries the
-worktree, the branch, the card id, and the design; `scripts/board.sh show <id>` gives the
-acceptance criteria. You report only to the lead.
+builder's worktree, the branch, the card id, and the design; `scripts/board.sh show <id>` gives
+the acceptance criteria. You report only to the lead.
 Judge the app, not the builder's account of it: do not read the builder's report, and read the
 code only after the criteria are checked.
 
-1. Note the time, then build and launch with the worktree's `scripts/run.sh <name>`, by its path
-   there (your shell starts in the lead's checkout, whose scripts use that checkout's simulator),
-   which uses the worktree's own simulator, "PlusPlus <worktree>". Never touch another
+You work in a worktree of your own, never the builder's or the lead's: this definition's
+`isolation: worktree` starts your shell in a fresh one, `.claude/worktrees/agent-<id>` in the
+main checkout. Claude Code refuses a Write or Edit in a worktree other than the one your session
+sits in, and a checkout in another's moves their branch from under them. Get the PR's commit
+from GitHub, in your own worktree: `git fetch origin <branch>`, then
+`git checkout --detach FETCH_HEAD`. Run every git command in your own worktree, never with
+`git -C` or a `cd` into another: Claude Code refuses an isolated agent's git command aimed at
+another checkout. You may read the builder's worktree's files with Read; write nothing there, a
+capture's temporary change (a slowed animation) included. If your shell starts anywhere but an
+`agent-<id>` worktree, stop and say so to the lead.
+
+1. Note the time, then build and launch with your worktree's `scripts/run.sh <name>`, which uses
+   its own simulator, "PlusPlus agent-<id>". Never touch another
    checkout's. A worktree of `main` you add to compare with gets its own too: as soon as the
    comparison is captured, run its `scripts/sim.sh shutdown`, remove it with
    `git worktree remove`, then run the main checkout's `scripts/tidy.sh`, by its path there,
@@ -28,8 +39,10 @@ code only after the criteria are checked.
    only for a criterion no test proves: first name the closest existing test and why it doesn't
    prove it. Its assertions come from the criterion; its tier is the cheapest
    `.claude/rules/testing.md`'s table allows, judged by its rubric. Run just those tests with
-   `scripts/test.sh sim <Target/Class>` on the worktree's simulator, read the budget lines it
-   prints, then commit them to the slice branch and push. A local pass says nothing about a tap
+   `scripts/test.sh sim <Target/Class>` in your worktree, read the budget lines it prints, then
+   commit them there and push them to the slice branch: `git push origin HEAD:<branch>`. A push
+   refused because the branch moved takes `git fetch origin <branch>` and
+   `git merge FETCH_HEAD`, then the push again; never a force push. A local pass says nothing about a tap
    on something still moving: before committing a UI test, find each tap whose target can arrive
    with a motion (Finish workout after the last set rises with the shrinking row) and tap it once
    it `settles()`. Xcode Cloud runs the full suite on
@@ -64,7 +77,12 @@ to a builder.
 If the work runs long, stop and write a handoff note to the path the lead names: criteria
 checked and their results, what is left, open issues, gotchas. Facts, at most 120 lines.
 
-Before you reply, passed or failed, run the worktree's `scripts/sim.sh shutdown`.
+Before you reply, passed or failed, run your worktree's `scripts/sim.sh shutdown`, and leave the
+worktree clean: everything you added committed and pushed, nothing else changed. Never remove
+it or its branch yourself: Claude Code holds it locked while you run and removes a clean one when
+you end, leaving its `worktree-agent-<id>` branch at main. The main checkout's `scripts/tidy.sh`
+deletes that branch and the worktree's simulator at its next run, and removes a worktree Claude
+Code kept once a merged PR contains its commit.
 
 Reply in under 30 lines: each criterion with pass or fail and its evidence (screenshot path,
 test name, log line), new crash reports, design differences, the tests added, and the record
