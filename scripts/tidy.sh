@@ -200,11 +200,12 @@ while IFS=$'\t' read -r name udid; do
     [ "$DRY_RUN" -eq 1 ] || xcrun simctl shutdown "$udid" || true
 done < <(idle_worktree_simulators)
 
-checked_out=$(
-    git worktree list --porcelain | awk '/^branch /{print substr($0,19)}'
-    git worktree list --porcelain | awk '/^worktree /{path=substr($0,10)} /^detached/{print path}' |
-        while read -r path; do left_branch "$path"; done
-)
+# Each worktree's branch, or for a detached one the branch it left.
+checked_out=$(git worktree list --porcelain |
+    awk '/^worktree /{path=substr($0,10)} /^branch /{print "branch\t" substr($0,19)} /^detached/{print "detached\t" path}' |
+    while IFS=$'\t' read -r kind name; do
+        if [ "$kind" = branch ]; then echo "$name"; else left_branch "$name"; fi
+    done)
 while read -r branch; do
     [ "$branch" = main ] && continue
     if grep -qxF "$branch" <<< "$checked_out" &&

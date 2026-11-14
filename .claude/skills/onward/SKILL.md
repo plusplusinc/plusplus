@@ -63,10 +63,7 @@ project board.
   subagent is under `.slices/`. Size the team to the card: a small task with no UI can go
   straight to a builder with the card's Plan as its plan.
 - Start each verifier with the Agent tool's `isolation: "worktree"`, naming the builder's
-  worktree and the branch: it checks the PR's commit out in a worktree of its own and pushes the
-  tests it adds with `git push origin HEAD:<branch>`, so it never writes in the builder's
-  worktree or yours (Claude Code refuses those writes, and a checkout there moves a branch from
-  under its owner). The builder after it starts with `git pull origin <branch>`.
+  worktree and the branch: it works in a worktree of its own, never the builder's or yours.
 - A slice with something to see on the phone runs as a loop with the maintainer (see the
   builder's "Rounds"). A round's prompt asks for the change and the install, never tests, lint,
   or docs (the maintainer wants a tuning round on the phone at once). The look before installing still

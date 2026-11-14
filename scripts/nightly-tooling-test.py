@@ -1570,29 +1570,32 @@ class WritesStayInTheWorktree(unittest.TestCase):
             (worktree / "out").symlink_to(Path(root, "main/scripts"))
             self.assertFalse(nightly.Fence(worktree, Path(root, "main"), Path(root, "night")).may_write(worktree / "out/x"))
 
-    def test_an_agent_worktree_made_since_the_card_started_is_the_cards(self):
-        # The Agent tool's isolation worktrees sit in the main checkout's .claude/worktrees/, as
-        # agent-<id>; a verifier works and commits in its own there.
+    def test_an_agents_own_isolation_worktree_is_writable_for_its_calls(self):
+        # The Agent tool makes an isolation worktree in the main checkout's .claude/worktrees/, as
+        # agent-<agent id>; a verifier works and commits in its own there. The hook's cwd is the
+        # session's, the card's worktree, so the agent's relative paths resolve from its own.
         with tempfile.TemporaryDirectory() as root:
-            main = Path(root, "main")
+            main = Path(os.path.realpath(root), "main")
             worktrees = main / ".claude/worktrees"
-            for name in ("night-card", "agent-new", "agent-old"):
+            for name in ("night-card", "agent-a1", "agent-b2"):
                 (worktrees / name).mkdir(parents=True)
                 (worktrees / name / ".git").write_text(f"gitdir: {main}/.git/worktrees/{name}\n")
-            (worktrees / "agent-dir/.git").mkdir(parents=True)  # not a linked worktree
-            start = datetime.now().astimezone() - timedelta(minutes=5)
-            old = start.timestamp() - 3600
-            os.utime(worktrees / "agent-old/.git", (old, old))
-            fence = nightly.Fence(worktrees / "night-card", main, Path(root, "night"), card_start=start)
-            self.assertTrue(fence.may_write(worktrees / "agent-new/Packages/Tests/A.swift"))
-            self.assertFalse(fence.guarded(str(worktrees / "agent-new")))
-            self.assertFalse(fence.may_write(worktrees / "agent-new/.claude/settings.local.json"))
-            self.assertFalse(fence.may_write(worktrees / "agent-old/x"))
-            self.assertFalse(fence.may_write(worktrees / "agent-dir/x"))
-            self.assertTrue(fence.guarded(str(worktrees / "agent-old/x")))
-            # Without the card's start, as in a state written before it was recorded, none is.
-            self.assertFalse(nightly.Fence(worktrees / "night-card", main, Path(root, "night")).may_write(
-                worktrees / "agent-new/x"))
+            (worktrees / "agent-c3/.git").mkdir(parents=True)  # not a linked worktree
+
+            def fence(agent):
+                return nightly.Fence(worktrees / "night-card", main, Path(root, "night"), worktrees / "night-card", agent)
+
+            self.assertTrue(fence("a1").may_write(worktrees / "agent-a1/Packages/Tests/A.swift"))
+            self.assertTrue(fence("a1").may_write("Packages/Tests/A.swift"))
+            self.assertEqual(fence("a1").resolve("x"), worktrees / "agent-a1/x")
+            self.assertFalse(fence("a1").guarded(str(worktrees / "agent-a1")))
+            self.assertFalse(fence("a1").may_write(worktrees / "agent-a1/.claude/settings.local.json"))
+            self.assertTrue(fence("a1").may_write(worktrees / "night-card/x"))
+            # Another agent's worktree, the card's own calls, and ids that name no worktree of one.
+            self.assertTrue(fence("a1").guarded(str(worktrees / "agent-b2/x")))
+            self.assertFalse(fence(None).may_write(worktrees / "agent-a1/x"))
+            self.assertFalse(fence("c3").may_write(worktrees / "agent-c3/x"))
+            self.assertFalse(fence("../night-card/../agent-a1").may_write(worktrees / "agent-a1/x"))
 
     def test_another_tools_paths_are_checked_too(self):
         self.assertIsNotNone(decide(tool="mcp__xcode__XcodeWrite", inputs=[str(nightly.ROOT / "App/A.swift"), "x"]))

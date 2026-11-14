@@ -265,7 +265,7 @@ permission rules and overrides their allow: it reads each command as the shell s
 denies a merge, an `asc xcode-cloud` command that starts or changes a build, an `asc api` write,
 inline or piped code run by a shell or interpreter, a push or new PR past the night's four Xcode
 Cloud runs (counted from Xcode Cloud), and anything new from 7 am; it keeps a card's writes in
-its worktree, its agents' isolation worktrees made since it started, and `.slices/`, away from the runner, the night's folder, and config dotfiles; any
+its worktree, each agent's own isolation worktree, and `.slices/`, away from the runner, the night's folder, and config dotfiles; any
 error in it denies the call. Claude Code's own sandbox can't hold these writes instead: under it
 `gh` fails TLS verification and SwiftPM's nested sandbox fails, so both would run outside it.
 What a command line hides, such as a script file the card writes and runs, meets three more
@@ -320,15 +320,13 @@ A simulator named by `PLUSPLUS_SIMULATOR` never counts and is never shut down.
 
 The feature subagents in `.claude/agents/`, the planner, builder, and verifier, run one at a time on a slice's branch, because
 each phase needs the last one's files. The planner and builder work in the slice's worktree. The
-verifier works in one of its own: the lead starts it with the Agent tool's
-`isolation: "worktree"`, which makes `.claude/worktrees/agent-<id>` in the main checkout, and it
-checks the PR's commit out there detached, adds and runs its tests on that worktree's own
-simulator, pushes them with `git push origin HEAD:<branch>`, and removes the worktree when done.
-Claude Code refuses a Write or Edit in a worktree other than the one an agent's session sits in,
-and a checkout in someone else's worktree moves their branch, so no agent writes in another's,
-a local-only change for a capture (a slowed animation) included. `scripts/tidy.sh` keeps the
-branch a worktree left detached, and at night the runner's hook lets a card's agents write in an
-agent worktree made since the card started. Agent teams, Claude Code's experimental parallel mode, stay off; the lead proposes one only for work that is genuinely
+verifier works in one of its own, `.claude/worktrees/agent-<id>` in the main checkout, which
+Claude Code makes for an agent started with `isolation: "worktree"`: it checks the PR's commit
+out there detached, adds and runs its tests on that worktree's own simulator, pushes them with
+`git push origin HEAD:<branch>`, and removes the worktree when done. Claude Code refuses a Write
+or Edit in a worktree other than the one an agent's session sits in, and a checkout in someone
+else's worktree moves their branch, so no agent writes in another's, a capture's temporary
+change (a slowed animation) included. Agent teams, Claude Code's experimental parallel mode, stay off; the lead proposes one only for work that is genuinely
 parallel: a review through several lenses, debugging with competing hypotheses, or slices that
 touch disjoint files.
 
