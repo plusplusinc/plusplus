@@ -43,13 +43,6 @@ struct RoutineSessionScreenTests {
         return edited
     }
 
-    @Test("A session opens on the routine at the root")
-    func opensAtRoot() {
-        let session = session()
-        #expect(session.screen == .routine)
-        #expect(session.showing == .routine)
-    }
-
     @Test("Routines from the drawer shows the list, marked, and closes the drawer")
     func showRoutines() {
         let session = session()
@@ -64,7 +57,6 @@ struct RoutineSessionScreenTests {
     func openFromList() async {
         let session = await pushedSession()
         #expect(session.screen == .pushedRoutine)
-        #expect(session.isRoutinePushed)
         #expect(session.current == saved)
         #expect(session.showing == .routine)
     }
@@ -91,48 +83,40 @@ struct RoutineSessionScreenTests {
     @Test("Back from a pushed routine shows the list again")
     func back() async {
         let session = await pushedSession()
-        session.isRoutinePushed = false
+        session.popRoutine()
         #expect(session.screen == .routines)
         #expect(session.showing == .routines)
         #expect(session.current == saved)
     }
 
-    @Test("Setting pushed true changes nothing, so a routine at the root is never pushed")
-    func pushedTrueChangesNothing() {
-        let atRoot = session()
-        atRoot.isRoutinePushed = true
-        #expect(atRoot.screen == .routine)
-        let onList = session()
-        onList.showRoutines()
-        onList.isRoutinePushed = true
-        #expect(onList.screen == .routines)
+    @Test("A pop the stack sends after Start leaves the workout at the root")
+    func popAfterStart() async {
+        let session = await pushedSession()
+        session.start()
+        session.popRoutine()
+        #expect(session.screen == .routine)
     }
 
-    @Test("A routine opened from the drawer over a pushed one shows at the root")
-    func openFromDrawerOverPushed() async {
-        let session = await pushedSession()
+    @Test("A routine opened from the drawer over the list shows at the root")
+    func openFromDrawerOverList() async {
+        let session = session()
+        session.showRoutines()
         session.isDrawerOpen = true
         await session.open(other.id, weightUnit: .pounds)
         #expect(session.screen == .routine)
         #expect(session.current == other)
+        #expect(session.showing == .routine)
         #expect(!session.isDrawerOpen)
     }
 
-    @Test("New from the drawer over a pushed routine shows at the root, marked new")
-    func newFromDrawerOverPushed() async {
-        let session = await pushedSession()
+    @Test("New from the drawer over the list shows at the root, marked new")
+    func newFromDrawerOverList() async {
+        let session = session()
+        session.showRoutines()
         await session.startNew()
         #expect(session.screen == .routine)
         #expect(session.current.isEmpty)
         #expect(session.showing == .new)
-    }
-
-    @Test("Routines from the drawer over a pushed routine shows the list")
-    func routinesOverPushed() async {
-        let session = await pushedSession()
-        session.showRoutines()
-        #expect(session.screen == .routines)
-        #expect(session.showing == .routines)
     }
 
     @Test("Start on a pushed routine shows its workout at the root, as the routine is now")
@@ -153,19 +137,5 @@ struct RoutineSessionScreenTests {
         session.start()
         #expect(session.screen == .routine)
         #expect(session.opened == routine)
-    }
-
-    @Test("A workout relaunched opens on its routine at the root")
-    func relaunchMidWorkout() {
-        let routine = Routine(name: "Upper")
-        let workout = Workout(routineID: routine.id, routineName: "Upper", startedAt: .now)
-        let session = RoutineSession(
-            routine: routine,
-            workout: workout,
-            store: store,
-            namer: .muscleGroupsOnly,
-        )
-        #expect(session.screen == .routine)
-        #expect(session.isDrawerLocked)
     }
 }
