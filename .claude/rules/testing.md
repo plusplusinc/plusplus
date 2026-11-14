@@ -176,7 +176,11 @@ placeholder's gray.
 
 Wait with `appears()`, `disappears()`, `value(becoming:)`, and, for anything else read,
 `reading(_:becoming:within:)` from `Waits.swift`: XCTest's own waits spend a second before
-their first check. Typing, key presses, and taps can return before the app has handled them,
+their first check, and again between checks. Wait for the state a check expects, never for
+another to fail to come, which runs out its whole timeout every time it passes.
+Read many rows' labels or values from one snapshot, `exerciseRowLabels` or
+`snapshots(identified:)`: each element read on its own resolves its query again, about 0.07 s
+on Xcode Cloud. Typing, key presses, and taps can return before the app has handled them,
 so a read after one waits for the state it checks: `value(becoming:)` for the value, and
 `Ink.withCursor(_:until:)` for where the `_` is. Tap a stepper key with `tapAtCenter()`:
 XCTest's `tap()` goes to its top-left corner, on the edge of the row above, which closes it.
