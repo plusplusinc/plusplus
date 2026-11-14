@@ -119,8 +119,11 @@ nonisolated struct TopClip: Shape {
 /// At Start, the list's content drawn `lift` below where it is scrolled to. Animatable, so the lift
 /// is worked out frame by frame with the current exercise's growth, and the rows below it move
 /// exactly as far as Start riding down with them: as an offset, it ran ahead of the growth.
+/// It records the lift it draws in `shown`, so End can take up a lift still running from where it
+/// is drawn: the state already holds the lift's end.
 struct GrowthLift: ViewModifier, Animatable {
     var lift: CGFloat
+    let shown: ShownLift
 
     nonisolated var animatableData: CGFloat {
         get { lift }
@@ -128,6 +131,12 @@ struct GrowthLift: ViewModifier, Animatable {
     }
 
     func body(content: Content) -> some View {
-        content.offset(y: lift)
+        shown.value = lift
+        return content.offset(y: lift)
     }
+}
+
+/// The lift as `GrowthLift` last drew it. Not observed: written as it draws.
+final class ShownLift {
+    var value: CGFloat = 0
 }

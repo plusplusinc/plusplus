@@ -223,6 +223,7 @@ struct LiveWorkoutTests {
         func finishStep() {
             phase.show()
             phase.land()
+            phase.shift()
             phase.roll()
             phase.settle()
             #expect(phase == .running)

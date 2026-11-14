@@ -39,15 +39,6 @@ extension RoutineScreen {
         }
     }
 
-    /// How the key is away from its bar.
-    enum KeyAway {
-        /// At Start, from the grow's end until the workout's key comes up: its room in the bar
-        /// stays, so the list's bottom inset doesn't change as Start goes and the next key comes.
-        case keepingRoom
-        /// At a workout's end, or Start's crossfade with Reduce Motion: its room goes with it.
-        case givingUpRoom
-    }
-
     /// What the key is for, as the workout stands. The bar swaps the key as its kind changes
     /// (`primaryKeyBar`).
     var liveKeyRole: KeyRole {

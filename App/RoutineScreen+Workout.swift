@@ -9,10 +9,18 @@ extension RoutineScreen {
     /// between shows only the background.
     static let currentTopSpace = Spacing.lg
 
+    /// From Start's press until the first exercise has grown: the key is Start's.
+    var isStarting: Bool {
+        phase.isStarting
+    }
+
     /// Start's press: the key comes back up as any key does, a medium impact plays, and after a
-    /// beat `leave()` runs. A second press in the meantime does nothing.
+    /// beat the first exercise is brought into view and grows (`leave()`), one sequence on the
+    /// screen's task, which the screen going away stops. A second press in the meantime does
+    /// nothing. The press leaves the drawer open, as Dave decided (2026-11-14): a routine
+    /// switched to before the workout begins stops Start (`check(_:)`).
     func pressStart() {
-        guard !isStarting, keyAway == nil, session.workout == nil else { return }
+        guard phase == .idle, session.workout == nil else { return }
         // The list's end lies under the first row until it grows, so a short routine may have
         // nowhere to scroll it to: room under the end, out of sight, lets it go. It goes in
         // ahead of the scroll: a scroll in the same transaction stops at the old end.
@@ -26,21 +34,13 @@ extension RoutineScreen {
             // own place from the press, and the landing's room waits for it.
             currentPlace = nil
         }
-        isStarting = true
-    }
-
-    /// The beat after Start's press, then the key leaves. Run as `isStarting`
-    /// changes, so the beat is cancelled if the screen goes away, and nothing has changed.
-    func holdStart() async {
-        guard isStarting, session.workout == nil else { return }
-        do {
-            try await Task.sleep(for: .seconds(Self.pressHold), tolerance: .zero)
-        } catch {
-            isStarting = false
-            isMakingRoom = false
-            return
+        phase.pressStart()
+        let pressed = routine.id
+        sequence.run {
+            let start = ContinuousClock.now
+            try await beat(until: start + .seconds(Self.pressHold))
+            try await leave(pressed)
         }
-        leave()
     }
 
     /// Start in beats, each once the last has finished: if the first exercise is
@@ -48,45 +48,75 @@ extension RoutineScreen {
     /// exercise grows into the current one as the list scrolls it up under the bar, in one
     /// motion, and the key rides down off the screen with the rows below it. With Reduce
     /// Motion, the list crossfades into the workout.
-    private func leave() {
+    private func leave(_ pressed: Routine.ID) async throws {
         // What the first row gives back as it shrinks, which the move off it lands by.
         noteRestingPitch(of: routine.exercises.first?.id)
         guard !reduceMotion else {
-            return crossfade(
-                scrollingTo: currentPlace?.landingY ?? scrollBeat.scrolledY,
-                then: bringKeyBack,
-            ) {
+            try check(pressed)
+            beginCrossfade(scrollingTo: currentPlace?.landingY ?? scrollBeat.scrolledY)
+            // The change on a later turn of the run loop, once the list going out has been drawn
+            // lifted and cut: in the same update, it went out with neither.
+            try await laterTurn()
+            try check(pressed)
+            try await crossfade {
                 session.start()
-                phase = WorkoutPhase(hasWorkout: true)
-                isStarting = false
                 // The bar's room goes for the crossfade: the room under the list holds it, and
                 // measured, the list stayed put (13 Starts, 2026-11-01).
-                keyAway = keyAway ?? .givingUpRoom
+                phase.fadeIn()
             }
+            return keyReturns { phase.run() }
         }
-        bringFirstIntoView { grow() }
+        try await bringFirstIntoView()
+        try check(pressed)
+        grow()
+        // The workout's key comes up as the rows land, a beat in the sequence by design: the
+        // animation's completion came a few frames after the rows had stopped, and the key rose
+        // after a pause. Start leaves the bar with its room kept: taken with it, the list's
+        // bottom inset dropped 68 pt as the room under the list went, and the list sometimes
+        // stayed about 60 pt low.
+        try await beat(until: .now + .seconds(Self.keyReturnDelay))
+        withTransaction(\.disablesAnimations, true) {
+            phase.landStart()
+            startDrop = 0
+        }
+        letRoomGo()
+        // On a later turn of the run loop, once Start has gone: in the same update, away and
+        // back cancel out, and the key jumped back up from its drop. Still before the bar's
+        // reactions run, so the bar draws it back from what it already holds
+        // (`KeyStage.dropped`).
+        try await laterTurn()
+        keyReturns { phase.run() }
     }
 
-    /// Scrolls the list to its top if the first exercise is scrolled away, then, once
-    /// the landing has had a beat to itself, calls `next`; at once if it is in view.
-    private func bringFirstIntoView(then next: @escaping () -> Void) {
-        guard currentPlace?.isScrolledAway == true else { return next() }
-        let landed = {
-            // A pause in the sequence, by design: nothing is waited for.
-            Task {
-                try? await Task.sleep(for: .seconds(Self.landingHold), tolerance: .zero)
-                next()
+    /// If the first exercise is scrolled away, scrolls the list to its top, then gives the
+    /// landing a beat to itself: a pause in the sequence, by design. At once if it is in view.
+    /// A scroll that never reports stopping is given up after `scrollGiveUp`, and Start carries
+    /// on: the grow scrolls at once from wherever the list is.
+    private func bringFirstIntoView() async throws {
+        guard currentPlace?.isScrolledAway == true else { return }
+        if !scrollBeat.isListAtTop {
+            await scrollBeat.settled {
+                withAnimation(.snappy(duration: Self.scrollDuration)) {
+                    scrollPosition.scrollTo(edge: .top)
+                }
+            } orWhen: {
+                try? await Task.sleep(for: .seconds(Self.scrollGiveUp), tolerance: .zero)
             }
-            return
         }
-        scrollToTop(then: landed)
+        try await beat(until: .now + .seconds(Self.landingHold))
+    }
+
+    /// Stops Start unless the routine open is still `pressed`, the one Start was pressed on: a
+    /// switch of routine while Start's beats play gives a new screen, which stops them, and this
+    /// is the guard behind that, so a workout never starts on another routine.
+    private func check(_ pressed: Routine.ID) throws {
+        guard session.current.id == pressed else { throw CancellationError() }
     }
 
     /// The first exercise grows into the current one as the list scrolls it up under the bar,
     /// one motion on one curve, the rows below stepping aside and Start riding down off the
-    /// screen as they do. An animated scroll held the growth back until it
-    /// had nearly landed, so the list is scrolled at once and drawn where it was, then both run
-    /// in one animation.
+    /// screen as they do. An animated scroll held the growth back until it had nearly landed, so
+    /// the list is scrolled at once and drawn where it was, then both run in one animation.
     private func grow() {
         // The grown exercise's height is its content's, known once it is laid out, so Start rides
         // a screen's height down, out of sight by the time the growth ends.
@@ -101,32 +131,12 @@ extension RoutineScreen {
         }
         withAnimation(.snappy(duration: Self.growBeat)) {
             session.start()
-            // At rest in the workout: nothing drawn changes with it.
-            phase = WorkoutPhase(hasWorkout: true)
+            phase.grow()
             growthLift = 0
             startDrop = max(drop, 1)
             // On the rows' own animation: until it has ended, a loop's heads ease to their new
             // places (`listResizes(_:)`).
             resizes += 1
-        }
-        // The workout's key comes up as the rows land, a beat in the sequence by design: the
-        // animation's completion came a few frames after the rows had stopped, and the key rose
-        // after a pause. Start leaves the bar with its room kept: taken with it, the list's
-        // bottom inset dropped 68 pt as the room under the list went, and the list sometimes
-        // stayed about 60 pt low.
-        Task {
-            try? await Task.sleep(for: .seconds(Self.keyReturnDelay), tolerance: .zero)
-            withTransaction(\.disablesAnimations, true) {
-                keyAway = .keepingRoom
-                isStarting = false
-                startDrop = 0
-            }
-            letRoomGo()
-            // On a later turn of the run loop, once Start has gone: in the same update, away
-            // and back cancel out, and the key jumped back up from its drop. Still before the
-            // bar's reactions run, so the bar draws it back from what it already holds
-            // (`KeyStage.dropped`).
-            Task { bringKeyBack() }
         }
     }
 
@@ -158,84 +168,122 @@ extension RoutineScreen {
     /// effect under the bar. On a curve that eases out and stops at its duration: a spring's
     /// settling tail made the end feel slow and heavy as it landed. With Reduce Motion, the list
     /// crossfades, then Start fades in.
-    func end(_ change: @escaping () -> Void) {
-        guard let workout = session.workout else { return }
+    ///
+    /// End takes over from whatever was playing: its beats stop, and nothing of it plays after.
+    /// The pulse goes at once. What End moves, it moves from where it is drawn: a set logged and
+    /// not yet drawn stays hidden (`WorkoutPhase.end(_:)`), and the lift is set to what is drawn,
+    /// on a turn of their own, before the shrink: a new transaction leaves an animation still
+    /// pending on a view alone where it doesn't change the view's value. A row already shifting
+    /// finishes its shrink on the move's own curve. As Dave decided, having tried it
+    /// (2026-11-14).
+    ///
+    /// `change`, the store's finish or discard, is made at once, here, on every path: only the
+    /// motion is the sequence's, which the screen going away cancels. The list draws the workout
+    /// as it was from the phase (`WorkoutPhase.drawnWorkout`) until it shrinks or crossfades out
+    /// of it. `change` takes the curve the bar's End and time would have moved on with it.
+    func end(_ change: () -> Void) {
+        // Once only: a second End is refused.
+        var ended = phase
+        guard let workout = session.workout, ended.end(workout) else { return }
+        sequence.cancel()
+        let tookOver = phase != .running
         withTransaction(\.disablesAnimations, true) {
-            endingWorkout = workout
             // The next workout's key starts from the log, whatever this one's last showed.
             keyWayBack = nil
+            phase = ended
+            if tookOver {
+                growthLift = shownLift.value
+                railPulse = nil
+            }
         }
         // The workout's key slides down as it fades, and Start stays away until the list has
         // landed: taken out with no animation, the key went on the frame.
-        withAnimation(.easeOut(duration: Self.barFade)) { keyAway = keyAway ?? .givingUpRoom }
-        // Once the time has faded out of its key, the key's glass goes, the bar fading it: taken
-        // out with no animation, it went on the frame. A beat in the sequence by design.
-        Task {
-            try? await Task.sleep(for: .seconds(Self.barFade), tolerance: .zero)
-            withAnimation(.easeOut(duration: Self.barFade)) { endingWorkout = nil }
-        }
+        withAnimation(.easeOut(duration: Self.barFade)) { phase.keyLeaves() }
         guard !reduceMotion else {
-            return crossfade(scrollingTo: 0, then: bringKeyBack, change)
-        }
-        // On the rows' own animation: until it has ended, room under the list's end holds, so the
-        // shrinking content doesn't pull the scroll up, and a loop's heads ease to their new
-        // places, as at Start (`listResizes(_:)`).
-        withAnimation(.timingCurve(0.25, 0.1, 0.25, 1, duration: Self.endBeat)) {
-            change()
-            scrollPosition.scrollTo(edge: .top)
-            resizes += 1
-            // Any room a move to the next exercise left: the resize holds the room from here.
-            isMakingRoom = false
-        }
-        // Start comes back as the list lands, a beat in the sequence by design: the animation's
-        // completion came a few frames after the rows had stopped.
-        Task {
-            try? await Task.sleep(for: .seconds(Self.endBeat), tolerance: .zero)
-            bringKeyBack()
-        }
-    }
-
-    /// The key, away for Start's grow or the end of a workout, coming back: the workout's key,
-    /// or Start.
-    private func bringKeyBack() {
-        withAnimation(.smooth(duration: Self.startReturn)) {
-            keyAway = nil
-        }
-    }
-
-    /// Scrolls the list to its top, then calls `next`; at once if it is there already.
-    private func scrollToTop(then next: @escaping () -> Void) {
-        guard !scrollBeat.isListAtTop else { return next() }
-        scrollBeat.run(then: next) {
-            withAnimation(.snappy(duration: Self.scrollDuration)) {
-                scrollPosition.scrollTo(edge: .top)
+            withAnimation(Self.crossfadeCurve) { change() }
+            beginCrossfade(scrollingTo: 0)
+            return sequence.run {
+                let start = ContinuousClock.now
+                try await laterTurn()
+                try await crossfade {
+                    phase.listLeaves()
+                    // Any room Start or a move was keeping: there is no landing after End.
+                    isMakingRoom = false
+                    closingRoomTop = nil
+                } meanwhile: {
+                    try await beat(until: start + .seconds(Self.barFade))
+                    fadeTime()
+                }
+                keyReturns { phase.rest() }
             }
         }
-    }
-
-    /// With Reduce Motion, one crossfade: the list as it was fades out where it shows while the
-    /// list changed by `change`, scrolled to `y`, fades in over it, as Start fades out if it
-    /// goes; `then` runs once the fade has finished. The changed list is a new view, so the old
-    /// one stays on screen as it fades: faded out first and in after, the screen showed empty
-    /// between. The old one is drawn lifted by as far as the scroll jumps, so it holds still,
-    /// with what was under the bar cut away (`TopClip`): scrolled to the top, the bar has no
-    /// edge effect, and it showed through.
-    func crossfade(
-        scrollingTo y: CGFloat,
-        then: @escaping () -> Void,
-        _ change: @escaping () -> Void,
-    ) {
-        beginCrossfade(scrollingTo: y)
-        // The change on a later turn of the run loop, once the list going out has been drawn
-        // lifted and cut: in the same update, it went out with neither.
-        Task {
-            try? await crossfade(change)
-            then()
+        if tookOver {
+            withAnimation(Self.endCurve) { change() }
+        } else {
+            shrink(storing: change)
+        }
+        sequence.run {
+            let start = ContinuousClock.now
+            if tookOver {
+                try await laterTurn()
+                shrink()
+            }
+            // Once the time has faded out of its key, the key's glass goes, the bar fading it:
+            // taken out with no animation, it went on the frame. A beat in the sequence by design.
+            try await beat(until: start + .seconds(Self.barFade))
+            fadeTime()
+            // Start comes back as the list lands, a beat in the sequence by design: the
+            // animation's completion came a few frames after the rows had stopped.
+            try await beat(until: start + .seconds(Self.endBeat))
+            if startDrop != 0 {
+                // Ended as Start rode down: it comes back from out of sight.
+                withTransaction(\.disablesAnimations, true) { startDrop = 0 }
+                try await laterTurn()
+            }
+            keyReturns { phase.rest() }
         }
     }
 
-    /// The crossfade's first half, in the caller's turn: the list going out drawn lifted and cut,
-    /// where it shows, the list scrolled to `y` under it.
+    /// End's one motion, with `change` when End took over nothing: the list leaving the workout,
+    /// the current exercise shrinking, the rows
+    /// below closing up, and the list scrolling to its top, on the rows' own animation: until it
+    /// has ended, room under the list's end holds, so the shrinking content doesn't pull the
+    /// scroll up, and a loop's heads ease to their new places, as at Start (`listResizes(_:)`).
+    private func shrink(storing change: () -> Void = { }) {
+        withAnimation(Self.endCurve) {
+            change()
+            phase.listLeaves()
+            scrollPosition.scrollTo(edge: .top)
+            resizes += 1
+            // Any room a move to the next exercise or the last set's close left: the resize
+            // holds the room from here.
+            isMakingRoom = false
+            closingRoomTop = nil
+            growthLift = 0
+        }
+    }
+
+    /// A key comes back up into the bar, the workout's after Start, Start after End, with `step`,
+    /// the phase's last transition.
+    private func keyReturns(_ step: () -> Bool) {
+        withAnimation(.smooth(duration: Self.startReturn)) { _ = step() }
+    }
+
+    /// The time fades out of its key as the workout ends, and then the key's glass goes.
+    private func fadeTime() {
+        withAnimation(.easeOut(duration: Self.barFade)) { _ = phase.timeFades() }
+    }
+
+    /// With Reduce Motion, one crossfade, for Start, a move, and End: the list as it was fades
+    /// out where it shows while the list changed fades in over it, scrolled to `y`, as Start
+    /// fades out if it goes. The changed list is a new view, so the old one stays on screen as
+    /// it fades: faded out first and in after, the screen showed empty between. The old one is
+    /// drawn lifted by as far as the scroll jumps, so it holds still, with what was under the
+    /// bar cut away (`TopClip`): scrolled to the top, the bar has no edge effect, and it showed
+    /// through. This is its first half, in the caller's turn: the list going out drawn lifted and
+    /// cut, where it shows, the list scrolled to `y` under it; the change follows on a later turn
+    /// of the run loop (`crossfade(_:meanwhile:)`): in the same update, the list went out with
+    /// neither.
     func beginCrossfade(scrollingTo y: CGFloat) {
         let from = scrollBeat.scrolledY
         withTransaction(\.disablesAnimations, true) {
@@ -247,12 +295,15 @@ extension RoutineScreen {
     }
 
     /// The crossfade itself, on a later turn than `beginCrossfade(scrollingTo:)`: the changed
-    /// list fading in over the one going out. Returns once the fade has finished, as its
-    /// animation's completion reports; throws if the sequence awaiting it was cancelled, and then
-    /// clears nothing.
-    func crossfade(_ change: () -> Void) async throws {
+    /// list fading in over the one going out, with `meanwhile` playing as it fades. Returns once
+    /// the fade has finished, as its animation's completion reports; throws if the sequence
+    /// awaiting it was cancelled, and then clears nothing.
+    func crossfade(
+        _ change: () -> Void,
+        meanwhile: () async throws -> Void = { },
+    ) async throws {
         let (finished, finish) = AsyncStream<Void>.makeStream()
-        withAnimation(.easeInOut(duration: Self.crossfadeDuration)) {
+        withAnimation(Self.crossfadeCurve) {
             listChanges += 1
             growthLift = 0
             underBarCut = 0
@@ -260,6 +311,7 @@ extension RoutineScreen {
         } completion: {
             finish.finish()
         }
+        try await meanwhile()
         // Ends as the fade finishes, or at once if the sequence is cancelled.
         for await _ in finished { }
         try Task.checkCancellation()
@@ -309,6 +361,12 @@ extension RoutineScreen {
     /// press.
     static let pressHold = 0.4
     static let scrollDuration = 0.35
+    /// How long Start waits for its scroll to the first exercise to report it has stopped
+    /// before it carries on: about twice the longest measured, from the end of a ten-exercise
+    /// routine, 0.58 to 0.62 s from the scroll's start (2026-11-14). No scroll was seen that
+    /// never reported stopping; this bounds the wait if one does. Carrying on, not waiting, is
+    /// Dave's call (2026-11-14).
+    static let scrollGiveUp = 1.25
     /// The first exercise growing at Start, the rows below stepping aside.
     static let growBeat = 0.55
     /// From the grow's start until the workout's key starts up, as the rows visibly land: the
@@ -318,6 +376,7 @@ extension RoutineScreen {
     /// quick off the mark that eases gently into place and stops at its duration, with no
     /// spring's tail.
     static let endBeat = 0.4
+    static let endCurve = Animation.timingCurve(0.25, 0.1, 0.25, 1, duration: endBeat)
     /// The bar's keys fading at a workout's end: End for ++, and the time out of its key, then
     /// the key's glass.
     static let barFade = 0.2
@@ -325,52 +384,7 @@ extension RoutineScreen {
     static let startReturn = PrimaryKeyButtonStyle.swapHalf
     /// With Reduce Motion, the list crossfading into a workout or out of one.
     static let crossfadeDuration = 0.35
+    static let crossfadeCurve = Animation.easeInOut(duration: crossfadeDuration)
     /// The pause between Start's scroll to the top landing and the row growing.
     static let landingHold = 0.2
-}
-
-/// The scroll to the list's top in Start's sequence, which the next beat waits for. An animated
-/// scroll's `withAnimation` completion runs at once, as the scroll is not a SwiftUI animation,
-/// so the beat ends as the scroll stops. Not before: a scroll set while the spring still settles
-/// around the top, a point or two either side of it, is undone by it, which left the current
-/// exercise where it was at Start whenever the scroll was long enough to still be settling.
-final class ScrollBeat {
-    /// How far the list is scrolled. Not observed: read as a sequence begins and as the key's
-    /// role settles.
-    private(set) var scrolledY: CGFloat = 0
-    /// The list's scroll phase. Not observed: the key's role reads it as the list's place changes.
-    private(set) var phase = ScrollPhase.idle
-    private var next: (() -> Void)?
-
-    /// Whether the list is pulled down past its top, rubber-banding.
-    var isPastTop: Bool {
-        scrolledY < 0
-    }
-
-    /// Whether a finger is on the list, scrolling it or about to.
-    var isFingerOn: Bool {
-        phase == .interacting || phase == .tracking
-    }
-
-    /// Scrolls with `scroll` toward the list's top, then, once it has stopped, calls `next`.
-    func run(then next: @escaping () -> Void, _ scroll: () -> Void) {
-        self.next = next
-        scroll()
-    }
-
-    /// Whether the list is at its top, so there is nothing to scroll.
-    var isListAtTop: Bool {
-        scrolledY < 0.5
-    }
-
-    func listMoved(to scrolledY: CGFloat) {
-        self.scrolledY = scrolledY
-    }
-
-    func phaseChanged(to phase: ScrollPhase) {
-        self.phase = phase
-        guard phase == .idle, let next else { return }
-        self.next = nil
-        next()
-    }
 }

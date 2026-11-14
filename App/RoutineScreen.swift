@@ -37,14 +37,8 @@ struct RoutineScreen: View {
     @State private var isEditingTitle = false
     /// Whether the title has scrolled up under the bar, where a small copy of it shows instead.
     @State var isTitleUnderBar = false
-    /// From Start's press until its key has gone: its beat, and the grow.
-    @State var isStarting = false
     /// How far Start rides down with the rows below the current exercise as it grows at Start.
     @State var startDrop: CGFloat = 0
-    /// The key kept out of its bar from the end of Start's grow until the workout's key comes
-    /// up, and as a workout ends until the list has landed and Start comes up; none while it
-    /// shows.
-    @State var keyAway: KeyAway?
     /// While the current exercise is scrolled away, which way the key points back to it,
     /// held while a finger is on the list and following the row as the list coasts once it lifts
     /// (`settleWayBack()`); none while it logs.
@@ -53,9 +47,6 @@ struct RoutineScreen: View {
     /// each log pops a +1 off the key.
     @State var setLogs = 0
     @State var sideLogs = 0
-    /// As a workout ends, it as it was, for a beat: the time key's glass stays in the bar while
-    /// the time fades out of it.
-    @State var endingWorkout: Workout?
     /// Whether the dialog asking how to end the workout shows.
     @State var isConfirmingEnd = false
     /// The scroll in Start's sequence, and how far the list is scrolled.
@@ -70,6 +61,8 @@ struct RoutineScreen: View {
     @State var underBarCut: CGFloat = 0
     /// At Start, how far the list's content is drawn below where it is scrolled to, run down to 0.
     @State var growthLift: CGFloat = 0
+    /// The lift as last drawn, mid-animation included, which End takes up from.
+    @State var shownLift = ShownLift()
     /// From Start's press until the first exercise has grown, through a move to the next exercise,
     /// and while End shrinks the current one back: room under the list's end, out of sight, so
     /// the list can scroll the row to the top and holds still as rows change height; at Start,
@@ -97,10 +90,12 @@ struct RoutineScreen: View {
     /// Counts the moves to another exercise that have landed on its node, each with a light tick,
     /// lighter than a log's.
     @State var landings = 0
-    /// Where the workout is in its sequence: at rest, or showing a set just logged
-    /// (`play(_:leadingTo:)`). Every change to it lands in a transaction the screen names.
+    /// Where the workout is in its sequence: out of one, starting, at rest, showing a set just
+    /// logged (`play(_:leadingTo:)`), or ending. Every change to it lands in a transaction the
+    /// screen names.
     @State var phase: WorkoutPhase
-    /// The timed beats of the logged set's sequence playing, which the screen going away stops.
+    /// The timed beats of the sequence playing, Start's, a logged set's, or End's, which End and
+    /// the screen going away stop.
     @State var sequence = SequenceTask()
     @State var rowFrames = RowFrames()
     @Environment(\.locale) var locale
@@ -164,7 +159,7 @@ struct RoutineScreen: View {
         let shown = shown
         let currentSet = shown?.currentSet
         let rowBars = rowBars(in: shown)
-        let tracksRows = session.workout != nil || isStarting
+        let tracksRows = shown != nil || isStarting
         let underBar = underBarCut
         return ScrollView {
             // One over the other, as a crossfade has them: in the scroll view's own stack, the
@@ -269,7 +264,7 @@ struct RoutineScreen: View {
                 // position counts, and not where it is drawn as Start's grow runs the lift down.
                 .coordinateSpace(.list)
                 .clipShape(TopClip(height: underBar))
-                .modifier(GrowthLift(lift: growthLift))
+                .modifier(GrowthLift(lift: growthLift, shown: shownLift))
                 // Crossfading, the changed list comes in already changed: only its fade
                 // animates.
                 .transaction { transaction in
@@ -305,13 +300,12 @@ struct RoutineScreen: View {
         .primaryKeyBar(
             isPresented: showsKey,
             face: liveKeyRole,
-            keepsRoom: keyAway == .keepingRoom,
+            keepsRoom: phase.keyGone == .keepingRoom,
             plusOnes: setLogs + sideLogs,
             drop: startDrop,
         ) { role, isOut in
             key(role, isOut: isOut)
         }
-        .task(id: isStarting) { await holdStart() }
         .onDisappear { stopSequence() }
         // One row open at a time, closed by a scroll or a tap anywhere else, Start included,
         // so the container holds Start's bar as well as the scroll view.

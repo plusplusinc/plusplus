@@ -10,10 +10,12 @@ extension RoutineScreen {
         session.workout.map { LiveWorkout(routine: routine, workout: $0) }
     }
 
-    /// The workout as the screen draws it: `live` less the sets logged and not yet shown
+    /// The workout as the screen draws it: `live`, or as End took it from the store until the
+    /// list leaves it (`WorkoutPhase.drawnWorkout`), less the sets logged and not yet shown
     /// (`WorkoutPhase.hidden`). Everything drawn reads it.
     var shown: LiveWorkout? {
-        live?.hiding(phase.hidden)
+        let workout = session.workout ?? phase.drawnWorkout
+        return workout.map { LiveWorkout(routine: routine, workout: $0) }?.hiding(phase.hidden)
     }
 
     /// While a step to another exercise, or past the last set, plays: rows' heights are
@@ -98,7 +100,7 @@ extension RoutineScreen {
     /// The row that grows, or stands grown: the current exercise, or, out of a workout, the
     /// first, which Start grows.
     var growingID: RoutineExercise.ID? {
-        session.workout == nil ? routine.exercises.first?.id : currentID
+        shown == nil ? routine.exercises.first?.id : currentID
     }
 
     /// Plays `step`, what logging `set` led to, the set already stored: the screen's one entry
@@ -188,9 +190,10 @@ extension RoutineScreen {
         }
     }
 
-    /// A move's landing, with its tick and the node lighting under the pulse's plop, the round's
-    /// roll once the next row shows it, then the move's end, timed from the log by design: nothing
-    /// is waited for. With no `target` worked out ahead, as after a relaunch, the list lands after.
+    /// A move's landing, with its tick and the node lighting under the pulse's plop, the shift's
+    /// start, which End reads, the round's roll once the next row shows it, then the move's end,
+    /// timed from the log by design: nothing is waited for. With no `target` worked out ahead, as
+    /// after a relaunch, the list lands after.
     private func land(_ way: SetMotion.Way, scrollingTo target: CGFloat?) {
         sequence.run {
             let start = ContinuousClock.now
@@ -199,6 +202,11 @@ extension RoutineScreen {
             // At once, under the plop, which is the lit node's size and green.
             withTransaction(\.disablesAnimations, true) {
                 phase.land()
+            }
+            // Nothing drawn reads it: from here, End lets the row left finish its shrink.
+            try await beat(until: start + .seconds(SetMotion.moveShiftStart(way)))
+            withTransaction(\.disablesAnimations, true) {
+                phase.shift()
             }
             try await beat(until: start + .seconds(SetMotion.roundRoll(way)))
             withAnimation(.snappy(duration: SetMotion.roll)) {
@@ -277,10 +285,10 @@ extension RoutineScreen {
         rowFrames.restingPitch[id] = after - top
     }
 
-    /// Whether the key shows, Start or the workout's: with exercises, and not away for Start's
-    /// grow or a workout's end.
+    /// Whether the key shows, Start or the workout's: with exercises, and not gone for Start's
+    /// grow or a workout's end (`WorkoutPhase.keyGone`).
     var showsKey: Bool {
-        !routine.exercises.isEmpty && keyAway == nil
+        !routine.exercises.isEmpty && phase.keyGone == nil
     }
 }
 
