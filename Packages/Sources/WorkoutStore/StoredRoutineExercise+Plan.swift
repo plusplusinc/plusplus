@@ -16,23 +16,26 @@ extension StoredRoutineExercise {
         update(\.seconds, to: newSeconds)
         update(\.weight, to: plan.weight?.amount)
         update(\.weightUnit, to: plan.weight?.unit.rawValue)
-        update(\.rest, to: plan.rest)
-        update(\.isRestAuto, to: plan.isRestAuto)
+        update(\.rest, to: plan.rest.lastByHand)
+        update(\.isRestAuto, to: plan.rest.isAuto)
     }
 
-    /// Writes a superset's rest as they are, nil for one never set.
-    func write(_ round: RoundRest) {
-        update(\.roundRest, to: round.afterRound)
-        update(\.isRoundRestAuto, to: round.isAuto)
+    /// Writes a superset's rest as it is, nil for one never set.
+    func write(roundRest: Rest) {
+        update(\.roundRest, to: roundRest.lastByHand)
+        update(\.isRoundRestAuto, to: roundRest.isAuto)
     }
 
-    /// The stored superset rest, each nil when never set or out of range.
-    var round: RoundRest {
-        RoundRest(afterRound: Self.storedRest(roundRest), isAuto: isRoundRestAuto)
+    /// The stored superset rest.
+    var storedRoundRest: Rest {
+        Self.rest(seconds: roundRest, isAuto: isRoundRestAuto)
     }
 
-    private static func storedRest(_ seconds: Int?) -> Int? {
-        seconds.flatMap { PlanLimits.rest.contains($0) ? $0 : nil }
+    /// A stored rest: Auto, keeping the seconds if any; or set by hand, unless its seconds are
+    /// missing or out of range, which read as Auto, never set.
+    private static func rest(seconds: Int?, isAuto: Bool) -> Rest {
+        let seconds = seconds.flatMap { PlanLimits.rest.contains($0) ? $0 : nil }
+        return isAuto ? .auto(kept: seconds) : seconds.map(Rest.byHand) ?? .neverSet
     }
 
     /// The stored plan, field by field: a field never stored, out of range, or for another
@@ -52,8 +55,7 @@ extension StoredRoutineExercise {
             sets: sets.flatMap { PlanLimits.sets.contains($0) ? $0 : nil } ?? fallback.sets,
             target: target,
             weight: exercise.load == nil ? nil : storedWeight ?? fallback.weight,
-            rest: Self.storedRest(rest),
-            isRestAuto: isRestAuto,
+            rest: Self.rest(seconds: rest, isAuto: isRestAuto),
         )
     }
 

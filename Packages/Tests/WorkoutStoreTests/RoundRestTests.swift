@@ -86,8 +86,7 @@ struct RoundRestTests {
     func splitRestores() throws {
         var routine = try Routine(exercises: [
             RoutineExercise.builtIn("Barbell bench press") {
-                $0.rest = 200
-                $0.isRestAuto = false
+                $0.rest = .byHand(200)
             },
             RoutineExercise.builtIn("Dumbbell row"),
         ])
@@ -97,7 +96,7 @@ struct RoundRestTests {
         #expect(routine.exercises.map(\.rest) == [200, 90])
         routine.leaveSuperset(second)
         #expect(routine.exercises.map(\.rest) == [200, 90])
-        #expect(routine.exercises.allSatisfy { $0.roundRest == RoundRest() })
+        #expect(routine.exercises.allSatisfy { $0.roundRest == .neverSet })
         #expect(routine.restAfterRound(of: first) == nil)
     }
 

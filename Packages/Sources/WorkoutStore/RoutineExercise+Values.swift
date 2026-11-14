@@ -103,8 +103,7 @@ extension RoutineExercise {
             plan.weight = weight
         case .rest:
             guard let rest = rest.steppedRest(by: direction) else { return nil }
-            plan.rest = rest
-            plan.isRestAuto = false
+            plan.rest = .byHand(rest)
         }
         return plan
     }
