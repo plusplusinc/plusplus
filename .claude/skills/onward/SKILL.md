@@ -240,8 +240,8 @@ project board.
    pass): merge once checks pass (a wait for that also ends when
    `gh pr view --json mergeable` reads `CONFLICTING`, since auto-merge waits on a conflict
    without a word; after any merge to `main`, check every PR that waits), move the card to Done, run
-   `scripts/tidy.sh` (it removes the merged worktree and branch; it also runs at every session
-   start), and delete the slice's `.slices/sliceN-*` files.
+   `scripts/tidy.sh` (it removes the merged worktree and branch, unless a process still works in
+   the worktree, which it names; it also runs at every session start), and delete the slice's `.slices/sliceN-*` files.
 3. Record decisions made during the slice in the board README: save it to a file
    (`scripts/board.sh readme > .slices/readme.md`), read and edit only the feature's section
    there, write the whole file back (`scripts/board.sh readme < .slices/readme.md`), and delete

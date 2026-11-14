@@ -1214,30 +1214,49 @@ def io_of(call):
     return buffer.getvalue()
 
 
+def scratch_clone(test):
+    """A main checkout at <root>/main with tidy.sh and common.sh, its origin a local bare repo, and
+    a stand-in gh whose `pr list` prints <root>/merged ("<branch> <head sha> <number>" lines, none
+    until a test writes them). Returns the root, a command runner in the checkout, and a function
+    that runs tidy whole there and returns what it printed."""
+    root = Path(os.path.realpath(tempfile.mkdtemp()))
+    test.addCleanup(shutil.rmtree, root, True)
+    def run(*a, cwd=root / "main"):
+        return subprocess.run(a, cwd=cwd, check=True, capture_output=True, text=True).stdout.strip()
+    run("git", "init", "-q", "--bare", "-b", "main", str(root / "origin.git"), cwd=root)
+    run("git", "clone", "-q", str(root / "origin.git"), "main", cwd=root)
+    run("git", "config", "user.email", "t@example.com")
+    run("git", "config", "user.name", "t")
+    (root / "main/scripts").mkdir()
+    for name in ("tidy.sh", "common.sh"):
+        shutil.copy(SCRIPTS / name, root / "main/scripts" / name)
+    bin_dir = root / "bin"
+    bin_dir.mkdir()
+    (root / "merged").write_text("")
+    (bin_dir / "gh").write_text(f"#!/bin/bash\n[ \"$1 $2\" = 'pr list' ] && cat '{root / 'merged'}'\nexit 0\n")
+    (bin_dir / "gh").chmod(0o755)
+    run("git", "commit", "-q", "--allow-empty", "-m", "base")
+    run("git", "push", "-q", "origin", "main")
+    env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}"}
+    def tidy():
+        out = subprocess.run([str(root / "main/scripts/tidy.sh")], cwd=root / "main", env=env,
+                             capture_output=True, text=True)
+        test.assertEqual(out.returncode, 0, out.stderr)
+        return out.stdout
+    return root, run, tidy
+
+
 class TidySlices(unittest.TestCase):
     """scripts/tidy.sh's .slices/ cleanup, run whole in a scratch clone with gh and the board faked."""
 
     ROWS = "PVTI_done  Done\t-\tA\nPVTI_todo  In Progress\t-\tB\n"
 
     def tidy(self, slices, rows=ROWS, board_fails=False):
-        root = Path(os.path.realpath(tempfile.mkdtemp()))
-        self.addCleanup(shutil.rmtree, root, True)
-        run = lambda *a, cwd=root / "main": subprocess.run(a, cwd=cwd, check=True, capture_output=True, text=True)
-        run("git", "init", "-q", "--bare", "-b", "main", str(root / "origin.git"), cwd=root)
-        run("git", "clone", "-q", str(root / "origin.git"), "main", cwd=root)
-        (root / "main/scripts").mkdir()
-        for name in ("tidy.sh", "common.sh"):
-            shutil.copy(Path(__file__).with_name(name), root / "main/scripts" / name)
+        root, run, tidy = scratch_clone(self)
         board = root / "main/scripts/board.sh"
         board.write_text("#!/bin/bash\n" + ("echo 'quota spent' >&2; exit 1\n" if board_fails
                                              else f"[ \"$1\" = list ] && printf '{rows}'\n"))
         board.chmod(0o755)
-        bin_dir = root / "bin"
-        bin_dir.mkdir()
-        (bin_dir / "gh").write_text("#!/bin/bash\nexit 0\n")
-        (bin_dir / "gh").chmod(0o755)
-        run("git", "-c", "user.email=t@example.com", "-c", "user.name=t", "commit", "-q", "--allow-empty", "-m", "base")
-        run("git", "push", "-q", "origin", "main")
         run("git", "worktree", "add", "-q", "-b", "live-card", str(root / "main/.claude/worktrees/live-card"))
         old = time.time() - 2 * 86400
         for name, text in slices.items():
@@ -1247,12 +1266,9 @@ class TidySlices(unittest.TestCase):
         for path in (root / "main/.slices").rglob("*"):
             if not path.name.startswith("fresh"):
                 os.utime(path, (old, old))
-        env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}"}
-        out = subprocess.run([str(root / "main/scripts/tidy.sh")], cwd=root / "main", env=env,
-                             capture_output=True, text=True)
-        self.assertEqual(out.returncode, 0, out.stderr)
+        out = tidy()
         left = sorted(str(p.relative_to(root / "main/.slices")) for p in (root / "main/.slices").rglob("*") if p.is_file())
-        return left, out.stdout
+        return left, out
 
     def test_only_entries_whose_cards_are_all_done_go(self):
         left, out = self.tidy({"done-plan.md": "Card PVTI_done.", "mixed.md": "PVTI_done, then PVTI_todo",
@@ -1270,6 +1286,90 @@ class TidySlices(unittest.TestCase):
         left, out = self.tidy({"done-plan.md": "PVTI_done"}, board_fails=True)
         self.assertEqual(left, ["done-plan.md"])
         self.assertIn("reading the board failed: quota spent", out)
+
+
+class TidyWorktrees(unittest.TestCase):
+    """scripts/tidy.sh keeps a finished worktree that a running process works in (2026-11-11: a
+    verifier's tidy removed the live lead's worktree), and removes it once none does."""
+
+    def finished_worktree(self):
+        root, run, tidy = scratch_clone(self)
+        worktree = root / "main/.claude/worktrees/done-card"
+        run("git", "worktree", "add", "-q", "-b", "done-card", str(worktree))
+        run("git", "commit", "-q", "--allow-empty", "-m", "work", cwd=worktree)
+        (worktree / "Sources").mkdir()
+        (root / "merged").write_text(f"done-card {run('git', 'rev-parse', 'HEAD', cwd=worktree)} 1\n")
+        return worktree, run, tidy
+
+    def test_a_worktree_a_session_works_in_stays_and_tidy_says_so(self):
+        worktree, run, tidy = self.finished_worktree()
+        # A session working in a folder of the worktree, the way a Claude session's process does.
+        session = subprocess.Popen(["sleep", "60"], cwd=worktree / "Sources")
+        self.addCleanup(session.wait)
+        self.addCleanup(session.kill)
+        out = tidy()
+        self.assertTrue(worktree.exists())
+        self.assertIn(f"tidy: kept {worktree}: finished, but sleep (pid {session.pid}) works in it", out)
+        self.assertIn("done-card", run("git", "branch", "--list", "done-card"))
+
+    def test_a_finished_worktree_no_process_works_in_goes(self):
+        worktree, run, tidy = self.finished_worktree()
+        out = tidy()
+        self.assertFalse(worktree.exists())
+        self.assertIn(f"tidy: git worktree remove {worktree}", out)
+        self.assertEqual(run("git", "branch", "--list", "done-card"), "")
+
+    def test_an_agents_cleanup_removes_its_worktree_and_tidy_deletes_its_simulator(self):
+        # The builder's and verifier's cleanup: `git worktree remove` from a shell still inside the
+        # worktree, then the main checkout's tidy. xcrun is a stand-in that lists one simulator, the
+        # worktree's, and records each call.
+        worktree, run, tidy = self.finished_worktree()
+        root = worktree.parents[3]
+        records = root / "main/.git/plusplus-simulators"
+        records.mkdir()
+        (records / "done-card").write_text("")
+        devices = {"devices": {"iOS": [{"name": "PlusPlus done-card", "udid": "UDID-1", "state": "Shutdown"}]}}
+        runtimes = {"runtimes": [{"platform": "iOS", "isAvailable": True, "version": "1.0", "supportedDeviceTypes": [
+            {"identifier": "com.apple.CoreSimulator.SimDeviceType.iPhone-17"}]}]}
+        (root / "bin/xcrun").write_text(f"""#!/bin/bash
+echo "$*" >> '{root / "xcrun-calls"}'
+case "$*" in
+    "--sdk iphonesimulator --show-sdk-version") echo 1.0 ;;
+    "simctl list --json runtimes") echo '{json.dumps(runtimes)}' ;;
+    "simctl runtime list -j") echo '{{}}' ;;
+    "simctl list devices"*) echo '{json.dumps(devices)}' ;;
+esac
+""")
+        (root / "bin/xcrun").chmod(0o755)
+        run("git", "worktree", "remove", str(worktree), cwd=worktree)
+        self.assertFalse(worktree.exists())
+        out = tidy()
+        self.assertIn('tidy: delete simulator "PlusPlus done-card"', out)
+        self.assertIn("simctl delete UDID-1", (root / "xcrun-calls").read_text().splitlines())
+        self.assertEqual(list(records.iterdir()), [])
+        self.assertEqual(run("git", "branch", "--list", "done-card"), "")
+
+
+class TidyFetch(unittest.TestCase):
+    """scripts/tidy.sh fetches from GitHub over HTTPS whatever the clone's remote, so a session with
+    no SSH key can run it. Nothing leaves the machine: the clone's proxy is a closed local port, so
+    the fetch fails there, naming the address it asked for, and ssh is a stand-in that records a call."""
+
+    def test_an_ssh_remote_is_fetched_over_https_and_ssh_never_runs(self):
+        for remote in ("git@github.com:scratch/repo.git", "ssh://git@github.com/scratch/repo.git"):
+            with self.subTest(remote=remote):
+                root, run, _ = scratch_clone(self)
+                run("git", "remote", "set-url", "origin", remote)
+                run("git", "config", "http.proxy", "http://127.0.0.1:1")
+                ssh = root / "bin/ssh"
+                ssh.write_text(f"#!/bin/bash\necho called >> '{root / 'ssh-calls'}'\nexit 255\n")
+                ssh.chmod(0o755)
+                env = {**os.environ, "PATH": f"{root / 'bin'}:{os.environ['PATH']}", "GIT_SSH_COMMAND": str(ssh)}
+                out = subprocess.run([str(root / "main/scripts/tidy.sh"), "--dry-run"], cwd=root / "main",
+                                     env=env, capture_output=True, text=True)
+                self.assertFalse((root / "ssh-calls").exists(), out.stderr)
+                self.assertIn("'https://github.com/scratch/repo.git/'", out.stderr)
+                self.assertIn("127.0.0.1", out.stderr)
 
 
 class Reverify(unittest.TestCase):

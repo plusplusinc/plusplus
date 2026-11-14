@@ -75,7 +75,9 @@ runs, nothing the hook accepts can fail later.
 A `SessionStart` hook runs `scripts/tidy.sh` in the background from the main checkout, logging
 to `.build/tidy.log`. It removes worktrees and local branches whose work has landed: their tip is
 in `main` or in a merged PR. Merges are squashed, so git alone can't tell a branch is done.
-Agents' worktrees with commits outlive the agent, and nothing else removes them. It also keeps the
+Agents' worktrees with commits outlive the agent, and nothing else removes them. It keeps one that
+a running process (a Claude session, a shell) has as its working directory, and says so. It
+fetches over HTTPS with `gh`'s token, so a session with no SSH key can run it. It also keeps the
 simulator runtimes on the newest iOS, the one Xcode's SDK targets: it downloads that runtime when
 it is missing (the download runs on after the hook's two minutes, logging to
 `.build/runtime-download.log`) and, once it is installed, deletes the older ones and the
