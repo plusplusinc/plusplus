@@ -24,8 +24,8 @@ to its copy before it. It names each commit and file. A squash onto a newer `mai
 `main` changed meanwhile, which is how #136 undid #134 with every other check green, its
 snapshots reverted along with the code. A file the PR moves is judged at its new path (git's
 rename detection, half the content alike), so an old copy brought back under a new name still
-fails. A file the PR deletes outright counts only when everything that commit changed is undone
-too: deleting a file a recent commit added, while the rest of that commit stands, is the
+fails. A file the PR deletes outright counts only when all of that commit still standing on
+the merge base is undone too: deleting a file a recent commit added, while the rest of that commit stands, is the
 change's intent, and a stale squash undoes all of a commit, one that only added files included,
 by deleting them. A revert that is meant is made with `git revert`, whose
 "This reverts commit <sha>" line, a short sha too, exempts that commit. The guard reads history,

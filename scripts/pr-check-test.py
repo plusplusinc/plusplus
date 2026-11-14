@@ -141,6 +141,19 @@ class Reverts(unittest.TestCase):
         self.assertEqual(result.returncode, 1, result.stdout)
         self.assertIn("Add the playback: undone in Playback.swift, playback.png", result.stderr)
 
+    def test_a_squash_still_fails_when_main_has_since_dropped_the_commits_other_file(self):
+        # What a later commit took away no longer stands, so it can't excuse the deletion.
+        self.land("Add the playback", {"Playback.swift": "struct Playback {}\n", "Notes.md": "playback\n"})
+        self.git("switch", "-q", "main")
+        self.git("rm", "-q", "Notes.md")
+        self.commit("Drop the notes")
+        self.git("switch", "-q", "tooling")
+        self.git("reset", "--soft", "main")
+        self.commit("Cap how many boot at once")
+        result = self.check()
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("Add the playback: undone in Playback.swift\n", result.stderr)
+
     def test_deleting_one_file_does_not_excuse_undoing_another(self):
         # The deletion passes; RailRow.swift, back to before #134, is judged as ever.
         self.land_playback()

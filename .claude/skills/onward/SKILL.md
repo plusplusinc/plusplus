@@ -236,10 +236,11 @@ project board.
    hand (the full pass changed what they see, or there was no round), install it with
    `scripts/device.sh` (a link when the phone is out of reach) and tell them what to try, as for
    a round.
-2. The maintainer saying a round looks right is the go-ahead: once the full pass, the verifier,
-   and CI pass, merge and tell them in a line, without asking again. Ask again only when the
-   full pass changed something they would see, with that build on their phone first (step 1).
-   A card that is yours alone needs only the verifier and CI. Merge once checks pass (a wait for that also ends when
+2. Merge after the maintainer's go-ahead. Their saying a round looks right is that go-ahead:
+   once the full pass, the verifier, and CI pass, merge and tell them in a line, without asking
+   again. Ask again only when the full pass changed something they would see, or there was no
+   round, with that build on their phone first (step 1). A card that is yours alone needs only
+   the verifier and CI. Merge once checks pass (a wait for that also ends when
    `gh pr view --json mergeable` reads `CONFLICTING`, since auto-merge waits on a conflict
    without a word; after any merge to `main`, check every PR that waits), move the card to Done, run
    `scripts/tidy.sh` (it removes the merged worktree and branch, unless a process still works in

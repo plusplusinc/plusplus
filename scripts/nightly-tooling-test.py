@@ -921,7 +921,8 @@ class Loop(unittest.TestCase):
     def setUp(self):
         # GitHub, as a gh on the PATH, has a newer release of every lint tool than its pin, as on
         # the night swiftformat 0.64.7 came out: a night that asked it would add update cards, so
-        # each test says what `outdated` prints instead of reading the real releases.
+        # each test says what `outdated` prints instead of reading the real releases. Any call
+        # that still reaches gh shows up as those cards rather than as a network read.
         bin_dir = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, bin_dir, True)
         (bin_dir / "gh").write_text("#!/bin/sh\necho v99.0.0\n")
