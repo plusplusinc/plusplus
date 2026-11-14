@@ -19,8 +19,9 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
     /// How far open, 0 to 1, fixed for a snapshot; nil follows `isOpen` and the finger.
     private let fixedProgress: CGFloat?
 
-    /// How far open the drawer is going: 0 or 1 from the moment a settle starts, and the
-    /// finger's place during a swipe. What is drawn while a settle runs is `drawn`.
+    /// How far open the drawer is going: 0 or 1 from the moment a slide starts (with Reduce
+    /// Motion, as a fade ends), and the finger's place during a swipe. What is drawn while a
+    /// slide runs is `drawn`.
     @State private var heading: CGFloat
     /// Where the drawer is going, so a change of `isOpen` that a swipe made doesn't move it twice;
     /// a change of it plays the haptic.
@@ -29,7 +30,7 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
     /// How far open the drawer was as the swipe following the finger began; nil with none.
     @State private var swipeStart: CGFloat?
     /// How far open the drawer is drawn, mid-settle included, where a swipe starts from.
-    @State private var drawn = DrawnProgress()
+    @State private var drawn: DrawnProgress
     /// The drawer faded out, with Reduce Motion, before it fades in or once it has faded out:
     /// an opacity transition faded it in but, on removal, dropped it in one frame.
     @State private var isDrawerFaded = false
@@ -57,7 +58,9 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
         self.swipeOpens = swipeOpens
         fixedProgress = progress
         let open = isOpen.wrappedValue || (progress ?? 0) > 0
-        _heading = State(initialValue: progress ?? (isOpen.wrappedValue ? 1 : 0))
+        let heading = progress ?? (isOpen.wrappedValue ? 1 : 0)
+        _heading = State(initialValue: heading)
+        _drawn = State(initialValue: DrawnProgress(value: heading))
         _target = State(initialValue: isOpen.wrappedValue)
         _isDrawerInView = State(initialValue: open)
         self.drawer = drawer()
@@ -207,7 +210,11 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
 /// How far open a `SideDrawer` is drawn, written as each frame is drawn and read only as a
 /// swipe begins, so it is a plain reference: a change to it redraws nothing.
 final class DrawnProgress {
-    var value: CGFloat = 0
+    var value: CGFloat
+
+    init(value: CGFloat) {
+        self.value = value
+    }
 }
 
 /// Slides the screen aside by how far open the drawer is, and records that progress as each

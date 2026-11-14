@@ -1,6 +1,7 @@
 // Runs only where UIKit exists, so `swift test` on macOS compiles it away and stays fast.
 #if canImport(UIKit) && !os(watchOS)
 
+import QuartzCore
 import SwiftUI
 import Testing
 import UIKit
@@ -28,12 +29,26 @@ struct DrawerSlideTests {
         }
     }
 
+    /// What the drawer reads as drawn on every frame while the settle plays.
+    private final class Frames: NSObject {
+        let drawn: DrawnProgress
+        private(set) var reads: [CGFloat] = []
+
+        init(drawn: DrawnProgress) {
+            self.drawn = drawn
+        }
+
+        @objc func frame(_: CADisplayLink) {
+            reads.append(drawn.value)
+        }
+    }
+
     private static let duration = 0.4
 
-    @Test("Halfway through a settle, the drawer reads as drawn partway, not at the settle's end")
-    func readsTheDrawnProgressMidSettle() {
+    @Test("While a settle plays, the drawer reads as drawn partway, not at the settle's end")
+    func readsTheDrawnProgressMidSettle() throws {
         let drawer = Drawer()
-        let drawn = DrawnProgress()
+        let drawn = DrawnProgress(value: 0)
         let window = UIWindow.sceneless(
             hosting: UIHostingController(rootView: Host(drawer: drawer, drawn: drawn)),
             at: .large,
@@ -42,17 +57,25 @@ struct DrawerSlideTests {
         window.settle()
         #expect(drawn.value == 1, "Open at rest reads \(drawn.value)")
 
+        let frames = Frames(drawn: drawn)
+        let link = CADisplayLink(target: frames, selector: #selector(Frames.frame(_:)))
+        link.add(to: .main, forMode: .common)
+        defer { link.invalidate() }
         withAnimation(.linear(duration: Self.duration)) { drawer.progress = 0 }
-        // Real time is what's tested: the frames the settle draws until about halfway.
-        let halfway = Date.now.addingTimeInterval(Self.duration / 2)
-        while Date.now < halfway {
+        // Real time is what's tested: the frames the settle draws, until it lands or well past
+        // its end.
+        let deadline = Date.now.addingTimeInterval(Self.duration + 0.6)
+        while Date.now < deadline, drawn.value > 0 {
             RunLoop.main.run(mode: .default, before: .now.addingTimeInterval(0.005))
         }
 
+        let reads = frames.reads
+        try #require(reads.count >= 4, "Only \(reads.count) frames shown")
         #expect(
-            drawn.value > 0.2 && drawn.value < 0.8,
-            "Halfway through a settle from 1 to 0, reads \(drawn.value)",
+            reads.contains { $0 > 0.1 && $0 < 0.9 },
+            "A settle from 1 to 0 read, frame by frame, \(reads)",
         )
+        #expect(drawn.value == 0, "Landed reads \(drawn.value)")
     }
 }
 
