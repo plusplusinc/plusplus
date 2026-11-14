@@ -187,16 +187,17 @@ public struct EditableTitle: View {
         switch step {
         case .fadeBack:
             withAnimation(.snappy(duration: SuggestionTiming.fadeOut)) { settle() }
-            return
         case .crossfade:
             withAnimation(.snappy(duration: SuggestionTiming.crossfade)) { settle() }
-            return
         case .snap:
             settle()
-            return
         case .typeIn:
-            break
+            await typeIn()
         }
+    }
+
+    /// Fades the drawn title out, then types the resting one in.
+    private func typeIn() async {
         typingStart = nil
         withAnimation(.snappy(duration: SuggestionTiming.fadeOut)) {
             shownOpacity = 0

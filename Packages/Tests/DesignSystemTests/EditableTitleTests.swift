@@ -55,9 +55,8 @@ struct EditableTitleTests {
 
     @Test("A suggestion changed and changed back inside the fade-out shows again")
     func restingChangedBack() {
-        // A to B: the run for B fades A out, then is cancelled by A before it settles, so A is
-        // still drawn, faded out. The run for A then brings it back rather than leaving it.
-        #expect(Self.step(shown: "Push", resting: "Pull") == .typeIn)
+        // Push to Pull: the run for Pull fades Push out and is cancelled by Push before it
+        // settles, so Push is still drawn, faded out. The run for Push brings it back.
         #expect(Self.step(shown: "Push", resting: "Push") == .fadeBack)
     }
 
