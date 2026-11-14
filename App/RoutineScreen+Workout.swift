@@ -176,8 +176,13 @@ extension RoutineScreen {
     /// pending on a view alone where it doesn't change the view's value. A row already shifting
     /// finishes its shrink on the move's own curve. As Dave decided, having tried it
     /// (2026-11-14).
-    func end(_ change: @escaping () -> Void) {
-        // Once only: a second End before the first's change has run is refused.
+    ///
+    /// `change`, the store's finish or discard, is made at once, here, on every path: only the
+    /// motion is the sequence's, which the screen going away cancels. The list draws the workout
+    /// as it was from the phase (`WorkoutPhase.drawnWorkout`) until it shrinks or crossfades out
+    /// of it. `change` takes the curve the bar's End and time would have moved on with it.
+    func end(_ change: () -> Void) {
+        // Once only: a second End is refused.
         var ended = phase
         guard let workout = session.workout, ended.end(workout) else { return }
         sequence.cancel()
@@ -195,12 +200,13 @@ extension RoutineScreen {
         // landed: taken out with no animation, the key went on the frame.
         withAnimation(.easeOut(duration: Self.barFade)) { phase.keyLeaves() }
         guard !reduceMotion else {
+            withAnimation(Self.crossfadeCurve) { change() }
             beginCrossfade(scrollingTo: 0)
             return sequence.run {
                 let start = ContinuousClock.now
                 try await laterTurn()
                 try await crossfade {
-                    change()
+                    phase.listLeaves()
                     // Any room Start or a move was keeping: there is no landing after End.
                     isMakingRoom = false
                     closingRoomTop = nil
@@ -211,14 +217,16 @@ extension RoutineScreen {
                 keyReturns { phase.rest() }
             }
         }
-        if !tookOver {
-            shrink(change)
+        if tookOver {
+            withAnimation(Self.endCurve) { change() }
+        } else {
+            shrink(storing: change)
         }
         sequence.run {
             let start = ContinuousClock.now
             if tookOver {
                 try await laterTurn()
-                shrink(change)
+                shrink()
             }
             // Once the time has faded out of its key, the key's glass goes, the bar fading it:
             // taken out with no animation, it went on the frame. A beat in the sequence by design.
@@ -236,13 +244,15 @@ extension RoutineScreen {
         }
     }
 
-    /// End's one motion: `change`, the current exercise shrinking, the rows below closing up,
-    /// and the list scrolling to its top, on the rows' own animation: until it has ended, room
-    /// under the list's end holds, so the shrinking content doesn't pull the scroll up, and a
-    /// loop's heads ease to their new places, as at Start (`listResizes(_:)`).
-    private func shrink(_ change: () -> Void) {
-        withAnimation(.timingCurve(0.25, 0.1, 0.25, 1, duration: Self.endBeat)) {
+    /// End's one motion, with `change` when End took over nothing: the list leaving the workout,
+    /// the current exercise shrinking, the rows
+    /// below closing up, and the list scrolling to its top, on the rows' own animation: until it
+    /// has ended, room under the list's end holds, so the shrinking content doesn't pull the
+    /// scroll up, and a loop's heads ease to their new places, as at Start (`listResizes(_:)`).
+    private func shrink(storing change: () -> Void = { }) {
+        withAnimation(Self.endCurve) {
             change()
+            phase.listLeaves()
             scrollPosition.scrollTo(edge: .top)
             resizes += 1
             // Any room a move to the next exercise or the last set's close left: the resize
@@ -293,7 +303,7 @@ extension RoutineScreen {
         meanwhile: () async throws -> Void = { },
     ) async throws {
         let (finished, finish) = AsyncStream<Void>.makeStream()
-        withAnimation(.easeInOut(duration: Self.crossfadeDuration)) {
+        withAnimation(Self.crossfadeCurve) {
             listChanges += 1
             growthLift = 0
             underBarCut = 0
@@ -366,6 +376,7 @@ extension RoutineScreen {
     /// quick off the mark that eases gently into place and stops at its duration, with no
     /// spring's tail.
     static let endBeat = 0.4
+    static let endCurve = Animation.timingCurve(0.25, 0.1, 0.25, 1, duration: endBeat)
     /// The bar's keys fading at a workout's end: End for ++, and the time out of its key, then
     /// the key's glass.
     static let barFade = 0.2
@@ -373,6 +384,7 @@ extension RoutineScreen {
     static let startReturn = PrimaryKeyButtonStyle.swapHalf
     /// With Reduce Motion, the list crossfading into a workout or out of one.
     static let crossfadeDuration = 0.35
+    static let crossfadeCurve = Animation.easeInOut(duration: crossfadeDuration)
     /// The pause between Start's scroll to the top landing and the row growing.
     static let landingHold = 0.2
 }

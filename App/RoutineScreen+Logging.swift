@@ -10,10 +10,12 @@ extension RoutineScreen {
         session.workout.map { LiveWorkout(routine: routine, workout: $0) }
     }
 
-    /// The workout as the screen draws it: `live` less the sets logged and not yet shown
+    /// The workout as the screen draws it: `live`, or as End took it from the store until the
+    /// list leaves it (`WorkoutPhase.drawnWorkout`), less the sets logged and not yet shown
     /// (`WorkoutPhase.hidden`). Everything drawn reads it.
     var shown: LiveWorkout? {
-        live?.hiding(phase.hidden)
+        let workout = session.workout ?? phase.drawnWorkout
+        return workout.map { LiveWorkout(routine: routine, workout: $0) }?.hiding(phase.hidden)
     }
 
     /// While a step to another exercise, or past the last set, plays: rows' heights are
@@ -98,7 +100,7 @@ extension RoutineScreen {
     /// The row that grows, or stands grown: the current exercise, or, out of a workout, the
     /// first, which Start grows.
     var growingID: RoutineExercise.ID? {
-        session.workout == nil ? routine.exercises.first?.id : currentID
+        shown == nil ? routine.exercises.first?.id : currentID
     }
 
     /// Plays `step`, what logging `set` led to, the set already stored: the screen's one entry

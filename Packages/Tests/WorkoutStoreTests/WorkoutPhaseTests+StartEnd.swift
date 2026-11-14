@@ -183,6 +183,34 @@ extension WorkoutPhaseTests {
         #expect(tried == ended)
     }
 
+    @Test("Ended at once in the store, the workout is drawn as it was until the list leaves it")
+    func drawnUntilTheListLeaves() {
+        let notEnding = Self.everyPhase + Self.startAndEnd.filter { !Self.isEnding($0) }
+        for phase in notEnding {
+            #expect(phase.drawnWorkout == nil, "\(phase)")
+        }
+        var phase = Self.ending(from: Self.logging(.nextSet))
+        #expect(phase.drawnWorkout == Self.workout)
+        #expect(
+            phase.hidden == [Self.logged],
+            "Drawn as it was, the set not yet shown stays hidden",
+        )
+        _ = Self.applying([.keyLeaves], to: &phase)
+        #expect(phase.drawnWorkout == Self.workout, "The key's beats leave the list as it is")
+        let left = phase.listLeaves()
+        #expect(left)
+        #expect(phase.drawnWorkout == nil)
+        #expect(phase.endingWorkout == Self.workout, "The bar's time stays until it fades")
+        let leftAgain = phase.listLeaves()
+        #expect(!leftAgain)
+        for other in notEnding {
+            var tried = other
+            let applied = tried.listLeaves()
+            #expect(!applied, "\(other)")
+            #expect(tried == other)
+        }
+    }
+
     @Test("An ending's beats apply in order; the time shows until it fades; then out of a workout")
     func endingBeats() {
         var phase = Self.ending(from: .running)

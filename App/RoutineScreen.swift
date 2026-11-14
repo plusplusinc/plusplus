@@ -159,7 +159,7 @@ struct RoutineScreen: View {
         let shown = shown
         let currentSet = shown?.currentSet
         let rowBars = rowBars(in: shown)
-        let tracksRows = session.workout != nil || isStarting
+        let tracksRows = shown != nil || isStarting
         let underBar = underBarCut
         return ScrollView {
             // One over the other, as a crossfade has them: in the scroll view's own stack, the

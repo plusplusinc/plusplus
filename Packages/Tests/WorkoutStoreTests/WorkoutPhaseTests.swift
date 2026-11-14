@@ -71,6 +71,7 @@ struct WorkoutPhaseTests {
             move,
             after([.show], from: move),
             after([.show, .land], from: move),
+            after([.show, .land, .shift], from: move),
             after([.show, .land, .shift, .roll], from: move),
         ] + others
     }
@@ -206,13 +207,18 @@ struct WorkoutPhaseTests {
         #expect(Self.after([.settle], from: shown) == .running)
     }
 
-    @Test("Stopped at once, each phase is where its sequence was going")
+    @Test("Stopped at once, the phase follows the store: at rest in a workout, out of one without")
     func settleAtOnce() {
         for phase in Self.everyPhase + Self.startAndEnd {
-            var stopped = phase
-            stopped.settleAtOnce()
-            let workoutGoes = phase == .idle || phase == .starting(.pressed) || Self.isEnding(phase)
-            #expect(stopped == (workoutGoes ? .idle : .running), "\(phase)")
+            for hasWorkout in [false, true] {
+                var stopped = phase
+                stopped.settleAtOnce(hasWorkout: hasWorkout)
+                #expect(stopped == (hasWorkout ? .running : .idle), "\(phase), \(hasWorkout)")
+                #expect(stopped.takesLog == hasWorkout, "The key logs only with a workout")
+                var ended = stopped
+                let endable = ended.end(Self.workout)
+                #expect(endable == hasWorkout, "End ends only a workout")
+            }
         }
     }
 }

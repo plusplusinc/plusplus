@@ -1,7 +1,9 @@
 import SwiftUI
 
-/// The one task that plays a logged set's timed beats on the routine screen, held so that what
-/// stops a sequence can cancel it. Not observed, as `RowFrames` isn't: nothing is drawn from it.
+/// The one task that plays a workout's timed beats on the routine screen, Start's, a logged
+/// set's, and End's motion, held so that what stops a sequence can cancel it. Nothing stored
+/// waits on it: End's change to the store is made before its motion plays. Not observed, as
+/// `RowFrames` isn't: nothing is drawn from it.
 final class SequenceTask {
     private var task: Task<Void, Never>?
 
@@ -33,16 +35,18 @@ func laterTurn() async throws {
 }
 
 extension RoutineScreen {
-    /// The screen going away: the sequence playing stops, and the workout drawn is where it was
-    /// going, at once.
+    /// The screen going away: the sequence playing stops, and the phase settles at once to what
+    /// the store holds, so the key never waits on a workout that is gone, or ignores one there.
     func stopSequence() {
         sequence.cancel()
         withTransaction(\.disablesAnimations, true) {
-            phase.settleAtOnce()
+            phase.settleAtOnce(hasWorkout: session.workout != nil)
             closingRoomTop = nil
             isCrossfading = false
-            // Start's ride down is over, whether the workout began or not.
+            // Start's ride down, and any lift drawn for a motion, are over.
             startDrop = 0
+            growthLift = 0
+            underBarCut = 0
             if session.workout == nil {
                 // Start pressed and stopped before the workout began: nothing has changed.
                 isMakingRoom = false

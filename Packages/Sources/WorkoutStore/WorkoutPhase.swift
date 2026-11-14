@@ -52,6 +52,9 @@ public enum WorkoutPhase: Equatable, Sendable {
         /// until the workout goes.
         public let hidden: PlannedSet?
         public fileprivate(set) var beat: Beat
+        /// Whether the list still draws the workout as it was: from End's choice, which ends the
+        /// stored workout at once, until the list shrinks or crossfades out of it.
+        public internal(set) var drawsWorkout = true
 
         /// An ending's beats, in order.
         public enum Beat: Comparable, Sendable {
@@ -162,7 +165,7 @@ public enum WorkoutPhase: Equatable, Sendable {
     /// shown, so what End moves, it moves from where it is drawn.
     @discardableResult
     public mutating func end(_ workout: Workout) -> Bool {
-        guard hasWorkout else { return false }
+        guard canEnd else { return false }
         let hidden: PlannedSet? = switch self {
         case .idle, .starting, .running, .closing(_, true), .fadingOn(_, true), .ending:
             nil
@@ -274,14 +277,15 @@ public enum WorkoutPhase: Equatable, Sendable {
         return true
     }
 
-    /// Where the sequence playing was going, at once: as the screen goes away.
-    public mutating func settleAtOnce() {
-        self = hasWorkout ? .running : .idle
+    /// At once, at rest as the store stands: in its workout if there is one, else out of one, as
+    /// the screen goes away. What the stopped sequence was playing is dropped, so the phase never
+    /// says there is a workout the store doesn't hold, or none where it holds one.
+    public mutating func settleAtOnce(hasWorkout: Bool) {
+        self = Self(hasWorkout: hasWorkout)
     }
 
-    /// Whether there is a workout for End to end, or for a stop to settle into: none before
-    /// Start's grow, and none once ending.
-    private var hasWorkout: Bool {
+    /// Whether there is a workout for End to end: none before Start's grow, and none once ending.
+    private var canEnd: Bool {
         switch self {
         case .idle, .starting(.pressed), .ending: false
         default: true
