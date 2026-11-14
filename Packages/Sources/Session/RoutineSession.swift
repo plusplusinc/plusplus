@@ -236,16 +236,18 @@ public final class RoutineSession {
     }
 
     /// Lets the last edit land, then shows the routine `next` gives, if any, and closes the
-    /// drawer. A switch already under way takes the tap.
-    private func switchTo(pushed: Bool, _ next: () async -> Routine?) async {
+    /// drawer. An edit made while `next` runs lands before the next routine shows, too. A switch
+    /// already under way takes the tap. Internal so a test can hold `next`.
+    func switchTo(pushed: Bool, _ next: () async -> Routine?) async {
         guard !isSwitching else { return }
         isSwitching = true
         defer { isSwitching = false }
         await finishSaving()
-        if let routine = await next() {
+        let routine = await next()
+        await finishSaving()
+        if let routine {
             show(routine, pushed: pushed)
         }
-        (saves, saving) = Self.startSaving(to: store)
         closeDrawer()
     }
 
@@ -264,7 +266,8 @@ public final class RoutineSession {
     }
 
     /// Lets the last edit land: a finished stream still hands over what it holds. An edit made
-    /// while it lands reaches only `current`, so it is saved after.
+    /// while it lands reaches only `current`, so it is saved after. Then saving starts again, so
+    /// no edit ever goes to a finished stream.
     private func finishSaving() async {
         var landed = current
         saves.finish()
@@ -277,6 +280,7 @@ public final class RoutineSession {
                 Logger.session.error("The routine didn't save: \(error)")
             }
         }
+        (saves, saving) = Self.startSaving(to: store)
     }
 
     /// Returns once every change sent so far has landed in the store: the routine's edits, as a
@@ -284,7 +288,6 @@ public final class RoutineSession {
     /// it rather than on time.
     func writesLanded() async {
         await finishSaving()
-        (saves, saving) = Self.startSaving(to: store)
         await withCheckedContinuation { done in workoutWrites.yield(.landed(done)) }
     }
 
