@@ -49,11 +49,6 @@ struct RoutineScreen: View {
     /// held while a finger is on the list and following the row as the list coasts once it lifts
     /// (`settleKeyRole()`); none while it logs.
     @State var keyWayBack: VerticalEdge?
-    /// While the key swaps (`swapKey(_:)`), the role of the key going, until it has gone.
-    @State var heldKeyRole: KeyRole?
-    /// From a key swap's start until the next key is coming in: the key down out of sight, its
-    /// room in the bar kept, and taps do nothing.
-    @State var isKeySwapping = false
     /// The key's logs of a set, each with a medium impact, and of a side, each with a light one;
     /// each log pops a +1 off the key.
     @State var setLogs = 0
@@ -159,8 +154,6 @@ struct RoutineScreen: View {
 
     private var screen: some View {
         let generatedName = generatedName
-        // Read once: the key's identity and the key are one role.
-        let role = keyRole
         // Read once here, so the rows' closure holds them as values: a list crossfading out keeps
         // drawing its rows with what it had, rather than the workout it is fading into.
         let currentID = currentID
@@ -307,12 +300,11 @@ struct RoutineScreen: View {
         .onGeometryChange(for: CGFloat.self, of: \.size.height) { listHeight = $0 }
         .primaryKeyBar(
             isPresented: showsKey,
-            keyID: role.kind,
-            isSwappedOut: isKeySwapping,
+            face: liveKeyRole,
             keepsRoom: keyAway == .keepingRoom,
             plusOnes: setLogs + sideLogs,
             drop: startDrop,
-        ) {
+        ) { role in
             key(role)
         }
         .task(id: isStarting) { await holdStart() }

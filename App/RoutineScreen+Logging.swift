@@ -181,8 +181,7 @@ extension RoutineScreen {
     /// after.
     private func crossfadeOn(to next: PlannedSet?, scrollingTo target: CGFloat?) {
         let landed = {
-            var waiting: PlannedSet?
-            swapKey { waiting = playback.end() }
+            let waiting = playback.end()
             letRoomGo()
             if next != nil, target == nil {
                 scrollToCurrent()
@@ -251,8 +250,7 @@ extension RoutineScreen {
                 tolerance: .zero,
             )
             closingRoomTop = nil
-            var waiting: PlannedSet?
-            swapKey { waiting = playback.end() }
+            let waiting = playback.end()
             letRoomGo()
             settleKeyRole()
             playWaiting(waiting)

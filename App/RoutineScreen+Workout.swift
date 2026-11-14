@@ -159,7 +159,6 @@ extension RoutineScreen {
             endingWorkout = workout
             // The next workout's key starts from the log, whatever this one's last showed.
             keyWayBack = nil
-            heldKeyRole = nil
         }
         // The workout's key slides down as it fades, and Start stays away until the list has
         // landed: taken out with no animation, the key went on the frame.
@@ -299,7 +298,7 @@ extension RoutineScreen {
     /// the key's glass.
     static let barFade = 0.2
     /// The key coming back once Start's grow or the end's shrink has landed.
-    static let startReturn = 0.2
+    static let startReturn = PrimaryKeyButtonStyle.swapHalf
     /// With Reduce Motion, the list crossfading into a workout or out of one.
     static let crossfadeDuration = 0.35
     /// The pause between Start's scroll to the top landing and the row growing.
