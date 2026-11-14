@@ -6,18 +6,22 @@ import XCTest
 /// and Start's scroll to the top runs far.
 @MainActor
 extension TitleWrappingUITests {
-    /// From the Routines screen the drawer left, with exercises added for their equipment: Start
-    /// and a relaunch land on the current exercise, and a workout's bar, paused, and End's dialog
-    /// pass the audit. Running, the bar differs only in its key's shorter Pause.
+    /// On the routine the checks before made, its two rows joined, with exercises after them for
+    /// their equipment, seeded, since adding is checked above and four adds cost more than a
+    /// launch: Start and a relaunch land on the current exercise, and a workout's bar, paused,
+    /// and End's dialog pass the audit. Running, the bar differs only in its key's shorter Pause.
     func workoutAtAX5(in app: XCUIApplication) throws {
         try XCTContext
             .runActivity(named: "A workout at AX5 lands, and its bar passes the audit") { _ in
-                app.buttons.matching(identifier: "routines.row").firstMatch.tap()
+                app.launchSeeding(
+                    [
+                        "dumbbell-bench-press", "kneeling-hip-flexor-stretch", "pull-up",
+                        "goblet-squat", "band-pull-apart", "balance-board-hold",
+                    ],
+                    textSize: Self.largestTextSize,
+                    arguments: ["-seedSuperset", "0,1"],
+                )
                 XCTAssertTrue(app.buttons["Start"].appears(), "The routine opened no Start")
-                app.addExercise("Pull-up, Pull-up bar", searching: "pull-up")
-                app.addExercise("Goblet squat, Kettlebell", searching: "goblet")
-                app.addExercise("Band pull-apart, Band", searching: "pull-apart")
-                app.addExercise("Balance board hold, Balance board", searching: "balance")
                 app.buttons["Start"].tap()
                 let time = app.workoutTime
                 XCTAssertTrue(time.appears(within: 3), "Start began no workout")

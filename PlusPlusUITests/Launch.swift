@@ -29,16 +29,19 @@ extension XCUIApplication {
     }
 
     /// Launches into a routine of the built-in exercises `ids`, in order, named `name` or left
-    /// for the namer, as `launchNewRoutine` does with `arguments`, and waits for every row.
+    /// for the namer, as `launchNewRoutine` does at `textSize` with `arguments`, and waits for
+    /// every row.
     /// Seeding (`-seedExercises`) skips the picker, for a test that doesn't check adding.
     @discardableResult
     func launchSeeding(
         _ ids: [String],
         named name: String? = nil,
+        textSize category: String = "UICTContentSizeCategoryL",
         arguments: [String] = [],
     ) -> XCUIElement {
         let named = name.map { ["-seedName", $0] } ?? []
         let title = launchNewRoutine(
+            textSize: category,
             arguments: ["-seedExercises", ids.joined(separator: ",")] + named + arguments,
         )
         let count = exerciseCount(becoming: ids.count)
