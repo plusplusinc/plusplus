@@ -55,9 +55,7 @@ extension RoutineScreen {
         // While the workout moves on from a set, the key is still that set's until the next row
         // shows its own, so it changes with the row: read from the workout, it said the next
         // exercise's set ("Log left") as the pulse set off. After the last set, through the close.
-        if isMovingOn, exerciseMove?.hasRolled != true, let set = playback.playing?.set,
-           let text = live?.hiding(playback.unshown + [set]).logText
-        {
+        if let set = phase.keySet, let text = live?.hiding([set]).logText {
             return .log(text)
         }
         if shown.isDone {
@@ -131,18 +129,16 @@ extension RoutineScreen {
         }
         // A second tap while the set just logged is held, as a double tap would be, is dropped;
         // a move already returned above.
-        guard playback.takesLog else { return }
+        guard phase.takesLog else { return }
         if set.side == nil {
             setLogs += 1
         } else {
             sideLogs += 1
         }
-        // Stored at once, at the numbers the row shows; then shown. The guards above take a log
-        // only with no step playing, so today its step starts now.
+        // Stored at once, at the numbers the row shows; then shown, from the workout before it.
+        let step = live.step(logging: set)
         session.log(set, of: current)
-        if playback.log(set) {
-            play(set)
-        }
+        play(set, leadingTo: step)
     }
 
     /// Settles which way the key points: back to the current exercise while it is scrolled away,
@@ -179,8 +175,7 @@ extension RoutineScreen {
         sequence.run {
             let start = ContinuousClock.now
             try await beat(until: start + .seconds(SetMotion.heldRoll))
-            withAnimation(.snappy(duration: SetMotion.roll)) { playback.show() }
-            endStep()
+            withAnimation(.snappy(duration: SetMotion.roll)) { phase.show() }
         }
     }
 }

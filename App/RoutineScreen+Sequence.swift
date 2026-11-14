@@ -31,11 +31,9 @@ extension RoutineScreen {
     func stopSequence() {
         sequence.cancel()
         withTransaction(\.disablesAnimations, true) {
-            playback.show()
-            exerciseMove = nil
-            closingRoomTop = nil
+            phase.settleAtOnce()
+            isCrossfading = false
         }
-        _ = playback.end()
         letRoomGo()
     }
 }

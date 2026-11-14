@@ -57,6 +57,7 @@ extension RoutineScreen {
                 then: bringKeyBack,
             ) {
                 session.start()
+                phase = WorkoutPhase(hasWorkout: true)
                 isStarting = false
                 // The bar's room goes for the crossfade: the room under the list holds it, and
                 // measured, the list stayed put (13 Starts, 2026-11-01).
@@ -100,6 +101,8 @@ extension RoutineScreen {
         }
         withAnimation(.snappy(duration: Self.growBeat)) {
             session.start()
+            // At rest in the workout: nothing drawn changes with it.
+            phase = WorkoutPhase(hasWorkout: true)
             growthLift = 0
             startDrop = max(drop, 1)
             // On the rows' own animation: until it has ended, a loop's heads ease to their new
