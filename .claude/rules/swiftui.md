@@ -55,6 +55,8 @@ feature, and change them with it.
 
 - Start, End, and the current exercise: `RoutineScreen+Workout.swift`, `CurrentExercise.swift`,
   `RowLabel.swift` (`RowFocus`), `GrowingName`, `RailStack`, `RailEntry` (a row joining a rail).
+  Their beats are `WorkoutPhase`'s `starting` and `ending` cases, on the same `SequenceTask` as a
+  log's; Start's scroll to the top waits on `ScrollBeat.settled(after:orWhen:)`.
 - The key at the bottom and the +1: `RoutineScreen+Key.swift`, `PrimaryKeyButtonStyle.swift`,
   `PlusOneBurst`. The bar swaps the key on its own as its kind changes: the swap's stage is
   `KeyStage`, held by `StagedKey` in `KeySwap.swift`.
@@ -95,11 +97,16 @@ Each of these cost a round on this app; the code at the named spot works around 
   (`play(_:leadingTo:)`).
 - A value that has to change inside a motion's animated transaction is state of its own, not
   derived: derived from the phase, the close's room went to the landing and back to 0 in one
-  turn, never changed inside the close's animation, and the list jumped (`closingRoomTop`).
+  turn, never changed inside the close's animation, and the list jumped (`closingRoomTop`). So is
+  one that a disabled transaction ahead of the motion changes the phase under: derived,
+  `isMakingRoom` flipped in End's disabled set-back, not in its shrink, and an End that took over
+  a sequence lost its room for a frame.
 - Never clear state that must hold for a motion from `withAnimation`'s completion: in about 2 of
   50 of Start's grows, with no scroll in the transaction, SwiftUI ran it 12 to 28 ms in, before
   the first frame, while the rows went on growing. Change a count on the motion's own animation
   and read the animated value against its target (`listResizes(_:)`).
+- When comparing recordings frame by frame, set aside the first run after installing a build: its
+  actions landed up to 0.42 s late against their schedule, and later runs did not.
 - A `keyframeAnimator` whose initial value follows its trigger runs from the new value to the
   new value, and the view snaps. Animate a state that flips with its trigger with
   `.animation(_:body:)` on the view that draws it. A keyframe timeline ending on a

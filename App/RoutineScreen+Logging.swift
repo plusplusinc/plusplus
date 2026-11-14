@@ -188,9 +188,10 @@ extension RoutineScreen {
         }
     }
 
-    /// A move's landing, with its tick and the node lighting under the pulse's plop, the round's
-    /// roll once the next row shows it, then the move's end, timed from the log by design: nothing
-    /// is waited for. With no `target` worked out ahead, as after a relaunch, the list lands after.
+    /// A move's landing, with its tick and the node lighting under the pulse's plop, the shift's
+    /// start, which End reads, the round's roll once the next row shows it, then the move's end,
+    /// timed from the log by design: nothing is waited for. With no `target` worked out ahead, as
+    /// after a relaunch, the list lands after.
     private func land(_ way: SetMotion.Way, scrollingTo target: CGFloat?) {
         sequence.run {
             let start = ContinuousClock.now

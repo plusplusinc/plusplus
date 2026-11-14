@@ -95,6 +95,13 @@ extension WorkoutPhaseTests {
         #expect(fading == .running)
     }
 
+    @Test("Starting and ending are not moving on: no log is shown, and the room isn't a landing's")
+    func startAndEndAreNotMovingOn() {
+        for phase in Self.startAndEnd {
+            #expect(!phase.isMovingOn, "\(phase)")
+        }
+    }
+
     @Test("The key is gone, its room kept as Start lands, given up as Start fades in or End goes")
     func keyGone() {
         #expect(WorkoutPhase.starting(.landed).keyGone == .keepingRoom)

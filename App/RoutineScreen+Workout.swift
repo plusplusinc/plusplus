@@ -17,7 +17,8 @@ extension RoutineScreen {
     /// Start's press: the key comes back up as any key does, a medium impact plays, and after a
     /// beat the first exercise is brought into view and grows (`leave()`), one sequence on the
     /// screen's task, which the screen going away stops. A second press in the meantime does
-    /// nothing.
+    /// nothing. The press leaves the drawer open, as Dave decided (2026-11-14): a routine
+    /// switched to before the workout begins stops Start (`check(_:)`).
     func pressStart() {
         guard phase == .idle, session.workout == nil else { return }
         // The list's end lies under the first row until it grows, so a short routine may have
@@ -173,7 +174,8 @@ extension RoutineScreen {
     /// not yet drawn stays hidden (`WorkoutPhase.end(_:)`), and the lift is set to what is drawn,
     /// on a turn of their own, before the shrink: a new transaction leaves an animation still
     /// pending on a view alone where it doesn't change the view's value. A row already shifting
-    /// finishes its shrink on the move's own curve.
+    /// finishes its shrink on the move's own curve. As Dave decided, having tried it
+    /// (2026-11-14).
     func end(_ change: @escaping () -> Void) {
         guard let workout = session.workout else { return }
         sequence.cancel()
@@ -338,7 +340,8 @@ extension RoutineScreen {
     static let scrollDuration = 0.35
     /// How long Start waits for its scroll to the first exercise to report it has stopped
     /// before it carries on: about twice the longest measured, from the end of a ten-exercise
-    /// routine, 0.58 to 0.62 s from the scroll's start (2026-11-14).
+    /// routine, 0.58 to 0.62 s from the scroll's start (2026-11-14). Carrying on, not waiting,
+    /// is Dave's call (2026-11-14).
     static let scrollGiveUp = 1.25
     /// The first exercise growing at Start, the rows below stepping aside.
     static let growBeat = 0.55

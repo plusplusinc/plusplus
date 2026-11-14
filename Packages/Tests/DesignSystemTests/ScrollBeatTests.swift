@@ -38,12 +38,19 @@ struct ScrollBeatTests {
     func giveUpEnds() async {
         let beat = ScrollBeat()
         let (gate, open) = AsyncStream<Void>.makeStream()
+        var stoppedEarly = true
         let task = await wait(on: beat) {
             for await _ in gate { }
+            // Cancelled if anything ended the wait before it gave up.
+            stoppedEarly = Task.isCancelled
         }
         beat.phaseChanged(to: .animating)
+        for _ in 0 ..< 10 {
+            await Task.yield()
+        }
         open.finish()
         await task.value
+        #expect(!stoppedEarly, "A scroll still moving does not end the wait")
     }
 
     @Test("Cancelled, the wait ends")
