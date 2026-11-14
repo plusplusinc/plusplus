@@ -20,9 +20,14 @@ says why.
 2. Start a `builder`, with no `model` (its definition sets it), in the foreground, with the card
    id, the worktree and branch, the card's Plan as the plan, and the handoff path
    `.slices/<branch>-handoff.md` in the main checkout. It opens the PR with `/pr`.
-3. Start a `verifier`, with no `model`, in the foreground and with `isolation: "worktree"`, with
-   the builder's worktree, the branch and PR, and the card id. It works in its own worktree and
-   leaves the "Verifier record" comment the runner reads.
+3. Start a `verifier`, with no `model`, in the foreground, with the builder's worktree, the
+   branch and PR, and the card id. It leaves the "Verifier record" comment the runner reads. Its
+   definition starts it in a worktree of its own, `.claude/worktrees/agent-<id>` in the main
+   checkout, and the night's hook denies every write there and every command that names a path
+   there, its own scripts by relative path included, as it does anywhere in the main checkout.
+   So at night the verifier cannot build, add tests, or push from its worktree as its definition
+   says. Say so in its prompt: it checks what it can without them, and gives each criterion it
+   could not run its own `- criterion` line saying it went unchecked.
 4. When the verifier reports a failed criterion or a crash, start one more builder for those
    findings, then the verifier once more. After that, end with what is still failing; the
    runner parks the card.
@@ -36,8 +41,8 @@ says why.
 
 - Write only in the worktree you were given and the main checkout's `.slices/` (gitignored),
   which takes the handoff note and any scratch files; a command naming the main checkout's other
-  files, the night's folder, or a config dotfile in the home folder is denied. An agent you start
-  with `isolation: "worktree"` also writes in its own.
+  files, the night's folder, or a config dotfile in the home folder is denied. An agent's own
+  isolation worktree sits in the main checkout, so this denies writes in it too.
 - Never merge, never arm auto-merge, and never move the card: the runner does those.
 - A test count drop needs a line in the PR body starting `Fewer tests:` that names the test
   target and says why, or the runner parks the card. A test commented out, or disabled (`.disabled`, `.enabled(if: false)`, `#if false`,

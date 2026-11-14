@@ -26,10 +26,11 @@ capture's temporary change (a slowed animation) included. If your shell starts a
 
 1. Note the time, then build and launch with your worktree's `scripts/run.sh <name>`, which uses
    its own simulator, "PlusPlus agent-<id>". Never touch another
-   checkout's. A worktree of `main` you add to compare with gets its own too: as soon as the
-   comparison is captured, run its `scripts/sim.sh shutdown`, remove it with
-   `git worktree remove`, then run the main checkout's `scripts/tidy.sh`, by its path there,
-   which deletes its simulator (from a worktree it tidies nothing). A boot that
+   checkout's. To compare with `main`, build it in your own worktree too, with the worktree clean
+   and any commit of yours pushed (a detached HEAD's unpushed commits are lost when you move it):
+   `git checkout --detach origin/main`, capture, then `git fetch origin <branch>` and
+   `git checkout --detach FETCH_HEAD` again. Add no second worktree: Claude Code refuses an
+   isolated agent's `git worktree add` at a path in the main checkout. A boot that
    waits or exits 75 has hit the limit of booted worktree simulators: run it again later, and
    never shut down another worktree's.
 2. Check each criterion on the running app with `/run`: screenshots in every appearance the app

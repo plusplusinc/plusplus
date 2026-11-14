@@ -5,9 +5,12 @@
 # Finished means the branch tip is in origin/main, or is the head (or an ancestor of the head) of
 # a merged PR, or every one of its commits' patches is in a merged PR's head (the PR was rebased
 # on GitHub). Merges are squashed, so a merged branch's own commits never reach main and git
-# alone cannot tell it is done; the PR can. A worktree left detached is finished once a merged PR's
-# head, under any branch name, contains its commit (a verifier's isolation worktree that Claude Code
-# kept sits detached at the PR's commit). Kept: a worktree with uncommitted changes, a branch
+# alone cannot tell it is done; the PR can. A worktree left detached at a commit not in main is
+# finished once a merged PR's head, under any branch name, contains its commit (a verifier's
+# isolation worktree that Claude Code kept sits detached at the PR's commit); one detached at a
+# commit in main, such as a worktree of main added to compare with, goes by the day rule below,
+# since every recent main commit is in some merged PR's head. Kept: a worktree that is locked (a
+# live agent holds it), which tidy names in a line, a worktree with uncommitted changes, a branch
 # with commits no merged PR contains, and a worktree touched in the last day whose branch has no
 # merged PR (an agent's fresh worktree starts at main with nothing committed yet), and a worktree
 # that a running process has as its working directory, such as a Claude session started in it or a
@@ -165,19 +168,28 @@ left_branch() {
 # Worktrees first: a branch cannot be deleted while one has it checked out. The removed ones are
 # kept in a list, so that a dry run, which removes nothing, still lists the branches they free.
 removed=()
-while IFS=$'\t' read -r path branch; do
+while IFS=$'\t' read -r lock path branch; do
     [ "$path" = "$ROOT" ] && continue
     [ -z "$(git -C "$path" status --porcelain)" ] || continue
     tip=$(git -C "$path" rev-parse HEAD)
     if { [ -n "$branch" ] && in_merged_pr "$branch" "$tip"; } ||
-        { [ -z "$branch" ] && in_any_merged_pr "$tip"; } ||
+        { [ -z "$branch" ] && ! in_main "$tip" && in_any_merged_pr "$tip"; } ||
         { in_main "$tip" && [ "$(idle_seconds "$path")" -gt "$FRESH_SECONDS" ]; }; then
+        # `git worktree remove` refuses a locked worktree, and under set -e its failure would end
+        # the run before the simulators below are tidied.
+        if [ "$lock" = locked ]; then
+            echo "tidy: kept $path: finished, but locked, so an agent holds it"
+            continue
+        fi
         use=$(in_use_by "$path")
         if [ -n "$use" ]; then
             echo "tidy: kept $path: finished, but $use"
             continue
         fi
-        run git worktree remove "$path"
+        if ! run git worktree remove "$path"; then
+            echo "tidy: kept $path: git worktree remove failed" >&2
+            continue
+        fi
         delete_simulator "$path" || true
         removed+=("$path")
     elif [ -n "$branch" ] && prs=$(awk -v b="$branch" '$1 == b { print "#" $3 }' <<< "$MERGED" | paste -sd, -) &&
@@ -187,8 +199,12 @@ while IFS=$'\t' read -r path branch; do
         echo "tidy: kept $path: $prs merged, but its head lacks a patch from here;" \
             "compare them, then remove it by hand"
     fi
-done < <(git worktree list --porcelain |
-    awk '/^worktree /{path=substr($0,10)} /^branch /{print path "\t" substr($0,19)} /^detached/{print path "\t"}')
+done < <(git worktree list --porcelain | awk '
+    function emit() { if (path != "") print lock "\t" path "\t" branch; path = "" }
+    /^worktree / { emit(); path = substr($0, 10); branch = ""; lock = "open" }
+    /^branch / { branch = substr($0, 19) }
+    /^locked/ { lock = "locked" }
+    END { emit() }')
 
 # A worktree removed with `git worktree remove`, such as one of main added to compare with, leaves
 # its simulator. scripts/common.sh records each worktree simulator it uses; delete the recorded

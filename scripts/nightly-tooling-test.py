@@ -1388,6 +1388,20 @@ class TidyWorktrees(unittest.TestCase):
         self.assertEqual(run("git", "branch", "--list", "worktree-agent-w2"), "worktree-agent-w2")
         self.assertNotIn("agent-w2", out)
 
+    def test_a_fresh_worktree_detached_at_main_stays_though_a_merged_prs_head_contains_it(self):
+        # A PR must be up to date with main to merge, so each merged PR's head contains the main it
+        # was merged onto. A worktree of main added to compare with, detached at a main commit, is
+        # therefore in a merged PR's head; it goes by the day rule, not as a merged PR's commit.
+        root, run, tidy = scratch_clone(self)
+        head = run("git", "commit-tree", "HEAD^{tree}", "-p", "HEAD", "-m", "a merged PR's head on main")
+        (root / "merged").write_text(f"other-card {head} 8\n")
+        compare = root / "main/.claude/worktrees/agent-v2-main"
+        run("git", "worktree", "add", "-q", "--detach", str(compare), "origin/main")
+        for args in (["--dry-run"], []):
+            with self.subTest(args=args):
+                self.assertNotIn("agent-v2-main", tidy(*args))
+        self.assertTrue(compare.exists())
+
     def test_a_detached_worktree_with_work_past_a_merged_prs_head_stays(self):
         # A merged PR's head containing a detached worktree's commit says the commit landed, not what
         # was made after it: a commit on top of the merged head, or a file not committed there, keeps
@@ -1411,16 +1425,13 @@ class TidyWorktrees(unittest.TestCase):
         self.assertEqual(run("git", "branch", "--list", "worktree-agent-c1", "worktree-agent-d1"),
                          "worktree-agent-c1\n  worktree-agent-d1")
 
-    def test_an_agents_cleanup_removes_its_worktree_and_tidy_deletes_its_simulator(self):
-        # The builder's and verifier's cleanup: `git worktree remove` from a shell still inside the
-        # worktree, then the main checkout's tidy. xcrun is a stand-in that lists one simulator, the
-        # worktree's, and records each call.
-        worktree, run, tidy = self.finished_worktree()
-        root = worktree.parents[3]
+    def recorded_simulator(self, root, name):
+        """A record of worktree <name>'s simulator, and a stand-in xcrun that lists that one simulator
+        and records each call in <root>/xcrun-calls. Returns the records folder."""
         records = root / "main/.git/plusplus-simulators"
         records.mkdir()
-        (records / "done-card").write_text("")
-        devices = {"devices": {"iOS": [{"name": "PlusPlus done-card", "udid": "UDID-1", "state": "Shutdown"}]}}
+        (records / name).write_text("")
+        devices = {"devices": {"iOS": [{"name": f"PlusPlus {name}", "udid": "UDID-1", "state": "Shutdown"}]}}
         runtimes = {"runtimes": [{"platform": "iOS", "isAvailable": True, "version": "1.0", "supportedDeviceTypes": [
             {"identifier": "com.apple.CoreSimulator.SimDeviceType.iPhone-17"}]}]}
         (root / "bin/xcrun").write_text(f"""#!/bin/bash
@@ -1433,6 +1444,33 @@ case "$*" in
 esac
 """)
         (root / "bin/xcrun").chmod(0o755)
+        return records
+
+    def test_a_locked_worktree_stays_and_the_run_goes_on_to_the_simulators(self):
+        # A live agent's isolation worktree is locked, and `git worktree remove` refuses it; on
+        # 2026-11-13 that failure ended a night's tidy before it deleted a scratch simulator.
+        worktree, run, tidy = self.finished_worktree()
+        root = worktree.parents[3]
+        run("git", "worktree", "lock", "--reason", "claude agent agent-x1", str(worktree))
+        records = self.recorded_simulator(root, "gone-card")
+        for args in (["--dry-run"], []):
+            with self.subTest(args=args):
+                out = tidy(*args)
+                self.assertIn(f"tidy: kept {worktree}: finished, but locked, so an agent holds it", out)
+                self.assertNotIn("git worktree remove", out)
+                self.assertIn('tidy: delete simulator "PlusPlus gone-card"', out)
+        self.assertTrue(worktree.exists())
+        self.assertIn("done-card", run("git", "branch", "--list", "done-card"))
+        self.assertIn("simctl delete UDID-1", (root / "xcrun-calls").read_text().splitlines())
+        self.assertEqual(list(records.iterdir()), [])
+
+    def test_an_agents_cleanup_removes_its_worktree_and_tidy_deletes_its_simulator(self):
+        # The builder's and verifier's cleanup: `git worktree remove` from a shell still inside the
+        # worktree, then the main checkout's tidy. xcrun is a stand-in that lists one simulator, the
+        # worktree's, and records each call.
+        worktree, run, tidy = self.finished_worktree()
+        root = worktree.parents[3]
+        records = self.recorded_simulator(root, "done-card")
         run("git", "worktree", "remove", str(worktree), cwd=worktree)
         self.assertFalse(worktree.exists())
         out = tidy()
@@ -1645,72 +1683,6 @@ class WritesStayInTheWorktree(unittest.TestCase):
             Path(root, "main/scripts").mkdir()
             (worktree / "out").symlink_to(Path(root, "main/scripts"))
             self.assertFalse(nightly.Fence(worktree, Path(root, "main"), Path(root, "night")).may_write(worktree / "out/x"))
-
-    def test_an_agents_own_isolation_worktree_is_writable_for_its_calls(self):
-        # The Agent tool makes an isolation worktree in the main checkout's .claude/worktrees/, as
-        # agent-<agent id>; a verifier works and commits in its own there. The hook's cwd is the
-        # session's, the card's worktree, so the agent's relative paths resolve from its own.
-        with tempfile.TemporaryDirectory() as root:
-            main = Path(os.path.realpath(root), "main")
-            worktrees = main / ".claude/worktrees"
-            for name in ("night-card", "agent-a1", "agent-b2"):
-                (worktrees / name).mkdir(parents=True)
-                (worktrees / name / ".git").write_text(f"gitdir: {main}/.git/worktrees/{name}\n")
-            (worktrees / "agent-c3/.git").mkdir(parents=True)  # not a linked worktree
-
-            def fence(agent):
-                return nightly.Fence(worktrees / "night-card", main, Path(root, "night"), worktrees / "night-card", agent)
-
-            self.assertTrue(fence("a1").may_write(worktrees / "agent-a1/Packages/Tests/A.swift"))
-            self.assertTrue(fence("a1").may_write("Packages/Tests/A.swift"))
-            self.assertEqual(fence("a1").resolve("x"), worktrees / "agent-a1/x")
-            self.assertFalse(fence("a1").guarded(str(worktrees / "agent-a1")))
-            self.assertFalse(fence("a1").may_write(worktrees / "agent-a1/.claude/settings.local.json"))
-            self.assertTrue(fence("a1").may_write(worktrees / "night-card/x"))
-            # Another agent's worktree, the card's own calls, and ids that name no worktree of one.
-            self.assertTrue(fence("a1").guarded(str(worktrees / "agent-b2/x")))
-            self.assertFalse(fence(None).may_write(worktrees / "agent-a1/x"))
-            self.assertFalse(fence("c3").may_write(worktrees / "agent-c3/x"))
-            self.assertFalse(fence("../night-card/../agent-a1").may_write(worktrees / "agent-a1/x"))
-            self.assertFalse(fence(7).may_write(worktrees / "agent-a1/x"))
-            # A call that says it runs inside the agent's worktree keeps its own directory.
-            inside = nightly.Fence(worktrees / "night-card", main, Path(root, "night"), worktrees / "agent-a1/Packages", "a1")
-            self.assertEqual(inside.resolve("x"), worktrees / "agent-a1/Packages/x")
-
-    def test_the_hook_reads_agent_id_and_either_cwd_from_its_input(self):
-        # The hook's input names the agent (agent_id) whose call it is. Its cwd for an agent's calls
-        # has been seen both as the session's, the card's worktree, and as the agent's own; either
-        # way the agent's relative paths land in its own worktree, and without agent_id they don't.
-        with tempfile.TemporaryDirectory() as root:
-            main = Path(os.path.realpath(root), "main")
-            worktrees = main / ".claude/worktrees"
-            for name in ("night-card", "agent-a1"):
-                (worktrees / name).mkdir(parents=True)
-                (worktrees / name / ".git").write_text(f"gitdir: {main}/.git/worktrees/{name}\n")
-            night = Path(root, "night")
-            night.mkdir()
-            stop = (datetime.now().astimezone() + timedelta(hours=1)).isoformat()
-            (night / "state.json").write_text(json.dumps({"stop": stop, "handoff": ".slices/h.md"}))
-
-            def check(path, cwd, agent=None):
-                call = {"tool_name": "Write", "cwd": str(cwd), "tool_input": {"file_path": path, "content": "x"}}
-                if agent:
-                    call["agent_id"] = agent
-                with contextlib.redirect_stdout(io.StringIO()):
-                    sys.stdin = io.StringIO(json.dumps(call))
-                    try:
-                        return nightly.hook_check(night, str(worktrees / "night-card"))
-                    finally:
-                        sys.stdin = sys.__stdin__
-
-            for cwd in (worktrees / "night-card", worktrees / "agent-a1"):
-                with self.subTest(cwd=cwd.name):
-                    self.assertIsNone(check("Packages/Tests/A.swift", cwd, "a1"))
-                    self.assertIsNone(check(str(worktrees / "agent-a1/Packages/Tests/A.swift"), cwd, "a1"))
-                    self.assertIsNotNone(check(str(worktrees / "agent-a1/Packages/Tests/A.swift"), cwd))
-                    self.assertIsNotNone(check(str(worktrees / "agent-a1/x"), cwd, "b2"))
-            # Tonight's case: the agent's own cwd and no agent_id fences its relative writes.
-            self.assertIsNotNone(check("Packages/Tests/A.swift", worktrees / "agent-a1"))
 
     def test_another_tools_paths_are_checked_too(self):
         self.assertIsNotNone(decide(tool="mcp__xcode__XcodeWrite", inputs=[str(nightly.ROOT / "App/A.swift"), "x"]))
