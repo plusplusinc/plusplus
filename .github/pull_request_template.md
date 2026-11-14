@@ -24,4 +24,4 @@ Verified: <!-- exactly what was run: lint, which test tier, which screenshots we
 
 Friction: <!-- what was retried, what was corrected and who found it (the maintainer, an agent
 review, the verifier, CI), what took longer than it should have, what was tried and abandoned.
-"none" is a valid answer. -->
+Never invent friction to fill the line: "none" when there was none. -->
