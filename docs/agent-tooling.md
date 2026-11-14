@@ -319,17 +319,19 @@ boot waits up to five minutes, then exits 75 naming the holders. One left booted
 A simulator named by `PLUSPLUS_SIMULATOR` never counts and is never shut down.
 
 The feature subagents in `.claude/agents/`, the planner, builder, and verifier, run one at a time on a slice's branch, because
-each phase needs the last one's files. The planner and builder work in the slice's worktree. The
-verifier works in one of its own, `.claude/worktrees/agent-<id>` in the main checkout, which
-Claude Code makes for an agent started with `isolation: "worktree"`: it checks the PR's commit
-out there detached, adds and runs its tests on that worktree's own simulator, pushes them with
-`git push origin HEAD:<branch>`, builds `main` there to compare, and leaves it clean. Claude
+each phase needs the last one's files. The planner and builder work in the slice's worktree. A
+day session's lead starts the verifier with the Agent call's `isolation: "worktree"`, since a
+verifier that shares the lead's checkout is refused writes in the builder's worktree; it then
+works in one of its own, `.claude/worktrees/agent-<id>` in the main checkout: it checks the PR's
+commit out there detached, adds and runs its tests on that worktree's own simulator, pushes them
+with `git push origin HEAD:<branch>`, builds `main` there to compare, and leaves it clean. The
+night's lead starts it with no isolation in the card's worktree, which its session shares, and
+it works there. Claude
 Code holds an isolation worktree locked while its agent runs, removes a clean one when the agent
 ends, and leaves its `worktree-agent-<id>` branch, which `scripts/tidy.sh` deletes; tidy skips a
 locked worktree, and removes one left detached at a commit not in `main` once a merged PR
-contains that commit. The night's hook denies writes in an isolation worktree, which sits in the
-main checkout, so a night's verifier cannot build or add tests in its own (see
-`.claude/skills/nightly-card/SKILL.md`). Claude Code refuses a Write or Edit in a worktree other
+contains that commit. The night's lead starts no isolated agent: the night's hook denies writes
+in an isolation worktree, which sits in the main checkout. Claude Code refuses a Write or Edit in a worktree other
 than the one an agent's session sits in, a git command an isolated agent aims at another
 checkout with `git -C`, and its `git worktree add` at a path in the main checkout; a checkout in someone
 else's worktree moves their branch, so no agent writes in another's, a capture's temporary
