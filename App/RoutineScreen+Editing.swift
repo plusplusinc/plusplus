@@ -73,7 +73,6 @@ extension RoutineScreen {
         let row = RoutineExercise(exercise: exercise, weightUnit: WeightUnit(region: locale))
         arriving = row.id
         entering = row.id
-        isOpeningPlace = true
         endFollow = .waiting
         // The row goes in with no space yet, so nothing moves; its fade, of a row that draws
         // nothing yet, times the entry a moment into the sheet's slide: the line barely moves
@@ -105,17 +104,13 @@ extension RoutineScreen {
     /// its end, the last row under the + (at AX5, 394 against an end at 435). The change a short
     /// scroll makes is followed in turn, to the end the scroll view has by then.
     func keepEndInView(from old: ScrollGeometry, to new: ScrollGeometry) {
-        guard isOpeningPlace, !isMakingRoom, !isScrollingByHand,
+        guard let follow = endFollow, !isMakingRoom, !isScrollingByHand,
               new.endY > new.scrolledY else { return }
-        let grew = new.contentSize.height > old.contentSize.height
-        switch endFollow {
-        case .waiting:
-            guard grew else { return }
-        case .ready:
-            guard grew else { return }
-            endFollow = .following
-        case .following:
-            break
+        if follow != .following {
+            guard new.contentSize.height > old.contentSize.height else { return }
+            if follow == .ready {
+                endFollow = .following
+            }
         }
         withTransaction(\.disablesAnimations, true) {
             scrollPosition.scrollTo(y: new.endY)
@@ -147,7 +142,9 @@ extension RoutineScreen {
         transaction.isRailEntry = true
         // A later add, its row arriving, keeps the scroll in step for its own place.
         transaction.addAnimationCompletion {
-            isOpeningPlace = arriving != nil
+            if arriving == nil {
+                endFollow = nil
+            }
             if entering == row.id {
                 entering = nil
             }

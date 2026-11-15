@@ -88,6 +88,13 @@ public struct ValueRuler: View {
             // Its tick labels are decoration; the row steps the same value for VoiceOver.
             // `accessibilityHidden` left them in the tree that automation reads.
             .accessibilityRepresentation { }
+            // The scroll view goes with its row, mid-flick too, with no idle phase to end the
+            // scroll; the next one starts from the value, not from where this one was.
+            .onChange(of: isShown) { _, isShown in
+                guard !isShown else { return }
+                isScrolling = false
+                position = ScrollPosition()
+            }
     }
 
     /// Whether the ruler shows: its row is open.
