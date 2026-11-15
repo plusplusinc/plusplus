@@ -302,11 +302,42 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
             .foregroundStyle(.pp(.textPrimary))
     }
 
-    /// A ruler's value, its number apart from the words after it, so a decimal or a minute the
-    /// open row adds ("25.0 lb", "0:45 min") widens the number's own frame as the row opens and slides under its edge as it
-    /// closes. In one text, the going ".0" faded over the unit while the number slid into it.
-    private var rulerValue: some View {
-        let digits = value.prefix { $0.isNumber || $0 == "." || $0 == "," || $0 == ":" }
+    /// A ruler's value: a time in its pieces, a weight's number apart from its unit.
+    @ViewBuilder private var rulerValue: some View {
+        if let pieces = TimePiece.pieces(of: value) {
+            timeValue(pieces)
+        } else {
+            weightValue
+        }
+    }
+
+    /// A time's pieces apart, each a number and its unit, kept by its unit: as the row opens,
+    /// "55s" stays where it is while "0m" fades in beside it, and "1m" slides over for "0s".
+    /// Every piece rolls the way the whole value went. A piece arriving fades in only once the
+    /// piece beside it has slid most of the way off its place, and one leaving goes at once, as
+    /// the other starts over it: faded with the slide, even in 0.08 s, the two overlapped.
+    /// "None" has no neighbor to wait on, so it fades with the row and never leaves a blank.
+    private func timeValue(_ pieces: [TimePiece]) -> some View {
+        HStack(spacing: 0) {
+            ForEach(pieces) { piece in
+                valueText(piece.text, number: number)
+                    .transition(piece.isWord ? .opacity : Self.timePieceTransition)
+            }
+        }
+    }
+
+    private static var timePieceTransition: AnyTransition {
+        .asymmetric(
+            insertion: .opacity.animation(.snappy(duration: 0.2).delay(0.14)),
+            removal: .opacity.animation(nil),
+        )
+    }
+
+    /// A weight's number apart from its unit, so the ".0" the open row adds widens the number's
+    /// own frame as the row opens and slides under its edge as it closes. In one text, the going
+    /// ".0" faded over the unit while the number slid into it.
+    private var weightValue: some View {
+        let digits = value.prefix { $0.isNumber || $0 == "." || $0 == "," }
         return HStack(spacing: 0) {
             valueText(String(digits), number: number)
                 // Only the trailing side clips: the digits roll above and below the line, and

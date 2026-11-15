@@ -102,7 +102,7 @@ extension Weight {
     }
 }
 
-/// A time as the system writes it, in minutes and seconds at the narrow width, and as a clock.
+/// A time as the system writes it, in minutes and seconds.
 enum TimeText {
     static let minutesFrom = 120
 
@@ -123,9 +123,16 @@ enum TimeText {
             .replacing(" ", with: noBreakSpace)
     }
 
-    /// Minutes and two-digit seconds, "0:45", "1:35", "60:00".
-    static func clock(seconds: Int, locale: Locale) -> String {
-        Duration.seconds(seconds).formatted(.time(pattern: .minuteSecond).locale(locale))
+    /// The narrow width with both units always, a zero one too: "0m 45s", "1m 0s", "1m 5s",
+    /// "0m 0s"; "1min 0s" in de_DE. Joined by no-break spaces.
+    static func bothUnits(seconds: Int, locale: Locale) -> String {
+        Duration.seconds(seconds)
+            .formatted(.units(
+                allowed: [.minutes, .seconds],
+                width: .narrow,
+                zeroValueUnits: .show(length: 1),
+            ).locale(locale))
+            .replacing(" ", with: noBreakSpace)
     }
 
     /// "90 seconds", "2 minutes", "2 minutes 30 seconds".

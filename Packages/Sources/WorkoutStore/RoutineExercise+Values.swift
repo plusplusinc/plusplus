@@ -144,8 +144,10 @@ extension RoutineExercise {
     /// Sets a timed set's time, held to `timeRange`; a set of reps keeps its reps.
     public mutating func setTime(_ seconds: Int) {
         guard case .time = plan.target else { return }
-        plan.target = .time(seconds: min(max(seconds, Self.timeRange.lowerBound),
-                                         Self.timeRange.upperBound))
+        plan.target = .time(seconds: min(
+            max(seconds, Self.timeRange.lowerBound),
+            Self.timeRange.upperBound,
+        ))
     }
 
     /// Sets the rest by hand, as a step does, which turns Auto off; held to `restRange`.
@@ -157,11 +159,15 @@ extension RoutineExercise {
         min(max(seconds, restRange.lowerBound), restRange.upperBound)
     }
 
-    /// A time as an open row reads it while a ruler sets it, a clock with no unit, "0:45",
-    /// "2:00", so its digits keep their count and shape as it turns; the ruler's labels read the
-    /// same.
+    /// A time as an open row reads it while a ruler sets it, both units always, "0m 45s",
+    /// "1m 0s", "0m 0s", so its parts keep their place as it turns, as a weight keeps its ".0".
     public static func dialedTime(_ seconds: Int, locale: Locale = .current) -> String {
-        TimeText.clock(seconds: seconds, locale: locale)
+        TimeText.bothUnits(seconds: seconds, locale: locale)
+    }
+
+    /// A time as a ruler's label reads it, as a value does: "30s", "1m", "1m 30s".
+    public static func rulerTime(_ seconds: Int, locale: Locale = .current) -> String {
+        TimeText.text(seconds: seconds, locale: locale)
     }
 
     /// A time as a sentence reads it, "1 min 35 sec", where a value reads "1m 35s".

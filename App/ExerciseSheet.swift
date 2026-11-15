@@ -214,7 +214,7 @@ struct ExerciseSheet: View {
             medium: 15,
             major: 30,
             spacing: Self.timeSpacing,
-            label: { RoutineExercise.dialedTime(Int($0), locale: locale) },
+            label: { RoutineExercise.rulerTime(Int($0), locale: locale) },
         ) { set(Int($0.rounded())) }
     }
 
@@ -232,7 +232,7 @@ struct ExerciseSheet: View {
     }
 
     /// While a ruler shows, its value keeps one shape, a weight one decimal and a time or rest
-    /// a clock ("0:45"), so its digits don't come and go as it turns. The shape
+    /// both its units ("0m 45s"), so its parts don't come and go as it turns. The shape
     /// changes in the open's own transaction, so the value's numeric transition slides it in and
     /// out with the row.
     private func value(of part: SheetPart) -> String {
