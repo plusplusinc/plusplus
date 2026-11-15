@@ -76,13 +76,20 @@ run() {
 }
 
 # Shuts down and deletes a worktree's own simulator, when it has one, saying why when given a
-# reason. Fails only when it could not delete one.
+# reason. Fails when it could not delete one. With --if-shut-down, for a worktree still there, it
+# deletes one only while it is shut down and otherwise fails, deleting nothing: a script that
+# boots the simulator is mid-run on it.
 #
-#   delete_simulator <worktree path or name> [reason]
+#   delete_simulator [--if-shut-down] <worktree path or name> [reason]
 delete_simulator() {
-    local name udid state
+    local only_shut_down=0 name udid state
+    [ "$1" = --if-shut-down ] && only_shut_down=1 && shift
     name=$(worktree_simulator "$1")
     read -r udid state < <(simulator_udid "$name") || return 0
+    if [ "$only_shut_down" -eq 1 ] && [ "$state" != Shutdown ]; then
+        echo "tidy: kept simulator \"$name\": ${state:-in an unknown state}, so a script is using it"
+        return 1
+    fi
     echo "tidy: delete simulator \"$name\"${2:+, $2}"
     [ "$DRY_RUN" -eq 1 ] && return 0
     # A failure here says so and lets the rest of the run go on.
@@ -232,15 +239,16 @@ fi
 # and ensure_simulator creates both again on the worktree's next run. This comes before the idle
 # shutdown below, which only shuts one down, so one booted at the start of the run waits for the
 # next. In a dry run a worktree listed above as removed still shows here; it is skipped. A script
-# may have used the simulator since the list was read, so each is checked again just before.
+# may have used the simulator since the list was read, so its record's age is checked again, and
+# one that is not shut down when it would be deleted is kept, never shut down: a script that
+# touched the record and booted it after that check is mid-run on it, and a later tidy takes it.
 if stale=$(stale_worktree_simulators); then
     records=$(simulator_records)
     while IFS=$'\t' read -r name idle; do
         [ -n "$name" ] || continue
         printf '%s\n' "${removed[@]+"${removed[@]##*/}"}" | grep -qxF "$name" && continue
         [ -n "$(find "$records/$name" ! -newermt "-$DELETE_IDLE_SECONDS seconds" 2> /dev/null)" ] || continue
-        [ "$(simulator_udid "$(worktree_simulator "$name")" | cut -d' ' -f2)" = Shutdown ] || continue
-        if delete_simulator "$name" "unused for $((idle / 3600))h" && [ "$DRY_RUN" -eq 0 ]; then
+        if delete_simulator --if-shut-down "$name" "unused for $((idle / 3600))h" && [ "$DRY_RUN" -eq 0 ]; then
             rm -f "$records/$name"
         fi
     done <<< "$stale"

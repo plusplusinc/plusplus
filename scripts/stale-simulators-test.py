@@ -104,6 +104,7 @@ class Stale(unittest.TestCase):
 # xcrun.log in place of acting, so a test reads there which simulators tidy deleted or shut down.
 FAKE_XCRUN = """#!/usr/bin/env python3
 import json, os, sys
+from pathlib import Path
 here, args = os.path.dirname(os.path.abspath(__file__)), sys.argv[1:]
 with open(os.path.join(here, "xcrun.log"), "a") as log:
     print(*args, file=log)
@@ -115,6 +116,19 @@ elif args[:2] == ["simctl", "list"]:
     if args[2] == "devices" and os.path.exists(os.path.join(here, "fail-list")):
         sys.exit("fake xcrun: the device list fails")
     devices = json.load(open(os.path.join(here, "devices.json")))
+    # "<n> <udid> <record>": just before the nth device list, a script touches that record and
+    # boots that simulator.
+    boot, count = os.path.join(here, "boot-on-list"), os.path.join(here, "device-lists")
+    if args[2] == "devices" and os.path.exists(boot):
+        n, udid, record = Path(boot).read_text().split(maxsplit=2)
+        lists = int(Path(count).read_text()) + 1 if os.path.exists(count) else 1
+        Path(count).write_text(str(lists))
+        if lists == int(n):
+            Path(record).touch()
+            for device in devices:
+                if device["udid"] == udid:
+                    device["state"] = "Booted"
+            Path(here, "devices.json").write_text(json.dumps(devices))
     print(json.dumps({"devices": {"iOS-27-2": devices}, "runtimes": runtimes}))
 elif args[:3] == ["simctl", "runtime", "list"]:
     print("{}")
@@ -225,6 +239,17 @@ class Tidy(unittest.TestCase):
         self.assertIn('tidy: delete simulator "PlusPlus recent", unused for 2h', out)
         self.assertEqual(acts, ["simctl delete UDID-recent", SWEEP])
         self.assertEqual(os.listdir(self.records), [])
+
+    def test_a_stale_simulator_booted_by_the_time_it_would_be_deleted_is_kept_and_left_booted(self):
+        udid = self.simulator("topic", 2 * DAY)
+        # The first device list finds it stale; a script touches its record and boots it before
+        # the second, the one that would delete it.
+        Path(self.fake, "boot-on-list").write_text(f"2 {udid} {os.path.join(self.records, 'topic')}")
+        out, acts = self.tidy()
+        self.assertIn('tidy: kept simulator "PlusPlus topic": Booted, so a script is using it', out)
+        self.assertNotIn('delete simulator "PlusPlus topic"', out)
+        self.assertEqual(acts, [SWEEP])
+        self.assertEqual(os.listdir(self.records), ["topic"])
 
     def test_a_device_list_that_fails_deletes_nothing_and_tidy_goes_on(self):
         self.simulator("topic", 2 * DAY)
