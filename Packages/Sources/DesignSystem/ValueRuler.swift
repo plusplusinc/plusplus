@@ -21,9 +21,9 @@ public struct ValueRuler: View {
     private let onChange: (Double) -> Void
 
     @State private var position = ScrollPosition()
-    /// Where the ruler's scrolling is: dragged or flicked, it writes the value; sliding to a
-    /// value from outside, it follows; idle, it holds the value's place (`hold(_:)`).
-    @State private var phase = ScrollPhase.idle
+    /// While a finger drags the ruler or its flick runs on, when the ruler writes the value
+    /// rather than follows it.
+    @State private var isScrolling = false
     /// `spacing`, scaled with the labels' text style.
     @ScaledMetric private var spacing: CGFloat
 
@@ -76,6 +76,12 @@ public struct ValueRuler: View {
                     }
                 }
                 .scrollTargetLayout()
+                // Laid out again at a new spacing, as the text size changes live, a lazy stack
+                // puts back the scroll offset it had, which overrides the scroll anchor below:
+                // the line sat 30 under a 60 s time at AX5, and the further off the larger the
+                // size. A stack of its own for each spacing has no offset to put back, so the
+                // anchor places the value.
+                .id(spacing)
                 leadRoom
             }
         }
@@ -86,10 +92,11 @@ public struct ValueRuler: View {
         .defaultScrollAnchor(scale.anchor(of: value))
         .scrollTargetBehavior(TickSnap(scale: scale))
         .onScrollPhaseChange { _, phase in
-            self.phase = phase
-        }
-        .onScrollGeometryChange(for: RulerGeometry.self, of: RulerGeometry.init) { _, geometry in
-            hold(geometry)
+            switch phase {
+            case .tracking, .interacting, .decelerating: isScrolling = true
+            case .idle, .animating: isScrolling = false
+            @unknown default: isScrolling = false
+            }
         }
         .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.x } action: { _, x in
             guard isScrolling else { return }
@@ -128,30 +135,6 @@ public struct ValueRuler: View {
     }
 
     static let edgeFade: CGFloat = Spacing.lg
-
-    /// While a finger drags the ruler or its flick runs on, when the ruler writes the value
-    /// rather than follows it.
-    private var isScrolling: Bool {
-        switch phase {
-        case .tracking, .interacting, .decelerating: true
-        case .idle, .animating: false
-        @unknown default: false
-        }
-    }
-
-    /// At rest, puts the value back under the line wherever the scroll view has left it as the
-    /// ruler laid out. In the exercise sheet at AX5 the ruler was first laid out narrower, then
-    /// at its width, on the value; a moment later, with nothing changing size, the scroll view
-    /// moved it on by about half its width, and the line sat 4 lb past a weight (measured from
-    /// the ruler's own geometry). A drag rests on a tick it wrote, and a slide runs `animating`,
-    /// so neither is moved.
-    private func hold(_ geometry: RulerGeometry) {
-        guard phase == .idle, geometry.isLaidOut(for: scale) else { return }
-        let offset = scale.offset(of: value)
-        if abs(geometry.offset - offset) > 0.5 {
-            position.scrollTo(x: offset)
-        }
-    }
 
     /// Room before the first tick and after the last, half the ruler's width less half a tick,
     /// so either end can come under the line. Sized from the scroll view's own width in the
@@ -237,26 +220,6 @@ struct RulerScale: Equatable {
     /// The offset of the tick nearest `x`, so a scroll comes to rest with a tick under the line.
     func snapped(_ x: CGFloat) -> CGFloat {
         (x / spacing).rounded() * spacing
-    }
-}
-
-/// What the ruler holds its place by: its offset, and whether the room either side of the
-/// ticks has arrived.
-private struct RulerGeometry: Equatable {
-    let offset: CGFloat
-    let contentWidth: CGFloat
-    let containerWidth: CGFloat
-
-    init(_ geometry: ScrollGeometry) {
-        offset = geometry.contentOffset.x
-        contentWidth = geometry.contentSize.width
-        containerWidth = geometry.containerSize.width
-    }
-
-    /// The content is the ticks' span and the ruler's own width: its room is laid out.
-    func isLaidOut(for scale: RulerScale) -> Bool {
-        let span = CGFloat(scale.count - 1) * scale.spacing
-        return containerWidth > 0 && abs(contentWidth - containerWidth - span) < 1
     }
 }
 
