@@ -152,6 +152,8 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
         }
         XCTContext.runActivity(named: "A name still being typed survives a quit") { _ in
             title.typeText("l")
+            // Typing can return before the app has handled the key.
+            XCTAssertEqual(title.value(becoming: "Push pull"), "Push pull")
             app.relaunch()
             XCTAssertEqual(title.value(becoming: "Push pull"), "Push pull")
             attach(named: "typed-name-after-relaunch")
@@ -179,10 +181,7 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
             }
             XCTAssertTrue(app.buttons["Start"].disappears())
             let keyboard = app.keyboards.element
-            try title.tapToEditAtEnd(keyboard: keyboard)
-            // Deleting from the end, not ⌘A, which has hidden the keyboard on Xcode Cloud.
-            let delete = XCUIKeyboardKey.delete.rawValue
-            title.typeText(String(repeating: delete, count: "Push pull".count) + "\n")
+            try title.typeOver("Push pull", with: "\n", keyboard: keyboard)
             XCTAssertTrue(keyboard.disappears())
             XCTAssertEqual(title.value(becoming: "New routine"), "New routine")
             XCTAssertFalse(title.inkIsWhite(against: gray), "New routine is not gray")
