@@ -55,12 +55,16 @@ feature, and change them with it.
 
 - Start, End, and the current exercise: `RoutineScreen+Workout.swift`, `CurrentExercise.swift`,
   `RowLabel.swift` (`RowFocus`), `GrowingName`, `RailStack`, `RailEntry` (a row joining a rail).
+  Their beats are `WorkoutPhase`'s `starting` and `ending` cases, on the same `SequenceTask` as a
+  log's; Start's scroll to the top waits on `ScrollBeat.settled(after:orWhen:)`.
 - The key at the bottom and the +1: `RoutineScreen+Key.swift`, `PrimaryKeyButtonStyle.swift`,
-  `PlusOneBurst`.
-- Logging a set and moving on to the next exercise: `RoutineScreen+Logging.swift` (`play(_:)`,
+  `PlusOneBurst`. The bar swaps the key on its own as its kind changes: the swap's stage is
+  `KeyStage`, held by `StagedKey` in `KeySwap.swift`.
+- Logging a set and moving on to the next exercise: `RoutineScreen+Logging.swift` (`play(_:leadingTo:)`,
   the one entry that shows a stored log), `SetMotion`, `RailPulse`, `SetBeat` in `RailRow.swift`.
-  Where a workout is and what a log leads to are `LiveWorkout`'s, and which logs are yet to
-  show `WorkoutPlayback`'s, both in `WorkoutStore`.
+  Where a workout is and what a log leads to are `LiveWorkout`'s, and where the screen is in
+  showing a log `WorkoutPhase`'s, both in `WorkoutStore`; its timed beats run on the screen's
+  one `SequenceTask` (`RoutineScreen+Sequence.swift`).
 - Dragging a row, and supersets: `RailDrag`, `RailLiftGesture`, `RailAutoscroll`, `LoopPen`
   (`LoopHeads.swift`), `RailPairing`, `RailWell.swift`, `RailRegroup`, `RailStrokes.swift`.
 - The ++ drawer and the Routines screen: `SideDrawer`, `DrawerSwipe`, `DrawerMenu`,
@@ -86,11 +90,23 @@ Each of these cost a round on this app; the code at the named spot works around 
 - Stack views whose heights animate in a custom `Layout` (`RailStack`), not a `VStack`, which
   places the views below from stale heights and then jumps.
 - Time the next beat from the animation's start with `Task.sleep(for:tolerance: .zero)`, not from
-  `withAnimation`'s completion, which fires a few frames after the motion stops.
+  `withAnimation`'s completion, which fires a few frames after the motion stops. A logged set's
+  beats sleep to deadlines from the sequence's start (`beat(until:)`).
+- Enter a logged set's `WorkoutPhase` in the tap's own transaction, never with animations
+  disabled: disabled, the last set's room went at once and the list jumped to its top
+  (`play(_:leadingTo:)`).
+- A value that has to change inside a motion's animated transaction is state of its own, not
+  derived: derived from the phase, the close's room went to the landing and back to 0 in one
+  turn, never changed inside the close's animation, and the list jumped (`closingRoomTop`). So is
+  one that a disabled transaction ahead of the motion changes the phase under: derived,
+  `isMakingRoom` flipped in End's disabled set-back, not in its shrink, and an End that took over
+  a sequence lost its room for a frame.
 - Never clear state that must hold for a motion from `withAnimation`'s completion: in about 2 of
   50 of Start's grows, with no scroll in the transaction, SwiftUI ran it 12 to 28 ms in, before
   the first frame, while the rows went on growing. Change a count on the motion's own animation
   and read the animated value against its target (`listResizes(_:)`).
+- When comparing recordings frame by frame, set aside the first run after installing a build: its
+  actions landed up to 0.42 s late against their schedule, and later runs did not.
 - A `keyframeAnimator` whose initial value follows its trigger runs from the new value to the
   new value, and the view snaps. Animate a state that flips with its trigger with
   `.animation(_:body:)` on the view that draws it. A keyframe timeline ending on a
@@ -98,6 +114,10 @@ Each of these cost a round on this app; the code at the named spot works around 
 - Words that stay the same across states stay in one `Text` whose string changes; a view-builder
   branch per state crossfades even identical words. A view that replaces another gets its own
   `.id`, or a view put back mid-transition revives the one going.
+- A view that goes away and comes back within one update is drawn back before any `onChange`
+  reaction runs, and with the `@State` it had: a reaction that then changes what it draws lands
+  outside the animation that brought it back, and it pops. Draw the update from state that is
+  already right, as `KeyStage.dropped` is while the screen has ridden the key out of sight.
 - In a view that crossfades by identity, read state into locals before the content closure;
   read through `self`, the outgoing copy redraws with the new state.
 - Pass an optional view as a value (`x.map { … }`), never through an `if let` in a

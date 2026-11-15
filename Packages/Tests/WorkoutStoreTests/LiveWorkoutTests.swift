@@ -204,36 +204,38 @@ struct LiveWorkoutTests {
         let push = try RoutineExercise.builtIn("Push-up") { $0.sets = 3 }
         let pull = try RoutineExercise.builtIn("Pull-up")
         var stored = live(Routine(exercises: [push, pull]))
-        var playback = WorkoutPlayback()
+        var phase = WorkoutPhase(hasWorkout: true)
         // Wherever the key takes a log, the set it logs is the one drawn as current.
         func expectDrawnWhereTaken() {
-            if playback.takesLog {
-                #expect(stored.hiding(playback.unshown).currentSet == stored.currentSet)
+            if phase.takesLog {
+                #expect(stored.hiding(phase.hidden).currentSet == stored.currentSet)
             }
         }
         // A tap the key takes: stored at once, its step started, as the screen does.
         func tap() throws {
-            #expect(playback.takesLog)
+            #expect(phase.takesLog)
             let set = try #require(stored.currentSet)
             let step = stored.step(logging: set)
             stored = try logging([set], on: stored)
-            let startsNow = playback.log(set)
-            #expect(startsNow)
-            playback.start(step, for: set)
+            let took = phase.log(set, leadingTo: step, moves: true)
+            #expect(took)
         }
         func finishStep() {
-            playback.show()
-            let waiting = playback.end()
-            #expect(waiting == nil)
+            phase.show()
+            phase.land()
+            phase.shift()
+            phase.roll()
+            phase.settle()
+            #expect(phase == .running)
             expectDrawnWhereTaken()
         }
         expectDrawnWhereTaken()
         try tap()
-        #expect(!playback.takesLog, "Set 1 is held: a second tap in its beat is dropped")
+        #expect(!phase.takesLog, "Set 1 is held: a second tap in its beat is dropped")
         finishStep()
         try tap()
-        #expect(!playback.takesLog, "Set 2 is held")
-        let drawn = stored.hiding(playback.unshown)
+        #expect(!phase.takesLog, "Set 2 is held")
+        let drawn = stored.hiding(phase.hidden)
         #expect(drawn.currentSet == PlannedSet(row: push.id, round: 2))
         let taken = try logging([PlannedSet(row: push.id, round: 3)], on: stored)
         #expect(
@@ -242,7 +244,7 @@ struct LiveWorkoutTests {
         )
         finishStep()
         try tap()
-        #expect(!playback.takesLog, "The move to pull-ups is playing")
+        #expect(!phase.takesLog, "The move to pull-ups is playing")
         finishStep()
         #expect(stored.currentExercise?.id == pull.id)
     }

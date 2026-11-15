@@ -39,31 +39,39 @@ struct GrowingNameAccessibilityTests {
 enum AccessibilityTree {
     /// The nodes with no children under `root`.
     static func leaves(of root: some View) throws -> [NSObject] {
-        try setAccessibilityEnabled(true)
-        defer { try? setAccessibilityEnabled(false) }
-        let host = UIHostingController(rootView: root)
-        let window = UIWindow.sceneless(hosting: host, at: .large)
-        defer { window.isHidden = true }
-        window.settle()
-        return leaves(under: host.view)
+        try whileOn { reading(root) { leaves(under: $0) } }
     }
 
     /// Every node under `root`, each before its children.
     static func nodes(of root: some View) throws -> [NSObject] {
+        try whileOn { reading(root) { nodes(under: $0) } }
+    }
+
+    /// Runs `body` with the tree on, as for a test that hosts its own view and changes it after
+    /// its first layout, reading it with `leaves(under:)` between changes.
+    static func whileOn<T>(_ body: () throws -> T) throws -> T {
         try setAccessibilityEnabled(true)
         defer { try? setAccessibilityEnabled(false) }
+        return try body()
+    }
+
+    /// What `read` finds under `root`, hosted in a window and laid out.
+    private static func reading(
+        _ root: some View,
+        _ read: (UIView) -> [NSObject],
+    ) -> [NSObject] {
         let host = UIHostingController(rootView: root)
         let window = UIWindow.sceneless(hosting: host, at: .large)
         defer { window.isHidden = true }
         window.settle()
-        return nodes(under: host.view)
+        return read(host.view)
     }
 
     private static func nodes(under node: NSObject) -> [NSObject] {
         [node] + automationElements(of: node).flatMap { nodes(under: $0) }
     }
 
-    private static func leaves(under node: NSObject) -> [NSObject] {
+    static func leaves(under node: NSObject) -> [NSObject] {
         let children = automationElements(of: node)
         return children.isEmpty ? [node] : children.flatMap { leaves(under: $0) }
     }

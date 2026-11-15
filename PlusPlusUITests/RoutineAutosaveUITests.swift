@@ -34,7 +34,7 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
             XCTAssertEqual(title.value as? String, "Chest and back")
             // Moved, joined, and with the rounds the sheet gave both; the second pull-up keeps
             // the reps its sheet gave it, and the first its own.
-            XCTAssertEqual(app.exerciseRows.allElementsBoundByIndex.map(\.label), Self.joined)
+            XCTAssertEqual(app.exerciseRowLabels, Self.joined)
             XCTAssertEqual(app.supersets, "AA.")
             XCTAssertTrue(title.inkIsWhite(against: gray), "The generated name came back gray")
             attach(named: "after-relaunch")
@@ -82,7 +82,7 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
             app.buttons["Close"].tap()
             XCTAssertTrue(reps.disappears(), "Close left the sheet up")
             XCTAssertEqual(
-                app.exerciseRows.allElementsBoundByIndex.map(\.label),
+                app.exerciseRowLabels,
                 [
                     "Barbell bench press, 3 sets of 5 reps, 45 pounds",
                     "Pull-up, 3 sets of 6 reps",
@@ -129,8 +129,10 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
             attach(named: "sheet-shared-rounds")
             app.buttons["Close"].tap()
             XCTAssertTrue(rounds.disappears(), "Close left the sheet up")
-            let labels = { app.exerciseRows.allElementsBoundByIndex.map(\.label) }
-            XCTAssertEqual(reading(labels(), becoming: Self.joined, within: 2), Self.joined)
+            XCTAssertEqual(
+                reading(app.exerciseRowLabels, becoming: Self.joined, within: 2),
+                Self.joined,
+            )
         }
     }
 

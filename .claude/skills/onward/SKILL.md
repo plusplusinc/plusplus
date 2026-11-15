@@ -62,6 +62,10 @@ project board.
   the card id; it reads the criteria with `scripts/board.sh show`. Every file path you give a
   subagent is under `.slices/`. Size the team to the card: a small task with no UI can go
   straight to a builder with the card's Plan as its plan.
+- Start each verifier with the Agent tool's `isolation: "worktree"`, and say so in its prompt,
+  naming the builder's worktree and the branch: a verifier that shares your checkout is refused
+  writes in the builder's worktree, so it works in a worktree of its own, never the builder's or
+  yours.
 - A slice with something to see on the phone runs as a loop with the maintainer (see the
   builder's "Rounds"). A round's prompt asks for the change and the install, never tests, lint,
   or docs (the maintainer wants a tuning round on the phone at once). The look before installing still
@@ -236,8 +240,11 @@ project board.
    hand (the full pass changed what they see, or there was no round), install it with
    `scripts/device.sh` (a link when the phone is out of reach) and tell them what to try, as for
    a round.
-2. After the maintainer's go-ahead (for a card that is yours alone, once the verifier and CI
-   pass): merge once checks pass (a wait for that also ends when
+2. Merge after the maintainer's go-ahead. Their saying a round looks right is that go-ahead:
+   once the full pass, the verifier, and CI pass, merge and tell them in a line, without asking
+   again. Ask again only when the full pass changed something they would see, or there was no
+   round, with that build on their phone first (step 1). A card that is yours alone needs only
+   the verifier and CI. Merge once checks pass (a wait for that also ends when
    `gh pr view --json mergeable` reads `CONFLICTING`, since auto-merge waits on a conflict
    without a word; after any merge to `main`, check every PR that waits), move the card to Done, run
    `scripts/tidy.sh` (it removes the merged worktree and branch, unless a process still works in

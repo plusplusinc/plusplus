@@ -918,11 +918,12 @@ class Loop(unittest.TestCase):
 
     BODY = "## Problem\nx\n\nNightly: faster CI; its time\n\n## Success\nRun it.\n"
 
-    def night(self, results, weekly_resets, take=None, event=None, finish=False, gh=lambda *a: []):
+    def night(self, results, weekly_resets, take=None, event=None, finish=False, gh=lambda *a: [],
+              outdated=subprocess.CompletedProcess([], 0, "", "")):
         cards = [(f"PVTI_{i}", "Todo", "-", f"card {i}", self.BODY) for i in range(4)]
         stubs = {"board_rows": lambda: [], "board_cards": lambda rows: cards, "xcode_cloud_runs": lambda: [],
                  "gh_json": gh, "classify": lambda files: "app: x", "sh": lambda *a, **k: "",
-                 "test_counts": lambda rev: {}}
+                 "test_counts": lambda rev: {}, "outdated_tools": lambda: outdated}
         saved = {name: getattr(nightly, name) for name in stubs}
         self.addCleanup(lambda: [setattr(nightly, n, f) for n, f in saved.items()])
         for name, stub in stubs.items():
@@ -955,6 +956,16 @@ class Loop(unittest.TestCase):
                          ["card 0", "card 1", "card 2"])
 
     def test_a_crash_mid_card_leaves_a_state_and_a_digest(self):
+        # GitHub, as a gh on the PATH, has a newer release of every lint tool than its pin, as on
+        # the night swiftformat 0.64.7 came out. A night that asked it would add an update card
+        # and fail on the stubbed board's reply before the crash; night() says what `outdated`
+        # prints instead.
+        bin_dir = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, bin_dir, True)
+        (bin_dir / "gh").write_text("#!/bin/sh\necho v99.0.0\n")
+        (bin_dir / "gh").chmod(0o755)
+        self.addCleanup(os.environ.__setitem__, "PATH", os.environ["PATH"])
+        os.environ["PATH"] = f"{bin_dir}:{os.environ['PATH']}"
         board_calls = []
         saved = nightly.board, nightly.tidy
         self.addCleanup(lambda: (setattr(nightly, "board", saved[0]), setattr(nightly, "tidy", saved[1])))
@@ -992,10 +1003,7 @@ class Loop(unittest.TestCase):
         # swiftformat's release couldn't be read; swiftlint's line still makes its card.
         outdated = subprocess.CompletedProcess([], 1, "swiftlint 0.65.0 0.65.1\n",
                                                "could not read swiftformat's latest release\n")
-        saved_run = nightly.subprocess.run
-        self.addCleanup(setattr, nightly.subprocess, "run", saved_run)
-        nightly.subprocess.run = lambda *a, **k: outdated
-        night = self.night(["merged"] * 4, weekly_resets=100, finish=True)
+        night = self.night(["merged"] * 4, weekly_resets=100, finish=True, outdated=outdated)
         self.assertEqual(calls[:2], [("add", "Update swiftlint to 0.65.1"), ("move", "PVTI_new", "top")])
         digest = (night.dir / "digest.md").read_text()
         self.assertIn("Added: Update swiftlint to 0.65.1, at the top of Todo", digest)
@@ -1238,8 +1246,8 @@ def scratch_clone(test):
     run("git", "commit", "-q", "--allow-empty", "-m", "base")
     run("git", "push", "-q", "origin", "main")
     env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}"}
-    def tidy():
-        out = subprocess.run([str(root / "main/scripts/tidy.sh")], cwd=root / "main", env=env,
+    def tidy(*args):
+        out = subprocess.run([str(root / "main/scripts/tidy.sh"), *args], cwd=root / "main", env=env,
                              capture_output=True, text=True)
         test.assertEqual(out.returncode, 0, out.stderr)
         return out.stdout
@@ -1319,16 +1327,111 @@ class TidyWorktrees(unittest.TestCase):
         self.assertIn(f"tidy: git worktree remove {worktree}", out)
         self.assertEqual(run("git", "branch", "--list", "done-card"), "")
 
-    def test_an_agents_cleanup_removes_its_worktree_and_tidy_deletes_its_simulator(self):
-        # The builder's and verifier's cleanup: `git worktree remove` from a shell still inside the
-        # worktree, then the main checkout's tidy. xcrun is a stand-in that lists one simulator, the
-        # worktree's, and records each call.
-        worktree, run, tidy = self.finished_worktree()
-        root = worktree.parents[3]
+    def test_a_session_worktree_left_detached_keeps_the_branch_it_left(self):
+        # A session's fresh branch starts at main, so its tip is in main. On 2026-11-13 an agent
+        # checked a PR's commit out in its lead's worktree, detached, and another agent's tidy then
+        # deleted the lead's branch, which no worktree had checked out any more.
+        root, run, tidy = scratch_clone(self)
+        worktree = root / "main/.claude/worktrees/lead-session"
+        run("git", "worktree", "add", "-q", "-b", "lead-session", str(worktree))
+        run("git", "checkout", "-q", "--detach", "HEAD", cwd=worktree)
+        # A branch merely left behind, checked out nowhere and never left by a live worktree, goes.
+        run("git", "branch", "old-done")
+        out = tidy()
+        self.assertTrue(worktree.exists())
+        self.assertEqual(run("git", "branch", "--list", "lead-session"), "lead-session")
+        self.assertNotIn("lead-session", out)
+        self.assertIn("tidy: git branch -D old-done", out)
+
+    def agent_worktree(self, root, run, agent):
+        """An isolation worktree as Claude Code makes one: agent-<id>, on worktree-agent-<id> at main."""
+        worktree = root / f"main/.claude/worktrees/agent-{agent}"
+        run("git", "worktree", "add", "-q", "-b", f"worktree-agent-{agent}", str(worktree))
+        return worktree
+
+    def test_a_removed_detached_worktree_frees_the_branch_it_left_in_the_same_run(self):
+        # A detached worktree at main, idle for over a day, goes; the branch it left, at main and now
+        # checked out nowhere, goes in the same run, and a dry run lists both and removes neither.
+        root, run, tidy = scratch_clone(self)
+        worktree = self.agent_worktree(root, run, "a1")
+        run("git", "checkout", "-q", "--detach", "HEAD", cwd=worktree)
+        old = time.time() - 2 * 86400
+        git_dir = Path(run("git", "rev-parse", "--absolute-git-dir", cwd=worktree))
+        for name in ("HEAD", "index", "logs/HEAD"):
+            os.utime(git_dir / name, (old, old))
+        for args in (["--dry-run"], []):
+            with self.subTest(args=args):
+                out = tidy(*args)
+                self.assertIn(f"tidy: git worktree remove {worktree}", out)
+                self.assertIn("tidy: git branch -D worktree-agent-a1", out)
+                self.assertEqual(worktree.exists(), bool(args))
+        self.assertEqual(run("git", "branch", "--list", "worktree-agent-a1"), "")
+
+    def test_a_verifiers_worktree_left_detached_at_a_merged_prs_commit_goes(self):
+        # A verifier checks the PR's commit out detached in its own worktree and commits a test there;
+        # the PR's head, merged under the card's branch, has a builder commit on top. A worktree
+        # detached at a commit no merged PR has stays, as does the branch it left.
+        root, run, tidy = scratch_clone(self)
+        verifier = self.agent_worktree(root, run, "v1")
+        run("git", "checkout", "-q", "--detach", "HEAD", cwd=verifier)
+        run("git", "commit", "-q", "--allow-empty", "-m", "verifier test", cwd=verifier)
+        tip = run("git", "rev-parse", "HEAD", cwd=verifier)
+        head = run("git", "commit-tree", f"{tip}^{{tree}}", "-p", tip, "-m", "builder fix")
+        unmerged = self.agent_worktree(root, run, "w2")
+        run("git", "checkout", "-q", "--detach", "HEAD", cwd=unmerged)
+        run("git", "commit", "-q", "--allow-empty", "-m", "unpushed", cwd=unmerged)
+        (root / "merged").write_text(f"night-card {head} 7\n")
+        out = tidy()
+        self.assertFalse(verifier.exists())
+        self.assertEqual(run("git", "branch", "--list", "worktree-agent-v1"), "")
+        self.assertTrue(unmerged.exists())
+        self.assertEqual(run("git", "branch", "--list", "worktree-agent-w2"), "worktree-agent-w2")
+        self.assertNotIn("agent-w2", out)
+
+    def test_a_fresh_worktree_detached_at_main_stays_though_a_merged_prs_head_contains_it(self):
+        # A PR must be up to date with main to merge, so each merged PR's head contains the main it
+        # was merged onto. A worktree of main added to compare with, detached at a main commit, is
+        # therefore in a merged PR's head; it goes by the day rule, not as a merged PR's commit.
+        root, run, tidy = scratch_clone(self)
+        head = run("git", "commit-tree", "HEAD^{tree}", "-p", "HEAD", "-m", "a merged PR's head on main")
+        (root / "merged").write_text(f"other-card {head} 8\n")
+        compare = root / "main/.claude/worktrees/agent-v2-main"
+        run("git", "worktree", "add", "-q", "--detach", str(compare), "origin/main")
+        for args in (["--dry-run"], []):
+            with self.subTest(args=args):
+                self.assertNotIn("agent-v2-main", tidy(*args))
+        self.assertTrue(compare.exists())
+
+    def test_a_detached_worktree_with_work_past_a_merged_prs_head_stays(self):
+        # A merged PR's head containing a detached worktree's commit says the commit landed, not what
+        # was made after it: a commit on top of the merged head, or a file not committed there, keeps
+        # the worktree and the branch it left, in a dry run too.
+        root, run, tidy = scratch_clone(self)
+        head = run("git", "commit-tree", "HEAD^{tree}", "-p", "HEAD", "-m", "merged head")
+        (root / "merged").write_text(f"night-card {head} 7\n")
+        ahead = self.agent_worktree(root, run, "c1")
+        run("git", "checkout", "-q", "--detach", head, cwd=ahead)
+        run("git", "commit", "-q", "--allow-empty", "-m", "a test made after the merge", cwd=ahead)
+        dirty = self.agent_worktree(root, run, "d1")
+        run("git", "checkout", "-q", "--detach", head, cwd=dirty)
+        (dirty / "NewTests.swift").write_text("// not committed\n")
+        for args in (["--dry-run"], []):
+            with self.subTest(args=args):
+                out = tidy(*args)
+                self.assertNotIn("agent-c1", out)
+                self.assertNotIn("agent-d1", out)
+        self.assertTrue(ahead.exists())
+        self.assertTrue((dirty / "NewTests.swift").exists())
+        self.assertEqual(run("git", "branch", "--list", "worktree-agent-c1", "worktree-agent-d1"),
+                         "worktree-agent-c1\n  worktree-agent-d1")
+
+    def recorded_simulator(self, root, name):
+        """A record of worktree <name>'s simulator, and a stand-in xcrun that lists that one simulator
+        and records each call in <root>/xcrun-calls. Returns the records folder."""
         records = root / "main/.git/plusplus-simulators"
         records.mkdir()
-        (records / "done-card").write_text("")
-        devices = {"devices": {"iOS": [{"name": "PlusPlus done-card", "udid": "UDID-1", "state": "Shutdown"}]}}
+        (records / name).write_text("")
+        devices = {"devices": {"iOS": [{"name": f"PlusPlus {name}", "udid": "UDID-1", "state": "Shutdown"}]}}
         runtimes = {"runtimes": [{"platform": "iOS", "isAvailable": True, "version": "1.0", "supportedDeviceTypes": [
             {"identifier": "com.apple.CoreSimulator.SimDeviceType.iPhone-17"}]}]}
         (root / "bin/xcrun").write_text(f"""#!/bin/bash
@@ -1341,6 +1444,33 @@ case "$*" in
 esac
 """)
         (root / "bin/xcrun").chmod(0o755)
+        return records
+
+    def test_a_locked_worktree_stays_and_the_run_goes_on_to_the_simulators(self):
+        # A live agent's isolation worktree is locked, and `git worktree remove` refuses it; on
+        # 2026-11-13 that failure ended a night's tidy before it deleted a scratch simulator.
+        worktree, run, tidy = self.finished_worktree()
+        root = worktree.parents[3]
+        run("git", "worktree", "lock", "--reason", "claude agent agent-x1", str(worktree))
+        records = self.recorded_simulator(root, "gone-card")
+        for args in (["--dry-run"], []):
+            with self.subTest(args=args):
+                out = tidy(*args)
+                self.assertIn(f"tidy: kept {worktree}: finished, but locked, so an agent holds it", out)
+                self.assertNotIn("git worktree remove", out)
+                self.assertIn('tidy: delete simulator "PlusPlus gone-card"', out)
+        self.assertTrue(worktree.exists())
+        self.assertIn("done-card", run("git", "branch", "--list", "done-card"))
+        self.assertIn("simctl delete UDID-1", (root / "xcrun-calls").read_text().splitlines())
+        self.assertEqual(list(records.iterdir()), [])
+
+    def test_an_agents_cleanup_removes_its_worktree_and_tidy_deletes_its_simulator(self):
+        # The builder's and verifier's cleanup: `git worktree remove` from a shell still inside the
+        # worktree, then the main checkout's tidy. xcrun is a stand-in that lists one simulator, the
+        # worktree's, and records each call.
+        worktree, run, tidy = self.finished_worktree()
+        root = worktree.parents[3]
+        records = self.recorded_simulator(root, "done-card")
         run("git", "worktree", "remove", str(worktree), cwd=worktree)
         self.assertFalse(worktree.exists())
         out = tidy()

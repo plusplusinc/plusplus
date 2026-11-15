@@ -49,14 +49,17 @@ keeps its role, and across roles one key drops out of the bottom edge as the nex
 Started rows show a bar per set, purple once done, and a finished row's node turns purple;
 after the last set, the key reads Finish workout and finishes it. End takes ++'s place
 and asks "End this workout?": Finish workout, offered once a set is logged, keeps it, and
-launch then opens a new routine; Discard workout keeps nothing. The time, at top right, pauses
+launch then opens a new routine; Discard workout keeps nothing. Either ends the stored workout
+at once and stops the motion playing: a blob goes at once, and the list shrinks back from
+where it is drawn, though a move's next row fills in only late in the shrink. The time, at top right, pauses
 and resumes. A workout survives a relaunch, keeps the screen on, and locks the drawer, and
 every edit stays on. The app shows only in dark
 appearance (`Config/Base.xcconfig`); the light palette is seen only in snapshots.
 `WorkoutStore` holds the domain types, the stored models behind `RoutineStore` in a versioned
 schema, workouts with their time and logged sets, the namer, the order sets go in and the next one, the routines' recency, a workout in progress on its routine (`LiveWorkout`), and the
-logs a screen has yet to show (`WorkoutPlayback`). `Session` holds `RoutineSession`, the open
-routine, its saves, and its workout. Nothing syncs yet.
+screen's place in a workout's sequence, from Start through each logged set to End
+(`WorkoutPhase`). `Session` holds `RoutineSession`, the
+open routine, its saves, and its workout. Nothing syncs yet.
 
 ## Architecture
 
