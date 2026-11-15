@@ -25,6 +25,7 @@ extension RoutineScreen {
                     routine.spokenRestAfterRound(of: id, locale: locale),
                 )
             },
+            seconds: { Double(routine.restAfterRound(of: id) ?? 0) },
             canStep: { routine.canStepRestAfterRound(of: id, by: $0) },
             step: { routine.stepRestAfterRound(of: id, by: $0) },
             isAuto: Binding {

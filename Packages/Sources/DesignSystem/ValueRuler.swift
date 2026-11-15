@@ -79,7 +79,10 @@ public struct ValueRuler: View {
             let index = min(max(Int((x / Self.spacing).rounded()), 0), count - 1)
             let new = range.lowerBound + Double(index) * tick
             if new != value {
-                onChange(new)
+                // The step keys' own animation, so the row's digits roll here as they do there.
+                withAnimation(.snappy(duration: 0.15)) {
+                    onChange(new)
+                }
             }
         }
         .onChange(of: value) { _, value in

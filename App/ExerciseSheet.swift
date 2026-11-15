@@ -6,6 +6,8 @@ import WorkoutStore
 /// holds it.
 struct RoundSteps {
     let value: () -> (text: String, spoken: String)
+    /// The rest in seconds, which its digits roll up or down by.
+    let seconds: () -> Double
     let canStep: (Int) -> Bool
     let step: (Int) -> Void
     /// Whether its rest is derived from the members, and a switch to set that.
@@ -51,6 +53,7 @@ struct ExerciseSheet: View {
                                 label: label(of: part),
                                 note: note(on: part),
                                 value: value(of: part),
+                                number: number(of: part),
                                 tag: auto == nil ? nil : "Auto",
                                 showsTag: auto?.wrappedValue == true,
                                 spokenValue: spokenValue(of: part),
@@ -164,6 +167,13 @@ struct ExerciseSheet: View {
             item.dialedWeight(locale: locale)
         case let .plan(plan): item.value(of: plan, locale: locale)
         case .restAfterRound: rounds?.value().text ?? ""
+        }
+    }
+
+    private func number(of part: SheetPart) -> Double {
+        switch part {
+        case let .plan(plan): item.amount(of: plan)
+        case .restAfterRound: rounds?.seconds() ?? 0
         }
     }
 

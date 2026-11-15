@@ -33,6 +33,21 @@ extension RoutineExercise {
         }
     }
 
+    /// A part's value as a number, the one its text reads: sets, reps or seconds, the weight in
+    /// its unit, the rest in seconds. A row's digits roll up or down by it.
+    public func amount(of part: PlanPart) -> Double {
+        switch part {
+        case .sets: Double(plan.sets)
+        case .target:
+            switch plan.target {
+            case let .reps(reps): Double(reps)
+            case let .time(seconds): Double(seconds)
+            }
+        case .weight: plan.weight?.amount ?? 0
+        case .rest: Double(rest)
+        }
+    }
+
     /// The weight as its open row reads it while a ruler sets it, always one decimal or two,
     /// "25.0 lb", "27.5 lb/side", so its digits keep their count as the ruler turns.
     public func dialedWeight(locale: Locale = .current) -> String {

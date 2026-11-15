@@ -30,6 +30,7 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
     private let label: String
     private let note: String?
     private let value: String
+    private let number: Double?
     private let tag: String?
     private let showsTag: Bool
     private let accessory: Accessory?
@@ -74,6 +75,7 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
         label: String,
         note: String? = nil,
         value: String,
+        number: Double? = nil,
         tag: String? = nil,
         showsTag: Bool = true,
         spokenValue: String,
@@ -90,6 +92,7 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
         self.label = label
         self.note = note
         self.value = value
+        self.number = number
         self.tag = tag
         self.showsTag = showsTag
         self.accessory = accessory
@@ -164,7 +167,7 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
                 } else if ruler != nil {
                     rulerValue
                 } else {
-                    valueText(value)
+                    valueText(value, number: number)
                         .multilineTextAlignment(stacked ? .leading : .trailing)
                 }
                 if stacked {
@@ -290,10 +293,12 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
         .buttonRepeatBehavior(.enabled)
     }
 
-    private func valueText(_ text: String) -> some View {
+    /// With `number`, the digits roll by the way it went, up or down; without, the system's
+    /// default roll.
+    private func valueText(_ text: String, number: Double? = nil) -> some View {
         Text(AttributedString.monoNumbers(text, font: .ppRowTitleNumber))
             .font(.ppRowTitle)
-            .contentTransition(.numericText())
+            .contentTransition(number.map { .numericText(value: $0) } ?? .numericText())
             .foregroundStyle(.pp(.textPrimary))
     }
 
@@ -301,13 +306,13 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
     /// ("25.0 lb") widens the number's own frame as the row opens and slides under its edge as it
     /// closes. In one text, the going ".0" faded over the unit while the number slid into it.
     private var rulerValue: some View {
-        let number = value.prefix { $0.isNumber || $0 == "." || $0 == "," }
+        let digits = value.prefix { $0.isNumber || $0 == "." || $0 == "," }
         return HStack(spacing: 0) {
-            valueText(String(number))
+            valueText(String(digits), number: number)
                 // Only the trailing side clips: the digits roll above and below the line, and
                 // as the row opens they slide in from past the frame's leading edge.
                 .mask(Rectangle().padding([.vertical, .leading], -Spacing.xl))
-            valueText(String(value.dropFirst(number.count)))
+            valueText(String(value.dropFirst(digits.count)))
         }
     }
 
@@ -366,6 +371,7 @@ extension ValueRow where Accessory == EmptyView, Footer == EmptyView {
         label: String,
         note: String? = nil,
         value: String,
+        number: Double? = nil,
         tag: String? = nil,
         showsTag: Bool = true,
         spokenValue: String,
@@ -379,6 +385,7 @@ extension ValueRow where Accessory == EmptyView, Footer == EmptyView {
             label: label,
             note: note,
             value: value,
+            number: number,
             tag: tag,
             showsTag: showsTag,
             spokenValue: spokenValue,
