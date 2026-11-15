@@ -63,8 +63,7 @@ struct WorkoutRailSnapshotTests {
             Row(title: "Push-up", detail: ["3 × 10 reps"]),
         ]
         let view = rail(rows, done: [finished.id]) {
-            Button("Add exercise", systemImage: "plus") { }
-                .buttonStyle(.key)
+            FloatingButtonRoom()
         }
         assertThemedSnapshots(of: view, width: Self.width)
     }
@@ -76,8 +75,7 @@ struct WorkoutRailSnapshotTests {
             Row(title: "Pull-up", detail: ["3 × 6 reps"]),
         ]
         let view = rail(rows, current: rows[0].id, isSetHeld: true) {
-            Button("Add exercise", systemImage: "plus") { }
-                .buttonStyle(.key)
+            FloatingButtonRoom()
         }
         assertThemedSnapshots(of: view, width: Self.width)
     }
@@ -105,8 +103,7 @@ struct WorkoutRailSnapshotTests {
             Row(title: "Goblet squat", detail: ["3 × 10 reps", "35 lb"]),
         ]
         let view = rail(rows, links: [rows[0].id, rows[1].id], current: current.id) {
-            Button("Add exercise", systemImage: "plus") { }
-                .buttonStyle(.key)
+            FloatingButtonRoom()
         }
         assertThemedSnapshots(of: view, width: Self.width)
     }

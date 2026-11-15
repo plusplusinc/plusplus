@@ -11,8 +11,7 @@ private func previewRail(drag: RailDragState<UUID>? = nil, cardOffset: CGFloat =
     Rail(previewRows, drag: drag, cardOffset: cardOffset) { exercise in
         RowLabel(title: exercise.title, detail: exercise.detail).railRow()
     } end: {
-        Button("Add exercise", systemImage: "plus") { }
-            .buttonStyle(.key)
+        FloatingButtonRoom()
     }
     .padding()
     .background(Color.pp(.background))

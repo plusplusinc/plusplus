@@ -62,10 +62,10 @@ extension RoutineScreen {
         }
     }
 
-    /// Adds a picked exercise. Its row takes its place as the sheet starts down, moving Add
-    /// exercise, but enters only where it can be seen: a moment into the sheet's slide when
-    /// everything still fits, and otherwise once a scroll to the end has brought the row and Add
-    /// exercise into view. The scroll waits for the row's place: asked for while the row went in,
+    /// Adds a picked exercise. Its row takes its place at the rail's end as the sheet starts down,
+    /// but enters only where it can be seen: a moment into the sheet's slide when everything
+    /// still fits, and otherwise once a scroll to the end has brought the row and the list's end
+    /// into view. The scroll waits for the row's place: asked for while the row went in,
     /// it stopped at the end the list had before. Once Start is pressed, it enters where it is,
     /// with no scroll: the end is then Start's room under the list, out of sight, and a scroll to
     /// it took the list off the screen just as Start went to land on the first exercise.
@@ -91,7 +91,7 @@ extension RoutineScreen {
     }
 
     /// While an added row's place opens past the visible area, scrolls with it, a frame at a
-    /// time, so Add exercise stays put on screen as the line grows above it. The place opens
+    /// time, so the list's end stays put on screen as the line grows above it. The place opens
     /// with the list's end in view, so the end is where the scroll stays. Not once Start is
     /// pressed: its room under the list grows the content too, and following that took the
     /// list off the screen, as `add` says.
@@ -104,7 +104,8 @@ extension RoutineScreen {
         }
     }
 
-    /// Whether the list's end, Add exercise, is in view, below the area between the bars.
+    /// Whether the list's end, the room it leaves for the floating +, is in view, below the area
+    /// between the bars.
     static func endIsInView(of geometry: ScrollGeometry) -> Bool {
         geometry.contentSize.height
             <= (geometry.scrolledY + geometry.containerSize.height).rounded(.up)

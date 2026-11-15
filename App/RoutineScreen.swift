@@ -24,10 +24,10 @@ struct RoutineScreen: View {
     /// The row just added, holding its place until it can be seen going in.
     @State var arriving: RoutineExercise.ID?
     /// The row just added, from the add until its entry has played. A view takes taps where it
-    /// will end up, not where it's drawn, so while its place opens a tap on Add exercise, still
+    /// will end up, not where it's drawn, so while its place opens a tap there, on what is still
     /// drawn there, lands on it; it ignores taps until it has landed.
     @State var entering: RoutineExercise.ID?
-    /// Whether Add exercise, at the list's end, is fully in view.
+    /// Whether the list's end, the room it leaves for the floating +, is fully in view.
     @State var isEndInView = true
     /// While an added row's place opens, the list's end stays put on screen: as the content grows
     /// past the visible area, it scrolls in step (`keepEndInView`).
@@ -137,6 +137,11 @@ struct RoutineScreen: View {
     /// The name the routine shows: its chosen one, or else the one made for it.
     var shownName: String? {
         namer.shownName(of: routine)
+    }
+
+    /// Add exercise, a + floating above the key, which opens the picker.
+    private var addButton: some View {
+        AddExerciseButton(isEditingTitle: $isEditingTitle) { isPicking = true }
     }
 
     var body: some View {
@@ -252,14 +257,12 @@ struct RoutineScreen: View {
                             // is off.
                             .swipeToDelete(isOn: item.id != currentID) { delete(item.id) }
                     } end: {
-                        Button("Add exercise", systemImage: "plus") {
-                            isPicking = true
-                        }
-                        .buttonStyle(.key)
+                        FloatingButtonRoom()
                     }
                 }
                 .padding(.horizontal, Spacing.md)
-                // Room under Add exercise, so at the end of a long list it clears Start.
+                // With the floating +'s room above it, so at the end of a long list the last row
+                // scrolls clear of the +.
                 .padding(.bottom, Spacing.md)
                 // In the content, not a margin, so the visible height the row is sized from
                 // stays.
@@ -315,6 +318,8 @@ struct RoutineScreen: View {
             drop: startDrop,
         ) { role, isOut in
             key(role, isOut: isOut)
+        } floating: {
+            addButton
         }
         .onDisappear { stopSequence() }
         // One row open at a time, closed by a scroll or a tap anywhere else, Start included,
@@ -355,4 +360,19 @@ struct RoutineScreen: View {
         session: RoutineSession(routine: Routine(), store: nil, namer: .muscleGroupsOnly),
         namer: .muscleGroupsOnly,
     )
+}
+
+/// Add exercise's +. While the keyboard is up, as the title is edited, it fades out, keeping its
+/// place. It reads the edit through a binding, so a focus change redraws it and not the screen.
+private struct AddExerciseButton: View {
+    @Binding var isEditingTitle: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button("Add exercise", systemImage: "plus", action: action)
+            .opacity(isEditingTitle ? 0 : 1)
+            .allowsHitTesting(!isEditingTitle)
+            .accessibilityShown(!isEditingTitle)
+            .animation(.easeOut(duration: RoutineScreen.barFade), value: isEditingTitle)
+    }
 }

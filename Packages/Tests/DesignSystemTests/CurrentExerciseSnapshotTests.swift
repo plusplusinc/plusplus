@@ -31,8 +31,7 @@ struct CurrentExerciseSnapshotTests {
             )
             .railRow()
         } end: {
-            Button("Add exercise", systemImage: "plus") { }
-                .buttonStyle(.key)
+            FloatingButtonRoom()
         }
         .padding(Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)

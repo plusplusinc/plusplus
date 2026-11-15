@@ -18,7 +18,8 @@ struct ComponentSnapshotTests {
         let detail: [String]
     }
 
-    /// The routine's equipment shows under the title; Start shows once there is a row.
+    /// The routine's equipment shows under the title; Start shows once there is a row, with Add
+    /// exercise's + floating above it. Where the + is with no Start is `PrimaryKeyBarTests`'.
     private func content(
         name: String = "",
         suggestion: String? = nil,
@@ -41,19 +42,22 @@ struct ComponentSnapshotTests {
                 RowLabel(title: row.title, detail: row.detail)
                     .railRow()
             } end: {
-                Button("Add exercise", systemImage: "plus") { }
-                    .buttonStyle(.key)
+                FloatingButtonRoom()
             }
         }
         .padding(Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
         .primaryKeyBar(isPresented: !rows.isEmpty) {
             Button("Start", systemImage: "play.fill") { }
+        } floating: {
+            if !rows.isEmpty {
+                Button("Add exercise", systemImage: "plus") { }
+            }
         }
         .background(Color.pp(.background))
     }
 
-    @Test("A new routine: title at rest and Add exercise")
+    @Test("A new routine: title at rest")
     func newRoutine() {
         assertThemedSnapshots(of: content(), width: Self.screenWidth)
     }

@@ -12,7 +12,8 @@ This file is the constitution: loaded every session, kept short. Detail lives in
 planning work in it), and in `docs/`. If this file and a rules file disagree, this file wins.
 
 **Status: routines, saved, a drawer between them, and a workout logged set by set on one.** The app launches into the routine last
-opened or edited, or a new, empty one, which you can name and add built-in exercises to. ++, or
+opened or edited, or a new, empty one, which you can name and add built-in exercises to with a
+round glass + floating at bottom right, above the key, in a workout too. ++, or
 a swipe in from the left edge, slides the screen aside, darkened, onto a drawer: Routines, the
 three routines last opened or edited, the last edited first, and New, an action, never marked;
 an untouched new routine showing takes the first of the three rows, in gray. The place showing
@@ -45,7 +46,7 @@ held, the superset the drag affects sits in a sunken area. Start, once the routi
 exercise, runs a workout on the same screen: the first exercise grows into the current one, its
 set, equipment, and numbers large, their unit letters white at a bit over half the digits'
 size, with no swipe. The key at the bottom, where Start was, a
-capsule that stays put, logs the set at the numbers shown with a tap, saved at once, with a
+capsule low and wide where a tab bar floats, which stays put, logs the set at the numbers shown with a tap, saved at once, with a
 haptic and a +1: "Log set", "Log left" then "Log right" where the exercise is per side, "Log
 last set". Half a second later the next set rolls in, and after an exercise's last set a green
 blob pulls out of the node, runs the rail, and plops into the next exercise's, which then grows

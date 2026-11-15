@@ -172,3 +172,16 @@ extension ButtonStyle where Self == DrawerButtonStyle {
     .padding()
     .background(Color.pp(.background))
 }
+
+extension View {
+    /// A key's press, dimmed: dimming, not scaling, so nothing around it moves.
+    func keyPress(isPressed: Bool) -> some View {
+        opacity(isPressed ? 0.6 : 1).keyPressAnimation(isPressed: isPressed)
+    }
+
+    /// A key's press: down at once, as a finger lands, and back up quickly on release. Left to
+    /// the system, the release eased back over half a second.
+    func keyPressAnimation(isPressed: Bool) -> some View {
+        animation(isPressed ? nil : .snappy(duration: 0.15), value: isPressed)
+    }
+}
