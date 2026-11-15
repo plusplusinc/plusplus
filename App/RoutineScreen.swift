@@ -125,16 +125,9 @@ struct RoutineScreen: View {
         namer.shownName(of: routine)
     }
 
-    /// Add exercise, a + floating above the key, which opens the picker. While the keyboard is
-    /// up, as the title is edited, it fades out, keeping its place.
+    /// Add exercise, a + floating above the key, which opens the picker.
     private var addButton: some View {
-        Button("Add exercise", systemImage: "plus") {
-            isPicking = true
-        }
-        .opacity(isEditingTitle ? 0 : 1)
-        .allowsHitTesting(!isEditingTitle)
-        .accessibilityHidden(isEditingTitle)
-        .animation(.easeOut(duration: Self.barFade), value: isEditingTitle)
+        AddExerciseButton(isEditingTitle: $isEditingTitle) { isPicking = true }
     }
 
     var body: some View {
@@ -357,4 +350,19 @@ struct RoutineScreen: View {
         session: RoutineSession(routine: Routine(), store: nil, namer: .muscleGroupsOnly),
         namer: .muscleGroupsOnly,
     )
+}
+
+/// Add exercise's +. While the keyboard is up, as the title is edited, it fades out, keeping its
+/// place. It reads the edit through a binding, so a focus change redraws it and not the screen.
+private struct AddExerciseButton: View {
+    @Binding var isEditingTitle: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button("Add exercise", systemImage: "plus", action: action)
+            .opacity(isEditingTitle ? 0 : 1)
+            .allowsHitTesting(!isEditingTitle)
+            .accessibilityHidden(isEditingTitle)
+            .animation(.easeOut(duration: RoutineScreen.barFade), value: isEditingTitle)
+    }
 }

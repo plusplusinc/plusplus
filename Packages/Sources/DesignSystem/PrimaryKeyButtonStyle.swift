@@ -15,7 +15,7 @@ public struct PrimaryKeyButtonStyle: ButtonStyle {
     @ScaledMetric(relativeTo: Self.textStyle) private var minHeight = Self.faceHeight
     /// Above and below the label, inside the minimum height for one line, so a wrapped label's
     /// first and last lines stay clear of the round corners.
-    @ScaledMetric(relativeTo: .title3) private var labelInset: CGFloat = 12
+    @ScaledMetric(relativeTo: Self.textStyle) private var labelInset: CGFloat = 12
     /// The face's height for one line of label, at the default text size: with its ledge, as tall
     /// as a tab bar floats, measured on the Files app's on iOS 27.2.
     fileprivate static let faceHeight: CGFloat = 58
@@ -29,6 +29,8 @@ public struct PrimaryKeyButtonStyle: ButtonStyle {
     fileprivate static let lowInset: CGFloat = 21
     /// In `primaryKeyBar`, between the key's top and the floating button's bottom.
     fileprivate static let floatingGap = Spacing.md
+    /// In `primaryKeyBar`, the room above the key's face, inside the bar.
+    fileprivate static let barTop = Spacing.sm
     /// The press and the release: a quick ease-out both ways, so the key reads as struck.
     private static let press = Animation.easeOut(duration: 0.06)
 
@@ -187,8 +189,8 @@ private struct PrimaryKeyBar<
     /// The floating button's bottom above the screen's safe area's bottom, the keyboard's left
     /// out: the key's top, and the gap.
     private var floatingLift: CGFloat {
-        // A placed key's room is the gap above it and the key's height, ledge included.
-        let keyHeight = keyRoom - Spacing.sm
+        // A placed key's room is the bar's top and the key's height, ledge included.
+        let keyHeight = keyRoom - PrimaryKeyButtonStyle.barTop
         return ledgeLift + keyHeight + PrimaryKeyButtonStyle.floatingGap - bottomInset
     }
 
@@ -217,16 +219,21 @@ private struct PrimaryKeyBar<
             // logs as an `OnScrollGeometryChange` fault.
             .padding(.bottom, -PrimaryKeyButtonStyle.ledge)
             .offset(y: drawnLower)
-            .padding(.top, Spacing.sm + PrimaryKeyButtonStyle.ledge)
+            .padding(.top, PrimaryKeyButtonStyle.barTop + PrimaryKeyButtonStyle.ledge)
+    }
+
+    /// The key as things stand, placed but never shown: what holds the bar's room while
+    /// `keepsRoom` does, and what the floating button is placed from.
+    private var unseenKey: some View {
+        placed(key(face, true).buttonStyle(.primaryKey))
     }
 
     /// `floating` over the bar, placed up from the safe area's bottom, from the room of an unseen
-    /// copy of the key: with a key in the bar or none, it is in the same place. With the safe area
-    /// ignored, it was still placed from its bottom. The keyboard's inset left out, so it stays
-    /// put as the keyboard rises.
+    /// copy of the key: with a key in the bar or none, it is in the same place. The keyboard's
+    /// inset left out, so it stays put as the keyboard rises.
     private var floatingPlace: some ViewModifier {
         FloatingPlace(
-            measure: placed(key(face, true).buttonStyle(.primaryKey)),
+            measure: unseenKey,
             floating: floating,
             trailing: sideInset,
             bottom: floatingLift,
@@ -262,7 +269,7 @@ private struct PrimaryKeyBar<
                         .transition(KeyBarTransition(below: bottomInset))
                     } else if keepsRoom {
                         // Only what sizes it: no bounds for the +1, and no drop or swap to run.
-                        placed(key(face, true).buttonStyle(.primaryKey)).hidden()
+                        unseenKey.hidden()
                     }
                 }
             }
