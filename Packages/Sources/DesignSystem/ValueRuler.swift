@@ -26,6 +26,7 @@ public struct ValueRuler: View {
     /// While a finger drags the ruler or its flick runs on, when the ruler writes the value
     /// rather than follows it.
     @State private var isScrolling = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// `spacing`, scaled with the labels' text style.
     @ScaledMetric private var spacing: CGFloat
 
@@ -140,7 +141,7 @@ public struct ValueRuler: View {
         }
         .onChange(of: value) { _, value in
             guard !isScrolling else { return }
-            withAnimation(Self.slide) {
+            withAnimation(Self.slide(reduceMotion: reduceMotion)) {
                 position.scrollTo(x: scale.offset(of: value))
             }
         }
@@ -176,8 +177,11 @@ public struct ValueRuler: View {
             .containerRelativeFrame(.horizontal) { width, _ in max(0, width / 2 - spacing / 2) }
     }
 
-    /// A value changed from outside slides the ruler there.
-    static let slide = Animation.snappy(duration: 0.25)
+    /// A value changed from outside slides the ruler there; with Reduce Motion it moves there
+    /// at once.
+    static func slide(reduceMotion: Bool) -> Animation? {
+        reduceMotion ? nil : .snappy(duration: 0.25)
+    }
 
     private func tickCell(_ mark: Double) -> some View {
         let isMajor = mark.isMultiple(of: major)
