@@ -81,7 +81,8 @@ struct ValueRulerSnapshotTests {
     }
 
     /// Open rows as the exercise sheet shows them: the weight with one decimal, a timed set's
-    /// time and a rest with both their units, the rest tagged Auto with its switch and footer.
+    /// time per side and a rest with both their units, the rest tagged Auto with its switch and
+    /// footer. At AX5 the time keeps "1m 0s" on its line, with "per side" whole under it.
     @Test("Open rows with a ruler: weight, time, and rest with Auto")
     func openRows() {
         assertThemedSnapshots(
@@ -94,9 +95,9 @@ struct ValueRulerSnapshotTests {
                 )
                 Self.row(
                     "Time",
-                    value: "0m\u{00A0}45s",
-                    number: 45,
-                    ruler: Self.timeRuler(45, range: 5 ... 5995),
+                    value: "1m\u{00A0}0s per side",
+                    number: 60,
+                    ruler: Self.timeRuler(60, range: 5 ... 5995),
                 )
                 Self.row(
                     "Rest",

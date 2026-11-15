@@ -9,21 +9,31 @@ struct TimePiece: Identifiable, Equatable {
         !text.contains(where: \.isNumber)
     }
 
-    /// A time's pieces, its words in order, every one but the last carrying the space after it;
-    /// a word with no number ("None") is a piece of its own. Nil when the value isn't a time in
-    /// this shape: a weight ("25.0 lb"), whose number stands apart from its unit.
+    /// A time's pieces, its units in order, then the words after them ("per side") as one piece,
+    /// every piece but the last carrying the space after it; a word with no number ("None") is
+    /// a piece of its own. Nil when the value isn't a time in this shape: a weight ("25.0 lb"),
+    /// whose number stands apart from its unit.
     static func pieces(of value: String) -> [Self]? {
         let words = value.split(whereSeparator: \.isWhitespace).map(String.init)
         guard !words.isEmpty else { return nil }
-        let isTime = words.allSatisfy { word in
-            word.first?.isNumber == true && word.last?.isLetter == true
+        if words.count == 1, !value.contains(where: \.isNumber) {
+            return [Self(id: value, text: value)]
         }
-        let isWord = words.count == 1 && !value.contains(where: \.isNumber)
-        guard isTime || isWord else { return nil }
-        return words.enumerated().map { index, word in
+        let units = Array(words.prefix { $0.first?.isNumber == true && $0.last?.isLetter == true })
+        let after = words.dropFirst(units.count)
+        guard !units.isEmpty, !after.contains(where: { $0.contains(where: \.isNumber) }) else {
+            return nil
+        }
+        var pieces = units.map { word in
             let unit = String(word.drop { $0.isNumber || $0 == "." || $0 == "," })
-            let space = index < words.count - 1 ? noBreakSpace : ""
-            return Self(id: unit, text: word + space)
+            return Self(id: unit, text: word)
+        }
+        if !after.isEmpty {
+            let words = after.joined(separator: " ")
+            pieces.append(Self(id: words, text: words))
+        }
+        return pieces.enumerated().map { index, piece in
+            index < pieces.count - 1 ? Self(id: piece.id, text: piece.text + noBreakSpace) : piece
         }
     }
 }

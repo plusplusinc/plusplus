@@ -26,6 +26,15 @@ struct TimePieceTests {
         #expect(TimePiece.pieces(of: "1min\u{00A0}35s")?.map(\.id) == ["min", "s"])
     }
 
+    @Test("A per-side time splits into its units, then its words as one piece, a word")
+    func perSide() throws {
+        let pieces = try #require(TimePiece.pieces(of: "1m\u{00A0}0s per side"))
+        #expect(pieces.map(\.id) == ["m", "s", "per side"])
+        #expect(pieces.map(\.text) == ["1m\u{00A0}", "0s\u{00A0}", "per side"])
+        #expect(pieces.map(\.isWord) == [false, false, true])
+        #expect(TimePiece.pieces(of: "45s per side")?.map(\.id) == ["s", "per side"])
+    }
+
     @Test("A word with no number is one piece, a word")
     func word() throws {
         let pieces = try #require(TimePiece.pieces(of: "None"))

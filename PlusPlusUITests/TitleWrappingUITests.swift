@@ -161,14 +161,16 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             app.exerciseRows.firstMatch.tap()
             let time = app.buttons["Time"]
             XCTAssertTrue(time.appears(), "Tapping a row opened no sheet")
-            time.tap()
-            XCTAssertTrue(app.buttons["Increase"].appears(), "Tapping Time opened no stepper")
-            // Audited expanded: at half height the audit reports the open row's value as
-            // clipped, though it draws in full, as the screenshot shows.
+            // Expanded before the row opens: in a sheet below its large height, a grown one
+            // included, the audit reports the open row's value as clipped, though it draws in
+            // full. Opened first, the row grows the sheet, and a tap on the grabber after it
+            // races the growth, or takes the grown sheet back to half.
             attach(named: "sheet-ax5")
             let grabber = app.buttons["Sheet Grabber"]
             grabber.tap()
             XCTAssertEqual(grabber.value(becoming: "Expanded"), "Expanded")
+            time.tap()
+            XCTAssertTrue(app.buttons["Increase"].appears(), "Tapping Time opened no stepper")
             attach(named: "sheet-expanded-ax5")
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
             app.buttons["Close"].tap()
