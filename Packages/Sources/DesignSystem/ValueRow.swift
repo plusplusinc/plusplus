@@ -10,22 +10,6 @@ import SwiftUI
 /// an optional footer sits under the fill, as a grouped list's footer does. VoiceOver reads the
 /// row as one element, its value in words and then its tag while it shows, and steps it with a
 /// swipe up or down. An optional `ValueRuler` sits under the keys, edge to edge of the fill.
-/// A value typed straight into an open row: its number as text, edited in the decimal pad that
-/// comes up as the row opens, its number selected so the first digit replaces it, and what
-/// follows the number ("lb/side"). Its − / + keys sit under the value or, with `keysAbovePad`,
-/// in the bar above the pad.
-public struct ValueEntry {
-    public var text: Binding<String>
-    public var unit: String
-    public var keysAbovePad: Bool
-
-    public init(text: Binding<String>, unit: String, keysAbovePad: Bool) {
-        self.text = text
-        self.unit = unit
-        self.keysAbovePad = keysAbovePad
-    }
-}
-
 public struct ValueRow<Accessory: View, Footer: View>: View {
     private let label: String
     private let note: String?
@@ -35,7 +19,6 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
     private let showsTag: Bool
     private let accessory: Accessory?
     private let footer: Footer?
-    private let entry: ValueEntry?
     private let ruler: ValueRuler?
     private let spokenValue: String
     private let isOpen: Bool
@@ -46,8 +29,6 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.displayScale) private var displayScale
-    @FocusState private var isEditing: Bool
-    @State private var selection: TextSelection?
 
     /// One inset on every side of the fill, for everything in it: the label, the value, the
     /// keys, the accessory, and the room between them. Siblings, the keys here and a sheet's rows
@@ -84,7 +65,6 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
         canIncrease: Bool,
         onToggle: @escaping () -> Void,
         onStep: @escaping (Int) -> Void,
-        entry: ValueEntry? = nil,
         ruler: ValueRuler? = nil,
         accessory: Accessory?,
         footer: Footer?,
@@ -97,7 +77,6 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
         self.showsTag = showsTag
         self.accessory = accessory
         self.footer = footer
-        self.entry = entry
         self.ruler = ruler
         self.spokenValue = spokenValue
         self.isOpen = isOpen
@@ -162,9 +141,7 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
                 if !stacked {
                     tagView
                 }
-                if let entry, isOpen {
-                    field(entry)
-                } else if ruler != nil {
+                if ruler != nil {
                     rulerValue
                 } else {
                     valueText(value, number: number)
@@ -180,18 +157,6 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
         .padding(Self.inset)
         .contentShape(.rect)
         .onTapGesture(perform: onToggle)
-        // The pad comes up as the row opens, its number selected, and goes as it closes.
-        .onChange(of: isOpen) { _, isOpen in
-            guard entry != nil else { return }
-            isEditing = isOpen
-        }
-        // Selected once the field has focus: a selection set before it is replaced by a caret
-        // at the end.
-        .onChange(of: isEditing) { _, isEditing in
-            guard isEditing, let entry else { return }
-            let text = entry.text.wrappedValue
-            selection = TextSelection(range: text.startIndex ..< text.endIndex)
-        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(note.map { "\(label), \($0)" } ?? label)
         .accessibilityValue(spokenValueAndTag)
@@ -212,11 +177,9 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
     /// in and out as it opens and closes.
     private var region: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if entry?.keysAbovePad != true {
-                keys
-                    // The header's padding is the room above the keys.
-                    .padding([.bottom, .horizontal], Self.inset)
-            }
+            keys
+                // The header's padding is the room above the keys.
+                .padding([.bottom, .horizontal], Self.inset)
             if let ruler {
                 // Edge to edge of the fill, under the keys.
                 ruler
@@ -252,45 +215,6 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
             stepKey("Increase", "plus", by: 1)
                 .disabled(!canIncrease)
         }
-    }
-
-    /// The open value as a field in the decimal pad, its unit after it; the pad's bar holds the
-    /// keys when they sit above it, and is otherwise left empty.
-    private func field(_ entry: ValueEntry) -> some View {
-        HStack(spacing: 0) {
-            TextField("Weight", text: entry.text, selection: $selection)
-                .keyboardType(.decimalPad)
-                .focused($isEditing)
-                .font(.ppRowTitleNumber)
-                .foregroundStyle(.pp(.textPrimary))
-                .multilineTextAlignment(.trailing)
-                .fixedSize()
-                .toolbar {
-                    ToolbarItemGroup(placement: .keyboard) {
-                        if entry.keysAbovePad {
-                            barKey("Decrease", "minus", by: -1)
-                                .disabled(!canDecrease)
-                            barKey("Increase", "plus", by: 1)
-                                .disabled(!canIncrease)
-                        }
-                    }
-                }
-            Text(entry.unit)
-                .font(.ppRowTitle)
-                .foregroundStyle(.pp(.textPrimary))
-        }
-    }
-
-    private func barKey(_ title: String, _ image: String, by direction: Int) -> some View {
-        Button {
-            step(by: direction)
-        } label: {
-            Label(title, systemImage: image)
-                .labelStyle(.iconOnly)
-                .font(.ppButton)
-                .frame(maxWidth: .infinity)
-        }
-        .buttonRepeatBehavior(.enabled)
     }
 
     /// With `number`, the digits roll by the way it went, up or down; without, the system's

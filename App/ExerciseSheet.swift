@@ -33,8 +33,6 @@ struct ExerciseSheet: View {
     let onDelete: () -> Void
 
     @State private var open: SheetPart?
-    /// The weight as typed while its row is open.
-    @State private var weightText = ""
     @State private var detent = PresentationDetent.medium
     /// The height the sheet grew to, to fit a row as it opened; a detent from then on, so the
     /// sheet stays there while it's open.
@@ -72,7 +70,6 @@ struct ExerciseSheet: View {
                                 canIncrease: canStep(part, by: 1),
                                 onToggle: { toggle(part, scroller) },
                                 onStep: { step(part, by: $0) },
-                                entry: entry(for: part),
                                 ruler: ruler(for: part),
                                 accessory: auto.map(autoSwitch),
                                 footer: auto.map { restFooter(isAuto: $0.wrappedValue, of: part) },
@@ -104,32 +101,11 @@ struct ExerciseSheet: View {
                 }
             }
         }
-        .onChange(of: weightText) { _, text in
-            item.setWeight(typed: text, locale: locale)
-        }
-        // A step moves the field with it; a number still being typed ("27.") stays as it is.
-        .onChange(of: item.plan.weight) { _, _ in
-            guard let entry = item.weightEntry(locale: locale),
-                  RoutineExercise.typedAmount(weightText, locale: locale)
-                  != item.plan.weight?.amount
-            else { return }
-            weightText = entry.number
-        }
         .onGeometryChange(for: CGFloat.self, of: \.size.height) { sheetHeight = $0 }
         .presentationDetents(detents, selection: $detent)
         .presentationDragIndicator(.visible)
         .presentationBackground(Color.pp(.background))
     }
-
-    /// How the open weight row sets any weight beside its − / + keys.
-    enum WeightInput {
-        /// The decimal pad comes up as the row opens, its number selected.
-        case pad
-        /// A ruler under the keys, dragged sideways, a tick each half of the weight's unit.
-        case ruler
-    }
-
-    static let weightInput = WeightInput.ruler
 
     private var detents: Set<PresentationDetent> {
         var detents: Set<PresentationDetent> = [.medium, .large]
@@ -155,29 +131,11 @@ struct ExerciseSheet: View {
         }
     }
 
-    /// Where the weight's − / + keys sit while the decimal pad is up: false, in the row under the
-    /// value; true, in the bar above the pad.
-    static let weightKeysAbovePad = false
-
-    /// The weight, typed into its open row.
-    private func entry(for part: SheetPart) -> ValueEntry? {
-        guard Self.weightInput == .pad, part == .plan(.weight),
-              let entry = item.weightEntry(locale: locale)
-        else {
-            return nil
-        }
-        return ValueEntry(
-            text: $weightText,
-            unit: entry.unit,
-            keysAbovePad: Self.weightKeysAbovePad,
-        )
-    }
-
     /// The weight, a timed set's time, or a rest, dragged on a ruler in its open row.
     private func ruler(for part: SheetPart) -> ValueRuler? {
         switch part {
         case .plan(.weight):
-            guard Self.weightInput == .ruler, let amount = item.plan.weight?.amount,
+            guard let amount = item.plan.weight?.amount,
                   let range = item.weightRange
             else { return nil }
             return ValueRuler(value: amount, range: range) { item.setWeight($0) }
@@ -348,14 +306,6 @@ struct ExerciseSheet: View {
     /// put.
     private func toggle(_ part: SheetPart, _ scroller: ScrollViewProxy) {
         let opening = open != part
-        if Self.weightInput == .pad, opening, part == .plan(.weight),
-           let entry = item.weightEntry(locale: locale)
-        {
-            weightText = entry.number
-            // The pad covers the lower half; the full sheet keeps the open row and its keys
-            // above it.
-            detent = .large
-        }
         growsToFit = opening && detent != .large
         withAnimation(ValueRow.motion) {
             open = opening ? part : nil

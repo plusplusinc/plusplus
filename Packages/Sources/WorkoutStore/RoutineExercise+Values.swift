@@ -205,46 +205,7 @@ extension RoutineExercise {
         guard let range = weightRange else { return }
         plan.weight?.amount = min(max(amount, range.lowerBound), range.upperBound)
     }
-
-    /// The weight's number alone, as it is typed, "27.5" with no grouping, and what follows it
-    /// in the row's value, " lb/side"; nil without a weight.
-    public func weightEntry(locale: Locale = .current) -> (number: String, unit: String)? {
-        guard let weight = shownWeight else { return nil }
-        let number = weight.amount.formatted(
-            .number.precision(.fractionLength(0 ... 2)).grouping(.never).locale(locale),
-        )
-        return (number, qualified(noBreakSpace + weight.unit.rawValue, .weight))
-    }
-
-    /// Sets the weight to a typed number in its own unit, to two decimals, when it reads as one
-    /// within the limits a plan is stored within; otherwise keeps it. Whether it took.
-    @discardableResult
-    public mutating func setWeight(typed text: String, locale: Locale = .current) -> Bool {
-        guard shownWeight != nil, let amount = Self.typedAmount(text, locale: locale),
-              PlanLimits.weight.contains(amount)
-        else { return false }
-        plan.weight?.amount = amount
-        return true
-    }
-
-    /// A typed number read in the locale, its decimal separator either one, rounded to two
-    /// decimals.
-    public static func typedAmount(_ text: String, locale: Locale) -> Double? {
-        let trimmed = text.trimmingCharacters(in: .whitespaces)
-        let separator = locale.decimalSeparator ?? "."
-        let normalized = trimmed
-            .replacingOccurrences(of: separator, with: ".")
-            .replacingOccurrences(of: ",", with: ".")
-        guard !normalized.isEmpty,
-              normalized.allSatisfy({ $0.isASCII && ($0.isNumber || $0 == ".") }),
-              normalized.count(where: { $0 == "." }) <= 1,
-              let amount = Double(normalized), amount.isFinite
-        else { return nil }
-        return (amount * 100).rounded() / 100
-    }
 }
-
-private let noBreakSpace = "\u{00A0}"
 
 extension Double {
     /// The next multiple of `step` up (`direction` 1) or down (-1), so a weight off the marks,
