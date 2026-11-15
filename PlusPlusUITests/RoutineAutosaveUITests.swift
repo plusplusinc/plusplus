@@ -143,10 +143,7 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
     private func typedNameStays(in app: XCUIApplication, title: XCUIElement, gray: Int) throws {
         let keyboard = app.keyboards.element
         try XCTContext.runActivity(named: "A name still being typed is kept through Home") { _ in
-            try title.tapToEditAtEnd(keyboard: keyboard)
-            XCTAssertEqual(title.value(becoming: "Chest and back"), "Chest and back")
-            let delete = XCUIKeyboardKey.delete.rawValue
-            title.typeText(String(repeating: delete, count: "Chest and back".count) + "Push pul")
+            try title.typeOver("Chest and back", with: "Push pul", keyboard: keyboard)
             XCUIDevice.shared.press(.home)
             app.activate()
             XCTAssertTrue(keyboard.appears(), "Back from Home, the title isn't being edited")

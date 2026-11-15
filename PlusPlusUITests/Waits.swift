@@ -38,6 +38,16 @@ extension XCUIElement {
             ink.missAtEnd(cursor)
         }
     }
+
+    /// Taps the title to edit it at its end, deletes `old`, and types `name`, with no Return, so
+    /// the edit stays open. Deletes from the end, not ⌘A, which has hidden the keyboard on Xcode
+    /// Cloud.
+    @MainActor
+    func typeOver(_ old: String, with name: String, keyboard: XCUIElement) throws {
+        try tapToEditAtEnd(keyboard: keyboard)
+        XCTAssertEqual(value(becoming: old), old)
+        typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: old.count) + name)
+    }
 }
 
 /// What `read` reads once it is `expected`, or its last reading after the timeout, for

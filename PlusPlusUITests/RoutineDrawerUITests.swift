@@ -56,9 +56,7 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
         routinesScreenDrillsIn(in: app, title: title)
         XCTContext.runActivity(named: "Names typed without Return survive a relaunch") { _ in
             app.relaunch()
-            openDrawer(in: app)
-            app.buttons["Routines"].tap()
-            XCTAssertTrue(app.drawerTitle.disappears(), "Routines did not close the drawer")
+            app.openDrawer(andTap: "Routines")
             let renamed: Set = ["Pulls", "Chest day"]
             XCTAssertEqual(
                 reading(renamed.isSubset(of: app.routineRowLabels), becoming: true, within: 2),
@@ -109,7 +107,7 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
             XCTAssertEqual(title.value(becoming: "Back"), "Back", "The row pushed no routine")
             XCTAssertFalse(app.buttons["Menu"].exists, "++ shows on a pushed routine")
             attach(named: "pushed-routine")
-            typeName("Pulls", over: "Back", in: app, title: title)
+            typeName("Pulls", over: "Back", in: app)
             app.edgeSwipe()
             XCTAssertTrue(title.disappears(), "The edge swipe did not pop")
             XCTAssertFalse(app.drawerTitle.exists, "The edge swipe opened the drawer")
@@ -131,7 +129,7 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
         XCTContext.runActivity(named: "The chevron keeps a name still being typed") { _ in
             app.buttons.matching(identifier: "routines.row").element(boundBy: 1).tap()
             XCTAssertEqual(title.value(becoming: "Chest"), "Chest", "The row pushed no routine")
-            typeName("Chest day", over: "Chest", in: app, title: title)
+            typeName("Chest day", over: "Chest", in: app)
             app.navigationBars.buttons.element(boundBy: 0).tap()
             XCTAssertTrue(title.disappears(), "The chevron did not pop")
             let renamed = ["Chest day", "Pulls"]
@@ -141,21 +139,18 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
         drawerListsThree(in: app, title: title)
     }
 
-    /// Edits the pushed routine's title from `old` to `name`, with no Return, so it is still
-    /// being edited.
+    /// Types `name` over the pushed routine's `old` one, with no Return, so it is still being
+    /// edited.
     @MainActor
-    private func typeName(
-        _ name: String,
-        over old: String,
-        in app: XCUIApplication,
-        title: XCUIElement,
-    ) {
-        XCTAssertNoThrow(try title.tapToEditAtEnd(keyboard: app.keyboards.element))
-        let delete = XCUIKeyboardKey.delete.rawValue
-        title.typeText(String(repeating: delete, count: old.count) + name)
-        if !name.isEmpty {
-            XCTAssertEqual(title.value(becoming: name), name)
-        }
+    private func typeName(_ name: String, over old: String, in app: XCUIApplication) {
+        typeOver(old, with: name, in: app)
+        XCTAssertEqual(app.routineTitle.value(becoming: name), name)
+    }
+
+    @MainActor
+    private func typeOver(_ old: String, with name: String, in app: XCUIApplication) {
+        let keyboard = app.keyboards.element
+        XCTAssertNoThrow(try app.routineTitle.typeOver(old, with: name, keyboard: keyboard))
     }
 
     /// The new routine left untouched lists nowhere, and with four saved the drawer lists the
@@ -167,14 +162,17 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
             let listedBefore = Set(app.routineRowLabels)
             XCTAssertEqual(listedBefore, ["Chest day", "Pulls"], "The untouched new one was listed")
             var latest = ""
-            for exercise in ["Backward arm circles", "Band pull-apart, Band"] {
+            let last = "Band pull-apart, Band"
+            for exercise in ["Backward arm circles", last] {
                 app.buttons["New routine"].tap()
                 XCTAssertEqual(title.value(becoming: "New routine"), "New routine")
                 app.addExercise(exercise)
                 let unnamed = { title.value as? String == "New routine" }
                 XCTAssertFalse(reading(unnamed(), becoming: false, within: 2), "Still unnamed")
                 latest = title.value as? String ?? ""
-                typeName("", over: latest, in: app, title: title)
+                if exercise == last {
+                    typeOver(latest, with: "", in: app)
+                }
                 app.navigationBars.buttons.element(boundBy: 0).tap()
                 XCTAssertTrue(title.disappears(), "The chevron did not pop")
             }
