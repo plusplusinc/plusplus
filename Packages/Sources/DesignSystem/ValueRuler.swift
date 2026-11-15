@@ -22,11 +22,6 @@ public struct ValueRuler: View {
     private let onChange: (Double) -> Void
     private var isShown = true
 
-    @State private var position = ScrollPosition()
-    /// While a finger drags the ruler or its flick runs on, when the ruler writes the value
-    /// rather than follows it.
-    @State private var isScrolling = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// `spacing`, scaled with the labels' text style.
     @ScaledMetric private var spacing: CGFloat
 
@@ -72,7 +67,7 @@ public struct ValueRuler: View {
     public var body: some View {
         // The ruler's height, laid out whether or not it shows, so its row opens and shuts
         // around it as before.
-        tickCell(range.lowerBound)
+        tickCell(range.lowerBound, width: spacing)
             .hidden()
             .frame(maxWidth: .infinity)
             .overlay {
@@ -80,21 +75,15 @@ public struct ValueRuler: View {
                 // view only when it first draws, which takes the offset from an earlier layout
                 // pass, not SwiftUI's current one: in the AX5 sheet a 25 lb weight's ruler
                 // opened on 29 (logged on iOS 27). Built as its row opens, its first layout is
-                // the one it shows.
+                // the one it shows, and its scroll state goes with it as the row shuts, mid-flick
+                // too.
                 if isShown {
-                    ruler
+                    Track(ruler: self, scale: scale)
                 }
             }
             // Its tick labels are decoration; the row steps the same value for VoiceOver.
             // `accessibilityHidden` left them in the tree that automation reads.
             .accessibilityRepresentation { }
-            // The scroll view goes with its row, mid-flick too, with no idle phase to end the
-            // scroll; the next one starts from the value, not from where this one was.
-            .onChange(of: isShown) { _, isShown in
-                guard !isShown else { return }
-                isScrolling = false
-                position = ScrollPosition()
-            }
     }
 
     /// Whether the ruler shows: its row is open.
@@ -104,85 +93,111 @@ public struct ValueRuler: View {
         return ruler
     }
 
-    private var ruler: some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: 0) {
-                leadRoom
-                LazyHStack(spacing: 0) {
-                    ForEach(0 ..< scale.count, id: \.self) { index in
-                        tickCell(range.lowerBound + Double(index) * tick)
+    /// The scroll view, with the state that lives only as long as it does.
+    private struct Track: View {
+        let ruler: ValueRuler
+        let scale: RulerScale
+
+        @State private var position = ScrollPosition()
+        /// While a finger drags the ruler or its flick runs on, when the ruler writes the value
+        /// rather than follows it.
+        @State private var isScrolling = false
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+        var body: some View {
+            ScrollView(.horizontal) {
+                HStack(spacing: 0) {
+                    leadRoom
+                    LazyHStack(spacing: 0) {
+                        ForEach(0 ..< scale.count, id: \.self) { index in
+                            ruler.tickCell(
+                                ruler.range.lowerBound + Double(index) * ruler.tick,
+                                width: scale.spacing,
+                            )
+                        }
+                    }
+                    .scrollTargetLayout()
+                    // Laid out again at a new spacing, as the text size changes live, a lazy stack
+                    // puts back the scroll offset it had, which overrides the scroll anchor below:
+                    // the line sat 30 under a 60 s time at AX5, and the further off the larger the
+                    // size. A stack of its own for each spacing has no offset to put back, so the
+                    // anchor places the value.
+                    .id(scale.spacing)
+                    leadRoom
+                }
+            }
+            .scrollIndicators(.hidden)
+            .scrollPosition($position)
+            // Where the ruler starts, and where it stays as its width or spacing changes: the
+            // value's
+            // place along the ticks, as a fraction, which puts it under the line at any width.
+            .defaultScrollAnchor(scale.anchor(of: ruler.value))
+            .scrollTargetBehavior(TickSnap(scale: scale))
+            .onScrollPhaseChange { _, phase in
+                switch phase {
+                case .tracking, .interacting, .decelerating: isScrolling = true
+                case .idle, .animating: isScrolling = false
+                @unknown default: isScrolling = false
+                }
+            }
+            .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.x } action: { _, x in
+                guard isScrolling else { return }
+                let new = scale.value(at: x)
+                if new != ruler.value {
+                    // The step keys' own animation, so the row's digits roll here as they do there.
+                    withAnimation(ValueRow.change) {
+                        ruler.onChange(new)
                     }
                 }
-                .scrollTargetLayout()
-                // Laid out again at a new spacing, as the text size changes live, a lazy stack
-                // puts back the scroll offset it had, which overrides the scroll anchor below:
-                // the line sat 30 under a 60 s time at AX5, and the further off the larger the
-                // size. A stack of its own for each spacing has no offset to put back, so the
-                // anchor places the value.
-                .id(spacing)
-                leadRoom
             }
-        }
-        .scrollIndicators(.hidden)
-        .scrollPosition($position)
-        // Where the ruler starts, and where it stays as its width or spacing changes: the value's
-        // place along the ticks, as a fraction, which puts it under the line at any width.
-        .defaultScrollAnchor(scale.anchor(of: value))
-        .scrollTargetBehavior(TickSnap(scale: scale))
-        .onScrollPhaseChange { _, phase in
-            switch phase {
-            case .tracking, .interacting, .decelerating: isScrolling = true
-            case .idle, .animating: isScrolling = false
-            @unknown default: isScrolling = false
+            .onChange(of: ruler.value) { _, value in
+                guard !isScrolling else { return }
+                withAnimation(ValueRuler.slide(reduceMotion: reduceMotion)) {
+                    position.scrollTo(x: scale.offset(of: value))
+                }
             }
-        }
-        .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.x } action: { _, x in
-            guard isScrolling else { return }
-            let new = scale.value(at: x)
-            if new != value {
-                // The step keys' own animation, so the row's digits roll here as they do there.
-                withAnimation(ValueRow.change) {
-                    onChange(new)
+            .overlay(alignment: .top) {
+                Capsule()
+                    .fill(.pp(.textPrimary))
+                    .frame(width: ValueRuler.lineWidth, height: ValueRuler.lineHeight)
+                    .allowsHitTesting(false)
+            }
+            // The ticks fade over the last few points to the row's edges, so a number scrolling off
+            // goes soft rather than cut.
+            .mask {
+                HStack(spacing: 0) {
+                    LinearGradient(
+                        colors: [.clear, .black],
+                        startPoint: .leading,
+                        endPoint: .trailing,
+                    )
+                    .frame(width: ValueRuler.edgeFade)
+                    Color.black
+                    LinearGradient(
+                        colors: [.black, .clear],
+                        startPoint: .leading,
+                        endPoint: .trailing,
+                    )
+                    .frame(width: ValueRuler.edgeFade)
                 }
             }
         }
-        .onChange(of: value) { _, value in
-            guard !isScrolling else { return }
-            withAnimation(Self.slide(reduceMotion: reduceMotion)) {
-                position.scrollTo(x: scale.offset(of: value))
-            }
-        }
-        .overlay(alignment: .top) {
-            Capsule()
-                .fill(.pp(.textPrimary))
-                .frame(width: Self.lineWidth, height: Self.lineHeight)
-                .allowsHitTesting(false)
-        }
-        // The ticks fade over the last few points to the row's edges, so a number scrolling off
-        // goes soft rather than cut.
-        .mask {
-            HStack(spacing: 0) {
-                LinearGradient(colors: [.clear, .black], startPoint: .leading, endPoint: .trailing)
-                    .frame(width: Self.edgeFade)
-                Color.black
-                LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing)
-                    .frame(width: Self.edgeFade)
-            }
+
+        /// Room before the first tick and after the last, half the ruler's width less half a tick,
+        /// so either end can come under the line. Sized from the scroll view's own width in the
+        /// same layout pass as the ticks: from a width kept in state, the first layout had none,
+        /// and the scroll view kept the offset's content in place as the room arrived, so the line
+        /// sat half a ruler's width of ticks past the value, and stayed there.
+        private var leadRoom: some View {
+            Color.clear
+                .frame(height: 0)
+                .containerRelativeFrame(.horizontal) { width, _ in
+                    max(0, width / 2 - scale.spacing / 2)
+                }
         }
     }
 
     static let edgeFade: CGFloat = Spacing.lg
-
-    /// Room before the first tick and after the last, half the ruler's width less half a tick,
-    /// so either end can come under the line. Sized from the scroll view's own width in the
-    /// same layout pass as the ticks: from a width kept in state, the first layout had none,
-    /// and the scroll view kept the offset's content in place as the room arrived, so the line
-    /// sat half a ruler's width of ticks past the value, and stayed there.
-    private var leadRoom: some View {
-        Color.clear
-            .frame(height: 0)
-            .containerRelativeFrame(.horizontal) { width, _ in max(0, width / 2 - spacing / 2) }
-    }
 
     /// A value changed from outside slides the ruler there; with Reduce Motion it moves there
     /// at once.
@@ -190,7 +205,7 @@ public struct ValueRuler: View {
         reduceMotion ? nil : .snappy(duration: 0.25)
     }
 
-    private func tickCell(_ mark: Double) -> some View {
+    private func tickCell(_ mark: Double, width: CGFloat) -> some View {
         let isMajor = mark.isMultiple(of: major)
         let isMedium = mark.isMultiple(of: medium)
         let height = isMajor ? Self.majorHeight : isMedium ? Self.mediumHeight : Self.minorHeight
@@ -213,7 +228,7 @@ public struct ValueRuler: View {
                     }
                 }
         }
-        .frame(width: spacing)
+        .frame(width: width)
     }
 }
 
