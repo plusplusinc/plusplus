@@ -13,11 +13,12 @@ extension RenameUITests {
         let search = app.searchFields.firstMatch
         let start = app.buttons["Start"]
         let plus = app.buttons["Add exercise"]
+        // At rest, before the picker covers it.
+        let low = plus.frame
         openPickerFromEmptySpace(in: app, keyboard: keyboard)
         let (seeded, added) = XCUIApplication.renameRows
         XCTContext
             .runActivity(named: "Start appears with the first exercise, the + above it") { _ in
-                let low = plus.frame
                 app.pickerRows[seeded[0].label].tap()
                 XCTAssertTrue(search.disappears(), "The add left the picker open")
                 XCTAssertEqual(app.exerciseCount(becoming: 1), 1, "The pick added no row")
