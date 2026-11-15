@@ -34,7 +34,7 @@ extension Routine {
         return row.roundRest.seconds(derived: derivedRestAfterRound(of: id))
     }
 
-    /// "None", "15 s", "2:30 min"; empty for a plain row.
+    /// "None", "15s", "2m 30s"; empty for a plain row.
     public func restAfterRoundText(of id: RoutineExercise.ID, locale: Locale = .current) -> String {
         restAfterRound(of: id).map { RoutineExercise.restText($0, locale: locale) } ?? ""
     }
@@ -52,12 +52,8 @@ extension Routine {
 
     /// Moves a superset's rest a step, from what it reads now, and sets it on every member.
     public mutating func stepRestAfterRound(of id: RoutineExercise.ID, by direction: Int) {
-        guard let value = restAfterRound(of: id)?.steppedRest(by: direction),
-              let superset = exercises.first(where: { $0.id == id })?.supersetID
-        else { return }
-        for row in exercises.indices where exercises[row].supersetID == superset {
-            exercises[row].roundRest = .byHand(value)
-        }
+        guard let value = restAfterRound(of: id)?.steppedRest(by: direction) else { return }
+        setRestAfterRound(value, of: id)
     }
 
     /// Sets a superset's rest by hand, as a step does, on every member.

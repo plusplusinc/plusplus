@@ -38,7 +38,8 @@ struct ExerciseSheet: View {
     /// sheet stays there while it's open.
     @State private var fitted: CGFloat?
     /// A row is opening below the large height: the sheet grows to fit once its content has the
-    /// row's open height.
+    /// row's open height, or not at all once the row has opened, so a later change in height
+    /// (a footer's, a value's) never grows it.
     @State private var growsToFit = false
     /// The sheet's height inside its safe area, which a `.height` detent measures.
     @State private var sheetHeight: CGFloat = 0
@@ -140,7 +141,13 @@ struct ExerciseSheet: View {
             guard let amount = item.plan.weight?.amount,
                   let range = item.weightRange
             else { return nil }
-            return ValueRuler(value: amount, range: range) { item.setWeight($0) }
+            let locale = locale
+            return ValueRuler(
+                value: amount,
+                range: range,
+                label: { $0.formatted(.number.precision(.fractionLength(0 ... 1)).locale(locale)) },
+                onChange: { item.setWeight($0) },
+            )
         case .plan(.target):
             guard case let .time(seconds) = item.plan.target else { return nil }
             return timeRuler(seconds, range: RoutineExercise.timeRange) { item.setTime($0) }
@@ -312,6 +319,7 @@ struct ExerciseSheet: View {
         withAnimation(ValueRow.motion) {
             open = opening ? part : nil
         } completion: {
+            growsToFit = false
             guard opening, open == part else { return }
             withAnimation(ValueRow.motion) {
                 scroller.scrollTo(part)

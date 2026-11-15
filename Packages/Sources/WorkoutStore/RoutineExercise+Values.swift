@@ -19,7 +19,7 @@ extension RoutineExercise {
     }
 
     /// A part's value under its label, saying what it is for as the row does: "3", "10 per
-    /// side", "2:30 min", "20 lb/side".
+    /// side", "2m 30s", "20 lb/side".
     public func value(of part: PlanPart, locale: Locale = .current) -> String {
         switch part {
         case .sets:
@@ -74,7 +74,7 @@ extension RoutineExercise {
         seconds == 0 ? "None" : TimeText.text(seconds: seconds, locale: locale)
     }
 
-    /// "None", "30 seconds", "2 minutes 30 seconds".
+    /// "None", "30 seconds", "2 minutes, 30 seconds".
     static func spokenRest(_ seconds: Int, locale: Locale) -> String {
         seconds == 0 ? "None" : TimeText.spoken(seconds: seconds, locale: locale)
     }
@@ -252,7 +252,7 @@ extension Comparable where Self: AdditiveArithmetic {
 }
 
 extension SetTarget {
-    /// The number alone for reps, which its label names, and a time with its unit: "10", "30 s".
+    /// The number alone for reps, which its label names, and a time with its unit: "10", "30s".
     func number(locale: Locale) -> String {
         switch self {
         case let .reps(reps): reps.formatted(.number.locale(locale))
