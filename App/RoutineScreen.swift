@@ -131,6 +131,18 @@ struct RoutineScreen: View {
         namer.shownName(of: routine)
     }
 
+    /// Add exercise, a + floating above the key, which opens the picker. While the keyboard is
+    /// up, as the title is edited, it fades out, keeping its place.
+    private var addButton: some View {
+        Button("Add exercise", systemImage: "plus") {
+            isPicking = true
+        }
+        .opacity(isEditingTitle ? 0 : 1)
+        .allowsHitTesting(!isEditingTitle)
+        .accessibilityHidden(isEditingTitle)
+        .animation(.easeOut(duration: Self.barFade), value: isEditingTitle)
+    }
+
     var body: some View {
         Group {
             if isPushed {
@@ -250,14 +262,12 @@ struct RoutineScreen: View {
                             // is off.
                             .swipeToDelete(isOn: item.id != currentID) { delete(item.id) }
                     } end: {
-                        Button("Add exercise", systemImage: "plus") {
-                            isPicking = true
-                        }
-                        .buttonStyle(.key)
+                        FloatingButtonRoom()
                     }
                 }
                 .padding(.horizontal, Spacing.md)
-                // Room under Add exercise, so at the end of a long list it clears Start.
+                // With the floating +'s room above it, so at the end of a long list the last row
+                // scrolls clear of the +.
                 .padding(.bottom, Spacing.md)
                 // In the content, not a margin, so the visible height the row is sized from
                 // stays.
@@ -314,6 +324,8 @@ struct RoutineScreen: View {
             drop: startDrop,
         ) {
             key(role)
+        } floating: {
+            addButton
         }
         .task(id: isStarting) { await holdStart() }
         .task(id: playback.held) { await rollHeldSet() }

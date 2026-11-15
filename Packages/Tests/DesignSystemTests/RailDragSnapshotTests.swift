@@ -56,8 +56,7 @@ struct RailDragSnapshotTests {
                 .padding(.top, row.focus == nil ? 0 : Spacing.lg)
                 .railRow()
         } end: {
-            Button("Add exercise", systemImage: "plus") { }
-                .buttonStyle(.key)
+            FloatingButtonRoom()
         }
         .padding(Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
