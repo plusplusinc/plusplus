@@ -16,9 +16,14 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
         let title = app.launchSeeding(["barbell-bench-press"], arguments: ["-fallbackNames", "YES"])
         XCTContext.runActivity(named: "The drawer marks the routine showing, or a new one") { _ in
             XCTAssertEqual(title.value(becoming: "Chest"), "Chest")
+            XCTAssertTrue(app.buttons["Add exercise"].exists)
             openDrawer(in: app)
             XCTAssertEqual(drawerRoutines(in: app), ["Chest"])
             XCTAssertTrue(app.buttons["Start"].disappears(), "VoiceOver reaches Start behind it")
+            XCTAssertTrue(
+                app.buttons["Add exercise"].disappears(),
+                "VoiceOver reaches Add exercise behind it",
+            )
             XCTAssertTrue(app.buttons["Chest"].isSelected, "The routine showing isn't marked")
             XCTAssertFalse(app.buttons["Routines"].isSelected)
             attach(named: "drawer-routine")
