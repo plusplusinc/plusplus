@@ -65,8 +65,9 @@ extension RoutineScreen {
     /// Adds a picked exercise. Its row takes its place at the rail's end as the sheet starts down,
     /// but enters only where it can be seen: a moment into the sheet's slide when everything
     /// still fits, and otherwise once a scroll to the end has brought the row and the list's end
-    /// into view. The scroll waits for the row's place: asked for while the row went in,
-    /// it stopped at the end the list had before. Once Start is pressed, it enters where it is,
+    /// into view, the scroll having stopped. The scroll waits for the row's place: asked for
+    /// while the row went in, it stopped at the end the list had before. Once Start is pressed, it
+    /// enters where it is,
     /// with no scroll: the end is then Start's room under the list, out of sight, and a scroll to
     /// it took the list off the screen just as Start went to land on the first exercise.
     func add(_ exercise: Exercise) {
@@ -77,17 +78,35 @@ extension RoutineScreen {
         // The row goes in with no space yet, so nothing moves; its fade, of a row that draws
         // nothing yet, times the entry a moment into the sheet's slide: the line barely moves
         // at first, and the sheet has cleared all but the screen's foot by the time it shows.
-        withAnimation(.linear(duration: 0.1)) {
+        withAnimation(.linear(duration: RailArrival.appendFade)) {
             routine.exercises.append(row)
-        } completion: {
-            guard arriving == row.id else { return }
-            endFollow = .ready
-            guard !isEndInView, !isMakingRoom else { return letArrivingEnter(row) }
-            withAnimation(.railChange, completionCriteria: .logicallyComplete) {
-                scrollPosition.scrollTo(edge: .bottom)
-            } completion: {
-                letArrivingEnter(row)
+        }
+        // Beats on deadlines, not this animation's completion, which once never came, and the
+        // row stayed arriving for good (`RailArrival`).
+        Task {
+            await RailArrival.play {
+                arriving == row.id
+            } reachEnd: {
+                await reachEnd()
+            } enter: {
+                letArrivingEnter()
+            } entered: {
+                hasEntered(row)
             }
+        }
+    }
+
+    /// Scrolls the list to its end, the added row's place, and returns once the scroll stops,
+    /// unless the end is in view or Start's room is opening.
+    private func reachEnd() async {
+        endFollow = .ready
+        guard !isEndInView, !isMakingRoom else { return }
+        await scrollBeat.settled {
+            withAnimation(.railChange) {
+                scrollPosition.scrollTo(edge: .bottom)
+            }
+        } orWhen: {
+            try? await Task.sleep(for: RailArrival.endGiveUp, tolerance: .zero)
         }
     }
 
@@ -135,22 +154,23 @@ extension RoutineScreen {
             <= (geometry.scrolledY + geometry.containerSize.height).rounded(.up)
     }
 
-    /// Lets `row` enter, unless a later add has taken its place as the arriving row.
-    func letArrivingEnter(_ row: RoutineExercise) {
-        guard arriving == row.id else { return }
+    /// Lets the arriving row enter, in the transaction that times its entry.
+    private func letArrivingEnter() {
         var transaction = Transaction()
         transaction.isRailEntry = true
-        // A later add, its row arriving, keeps the scroll in step for its own place.
-        transaction.addAnimationCompletion {
-            if arriving == nil {
-                endFollow = nil
-            }
-            if entering == row.id {
-                entering = nil
-            }
-        }
         withTransaction(transaction) {
             arriving = nil
+        }
+    }
+
+    /// Once `row` has landed it takes taps and VoiceOver reaches it. A later add, its row
+    /// arriving, keeps the scroll in step for its own place.
+    private func hasEntered(_ row: RoutineExercise) {
+        if arriving == nil {
+            endFollow = nil
+        }
+        if entering == row.id {
+            entering = nil
         }
     }
 }
