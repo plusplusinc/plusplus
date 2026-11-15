@@ -21,7 +21,7 @@ extension RoutineScreen {
     /// switched to before the workout begins stops Start's beats (`check(_:)`), and the session
     /// starts a workout only on the routine pressed (`RoutineSession.start(on:at:)`).
     func pressStart() {
-        guard phase == .idle else { return }
+        guard phase == .idle, session.canStart(on: routine.id) else { return }
         // The list's end lies under the first row until it grows, so a short routine may have
         // nowhere to scroll it to: room under the end, out of sight, lets it go. It goes in
         // ahead of the scroll: a scroll in the same transaction stops at the old end.
@@ -107,12 +107,16 @@ extension RoutineScreen {
         try await beat(until: .now + .seconds(Self.landingHold))
     }
 
-    /// Stops Start's beats unless the routine open is still `pressed`, the one Start was pressed
-    /// on: a switch of routine while they play gives a new screen, which stops them, and this is
-    /// the guard behind that, so the grow never plays on another routine. The session holds the
-    /// workout's own rule: it starts nothing on a routine other than the open one.
+    /// Stops Start's beats unless the session would still start a workout on `pressed`, the
+    /// routine Start was pressed on: a switch of routine while they play, under way or done, stops
+    /// them, so the grow never plays with no workout behind it. Called in the same turn as each
+    /// `start(on:)`, which holds the same rule whoever calls it. The screen settles at rest as it
+    /// stops: a switch that fails to read its routine leaves this screen showing.
     private func check(_ pressed: Routine.ID) throws {
-        guard session.current.id == pressed else { throw CancellationError() }
+        guard session.canStart(on: pressed) else {
+            stopSequence()
+            throw CancellationError()
+        }
     }
 
     /// The first exercise grows into the current one as the list scrolls it up under the bar,

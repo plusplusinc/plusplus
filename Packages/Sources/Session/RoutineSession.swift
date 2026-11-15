@@ -128,10 +128,9 @@ public final class RoutineSession {
     }
 
     /// Starts a workout on `routine`, shown at the root, so no back button or swipe leaves it,
-    /// named as the routine shows now. Only on the open routine, and only with no workout
-    /// running: a Start pressed on a routine since switched away from starts nothing.
+    /// named as the routine shows now, when `canStart(on:)` allows it.
     public func start(on routine: Routine.ID, at now: Date = .now) {
-        guard workout == nil, routine == current.id else { return }
+        guard canStart(on: routine) else { return }
         // The workout first: a screen shown at the root reads it as it is made, to open on the
         // current exercise.
         change(.save(Workout(routineID: routine, routineName: shownName, startedAt: now)))
@@ -141,6 +140,13 @@ public final class RoutineSession {
             screen = .routine
         }
         closeDrawer()
+    }
+
+    /// Whether a Start pressed on `routine` may still start: only on the open routine, with no
+    /// workout running and no switch under way. A routine switched away from, or being switched
+    /// away from, starts nothing: the switch stops Start.
+    public func canStart(on routine: Routine.ID) -> Bool {
+        workout == nil && !isSwitching && routine == current.id
     }
 
     /// The name the open routine shows, which a workout on it keeps: empty for New routine.

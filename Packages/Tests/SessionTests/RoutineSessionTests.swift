@@ -194,11 +194,42 @@ struct RoutineSessionTests {
         #expect(try await relaunch().launch(weightUnit: .pounds).workout == nil)
     }
 
-    @Test("The drawer stays shut while a workout runs, whoever opens it")
+    @Test("Start pressed on a routine while a switch away from it is under way starts nothing")
+    func startDuringSwitch() async throws {
+        let routine = try Self.upper()
+        let session = session(routine)
+        let other = Routine(name: "Lower")
+        let (reading, readStarted) = AsyncStream.makeStream(of: Void.self)
+        let (release, releaseRead) = AsyncStream.makeStream(of: Void.self)
+        let switching = Task {
+            await session.switchTo(pushed: false) {
+                readStarted.yield()
+                for await _ in release {
+                    break
+                }
+                return other
+            }
+        }
+        for await _ in reading {
+            break
+        }
+        #expect(!session.canStart(on: routine.id))
+        session.start(on: routine.id)
+        #expect(session.workout == nil)
+        releaseRead.yield()
+        await switching.value
+        #expect(session.current == other)
+        #expect(session.workout == nil)
+    }
+
+    @Test("The drawer opens with no workout, and stays shut while one runs, whoever opens it")
     func drawerLockedInWorkout() throws {
         let routine = try Self.upper()
         let session = session(routine)
+        session.openDrawer()
+        #expect(session.isDrawerOpen)
         session.start(on: routine.id)
+        #expect(!session.isDrawerOpen)
         session.openDrawer()
         #expect(!session.isDrawerOpen)
     }
