@@ -15,7 +15,11 @@ struct CurrentExerciseTextTests {
     }
 
     private static func figures(_ row: RoutineExercise) -> [String] {
-        row.figures(locale: locale).map { "\($0.number) \($0.unit)" }
+        row.figures(locale: locale).map {
+            "\($0.number) \($0.unit)"
+                .replacingOccurrences(of: "\u{00A0}", with: " ")
+                .trimmingCharacters(in: .whitespaces)
+        }
     }
 
     @Test("Set, or round in a superset")
@@ -34,9 +38,9 @@ struct CurrentExerciseTextTests {
         #expect(try Self.figures(Self.row("Biceps curl")).last?.hasSuffix(" lb/side") == true)
         #expect(try Self.figures(Self.row("Push-up")) == ["10 reps"])
         #expect(try Self.figures(Self.row("Push-up", target: .time(seconds: 150)))
-            == ["2:30 min"])
+            == ["2m 30s"])
         #expect(try Self.figures(Self.row("Push-up", target: .time(seconds: 45)))
-            == ["45 s"])
+            == ["45s"])
     }
 
     @Test("With a side named, the reps or time drop per side; a pair's weight keeps its /side")

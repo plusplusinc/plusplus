@@ -10,7 +10,8 @@ import WorkoutStore
 struct RoutineScreen: View {
     // What the `RoutineScreen+` extensions read is internal, not private, so they can be apart.
 
-    @State var routine: Routine
+    /// The routine as drawn. Written only through `routine`, which saves each change.
+    @State private var shownRoutine: Routine
     /// Saves every change, and opens the drawer.
     let session: RoutineSession
     private let namer: RoutineNamer
@@ -23,14 +24,15 @@ struct RoutineScreen: View {
     /// The row just added, holding its place until it can be seen going in.
     @State var arriving: RoutineExercise.ID?
     /// The row just added, from the add until its entry has played. A view takes taps where it
-    /// will end up, not where it's drawn, so while its place opens a tap on Add exercise, still
+    /// will end up, not where it's drawn, so while its place opens a tap there, on what is still
     /// drawn there, lands on it; it ignores taps until it has landed.
     @State var entering: RoutineExercise.ID?
-    /// Whether Add exercise, at the list's end, is fully in view.
+    /// Whether the list's end, the room it leaves for the floating +, is fully in view.
     @State var isEndInView = true
     /// While an added row's place opens, the list's end stays put on screen: as the content grows
-    /// past the visible area, it scrolls in step (`keepEndInView`).
-    @State var isOpeningPlace = false
+    /// past the visible area, it scrolls in step (`keepEndInView`), at the stage `EndFollow`
+    /// names; nil while no place opens.
+    @State var endFollow: EndFollow?
     /// Whether the list is being scrolled by hand, which the in-step scroll leaves alone.
     @State var isScrollingByHand = false
     /// Whether the title's field has focus. Any touch outside the title ends the edit.
@@ -105,12 +107,25 @@ struct RoutineScreen: View {
 
     /// Shows the routine the session opened. A switch to another gives a new screen.
     init(session: RoutineSession, namer: RoutineNamer, isPushed: Bool = false) {
-        _routine = State(initialValue: session.opened)
+        _shownRoutine = State(initialValue: session.opened)
         _opensOnCurrent = State(initialValue: session.workout != nil)
         _phase = State(initialValue: WorkoutPhase(hasWorkout: session.workout != nil))
         self.session = session
         self.namer = namer
         self.isPushed = isPushed
+    }
+
+    /// The routine on screen. Every change to it is saved as it is made, and a write that changes
+    /// nothing saves nothing, so a routine opened and left alone is never saved. Saved here, not
+    /// from an `onChange` of the routine, which SwiftUI skips when the routine changes again in a
+    /// frame its action already ran in, losing the last key of a name typed fast.
+    var routine: Routine {
+        get { shownRoutine }
+        nonmutating set {
+            guard newValue != shownRoutine else { return }
+            shownRoutine = newValue
+            session.save(newValue)
+        }
     }
 
     /// The name made for the routine from its exercises, which a chosen name hides and which
@@ -123,6 +138,11 @@ struct RoutineScreen: View {
     /// The name the routine shows: its chosen one, or else the one made for it.
     var shownName: String? {
         namer.shownName(of: routine)
+    }
+
+    /// Add exercise, a + floating above the key, which opens the picker.
+    private var addButton: some View {
+        AddExerciseButton(isEditingTitle: $isEditingTitle) { isPicking = true }
     }
 
     var body: some View {
@@ -141,10 +161,6 @@ struct RoutineScreen: View {
             session: session,
             end: end,
         )
-        // `onChange` skips the first value, so a routine opened and left alone is never saved.
-        .onChange(of: routine) { _, changed in
-            session.save(changed)
-        }
         .sensoryFeedback(.impact(weight: .light, intensity: 0.6), trigger: landings)
         .sensoryFeedback(.impact(weight: .medium), trigger: setLogs)
         .sensoryFeedback(.impact(weight: .light), trigger: sideLogs)
@@ -167,7 +183,7 @@ struct RoutineScreen: View {
             ZStack(alignment: .topLeading) {
                 VStack(alignment: .leading, spacing: Spacing.md) {
                     EditableTitle(
-                        text: $routine.name,
+                        text: Binding { routine.name } set: { routine.name = $0 },
                         isEditing: $isEditingTitle,
                         placeholder: Self.defaultName,
                         suggestion: generatedName,
@@ -242,14 +258,12 @@ struct RoutineScreen: View {
                             // is off.
                             .swipeToDelete(isOn: item.id != currentID) { delete(item.id) }
                     } end: {
-                        Button("Add exercise", systemImage: "plus") {
-                            isPicking = true
-                        }
-                        .buttonStyle(.key)
+                        FloatingButtonRoom()
                     }
                 }
                 .padding(.horizontal, Spacing.md)
-                // Room under Add exercise, so at the end of a long list it clears Start.
+                // With the floating +'s room above it, so at the end of a long list the last row
+                // scrolls clear of the +.
                 .padding(.bottom, Spacing.md)
                 // In the content, not a margin, so the visible height the row is sized from
                 // stays.
@@ -305,6 +319,8 @@ struct RoutineScreen: View {
             drop: startDrop,
         ) { role, isOut in
             key(role, isOut: isOut)
+        } floating: {
+            addButton
         }
         .onDisappear { stopSequence() }
         // One row open at a time, closed by a scroll or a tap anywhere else, Start included,
@@ -345,4 +361,19 @@ struct RoutineScreen: View {
         session: RoutineSession(routine: Routine(), store: nil, namer: .muscleGroupsOnly),
         namer: .muscleGroupsOnly,
     )
+}
+
+/// Add exercise's +. While the keyboard is up, as the title is edited, it fades out, keeping its
+/// place. It reads the edit through a binding, so a focus change redraws it and not the screen.
+private struct AddExerciseButton: View {
+    @Binding var isEditingTitle: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button("Add exercise", systemImage: "plus", action: action)
+            .opacity(isEditingTitle ? 0 : 1)
+            .allowsHitTesting(!isEditingTitle)
+            .accessibilityShown(!isEditingTitle)
+            .animation(.easeOut(duration: RoutineScreen.barFade), value: isEditingTitle)
+    }
 }

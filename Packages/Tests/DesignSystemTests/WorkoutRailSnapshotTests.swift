@@ -59,12 +59,11 @@ struct WorkoutRailSnapshotTests {
                 detail: ["6 × 8 reps per side", "40 lb"],
                 bars: Self.bars(4, of: 6),
             ),
-            Row(title: "Plank", detail: ["8 × 30 s"], bars: Self.bars(2, of: 8)),
+            Row(title: "Plank", detail: ["8 × 30s"], bars: Self.bars(2, of: 8)),
             Row(title: "Push-up", detail: ["3 × 10 reps"]),
         ]
         let view = rail(rows, done: [finished.id]) {
-            Button("Add exercise", systemImage: "plus") { }
-                .buttonStyle(.key)
+            FloatingButtonRoom()
         }
         assertThemedSnapshots(of: view, width: Self.width)
     }
@@ -76,8 +75,7 @@ struct WorkoutRailSnapshotTests {
             Row(title: "Pull-up", detail: ["3 × 6 reps"]),
         ]
         let view = rail(rows, current: rows[0].id, isSetHeld: true) {
-            Button("Add exercise", systemImage: "plus") { }
-                .buttonStyle(.key)
+            FloatingButtonRoom()
         }
         assertThemedSnapshots(of: view, width: Self.width)
     }
@@ -89,11 +87,11 @@ struct WorkoutRailSnapshotTests {
     func stretchedLoop() {
         let current = Row(
             title: "Plank",
-            detail: ["3 × 30 s"],
+            detail: ["3 × 30s"],
             focus: RowFocus(
                 progress: "Round 1 of 3",
                 equipment: [],
-                figures: [.init(number: "30", unit: "s")],
+                figures: [.init(number: "30s", unit: "")],
                 spokenFigures: "30 seconds",
             ),
             bars: Self.bars(0, of: 3),
@@ -101,12 +99,11 @@ struct WorkoutRailSnapshotTests {
         let rows = [
             current,
             Row(title: "Push-up", detail: ["3 × 10 reps"]),
-            Row(title: "Dead hang", detail: ["3 × 30 s"]),
+            Row(title: "Dead hang", detail: ["3 × 30s"]),
             Row(title: "Goblet squat", detail: ["3 × 10 reps", "35 lb"]),
         ]
         let view = rail(rows, links: [rows[0].id, rows[1].id], current: current.id) {
-            Button("Add exercise", systemImage: "plus") { }
-                .buttonStyle(.key)
+            FloatingButtonRoom()
         }
         assertThemedSnapshots(of: view, width: Self.width)
     }

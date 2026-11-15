@@ -2,7 +2,8 @@ import XCTest
 
 /// The title at the largest accessibility text size, where it wraps. VoiceOver frames the field,
 /// so every line it shows, the default drawn behind an empty field included, has to sit inside
-/// the field's frame. Lines are read from the pixels between the bar and "Add exercise". Where
+/// the field's frame. Lines are read from the pixels between the bar and a line's height below
+/// the field, where nothing else is drawn on a new routine. Where
 /// the `_` draws on a wrapped name is snapshot-tested.
 ///
 /// `nonisolated` because XCTestCase's initializers are; the test drives the UI on the main actor.
@@ -11,6 +12,8 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
     private static let threeLines = "Hot beat drills and abs"
 
     static let largestTextSize = "UICTContentSizeCategoryAccessibilityXXXL"
+    /// How far below the field the lines are read: more than a line of the title at AX5.
+    private static let spill: CGFloat = 80
 
     @MainActor
     func testWrappedTitleAtLargestTextSize() throws {
@@ -20,20 +23,19 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         try workoutAtAX5(in: app)
         app.openNewRoutine()
         let title = app.routineTitle
-        let addExercise = app.buttons["Add exercise"]
         let keyboard = app.keyboards.element
 
         try XCTContext.runActivity(named: "The field covers the wrapped default") { _ in
-            try assertLinesInsideField(title, above: addExercise, lines: 2, "default at rest")
+            try assertLinesInsideField(title, lines: 2, "default at rest")
             title.tap()
             XCTAssertTrue(keyboard.appears())
-            try assertLinesInsideField(title, above: addExercise, lines: 2, "default, editing")
+            try assertLinesInsideField(title, lines: 2, "default, editing")
         }
 
         try XCTContext.runActivity(named: "The field covers a long name while editing") { _ in
             title.typeText(Self.threeLines)
             XCTAssertEqual(title.value(becoming: Self.threeLines), Self.threeLines)
-            try assertLinesInsideField(title, above: addExercise, lines: 3, "long name, editing")
+            try assertLinesInsideField(title, lines: 3, "long name, editing")
         }
         XCTContext.runActivity(named: "A tap on line 2 puts the caret there") { _ in
             // "Hot beat" / "drills and" / "abs": a tap at the start of line 2 is before drills.
@@ -48,9 +50,9 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         }
 
         try XCTContext.runActivity(named: "The field covers a long name") { _ in
-            returnLeavesEverythingInPlace(title, addExercise: addExercise, keyboard: keyboard)
+            returnLeavesEverythingInPlace(title, keyboard: keyboard)
             XCTAssertEqual(title.value as? String, Self.threeLines)
-            try assertLinesInsideField(title, above: addExercise, lines: 3, "long name at rest")
+            try assertLinesInsideField(title, lines: 3, "long name at rest")
         }
 
         try XCTContext.runActivity(named: "A cleared name restores the wrapped default") { _ in
@@ -58,8 +60,8 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             XCTAssertTrue(keyboard.appears())
             // The app moves the caret to the end after focus lands, which can come after keys
             // sent at once.
-            let (field, button) = (title.frame, addExercise.frame)
-            _ = try Ink.withCursor { try read(field, above: button) } until: { ink, cursor in
+            let field = title.frame
+            _ = try Ink.withCursor { try read(field) } until: { ink, cursor in
                 ink.missAtEnd(cursor)
             }
             // Deleting from the end, not ⌘A: on Xcode Cloud, ⌘A sent here hid the keyboard and
@@ -67,14 +69,14 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             let delete = XCUIKeyboardKey.delete.rawValue
             title.typeText(String(repeating: delete, count: Self.threeLines.count))
             XCTAssertEqual(title.value(becoming: "New routine"), "New routine")
-            try assertLinesInsideField(title, above: addExercise, lines: 2, "cleared, editing")
-            returnLeavesEverythingInPlace(title, addExercise: addExercise, keyboard: keyboard)
+            try assertLinesInsideField(title, lines: 2, "cleared, editing")
+            returnLeavesEverythingInPlace(title, keyboard: keyboard)
             XCTAssertEqual(title.value as? String, "New routine")
-            try assertLinesInsideField(title, above: addExercise, lines: 2, "cleared, at rest")
+            try assertLinesInsideField(title, lines: 2, "cleared, at rest")
         }
 
         try auditRowsAndPicker(in: app)
-        assertAddClearsStartAtTheEnd(in: app, keyboard: keyboard, addExercise: addExercise)
+        assertLastRowClearsAddAtTheEnd(in: app, keyboard: keyboard)
         dragARowAtAX5(in: app)
         try supersetAtAX5(in: app)
         try drawerAtAX5(in: app)
@@ -161,16 +163,19 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             app.exerciseRows.firstMatch.tap()
             let time = app.buttons["Time"]
             XCTAssertTrue(time.appears(), "Tapping a row opened no sheet")
-            time.tap()
-            XCTAssertTrue(app.buttons["Increase"].appears(), "Tapping Time opened no stepper")
-            // Audited expanded: at half height the audit reports the open row's value as
-            // clipped, though it draws in full, as the screenshot shows.
+            // Expanded before the row opens: in a sheet below its large height, a grown one
+            // included, the audit reports the open row's value as clipped, though it draws in
+            // full. Opened first, the row grows the sheet, and a tap on the grabber after it
+            // races the growth, or takes the grown sheet back to half.
             attach(named: "sheet-ax5")
             let grabber = app.buttons["Sheet Grabber"]
             grabber.tap()
             XCTAssertEqual(grabber.value(becoming: "Expanded"), "Expanded")
+            time.tap()
+            XCTAssertTrue(app.buttons["Increase"].appears(), "Tapping Time opened no stepper")
             attach(named: "sheet-expanded-ax5")
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
+            try assertRulerRestsOnItsValue(in: app, row: time)
             app.buttons["Close"].tap()
             XCTAssertTrue(time.disappears(), "Close left the sheet up")
             let search = app.openPicker()
@@ -187,15 +192,12 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         }
     }
 
-    /// At this size the second row pushes Add exercise below Start, so an add has to scroll to
-    /// the end of the list, where the key clears Start with the screen's spacing to spare.
+    /// At this size the second row goes in under Add exercise's +, so an add has to scroll to
+    /// the end of the list, where the last row clears the + with the screen's spacing to spare.
     @MainActor
-    private func assertAddClearsStartAtTheEnd(
-        in app: XCUIApplication,
-        keyboard: XCUIElement,
-        addExercise: XCUIElement,
-    ) {
-        XCTContext.runActivity(named: "At the end of a long list, Add exercise clears Start") { _ in
+    private func assertLastRowClearsAddAtTheEnd(in app: XCUIApplication, keyboard: XCUIElement) {
+        let name = "At the end of a long list, the last row clears Add exercise's +"
+        XCTContext.runActivity(named: name) { _ in
             let search = app.searchFields.firstMatch
             // While searching, the first Close ends the search; the next closes the sheet.
             for _ in 0 ..< 2 where search.exists {
@@ -203,7 +205,7 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
                 _ = keyboard.disappears()
             }
             app.addExercise("Dumbbell bench press, Dumbbells, bench", searching: "dumbbell bench")
-            XCTAssertTrue(app.addExerciseClearsStart(), "The add left Add exercise behind Start")
+            XCTAssertTrue(app.lastRowClearsAddExercise(), "The add left the row under the +")
             attach(named: "rail-after-add-ax5")
             // The last row: the first, its plan making it taller, has its middle under the bar.
             app.lastExerciseRow.swipeOpen()
@@ -211,54 +213,49 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             app.swipeUp()
             XCTAssertTrue(app.buttons["Remove"].disappears(), "A scroll left the row open")
             app.swipeUp()
-            let start = app.buttons["Start"]
-            XCTAssertTrue(start.appears())
+            XCTAssertTrue(app.buttons["Start"].appears())
             attach(named: "rail-end-ax5")
             // 16pt, the screen's spacing, give or take rounding.
             XCTAssertGreaterThanOrEqual(
-                start.frame.minY - addExercise.frame.maxY,
+                app.buttons["Add exercise"].frame.minY - app.lastExerciseRow.frame.maxY,
                 15.5,
-                "Add exercise does not clear Start with room to spare",
+                "The last row does not clear the + with room to spare",
             )
         }
     }
 
-    /// Return ends the edit, and the title and Add exercise stay where they were: only the
-    /// keyboard moves.
+    /// Return ends the edit, and the title stays where it was: only the keyboard moves.
     @MainActor
     private func returnLeavesEverythingInPlace(
         _ title: XCUIElement,
-        addExercise: XCUIElement,
         keyboard: XCUIElement,
         line: UInt = #line,
     ) {
-        let before = [title.frame, addExercise.frame]
+        let before = [title.frame]
         title.typeText("\n")
         XCTAssertTrue(keyboard.disappears(), "Return did not end the edit", line: line)
         XCTAssertEqual(
-            watchFrames(of: [title, addExercise], for: RenameUITests.keyboardAvoidanceWindow),
+            watchFrames(of: [title], for: RenameUITests.keyboardAvoidanceWindow),
             before,
-            "Ending the edit moved the title or Add exercise",
+            "Ending the edit moved the title",
             line: line,
         )
     }
 
-    /// Every line of text between the bar and "Add exercise" lies inside the field.
+    /// Every line of text read around the field lies inside it.
     @MainActor
     private func assertLinesInsideField(
         _ title: XCUIElement,
-        above addExercise: XCUIElement,
         lines expected: Int,
         _ label: String,
         line: UInt = #line,
     ) throws {
         let field = title.frame
-        let button = addExercise.frame
         // The value can change a frame before the lines are drawn.
         let drawn = Date.now.addingTimeInterval(2)
-        var ink = try read(field, above: button)
+        var ink = try read(field)
         while ink.lines.count != expected, Date.now < drawn {
-            ink = try read(field, above: button)
+            ink = try read(field)
         }
         attach(ink.shot.screenshot, named: label)
         // The strip was placed by the frame read before the shot.
@@ -278,15 +275,16 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
                 line: line,
             )
         }
-        XCTAssertLessThanOrEqual(field.maxY, button.minY, "\(label): field overlaps the button")
     }
 
-    /// The ink in the field's column, from just under the bar down to "Add exercise". The strip
-    /// starts above the field, on plain background.
+    /// The ink in the field's column, from just under the bar down to `spill` below the field,
+    /// far enough to take in a line drawn past its bottom. The strip starts above the field, on
+    /// plain background.
     @MainActor
-    private func read(_ field: CGRect, above button: CGRect) throws -> Ink {
+    private func read(_ field: CGRect) throws -> Ink {
         let top = field.minY - 16
-        let strip = CGRect(x: field.minX, y: top, width: field.width, height: button.minY - 1 - top)
+        let bottom = field.maxY + Self.spill
+        let strip = CGRect(x: field.minX, y: top, width: field.width, height: bottom - top)
         return try TitleShot().ink(in: strip, background: strip.origin)
     }
 }

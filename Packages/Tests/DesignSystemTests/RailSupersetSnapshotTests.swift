@@ -23,9 +23,9 @@ struct RailSupersetSnapshotTests {
         Row(title: "Goblet squat", detail: ["3 × 10 reps", "35 lb"]),
         Row(title: "Push-up", detail: ["3 × 10 reps"]),
         Row(title: "Pull-up", detail: ["3 × 6 reps"]),
-        Row(title: "Plank", detail: ["60 s"]),
-        Row(title: "Farmer\u{2019}s carry", detail: ["3 × 30 s", "25 lb/side"]),
-        Row(title: "Dead hang", detail: ["3 × 30 s"]),
+        Row(title: "Plank", detail: ["1m"]),
+        Row(title: "Farmer\u{2019}s carry", detail: ["3 × 30s", "25 lb/side"]),
+        Row(title: "Dead hang", detail: ["3 × 30s"]),
         Row(title: "Face pull", detail: ["3 × 15 reps"]),
     ]
 
@@ -41,8 +41,7 @@ struct RailSupersetSnapshotTests {
             RowLabel(title: row.title, detail: row.detail)
                 .railRow()
         } end: {
-            Button("Add exercise", systemImage: "plus") { }
-                .buttonStyle(.key)
+            FloatingButtonRoom()
         }
         .padding(Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)

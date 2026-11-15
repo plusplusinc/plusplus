@@ -45,10 +45,10 @@ struct KeyStageTests {
         let leavingChanged = leaving.follow(to: back)
         #expect(!leavingChanged)
         #expect(leaving == .leaving(log))
-        var arriving = KeyStage<Face>.arriving
+        var arriving = KeyStage.arriving(after: log)
         let arrivingChanged = arriving.follow(to: back)
         #expect(!arrivingChanged)
-        #expect(arriving == .arriving)
+        #expect(arriving == .arriving(after: log))
         // Below the edge, the next key is whatever face is live as it rises.
         #expect(arriving.face(for: back) == back)
     }
@@ -57,7 +57,7 @@ struct KeyStageTests {
     func onceGone() {
         var stage = KeyStage.leaving(log)
         stage.advance(live: finish)
-        #expect(stage == .arriving)
+        #expect(stage == .arriving(after: log))
         #expect(stage.face(for: back) == back)
         stage.advance(live: back)
         #expect(stage == .showing(back))
@@ -93,10 +93,28 @@ struct KeyStageTests {
         #expect(stage == .showing(log))
     }
 
+    /// At the largest text sizes the way back's key wraps to two lines, taller than Log set's;
+    /// the floating button above it moved to the next key's height before the key going had
+    /// left, 108 pt in one frame.
+    @Test("The floating button sits over the key drawn, and the one that left until the next rises")
+    func floatingFace() {
+        var stage = KeyStage.showing(log)
+        #expect(stage.floatingFace(for: logRight) == logRight)
+        #expect(stage.floatingFace(for: back) == log)
+        _ = stage.follow(to: back)
+        #expect(stage.floatingFace(for: back) == log)
+        stage.advance(live: back)
+        #expect(stage.floatingFace(for: back) == log)
+        stage.advance(live: back)
+        #expect(stage.floatingFace(for: back) == back)
+        stage.drop(true, live: finish)
+        #expect(stage.floatingFace(for: finish) == finish)
+    }
+
     @Test("A leaving or arriving key is out, and takes no tap; a showing one is in")
     func out() {
         #expect(!KeyStage.showing(log).isOut)
         #expect(KeyStage.leaving(log).isOut)
-        #expect(KeyStage<Face>.arriving.isOut)
+        #expect(KeyStage.arriving(after: log).isOut)
     }
 }
