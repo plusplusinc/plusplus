@@ -230,11 +230,15 @@ public struct RowLabel: View {
     }
 
     private func number(_ figure: RowFocus.Figure) -> some View {
-        Text(figure.number)
-            .font(.system(size: figureSize, weight: .bold, design: .monospaced))
-            .foregroundStyle(.pp(.textPrimary))
-            .lineLimit(1)
-            .minimumScaleFactor(0.3)
+        // A time's unit letters, "1m 35s", stay in the system font, as everywhere else.
+        Text(AttributedString.monoNumbers(
+            figure.number,
+            font: .system(size: figureSize, weight: .bold, design: .monospaced),
+        ))
+        .font(.system(size: figureSize, weight: .bold))
+        .foregroundStyle(.pp(.textPrimary))
+        .lineLimit(1)
+        .minimumScaleFactor(0.3)
     }
 
     private func unit(_ figure: RowFocus.Figure) -> some View {

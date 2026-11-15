@@ -214,7 +214,7 @@ struct ExerciseSheet: View {
             medium: 15,
             major: 30,
             spacing: Self.timeSpacing,
-            label: { RoutineExercise.clock(Int($0), locale: locale) },
+            label: { RoutineExercise.dialedTime(Int($0), locale: locale) },
         ) { set(Int($0.rounded())) }
     }
 
@@ -232,7 +232,7 @@ struct ExerciseSheet: View {
     }
 
     /// While a ruler shows, its value keeps one shape, a weight one decimal and a time or rest
-    /// minutes and seconds ("0:45 min"), so its digits don't come and go as it turns. The shape
+    /// a clock ("0:45"), so its digits don't come and go as it turns. The shape
     /// changes in the open's own transaction, so the value's numeric transition slides it in and
     /// out with the row.
     private func value(of part: SheetPart) -> String {
@@ -306,7 +306,9 @@ struct ExerciseSheet: View {
     /// the finger, and a second tap landed on the row and closed it.
     private func restFooter(isAuto: Bool, of part: SheetPart) -> some View {
         let change = rounds?.change ?? [item].restChange
-        let held = "Stays at \(value(of: part)) when you change \(change)."
+        // A sentence, so its time reads condensed ("1 min 35 sec"), open or closed.
+        let time = RoutineExercise.sentenceTime(Int(number(of: part)), locale: locale)
+        let held = "Stays at \(time) when you change \(change)."
         let spokenHeld = "Stays at \(spokenValue(of: part)) when you change \(change)."
         return ZStack(alignment: .topLeading) {
             Text(explanation)

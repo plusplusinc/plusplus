@@ -60,10 +60,13 @@ extension RoutineExercise {
 }
 
 extension SetTarget {
-    /// "1 rep", "10 reps", "30 s", "90 s", "2 min", "2:30 min".
+    /// "1 rep", "10 reps", "30s", "1m 35s", "2m".
     func text(locale: Locale) -> String {
-        let figure = figure(locale: locale)
-        return figure.number + noBreakSpace + figure.unit
+        switch self {
+        case let .reps(reps): counted(reps, "rep", "reps", locale: locale)
+            .replacing(" ", with: noBreakSpace)
+        case let .time(seconds): TimeText.text(seconds: seconds, locale: locale)
+        }
     }
 
     /// "1 rep", "10 reps", "90 seconds", "2 minutes", "2 minutes 30 seconds".
@@ -99,14 +102,30 @@ extension Weight {
     }
 }
 
-/// A time reads in seconds under two minutes, then in minutes.
+/// A time as the system writes it, in minutes and seconds at the narrow width, and as a clock.
 enum TimeText {
     static let minutesFrom = 120
 
-    /// "30 s", "90 s", "2 min", "2:30 min".
+    /// "30s", "1m 35s", "2m", "60m" in en_US; "1min 35s" in de_DE. Its parts joined by no-break
+    /// spaces, so a line never breaks inside a time.
     static func text(seconds: Int, locale: Locale) -> String {
-        let parts = parts(seconds: seconds, locale: locale)
-        return parts.number + noBreakSpace + parts.unit
+        Duration.seconds(seconds)
+            .formatted(.units(allowed: [.minutes, .seconds], width: .narrow).locale(locale))
+            .replacing(" ", with: noBreakSpace)
+    }
+
+    /// A time inside a sentence, at the condensed width: "45 sec", "1 min 35 sec", "0 sec";
+    /// "1 Min. 35 Sek." in de_DE. Joined by no-break spaces.
+    static func inSentence(seconds: Int, locale: Locale) -> String {
+        Duration.seconds(seconds)
+            .formatted(.units(allowed: [.minutes, .seconds], width: .condensedAbbreviated)
+                .locale(locale))
+            .replacing(" ", with: noBreakSpace)
+    }
+
+    /// Minutes and two-digit seconds, "0:45", "1:35", "60:00".
+    static func clock(seconds: Int, locale: Locale) -> String {
+        Duration.seconds(seconds).formatted(.time(pattern: .minuteSecond).locale(locale))
     }
 
     /// "90 seconds", "2 minutes", "2 minutes 30 seconds".
@@ -117,18 +136,6 @@ enum TimeText {
         let minutes = counted(seconds / 60, "minute", "minutes", locale: locale)
         guard seconds % 60 > 0 else { return minutes }
         return minutes + " " + counted(seconds % 60, "second", "seconds", locale: locale)
-    }
-
-    /// The number and its unit apart: "30" "s", "2" "min", "2:30" "min".
-    static func parts(seconds: Int, locale: Locale) -> (number: String, unit: String) {
-        guard seconds >= minutesFrom else {
-            return (seconds.formatted(.number.locale(locale)), "s")
-        }
-        let minutes = (seconds / 60).formatted(.number.locale(locale))
-        let rest = seconds % 60
-        guard rest > 0 else { return (minutes, "min") }
-        let seconds = rest.formatted(.number.precision(.integerLength(2...)).locale(locale))
-        return (minutes + ":" + seconds, "min")
     }
 }
 

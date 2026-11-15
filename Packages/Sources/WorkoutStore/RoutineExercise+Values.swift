@@ -69,7 +69,7 @@ extension RoutineExercise {
         }
     }
 
-    /// "None", "30 s", "2:30 min".
+    /// "None", "30s", "2m 30s".
     static func restText(_ seconds: Int, locale: Locale) -> String {
         seconds == 0 ? "None" : TimeText.text(seconds: seconds, locale: locale)
     }
@@ -157,17 +157,16 @@ extension RoutineExercise {
         min(max(seconds, restRange.lowerBound), restRange.upperBound)
     }
 
-    /// A time as an open row reads it while a ruler sets it, always minutes and two-digit
-    /// seconds, "0:45 min", "2:00 min", so its digits keep their count and shape as it turns.
+    /// A time as an open row reads it while a ruler sets it, a clock with no unit, "0:45",
+    /// "2:00", so its digits keep their count and shape as it turns; the ruler's labels read the
+    /// same.
     public static func dialedTime(_ seconds: Int, locale: Locale = .current) -> String {
-        clock(seconds, locale: locale) + noBreakSpace + "min"
+        TimeText.clock(seconds: seconds, locale: locale)
     }
 
-    /// Minutes and two-digit seconds alone, "0:45", "10:00", as a time ruler labels its ticks.
-    public static func clock(_ seconds: Int, locale: Locale = .current) -> String {
-        let minutes = (seconds / 60).formatted(.number.grouping(.never).locale(locale))
-        let rest = (seconds % 60).formatted(.number.precision(.integerLength(2...)).locale(locale))
-        return minutes + ":" + rest
+    /// A time as a sentence reads it, "1 min 35 sec", where a value reads "1m 35s".
+    public static func sentenceTime(_ seconds: Int, locale: Locale = .current) -> String {
+        TimeText.inSentence(seconds: seconds, locale: locale)
     }
 
     /// A part's value as its open row reads it while a ruler sets it: a weight with one decimal,
