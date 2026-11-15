@@ -17,7 +17,8 @@ struct ValueReduceMotionTests {
 
     @Test("Without Reduce Motion a value rolls and its ruler slides")
     func valueAndRulerMove() {
-        #expect(ValueText.transition(rolling: 27.5, reduceMotion: false) == .numericText(value: 27.5))
+        let rolling = ValueText.transition(rolling: 27.5, reduceMotion: false)
+        #expect(rolling == .numericText(value: 27.5))
         #expect(ValueRuler.slide(reduceMotion: false) != nil)
     }
 }
