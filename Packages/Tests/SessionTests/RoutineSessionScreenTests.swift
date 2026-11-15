@@ -46,7 +46,7 @@ struct RoutineSessionScreenTests {
     @Test("Routines from the drawer shows the list, marked, and closes the drawer")
     func showRoutines() {
         let session = session()
-        session.isDrawerOpen = true
+        session.openDrawer()
         session.showRoutines()
         #expect(session.screen == .routines)
         #expect(session.showing == .routines)
@@ -92,7 +92,7 @@ struct RoutineSessionScreenTests {
     @Test("A pop the stack sends after Start leaves the workout at the root")
     func popAfterStart() async {
         let session = await pushedSession()
-        session.start()
+        session.start(on: session.current.id)
         session.popRoutine()
         #expect(session.screen == .routine)
     }
@@ -101,7 +101,7 @@ struct RoutineSessionScreenTests {
     func openFromDrawerOverList() async {
         let session = session()
         session.showRoutines()
-        session.isDrawerOpen = true
+        session.openDrawer()
         await session.open(other.id, weightUnit: .pounds)
         #expect(session.screen == .routine)
         #expect(session.current == other)
@@ -123,7 +123,7 @@ struct RoutineSessionScreenTests {
     func startPushed() async throws {
         let session = await pushedSession()
         let edited = try addingExercise(to: saved, in: session)
-        session.start()
+        session.start(on: session.current.id)
         #expect(session.screen == .routine)
         #expect(session.opened == edited)
         #expect(session.workout?.routineID == saved.id)
@@ -134,7 +134,7 @@ struct RoutineSessionScreenTests {
         let routine = Routine(name: "Upper")
         let session = session(routine)
         _ = try addingExercise(to: routine, in: session)
-        session.start()
+        session.start(on: session.current.id)
         #expect(session.screen == .routine)
         #expect(session.opened == routine)
     }

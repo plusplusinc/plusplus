@@ -15,7 +15,8 @@ public final class RoutineSession {
     public private(set) var opened: Routine
     /// The open routine as it is now, edits included.
     public private(set) var current: Routine
-    public var isDrawerOpen = false
+    /// Opened through `openDrawer()`, which a workout refuses, and shut through `closeDrawer()`.
+    public private(set) var isDrawerOpen = false
     /// Where the app is: the routine, the Routines screen, or a routine pushed on it.
     public private(set) var screen = Screen.routine
     /// The workout running the open routine, from Start until Finish or Discard.
@@ -112,21 +113,30 @@ public final class RoutineSession {
         workout != nil
     }
 
-    /// Starts a workout on the open routine, shown at the root, so no back button or swipe
-    /// leaves it, named as the routine shows now.
-    public func start(at now: Date = .now) {
-        guard workout == nil else { return }
+    /// Opens the drawer, unless a workout keeps it shut.
+    public func openDrawer() {
+        guard !isDrawerLocked else { return }
+        isDrawerOpen = true
+    }
+
+    public func closeDrawer() {
+        isDrawerOpen = false
+    }
+
+    /// Starts a workout on `routine`, shown at the root, so no back button or swipe leaves it,
+    /// named as the routine shows now. Only on the open routine, and only with no workout
+    /// running: a Start pressed on a routine since switched away from starts nothing.
+    public func start(on routine: Routine.ID, at now: Date = .now) {
+        guard workout == nil, routine == current.id else { return }
         // The workout first: a screen shown at the root reads it as it is made, to open on the
         // current exercise.
-        let started = Workout(routineID: current.id, routineName: shownName, startedAt: now)
-        workout = started
-        workoutWrites.yield(.save(started))
+        change(.save(Workout(routineID: current.id, routineName: shownName, startedAt: now)))
         if screen != .routine {
             // A fresh screen at the root, opening on the routine as it is now.
             opened = current
             screen = .routine
         }
-        isDrawerOpen = false
+        closeDrawer()
     }
 
     /// The name the open routine shows, which a workout on it keeps: empty for New routine.
@@ -137,17 +147,13 @@ public final class RoutineSession {
     /// Pauses the workout, or resumes it if paused.
     public func togglePause(at now: Date = .now) {
         guard let workout else { return }
-        let changed = workout.isPaused ? workout.resuming(at: now) : workout.pausing(at: now)
-        self.workout = changed
-        workoutWrites.yield(.save(changed))
+        change(.save(workout.isPaused ? workout.resuming(at: now) : workout.pausing(at: now)))
     }
 
     /// Logs `planned`, a set of `row`, at the numbers `row` plans now.
     public func log(_ planned: PlannedSet, of row: RoutineExercise, at now: Date = .now) {
         guard let workout else { return }
-        let logged = workout.logging(planned, of: row, at: now)
-        self.workout = logged
-        workoutWrites.yield(.save(logged))
+        change(.save(workout.logging(planned, of: row, at: now)))
     }
 
     /// Finishes the workout, keeping it with the name the routine shows now.
@@ -155,17 +161,27 @@ public final class RoutineSession {
         guard let workout else { return }
         var finished = workout.finishing(at: now)
         finished.routineName = shownName
-        self.workout = nil
-        workoutWrites.yield(.save(finished))
+        change(.save(finished))
         deleteIfCleared()
     }
 
     /// Ends the workout keeping nothing of it, as if Start never ran.
     public func discard() {
         guard let workout else { return }
-        self.workout = nil
-        workoutWrites.yield(.discard(workout.id))
+        change(.discard(workout.id))
         deleteIfCleared()
+    }
+
+    /// The one way the workout changes: to what `write` stores, sent to be stored in the same
+    /// call, so no change shows that a relaunch would lose. A workout saved in progress is the
+    /// one running; one saved ended, or discarded, leaves none.
+    private func change(_ write: WorkoutWrite) {
+        switch write {
+        case let .save(changed): workout = changed.isInProgress ? changed : nil
+        case .discard: workout = nil
+        case .landed: break
+        }
+        workoutWrites.yield(write)
     }
 
     /// A routine cleared to nothing while its workout ran was kept for it; once the workout
@@ -267,10 +283,6 @@ public final class RoutineSession {
         opened = routine
         current = routine
         screen = pushed ? .pushedRoutine : .routine
-    }
-
-    private func closeDrawer() {
-        isDrawerOpen = false
     }
 
     /// Lets the last edit land: a finished stream still hands over what it holds. An edit made

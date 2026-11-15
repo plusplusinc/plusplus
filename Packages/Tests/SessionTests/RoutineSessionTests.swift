@@ -108,12 +108,13 @@ struct RoutineSessionTests {
 
     @Test("A workout's end is saved even with the next start queued behind it")
     func endBeforeNextStart() async throws {
-        let session = try session(Self.upper())
-        session.start(at: Date(timeIntervalSinceReferenceDate: 10))
+        let routine = try Self.upper()
+        let session = session(routine)
+        session.start(on: routine.id, at: Date(timeIntervalSinceReferenceDate: 10))
         let first = try #require(session.workout)
         await session.writesLanded()
         session.finish(at: Date(timeIntervalSinceReferenceDate: 20))
-        session.start(at: Date(timeIntervalSinceReferenceDate: 30))
+        session.start(on: routine.id, at: Date(timeIntervalSinceReferenceDate: 30))
         let second = try #require(session.workout)
         await session.writesLanded()
         let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkout>())
@@ -128,7 +129,7 @@ struct RoutineSessionTests {
         var routine = try Self.upper()
         routine.name = ""
         let session = session(routine)
-        session.start()
+        session.start(on: routine.id)
         let generated = try #require(RoutineNamer.muscleGroupsOnly.shownName(of: routine))
         #expect(session.workout?.routineName == generated)
         routine.name = "Push day"
@@ -144,7 +145,7 @@ struct RoutineSessionTests {
         let routine = try Self.upper()
         let session = session(routine)
         session.save(routine)
-        session.start()
+        session.start(on: routine.id)
         session.save(Routine(id: routine.id))
         await session.writesLanded()
         let kept = try await relaunch().openRoutine(routine.id, weightUnit: .pounds)
@@ -154,13 +155,65 @@ struct RoutineSessionTests {
         #expect(try await relaunch().openRoutine(routine.id, weightUnit: .pounds) == nil)
     }
 
+    @Test("After every change to a workout, a relaunch opens it as the session shows it")
+    func relaunchAfterEachChange() async throws {
+        let routine = try Self.upper()
+        let row = routine.exercises[0]
+        let session = session(routine)
+        session.save(routine)
+        func at(_ seconds: Double) -> Date {
+            Date(timeIntervalSinceReferenceDate: seconds)
+        }
+        let steps: [(name: String, change: () -> Void)] = [
+            ("start", { session.start(on: routine.id, at: at(10)) }),
+            ("pause", { session.togglePause(at: at(20)) }),
+            ("resume", { session.togglePause(at: at(30)) }),
+            ("log", { session.log(PlannedSet(row: row.id, round: 1), of: row, at: at(40)) }),
+            ("finish", { session.finish(at: at(50)) }),
+            ("start again", { session.start(on: routine.id, at: at(60)) }),
+            ("discard", { session.discard() }),
+        ]
+        var discarded: Workout.ID?
+        for step in steps {
+            if step.name == "discard" {
+                discarded = session.workout?.id
+            }
+            step.change()
+            await session.writesLanded()
+            let relaunched = try await relaunch().launch(weightUnit: .pounds).workout
+            #expect(relaunched == session.workout, "after \(step.name)")
+        }
+        #expect(session.workout == nil)
+        let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkout>())
+        #expect(stored.count == 1)
+        #expect(!stored.contains { $0.id == discarded })
+    }
+
+    @Test("Start pressed on a routine since switched away from starts nothing")
+    func startOnAnotherRoutine() async throws {
+        let session = try session(Self.upper())
+        session.start(on: Routine().id)
+        #expect(session.workout == nil)
+        await session.writesLanded()
+        #expect(try await relaunch().launch(weightUnit: .pounds).workout == nil)
+    }
+
+    @Test("The drawer stays shut while a workout runs, whoever opens it")
+    func drawerLockedInWorkout() throws {
+        let routine = try Self.upper()
+        let session = session(routine)
+        session.start(on: routine.id)
+        session.openDrawer()
+        #expect(!session.isDrawerOpen)
+    }
+
     @Test("Logging through the session stores the set at the row's numbers")
     func logStores() async throws {
         let routine = try Self.upper()
         let row = routine.exercises[0]
         let session = session(routine)
         session.save(routine)
-        session.start()
+        session.start(on: routine.id)
         let set = PlannedSet(row: row.id, round: 1)
         session.log(set, of: row)
         await session.writesLanded()

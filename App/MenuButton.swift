@@ -15,7 +15,7 @@ struct MenuButton: View {
 
     var body: some View {
         Button {
-            session.isDrawerOpen = true
+            session.openDrawer()
         } label: {
             Text(verbatim: "++")
                 .font(.ppMark)
