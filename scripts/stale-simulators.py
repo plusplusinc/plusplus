@@ -15,14 +15,15 @@ import sys
 import time
 
 
-def stale(records, devices, worktrees, main, limit, now, commands):
+def stale(records, devices, worktrees, limit, now, commands):
     """Yields (worktree, idle seconds) for each record older than limit whose worktree is still
-    listed and is not the main checkout, whose one simulator is shut down, and in whose worktree
-    no xcodebuild runs. A record whose worktree is gone is tidy's other loop's; a name matching
-    more than one simulator is skipped, as scripts/common.sh refuses to pick between them."""
-    paths = {os.path.basename(path): path for path in worktrees if path != main}
+    listed and is not the main checkout (the first one git lists), whose one simulator is shut
+    down, and in whose worktree no xcodebuild runs. A record whose worktree is gone is tidy's
+    other loop's; a name matching more than one simulator is skipped, as scripts/common.sh
+    refuses to pick between them."""
+    paths = {os.path.basename(path): path for path in worktrees[1:]}
     for name in sorted(os.listdir(records)):
-        if name.startswith(".") or name not in paths:
+        if name not in paths:
             continue
         idle = int(now - os.path.getmtime(os.path.join(records, name)))
         if idle <= limit:
@@ -46,15 +47,18 @@ def main():
     if len(sys.argv) != 4:
         sys.exit("usage: python3 scripts/stale-simulators.py <records folder> <checkout> <limit seconds>")
     records, checkout, limit = sys.argv[1], sys.argv[2], int(sys.argv[3])
-    if not os.path.isdir(records):
+    now = time.time()
+    # tidy runs this at every session start, and most days no record is old enough: skip the reads.
+    # The folder also holds scripts/common.sh's .boot.lock, which is no record.
+    if not os.path.isdir(records) or all(now - os.path.getmtime(os.path.join(records, name)) <= limit
+                                         for name in os.listdir(records) if not name.startswith(".")):
         return
     devices = [d for ds in json.loads(run("xcrun", "simctl", "list", "devices", "--json"))["devices"].values()
                for d in ds]
-    # The first worktree git lists is the main checkout.
     worktrees = [line[len("worktree "):] for line in run("git", "-C", checkout, "worktree", "list", "--porcelain")
                  .splitlines() if line.startswith("worktree ")]
     commands = run("ps", "-axww", "-o", "command=").splitlines()
-    for name, idle in stale(records, devices, worktrees, worktrees[0], limit, time.time(), commands):
+    for name, idle in stale(records, devices, worktrees, limit, now, commands):
         print(name, idle, sep="\t")
 
 

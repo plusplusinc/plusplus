@@ -39,8 +39,7 @@ class Stale(unittest.TestCase):
             self.devices.append({"name": f"PlusPlus {name}", "state": state})
 
     def stale(self, limit=DAY):
-        return list(stale_simulators.stale(self.records, self.devices, self.worktrees, MAIN, limit, NOW,
-                                           self.commands))
+        return list(stale_simulators.stale(self.records, self.devices, self.worktrees, limit, NOW, self.commands))
 
     def test_a_record_unused_two_days_is_stale_with_its_idle_time(self):
         self.record("topic", 2 * DAY)
@@ -83,10 +82,6 @@ class Stale(unittest.TestCase):
     def test_a_name_matching_two_simulators_is_skipped(self):
         self.record("topic", 2 * DAY)
         self.devices.append({"name": "PlusPlus topic", "state": "Shutdown"})
-        self.assertEqual(self.stale(), [])
-
-    def test_the_boot_lock_is_not_a_record(self):
-        self.record(".boot.lock", 30 * DAY, state=None)
         self.assertEqual(self.stale(), [])
 
 

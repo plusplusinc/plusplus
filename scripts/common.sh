@@ -187,9 +187,8 @@ idle_worktree_simulators() {
 # 32 GB, most for worktrees no script had run in for days.
 DELETE_IDLE_SECONDS=$((${PLUSPLUS_SIM_DELETE_HOURS:-24} * 3600))
 
-# Prints "<worktree>\t<idle seconds>" for each shut-down worktree simulator unused longer than
-# that, whose worktree is still there and is not the main checkout, with no xcodebuild running in
-# it; see scripts/stale-simulators.py.
+# Prints "<worktree>\t<idle seconds>" for each worktree simulator to delete for that; see
+# scripts/stale-simulators.py for which.
 stale_worktree_simulators() {
     python3 -I "$ROOT/scripts/stale-simulators.py" "$(simulator_records)" "$ROOT" "$DELETE_IDLE_SECONDS"
 }

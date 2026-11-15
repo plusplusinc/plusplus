@@ -233,11 +233,9 @@ fi
 # shutdown below, which only shuts one down, so one booted at the start of the run waits for the
 # next. In a dry run a worktree listed above as removed still shows here; it is skipped.
 while IFS=$'\t' read -r name idle; do
-    for path in "${removed[@]+"${removed[@]}"}"; do
-        [ "$(basename "$path")" = "$name" ] && continue 2
-    done
+    printf '%s\n' "${removed[@]+"${removed[@]##*/}"}" | grep -qxF "$name" && continue
     if delete_simulator "$name" "unused for $((idle / 3600))h" && [ "$DRY_RUN" -eq 0 ]; then
-        rm "$RECORDS/$name"
+        rm "$(simulator_records)/$name"
     fi
 done < <(stale_worktree_simulators)
 
