@@ -98,9 +98,9 @@ extension RoutineScreen {
     }
 
     /// Once the picker has gone, scrolls the list to its end, the added row's place, and returns
-    /// as the scroll lands, unless the end is in view or Start's room is opening. On deadlines,
-    /// not the scroll's completion or its phase: a phase reported idle only about 0.3 s after
-    /// the list had stopped, and the row waited on a still list.
+    /// as it lets the row enter, unless the end is in view or Start's room is opening. On
+    /// deadlines, not the scroll's completion or its phase: the phase reported idle only about
+    /// 0.3 s after the list had stopped, and the row waited on a still list.
     private func reachEnd(added: ContinuousClock.Instant) async {
         endFollow = .ready
         guard !isEndInView, !isMakingRoom else { return }
@@ -113,13 +113,13 @@ extension RoutineScreen {
         try? await Task.sleep(for: Self.scrollLanding, tolerance: .zero)
     }
 
-    /// From a pick to the picker sheet having slid away, when the scroll to the list's end
-    /// starts, so it runs in view. Measured where the append animation's completion used to
-    /// start it, late behind the sheet's dismissal: 0.47 s into the sheet's slide.
-    static let pickerGone: Duration = .milliseconds(520)
+    /// From a pick to the picker sheet's dismissal having slid it away, when the scroll to the
+    /// list's end starts, so it runs in view. Tuned to where the append animation's completion
+    /// used to start it, late behind the dismissal: 0.43 to 0.47 s into the sheet's slide.
+    static let pickerGone: Duration = .milliseconds(500)
 
-    /// How long the scroll to the list's end takes to land, measured in frames: the row enters
-    /// as it does, where the scroll's completion used to let it.
+    /// From the scroll's start to the row's entry, where the scroll's completion used to let it
+    /// go. The entry's growth shows once the scroll has landed, as it did then.
     static let scrollLanding: Duration = .milliseconds(30)
 
     /// While an added row's place opens past the visible area, scrolls with it, a frame at a

@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// An added row's beats onto its rail, each a deadline timed from its own start: the append's
-/// fade, then the wait for the list's end to come into view, then the entry, then the time the
+/// An added row's beats onto its rail, each a deadline timed from its own start: the append,
+/// then the wait for the list's end to come into view, then the entry, then the time the
 /// entry takes to land. Never an animation's completion: an append's completion once never came
 /// (Xcode Cloud run 454), and the row stayed arriving, drawn empty and out of the accessibility
 /// tree, for good. The wait for the end is given up at a deadline too, so no path leaves a row
@@ -10,6 +10,10 @@ public enum RailArrival {
     /// The append's fade, of a row that draws nothing yet, which times the entry a moment into
     /// the picker's slide.
     public static let appendFade: TimeInterval = 0.1
+    /// From the add to the row's entry where the list's end is in view: the append's fade and
+    /// the frames its completion took to come behind the picker's dismissal, which timed the
+    /// entry as it was approved (measured 0.37 to 0.41 s from the sheet's slide to the node).
+    static let appended: Duration = .milliseconds(180)
     /// From the row being let go to its node and content having landed (`RailEntry`): until
     /// then it takes no taps and VoiceOver does not reach it.
     static let entry: Duration = .seconds(RailEntry.popStart(reduceMotion: false) + RailEntry.pop)
@@ -29,7 +33,7 @@ extension RailArrival {
         enter: () -> Void,
         entered: () -> Void,
     ) async {
-        try? await Task.sleep(for: .seconds(appendFade), tolerance: .zero)
+        try? await Task.sleep(for: appended, tolerance: .zero)
         guard isArriving() else { return }
         await withTaskGroup { group in
             group.addTask { await reachEnd() }
