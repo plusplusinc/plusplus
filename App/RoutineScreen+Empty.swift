@@ -13,6 +13,36 @@ extension RoutineScreen {
         tapOpensPicker = !isEditingTitle
         isEditingTitle = false
     }
+
+    /// After `delay`, once the sheet that changed the routine has gone, brings the screen's foot
+    /// in line with the exercises, in one transaction for Start and the +: rising on the rising
+    /// half of the key's swap, going down on its dropping half. Read when it runs, so an add or
+    /// Remove meanwhile leaves it where the routine is by then.
+    func settleFoot(after delay: Duration) {
+        guard delay > .zero else { return footFollowsExercises() }
+        let start = ContinuousClock.now
+        Task {
+            try? await Task.sleep(until: start + delay, tolerance: .zero, clock: .continuous)
+            footFollowsExercises()
+        }
+    }
+
+    private func footFollowsExercises() {
+        let isEmpty = routine.exercises.isEmpty
+        guard isEmpty != footShowsEmpty else { return }
+        withAnimation(
+            isEmpty
+                ? .easeIn(duration: PrimaryKeyButtonStyle.swapHalf)
+                : .smooth(duration: PrimaryKeyButtonStyle.swapHalf),
+        ) {
+            footShowsEmpty = isEmpty
+        }
+    }
+
+    /// From Remove in the exercise sheet to the sheet having slid away, when Start and the + go
+    /// down, so the drop is seen: the sheet's top cleared the screen's bottom 0.27 to 0.3 s after
+    /// Remove, and at 0.5 s the foot then stood still for a quarter second before dropping.
+    static let exerciseSheetGone: Duration = .milliseconds(370)
 }
 
 extension View {

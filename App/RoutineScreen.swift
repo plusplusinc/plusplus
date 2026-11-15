@@ -41,6 +41,10 @@ struct RoutineScreen: View {
     /// routine a tap in its empty space opens the picker. Written as the touch comes down, before
     /// the edit ends, since by the tap's end the edit has already ended either way.
     @State var tapOpensPicker = false
+    /// Whether the screen's foot shows the routine as empty: no Start, and the + low. It follows
+    /// the exercises, but the first add and the last Remove change it only once their sheet has
+    /// gone, so Start and the + are seen rising or going down (`settleFoot(after:)`).
+    @State var footShowsEmpty: Bool
     /// Whether the title has scrolled up under the bar, where a small copy of it shows instead.
     @State var isTitleUnderBar = false
     /// How far Start rides down with the rows below the current exercise as it grows at Start.
@@ -114,6 +118,7 @@ struct RoutineScreen: View {
         _shownRoutine = State(initialValue: session.opened)
         _opensOnCurrent = State(initialValue: session.workout != nil)
         _phase = State(initialValue: WorkoutPhase(hasWorkout: session.workout != nil))
+        _footShowsEmpty = State(initialValue: session.opened.exercises.isEmpty)
         self.session = session
         self.namer = namer
         self.isPushed = isPushed
@@ -318,7 +323,7 @@ struct RoutineScreen: View {
             keepsRoom: phase.keyGone == .keepingRoom,
             plusOnes: setLogs + sideLogs,
             drop: startDrop,
-            floatsLow: routine.exercises.isEmpty,
+            floatsLow: footShowsEmpty,
         ) { role, isOut in
             key(role, isOut: isOut)
         } floating: {
@@ -351,7 +356,7 @@ struct RoutineScreen: View {
                     partners: routine.partnerNames(of: opened.id),
                     parts: routine.sheetParts(of: opened.id),
                     rounds: roundSteps(of: opened.id),
-                ) { delete(opened.id) }
+                ) { delete(opened.id, fromSheet: true) }
             }
         }
         .toolbar { barItems }

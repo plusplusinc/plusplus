@@ -56,10 +56,14 @@ extension RoutineScreen {
         }
     }
 
-    func delete(_ id: RoutineExercise.ID) {
+    /// Removes a row. The last one takes Start down and the + with it, at once from a swipe, and
+    /// from the exercise sheet's Remove once the sheet has gone (`settleFoot(after:)`).
+    func delete(_ id: RoutineExercise.ID, fromSheet: Bool = false) {
         withAnimation(.railChange) {
             routine.remove(id)
         }
+        guard routine.exercises.isEmpty else { return }
+        settleFoot(after: fromSheet ? Self.exerciseSheetGone : .zero)
     }
 
     /// Adds a picked exercise. Its row takes its place at the rail's end as the sheet starts down,
@@ -81,6 +85,9 @@ extension RoutineScreen {
         // at first, and the sheet has cleared all but the screen's foot by the time it shows.
         withAnimation(.linear(duration: RailArrival.appendFade)) {
             routine.exercises.append(row)
+        }
+        if footShowsEmpty {
+            settleFoot(after: Self.pickerGone)
         }
         // Beats on deadlines, not this animation's completion, which once never came, and the
         // row stayed arriving for good (`RailArrival`).
