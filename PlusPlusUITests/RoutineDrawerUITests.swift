@@ -1,7 +1,8 @@
 import XCTest
 
-/// The ++ drawer and the Routines screen over saved routines: switching, and the drill-in from
-/// the Routines screen. Opening counting as using is `RoutineStoreRecencyTests`', through the
+/// The ++ drawer and the Routines screen over saved routines: switching, a title opened and
+/// left as it was saving nothing, and the drill-in from the Routines screen. Opening counting as
+/// using is `RoutineStoreRecencyTests`', through the
 /// `openRoutine` a switch already shows it called. Names come from the muscle groups
 /// (`-fallbackNames`). Saving and relaunching are `RoutineAutosaveUITests`', but for one relaunch
 /// that keeps names typed on pushed routines and left with no Return.
@@ -52,6 +53,7 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
             XCTAssertTrue(app.buttons["Chest"].isSelected, "The routine opened isn't marked")
             XCTAssertFalse(app.buttons["Back"].isSelected)
         }
+        untouchedEditKeepsThePlace(in: app, title: title)
         drawerEditMovesUp(in: app)
         routinesScreenDrillsIn(in: app, title: title)
         XCTContext.runActivity(named: "Names typed without Return survive a relaunch") { _ in
@@ -64,6 +66,27 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
                 "Routines lists \(app.routineRowLabels) after a relaunch",
             )
             attach(named: "renamed-after-relaunch")
+        }
+    }
+
+    /// With the drawer open on Back over Chest, Chest showing: Chest's title opened and left as it
+    /// was with Return is no change, so nothing is saved and Chest keeps its place under Back.
+    /// Leaves the drawer open.
+    @MainActor
+    private func untouchedEditKeepsThePlace(in app: XCUIApplication, title: XCUIElement) {
+        XCTContext.runActivity(named: "A title opened and left as it was moves nothing") { _ in
+            app.drawerTitle.tap()
+            XCTAssertTrue(app.drawerTitle.disappears(), "Tapping the title left the drawer open")
+            // The screen slides back from the drawer's side.
+            XCTAssertTrue(title.settles(), "The title kept moving after the drawer shut")
+            let keyboard = app.keyboards.element
+            title.tap()
+            XCTAssertTrue(keyboard.appears(), "Tapping the title opened no keyboard")
+            title.typeText("\n")
+            XCTAssertTrue(keyboard.disappears(), "Return should end editing")
+            XCTAssertEqual(title.value(becoming: "Chest"), "Chest")
+            openDrawer(in: app)
+            XCTAssertEqual(drawerRoutines(in: app), ["Back", "Chest"], "No change moved it up")
         }
     }
 
