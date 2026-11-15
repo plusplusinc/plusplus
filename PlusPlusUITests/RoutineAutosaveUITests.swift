@@ -175,11 +175,17 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
         gray: Int,
     ) throws {
         try XCTContext.runActivity(named: "A routine cleared to nothing is gone") { _ in
+            let plus = app.buttons["Add exercise"]
+            let aboveStart = plus.frame
             for left in (0 ..< 4).reversed() {
                 app.lastExerciseRow.fullSwipeLeft()
                 XCTAssertEqual(app.exerciseCount(becoming: left), left)
             }
             XCTAssertTrue(app.buttons["Start"].disappears())
+            // The last row's swipe takes the + down with Start and brings the empty line back.
+            XCTAssertTrue(app.noExercises.appears(), "No exercises did not return")
+            XCTAssertTrue(plus.settles(), "The + kept moving")
+            XCTAssertGreaterThan(plus.frame.minY, aboveStart.minY, "The + stayed up with no Start")
             let keyboard = app.keyboards.element
             try title.typeOver("Push pull", with: "\n", keyboard: keyboard)
             XCTAssertTrue(keyboard.disappears())
