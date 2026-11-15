@@ -9,7 +9,7 @@ import SwiftUI
 /// it's open, an optional accessory sits under the stepper inside its fill, past a hairline, and
 /// an optional footer sits under the fill, as a grouped list's footer does. VoiceOver reads the
 /// row as one element, its value in words and then its tag while it shows, and steps it with a
-/// swipe up or down.
+/// swipe up or down. An optional `ValueRuler` sits under the keys, edge to edge of the fill.
 /// A value typed straight into an open row: its number as text, edited in the decimal pad that
 /// comes up as the row opens, its number selected so the first digit replaces it, and what
 /// follows the number ("lb/side"). Its − / + keys sit under the value or, with `keysAbovePad`,
@@ -35,6 +35,7 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
     private let accessory: Accessory?
     private let footer: Footer?
     private let entry: ValueEntry?
+    private let ruler: ValueRuler?
     private let spokenValue: String
     private let isOpen: Bool
     private let canDecrease: Bool
@@ -82,6 +83,7 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
         onToggle: @escaping () -> Void,
         onStep: @escaping (Int) -> Void,
         entry: ValueEntry? = nil,
+        ruler: ValueRuler? = nil,
         accessory: Accessory?,
         footer: Footer?,
     ) {
@@ -93,6 +95,7 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
         self.accessory = accessory
         self.footer = footer
         self.entry = entry
+        self.ruler = ruler
         self.spokenValue = spokenValue
         self.isOpen = isOpen
         self.canDecrease = canDecrease
@@ -211,6 +214,11 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
                 keys
                     // The header's padding is the room above the keys.
                     .padding([.bottom, .horizontal], Self.inset)
+            }
+            if let ruler {
+                // Edge to edge of the fill, under the keys.
+                ruler
+                    .padding(.bottom, Self.inset)
             }
             if let accessory {
                 // A Settings group's divider: inset to the label, two pixels thick.

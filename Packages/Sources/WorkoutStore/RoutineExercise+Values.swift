@@ -93,10 +93,9 @@ extension RoutineExercise {
                 plan.target = .time(seconds: seconds)
             }
         case .weight:
-            guard var weight = plan.weight, let load = exercise.load else { return nil }
+            guard var weight = plan.weight, let load = exercise.load, let range = weightRange
+            else { return nil }
             let step = load.step(in: weight.unit)
-            let lightest = load == .bar ? Weight.emptyBar(weight.unit).amount : step
-            let range = lightest ... PlanLimits.weight.upperBound
             let mark = weight.amount.nextMark(of: step, by: direction)
             guard let amount = weight.amount.stepped(by: mark - weight.amount, within: range)
             else { return nil }
@@ -110,6 +109,20 @@ extension RoutineExercise {
     }
 
     private static let timeStep = 5
+
+    /// The weights its stepper moves within, in the weight's unit: one step up to the limit a
+    /// plan is stored within, a bar's from the empty bar; nil without a weight.
+    public var weightRange: ClosedRange<Double>? {
+        guard let weight = shownWeight, let load = exercise.load else { return nil }
+        let lightest = load == .bar ? Weight.emptyBar(weight.unit).amount : load.step(in: weight.unit)
+        return lightest ... PlanLimits.weight.upperBound
+    }
+
+    /// Sets the weight to an amount in its own unit, held to `weightRange`.
+    public mutating func setWeight(_ amount: Double) {
+        guard let range = weightRange else { return }
+        plan.weight?.amount = min(max(amount, range.lowerBound), range.upperBound)
+    }
 
     /// The weight's number alone, as it is typed, "27.5" with no grouping, and what follows it
     /// in the row's value, " lb/side"; nil without a weight.

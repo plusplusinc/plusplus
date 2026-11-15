@@ -60,6 +60,7 @@ struct ExerciseSheet: View {
                                 onToggle: { toggle(part, scroller) },
                                 onStep: { step(part, by: $0) },
                                 entry: entry(for: part),
+                                ruler: ruler(for: part),
                                 accessory: auto.map(autoSwitch),
                                 footer: auto.map { restFooter(isAuto: $0.wrappedValue, of: part) },
                             )
@@ -103,16 +104,38 @@ struct ExerciseSheet: View {
         .presentationBackground(Color.pp(.background))
     }
 
+    /// How the open weight row sets any weight beside its − / + keys.
+    enum WeightInput {
+        /// The decimal pad comes up as the row opens, its number selected.
+        case pad
+        /// A ruler under the keys, dragged sideways, a tick each half of the weight's unit.
+        case ruler
+    }
+
+    static let weightInput = WeightInput.ruler
+
     /// Where the weight's − / + keys sit while the decimal pad is up: false, in the row under the
     /// value; true, in the bar above the pad.
     static let weightKeysAbovePad = false
 
     /// The weight, typed into its open row.
     private func entry(for part: SheetPart) -> ValueEntry? {
-        guard part == .plan(.weight), let entry = item.weightEntry(locale: locale) else {
+        guard Self.weightInput == .pad, part == .plan(.weight),
+              let entry = item.weightEntry(locale: locale)
+        else {
             return nil
         }
         return ValueEntry(text: $weightText, unit: entry.unit, keysAbovePad: Self.weightKeysAbovePad)
+    }
+
+    /// The weight, dragged on a ruler in its open row.
+    private func ruler(for part: SheetPart) -> ValueRuler? {
+        guard Self.weightInput == .ruler, part == .plan(.weight),
+              let amount = item.plan.weight?.amount, let range = item.weightRange
+        else {
+            return nil
+        }
+        return ValueRuler(value: amount, range: range) { item.setWeight($0) }
     }
 
     /// In a superset, sets are rounds, shared with its partners.
@@ -228,7 +251,7 @@ struct ExerciseSheet: View {
     /// put.
     private func toggle(_ part: SheetPart, _ scroller: ScrollViewProxy) {
         let opening = open != part
-        if opening, part == .plan(.weight), let entry = item.weightEntry(locale: locale) {
+        if Self.weightInput == .pad, opening, part == .plan(.weight), let entry = item.weightEntry(locale: locale) {
             weightText = entry.number
             // The pad covers the lower half; the full sheet keeps the open row and its keys
             // above it.
