@@ -23,10 +23,10 @@ struct RoutineScreen: View {
     /// The row just added, holding its place until it can be seen going in.
     @State var arriving: RoutineExercise.ID?
     /// The row just added, from the add until its entry has played. A view takes taps where it
-    /// will end up, not where it's drawn, so while its place opens a tap on Add exercise, still
+    /// will end up, not where it's drawn, so while its place opens a tap there, on what is still
     /// drawn there, lands on it; it ignores taps until it has landed.
     @State var entering: RoutineExercise.ID?
-    /// Whether Add exercise, at the list's end, is fully in view.
+    /// Whether the list's end, the room it leaves for the floating +, is fully in view.
     @State var isEndInView = true
     /// While an added row's place opens, the list's end stays put on screen: as the content grows
     /// past the visible area, it scrolls in step (`keepEndInView`).

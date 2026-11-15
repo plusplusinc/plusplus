@@ -26,18 +26,15 @@ final nonisolated class RenameUITests: XCTestCase {
         app.launchSeeding(XCUIApplication.renameRows.seeded.map(\.id), named: Self.seededName)
         app.openNewRoutine()
         let title = app.routineTitle
-        let addExercise = app.buttons["Add exercise"]
         let keyboard = app.keyboards.element
         let field = title.frame
-        let button = addExercise.frame
 
         // The default's width at rest gives a character's.
         let defaultName = try XCTUnwrap(title.value as? String)
         let restText = try startEditing(
             title,
             keyboard: keyboard,
-            addExercise: addExercise,
-            at: (field, button),
+            at: field,
         )
 
         // No descenders, so a thin run of ink under the line can only be the `_`.
@@ -45,7 +42,6 @@ final nonisolated class RenameUITests: XCTestCase {
         XCTAssertEqual(title.value(becoming: "Arm back"), "Arm back")
         XCTContext.runActivity(named: "A one-line name keeps a one-line field") { _ in
             XCTAssertEqual(title.frame, field, "A one-line name resized the field")
-            XCTAssertEqual(addExercise.frame, button)
         }
         let afterTyping = try XCTContext.runActivity(
             named: "The _ follows the caret the text system moved",
@@ -83,10 +79,8 @@ final nonisolated class RenameUITests: XCTestCase {
     private func startEditing(
         _ title: XCUIElement,
         keyboard: XCUIElement,
-        addExercise: XCUIElement,
-        at frames: (field: CGRect, button: CGRect),
+        at field: CGRect,
     ) throws -> Ink.Run {
-        let (field, button) = frames
         let atRest = try Ink.ofTitle(in: field)
         let restText = try XCTUnwrap(atRest.lines.first)
         XCTContext.runActivity(named: "The default's line is inside the field at rest") { _ in
@@ -99,9 +93,8 @@ final nonisolated class RenameUITests: XCTestCase {
 
         XCTContext.runActivity(named: "Editing starts in place") { _ in
             // Also past the keyboard's tip's arrival, which the read after needs.
-            let watched = watchFrames(of: [title, addExercise], for: Self.keyboardAvoidanceWindow)
+            let watched = watchFrames(of: [title], for: Self.keyboardAvoidanceWindow)
             XCTAssertEqual(watched[0], field, "The title's frame moved")
-            XCTAssertEqual(watched[1], button, "Add exercise moved")
         }
         // The watch above gives the tip time to show.
         XCUIApplication().dismissKeyboardTip()

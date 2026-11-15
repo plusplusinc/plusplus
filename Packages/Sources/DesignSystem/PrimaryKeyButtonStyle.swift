@@ -144,7 +144,11 @@ private struct OneFace: Equatable, Identifiable {
     }
 }
 
-private struct PrimaryKeyBar<Face: Equatable & Identifiable, Key: View, Floating: View>: ViewModifier {
+private struct PrimaryKeyBar<
+    Face: Equatable & Identifiable,
+    Key: View,
+    Floating: View,
+>: ViewModifier {
     let isPresented: Bool
     let face: Face
     let keepsRoom: Bool
@@ -168,7 +172,9 @@ private struct PrimaryKeyBar<Face: Equatable & Identifiable, Key: View, Floating
     /// content is inset. At the accessibility sizes, as far as content is inset, so its label
     /// has the width to stay on one line.
     private var sideInset: CGFloat {
-        bottomInset > 0 && !dynamicTypeSize.isAccessibilitySize ? PrimaryKeyButtonStyle.lowInset : Spacing.md
+        bottomInset > 0 && !dynamicTypeSize.isAccessibilitySize
+            ? PrimaryKeyButtonStyle.lowInset
+            : Spacing.md
     }
 
     /// The ledge's bottom above the screen's bottom: `lowInset`, and with no home indicator, the
