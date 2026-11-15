@@ -266,9 +266,11 @@ struct ExerciseSheet: View {
     private func restFooter(isAuto: Bool, of part: SheetPart) -> some View {
         let change = rounds?.change ?? [item].restChange
         // A sentence, so its time reads condensed ("1 min 35 sec"), open or closed.
-        let time = RoutineExercise.sentenceTime(Int(number(of: part)), locale: locale)
+        let seconds = Int(number(of: part))
+        let time = RoutineExercise.restInSentence(seconds, locale: locale)
+        let spokenTime = RoutineExercise.restInSentence(seconds, spoken: true, locale: locale)
         let held = "Stays at \(time) when you change \(change)."
-        let spokenHeld = "Stays at \(spokenValue(of: part)) when you change \(change)."
+        let spokenHeld = "Stays at \(spokenTime) when you change \(change)."
         return ZStack(alignment: .topLeading) {
             Text(explanation)
                 .opacity(isAuto ? 1 : 0)

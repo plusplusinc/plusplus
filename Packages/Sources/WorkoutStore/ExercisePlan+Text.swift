@@ -69,7 +69,7 @@ extension SetTarget {
         }
     }
 
-    /// "1 rep", "10 reps", "90 seconds", "2 minutes", "2 minutes 30 seconds".
+    /// "1 rep", "10 reps", "45 seconds", "2 minutes", "2 minutes, 30 seconds".
     func spokenText(locale: Locale) -> String {
         switch self {
         case let .reps(reps):
@@ -81,31 +81,43 @@ extension SetTarget {
 }
 
 extension Weight {
-    /// "50", "142.5", "1.25": no trailing zeros, at most two decimals.
-    func number(locale: Locale, decimals: ClosedRange<Int> = 0 ... 2) -> String {
-        amount.formatted(.number.precision(.fractionLength(decimals)).locale(locale))
+    /// The number alone, as the current exercise shows it large beside its unit: "50",
+    /// "142.5", "1.25", no trailing zeros, at most two decimals.
+    func number(locale: Locale) -> String {
+        amount.formatted(.number.precision(.fractionLength(0 ... 2)).locale(locale))
     }
 
-    /// "50 lb", "2.5 kg"; with `decimals` 1 ... 2, "50.0 lb".
+    /// As the system writes a mass at the abbreviated width, in its own unit: "50 lb",
+    /// "2.5 kg"; with `decimals` 1 ... 2, "50.0 lb"; "27,5 lb" in de_DE. Joined by a no-break
+    /// space.
     func text(locale: Locale, decimals: ClosedRange<Int> = 0 ... 2) -> String {
-        number(locale: locale, decimals: decimals) + noBreakSpace + unit.rawValue
+        formatted(width: .abbreviated, locale: locale, decimals: decimals)
+            .replacing(" ", with: noBreakSpace)
     }
 
-    /// "50 pounds", "1 pound", "2.5 kilograms".
+    /// The same at the wide width, for VoiceOver: "50 pounds", "1 pound", "2.5 kilograms".
     func spokenText(locale: Locale) -> String {
-        let one = amount == 1
-        let name = switch unit {
-        case .pounds: one ? "pound" : "pounds"
-        case .kilograms: one ? "kilogram" : "kilograms"
-        }
-        return number(locale: locale) + " " + name
+        formatted(width: .wide, locale: locale, decimals: 0 ... 2)
+    }
+
+    /// `usage: .asProvided` keeps the weight's own unit: the default converts to the region's.
+    private func formatted(
+        width: Measurement<UnitMass>.FormatStyle.UnitWidth,
+        locale: Locale,
+        decimals: ClosedRange<Int>,
+    ) -> String {
+        let mass = Measurement(value: amount, unit: unit == .pounds ? UnitMass.pounds : .kilograms)
+        return mass.formatted(.measurement(
+            width: width,
+            usage: .asProvided,
+            numberFormatStyle: .number.precision(.fractionLength(decimals)),
+        ).locale(locale))
     }
 }
 
-/// A time as the system writes it, in minutes and seconds.
+/// A time as the system writes it, in minutes and seconds: a value at the narrow width, a
+/// sentence condensed, speech in full words.
 enum TimeText {
-    static let minutesFrom = 120
-
     /// "30s", "1m 35s", "2m", "60m" in en_US; "1min 35s" in de_DE. Its parts joined by no-break
     /// spaces, so a line never breaks inside a time.
     static func text(seconds: Int, locale: Locale) -> String {
@@ -135,14 +147,11 @@ enum TimeText {
             .replacing(" ", with: noBreakSpace)
     }
 
-    /// "90 seconds", "2 minutes", "2 minutes 30 seconds".
+    /// In words, for VoiceOver, at the wide width: "45 seconds", "1 minute, 35 seconds",
+    /// "2 minutes"; "1 Minute und 35 Sekunden" in de_DE.
     static func spoken(seconds: Int, locale: Locale) -> String {
-        guard seconds >= minutesFrom else {
-            return counted(seconds, "second", "seconds", locale: locale)
-        }
-        let minutes = counted(seconds / 60, "minute", "minutes", locale: locale)
-        guard seconds % 60 > 0 else { return minutes }
-        return minutes + " " + counted(seconds % 60, "second", "seconds", locale: locale)
+        Duration.seconds(seconds)
+            .formatted(.units(allowed: [.minutes, .seconds], width: .wide).locale(locale))
     }
 }
 

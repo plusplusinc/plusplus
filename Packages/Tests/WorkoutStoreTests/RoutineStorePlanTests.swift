@@ -42,6 +42,29 @@ struct RoutineStorePlanTests {
         #expect(try await relaunch().launch(weightUnit: .pounds).routine == routine)
     }
 
+    /// A weight off its load's 5 lb steps, as the ruler sets one, through every place a weight
+    /// is kept: the plan, the stored routine, and a set logged at it.
+    @Test("A 27.5 lb weight round-trips through the plan, the stored routine, and a logged set")
+    func offStepWeightRoundTrip() async throws {
+        var curl = try RoutineExercise.builtIn("Biceps curl")
+        curl.setWeight(27.5)
+        let routine = Routine(name: "Arms", exercises: [curl])
+        try await relaunch().save(routine, at: Date(timeIntervalSinceReferenceDate: 1))
+        let reopened = try #require(try await relaunch().launch(weightUnit: .pounds).routine)
+        #expect(reopened.exercises.first?.plan.weight == Weight(27.5, .pounds))
+
+        let next = try #require(reopened.nextSet(after: []))
+        let row = try #require(reopened.exercises.first)
+        let workout = Workout(
+            routineID: reopened.id,
+            routineName: reopened.name,
+            startedAt: Date(timeIntervalSinceReferenceDate: 10),
+        ).logging(next, of: row, at: Date(timeIntervalSinceReferenceDate: 20))
+        try await relaunch().save(workout)
+        let launched = try #require(try await relaunch().launch(weightUnit: .pounds).workout)
+        #expect(launched.sets.first?.weight == Weight(27.5, .pounds))
+    }
+
     @Test("Rest round-trips: automatic, set by hand, and a hand rest kept while automatic")
     func restRoundTrip() async throws {
         var remembered = try RoutineExercise.builtIn("Barbell bench press")

@@ -170,9 +170,16 @@ extension RoutineExercise {
         TimeText.text(seconds: seconds, locale: locale)
     }
 
-    /// A time as a sentence reads it, "1 min 35 sec", where a value reads "1m 35s".
-    public static func sentenceTime(_ seconds: Int, locale: Locale = .current) -> String {
-        TimeText.inSentence(seconds: seconds, locale: locale)
+    /// A rest as a sentence reads it, "1 min 35 sec" where a value reads "1m 35s", and "no rest"
+    /// at none; `spoken`, in words, "1 minute, 35 seconds".
+    public static func restInSentence(
+        _ seconds: Int,
+        spoken: Bool = false,
+        locale: Locale = .current,
+    ) -> String {
+        guard seconds > 0 else { return "no rest" }
+        return spoken ? TimeText.spoken(seconds: seconds, locale: locale)
+            : TimeText.inSentence(seconds: seconds, locale: locale)
     }
 
     /// A part's value as its open row reads it while a ruler sets it: a weight with one decimal,
