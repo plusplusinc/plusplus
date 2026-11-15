@@ -306,7 +306,11 @@ still overrides it. `scripts/tidy.sh`
 shuts it down and deletes it when it removes the worktree, and is the only script that deletes a
 simulator. `scripts/common.sh` records each worktree simulator in the clone's `.git`, so a worktree
 removed with `git worktree remove` (one of `main`, added to compare with) has its simulator
-deleted at the next `scripts/tidy.sh`.
+deleted at the next `scripts/tidy.sh`. A record's modification time is the simulator's last use,
+and tidy also deletes a worktree's simulator, shut down and unused for a day
+(`PLUSPLUS_SIM_DELETE_HOURS`), while the worktree stays, unless an `xcodebuild` runs in it: a used
+simulator takes 2 to 4 GB, and a worktree often outlives its use of one by days. The worktree's
+next script run creates it again. The main checkout's simulator is never deleted this way.
 
 A simulator is booted only while something uses it. Each booted one adds about 250 processes and
 2 GB; four at once filled a 48 GB Mac and most of its swap (2026-11-01). So an agent runs its
@@ -369,5 +373,6 @@ minimized. On any other simulator it leaves the settings alone, since that one i
 `asc xcode-cloud run`; see `docs/xcode-cloud.md`); and `simctl`, with `simctl erase` and
 `simctl delete`, uploads and notarization, and force pushes denied. Both take any device, or
 `all`, so a wrong argument would wipe a person's simulators; `scripts/sim.sh erase` erases only
-the worktree's own simulator, and `scripts/tidy.sh` deletes it with the worktree or after it. The scripts are the gate for building,
+the worktree's own simulator, and `scripts/tidy.sh` deletes it with the worktree, after it, or
+once it has sat unused for a day. The scripts are the gate for building,
 testing, and linting, so raw `xcodebuild build`, `swiftlint`, and friends prompt.
