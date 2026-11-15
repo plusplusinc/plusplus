@@ -68,6 +68,34 @@ public struct FloatingButtonRoom: View {
     }
 }
 
+/// `floating` in the floating style at the bottom trailing corner, `trailing` and `bottom` in,
+/// and `measure` unseen, whose height `keyRoom` follows.
+struct FloatingPlace<Measure: View, Floating: View>: ViewModifier {
+    let measure: Measure
+    let floating: Floating
+    let trailing: CGFloat
+    let bottom: CGFloat
+    @Binding var keyRoom: CGFloat
+
+    func body(content: Content) -> some View {
+        content
+            .background(alignment: .bottom) {
+                measure
+                    .fixedSize(horizontal: false, vertical: true)
+                    .hidden()
+                    .onGeometryChange(for: CGFloat.self, of: \.size.height) { keyRoom = $0 }
+            }
+            .overlay(alignment: .bottomTrailing) {
+                floating
+                    .buttonStyle(.floating)
+                    .hiddenBehindDrawer()
+                    .padding(.trailing, trailing)
+                    .padding(.bottom, bottom)
+                    .ignoresSafeArea(.keyboard)
+            }
+    }
+}
+
 #Preview {
     Button("Add exercise", systemImage: "plus") { }
         .buttonStyle(.floating)

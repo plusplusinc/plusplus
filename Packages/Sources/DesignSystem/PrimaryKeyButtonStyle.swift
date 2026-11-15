@@ -220,6 +220,20 @@ private struct PrimaryKeyBar<
             .padding(.top, Spacing.sm + PrimaryKeyButtonStyle.ledge)
     }
 
+    /// `floating` over the bar, placed up from the safe area's bottom, from the room of an unseen
+    /// copy of the key: with a key in the bar or none, it is in the same place. With the safe area
+    /// ignored, it was still placed from its bottom. The keyboard's inset left out, so it stays
+    /// put as the keyboard rises.
+    private var floatingPlace: some ViewModifier {
+        FloatingPlace(
+            measure: placed(key(face, true).buttonStyle(.primaryKey)),
+            floating: floating,
+            trailing: sideInset,
+            bottom: floatingLift,
+            keyRoom: $keyRoom,
+        )
+    }
+
     func body(content: Content) -> some View {
         content
             // No band behind the key: the list's rows run on under it.
@@ -287,24 +301,7 @@ private struct PrimaryKeyBar<
                 }
                 .allowsHitTesting(false)
             }
-            // Over the bar, placed up from the safe area's bottom, from the room of the unseen
-            // copy of the key above: with a key in the bar or none, it is in the same place. With the
-            // safe area ignored, it was still placed from its bottom. The keyboard's inset left
-            // out, so it stays put as the keyboard rises.
-            .background(alignment: .bottom) {
-                placed(key(face, true).buttonStyle(.primaryKey))
-                    .fixedSize(horizontal: false, vertical: true)
-                    .hidden()
-                    .onGeometryChange(for: CGFloat.self, of: \.size.height) { keyRoom = $0 }
-            }
-            .overlay(alignment: .bottomTrailing) {
-                floating
-                    .buttonStyle(.floating)
-                    .hiddenBehindDrawer()
-                    .padding(.trailing, sideInset)
-                    .padding(.bottom, floatingLift)
-                    .ignoresSafeArea(.keyboard)
-            }
+            .modifier(floatingPlace)
     }
 }
 
