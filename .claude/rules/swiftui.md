@@ -135,6 +135,12 @@ Each of these cost a round on this app; the code at the named spot works around 
   the content it showed as the room arrives: the ruler's line sat half its width past the value.
   Place a value by a scroll anchor, a fraction of the content (`RulerScale.anchor(of:)`), which
   holds at any width, and set offsets only once laid out.
+- A scroll view laid out while hidden (opacity 0) gets its UIKit view only when it first draws,
+  which starts at an offset from an earlier layout pass, not SwiftUI's current one: the AX5
+  sheet's weight ruler opened on 29 under 25 lb. Build it only while it shows
+  (`ValueRuler.shown(_:)`).
+- A lazy stack laid out again at a new size, as the text size changes live, puts back the scroll
+  offset it had over the scroll anchor. Give it an identity per size (`.id(spacing)`).
 - A sheet's `.height` detent measures inside its safe area, and a scroll view's container there
   already excludes the bar and the home indicator: grow it by the content's overflow alone
   (`ExerciseSheet.fit(_:)`).

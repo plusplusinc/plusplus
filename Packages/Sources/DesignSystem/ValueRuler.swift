@@ -9,8 +9,9 @@ import SwiftUI
 /// that one scaled spacing (`RulerScale`). It flicks with the system's momentum and
 /// always comes to rest on a tick. While a finger moves it, every tick under the line is written
 /// through `onChange`; a value changed from outside (a − / + key, an Auto switch) slides it
-/// there, animated, between two ticks if it falls off them. VoiceOver skips it: the row it sits
-/// in steps the same value.
+/// there, animated, between two ticks if it falls off them. It is built only while its row is
+/// open (`shown(_:)`), keeping its height laid out while shut. VoiceOver skips it, labels and
+/// all: the row it sits in steps the same value.
 public struct ValueRuler: View {
     private let value: Double
     private let range: ClosedRange<Double>
@@ -19,6 +20,7 @@ public struct ValueRuler: View {
     private let major: Double
     private let label: (Double) -> String
     private let onChange: (Double) -> Void
+    private var isShown = true
 
     @State private var position = ScrollPosition()
     /// While a finger drags the ruler or its flick runs on, when the ruler writes the value
@@ -67,6 +69,34 @@ public struct ValueRuler: View {
     }
 
     public var body: some View {
+        // The ruler's height, laid out whether or not it shows, so its row opens and shuts
+        // around it as before.
+        tickCell(range.lowerBound)
+            .hidden()
+            .frame(maxWidth: .infinity)
+            .overlay {
+                // Built only while it shows. A scroll view laid out while hidden gets its UIKit
+                // view only when it first draws, which takes the offset from an earlier layout
+                // pass, not SwiftUI's current one: in the AX5 sheet a 25 lb weight's ruler
+                // opened on 29 (logged on iOS 27). Built as its row opens, its first layout is
+                // the one it shows.
+                if isShown {
+                    ruler
+                }
+            }
+            // Its tick labels are decoration; the row steps the same value for VoiceOver.
+            // `accessibilityHidden` left them in the tree that automation reads.
+            .accessibilityRepresentation { }
+    }
+
+    /// Whether the ruler shows: its row is open.
+    public func shown(_ isShown: Bool) -> Self {
+        var ruler = self
+        ruler.isShown = isShown
+        return ruler
+    }
+
+    private var ruler: some View {
         ScrollView(.horizontal) {
             HStack(spacing: 0) {
                 leadRoom
@@ -131,7 +161,6 @@ public struct ValueRuler: View {
                     .frame(width: Self.edgeFade)
             }
         }
-        .accessibilityHidden(true)
     }
 
     static let edgeFade: CGFloat = Spacing.lg

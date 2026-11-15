@@ -173,7 +173,7 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             XCTAssertTrue(app.buttons["Increase"].appears(), "Tapping Time opened no stepper")
             attach(named: "sheet-expanded-ax5")
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
-            assertRulerRestsOnItsValue(in: app, row: time)
+            try assertRulerRestsOnItsValue(in: app, row: time)
             app.buttons["Close"].tap()
             XCTAssertTrue(time.disappears(), "Close left the sheet up")
             let search = app.openPicker()

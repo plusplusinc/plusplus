@@ -18,6 +18,33 @@ struct ValueRowAccessibilityTests {
         #expect(try spokenValue(showsTag: false) == "1 minute, 30 seconds")
     }
 
+    /// Whether the ruler's labels reach the tree shows only in the running app, where its
+    /// UIKit scroll view exists (`TitleWrappingUITests`); hosted, they never did.
+    @Test("An open ruler row is one adjustable element that steps up and down")
+    func openRulerRowSteps() throws {
+        var steps: [Int] = []
+        let row = ValueRow(
+            label: "Weight",
+            value: "25.0 lb",
+            number: 25,
+            spokenValue: "25 pounds",
+            isOpen: true,
+            canDecrease: true,
+            canIncrease: true,
+            onToggle: { },
+            onStep: { steps.append($0) },
+            ruler: ValueRuler(value: 25, range: 5 ... 1000, onChange: { _ in }),
+            accessory: EmptyView?.none,
+            footer: EmptyView?.none,
+        )
+        let nodes = try AccessibilityTree.nodes(of: row.frame(width: 402))
+        let element = try #require(nodes.first { $0.accessibilityLabel == "Weight" })
+        #expect(element.accessibilityTraits.contains(.adjustable))
+        element.accessibilityIncrement()
+        element.accessibilityDecrement()
+        #expect(steps == [1, -1])
+    }
+
     /// The value of the element VoiceOver reads for a Rest row, tagged Auto.
     private func spokenValue(showsTag: Bool) throws -> String? {
         let row = ValueRow(

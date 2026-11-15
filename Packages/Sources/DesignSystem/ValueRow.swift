@@ -185,7 +185,7 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
                 .padding([.bottom, .horizontal], Self.inset)
             if let ruler {
                 // Edge to edge of the fill, under the keys.
-                ruler
+                ruler.shown(isOpen)
                     .padding(.bottom, Self.inset)
             }
             if let accessory {
