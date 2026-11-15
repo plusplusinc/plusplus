@@ -32,6 +32,7 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.displayScale) private var displayScale
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// One inset on every side of the fill, for everything in it: the label, the value, the
     /// keys, the accessory, and the room between them. Siblings, the keys here and a sheet's rows
@@ -144,15 +145,29 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
                 if !stacked {
                     tagView
                 }
-                if ruler != nil {
-                    RulerValue(value: value, number: number)
+                if reduceMotion {
+                    // A new value is a new view, faded in at its own place over the old one
+                    // fading at its own: the pieces never move between the two.
+                    ZStack(alignment: stacked ? .topLeading : .topTrailing) {
+                        valueText(stacked: stacked)
+                            .id(value)
+                            .transition(.opacity.animation(Self.crossfade))
+                    }
                 } else {
-                    ValueText(text: value, number: number)
-                        .multilineTextAlignment(stacked ? .leading : .trailing)
+                    valueText(stacked: stacked)
                 }
                 if stacked {
                     tagView
                 }
+            }
+            // With Reduce Motion a new value takes its place, and the tag its place beside it, at
+            // once. Animated, a time's "0m" slid 10 pt as its seconds went between one digit and
+            // two, and the new "10" drew over its "m".
+            .transaction(value: value) { transaction in
+                transaction.animation = Self.layoutAnimation(
+                    transaction.animation,
+                    reduceMotion: reduceMotion,
+                )
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -220,6 +235,27 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
         }
     }
 
+    @ViewBuilder
+    private func valueText(stacked: Bool) -> some View {
+        if ruler != nil {
+            RulerValue(value: value, number: number)
+        } else {
+            ValueText(text: value, number: number)
+                .multilineTextAlignment(stacked ? .leading : .trailing)
+        }
+    }
+
+    /// How a value's line lays out a new value: in the change's own animation, or at once with
+    /// Reduce Motion, where the value crossfades instead (`crossfade`).
+    static func layoutAnimation(_ animation: Animation?, reduceMotion: Bool) -> Animation? {
+        reduceMotion ? nil : animation
+    }
+
+    /// With Reduce Motion, how the old value fades out and the new one in.
+    static var crossfade: Animation {
+        .snappy(duration: 0.15)
+    }
+
     /// Always laid out, so nothing moves as it shows or hides; hidden, VoiceOver skips it.
     @ViewBuilder private var tagView: some View {
         if let tag {
@@ -230,6 +266,12 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
                 .padding(.vertical, Spacing.xxs)
                 .background(Color.pp(.background), in: .rect(cornerRadius: Radius.sm))
                 .opacity(showsTag ? 1 : 0)
+                // A fade, kept with Reduce Motion when the value beside it changes at once.
+                .transaction(value: showsTag) { transaction in
+                    if reduceMotion {
+                        transaction.animation = Self.crossfade
+                    }
+                }
                 .accessibilityHidden(!showsTag)
         }
     }

@@ -2,25 +2,16 @@ import SwiftUI
 
 /// A row's value as text: numbers in SF Mono, words in the system font. With `number`, the
 /// digits roll by the way it went, up or down; without, the system's default roll. With Reduce
-/// Motion, a value crossfades instead.
+/// Motion, `ValueRow` crossfades the whole value as a new view, so nothing here rolls.
 struct ValueText: View {
     let text: String
     let number: Double?
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
     var body: some View {
         Text(AttributedString.monoNumbers(text, font: .ppRowTitleNumber))
             .font(.ppRowTitle)
-            .contentTransition(Self.transition(rolling: number, reduceMotion: reduceMotion))
+            .contentTransition(number.map { .numericText(value: $0) } ?? .numericText())
             .foregroundStyle(.pp(.textPrimary))
-    }
-
-    static func transition(rolling number: Double?, reduceMotion: Bool) -> ContentTransition {
-        if reduceMotion {
-            return .opacity
-        }
-        return number.map { .numericText(value: $0) } ?? .numericText()
     }
 }
 
