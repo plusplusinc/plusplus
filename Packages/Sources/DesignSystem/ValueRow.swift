@@ -12,7 +12,8 @@ import SwiftUI
 /// swipe up or down. An optional `ValueRuler` sits under the keys, edge to edge of the fill;
 /// with one, the value's digits roll up or down by the way `number` went (`change`), a time's
 /// units each kept in place as its shape changes (`TimePiece`), a weight's number apart from
-/// its unit.
+/// its unit. With Reduce Motion a new number crossfades, the old value and the new each at its
+/// own place, and nothing beside it moves.
 public struct ValueRow<Accessory: View, Footer: View>: View {
     private let label: String
     private let note: String?
@@ -146,12 +147,12 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
                     tagView
                 }
                 if reduceMotion {
-                    // A new value is a new view, faded in at its own place over the old one
+                    // A new number is a new view, faded in at its own place over the old one
                     // fading at its own: the pieces never move between the two.
                     ZStack(alignment: stacked ? .topLeading : .topTrailing) {
                         valueText(stacked: stacked)
-                            .id(value)
-                            .transition(.opacity.animation(Self.crossfade))
+                            .id(changeKey)
+                            .transition(.opacity.animation(ValueRow<EmptyView, EmptyView>.change))
                     }
                 } else {
                     valueText(stacked: stacked)
@@ -160,14 +161,15 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
                     tagView
                 }
             }
-            // With Reduce Motion a new value takes its place, and the tag its place beside it, at
+            // With Reduce Motion a new number takes its place, and the tag its place beside it, at
             // once. Animated, a time's "0m" slid 10 pt as its seconds went between one digit and
-            // two, and the new "10" drew over its "m".
-            .transaction(value: value) { transaction in
-                transaction.animation = Self.layoutAnimation(
-                    transaction.animation,
-                    reduceMotion: reduceMotion,
-                )
+            // two, and the new "10" drew over its "m". Keyed on the number, not the text: as the
+            // row opens or shuts its text changes shape ("30s", "0m 30s") while the row itself
+            // moves, and laid out at once there, the value jumped ahead of its row.
+            .transaction(value: changeKey) { transaction in
+                if reduceMotion {
+                    transaction.animation = nil
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -245,34 +247,33 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
         }
     }
 
-    /// How a value's line lays out a new value: in the change's own animation, or at once with
-    /// Reduce Motion, where the value crossfades instead (`crossfade`).
-    static func layoutAnimation(_ animation: Animation?, reduceMotion: Bool) -> Animation? {
-        reduceMotion ? nil : animation
-    }
-
-    /// With Reduce Motion, how the old value fades out and the new one in.
-    static var crossfade: Animation {
-        .snappy(duration: 0.15)
+    /// What changes the value as a step does, a ruler's tick or a switch: its number, or, without
+    /// one, its text.
+    private var changeKey: String {
+        number.map { "\($0)" } ?? value
     }
 
     /// Always laid out, so nothing moves as it shows or hides; hidden, VoiceOver skips it.
     @ViewBuilder private var tagView: some View {
         if let tag {
-            Text(tag)
+            let label = Text(tag)
                 .font(.ppCaption)
                 .foregroundStyle(.pp(.textSecondary))
                 .padding(.horizontal, Spacing.sm)
                 .padding(.vertical, Spacing.xxs)
                 .background(Color.pp(.background), in: .rect(cornerRadius: Radius.sm))
-                .opacity(showsTag ? 1 : 0)
-                // A fade, kept with Reduce Motion when the value beside it changes at once.
-                .transaction(value: showsTag) { transaction in
-                    if reduceMotion {
-                        transaction.animation = Self.crossfade
+            Group {
+                if reduceMotion {
+                    // Only the fade animates: the tag's place beside a new number changes at
+                    // once, with it.
+                    label.animation(ValueRow<EmptyView, EmptyView>.change) {
+                        $0.opacity(showsTag ? 1 : 0)
                     }
+                } else {
+                    label.opacity(showsTag ? 1 : 0)
                 }
-                .accessibilityHidden(!showsTag)
+            }
+            .accessibilityHidden(!showsTag)
         }
     }
 
