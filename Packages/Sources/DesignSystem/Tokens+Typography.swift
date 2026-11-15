@@ -28,8 +28,6 @@ extension Font {
     public static let ppCurrentTitle = Font.system(.title, weight: .semibold)
     /// Which set the current exercise is on, "Set 1 of 3": SF Mono, as numbers are.
     public static let ppCurrentProgress = Font.system(.body, design: .monospaced, weight: .medium)
-    /// What a current exercise's large number counts, "reps", "lb".
-    public static let ppCurrentUnit = Font.system(.title2)
     /// A workout's time on its key in the bar: SF Mono, so the digits hold still as they tick.
     public static let ppWorkoutTime = ppRowTitleNumber
     /// A place in the drawer, Routines or a routine under it: one font for all, so none reads as
@@ -77,6 +75,23 @@ enum ScreenTitle {
         .monospacedSystemFont(ofSize: size, weight: .bold)
     }
     #endif
+}
+
+/// The current exercise's large figure: its digits 104pt bold at the default size, and the
+/// letters with them, a time's "m" and "s" and what a number counts, "reps", "lb", bold and a bit
+/// over half the digits' size, in the same color, on their baseline (Dave's pick, 2026-11-14).
+/// Both scale as `largeTitle` does. Read with
+/// `@ScaledMetric(relativeTo: CurrentFigure.textStyle) var size = CurrentFigure.size`.
+enum CurrentFigure {
+    static let size: CGFloat = 104
+    /// The letters' size: 0.57 of the digits', as in the drawing picked.
+    static let unitSize: CGFloat = 59
+    /// The gap between a number's last digit and the letters after it.
+    static let unitGap: CGFloat = 6
+    /// A word space in the letters' font, as a fraction of their size: between a time's last
+    /// letter and the words after it, "45s per side".
+    static let wordSpace: CGFloat = 0.26
+    static let textStyle = Font.TextStyle.largeTitle
 }
 
 private struct ScreenTitleFont: ViewModifier {

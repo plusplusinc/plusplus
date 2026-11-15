@@ -14,8 +14,35 @@ import UIKit
 struct ValueRowAccessibilityTests {
     @Test("A row's value says its tag while the tag shows, and not once it hides")
     func tagSpokenOnlyWhileShown() throws {
-        #expect(try spokenValue(showsTag: true) == "90 seconds, Auto")
-        #expect(try spokenValue(showsTag: false) == "90 seconds")
+        #expect(try spokenValue(showsTag: true) == "1 minute, 30 seconds, Auto")
+        #expect(try spokenValue(showsTag: false) == "1 minute, 30 seconds")
+    }
+
+    /// Whether the ruler's labels reach the tree shows only in the running app, where its
+    /// UIKit scroll view exists (`TitleWrappingUITests`); hosted, they never did.
+    @Test("An open ruler row is one adjustable element that steps up and down")
+    func openRulerRowSteps() throws {
+        var steps: [Int] = []
+        let row = ValueRow(
+            label: "Weight",
+            value: "25.0 lb",
+            number: 25,
+            spokenValue: "25 pounds",
+            isOpen: true,
+            canDecrease: true,
+            canIncrease: true,
+            onToggle: { },
+            onStep: { steps.append($0) },
+            ruler: ValueRuler(value: 25, range: 5 ... 1000, onChange: { _ in }),
+            accessory: EmptyView?.none,
+            footer: EmptyView?.none,
+        )
+        let nodes = try AccessibilityTree.nodes(of: row.frame(width: 402))
+        let element = try #require(nodes.first { $0.accessibilityLabel == "Weight" })
+        #expect(element.accessibilityTraits.contains(.adjustable))
+        element.accessibilityIncrement()
+        element.accessibilityDecrement()
+        #expect(steps == [1, -1])
     }
 
     /// The value of the element VoiceOver reads for a Rest row, tagged Auto.
@@ -23,10 +50,10 @@ struct ValueRowAccessibilityTests {
         let row = ValueRow(
             label: "Rest",
             note: "After each set",
-            value: "90\u{00A0}s",
+            value: "1m\u{00A0}30s",
             tag: "Auto",
             showsTag: showsTag,
-            spokenValue: "90 seconds",
+            spokenValue: "1 minute, 30 seconds",
             isOpen: false,
             canDecrease: true,
             canIncrease: true,

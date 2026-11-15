@@ -108,11 +108,53 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
             sets.tap()
             app.buttons["Increase"].tapAtCenter()
             XCTAssertEqual(sets.value(becoming: "4 sets"), "4 sets")
+            dragTheWeightRuler(in: app)
             app.buttons["Close"].tap()
             XCTAssertTrue(sets.disappears(), "Close left the sheet up")
             openDrawer(in: app)
             XCTAssertEqual(drawerRoutines(in: app), ["Chest", "Back"], "The edited one isn't first")
         }
+    }
+
+    /// In the open sheet, at half height, Weight opening grows the sheet to fit it, and a drag
+    /// at a hand's speed on the ruler under its keys raises the weight. The sheet's heights are
+    /// the system's, and the ruler is a scroll view: whether its drag wins over the sheet's and
+    /// over the ruler's own hold on its value shows only in the running app. Where a drag lands
+    /// is `RulerScaleTests`'. The sheet is one this test already has open, so the check costs a
+    /// tap and a drag.
+    @MainActor
+    private func dragTheWeightRuler(in app: XCUIApplication) {
+        let weight = app.buttons["Weight"]
+        XCTAssertEqual(weight.value as? String, "45 pounds")
+        weight.tap()
+        let increase = app.buttons["Increase"]
+        // Weight's keys take the place of Sets' as one row shuts and the next opens.
+        XCTAssertTrue(increase.settles(), "The stepper kept moving after Weight opened")
+        // The half-height sheet grows to hold the open row, so the row after it stays whole.
+        let rest = app.buttons["Rest, After each set"]
+        XCTAssertTrue(rest.settles(), "The sheet kept moving after Weight opened")
+        XCTAssertLessThanOrEqual(
+            rest.frame.maxY,
+            app.frame.maxY,
+            "The sheet did not grow to fit the open Weight row",
+        )
+        let ruler = app.point(x: increase.frame.minX, y: increase.frame.maxY + 30)
+        ruler.press(
+            forDuration: 0.05,
+            thenDragTo: ruler.withOffset(CGVector(dx: -80, dy: 0)),
+            withVelocity: XCUIGestureVelocity(300),
+            thenHoldForDuration: 0.2,
+        )
+        let pounds = reading(Self.pounds(weight), until: { $0 > 45 }, within: 2)
+        XCTAssertGreaterThan(pounds, 45, "A drag on the ruler toward heavier left the weight")
+        attach(named: "ruler-dragged")
+    }
+
+    /// The number a Weight row's value starts with, "49.5 pounds", or 0 with none.
+    @MainActor
+    private static func pounds(_ weight: XCUIElement) -> Double {
+        let value = weight.value as? String ?? ""
+        return Double(value.prefix { $0.isNumber || $0 == "." }) ?? 0
     }
 
     /// The Routines screen lists every routine, latest first; a row or + pushes a routine with a

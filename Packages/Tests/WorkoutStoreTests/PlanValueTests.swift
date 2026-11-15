@@ -27,7 +27,7 @@ struct PlanValueTests {
         #expect(try Self.values(Self.row("Barbell bench press"))
             == ["Sets 3", "Reps 5", "Weight 45 lb"])
         #expect(try Self.values(Self.row("Pigeon stretch") { $0.target = .time(seconds: 150) })
-            == ["Sets 1", "Time 2:30 min per side"])
+            == ["Sets 1", "Time 2m 30s per side"])
         #expect(try Self.values(Self.row("Push-up")) == ["Sets 3", "Reps 10"])
     }
 
@@ -38,7 +38,7 @@ struct PlanValueTests {
             == ["3 sets", "10 reps per side", "20 pounds per side"])
         let stretch = try Self.row("Pigeon stretch")
         #expect(stretch.spokenValue(of: .sets, locale: Self.locale) == "1 set")
-        #expect(stretch.spokenValue(of: .target, locale: Self.locale) == "60 seconds per side")
+        #expect(stretch.spokenValue(of: .target, locale: Self.locale) == "1 minute per side")
     }
 
     @Test("A step moves a set or a rep by one, a time by 5 s, a weight by its load's step")

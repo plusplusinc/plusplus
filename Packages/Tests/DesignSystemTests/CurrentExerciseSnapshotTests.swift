@@ -50,7 +50,7 @@ struct CurrentExerciseSnapshotTests {
                 equipment: ["Dumbbells", "Bench"],
                 figures: [
                     .init(number: "10", unit: "reps"),
-                    .init(number: "25", unit: "lb per side"),
+                    .init(number: "25", unit: "lb/side"),
                 ],
                 spokenFigures: "10 reps, 25 pounds per side",
             ),
@@ -83,10 +83,10 @@ struct CurrentExerciseSnapshotTests {
     func bodyweight() {
         let current = Row(
             title: "Kneeling hip flexor stretch",
-            detail: ["60 s per side"],
+            detail: ["1m per side"],
             focus: RowFocus(
                 progress: "Set 1 of 1",
-                figures: [.init(number: "60", unit: "s per side")],
+                figures: [.init(number: "1m", unit: "per side")],
                 spokenFigures: "60 seconds per side",
             ),
         )
