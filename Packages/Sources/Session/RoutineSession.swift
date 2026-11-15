@@ -42,7 +42,7 @@ public final class RoutineSession {
     /// Where every change to a workout goes, saved in the order they happened. Every one waits
     /// its turn: one workout's end and the next one's start can both be waiting, and keeping
     /// only the newest would drop the end, leaving the first in progress in the store.
-    @ObservationIgnored private let workoutWrites: AsyncStream<WorkoutWrite>.Continuation
+    @ObservationIgnored private let workoutWrites: AsyncStream<WorkoutQueueEntry>.Continuation
 
     public init(
         routine: Routine,
@@ -68,6 +68,10 @@ public final class RoutineSession {
     private enum WorkoutWrite {
         case save(Workout)
         case discard(Workout.ID)
+    }
+
+    private enum WorkoutQueueEntry {
+        case write(WorkoutWrite)
         /// Every write before it has landed.
         case landed(CheckedContinuation<Void, Never>)
     }
@@ -130,7 +134,7 @@ public final class RoutineSession {
         guard workout == nil, routine == current.id else { return }
         // The workout first: a screen shown at the root reads it as it is made, to open on the
         // current exercise.
-        change(.save(Workout(routineID: current.id, routineName: shownName, startedAt: now)))
+        change(.save(Workout(routineID: routine, routineName: shownName, startedAt: now)))
         if screen != .routine {
             // A fresh screen at the root, opening on the routine as it is now.
             opened = current
@@ -179,9 +183,8 @@ public final class RoutineSession {
         switch write {
         case let .save(changed): workout = changed.isInProgress ? changed : nil
         case .discard: workout = nil
-        case .landed: break
         }
-        workoutWrites.yield(write)
+        workoutWrites.yield(.write(write))
     }
 
     /// A routine cleared to nothing while its workout ran was kept for it; once the workout
@@ -332,17 +335,17 @@ public final class RoutineSession {
 
     private static func startWritingWorkouts(
         to store: RoutineStore?,
-    ) -> AsyncStream<WorkoutWrite>.Continuation {
+    ) -> AsyncStream<WorkoutQueueEntry>.Continuation {
         let (stream, continuation) = AsyncStream.makeStream(
-            of: WorkoutWrite.self,
+            of: WorkoutQueueEntry.self,
             bufferingPolicy: .unbounded,
         )
         Task {
-            for await write in stream {
+            for await entry in stream {
                 do {
-                    switch write {
-                    case let .save(workout): try await store?.save(workout)
-                    case let .discard(id): try await store?.discardWorkout(id)
+                    switch entry {
+                    case let .write(.save(workout)): try await store?.save(workout)
+                    case let .write(.discard(id)): try await store?.discardWorkout(id)
                     case let .landed(done): done.resume()
                     }
                 } catch {

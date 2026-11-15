@@ -22,6 +22,10 @@ struct RoutineSessionTests {
         RoutineSession(routine: routine, store: relaunch(), namer: .muscleGroupsOnly)
     }
 
+    private static func at(_ seconds: Double) -> Date {
+        Date(timeIntervalSinceReferenceDate: seconds)
+    }
+
     private static func upper() throws -> Routine {
         let exercise = try #require(Exercise.builtIn(id: "barbell-bench-press"))
         let bench = RoutineExercise(exercise: exercise, weightUnit: .pounds)
@@ -41,7 +45,7 @@ struct RoutineSessionTests {
     @Test("An edit just before opening another routine is saved")
     func editBeforeOpen() async throws {
         let other = Routine(name: "Lower")
-        try await relaunch().save(other, at: Date(timeIntervalSinceReferenceDate: 1))
+        try await relaunch().save(other, at: Self.at(1))
         let session = session()
         let routine = try Self.upper()
         session.save(routine)
@@ -110,17 +114,16 @@ struct RoutineSessionTests {
     func endBeforeNextStart() async throws {
         let routine = try Self.upper()
         let session = session(routine)
-        session.start(on: routine.id, at: Date(timeIntervalSinceReferenceDate: 10))
+        session.start(on: routine.id, at: Self.at(10))
         let first = try #require(session.workout)
         await session.writesLanded()
-        session.finish(at: Date(timeIntervalSinceReferenceDate: 20))
-        session.start(on: routine.id, at: Date(timeIntervalSinceReferenceDate: 30))
+        session.finish(at: Self.at(20))
+        session.start(on: routine.id, at: Self.at(30))
         let second = try #require(session.workout)
         await session.writesLanded()
         let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkout>())
             .map(\.workout)
-        #expect(stored.first { $0.id == first.id }?
-            .endedAt == Date(timeIntervalSinceReferenceDate: 20))
+        #expect(stored.first { $0.id == first.id }?.endedAt == Self.at(20))
         #expect(stored.first { $0.id == second.id }?.isInProgress == true)
     }
 
@@ -161,32 +164,25 @@ struct RoutineSessionTests {
         let row = routine.exercises[0]
         let session = session(routine)
         session.save(routine)
-        func at(_ seconds: Double) -> Date {
-            Date(timeIntervalSinceReferenceDate: seconds)
-        }
         let steps: [(name: String, change: () -> Void)] = [
-            ("start", { session.start(on: routine.id, at: at(10)) }),
-            ("pause", { session.togglePause(at: at(20)) }),
-            ("resume", { session.togglePause(at: at(30)) }),
-            ("log", { session.log(PlannedSet(row: row.id, round: 1), of: row, at: at(40)) }),
-            ("finish", { session.finish(at: at(50)) }),
-            ("start again", { session.start(on: routine.id, at: at(60)) }),
+            ("start", { session.start(on: routine.id, at: Self.at(10)) }),
+            ("pause", { session.togglePause(at: Self.at(20)) }),
+            ("resume", { session.togglePause(at: Self.at(30)) }),
+            ("log", { session.log(PlannedSet(row: row.id, round: 1), of: row, at: Self.at(40)) }),
+            ("finish", { session.finish(at: Self.at(50)) }),
+            ("start again", { session.start(on: routine.id, at: Self.at(60)) }),
             ("discard", { session.discard() }),
         ]
-        var discarded: Workout.ID?
         for step in steps {
-            if step.name == "discard" {
-                discarded = session.workout?.id
-            }
             step.change()
             await session.writesLanded()
             let relaunched = try await relaunch().launch(weightUnit: .pounds).workout
             #expect(relaunched == session.workout, "after \(step.name)")
         }
         #expect(session.workout == nil)
+        // Of the two workouts, only the finished one is kept.
         let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkout>())
-        #expect(stored.count == 1)
-        #expect(!stored.contains { $0.id == discarded })
+        #expect(stored.map(\.workout.startedAt) == [Self.at(10)])
     }
 
     @Test("Start pressed on a routine since switched away from starts nothing")

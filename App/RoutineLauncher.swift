@@ -17,7 +17,8 @@ struct RoutineLauncher: View {
     var body: some View {
         if let session {
             // A routine pushed onto the Routines screen takes the edge swipe back to the list,
-            // and a workout keeps the drawer shut, as the session does whoever opens it.
+            // and a workout keeps the drawer shut: the swipe never begins, and the session refuses
+            // any other open.
             SideDrawer(
                 isOpen: Binding {
                     session.isDrawerOpen
