@@ -166,9 +166,6 @@ private struct PrimaryKeyBar<
     /// The screen's bottom safe area with the keyboard's: more than `bottomInset` while the
     /// keyboard is up, which the bar then sits on.
     @State private var keyboardInset: CGFloat = 0
-    /// The room the key as things stand takes in the bar, measured on an unseen copy whether it
-    /// is presented or not, so the floating button has the same place with and without it.
-    @State private var keyRoom: CGFloat = 0
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     /// The key's inset from the screen's sides: `lowInset`, and with no home indicator, as far as
@@ -184,14 +181,6 @@ private struct PrimaryKeyBar<
     /// bar's own bottom.
     private var ledgeLift: CGFloat {
         bottomInset > 0 ? PrimaryKeyButtonStyle.lowInset : 0
-    }
-
-    /// The floating button's bottom above the screen's safe area's bottom, the keyboard's left
-    /// out: the key's top, and the gap.
-    private var floatingLift: CGFloat {
-        // A placed key's room is the bar's top and the key's height, ledge included.
-        let keyHeight = keyRoom - PrimaryKeyButtonStyle.barTop
-        return ledgeLift + keyHeight + PrimaryKeyButtonStyle.floatingGap - bottomInset
     }
 
     private var isOnKeyboard: Bool {
@@ -223,21 +212,23 @@ private struct PrimaryKeyBar<
     }
 
     /// The key as things stand, placed but never shown: what holds the bar's room while
-    /// `keepsRoom` does, and what the floating button is placed from.
+    /// `keepsRoom` does.
     private var unseenKey: some View {
         placed(key(face, true).buttonStyle(.primaryKey))
     }
 
-    /// `floating` over the bar, placed up from the safe area's bottom, from the room of an unseen
-    /// copy of the key: with a key in the bar or none, it is in the same place. The keyboard's
-    /// inset left out, so it stays put as the keyboard rises.
-    private var floatingPlace: some ViewModifier {
+    /// `floating` over an unseen copy of the key it sits over, `shown` (the staged key's
+    /// `KeyStage.floatingFace(for:)`) or, with no key presented, the key as things stand, so a
+    /// key coming in leaves it where it is. The copy's ledge sits where the key's does,
+    /// `ledgeLift` above the screen's bottom, the keyboard's inset left out, so the button stays
+    /// put as the keyboard rises.
+    private func floatingPlace(over shown: Face?) -> some View {
         FloatingPlace(
-            measure: unseenKey,
+            key: key(shown ?? face, true).buttonStyle(.primaryKey),
             floating: floating,
-            trailing: sideInset,
-            bottom: floatingLift,
-            keyRoom: $keyRoom,
+            gap: PrimaryKeyButtonStyle.floatingGap,
+            sides: sideInset,
+            bottom: ledgeLift - bottomInset,
         )
     }
 
@@ -308,7 +299,9 @@ private struct PrimaryKeyBar<
                 }
                 .allowsHitTesting(false)
             }
-            .modifier(floatingPlace)
+            .overlayPreferenceValue(FloatingFace<Face>.self, alignment: .bottom) { shown in
+                floatingPlace(over: shown)
+            }
     }
 }
 

@@ -68,31 +68,29 @@ public struct FloatingButtonRoom: View {
     }
 }
 
-/// `floating` in the floating style at the bottom trailing corner, `trailing` and `bottom` in,
-/// and `measure` unseen, whose height `keyRoom` follows.
-struct FloatingPlace<Measure: View, Floating: View>: ViewModifier {
-    let measure: Measure
+/// `floating` in the floating style, its right edge on `key`'s and `gap` above it, over `key`
+/// laid out unseen, `sides` in from the screen's sides and its bottom `bottom` up from the safe
+/// area's. Laid out over the copy rather than placed from its measured height, so when the key
+/// it sits over changes in an animated update, the button moves under that update's animation:
+/// placed from a measurement, which lands after the update, it jumped.
+struct FloatingPlace<Key: View, Floating: View>: View {
+    let key: Key
     let floating: Floating
-    let trailing: CGFloat
+    let gap: CGFloat
+    let sides: CGFloat
     let bottom: CGFloat
-    @Binding var keyRoom: CGFloat
 
-    func body(content: Content) -> some View {
-        content
-            .background(alignment: .bottom) {
-                measure
-                    .fixedSize(horizontal: false, vertical: true)
-                    .hidden()
-                    .onGeometryChange(for: CGFloat.self, of: \.size.height) { keyRoom = $0 }
-            }
-            .overlay(alignment: .bottomTrailing) {
-                floating
-                    .buttonStyle(.floating)
-                    .hiddenBehindDrawer()
-                    .padding(.trailing, trailing)
-                    .padding(.bottom, bottom)
-                    .ignoresSafeArea(.keyboard)
-            }
+    var body: some View {
+        VStack(alignment: .trailing, spacing: gap) {
+            floating
+                .buttonStyle(.floating)
+                .hiddenBehindDrawer()
+            key.hidden()
+        }
+        .padding(.horizontal, sides)
+        .padding(.bottom, bottom)
+        .frame(maxHeight: .infinity, alignment: .bottom)
+        .ignoresSafeArea(.keyboard)
     }
 }
 

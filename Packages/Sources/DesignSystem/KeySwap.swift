@@ -43,6 +43,9 @@ struct StagedKey<Face: Equatable & Identifiable, Content: View>: View {
             .onChange(of: isDropped) { _, isDropped in stage.drop(isDropped, live: face) }
             // The swap's beats: the key going away cancels them.
             .task(id: stage.isOut) { await swap() }
+            // In the update that changes the stage, so the floating button, laid out over this
+            // face, moves under that update's animation: with the rise, never ahead of it.
+            .preference(key: FloatingFace<Face>.self, value: stage.floatingFace(for: face))
     }
 
     /// Follows the face changing to `new`: another key starts the one showing leaving with its
@@ -76,6 +79,18 @@ struct StagedKey<Face: Equatable & Identifiable, Content: View>: View {
         withAnimation(.smooth(duration: PrimaryKeyButtonStyle.swapHalf)) {
             stage.advance(live: live)
         }
+    }
+}
+
+/// The face of the key the bar's floating button sits over, from the staged key, while the bar
+/// presents one.
+struct FloatingFace<Face: Equatable>: PreferenceKey {
+    static var defaultValue: Face? {
+        nil
+    }
+
+    static func reduce(value: inout Face?, nextValue: () -> Face?) {
+        value = value ?? nextValue()
     }
 }
 
