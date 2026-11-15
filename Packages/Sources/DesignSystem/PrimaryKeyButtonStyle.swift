@@ -164,11 +164,9 @@ private struct PrimaryKeyBar<
     /// The screen's bottom safe area with the keyboard's: more than `bottomInset` while the
     /// keyboard is up, which the bar then sits on.
     @State private var keyboardInset: CGFloat = 0
-    /// The bar's room as laid out: none while it holds no key.
-    @State private var barHeight: CGFloat = 0
-    /// A key of one line's height, its ledge included: the floating button's place with no key.
-    @ScaledMetric(relativeTo: PrimaryKeyButtonStyle.textStyle)
-    private var oneLineKeyHeight = PrimaryKeyButtonStyle.faceHeight + PrimaryKeyButtonStyle.ledge
+    /// The room the key as things stand takes in the bar, measured on an unseen copy whether it
+    /// is presented or not, so the floating button has the same place with and without it.
+    @State private var keyRoom: CGFloat = 0
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     /// The key's inset from the screen's sides: `lowInset`, and with no home indicator, as far as
@@ -189,10 +187,8 @@ private struct PrimaryKeyBar<
     /// The floating button's bottom above the screen's safe area's bottom, the keyboard's left
     /// out: the key's top, and the gap.
     private var floatingLift: CGFloat {
-        // A placed key's room is the key's height, ledge included, and the gap above it.
-        let keyHeight = barHeight > 0
-            ? barHeight - Spacing.sm
-            : oneLineKeyHeight
+        // A placed key's room is the gap above it and the key's height, ledge included.
+        let keyHeight = keyRoom - Spacing.sm
         return ledgeLift + keyHeight + PrimaryKeyButtonStyle.floatingGap - bottomInset
     }
 
@@ -255,7 +251,6 @@ private struct PrimaryKeyBar<
                         placed(key(face, true).buttonStyle(.primaryKey)).hidden()
                     }
                 }
-                .onGeometryChange(for: CGFloat.self, of: \.size.height) { barHeight = $0 }
             }
             // The screen's own inset, without the keyboard's when it is up: with the keyboard's
             // height as the side insets, the key stood tall and narrow over it, and the bar,
@@ -292,9 +287,16 @@ private struct PrimaryKeyBar<
                 }
                 .allowsHitTesting(false)
             }
-            // Over the bar, from the safe area's bottom, so it is placed from the key's room with
-            // or without a key in the bar. The keyboard's inset left out, so it stays put as the
-            // keyboard rises. Its room ignored, it was still placed from the safe area's bottom.
+            // Over the bar, placed up from the safe area's bottom, from the room of the unseen
+            // copy of the key above: with a key in the bar or none, it is in the same place. With the
+            // safe area ignored, it was still placed from its bottom. The keyboard's inset left
+            // out, so it stays put as the keyboard rises.
+            .background(alignment: .bottom) {
+                placed(key(face, true).buttonStyle(.primaryKey))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .hidden()
+                    .onGeometryChange(for: CGFloat.self, of: \.size.height) { keyRoom = $0 }
+            }
             .overlay(alignment: .bottomTrailing) {
                 floating
                     .buttonStyle(.floating)
