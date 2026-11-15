@@ -183,13 +183,14 @@ private struct PrimaryKeyBar<
         bottomInset > 0 ? PrimaryKeyButtonStyle.lowInset : 0
     }
 
-    /// The floating button's bottom above the screen's bottom: the key's top, and the gap.
+    /// The floating button's bottom above the screen's safe area's bottom, the keyboard's left
+    /// out: the key's top, and the gap.
     private var floatingLift: CGFloat {
         // A placed key's room is the key's height, ledge included, and the gap above it.
         let keyHeight = barHeight > 0
             ? barHeight - Spacing.sm
             : oneLineKeyHeight
-        return ledgeLift + keyHeight + PrimaryKeyButtonStyle.floatingGap
+        return ledgeLift + keyHeight + PrimaryKeyButtonStyle.floatingGap - bottomInset
     }
 
     /// `face`, the key as drawn, in its place in the bar, where it sizes the bar's room.
@@ -269,15 +270,16 @@ private struct PrimaryKeyBar<
                 }
                 .allowsHitTesting(false)
             }
-            // Over the bar, from the screen's bottom edge, so it is placed from the key's room
-            // with or without a key in the bar.
+            // Over the bar, from the safe area's bottom, so it is placed from the key's room with
+            // or without a key in the bar. The keyboard's inset left out, so it stays put as the
+            // keyboard rises. Its room ignored, it was still placed from the safe area's bottom.
             .overlay(alignment: .bottomTrailing) {
                 floating
                     .buttonStyle(.floating)
                     .hiddenBehindDrawer()
                     .padding(.trailing, sideInset)
                     .padding(.bottom, floatingLift)
-                    .ignoresSafeArea()
+                    .ignoresSafeArea(.keyboard)
             }
     }
 }
