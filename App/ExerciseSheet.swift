@@ -34,6 +34,14 @@ struct ExerciseSheet: View {
     /// The weight as typed while its row is open.
     @State private var weightText = ""
     @State private var detent = PresentationDetent.medium
+    /// The height the sheet grew to, to fit the open weight row and its ruler; a detent from then
+    /// on, so the sheet stays there while it's open.
+    @State private var fitted: CGFloat?
+    /// The weight row is opening at the medium height: the sheet grows to fit once its content
+    /// has the row's open height.
+    @State private var growsToFit = false
+    /// The sheet's height inside its safe area, which a `.height` detent measures.
+    @State private var sheetHeight: CGFloat = 0
     @Environment(\.dismiss) private var dismiss
     @Environment(\.locale) private var locale
 
@@ -73,6 +81,9 @@ struct ExerciseSheet: View {
                     .padding(.horizontal, Spacing.md)
                     .padding(.vertical, Spacing.md)
                 }
+                .onScrollGeometryChange(for: CGFloat.self, of: \.overflow) { _, overflow in
+                    fit(overflow)
+                }
             }
             .background(Color.pp(.background))
             .navigationTitle(item.exercise.name)
@@ -102,7 +113,8 @@ struct ExerciseSheet: View {
             else { return }
             weightText = entry.number
         }
-        .presentationDetents([.medium, .large], selection: $detent)
+        .onGeometryChange(for: CGFloat.self, of: \.size.height) { sheetHeight = $0 }
+        .presentationDetents(detents, selection: $detent)
         .presentationDragIndicator(.visible)
         .presentationBackground(Color.pp(.background))
     }
@@ -116,6 +128,29 @@ struct ExerciseSheet: View {
     }
 
     static let weightInput = WeightInput.ruler
+
+    private var detents: Set<PresentationDetent> {
+        var detents: Set<PresentationDetent> = [.medium, .large]
+        if let fitted {
+            detents.insert(.height(fitted))
+        }
+        return detents
+    }
+
+    /// At the medium height the open ruler sat near the screen's bottom edge, under the thumb's
+    /// reach, and Rest was cut off below it. The sheet grows by what its content now overflows,
+    /// in the row's own motion. The content's size is the open row's from the first frame of
+    /// its animation, so this lands a layout pass after the tap, not after the row has opened.
+    private func fit(_ overflow: CGFloat) {
+        guard growsToFit else { return }
+        growsToFit = false
+        guard overflow > 0, detent == .medium else { return }
+        let height = sheetHeight + overflow
+        fitted = height
+        withAnimation(ValueRow.motion) {
+            detent = .height(height)
+        }
+    }
 
     /// Where the weight's − / + keys sit while the decimal pad is up: false, in the row under the
     /// value; true, in the bar above the pad.
@@ -278,6 +313,8 @@ struct ExerciseSheet: View {
             // above it.
             detent = .large
         }
+        growsToFit = Self.weightInput == .ruler && opening && part == .plan(.weight)
+            && detent == .medium
         withAnimation(ValueRow.motion) {
             open = opening ? part : nil
         } completion: {
@@ -286,6 +323,15 @@ struct ExerciseSheet: View {
                 scroller.scrollTo(part)
             }
         }
+    }
+}
+
+private extension ScrollGeometry {
+    /// How far the content runs past the visible height. In a sheet the container is already
+    /// the height between the navigation bar and the home indicator (measured on iOS 27: 573 pt
+    /// in a 643 pt sheet with insets of 70 and 34), so the insets don't count again.
+    var overflow: CGFloat {
+        contentSize.height - containerSize.height
     }
 }
 
