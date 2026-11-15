@@ -24,11 +24,16 @@ unnamed routine with exercises gets a name, written in code from its exercises' 
 keeps across launches and which opens as text to edit. Each exercise in a routine carries its
 own sets, reps or time, and weight, starting at the exercise's defaults and saved with the
 routine; its row reads them, saying when a number is per side, and the routine's equipment
-shows under its title. Tapping a row opens its values in a sheet, a row per value with a − / +
-stepper, and Delete in its menu. The sheet alone shows the row's rest after each set, the last
-included: Auto, tagged, while it follows the reps (by planned reps and the kind of exercise,
-a row shorter for bodyweight; a timed set's own time; none for a stretch), until a step sets it
-by hand; an Auto switch inside the opened row brings either back. A superset's members share
+shows under its title. Times read as the system writes them: a value narrow ("1m 35s"), a
+sentence condensed ("1 min 35 sec"), VoiceOver in full words; weights in their own unit ("27.5
+lb"). Tapping a row opens its values in a sheet, a row per value with a − / + stepper, and
+Delete in its menu; the sheet grows to fit a row as it opens. Weight, a timed set's time, and
+rest also open a ruler under the keys, dragged or flicked to any tick (half the weight's unit,
+or 5 s), − / + going on to the next mark; while it shows, the value keeps one shape ("25.0 lb",
+"1m 0s") and its digits roll the way it went. The sheet alone shows the row's rest after each
+set, the last included: Auto, tagged, while it follows the reps (by planned reps and the kind of
+exercise, a row shorter for bodyweight; a timed set's own time; none for a stretch), until a
+step or the ruler sets it by hand; an Auto switch inside the opened row brings either back. A superset's members share
 one rest after each round, the longest member's less a minute, never under 30 s unless the
 longest is, or all of it when they share a primary muscle; leaving restores a row's own.
 Holding a row lifts it, and dragging moves it to a new place, scrolling the list near its edges; VoiceOver moves it with Move up and Move down. Holding a
@@ -38,7 +43,8 @@ neighbor pairs with it, at the larger set count; an end's dot moves that end, a 
 carries a row in or out, and VoiceOver joins and leaves with actions. While a row or dot is
 held, the superset the drag affects sits in a sunken area. Start, once the routine has an
 exercise, runs a workout on the same screen: the first exercise grows into the current one, its
-set, equipment, and numbers large, with no swipe. The key at the bottom, where Start was, a
+set, equipment, and numbers large, their unit letters white at a bit over half the digits'
+size, with no swipe. The key at the bottom, where Start was, a
 capsule that stays put, logs the set at the numbers shown with a tap, saved at once, with a
 haptic and a +1: "Log set", "Log left" then "Log right" where the exercise is per side, "Log
 last set". Half a second later the next set rolls in, and after an exercise's last set a green

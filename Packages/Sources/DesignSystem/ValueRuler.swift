@@ -97,7 +97,7 @@ public struct ValueRuler: View {
             let new = scale.value(at: x)
             if new != value {
                 // The step keys' own animation, so the row's digits roll here as they do there.
-                withAnimation(Self.step) {
+                withAnimation(ValueRow.change) {
                     onChange(new)
                 }
             }
@@ -141,8 +141,6 @@ public struct ValueRuler: View {
             .containerRelativeFrame(.horizontal) { width, _ in max(0, width / 2 - spacing / 2) }
     }
 
-    /// The step keys' own animation, which a drag writes its ticks in.
-    static let step = Animation.snappy(duration: 0.15)
     /// A value changed from outside slides the ruler there.
     static let slide = Animation.snappy(duration: 0.25)
 

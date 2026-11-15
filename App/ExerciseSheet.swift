@@ -239,14 +239,11 @@ struct ExerciseSheet: View {
     /// switch animates the value and its tag as it goes.
     private func isAuto(_ part: SheetPart) -> Binding<Bool>? {
         switch part {
-        case .plan(.rest): $item.isRestAuto.animation(Self.change)
-        case .restAfterRound: rounds?.isAuto.animation(Self.change)
+        case .plan(.rest): $item.isRestAuto.animation(ValueRow.change)
+        case .restAfterRound: rounds?.isAuto.animation(ValueRow.change)
         case .plan: nil
         }
     }
-
-    /// As a step changes a value.
-    private static let change = Animation.snappy(duration: 0.15)
 
     /// Inside an open rest, under its keys.
     private func autoSwitch(_ isOn: Binding<Bool>) -> some View {

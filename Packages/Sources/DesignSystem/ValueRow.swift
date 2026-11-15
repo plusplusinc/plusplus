@@ -9,7 +9,10 @@ import SwiftUI
 /// it's open, an optional accessory sits under the stepper inside its fill, past a hairline, and
 /// an optional footer sits under the fill, as a grouped list's footer does. VoiceOver reads the
 /// row as one element, its value in words and then its tag while it shows, and steps it with a
-/// swipe up or down. An optional `ValueRuler` sits under the keys, edge to edge of the fill.
+/// swipe up or down. An optional `ValueRuler` sits under the keys, edge to edge of the fill;
+/// with one, the value's digits roll up or down by the way `number` went (`change`), a time's
+/// units each kept in place as its shape changes (`TimePiece`), a weight's number apart from
+/// its unit.
 public struct ValueRow<Accessory: View, Footer: View>: View {
     private let label: String
     private let note: String?
@@ -142,9 +145,9 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
                     tagView
                 }
                 if ruler != nil {
-                    rulerValue
+                    RulerValue(value: value, number: number)
                 } else {
-                    valueText(value, number: number)
+                    ValueText(text: value, number: number)
                         .multilineTextAlignment(stacked ? .leading : .trailing)
                 }
                 if stacked {
@@ -217,60 +220,6 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
         }
     }
 
-    /// With `number`, the digits roll by the way it went, up or down; without, the system's
-    /// default roll.
-    private func valueText(_ text: String, number: Double? = nil) -> some View {
-        Text(AttributedString.monoNumbers(text, font: .ppRowTitleNumber))
-            .font(.ppRowTitle)
-            .contentTransition(number.map { .numericText(value: $0) } ?? .numericText())
-            .foregroundStyle(.pp(.textPrimary))
-    }
-
-    /// A ruler's value: a time in its pieces, a weight's number apart from its unit.
-    @ViewBuilder private var rulerValue: some View {
-        if let pieces = TimePiece.pieces(of: value) {
-            timeValue(pieces)
-        } else {
-            weightValue
-        }
-    }
-
-    /// A time's pieces apart, each a number and its unit, kept by its unit: as the row opens,
-    /// "55s" stays where it is while "0m" fades in beside it, and "1m" slides over for "0s".
-    /// Every piece rolls the way the whole value went. A piece arriving fades in only once the
-    /// piece beside it has slid most of the way off its place, and one leaving goes at once, as
-    /// the other starts over it: faded with the slide, even in 0.08 s, the two overlapped.
-    /// "None" has no neighbor to wait on, so it fades with the row and never leaves a blank.
-    private func timeValue(_ pieces: [TimePiece]) -> some View {
-        HStack(spacing: 0) {
-            ForEach(pieces) { piece in
-                valueText(piece.text, number: number)
-                    .transition(piece.isWord ? .opacity : Self.timePieceTransition)
-            }
-        }
-    }
-
-    private static var timePieceTransition: AnyTransition {
-        .asymmetric(
-            insertion: .opacity.animation(.snappy(duration: 0.2).delay(0.14)),
-            removal: .opacity.animation(nil),
-        )
-    }
-
-    /// A weight's number apart from its unit, so the ".0" the open row adds widens the number's
-    /// own frame as the row opens and slides under its edge as it closes. In one text, the going
-    /// ".0" faded over the unit while the number slid into it.
-    private var weightValue: some View {
-        let digits = value.prefix { $0.isNumber || $0 == "." || $0 == "," }
-        return HStack(spacing: 0) {
-            valueText(String(digits), number: number)
-                // Only the trailing side clips: the digits roll above and below the line, and
-                // as the row opens they slide in from past the frame's leading edge.
-                .mask(Rectangle().padding([.vertical, .leading], -Spacing.xl))
-            valueText(String(value.dropFirst(digits.count)))
-        }
-    }
-
     /// Always laid out, so nothing moves as it shows or hides; hidden, VoiceOver skips it.
     @ViewBuilder private var tagView: some View {
         if let tag {
@@ -309,7 +258,7 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
 
     private func step(by direction: Int) {
         guard direction > 0 ? canIncrease : canDecrease else { return }
-        withAnimation(.snappy(duration: 0.15)) {
+        withAnimation(ValueRow<EmptyView, EmptyView>.change) {
             onStep(direction)
         }
     }
@@ -319,6 +268,11 @@ extension ValueRow where Accessory == EmptyView, Footer == EmptyView {
     /// How a row opens and closes: the caller animates `isOpen` with it.
     public static var motion: Animation {
         .snappy(duration: 0.25)
+    }
+
+    /// How a value changes, by a step, a ruler's tick, or a switch: its digits roll in this.
+    public static var change: Animation {
+        .snappy(duration: 0.15)
     }
 
     /// A row with nothing under its stepper or its fill.
