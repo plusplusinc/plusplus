@@ -18,13 +18,6 @@ public struct RowLabel: View {
     /// end of its detail line, or of its progress line on the current exercise.
     private let bars: SetProgress?
 
-    /// The current exercise's digits, and the letters with them (`CurrentFigure`).
-    @ScaledMetric(relativeTo: CurrentFigure.textStyle) private var figureSize = CurrentFigure.size
-    @ScaledMetric(relativeTo: CurrentFigure.textStyle) private var figureUnitSize = CurrentFigure
-        .unitSize
-    @ScaledMetric(relativeTo: CurrentFigure.textStyle) private var figureUnitGap = CurrentFigure
-        .unitGap
-
     /// The label's height as a row, which its height runs from and back to, so the
     /// label grows and shrinks over the whole animation, on its curve.
     @State private var restingHeight: CGFloat = 0
@@ -114,7 +107,7 @@ public struct RowLabel: View {
                             .part(.equipment)
                     }
                     if let focus {
-                        figures(focus)
+                        CurrentFigures(figures: focus.figures)
                             .part(.figures)
                     }
                 }
@@ -218,70 +211,6 @@ public struct RowLabel: View {
                 .transition(.push(from: .bottom))
         }
         .clipped()
-    }
-
-    /// Each number large, with what it counts beside it on one line, the two shrinking together
-    /// to fit the width; at the accessibility sizes, what it counts goes under the number where
-    /// the two don't fit side by side (`FigureLayout`), the number shrinking to fit the width.
-    private func figures(_ focus: RowFocus) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(focus.figures, id: \.self) { figure in
-                if dynamicTypeSize.isAccessibilitySize {
-                    FigureLayout(spacing: unitSpacing(after: figure.number)) {
-                        number(figure.number).modifier(BaselineMark())
-                        unit(figure).modifier(BaselineMark())
-                    }
-                } else {
-                    // "10" "reps" as "10reps", the gap after the digit its kerning; a time's
-                    // words after a space, "45s per side".
-                    let spacer = figure.unit.isEmpty || figure.number.last?.isNumber == true
-                        ? "" : " "
-                    number(figure.number + spacer + figure.unit).modifier(BaselineMark())
-                }
-            }
-        }
-    }
-
-    /// A small gap after a digit, "10 reps", and a word space after a time's last letter,
-    /// "45s per side".
-    private func unitSpacing(after number: String) -> CGFloat {
-        number.last?.isNumber == false
-            ? figureUnitSize * CurrentFigure.wordSpace
-            : figureUnitGap
-    }
-
-    private func number(_ text: String) -> some View {
-        Text(figureText(text))
-            .foregroundStyle(.pp(.textPrimary))
-            .lineLimit(1)
-            .minimumScaleFactor(0.3)
-    }
-
-    private func unit(_ figure: RowFocus.Figure) -> some View {
-        Text(figure.unit)
-            .font(figureUnitFont)
-            .foregroundStyle(.pp(.textPrimary))
-            .fixedSize(horizontal: false, vertical: true)
-    }
-
-    private var figureUnitFont: Font {
-        .system(size: figureUnitSize, weight: .bold)
-    }
-
-    /// The digits at the figure's size in SF Mono, and a time's letters, "1m 35s", at the
-    /// unit's, each a small gap after the digit before it.
-    private func figureText(_ text: String) -> AttributedString {
-        var attributed = AttributedString(text)
-        attributed.font = figureUnitFont
-        for match in text.matches(of: /\d+(?:[.,:]\d+)*/) {
-            guard let range = Range(match.range, in: attributed) else { continue }
-            attributed[range].font = .system(size: figureSize, weight: .bold, design: .monospaced)
-            if match.range.upperBound < text.endIndex, text[match.range.upperBound].isLetter {
-                let last = attributed.index(beforeCharacter: range.upperBound)
-                attributed[last ..< range.upperBound].kern = figureUnitGap
-            }
-        }
-        return attributed
     }
 
     private var spokenLabel: String {
@@ -414,17 +343,4 @@ func rollingWords(_ text: String) -> [[String]] {
         groups.append(group)
     }
     return groups
-}
-
-/// Marks a text's last baseline for the held card (`CardMarks`).
-private struct BaselineMark: ViewModifier {
-    func body(content: Content) -> some View {
-        content.overlay(alignment: Alignment(horizontal: .leading, vertical: .lastTextBaseline)) {
-            Color.clear
-                .frame(width: 0, height: 0)
-                .anchorPreference(key: CardMarks.self, value: .center) {
-                    CardMarks.Value(baselines: [$0])
-                }
-        }
-    }
 }

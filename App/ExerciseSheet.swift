@@ -173,7 +173,8 @@ struct ExerciseSheet: View {
             major: 30,
             spacing: Self.timeSpacing,
             label: { RoutineExercise.rulerTime(Int($0), locale: locale) },
-        ) { set(Int($0.rounded())) }
+            onChange: { set(Int($0.rounded())) },
+        )
     }
 
     /// In a superset, sets are rounds, shared with its partners.
