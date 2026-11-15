@@ -29,10 +29,10 @@ extension XCUIApplication {
         descendants(matching: .any).matching(identifier: "routine.equipment").firstMatch
     }
 
-    /// The bottom row. Deleting it moves only Add exercise, so the rows above are where their
-    /// frames say at once. Accessibility frames are where rows end up, not where they are drawn
+    /// The bottom row. Deleting it moves no other row, so the rows above are where their frames
+    /// say at once. Accessibility frames are where rows end up, not where they are drawn
     /// mid-animation, so a swipe on the first row just after the one above went could land on
-    /// Add exercise as it rose, and open the picker.
+    /// the row below as it rose.
     var lastExerciseRow: XCUIElement {
         exerciseRows.element(boundBy: exerciseRows.count - 1)
     }
@@ -41,13 +41,10 @@ extension XCUIApplication {
         buttons.matching(identifier: "picker.exercise")
     }
 
-    /// Opens the picker once Add exercise has stopped moving, checking that it is up within a
-    /// second, and returns its search field.
+    /// Opens the picker with Add exercise, the + floating over the list, which stays put as rows
+    /// come in, checking that it is up within a second, and returns its search field.
     func openPicker() -> XCUIElement {
-        let addExercise = buttons["Add exercise"]
-        // Just after an add it moves down as the new row's place opens.
-        XCTAssertTrue(addExercise.settles(), "Add exercise kept moving")
-        addExercise.tap()
+        buttons["Add exercise"].tap()
         let search = searchFields.firstMatch
         XCTAssertTrue(search.appears(within: 1), "The picker took over a second to open")
         return search
@@ -85,11 +82,14 @@ extension XCUIApplication {
         XCTAssertTrue(staticTexts["No Results for \u{201C}zzz\u{201D}"].appears())
     }
 
-    /// Whether Add exercise shows above Start, once it does or after the timeout. An add that
-    /// would push it below scrolls to it once the row is in.
-    func addExerciseClearsStart(within timeout: TimeInterval = 2) -> Bool {
-        let (addExercise, start) = (buttons["Add exercise"], buttons["Start"])
-        return reading(addExercise.frame.maxY <= start.frame.minY, becoming: true, within: timeout)
+    /// Whether the last row shows clear of Add exercise's +, once it does or after the timeout.
+    /// An add that would put it under the + scrolls to the list's end once the row is in.
+    func lastRowClearsAddExercise(within timeout: TimeInterval = 2) -> Bool {
+        reading(
+            lastExerciseRow.frame.maxY <= buttons["Add exercise"].frame.minY,
+            becoming: true,
+            within: timeout,
+        )
     }
 
     /// The exercise rows' count once it is `expected`, or the last count after the timeout.

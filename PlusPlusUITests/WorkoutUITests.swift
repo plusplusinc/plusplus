@@ -51,12 +51,19 @@ final nonisolated class WorkoutUITests: XCTestCase {
     @MainActor
     private func startShowsTheCurrentExercise(in app: XCUIApplication) {
         XCTContext.runActivity(named: "Start grows the first exercise into the current one") { _ in
+            let bar = app.navigationBars.firstMatch.frame.maxY
             app.buttons["Start"].tap()
             // Pressed as the last row added still enters, Start's room under the list once
             // scrolled the list into it, out of sight, and the scroll back undid the landing.
+            // Whether the add's scroll to the list's end has landed by the press is a race with
+            // the tap, so the first exercise may be under the bar as Start begins, until Start's
+            // own scroll to the top: what never happens is every row going out of sight. Read
+            // as the first row's bottom above the window's top, a landed scroll failed (run 438)
+            // or passed by where the end happened to leave it, 2 pt below the top before the
+            // floating +.
             XCTAssertFalse(
-                reading(app.exerciseRows.firstMatch.frame.maxY <= 0, until: { $0 }, within: 0.6),
-                "Start scrolled the first exercise out of sight",
+                reading(app.areRowsAllAbove(bar), until: { $0 }, within: 0.6),
+                "Start scrolled every row out of sight",
             )
             XCTAssertTrue(app.workoutTime.appears(), "Start began no workout")
             XCTAssertEqual(app.workoutTime.label, "Pause")
@@ -238,6 +245,15 @@ final nonisolated class WorkoutUITests: XCTestCase {
             expected,
             "The drag moved nothing in a workout",
         )
+    }
+}
+
+@MainActor
+extension XCUIApplication {
+    /// Whether every exercise row is above `bar`'s bottom, out of sight, from one snapshot.
+    func areRowsAllAbove(_ bar: CGFloat) -> Bool {
+        let rows = exerciseRowSnapshots
+        return !rows.isEmpty && rows.allSatisfy { $0.frame.maxY <= bar }
     }
 }
 

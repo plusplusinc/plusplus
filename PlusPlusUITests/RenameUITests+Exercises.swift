@@ -7,8 +7,7 @@ extension RenameUITests {
     /// The picker opens fast and without the keyboard, and a pick adds a row. The rest of the
     /// rows are seeded at the test's launch, in a routine the drawer then opens, and one more
     /// is added through the picker's search onto them. Search's list and empty state are left to
-    /// use, and the add's scroll to Add exercise
-    /// is `TitleWrappingUITests`' at AX5.
+    /// use, and the add's scroll to the list's end is `TitleWrappingUITests`' at AX5.
     func addExercises(in app: XCUIApplication, keyboard: XCUIElement) {
         let search = app.searchFields.firstMatch
         XCTContext.runActivity(named: "Add exercise opens the picker") { _ in
@@ -47,7 +46,7 @@ extension RenameUITests {
             ])
         }
         XCTContext.runActivity(named: "A tap on the small title scrolls back to the top") { _ in
-            // The ninth row pushed Add exercise below Start, and the add scrolled to it.
+            // The ninth row went in under the +, and the add scrolled to the list's end.
             app.scrollToTop(titled: Self.seededName)
             let smallTitle = app.navigationBars.firstMatch.buttons[Self.seededName]
             XCTAssertTrue(smallTitle.disappears(), "The small title stayed with the title in view")
