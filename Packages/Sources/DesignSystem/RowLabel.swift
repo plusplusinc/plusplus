@@ -18,8 +18,12 @@ public struct RowLabel: View {
     /// end of its detail line, or of its progress line on the current exercise.
     private let bars: SetProgress?
 
-    /// The current exercise's numbers: 104pt at the default size.
-    @ScaledMetric(relativeTo: .largeTitle) private var figureSize: CGFloat = 104
+    /// The current exercise's digits, and the letters with them (`CurrentFigure`).
+    @ScaledMetric(relativeTo: CurrentFigure.textStyle) private var figureSize = CurrentFigure.size
+    @ScaledMetric(relativeTo: CurrentFigure.textStyle) private var figureUnitSize = CurrentFigure
+        .unitSize
+    @ScaledMetric(relativeTo: CurrentFigure.textStyle) private var figureUnitGap = CurrentFigure
+        .unitGap
 
     /// The label's height as a row, which its height runs from and back to, so the
     /// label grows and shrinks over the whole animation, on its curve.
@@ -221,7 +225,7 @@ public struct RowLabel: View {
     private func figures(_ focus: RowFocus) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(focus.figures, id: \.self) { figure in
-                FigureLayout(spacing: Spacing.sm) {
+                FigureLayout(spacing: figureUnitGap) {
                     number(figure).modifier(BaselineMark())
                     unit(figure).modifier(BaselineMark())
                 }
@@ -230,22 +234,37 @@ public struct RowLabel: View {
     }
 
     private func number(_ figure: RowFocus.Figure) -> some View {
-        // A time's unit letters, "1m 35s", stay in the system font, as everywhere else.
-        Text(AttributedString.monoNumbers(
-            figure.number,
-            font: .system(size: figureSize, weight: .bold, design: .monospaced),
-        ))
-        .font(.system(size: figureSize, weight: .bold))
-        .foregroundStyle(.pp(.textPrimary))
-        .lineLimit(1)
-        .minimumScaleFactor(0.3)
+        Text(figureText(figure.number))
+            .foregroundStyle(.pp(.textPrimary))
+            .lineLimit(1)
+            .minimumScaleFactor(0.3)
     }
 
     private func unit(_ figure: RowFocus.Figure) -> some View {
         Text(figure.unit)
-            .font(.ppCurrentUnit)
-            .foregroundStyle(.pp(.textSecondary))
+            .font(figureUnitFont)
+            .foregroundStyle(.pp(.textPrimary))
             .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var figureUnitFont: Font {
+        .system(size: figureUnitSize, weight: .bold)
+    }
+
+    /// The digits at the figure's size in SF Mono, and a time's letters, "1m 35s", at the
+    /// unit's, each a small gap after the digit before it.
+    private func figureText(_ text: String) -> AttributedString {
+        var attributed = AttributedString(text)
+        attributed.font = figureUnitFont
+        for match in text.matches(of: /\d+(?:[.,:]\d+)*/) {
+            guard let range = Range(match.range, in: attributed) else { continue }
+            attributed[range].font = .system(size: figureSize, weight: .bold, design: .monospaced)
+            if match.range.upperBound < text.endIndex, text[match.range.upperBound].isLetter {
+                let last = attributed.index(beforeCharacter: range.upperBound)
+                attributed[last ..< range.upperBound].kern = figureUnitGap
+            }
+        }
+        return attributed
     }
 
     private var spokenLabel: String {
