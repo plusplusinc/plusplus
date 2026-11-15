@@ -16,7 +16,8 @@ RESULTS="$ROOT/.build/results"
 # Each checkout, the main one and each linked worktree, builds and tests on a simulator of its
 # own, "PlusPlus <folder>", so two never share an app, its data, or its settings.
 # ensure_simulator creates it on first use and records it in the clone's shared git directory,
-# and scripts/tidy.sh deletes a worktree's with the worktree, or after one removed by hand.
+# and scripts/tidy.sh deletes a worktree's with the worktree, after one removed by hand, or once
+# it has sat unused for a day (ensure_simulator creates it again on the worktree's next run).
 # scripts/test.sh resets, and scripts/sim.sh erases, only the checkout's own simulator, so a
 # script that leaves out PLUSPLUS_SIMULATOR never reaches a person's.
 
@@ -63,7 +64,7 @@ is_own_simulator() {
 
 # Each worktree simulator has a record, "<git common dir>/plusplus-simulators/<worktree>", whose
 # modification time is the last time a script used it: `scripts/sim.sh list` reads it as idle
-# time, and scripts/tidy.sh shuts down one idle too long.
+# time, and scripts/tidy.sh shuts down one idle too long and deletes one unused for a day.
 simulator_records() {
     echo "$(git -C "$ROOT" rev-parse --path-format=absolute --git-common-dir)/plusplus-simulators"
 }
@@ -178,6 +179,18 @@ idle_worktree_simulators() {
         [ "$path" != - ] && pgrep -qf "xcodebuild.*$path/" && continue
         printf '%s\t%s\n' "$name" "$udid"
     done < <(booted_worktree_simulators)
+}
+
+# A worktree simulator no script has used for this long is deleted, though its worktree stays: a
+# used one takes 2 to 4 GB, and a worktree often outlives its use of the simulator by days, while
+# its PR waits or its session sits open. On 2026-11-15 the Mac held 13 PlusPlus simulators, about
+# 32 GB, most for worktrees no script had run in for days.
+DELETE_IDLE_SECONDS=$((${PLUSPLUS_SIM_DELETE_HOURS:-24} * 3600))
+
+# Prints "<worktree>\t<idle seconds>" for each worktree simulator to delete for that; see
+# scripts/stale-simulators.py for which.
+stale_worktree_simulators() {
+    python3 -I "$ROOT/scripts/stale-simulators.py" "$(simulator_records)" "$ROOT" "$DELETE_IDLE_SECONDS"
 }
 
 # Shuts down the checkout's own simulator, if it is booted. Never any other: another worktree's
