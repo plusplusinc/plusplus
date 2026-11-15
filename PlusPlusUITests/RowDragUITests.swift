@@ -46,6 +46,10 @@ extension RowDragUITests {
             XCTAssertEqual(app.exerciseCount(becoming: 7, within: 1), 8, "Start deleted the row")
         }
         XCTContext.runActivity(named: "A full swipe deletes") { _ in
+            // Scrolled to the list's end, so the swipe starts on the row and not on Add
+            // exercise's +, which floats over the rows' trailing end at the screen's bottom.
+            app.exerciseRows.element(boundBy: 2).swipeUp()
+            XCTAssertTrue(app.lastRowClearsAddExercise(), "The last row stayed under the +")
             app.lastExerciseRow.fullSwipeLeft()
             XCTAssertEqual(app.exerciseCount(becoming: 7), 7, "A full swipe did not delete")
         }
