@@ -140,6 +140,7 @@ public struct ValueRuler: View {
             .frame(height: 0)
             .containerRelativeFrame(.horizontal) { width, _ in max(0, width / 2 - spacing / 2) }
     }
+
     /// The step keys' own animation, which a drag writes its ticks in.
     static let step = Animation.snappy(duration: 0.15)
     /// A value changed from outside slides the ruler there.

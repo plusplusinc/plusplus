@@ -10,7 +10,7 @@ import Testing
 struct RulerScaleTests {
     private static let weight = (range: 5.0 ... 1000.0, tick: 0.5)
     private static let rest = (range: 0.0 ... 600.0, tick: 5.0)
-    nonisolated private static let spacings: [CGFloat] = [8, 10, 22.4]
+    private nonisolated static let spacings: [CGFloat] = [8, 10, 22.4]
 
     @Test(
         "A value's offset reads back as that value, for every tick",
