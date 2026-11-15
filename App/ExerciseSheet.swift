@@ -75,7 +75,7 @@ struct ExerciseSheet: View {
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Menu("More", systemImage: "ellipsis") {
-                        Button("Remove", systemImage: "trash", role: .destructive) {
+                        Button("Remove", systemImage: "minus.circle", role: .destructive) {
                             dismiss()
                             onDelete()
                         }
