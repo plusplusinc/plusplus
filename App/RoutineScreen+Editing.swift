@@ -64,13 +64,14 @@ extension RoutineScreen {
 
     /// Adds a picked exercise. Its row takes its place at the rail's end as the sheet starts down,
     /// but enters only where it can be seen: a moment into the sheet's slide when everything
-    /// still fits, and otherwise once a scroll to the end has brought the row and the list's end
-    /// into view, the scroll having stopped. The scroll waits for the row's place: asked for
-    /// while the row went in, it stopped at the end the list had before. Once Start is pressed, it
-    /// enters where it is,
-    /// with no scroll: the end is then Start's room under the list, out of sight, and a scroll to
-    /// it took the list off the screen just as Start went to land on the first exercise.
+    /// still fits, and otherwise once the sheet has gone and a scroll to the end has brought the
+    /// row and the list's end into view. The scroll waits for the row's place: asked for while
+    /// the row went in, it stopped at the end the list had before. Once Start is pressed, it
+    /// enters where it is, with no scroll: the end is then Start's room under the list, out of
+    /// sight, and a scroll to it took the list off the screen just as Start went to land on the
+    /// first exercise.
     func add(_ exercise: Exercise) {
+        let added = ContinuousClock.now
         let row = RoutineExercise(exercise: exercise, weightUnit: WeightUnit(region: locale))
         arriving = row.id
         entering = row.id
@@ -87,7 +88,7 @@ extension RoutineScreen {
             await RailArrival.play {
                 arriving == row.id
             } reachEnd: {
-                await reachEnd()
+                await reachEnd(added: added)
             } enter: {
                 letArrivingEnter()
             } entered: {
@@ -96,19 +97,30 @@ extension RoutineScreen {
         }
     }
 
-    /// Scrolls the list to its end, the added row's place, and returns once the scroll stops,
-    /// unless the end is in view or Start's room is opening.
-    private func reachEnd() async {
+    /// Once the picker has gone, scrolls the list to its end, the added row's place, and returns
+    /// as the scroll lands, unless the end is in view or Start's room is opening. On deadlines,
+    /// not the scroll's completion or its phase: a phase reported idle only about 0.3 s after
+    /// the list had stopped, and the row waited on a still list.
+    private func reachEnd(added: ContinuousClock.Instant) async {
         endFollow = .ready
         guard !isEndInView, !isMakingRoom else { return }
-        await scrollBeat.settled {
-            withAnimation(.railChange) {
-                scrollPosition.scrollTo(edge: .bottom)
-            }
-        } orWhen: {
-            try? await Task.sleep(for: RailArrival.endGiveUp, tolerance: .zero)
+        try? await Task.sleep(until: added + Self.pickerGone, tolerance: .zero, clock: .continuous)
+        // Start pressed meanwhile: the row enters where it is.
+        guard !isMakingRoom else { return }
+        withAnimation(.railChange) {
+            scrollPosition.scrollTo(edge: .bottom)
         }
+        try? await Task.sleep(for: Self.scrollLanding, tolerance: .zero)
     }
+
+    /// From a pick to the picker sheet having slid away, when the scroll to the list's end
+    /// starts, so it runs in view. Measured where the append animation's completion used to
+    /// start it, late behind the sheet's dismissal: 0.47 s into the sheet's slide.
+    static let pickerGone: Duration = .milliseconds(520)
+
+    /// How long the scroll to the list's end takes to land, measured in frames: the row enters
+    /// as it does, where the scroll's completion used to let it.
+    static let scrollLanding: Duration = .milliseconds(30)
 
     /// While an added row's place opens past the visible area, scrolls with it, a frame at a
     /// time, so the list's end stays put on screen as the line grows above it. The place opens
