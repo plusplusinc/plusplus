@@ -32,6 +32,8 @@ struct RoutineScreen: View {
     /// While an added row's place opens, the list's end stays put on screen: as the content grows
     /// past the visible area, it scrolls in step (`keepEndInView`).
     @State var isOpeningPlace = false
+    /// Where the in-step scroll is for the place opening now (`EndFollow`).
+    @State var endFollow = EndFollow.waiting
     /// Whether the list is being scrolled by hand, which the in-step scroll leaves alone.
     @State var isScrollingByHand = false
     /// Whether the title's field has focus. Any touch outside the title ends the edit.

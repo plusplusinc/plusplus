@@ -141,6 +141,10 @@ Each of these cost a round on this app; the code at the named spot works around 
   (`ValueRuler.shown(_:)`).
 - A lazy stack laid out again at a new size, as the text size changes live, puts back the scroll
   offset it had over the scroll anchor. Give it an identity per size (`.id(spacing)`).
+- A scroll asked from `onScrollGeometryChange` to a content's new end can stop at the old end:
+  the growth is reported before the scroll view takes it. Following only growths, the list
+  rested short of its end, the last row under the +; follow every change short of the end
+  once the following has begun (`keepEndInView`, `EndFollow`).
 - A sheet's `.height` detent measures inside its safe area, and a scroll view's container there
   already excludes the bar and the home indicator: grow it by the content's overflow alone
   (`ExerciseSheet.fit(_:)`).

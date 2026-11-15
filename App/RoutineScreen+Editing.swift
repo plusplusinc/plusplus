@@ -74,6 +74,7 @@ extension RoutineScreen {
         arriving = row.id
         entering = row.id
         isOpeningPlace = true
+        endFollow = .waiting
         // The row goes in with no space yet, so nothing moves; its fade, of a row that draws
         // nothing yet, times the entry a moment into the sheet's slide: the line barely moves
         // at first, and the sheet has cleared all but the screen's foot by the time it shows.
@@ -81,6 +82,7 @@ extension RoutineScreen {
             routine.exercises.append(row)
         } completion: {
             guard arriving == row.id else { return }
+            endFollow = .ready
             guard !isEndInView, !isMakingRoom else { return letArrivingEnter(row) }
             withAnimation(.railChange, completionCriteria: .logicallyComplete) {
                 scrollPosition.scrollTo(edge: .bottom)
@@ -95,13 +97,40 @@ extension RoutineScreen {
     /// with the list's end in view, so the end is where the scroll stays. Not once Start is
     /// pressed: its room under the list grows the content too, and following that took the
     /// list off the screen, as `add` says.
+    ///
+    /// From the place's first growth on (`EndFollow.following`), it follows the end on any
+    /// change while short of it, not only on a growth: a growth is reported before the scroll
+    /// view has taken it, so a scroll to the new end can stop at the old one, and once a frame's
+    /// growth got no scroll at all, every later one stopped short and the list rested short of
+    /// its end, the last row under the + (at AX5, 394 against an end at 435). The change a short
+    /// scroll makes is followed in turn, to the end the scroll view has by then.
     func keepEndInView(from old: ScrollGeometry, to new: ScrollGeometry) {
         guard isOpeningPlace, !isMakingRoom, !isScrollingByHand,
-              new.contentSize.height > old.contentSize.height,
               new.endY > new.scrolledY else { return }
+        let grew = new.contentSize.height > old.contentSize.height
+        switch endFollow {
+        case .waiting:
+            guard grew else { return }
+        case .ready:
+            guard grew else { return }
+            endFollow = .following
+        case .following:
+            break
+        }
         withTransaction(\.disablesAnimations, true) {
             scrollPosition.scrollTo(y: new.endY)
         }
+    }
+
+    /// Where the in-step scroll is while an added row's place opens. Until the row is in, the
+    /// picker still going and the keyboard with it, and until the place first grows, while
+    /// `add` animates the list to its end, the scroll follows only a growth, so changes of the
+    /// visible area and that animation run as they are. From the first growth, it follows any
+    /// change short of the end.
+    enum EndFollow {
+        case waiting
+        case ready
+        case following
     }
 
     /// Whether the list's end, the room it leaves for the floating +, is in view, below the area
