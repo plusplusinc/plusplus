@@ -57,11 +57,12 @@ struct PrimaryKeyBarTests {
 
     private struct FloatingHost: View {
         let isPresented: Bool
+        let floatsLow: Bool
         let frames: Frames
 
         var body: some View {
             Color.clear
-                .primaryKeyBar(isPresented: isPresented) {
+                .primaryKeyBar(isPresented: isPresented, floatsLow: floatsLow) {
                     Button("Start") { }
                         .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: {
                             frames.key = $0
@@ -75,10 +76,13 @@ struct PrimaryKeyBarTests {
         }
     }
 
-    private func frames(isPresented: Bool) throws -> (key: CGRect?, floating: CGRect) {
+    private func frames(
+        isPresented: Bool,
+        floatsLow: Bool = false,
+    ) throws -> (key: CGRect?, floating: CGRect) {
         let frames = Frames()
         let host = UIHostingController(
-            rootView: FloatingHost(isPresented: isPresented, frames: frames),
+            rootView: FloatingHost(isPresented: isPresented, floatsLow: floatsLow, frames: frames),
         )
         let window = UIWindow.sceneless(hosting: host, at: .large)
         defer { window.isHidden = true }
@@ -100,6 +104,16 @@ struct PrimaryKeyBarTests {
         #expect(shown.floating.maxX == key.maxX, "the right edges differ")
         let alone = try frames(isPresented: false)
         #expect(alone.floating == shown.floating, "the floating button moved with the key")
+    }
+
+    /// On a screen with nothing for the key to do yet, as an empty routine, the floating button
+    /// sits low, its bottom where the key's ledge's bottom is and its right edge on the key's.
+    @Test("Floating low, the button's bottom sits on the key's ledge line, at its right end")
+    func floatingLow() throws {
+        let key = try #require(frames(isPresented: true).key, "the key was never laid out")
+        let low = try frames(isPresented: false, floatsLow: true).floating
+        #expect(low.maxY == key.maxY, "the low button's bottom is off the ledge line: \(low)")
+        #expect(low.maxX == key.maxX, "the right edges differ")
     }
 
     /// The +1 that pops off the key is only seen. Marked `accessibilityHidden`, it still stood in

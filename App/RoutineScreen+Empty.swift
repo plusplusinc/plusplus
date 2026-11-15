@@ -17,7 +17,9 @@ extension RoutineScreen {
     /// After `delay`, once the sheet that changed the routine has gone, brings the screen's foot
     /// in line with the exercises, in one transaction for Start and the +: rising on the rising
     /// half of the key's swap, going down on its dropping half. Read when it runs, so an add or
-    /// Remove meanwhile leaves it where the routine is by then.
+    /// Remove meanwhile leaves it where the routine is by then. On a deadline from the pick or
+    /// Remove, not the sheet's `onDismiss`, which came 0.6 s after either, after the sheet had
+    /// visibly gone: on it the foot stood still a beat, as it did at 0.5 s after Remove.
     func settleFoot(after delay: Duration) {
         guard delay > .zero else { return footFollowsExercises() }
         let start = ContinuousClock.now
@@ -52,29 +54,13 @@ extension View {
     func emptyRoutine(isEmpty: Bool, onTap: @escaping () -> Void) -> some View {
         overlay {
             if isEmpty {
-                NoExercises()
+                EmptyNote("No exercises")
+                    .accessibilityIdentifier("routine.noExercises")
                     .transition(.opacity)
             }
         }
         // Alongside the title's own taps, which go on editing it.
         .simultaneousGesture(TapGesture().onEnded(onTap), isEnabled: isEmpty)
-    }
-}
-
-/// What an empty routine shows mid-screen, in place of its list: one quiet line, which takes no
-/// touches, so a tap through it lands on the screen's empty space. It stays put as the keyboard
-/// rises.
-private struct NoExercises: View {
-    var body: some View {
-        Text("No exercises")
-            .font(.ppButton)
-            .foregroundStyle(.pp(.toDo))
-            .multilineTextAlignment(.center)
-            .padding(.horizontal, Spacing.lg)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .allowsHitTesting(false)
-            .ignoresSafeArea(.keyboard)
-            .accessibilityIdentifier("routine.noExercises")
     }
 }
 

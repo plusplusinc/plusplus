@@ -3,7 +3,7 @@ import SwiftUI
 /// The one key a screen is for, such as Start: full width, a light fill on a ledge, label
 /// centered. Pressing pushes the key down onto its ledge, which stays put, so nothing around it
 /// moves, and letting go lets it back up, each in 0.06 s, easing out. Not green: green is for
-/// data.
+/// data and the + that floats above it.
 ///
 /// A capsule, its ends fully round, on a ledge of the same shape. A label that wraps, at the
 /// largest text sizes, makes the key taller with the same round corners and straight sides

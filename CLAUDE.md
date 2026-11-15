@@ -13,7 +13,12 @@ planning work in it), and in `docs/`. If this file and a rules file disagree, th
 
 **Status: routines, saved, a drawer between them, and a workout logged set by set on one.** The app launches into the routine last
 opened or edited, or a new, empty one, which you can name and add built-in exercises to with a
-round glass + floating at bottom right, above the key, in a workout too. ++, or
+round green + floating at bottom right, above the key, in a workout too. An empty routine shows
+"No exercises" mid-screen, a tap anywhere in its empty space opens the picker as the + does
+(unless the tap only ended the title's edit), and its + sits low, where the key's bottom would
+be; Start rises from the bottom edge with the + above it once the picker has gone, and drops
+with the + coming down as the last exercise goes, once its sheet has gone if it went from there.
+++, or
 a swipe in from the left edge, slides the screen aside, darkened, onto a drawer: Routines, the
 three routines last opened or edited, the last edited first, and New, an action, never marked;
 an untouched new routine showing takes the first of the three rows, in gray. The place showing
