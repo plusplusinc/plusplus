@@ -10,6 +10,22 @@ import SwiftUI
 /// an optional footer sits under the fill, as a grouped list's footer does. VoiceOver reads the
 /// row as one element, its value in words and then its tag while it shows, and steps it with a
 /// swipe up or down.
+/// A value typed straight into an open row: its number as text, edited in the decimal pad that
+/// comes up as the row opens, its number selected so the first digit replaces it, and what
+/// follows the number ("lb/side"). Its − / + keys sit under the value or, with `keysAbovePad`,
+/// in the bar above the pad.
+public struct ValueEntry {
+    public var text: Binding<String>
+    public var unit: String
+    public var keysAbovePad: Bool
+
+    public init(text: Binding<String>, unit: String, keysAbovePad: Bool) {
+        self.text = text
+        self.unit = unit
+        self.keysAbovePad = keysAbovePad
+    }
+}
+
 public struct ValueRow<Accessory: View, Footer: View>: View {
     private let label: String
     private let note: String?
@@ -18,6 +34,7 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
     private let showsTag: Bool
     private let accessory: Accessory?
     private let footer: Footer?
+    private let entry: ValueEntry?
     private let spokenValue: String
     private let isOpen: Bool
     private let canDecrease: Bool
@@ -27,6 +44,8 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.displayScale) private var displayScale
+    @FocusState private var isEditing: Bool
+    @State private var selection: TextSelection?
 
     /// One inset on every side of the fill, for everything in it: the label, the value, the
     /// keys, the accessory, and the room between them. Siblings, the keys here and a sheet's rows
@@ -62,6 +81,7 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
         canIncrease: Bool,
         onToggle: @escaping () -> Void,
         onStep: @escaping (Int) -> Void,
+        entry: ValueEntry? = nil,
         accessory: Accessory?,
         footer: Footer?,
     ) {
@@ -72,6 +92,7 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
         self.showsTag = showsTag
         self.accessory = accessory
         self.footer = footer
+        self.entry = entry
         self.spokenValue = spokenValue
         self.isOpen = isOpen
         self.canDecrease = canDecrease
@@ -135,11 +156,15 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
                 if !stacked {
                     tagView
                 }
-                Text(AttributedString.monoNumbers(value, font: .ppRowTitleNumber))
-                    .font(.ppRowTitle)
-                    .contentTransition(.numericText())
-                    .foregroundStyle(.pp(.textPrimary))
-                    .multilineTextAlignment(stacked ? .leading : .trailing)
+                if let entry, isOpen {
+                    field(entry)
+                } else {
+                    Text(AttributedString.monoNumbers(value, font: .ppRowTitleNumber))
+                        .font(.ppRowTitle)
+                        .contentTransition(.numericText())
+                        .foregroundStyle(.pp(.textPrimary))
+                        .multilineTextAlignment(stacked ? .leading : .trailing)
+                }
                 if stacked {
                     tagView
                 }
@@ -150,6 +175,18 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
         .padding(Self.inset)
         .contentShape(.rect)
         .onTapGesture(perform: onToggle)
+        // The pad comes up as the row opens, its number selected, and goes as it closes.
+        .onChange(of: isOpen) { _, isOpen in
+            guard entry != nil else { return }
+            isEditing = isOpen
+        }
+        // Selected once the field has focus: a selection set before it is replaced by a caret
+        // at the end.
+        .onChange(of: isEditing) { _, isEditing in
+            guard isEditing, let entry else { return }
+            let text = entry.text.wrappedValue
+            selection = TextSelection(range: text.startIndex ..< text.endIndex)
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(note.map { "\(label), \($0)" } ?? label)
         .accessibilityValue(spokenValueAndTag)
@@ -170,14 +207,11 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
     /// in and out as it opens and closes.
     private var region: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: Spacing.sm) {
-                stepKey("Decrease", "minus", by: -1)
-                    .disabled(!canDecrease)
-                stepKey("Increase", "plus", by: 1)
-                    .disabled(!canIncrease)
+            if entry?.keysAbovePad != true {
+                keys
+                    // The header's padding is the room above the keys.
+                    .padding([.bottom, .horizontal], Self.inset)
             }
-            // The header's padding is the room above the keys.
-            .padding([.bottom, .horizontal], Self.inset)
             if let accessory {
                 // A Settings group's divider: inset to the label, two pixels thick.
                 Rectangle()
@@ -199,6 +233,54 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
         .frame(maxWidth: .infinity)
         .frame(height: isOpen ? nil : 0, alignment: .top)
         .clipped()
+    }
+
+    private var keys: some View {
+        HStack(spacing: Spacing.sm) {
+            stepKey("Decrease", "minus", by: -1)
+                .disabled(!canDecrease)
+            stepKey("Increase", "plus", by: 1)
+                .disabled(!canIncrease)
+        }
+    }
+
+    /// The open value as a field in the decimal pad, its unit after it; the pad's bar holds the
+    /// keys when they sit above it, and is otherwise left empty.
+    private func field(_ entry: ValueEntry) -> some View {
+        HStack(spacing: 0) {
+            TextField("Weight", text: entry.text, selection: $selection)
+                .keyboardType(.decimalPad)
+                .focused($isEditing)
+                .font(.ppRowTitleNumber)
+                .foregroundStyle(.pp(.textPrimary))
+                .multilineTextAlignment(.trailing)
+                .fixedSize()
+                .toolbar {
+                    ToolbarItemGroup(placement: .keyboard) {
+                        if entry.keysAbovePad {
+                            barKey("Decrease", "minus", by: -1)
+                                .disabled(!canDecrease)
+                            barKey("Increase", "plus", by: 1)
+                                .disabled(!canIncrease)
+                        }
+                    }
+                }
+            Text(entry.unit)
+                .font(.ppRowTitle)
+                .foregroundStyle(.pp(.textPrimary))
+        }
+    }
+
+    private func barKey(_ title: String, _ image: String, by direction: Int) -> some View {
+        Button {
+            step(by: direction)
+        } label: {
+            Label(title, systemImage: image)
+                .labelStyle(.iconOnly)
+                .font(.ppButton)
+                .frame(maxWidth: .infinity)
+        }
+        .buttonRepeatBehavior(.enabled)
     }
 
     /// Always laid out, so nothing moves as it shows or hides; hidden, VoiceOver skips it.

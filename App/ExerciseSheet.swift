@@ -29,6 +29,9 @@ struct ExerciseSheet: View {
     let onDelete: () -> Void
 
     @State private var open: SheetPart?
+    /// The weight as typed while its row is open.
+    @State private var weightText = ""
+    @State private var detent = PresentationDetent.medium
     @Environment(\.dismiss) private var dismiss
     @Environment(\.locale) private var locale
 
@@ -56,6 +59,7 @@ struct ExerciseSheet: View {
                                 canIncrease: canStep(part, by: 1),
                                 onToggle: { toggle(part, scroller) },
                                 onStep: { step(part, by: $0) },
+                                entry: entry(for: part),
                                 accessory: auto.map(autoSwitch),
                                 footer: auto.map { restFooter(isAuto: $0.wrappedValue, of: part) },
                             )
@@ -83,9 +87,32 @@ struct ExerciseSheet: View {
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+        .onChange(of: weightText) { _, text in
+            item.setWeight(typed: text, locale: locale)
+        }
+        // A step moves the field with it; a number still being typed ("27.") stays as it is.
+        .onChange(of: item.plan.weight) { _, _ in
+            guard let entry = item.weightEntry(locale: locale),
+                  RoutineExercise.typedAmount(weightText, locale: locale)
+                  != item.plan.weight?.amount
+            else { return }
+            weightText = entry.number
+        }
+        .presentationDetents([.medium, .large], selection: $detent)
         .presentationDragIndicator(.visible)
         .presentationBackground(Color.pp(.background))
+    }
+
+    /// Where the weight's − / + keys sit while the decimal pad is up: false, in the row under the
+    /// value; true, in the bar above the pad.
+    static let weightKeysAbovePad = false
+
+    /// The weight, typed into its open row.
+    private func entry(for part: SheetPart) -> ValueEntry? {
+        guard part == .plan(.weight), let entry = item.weightEntry(locale: locale) else {
+            return nil
+        }
+        return ValueEntry(text: $weightText, unit: entry.unit, keysAbovePad: Self.weightKeysAbovePad)
     }
 
     /// In a superset, sets are rounds, shared with its partners.
@@ -201,6 +228,12 @@ struct ExerciseSheet: View {
     /// put.
     private func toggle(_ part: SheetPart, _ scroller: ScrollViewProxy) {
         let opening = open != part
+        if opening, part == .plan(.weight), let entry = item.weightEntry(locale: locale) {
+            weightText = entry.number
+            // The pad covers the lower half; the full sheet keeps the open row and its keys
+            // above it.
+            detent = .large
+        }
         withAnimation(ValueRow.motion) {
             open = opening ? part : nil
         } completion: {
