@@ -13,7 +13,6 @@ extension RenameUITests {
         let search = app.searchFields.firstMatch
         let start = app.buttons["Start"]
         let plus = app.buttons["Add exercise"]
-        let noExercises = app.staticTexts["routine.noExercises"]
         openPickerFromEmptySpace(in: app, keyboard: keyboard)
         let (seeded, added) = XCUIApplication.renameRows
         XCTContext
@@ -24,7 +23,10 @@ extension RenameUITests {
                 XCTAssertEqual(app.exerciseCount(becoming: 1), 1, "The pick added no row")
                 // What Start does is `WorkoutUITests`'.
                 XCTAssertTrue(start.appears())
-                XCTAssertTrue(noExercises.disappears(), "No exercises stayed with an exercise in")
+                XCTAssertTrue(
+                    app.noExercises.disappears(),
+                    "No exercises stayed with an exercise in",
+                )
                 XCTAssertTrue(start.settles() && plus.settles(), "Start or the + kept moving")
                 XCTAssertGreaterThan(low.maxY, start.frame.minY, "The + sat no lower with no Start")
                 XCTAssertLessThanOrEqual(
@@ -67,11 +69,10 @@ extension RenameUITests {
     /// only the running app arbitrates.
     private func openPickerFromEmptySpace(in app: XCUIApplication, keyboard: XCUIElement) {
         let search = app.searchFields.firstMatch
-        let noExercises = app.staticTexts["routine.noExercises"]
         // The line takes no touches, so a tap on it lands on the screen's empty space.
-        let emptySpace = noExercises.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let emptySpace = app.noExercises.center
         XCTContext.runActivity(named: "A tap that ends the title's edit opens no picker") { _ in
-            XCTAssertTrue(noExercises.exists, "An empty routine shows no No exercises")
+            XCTAssertTrue(app.noExercises.exists, "An empty routine shows no No exercises")
             app.routineTitle.tap()
             XCTAssertTrue(keyboard.appears(), "A tap on the title did not start an edit")
             emptySpace.tap()

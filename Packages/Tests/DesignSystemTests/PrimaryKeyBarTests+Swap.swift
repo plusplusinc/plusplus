@@ -155,7 +155,7 @@ extension PrimaryKeyBarTests {
                 bar.inputs.face = Face(id: 1, words: "Log set")
                 bar.inputs.drop = 0
             }
-            withAnimation(.smooth(duration: PrimaryKeyButtonStyle.swapHalf)) {
+            withAnimation(.keyRise) {
                 bar.inputs.isPresented = true
             }
             bar.layOutOnce()

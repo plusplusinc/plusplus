@@ -316,7 +316,9 @@ struct RoutineScreen: View {
         }
         .onGeometryChange(for: CGFloat.self, of: \.size.height) { listHeight = $0 }
         // A tap that only ended the title's edit opens nothing.
-        .emptyRoutine(isEmpty: routine.exercises.isEmpty) { isPicking = tapOpensPicker }
+        .emptyNote("No exercises", isEmpty: routine.exercises.isEmpty) {
+            isPicking = tapOpensPicker
+        }
         .primaryKeyBar(
             isPresented: showsKey,
             face: liveKeyRole,
@@ -356,7 +358,7 @@ struct RoutineScreen: View {
                     partners: routine.partnerNames(of: opened.id),
                     parts: routine.sheetParts(of: opened.id),
                     rounds: roundSteps(of: opened.id),
-                ) { delete(opened.id, fromSheet: true) }
+                ) { delete(opened.id, footDelay: Self.exerciseSheetGone) }
             }
         }
         .toolbar { barItems }

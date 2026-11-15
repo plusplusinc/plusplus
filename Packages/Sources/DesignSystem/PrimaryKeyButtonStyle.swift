@@ -238,7 +238,8 @@ private struct PrimaryKeyBar<
             gap: PrimaryKeyButtonStyle.floatingGap,
             sides: sideInset,
             bottom: ledgeLift - bottomInset,
-            isLow: floatsLow,
+            // Never low over a key that shows, which it would sit on.
+            isLow: floatsLow && !isPresented,
         )
     }
 

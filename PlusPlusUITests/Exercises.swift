@@ -41,6 +41,11 @@ extension XCUIApplication {
         buttons.matching(identifier: "picker.exercise")
     }
 
+    /// The line an empty routine shows mid-screen.
+    var noExercises: XCUIElement {
+        staticTexts["No exercises"]
+    }
+
     /// Opens the picker with Add exercise, the + floating over the list, which stays put as rows
     /// come in, checking that it is up within a second, and returns its search field.
     func openPicker() -> XCUIElement {
