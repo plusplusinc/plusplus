@@ -1,15 +1,21 @@
 import SwiftUI
 
 /// A value set by dragging a ruler sideways under a fixed line at its center. Ticks hang from
-/// its top edge, one per `tick` across `range`: short and gray, a medium one at each 2.5, and a
-/// tall, lighter one with its number under it at each 5. It flicks with the system's momentum
-/// and always comes to rest on a tick. While a finger moves it, every tick under the line is
-/// written through `onChange`; a value changed from outside (a − / + key) slides it there,
-/// animated. VoiceOver skips it: the row it sits in steps the same value.
+/// its top edge, one per `tick` across `range`, `spacing` apart: short and gray, a medium one at
+/// each multiple of `medium`, and a tall, lighter one with its `label` under it at each multiple
+/// of `major` (a weight's: 0.5 a tick, 2.5 and 5). It flicks with the system's momentum and
+/// always comes to rest on a tick. While a finger moves it, every tick under the line is written
+/// through `onChange`; a value changed from outside (a − / + key, an Auto switch) slides it
+/// there, animated, between two ticks if it falls off them. VoiceOver skips it: the row it sits
+/// in steps the same value.
 public struct ValueRuler: View {
     private let value: Double
     private let range: ClosedRange<Double>
     private let tick: Double
+    private let medium: Double
+    private let major: Double
+    private let spacing: CGFloat
+    private let label: (Double) -> String
     private let onChange: (Double) -> Void
 
     @State private var position = ScrollPosition(x: 0)
@@ -18,8 +24,9 @@ public struct ValueRuler: View {
     @State private var isScrolling = false
     @State private var width: CGFloat = 0
 
-    /// Wide enough to drag a tick at a time, narrow enough that a flick covers tens of pounds.
-    static let spacing: CGFloat = 8
+    /// A weight's: wide enough to drag a tick at a time, narrow enough that a flick covers tens
+    /// of pounds.
+    public static let weightSpacing: CGFloat = 8
     static let minorHeight: CGFloat = 10
     static let mediumHeight: CGFloat = 16
     static let majorHeight: CGFloat = 24
@@ -31,11 +38,21 @@ public struct ValueRuler: View {
         value: Double,
         range: ClosedRange<Double>,
         tick: Double = 0.5,
+        medium: Double = 2.5,
+        major: Double = 5,
+        spacing: CGFloat = weightSpacing,
+        label: @escaping (Double) -> String = {
+            $0.formatted(.number.precision(.fractionLength(0 ... 1)))
+        },
         onChange: @escaping (Double) -> Void,
     ) {
         self.value = value
         self.range = range
         self.tick = tick
+        self.medium = medium
+        self.major = major
+        self.spacing = spacing
+        self.label = label
         self.onChange = onChange
     }
 
@@ -43,15 +60,12 @@ public struct ValueRuler: View {
         Int(((range.upperBound - range.lowerBound) / tick).rounded()) + 1
     }
 
-    private func index(of value: Double) -> Int {
-        let index = Int(((value - range.lowerBound) / tick).rounded())
-        return min(max(index, 0), count - 1)
-    }
-
-    /// The scroll offset that puts a value's tick under the line: the content leads with half the
-    /// ruler's width less half a cell, so offset 0 centers the first tick.
+    /// The scroll offset that puts a value under the line: the content leads with half the
+    /// ruler's width less half a cell, so offset 0 centers the first tick. A value off the ticks
+    /// (a timed set's 50 s auto rest on 15 s ticks) sits between its two, where it falls.
     private func offset(of value: Double) -> CGFloat {
-        CGFloat(index(of: value)) * Self.spacing
+        let ticks = (min(max(value, range.lowerBound), range.upperBound) - range.lowerBound) / tick
+        return CGFloat(ticks) * spacing
     }
 
     public var body: some View {
@@ -61,12 +75,12 @@ public struct ValueRuler: View {
                     tickCell(range.lowerBound + Double(index) * tick)
                 }
             }
-            .padding(.horizontal, max(0, width / 2 - Self.spacing / 2))
+            .padding(.horizontal, max(0, width / 2 - spacing / 2))
             .scrollTargetLayout()
         }
         .scrollIndicators(.hidden)
         .scrollPosition($position)
-        .scrollTargetBehavior(TickSnap(spacing: Self.spacing))
+        .scrollTargetBehavior(TickSnap(spacing: spacing))
         .onScrollPhaseChange { _, phase in
             switch phase {
             case .tracking, .interacting, .decelerating: isScrolling = true
@@ -76,7 +90,7 @@ public struct ValueRuler: View {
         }
         .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.x } action: { _, x in
             guard isScrolling else { return }
-            let index = min(max(Int((x / Self.spacing).rounded()), 0), count - 1)
+            let index = min(max(Int((x / spacing).rounded()), 0), count - 1)
             let new = range.lowerBound + Double(index) * tick
             if new != value {
                 // The step keys' own animation, so the row's digits roll here as they do there.
@@ -118,8 +132,8 @@ public struct ValueRuler: View {
     static let edgeFade: CGFloat = Spacing.lg
 
     private func tickCell(_ mark: Double) -> some View {
-        let isMajor = mark.isMultiple(of: 5)
-        let isMedium = mark.isMultiple(of: 2.5)
+        let isMajor = mark.isMultiple(of: major)
+        let isMedium = mark.isMultiple(of: medium)
         let height = isMajor ? Self.majorHeight : isMedium ? Self.mediumHeight : Self.minorHeight
         return VStack(spacing: Spacing.xs) {
             Rectangle()
@@ -133,14 +147,14 @@ public struct ValueRuler: View {
                 .hidden()
                 .overlay {
                     if isMajor {
-                        Text(mark.formatted(.number.precision(.fractionLength(0 ... 1))))
+                        Text(label(mark))
                             .font(.ppRowDetailNumber)
                             .foregroundStyle(.pp(.textSecondary))
                             .fixedSize()
                     }
                 }
         }
-        .frame(width: Self.spacing)
+        .frame(width: spacing)
     }
 }
 

@@ -10,6 +10,8 @@ struct RoundSteps {
     let seconds: () -> Double
     let canStep: (Int) -> Bool
     let step: (Int) -> Void
+    /// Sets it by hand to a number of seconds, as its ruler is dragged; Auto goes off.
+    let set: (Int) -> Void
     /// Whether its rest is derived from the members, and a switch to set that.
     let isAuto: Binding<Bool>
     /// What a rest set by hand stays put through, by the members' sets: "reps", "the time", or
@@ -34,11 +36,11 @@ struct ExerciseSheet: View {
     /// The weight as typed while its row is open.
     @State private var weightText = ""
     @State private var detent = PresentationDetent.medium
-    /// The height the sheet grew to, to fit the open weight row and its ruler; a detent from then
-    /// on, so the sheet stays there while it's open.
+    /// The height the sheet grew to, to fit a row as it opened; a detent from then on, so the
+    /// sheet stays there while it's open.
     @State private var fitted: CGFloat?
-    /// The weight row is opening at the medium height: the sheet grows to fit once its content
-    /// has the row's open height.
+    /// A row is opening below the large height: the sheet grows to fit once its content has the
+    /// row's open height.
     @State private var growsToFit = false
     /// The sheet's height inside its safe area, which a `.height` detent measures.
     @State private var sheetHeight: CGFloat = 0
@@ -137,14 +139,15 @@ struct ExerciseSheet: View {
         return detents
     }
 
-    /// At the medium height the open ruler sat near the screen's bottom edge, under the thumb's
-    /// reach, and Rest was cut off below it. The sheet grows by what its content now overflows,
-    /// in the row's own motion. The content's size is the open row's from the first frame of
+    /// At the medium height an open ruler sat near the screen's bottom edge, under the thumb's
+    /// reach, and the rows under it were cut off. Any row that opens with the sheet below large
+    /// grows it by what its content now overflows, in the row's own motion; the system holds a
+    /// height past large to large. The content's size is the open row's from the first frame of
     /// its animation, so this lands a layout pass after the tap, not after the row has opened.
     private func fit(_ overflow: CGFloat) {
         guard growsToFit else { return }
         growsToFit = false
-        guard overflow > 0, detent == .medium else { return }
+        guard overflow > 0, detent != .large else { return }
         let height = sheetHeight + overflow
         fitted = height
         withAnimation(ValueRow.motion) {
@@ -170,14 +173,67 @@ struct ExerciseSheet: View {
         )
     }
 
-    /// The weight, dragged on a ruler in its open row.
+    /// The weight, a timed set's time, or a rest, dragged on a ruler in its open row.
     private func ruler(for part: SheetPart) -> ValueRuler? {
-        guard Self.weightInput == .ruler, part == .plan(.weight),
-              let amount = item.plan.weight?.amount, let range = item.weightRange
-        else {
+        switch part {
+        case .plan(.weight):
+            guard Self.weightInput == .ruler, let amount = item.plan.weight?.amount,
+                  let range = item.weightRange
+            else { return nil }
+            return ValueRuler(value: amount, range: range) { item.setWeight($0) }
+        case .plan(.target):
+            guard case let .time(seconds) = item.plan.target else { return nil }
+            return timeRuler(
+                seconds,
+                range: RoutineExercise.timeRange,
+                tick: RoutineExercise.timeStep,
+                marks: (15, 30),
+                spacing: Self.timeSpacing,
+            ) { item.setTime($0) }
+        case .plan(.rest):
+            return restRuler(item.rest) { item.setRest($0) }
+        case .restAfterRound:
+            return rounds.map { rounds in restRuler(Int(rounds.seconds()), set: rounds.set) }
+        case .plan(.sets):
             return nil
         }
-        return ValueRuler(value: amount, range: range) { item.setWeight($0) }
+    }
+
+    /// Room for a "10:00" label each 30 s, six 5 s ticks apart, with a gap between labels.
+    private static let timeSpacing: CGFloat = 10
+    /// Room for a "10:00" label each minute, four 15 s ticks apart.
+    private static let restSpacing: CGFloat = 14
+
+    private func restRuler(_ seconds: Int, set: @escaping (Int) -> Void) -> ValueRuler {
+        timeRuler(
+            seconds,
+            range: RoutineExercise.restRange,
+            tick: RoutineExercise.restStep,
+            marks: (30, 60),
+            spacing: Self.restSpacing,
+            set: set,
+        )
+    }
+
+    /// A ruler in seconds, its tall ticks labeled in minutes and seconds as the open row reads.
+    private func timeRuler(
+        _ seconds: Int,
+        range: ClosedRange<Int>,
+        tick: Int,
+        marks: (medium: Int, major: Int),
+        spacing: CGFloat,
+        set: @escaping (Int) -> Void,
+    ) -> ValueRuler {
+        let locale = locale
+        return ValueRuler(
+            value: Double(seconds),
+            range: Double(range.lowerBound) ... Double(range.upperBound),
+            tick: Double(tick),
+            medium: Double(marks.medium),
+            major: Double(marks.major),
+            spacing: spacing,
+            label: { RoutineExercise.clock(Int($0), locale: locale) },
+        ) { set(Int($0.rounded())) }
     }
 
     /// In a superset, sets are rounds, shared with its partners.
@@ -193,15 +249,18 @@ struct ExerciseSheet: View {
         }
     }
 
-    /// While the ruler shows, the weight keeps one decimal, so its digits don't come and go as it
-    /// turns. The ".0" changes in the open's own transaction, so the value's numeric transition
-    /// slides it in and out with the row.
+    /// While a ruler shows, its value keeps one shape, a weight one decimal and a time or rest
+    /// minutes and seconds ("0:45 min"), so its digits don't come and go as it turns. The shape
+    /// changes in the open's own transaction, so the value's numeric transition slides it in and
+    /// out with the row.
     private func value(of part: SheetPart) -> String {
+        let dialed = open == part && ruler(for: part) != nil
         switch part {
-        case .plan(.weight) where Self.weightInput == .ruler && open == part:
-            item.dialedWeight(locale: locale)
-        case let .plan(plan): item.value(of: plan, locale: locale)
-        case .restAfterRound: rounds?.value().text ?? ""
+        case let .plan(plan) where dialed: return item.dialedValue(of: plan, locale: locale)
+        case let .plan(plan): return item.value(of: plan, locale: locale)
+        case .restAfterRound where dialed:
+            return RoutineExercise.dialedTime(Int(rounds?.seconds() ?? 0), locale: locale)
+        case .restAfterRound: return rounds?.value().text ?? ""
         }
     }
 
@@ -313,8 +372,7 @@ struct ExerciseSheet: View {
             // above it.
             detent = .large
         }
-        growsToFit = Self.weightInput == .ruler && opening && part == .plan(.weight)
-            && detent == .medium
+        growsToFit = opening && detent != .large
         withAnimation(ValueRow.motion) {
             open = opening ? part : nil
         } completion: {

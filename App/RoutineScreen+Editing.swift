@@ -28,6 +28,7 @@ extension RoutineScreen {
             seconds: { Double(routine.restAfterRound(of: id) ?? 0) },
             canStep: { routine.canStepRestAfterRound(of: id, by: $0) },
             step: { routine.stepRestAfterRound(of: id, by: $0) },
+            set: { routine.setRestAfterRound($0, of: id) },
             isAuto: Binding {
                 routine.isRoundAuto(of: id)
             } set: { isAuto in

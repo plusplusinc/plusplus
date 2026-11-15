@@ -60,6 +60,15 @@ extension Routine {
         }
     }
 
+    /// Sets a superset's rest by hand, as a step does, on every member.
+    public mutating func setRestAfterRound(_ seconds: Int, of id: RoutineExercise.ID) {
+        guard let superset = exercises.first(where: { $0.id == id })?.supersetID else { return }
+        let value = RoutineExercise.heldRest(seconds)
+        for row in exercises.indices where exercises[row].supersetID == superset {
+            exercises[row].roundRest = .byHand(value)
+        }
+    }
+
     /// Whether `id`'s superset derives its rest from its members; false for a plain row.
     public func isRoundAuto(of id: RoutineExercise.ID) -> Bool {
         guard let row = exercises.first(where: { $0.id == id }), row.supersetID != nil

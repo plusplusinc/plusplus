@@ -108,8 +108,8 @@ extension RoutineExercise {
                 else { return nil }
                 plan.target = .reps(reps)
             case let .time(seconds):
-                let range = Self.timeStep ... PlanLimits.seconds.upperBound
-                guard let seconds = seconds.stepped(by: direction * Self.timeStep, within: range)
+                let mark = seconds.nextMark(of: Self.timeStep, by: direction)
+                guard let seconds = seconds.stepped(by: mark - seconds, within: Self.timeRange)
                 else { return nil }
                 plan.target = .time(seconds: seconds)
             }
@@ -129,7 +129,62 @@ extension RoutineExercise {
         return plan
     }
 
-    private static let timeStep = 5
+    /// A timed set's step, and its ruler's tick.
+    public static let timeStep = 5
+
+    /// The times its stepper and ruler move within, in seconds: one step up to the last step
+    /// under the limit a plan is stored within, 5 s to 99:55.
+    public static let timeRange = timeStep ... PlanLimits.seconds.upperBound / timeStep * timeStep
+
+    /// The rests a row's or a superset's stepper and ruler move within, in seconds, none to
+    /// 10 min, and their step.
+    public static let restRange = PlanLimits.rest
+    public static let restStep = PlanLimits.restStep
+
+    /// Sets a timed set's time, held to `timeRange`; a set of reps keeps its reps.
+    public mutating func setTime(_ seconds: Int) {
+        guard case .time = plan.target else { return }
+        plan.target = .time(seconds: min(max(seconds, Self.timeRange.lowerBound),
+                                         Self.timeRange.upperBound))
+    }
+
+    /// Sets the rest by hand, as a step does, which turns Auto off; held to `restRange`.
+    public mutating func setRest(_ seconds: Int) {
+        plan.rest = .byHand(Self.heldRest(seconds))
+    }
+
+    static func heldRest(_ seconds: Int) -> Int {
+        min(max(seconds, restRange.lowerBound), restRange.upperBound)
+    }
+
+    /// A time as an open row reads it while a ruler sets it, always minutes and two-digit
+    /// seconds, "0:45 min", "2:00 min", so its digits keep their count and shape as it turns.
+    public static func dialedTime(_ seconds: Int, locale: Locale = .current) -> String {
+        clock(seconds, locale: locale) + noBreakSpace + "min"
+    }
+
+    /// Minutes and two-digit seconds alone, "0:45", "10:00", as a time ruler labels its ticks.
+    public static func clock(_ seconds: Int, locale: Locale = .current) -> String {
+        let minutes = (seconds / 60).formatted(.number.grouping(.never).locale(locale))
+        let rest = (seconds % 60).formatted(.number.precision(.integerLength(2...)).locale(locale))
+        return minutes + ":" + rest
+    }
+
+    /// A part's value as its open row reads it while a ruler sets it: a weight with one decimal,
+    /// a time or a rest in `dialedTime`'s shape; reps and sets as they read anywhere.
+    public func dialedValue(of part: PlanPart, locale: Locale = .current) -> String {
+        switch part {
+        case .weight: dialedWeight(locale: locale)
+        case .target:
+            if case let .time(seconds) = plan.target {
+                qualified(Self.dialedTime(seconds, locale: locale), .target)
+            } else {
+                value(of: part, locale: locale)
+            }
+        case .rest: Self.dialedTime(rest, locale: locale)
+        case .sets: value(of: part, locale: locale)
+        }
+    }
 
     /// The weights its stepper moves within, in the weight's unit: one step up to the limit a
     /// plan is stored within, a bar's from the empty bar; nil without a weight.
@@ -199,12 +254,17 @@ extension Double {
 }
 
 extension Int {
+    /// The next multiple of `step` up (`direction` 1) or down (-1), so a time off the marks,
+    /// 32 s in 5 s steps, lands on one (35 or 30) and moves a step from there.
+    func nextMark(of step: Int, by direction: Int) -> Int {
+        direction > 0 ? (self / step + 1) * step : (self - 1) / step * step
+    }
+
     /// A rest moved to the next 15 s mark up (`direction` 1) or down (-1), so a rest off the
     /// marks, a timed set's own time, lands on one (50 s goes to 60 or 45) and moves by 15 s from
     /// there; held to a rest's limits, nil at the end it moves toward.
     func steppedRest(by direction: Int) -> Int? {
-        let step = PlanLimits.restStep
-        let mark = direction > 0 ? (self / step + 1) * step : (self - 1) / step * step
+        let mark = nextMark(of: PlanLimits.restStep, by: direction)
         return stepped(by: mark - self, within: PlanLimits.rest)
     }
 }

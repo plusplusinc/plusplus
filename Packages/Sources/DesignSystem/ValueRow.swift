@@ -302,11 +302,11 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
             .foregroundStyle(.pp(.textPrimary))
     }
 
-    /// A ruler's value, its number apart from the words after it, so a decimal the open row adds
-    /// ("25.0 lb") widens the number's own frame as the row opens and slides under its edge as it
+    /// A ruler's value, its number apart from the words after it, so a decimal or a minute the
+    /// open row adds ("25.0 lb", "0:45 min") widens the number's own frame as the row opens and slides under its edge as it
     /// closes. In one text, the going ".0" faded over the unit while the number slid into it.
     private var rulerValue: some View {
-        let digits = value.prefix { $0.isNumber || $0 == "." || $0 == "," }
+        let digits = value.prefix { $0.isNumber || $0 == "." || $0 == "," || $0 == ":" }
         return HStack(spacing: 0) {
             valueText(String(digits), number: number)
                 // Only the trailing side clips: the digits roll above and below the line, and
