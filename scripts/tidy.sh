@@ -231,13 +231,22 @@ fi
 # A worktree simulator unused for a day, though its worktree stays: delete it and drop its record,
 # and ensure_simulator creates both again on the worktree's next run. This comes before the idle
 # shutdown below, which only shuts one down, so one booted at the start of the run waits for the
-# next. In a dry run a worktree listed above as removed still shows here; it is skipped.
-while IFS=$'\t' read -r name idle; do
-    printf '%s\n' "${removed[@]+"${removed[@]##*/}"}" | grep -qxF "$name" && continue
-    if delete_simulator "$name" "unused for $((idle / 3600))h" && [ "$DRY_RUN" -eq 0 ]; then
-        rm "$(simulator_records)/$name"
-    fi
-done < <(stale_worktree_simulators)
+# next. In a dry run a worktree listed above as removed still shows here; it is skipped. A script
+# may have used the simulator since the list was read, so each is checked again just before.
+if stale=$(stale_worktree_simulators); then
+    records=$(simulator_records)
+    while IFS=$'\t' read -r name idle; do
+        [ -n "$name" ] || continue
+        printf '%s\n' "${removed[@]+"${removed[@]##*/}"}" | grep -qxF "$name" && continue
+        [ -n "$(find "$records/$name" ! -newermt "-$DELETE_IDLE_SECONDS seconds" 2> /dev/null)" ] || continue
+        [ "$(simulator_udid "$(worktree_simulator "$name")" | cut -d' ' -f2)" = Shutdown ] || continue
+        if delete_simulator "$name" "unused for $((idle / 3600))h" && [ "$DRY_RUN" -eq 0 ]; then
+            rm -f "$records/$name"
+        fi
+    done <<< "$stale"
+else
+    echo "tidy: could not list unused simulators; none deleted" >&2
+fi
 
 # A worktree simulator left booted and idle by an agent that ended without shutting it down.
 while IFS=$'\t' read -r name udid; do

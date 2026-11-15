@@ -39,7 +39,8 @@ class Stale(unittest.TestCase):
             self.devices.append({"name": f"PlusPlus {name}", "state": state})
 
     def stale(self, limit=DAY):
-        return list(stale_simulators.stale(self.records, self.devices, self.worktrees, limit, NOW, self.commands))
+        old = stale_simulators.old_records(self.records, self.worktrees, limit, NOW)
+        return list(stale_simulators.stale(old, self.devices, self.commands))
 
     def test_a_record_unused_two_days_is_stale_with_its_idle_time(self):
         self.record("topic", 2 * DAY)
@@ -66,6 +67,15 @@ class Stale(unittest.TestCase):
     def test_the_main_checkout_is_never_stale(self):
         self.record("plusplus", 30 * DAY)
         self.assertEqual(self.stale(), [])
+
+    def test_a_worktree_named_like_the_main_checkout_does_not_claim_its_simulator(self):
+        self.worktrees.append("/clone/plusplus/.claude/worktrees/plusplus")
+        self.record("plusplus", 30 * DAY)
+        self.assertEqual(self.stale(), [])
+
+    def test_the_boot_lock_is_not_a_record(self):
+        self.record(".boot.lock", 30 * DAY, state=None)
+        self.assertEqual(stale_simulators.old_records(self.records, self.worktrees, DAY, NOW), [])
 
     def test_a_shorter_limit_makes_a_two_hour_old_record_stale(self):
         self.record("topic", 2 * HOUR)

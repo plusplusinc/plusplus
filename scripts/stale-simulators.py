@@ -5,7 +5,7 @@ no script has used it for longer than the limit, though its worktree is still th
     python3 scripts/stale-simulators.py <records folder> <checkout> <limit seconds>
 
 scripts/common.sh's stale_worktree_simulators runs it; scripts/stale-simulators-test.py tests
-stale(), which makes the choice from what main() reads.
+old_records() and stale(), which make the choice from what main() reads.
 """
 import json
 import os
@@ -15,25 +15,36 @@ import sys
 import time
 
 
-def stale(records, devices, worktrees, limit, now, commands):
-    """Yields (worktree, idle seconds) for each record older than limit whose worktree is still
-    listed and is not the main checkout (the first one git lists), whose one simulator is shut
-    down, and in whose worktree no xcodebuild runs. A record whose worktree is gone is tidy's
-    other loop's; a name matching more than one simulator is skipped, as scripts/common.sh
-    refuses to pick between them."""
+def old_records(records, worktrees, limit, now):
+    """(worktree, path, idle seconds) for each record older than limit whose worktree is still
+    listed and is not the main checkout, the first one git lists. A record whose worktree is gone
+    is tidy's other loop's. The folder also holds scripts/common.sh's .boot.lock, which matches no
+    worktree."""
     paths = {os.path.basename(path): path for path in worktrees[1:]}
-    for name in sorted(os.listdir(records)):
-        if name not in paths:
+    # A linked worktree named like the main checkout would share its simulator's name.
+    paths.pop(os.path.basename(worktrees[0]), None)
+    found = []
+    for name in sorted(set(os.listdir(records)) & set(paths)):
+        try:
+            idle = int(now - os.path.getmtime(os.path.join(records, name)))
+        except FileNotFoundError:  # another tidy removed it meanwhile
             continue
-        idle = int(now - os.path.getmtime(os.path.join(records, name)))
-        if idle <= limit:
-            continue
+        if idle > limit:
+            found.append((name, paths[name], idle))
+    return found
+
+
+def stale(old, devices, commands):
+    """Yields (worktree, idle seconds) for each of old_records() whose one simulator is shut down,
+    and in whose worktree no xcodebuild runs. A name matching more than one simulator is skipped,
+    as scripts/common.sh refuses to pick between them."""
+    for name, path, idle in old:
         matches = [d for d in devices if d["name"] == f"PlusPlus {name}"]
         if len(matches) != 1 or matches[0]["state"] != "Shutdown":
             continue
         # The match scripts/common.sh's idle_worktree_simulators uses: a long test run touches
         # the record only as it starts.
-        running = re.compile(f"xcodebuild.*{re.escape(paths[name])}/")
+        running = re.compile(f"xcodebuild.*{re.escape(path)}/")
         if any(running.search(command) for command in commands):
             continue
         yield name, idle
@@ -47,18 +58,18 @@ def main():
     if len(sys.argv) != 4:
         sys.exit("usage: python3 scripts/stale-simulators.py <records folder> <checkout> <limit seconds>")
     records, checkout, limit = sys.argv[1], sys.argv[2], int(sys.argv[3])
-    now = time.time()
+    if not os.path.isdir(records):
+        return
+    worktrees = [line[len("worktree "):] for line in run("git", "-C", checkout, "worktree", "list", "--porcelain")
+                 .splitlines() if line.startswith("worktree ")]
+    old = old_records(records, worktrees, limit, time.time())
     # tidy runs this at every session start, and most days no record is old enough: skip the reads.
-    # The folder also holds scripts/common.sh's .boot.lock, which is no record.
-    if not os.path.isdir(records) or all(now - os.path.getmtime(os.path.join(records, name)) <= limit
-                                         for name in os.listdir(records) if not name.startswith(".")):
+    if not old:
         return
     devices = [d for ds in json.loads(run("xcrun", "simctl", "list", "devices", "--json"))["devices"].values()
                for d in ds]
-    worktrees = [line[len("worktree "):] for line in run("git", "-C", checkout, "worktree", "list", "--porcelain")
-                 .splitlines() if line.startswith("worktree ")]
     commands = run("ps", "-axww", "-o", "command=").splitlines()
-    for name, idle in stale(records, devices, worktrees, limit, now, commands):
+    for name, idle in stale(old, devices, commands):
         print(name, idle, sep="\t")
 
 
