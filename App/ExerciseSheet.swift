@@ -183,17 +183,13 @@ struct ExerciseSheet: View {
             return ValueRuler(value: amount, range: range) { item.setWeight($0) }
         case .plan(.target):
             guard case let .time(seconds) = item.plan.target else { return nil }
-            return timeRuler(
-                seconds,
-                range: RoutineExercise.timeRange,
-                tick: RoutineExercise.timeStep,
-                marks: (15, 30),
-                spacing: Self.timeSpacing,
-            ) { item.setTime($0) }
+            return timeRuler(seconds, range: RoutineExercise.timeRange) { item.setTime($0) }
         case .plan(.rest):
-            return restRuler(item.rest) { item.setRest($0) }
+            return timeRuler(item.rest, range: RoutineExercise.restRange) { item.setRest($0) }
         case .restAfterRound:
-            return rounds.map { rounds in restRuler(Int(rounds.seconds()), set: rounds.set) }
+            return rounds.map { rounds in
+                timeRuler(Int(rounds.seconds()), range: RoutineExercise.restRange, set: rounds.set)
+            }
         case .plan(.sets):
             return nil
         }
@@ -201,37 +197,23 @@ struct ExerciseSheet: View {
 
     /// Room for a "10:00" label each 30 s, six 5 s ticks apart, with a gap between labels.
     private static let timeSpacing: CGFloat = 10
-    /// Room for a "10:00" label each minute, four 15 s ticks apart.
-    private static let restSpacing: CGFloat = 14
 
-    private func restRuler(_ seconds: Int, set: @escaping (Int) -> Void) -> ValueRuler {
-        timeRuler(
-            seconds,
-            range: RoutineExercise.restRange,
-            tick: RoutineExercise.restStep,
-            marks: (30, 60),
-            spacing: Self.restSpacing,
-            set: set,
-        )
-    }
-
-    /// A ruler in seconds, its tall ticks labeled in minutes and seconds as the open row reads.
+    /// A ruler in seconds, a timed set's or a rest's: a tick each 5 s, so a drag can rest on any
+    /// 5 s (a rest's − / + still go to its 15 s marks), taller each 15 s, labeled each 30 s in
+    /// minutes and seconds as the open row reads.
     private func timeRuler(
         _ seconds: Int,
         range: ClosedRange<Int>,
-        tick: Int,
-        marks: (medium: Int, major: Int),
-        spacing: CGFloat,
         set: @escaping (Int) -> Void,
     ) -> ValueRuler {
         let locale = locale
         return ValueRuler(
             value: Double(seconds),
             range: Double(range.lowerBound) ... Double(range.upperBound),
-            tick: Double(tick),
-            medium: Double(marks.medium),
-            major: Double(marks.major),
-            spacing: spacing,
+            tick: Double(RoutineExercise.timeStep),
+            medium: 15,
+            major: 30,
+            spacing: Self.timeSpacing,
             label: { RoutineExercise.clock(Int($0), locale: locale) },
         ) { set(Int($0.rounded())) }
     }
@@ -384,11 +366,11 @@ struct ExerciseSheet: View {
     }
 }
 
-private extension ScrollGeometry {
+extension ScrollGeometry {
     /// How far the content runs past the visible height. In a sheet the container is already
     /// the height between the navigation bar and the home indicator (measured on iOS 27: 573 pt
     /// in a 643 pt sheet with insets of 70 and 34), so the insets don't count again.
-    var overflow: CGFloat {
+    fileprivate var overflow: CGFloat {
         contentSize.height - containerSize.height
     }
 }
