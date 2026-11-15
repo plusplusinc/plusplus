@@ -121,28 +121,33 @@ enum TimeText {
     /// "30s", "1m 35s", "2m", "60m" in en_US; "1min 35s" in de_DE. Its parts joined by no-break
     /// spaces, so a line never breaks inside a time.
     static func text(seconds: Int, locale: Locale) -> String {
-        Duration.seconds(seconds)
-            .formatted(.units(allowed: [.minutes, .seconds], width: .narrow).locale(locale))
-            .replacing(" ", with: noBreakSpace)
+        formatted(seconds, width: .narrow, locale: locale)
     }
 
     /// A time inside a sentence, at the condensed width: "45 sec", "1 min 35 sec", "0 sec";
     /// "1 Min. 35 Sek." in de_DE. Joined by no-break spaces.
     static func inSentence(seconds: Int, locale: Locale) -> String {
-        Duration.seconds(seconds)
-            .formatted(.units(allowed: [.minutes, .seconds], width: .condensedAbbreviated)
-                .locale(locale))
-            .replacing(" ", with: noBreakSpace)
+        formatted(seconds, width: .condensedAbbreviated, locale: locale)
     }
 
     /// The narrow width with both units always, a zero one too: "0m 45s", "1m 0s", "1m 5s",
     /// "0m 0s"; "1min 0s" in de_DE. Joined by no-break spaces.
     static func bothUnits(seconds: Int, locale: Locale) -> String {
+        formatted(seconds, width: .narrow, zeroValueUnits: .show(length: 1), locale: locale)
+    }
+
+    /// Minutes and seconds at `width`, joined by no-break spaces.
+    private static func formatted(
+        _ seconds: Int,
+        width: Duration.UnitsFormatStyle.UnitWidth,
+        zeroValueUnits: Duration.UnitsFormatStyle.ZeroValueUnitsDisplayStrategy = .hide,
+        locale: Locale,
+    ) -> String {
         Duration.seconds(seconds)
             .formatted(.units(
                 allowed: [.minutes, .seconds],
-                width: .narrow,
-                zeroValueUnits: .show(length: 1),
+                width: width,
+                zeroValueUnits: zeroValueUnits,
             ).locale(locale))
             .replacing(" ", with: noBreakSpace)
     }

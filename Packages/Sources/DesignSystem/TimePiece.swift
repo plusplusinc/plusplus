@@ -22,7 +22,7 @@ struct TimePiece: Identifiable, Equatable {
         guard isTime || isWord else { return nil }
         return words.enumerated().map { index, word in
             let unit = String(word.drop { $0.isNumber || $0 == "." || $0 == "," })
-            let space = index < words.count - 1 ? "\u{00A0}" : ""
+            let space = index < words.count - 1 ? noBreakSpace : ""
             return Self(id: unit, text: word + space)
         }
     }

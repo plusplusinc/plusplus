@@ -190,7 +190,7 @@ struct RulerScale: Equatable {
     }
 
     /// The offset that puts `value`, held to the range, under the line. A value off the ticks
-    /// (a typed 27.3 lb) sits between its two, where it falls.
+    /// (a stored 27.3 lb) sits between its two, where it falls.
     func offset(of value: Double) -> CGFloat {
         let ticks = (min(max(value, range.lowerBound), range.upperBound) - range.lowerBound) / tick
         return CGFloat(ticks) * spacing

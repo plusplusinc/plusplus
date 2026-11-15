@@ -137,9 +137,8 @@ extension RoutineExercise {
     public static let timeRange = timeStep ... PlanLimits.seconds.upperBound / timeStep * timeStep
 
     /// The rests a row's or a superset's stepper and ruler move within, in seconds, none to
-    /// 10 min, and their step.
+    /// 10 min.
     public static let restRange = PlanLimits.rest
-    public static let restStep = PlanLimits.restStep
 
     /// Sets a timed set's time, held to `timeRange`; a set of reps keeps its reps.
     public mutating func setTime(_ seconds: Int) {

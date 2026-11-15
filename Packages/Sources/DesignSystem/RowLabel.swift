@@ -239,7 +239,7 @@ public struct RowLabel: View {
     }
 }
 
-private let noBreakSpace = "\u{00A0}"
+let noBreakSpace = "\u{00A0}"
 
 /// Everything above a view's bottom edge, however far it reaches up or to either side: the cut
 /// is the bottom edge alone.

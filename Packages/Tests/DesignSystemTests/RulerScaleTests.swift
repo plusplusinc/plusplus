@@ -37,7 +37,7 @@ struct RulerScaleTests {
     @Test("A value off the ticks sits between its two, where it falls")
     func offTickValueSitsBetweenTicks() {
         let scale = RulerScale(range: Self.weight.range, tick: Self.weight.tick, spacing: 8)
-        // 27.3 lb, typed before the ruler, is 0.6 of a tick past 27.
+        // 27.3 lb is 0.6 of a tick past 27.
         #expect(abs(scale.offset(of: 27.3) - (scale.offset(of: 27) + 0.6 * 8)) < 1e-9)
     }
 

@@ -80,7 +80,7 @@ struct ExerciseSheet: View {
                     .padding(.horizontal, Spacing.md)
                     .padding(.vertical, Spacing.md)
                 }
-                .onScrollGeometryChange(for: CGFloat.self, of: \.overflow) { _, overflow in
+                .onScrollGeometryChange(for: CGFloat.self, of: \.endY) { _, overflow in
                     fit(overflow)
                 }
             }
@@ -120,6 +120,8 @@ struct ExerciseSheet: View {
     /// grows it by what its content now overflows, in the row's own motion; the system holds a
     /// height past large to large. The content's size is the open row's from the first frame of
     /// its animation, so this lands a layout pass after the tap, not after the row has opened.
+    /// In a sheet the scroll view's container already excludes the bar and the home indicator
+    /// (measured on iOS 27), so the overflow alone is what the sheet grows by.
     private func fit(_ overflow: CGFloat) {
         guard growsToFit else { return }
         growsToFit = false
@@ -316,29 +318,4 @@ struct ExerciseSheet: View {
             }
         }
     }
-}
-
-extension ScrollGeometry {
-    /// How far the content runs past the visible height. In a sheet the container is already
-    /// the height between the navigation bar and the home indicator (measured on iOS 27: 573 pt
-    /// in a 643 pt sheet with insets of 70 and 34), so the insets don't count again.
-    fileprivate var overflow: CGFloat {
-        contentSize.height - containerSize.height
-    }
-}
-
-#Preview {
-    @Previewable @State var item = RoutineExercise(
-        exercise: Exercise.builtIn.first { $0.load == .pair && $0.isPerSide } ?? Exercise
-            .builtIn[0],
-        weightUnit: .pounds,
-    )
-    Color.pp(.background)
-        .sheet(isPresented: .constant(true)) {
-            ExerciseSheet(
-                item: $item,
-                partners: nil,
-                parts: item.exercise.planParts.map(SheetPart.plan) + [.plan(.rest)],
-            ) { }
-        }
 }
