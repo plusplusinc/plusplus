@@ -12,8 +12,8 @@ struct RowLabelTests {
         // Only the space after each dot can break.
         #expect(text?.replacingOccurrences(of: "\u{00A0}", with: "_")
             == "3_×_10_reps_per_side_· 20_lb/side")
-        #expect(RowLabel.detailText(["60 s per side"], stacked: false)
-            == "60\u{00A0}s\u{00A0}per\u{00A0}side")
+        #expect(RowLabel.detailText(["1m per side"], stacked: false)
+            == "1m\u{00A0}per\u{00A0}side")
     }
 
     @Test("Stacked, at the accessibility sizes, a part to a line with no dots")

@@ -22,8 +22,8 @@ struct RailDragSnapshotTests {
     private static let rows = [
         Row(title: "Goblet squat", detail: ["3 × 10 reps", "35 lb"]),
         Row(title: "Push-up", detail: ["3 × 10 reps"]),
-        Row(title: "Farmer\u{2019}s carry", detail: ["3 × 30 s", "25 lb/side"]),
-        Row(title: "Plank", detail: ["60 s"]),
+        Row(title: "Farmer\u{2019}s carry", detail: ["3 × 30s", "25 lb/side"]),
+        Row(title: "Plank", detail: ["1m"]),
     ]
 
     /// `rows` with the row at `lifted` held over `slot`, its card `offset` below the gap.
@@ -215,11 +215,11 @@ struct RailDragSnapshotTests {
     private static let workoutRows = [
         Row(
             title: "Forward arm circles",
-            detail: ["3 × 30 s"],
+            detail: ["3 × 30s"],
             focus: RowFocus(
                 progress: "Set 1 of 3",
                 equipment: [],
-                figures: [.init(number: "30", unit: "s")],
+                figures: [.init(number: "30s", unit: "")],
                 spokenFigures: "30 seconds",
             ),
         ),
