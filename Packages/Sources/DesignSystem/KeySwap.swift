@@ -79,8 +79,9 @@ struct StagedKey<Face: Equatable & Identifiable, Content: View>: View {
     }
 }
 
-/// The key down out of sight while `isOut`, as far as its height and what lies below it, in
-/// place: the bar keeps its room. No further, so the key coming in starts up as the one going
+/// The key down out of sight while `isOut`, as far as its height and what lies below it, less
+/// `drawnLower`, how far below its place in the bar it is drawn, in place: the bar keeps its
+/// room. No further, so the key coming in starts up as the one going
 /// clears the edge: with 8 pt more, the two halves had frames with no key between them. Unfaded
 /// both ways: faded going, it was all but gone three frames before it cleared the edge. With
 /// Reduce Motion it stays put and fades each way. Measured as it is drawn, so a
@@ -88,9 +89,11 @@ struct StagedKey<Face: Equatable & Identifiable, Content: View>: View {
 struct KeySwap: ViewModifier, Animatable {
     /// How far out the key is, 0 to 1, which an animation runs through.
     var progress: CGFloat
+    let drawnLower: CGFloat
 
-    init(isOut: Bool) {
+    init(isOut: Bool, drawnLower: CGFloat) {
         progress = isOut ? 1 : 0
+        self.drawnLower = drawnLower
     }
 
     nonisolated var animatableData: CGFloat {
@@ -103,10 +106,11 @@ struct KeySwap: ViewModifier, Animatable {
     func body(content: Content) -> some View {
         let progress = progress
         let moves = !reduceMotion
+        let drawnLower = drawnLower
         content
             .visualEffect { content, proxy in
                 content.offset(y: moves
-                    ? progress * (proxy.size.height + proxy.safeAreaInsets.bottom)
+                    ? progress * (proxy.size.height + proxy.safeAreaInsets.bottom - drawnLower)
                     : 0)
             }
             .opacity(reduceMotion ? 1 - progress : 1)

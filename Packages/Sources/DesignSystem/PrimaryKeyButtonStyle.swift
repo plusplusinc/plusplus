@@ -200,6 +200,12 @@ private struct PrimaryKeyBar<
         keyboardInset > bottomInset
     }
 
+    /// How far below its place in the bar the key is drawn: down to its ledge's place, or on the
+    /// keyboard, up by its ledge.
+    private var drawnLower: CGFloat {
+        (isOnKeyboard ? 0 : bottomInset - ledgeLift) - PrimaryKeyButtonStyle.ledge
+    }
+
     /// `face`, the key as drawn, in its place in the bar, where it sizes the bar's room.
     private func placed(_ face: some View) -> some View {
         face
@@ -214,7 +220,7 @@ private struct PrimaryKeyBar<
             // followed it changed the list's inset a second time in its first frame, which SwiftUI
             // logs as an `OnScrollGeometryChange` fault.
             .padding(.bottom, -PrimaryKeyButtonStyle.ledge)
-            .offset(y: (isOnKeyboard ? 0 : bottomInset - ledgeLift) - PrimaryKeyButtonStyle.ledge)
+            .offset(y: drawnLower)
             .padding(.top, Spacing.sm + PrimaryKeyButtonStyle.ledge)
     }
 
@@ -239,7 +245,7 @@ private struct PrimaryKeyBar<
                                         $0
                                     }
                                     .modifier(KeyDrop(drop: drop))
-                                    .modifier(KeySwap(isOut: isOut))
+                                    .modifier(KeySwap(isOut: isOut, drawnLower: drawnLower))
                                     .hiddenBehindDrawer(),
                             )
                         }
