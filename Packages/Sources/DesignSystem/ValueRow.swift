@@ -222,7 +222,8 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
         .allowsHitTesting(isOpen)
         .accessibilityHidden(!isOpen)
         // Once for the pair of keys, so a step plays one tick.
-        .sensoryFeedback(.selection, trigger: value)
+        // On the number, not the text, which changes shape as the row opens and shuts.
+        .sensoryFeedback(.selection, trigger: changeKey)
         .frame(maxWidth: .infinity)
         .frame(height: isOpen ? nil : 0, alignment: .top)
         .clipped()
@@ -247,10 +248,8 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
         }
     }
 
-    /// What changes the value as a step does, a ruler's tick or a switch: its number, or, without
-    /// one, its text.
-    private var changeKey: String {
-        number.map { "\($0)" } ?? value
+    private var changeKey: ValueChange {
+        ValueChange(number: number, value: value)
     }
 
     /// Always laid out, so nothing moves as it shows or hides; hidden, VoiceOver skips it.
