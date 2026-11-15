@@ -105,7 +105,7 @@ public struct EditableTitle: View {
                 Self.typingFrame(of: shownTitle, at: context.date.timeIntervalSince($0))
             }
             EditableTitleContent(
-                draft: $draft,
+                draft: typing,
                 isFocused: $isEditing,
                 placeholder: restingTitle,
                 shownPlaceholder: frame?.shown ?? shownTitle,
@@ -160,17 +160,25 @@ public struct EditableTitle: View {
                 commit()
             }
         }
-        // Each change reaches `text` as it is typed, so the title holds what was typed however
-        // the edit is left: by Return or a touch, or by the app leaving the foreground or the
-        // screen going away, which end no edit.
-        .onChange(of: draft) { _, typed in
-            if isEditing {
-                text = Self.committed(typed, from: editedSuggestion)
-            }
-        }
         .onChange(of: text) { _, newText in
             if !isEditing {
                 draft = newText
+            }
+        }
+    }
+
+    /// The draft as the field writes it. Each change reaches `text` as it is typed, so the title
+    /// holds what was typed however the edit is left: by Return or a touch, or by the app leaving
+    /// the foreground or the screen going away, which end no edit. Handed on as the field sets
+    /// it, not from an `onChange` of the draft, which SwiftUI skips when the draft changes again
+    /// in a frame its action already ran in, losing the last key of fast typing.
+    private var typing: Binding<String> {
+        Binding {
+            draft
+        } set: { typed in
+            draft = typed
+            if isEditing {
+                text = Self.committed(typed, from: editedSuggestion)
             }
         }
     }
