@@ -220,21 +220,38 @@ public struct RowLabel: View {
         .clipped()
     }
 
-    /// Each number large, with what it counts beside it, or, where the two don't fit side by
-    /// side, as at the accessibility sizes, under it, the number shrinking to fit the width.
+    /// Each number large, with what it counts beside it on one line, the two shrinking together
+    /// to fit the width; at the accessibility sizes, what it counts goes under the number where
+    /// the two don't fit side by side (`FigureLayout`), the number shrinking to fit the width.
     private func figures(_ focus: RowFocus) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(focus.figures, id: \.self) { figure in
-                FigureLayout(spacing: figureUnitGap) {
-                    number(figure).modifier(BaselineMark())
-                    unit(figure).modifier(BaselineMark())
+                if dynamicTypeSize.isAccessibilitySize {
+                    FigureLayout(spacing: unitSpacing(after: figure.number)) {
+                        number(figure.number).modifier(BaselineMark())
+                        unit(figure).modifier(BaselineMark())
+                    }
+                } else {
+                    // "10" "reps" as "10reps", the gap after the digit its kerning; a time's
+                    // words after a space, "45s per side".
+                    let spacer = figure.unit.isEmpty || figure.number.last?.isNumber == true
+                        ? "" : " "
+                    number(figure.number + spacer + figure.unit).modifier(BaselineMark())
                 }
             }
         }
     }
 
-    private func number(_ figure: RowFocus.Figure) -> some View {
-        Text(figureText(figure.number))
+    /// A small gap after a digit, "10 reps", and a word space after a time's last letter,
+    /// "45s per side".
+    private func unitSpacing(after number: String) -> CGFloat {
+        number.last?.isNumber == false
+            ? figureUnitSize * CurrentFigure.wordSpace
+            : figureUnitGap
+    }
+
+    private func number(_ text: String) -> some View {
+        Text(figureText(text))
             .foregroundStyle(.pp(.textPrimary))
             .lineLimit(1)
             .minimumScaleFactor(0.3)

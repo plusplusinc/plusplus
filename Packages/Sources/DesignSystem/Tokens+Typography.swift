@@ -86,6 +86,9 @@ enum CurrentFigure {
     static let unitSize: CGFloat = 59
     /// The gap between a number's last digit and the letters after it.
     static let unitGap: CGFloat = 6
+    /// A word space in the letters' font, as a fraction of their size: between a time's last
+    /// letter and the words after it, "45s per side".
+    static let wordSpace: CGFloat = 0.26
     static let textStyle = Font.TextStyle.largeTitle
 }
 
