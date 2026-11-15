@@ -3,7 +3,7 @@ import SwiftUI
 /// The one key a screen is for, such as Start: full width, a light fill on a ledge, label
 /// centered. Pressing pushes the key down onto its ledge, which stays put, so nothing around it
 /// moves, and letting go lets it back up, each in 0.06 s, easing out. Not green: green is for
-/// data.
+/// data and the + that floats above it.
 ///
 /// A capsule, its ends fully round, on a ledge of the same shape. A label that wraps, at the
 /// largest text sizes, makes the key taller with the same round corners and straight sides
@@ -82,6 +82,10 @@ extension View {
     /// `floating`, a button drawn in the `floating` style, floats above the key's right end, its
     /// right edge on the key's and 16 pt above the key's top, whether the key shows or not: with
     /// none, it is where it is above a key of one line, so a key coming in leaves it where it is.
+    /// While `floatsLow`, as on a screen with nothing for the key to do yet, it sits low instead,
+    /// its bottom where the key's ledge's bottom would be, and rises above the key, or comes
+    /// back down, on the update that changes `floatsLow`, with the key's rise or drop when the
+    /// same update presents or takes it away.
     /// It takes no room from the content: a list under it leaves `FloatingButtonRoom` at its end.
     ///
     /// `key` draws `face`, the key as things stand. A face of another `id` is another key, which
@@ -103,6 +107,7 @@ extension View {
         keepsRoom: Bool = false,
         plusOnes: Int = 0,
         drop: CGFloat = 0,
+        floatsLow: Bool = false,
         @ViewBuilder key: @escaping (Face, _ isOut: Bool) -> Key,
         @ViewBuilder floating: () -> some View = { EmptyView() },
     ) -> some View {
@@ -112,6 +117,7 @@ extension View {
             keepsRoom: keepsRoom,
             plusOnes: plusOnes,
             drop: drop,
+            floatsLow: floatsLow,
             key: key,
             floating: floating(),
         ))
@@ -123,6 +129,7 @@ extension View {
         keepsRoom: Bool = false,
         plusOnes: Int = 0,
         drop: CGFloat = 0,
+        floatsLow: Bool = false,
         @ViewBuilder key: () -> some View,
         @ViewBuilder floating: () -> some View = { EmptyView() },
     ) -> some View {
@@ -133,6 +140,7 @@ extension View {
             keepsRoom: keepsRoom,
             plusOnes: plusOnes,
             drop: drop,
+            floatsLow: floatsLow,
             key: { _, _ in key },
             floating: floating,
         )
@@ -156,6 +164,7 @@ private struct PrimaryKeyBar<
     let keepsRoom: Bool
     let plusOnes: Int
     let drop: CGFloat
+    let floatsLow: Bool
     let key: (Face, _ isOut: Bool) -> Key
     let floating: Floating
 
@@ -229,6 +238,8 @@ private struct PrimaryKeyBar<
             gap: PrimaryKeyButtonStyle.floatingGap,
             sides: sideInset,
             bottom: ledgeLift - bottomInset,
+            // Never low over a key that shows, which it would sit on.
+            isLow: floatsLow && !isPresented,
         )
     }
 

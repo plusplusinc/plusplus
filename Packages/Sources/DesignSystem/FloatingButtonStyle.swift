@@ -1,16 +1,18 @@
 import SwiftUI
 
-/// A round glass button floating over a screen's content, as ++ is in the bar: its label's icon
-/// alone, in the primary text color, on a 56 pt circle of interactive glass, which answers a
-/// press itself. The circle scales with the icon's text style up to the largest size short of the
-/// accessibility sizes, as a bar's buttons stop there; past it, a long press shows the label in
-/// the large content viewer. Scaled on, it grew past twice its size over the rows it floats on.
-/// `primaryKeyBar(…floating:)` places one above the key.
+/// A round button floating over a screen's content: its label's icon alone, dark on a solid
+/// green 56 pt circle, the same on every state of the screen. Green is for data and the +. A
+/// press dims it, as it does a key, so nothing around it moves. The circle scales with the icon's
+/// text style up to the largest size short of the accessibility sizes, as a bar's buttons stop
+/// there; past it, a long press shows the label in the large content viewer. Scaled on, it grew
+/// past twice its size over the rows it floats on. `primaryKeyBar(…floating:)` places one above
+/// the key.
 public struct FloatingButtonStyle: ButtonStyle {
     public init() { }
 
     public func makeBody(configuration: Configuration) -> some View {
         FloatingCircle(label: configuration.label)
+            .keyPress(isPressed: configuration.isPressed)
             .dynamicTypeSize(...FloatingButton.largestTextSize)
             .accessibilityShowsLargeContentViewer()
     }
@@ -40,10 +42,10 @@ private struct FloatingCircle<Label: View>: View {
         label
             .labelStyle(.iconOnly)
             .font(.ppFloatingIcon)
-            .foregroundStyle(.pp(.textPrimary))
+            .foregroundStyle(.pp(.onPrimaryKey))
             .frame(width: diameter, height: diameter)
+            .background(Circle().fill(.pp(.accent)))
             .contentShape(.circle)
-            .glassEffect(.regular.interactive(), in: .circle)
     }
 }
 
@@ -72,24 +74,30 @@ public struct FloatingButtonRoom: View {
 /// laid out unseen, `sides` in from the screen's sides and its bottom `bottom` up from the safe
 /// area's. Laid out over the copy rather than placed from its measured height, so when the key
 /// it sits over changes in an animated update, the button moves under that update's animation:
-/// placed from a measurement, which lands after the update, it jumped.
+/// placed from a measurement, which lands after the update, it jumped. While `isLow`, with no
+/// copy, its bottom sits where the key's ledge's bottom would, and it rises to its place above
+/// the key, or comes back down, on the update that brings the key in or takes it away.
 struct FloatingPlace<Key: View, Floating: View>: View {
     let key: Key
     let floating: Floating
     let gap: CGFloat
     let sides: CGFloat
     let bottom: CGFloat
+    let isLow: Bool
 
     var body: some View {
         VStack(alignment: .trailing, spacing: gap) {
             floating
                 .buttonStyle(.floating)
                 .hiddenBehindDrawer()
-            key.hidden()
+            if !isLow {
+                key.hidden()
+            }
         }
         .padding(.horizontal, sides)
         .padding(.bottom, bottom)
-        .frame(maxHeight: .infinity, alignment: .bottom)
+        // Trailing, for when there is no copy of the key to span the width.
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
         .ignoresSafeArea(.keyboard)
     }
 }

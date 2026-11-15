@@ -18,9 +18,11 @@ extension RoutineScreen {
     /// beat the first exercise is brought into view and grows (`leave()`), one sequence on the
     /// screen's task, which the screen going away stops. A second press in the meantime does
     /// nothing. The press leaves the drawer open, as Dave decided (2026-11-14): a routine
-    /// switched to before the workout begins stops Start (`check(_:)`).
+    /// switched to before the workout begins stops Start (`check(_:)`). Start stays up a moment
+    /// after the last Remove, until the sheet has gone (`settleFoot(after:)`), and does nothing
+    /// then.
     func pressStart() {
-        guard phase == .idle, session.workout == nil else { return }
+        guard phase == .idle, session.workout == nil, !routine.exercises.isEmpty else { return }
         // The list's end lies under the first row until it grows, so a short routine may have
         // nowhere to scroll it to: room under the end, out of sight, lets it go. It goes in
         // ahead of the scroll: a scroll in the same transaction stops at the old end.

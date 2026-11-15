@@ -9,10 +9,14 @@ extension View {
     ///
     /// So a touch outside the title ends its edit in the same motion as its own work: a tap on
     /// a row opens the row, a hold lifts it, a drag scrolls, never a first tap that only closes
-    /// the keyboard. Touches on the title keep editing, to move the caret or select.
-    public func onTouchDownOutsideTitle(perform action: @escaping () -> Void) -> some View {
+    /// the keyboard. Touches on the title keep editing, to move the caret or select, and run
+    /// `onTitle` instead, so a tap that ends somewhere else can tell where it began.
+    public func onTouchDownOutsideTitle(
+        onTitle: @escaping () -> Void = { },
+        perform action: @escaping () -> Void,
+    ) -> some View {
         #if os(iOS)
-        gesture(TouchDownOutsideTitle(action: action))
+        gesture(TouchDownOutsideTitle(action: action, onTitle: onTitle))
         #else
         self
         #endif
@@ -26,6 +30,7 @@ extension View {
 /// were.
 private struct TouchDownOutsideTitle: UIGestureRecognizerRepresentable {
     var action: () -> Void
+    var onTitle: () -> Void
 
     func makeUIGestureRecognizer(context _: Context) -> Recognizer {
         Recognizer()
@@ -33,10 +38,12 @@ private struct TouchDownOutsideTitle: UIGestureRecognizerRepresentable {
 
     func updateUIGestureRecognizer(_ recognizer: Recognizer, context _: Context) {
         recognizer.onTouchDown = action
+        recognizer.onTitleTouchDown = onTitle
     }
 
     final class Recognizer: UIGestureRecognizer {
         var onTouchDown: () -> Void = { }
+        var onTitleTouchDown: () -> Void = { }
 
         override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
             super.touchesBegan(touches, with: event)
@@ -47,7 +54,9 @@ private struct TouchDownOutsideTitle: UIGestureRecognizerRepresentable {
                 let point = touch.location(in: nil)
                 return fields.contains { $0.touchTargetInWindow.contains(point) }
             }
-            if !onTitle {
+            if onTitle {
+                onTitleTouchDown()
+            } else {
                 onTouchDown()
             }
             state = .failed

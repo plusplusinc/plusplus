@@ -56,10 +56,13 @@ extension RoutineScreen {
         }
     }
 
-    func delete(_ id: RoutineExercise.ID) {
+    /// Removes a row. The last one takes Start down and the + with it after `footDelay`: at once
+    /// from a swipe, and from the exercise sheet's Remove once the sheet has gone.
+    func delete(_ id: RoutineExercise.ID, footDelay: Duration = .zero) {
         withAnimation(.railChange) {
             routine.remove(id)
         }
+        settleFoot(after: footDelay)
     }
 
     /// Adds a picked exercise. Its row takes its place at the rail's end as the sheet starts down,
@@ -82,6 +85,7 @@ extension RoutineScreen {
         withAnimation(.linear(duration: RailArrival.appendFade)) {
             routine.exercises.append(row)
         }
+        settleFoot(after: Self.pickerGone)
         // Beats on deadlines, not this animation's completion, which once never came, and the
         // row stayed arriving for good (`RailArrival`).
         Task {
@@ -114,7 +118,8 @@ extension RoutineScreen {
     }
 
     /// From a pick to the picker sheet's dismissal having slid it away, when the scroll to the
-    /// list's end starts, so it runs in view. Tuned to where the append animation's completion
+    /// list's end starts, so it runs in view, and when the first exercise's Start rises with the
+    /// + (`settleFoot(after:)`). Tuned to where the append animation's completion
     /// used to start it, late behind the dismissal: 0.43 to 0.47 s into the sheet's slide.
     static let pickerGone: Duration = .milliseconds(500)
 

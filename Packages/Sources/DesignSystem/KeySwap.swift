@@ -1,5 +1,13 @@
 import SwiftUI
 
+extension Animation {
+    /// A key going down and out of sight, the first half of a swap: easing in, so it is still in
+    /// sight until it clears the edge.
+    public static let keyDrop = Animation.easeIn(duration: PrimaryKeyButtonStyle.swapHalf)
+    /// A key coming up into place, the second half of a swap.
+    public static let keyRise = Animation.smooth(duration: PrimaryKeyButtonStyle.swapHalf)
+}
+
 /// The presented key, with the swap it is in, which it owns. The bar's reactions to a change come
 /// only after the update that drew it, so the stage is what that update draws from: the key as it
 /// was while it is presented, so a key swapped leaves with its own words; the live face once the
@@ -55,7 +63,7 @@ struct StagedKey<Face: Equatable & Identifiable, Content: View>: View {
         live = new
         var next = stage
         if next.follow(to: new) {
-            withAnimation(.easeIn(duration: PrimaryKeyButtonStyle.swapHalf)) { stage = next }
+            withAnimation(.keyDrop) { stage = next }
         } else if next != stage {
             stage = next
         }
@@ -76,7 +84,7 @@ struct StagedKey<Face: Equatable & Identifiable, Content: View>: View {
         // From out of sight: in the same update, the next key took up the old one's place.
         await Task.yield()
         guard !Task.isCancelled, stage.isOut else { return }
-        withAnimation(.smooth(duration: PrimaryKeyButtonStyle.swapHalf)) {
+        withAnimation(.keyRise) {
             stage.advance(live: live)
         }
     }

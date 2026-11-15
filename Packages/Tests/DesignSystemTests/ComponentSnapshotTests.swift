@@ -10,6 +10,7 @@ import Testing
 @Suite("Components")
 struct ComponentSnapshotTests {
     private static let screenWidth: CGFloat = 390
+    private static let screenHeight: CGFloat = 844
 
     /// A row's name and its plan in parts: the sets and reps or time, then the weight.
     private struct Row: Identifiable {
@@ -19,7 +20,8 @@ struct ComponentSnapshotTests {
     }
 
     /// The routine's equipment shows under the title; Start shows once there is a row, with Add
-    /// exercise's + floating above it. Where the + is with no Start is `PrimaryKeyBarTests`'.
+    /// exercise's + floating above it. With no row, "No exercises" shows mid-screen and the + sits
+    /// low, where Start's bottom would be. Where the + is, to the point, is `PrimaryKeyBarTests`'.
     private func content(
         name: String = "",
         suggestion: String? = nil,
@@ -46,18 +48,22 @@ struct ComponentSnapshotTests {
             }
         }
         .padding(Spacing.md)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .primaryKeyBar(isPresented: !rows.isEmpty) {
+        // A whole screen's height while empty, so the line sits mid-screen as in the app.
+        .frame(
+            maxWidth: .infinity,
+            minHeight: rows.isEmpty ? Self.screenHeight : nil,
+            alignment: .topLeading,
+        )
+        .emptyNote("No exercises", isEmpty: rows.isEmpty) { }
+        .primaryKeyBar(isPresented: !rows.isEmpty, floatsLow: rows.isEmpty) {
             Button("Start", systemImage: "play.fill") { }
         } floating: {
-            if !rows.isEmpty {
-                Button("Add exercise", systemImage: "plus") { }
-            }
+            Button("Add exercise", systemImage: "plus") { }
         }
         .background(Color.pp(.background))
     }
 
-    @Test("A new routine: title at rest")
+    @Test("A new routine: title at rest, No exercises mid-screen, and the + low")
     func newRoutine() {
         assertThemedSnapshots(of: content(), width: Self.screenWidth)
     }
