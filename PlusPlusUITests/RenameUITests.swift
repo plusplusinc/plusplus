@@ -96,6 +96,10 @@ final nonisolated class RenameUITests: XCTestCase {
             let watched = watchFrames(of: [title], for: Self.keyboardAvoidanceWindow)
             XCTAssertEqual(watched[0], field, "The title's frame moved")
         }
+        XCTContext.runActivity(named: "Add exercise fades out over the keyboard") { _ in
+            let add = XCUIApplication().buttons["Add exercise"]
+            XCTAssertTrue(add.disappears(), "Add exercise stayed up with the keyboard")
+        }
         // The watch above gives the tip time to show.
         XCUIApplication().dismissKeyboardTip()
         // Read once the keyboard has risen and UIKit would have scrolled.

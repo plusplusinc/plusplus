@@ -362,7 +362,7 @@ private struct AddExerciseButton: View {
         Button("Add exercise", systemImage: "plus", action: action)
             .opacity(isEditingTitle ? 0 : 1)
             .allowsHitTesting(!isEditingTitle)
-            .accessibilityHidden(isEditingTitle)
+            .accessibilityShown(!isEditingTitle)
             .animation(.easeOut(duration: RoutineScreen.barFade), value: isEditingTitle)
     }
 }
