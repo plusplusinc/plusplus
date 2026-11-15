@@ -22,7 +22,10 @@
 # simulator, "PlusPlus <worktree>" (see scripts/common.sh), is shut down and deleted with it, and
 # so is the recorded simulator of a worktree removed by hand; this is the only script that deletes
 # a simulator. A worktree simulator booted but unused for 30 minutes (PLUSPLUS_SIM_IDLE_MINUTES)
-# is shut down, not deleted. A file or folder in .slices/ goes too once every board card it names
+# is shut down, and one shut down and unused for a day (PLUSPLUS_SIM_DELETE_HOURS) is deleted
+# though its worktree stays, unless an xcodebuild runs in that worktree; the worktree's next run
+# creates it again. The main checkout's simulator, and one with no record (a person's), are never
+# deleted for sitting unused. A file or folder in .slices/ goes too once every board card it names
 # (by item id, PVTI_...) is Done, unless it is named after a live worktree or branch; one that names none, or a
 # card the board doesn't have, is kept. Last, it keeps the simulator runtimes on the newest iOS,
 # Xcode's SDK: it downloads that runtime when missing, then deletes older ones (see the end).
@@ -72,15 +75,17 @@ run() {
     [ "$DRY_RUN" -eq 1 ] || "$@" > /dev/null
 }
 
-# Shuts down and deletes a worktree's own simulator, when it has one. Fails only when it could not
-# delete one.
+# Shuts down and deletes a worktree's own simulator, when it has one, saying why when given a
+# reason. Fails only when it could not delete one.
+#
+#   delete_simulator <worktree path or name> [reason]
 delete_simulator() {
     local name udid state
     name=$(worktree_simulator "$1")
     read -r udid state < <(simulator_udid "$name") || return 0
-    echo "tidy: delete simulator \"$name\""
+    echo "tidy: delete simulator \"$name\"${2:+, $2}"
     [ "$DRY_RUN" -eq 1 ] && return 0
-    # The worktree is already gone, so a failure here says so and lets the rest of the run go on.
+    # A failure here says so and lets the rest of the run go on.
     if ! { [ "$state" != Booted ] || xcrun simctl shutdown "$udid"; } || ! xcrun simctl delete "$udid"; then
         echo "tidy: could not delete simulator \"$name\" ($udid); agents are denied simctl delete, so ask the maintainer to delete it" >&2
         return 1
@@ -222,6 +227,19 @@ if [ -d "$RECORDS" ]; then
         fi
     done
 fi
+
+# A worktree simulator unused for a day, though its worktree stays: delete it and drop its record,
+# and ensure_simulator creates both again on the worktree's next run. This comes before the idle
+# shutdown below, which only shuts one down, so one booted at the start of the run waits for the
+# next. In a dry run a worktree listed above as removed still shows here; it is skipped.
+while IFS=$'\t' read -r name idle; do
+    for path in "${removed[@]+"${removed[@]}"}"; do
+        [ "$(basename "$path")" = "$name" ] && continue 2
+    done
+    if delete_simulator "$name" "unused for $((idle / 3600))h" && [ "$DRY_RUN" -eq 0 ]; then
+        rm "$RECORDS/$name"
+    fi
+done < <(stale_worktree_simulators)
 
 # A worktree simulator left booted and idle by an agent that ended without shutting it down.
 while IFS=$'\t' read -r name udid; do
