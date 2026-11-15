@@ -11,9 +11,10 @@ import SwiftUI
 /// An empty `text` is an unnamed title, which shows its suggestion in its place, in white, or
 /// with none the placeholder, in gray. The placeholder is never the field's contents: tapping it
 /// puts the `_` under its first letter, typing replaces it, and ending with nothing keeps it. A
-/// suggestion opens as text to edit, the caret at its end; committed unchanged it stays a
-/// suggestion (`text` stays empty), changed it becomes the title, and cleared the title is
-/// unnamed again.
+/// suggestion opens as text to edit, the caret at its end; left unchanged it stays a suggestion
+/// (`text` stays empty), changed it becomes the title, and cleared the title is unnamed again.
+/// `text` follows the edit as it is typed, by that rule (`committed(_:from:)`), and the field
+/// takes up its trimmed form once the edit ends.
 ///
 /// The suggestion may change at any time. When it does, the old title fades out and the new one
 /// types in, each letter shuffling briefly through the name's other letters in blue just behind
@@ -88,8 +89,9 @@ public struct EditableTitle: View {
         return (String(replacement.map { $0.isNewline ? " " : $0 }), false)
     }
 
-    /// The title an edit leaves behind: trimmed, and empty, which leaves the title unnamed, when
-    /// nothing is left or it is the suggestion the edit started from, unchanged.
+    /// The title an edit gives, as it is typed and once it ends: trimmed, and empty, which leaves
+    /// the title unnamed, when nothing is left or it is the suggestion the edit started from,
+    /// unchanged.
     public static func committed(_ draft: String, from suggestion: String? = nil) -> String {
         let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed == suggestion ? "" : trimmed
@@ -156,6 +158,14 @@ public struct EditableTitle: View {
                 draft = editedSuggestion ?? draft
             } else {
                 commit()
+            }
+        }
+        // Each change reaches `text` as it is typed, so the title holds what was typed however
+        // the edit is left: by Return or a touch, or by the app leaving the foreground or the
+        // screen going away, which end no edit.
+        .onChange(of: draft) { _, typed in
+            if isEditing {
+                text = Self.committed(typed, from: editedSuggestion)
             }
         }
         .onChange(of: text) { _, newText in

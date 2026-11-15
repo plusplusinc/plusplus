@@ -3,7 +3,8 @@ import XCTest
 /// The ++ drawer and the Routines screen over saved routines: switching, and the drill-in from
 /// the Routines screen. Opening counting as using is `RoutineStoreRecencyTests`', through the
 /// `openRoutine` a switch already shows it called. Names come from the muscle groups
-/// (`-fallbackNames`). Saving and relaunching are `RoutineAutosaveUITests`'.
+/// (`-fallbackNames`). Saving and relaunching are `RoutineAutosaveUITests`', but for one relaunch
+/// that keeps names typed on pushed routines and left with no Return.
 ///
 /// `nonisolated` because XCTestCase's initializers are; the test drives the UI on the main actor.
 final nonisolated class RoutineDrawerUITests: XCTestCase {
@@ -53,6 +54,19 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
         }
         drawerEditMovesUp(in: app)
         routinesScreenDrillsIn(in: app, title: title)
+        XCTContext.runActivity(named: "Names typed without Return survive a relaunch") { _ in
+            app.relaunch()
+            openDrawer(in: app)
+            app.buttons["Routines"].tap()
+            XCTAssertTrue(app.drawerTitle.disappears(), "Routines did not close the drawer")
+            let renamed: Set = ["Pulls", "Chest day"]
+            XCTAssertEqual(
+                reading(renamed.isSubset(of: app.routineRowLabels), becoming: true, within: 2),
+                true,
+                "Routines lists \(app.routineRowLabels) after a relaunch",
+            )
+            attach(named: "renamed-after-relaunch")
+        }
     }
 
     /// With the drawer open on Back over Chest, Chest showing: editing Chest puts it first in the
@@ -76,7 +90,8 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
     }
 
     /// The Routines screen lists every routine, latest first; a row or + pushes a routine with a
-    /// back chevron in place of ++, which the chevron or an edge swipe pops.
+    /// back chevron in place of ++, which the chevron or an edge swipe pops, keeping a name still
+    /// being typed.
     @MainActor
     private func routinesScreenDrillsIn(in app: XCUIApplication, title: XCUIElement) {
         XCTContext.runActivity(named: "Routines lists every routine, and a row drills in") { _ in
@@ -94,10 +109,14 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
             XCTAssertEqual(title.value(becoming: "Back"), "Back", "The row pushed no routine")
             XCTAssertFalse(app.buttons["Menu"].exists, "++ shows on a pushed routine")
             attach(named: "pushed-routine")
+            typeName("Pulls", over: "Back", in: app, title: title)
             app.edgeSwipe()
             XCTAssertTrue(title.disappears(), "The edge swipe did not pop")
             XCTAssertFalse(app.drawerTitle.exists, "The edge swipe opened the drawer")
             XCTAssertTrue(app.buttons["Menu"].appears(), "No ++ back on the Routines screen")
+            let renamed = ["Pulls", "Chest"]
+            XCTAssertEqual(reading(app.routineRowLabels, becoming: renamed, within: 2), renamed)
+            attach(named: "edge-swipe-renamed")
         }
         XCTContext.runActivity(named: "+ pushes a new routine, and the chevron pops it") { _ in
             app.buttons["New routine"].tap()
@@ -109,16 +128,44 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
             app.drawerTitle.tap()
             XCTAssertTrue(app.drawerTitle.disappears(), "Tapping the title left the drawer open")
         }
+        XCTContext.runActivity(named: "The chevron keeps a name still being typed") { _ in
+            app.buttons.matching(identifier: "routines.row").element(boundBy: 1).tap()
+            XCTAssertEqual(title.value(becoming: "Chest"), "Chest", "The row pushed no routine")
+            typeName("Chest day", over: "Chest", in: app, title: title)
+            app.navigationBars.buttons.element(boundBy: 0).tap()
+            XCTAssertTrue(title.disappears(), "The chevron did not pop")
+            let renamed = ["Chest day", "Pulls"]
+            XCTAssertEqual(reading(app.routineRowLabels, becoming: renamed, within: 2), renamed)
+            attach(named: "chevron-renamed")
+        }
         drawerListsThree(in: app, title: title)
     }
 
+    /// Edits the pushed routine's title from `old` to `name`, with no Return, so it is still
+    /// being edited.
+    @MainActor
+    private func typeName(
+        _ name: String,
+        over old: String,
+        in app: XCUIApplication,
+        title: XCUIElement,
+    ) {
+        XCTAssertNoThrow(try title.tapToEditAtEnd(keyboard: app.keyboards.element))
+        let delete = XCUIKeyboardKey.delete.rawValue
+        title.typeText(String(repeating: delete, count: old.count) + name)
+        if !name.isEmpty {
+            XCTAssertEqual(title.value(becoming: name), name)
+        }
+    }
+
     /// The new routine left untouched lists nowhere, and with four saved the drawer lists the
-    /// three latest, the one made last first.
+    /// three latest, the one made last first. A generated name cleared and left with the chevron
+    /// comes back.
     @MainActor
     private func drawerListsThree(in app: XCUIApplication, title: XCUIElement) {
         XCTContext.runActivity(named: "An untouched new one isn't listed; the drawer has 3") { _ in
             let listedBefore = Set(app.routineRowLabels)
-            XCTAssertEqual(listedBefore, ["Chest", "Back"], "The untouched new one was listed")
+            XCTAssertEqual(listedBefore, ["Chest day", "Pulls"], "The untouched new one was listed")
             var latest = ""
             for exercise in ["Backward arm circles", "Band pull-apart, Band"] {
                 app.buttons["New routine"].tap()
@@ -127,6 +174,7 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
                 let unnamed = { title.value as? String == "New routine" }
                 XCTAssertFalse(reading(unnamed(), becoming: false, within: 2), "Still unnamed")
                 latest = title.value as? String ?? ""
+                typeName("", over: latest, in: app, title: title)
                 app.navigationBars.buttons.element(boundBy: 0).tap()
                 XCTAssertTrue(title.disappears(), "The chevron did not pop")
             }
@@ -135,6 +183,7 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
             let listed = drawerRoutines(in: app)
             XCTAssertEqual(listed.count, 3, "The drawer lists \(listed), not the latest three")
             XCTAssertEqual(listed.first, latest, "The routine made last isn't first")
+            attach(named: "cleared-generated-kept")
             app.drawerTitle.tap()
             XCTAssertTrue(app.drawerTitle.disappears(), "Tapping the title left the drawer open")
         }
