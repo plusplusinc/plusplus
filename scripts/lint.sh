@@ -33,7 +33,12 @@ if $whole_tree || [ "${#swift_files[@]}" -gt 0 ]; then
         "$swiftformat" --quiet ${targets[@]+"${targets[@]}"} $($whole_tree && echo .)
         "$swiftlint" lint --fix --quiet --force-exclude ${targets[@]+"${targets[@]}"} > /dev/null || true
     fi
-    "$swiftformat" --lint --quiet ${targets[@]+"${targets[@]}"} $($whole_tree && echo .) || status=1
+    # Not --quiet: it drops the lines that say which file and rule, leaving only "did not pass".
+    if ! format=$("$swiftformat" --lint ${targets[@]+"${targets[@]}"} $($whole_tree && echo .) 2>&1); then
+        grep -E ': (error|warning): ' <<< "$format" >&2 || printf '%s\n' "$format" >&2
+        echo "SwiftFormat: scripts/lint.sh --fix formats these." >&2
+        status=1
+    fi
     "$swiftlint" lint --strict --quiet --force-exclude ${targets[@]+"${targets[@]}"} || status=1
 fi
 

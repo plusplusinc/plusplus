@@ -51,7 +51,7 @@ after the last set, the key reads Finish workout and finishes it. End takes ++'s
 and asks "End this workout?": Finish workout, offered once a set is logged, keeps it, and
 launch then opens a new routine; Discard workout keeps nothing. Either ends the stored workout
 at once and stops the motion playing: a blob goes at once, and the list shrinks back from
-where it is drawn, though a move's next row fills in only late in the shrink. The time, at top right, pauses
+where it is drawn, though a move's next row fills in only after the shrink. The time, at top right, pauses
 and resumes. A workout survives a relaunch, keeps the screen on, and locks the drawer, and
 every edit stays on. The app shows only in dark
 appearance (`Config/Base.xcconfig`); the light palette is seen only in snapshots.

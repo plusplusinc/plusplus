@@ -51,12 +51,19 @@ project board.
    never by its canvas label ("3D") or a card's item id. Record the answers in the card, make cards for what lands out of
    scope, and start a product card only on the maintainer's yes.
 5. Otherwise say in two or three lines where the slice stands and what happens next, then do
-   it. Ask only for product calls.
+   it. Ask only for product calls: what they would see or feel using the app by hand. A choice
+   only a scripted build can reach, or a safety default nobody meets unless something breaks,
+   is yours: make it, and say so in a line.
 
 ## Run the slice
 
-- Starting a slice: create its worktree as `CLAUDE.md`'s Branching says (the main checkout
-  stays on `main`), move its card to In Progress, sharpen its acceptance criteria in the card
+- Starting a slice: build it where your subagents can write. A session Claude Code started in a
+  worktree of its own (a checkout under `.claude/worktrees/`) builds it there, on that
+  worktree's branch, or starts each builder with `isolation: "worktree"` when it leads more
+  than one card; it adds no worktree for a subagent, since Claude Code refuses its agents'
+  writes in any worktree but the session's and the agent's own. A session in the main checkout
+  creates the slice's worktree as `CLAUDE.md`'s Branching says (the main checkout stays on
+  `main`). Then move its card to In Progress, sharpen its acceptance criteria in the card
   itself (`scripts/board.sh body`), then run the planner, the builder, the verifier, and a
   builder again for what the verifier found, as `.claude/agents/` describes. Give each subagent
   the card id; it reads the criteria with `scripts/board.sh show`. Every file path you give a
@@ -159,7 +166,8 @@ project board.
   drawn before it is built or asked. The first is the platform's
   own control for the job (principle 4, "Native bones"), and each other option says what it does
   that the system one can't. An API offered as an option is one whose Apple doc (sosumi) says it
-  works on iPhone. Draw them as phone-size frames on a Design canvas, a claude.ai artifact made
+  works on iPhone, and what a system control can or can't do is answered from its doc, read
+  then, never from memory. Draw them as phone-size frames on a Design canvas, a claude.ai artifact made
   from the Design type (Artifact `quickstart` with intent "design"), each decision numbered and
   each option lettered so the maintainer answers in one line ("1A, 2B"), options that differ
   only in how they move drawn moving (two stills that look alike read as one option), link it
