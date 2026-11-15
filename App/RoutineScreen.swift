@@ -10,7 +10,8 @@ import WorkoutStore
 struct RoutineScreen: View {
     // What the `RoutineScreen+` extensions read is internal, not private, so they can be apart.
 
-    @State var routine: Routine
+    /// The routine as drawn. Written only through `routine`, which saves each change.
+    @State private var shownRoutine: Routine
     /// Saves every change, and opens the drawer.
     let session: RoutineSession
     private let namer: RoutineNamer
@@ -105,12 +106,25 @@ struct RoutineScreen: View {
 
     /// Shows the routine the session opened. A switch to another gives a new screen.
     init(session: RoutineSession, namer: RoutineNamer, isPushed: Bool = false) {
-        _routine = State(initialValue: session.opened)
+        _shownRoutine = State(initialValue: session.opened)
         _opensOnCurrent = State(initialValue: session.workout != nil)
         _phase = State(initialValue: WorkoutPhase(hasWorkout: session.workout != nil))
         self.session = session
         self.namer = namer
         self.isPushed = isPushed
+    }
+
+    /// The routine on screen. Every change to it is saved as it is made, and a write that changes
+    /// nothing saves nothing, so a routine opened and left alone is never saved. Saved here, not
+    /// from an `onChange` of the routine, which SwiftUI skips when the routine changes again in a
+    /// frame its action already ran in, losing the last key of a name typed fast.
+    var routine: Routine {
+        get { shownRoutine }
+        nonmutating set {
+            guard newValue != shownRoutine else { return }
+            shownRoutine = newValue
+            session.save(newValue)
+        }
     }
 
     /// The name made for the routine from its exercises, which a chosen name hides and which
@@ -141,10 +155,6 @@ struct RoutineScreen: View {
             session: session,
             end: end,
         )
-        // `onChange` skips the first value, so a routine opened and left alone is never saved.
-        .onChange(of: routine) { _, changed in
-            session.save(changed)
-        }
         .sensoryFeedback(.impact(weight: .light, intensity: 0.6), trigger: landings)
         .sensoryFeedback(.impact(weight: .medium), trigger: setLogs)
         .sensoryFeedback(.impact(weight: .light), trigger: sideLogs)
@@ -167,7 +177,7 @@ struct RoutineScreen: View {
             ZStack(alignment: .topLeading) {
                 VStack(alignment: .leading, spacing: Spacing.md) {
                     EditableTitle(
-                        text: $routine.name,
+                        text: Binding { routine.name } set: { routine.name = $0 },
                         isEditing: $isEditingTitle,
                         placeholder: Self.defaultName,
                         suggestion: generatedName,
