@@ -236,7 +236,7 @@ struct RoutineScreen: View {
                                 supersetActions(item.id)
                             }
                             .accessibilityIdentifier("routine.exercise")
-                            // Outermost, as the system's swipe actions are, or their Delete is
+                            // Outermost, as the system's swipe actions are, or their Remove is
                             // folded into the row's accessibility element, where VoiceOver and
                             // the UI tests never find it. The row's tap stays on where the swipe
                             // is off.

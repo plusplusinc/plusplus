@@ -25,7 +25,7 @@ keeps across launches and which opens as text to edit. Each exercise in a routin
 own sets, reps or time, and weight, starting at the exercise's defaults and saved with the
 routine; its row reads them, saying when a number is per side, and the routine's equipment
 shows under its title. Tapping a row opens its values in a sheet, a row per value with a − / +
-stepper, and Delete in its menu. The sheet alone shows the row's rest after each set, the last
+stepper, and Remove in its menu. The sheet alone shows the row's rest after each set, the last
 included: Auto, tagged, while it follows the reps (by planned reps and the kind of exercise,
 a row shorter for bodyweight; a timed set's own time; none for a stretch), until a step sets it
 by hand; an Auto switch inside the opened row brings either back. A superset's members share
