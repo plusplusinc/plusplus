@@ -28,7 +28,7 @@ routine; its row reads them, saying when a number is per side, and the routine's
 shows under its title. Times read as the system writes them: a value narrow ("1m 35s"), a
 sentence condensed ("1 min 35 sec"), VoiceOver in full words; weights in their own unit ("27.5
 lb"). Tapping a row opens its values in a sheet, a row per value with a − / + stepper, and
-Delete in its menu; the sheet grows to fit a row as it opens. Weight, a timed set's time, and
+Remove in its menu; the sheet grows to fit a row as it opens. Weight, a timed set's time, and
 rest also open a ruler under the keys, dragged or flicked to any tick (half the weight's unit,
 or 5 s), − / + going on to the next mark; while it shows, the value keeps one shape ("25.0 lb",
 "1m 0s") and its digits roll the way it went. The sheet alone shows the row's rest after each

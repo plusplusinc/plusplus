@@ -209,9 +209,9 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             attach(named: "rail-after-add-ax5")
             // The last row: the first, its plan making it taller, has its middle under the bar.
             app.lastExerciseRow.swipeOpen()
-            XCTAssertTrue(app.buttons["Delete"].appears(), "A swipe did not open the row")
+            XCTAssertTrue(app.buttons["Remove"].appears(), "A swipe did not open the row")
             app.swipeUp()
-            XCTAssertTrue(app.buttons["Delete"].disappears(), "A scroll left the row open")
+            XCTAssertTrue(app.buttons["Remove"].disappears(), "A scroll left the row open")
             app.swipeUp()
             XCTAssertTrue(app.buttons["Start"].appears())
             attach(named: "rail-end-ax5")

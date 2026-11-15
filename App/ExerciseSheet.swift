@@ -20,7 +20,7 @@ struct RoundSteps {
 }
 
 /// A routine row's values, a `ValueRow` for each part its exercise has, under the exercise's
-/// equipment. A row's stepper opens one at a time. Changes apply as they're made; Delete is in
+/// equipment. A row's stepper opens one at a time. Changes apply as they're made; Remove is in
 /// the menu.
 struct ExerciseSheet: View {
     @Binding var item: RoutineExercise
@@ -94,7 +94,7 @@ struct ExerciseSheet: View {
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Menu("More", systemImage: "ellipsis") {
-                        Button("Delete", systemImage: "trash", role: .destructive) {
+                        Button("Remove", systemImage: "minus.circle", role: .destructive) {
                             dismiss()
                             onDelete()
                         }

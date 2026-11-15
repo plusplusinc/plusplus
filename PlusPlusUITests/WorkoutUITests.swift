@@ -86,7 +86,7 @@ final nonisolated class WorkoutUITests: XCTestCase {
             )
             attach(named: "workout-started")
             current.swipeOpen()
-            XCTAssertFalse(app.buttons["Delete"].appears(within: 1), "The current row swiped")
+            XCTAssertFalse(app.buttons["Remove"].appears(within: 1), "The current row swiped")
         }
     }
 
