@@ -33,6 +33,12 @@ extension RoutineExercise {
         }
     }
 
+    /// The weight as its open row reads it while a ruler sets it, always one decimal or two,
+    /// "25.0 lb", "27.5 lb/side", so its digits keep their count as the ruler turns.
+    public func dialedWeight(locale: Locale = .current) -> String {
+        qualified(plan.weight?.text(locale: locale, decimals: 1 ... 2) ?? "", .weight)
+    }
+
     /// A part's value in words, for VoiceOver: "3 sets", "10 reps per side", "20 pounds per
     /// side".
     public func spokenValue(of part: PlanPart, locale: Locale = .current) -> String {
@@ -114,7 +120,8 @@ extension RoutineExercise {
     /// plan is stored within, a bar's from the empty bar; nil without a weight.
     public var weightRange: ClosedRange<Double>? {
         guard let weight = shownWeight, let load = exercise.load else { return nil }
-        let lightest = load == .bar ? Weight.emptyBar(weight.unit).amount : load.step(in: weight.unit)
+        let lightest = load == .bar ? Weight.emptyBar(weight.unit).amount : load
+            .step(in: weight.unit)
         return lightest ... PlanLimits.weight.upperBound
     }
 
@@ -153,7 +160,8 @@ extension RoutineExercise {
         let normalized = trimmed
             .replacingOccurrences(of: separator, with: ".")
             .replacingOccurrences(of: ",", with: ".")
-        guard !normalized.isEmpty, normalized.allSatisfy({ $0.isASCII && ($0.isNumber || $0 == ".") }),
+        guard !normalized.isEmpty,
+              normalized.allSatisfy({ $0.isASCII && ($0.isNumber || $0 == ".") }),
               normalized.count(where: { $0 == "." }) <= 1,
               let amount = Double(normalized), amount.isFinite
         else { return nil }

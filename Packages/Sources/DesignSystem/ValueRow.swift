@@ -161,11 +161,10 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
                 }
                 if let entry, isOpen {
                     field(entry)
+                } else if ruler != nil {
+                    rulerValue
                 } else {
-                    Text(AttributedString.monoNumbers(value, font: .ppRowTitleNumber))
-                        .font(.ppRowTitle)
-                        .contentTransition(.numericText())
-                        .foregroundStyle(.pp(.textPrimary))
+                    valueText(value)
                         .multilineTextAlignment(stacked ? .leading : .trailing)
                 }
                 if stacked {
@@ -289,6 +288,27 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
                 .frame(maxWidth: .infinity)
         }
         .buttonRepeatBehavior(.enabled)
+    }
+
+    private func valueText(_ text: String) -> some View {
+        Text(AttributedString.monoNumbers(text, font: .ppRowTitleNumber))
+            .font(.ppRowTitle)
+            .contentTransition(.numericText())
+            .foregroundStyle(.pp(.textPrimary))
+    }
+
+    /// A ruler's value, its number apart from the words after it, so a decimal the open row adds
+    /// ("25.0 lb") widens the number's own frame as the row opens and slides under its edge as it
+    /// closes. In one text, the going ".0" faded over the unit while the number slid into it.
+    private var rulerValue: some View {
+        let number = value.prefix { $0.isNumber || $0 == "." || $0 == "," }
+        return HStack(spacing: 0) {
+            valueText(String(number))
+                // Only the trailing side clips: the digits roll above and below the line, and
+                // as the row opens they slide in from past the frame's leading edge.
+                .mask(Rectangle().padding([.vertical, .leading], -Spacing.xl))
+            valueText(String(value.dropFirst(number.count)))
+        }
     }
 
     /// Always laid out, so nothing moves as it shows or hides; hidden, VoiceOver skips it.

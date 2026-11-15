@@ -79,13 +79,13 @@ extension SetTarget {
 
 extension Weight {
     /// "50", "142.5", "1.25": no trailing zeros, at most two decimals.
-    func number(locale: Locale) -> String {
-        amount.formatted(.number.precision(.fractionLength(0 ... 2)).locale(locale))
+    func number(locale: Locale, decimals: ClosedRange<Int> = 0 ... 2) -> String {
+        amount.formatted(.number.precision(.fractionLength(decimals)).locale(locale))
     }
 
-    /// "50 lb", "2.5 kg".
-    func text(locale: Locale) -> String {
-        number(locale: locale) + noBreakSpace + unit.rawValue
+    /// "50 lb", "2.5 kg"; with `decimals` 1 ... 2, "50.0 lb".
+    func text(locale: Locale, decimals: ClosedRange<Int> = 0 ... 2) -> String {
+        number(locale: locale, decimals: decimals) + noBreakSpace + unit.rawValue
     }
 
     /// "50 pounds", "1 pound", "2.5 kilograms".

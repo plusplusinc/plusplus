@@ -125,7 +125,11 @@ struct ExerciseSheet: View {
         else {
             return nil
         }
-        return ValueEntry(text: $weightText, unit: entry.unit, keysAbovePad: Self.weightKeysAbovePad)
+        return ValueEntry(
+            text: $weightText,
+            unit: entry.unit,
+            keysAbovePad: Self.weightKeysAbovePad,
+        )
     }
 
     /// The weight, dragged on a ruler in its open row.
@@ -151,8 +155,13 @@ struct ExerciseSheet: View {
         }
     }
 
+    /// While the ruler shows, the weight keeps one decimal, so its digits don't come and go as it
+    /// turns. The ".0" changes in the open's own transaction, so the value's numeric transition
+    /// slides it in and out with the row.
     private func value(of part: SheetPart) -> String {
         switch part {
+        case .plan(.weight) where Self.weightInput == .ruler && open == part:
+            item.dialedWeight(locale: locale)
         case let .plan(plan): item.value(of: plan, locale: locale)
         case .restAfterRound: rounds?.value().text ?? ""
         }
@@ -251,7 +260,9 @@ struct ExerciseSheet: View {
     /// put.
     private func toggle(_ part: SheetPart, _ scroller: ScrollViewProxy) {
         let opening = open != part
-        if Self.weightInput == .pad, opening, part == .plan(.weight), let entry = item.weightEntry(locale: locale) {
+        if Self.weightInput == .pad, opening, part == .plan(.weight),
+           let entry = item.weightEntry(locale: locale)
+        {
             weightText = entry.number
             // The pad covers the lower half; the full sheet keeps the open row and its keys
             // above it.
