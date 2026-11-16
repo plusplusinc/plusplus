@@ -65,5 +65,27 @@ if $models; then
     python3 -I scripts/models.py check || status=1
 fi
 
+# The agent docs' word budget: what every session reads (CLAUDE.md) and what agents load with
+# their work. Adherence falls as instructions grow, so adding a line means cutting one. Lower a
+# number when a cut leaves room; raise one only in a PR that says what the added words earn.
+CLAUDE_MD_WORDS=1700
+AGENT_DOCS_WORDS=29100
+budget=$whole_tree
+for path in "$@"; do
+    case "$path" in */CLAUDE.md | CLAUDE.md | *.claude/agents/* | *.claude/skills/* | *.claude/rules/* | *docs/agent-tooling.md) budget=true ;; esac
+done
+if $budget; then
+    claude_md=$(wc -w < CLAUDE.md)
+    agent_docs=$(cat CLAUDE.md .claude/agents/*.md .claude/skills/*/SKILL.md .claude/rules/*.md docs/agent-tooling.md | wc -w)
+    if [ "$claude_md" -gt "$CLAUDE_MD_WORDS" ]; then
+        echo "CLAUDE.md: $((claude_md)) words, over its budget of $CLAUDE_MD_WORDS. Cut as many as were added, or move them to the rules file or skill that needs them." >&2
+        status=1
+    fi
+    if [ "$agent_docs" -gt "$AGENT_DOCS_WORDS" ]; then
+        echo "agent docs (CLAUDE.md, .claude/agents, skills, rules, docs/agent-tooling.md): $((agent_docs)) words, over their budget of $AGENT_DOCS_WORDS. Cut as many as were added: a rule a script or check now holds, one said in another file, or one the ledger shows unused." >&2
+        status=1
+    fi
+fi
+
 [ "$status" -eq 0 ] && echo "lint ok"
 exit "$status"

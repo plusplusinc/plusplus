@@ -11,67 +11,16 @@ This file is the constitution: loaded every session, kept short. Detail lives in
 `.claude/rules/*.md`, which load when you touch matching files (read the one for an area before
 planning work in it), and in `docs/`. If this file and a rules file disagree, this file wins.
 
-**Status: routines, saved, a drawer between them, and a workout logged set by set on one.** The app launches into the routine last
-opened or edited, or a new, empty one, which you can name and add built-in exercises to with a
-round green + floating at bottom right, above the key, in a workout too. An empty routine shows
-"No exercises" mid-screen, a tap anywhere in its empty space opens the picker as the + does
-(unless the tap only ended the title's edit), and its + sits low, where the key's bottom would
-be; Start rises from the bottom edge with the + above it once the picker has gone, and drops
-with the + coming down as the last exercise goes, once its sheet has gone if it went from there.
-++, or
-a swipe in from the left edge, slides the screen aside, darkened, onto a drawer: Routines, the
-three routines last opened or edited, the last edited first, and New, an action, never marked;
-an untouched new routine showing takes the first of the three rows, in gray. The place showing
-sits on a fill, and nothing in the drawer changes while it shows. A haptic plays as it starts to
-open and as it starts to shut. Routines opens the Routines screen, every saved routine by name
-in the drawer's font, latest first, with no lines between rows; a row or its + pushes the routine, which a back chevron or the edge swipe pops. Every change saves on the phone
-on its own: an untouched new routine is never saved, and one cleared to nothing is deleted. An
-unnamed routine with exercises gets a name, written in code from its exercises' tags, which it
-keeps across launches and which opens as text to edit. Each exercise in a routine carries its
-own sets, reps or time, and weight, starting at the exercise's defaults and saved with the
-routine; its row reads them, saying when a number is per side, and the routine's equipment
-shows under its title. Times read as the system writes them: a value narrow ("1m 35s"), a
-sentence condensed ("1 min 35 sec"), VoiceOver in full words; weights in their own unit ("27.5
-lb"). Tapping a row opens its values in a sheet, a row per value with a − / + stepper, and
-Remove in its menu; the sheet grows to fit a row as it opens. Weight, a timed set's time, and
-rest also open a ruler under the keys, dragged or flicked to any tick (half the weight's unit,
-or 5 s), − / + going on to the next mark; while it shows, the value keeps one shape ("25.0 lb",
-"1m 0s") and its digits roll the way it went. The sheet alone shows the row's rest after each
-set, the last included: Auto, tagged, while it follows the reps (by planned reps and the kind of
-exercise, a row shorter for bodyweight; a timed set's own time; none for a stretch), until a
-step or the ruler sets it by hand; an Auto switch inside the opened row brings either back. A superset's members share
-one rest after each round, the longest member's less a minute, never under 30 s unless the
-longest is, or all of it when they share a primary muscle; leaving restores a row's own.
-Holding a row lifts it, and dragging moves it to a new place, scrolling the list near its edges; VoiceOver moves it with Move up and Move down. Holding a
-row's dot and dragging over other rows joins them into a superset, which a loop beside the rail
-marks and whose rows share one round count; a held row resting half a second over a plain
-neighbor pairs with it, at the larger set count; an end's dot moves that end, a body drag
-carries a row in or out, and VoiceOver joins and leaves with actions. While a row or dot is
-held, the superset the drag affects sits in a sunken area. Start, once the routine has an
-exercise, runs a workout on the same screen: the first exercise grows into the current one, its
-set, equipment, and numbers large, their unit letters white at a bit over half the digits'
-size, with no swipe. The key at the bottom, where Start was, a
-capsule low and wide where a tab bar floats, which stays put, logs the set at the numbers shown with a tap, saved at once, with a
-haptic and a +1: "Log set", "Log left" then "Log right" where the exercise is per side, "Log
-last set". Half a second later the next set rolls in, and after an exercise's last set a green
-blob pulls out of the node, runs the rail, and plops into the next exercise's, which then grows
-as the last shrinks, a superset going round its members by round. Scrolled away, the key shows
-an arrow and the exercise's name and goes back to it; while a finger is on the list the key
-keeps its role, and across roles one key drops out of the bottom edge as the next rises.
-Started rows show a bar per set, purple once done, and a finished row's node turns purple;
-after the last set, the key reads Finish workout and finishes it. End takes ++'s place
-and asks "End this workout?": Finish workout, offered once a set is logged, keeps it, and
-launch then opens a new routine; Discard workout keeps nothing. Either ends the stored workout
-at once and stops the motion playing: a blob goes at once, and the list shrinks back from
-where it is drawn, though a move's next row fills in only after the shrink. The time, at top right, pauses
-and resumes. A workout survives a relaunch, keeps the screen on, and locks the drawer, and
-every edit stays on. The app shows only in dark
-appearance (`Config/Base.xcconfig`); the light palette is seen only in snapshots.
-`WorkoutStore` holds the domain types, the stored models behind `RoutineStore` in a versioned
-schema, workouts with their time and logged sets, the namer, the order sets go in and the next one, the routines' recency, a workout in progress on its routine (`LiveWorkout`), and the
-screen's place in a workout's sequence, from Start through each logged set to End
-(`WorkoutPhase`). `Session` holds `RoutineSession`, the
-open routine, its saves, and its workout. Nothing syncs yet.
+**Status.** The app is one screen and its drawer: a routine built from built-in exercises, each
+with its sets, reps or time, weight, and rest, some joined into supersets, saved on the phone as
+it is edited; a workout logged set by set on that same screen; and a Routines screen listing the
+saved ones. It shows only in dark appearance (`Config/Base.xcconfig`); the light palette is seen
+only in snapshots. Nothing syncs yet, and there is no watch app yet.
+
+This file does not say how a feature looks or behaves. That is in the doc comments of the types
+that draw it, which `.claude/rules/swiftui.md` maps, and, as designed, in the board README
+(`scripts/board.sh readme <feature>`). A slice changes the paragraph above only when it makes
+one of its sentences false.
 
 ## Architecture
 
@@ -100,7 +49,9 @@ state, stateless services hold side effects, free functions hold the math. The a
   tokens, rules, abstractions, or docs for features that do not exist yet. Something gets added
   when the code being written needs it, and the PR says which present need it serves. A rule in
   this file or in `.claude/rules/` describes what the code does today, not a plan. When in doubt,
-  leave it out; adding later is cheap, and removing later is not.
+  leave it out; adding later is cheap, and removing later is not. The agent docs have a word
+  budget that `scripts/lint.sh` enforces: to add a line, cut one, and lower the budget when a
+  cut leaves room.
 - **Small steps, paired.** Plan briefly, change one thing, verify it, show it. Explain a
   platform-specific choice in a sentence or two when it first appears; no tutorials in docs.
 - **Root causes, right altitude.** When something fails, diagnose before patching. No inline
@@ -127,34 +78,28 @@ state, stateless services hold side effects, free functions hold the math. The a
 
 ## Building features
 
-The main session leads a slice: it writes the spec and acceptance criteria, makes technical
-calls, and hands each phase, in order, to a subagent defined in `.claude/agents/`: planner,
-builder, verifier, then a builder again for anything the verifier found. It reads their
-summaries and screenshots, not their work, and goes to the maintainer only to align on a card
-before it starts, for a product call, or to put a build in their hands; the maintainer tries
-every slice before it merges. A subagent follows its definition, answers only to the lead, never
-merges, and when it runs long writes a handoff note so a fresh one can continue in the same
-worktree.
-A slice with something to see goes on the maintainer's phone as soon as their feedback would help,
-then in rounds while they are engaged. A round is shown, not done: it skips the thorough checks,
-which wait until they say it's right and then run once, as the phases above.
-The maintainer clears the lead's context between slices; `/onward` starts or resumes the next
-card from the project board, whose Todo column, in board order, is one queue of feature slices
-and standalone tasks.
-Anything the maintainer throws out, or the lead finds along the way, becomes a card through
-`/brief`, which looks for one already there and places it in that queue; a small tooling or
-process change the lead recommends in answer to their question is made then, in its own PR,
-not offered as a card. Working files go in `.slices/`.
-The maintainer's time is for the product. Tooling, CI, tests, process, and bugs with a clear fix (a
-standalone card that changes nothing they see in the app, or a bug whose right behavior is settled,
-and the nightly retro's PR) are the lead's to find, card, align, build, verify, and merge on its own
-once CI is green, never asking whether to, alongside a product slice where it can, telling them in a
-line what landed; a fix that needs a choice of look, wording, or behavior is theirs. A message about
-such work says what it means for the app in plain words, never the runs, tests, or files behind it,
-and comes only with news; where a condition they set for it fails, the lead makes the call and asks
-only for a yes. It checks first that the change is worth its cost and safe to undo. What reaches
-outside the repo or can't be undone still waits for their word: spending money, or Xcode Cloud hours
-beyond the plan, a `v*` tag, an account's settings, deleting what isn't the lead's.
+The main session leads a slice, as `/onward` describes: it writes the spec and acceptance
+criteria, makes the technical calls, and hands each phase, in order, to a subagent defined in
+`.claude/agents/`: planner, builder, verifier, then a builder again for what the verifier found.
+It reads their summaries and screenshots, not their work. A subagent follows its definition,
+answers only to the lead, and never merges. Working files go in `.slices/`.
+
+The maintainer owns the product. The lead goes to them to align on a card before it starts, for
+a product call, or to put a build in their hands, and they try every slice before it merges. A
+slice with something to see goes on their phone as soon as their feedback would help, then in
+rounds; a round is shown, not done, and the thorough checks run once, after they say it's right.
+Anything they throw out, or the lead finds along the way, becomes a card through `/brief`; a
+small tooling or process change the lead recommends in answer to their question is made then,
+in its own PR.
+
+The maintainer's time is for the product. Tooling, CI, tests, process, the nightly retro's PR,
+and a bug whose right behavior is settled are the lead's to find, card, build, verify, and merge
+on its own once CI is green, never asking whether to. It checks first that the change is worth
+its cost and safe to undo, and tells them in a line what landed, in plain words about the app,
+never the runs, tests, or files behind it. A fix that needs a choice of look, wording, or
+behavior is theirs. What reaches outside the repo or can't be undone waits for their word:
+spending money, or Xcode Cloud hours beyond the plan, a `v*` tag, an account's settings,
+deleting what isn't the lead's.
 
 ## Working in the project
 

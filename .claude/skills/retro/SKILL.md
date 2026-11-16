@@ -138,9 +138,8 @@ waiting. The body is the record the next retro reads:
 Then report the findings, the fixes, what needs the maintainer's decision, the verifier's record
 and the agents' tally (below), and the digest. The report and the digest each carry one CI line: the covered PRs'
 last runs, start to finish, and any tier over budget, and one line on the agent docs' size
-against the last report's,
-`wc -lw CLAUDE.md .claude/rules/*.md .claude/agents/*.md .claude/skills/*/SKILL.md`, naming
-any file past its cap: 200 lines for `CLAUDE.md`, 500 for a `SKILL.md`.
+against their word budget in `scripts/lint.sh`, which fails when they pass it: a line this
+retro adds comes with a cut of as many words, named in the body with what it predicts.
 
 ## The ledger, and the monthly prune
 
@@ -160,7 +159,7 @@ each with its evidence in the code; the lead runs the same review before a large
 
 On the first run after a month ends, and on request (after a model upgrade, ask for one), the
 retro also prunes the rules, skills, agent definitions, and `CLAUDE.md`, line by line, starting
-with any file past its cap. A line goes or is tightened when the ledger shows it hurt more than
+with the longest, and lowers the word budget in `scripts/lint.sh` to what is left. A line goes or is tightened when the ledger shows it hurt more than
 it helped, when the code, a script, a hook, or another doc already enforces or says it, or when
 it tells the story of how it came to be rather than what to do. A line with no evidence either
 way stays. Edit line by line: rewriting a whole file loses the detail that made it work. For
