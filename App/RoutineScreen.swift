@@ -10,31 +10,41 @@ import WorkoutStore
 struct RoutineScreen: View {
     // What the `RoutineScreen+` extensions read is internal, not private, so they can be apart.
 
-    @State var routine: Routine
+    /// The routine as drawn. Written only through `routine`, which saves each change.
+    @State private var shownRoutine: Routine
     /// Saves every change, and opens the drawer.
     let session: RoutineSession
     private let namer: RoutineNamer
     /// Pushed onto the Routines screen, with a back button where ++ otherwise is.
     let isPushed: Bool
-    @State private var isPicking = false
+    @State var isPicking = false
     /// The row whose values are open in a sheet, as it was when opened: only its id is read.
     @State var editing: RoutineExercise?
     @State var scrollPosition = ScrollPosition()
     /// The row just added, holding its place until it can be seen going in.
     @State var arriving: RoutineExercise.ID?
     /// The row just added, from the add until its entry has played. A view takes taps where it
-    /// will end up, not where it's drawn, so while its place opens a tap on Add exercise, still
+    /// will end up, not where it's drawn, so while its place opens a tap there, on what is still
     /// drawn there, lands on it; it ignores taps until it has landed.
     @State var entering: RoutineExercise.ID?
-    /// Whether Add exercise, at the list's end, is fully in view.
+    /// Whether the list's end, the room it leaves for the floating +, is fully in view.
     @State var isEndInView = true
     /// While an added row's place opens, the list's end stays put on screen: as the content grows
-    /// past the visible area, it scrolls in step (`keepEndInView`).
-    @State var isOpeningPlace = false
+    /// past the visible area, it scrolls in step (`keepEndInView`), at the stage `EndFollow`
+    /// names; nil while no place opens.
+    @State var endFollow: EndFollow?
     /// Whether the list is being scrolled by hand, which the in-step scroll leaves alone.
     @State var isScrollingByHand = false
     /// Whether the title's field has focus. Any touch outside the title ends the edit.
-    @State private var isEditingTitle = false
+    @State var isEditingTitle = false
+    /// Whether the touch down last was outside the title with no edit to end, so on an empty
+    /// routine a tap in its empty space opens the picker. Written as the touch comes down, before
+    /// the edit ends, since by the tap's end the edit has already ended either way.
+    @State var tapOpensPicker = false
+    /// Whether the screen's foot shows the routine as empty: no Start, and the + low. It follows
+    /// the exercises, but the first add and the last Remove change it only once their sheet has
+    /// gone, so Start and the + are seen rising or going down (`settleFoot(after:)`).
+    @State var footShowsEmpty: Bool
     /// Whether the title has scrolled up under the bar, where a small copy of it shows instead.
     @State var isTitleUnderBar = false
     /// How far Start rides down with the rows below the current exercise as it grows at Start.
@@ -105,12 +115,26 @@ struct RoutineScreen: View {
 
     /// Shows the routine the session opened. A switch to another gives a new screen.
     init(session: RoutineSession, namer: RoutineNamer, isPushed: Bool = false) {
-        _routine = State(initialValue: session.opened)
+        _shownRoutine = State(initialValue: session.opened)
         _opensOnCurrent = State(initialValue: session.workout != nil)
         _phase = State(initialValue: WorkoutPhase(hasWorkout: session.workout != nil))
+        _footShowsEmpty = State(initialValue: session.opened.exercises.isEmpty)
         self.session = session
         self.namer = namer
         self.isPushed = isPushed
+    }
+
+    /// The routine on screen. Every change to it is saved as it is made, and a write that changes
+    /// nothing saves nothing, so a routine opened and left alone is never saved. Saved here, not
+    /// from an `onChange` of the routine, which SwiftUI skips when the routine changes again in a
+    /// frame its action already ran in, losing the last key of a name typed fast.
+    var routine: Routine {
+        get { shownRoutine }
+        nonmutating set {
+            guard newValue != shownRoutine else { return }
+            shownRoutine = newValue
+            session.save(newValue)
+        }
     }
 
     /// The name made for the routine from its exercises, which a chosen name hides and which
@@ -135,16 +159,15 @@ struct RoutineScreen: View {
         }
         // A touch anywhere outside the title, bars included, ends its edit and still acts. The
         // keyboard slides down as on Return, where `.scrollDismissesKeyboard` drops it at once.
-        .onTouchDownOutsideTitle { isEditingTitle = false }
+        .onTouchDownOutsideTitle(
+            onTitle: { tapOpensPicker = false },
+            perform: { touchedDownOutsideTitle() },
+        )
         .endWorkoutDialog(
             isPresented: $isConfirmingEnd,
             session: session,
             end: end,
         )
-        // `onChange` skips the first value, so a routine opened and left alone is never saved.
-        .onChange(of: routine) { _, changed in
-            session.save(changed)
-        }
         .sensoryFeedback(.impact(weight: .light, intensity: 0.6), trigger: landings)
         .sensoryFeedback(.impact(weight: .medium), trigger: setLogs)
         .sensoryFeedback(.impact(weight: .light), trigger: sideLogs)
@@ -167,7 +190,7 @@ struct RoutineScreen: View {
             ZStack(alignment: .topLeading) {
                 VStack(alignment: .leading, spacing: Spacing.md) {
                     EditableTitle(
-                        text: $routine.name,
+                        text: Binding { routine.name } set: { routine.name = $0 },
                         isEditing: $isEditingTitle,
                         placeholder: Self.defaultName,
                         suggestion: generatedName,
@@ -236,20 +259,18 @@ struct RoutineScreen: View {
                                 supersetActions(item.id)
                             }
                             .accessibilityIdentifier("routine.exercise")
-                            // Outermost, as the system's swipe actions are, or their Delete is
+                            // Outermost, as the system's swipe actions are, or their Remove is
                             // folded into the row's accessibility element, where VoiceOver and
                             // the UI tests never find it. The row's tap stays on where the swipe
                             // is off.
                             .swipeToDelete(isOn: item.id != currentID) { delete(item.id) }
                     } end: {
-                        Button("Add exercise", systemImage: "plus") {
-                            isPicking = true
-                        }
-                        .buttonStyle(.key)
+                        FloatingButtonRoom()
                     }
                 }
                 .padding(.horizontal, Spacing.md)
-                // Room under Add exercise, so at the end of a long list it clears Start.
+                // With the floating +'s room above it, so at the end of a long list the last row
+                // scrolls clear of the +.
                 .padding(.bottom, Spacing.md)
                 // In the content, not a margin, so the visible height the row is sized from
                 // stays.
@@ -297,14 +318,21 @@ struct RoutineScreen: View {
             }
         }
         .onGeometryChange(for: CGFloat.self, of: \.size.height) { listHeight = $0 }
+        // A tap that only ended the title's edit opens nothing.
+        .emptyNote("No exercises", isEmpty: routine.exercises.isEmpty) {
+            isPicking = tapOpensPicker
+        }
         .primaryKeyBar(
             isPresented: showsKey,
             face: liveKeyRole,
             keepsRoom: phase.keyGone == .keepingRoom,
             plusOnes: setLogs + sideLogs,
             drop: startDrop,
+            floatsLow: footShowsEmpty,
         ) { role, isOut in
             key(role, isOut: isOut)
+        } floating: {
+            addButton
         }
         .onDisappear { stopSequence() }
         // One row open at a time, closed by a scroll or a tap anywhere else, Start included,
@@ -333,7 +361,7 @@ struct RoutineScreen: View {
                     partners: routine.partnerNames(of: opened.id),
                     parts: routine.sheetParts(of: opened.id),
                     rounds: roundSteps(of: opened.id),
-                ) { delete(opened.id) }
+                ) { delete(opened.id, footDelay: Self.exerciseSheetGone) }
             }
         }
         .toolbar { barItems }

@@ -83,8 +83,7 @@ struct DrawerSnapshotTests {
                 RowLabel(title: row.name, detail: ["3 × 10 reps", "35 lb"])
                     .railRow()
             } end: {
-                Button("Add exercise", systemImage: "plus") { }
-                    .buttonStyle(.key)
+                FloatingButtonRoom()
             }
         }
         .padding(Spacing.md)

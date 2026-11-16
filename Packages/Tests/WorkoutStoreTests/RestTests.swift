@@ -87,7 +87,7 @@ struct RestTests {
         ]
         #expect(rows.map { $0.value(of: .rest, locale: Self.locale) }
             .map { $0.replacingOccurrences(of: "\u{00A0}", with: " ") }
-            == ["3 min", "90 s", "90 s", "60 s", "60 s", "60 s", "30 s", "None"])
+            == ["3m", "1m 30s", "1m 30s", "1m", "1m", "1m", "30s", "None"])
         #expect(rows.allSatisfy { $0.isRestAuto })
         #expect(rows[0].spokenValue(of: .rest, locale: Self.locale) == "3 minutes")
         #expect(rows[7].spokenValue(of: .rest, locale: Self.locale) == "None")
@@ -141,7 +141,7 @@ struct RestTests {
         }
         #expect(bench.plan.target == .reps(5))
         #expect(bench.rest == 150)
-        #expect(bench.value(of: .rest, locale: Self.locale) == "2:30\u{00A0}min")
+        #expect(bench.value(of: .rest, locale: Self.locale) == "2m\u{00A0}30s")
         #expect(bench.isRestAuto)
 
         var plank = try RoutineExercise.builtIn("Plank")

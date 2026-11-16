@@ -19,7 +19,7 @@ extension RowDragUITests {
             expected.insert(expected.removeFirst(), at: 2)
             XCTAssertEqual(reading(app.exerciseNames, becoming: expected, within: 2), expected)
             XCTAssertFalse(app.buttons["Sets"].exists, "The drag opened the row's sheet")
-            XCTAssertFalse(app.buttons["Delete"].exists, "The drag opened the row's Delete")
+            XCTAssertFalse(app.buttons["Remove"].exists, "The drag opened the row's Remove")
             attach(named: "reorder-after")
         }
         dragToTheBottomEdge(in: app)

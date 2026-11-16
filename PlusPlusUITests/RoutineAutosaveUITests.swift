@@ -2,9 +2,10 @@ import XCTest
 
 /// Saving and the launch rule across real quits and relaunches. The store, each field's round
 /// trip, the launch rule, and the names are unit-tested in the package; this holds the wire
-/// from the screen to the store, with two relaunches: one that brings back every saved field at
+/// from the screen to the store, with three relaunches: one that brings back every saved field at
 /// once (rows in their new order, their duplicates and values, the generated name, a superset
-/// and its shared rounds), and one that shows a routine cleared to nothing is gone. Names come
+/// and its shared rounds), one that keeps a name still being typed, with no Return, and one that
+/// shows a routine cleared to nothing is gone. Names come
 /// from the muscle groups (`-fallbackNames`), so the same name shows on any simulator. The
 /// title's color, white for a name whether typed or generated and gray for New routine, is read
 /// from pixels against the placeholder's own gray at the start. The drawer over saved routines is
@@ -136,17 +137,28 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
         }
     }
 
-    /// Editing opens on the generated name; replaced, the typed name stays as exercises change.
+    /// Editing opens on the generated name; replaced, the typed name is kept without Return
+    /// through Home and back, and through a quit, and stays as exercises change.
     @MainActor
     private func typedNameStays(in app: XCUIApplication, title: XCUIElement, gray: Int) throws {
-        try XCTContext.runActivity(named: "A typed name stays as exercises change") { _ in
-            let keyboard = app.keyboards.element
-            try title.tapToEditAtEnd(keyboard: keyboard)
-            XCTAssertEqual(title.value(becoming: "Chest and back"), "Chest and back")
-            let delete = XCUIKeyboardKey.delete.rawValue
-            title.typeText(String(repeating: delete, count: "Chest and back".count) + "Push pull\n")
-            XCTAssertTrue(keyboard.disappears(), "Return should end editing")
+        let keyboard = app.keyboards.element
+        try XCTContext.runActivity(named: "A name still being typed is kept through Home") { _ in
+            try title.typeOver("Chest and back", with: "Push pul", keyboard: keyboard)
+            XCUIDevice.shared.press(.home)
+            app.activate()
+            XCTAssertTrue(keyboard.appears(), "Back from Home, the title isn't being edited")
+            XCTAssertEqual(title.value(becoming: "Push pul"), "Push pul")
+            attach(named: "still-editing-after-home")
+        }
+        XCTContext.runActivity(named: "A name still being typed survives a quit") { _ in
+            title.typeText("l")
+            // Typing can return before the app has handled the key.
             XCTAssertEqual(title.value(becoming: "Push pull"), "Push pull")
+            app.relaunch()
+            XCTAssertEqual(title.value(becoming: "Push pull"), "Push pull")
+            attach(named: "typed-name-after-relaunch")
+        }
+        XCTContext.runActivity(named: "A typed name stays as exercises change") { _ in
             app.addExercise(Self.gobletSquat, searching: "goblet")
             // The name comes with the row, so it would already have changed.
             XCTAssertEqual(title.value as? String, "Push pull")
@@ -163,16 +175,19 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
         gray: Int,
     ) throws {
         try XCTContext.runActivity(named: "A routine cleared to nothing is gone") { _ in
+            let plus = app.buttons["Add exercise"]
+            let aboveStart = plus.frame
             for left in (0 ..< 4).reversed() {
                 app.lastExerciseRow.fullSwipeLeft()
                 XCTAssertEqual(app.exerciseCount(becoming: left), left)
             }
             XCTAssertTrue(app.buttons["Start"].disappears())
+            // The last row's swipe takes the + down with Start and brings the empty line back.
+            XCTAssertTrue(app.noExercises.appears(), "No exercises did not return")
+            XCTAssertTrue(plus.settles(), "The + kept moving")
+            XCTAssertGreaterThan(plus.frame.minY, aboveStart.minY, "The + stayed up with no Start")
             let keyboard = app.keyboards.element
-            try title.tapToEditAtEnd(keyboard: keyboard)
-            // Deleting from the end, not ⌘A, which has hidden the keyboard on Xcode Cloud.
-            let delete = XCUIKeyboardKey.delete.rawValue
-            title.typeText(String(repeating: delete, count: "Push pull".count) + "\n")
+            try title.typeOver("Push pull", with: "\n", keyboard: keyboard)
             XCTAssertTrue(keyboard.disappears())
             XCTAssertEqual(title.value(becoming: "New routine"), "New routine")
             XCTAssertFalse(title.inkIsWhite(against: gray), "New routine is not gray")

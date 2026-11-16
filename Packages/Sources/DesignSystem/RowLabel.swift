@@ -18,9 +18,6 @@ public struct RowLabel: View {
     /// end of its detail line, or of its progress line on the current exercise.
     private let bars: SetProgress?
 
-    /// The current exercise's numbers: 104pt at the default size.
-    @ScaledMetric(relativeTo: .largeTitle) private var figureSize: CGFloat = 104
-
     /// The label's height as a row, which its height runs from and back to, so the
     /// label grows and shrinks over the whole animation, on its curve.
     @State private var restingHeight: CGFloat = 0
@@ -110,7 +107,7 @@ public struct RowLabel: View {
                             .part(.equipment)
                     }
                     if let focus {
-                        figures(focus)
+                        CurrentFigures(figures: focus.figures)
                             .part(.figures)
                     }
                 }
@@ -216,34 +213,6 @@ public struct RowLabel: View {
         .clipped()
     }
 
-    /// Each number large, with what it counts beside it, or, where the two don't fit side by
-    /// side, as at the accessibility sizes, under it, the number shrinking to fit the width.
-    private func figures(_ focus: RowFocus) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(focus.figures, id: \.self) { figure in
-                FigureLayout(spacing: Spacing.sm) {
-                    number(figure).modifier(BaselineMark())
-                    unit(figure).modifier(BaselineMark())
-                }
-            }
-        }
-    }
-
-    private func number(_ figure: RowFocus.Figure) -> some View {
-        Text(figure.number)
-            .font(.system(size: figureSize, weight: .bold, design: .monospaced))
-            .foregroundStyle(.pp(.textPrimary))
-            .lineLimit(1)
-            .minimumScaleFactor(0.3)
-    }
-
-    private func unit(_ figure: RowFocus.Figure) -> some View {
-        Text(figure.unit)
-            .font(.ppCurrentUnit)
-            .foregroundStyle(.pp(.textSecondary))
-            .fixedSize(horizontal: false, vertical: true)
-    }
-
     private var spokenLabel: String {
         let parts = if let focus {
             [
@@ -270,7 +239,7 @@ public struct RowLabel: View {
     }
 }
 
-private let noBreakSpace = "\u{00A0}"
+let noBreakSpace = "\u{00A0}"
 
 /// Everything above a view's bottom edge, however far it reaches up or to either side: the cut
 /// is the bottom edge alone.
@@ -374,17 +343,4 @@ func rollingWords(_ text: String) -> [[String]] {
         groups.append(group)
     }
     return groups
-}
-
-/// Marks a text's last baseline for the held card (`CardMarks`).
-private struct BaselineMark: ViewModifier {
-    func body(content: Content) -> some View {
-        content.overlay(alignment: Alignment(horizontal: .leading, vertical: .lastTextBaseline)) {
-            Color.clear
-                .frame(width: 0, height: 0)
-                .anchorPreference(key: CardMarks.self, value: .center) {
-                    CardMarks.Value(baselines: [$0])
-                }
-        }
-    }
 }

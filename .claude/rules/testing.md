@@ -183,9 +183,9 @@ query again, about 0.07 s on Xcode Cloud. Typing, key presses, and taps can retu
 app has handled them, so a read after one waits for the state it checks: `value(becoming:)` for the value, and
 `Ink.withCursor(_:until:)` for where the `_` is. Tap a stepper key with `tapAtCenter()`:
 XCTest's `tap()` goes to its top-left corner, on the edge of the row above, which closes it.
-Tap anything that may still be moving, such as Add exercise just after an add, once it
+Tap anything that may still be moving, such as the key as it comes up, once it
 `settles()`: a view takes taps where it is laid out mid-move, so a tap read from a moving
-frame can land on the row arriving there. Passing locally proves nothing about this, since
+frame can land on what is arriving there. Passing locally proves nothing about this, since
 Xcode Cloud's timing differs.
 
 ## Every test

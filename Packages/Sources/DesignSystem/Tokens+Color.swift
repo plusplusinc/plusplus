@@ -6,7 +6,8 @@ import SwiftUI
 /// asset catalog. Light and dark pairs live in `Tokens.xcassets` under the raw value; a case
 /// without a colorset renders clear, which the palette snapshot makes obvious.
 public enum ColorToken: String, CaseIterable, Sendable {
-    /// Green: what's active, and a value that went up; also the ++ mark. Never a control's fill.
+    /// Green: what's active, and a value that went up; also the ++ mark, and the fill of the +
+    /// that adds an exercise (`FloatingButtonStyle`), the one control filled green.
     case accent = "ppAccent"
     case background = "ppBackground"
     /// Laid over the screen the drawer slides aside, deepening as the drawer opens.
@@ -16,7 +17,7 @@ public enum ColorToken: String, CaseIterable, Sendable {
     case done = "ppDone"
     /// The outline of a key-shaped button, and the title's resting cursor.
     case borderStrong = "ppBorderStrong"
-    /// The label on a primary key.
+    /// The label on a primary key, and the + on its green circle.
     case onPrimaryKey = "ppOnPrimaryKey"
     /// The fill of the one primary key on a screen, such as Start.
     case primaryKey = "ppPrimaryKey"

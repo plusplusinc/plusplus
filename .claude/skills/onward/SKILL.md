@@ -57,16 +57,15 @@ project board.
 
 ## Run the slice
 
-- Starting a slice: build it where your subagents can write. A session Claude Code started in a
-  worktree of its own (a checkout under `.claude/worktrees/`) builds it there, on that
-  worktree's branch, or starts each builder with `isolation: "worktree"` when it leads more
-  than one card; it adds no worktree for a subagent, since Claude Code refuses its agents'
-  writes in any worktree but the session's and the agent's own. A session in the main checkout
-  creates the slice's worktree as `CLAUDE.md`'s Branching says (the main checkout stays on
-  `main`). Then move its card to In Progress, sharpen its acceptance criteria in the card
-  itself (`scripts/board.sh body`), then run the planner, the builder, the verifier, and a
-  builder again for what the verifier found, as `.claude/agents/` describes. Give each subagent
-  the card id; it reads the criteria with `scripts/board.sh show`. Every file path you give a
+- Starting a slice: when this session sits in a worktree of its own
+  (`git rev-parse --show-toplevel` is under `.claude/worktrees/`), that worktree and its
+  branch are the slice's: Claude Code refuses a builder's edits in any other, so a second
+  worktree made for the slice stops the builder before it builds. Only a session in the main
+  checkout creates one, as `CLAUDE.md`'s Branching says (the main checkout stays on `main`);
+  move its card to In Progress, sharpen its acceptance criteria in the card itself
+  (`scripts/board.sh body`), then run the planner, the builder, the verifier, and a builder
+  again for what the verifier found, as `.claude/agents/` describes. Give each subagent the
+  card id; it reads the criteria with `scripts/board.sh show`. Every file path you give a
   subagent is under `.slices/`. Size the team to the card: a small task with no UI can go
   straight to a builder with the card's Plan as its plan.
 - Start each verifier with the Agent tool's `isolation: "worktree"`, and say so in its prompt,

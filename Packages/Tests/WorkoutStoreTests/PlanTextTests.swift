@@ -39,7 +39,7 @@ struct PlanTextTests {
             weight: Weight(135, .pounds),
         ))
             == "5 × 5 reps · 135 lb")
-        #expect(try Self.detail(Self.row("Side plank")) == "3 × 30 s per side")
+        #expect(try Self.detail(Self.row("Side plank")) == "3 × 30s per side")
     }
 
     @Test("Numbers and units are joined by a no-break space, the sets count bare")
@@ -51,7 +51,7 @@ struct PlanTextTests {
 
     @Test("Kinds: one set, one rep, one weight, bodyweight, a default weight, timed with a weight")
     func kinds() throws {
-        #expect(try Self.detail(Self.row("Pigeon stretch")) == "60 s per side")
+        #expect(try Self.detail(Self.row("Pigeon stretch")) == "1m per side")
         #expect(try Self.detail(Self.row("Turkish get-up"))
             == "3 × 1 rep per side · 20 lb")
         #expect(try Self.detail(Self.row("Goblet squat", weight: Weight(35, .pounds)))
@@ -59,21 +59,24 @@ struct PlanTextTests {
         #expect(try Self.detail(Self.row("Pull-up")) == "3 × 6 reps")
         #expect(try Self.detail(Self.row("Goblet squat")) == "3 × 10 reps · 35 lb")
         #expect(try Self.detail(Self.row("Farmer\u{2019}s carry", weight: Weight(50, .pounds)))
-            == "3 × 30 s · 50 lb/side")
+            == "3 × 30s · 50 lb/side")
         #expect(try Self.detail(Self.row("Push-up", weight: Weight(10, .pounds))) == "3 × 10 reps")
     }
 
-    @Test("Times read in seconds under two minutes, then minutes")
+    @Test("Times read as the system writes them, narrow, in minutes and seconds")
     func times() throws {
         let line = { (seconds: Int) in
             try Self.detail(Self.row("Plank", sets: 1, target: .time(seconds: seconds)))
         }
-        #expect(try line(30) == "30 s")
-        #expect(try line(90) == "90 s")
-        #expect(try line(119) == "119 s")
-        #expect(try line(120) == "2 min")
-        #expect(try line(150) == "2:30 min")
-        #expect(try line(605) == "10:05 min")
+        #expect(try line(30) == "30s")
+        #expect(try line(90) == "1m 30s")
+        #expect(try line(120) == "2m")
+        #expect(try line(150) == "2m 30s")
+        #expect(try line(605) == "10m 5s")
+        #expect(try line(5995) == "99m 55s")
+        let german = try Self.row("Plank", sets: 1, target: .time(seconds: 95))
+            .detailParts(locale: Locale(identifier: "de_DE"))
+        #expect(german == ["1min\u{00A0}35s"])
     }
 
     @Test("Weights drop trailing zeros, up to two decimals, in their own unit")
@@ -85,6 +88,23 @@ struct PlanTextTests {
         #expect(try line(Weight(142.5, .pounds)) == "10 reps · 142.5 lb")
         #expect(try line(Weight(2.5, .kilograms)) == "10 reps · 2.5 kg")
         #expect(try line(Weight(1.25, .kilograms)) == "10 reps · 1.25 kg")
+        #expect(try line(Weight(1000, .pounds)) == "10 reps · 1,000 lb")
+    }
+
+    /// The system's mass format at the abbreviated width, in the weight's own unit: a pound
+    /// stays a pound in a kilogram region, and the decimal comma is the locale's.
+    @Test("Weights read in their own unit in any region, with the locale's decimal mark")
+    func weightsInOtherLocales() throws {
+        let row = try Self.row(
+            "Biceps curl",
+            sets: 1,
+            target: .reps(10),
+            weight: Weight(27.5, .pounds),
+        )
+        #expect(row.detailParts(locale: Locale(identifier: "de_DE"))
+            == ["10\u{00A0}reps", "27,5\u{00A0}lb/side"])
+        #expect(row.detailParts(locale: Locale(identifier: "en_GB"))
+            == ["10\u{00A0}reps", "27.5\u{00A0}lb/side"])
     }
 
     @Test("VoiceOver hears the plan in words")
@@ -93,11 +113,11 @@ struct PlanTextTests {
             .spokenDetail(locale: Self.locale)
             == "3 sets of 10 reps per side, 50 pounds")
         #expect(try Self.row("Pigeon stretch").spokenDetail(locale: Self.locale)
-            == "60 seconds per side")
+            == "1 minute per side")
         #expect(try Self.row("Biceps curl", weight: Weight(25, .pounds))
             .spokenDetail(locale: Self.locale) == "3 sets of 12 reps, 25 pounds per side")
         #expect(try Self.row("Plank", sets: 1, target: .time(seconds: 150))
-            .spokenDetail(locale: Self.locale) == "2 minutes 30 seconds")
+            .spokenDetail(locale: Self.locale) == "2 minutes, 30 seconds")
         #expect(try Self.row("Goblet squat").spokenDetail(locale: Self.locale)
             == "3 sets of 10 reps, 35 pounds")
         #expect(try Self.row("Barbell bench press", weight: Weight(20, .kilograms))

@@ -66,7 +66,7 @@ final nonisolated class WorkoutFinishUITests: XCTestCase {
             )
             XCTAssertTrue(
                 app.buttons["Add exercise"].exists,
-                "The list does not end in Add exercise",
+                "Add exercise went with the last set",
             )
         }
         XCTContext.runActivity(named: "Finish workout ends at once, with no dialog") { _ in

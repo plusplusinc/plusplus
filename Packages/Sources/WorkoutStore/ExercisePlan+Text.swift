@@ -60,13 +60,16 @@ extension RoutineExercise {
 }
 
 extension SetTarget {
-    /// "1 rep", "10 reps", "30 s", "90 s", "2 min", "2:30 min".
+    /// "1 rep", "10 reps", "30s", "1m 35s", "2m".
     func text(locale: Locale) -> String {
-        let figure = figure(locale: locale)
-        return figure.number + noBreakSpace + figure.unit
+        switch self {
+        case let .reps(reps): counted(reps, "rep", "reps", locale: locale)
+            .replacing(" ", with: noBreakSpace)
+        case let .time(seconds): TimeText.text(seconds: seconds, locale: locale)
+        }
     }
 
-    /// "1 rep", "10 reps", "90 seconds", "2 minutes", "2 minutes 30 seconds".
+    /// "1 rep", "10 reps", "45 seconds", "2 minutes", "2 minutes, 30 seconds".
     func spokenText(locale: Locale) -> String {
         switch self {
         case let .reps(reps):
@@ -78,57 +81,82 @@ extension SetTarget {
 }
 
 extension Weight {
-    /// "50", "142.5", "1.25": no trailing zeros, at most two decimals.
+    /// The number alone, as the current exercise shows it large beside its unit: "50",
+    /// "142.5", "1.25", no trailing zeros, at most two decimals.
     func number(locale: Locale) -> String {
         amount.formatted(.number.precision(.fractionLength(0 ... 2)).locale(locale))
     }
 
-    /// "50 lb", "2.5 kg".
-    func text(locale: Locale) -> String {
-        number(locale: locale) + noBreakSpace + unit.rawValue
+    /// As the system writes a mass at the abbreviated width, in its own unit: "50 lb",
+    /// "2.5 kg"; with `decimals` 1 ... 2, "50.0 lb"; "27,5 lb" in de_DE. Joined by a no-break
+    /// space.
+    func text(locale: Locale, decimals: ClosedRange<Int> = 0 ... 2) -> String {
+        formatted(width: .abbreviated, locale: locale, decimals: decimals)
+            .replacing(" ", with: noBreakSpace)
     }
 
-    /// "50 pounds", "1 pound", "2.5 kilograms".
+    /// The same at the wide width, for VoiceOver: "50 pounds", "1 pound", "2.5 kilograms".
     func spokenText(locale: Locale) -> String {
-        let one = amount == 1
-        let name = switch unit {
-        case .pounds: one ? "pound" : "pounds"
-        case .kilograms: one ? "kilogram" : "kilograms"
-        }
-        return number(locale: locale) + " " + name
+        formatted(width: .wide, locale: locale, decimals: 0 ... 2)
+    }
+
+    /// `usage: .asProvided` keeps the weight's own unit: the default converts to the region's.
+    private func formatted(
+        width: Measurement<UnitMass>.FormatStyle.UnitWidth,
+        locale: Locale,
+        decimals: ClosedRange<Int>,
+    ) -> String {
+        let mass = Measurement(value: amount, unit: unit == .pounds ? UnitMass.pounds : .kilograms)
+        return mass.formatted(.measurement(
+            width: width,
+            usage: .asProvided,
+            numberFormatStyle: .number.precision(.fractionLength(decimals)),
+        ).locale(locale))
     }
 }
 
-/// A time reads in seconds under two minutes, then in minutes.
+/// A time as the system writes it, in minutes and seconds: a value at the narrow width, a
+/// sentence condensed, speech in full words.
 enum TimeText {
-    static let minutesFrom = 120
-
-    /// "30 s", "90 s", "2 min", "2:30 min".
+    /// "30s", "1m 35s", "2m", "60m" in en_US; "1min 35s" in de_DE. Its parts joined by no-break
+    /// spaces, so a line never breaks inside a time.
     static func text(seconds: Int, locale: Locale) -> String {
-        let parts = parts(seconds: seconds, locale: locale)
-        return parts.number + noBreakSpace + parts.unit
+        formatted(seconds, width: .narrow, locale: locale)
     }
 
-    /// "90 seconds", "2 minutes", "2 minutes 30 seconds".
+    /// A time inside a sentence, at the condensed width: "45 sec", "1 min 35 sec", "0 sec";
+    /// "1 Min. 35 Sek." in de_DE. Joined by no-break spaces.
+    static func inSentence(seconds: Int, locale: Locale) -> String {
+        formatted(seconds, width: .condensedAbbreviated, locale: locale)
+    }
+
+    /// The narrow width with both units always, a zero one too: "0m 45s", "1m 0s", "1m 5s",
+    /// "0m 0s"; "1min 0s" in de_DE. Joined by no-break spaces.
+    static func bothUnits(seconds: Int, locale: Locale) -> String {
+        formatted(seconds, width: .narrow, zeroValueUnits: .show(length: 1), locale: locale)
+    }
+
+    /// Minutes and seconds at `width`, joined by no-break spaces.
+    private static func formatted(
+        _ seconds: Int,
+        width: Duration.UnitsFormatStyle.UnitWidth,
+        zeroValueUnits: Duration.UnitsFormatStyle.ZeroValueUnitsDisplayStrategy = .hide,
+        locale: Locale,
+    ) -> String {
+        Duration.seconds(seconds)
+            .formatted(.units(
+                allowed: [.minutes, .seconds],
+                width: width,
+                zeroValueUnits: zeroValueUnits,
+            ).locale(locale))
+            .replacing(" ", with: noBreakSpace)
+    }
+
+    /// In words, for VoiceOver, at the wide width: "45 seconds", "1 minute, 35 seconds",
+    /// "2 minutes"; "1 Minute und 35 Sekunden" in de_DE.
     static func spoken(seconds: Int, locale: Locale) -> String {
-        guard seconds >= minutesFrom else {
-            return counted(seconds, "second", "seconds", locale: locale)
-        }
-        let minutes = counted(seconds / 60, "minute", "minutes", locale: locale)
-        guard seconds % 60 > 0 else { return minutes }
-        return minutes + " " + counted(seconds % 60, "second", "seconds", locale: locale)
-    }
-
-    /// The number and its unit apart: "30" "s", "2" "min", "2:30" "min".
-    static func parts(seconds: Int, locale: Locale) -> (number: String, unit: String) {
-        guard seconds >= minutesFrom else {
-            return (seconds.formatted(.number.locale(locale)), "s")
-        }
-        let minutes = (seconds / 60).formatted(.number.locale(locale))
-        let rest = seconds % 60
-        guard rest > 0 else { return (minutes, "min") }
-        let seconds = rest.formatted(.number.precision(.integerLength(2...)).locale(locale))
-        return (minutes + ":" + seconds, "min")
+        Duration.seconds(seconds)
+            .formatted(.units(allowed: [.minutes, .seconds], width: .wide).locale(locale))
     }
 }
 
