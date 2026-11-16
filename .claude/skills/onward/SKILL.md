@@ -113,9 +113,9 @@ Their time is the scarce thing, and it is for the product.
 - **Where they work.** A session in a worktree of its own (`git rev-parse --show-toplevel`
   is under `.claude/worktrees/`) builds the slice there, on its branch: Claude Code refuses a
   builder's edits in a worktree its session doesn't sit in (`docs/agent-tooling.md`). Only a session in the main checkout adds one
-  (`CLAUDE.md`, Branching). Start each verifier with the Agent tool's `isolation: "worktree"`,
-  saying so in its prompt with the builder's worktree and branch. Every path you give an agent
-  is under `.slices/`.
+  (`CLAUDE.md`, Branching). Every path you give an agent is under `.slices/`.
+- Start each verifier with the Agent tool's `isolation: "worktree"`, and say so in its prompt,
+  naming the builder's worktree and the branch, so it works in a worktree of its own.
 - **The phases.** Move the card to In Progress, sharpen its criteria in the card
   (`scripts/board.sh body`), then planner, builder, verifier, and a builder for what the
   verifier found, each given the card id. Size the team to the card: a small task with no UI
