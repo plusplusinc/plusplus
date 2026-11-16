@@ -26,12 +26,15 @@ judge, with the reason for each, since the cases it meets are never quite the on
    README, which is hundreds of lines), and the `.slices/` files State names. Quote a settled
    rule in the README's words; a paraphrase drifts.
 5. A card that is yours alone (`CLAUDE.md`: tooling, CI, tests, process, a bug whose right
-   behavior is settled) you align against the code yourself and run, alongside a product slice
-   when the maintainer is engaged with one.
+   behavior is settled) you align against the code yourself and run with a builder in its own
+   worktree, never as the topic of the maintainer's turn: with them engaged, lead the next
+   product card beside it.
 6. A product card not yet started is aligned with the maintainer first, as `/brief`'s "Align"
    says. Restate it as what they will see and do, reading what the app does today from
    `main`'s code. Check it against the README, what merged since it was written, its neighbors
-   on the board, and the options already drawn for its feature. Bring what is open,
+   on the board, and the options already drawn for its feature. Count the settings it puts on
+   one row or sheet and check each against principle 3 ("Adding is cheap, removing is not"),
+   even one aligned before. Bring what is open,
    contradicted, or missing, each with a recommendation; record the answers in the card; make
    cards for what falls out of scope; start on their yes.
 7. Otherwise say in two or three lines where the slice stands and what happens next, then do it.
@@ -53,7 +56,10 @@ Their time is the scarce thing, and it is for the product.
   platform's own control first (principle 4), each other option saying what it does that the
   system one can't, options that differ in motion drawn moving. What a system control can do
   is read from its Apple doc then, never from memory. One small canvas per open question,
-  numbered and lettered so they answer in a line, linked from the board README.
+  since a link to a page of a larger canvas doesn't reliably open on that page, numbered and
+  lettered so they answer in a line, linked from the board README. Check for the Artifact tool
+  with ToolSearch before anyone draws; without it, publish as agent memory describes. A file
+  on the Mac never reaches their phone.
 - **Every message reads on its own, on a phone.** Plain words about the app, not the work:
   name a part of the screen by what they see and where, a card by its title, an option by what
   it shows, never an item id, a canvas label, or a platform term. Each ask carries its link and
@@ -65,17 +71,20 @@ Their time is the scarce thing, and it is for the product.
   round; a clearly better alternative goes beside it, with the reason, never in its place. An
   option they turned down returns only with something new. What you infer from their words (a
   cause for something they felt, a consequence of a rule) goes back as a question before any
-  builder gets it. A change they propose and you agree with is settled: build it.
+  builder gets it. A change they propose and you agree with is settled: build it, unless the
+  code or the board records it as tried and dropped, in which case say why first.
 - **Be sure what a reply means.** A short "yes" answers one yes-or-no question. When several
-  questions were open, when the reply states something instead of answering, or when it could
-  read as its opposite, restate the reading you will build and confirm it. Praise with a
+  questions were open, when the reply arrived within seconds of your message (it may answer
+  the one before), when it states something instead of answering, or when it could read as its
+  opposite, restate the reading you will build and confirm it. Praise with a
   question about a detail is a round, not the go-ahead. While they are still weighing a rule,
   show the candidates as a table of the cases where they differ, and build only the one they
   pick.
-- **A note on how something feels is a design question.** For a gap, a motion, or a speed, say
-  why it reads that way as a designer would, set it against the values the app already uses
-  (the tokens; the named constants `.claude/rules/swiftui.md` maps), and bring options before
-  tuning a number. A request that names a size or direction is worked out against today's
+- **A note on how something feels is a design question.** Spacing is yours to settle as an iOS
+  designer would: a note on one gap gets the whole surface set on the tokens' one rhythm, and
+  you say what you chose. For a motion or its speed, say why it reads that way, set it against
+  the named constants the app already uses for that kind of move (`.claude/rules/swiftui.md`
+  maps them), and bring options before tuning a number. A request that names a size or direction is worked out against today's
   values first; when the words and the numbers disagree, ask. A round that can do what they
   asked only by adding something they didn't comes back as options, not as a cost to judge.
 - **The card is the scope.** Feedback that reaches past its criteria becomes a card through
@@ -102,8 +111,8 @@ Their time is the scarce thing, and it is for the product.
 ## The agents
 
 - **Where they work.** A session in a worktree of its own (`git rev-parse --show-toplevel`
-  is under `.claude/worktrees/`) builds the slice there, on its branch: Claude Code refuses an
-  agent's edits in any other worktree. Only a session in the main checkout adds one
+  is under `.claude/worktrees/`) builds the slice there, on its branch: Claude Code refuses a
+  builder's edits in a worktree its session doesn't sit in (`docs/agent-tooling.md`). Only a session in the main checkout adds one
   (`CLAUDE.md`, Branching). Start each verifier with the Agent tool's `isolation: "worktree"`,
   saying so in its prompt with the builder's worktree and branch. Every path you give an agent
   is under `.slices/`.
@@ -123,14 +132,17 @@ Their time is the scarce thing, and it is for the product.
   each definition sets its own.
 - **Your context is for decisions.** Never read whole the board README, a dump of cards, a
   transcript, or a large diff: send it to a subagent that returns what the question needs. A
-  thread with its own goal that doesn't feed the card becomes its own session.
-- **After each agent hands back**, run the slice worktree's `scripts/sim.sh shutdown` (only
-  that worktree's simulator, never another's), and add its line to the PR's agent record:
-  `scripts/agent-record.py line <role> '<usage line>'` (`--round <n>`, `--after <tokens>` for a
-  resumed one, `--note` for a run that changed nothing), then `scripts/agent-record.py post
-  <pr> '<line>'...`; lines from before the PR exists go with the first post.
+  thread with its own goal that doesn't feed the card becomes its own session
+  (`start_session`).
+- **After each agent hands back**, run `scripts/sim.sh shutdown` in the slice worktree and in
+  any worktree of `main` it added (only those simulators, never another's), in case it skipped
+  its own, and add its line to the PR's agent record with `scripts/agent-record.py line` and
+  `post` (`docs/agent-tooling.md`, "Agent records"); lines from before the PR exists go with
+  the first post.
 - **While one runs**, it says nothing until it ends, so about every 15 minutes read where it
-  is and send the maintainer that line. A reply to a notice that brings nothing new is a few
+  is and send the maintainer that line. A wake you set says what was true then: cancel it when
+  you stop what it watches, and a check that has finished is a result whatever a watch says. A
+  turn with no text is sent back for one, so a notice that brings nothing new still gets a few
   words, never a second summary.
 - Rewrite the card's State section (`scripts/board.sh state <id> <<'STATE'`) whenever a phase
   ends, with this session's id, so a cleared context or another session can pick it up.
@@ -143,7 +155,7 @@ locally in between; rounds reach the phone by `scripts/device.sh`. Bring a pushe
 date by merging `origin/main`, never a rebase, whose push agents are denied.
 
 After every push, watch "PR check" to the end yourself (`/pr`): `gh pr checks <n> --watch
---interval 60` in the background, stopping an earlier watch first. A subagent's "still queued"
+--interval 60` in the background, stopping an earlier watch first (`TaskStop`). A subagent's "still queued"
 is not a result. A failed run goes to a builder before anything reaches the maintainer, unless
 the check says the month's Xcode Cloud hours are likely spent, which is theirs. The go-ahead
 you ask for names the commit CI is green at.
@@ -155,7 +167,7 @@ you ask for names the commit CI is green at.
    what to try.
 2. Their saying a round looks right is the go-ahead: once the full pass, the verifier, and CI
    pass, merge and tell them in a line. Ask again only when the full pass changed something
-   they would see. A card that is yours alone needs only the verifier and CI. A wait for
+   they would see, or there was no round, with that build on their phone first. A card that is yours alone needs only the verifier and CI. A wait for
    checks also ends when `gh pr view --json mergeable` reads `CONFLICTING`; after any merge to
    `main`, check every PR that waits.
 3. Move the card to Done, run `scripts/tidy.sh`, and delete the slice's `.slices/` files.
