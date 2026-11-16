@@ -31,7 +31,7 @@ struct DrawerMenu: View {
             VStack(alignment: .leading, spacing: Spacing.lg) {
                 // Tapping the title closes the drawer, as a tap on the screen beside it does.
                 Button {
-                    session.isDrawerOpen = false
+                    session.closeDrawer()
                 } label: {
                     Text(verbatim: "PlusPlus")
                         .ppFixedTitleFont()

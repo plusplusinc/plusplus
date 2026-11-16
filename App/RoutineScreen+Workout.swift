@@ -18,11 +18,12 @@ extension RoutineScreen {
     /// beat the first exercise is brought into view and grows (`leave()`), one sequence on the
     /// screen's task, which the screen going away stops. A second press in the meantime does
     /// nothing. The press leaves the drawer open, as Dave decided (2026-11-14): a routine
-    /// switched to before the workout begins stops Start (`check(_:)`). Start stays up a moment
-    /// after the last Remove, until the sheet has gone (`settleFoot(after:)`), and does nothing
-    /// then.
+    /// switched to before the workout begins stops Start's beats (`check(_:)`), and the session
+    /// starts a workout only on the routine pressed (`RoutineSession.start(on:at:)`). Start stays
+    /// up a moment after the last Remove, until the sheet has gone (`settleFoot(after:)`), and
+    /// does nothing then: the session starts nothing on a routine with no exercises.
     func pressStart() {
-        guard phase == .idle, session.workout == nil, !routine.exercises.isEmpty else { return }
+        guard phase == .idle, session.canStart(on: routine.id) else { return }
         // The list's end lies under the first row until it grows, so a short routine may have
         // nowhere to scroll it to: room under the end, out of sight, lets it go. It goes in
         // ahead of the scroll: a scroll in the same transaction stops at the old end.
@@ -61,7 +62,7 @@ extension RoutineScreen {
             try await laterTurn()
             try check(pressed)
             try await crossfade {
-                session.start()
+                session.start(on: pressed)
                 // The bar's room goes for the crossfade: the room under the list holds it, and
                 // measured, the list stayed put (13 Starts, 2026-11-01).
                 phase.fadeIn()
@@ -70,7 +71,7 @@ extension RoutineScreen {
         }
         try await bringFirstIntoView()
         try check(pressed)
-        grow()
+        grow(pressed)
         // The workout's key comes up as the rows land, a beat in the sequence by design: the
         // animation's completion came a few frames after the rows had stopped, and the key rose
         // after a pause. Start leaves the bar with its room kept: taken with it, the list's
@@ -108,18 +109,23 @@ extension RoutineScreen {
         try await beat(until: .now + .seconds(Self.landingHold))
     }
 
-    /// Stops Start unless the routine open is still `pressed`, the one Start was pressed on: a
-    /// switch of routine while Start's beats play gives a new screen, which stops them, and this
-    /// is the guard behind that, so a workout never starts on another routine.
+    /// Stops Start's beats unless the session would still start a workout on `pressed`, the
+    /// routine Start was pressed on: a switch of routine while they play, under way or done, stops
+    /// them, so the grow never plays with no workout behind it. Called in the same turn as each
+    /// `start(on:)`, which holds the same rule whoever calls it. The screen settles at rest as it
+    /// stops: a switch that fails to read its routine leaves this screen showing.
     private func check(_ pressed: Routine.ID) throws {
-        guard session.current.id == pressed else { throw CancellationError() }
+        guard session.canStart(on: pressed) else {
+            stopSequence()
+            throw CancellationError()
+        }
     }
 
     /// The first exercise grows into the current one as the list scrolls it up under the bar,
     /// one motion on one curve, the rows below stepping aside and Start riding down off the
     /// screen as they do. An animated scroll held the growth back until it had nearly landed, so
     /// the list is scrolled at once and drawn where it was, then both run in one animation.
-    private func grow() {
+    private func grow(_ pressed: Routine.ID) {
         // The grown exercise's height is its content's, known once it is laid out, so Start rides
         // a screen's height down, out of sight by the time the growth ends.
         let drop = listHeight
@@ -132,7 +138,7 @@ extension RoutineScreen {
             }
         }
         withAnimation(.snappy(duration: Self.growBeat)) {
-            session.start()
+            session.start(on: pressed)
             phase.grow()
             growthLift = 0
             startDrop = max(drop, 1)

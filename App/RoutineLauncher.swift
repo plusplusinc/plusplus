@@ -16,11 +16,15 @@ struct RoutineLauncher: View {
 
     var body: some View {
         if let session {
-            @Bindable var session = session
             // A routine pushed onto the Routines screen takes the edge swipe back to the list,
-            // and a workout keeps the drawer shut.
+            // and a workout keeps the drawer shut: the swipe never begins, and the session refuses
+            // any other open.
             SideDrawer(
-                isOpen: $session.isDrawerOpen,
+                isOpen: Binding {
+                    session.isDrawerOpen
+                } set: { isOpen in
+                    isOpen ? session.openDrawer() : session.closeDrawer()
+                },
                 swipeOpens: session.screen != .pushedRoutine && !session.isDrawerLocked,
             ) {
                 DrawerMenu(session: session, namer: namer)
