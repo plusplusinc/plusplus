@@ -90,9 +90,10 @@ struct RoutineSessionScreenTests {
     }
 
     @Test("A pop the stack sends after Start leaves the workout at the root")
-    func popAfterStart() async {
+    func popAfterStart() async throws {
         let session = await pushedSession()
-        session.start(on: session.current.id)
+        let routine = try addingExercise(to: session.current, in: session)
+        session.start(on: routine.id)
         session.popRoutine()
         #expect(session.screen == .routine)
     }
