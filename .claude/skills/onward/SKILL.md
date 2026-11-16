@@ -51,7 +51,9 @@ project board.
    never by its canvas label ("3D") or a card's item id. Record the answers in the card, make cards for what lands out of
    scope, and start a product card only on the maintainer's yes.
 5. Otherwise say in two or three lines where the slice stands and what happens next, then do
-   it. Ask only for product calls.
+   it. Ask only for product calls: what they would see or feel using the app by hand. A choice
+   only a scripted build can reach, or a safety default nobody meets unless something breaks,
+   is yours: make it, and say so in a line.
 
 ## Run the slice
 
@@ -163,7 +165,8 @@ project board.
   drawn before it is built or asked. The first is the platform's
   own control for the job (principle 4, "Native bones"), and each other option says what it does
   that the system one can't. An API offered as an option is one whose Apple doc (sosumi) says it
-  works on iPhone. Draw them as phone-size frames on a Design canvas, a claude.ai artifact made
+  works on iPhone, and what a system control can or can't do is answered from its doc, read
+  then, never from memory. Draw them as phone-size frames on a Design canvas, a claude.ai artifact made
   from the Design type (Artifact `quickstart` with intent "design"), each decision numbered and
   each option lettered so the maintainer answers in one line ("1A, 2B"), options that differ
   only in how they move drawn moving (two stills that look alike read as one option), link it
