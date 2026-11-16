@@ -64,7 +64,7 @@ quota is spent, `board.sh` prints the reset time and exits; a retry would spend 
 back.
 
 The `/pr` skill and `docs/xcode-cloud.md` wait on CI by polling once a minute: a run takes about
-four minutes, so polling faster spends quota and gains nothing.
+twelve minutes, so polling faster spends quota and gains nothing.
 
 ## Hooks
 
@@ -84,8 +84,10 @@ it is missing (the download runs on after the hook's two minutes, logging to
 simulators left on them. `scripts/common.sh` moves each checkout's simulator onto it.
 
 Before writing a hook or a script that makes Claude Code behave a certain way, check whether its
-own configuration does it: an agent definition's `model:` and `tools:`, a permission rule, a
-setting. Built in, it needs no code, and no edit to `.claude/settings.json` by the maintainer.
+own configuration does it: an agent definition's `model:`, `tools:`, and `hooks:` (a hook for
+one kind of agent, which an agent can add; a `Stop` there runs as that agent stops), a
+permission rule, a setting. Built in, it needs no edit to `.claude/settings.json`, which agents
+are denied.
 
 ## Models by task
 

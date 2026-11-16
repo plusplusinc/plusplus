@@ -62,9 +62,6 @@ Merge a branch's PR from its own worktree with no number (`gh pr merge --squash 
 the branch's): a number written before `gh pr create` prints it is a guess, and a wrong one
 merges another PR.
 
-Once Xcode Cloud's run finishes, put `scripts/ci-times.py`'s lines for it in the body's Verified
-line with `gh pr edit`.
-
 The body goes in on stdin, as above, for `gh pr edit` too, never from a file: the scratchpad is
 shared by the lead and every subagent, and another session can overwrite a body file there
 with a private card's text.

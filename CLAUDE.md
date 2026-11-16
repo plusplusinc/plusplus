@@ -139,22 +139,20 @@ See `docs/agent-tooling.md`.
 
 ## Branching
 
-`main` only moves through pull requests, which a ruleset enforces, so never commit to it
-directly. Work in a worktree; the main checkout stays on `main` for the nightly retro and
-session-start tidying.
+`main` only moves through pull requests, which a ruleset enforces. Work in a worktree; the main
+checkout stays on `main` for the nightly retro and session-start tidying.
 
 ```sh
 git fetch origin main
 git worktree add --no-track .claude/worktrees/<topic> -b <topic> origin/main
-git push -u origin <topic>
-gh pr create --title "<title>" --body-file -   # body on stdin; --fill skips the PR template
 gh pr update-branch <topic>   # merges main in; a rebase of a pushed branch needs a denied force push
 ```
 
-CI must be green before a PR merges. **Merges are squashed**: the PR title and body become the
-one commit on `main`, so write the body as a commit message that is also true before the
-merge ("Tense tells the truth"). Notes about review order or "as discussed" belong in a PR
-comment, not the body.
+Open a PR with `/pr`, in any session: "PR check" fails a body without the template's lines, or
+a diff that undoes a recent merge. CI must be green before a PR merges. **Merges are
+squashed**: the PR title and body become the one commit on `main`, so write the body as a
+commit message that is also true before the merge ("Tense tells the truth"). Notes about review
+order or "as discussed" belong in a PR comment, not the body.
 
 ## Gotchas
 
