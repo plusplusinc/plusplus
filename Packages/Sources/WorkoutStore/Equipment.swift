@@ -6,6 +6,7 @@ public enum Equipment: CaseIterable, Sendable {
     case dumbbells
     case kettlebell
     case barbell
+    case medicineBall
     case bench
     case band
     case pullUpBar
@@ -17,6 +18,7 @@ public enum Equipment: CaseIterable, Sendable {
         case .dumbbells: "Dumbbells"
         case .kettlebell: "Kettlebell"
         case .barbell: "Barbell"
+        case .medicineBall: "Medicine ball"
         case .bench: "Bench"
         case .band: "Band"
         case .pullUpBar: "Pull-up bar"

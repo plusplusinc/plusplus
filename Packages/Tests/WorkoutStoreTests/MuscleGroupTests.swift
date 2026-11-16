@@ -8,7 +8,8 @@ struct MuscleGroupTests {
         let expected: [MuscleGroup: Set<String>] = [
             .chest: [
                 "Push-up", "Ring push-up", "Dumbbell bench press", "Incline dumbbell press",
-                "Barbell bench press", "Ring dip", "Doorway chest stretch",
+                "Barbell bench press", "Ring dip", "Doorway chest stretch", "Incline push-up",
+                "Decline push-up", "Medicine ball toss",
             ],
             .back: [
                 "Pull-up", "Chin-up", "Inverted row", "Dumbbell row", "Barbell row", "Dead hang",
@@ -18,7 +19,7 @@ struct MuscleGroupTests {
                 "Overhead press", "Barbell overhead press", "Lateral raise", "Face pull",
                 "Band pull-apart", "Cross-body shoulder stretch", "Band shoulder dislocate",
                 "Incline reverse fly", "Band external rotation", "Band internal rotation",
-                "Forward arm circles", "Backward arm circles",
+                "Forward arm circles", "Backward arm circles", "Waiter carry",
             ],
             .arms: ["Biceps curl", "Hammer curl", "Triceps extension"],
             .legs: [

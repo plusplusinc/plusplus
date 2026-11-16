@@ -29,6 +29,7 @@ struct ExerciseTests {
         ("Cross-body shoulder stretch", nil),
         ("Dead bug", nil),
         ("Dead hang", "Pull-up bar"),
+        ("Decline push-up", "Bench"),
         ("Doorway chest stretch", nil),
         ("Dumbbell bench press", "Dumbbells, bench"),
         ("Dumbbell row", "Dumbbells, bench"),
@@ -42,12 +43,14 @@ struct ExerciseTests {
         ("Hanging knee raise", "Pull-up bar"),
         ("Inchworm", nil),
         ("Incline dumbbell press", "Dumbbells, bench"),
+        ("Incline push-up", "Bench"),
         ("Incline reverse fly", "Dumbbells, bench"),
         ("Inverted row", "Rings"),
         ("Jumping jacks", nil),
         ("Kettlebell swing", "Kettlebell"),
         ("Kneeling hip flexor stretch", nil),
         ("Lateral raise", "Dumbbells"),
+        ("Medicine ball toss", "Medicine ball"),
         ("Mountain climber", nil),
         ("Overhead press", "Dumbbells"),
         ("Pallof press", "Band"),
@@ -64,14 +67,15 @@ struct ExerciseTests {
         ("Thoracic rotation", nil),
         ("Triceps extension", "Dumbbells"),
         ("Turkish get-up", "Kettlebell"),
+        ("Waiter carry", "Dumbbells"),
         ("Walking lunge", "Dumbbells"),
         ("World\u{2019}s greatest stretch", nil),
     ]
 
-    @Test("There are 60 built-in exercises with unique ids and names")
+    @Test("There are 64 built-in exercises with unique ids and names")
     func builtInCount() {
         let all = Exercise.builtIn
-        #expect(all.count == 60)
+        #expect(all.count == 64)
         #expect(Set(all.map(\.id)).count == all.count)
         #expect(Set(all.map(\.name)).count == all.count)
     }
@@ -159,7 +163,8 @@ struct ExerciseTests {
     @Test("Every equipment has a display name")
     func equipmentNames() {
         #expect(Equipment.allCases.map(\.name) == [
-            "Dumbbells", "Kettlebell", "Barbell", "Bench", "Band", "Pull-up bar", "Rings",
+            "Dumbbells", "Kettlebell", "Barbell", "Medicine ball", "Bench", "Band", "Pull-up bar",
+            "Rings",
             "Balance board",
         ])
     }
@@ -191,7 +196,9 @@ struct ExerciseTests {
         for query in ["pullup", "pull up", "PULL-UP", "Pull\u{2010}up"] {
             #expect(Exercise.builtIn.matching(query).map(\.name) == ["Pull-up"])
         }
-        #expect(Exercise.builtIn.matching("push up").map(\.name) == ["Push-up", "Ring push-up"])
+        #expect(Exercise.builtIn.matching("push up").map(\.name) == [
+            "Decline push-up", "Incline push-up", "Push-up", "Ring push-up",
+        ])
         for query in ["farmer's", "farmer\u{2019}s", "farmers", "FARMERS CARRY"] {
             #expect(Exercise.builtIn.matching(query).map(\.name) == ["Farmer\u{2019}s carry"])
         }

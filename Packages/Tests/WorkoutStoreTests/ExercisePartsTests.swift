@@ -50,6 +50,7 @@ struct ExercisePartsTests {
         Parts("Cross-body shoulder stretch", 1, .time(seconds: 30), nil, true),
         Parts("Dead bug", 3, .reps(10), nil, false),
         Parts("Dead hang", 3, .time(seconds: 30), nil, false),
+        Parts("Decline push-up", 4, .reps(8), nil, false),
         Parts("Doorway chest stretch", 1, .time(seconds: 60), nil, false),
         Parts("Dumbbell bench press", 3, .reps(10), .pair, false),
         Parts("Dumbbell row", 3, .reps(10), .single, true),
@@ -63,12 +64,14 @@ struct ExercisePartsTests {
         Parts("Hanging knee raise", 3, .reps(10), nil, false),
         Parts("Inchworm", 1, .reps(8), nil, false),
         Parts("Incline dumbbell press", 3, .reps(10), .pair, false),
+        Parts("Incline push-up", 3, .reps(10), nil, false),
         Parts("Incline reverse fly", 3, .reps(12), .pair, false),
         Parts("Inverted row", 3, .reps(10), nil, false),
         Parts("Jumping jacks", 1, .time(seconds: 60), nil, false),
         Parts("Kettlebell swing", 3, .reps(15), .single, false),
         Parts("Kneeling hip flexor stretch", 1, .time(seconds: 60), nil, true),
         Parts("Lateral raise", 3, .reps(12), .pair, false),
+        Parts("Medicine ball toss", 3, .reps(10), .single, false),
         Parts("Mountain climber", 3, .time(seconds: 30), nil, false),
         Parts("Overhead press", 3, .reps(10), .pair, false),
         Parts("Pallof press", 3, .reps(10), nil, true),
@@ -85,6 +88,7 @@ struct ExercisePartsTests {
         Parts("Thoracic rotation", 1, .reps(10), nil, true),
         Parts("Triceps extension", 3, .reps(12), .single, false),
         Parts("Turkish get-up", 3, .reps(1), .single, true),
+        Parts("Waiter carry", 3, .time(seconds: 30), .single, true),
         Parts("Walking lunge", 3, .reps(10), .pair, true),
         Parts("World\u{2019}s greatest stretch", 1, .reps(5), nil, true),
     ]
@@ -106,7 +110,7 @@ struct ExercisePartsTests {
         }
     }
 
-    @Test("The totals: 44 reps, 16 time; 5 one weight, 14 pairs, 5 bars; 17 per side")
+    @Test("The totals: 47 reps, 17 time; 7 one weight, 14 pairs, 5 bars; 18 per side")
     func totals() {
         let all = Exercise.builtIn
         #expect(all.count {
@@ -115,19 +119,19 @@ struct ExercisePartsTests {
             } else {
                 false
             }
-        } == 44)
+        } == 47)
         #expect(all.count {
             if case .time = $0.defaultPlan(in: .pounds).target {
                 true
             } else {
                 false
             }
-        } == 16)
-        #expect(all.count { $0.load == .single } == 5)
+        } == 17)
+        #expect(all.count { $0.load == .single } == 7)
         #expect(all.count { $0.load == .pair } == 14)
         #expect(all.count { $0.load == .bar } == 5)
-        #expect(all.count { $0.load == nil } == 36)
-        #expect(all.count(where: \.isPerSide) == 17)
+        #expect(all.count { $0.load == nil } == 38)
+        #expect(all.count(where: \.isPerSide) == 18)
     }
 
     @Test("A load goes with the kit that holds it, and starts at a weight that kit comes in")
@@ -159,11 +163,13 @@ struct ExercisePartsTests {
             #expect((exercise.load == .bar) == hasBarbell, "\(exercise.name)")
             if exercise.load == .single || exercise.load == .pair {
                 #expect(
-                    !exercise.equipment.isDisjoint(with: [.dumbbells, .kettlebell]),
+                    !exercise.equipment.isDisjoint(with: [.dumbbells, .kettlebell, .medicineBall]),
                     "\(exercise.name)",
                 )
             }
-            if exercise.equipment.isDisjoint(with: [.dumbbells, .kettlebell, .barbell]) {
+            if exercise.equipment.isDisjoint(with: [
+                .dumbbells, .kettlebell, .barbell, .medicineBall,
+            ]) {
                 #expect(exercise.load == nil, "\(exercise.name)")
             }
         }
