@@ -142,11 +142,11 @@ public final class RoutineSession {
         closeDrawer()
     }
 
-    /// Whether a Start pressed on `routine` may still start: only on the open routine, with no
-    /// workout running and no switch under way. A routine switched away from, or being switched
-    /// away from, starts nothing: the switch stops Start.
+    /// Whether a Start pressed on `routine` may still start: only on the open routine, once it
+    /// has an exercise, with no workout running and no switch under way. A routine switched away
+    /// from, or being switched away from, starts nothing: the switch stops Start.
     public func canStart(on routine: Routine.ID) -> Bool {
-        workout == nil && !isSwitching && routine == current.id
+        workout == nil && !isSwitching && routine == current.id && !current.exercises.isEmpty
     }
 
     /// The name the open routine shows, which a workout on it keeps: empty for New routine.

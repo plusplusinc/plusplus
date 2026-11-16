@@ -6,8 +6,12 @@ import WorkoutStore
 /// holds it.
 struct RoundSteps {
     let value: () -> (text: String, spoken: String)
+    /// The rest in seconds, which its digits roll up or down by.
+    let seconds: () -> Double
     let canStep: (Int) -> Bool
     let step: (Int) -> Void
+    /// Sets it by hand to a number of seconds, as its ruler is dragged; Auto goes off.
+    let set: (Int) -> Void
     /// Whether its rest is derived from the members, and a switch to set that.
     let isAuto: Binding<Bool>
     /// What a rest set by hand stays put through, by the members' sets: "reps", "the time", or
@@ -16,7 +20,7 @@ struct RoundSteps {
 }
 
 /// A routine row's values, a `ValueRow` for each part its exercise has, under the exercise's
-/// equipment. A row's stepper opens one at a time. Changes apply as they're made; Delete is in
+/// equipment. A row's stepper opens one at a time. Changes apply as they're made; Remove is in
 /// the menu.
 struct ExerciseSheet: View {
     @Binding var item: RoutineExercise
@@ -29,6 +33,16 @@ struct ExerciseSheet: View {
     let onDelete: () -> Void
 
     @State private var open: SheetPart?
+    @State private var detent = PresentationDetent.medium
+    /// The height the sheet grew to, to fit a row as it opened; a detent from then on, so the
+    /// sheet stays there while it's open.
+    @State private var fitted: CGFloat?
+    /// A row is opening below the large height: the sheet grows to fit once its content has the
+    /// row's open height, or not at all once the row has opened, so a later change in height
+    /// (a footer's, a value's) never grows it.
+    @State private var growsToFit = false
+    /// The sheet's height inside its safe area, which a `.height` detent measures.
+    @State private var sheetHeight: CGFloat = 0
     @Environment(\.dismiss) private var dismiss
     @Environment(\.locale) private var locale
 
@@ -48,6 +62,7 @@ struct ExerciseSheet: View {
                                 label: label(of: part),
                                 note: note(on: part),
                                 value: value(of: part),
+                                number: number(of: part),
                                 tag: auto == nil ? nil : "Auto",
                                 showsTag: auto?.wrappedValue == true,
                                 spokenValue: spokenValue(of: part),
@@ -56,6 +71,7 @@ struct ExerciseSheet: View {
                                 canIncrease: canStep(part, by: 1),
                                 onToggle: { toggle(part, scroller) },
                                 onStep: { step(part, by: $0) },
+                                ruler: ruler(for: part),
                                 accessory: auto.map(autoSwitch),
                                 footer: auto.map { restFooter(isAuto: $0.wrappedValue, of: part) },
                             )
@@ -64,6 +80,9 @@ struct ExerciseSheet: View {
                     }
                     .padding(.horizontal, Spacing.md)
                     .padding(.vertical, Spacing.md)
+                }
+                .onScrollGeometryChange(for: CGFloat.self, of: \.endY) { _, overflow in
+                    fit(overflow)
                 }
             }
             .background(Color.pp(.background))
@@ -75,7 +94,7 @@ struct ExerciseSheet: View {
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Menu("More", systemImage: "ellipsis") {
-                        Button("Delete", systemImage: "trash", role: .destructive) {
+                        Button("Remove", systemImage: "minus.circle", role: .destructive) {
                             dismiss()
                             onDelete()
                         }
@@ -83,9 +102,88 @@ struct ExerciseSheet: View {
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+        .onGeometryChange(for: CGFloat.self, of: \.size.height) { sheetHeight = $0 }
+        .presentationDetents(detents, selection: $detent)
         .presentationDragIndicator(.visible)
         .presentationBackground(Color.pp(.background))
+    }
+
+    private var detents: Set<PresentationDetent> {
+        var detents: Set<PresentationDetent> = [.medium, .large]
+        if let fitted {
+            detents.insert(.height(fitted))
+        }
+        return detents
+    }
+
+    /// At the medium height an open ruler sat near the screen's bottom edge, under the thumb's
+    /// reach, and the rows under it were cut off. Any row that opens with the sheet below large
+    /// grows it by what its content now overflows, in the row's own motion; the system holds a
+    /// height past large to large. The content's size is the open row's from the first frame of
+    /// its animation, so this lands a layout pass after the tap, not after the row has opened.
+    /// In a sheet the scroll view's container already excludes the bar and the home indicator
+    /// (measured on iOS 27), so the overflow alone is what the sheet grows by.
+    private func fit(_ overflow: CGFloat) {
+        guard growsToFit else { return }
+        growsToFit = false
+        guard overflow > 0, detent != .large else { return }
+        let height = sheetHeight + overflow
+        fitted = height
+        withAnimation(ValueRow.motion) {
+            detent = .height(height)
+        }
+    }
+
+    /// The weight, a timed set's time, or a rest, dragged on a ruler in its open row.
+    private func ruler(for part: SheetPart) -> ValueRuler? {
+        switch part {
+        case .plan(.weight):
+            guard let amount = item.plan.weight?.amount,
+                  let range = item.weightRange
+            else { return nil }
+            let locale = locale
+            return ValueRuler(
+                value: amount,
+                range: range,
+                label: { $0.formatted(.number.precision(.fractionLength(0 ... 1)).locale(locale)) },
+                onChange: { item.setWeight($0) },
+            )
+        case .plan(.target):
+            guard case let .time(seconds) = item.plan.target else { return nil }
+            return timeRuler(seconds, range: RoutineExercise.timeRange) { item.setTime($0) }
+        case .plan(.rest):
+            return timeRuler(item.rest, range: RoutineExercise.restRange) { item.setRest($0) }
+        case .restAfterRound:
+            return rounds.map { rounds in
+                timeRuler(Int(rounds.seconds()), range: RoutineExercise.restRange, set: rounds.set)
+            }
+        case .plan(.sets):
+            return nil
+        }
+    }
+
+    /// Room for a "10:00" label each 30 s, six 5 s ticks apart, with a gap between labels.
+    private static let timeSpacing: CGFloat = 10
+
+    /// A ruler in seconds, a timed set's or a rest's: a tick each 5 s, so a drag can rest on any
+    /// 5 s (a rest's − / + still go to its 15 s marks), taller each 15 s, labeled each 30 s in
+    /// minutes and seconds as the open row reads.
+    private func timeRuler(
+        _ seconds: Int,
+        range: ClosedRange<Int>,
+        set: @escaping (Int) -> Void,
+    ) -> ValueRuler {
+        let locale = locale
+        return ValueRuler(
+            value: Double(seconds),
+            range: Double(range.lowerBound) ... Double(range.upperBound),
+            tick: Double(RoutineExercise.timeStep),
+            medium: 15,
+            major: 30,
+            spacing: Self.timeSpacing,
+            label: { RoutineExercise.rulerTime(Int($0), locale: locale) },
+            onChange: { set(Int($0.rounded())) },
+        )
     }
 
     /// In a superset, sets are rounds, shared with its partners.
@@ -101,10 +199,25 @@ struct ExerciseSheet: View {
         }
     }
 
+    /// While a ruler shows, its value keeps one shape, a weight one decimal and a time or rest
+    /// both its units ("0m 45s"), so its parts don't come and go as it turns. The shape
+    /// changes in the open's own transaction, so the value's numeric transition slides it in and
+    /// out with the row.
     private func value(of part: SheetPart) -> String {
+        let dialed = open == part && ruler(for: part) != nil
         switch part {
-        case let .plan(plan): item.value(of: plan, locale: locale)
-        case .restAfterRound: rounds?.value().text ?? ""
+        case let .plan(plan) where dialed: return item.dialedValue(of: plan, locale: locale)
+        case let .plan(plan): return item.value(of: plan, locale: locale)
+        case .restAfterRound where dialed:
+            return RoutineExercise.dialedTime(Int(rounds?.seconds() ?? 0), locale: locale)
+        case .restAfterRound: return rounds?.value().text ?? ""
+        }
+    }
+
+    private func number(of part: SheetPart) -> Double {
+        switch part {
+        case let .plan(plan): item.amount(of: plan)
+        case .restAfterRound: rounds?.seconds() ?? 0
         }
     }
 
@@ -135,14 +248,11 @@ struct ExerciseSheet: View {
     /// switch animates the value and its tag as it goes.
     private func isAuto(_ part: SheetPart) -> Binding<Bool>? {
         switch part {
-        case .plan(.rest): $item.isRestAuto.animation(Self.change)
-        case .restAfterRound: rounds?.isAuto.animation(Self.change)
+        case .plan(.rest): $item.isRestAuto.animation(ValueRow.change)
+        case .restAfterRound: rounds?.isAuto.animation(ValueRow.change)
         case .plan: nil
         }
     }
-
-    /// As a step changes a value.
-    private static let change = Animation.snappy(duration: 0.15)
 
     /// Inside an open rest, under its keys.
     private func autoSwitch(_ isOn: Binding<Bool>) -> some View {
@@ -161,8 +271,12 @@ struct ExerciseSheet: View {
     /// the finger, and a second tap landed on the row and closed it.
     private func restFooter(isAuto: Bool, of part: SheetPart) -> some View {
         let change = rounds?.change ?? [item].restChange
-        let held = "Stays at \(value(of: part)) when you change \(change)."
-        let spokenHeld = "Stays at \(spokenValue(of: part)) when you change \(change)."
+        // A sentence, so its time reads condensed ("1 min 35 sec"), open or closed.
+        let seconds = Int(number(of: part))
+        let time = RoutineExercise.restInSentence(seconds, locale: locale)
+        let spokenTime = RoutineExercise.restInSentence(seconds, spoken: true, locale: locale)
+        let held = "Stays at \(time) when you change \(change)."
+        let spokenHeld = "Stays at \(spokenTime) when you change \(change)."
         return ZStack(alignment: .topLeading) {
             Text(explanation)
                 .opacity(isAuto ? 1 : 0)
@@ -201,29 +315,15 @@ struct ExerciseSheet: View {
     /// put.
     private func toggle(_ part: SheetPart, _ scroller: ScrollViewProxy) {
         let opening = open != part
+        growsToFit = opening && detent != .large
         withAnimation(ValueRow.motion) {
             open = opening ? part : nil
         } completion: {
+            growsToFit = false
             guard opening, open == part else { return }
             withAnimation(ValueRow.motion) {
                 scroller.scrollTo(part)
             }
         }
     }
-}
-
-#Preview {
-    @Previewable @State var item = RoutineExercise(
-        exercise: Exercise.builtIn.first { $0.load == .pair && $0.isPerSide } ?? Exercise
-            .builtIn[0],
-        weightUnit: .pounds,
-    )
-    Color.pp(.background)
-        .sheet(isPresented: .constant(true)) {
-            ExerciseSheet(
-                item: $item,
-                partners: nil,
-                parts: item.exercise.planParts.map(SheetPart.plan) + [.plan(.rest)],
-            ) { }
-        }
 }

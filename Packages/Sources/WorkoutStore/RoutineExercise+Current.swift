@@ -3,8 +3,8 @@ import Foundation
 // How the current exercise of a workout reads: which set it is on, and its plan's numbers, each
 // with what it counts, shown large.
 
-/// One of the current exercise's numbers, with what it counts: "10" "reps", "35" "lb/side",
-/// "2:30" "min".
+/// One of the current exercise's numbers, with what it counts: "10" "reps", "35" "lb/side";
+/// a time carries its units in its number, "1m 35s", and nothing or "per side" after it.
 public struct PlanFigure: Hashable, Sendable {
     public let number: String
     public let unit: String
@@ -24,7 +24,9 @@ extension RoutineExercise {
     /// that side's alone, so the reps or time drop "per side": "10" "reps".
     public func figures(side: Side? = nil, locale: Locale = .current) -> [PlanFigure] {
         let target = plan.target.figure(locale: locale)
-        let unit = side == nil ? qualified(target.unit, .target) : target.unit
+        let unit = side == nil
+            ? qualified(target.unit, .target).trimmingCharacters(in: .whitespaces)
+            : target.unit
         var figures = [PlanFigure(number: target.number, unit: unit)]
         if let weight = shownWeight {
             figures.append(PlanFigure(
@@ -64,13 +66,13 @@ public func spokenProgress(done: Int, total: Int, locale: Locale = .current) -> 
 }
 
 extension SetTarget {
-    /// The number and its unit apart: "10" "reps", "30" "s", "2:30" "min".
+    /// The number and its unit apart: "10" "reps"; a time whole, "1m 35s" "".
     func figure(locale: Locale) -> (number: String, unit: String) {
         switch self {
         case let .reps(reps):
             (reps.formatted(.number.locale(locale)), reps == 1 ? "rep" : "reps")
         case let .time(seconds):
-            TimeText.parts(seconds: seconds, locale: locale)
+            (TimeText.text(seconds: seconds, locale: locale), "")
         }
     }
 }

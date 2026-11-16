@@ -19,7 +19,7 @@ extension RoutineExercise {
     }
 
     /// A part's value under its label, saying what it is for as the row does: "3", "10 per
-    /// side", "2:30 min", "20 lb/side".
+    /// side", "2m 30s", "20 lb/side".
     public func value(of part: PlanPart, locale: Locale = .current) -> String {
         switch part {
         case .sets:
@@ -31,6 +31,27 @@ extension RoutineExercise {
         case .rest:
             Self.restText(rest, locale: locale)
         }
+    }
+
+    /// A part's value as a number, the one its text reads: sets, reps or seconds, the weight in
+    /// its unit, the rest in seconds. A row's digits roll up or down by it.
+    public func amount(of part: PlanPart) -> Double {
+        switch part {
+        case .sets: Double(plan.sets)
+        case .target:
+            switch plan.target {
+            case let .reps(reps): Double(reps)
+            case let .time(seconds): Double(seconds)
+            }
+        case .weight: plan.weight?.amount ?? 0
+        case .rest: Double(rest)
+        }
+    }
+
+    /// The weight as its open row reads it while a ruler sets it, always one decimal or two,
+    /// "25.0 lb", "27.5 lb/side", so its digits keep their count as the ruler turns.
+    public func dialedWeight(locale: Locale = .current) -> String {
+        qualified(plan.weight?.text(locale: locale, decimals: 1 ... 2) ?? "", .weight)
     }
 
     /// A part's value in words, for VoiceOver: "3 sets", "10 reps per side", "20 pounds per
@@ -48,12 +69,12 @@ extension RoutineExercise {
         }
     }
 
-    /// "None", "30 s", "2:30 min".
+    /// "None", "30s", "2m 30s".
     static func restText(_ seconds: Int, locale: Locale) -> String {
         seconds == 0 ? "None" : TimeText.text(seconds: seconds, locale: locale)
     }
 
-    /// "None", "30 seconds", "2 minutes 30 seconds".
+    /// "None", "30 seconds", "2 minutes, 30 seconds".
     static func spokenRest(_ seconds: Int, locale: Locale) -> String {
         seconds == 0 ? "None" : TimeText.spoken(seconds: seconds, locale: locale)
     }
@@ -87,17 +108,17 @@ extension RoutineExercise {
                 else { return nil }
                 plan.target = .reps(reps)
             case let .time(seconds):
-                let range = Self.timeStep ... PlanLimits.seconds.upperBound
-                guard let seconds = seconds.stepped(by: direction * Self.timeStep, within: range)
+                let mark = seconds.nextMark(of: Self.timeStep, by: direction)
+                guard let seconds = seconds.stepped(by: mark - seconds, within: Self.timeRange)
                 else { return nil }
                 plan.target = .time(seconds: seconds)
             }
         case .weight:
-            guard var weight = plan.weight, let load = exercise.load else { return nil }
+            guard var weight = plan.weight, let load = exercise.load, let range = weightRange
+            else { return nil }
             let step = load.step(in: weight.unit)
-            let lightest = load == .bar ? Weight.emptyBar(weight.unit).amount : step
-            let range = lightest ... PlanLimits.weight.upperBound
-            guard let amount = weight.amount.stepped(by: Double(direction) * step, within: range)
+            let mark = weight.amount.nextMark(of: step, by: direction)
+            guard let amount = weight.amount.stepped(by: mark - weight.amount, within: range)
             else { return nil }
             weight.amount = amount
             plan.weight = weight
@@ -108,16 +129,114 @@ extension RoutineExercise {
         return plan
     }
 
-    private static let timeStep = 5
+    /// A timed set's step, and its ruler's tick.
+    public static let timeStep = 5
+
+    /// The times its stepper and ruler move within, in seconds: one step up to the last step
+    /// under the limit a plan is stored within, 5 s to 99:55.
+    public static let timeRange = timeStep ... PlanLimits.seconds.upperBound / timeStep * timeStep
+
+    /// The rests a row's or a superset's stepper and ruler move within, in seconds, none to
+    /// 10 min.
+    public static let restRange = PlanLimits.rest
+
+    /// Sets a timed set's time, held to `timeRange`; a set of reps keeps its reps.
+    public mutating func setTime(_ seconds: Int) {
+        guard case .time = plan.target else { return }
+        plan.target = .time(seconds: min(
+            max(seconds, Self.timeRange.lowerBound),
+            Self.timeRange.upperBound,
+        ))
+    }
+
+    /// Sets the rest by hand, as a step does, which turns Auto off; held to `restRange`.
+    public mutating func setRest(_ seconds: Int) {
+        plan.rest = .byHand(Self.heldRest(seconds))
+    }
+
+    static func heldRest(_ seconds: Int) -> Int {
+        min(max(seconds, restRange.lowerBound), restRange.upperBound)
+    }
+
+    /// A time as an open row reads it while a ruler sets it, both units always, "0m 45s",
+    /// "1m 0s", "0m 0s", so its parts keep their place as it turns, as a weight keeps its ".0".
+    public static func dialedTime(_ seconds: Int, locale: Locale = .current) -> String {
+        TimeText.bothUnits(seconds: seconds, locale: locale)
+    }
+
+    /// A time as a ruler's label reads it, as a value does: "30s", "1m", "1m 30s".
+    public static func rulerTime(_ seconds: Int, locale: Locale = .current) -> String {
+        TimeText.text(seconds: seconds, locale: locale)
+    }
+
+    /// A rest as a sentence reads it, "1 min 35 sec" where a value reads "1m 35s", and "no rest"
+    /// at none; `spoken`, in words, "1 minute, 35 seconds".
+    public static func restInSentence(
+        _ seconds: Int,
+        spoken: Bool = false,
+        locale: Locale = .current,
+    ) -> String {
+        guard seconds > 0 else { return "no rest" }
+        return spoken ? TimeText.spoken(seconds: seconds, locale: locale)
+            : TimeText.inSentence(seconds: seconds, locale: locale)
+    }
+
+    /// A part's value as its open row reads it while a ruler sets it: a weight with one decimal,
+    /// a time or a rest in `dialedTime`'s shape; reps and sets as they read anywhere.
+    public func dialedValue(of part: PlanPart, locale: Locale = .current) -> String {
+        switch part {
+        case .weight: dialedWeight(locale: locale)
+        case .target:
+            if case let .time(seconds) = plan.target {
+                qualified(Self.dialedTime(seconds, locale: locale), .target)
+            } else {
+                value(of: part, locale: locale)
+            }
+        case .rest: Self.dialedTime(rest, locale: locale)
+        case .sets: value(of: part, locale: locale)
+        }
+    }
+
+    /// The weights its stepper moves within, in the weight's unit: one step up to the limit a
+    /// plan is stored within, a bar's from the empty bar; nil without a weight.
+    public var weightRange: ClosedRange<Double>? {
+        guard let weight = shownWeight, let load = exercise.load else { return nil }
+        let lightest = load == .bar ? Weight.emptyBar(weight.unit).amount : load
+            .step(in: weight.unit)
+        return lightest ... PlanLimits.weight.upperBound
+    }
+
+    /// Sets the weight to an amount in its own unit, held to `weightRange`.
+    public mutating func setWeight(_ amount: Double) {
+        guard let range = weightRange else { return }
+        plan.weight?.amount = min(max(amount, range.lowerBound), range.upperBound)
+    }
+}
+
+extension Double {
+    /// The next multiple of `step` up (`direction` 1) or down (-1), so a weight off the marks,
+    /// 27.5 in 5 lb steps, lands on one (30 or 25) and moves a step from there.
+    func nextMark(of step: Double, by direction: Int) -> Double {
+        let marks = self / step
+        let tolerance = 1e-9
+        let index = direction > 0 ? (marks + tolerance).rounded(.down) + 1
+            : (marks - tolerance).rounded(.up) - 1
+        return index * step
+    }
 }
 
 extension Int {
+    /// The next multiple of `step` up (`direction` 1) or down (-1), so a time off the marks,
+    /// 32 s in 5 s steps, lands on one (35 or 30) and moves a step from there.
+    func nextMark(of step: Int, by direction: Int) -> Int {
+        direction > 0 ? (self / step + 1) * step : (self - 1) / step * step
+    }
+
     /// A rest moved to the next 15 s mark up (`direction` 1) or down (-1), so a rest off the
     /// marks, a timed set's own time, lands on one (50 s goes to 60 or 45) and moves by 15 s from
     /// there; held to a rest's limits, nil at the end it moves toward.
     func steppedRest(by direction: Int) -> Int? {
-        let step = PlanLimits.restStep
-        let mark = direction > 0 ? (self / step + 1) * step : (self - 1) / step * step
+        let mark = nextMark(of: PlanLimits.restStep, by: direction)
         return stepped(by: mark - self, within: PlanLimits.rest)
     }
 }
@@ -133,7 +252,7 @@ extension Comparable where Self: AdditiveArithmetic {
 }
 
 extension SetTarget {
-    /// The number alone for reps, which its label names, and a time with its unit: "10", "30 s".
+    /// The number alone for reps, which its label names, and a time with its unit: "10", "30s".
     func number(locale: Locale) -> String {
         switch self {
         case let .reps(reps): reps.formatted(.number.locale(locale))

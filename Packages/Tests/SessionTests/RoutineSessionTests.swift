@@ -185,6 +185,17 @@ struct RoutineSessionTests {
         #expect(stored.map(\.workout.startedAt) == [Self.at(10)])
     }
 
+    @Test("Start pressed on a routine with no exercises starts nothing")
+    func startOnEmptyRoutine() async throws {
+        let routine = Routine(name: "Empty")
+        let session = session(routine)
+        #expect(!session.canStart(on: routine.id))
+        session.start(on: routine.id)
+        #expect(session.workout == nil)
+        await session.writesLanded()
+        #expect(try await relaunch().launch(weightUnit: .pounds).workout == nil)
+    }
+
     @Test("Start pressed on a routine since switched away from starts nothing")
     func startOnAnotherRoutine() async throws {
         let session = try session(Self.upper())

@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// Rows on a rail, one for each element of `data`: a line runs through the rows' nodes, from
-/// the first node to the last, above the view at the rail's end, a key with a `plus` icon in the
-/// rail column.
+/// the first node to the last, above the view at the rail's end, such as room for a button
+/// floating over the list.
 ///
 /// Rows stack with no spacing. Each is made with `railRow()`, which gives it its node, its
 /// height, and its own stretch of the line, so nodes fall at an even rhythm whether a row has
@@ -285,7 +285,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                 )
             }
         }
-        // The card, over the rows it passes and Add exercise. It is placed in the rail's space,
+        // The card, over the rows it passes and the rail's end. It is placed in the rail's space,
         // where the finger is, not in the row's place, which moves as the gap does.
         .overlayPreferenceValue(RowNodes.self) { nodes in
             if let drag, let cardY {

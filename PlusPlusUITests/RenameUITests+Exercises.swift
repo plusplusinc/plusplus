@@ -4,27 +4,38 @@ import XCTest
 /// `RowDragUITests`'.
 @MainActor
 extension RenameUITests {
-    /// The picker opens fast and without the keyboard, and a pick adds a row. The rest of the
-    /// rows are seeded at the test's launch, in a routine the drawer then opens, and one more
-    /// is added through the picker's search onto them. Search's list and empty state are left to
-    /// use, and the add's scroll to Add exercise
-    /// is `TitleWrappingUITests`' at AX5.
+    /// The picker opens fast and without the keyboard, and a pick adds a row, Start rising with
+    /// the + above it. The rest of the rows are seeded at the test's launch, in a routine the
+    /// drawer then opens, and one more is added through the picker's search onto them. Search's
+    /// list and empty state are left to use, and the add's scroll to the list's end is
+    /// `TitleWrappingUITests`' at AX5. Where the + sits, to the point, is `PrimaryKeyBarTests`'.
     func addExercises(in app: XCUIApplication, keyboard: XCUIElement) {
         let search = app.searchFields.firstMatch
-        XCTContext.runActivity(named: "Add exercise opens the picker") { _ in
-            XCTAssertFalse(app.buttons["Start"].exists, "Start shows with no exercises")
-            _ = app.openPicker()
-            XCTAssertFalse(keyboard.exists, "Search took focus when the picker opened")
-            XCTAssertEqual(app.pickerRows.firstMatch.label, "Backward arm circles")
-        }
+        let start = app.buttons["Start"]
+        let plus = app.buttons["Add exercise"]
+        // At rest, before the picker covers it.
+        let low = plus.frame
+        openPickerFromEmptySpace(in: app, keyboard: keyboard)
         let (seeded, added) = XCUIApplication.renameRows
-        XCTContext.runActivity(named: "Start appears with the first exercise") { _ in
-            app.pickerRows[seeded[0].label].tap()
-            XCTAssertTrue(search.disappears(), "The add left the picker open")
-            XCTAssertEqual(app.exerciseCount(becoming: 1), 1, "The pick added no row")
-            // What Start does is `WorkoutUITests`'.
-            XCTAssertTrue(app.buttons["Start"].appears())
-        }
+        XCTContext
+            .runActivity(named: "Start appears with the first exercise, the + above it") { _ in
+                app.pickerRows[seeded[0].label].tap()
+                XCTAssertTrue(search.disappears(), "The add left the picker open")
+                XCTAssertEqual(app.exerciseCount(becoming: 1), 1, "The pick added no row")
+                // What Start does is `WorkoutUITests`'.
+                XCTAssertTrue(start.appears())
+                XCTAssertTrue(
+                    app.noExercises.disappears(),
+                    "No exercises stayed with an exercise in",
+                )
+                XCTAssertTrue(start.settles() && plus.settles(), "Start or the + kept moving")
+                XCTAssertGreaterThan(low.maxY, start.frame.minY, "The + sat no lower with no Start")
+                XCTAssertLessThanOrEqual(
+                    plus.frame.maxY,
+                    start.frame.minY,
+                    "The + is not above Start",
+                )
+            }
         XCTContext.runActivity(named: "An add through search lands after seeded rows") { _ in
             app.openDrawer(andTap: Self.seededName)
             XCTAssertEqual(app.routineTitle.value(becoming: Self.seededName), Self.seededName)
@@ -47,10 +58,38 @@ extension RenameUITests {
             ])
         }
         XCTContext.runActivity(named: "A tap on the small title scrolls back to the top") { _ in
-            // The ninth row pushed Add exercise below Start, and the add scrolled to it.
+            // The ninth row went in under the +, and the add scrolled to the list's end.
             app.scrollToTop(titled: Self.seededName)
             let smallTitle = app.navigationBars.firstMatch.buttons[Self.seededName]
             XCTAssertTrue(smallTitle.disappears(), "The small title stayed with the title in view")
+        }
+    }
+
+    /// On an empty routine, a tap in the empty space opens the picker, unless all it did was end
+    /// the title's edit: through the tap gesture and the touch-down that ends the edit, which
+    /// only the running app arbitrates.
+    private func openPickerFromEmptySpace(in app: XCUIApplication, keyboard: XCUIElement) {
+        let search = app.searchFields.firstMatch
+        // The line takes no touches, so a tap on it lands on the screen's empty space.
+        let emptySpace = app.noExercises.center
+        XCTContext.runActivity(named: "A tap that ends the title's edit opens no picker") { _ in
+            XCTAssertTrue(app.noExercises.exists, "An empty routine shows no No exercises")
+            app.routineTitle.tap()
+            XCTAssertTrue(keyboard.appears(), "A tap on the title did not start an edit")
+            emptySpace.tap()
+            XCTAssertTrue(keyboard.disappears(), "The tap on empty space did not end the edit")
+            // The keyboard's element goes before a sheet the tap opened would be in the tree.
+            XCTAssertFalse(
+                search.appears(within: 1),
+                "The tap that ended the edit opened the picker",
+            )
+        }
+        XCTContext.runActivity(named: "A tap in an empty routine's space opens the picker") { _ in
+            XCTAssertFalse(app.buttons["Start"].exists, "Start shows with no exercises")
+            emptySpace.tap()
+            XCTAssertTrue(search.appears(within: 1), "The tap on empty space opened no picker")
+            XCTAssertFalse(keyboard.exists, "Search took focus when the picker opened")
+            XCTAssertEqual(app.pickerRows.firstMatch.label, "Backward arm circles")
         }
     }
 

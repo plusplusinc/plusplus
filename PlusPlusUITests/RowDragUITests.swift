@@ -21,12 +21,12 @@ final nonisolated class RowDragUITests: XCTestCase {
 
 @MainActor
 extension RowDragUITests {
-    /// The system's swipe actions: a swipe opens a row's Delete, a tap on Start closes it, and
+    /// The system's swipe actions: a swipe opens a row's Remove, a tap on Start closes it, and
     /// a full swipe deletes outright. What a delete does to a superset is
     /// `RoutineSupersetTests`', and Start going with the last row `RoutineAutosaveUITests`'.
     func deleteExercises(in app: XCUIApplication) {
-        let delete = app.buttons["Delete"]
-        XCTContext.runActivity(named: "A swipe opens a row, and Delete deletes it") { _ in
+        let delete = app.buttons["Remove"]
+        XCTContext.runActivity(named: "A swipe opens a row, and Remove removes it") { _ in
             app.exerciseRows.element(boundBy: 1).swipeOpen()
             XCTAssertTrue(delete.appears(), "A swipe did not open the row")
             attach(named: "row-open")
@@ -46,6 +46,10 @@ extension RowDragUITests {
             XCTAssertEqual(app.exerciseCount(becoming: 7, within: 1), 8, "Start deleted the row")
         }
         XCTContext.runActivity(named: "A full swipe deletes") { _ in
+            // Scrolled to the list's end, so the swipe starts on the row and not on Add
+            // exercise's +, which floats over the rows' trailing end at the screen's bottom.
+            app.exerciseRows.element(boundBy: 2).swipeUp()
+            XCTAssertTrue(app.lastRowClearsAddExercise(), "The last row stayed under the +")
             app.lastExerciseRow.fullSwipeLeft()
             XCTAssertEqual(app.exerciseCount(becoming: 7), 7, "A full swipe did not delete")
         }

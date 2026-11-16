@@ -49,7 +49,7 @@ struct RoundRestTests {
         #expect(routine.restAfterRound(of: second) == 105)
         #expect(!routine.isRoundAuto(of: second))
         #expect(routine.restAfterRoundText(of: second, locale: Locale(identifier: "en_US"))
-            == "105\u{00A0}s")
+            == "1m\u{00A0}45s")
         // A member's own reps no longer move a rest set by hand.
         var bench = routine.exercises[0]
         bench.step(.target, by: 10)

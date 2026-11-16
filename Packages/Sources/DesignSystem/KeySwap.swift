@@ -1,5 +1,13 @@
 import SwiftUI
 
+extension Animation {
+    /// A key going down and out of sight, the first half of a swap: easing in, so it is still in
+    /// sight until it clears the edge.
+    public static let keyDrop = Animation.easeIn(duration: PrimaryKeyButtonStyle.swapHalf)
+    /// A key coming up into place, the second half of a swap.
+    public static let keyRise = Animation.smooth(duration: PrimaryKeyButtonStyle.swapHalf)
+}
+
 /// The presented key, with the swap it is in, which it owns. The bar's reactions to a change come
 /// only after the update that drew it, so the stage is what that update draws from: the key as it
 /// was while it is presented, so a key swapped leaves with its own words; the live face once the
@@ -43,6 +51,9 @@ struct StagedKey<Face: Equatable & Identifiable, Content: View>: View {
             .onChange(of: isDropped) { _, isDropped in stage.drop(isDropped, live: face) }
             // The swap's beats: the key going away cancels them.
             .task(id: stage.isOut) { await swap() }
+            // In the update that changes the stage, so the floating button, laid out over this
+            // face, moves under that update's animation: with the rise, never ahead of it.
+            .preference(key: FloatingFace<Face>.self, value: stage.floatingFace(for: face))
     }
 
     /// Follows the face changing to `new`: another key starts the one showing leaving with its
@@ -52,7 +63,7 @@ struct StagedKey<Face: Equatable & Identifiable, Content: View>: View {
         live = new
         var next = stage
         if next.follow(to: new) {
-            withAnimation(.easeIn(duration: PrimaryKeyButtonStyle.swapHalf)) { stage = next }
+            withAnimation(.keyDrop) { stage = next }
         } else if next != stage {
             stage = next
         }
@@ -73,14 +84,27 @@ struct StagedKey<Face: Equatable & Identifiable, Content: View>: View {
         // From out of sight: in the same update, the next key took up the old one's place.
         await Task.yield()
         guard !Task.isCancelled, stage.isOut else { return }
-        withAnimation(.smooth(duration: PrimaryKeyButtonStyle.swapHalf)) {
+        withAnimation(.keyRise) {
             stage.advance(live: live)
         }
     }
 }
 
-/// The key down out of sight while `isOut`, as far as its height and what lies below it, in
-/// place: the bar keeps its room. No further, so the key coming in starts up as the one going
+/// The face of the key the bar's floating button sits over, from the staged key, while the bar
+/// presents one.
+struct FloatingFace<Face: Equatable>: PreferenceKey {
+    static var defaultValue: Face? {
+        nil
+    }
+
+    static func reduce(value: inout Face?, nextValue: () -> Face?) {
+        value = value ?? nextValue()
+    }
+}
+
+/// The key down out of sight while `isOut`, as far as its height and what lies below it, less
+/// `drawnLower`, how far below its place in the bar it is drawn, in place: the bar keeps its
+/// room. No further, so the key coming in starts up as the one going
 /// clears the edge: with 8 pt more, the two halves had frames with no key between them. Unfaded
 /// both ways: faded going, it was all but gone three frames before it cleared the edge. With
 /// Reduce Motion it stays put and fades each way. Measured as it is drawn, so a
@@ -88,9 +112,11 @@ struct StagedKey<Face: Equatable & Identifiable, Content: View>: View {
 struct KeySwap: ViewModifier, Animatable {
     /// How far out the key is, 0 to 1, which an animation runs through.
     var progress: CGFloat
+    let drawnLower: CGFloat
 
-    init(isOut: Bool) {
+    init(isOut: Bool, drawnLower: CGFloat) {
         progress = isOut ? 1 : 0
+        self.drawnLower = drawnLower
     }
 
     nonisolated var animatableData: CGFloat {
@@ -103,10 +129,11 @@ struct KeySwap: ViewModifier, Animatable {
     func body(content: Content) -> some View {
         let progress = progress
         let moves = !reduceMotion
+        let drawnLower = drawnLower
         content
             .visualEffect { content, proxy in
                 content.offset(y: moves
-                    ? progress * (proxy.size.height + proxy.safeAreaInsets.bottom)
+                    ? progress * (proxy.size.height + proxy.safeAreaInsets.bottom - drawnLower)
                     : 0)
             }
             .opacity(reduceMotion ? 1 - progress : 1)

@@ -70,8 +70,8 @@ extension RoutineScreen {
 
 extension View {
     /// Shown to VoiceOver and the UI tests only while `isShown`. `accessibilityHidden` left the
-    /// bar's title read out while faded away.
-    fileprivate func accessibilityShown(_ isShown: Bool) -> some View {
+    /// bar's title, and Add exercise's + under `hiddenBehindDrawer()`, read out while faded away.
+    func accessibilityShown(_ isShown: Bool) -> some View {
         accessibilityRepresentation {
             if isShown {
                 self

@@ -49,14 +49,14 @@ extension CoordinateSpaceProtocol where Self == NamedCoordinateSpace {
 }
 
 extension View {
-    /// A row's Delete, revealed by a swipe, while `isOn`. Off, on the current exercise, which
+    /// A row's Remove, revealed by a swipe, while `isOn`. Off, on the current exercise, which
     /// fills the screen and whose sheet deletes it, there is no swipe at all: with no actions the
     /// row still slid aside.
     func swipeToDelete(isOn: Bool, delete: @escaping () -> Void) -> some View {
         // The row itself stays on, or VoiceOver would read it dimmed.
         environment(\.isEnabled, true)
             .swipeActions(edge: .trailing) {
-                Button("Delete", role: .destructive, action: delete)
+                Button("Remove", role: .destructive, action: delete)
             }
             .disabled(!isOn)
     }

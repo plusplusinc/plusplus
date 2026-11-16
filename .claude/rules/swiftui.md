@@ -9,7 +9,8 @@ Leaf views take plain values and closures so they preview and snapshot without a
 - No raw colors, spacing, font sizes, or corner radii at call sites. Use `Color.pp(.token)`,
   `Font.pp*` or a `.pp*Font()` modifier, `Spacing`, and `Radius` from `DesignSystem`. If a
   token is missing, add a `ColorToken` case and its colorset. Green (`accent`) is what's
-  active, and a value that went up. Purple (`done`) is done: a finished exercise's node and the
+  active, and a value that went up: data, and the one control filled with it, the + that adds
+  an exercise. Purple (`done`) is done: a finished exercise's node and the
   bars of the sets logged; a set still to do is `toDo`, a filled gray. A resting row shows its
   bars only once started and until finished, at its detail line's trailing end.
   Blue (`railJoin`) marks something arriving: a row joining a rail, a superset a node's drag
@@ -70,7 +71,9 @@ feature, and change them with it.
 - The ++ drawer and the Routines screen: `SideDrawer`, `DrawerSwipe`, `DrawerMenu`,
   `DrawerButtonStyle`, `NameRow`.
 - The title and a generated name typing in: `TitleTextView`, `EditableTitle+Typing.swift`,
-  `SuggestionTiming`. The exercise sheet: `ValueRow`, `ExerciseSheet.swift`.
+  `SuggestionTiming`. The exercise sheet: `ValueRow`, `ValueRuler` (`RulerScale`), `TimePiece`,
+  `ExerciseSheet.swift`. The current exercise's large numbers: `CurrentFigures`, sized by
+  `CurrentFigure`.
 
 ## Pitfalls
 
@@ -129,6 +132,23 @@ Each of these cost a round on this app; the code at the named spot works around 
   item hides from VoiceOver with an empty `accessibilityRepresentation`.
 - Attach a `confirmationDialog` to the whole screen, outside the `NavigationStack`; on a button
   or the stack's content, iOS shows it as a popover with an arrow.
+- A horizontal scroll view's offset set before the room around its content is laid out stays on
+  the content it showed as the room arrives: the ruler's line sat half its width past the value.
+  Place a value by a scroll anchor, a fraction of the content (`RulerScale.anchor(of:)`), which
+  holds at any width, and set offsets only once laid out.
+- A scroll view laid out while hidden (opacity 0) gets its UIKit view only when it first draws,
+  which starts at an offset from an earlier layout pass, not SwiftUI's current one: the AX5
+  sheet's weight ruler opened on 29 under 25 lb. Build it only while it shows
+  (`ValueRuler.shown(_:)`).
+- A lazy stack laid out again at a new size, as the text size changes live, puts back the scroll
+  offset it had over the scroll anchor. Give it an identity per size (`.id(spacing)`).
+- A scroll asked from `onScrollGeometryChange` to a content's new end can stop at the old end:
+  the growth is reported before the scroll view takes it. Following only growths, the list
+  rested short of its end, the last row under the +; follow every change short of the end
+  once the following has begun (`keepEndInView`, `EndFollow`).
+- A sheet's `.height` detent measures inside its safe area, and a scroll view's container there
+  already excludes the bar and the home indicator: grow it by the content's overflow alone
+  (`ExerciseSheet.fit(_:)`).
 - `ViewThatFits` on the routine screen hung the app as the title took focus; use a small
   `Layout` (`FigureLayout`).
 - A hold on a row in a scroll view is a UIKit long press (`RailLiftGesture`) outside the row's

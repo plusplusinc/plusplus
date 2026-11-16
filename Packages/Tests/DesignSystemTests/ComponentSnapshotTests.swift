@@ -10,6 +10,7 @@ import Testing
 @Suite("Components")
 struct ComponentSnapshotTests {
     private static let screenWidth: CGFloat = 390
+    private static let screenHeight: CGFloat = 844
 
     /// A row's name and its plan in parts: the sets and reps or time, then the weight.
     private struct Row: Identifiable {
@@ -18,7 +19,9 @@ struct ComponentSnapshotTests {
         let detail: [String]
     }
 
-    /// The routine's equipment shows under the title; Start shows once there is a row.
+    /// The routine's equipment shows under the title; Start shows once there is a row, with Add
+    /// exercise's + floating above it. With no row, "No exercises" shows mid-screen and the + sits
+    /// low, where Start's bottom would be. Where the + is, to the point, is `PrimaryKeyBarTests`'.
     private func content(
         name: String = "",
         suggestion: String? = nil,
@@ -41,19 +44,26 @@ struct ComponentSnapshotTests {
                 RowLabel(title: row.title, detail: row.detail)
                     .railRow()
             } end: {
-                Button("Add exercise", systemImage: "plus") { }
-                    .buttonStyle(.key)
+                FloatingButtonRoom()
             }
         }
         .padding(Spacing.md)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .primaryKeyBar(isPresented: !rows.isEmpty) {
+        // A whole screen's height while empty, so the line sits mid-screen as in the app.
+        .frame(
+            maxWidth: .infinity,
+            minHeight: rows.isEmpty ? Self.screenHeight : nil,
+            alignment: .topLeading,
+        )
+        .emptyNote("No exercises", isEmpty: rows.isEmpty) { }
+        .primaryKeyBar(isPresented: !rows.isEmpty, floatsLow: rows.isEmpty) {
             Button("Start", systemImage: "play.fill") { }
+        } floating: {
+            Button("Add exercise", systemImage: "plus") { }
         }
         .background(Color.pp(.background))
     }
 
-    @Test("A new routine: title at rest and Add exercise")
+    @Test("A new routine: title at rest, No exercises mid-screen, and the + low")
     func newRoutine() {
         assertThemedSnapshots(of: content(), width: Self.screenWidth)
     }
@@ -121,8 +131,8 @@ struct ComponentSnapshotTests {
             Row(title: "Pull-up", detail: ["3 × 6 reps"]),
             Row(title: "Dumbbell bench press", detail: ["3 × 10 reps", "25 lb/side"]),
             Row(title: "Push-up", detail: ["3 × 10 reps"]),
-            Row(title: "Kneeling hip flexor stretch", detail: ["60 s per side"]),
-            Row(title: "Farmer\u{2019}s carry", detail: ["3 × 30 s", "25 lb/side"]),
+            Row(title: "Kneeling hip flexor stretch", detail: ["1m per side"]),
+            Row(title: "Farmer\u{2019}s carry", detail: ["3 × 30s", "25 lb/side"]),
         ]
         assertThemedSnapshots(
             of: content(equipment: ["Dumbbells", "Bench", "Pull-up bar"], rows: rows),
@@ -141,8 +151,8 @@ struct ComponentSnapshotTests {
             Row(title: "Biceps curl", detail: ["3 × 12 reps", "25 lb/side"]),
             Row(title: "Pull-up", detail: ["3 × 6 reps"]),
             Row(title: "Goblet squat", detail: ["3 × 10 reps", "35 lb"]),
-            Row(title: "Side plank", detail: ["3 × 30 s per side"]),
-            Row(title: "Pigeon stretch", detail: ["60 s per side"]),
+            Row(title: "Side plank", detail: ["3 × 30s per side"]),
+            Row(title: "Pigeon stretch", detail: ["1m per side"]),
         ]
         let equipment = ["Dumbbells", "Kettlebell", "Barbell", "Bench", "Pull-up bar"]
         assertThemedSnapshots(
@@ -165,10 +175,10 @@ struct ComponentSnapshotTests {
             ("Reps", "10 per side", "10 reps per side"),
             ("Weight", "20 lb/side", "20 pounds per side"),
         ]
-        let rest = isAuto ? "90\u{00A0}s" : "75\u{00A0}s"
+        let rest = isAuto ? "1m\u{00A0}30s" : "1m\u{00A0}15s"
         let footer = isAuto
             ? "Auto rest follows your reps and the exercise. Heavier sets rest longer."
-            : "Stays at \(rest) when you change reps."
+            : "Stays at 1\u{00A0}min\u{00A0}15\u{00A0}sec when you change reps."
         return VStack(alignment: .leading, spacing: Spacing.sm) {
             Capsules(["Dumbbells", "Bench"])
                 .padding(.bottom, Spacing.sm)

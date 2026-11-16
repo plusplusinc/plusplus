@@ -9,15 +9,21 @@ import SwiftUI
 /// it's open, an optional accessory sits under the stepper inside its fill, past a hairline, and
 /// an optional footer sits under the fill, as a grouped list's footer does. VoiceOver reads the
 /// row as one element, its value in words and then its tag while it shows, and steps it with a
-/// swipe up or down.
+/// swipe up or down. An optional `ValueRuler` sits under the keys, edge to edge of the fill;
+/// with one, the value's digits roll up or down by the way `number` went (`change`), a time's
+/// units each kept in place as its shape changes (`TimePiece`), a weight's number apart from
+/// its unit. With Reduce Motion a new number crossfades, the old value and the new each at its
+/// own place, and nothing beside it moves.
 public struct ValueRow<Accessory: View, Footer: View>: View {
     private let label: String
     private let note: String?
     private let value: String
+    private let number: Double?
     private let tag: String?
     private let showsTag: Bool
     private let accessory: Accessory?
     private let footer: Footer?
+    private let ruler: ValueRuler?
     private let spokenValue: String
     private let isOpen: Bool
     private let canDecrease: Bool
@@ -27,6 +33,7 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.displayScale) private var displayScale
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// One inset on every side of the fill, for everything in it: the label, the value, the
     /// keys, the accessory, and the room between them. Siblings, the keys here and a sheet's rows
@@ -54,6 +61,7 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
         label: String,
         note: String? = nil,
         value: String,
+        number: Double? = nil,
         tag: String? = nil,
         showsTag: Bool = true,
         spokenValue: String,
@@ -62,16 +70,19 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
         canIncrease: Bool,
         onToggle: @escaping () -> Void,
         onStep: @escaping (Int) -> Void,
+        ruler: ValueRuler? = nil,
         accessory: Accessory?,
         footer: Footer?,
     ) {
         self.label = label
         self.note = note
         self.value = value
+        self.number = number
         self.tag = tag
         self.showsTag = showsTag
         self.accessory = accessory
         self.footer = footer
+        self.ruler = ruler
         self.spokenValue = spokenValue
         self.isOpen = isOpen
         self.canDecrease = canDecrease
@@ -135,13 +146,29 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
                 if !stacked {
                     tagView
                 }
-                Text(AttributedString.monoNumbers(value, font: .ppRowTitleNumber))
-                    .font(.ppRowTitle)
-                    .contentTransition(.numericText())
-                    .foregroundStyle(.pp(.textPrimary))
-                    .multilineTextAlignment(stacked ? .leading : .trailing)
+                if reduceMotion {
+                    // A new number is a new view, faded in at its own place over the old one
+                    // fading at its own: the pieces never move between the two.
+                    ZStack(alignment: stacked ? .topLeading : .topTrailing) {
+                        valueText(stacked: stacked)
+                            .id(changeKey)
+                            .transition(.opacity.animation(ValueRow<EmptyView, EmptyView>.change))
+                    }
+                } else {
+                    valueText(stacked: stacked)
+                }
                 if stacked {
                     tagView
+                }
+            }
+            // With Reduce Motion a new number takes its place, and the tag its place beside it, at
+            // once. Animated, a time's "0m" slid 10 pt as its seconds went between one digit and
+            // two, and the new "10" drew over its "m". Keyed on the number, not the text: as the
+            // row opens or shuts its text changes shape ("30s", "0m 30s") while the row itself
+            // moves, and laid out at once there, the value jumped ahead of its row.
+            .transaction(value: changeKey) { transaction in
+                if reduceMotion {
+                    transaction.animation = nil
                 }
             }
         }
@@ -170,14 +197,14 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
     /// in and out as it opens and closes.
     private var region: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: Spacing.sm) {
-                stepKey("Decrease", "minus", by: -1)
-                    .disabled(!canDecrease)
-                stepKey("Increase", "plus", by: 1)
-                    .disabled(!canIncrease)
+            keys
+                // The header's padding is the room above the keys.
+                .padding([.bottom, .horizontal], Self.inset)
+            if let ruler {
+                // Edge to edge of the fill, under the keys.
+                ruler.shown(isOpen)
+                    .padding(.bottom, Self.inset)
             }
-            // The header's padding is the room above the keys.
-            .padding([.bottom, .horizontal], Self.inset)
             if let accessory {
                 // A Settings group's divider: inset to the label, two pixels thick.
                 Rectangle()
@@ -195,23 +222,57 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
         .allowsHitTesting(isOpen)
         .accessibilityHidden(!isOpen)
         // Once for the pair of keys, so a step plays one tick.
-        .sensoryFeedback(.selection, trigger: value)
+        // On the number, not the text, which changes shape as the row opens and shuts.
+        .sensoryFeedback(.selection, trigger: changeKey)
         .frame(maxWidth: .infinity)
         .frame(height: isOpen ? nil : 0, alignment: .top)
         .clipped()
     }
 
+    private var keys: some View {
+        HStack(spacing: Spacing.sm) {
+            stepKey("Decrease", "minus", by: -1)
+                .disabled(!canDecrease)
+            stepKey("Increase", "plus", by: 1)
+                .disabled(!canIncrease)
+        }
+    }
+
+    @ViewBuilder
+    private func valueText(stacked: Bool) -> some View {
+        if ruler != nil {
+            RulerValue(value: value, number: number)
+        } else {
+            ValueText(text: value, number: number)
+                .multilineTextAlignment(stacked ? .leading : .trailing)
+        }
+    }
+
+    private var changeKey: ValueChange {
+        ValueChange(number: number, value: value)
+    }
+
     /// Always laid out, so nothing moves as it shows or hides; hidden, VoiceOver skips it.
     @ViewBuilder private var tagView: some View {
         if let tag {
-            Text(tag)
+            let label = Text(tag)
                 .font(.ppCaption)
                 .foregroundStyle(.pp(.textSecondary))
                 .padding(.horizontal, Spacing.sm)
                 .padding(.vertical, Spacing.xxs)
                 .background(Color.pp(.background), in: .rect(cornerRadius: Radius.sm))
-                .opacity(showsTag ? 1 : 0)
-                .accessibilityHidden(!showsTag)
+            Group {
+                if reduceMotion {
+                    // Only the fade animates: the tag's place beside a new number changes at
+                    // once, with it.
+                    label.animation(ValueRow<EmptyView, EmptyView>.change) {
+                        $0.opacity(showsTag ? 1 : 0)
+                    }
+                } else {
+                    label.opacity(showsTag ? 1 : 0)
+                }
+            }
+            .accessibilityHidden(!showsTag)
         }
     }
 
@@ -239,7 +300,7 @@ public struct ValueRow<Accessory: View, Footer: View>: View {
 
     private func step(by direction: Int) {
         guard direction > 0 ? canIncrease : canDecrease else { return }
-        withAnimation(.snappy(duration: 0.15)) {
+        withAnimation(ValueRow<EmptyView, EmptyView>.change) {
             onStep(direction)
         }
     }
@@ -251,11 +312,17 @@ extension ValueRow where Accessory == EmptyView, Footer == EmptyView {
         .snappy(duration: 0.25)
     }
 
+    /// How a value changes, by a step, a ruler's tick, or a switch: its digits roll in this.
+    public static var change: Animation {
+        .snappy(duration: 0.15)
+    }
+
     /// A row with nothing under its stepper or its fill.
     public init(
         label: String,
         note: String? = nil,
         value: String,
+        number: Double? = nil,
         tag: String? = nil,
         showsTag: Bool = true,
         spokenValue: String,
@@ -269,6 +336,7 @@ extension ValueRow where Accessory == EmptyView, Footer == EmptyView {
             label: label,
             note: note,
             value: value,
+            number: number,
             tag: tag,
             showsTag: showsTag,
             spokenValue: spokenValue,
