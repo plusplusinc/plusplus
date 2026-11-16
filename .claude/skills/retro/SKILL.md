@@ -1,6 +1,6 @@
 ---
 name: retro
-description: Over the work since the last retro, the merges to main and the conversations in this repo's Claude Code sessions, find what tripped the work up or fell short of what it aims for (docs/principles.md: the right product, built right, mostly autonomous), rank those findings by their evidence, fix them at the lowest altitude in a PR the maintainer reviews, check whether the last retro's fixes worked, and correct what the merges made false in the rules, skills, and docs. Gives the maintainer a private digest. Runs nightly on the maintainer's Mac as `/retro nightly`; use on request over a merge or a range of merges.
+description: Over the work since the last retro, the merges to main and the conversations in this repo's Claude Code sessions, find what tripped the work up or fell short of what it aims for (docs/principles.md: the right product, built right, mostly autonomous), rank those findings by their evidence, fix them at the lowest altitude in one PR, which the lead checks against main and merges, check whether the last retro's fixes worked, and correct what the merges made false in the rules, skills, and docs. Gives the maintainer a private digest. Runs nightly on the maintainer's Mac as `/retro nightly`; use on request over a merge or a range of merges.
 argument-hint: "nightly | <PR number or range>"
 allowed-tools: Bash(git log:*), Bash(git diff:*), Bash(git show:*), Bash(git fetch:*), Bash(git worktree add:*), Bash(git worktree remove:*), Bash(gh pr view:*), Bash(gh pr list:*), Bash(gh pr checks:*), Bash(gh pr diff:*), Bash(gh api:*), Bash(asc xcode-cloud build-runs:*), Bash(asc xcode-cloud status:*), Bash(asc xcode-cloud doctor:*), Bash(asc xcode-cloud issues:*), Bash(asc xcode-cloud test-results:*), Bash(scripts/ci-times.py:*), Bash(scripts/board.sh:*), Bash(scripts/lint.sh:*), Bash(scripts/conversations.py:*), Bash(date:*), Bash(wc:*), Read, Write, Edit, Glob, Grep, Agent
 ---
@@ -24,8 +24,8 @@ Output: a short report, a private digest, and one PR when there is something to 
 - **A fix counts when it is on `main`.** A retro PR still open holds a pending fix, not a made
   one. Before deferring a finding to its hunk, read that PR's diff and check it still applies to
   `main` and still says something true: a later merge may have overtaken it, and merging it then
-  reintroduces what that merge fixed. Report every stale hunk, so the maintainer can close the
-  PR rather than merge it. A finding two retros have already deferred to the same open PR gets
+  reintroduces what that merge fixed. Report every stale hunk, so the lead, who lands the
+  PR, trims or closes it rather than merging it. A finding two retros have already deferred to the same open PR gets
   fixed on `main` instead, and the body names the hunk to drop.
 - **A verified finding gets a check the first time; prose waits for evidence.** A finding is
   verified by clear evidence that it happened (a run, a log, a moment in a session), never by a

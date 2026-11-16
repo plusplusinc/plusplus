@@ -118,23 +118,19 @@ Swift Testing target's its longest test's, since each is timed from their common
 
 A test over its budget is fixed at its cause (setup through the UI, a fixed wait, a launch, a
 held main actor), or named with its time in the report that adds it. A run's first test
-carries the process's warm-up, so it can read over on its own (0.8 to 2.3 s for
-`DesignSystemTests`' first on Xcode Cloud, runs 321 to 366).
+carries the process's warm-up, so it can read over on its own (up to about 2.3 s for
+`DesignSystemTests`' first on Xcode Cloud).
 
 A snapshot whose reference matches only within the perceptual tolerance is compared through
-CoreImage, and the first such comparison in a run sets it up: 0.4 s locally, 0.6 to 5.7 s on
+CoreImage, and the first such comparison in a run sets it up: 0.4 s locally, up to about 6 s on
 Xcode Cloud, which renders on the same runtime byte for byte as a Mac does. The test that pays
-it logs `fopen failed for data file` twice; re-record its reference (the editing title's,
-before #150, over budget in 6 of runs 321 to 366).
+it logs `fopen failed for data file` twice; re-record its reference.
 
-Other `DesignSystemTests` tests have read 2.7 to 4.6 s on Xcode Cloud and under 1 s locally, a
-different few each run (runs 326, 360, 362, 366), and up to 7.7 s on Xcode Cloud in runs 374 and
-376, #150's last. In three of the first four runs, it ran while the freshly booted simulator
-relaunched KonaSynthesizer, an Intel-only speech extension crashing under Rosetta,
-which starts 26 to 46 s into the test action: a correlation, since runs 321 and 358 had it with
-nothing over. So such a test, with no `fopen` line, is slow only if it is also over 1.6 s in
-`scripts/test.sh sim DesignSystemTests` (the whole target: a filter to the one test would read
-its warm-up), and `scripts/ci-times.py` marks it so rather than over budget.
+Other `DesignSystemTests` tests read up to about 8 s on Xcode Cloud and under 1 s locally, a
+different few each run, with no cause found. So such a test, with no `fopen` line, is slow only
+if it is also over 1.6 s in `scripts/test.sh sim DesignSystemTests` (the whole target: a filter
+to the one test would read its warm-up), and `scripts/ci-times.py` marks it so rather than over
+budget.
 
 ## Snapshots and hosted views
 
@@ -199,8 +195,7 @@ don't add another; if not, say why it doesn't.
   the explicit width, the precision, and the appearances: dark, and dark at AX5 (the image
   named `xxxl` is `accessibilityExtraExtraExtraLarge`), as users see the app, which shows only
   in dark. Light renders only in `TokenSnapshotTests`, through `includingLight`, while the light
-  palette exists; light screen snapshots will return with the card "Choose light, dark, or
-  automatic appearance". Every pixel must match within perceptual
+  palette exists. Every pixel must match within perceptual
   0.98: a looser pixel share lets a `_` move a cell or vanish unseen. Do not call `assertSnapshot`
   directly. Re-record by deleting a suite's files, or its whole folder, under `__Snapshots__/`.
 - The scheme's test plan, `PlusPlus.xctestplan`, holds four settings to keep, and it is the
