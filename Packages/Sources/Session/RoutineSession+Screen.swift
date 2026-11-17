@@ -1,14 +1,14 @@
 extension RoutineSession {
     /// Where the app is, under the drawer.
     public enum Screen {
-        /// The open routine, at the root.
+        /// The open routine, at the root: as launched, and once a workout starts.
         case routine
         /// The Routines screen, its list showing.
         case routines
         /// The open routine, pushed onto the Routines screen from its list.
         case pushedRoutine
         /// Exercises, at the root as Routines is. The open routine and its workout stay as they
-        /// were, to show again when the drawer opens the routine.
+        /// were, to show again when Routines pushes it.
         case exercises
     }
 

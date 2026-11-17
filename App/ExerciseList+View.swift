@@ -27,8 +27,8 @@ import WorkoutStore
 /// Cancel comes back to the search as it was.
 struct ExerciseListView<BarLeading: View>: View {
     let exercises: ExerciseList
-    /// What a tap on a row does; nil leaves every row a plain row that opens nothing.
-    let onTap: ((Exercise) -> Void)?
+    /// What a tap on a row does.
+    let onTap: (Exercise) -> Void
     /// Which rows take a tap; the rest are plain rows that open nothing.
     var isTappable: (Exercise) -> Bool = { _ in true }
     /// Whether the form goes back to the list once it has created, rather than its host
@@ -114,7 +114,7 @@ struct ExerciseListView<BarLeading: View>: View {
     private func row(_ exercise: Exercise) -> some View {
         let label = RowLabel(title: exercise.name, detail: exercise.equipmentLine)
         Group {
-            if let onTap, isTappable(exercise) {
+            if isTappable(exercise) {
                 Button {
                     onTap(exercise)
                 } label: {
@@ -201,7 +201,10 @@ private struct SearchField<Leading: View>: ViewModifier {
         content
             .onGeometryChange(for: CGFloat.self, of: \.size.width) { width = $0 }
             .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).midX } action: {
-                midX = $0
+                // Only a drawn title reads it; Exercises' moves with every frame of the drawer.
+                if title != nil {
+                    midX = $0
+                }
             }
             .toolbar(removing: title == nil ? nil : .title)
             .toolbar {
@@ -225,7 +228,12 @@ private struct SearchField<Leading: View>: ViewModifier {
 
 #Preview {
     NavigationStack {
-        ExerciseListView(exercises: .builtIn, onTap: nil, barLeading: EmptyView()) { _ in }
-            .navigationTitle("Exercises")
+        ExerciseListView(
+            exercises: .builtIn,
+            onTap: { _ in },
+            barLeading: EmptyView(),
+            onCreate: { _ in },
+        )
+        .navigationTitle("Exercises")
     }
 }

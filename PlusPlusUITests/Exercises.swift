@@ -24,6 +24,11 @@ extension XCUIApplication {
         buttons.matching(identifier: "routines.row")
     }
 
+    /// The Routines screen's row labeled `name`.
+    func routineRow(named name: String) -> XCUIElement {
+        routineRows.matching(NSPredicate(format: "label == %@", name)).firstMatch
+    }
+
     /// The Routines screen's rows' labels, top to bottom.
     var routineRowLabels: [String] {
         snapshots { $0.elementType == .button && $0.identifier == "routines.row" }.map(\.label)

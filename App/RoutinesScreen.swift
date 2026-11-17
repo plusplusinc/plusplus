@@ -45,7 +45,7 @@ struct RoutinesScreen: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("New routine", systemImage: "plus") {
-                        Task { await session.startNew(pushed: true) }
+                        Task { await session.startNew() }
                     }
                     .makesSomething()
                     .hiddenBehindDrawer()
@@ -60,7 +60,7 @@ struct RoutinesScreen: View {
 
     private func row(_ routine: Routine) -> some View {
         Button {
-            Task { await session.open(routine.id, weightUnit: weightUnit, pushed: true) }
+            Task { await session.open(routine.id, weightUnit: weightUnit) }
         } label: {
             NameRow(namer.listedName(of: routine))
         }

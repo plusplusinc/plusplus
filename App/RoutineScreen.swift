@@ -163,14 +163,6 @@ struct RoutineScreen: View {
             onTitle: { tapOpensPicker = false },
             perform: { touchedDownOutsideTitle() },
         )
-        // Every change made here reaches the session as it is made, so the session's routine
-        // differs only after a change made elsewhere: an exercise customized or deleted from
-        // Exercises, which the store has already saved.
-        .onChange(of: session.current) { _, changed in
-            if changed.id == shownRoutine.id, changed != shownRoutine {
-                shownRoutine = changed
-            }
-        }
         .endWorkoutDialog(
             isPresented: $isConfirmingEnd,
             session: session,

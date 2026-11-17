@@ -94,7 +94,10 @@ public struct BarSearchField<Leading: View>: View {
         // width throughout, and the field and button keep to its trailing edge.
         .frame(width: max(width, height), alignment: .trailing)
         .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).midX } action: {
-            itemMidX = $0
+            // Only a title reads it; without one, the item moves with every frame of a drawer.
+            if title != nil {
+                itemMidX = $0
+            }
         }
         .background { coveredTitle }
         .background { coveredLeading }
@@ -286,19 +289,6 @@ extension ButtonStyle where Self == BarGlassButtonStyle {
     /// `.buttonStyle(.barGlass(width: 0))`: a circle as tall as the search button.
     public static func barGlass(width: CGFloat) -> Self {
         BarGlassButtonStyle(width: width)
-    }
-}
-
-extension View {
-    /// Shown to VoiceOver and the UI tests only while `isShown`. A bar item ignores
-    /// `accessibilityHidden`: the bar's title, and Add exercise's + under `hiddenBehindDrawer()`,
-    /// were read out while faded away.
-    public func accessibilityShown(_ isShown: Bool) -> some View {
-        accessibilityRepresentation {
-            if isShown {
-                self
-            }
-        }
     }
 }
 

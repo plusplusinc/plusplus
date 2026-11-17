@@ -104,14 +104,14 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
     private func drawerAtAX5(in app: XCUIApplication) throws {
         try XCTContext.runActivity(named: "The drawer and the Routines screen at AX5") { _ in
             // Back from the routine pushed from Routines, to ++.
-            app.buttons["BackButton"].tap()
+            app.tapBack()
             app.buttons["Menu"].tap()
             XCTAssertTrue(app.drawerTitle.appears(), "++ did not open the drawer")
             attach(named: "drawer-ax5")
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
             app.buttons["Routines"].tap()
             XCTAssertTrue(app.drawerTitle.disappears(), "Routines did not close the drawer")
-            let row = app.buttons.matching(identifier: "routines.row").firstMatch
+            let row = app.routineRows.firstMatch
             XCTAssertTrue(row.appears(), "The routine isn't listed")
             attach(named: "routines-ax5")
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])

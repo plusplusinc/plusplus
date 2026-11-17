@@ -53,7 +53,7 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
             XCTAssertTrue(app.drawerTitle.disappears(), "A tap on the sliver left it open")
             app.buttons["New routine"].tap()
             XCTAssertEqual(title.value(becoming: "New routine"), "New routine")
-            app.navigationBars.buttons.element(boundBy: 0).tap()
+            app.tapBack()
             XCTAssertTrue(title.disappears(), "The chevron did not pop")
             XCTAssertEqual(app.routineRowLabels, ["Chest"], "The untouched new one was listed")
             app.buttons["New routine"].tap()
@@ -71,11 +71,11 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
             attach(named: "routines-screen")
         }
         XCTContext.runActivity(named: "A row pushes its routine, and an edit moves it up") { _ in
-            row("Chest", in: app).tap()
+            app.routineRow(named: "Chest").tap()
             XCTAssertEqual(title.value(becoming: "Chest"), "Chest", "The row pushed no routine")
             XCTAssertEqual(app.exerciseNames, ["Barbell bench press"])
             editTheFirstRow(in: app)
-            app.navigationBars.buttons.element(boundBy: 0).tap()
+            app.tapBack()
             XCTAssertTrue(title.disappears(), "The chevron did not pop")
             let listed = ["Chest", "Back"]
             XCTAssertEqual(
@@ -85,21 +85,15 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
             )
         }
         XCTContext.runActivity(named: "The chevron keeps a name still being typed") { _ in
-            row("Chest", in: app).tap()
+            app.routineRow(named: "Chest").tap()
             XCTAssertEqual(title.value(becoming: "Chest"), "Chest", "The row pushed no routine")
             typeName("Chest day", over: "Chest", in: app)
-            app.navigationBars.buttons.element(boundBy: 0).tap()
+            app.tapBack()
             XCTAssertTrue(title.disappears(), "The chevron did not pop")
             let renamed = ["Chest day", "Back"]
             XCTAssertEqual(reading(app.routineRowLabels, becoming: renamed, within: 2), renamed)
             attach(named: "chevron-renamed")
         }
-    }
-
-    /// The Routines screen's row labeled `name`.
-    @MainActor
-    private func row(_ name: String, in app: XCUIApplication) -> XCUIElement {
-        app.routineRows.matching(NSPredicate(format: "label == %@", name)).firstMatch
     }
 
     /// On the routine showing, opens its first row's sheet, adds a set, drags the weight ruler,

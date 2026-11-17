@@ -87,6 +87,11 @@ extension XCUIApplication {
         XCTAssertTrue(drawerTitle.disappears(), "\(label) did not close the drawer")
     }
 
+    /// Taps the bar's back chevron, on any pushed screen.
+    func tapBack() {
+        buttons["BackButton"].tap()
+    }
+
     /// A swipe in from the screen's left edge, which opens the drawer or pops a pushed screen.
     func edgeSwipe() {
         let edge = coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0.5))

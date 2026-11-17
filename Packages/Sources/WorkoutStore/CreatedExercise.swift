@@ -61,12 +61,7 @@ public struct CreatedExercise: Identifiable, Equatable, Sendable {
         besides id: String? = nil,
     ) -> Bool {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let isTaken = if let id {
-            exercises.hasExercise(named: name, besides: id)
-        } else {
-            exercises.hasExercise(named: name)
-        }
-        return !name.isEmpty && !isTaken
+        return !name.isEmpty && !exercises.hasExercise(named: name, besides: id)
     }
 }
 

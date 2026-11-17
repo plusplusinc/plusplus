@@ -43,9 +43,11 @@ public struct ExerciseList: Equatable, Sendable {
         all.matching(query)
     }
 
-    /// Whether an exercise is named `name`, by the search's folding.
-    public func hasExercise(named name: String) -> Bool {
-        all.hasExercise(named: name)
+    /// Whether an exercise, other than `id` if given, is named `name`, by the search's folding:
+    /// a rename may keep its own name, or change only its case.
+    public func hasExercise(named name: String, besides id: String? = nil) -> Bool {
+        let others = id.map { id in all.filter { $0.id != id } } ?? all
+        return others.hasExercise(named: name)
     }
 
     /// Whether a search for `query` offers to create an exercise of that name: something is
@@ -57,12 +59,6 @@ public struct ExerciseList: Equatable, Sendable {
     /// The settings of the created exercise `id`, or nil for a built-in.
     public func created(id: String) -> CreatedExercise? {
         createdByID[id]
-    }
-
-    /// Whether an exercise other than `id` is named `name`, by the search's folding: a rename
-    /// may keep its own name, or change only its case.
-    public func hasExercise(named name: String, besides id: String) -> Bool {
-        all.filter { $0.id != id }.hasExercise(named: name)
     }
 
     /// The list with `created` in it at its place, or in place of the one with its id.

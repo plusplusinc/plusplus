@@ -38,9 +38,8 @@ extension RenameUITests {
             }
         XCTContext.runActivity(named: "An add through search lands after seeded rows") { _ in
             // Back to the Routines screen the new routine was pushed from.
-            app.navigationBars.buttons.element(boundBy: 0).tap()
-            app.routineRows.matching(NSPredicate(format: "label == %@", Self.seededName))
-                .firstMatch.tap()
+            app.tapBack()
+            app.routineRow(named: Self.seededName).tap()
             XCTAssertEqual(app.routineTitle.value(becoming: Self.seededName), Self.seededName)
             XCTAssertEqual(app.exerciseCount(becoming: seeded.count), seeded.count)
             app.addExercise(added.label, searching: added.query)

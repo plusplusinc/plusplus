@@ -10,7 +10,6 @@ import Testing
 struct RoutineSessionScreenTests {
     private let store: RoutineStore
     private let saved = Routine(name: "Lower")
-    private let other = Routine(name: "Legs")
 
     init() async throws {
         let container = try WorkoutStoreContainer.make(
@@ -19,7 +18,6 @@ struct RoutineSessionScreenTests {
         )
         store = RoutineStore(modelContainer: container)
         try await store.save(saved, at: Date(timeIntervalSinceReferenceDate: 1))
-        try await store.save(other, at: Date(timeIntervalSinceReferenceDate: 2))
     }
 
     private func session(_ routine: Routine = Routine(name: "Upper")) -> RoutineSession {
@@ -30,7 +28,7 @@ struct RoutineSessionScreenTests {
     private func pushedSession() async -> RoutineSession {
         let session = session()
         session.showRoutines()
-        await session.open(saved.id, weightUnit: .pounds, pushed: true)
+        await session.open(saved.id, weightUnit: .pounds)
         return session
     }
 
@@ -65,7 +63,7 @@ struct RoutineSessionScreenTests {
     func openOpenFromList() async {
         let session = session()
         session.showRoutines()
-        await session.open(session.current.id, weightUnit: .pounds, pushed: true)
+        await session.open(session.current.id, weightUnit: .pounds)
         #expect(session.screen == .pushedRoutine)
         #expect(session.current.name == "Upper")
     }
@@ -74,7 +72,7 @@ struct RoutineSessionScreenTests {
     func newFromList() async {
         let session = session()
         session.showRoutines()
-        await session.startNew(pushed: true)
+        await session.startNew()
         #expect(session.screen == .pushedRoutine)
         #expect(session.current.isEmpty)
         #expect(session.showing == .routine)
@@ -114,28 +112,6 @@ struct RoutineSessionScreenTests {
         session.start(on: routine.id)
         session.popRoutine()
         #expect(session.screen == .routine)
-    }
-
-    @Test("A routine opened from the drawer over the list shows at the root")
-    func openFromDrawerOverList() async {
-        let session = session()
-        session.showRoutines()
-        session.openDrawer()
-        await session.open(other.id, weightUnit: .pounds)
-        #expect(session.screen == .routine)
-        #expect(session.current == other)
-        #expect(session.showing == .routine)
-        #expect(!session.isDrawerOpen)
-    }
-
-    @Test("A new routine started over the list shows at the root, marking neither place")
-    func newFromDrawerOverList() async {
-        let session = session()
-        session.showRoutines()
-        await session.startNew()
-        #expect(session.screen == .routine)
-        #expect(session.current.isEmpty)
-        #expect(session.showing == .routine)
     }
 
     @Test("Start on a pushed routine shows its workout at the root, as the routine is now")

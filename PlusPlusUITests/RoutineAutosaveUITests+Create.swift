@@ -91,7 +91,7 @@ extension RoutineAutosaveUITests {
             reading(button.isSelected, becoming: true, within: 2),
             "\(item) does not read as selected",
         )
-        app.buttons["BackButton"].tap()
+        app.tapBack()
         XCTAssertTrue(button.disappears(), "Back left the list up")
     }
 }

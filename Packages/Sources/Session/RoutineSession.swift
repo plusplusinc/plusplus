@@ -193,16 +193,15 @@ public final class RoutineSession {
         }
     }
 
-    /// Opens a saved routine on the routine screen and closes the drawer, or, `pushed`, pushes
-    /// it onto the Routines screen. The open one shows as it is now, edits included.
-    public func open(_ id: Routine.ID, weightUnit: WeightUnit, pushed: Bool = false) async {
+    /// Pushes a saved routine onto the Routines screen. The open one shows as it is now, edits
+    /// included.
+    public func open(_ id: Routine.ID, weightUnit: WeightUnit) async {
         guard !isSwitching else { return }
         guard id != current.id else {
-            show(current, pushed: pushed)
-            return closeDrawer()
+            return show(current)
         }
         guard let store else { return }
-        await switchTo(pushed: pushed) {
+        await switchTo {
             do {
                 return try await store.openRoutine(id, weightUnit: weightUnit)
             } catch {
@@ -212,22 +211,20 @@ public final class RoutineSession {
         }
     }
 
-    /// Opens a new, empty routine on the routine screen and closes the drawer, or, `pushed`,
-    /// pushes it onto the Routines screen; an empty one open already is shown as it is. Nothing
-    /// is saved for the new routine until it changes.
-    public func startNew(pushed: Bool = false) async {
+    /// Pushes a new, empty routine onto the Routines screen; an empty one open already is shown
+    /// as it is. Nothing is saved for the new routine until it changes.
+    public func startNew() async {
         guard !isSwitching else { return }
         guard !current.isEmpty else {
-            show(current, pushed: pushed)
-            return closeDrawer()
+            return show(current)
         }
-        await switchTo(pushed: pushed) { Routine() }
+        await switchTo { Routine() }
     }
 
-    /// Lets the last edit land, then shows the routine `next` gives, if any, and closes the
-    /// drawer. An edit made while `next` runs lands before the next routine shows, too. A switch
-    /// already under way takes the tap. Internal so a test can hold `next`.
-    func switchTo(pushed: Bool, _ next: () async -> Routine?) async {
+    /// Lets the last edit land, then pushes the routine `next` gives, if any. An edit made while
+    /// `next` runs lands before the next routine shows, too. A switch already under way takes
+    /// the tap. Internal so a test can hold `next`.
+    func switchTo(_ next: () async -> Routine?) async {
         guard !isSwitching else { return }
         isSwitching = true
         defer { isSwitching = false }
@@ -235,18 +232,17 @@ public final class RoutineSession {
         let routine = await next()
         await finishSaving()
         if let routine {
-            show(routine, pushed: pushed)
+            show(routine)
         }
-        closeDrawer()
     }
 
-    private func show(_ routine: Routine, pushed: Bool) {
+    private func show(_ routine: Routine) {
         // The routine left stays in the list at its place, before its last save reads back.
         saved = recent
         switches += 1
         opened = routine
         current = routine
-        screen = pushed ? .pushedRoutine : .routine
+        screen = .pushedRoutine
     }
 
     /// Lets the last edit land: a finished stream still hands over what it holds. An edit made
