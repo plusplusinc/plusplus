@@ -135,13 +135,14 @@ struct ExerciseListView<BarLeading: View>: View {
         .accessibilityIdentifier("exercises.row")
     }
 
-    private var trimmedQuery: String {
-        query.trimmingCharacters(in: .whitespacesAndNewlines)
+    /// The name Create makes, as its row shows it and its form opens with it.
+    private var createdName: String {
+        ExerciseList.createdName(from: query)
     }
 
     private var createRow: some View {
         Button {
-            creating = ExerciseList.createdName(from: query)
+            creating = createdName
         } label: {
             createLabel
                 .font(.ppRowTitle)
@@ -160,7 +161,7 @@ struct ExerciseListView<BarLeading: View>: View {
     /// read it as clipped.
     @ViewBuilder
     private var createLabel: some View {
-        let title = Text("Create \u{201C}\(trimmedQuery)\u{201D}")
+        let title = Text("Create \u{201C}\(createdName)\u{201D}")
         if typeSize.isAccessibilitySize {
             HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
                 Image(systemName: "plus")

@@ -237,6 +237,11 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
             XCTAssertEqual(app.searchField.value as? String, "zq", "The search capitalized")
             let create = app.buttons["picker.create"]
             XCTAssertTrue(create.appears(), "Exercises' search offered no Create")
+            XCTAssertEqual(
+                create.label,
+                "Create \u{201C}Zq\u{201D}",
+                "Create's row doesn't show the name it creates",
+            )
             create.tap()
             let name = app.textFields["newExercise.name"]
             XCTAssertTrue(name.appears(), "Create opened no form")

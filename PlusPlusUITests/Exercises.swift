@@ -161,7 +161,7 @@ extension XCUIApplication {
     func searchForNothing(replacing query: String) {
         let delete = XCUIKeyboardKey.delete.rawValue
         typeIntoSearch(String(repeating: delete, count: query.count) + "zzz")
-        XCTAssertTrue(buttons["Create \u{201C}zzz\u{201D}"].appears(), "No Create for zzz")
+        XCTAssertTrue(buttons["Create \u{201C}Zzz\u{201D}"].appears(), "No Create for zzz")
         XCTAssertEqual(pickerRows.count, 0, "Rows other than Create match zzz")
     }
 
