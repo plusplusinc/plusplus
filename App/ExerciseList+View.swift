@@ -14,7 +14,8 @@ import WorkoutStore
 ///
 /// Both have search as a round button at the bar's top trailing edge, which opens out to the
 /// left into a field in the bar (`BarSearchField`), beside ++ in Exercises, under its large
-/// title, and beside Close in Add exercise, where the field slides over the inline title.
+/// title, and across the whole bar in Add exercise, where the field slides over the inline
+/// title and over Close.
 ///
 /// Search does not take focus when the list opens. The list is the fast path: with the
 /// keyboard down, the whole list is in reach of a thumb and a pick is one tap.
@@ -40,6 +41,9 @@ struct ExerciseListView: View {
     /// The host's inline title, drawn by the bar's search so its field covers the title as it
     /// opens; nil leaves the bar's own title.
     var barTitle: LocalizedStringKey?
+    /// The host's Close, drawn by the bar's search at the bar's leading edge so its field
+    /// covers Close as it opens; nil leaves the host's own toolbar.
+    var onBarClose: (() -> Void)?
     /// Stores the exercise; the host decides what shows next.
     let onCreate: (CreatedExercise) async -> Void
 
@@ -88,7 +92,7 @@ struct ExerciseListView: View {
         // and takes it back more slowly than the keyboard leaves, and the window's black showed
         // in between.
         .containerBackground(Color.pp(.background), for: .navigation)
-        .searchField(text: $query, inBar: searchesInBar, title: barTitle)
+        .searchField(text: $query, inBar: searchesInBar, title: barTitle, onClose: onBarClose)
         .navigationDestination(item: $creating) { name in
             ExerciseForm(
                 name: name,
@@ -163,19 +167,23 @@ extension View {
         text: Binding<String>,
         inBar: Bool,
         title: LocalizedStringKey?,
+        onClose: (() -> Void)?,
     ) -> some View {
-        modifier(SearchField(text: text, inBar: inBar, title: title))
+        modifier(SearchField(text: text, inBar: inBar, title: title, onClose: onClose))
     }
 }
 
 /// Search either in the system's drawer under the title or as `BarSearchField`, a round button
-/// at the bar's top trailing edge that opens into a field beside ++ (or Close). Given a title,
-/// the bar's own inline title is removed and `BarSearchField` draws it, centered on the screen,
-/// for its field to cover; the screen keeps it as its navigation title.
+/// at the bar's top trailing edge that opens into a field beside ++. Given a title, the bar's
+/// own inline title is removed and `BarSearchField` draws it, centered on the screen, for its
+/// field to cover; the screen keeps it as its navigation title. Given a close, `BarSearchField`
+/// draws Close too, at the bar's leading edge, and its one item spans the bar, so the field
+/// opens over Close up to the bar's leading margin.
 private struct SearchField: ViewModifier {
     @Binding var text: String
     let inBar: Bool
     let title: LocalizedStringKey?
+    let onClose: (() -> Void)?
 
     /// The screen's width, which the open field spans but for ++.
     @State private var width: CGFloat = 0
@@ -187,6 +195,8 @@ private struct SearchField: ViewModifier {
     /// width from the screen's. With an 8-point gap the bar had no room for the item and put it
     /// in a More menu.
     private static let besideMenu: CGFloat = 16 + 52 + 16 + 16
+    /// What the open field leaves of the bar's width when the item holds Close: the margins.
+    private static let besideMargins: CGFloat = 16 + 16
 
     func body(content: Content) -> some View {
         if inBar {
@@ -201,9 +211,11 @@ private struct SearchField: ViewModifier {
                         BarSearchField(
                             text: $text,
                             prompt: "Search",
-                            openWidth: width - Self.besideMenu,
+                            openWidth: width
+                                - (onClose == nil ? Self.besideMenu : Self.besideMargins),
                             title: title,
                             titleCenterX: midX,
+                            onClose: onClose,
                         )
                         .hiddenBehindDrawer()
                     }

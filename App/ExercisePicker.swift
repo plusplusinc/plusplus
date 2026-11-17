@@ -3,8 +3,9 @@ import SwiftUI
 import WorkoutStore
 
 /// The sheet Add exercise opens: the exercise list (`ExerciseListView`) on a stack of its own,
-/// with Close. Picking one hands it back; the presenter closes the sheet. Its inline title is
-/// drawn by the bar's search, whose field covers it as it opens and reveals it as it closes.
+/// with Close. Picking one hands it back; the presenter closes the sheet. Its inline title and
+/// Close are drawn by the bar's search, whose field covers both as it opens and reveals them as
+/// it closes; while covered, Close takes no taps. A swipe down closes the sheet at any time.
 struct ExercisePicker: View {
     let exercises: ExerciseList
     let onPick: (Exercise) -> Void
@@ -20,16 +21,14 @@ struct ExercisePicker: View {
                 onTap: onPick,
                 searchesInBar: true,
                 barTitle: "Add exercise",
+                // In the search's own bar item, not one of its own: the bar lays separate items
+                // out at once, so the field could not slide over Close along its motion.
+                onBarClose: { dismiss() },
                 onCreate: onCreate,
             )
             // Still the screen's title for VoiceOver; the bar shows the search's drawn copy.
             .navigationTitle("Add exercise")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(role: .close) { dismiss() }
-                }
-            }
         }
     }
 }

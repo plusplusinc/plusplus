@@ -17,6 +17,14 @@ import SwiftUI
 /// along the motion. With a title the item keeps its open width throughout, so the bar never
 /// lays out again; only the button takes touches in it while closed.
 ///
+/// Given `onClose`, it draws the bar's Close too, the system's close button in its glass
+/// circle, at the item's leading edge, which then spans the bar between its margins; the host
+/// holds no Close of its own. The field opens across the whole bar and its leading edge covers
+/// Close as it slides over it, and uncovers it as it slides back; with Reduce Motion Close
+/// crossfades. While covered, Close takes no taps and is hidden from VoiceOver. A Close in an item
+/// of its own stayed where the bar laid it out,
+/// apart from the field's item, and an item wider than its room went into a More menu.
+///
 /// The system's top bar search does not do this on iPhone. Its round button
 /// (`.searchable(placement: .toolbar)`, `.searchToolbarBehavior(.minimize)` and a top trailing
 /// `DefaultToolbarItem(kind: .search)`) opens the field above the keyboard and hides the bar.
@@ -32,6 +40,9 @@ struct BarSearchField: View {
     var title: LocalizedStringKey?
     /// Where the title centers, the screen's middle, in global coordinates.
     var titleCenterX: CGFloat = 0
+    /// What the bar's Close does, drawn here at the item's leading edge for the field to cover;
+    /// nil when the bar has no Close or holds its own.
+    var onClose: (() -> Void)?
 
     @State private var isOpen = false
     /// The item's middle in global coordinates, where the title is laid out; its offset moves it
@@ -66,6 +77,7 @@ struct BarSearchField: View {
             itemMidX = $0
         }
         .background { coveredTitle }
+        .background { coveredClose }
         // The caret in green, as the list's own controls; the bar is hosted apart from the list
         // and does not take its tint.
         .tint(.pp(.accent))
@@ -81,7 +93,7 @@ struct BarSearchField: View {
     }
 
     private var itemWidth: CGFloat {
-        isItemWide || title != nil ? max(openWidth, height) : height
+        isItemWide || title != nil || onClose != nil ? max(openWidth, height) : height
     }
 
     /// Fades on the field's curve as the field slides over it, and back as the field leaves it;
@@ -99,8 +111,64 @@ struct BarSearchField: View {
                 .opacity(isOpen ? 0 : 1)
                 .allowsHitTesting(false)
                 .accessibilityAddTraits(.isHeader)
-                .accessibilityHidden(isOpen)
+                // The bar ignores `accessibilityHidden`: covered, it was still read out.
+                .accessibilityShown(!isOpen)
         }
+    }
+
+    /// The system's Close in its glass circle, as the bar draws it, under the field: cut away
+    /// where the field's capsule lies over it, along the field's own motion, so the field's
+    /// leading edge covers it and uncovers it. Faded instead, it was gone before the field
+    /// reached it and back while the field was still mid-bar, and the field's glass let it show
+    /// through. With Reduce Motion it crossfades. It takes no taps and is hidden from VoiceOver
+    /// while covered.
+    @ViewBuilder
+    private var coveredClose: some View {
+        if let onClose {
+            Button(role: .close, action: onClose)
+                .labelStyle(.iconOnly)
+                // In the label's own primary, white, as the bar draws Close, not the search
+                // button's cream.
+                .font(.body.weight(.medium))
+                // The bar sets the X a pixel left of the circle's middle and a pixel lower;
+                // centered here, it sat that pixel off from the bar's own Close.
+                .offset(x: -1 / displayScale, y: 1 / displayScale)
+                .frame(width: height, height: height)
+                .contentShape(.circle)
+                .buttonStyle(.plain)
+                .glassEffect(.regular.interactive(), in: .circle)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .mask { fieldCutout }
+                .opacity(reduceMotion && isOpen ? 0 : 1)
+                .allowsHitTesting(!isOpen)
+                .accessibilityShown(!isOpen)
+        }
+    }
+
+    /// Everything in the item but the field's capsule, laid out as the field is, so it moves on
+    /// the same transaction. With Reduce Motion the field does not move, and it cuts nothing.
+    private var fieldCutout: some View {
+        ZStack(alignment: .trailing) {
+            // Past the item's bounds, which the glass's rim and shadow overhang.
+            Rectangle().padding(-Spacing.lg)
+            HStack(spacing: Spacing.sm) {
+                Capsule()
+                    .frame(width: fieldFrameWidth, height: height)
+                    .offset(x: fieldOffset)
+                    .opacity(reduceMotion ? 0 : 1)
+                Color.clear.frame(width: height, height: height)
+            }
+            .blendMode(.destinationOut)
+        }
+        .compositingGroup()
+    }
+
+    private var fieldFrameWidth: CGFloat {
+        isOpen || reduceMotion ? fieldWidth : height
+    }
+
+    private var fieldOffset: CGFloat {
+        isOpen || reduceMotion ? 0 : height + Spacing.sm
     }
 
     /// From the item's middle to the screen's, with the title's leading edge on the pixel below,
@@ -126,13 +194,13 @@ struct BarSearchField: View {
         // field opens and closes; it fades.
         .frame(width: fieldWidth, height: height, alignment: .leading)
         .opacity(isOpen ? 1 : 0)
-        .frame(width: isOpen || reduceMotion ? fieldWidth : height, alignment: .leading)
+        .frame(width: fieldFrameWidth, alignment: .leading)
         .clipShape(.capsule)
         // Its glass is there only from the open's start to the close's end, hidden under the
         // button's meanwhile. With Reduce Motion the field stays where it opens and its glass
         // fades.
         .glassEffect(hasFieldGlass ? .regular.interactive() : .identity, in: .capsule)
-        .offset(x: isOpen || reduceMotion ? 0 : height + Spacing.sm)
+        .offset(x: fieldOffset)
         .allowsHitTesting(isOpen)
         .accessibilityHidden(!isOpen)
     }
