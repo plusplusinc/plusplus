@@ -215,7 +215,7 @@ struct RoutineStoreWorkoutTests {
         #expect(launch.workout == workout)
         try await store.discardWorkout(workout.id)
         try await store.save(cleared, at: Self.at(30))
-        #expect(try await relaunch().routinesByRecency(weightUnit: .pounds).routines.isEmpty)
+        #expect(try await relaunch().routinesByRecency(weightUnit: .pounds).isEmpty)
     }
 
     @Test(
@@ -237,7 +237,7 @@ struct RoutineStoreWorkoutTests {
         } else {
             try await store.discardWorkout(workout.id)
         }
-        #expect(try await relaunch().routinesByRecency(weightUnit: .pounds).routines.isEmpty)
+        #expect(try await relaunch().routinesByRecency(weightUnit: .pounds).isEmpty)
     }
 
     @Test("Ending a workout keeps its routine with exercises")
@@ -248,7 +248,7 @@ struct RoutineStoreWorkoutTests {
         let workout = Self.started(routine, at: 10)
         try await store.save(workout)
         try await store.discardWorkout(workout.id)
-        #expect(try await relaunch().routinesByRecency(weightUnit: .pounds).routines.count == 1)
+        #expect(try await relaunch().routinesByRecency(weightUnit: .pounds).count == 1)
     }
 
     #if DEBUG

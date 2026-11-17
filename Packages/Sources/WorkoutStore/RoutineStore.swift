@@ -124,19 +124,12 @@ public actor RoutineStore {
     }
 
     /// Every saved routine, the latest opened or edited first; a tie by id, so the order is
-    /// stable. Sorted here: a sort descriptor can't take the later of two dates. With them,
-    /// when each was last edited, its name or its rows, apart from when it was opened.
-    public func routinesByRecency(
-        weightUnit: WeightUnit,
-    ) throws -> (routines: [Routine], editedAt: [Routine.ID: Date]) {
-        let stored = try modelContext.fetch(FetchDescriptor<StoredRoutine>())
-            .sorted(by: Self.isMoreRecent(_:than:))
+    /// stable. Sorted here: a sort descriptor can't take the later of two dates.
+    public func routinesByRecency(weightUnit: WeightUnit) throws -> [Routine] {
         let exercises = try exercises()
-        return (
-            stored.map { Self.routine(from: $0, exercises: exercises, weightUnit: weightUnit) },
-            // Ids are unique in the app's own writes; keyed leniently against a store that isn't.
-            Dictionary(stored.map { ($0.id, $0.editedAt) }, uniquingKeysWith: max),
-        )
+        return try modelContext.fetch(FetchDescriptor<StoredRoutine>())
+            .sorted(by: Self.isMoreRecent(_:than:))
+            .map { Self.routine(from: $0, exercises: exercises, weightUnit: weightUnit) }
     }
 
     /// Saves the routine as it is now, edited at `now`, or deletes it once it is empty, unless

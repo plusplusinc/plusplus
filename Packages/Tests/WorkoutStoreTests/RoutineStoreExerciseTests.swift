@@ -68,7 +68,7 @@ struct RoutineStoreExerciseTests {
         let launch = try await relaunch().launch(weightUnit: .pounds)
         #expect(launch.workout != nil)
         #expect(launch.routine == routine)
-        #expect(try await relaunch().routinesByRecency(weightUnit: .pounds).routines == [routine])
+        #expect(try await relaunch().routinesByRecency(weightUnit: .pounds) == [routine])
     }
 
     @Test("An exercise this build can't read is left out of the list and kept in the store")

@@ -140,7 +140,7 @@ struct RoutineStoreUpgradeTests {
         )
         let store = RoutineStore(modelContainer: current)
         #expect(try await store.launch(weightUnit: .pounds).routine?.name == "Newer")
-        #expect(try await store.routinesByRecency(weightUnit: .pounds).routines.map(\.name)
+        #expect(try await store.routinesByRecency(weightUnit: .pounds).map(\.name)
             == ["Newer", "Older"])
     }
 
@@ -162,7 +162,7 @@ struct RoutineStoreUpgradeTests {
         }
 
         let store = try open()
-        let routines = try await store.routinesByRecency(weightUnit: .pounds).routines
+        let routines = try await store.routinesByRecency(weightUnit: .pounds)
         #expect(routines.map(\.name) == ["Older", "Newer"])
         for routine in routines {
             #expect(routine.exercises.map(\.exercise.id) == ["push-up", "pull-up"])

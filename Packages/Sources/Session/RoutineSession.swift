@@ -187,7 +187,7 @@ public final class RoutineSession {
         do {
             let read = try await store.routinesByRecency(weightUnit: weightUnit)
             guard switches == switchesBefore else { return }
-            saved = read.routines
+            saved = read
         } catch {
             Logger.session.error("The recent routines didn't load: \(error)")
         }

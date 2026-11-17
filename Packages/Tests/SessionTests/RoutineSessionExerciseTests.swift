@@ -35,4 +35,50 @@ struct RoutineSessionExerciseTests {
         await session.writesLanded()
         #expect(try await relaunch().launch(weightUnit: .pounds).routine == routine)
     }
+
+    /// A session open on a routine with a row of a created exercise and a push-up, its last
+    /// edit not yet landed, and another saved routine using the exercise.
+    private func sessionUsing(
+        _ created: CreatedExercise,
+    ) async throws -> (RoutineSession, other: Routine) {
+        let store = relaunch()
+        try await store.save(created)
+        let row = RoutineExercise(exercise: Exercise(created: created), weightUnit: .pounds)
+        let other = Routine(name: "Other", exercises: [row])
+        try await store.save(other, at: Date(timeIntervalSinceReferenceDate: 1))
+        let open = Routine(name: "Open", exercises: [row])
+        let session = RoutineSession(routine: open, store: store, namer: .muscleGroupsOnly)
+        await session.refreshRecent(weightUnit: .pounds)
+        var edited = open
+        let pushUp = try #require(Exercise.builtIn(id: "push-up"))
+        edited.exercises.append(RoutineExercise(exercise: pushUp, weightUnit: .pounds))
+        session.save(edited)
+        return (session, other)
+    }
+
+    @Test("A customize reaches the open routine and the saved ones, its last edit kept")
+    func customizeReachesOpen() async throws {
+        let created = CreatedExercise(name: "Cable curl", muscleGroups: [.arms])
+        let (session, other) = try await sessionUsing(created)
+        #expect(session.routines(using: created.id).map(\.name) == ["Open", "Other"])
+        var renamed = created
+        renamed.name = "Hammer curl"
+        await session.customize(renamed, weightUnit: .pounds)
+        #expect(session.exercises.created(id: created.id) == renamed)
+        #expect(session.current.exercises.map(\.exercise.name) == ["Hammer curl", "Push-up"])
+        let saved = try #require(session.recent.first { $0.id == other.id })
+        #expect(saved.exercises.map(\.exercise.name) == ["Hammer curl"])
+    }
+
+    @Test("A delete takes the exercise's rows from the open routine and the saved ones")
+    func deleteReachesOpen() async throws {
+        let created = CreatedExercise(name: "Cable curl", muscleGroups: [.arms])
+        let (session, other) = try await sessionUsing(created)
+        await session.deleteExercise(created.id, weightUnit: .pounds)
+        #expect(session.exercises == .builtIn)
+        #expect(session.current.exercises.map(\.exercise.name) == ["Push-up"])
+        #expect(session.routines(using: created.id).isEmpty)
+        let saved = try #require(session.recent.first { $0.id == other.id })
+        #expect(saved.exercises.isEmpty)
+    }
 }
