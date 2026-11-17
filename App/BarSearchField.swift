@@ -2,11 +2,12 @@ import DesignSystem
 import SwiftUI
 
 /// Search in the navigation bar, at its top trailing edge: a round glass button with a magnifying
-/// glass, as big as Back. A tap opens a glass field out of it to the left, filling the bar up to
-/// Back, focused, with the keyboard coming up, while the button's glass turns to an X. The X
-/// clears the search and closes the field back into the button; so does the keyboard going down
-/// with nothing typed. With something typed, the keyboard can go down and the field stays open
-/// on the matches. Nothing else in the bar or under it moves: the large title stays below.
+/// glass, as big as Back. A tap splits a glass field out of the button's glass, which pulls apart
+/// to the left into its own capsule filling the bar up to Back, focused, with the keyboard coming
+/// up, while the button's symbol turns to an X. The X clears the search and the field merges back
+/// into the button; so does the keyboard going down with nothing typed. With something typed, the
+/// keyboard can go down and the field stays open on the matches. Nothing else in the bar or under
+/// it moves: the large title stays below.
 ///
 /// The system's top bar search does not do this on iPhone. Its round button
 /// (`.searchable(placement: .toolbar)`, `.searchToolbarBehavior(.minimize)` and a top trailing
@@ -28,6 +29,11 @@ struct BarSearchField: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
+        // Closed, the field's glass is a circle under the button's; opening pulls it out to the
+        // left, and the container blends the two shapes while they are near, so the field splits
+        // off the button and merges back into it. The container's spacing matches the gap, so at
+        // rest the two stay apart. The container's own morph (`glassEffectID` with an inserted
+        // field) only materialized the field in place here, in a bar item.
         GlassEffectContainer(spacing: Spacing.sm) {
             HStack(spacing: Spacing.sm) {
                 field
@@ -49,6 +55,10 @@ struct BarSearchField: View {
         }
     }
 
+    private var hasFieldGlass: Bool {
+        reduceMotion ? isOpen : isItemWide
+    }
+
     private var itemWidth: CGFloat {
         isItemWide ? max(openWidth, height) : height
     }
@@ -68,10 +78,13 @@ struct BarSearchField: View {
         // field opens and closes; it fades.
         .frame(width: fieldWidth, height: height, alignment: .leading)
         .opacity(isOpen ? 1 : 0)
-        .frame(width: isOpen ? fieldWidth : 0, alignment: .leading)
+        .frame(width: isOpen || reduceMotion ? fieldWidth : height, alignment: .leading)
         .clipShape(.capsule)
-        // Closed to no width, the capsule's glass still drew its edge as a hairline.
-        .glassEffect(isOpen ? .regular.interactive() : .identity, in: .capsule)
+        // Its glass is there only from the open's start to the close's end, hidden under the
+        // button's meanwhile. With Reduce Motion the field stays where it opens and its glass
+        // fades.
+        .glassEffect(hasFieldGlass ? .regular.interactive() : .identity, in: .capsule)
+        .offset(x: isOpen || reduceMotion ? 0 : height + Spacing.sm)
         .allowsHitTesting(isOpen)
         .accessibilityHidden(!isOpen)
     }
@@ -84,16 +97,27 @@ struct BarSearchField: View {
                 open()
             }
         } label: {
-            Image(systemName: isOpen ? "xmark" : "magnifyingglass")
-                .font(.body.weight(.medium))
-                .foregroundStyle(.pp(.textPrimary))
-                .contentTransition(.symbolEffect(.replace))
-                .frame(width: height, height: height)
-                .contentShape(.circle)
+            // The symbols swap on the field's own curve, so the X lands as the field does. The
+            // system's replace effect keeps its own, longer timing, and closing, it was still
+            // turning the X back into the glass well after the field had gone.
+            ZStack {
+                symbol("magnifyingglass", isShown: !isOpen)
+                symbol("xmark", isShown: isOpen)
+            }
+            .font(.body.weight(.medium))
+            .foregroundStyle(.pp(.textPrimary))
+            .frame(width: height, height: height)
+            .contentShape(.circle)
         }
         .buttonStyle(.plain)
         .glassEffect(.regular.interactive(), in: .circle)
         .accessibilityLabel(isOpen ? "Close search" : "Search")
+    }
+
+    private func symbol(_ name: String, isShown: Bool) -> some View {
+        Image(systemName: name)
+            .scaleEffect(isShown || reduceMotion ? 1 : 0.5)
+            .opacity(isShown ? 1 : 0)
     }
 
     private var fieldWidth: CGFloat {
@@ -101,7 +125,7 @@ struct BarSearchField: View {
     }
 
     private var motion: Animation {
-        reduceMotion ? .easeInOut(duration: 0.2) : .snappy
+        reduceMotion ? .easeInOut(duration: 0.2) : .tapChange
     }
 
     private func open() {
@@ -116,7 +140,7 @@ struct BarSearchField: View {
         collapse()
     }
 
-    /// Closes the field into the button. Should the completion come early, the narrowed item
+    /// Merges the field back into the button. Should the completion come early, the narrowed item
     /// still draws the closing field past its leading edge; it only stops taking touches there.
     private func collapse() {
         withAnimation(motion) {
