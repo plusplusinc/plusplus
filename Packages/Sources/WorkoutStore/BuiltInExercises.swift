@@ -47,7 +47,7 @@ extension Exercise {
             name: "Decline push-up",
             muscleGroup: .chest,
             equipment: [.bench],
-            plan: .init(sets: 4, target: .reps(8)),
+            plan: .init(sets: 3, target: .reps(10)),
             tags: .init(.push, [.chest, .frontDelts], [.triceps, .abs]),
         ),
         Self(

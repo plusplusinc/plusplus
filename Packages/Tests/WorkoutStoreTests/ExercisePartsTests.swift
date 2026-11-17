@@ -50,7 +50,7 @@ struct ExercisePartsTests {
         Parts("Cross-body shoulder stretch", 1, .time(seconds: 30), nil, true),
         Parts("Dead bug", 3, .reps(10), nil, false),
         Parts("Dead hang", 3, .time(seconds: 30), nil, false),
-        Parts("Decline push-up", 4, .reps(8), nil, false),
+        Parts("Decline push-up", 3, .reps(10), nil, false),
         Parts("Doorway chest stretch", 1, .time(seconds: 60), nil, false),
         Parts("Dumbbell bench press", 3, .reps(10), .pair, false),
         Parts("Dumbbell row", 3, .reps(10), .single, true),
