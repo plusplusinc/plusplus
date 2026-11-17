@@ -12,9 +12,9 @@ import WorkoutStore
 /// searching and while the keyboard is up, when the matches are few and the keyboard covers
 /// most of it.
 ///
-/// Exercises has its search as a round button at the bar's top trailing edge, which opens the
-/// field above the keyboard; Add exercise has its search in a drawer under its title. Both are
-/// the system's.
+/// Exercises has its search as a round button at the bar's top trailing edge, which opens out
+/// to the left into a field in the bar beside Back (`BarSearchField`); Add exercise has the
+/// system's search, in a drawer under its title.
 ///
 /// Search does not take focus when the list opens. The list is the fast path: with the
 /// keyboard down, the whole list is in reach of a thumb and a pick is one tap.
@@ -161,29 +161,35 @@ extension View {
     }
 }
 
-/// The system's search, either in a drawer under the title or as a round button at the bar's
-/// top trailing edge.
-///
-/// The button is the toolbar's search (`placement: .toolbar`) minimized to a button and moved
-/// to the top bar. With the default placement instead, the same top bar item drew a button
-/// whose tap hid the bar and showed no field: the search it opened was the drawer's, which a
-/// toolbar item does not show. Tapped, the button opens the field above the keyboard and the
-/// bar steps aside until search closes, as the system does; `.avoidHidingContent` kept the bar
-/// but opened the field without focus, a second tap to type, even with `searchFocused` set
-/// once presented, and neither `toolbarMinimizationBehavior(.never)` nor
-/// `toolbarMinimizationSafeAreaAdjustment(.disabled)` kept the bar or the list in place.
+/// Search either in the system's drawer under the title or as `BarSearchField`, a round button
+/// at the bar's top trailing edge that opens into a field beside Back.
 private struct SearchField: ViewModifier {
     @Binding var text: String
     let inBar: Bool
 
+    /// The screen's width, which the open field spans but for Back.
+    @State private var width: CGFloat = 0
+
+    /// What the open field leaves of the bar's width: the margins on both sides, Back, and the
+    /// gap after it. A bar item hugs its content, so the field gets its width from the screen's.
+    private static let besideBack: CGFloat = 16 + 44 + 8 + 16
+
     func body(content: Content) -> some View {
         if inBar {
             content
-                .searchable(text: $text, placement: .toolbar, prompt: "Search")
-                .searchToolbarBehavior(.minimize)
+                .onGeometryChange(for: CGFloat.self, of: \.size.width) { width = $0 }
                 .toolbar {
-                    DefaultToolbarItem(kind: .search, placement: .topBarTrailing)
+                    ToolbarItem(placement: .topBarTrailing) {
+                        BarSearchField(
+                            text: $text,
+                            prompt: "Search",
+                            openWidth: width - Self.besideBack,
+                        )
+                    }
+                    .sharedBackgroundVisibility(.hidden)
                 }
+                // As the system's search does: a drag down the list drops the keyboard.
+                .scrollDismissesKeyboard(.immediately)
         } else {
             content.searchable(
                 text: $text,
