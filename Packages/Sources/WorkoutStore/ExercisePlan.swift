@@ -56,7 +56,8 @@ public struct Weight: Equatable, Sendable {
 }
 
 /// Where a loaded exercise's weight starts, in each unit: its own value from the kit that unit
-/// comes in (dumbbells in 2 kg steps, kettlebells at 8, 12, 16 kg), not a conversion.
+/// comes in (dumbbells in 2 kg steps, kettlebells at 8, 12, 16 kg, a medicine ball at 4), not a
+/// conversion.
 struct StartingWeight: Equatable, Sendable {
     let pounds: Double
     let kilograms: Double

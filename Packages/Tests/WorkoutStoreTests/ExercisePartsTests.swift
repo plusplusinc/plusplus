@@ -152,7 +152,7 @@ struct ExercisePartsTests {
             }
             if let pounds, let kilograms, exercise.load != .bar {
                 #expect(pounds.amount.truncatingRemainder(dividingBy: 5) == 0, "\(exercise.name)")
-                // Dumbbells and medicine balls come in 2 kg steps, kettlebells in 4.
+                // Dumbbells come in 2 kg steps, kettlebells in 4; a medicine ball starts at 4.
                 let kilogramStep: Double = exercise.equipment.contains(.kettlebell) ? 4 : 2
                 #expect(
                     kilograms.amount.truncatingRemainder(dividingBy: kilogramStep) == 0,
