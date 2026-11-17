@@ -18,10 +18,8 @@ struct RoutineScreen: View {
     /// Pushed onto the Routines screen, with a back button where ++ otherwise is.
     let isPushed: Bool
     @State var isPicking = false
-    /// How high the picker opens: full from the + and on an empty routine, half from a tap
-    /// below the last row, which may not have meant to open it, so it covers less and the
-    /// routine stays in view.
-    @State var pickerDetent: PresentationDetent = .large
+    /// How high the picker is: half as it opens (`openPicker()`), full once pulled up.
+    @State var pickerDetent: PresentationDetent = .medium
     @State var listEnd = ListEnd()
     /// The row whose values are open in a sheet, as it was when opened: only its id is read.
     @State var editing: RoutineExercise?
@@ -365,8 +363,7 @@ struct RoutineScreen: View {
                 isPicking = false
                 add(exercise)
             }
-            // The same two heights however it opens: a set worked out from `pickerDetent` was
-            // read from the opening before, so a first one from below the rows showed full.
+            // A fixed set: one worked out from `pickerDetent` was read from the opening before.
             .presentationDetents([.medium, .large], selection: $pickerDetent)
         }
         // By item, so the sheet keeps its content as it slides away.

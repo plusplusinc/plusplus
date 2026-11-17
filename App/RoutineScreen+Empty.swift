@@ -4,23 +4,21 @@ import SwiftUI
 extension RoutineScreen {
     /// Add exercise, a + floating above the key, which opens the picker.
     var addButton: some View {
-        AddExerciseButton(isEditingTitle: $isEditingTitle) { openPicker(at: .large) }
+        AddExerciseButton(isEditingTitle: $isEditingTitle) { openPicker() }
     }
 
-    func openPicker(at detent: PresentationDetent) {
-        pickerDetent = detent
+    /// Half up, however it opens, which puts Search within a thumb's reach; pulled up, it stays
+    /// up until it closes.
+    func openPicker() {
+        pickerDetent = .medium
         isPicking = true
     }
 
     /// A tap anywhere on an empty routine, or below the last row, opens the picker, unless it
     /// only ended the title's edit.
     func tappedList(at location: CGPoint) {
-        guard tapOpensPicker else { return }
-        if routine.exercises.isEmpty {
-            openPicker(at: .large)
-        } else if location.y >= listEnd.top {
-            openPicker(at: .medium)
-        }
+        guard tapOpensPicker, routine.exercises.isEmpty || location.y >= listEnd.top else { return }
+        openPicker()
     }
 
     /// A touch outside the title ends its edit, and its tap opens the picker
