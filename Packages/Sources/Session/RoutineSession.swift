@@ -26,8 +26,6 @@ public final class RoutineSession {
 
     /// The saved routines, latest first, as of the last read, with each routine left since.
     private var saved: [Routine] = []
-    /// When each routine was last edited, as of the last read, with each edit made since.
-    private var editedAt: [Routine.ID: Date] = [:]
     private var isSwitching = false
     /// How many times the routine showing has changed, so a read that a switch overtook is
     /// dropped.
@@ -85,16 +83,9 @@ public final class RoutineSession {
         saved.withOpen(current)
     }
 
-    /// The drawer's routines: the `count` latest opened or edited, the last edited first, so
-    /// opening one never moves it.
-    public func recentByEdit(first count: Int) -> [Routine] {
-        recent.lastEdited(first: count, editedAt: editedAt)
-    }
-
     /// Saves a change to the open routine.
     public func save(_ routine: Routine) {
         current = routine
-        editedAt[routine.id] = .now
         saves.yield(RoutineSave(routine: routine, keepsEmpty: workout != nil))
     }
 
@@ -187,7 +178,7 @@ public final class RoutineSession {
         }
     }
 
-    /// Reads the saved routines again, for the Routines screen and the drawer's next opening.
+    /// Reads the saved routines again, for the Routines screen and Exercises' Used in.
     /// A read that fails leaves the last one, to be tried again at the next refresh; one that
     /// started before a switch is dropped, since it may be missing the routine left.
     public func refreshRecent(weightUnit: WeightUnit) async {
@@ -197,8 +188,6 @@ public final class RoutineSession {
             let read = try await store.routinesByRecency(weightUnit: weightUnit)
             guard switches == switchesBefore else { return }
             saved = read.routines
-            // An edit still on its way to the store is newer than what it read.
-            editedAt.merge(read.editedAt, uniquingKeysWith: max)
         } catch {
             Logger.session.error("The recent routines didn't load: \(error)")
         }

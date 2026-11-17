@@ -21,7 +21,7 @@ public struct CreatedExercise: Identifiable, Equatable, Sendable {
     /// built-in slug (letters, digits, and hyphens) or another device's exercise.
     public let id: String
     public var name: String
-    /// Every group checked, all equal; at least one (`canAdd`).
+    /// Every group checked, all equal; none at all is allowed, and rests as single-joint.
     public var muscleGroups: Set<MuscleGroup>
     public var equipment: Set<Equipment>
     public var measure: Measure
@@ -53,11 +53,10 @@ public struct CreatedExercise: Identifiable, Equatable, Sendable {
     }
 
     /// Whether these settings make an exercise to add, or, `besides` an exercise's id, to save
-    /// over it: a name that is no other exercise's (by the search's folding) and at least one
-    /// muscle group.
+    /// over it: a name that is no other exercise's (by the search's folding). No muscle group is
+    /// needed: some exercises, such as corpse pose, work none.
     public static func canAdd(
         named name: String,
-        muscleGroups: Set<MuscleGroup>,
         to exercises: ExerciseList,
         besides id: String? = nil,
     ) -> Bool {
@@ -67,7 +66,7 @@ public struct CreatedExercise: Identifiable, Equatable, Sendable {
         } else {
             exercises.hasExercise(named: name)
         }
-        return !muscleGroups.isEmpty && !name.isEmpty && !isTaken
+        return !name.isEmpty && !isTaken
     }
 }
 

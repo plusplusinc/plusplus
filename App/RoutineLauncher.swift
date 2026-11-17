@@ -30,7 +30,7 @@ struct RoutineLauncher: View {
                 swipeOpens: session.screen != .pushedRoutine && customizing == nil
                     && !session.isDrawerLocked,
             ) {
-                DrawerMenu(session: session, namer: namer)
+                DrawerMenu(session: session)
             } content: {
                 switch session.screen {
                 case .routine:
@@ -58,7 +58,7 @@ struct RoutineLauncher: View {
                         namer: namer,
                     )
                     self.session = session
-                    // The drawer names the routine last opened, which may not be this one.
+                    // Read ahead, so the Routines screen's first showing has its list.
                     await session.refreshRecent(weightUnit: WeightUnit(region: locale))
                 }
         }

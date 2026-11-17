@@ -32,13 +32,13 @@ extension RoutineSession {
         }
     }
 
-    /// What the drawer marks as showing: the Routines screen, Exercises, the open routine, or a
-    /// new one.
+    /// What the drawer marks as showing: the Routines screen, Exercises, or a routine, which
+    /// marks neither.
     public var showing: Showing {
         switch screen {
         case .routines: .routines
         case .exercises: .exercises
-        case .routine, .pushedRoutine: current.isEmpty ? .new : .routine
+        case .routine, .pushedRoutine: .routine
         }
     }
 
@@ -46,6 +46,5 @@ extension RoutineSession {
         case routines
         case exercises
         case routine
-        case new
     }
 }

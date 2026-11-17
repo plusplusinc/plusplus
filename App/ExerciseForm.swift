@@ -5,14 +5,15 @@ import WorkoutStore
 /// The five settings a created exercise has, and no more: New exercise, pushed from Create, or
 /// Customize, pushed from a created exercise's row in Exercises. Name, prefilled and not
 /// focused, since the next thing to set is the muscle groups; Muscle groups and Equipment, each
-/// one row reading what is checked ("Back, shoulders"; Choose and Bodyweight for none) that
+/// one row reading what is checked ("Back, shoulders"; None and Bodyweight for none) that
 /// opens its full list to check any number on (`Checklist`); Measure; and Per side. All checked
 /// groups are equal. Everything else (its weight, plan, rest, and naming) is derived
 /// (`Exercise(created:)`).
 ///
 /// New exercise confirms with the host's word: Add where it goes into a routine, Create in
-/// Exercises. It is off while the name is empty or already an exercise's, or no muscle group is
-/// checked (`CreatedExercise.canAdd`), and after its first tap. Cancel goes back to the search
+/// Exercises. It is off while the name is empty or already an exercise's
+/// (`CreatedExercise.canAdd`), and after its first tap; no muscle group is needed. Cancel goes back
+/// to the search
 /// as it was; nothing is created before it.
 ///
 /// Customize opens with the exercise as set and confirms with Save, off until something
@@ -101,7 +102,6 @@ struct ExerciseForm: View {
         guard !isConfirming,
               CreatedExercise.canAdd(
                   named: name,
-                  muscleGroups: muscleGroups,
                   to: exercises,
                   besides: customizing?.id,
               )
@@ -128,7 +128,7 @@ struct ExerciseForm: View {
                         checked: $muscleGroups,
                     )
                 } label: {
-                    LabeledContent("Muscle groups", value: muscleGroups.line ?? "Choose")
+                    LabeledContent("Muscle groups", value: muscleGroups.line ?? "None")
                 }
                 NavigationLink {
                     Checklist(
