@@ -1,12 +1,11 @@
 import XCTest
 
-/// Saving and the launch rule across real quits and relaunches. The store, each field's round
-/// trip, the launch rule, and the names are unit-tested in the package; this holds the wire
-/// from the screen to the store, with three relaunches: one that brings back every saved field at
-/// once (rows in their new order, their duplicates and values, the generated name, a superset
-/// and its shared rounds), one that keeps a name still being typed, with no Return, and one that
-/// shows a routine cleared to nothing is gone. Names come
-/// from the muscle groups (`-fallbackNames`), so the same name shows on any simulator. The
+/// Saving across a real quit and relaunch. The store, each field's round trip, the launch rule,
+/// a routine cleared to nothing deleted, and the names are unit-tested in the package; this
+/// holds the wire from the screen to the store, with one relaunch that brings back every saved
+/// field at once (rows in their new order, their duplicates and values, a superset and its
+/// shared rounds, and a name typed with no Return). Names come from the muscle
+/// groups (`-fallbackNames`), so the same name shows on any simulator. The
 /// title's color, white for a name whether typed or generated and gray for New routine, is read
 /// from pixels against the placeholder's own gray at the start. The drawer over saved routines is
 /// `RoutineDrawerUITests`'.
@@ -25,23 +24,31 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
         let gray = try Ink.ofTitle(in: title.frame).contrast
 
         nameFollowsTheExercises(in: app, title: title, gray: gray)
+        // Typed first, so the row edits after it, each saved as made, are what the quit keeps,
+        // and not a save the name's last key made of the whole routine.
+        try nameStillBeingTyped(in: app, title: title)
         valuesChangeInTheSheet(in: app)
         moveARow(in: app)
         joinASuperset(in: app)
         XCTContext.runActivity(
-            named: "Rows, order, the generated name, and a superset survive a relaunch",
+            named: "Rows, order, a superset, and a typed name survive a quit",
         ) { _ in
             app.relaunch()
-            XCTAssertEqual(title.value as? String, "Chest and back")
+            XCTAssertEqual(title.value(becoming: "Push pull"), "Push pull")
             // Moved, joined, and with the rounds the sheet gave both; the second pull-up keeps
             // the reps its sheet gave it, and the first its own.
             XCTAssertEqual(app.exerciseRowLabels, Self.joined)
             XCTAssertEqual(app.supersets, "AA.")
-            XCTAssertTrue(title.inkIsWhite(against: gray), "The generated name came back gray")
             attach(named: "after-relaunch")
         }
-        try typedNameStays(in: app, title: title, gray: gray)
-        try clearedRoutineIsGone(in: app, title: title, gray: gray)
+        XCTContext.runActivity(named: "A typed name stays as exercises change") { _ in
+            app.addExercise(Self.gobletSquat, searching: "goblet")
+            // The name comes with the row, so it would already have changed.
+            XCTAssertEqual(title.value as? String, "Push pull")
+            XCTAssertTrue(title.inkIsWhite(against: gray), "The typed name is not white")
+            attach(named: "typed-name")
+        }
+        try clearedRoutineIsNewRoutine(in: app, title: title, gray: gray)
     }
 
     /// An unnamed routine is named for its exercises as they come and go, in white.
@@ -138,9 +145,12 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
     }
 
     /// Editing opens on the generated name; replaced, the typed name is kept without Return
-    /// through Home and back, and through a quit, and stays as exercises change.
+    /// through Home and back, and the edit is left open for the next tap on a row to end. That
+    /// each key reaches the routine with no edit ended is `RoutineDrawerUITests`' chevron check
+    /// and `EditableTitleTypingTests`'; a generated name is made again from the exercises, never
+    /// stored (`RoutineNamerTests`).
     @MainActor
-    private func typedNameStays(in app: XCUIApplication, title: XCUIElement, gray: Int) throws {
+    private func nameStillBeingTyped(in app: XCUIApplication, title: XCUIElement) throws {
         let keyboard = app.keyboards.element
         try XCTContext.runActivity(named: "A name still being typed is kept through Home") { _ in
             try title.typeOver("Chest and back", with: "Push pul", keyboard: keyboard)
@@ -149,32 +159,22 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
             XCTAssertTrue(keyboard.appears(), "Back from Home, the title isn't being edited")
             XCTAssertEqual(title.value(becoming: "Push pul"), "Push pul")
             attach(named: "still-editing-after-home")
-        }
-        XCTContext.runActivity(named: "A name still being typed survives a quit") { _ in
             title.typeText("l")
             // Typing can return before the app has handled the key.
             XCTAssertEqual(title.value(becoming: "Push pull"), "Push pull")
-            app.relaunch()
-            XCTAssertEqual(title.value(becoming: "Push pull"), "Push pull")
-            attach(named: "typed-name-after-relaunch")
-        }
-        XCTContext.runActivity(named: "A typed name stays as exercises change") { _ in
-            app.addExercise(Self.gobletSquat, searching: "goblet")
-            // The name comes with the row, so it would already have changed.
-            XCTAssertEqual(title.value as? String, "Push pull")
-            XCTAssertTrue(title.inkIsWhite(against: gray), "The typed name is not white")
-            attach(named: "typed-name")
         }
     }
 
-    /// Every row deleted and the name cleared is nothing, which is not kept.
+    /// Every row deleted and the name cleared is nothing, the gray New routine. That the store
+    /// deletes it is `RoutineStoreTests`': a relaunch can't show it, since a routine cleared and
+    /// kept would open as the same empty New routine.
     @MainActor
-    private func clearedRoutineIsGone(
+    private func clearedRoutineIsNewRoutine(
         in app: XCUIApplication,
         title: XCUIElement,
         gray: Int,
     ) throws {
-        try XCTContext.runActivity(named: "A routine cleared to nothing is gone") { _ in
+        try XCTContext.runActivity(named: "A routine cleared to nothing is New routine") { _ in
             let plus = app.buttons["Add exercise"]
             let aboveStart = plus.frame
             for left in (0 ..< 4).reversed() {
@@ -190,11 +190,8 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
             try title.typeOver("Push pull", with: "\n", keyboard: keyboard)
             XCTAssertTrue(keyboard.disappears())
             XCTAssertEqual(title.value(becoming: "New routine"), "New routine")
-            XCTAssertFalse(title.inkIsWhite(against: gray), "New routine is not gray")
+            XCTAssertTrue(title.inkIsGray(against: gray), "New routine is not gray")
             attach(named: "cleared")
-            app.relaunch()
-            XCTAssertEqual(title.value as? String, "New routine")
-            XCTAssertEqual(app.exerciseRows.count, 0)
         }
     }
 }
@@ -202,14 +199,20 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
 @MainActor
 extension XCUIElement {
     /// Whether the title's strongest ink is a name's, well past the placeholder's `gray`, once
-    /// a name has typed in or the placeholder has crossfaded back. After two seconds, whatever
-    /// it last was.
+    /// a name has typed in. After two seconds, whatever it last was.
     func inkIsWhite(against gray: Int) -> Bool {
         let frame = frame
-        return reading(
-            ((try? Ink.ofTitle(in: frame).contrast) ?? 0) > gray * 5 / 4,
-            becoming: true,
-            within: 2,
-        )
+        return reading(Self.isWhite(in: frame, against: gray), becoming: true, within: 2)
+    }
+
+    /// Whether the title's strongest ink is no brighter than a placeholder's, once it has
+    /// crossfaded back to it. Waiting for white not to come would spend the whole timeout.
+    func inkIsGray(against gray: Int) -> Bool {
+        let frame = frame
+        return !reading(Self.isWhite(in: frame, against: gray), becoming: false, within: 2)
+    }
+
+    private static func isWhite(in frame: CGRect, against gray: Int) -> Bool {
+        ((try? Ink.ofTitle(in: frame).contrast) ?? 0) > gray * 5 / 4
     }
 }

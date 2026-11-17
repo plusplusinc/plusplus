@@ -167,26 +167,6 @@ struct Ink {
         self.cursor = cursor
     }
 
-    /// The strip's ink split into runs of inked columns, each a span of points across the
-    /// screen, `gap` points of clear columns or more apart: the words or labels side by side in
-    /// it. `left` is where the strip starts on screen, in points.
-    func columnRuns(from left: CGFloat, gap: CGFloat) -> [ClosedRange<CGFloat>] {
-        let columns = Set(inked.joined()).sorted()
-        let pixelGap = Int(gap * shot.scale)
-        var runs: [ClosedRange<Int>] = []
-        for column in columns {
-            if let last = runs.last, column - last.upperBound <= pixelGap {
-                runs[runs.count - 1] = last.lowerBound ... column
-            } else {
-                runs.append(column ... column)
-            }
-        }
-        return runs.map {
-            let start = left + CGFloat($0.lowerBound) / shot.scale
-            return start ... left + CGFloat($0.upperBound + 1) / shot.scale
-        }
-    }
-
     /// The ink in the title's field and a strip below it for the `_`, short of the next view,
     /// against the field's far right, which is past any short name.
     @MainActor
