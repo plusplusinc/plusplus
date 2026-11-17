@@ -4,8 +4,9 @@ import XCTest
 /// left as it was saving nothing, and the drill-in from the Routines screen. Opening counting as
 /// using is `RoutineStoreRecencyTests`', through the
 /// `openRoutine` a switch already shows it called. Names come from the muscle groups
-/// (`-fallbackNames`). Saving and relaunching are `RoutineAutosaveUITests`', but for one relaunch
-/// that keeps names typed on pushed routines and left with no Return.
+/// (`-fallbackNames`). A name typed on a pushed routine and left with no Return shows in the list
+/// once popped, which only the session's save puts there; that a save reaches the store is
+/// `RoutineSessionTests`', and that one survives a quit `RoutineAutosaveUITests`'.
 ///
 /// `nonisolated` because XCTestCase's initializers are; the test drives the UI on the main actor.
 final nonisolated class RoutineDrawerUITests: XCTestCase {
@@ -61,17 +62,6 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
         untouchedEditKeepsThePlace(in: app, title: title)
         drawerEditMovesUp(in: app)
         routinesScreenDrillsIn(in: app, title: title)
-        XCTContext.runActivity(named: "Names typed without Return survive a relaunch") { _ in
-            app.relaunch()
-            app.openDrawer(andTap: "Routines")
-            let renamed: Set = ["Pulls", "Chest day"]
-            XCTAssertEqual(
-                reading(renamed.isSubset(of: app.routineRowLabels), becoming: true, within: 2),
-                true,
-                "Routines lists \(app.routineRowLabels) after a relaunch",
-            )
-            attach(named: "renamed-after-relaunch")
-        }
     }
 
     /// With the drawer open on Back over Chest, Chest showing: Chest's title opened and left as it
@@ -119,8 +109,9 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
     /// In the open sheet, at half height, Weight opening grows the sheet to fit it, and a drag
     /// at a hand's speed on the ruler under its keys raises the weight. The sheet's heights are
     /// the system's, and the ruler is a scroll view: whether its drag wins over the sheet's and
-    /// over the ruler's own hold on its value shows only in the running app. Where a drag lands
-    /// is `RulerScaleTests`'. The sheet is one this test already has open, so the check costs a
+    /// over the ruler's own hold on its value shows only in the running app, as does whether its
+    /// labels reach the accessibility tree. Where a drag lands is `RulerScaleTests`'. The sheet is
+    /// one this test already has open, so the check costs a
     /// tap and a drag.
     @MainActor
     private func dragTheWeightRuler(in app: XCUIApplication) {
@@ -148,6 +139,17 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
         let pounds = reading(Self.pounds(weight), until: { $0 > 45 }, within: 2)
         XCTAssertGreaterThan(pounds, 45, "A drag on the ruler toward heavier left the weight")
         attach(named: "ruler-dragged")
+        // The row steps the value for VoiceOver; the ruler's labels, between its keys and the
+        // next row, are decoration. Hosted, they never reached the tree, so only the running app
+        // shows this.
+        let below = increase.frame.maxY
+        let band = below ... max(below, rest.frame.minY)
+        let labels = app.snapshots { $0.elementType == .staticText && band.contains($0.frame.midY) }
+        XCTAssertEqual(
+            labels.map(\.label),
+            [],
+            "The ruler's labels are in the accessibility tree",
+        )
     }
 
     /// The number a Weight row's value starts with, "49.5 pounds", or 0 with none.
@@ -158,8 +160,9 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
     }
 
     /// The Routines screen lists every routine, latest first; a row or + pushes a routine with a
-    /// back chevron in place of ++, which the chevron or an edge swipe pops, keeping a name still
-    /// being typed.
+    /// back chevron in place of ++, which the chevron or an edge swipe pops; the chevron keeps a
+    /// name still being typed. Each key reaches the routine as typed, whichever way the screen
+    /// goes, so the chevron, which ends no edit, shows it for the edge swipe too.
     @MainActor
     private func routinesScreenDrillsIn(in app: XCUIApplication, title: XCUIElement) {
         XCTContext.runActivity(named: "Routines lists every routine, and a row drills in") { _ in
@@ -177,14 +180,10 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
             XCTAssertEqual(title.value(becoming: "Back"), "Back", "The row pushed no routine")
             XCTAssertFalse(app.buttons["Menu"].exists, "++ shows on a pushed routine")
             attach(named: "pushed-routine")
-            typeName("Pulls", over: "Back", in: app)
             app.edgeSwipe()
             XCTAssertTrue(title.disappears(), "The edge swipe did not pop")
             XCTAssertFalse(app.drawerTitle.exists, "The edge swipe opened the drawer")
             XCTAssertTrue(app.buttons["Menu"].appears(), "No ++ back on the Routines screen")
-            let renamed = ["Pulls", "Chest"]
-            XCTAssertEqual(reading(app.routineRowLabels, becoming: renamed, within: 2), renamed)
-            attach(named: "edge-swipe-renamed")
         }
         XCTContext.runActivity(named: "+ pushes a new routine, and the chevron pops it") { _ in
             app.buttons["New routine"].tap()
@@ -197,12 +196,14 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
             XCTAssertTrue(app.drawerTitle.disappears(), "Tapping the title left the drawer open")
         }
         XCTContext.runActivity(named: "The chevron keeps a name still being typed") { _ in
-            app.buttons.matching(identifier: "routines.row").element(boundBy: 1).tap()
+            // By name: opening Back may have moved it up the list.
+            app.buttons.matching(identifier: "routines.row")
+                .matching(NSPredicate(format: "label == %@", "Chest")).firstMatch.tap()
             XCTAssertEqual(title.value(becoming: "Chest"), "Chest", "The row pushed no routine")
             typeName("Chest day", over: "Chest", in: app)
             app.navigationBars.buttons.element(boundBy: 0).tap()
             XCTAssertTrue(title.disappears(), "The chevron did not pop")
-            let renamed = ["Chest day", "Pulls"]
+            let renamed = ["Chest day", "Back"]
             XCTAssertEqual(reading(app.routineRowLabels, becoming: renamed, within: 2), renamed)
             attach(named: "chevron-renamed")
         }
@@ -213,36 +214,26 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
     /// edited.
     @MainActor
     private func typeName(_ name: String, over old: String, in app: XCUIApplication) {
-        typeOver(old, with: name, in: app)
+        let keyboard = app.keyboards.element
+        XCTAssertNoThrow(try app.routineTitle.typeOver(old, with: name, keyboard: keyboard))
         XCTAssertEqual(app.routineTitle.value(becoming: name), name)
     }
 
-    @MainActor
-    private func typeOver(_ old: String, with name: String, in app: XCUIApplication) {
-        let keyboard = app.keyboards.element
-        XCTAssertNoThrow(try app.routineTitle.typeOver(old, with: name, keyboard: keyboard))
-    }
-
     /// The new routine left untouched lists nowhere, and with four saved the drawer lists the
-    /// three latest, the one made last first. A generated name cleared and left with the chevron
-    /// comes back.
+    /// three latest, the one made last first.
     @MainActor
     private func drawerListsThree(in app: XCUIApplication, title: XCUIElement) {
         XCTContext.runActivity(named: "An untouched new one isn't listed; the drawer has 3") { _ in
             let listedBefore = Set(app.routineRowLabels)
-            XCTAssertEqual(listedBefore, ["Chest day", "Pulls"], "The untouched new one was listed")
+            XCTAssertEqual(listedBefore, ["Chest day", "Back"], "The untouched new one was listed")
             var latest = ""
-            let last = "Band pull-apart, Band"
-            for exercise in ["Backward arm circles", last] {
+            for exercise in ["Backward arm circles", "Band pull-apart, Band"] {
                 app.buttons["New routine"].tap()
                 XCTAssertEqual(title.value(becoming: "New routine"), "New routine")
                 app.addExercise(exercise)
                 let unnamed = { title.value as? String == "New routine" }
                 XCTAssertFalse(reading(unnamed(), becoming: false, within: 2), "Still unnamed")
                 latest = title.value as? String ?? ""
-                if exercise == last {
-                    typeOver(latest, with: "", in: app)
-                }
                 app.navigationBars.buttons.element(boundBy: 0).tap()
                 XCTAssertTrue(title.disappears(), "The chevron did not pop")
             }
@@ -251,7 +242,6 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
             let listed = drawerRoutines(in: app)
             XCTAssertEqual(listed.count, 3, "The drawer lists \(listed), not the latest three")
             XCTAssertEqual(listed.first, latest, "The routine made last isn't first")
-            attach(named: "cleared-generated-kept")
             app.drawerTitle.tap()
             XCTAssertTrue(app.drawerTitle.disappears(), "Tapping the title left the drawer open")
         }

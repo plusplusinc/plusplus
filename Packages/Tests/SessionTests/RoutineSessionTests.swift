@@ -66,6 +66,24 @@ struct RoutineSessionTests {
         #expect(try await relaunch().openRoutine(routine.id, weightUnit: .pounds)?.name == "Three")
     }
 
+    /// The store deletes a cleared routine it is handed (`RoutineStoreTests`); this holds that the
+    /// session hands it one, with no workout running and no switch, as the screen's last edit
+    /// before a quit.
+    @Test("A saved routine cleared to nothing, rows then name, is gone at a relaunch")
+    func clearedIsGone() async throws {
+        let session = session()
+        var routine = try Self.upper()
+        session.save(routine)
+        await session.writesLanded()
+        #expect(try await relaunch().launch(weightUnit: .pounds).routine == routine)
+        routine.exercises = []
+        session.save(routine)
+        routine.name = ""
+        session.save(routine)
+        await session.writesLanded()
+        #expect(try await relaunch().launch(weightUnit: .pounds).routine == nil)
+    }
+
     @Test("An edit made while the next routine is being read is saved")
     func editDuringRead() async throws {
         let routine = try Self.upper()

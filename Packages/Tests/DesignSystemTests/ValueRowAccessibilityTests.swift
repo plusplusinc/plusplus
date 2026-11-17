@@ -19,7 +19,7 @@ struct ValueRowAccessibilityTests {
     }
 
     /// Whether the ruler's labels reach the tree shows only in the running app, where its
-    /// UIKit scroll view exists (`TitleWrappingUITests`); hosted, they never did.
+    /// UIKit scroll view exists (`RoutineDrawerUITests`); hosted, they never did.
     @Test("An open ruler row is one adjustable element that steps up and down")
     func openRulerRowSteps() throws {
         var steps: [Int] = []
