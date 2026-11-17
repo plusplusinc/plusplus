@@ -38,12 +38,15 @@ extension RoutineAutosaveUITests {
                 let name = app.textFields["newExercise.name"]
                 XCTAssertTrue(name.appears(), "Create opened no form")
                 XCTAssertEqual(name.value as? String, "Ring row with rotation")
+                cancelAndCreateAgain(in: app, search: search, create: create, expecting: created)
                 let add = app.buttons["Add"]
                 XCTAssertFalse(add.isEnabled, "Add is on with no muscle group")
                 check("Back", in: app, from: "Muscle groups, Choose")
                 check("Rings", in: app, from: "Equipment, Bodyweight")
                 XCTAssertTrue(app.buttons["Muscle groups, Back"].exists)
                 XCTAssertTrue(app.buttons["Equipment, Rings"].exists)
+                XCTAssertTrue(app.buttons["Measure, Reps"].exists, "Measure reads no value")
+                XCTAssertEqual(app.switches["Per side"].value as? String, "0")
                 attach(named: "new-exercise-form")
                 let count = app.exerciseRows.count
                 add.tap()
@@ -55,6 +58,27 @@ extension RoutineAutosaveUITests {
                 )
                 XCTAssertEqual(app.exerciseRowLabels.last, Self.ringRow)
             }
+    }
+
+    /// Cancel on the form comes back to the search as it was, its text kept and the list still
+    /// the one Create row, so nothing was created; Create then opens the form again. Only the
+    /// running app shows the sheet's own stack popping back to a search that kept its text.
+    @MainActor
+    private func cancelAndCreateAgain(
+        in app: XCUIApplication,
+        search: XCUIElement,
+        create: XCUIElement,
+        expecting created: String,
+    ) {
+        let name = app.textFields["newExercise.name"]
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(name.disappears(), "Cancel left the form up")
+        XCTAssertEqual(search.value(becoming: "Ring row with rotation"), "Ring row with rotation")
+        XCTAssertEqual(create.label(becoming: created), created)
+        XCTAssertEqual(app.pickerRows.count, 0, "Cancel left an exercise in the list")
+        XCTAssertTrue(create.settles(), "Create is still moving after Cancel")
+        create.tap()
+        XCTAssertTrue(name.appears(), "Create opened no form after Cancel")
     }
 
     /// Opens the row labeled `row`, checks `item` there, and comes back to the form.

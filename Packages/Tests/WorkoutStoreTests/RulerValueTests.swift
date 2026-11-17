@@ -28,6 +28,26 @@ struct RulerValueTests {
         #expect(try Self.row("Push-up").weightRange == nil)
     }
 
+    @Test("A created exercise's weight goes down to one step, as a built-in's, and no lower")
+    func createdWeightFloor() throws {
+        let created = CreatedExercise(
+            name: "Prone external rotation",
+            muscleGroups: [.shoulders],
+            equipment: [.dumbbells],
+            isPerSide: true,
+        )
+        var row = RoutineExercise(exercise: Exercise(created: created), weightUnit: .pounds)
+        #expect(try row.weightRange == Self.row("Biceps curl").weightRange)
+        // From its start, − reaches the floor, 5 lb, and stops there.
+        while row.canStep(.weight, by: -1) {
+            row.step(.weight, by: -1)
+        }
+        #expect(row.plan.weight == Weight(5, .pounds))
+        // The ruler, dragged past its end, holds there too.
+        row.setWeight(0)
+        #expect(row.plan.weight == Weight(5, .pounds))
+    }
+
     @Test("Setting a weight takes any amount in its range, held to its ends")
     func setWeight() throws {
         var curl = try Self.row("Biceps curl")
