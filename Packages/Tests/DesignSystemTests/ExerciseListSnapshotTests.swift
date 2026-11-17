@@ -18,11 +18,9 @@ struct ExerciseListSnapshotTests {
     private func bar(isOpen: Bool, @ViewBuilder leading: () -> some View) -> some View {
         BarSearchField(
             text: .constant(""),
+            isOpen: .constant(isOpen),
             prompt: "Search",
             width: Self.screenWidth - 2 * Spacing.md,
-            title: nil,
-            titleCenterX: 0,
-            isOpen: isOpen,
             leading: leading,
         )
         .padding(Spacing.md)

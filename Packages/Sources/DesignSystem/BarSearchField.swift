@@ -42,46 +42,29 @@ public struct BarSearchField<Leading: View>: View {
     /// brings its own glass (`BarGlassButtonStyle`).
     let leading: Leading
 
+    /// `isOpen` is the host's: the bar reads its item's elements again only as the host's state
+    /// changes. Kept inside the item, the open field read as closed to VoiceOver and the UI
+    /// tests, and the covered button stayed in reach.
     public init(
         text: Binding<String>,
+        isOpen: Binding<Bool>,
         prompt: LocalizedStringKey,
         width: CGFloat,
         title: LocalizedStringKey? = nil,
         titleCenterX: CGFloat = 0,
         @ViewBuilder leading: () -> Leading,
     ) {
-        self.init(
-            text: text,
-            prompt: prompt,
-            width: width,
-            title: title,
-            titleCenterX: titleCenterX,
-            isOpen: false,
-            leading: leading,
-        )
-    }
-
-    /// Already open, at rest, for a snapshot.
-    init(
-        text: Binding<String>,
-        prompt: LocalizedStringKey,
-        width: CGFloat,
-        title: LocalizedStringKey?,
-        titleCenterX: CGFloat,
-        isOpen: Bool,
-        @ViewBuilder leading: () -> Leading,
-    ) {
         _text = text
+        _isOpen = isOpen
         self.prompt = prompt
         self.width = width
         self.title = title
         self.titleCenterX = titleCenterX
         self.leading = leading()
-        _isOpen = State(initialValue: isOpen)
-        _hasGlass = State(initialValue: isOpen)
+        _hasGlass = State(initialValue: isOpen.wrappedValue)
     }
 
-    @State private var isOpen: Bool
+    @Binding var isOpen: Bool
     /// The item's middle in global coordinates, where the title is laid out; its offset moves it
     /// to the screen's middle. Read from the item, not the title, which its own offset moves.
     @State private var itemMidX: CGFloat = 0
@@ -201,6 +184,7 @@ public struct BarSearchField<Leading: View>: View {
                 .focused($isFocused)
                 .submitLabel(.search)
                 .autocorrectionDisabled()
+                .accessibilityIdentifier("barSearch.field")
         }
         .padding(.horizontal, Spacing.md)
         // Laid out at its open width throughout and clipped, so the prompt never reflows as the
@@ -220,13 +204,7 @@ public struct BarSearchField<Leading: View>: View {
     }
 
     private var button: some View {
-        Button {
-            if isOpen {
-                close()
-            } else {
-                open()
-            }
-        } label: {
+        Button(action: toggle) {
             // The symbols swap on the field's own curve, so the X lands as the field does. The
             // system's replace effect keeps its own, longer timing, and closing, it was still
             // turning the X back into the glass well after the field had gone.
@@ -239,6 +217,16 @@ public struct BarSearchField<Leading: View>: View {
         }
         .buttonStyle(.barGlass(width: height))
         .accessibilityLabel(isOpen ? "Close search" : "Search")
+        // One identifier for both labels, so a UI test finds the button however it reads.
+        .accessibilityIdentifier("barSearch.button")
+    }
+
+    private func toggle() {
+        if isOpen {
+            close()
+        } else {
+            open()
+        }
     }
 
     private func symbol(_ name: String, isShown: Bool) -> some View {
@@ -316,13 +304,19 @@ extension View {
 
 #Preview {
     @Previewable @State var text = ""
+    @Previewable @State var isOpen = false
     NavigationStack {
         List(0 ..< 20, id: \.self) { Text("Row \($0)") }
             .navigationTitle("Exercises")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    BarSearchField(text: $text, prompt: "Search", width: 370) {
+                    BarSearchField(
+                        text: $text,
+                        isOpen: $isOpen,
+                        prompt: "Search",
+                        width: 370,
+                    ) {
                         Button("Close", systemImage: "xmark") { }
                             .labelStyle(.iconOnly)
                             .buttonStyle(.barGlass(width: 44))

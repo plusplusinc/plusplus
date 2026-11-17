@@ -103,6 +103,8 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
     @MainActor
     private func drawerAtAX5(in app: XCUIApplication) throws {
         try XCTContext.runActivity(named: "The drawer and the Routines screen at AX5") { _ in
+            // Back from the routine pushed from Routines, to ++.
+            app.buttons["BackButton"].tap()
             app.buttons["Menu"].tap()
             XCTAssertTrue(app.drawerTitle.appears(), "++ did not open the drawer")
             attach(named: "drawer-ax5")
@@ -156,7 +158,7 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
     private func auditRowsAndPicker(in app: XCUIApplication) throws {
         let name = "A sheet and the picker at AX5 pass the audit"
         try XCTContext.runActivity(named: name) { _ in
-            app.addExercise("Kneeling hip flexor stretch", searching: "kneeling")
+            app.addExercise("Kneeling hip flexor stretch", searching: "kneel")
             XCTAssertTrue(app.buttons["Start"].appears())
             attach(named: "rail-ax5")
             // The rows are audited at AX5 later, once a node has joined two.
@@ -177,18 +179,15 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
             app.buttons["Close"].tap()
             XCTAssertTrue(time.disappears(), "Close left the sheet up")
-            let search = app.openPicker()
+            _ = app.openPicker()
             attach(named: "picker-ax5")
-            // Audited in use: at rest, the system search bar reports that it cannot scale, with
-            // no element named, though it draws at this size, as the screenshot shows.
-            search.tap()
-            search.typeText("curl")
+            app.search(for: "curl")
             XCTAssertTrue(app.pickerRows["Biceps curl, Dumbbells"].appears())
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
-            app.searchForNothing(replacing: "curl", in: search)
+            app.searchForNothing(replacing: "curl")
             attach(named: "picker-create-only-ax5")
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
-            try auditNewExerciseForm(in: app, search: search)
+            try auditNewExerciseForm(in: app)
         }
     }
 
@@ -197,7 +196,7 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
     /// form: it is the app's, composed of system rows on the sheet's stack. Its checklists are
     /// not audited here, to keep the UI tests in their budget.
     @MainActor
-    private func auditNewExerciseForm(in app: XCUIApplication, search: XCUIElement) throws {
+    private func auditNewExerciseForm(in app: XCUIApplication) throws {
         let create = app.buttons["picker.create"]
         XCTAssertTrue(create.settles(), "Create is still moving")
         create.tap()
@@ -208,7 +207,7 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         // Cancel and Add are the bar's, which caps its text as it does End.
         try auditBelowTheBar(in: app, systemTexts: ["Cancel", "Add"])
         app.buttons["Cancel"].tap()
-        XCTAssertTrue(search.appears(), "Cancel did not come back to the search")
+        XCTAssertTrue(app.searchField.appears(), "Cancel did not come back to the search")
     }
 
     /// At this size the second row goes in under Add exercise's +, so an add has to scroll to
@@ -217,13 +216,16 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
     private func assertLastRowClearsAddAtTheEnd(in app: XCUIApplication, keyboard: XCUIElement) {
         let name = "At the end of a long list, the last row clears Add exercise's +"
         XCTContext.runActivity(named: name) { _ in
-            let search = app.searchFields.firstMatch
-            // While searching, the first Close ends the search; the next closes the sheet.
-            for _ in 0 ..< 2 where search.exists {
-                app.buttons["Close"].firstMatch.tap()
-                _ = keyboard.disappears()
-            }
-            app.addExercise("Dumbbell bench press, Dumbbells, bench", searching: "dumbbell bench")
+            // The open search's field covers Close, out of VoiceOver's reach, until its X ends
+            // the search; Close then closes the sheet.
+            let close = app.buttons["Close"]
+            XCTAssertFalse(close.exists, "VoiceOver reaches Close under the open search")
+            app.tapSearchButton()
+            XCTAssertTrue(keyboard.disappears(), "The search's X left the keyboard up")
+            XCTAssertTrue(close.appears(), "The search's X did not uncover Close")
+            close.tap()
+            XCTAssertTrue(app.searchButton.disappears(), "Close left the picker up")
+            app.addExercise("Dumbbell bench press, Dumbbells, bench", searching: "dumbbellb")
             XCTAssertTrue(app.lastRowClearsAddExercise(), "The add left the row under the +")
             attach(named: "rail-after-add-ax5")
             // The last row: the first, its plan making it taller, has its middle under the bar.

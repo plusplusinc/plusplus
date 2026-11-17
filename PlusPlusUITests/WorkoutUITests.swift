@@ -188,7 +188,7 @@ final nonisolated class WorkoutUITests: XCTestCase {
     private func editsStayOn(in app: XCUIApplication, title: XCUIElement) throws -> String {
         try XCTContext
             .runActivity(named: "Edits stay on, and paused, a relaunch keeps the time") { _ in
-                app.addExercise("Push-up", searching: "push-up")
+                app.addExercise("Push-up", searching: "pushup")
                 // Near the end, where the add left the list: rows near its top are under the bar.
                 app.exerciseRows.element(boundBy: 10).fullSwipeLeft()
                 XCTAssertEqual(app.exerciseCount(becoming: 12), 12, "The swipe deleted nothing")

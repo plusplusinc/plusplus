@@ -48,6 +48,7 @@ struct ExerciseListView<BarLeading: View>: View {
     /// The name the form opens with, while it shows.
     @State private var creating: String?
     @State private var isKeyboardUp = false
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         let sections = exercises.matching(query).lettered()
@@ -135,7 +136,7 @@ struct ExerciseListView<BarLeading: View>: View {
         Button {
             creating = trimmedQuery
         } label: {
-            Label("Create \u{201C}\(trimmedQuery)\u{201D}", systemImage: "plus")
+            createLabel
                 .font(.ppRowTitle)
                 .makesSomething()
                 // A label's separator starts at its title, past the icon; this one starts at
@@ -145,6 +146,23 @@ struct ExerciseListView<BarLeading: View>: View {
         .listRowBackground(Color.pp(.background))
         .listRowSeparator(.hidden, edges: .bottom)
         .accessibilityIdentifier("picker.create")
+    }
+
+    /// At the accessibility sizes the title wraps beside the +, in a column of its own: a list's
+    /// label there ran its second line back under the +, past its own frame, and the audit
+    /// read it as clipped.
+    @ViewBuilder
+    private var createLabel: some View {
+        let title = Text("Create \u{201C}\(trimmedQuery)\u{201D}")
+        if typeSize.isAccessibilitySize {
+            HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
+                Image(systemName: "plus")
+                    .accessibilityHidden(true)
+                title
+            }
+        } else {
+            Label { title } icon: { Image(systemName: "plus") }
+        }
     }
 }
 
@@ -175,6 +193,9 @@ private struct SearchField<Leading: View>: ViewModifier {
     @State private var width: CGFloat = 0
     /// The screen's middle in global coordinates, where a drawn title centers.
     @State private var midX: CGFloat = 0
+    /// Held here, not in the item: the bar reads its item's elements again only as the host's
+    /// state changes (`BarSearchField`).
+    @State private var isOpen = false
 
     func body(content: Content) -> some View {
         content
@@ -187,6 +208,7 @@ private struct SearchField<Leading: View>: ViewModifier {
                 ToolbarItem(placement: .topBarTrailing) {
                     BarSearchField(
                         text: $text,
+                        isOpen: $isOpen,
                         prompt: "Search",
                         width: width - 2 * Spacing.md,
                         title: title,

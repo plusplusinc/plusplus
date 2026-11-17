@@ -61,9 +61,9 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
         XCTContext.runActivity(named: "An unnamed routine is named for its exercises") { _ in
             app.addExercise(Self.bench)
             XCTAssertEqual(title.value(becoming: "Chest"), "Chest")
-            app.addExercise(Self.pullUp, searching: "pull-up")
+            app.addExercise(Self.pullUp, searching: "pullup")
             XCTAssertEqual(title.value(becoming: "Chest and back"), "Chest and back")
-            app.addExercise(Self.pullUp, searching: "pull-up")
+            app.addExercise(Self.pullUp, searching: "pullup")
             app.addExercise(Self.gobletSquat, searching: "goblet")
             XCTAssertEqual(title.value(becoming: "Full body"), "Full body")
             XCTAssertTrue(title.inkIsWhite(against: gray), "The generated name is not white")

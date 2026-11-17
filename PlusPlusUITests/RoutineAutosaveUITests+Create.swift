@@ -16,8 +16,7 @@ extension RoutineAutosaveUITests {
         XCTContext
             .runActivity(named: "An exercise created from the search joins the routine") { _ in
                 let search = app.openPicker()
-                search.tap()
-                search.typeText("Ring")
+                app.search(for: "Ring")
                 let create = app.buttons["picker.create"]
                 XCTAssertEqual(
                     create.label(becoming: "Create \u{201C}Ring\u{201D}"),
@@ -29,7 +28,7 @@ extension RoutineAutosaveUITests {
                     lastMatch.frame.midY,
                     "Create is not below the matches",
                 )
-                search.typeText(" row with rotation")
+                app.typeIntoSearch(" row with rotation")
                 let created = "Create \u{201C}Ring row with rotation\u{201D}"
                 XCTAssertEqual(create.label(becoming: created), created)
                 XCTAssertEqual(app.pickerRows.count, 0, "Rows other than Create match")
@@ -38,10 +37,10 @@ extension RoutineAutosaveUITests {
                 let name = app.textFields["newExercise.name"]
                 XCTAssertTrue(name.appears(), "Create opened no form")
                 XCTAssertEqual(name.value as? String, "Ring row with rotation")
-                cancelAndCreateAgain(in: app, search: search, create: create, expecting: created)
+                cancelAndCreateAgain(in: app, create: create, expecting: created)
                 let add = app.buttons["Add"]
-                XCTAssertFalse(add.isEnabled, "Add is on with no muscle group")
-                check("Back", in: app, from: "Muscle groups, Choose")
+                XCTAssertTrue(add.isEnabled, "Add is off with a new name and no muscle group")
+                check("Back", in: app, from: "Muscle groups, None")
                 check("Rings", in: app, from: "Equipment, Bodyweight")
                 XCTAssertTrue(app.buttons["Muscle groups, Back"].exists)
                 XCTAssertTrue(app.buttons["Equipment, Rings"].exists)
@@ -66,14 +65,14 @@ extension RoutineAutosaveUITests {
     @MainActor
     private func cancelAndCreateAgain(
         in app: XCUIApplication,
-        search: XCUIElement,
         create: XCUIElement,
         expecting created: String,
     ) {
         let name = app.textFields["newExercise.name"]
         app.buttons["Cancel"].tap()
         XCTAssertTrue(name.disappears(), "Cancel left the form up")
-        XCTAssertEqual(search.value(becoming: "Ring row with rotation"), "Ring row with rotation")
+        let typed = "Ring row with rotation"
+        XCTAssertEqual(app.searchField.value(becoming: typed), typed)
         XCTAssertEqual(create.label(becoming: created), created)
         XCTAssertEqual(app.pickerRows.count, 0, "Cancel left an exercise in the list")
         XCTAssertTrue(create.settles(), "Create is still moving after Cancel")

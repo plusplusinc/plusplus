@@ -19,6 +19,11 @@ extension XCUIApplication {
         exerciseRowSnapshots.map(\.label)
     }
 
+    /// The Routines screen's rows.
+    var routineRows: XCUIElementQuery {
+        buttons.matching(identifier: "routines.row")
+    }
+
     /// The Routines screen's rows' labels, top to bottom.
     var routineRowLabels: [String] {
         snapshots { $0.elementType == .button && $0.identifier == "routines.row" }.map(\.label)
@@ -38,7 +43,7 @@ extension XCUIApplication {
     }
 
     var pickerRows: XCUIElementQuery {
-        buttons.matching(identifier: "picker.exercise")
+        buttons.matching(identifier: "exercises.row")
     }
 
     /// The line an empty routine shows mid-screen.
@@ -46,11 +51,68 @@ extension XCUIApplication {
         staticTexts["No exercises"]
     }
 
+    /// The bar's round search button, in Add exercise and Exercises, labeled Search while closed
+    /// and Close search while open: there exactly while one of the two shows.
+    var searchButton: XCUIElement {
+        buttons["barSearch.button"]
+    }
+
+    /// The bar's search field, there to type in once the search button has opened it.
+    var searchField: XCUIElement {
+        textFields["barSearch.field"]
+    }
+
+    /// Opens the bar's search, unless it is open, and types `text` into its field, which opening
+    /// focuses.
+    func search(for text: String) {
+        if searchButton.label == "Search" {
+            tapSearchButton()
+            XCTAssertEqual(
+                searchButton.label(becoming: "Close search"),
+                "Close search",
+                "Search did not open",
+            )
+        }
+        typeIntoSearch(text)
+    }
+
+    /// Types `text` into the open search key by key on the keyboard: XCTest reads the bar's
+    /// field as unfocused while it has the keyboard, and its `typeText` refuses an element
+    /// without focus. Letters, spaces, and deletes; Shift where the keys show the other case,
+    /// as they do capitals at the field's start.
+    func typeIntoSearch(_ text: String) {
+        let keyboard = keyboards.element
+        for character in text {
+            switch character {
+            case " ":
+                keyboard.keys["space"].tap()
+            case Character(XCUIKeyboardKey.delete.rawValue):
+                keyboard.keys["delete"].tap()
+            default:
+                let key = keyboard.keys[String(character)]
+                if !key.exists {
+                    // A button, not a key.
+                    keyboard.buttons["shift"].tap()
+                }
+                key.tap()
+            }
+        }
+    }
+
+    /// Taps the search button where it draws, a circle at the bar's trailing margin. Its
+    /// element's frame takes in the field's too, which runs past the screen's edge while closed
+    /// and across the bar while open, so `tap()`, at its middle, misses it.
+    func tapSearchButton() {
+        let frame = searchButton.frame
+        let trailing = min(frame.maxX, self.frame.maxX - 16)
+        point(x: trailing - frame.height / 2, y: frame.midY).tap()
+    }
+
     /// Opens the picker with Add exercise, the + floating over the list, which stays put as rows
-    /// come in, checking that it is up within a second, and returns its search field.
+    /// come in, checking that it is up within a second, and returns its search button.
     func openPicker() -> XCUIElement {
         buttons["Add exercise"].tap()
-        let search = searchFields.firstMatch
+        let search = searchButton
         XCTAssertTrue(search.appears(within: 1), "The picker took over a second to open")
         return search
     }
@@ -72,18 +134,17 @@ extension XCUIApplication {
     func pickExercise(_ label: String, searching query: String? = nil) {
         let search = openPicker()
         if let query {
-            search.tap()
-            search.typeText(query)
+            self.search(for: query)
         }
         pickerRows[label].tap()
         XCTAssertTrue(search.disappears(), "Picking \(label) left the picker open")
     }
 
-    /// Replaces the search `query` in `search` with one nothing matches, and checks that the
-    /// list narrows down to its one row, Create.
-    func searchForNothing(replacing query: String, in search: XCUIElement) {
+    /// Replaces the search `query` with one nothing matches, and checks that the list narrows
+    /// down to its one row, Create.
+    func searchForNothing(replacing query: String) {
         let delete = XCUIKeyboardKey.delete.rawValue
-        search.typeText(String(repeating: delete, count: query.count) + "zzz")
+        typeIntoSearch(String(repeating: delete, count: query.count) + "zzz")
         XCTAssertTrue(buttons["Create \u{201C}zzz\u{201D}"].appears(), "No Create for zzz")
         XCTAssertEqual(pickerRows.count, 0, "Rows other than Create match zzz")
     }
