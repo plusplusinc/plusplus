@@ -150,8 +150,6 @@ struct ExerciseForm: View {
                 .pickerStyle(.menu)
                 .tint(Color.pp(.textSecondary))
                 Toggle("Per side", isOn: $isPerSide)
-            } footer: {
-                Text("Each side is its own set, left then right.")
             }
             .listRowBackground(Color.pp(.surface))
             if customizing != nil {
