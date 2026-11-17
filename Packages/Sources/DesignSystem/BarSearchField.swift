@@ -3,27 +3,26 @@ import SwiftUI
 
 /// Search in the navigation bar: one bar item spanning the bar between its margins, with the
 /// bar's leading button at its leading edge and a round glass search button with a magnifying
-/// glass at its trailing edge. A tap splits a glass field out of the search button's glass, which
-/// pulls apart to the left into its own capsule across the bar, focused, with the keyboard coming
-/// up, while the button's symbol turns to an X. The X clears the search and the field merges back
-/// into the button; so does the keyboard going down with nothing typed. With something typed, the
-/// keyboard can go down and the field stays open on the matches. Nothing under the bar moves: a
-/// large title stays below.
+/// glass at its trailing edge. A tap turns the leading button (++ in Exercises, Close in Add
+/// exercise) into a glass field across the bar, focused, with the keyboard coming up: the
+/// system's glass morph stretches the button's glass to the right into the field's capsule, its
+/// label blurring into the field's, while the search button's symbol turns to an X. The field's
+/// trailing end runs on into the search button's glass, the two fused for a moment, and pulls
+/// back off it to rest. The X clears the search and runs it backward: the field's end meets the
+/// search button, then the field shrinks back into the leading button; so does the keyboard going
+/// down with nothing typed. With something typed, the keyboard can go down and the field stays
+/// open on the matches. Nothing under the bar moves: a large title stays below. With Reduce
+/// Motion the button and the field crossfade.
 ///
-/// The leading button (++ in Exercises, Close in Add exercise) is drawn here, in its own glass,
-/// for the field to take in: as the field's leading edge reaches it, the two glass shapes blend
-/// and the button's glass is absorbed into the field's, its label shrinking and fading so it is
-/// gone as the edge arrives. Closing runs it backward: the button's glass pulls back out of the
-/// field's leading end, its label returning, as the field merges into the search button on the
-/// right. With Reduce Motion the button crossfades. While taken in, it takes no taps and is
-/// hidden from VoiceOver. A mask cutting the button away under the field's edge read as the
-/// field taking over its place rather than meeting it. A button in an item of its own stayed where
-/// the bar laid it out,
-/// apart from the field's item: the bar lays its items out at once, not along the motion, and an
-/// item wider than its room went into a More menu.
+/// The leading button is drawn here, not in an item of its own, for the field to take its place:
+/// an item of its own stayed where the bar laid it out, apart from the field's item, since the
+/// bar lays its items out at once, not along the motion, and an item wider than its room went into
+/// a More menu. A mask cutting the button away under the field's edge, and later its glass
+/// absorbed into the field's as the field slid over it, read as the field covering the button
+/// rather than taking it over.
 ///
 /// Given a `title`, it draws the bar's inline title too, centered on the screen in the system's
-/// inline title font, behind the field, and the host removes the bar's own. The field slides out
+/// inline title font, behind the field, and the host removes the bar's own. The field stretches
 /// over the title as it fades, and back off it as it returns, on the field's own curve. The bar's
 /// own title dropped out at once as the open field took its room and came back only after the
 /// close.
@@ -69,34 +68,37 @@ public struct BarSearchField<Leading: View>: View {
     }
 
     @Binding var isOpen: Bool
+    /// Whether the field's glass reaches on into the search button's, fused with it.
+    @State private var meetsButton = false
+    /// The wait before the field's end pulls back off the search button, or before the field
+    /// goes once its end has met it.
+    @State private var meeting: Task<Void, Never>?
+    @Namespace private var glass
     /// The item's middle in global coordinates, where the title is laid out; its offset moves it
     /// to the screen's middle. Read from the item, not the title, which its own offset moves.
     @State private var itemMidX: CGFloat = 0
     @State private var titleWidth: CGFloat = 0
-    @State private var leadingWidth: CGFloat = 0
     @Environment(\.displayScale) private var displayScale
     @FocusState private var isFocused: Bool
     @ScaledMetric(relativeTo: .body) private var height: CGFloat = 44
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     public var body: some View {
-        // Closed, the field's glass is a circle under the button's; opening pulls it out to the
-        // left, and the container blends the two shapes while they are near, so the field splits
-        // off the button and merges back into it. The container's spacing matches the gap, so at
-        // rest the two stay apart. The container's own morph (`glassEffectID` with an inserted
-        // field) only materialized the field in place here, in a bar item. The field keeps its
-        // glass while closed: taking it away at the close's end, with the leading button's glass
-        // ahead of it in the container, drew the search button's glass anew, its symbol gone for a
-        // few frames and then fading back in. The leading button's glass is in the same
-        // container, so as the field's leading edge reaches it the two blend and the field takes
-        // the button in, as it splits off the search button on the right.
+        // The leading button leaves as the field arrives, in one transaction, and the two share a
+        // glass ID, so the container morphs one's glass into the other's. The container's spacing
+        // matches the gap, so at rest the field and the search button stay apart, and blend while
+        // the field's end reaches into the button.
         GlassEffectContainer(spacing: Spacing.sm) {
-            ZStack(alignment: .trailing) {
-                absorbedLeading
-                HStack(spacing: Spacing.sm) {
+            HStack(spacing: Spacing.sm) {
+                if isOpen {
                     field
-                    button
+                } else {
+                    leading
+                        .glassEffectID(GlassID.leading, in: glass)
+                        .glassEffectTransition(glassTransition)
+                    Spacer(minLength: 0)
                 }
+                button
             }
             // The bar sizes its item at once, not along the motion, and centers what it holds:
             // resized with the field, the button jumped left and slid back. The item keeps its
@@ -140,53 +142,20 @@ public struct BarSearchField<Leading: View>: View {
         }
     }
 
-    /// The leading button at the item's leading edge, under the field. Its glass stays whole for
-    /// the field's to blend with; its label shrinks and fades on the field's own transaction, gone
-    /// as the field's leading edge reaches the glass, and back as the edge leaves it. With Reduce
-    /// Motion the whole button crossfades.
-    private var absorbedLeading: some View {
-        leading
-            .modifier(
-                LeadingAbsorption(
-                    progress: isOpen && !reduceMotion ? 1 : 0,
-                    reach: leadingReach,
-                    fade: leadingFade,
-                ),
-            )
-            .onGeometryChange(for: CGFloat.self, of: \.size.width) { leadingWidth = $0 }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .opacity(reduceMotion && isOpen ? 0 : 1)
-            .allowsHitTesting(!isOpen)
-            .accessibilityShown(!isOpen)
+    /// The system's morph between the leading button and the field; with Reduce Motion each one's
+    /// glass fades in or out where it is.
+    private var glassTransition: GlassEffectTransition {
+        reduceMotion ? .materialize : .matchedGeometry
     }
 
-    /// How far the field's leading edge travels, from the closed circle to the item's leading edge.
-    private var fieldTravel: CGFloat {
-        max(max(width, height) - height, 1)
+    /// How far the field's glass reaches past its own end while it meets the search button: over
+    /// the gap and into the button's glass.
+    private var meetingReach: CGFloat {
+        meetsButton ? Spacing.sm + Self.meetingOverlap : 0
     }
 
-    /// The share of the field's travel at which its leading edge meets the leading glass.
-    private var leadingReach: CGFloat {
-        min(max((fieldTravel - leadingWidth) / fieldTravel, 0), 1)
-    }
-
-    /// The share of the travel over which the label goes, the last `leadingFadeDistance` before
-    /// the field's edge meets the glass.
-    private var leadingFade: CGFloat {
-        max(Self.leadingFadeDistance / fieldTravel, 0.01)
-    }
-
-    /// How far ahead of the leading glass the field's edge is as its label starts to go.
-    private static var leadingFadeDistance: CGFloat {
-        60
-    }
-
-    private var fieldFrameWidth: CGFloat {
-        isOpen || reduceMotion ? fieldWidth : height
-    }
-
-    private var fieldOffset: CGFloat {
-        isOpen || reduceMotion ? 0 : height + Spacing.sm
+    private static var meetingOverlap: CGFloat {
+        10
     }
 
     /// From the item's middle to the screen's, with the title's leading edge on the pixel below,
@@ -213,22 +182,16 @@ public struct BarSearchField<Leading: View>: View {
                 .accessibilityIdentifier("barSearch.field")
         }
         .padding(.horizontal, Spacing.md)
-        // Laid out at its open width throughout and clipped, so the prompt never reflows as the
-        // field opens and closes; it fades.
-        .frame(width: fieldWidth, height: height, alignment: .leading)
-        .opacity(isOpen ? 1 : 0)
-        .frame(width: fieldFrameWidth, alignment: .leading)
-        .clipShape(.capsule)
-        // With Reduce Motion the field stays where it opens and its glass fades.
-        .glassEffect(
-            !reduceMotion || isOpen ? .regular.interactive() : .identity,
-            in: .capsule,
-        )
-        .offset(x: fieldOffset)
-        .allowsHitTesting(isOpen)
-        // Out of reach while closed: the field and its magnifying glass, offscreen and faded,
-        // were read out beside the button. The bar ignores `accessibilityHidden`.
-        .accessibilityShown(isOpen)
+        .frame(width: fieldWidth + meetingReach, height: height, alignment: .leading)
+        // Not `interactive()`: with it, the field came in whole, with no morph and no transition
+        // at all, in the bar or out of it.
+        .glassEffect(.regular, in: .capsule)
+        .glassEffectID(GlassID.leading, in: glass)
+        .glassEffectTransition(glassTransition)
+        // Laid out at its own width, so the reach runs under the button without moving it.
+        .padding(.trailing, -meetingReach)
+        // Arrives with this update, so it takes focus as it appears.
+        .onAppear { isFocused = true }
     }
 
     private var button: some View {
@@ -274,9 +237,37 @@ public struct BarSearchField<Leading: View>: View {
         reduceMotion ? .easeInOut(duration: 0.2) : .tapChange
     }
 
+    /// The field arrives already reaching into the search button, so the morph runs its end into
+    /// the button's glass; once it has arrived, it pulls back to rest.
     private func open() {
-        withAnimation(motion) { isOpen = true }
-        isFocused = true
+        meeting?.cancel()
+        withAnimation(motion) {
+            isOpen = true
+            meetsButton = !reduceMotion
+        }
+        meeting = Task {
+            try? await Task.sleep(for: Self.arrival, tolerance: .zero)
+            guard !Task.isCancelled else { return }
+            withAnimation(motion) { meetsButton = false }
+        }
+    }
+
+    /// How long the field's end takes to reach the search button, on `tapChange`.
+    private static var arrival: Duration {
+        .seconds(0.22)
+    }
+
+    /// The field shrinking back into the leading button. It starts slowly, so the field's end
+    /// pulls off the search button's glass rather than snapping off it: on `tapChange`, whose
+    /// spring starts fast, the two parted between one frame and the next.
+    private static var closing: Animation {
+        .easeInOut(duration: 0.28)
+    }
+
+    /// How long the field's end takes to meet the search button before the field goes. The field
+    /// leaves the hierarchy at once, so its end has to be in the button's glass first.
+    private static var meetingBeforeClose: Duration {
+        .seconds(0.04)
     }
 
     private func close() {
@@ -286,35 +277,26 @@ public struct BarSearchField<Leading: View>: View {
     }
 
     private func collapse() {
-        withAnimation(motion) { isOpen = false }
+        meeting?.cancel()
+        guard !reduceMotion else {
+            withAnimation(motion) { isOpen = false }
+            return
+        }
+        withAnimation(motion) { meetsButton = true }
+        meeting = Task {
+            try? await Task.sleep(for: Self.meetingBeforeClose, tolerance: .zero)
+            guard !Task.isCancelled else { return }
+            withAnimation(Self.closing) {
+                isOpen = false
+                meetsButton = false
+            }
+        }
     }
 }
 
-/// Shows the leading button's label in full until the field's edge is within `fade` of
-/// `reach`, both shares of the field's travel, then shrinks and fades it to nothing at `reach`.
-/// Animatable, so it reads the field's progress frame by frame on the field's own transaction.
-private struct LeadingAbsorption: ViewModifier, Animatable {
-    var progress: CGFloat
-    let reach: CGFloat
-    let fade: CGFloat
-
-    var animatableData: CGFloat {
-        get { progress }
-        set { progress = newValue }
-    }
-
-    func body(content: Content) -> some View {
-        content.environment(
-            \.barGlassLabelPresence,
-            min(max((reach - progress) / fade, 0), 1),
-        )
-    }
-}
-
-extension EnvironmentValues {
-    /// How much of a bar glass button's label shows, from 1 (all of it) to 0 (shrunk away), as
-    /// the search field takes the button in (`BarSearchField`).
-    @Entry var barGlassLabelPresence: CGFloat = 1
+/// The glass the leading button and the field share, so the container morphs one into the other.
+private nonisolated enum GlassID: Hashable {
+    case leading
 }
 
 /// A button in the bar's own look, drawn outside the bar's own items: its label centered in its
@@ -324,15 +306,10 @@ public struct BarGlassButtonStyle: ButtonStyle {
     let width: CGFloat
 
     @ScaledMetric(relativeTo: .body) private var height: CGFloat = 44
-    @Environment(\.barGlassLabelPresence) private var labelPresence
 
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .frame(width: max(width, height), height: height)
-            // Toward half its size, as the search button's own symbols swap. Scaled with its
-            // frame: the label alone, ++, which sits on a half pixel, moved a pixel at rest.
-            .scaleEffect(0.5 + 0.5 * labelPresence)
-            .opacity(labelPresence)
             .contentShape(.capsule)
             .glassEffect(.regular.interactive(), in: .capsule)
     }
