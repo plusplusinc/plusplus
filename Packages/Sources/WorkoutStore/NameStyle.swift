@@ -196,7 +196,7 @@ private struct Work {
 
 extension Exercise {
     fileprivate var isLoaded: Bool {
-        !equipment.isDisjoint(with: [.dumbbells, .kettlebell, .barbell])
+        load != nil
     }
 
     /// A weight pushed away with the chest or shoulders: a bench or overhead press, not a

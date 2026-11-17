@@ -254,6 +254,17 @@ extension Exercise {
             tags: .init(nil, [.quads, .chest], [.abs, .triceps], .conditioning),
         ),
         Self(
+            // Thrown straight up from a squat: the legs drive it, the arms finish it.
+            id: "medicine-ball-toss",
+            name: "Medicine ball toss",
+            muscleGroup: .legs,
+            equipment: [.medicineBall],
+            plan: .init(sets: 3, target: .reps(10)),
+            load: .single,
+            startsAt: StartingWeight(pounds: 10, kilograms: 4),
+            tags: .init(.squat, [.quads, .glutes], [.calves, .frontDelts]),
+        ),
+        Self(
             id: "mountain-climber",
             name: "Mountain climber",
             muscleGroup: .core,

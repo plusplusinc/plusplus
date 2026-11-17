@@ -8,15 +8,15 @@ public enum SetTarget: Equatable, Sendable {
 
 /// What a loaded exercise holds. An exercise with no load has no weight at all.
 public enum Load: Sendable {
-    /// One kettlebell or one dumbbell: the weight is that one.
+    /// One kettlebell, dumbbell, or medicine ball: the weight is that one.
     case single
     /// A dumbbell in each hand: the weight is each one's.
     case pair
     /// A barbell: the weight is the total, bar included.
     case bar
 
-    /// One step of its weight: 5 lb; in kilograms, 2.5 for a bar's plates and 2 for a
-    /// dumbbell or kettlebell, the steps their starting weights come in.
+    /// One step of its weight: 5 lb; in kilograms, 2.5 for a bar's plates and 2 for
+    /// anything held, the steps their starting weights come in.
     func step(in unit: WeightUnit) -> Double {
         switch (unit, self) {
         case (.pounds, _): 5
@@ -56,7 +56,8 @@ public struct Weight: Equatable, Sendable {
 }
 
 /// Where a loaded exercise's weight starts, in each unit: its own value from the kit that unit
-/// comes in (dumbbells in 2 kg steps, kettlebells at 8, 12, 16 kg), not a conversion.
+/// comes in (dumbbells in 2 kg steps, kettlebells at 8, 12, 16 kg, a medicine ball at 4), not a
+/// conversion.
 struct StartingWeight: Equatable, Sendable {
     let pounds: Double
     let kilograms: Double
