@@ -52,15 +52,22 @@ public struct CreatedExercise: Identifiable, Equatable, Sendable {
         idPrefix + UUID().uuidString.lowercased()
     }
 
-    /// Whether these settings make an exercise to add: a name that is no exercise's yet (by the
-    /// search's folding) and at least one muscle group.
+    /// Whether these settings make an exercise to add, or, `besides` an exercise's id, to save
+    /// over it: a name that is no other exercise's (by the search's folding) and at least one
+    /// muscle group.
     public static func canAdd(
         named name: String,
         muscleGroups: Set<MuscleGroup>,
         to exercises: ExerciseList,
+        besides id: String? = nil,
     ) -> Bool {
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        return !muscleGroups.isEmpty && !name.isEmpty && !exercises.hasExercise(named: name)
+        let isTaken = if let id {
+            exercises.hasExercise(named: name, besides: id)
+        } else {
+            exercises.hasExercise(named: name)
+        }
+        return !muscleGroups.isEmpty && !name.isEmpty && !isTaken
     }
 }
 

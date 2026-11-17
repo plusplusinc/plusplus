@@ -2,11 +2,10 @@ import Foundation
 import OSLog
 import SwiftData
 
-typealias StoredWorkout = RoutineSchemaV6.StoredWorkout
-typealias StoredSet = RoutineSchemaV6.StoredSet
+typealias StoredWorkout = RoutineSchemaV9.StoredWorkout
+typealias StoredSet = RoutineSchemaV9.StoredSet
 
-/// As #127 shipped it, with logged sets, its routines still V4's. Its workouts and sets are
-/// still today's.
+/// As #127 shipped it, with logged sets, its routines still V4's.
 enum RoutineSchemaV6: VersionedSchema {
     static let versionIdentifier = Schema.Version(6, 0, 0)
     static var models: [any PersistentModel.Type] {
@@ -104,6 +103,7 @@ extension StoredSet {
     func write(_ set: LoggedSet, position: Int) {
         update(\.rowID, to: set.row)
         update(\.exerciseID, to: set.exerciseID)
+        update(\.exerciseName, to: set.exerciseName)
         update(\.position, to: position)
         update(\.round, to: set.round)
         update(\.side, to: set.side?.rawValue)
@@ -156,6 +156,7 @@ extension StoredSet {
             id: id,
             row: rowID,
             exerciseID: exerciseID,
+            exerciseName: exerciseName,
             round: round,
             side: side.flatMap(Side.init(rawValue:)),
             target: target,

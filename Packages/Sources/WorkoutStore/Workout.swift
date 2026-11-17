@@ -93,6 +93,7 @@ public struct Workout: Identifiable, Equatable, Sendable {
         logged.sets.append(LoggedSet(
             row: row.id,
             exerciseID: row.exercise.id,
+            exerciseName: row.exercise.name,
             round: planned.round,
             side: planned.side,
             target: row.plan.target,

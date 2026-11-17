@@ -251,7 +251,7 @@ public actor RoutineStore {
     /// A row whose exercise isn't in `list`, from a newer version, a renamed slug, or a created
     /// exercise this build can't read, is left out rather than failing the routine. Supersets
     /// come back whole, as the rules keep them.
-    private static func routine(
+    static func routine(
         from stored: StoredRoutine,
         exercises list: ExerciseList,
         weightUnit: WeightUnit,

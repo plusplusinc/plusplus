@@ -6,12 +6,20 @@ public struct ExerciseList: Equatable, Sendable {
     /// A to Z by name; a tie by id, so the order is stable if sync ever leaves two with one name.
     public let all: [Exercise]
     private let byID: [String: Exercise]
+    /// The created ones as someone set them, by id, for their form to open with.
+    private let createdByID: [String: CreatedExercise]
 
     public init(created: [CreatedExercise]) {
-        self.init(unsorted: Exercise.builtIn + created.map(Exercise.init(created:)))
+        // Ids are unique in the app's own writes; keyed leniently against a store that isn't.
+        self.init(createdByID: Dictionary(
+            created.map { ($0.id, $0) },
+            uniquingKeysWith: { first, _ in first },
+        ))
     }
 
-    private init(unsorted: [Exercise]) {
+    private init(createdByID: [String: CreatedExercise]) {
+        self.createdByID = createdByID
+        let unsorted = Exercise.builtIn + createdByID.values.map(Exercise.init(created:))
         all = unsorted.sorted { one, other in
             switch one.name.localizedStandardCompare(other.name) {
             case .orderedAscending: true
@@ -46,8 +54,28 @@ public struct ExerciseList: Equatable, Sendable {
         !hasExercise(named: query) && !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    /// The settings of the created exercise `id`, or nil for a built-in.
+    public func created(id: String) -> CreatedExercise? {
+        createdByID[id]
+    }
+
+    /// Whether an exercise other than `id` is named `name`, by the search's folding: a rename
+    /// may keep its own name, or change only its case.
+    public func hasExercise(named name: String, besides id: String) -> Bool {
+        all.filter { $0.id != id }.hasExercise(named: name)
+    }
+
     /// The list with `created` in it at its place, or in place of the one with its id.
     public func adding(_ created: CreatedExercise) -> Self {
-        Self(unsorted: all.filter { $0.id != created.id } + [Exercise(created: created)])
+        var createdByID = createdByID
+        createdByID[created.id] = created
+        return Self(createdByID: createdByID)
+    }
+
+    /// The list without the created exercise `id`.
+    public func removing(_ id: String) -> Self {
+        var createdByID = createdByID
+        createdByID[id] = nil
+        return Self(createdByID: createdByID)
     }
 }

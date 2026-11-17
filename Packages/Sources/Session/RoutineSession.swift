@@ -21,11 +21,11 @@ public final class RoutineSession {
     public private(set) var screen = Screen.routine
     /// Exercises, pushed from the drawer onto whichever screen shows, the routine or the
     /// Routines list, until its back button or swipe pops it.
-    public private(set) var isExercisesShown = false
+    public internal(set) var isExercisesShown = false
     /// The workout running the open routine, from Start until Finish or Discard.
     public private(set) var workout: Workout?
     /// Every exercise there is to pick, the ones created this session included.
-    public private(set) var exercises: ExerciseList
+    public internal(set) var exercises: ExerciseList
 
     /// The saved routines, latest first, as of the last read, with each routine left since.
     private var saved: [Routine] = []
@@ -37,7 +37,7 @@ public final class RoutineSession {
     @ObservationIgnored private var switches = 0
 
     /// Nil when the store didn't open: switching works in memory, and nothing saves.
-    @ObservationIgnored private let store: RoutineStore?
+    @ObservationIgnored let store: RoutineStore?
     /// Names a workout after its routine, at Start and again at Finish.
     @ObservationIgnored private let namer: RoutineNamer
     /// Where every change to the routine goes, to be saved one at a time in the order they
@@ -371,27 +371,26 @@ public final class RoutineSession {
 }
 
 extension RoutineSession {
-    /// Pushes Exercises onto the screen showing and closes the drawer.
-    public func showExercises() {
-        isExercisesShown = true
-        closeDrawer()
-    }
-
-    /// Pops Exercises, showing the screen it was pushed on, as its back button and back swipe do.
-    public func popExercises() {
-        isExercisesShown = false
-    }
-
-    /// Adds a created exercise to the list at once, and returns it once it is stored, so a
-    /// routine save that names it always lands after it: await this before adding its row.
-    /// A failed save is logged, and the exercise stays usable this session.
-    public func create(_ created: CreatedExercise) async -> Exercise {
-        exercises = exercises.adding(created)
+    /// Lets every edit to the open routine land, then makes `change` to the stored exercises,
+    /// and reads the open routine and the saved ones back, so each shows what it did to their
+    /// rows. Refused while a switch is under way, and holds off Start and a switch while it
+    /// runs. With no store, nothing is stored and the routines stay as they were.
+    func changeExercises(
+        weightUnit: WeightUnit,
+        _ change: (RoutineStore) async throws -> Void,
+    ) async {
+        guard !isSwitching, let store else { return }
+        isSwitching = true
+        defer { isSwitching = false }
+        await finishSaving()
         do {
-            try await store?.save(created)
+            try await change(store)
+            // Gone only if it was left with nothing: it reads as that, under its id.
+            current = try await store.routine(current.id, weightUnit: weightUnit)
+                ?? Routine(id: current.id, name: current.name)
         } catch {
-            Logger.session.error("The created exercise didn't save: \(error)")
+            Logger.session.error("The exercise change didn't save: \(error)")
         }
-        return Exercise(created: created)
+        await refreshRecent(weightUnit: weightUnit)
     }
 }

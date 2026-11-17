@@ -3,15 +3,16 @@ import SwiftData
 
 typealias StoredExercise = RoutineSchemaV8.StoredExercise
 
-/// Today's shape: V7's routines and V6's workouts, with the exercises someone created.
+/// V7's routines and V6's workouts, with the exercises someone created. Its exercises are still
+/// today's.
 enum RoutineSchemaV8: VersionedSchema {
     static let versionIdentifier = Schema.Version(8, 0, 0)
     static var models: [any PersistentModel.Type] {
         [
             StoredRoutine.self,
             StoredRoutineExercise.self,
-            StoredWorkout.self,
-            StoredSet.self,
+            RoutineSchemaV6.StoredWorkout.self,
+            RoutineSchemaV6.StoredSet.self,
             StoredExercise.self,
         ]
     }

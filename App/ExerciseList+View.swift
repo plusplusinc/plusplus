@@ -17,14 +17,17 @@ import WorkoutStore
 /// Create follows the typing (`ExerciseList.offersCreate(for:)`): with something typed and no
 /// exercise of exactly that name, Create “…” is the list's last row, green as what makes
 /// something is; with no matches it is the only row, so the list narrows down to it and there
-/// is no separate no-results view. It pushes `NewExerciseForm` on the host's own stack, so
+/// is no separate no-results view. It pushes `ExerciseForm` on the host's own stack, so
 /// Cancel comes back to the search as it was.
 struct ExerciseListView: View {
     let exercises: ExerciseList
     /// What a tap on a row does; nil leaves every row a plain row that opens nothing.
     let onTap: ((Exercise) -> Void)?
+    /// Which rows take a tap; the rest are plain rows that open nothing.
+    var isTappable: (Exercise) -> Bool = { _ in true }
     /// Whether the form goes back to the list once it has created, rather than its host
-    /// closing around it.
+    /// closing around it. Its button reads Create there, since nothing goes into a routine,
+    /// and Add where it does.
     var returnsAfterCreate = false
     /// Stores the exercise; the host decides what shows next.
     let onCreate: (CreatedExercise) async -> Void
@@ -64,7 +67,12 @@ struct ExerciseListView: View {
             prompt: "Search",
         )
         .navigationDestination(item: $creating) { name in
-            NewExerciseForm(name: name, exercises: exercises) { created in
+            ExerciseForm(
+                name: name,
+                exercises: exercises,
+                confirmTitle: returnsAfterCreate
+                    ? String(localized: "Create") : String(localized: "Add"),
+            ) { created in
                 await onCreate(created)
                 if returnsAfterCreate {
                     creating = nil
@@ -77,7 +85,7 @@ struct ExerciseListView: View {
     private func row(_ exercise: Exercise) -> some View {
         let label = RowLabel(title: exercise.name, detail: exercise.equipmentLine)
         Group {
-            if let onTap {
+            if let onTap, isTappable(exercise) {
                 Button {
                     onTap(exercise)
                 } label: {

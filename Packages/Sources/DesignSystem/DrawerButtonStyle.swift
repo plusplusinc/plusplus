@@ -156,7 +156,7 @@ extension ButtonStyle where Self == DrawerButtonStyle {
 
 #Preview {
     VStack(spacing: Spacing.xs) {
-        Button("Routines", systemImage: "rectangle.stack") { }
+        Button("Routines", systemImage: "checklist") { }
             .buttonStyle(.drawer(isSelected: false))
         Button { } label: {
             Label { Text(verbatim: "Leg day") } icon: { DrawerNode(isLit: true) }
