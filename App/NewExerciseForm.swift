@@ -23,6 +23,8 @@ struct NewExerciseForm: View {
     @State private var measure = Measure.reps
     @State private var isPerSide = false
     @State private var isAdding = false
+    @FocusState private var isNameFocused: Bool
+    @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.dismiss) private var dismiss
 
     init(
@@ -47,11 +49,11 @@ struct NewExerciseForm: View {
     var body: some View {
         Form {
             Section {
-                LabeledContent("Name") {
-                    TextField("Name", text: $name)
-                        .multilineTextAlignment(.trailing)
-                        .submitLabel(.done)
-                        .accessibilityIdentifier("newExercise.name")
+                LabeledContent {
+                    nameField
+                } label: {
+                    // The field is labeled Name too; one VoiceOver stop reads both.
+                    Text("Name").accessibilityHidden(true)
                 }
             }
             .listRowBackground(Color.pp(.surface))
@@ -104,6 +106,30 @@ struct NewExerciseForm: View {
                     .disabled(!canAdd)
             }
         }
+    }
+
+    /// One line, trailing, at the usual sizes. At the accessibility sizes the label sits above
+    /// the value, and one line would cut a typed name short, so it wraps, leading. Return ends
+    /// the editing rather than starting a line.
+    private var nameField: some View {
+        let wraps = typeSize.isAccessibilitySize
+        let oneLine = Binding {
+            name
+        } set: { typed in
+            if typed.contains(where: \.isNewline) {
+                name = typed.filter { !$0.isNewline }
+                isNameFocused = false
+            } else {
+                name = typed
+            }
+        }
+        return TextField("Name", text: oneLine, axis: wraps ? .vertical : .horizontal)
+            .multilineTextAlignment(wraps ? .leading : .trailing)
+            .submitLabel(.done)
+            .focused($isNameFocused)
+            // A field that wraps takes no label from its title.
+            .accessibilityLabel("Name")
+            .accessibilityIdentifier("newExercise.name")
     }
 
     private func add() {
