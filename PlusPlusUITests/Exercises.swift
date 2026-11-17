@@ -56,7 +56,8 @@ extension XCUIApplication {
     }
 
     /// Opens the picker and picks the row labeled `label`, searching for `query` first when the
-    /// row is not in the first screenful. Returns once the picker is closed and the row is in.
+    /// row is not in the half-height sheet's first screenful. Returns once the picker is closed and
+    /// the row is in.
     func addExercise(_ label: String, searching query: String? = nil) {
         let count = exerciseRows.count
         pickExercise(label, searching: query)

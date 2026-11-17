@@ -18,6 +18,9 @@ struct RoutineScreen: View {
     /// Pushed onto the Routines screen, with a back button where ++ otherwise is.
     let isPushed: Bool
     @State var isPicking = false
+    /// How high the picker is: half as it opens (`openPicker()`), full once pulled up.
+    @State var pickerDetent: PresentationDetent = .medium
+    @State var listEnd = ListEnd()
     /// The row whose values are open in a sheet, as it was when opened: only its id is read.
     @State var editing: RoutineExercise?
     @State var scrollPosition = ScrollPosition()
@@ -37,9 +40,10 @@ struct RoutineScreen: View {
     @State var isScrollingByHand = false
     /// Whether the title's field has focus. Any touch outside the title ends the edit.
     @State var isEditingTitle = false
-    /// Whether the touch down last was outside the title with no edit to end, so on an empty
-    /// routine a tap in its empty space opens the picker. Written as the touch comes down, before
-    /// the edit ends, since by the tap's end the edit has already ended either way.
+    /// Whether the touch down last was outside the title with no edit to end, so a tap in the
+    /// empty space below the last row, or anywhere on an empty routine, opens the picker. Written
+    /// as the touch comes down, before the edit ends, since by the tap's end the edit has already
+    /// ended either way.
     @State var tapOpensPicker = false
     /// Whether the screen's foot shows the routine as empty: no Start, and the + low. It follows
     /// the exercises, but the first add and the last Remove change it only once their sheet has
@@ -266,6 +270,9 @@ struct RoutineScreen: View {
                             .swipeToDelete(isOn: item.id != currentID) { delete(item.id) }
                     } end: {
                         FloatingButtonRoom()
+                            .onGeometryChange(for: CGFloat.self) {
+                                $0.frame(in: .global).minY
+                            } action: { listEnd.top = $0 }
                     }
                 }
                 .padding(.horizontal, Spacing.md)
@@ -318,10 +325,11 @@ struct RoutineScreen: View {
             }
         }
         .onGeometryChange(for: CGFloat.self, of: \.size.height) { listHeight = $0 }
-        // A tap that only ended the title's edit opens nothing.
-        .emptyNote("No exercises", isEmpty: routine.exercises.isEmpty) {
-            isPicking = tapOpensPicker
-        }
+        .emptyNote("No exercises", isEmpty: routine.exercises.isEmpty)
+        // Alongside the taps of what is in the list, which never reach below its end.
+        .simultaneousGesture(SpatialTapGesture(coordinateSpace: .global).onEnded { tap in
+            tappedList(at: tap.location)
+        })
         .primaryKeyBar(
             isPresented: showsKey,
             face: liveKeyRole,
@@ -355,6 +363,8 @@ struct RoutineScreen: View {
                 isPicking = false
                 add(exercise)
             }
+            // A fixed set: one worked out from `pickerDetent` was read from the opening before.
+            .presentationDetents([.medium, .large], selection: $pickerDetent)
         }
         // By item, so the sheet keeps its content as it slides away.
         .sheet(item: $editing) { opened in

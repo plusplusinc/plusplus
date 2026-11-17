@@ -5,10 +5,11 @@ import XCTest
 @MainActor
 extension RenameUITests {
     /// The picker opens fast and without the keyboard, and a pick adds a row, Start rising with
-    /// the + above it. The rest of the rows are seeded at the test's launch, in a routine the
-    /// drawer then opens, and one more is added through the picker's search onto them. Search's
-    /// list and empty state are left to use, and the add's scroll to the list's end is
-    /// `TitleWrappingUITests`' at AX5. Where the + sits, to the point, is `PrimaryKeyBarTests`'.
+    /// the + above it. The rest of the rows are
+    /// seeded at the test's launch, in a routine the drawer then opens, and one more is added
+    /// through the picker's search onto them. Search's list and empty state are left to use, and
+    /// the add's scroll to the list's end is `TitleWrappingUITests`' at AX5. Where the + sits, to
+    /// the point, is `PrimaryKeyBarTests`'.
     func addExercises(in app: XCUIApplication, keyboard: XCUIElement) {
         let search = app.searchFields.firstMatch
         let start = app.buttons["Start"]
@@ -19,6 +20,9 @@ extension RenameUITests {
         let (seeded, added) = XCUIApplication.renameRows
         XCTContext
             .runActivity(named: "Start appears with the first exercise, the + above it") { _ in
+                // Below the half-height sheet's first screenful.
+                search.tap()
+                search.typeText("barbell bench")
                 app.pickerRows[seeded[0].label].tap()
                 XCTAssertTrue(search.disappears(), "The add left the picker open")
                 XCTAssertEqual(app.exerciseCount(becoming: 1), 1, "The pick added no row")
