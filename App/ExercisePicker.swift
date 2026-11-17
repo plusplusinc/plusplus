@@ -14,14 +14,19 @@ struct ExercisePicker: View {
 
     var body: some View {
         NavigationStack {
-            ExerciseListView(exercises: exercises, onTap: onPick, onCreate: onCreate)
-                .navigationTitle("Add exercise")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button(role: .close) { dismiss() }
-                    }
+            ExerciseListView(
+                exercises: exercises,
+                onTap: onPick,
+                searchesInBar: true,
+                onCreate: onCreate,
+            )
+            .navigationTitle("Add exercise")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button(role: .close) { dismiss() }
                 }
+            }
         }
     }
 }
