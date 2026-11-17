@@ -48,6 +48,9 @@ struct ExerciseListView<BarLeading: View>: View {
     /// The name the form opens with, while it shows.
     @State private var creating: String?
     @State private var isKeyboardUp = false
+    /// Where the list's room starts, at the bar's bottom edge, in global coordinates: where a
+    /// heading pins, and past which a heading pushed up fades (`LeavesUnderBar`).
+    @State private var listTop: CGFloat = 0
     @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
@@ -61,6 +64,7 @@ struct ExerciseListView<BarLeading: View>: View {
                         .font(.ppRowDetail)
                         .fontWeight(.semibold)
                         .foregroundStyle(.pp(.textSecondary))
+                        .modifier(LeavesUnderBar(listTop: listTop))
                 }
                 .indexLabel(section.letter, isShown: showsIndex)
             }
@@ -69,6 +73,9 @@ struct ExerciseListView<BarLeading: View>: View {
             }
         }
         .listStyle(.plain)
+        .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: {
+            listTop = $0
+        }
         // From the keyboard's start up to the end of its way down: the index fits itself to the
         // list's room, which follows the keyboard, and shown meanwhile it squashed to a third of
         // its height and grew back.
@@ -175,6 +182,22 @@ extension View {
             sectionIndexLabel(Text(letter))
         } else {
             self
+        }
+    }
+}
+
+/// Fades a letter heading out over its own height as the next one pushes it up past the bar's
+/// bottom edge, where it pins. The list draws its pinned headings above the bar's edge effect,
+/// which blurs the rows under the bar: unfaded, a heading pushed up went on sharp under the bar
+/// and the clock until its section's end left the screen.
+private struct LeavesUnderBar: ViewModifier {
+    let listTop: CGFloat
+
+    func body(content: Content) -> some View {
+        content.visualEffect { [listTop] content, proxy in
+            let frame = proxy.frame(in: .global)
+            let past = listTop - frame.minY
+            return content.opacity(1 - min(max(past / max(frame.height, 1), 0), 1))
         }
     }
 }
