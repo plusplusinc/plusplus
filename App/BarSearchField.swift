@@ -1,48 +1,62 @@
 import DesignSystem
 import SwiftUI
 
-/// Search in the navigation bar, at its top trailing edge: a round glass button with a magnifying
-/// glass, as big as ++. A tap splits a glass field out of the button's glass, which pulls apart
-/// to the left into its own capsule filling the bar up to ++, focused, with the keyboard coming
+/// Search in the navigation bar: one bar item spanning the bar between its margins, with the
+/// bar's leading button at its leading edge and a round glass search button with a magnifying
+/// glass at its trailing edge. A tap splits a glass field out of the search button's glass, which
+/// pulls apart to the left into its own capsule across the bar, focused, with the keyboard coming
 /// up, while the button's symbol turns to an X. The X clears the search and the field merges back
 /// into the button; so does the keyboard going down with nothing typed. With something typed, the
-/// keyboard can go down and the field stays open on the matches. Nothing else in the bar or under
-/// it moves: the large title stays below.
+/// keyboard can go down and the field stays open on the matches. Nothing under the bar moves: a
+/// large title stays below.
 ///
-/// Given a `title`, it draws the bar's inline title itself, centered on the screen in the
-/// system's inline title font, behind the field, and the host removes the bar's own. The field
-/// slides out over the title as it fades, so the title reads as covered, and back off it as it
-/// returns, on the field's own curve. The bar's own title dropped out at once as the open field
-/// took its room and came back only after the close: the bar lays its items out at once, not
-/// along the motion. With a title the item keeps its open width throughout, so the bar never
-/// lays out again; only the button takes touches in it while closed.
+/// The leading button (++ in Exercises, Close in Add exercise) is drawn here, in its own glass,
+/// for the field to cover: its leading edge covers the button as it slides over it, and uncovers
+/// it as it slides back; with Reduce Motion the button crossfades. While covered, it takes no taps
+/// and is hidden from VoiceOver. A button in an item of its own stayed where the bar laid it out,
+/// apart from the field's item: the bar lays its items out at once, not along the motion, and an
+/// item wider than its room went into a More menu.
 ///
-/// Given `onClose`, it draws the bar's Close too, the system's close button in its glass
-/// circle, at the item's leading edge, which then spans the bar between its margins; the host
-/// holds no Close of its own. The field opens across the whole bar and its leading edge covers
-/// Close as it slides over it, and uncovers it as it slides back; with Reduce Motion Close
-/// crossfades. While covered, Close takes no taps and is hidden from VoiceOver. A Close in an item
-/// of its own stayed where the bar laid it out,
-/// apart from the field's item, and an item wider than its room went into a More menu.
+/// Given a `title`, it draws the bar's inline title too, centered on the screen in the system's
+/// inline title font, behind the field, and the host removes the bar's own. The field slides out
+/// over the title as it fades, and back off it as it returns, on the field's own curve. The bar's
+/// own title dropped out at once as the open field took its room and came back only after the
+/// close.
 ///
 /// The system's top bar search does not do this on iPhone. Its round button
 /// (`.searchable(placement: .toolbar)`, `.searchToolbarBehavior(.minimize)` and a top trailing
 /// `DefaultToolbarItem(kind: .search)`) opens the field above the keyboard and hides the bar.
 /// Setting the hosting controller's `searchBarPlacementAllowsToolbarIntegration` to false keeps
 /// the field in the bar, but on iOS 27.2 its X closed the field and it opened again by itself
-/// half a second later, with or without an `isPresented` binding.
-struct BarSearchField: View {
+/// half a second later, with or without an `isPresented` binding. Its in-bar search hid Back.
+struct BarSearchField<Leading: View>: View {
     @Binding var text: String
     let prompt: LocalizedStringKey
-    /// The width the field and the button take together once open.
-    let openWidth: CGFloat
+    /// The item's width, the bar's between its margins.
+    let width: CGFloat
     /// The bar's inline title, drawn here for the field to cover; nil when the bar shows its own.
     var title: LocalizedStringKey?
     /// Where the title centers, the screen's middle, in global coordinates.
     var titleCenterX: CGFloat = 0
-    /// What the bar's Close does, drawn here at the item's leading edge for the field to cover;
-    /// nil when the bar has no Close or holds its own.
-    var onClose: (() -> Void)?
+    /// The bar's leading button, drawn at the item's leading edge for the field to cover. It
+    /// brings its own glass (`BarGlassButtonStyle`).
+    let leading: Leading
+
+    init(
+        text: Binding<String>,
+        prompt: LocalizedStringKey,
+        width: CGFloat,
+        title: LocalizedStringKey? = nil,
+        titleCenterX: CGFloat = 0,
+        @ViewBuilder leading: () -> Leading,
+    ) {
+        _text = text
+        self.prompt = prompt
+        self.width = width
+        self.title = title
+        self.titleCenterX = titleCenterX
+        self.leading = leading()
+    }
 
     @State private var isOpen = false
     /// The item's middle in global coordinates, where the title is laid out; its offset moves it
@@ -50,8 +64,9 @@ struct BarSearchField: View {
     @State private var itemMidX: CGFloat = 0
     @State private var titleWidth: CGFloat = 0
     @Environment(\.displayScale) private var displayScale
-    /// Whether the bar item holds the open width: from the open's start to the close's end.
-    @State private var isItemWide = false
+    /// Whether the field has its glass: from the open's start to the close's end, hidden under
+    /// the button's meanwhile.
+    @State private var hasGlass = false
     @FocusState private var isFocused: Bool
     @ScaledMetric(relativeTo: .body) private var height: CGFloat = 44
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -69,15 +84,14 @@ struct BarSearchField: View {
             }
         }
         // The bar sizes its item at once, not along the motion, and centers what it holds:
-        // resized with the field, the button jumped left and slid back. The item takes its open
-        // width before the field opens and gives it back once it has closed, and the field and
-        // button keep to its trailing edge meanwhile.
-        .frame(width: itemWidth, alignment: .trailing)
+        // resized with the field, the button jumped left and slid back. The item keeps its open
+        // width throughout, and the field and button keep to its trailing edge.
+        .frame(width: max(width, height), alignment: .trailing)
         .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).midX } action: {
             itemMidX = $0
         }
         .background { coveredTitle }
-        .background { coveredClose }
+        .background { coveredLeading }
         // The caret in green, as the list's own controls; the bar is hosted apart from the list
         // and does not take its tint.
         .tint(.pp(.accent))
@@ -86,14 +100,6 @@ struct BarSearchField: View {
                 collapse()
             }
         }
-    }
-
-    private var hasFieldGlass: Bool {
-        reduceMotion ? isOpen : isItemWide
-    }
-
-    private var itemWidth: CGFloat {
-        isItemWide || title != nil || onClose != nil ? max(openWidth, height) : height
     }
 
     /// Fades on the field's curve as the field slides over it, and back as the field leaves it;
@@ -116,33 +122,17 @@ struct BarSearchField: View {
         }
     }
 
-    /// The system's Close in its glass circle, as the bar draws it, under the field: cut away
-    /// where the field's capsule lies over it, along the field's own motion, so the field's
-    /// leading edge covers it and uncovers it. Faded instead, it was gone before the field
-    /// reached it and back while the field was still mid-bar, and the field's glass let it show
-    /// through. With Reduce Motion it crossfades. It takes no taps and is hidden from VoiceOver
-    /// while covered.
-    @ViewBuilder
-    private var coveredClose: some View {
-        if let onClose {
-            Button(role: .close, action: onClose)
-                .labelStyle(.iconOnly)
-                // In the label's own primary, white, as the bar draws Close, not the search
-                // button's cream.
-                .font(.body.weight(.medium))
-                // The bar sets the X a pixel left of the circle's middle and a pixel lower;
-                // centered here, it sat that pixel off from the bar's own Close.
-                .offset(x: -1 / displayScale, y: 1 / displayScale)
-                .frame(width: height, height: height)
-                .contentShape(.circle)
-                .buttonStyle(.plain)
-                .glassEffect(.regular.interactive(), in: .circle)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .mask { fieldCutout }
-                .opacity(reduceMotion && isOpen ? 0 : 1)
-                .allowsHitTesting(!isOpen)
-                .accessibilityShown(!isOpen)
-        }
+    /// The leading button under the field: cut away where the field's capsule lies over it,
+    /// along the field's own motion, so the field's leading edge covers it and uncovers it.
+    /// Faded instead, it was gone before the field reached it and back while the field was still
+    /// mid-bar, and the field's glass let it show through. With Reduce Motion it crossfades.
+    private var coveredLeading: some View {
+        leading
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .mask { fieldCutout }
+            .opacity(reduceMotion && isOpen ? 0 : 1)
+            .allowsHitTesting(!isOpen)
+            .accessibilityShown(!isOpen)
     }
 
     /// Everything in the item but the field's capsule, laid out as the field is, so it moves on
@@ -196,10 +186,11 @@ struct BarSearchField: View {
         .opacity(isOpen ? 1 : 0)
         .frame(width: fieldFrameWidth, alignment: .leading)
         .clipShape(.capsule)
-        // Its glass is there only from the open's start to the close's end, hidden under the
-        // button's meanwhile. With Reduce Motion the field stays where it opens and its glass
-        // fades.
-        .glassEffect(hasFieldGlass ? .regular.interactive() : .identity, in: .capsule)
+        // With Reduce Motion the field stays where it opens and its glass fades.
+        .glassEffect(
+            (reduceMotion ? isOpen : hasGlass) ? .regular.interactive() : .identity,
+            in: .capsule,
+        )
         .offset(x: fieldOffset)
         .allowsHitTesting(isOpen)
         .accessibilityHidden(!isOpen)
@@ -222,11 +213,8 @@ struct BarSearchField: View {
             }
             .font(.body.weight(.medium))
             .foregroundStyle(.pp(.textPrimary))
-            .frame(width: height, height: height)
-            .contentShape(.circle)
         }
-        .buttonStyle(.plain)
-        .glassEffect(.regular.interactive(), in: .circle)
+        .buttonStyle(.barGlass(width: height))
         .accessibilityLabel(isOpen ? "Close search" : "Search")
     }
 
@@ -237,7 +225,7 @@ struct BarSearchField: View {
     }
 
     private var fieldWidth: CGFloat {
-        max(openWidth - height - Spacing.sm, 0)
+        max(width - height - Spacing.sm, 0)
     }
 
     private var motion: Animation {
@@ -245,7 +233,7 @@ struct BarSearchField: View {
     }
 
     private func open() {
-        isItemWide = true
+        hasGlass = true
         withAnimation(motion) { isOpen = true }
         isFocused = true
     }
@@ -256,16 +244,36 @@ struct BarSearchField: View {
         collapse()
     }
 
-    /// Merges the field back into the button. Should the completion come early, the narrowed item
-    /// still draws the closing field past its leading edge; it only stops taking touches there.
     private func collapse() {
         withAnimation(motion) {
             isOpen = false
         } completion: {
             if !isOpen {
-                isItemWide = false
+                hasGlass = false
             }
         }
+    }
+}
+
+/// A button in the bar's own look, drawn outside the bar's own items: its label centered in its
+/// own interactive glass, as tall as the search button and `width` wide, a circle when the two
+/// match, all of it taking the tap. The label keeps its own colors: the bar's style tints nothing.
+struct BarGlassButtonStyle: ButtonStyle {
+    let width: CGFloat
+
+    @ScaledMetric(relativeTo: .body) private var height: CGFloat = 44
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .frame(width: max(width, height), height: height)
+            .contentShape(.capsule)
+            .glassEffect(.regular.interactive(), in: .capsule)
+    }
+}
+
+extension ButtonStyle where Self == BarGlassButtonStyle {
+    static func barGlass(width: CGFloat) -> Self {
+        BarGlassButtonStyle(width: width)
     }
 }
 
@@ -277,7 +285,11 @@ struct BarSearchField: View {
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    BarSearchField(text: $text, prompt: "Search", openWidth: 300)
+                    BarSearchField(text: $text, prompt: "Search", width: 370) {
+                        Button("Close", systemImage: "xmark") { }
+                            .labelStyle(.iconOnly)
+                            .buttonStyle(.barGlass(width: 44))
+                    }
                 }
                 .sharedBackgroundVisibility(.hidden)
             }

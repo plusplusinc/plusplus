@@ -6,7 +6,9 @@ import WorkoutStore
 /// Exercises, a screen at the root as Routines is, shown from the drawer in place of the screen
 /// that showed, with ++ leading its bar: the exercise list (`ExerciseListView`) under a large
 /// title, with search as a round button at the bar's top trailing edge that opens into a field
-/// in the bar beside ++ (`BarSearchField`). Create stores the new exercise and comes back to the
+/// across the bar, sliding over ++ as it opens and off it as it closes (`BarSearchField`). While
+/// covered, ++ takes no taps and is hidden from VoiceOver; the edge swipe still opens the drawer.
+/// Create stores the new exercise and comes back to the
 /// list, where it shows. A tap on an exercise someone created pushes its Customize form
 /// (`ExerciseForm`), with Back to the list; Save and Delete come back to the list once the
 /// routines show the change. A built-in's row opens nothing yet.
@@ -26,17 +28,14 @@ struct ExercisesScreen: View {
                 onTap: { customizing = $0.id },
                 isTappable: { session.exercises.created(id: $0.id) != nil },
                 returnsAfterCreate: true,
-                searchesInBar: true,
+                // In the search's own bar item, not one of its own, so the search's field can
+                // slide over it.
+                barLeading: MenuButton(session: session, drawsGlass: true),
                 onCreate: { _ = await session.create($0) },
             )
             .accessibilityHidden(session.isDrawerOpen)
             .navigationTitle("Exercises")
             .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    MenuButton(session: session)
-                }
-            }
             .navigationDestination(item: $customizing) { id in
                 if let created = session.exercises.created(id: id) {
                     ExerciseForm(

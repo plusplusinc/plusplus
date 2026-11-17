@@ -13,23 +13,37 @@ struct ExercisePicker: View {
     let onCreate: (CreatedExercise) async -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.displayScale) private var displayScale
 
     var body: some View {
         NavigationStack {
             ExerciseListView(
                 exercises: exercises,
                 onTap: onPick,
-                searchesInBar: true,
                 barTitle: "Add exercise",
-                // In the search's own bar item, not one of its own: the bar lays separate items
-                // out at once, so the field could not slide over Close along its motion.
-                onBarClose: { dismiss() },
+                barLeading: closeButton,
                 onCreate: onCreate,
             )
             // Still the screen's title for VoiceOver; the bar shows the search's drawn copy.
             .navigationTitle("Add exercise")
             .navigationBarTitleDisplayMode(.inline)
         }
+    }
+
+    /// The system's Close in its glass circle, as the bar draws it, in the label's own primary
+    /// white, not the search button's cream.
+    private var closeButton: some View {
+        Button(role: .close) {
+            dismiss()
+        } label: {
+            Label("Close", systemImage: "xmark")
+                .labelStyle(.iconOnly)
+                .font(.body.weight(.medium))
+                // The bar sets the X a pixel left of the circle's middle and a pixel lower;
+                // centered here, it sat that pixel off from the bar's own Close.
+                .offset(x: -1 / displayScale, y: 1 / displayScale)
+        }
+        .buttonStyle(.barGlass(width: 0))
     }
 }
 
