@@ -24,8 +24,7 @@ stored shape shipped so far is a `VersionedSchema` (`RoutineSchemaV1` to `V8`, t
 since each change only added an attribute or a model. Staged migration refuses a store whose
 shape matches none of the plan's versions, so a shipped version never changes: a stored change
 is a new version, a new stage, and a test that opens the last shape, written on disk, under it
-(`RoutineStoreUpgradeTests`). Its models, `StoredRoutine`, `StoredRoutineExercise`, `StoredWorkout`, `StoredSet`, and
-`StoredExercise`, are internal:
+(`RoutineStoreUpgradeTests`). Its `Stored…` models are internal:
 `Routine`, a value, crosses the boundary, and the store diffs its rows by id rather than
 replacing them, so a row's identity, and later its sync record, is stable. A row carries its
 `position`, since a relationship is unordered, and its plan: `sets`, `reps` or `seconds` (apart,
@@ -67,9 +66,5 @@ sync could leave, the one started later), else the routine last opened or edited
 workout finished after that, which opens a new routine. While a workout runs, a routine cleared
 to nothing is kept (`keepsEmpty`), and deleted once the workout ends.
 
-A row's `exerciseID`, a built-in's slug or `created:<uuid>`, resolves through `ExerciseList`;
-one it can't resolve is left out. A created exercise (V8's `StoredExercise`) stores only its
-five settings; the rest is derived on read. An unknown group or measure leaves it unlisted,
-kept in the store.
-
-SwiftData has no SQL aggregate pushdown; rollups are computed in Swift over fetched rows.
+A row's `exerciseID` resolves through `ExerciseList`, the built-ins and V8's `StoredExercise`s,
+which store only their five settings; a row it can't resolve is left out.

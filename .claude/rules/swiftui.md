@@ -72,7 +72,7 @@ feature, and change them with it.
   `DrawerButtonStyle`, `NameRow`.
 - The title and a generated name typing in: `TitleTextView`, `EditableTitle+Typing.swift`,
   `SuggestionTiming`. The exercise sheet: `ValueRow`, `ValueRuler` (`RulerScale`), `TimePiece`,
-  `ExerciseSheet.swift`. Adding one: `ExercisePicker`, `NewExerciseForm`, `Checklist`. The current exercise's large numbers: `CurrentFigures`, sized by
+  `ExerciseSheet.swift`. The current exercise's large numbers: `CurrentFigures`, sized by
   `CurrentFigure`.
 
 ## Pitfalls
