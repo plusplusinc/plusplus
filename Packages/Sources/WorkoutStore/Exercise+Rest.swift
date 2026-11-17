@@ -32,22 +32,36 @@ extension Exercise {
         [120, 90, 60],
         [90, 60, 45],
     ]
+}
+
+/// How an exercise rests, the column of `defaultRest(for:)`'s table.
+enum RestKind: Int, Sendable {
+    case lowerCompound
+    case upperCompound
+    case singleJoint
 
     /// Squat, hinge, and lunge patterns are lower-body compounds; push and pull, upper; anything
     /// else (a single-joint lift, a hold, a rotation, no pattern at all) rests as single-joint.
-    private var restKind: RestKind {
-        guard !tags.singleJoint else { return .singleJoint }
+    init(tags: ExerciseTags) {
+        guard !tags.singleJoint else {
+            self = .singleJoint
+            return
+        }
         switch tags.movement {
-        case .squat, .hinge, .lunge: return .lowerCompound
-        case .push, .pull: return .upperCompound
-        default: return .singleJoint
+        case .squat, .hinge, .lunge: self = .lowerCompound
+        case .push, .pull: self = .upperCompound
+        default: self = .singleJoint
         }
     }
 
-    private enum RestKind: Int {
-        case lowerCompound
-        case upperCompound
-        case singleJoint
+    /// For an exercise known only by its group: legs as a lower-body compound; chest, back, and
+    /// shoulders as an upper-body one; arms and core as single-joint.
+    init(group: MuscleGroup) {
+        switch group {
+        case .legs: self = .lowerCompound
+        case .chest, .back, .shoulders: self = .upperCompound
+        case .arms, .core: self = .singleJoint
+        }
     }
 }
 

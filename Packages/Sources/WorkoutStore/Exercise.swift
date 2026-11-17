@@ -22,6 +22,8 @@ public struct Exercise: Identifiable, Equatable, Sendable {
     public let isPerSide: Bool
     /// What it does, finer than its group, for naming a routine.
     let tags: ExerciseTags
+    /// How it rests: from its tags for a built-in, from its group for one known only by that.
+    let restKind: RestKind
 
     init(
         id: String,
@@ -33,6 +35,7 @@ public struct Exercise: Identifiable, Equatable, Sendable {
         startsAt: StartingWeight? = nil,
         perSide isPerSide: Bool = false,
         tags: ExerciseTags,
+        rests restKind: RestKind? = nil,
     ) {
         self.id = id
         self.name = name
@@ -43,6 +46,7 @@ public struct Exercise: Identifiable, Equatable, Sendable {
         self.startsAt = startsAt
         self.isPerSide = isPerSide
         self.tags = tags
+        self.restKind = restKind ?? RestKind(tags: tags)
     }
 
     /// The values a new row starts with, a weight in `unit` included for an exercise that holds
@@ -67,9 +71,7 @@ public struct Exercise: Identifiable, Equatable, Sendable {
     /// The equipment as a line of text in display order, "Dumbbells, bench", or nil for
     /// bodyweight, which shows no line at all.
     public var equipmentLine: String? {
-        let names = Equipment.allCases.filter(equipment.contains).map(\.name)
-        guard let first = names.first else { return nil }
-        return ([first] + names.dropFirst().map { $0.lowercased() }).joined(separator: ", ")
+        equipment.line
     }
 }
 
@@ -87,6 +89,17 @@ extension [Exercise] {
         let query = Self.lettersAndDigits(query)
         guard !query.isEmpty else { return self }
         return filter { Self.lettersAndDigits($0.name).localizedStandardContains(query) }
+    }
+
+    /// Whether one of these is named `name`, by the search's own folding: "pull up" is
+    /// Pull-up's name. A name with no letters or digits names none.
+    public func hasExercise(named name: String) -> Bool {
+        let name = Self.lettersAndDigits(name)
+        guard !name.isEmpty else { return false }
+        return contains {
+            Self.lettersAndDigits($0.name)
+                .compare(name, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame
+        }
     }
 
     private static func lettersAndDigits(_ text: String) -> String {

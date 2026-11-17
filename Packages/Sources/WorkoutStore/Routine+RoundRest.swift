@@ -86,19 +86,29 @@ extension Routine {
 
     /// The rest after a round when none is set: the longest of the members' own rests, less a
     /// minute for what the others gave its muscles to recover, never under 30 s, or the whole of
-    /// it when two members share a primary muscle; never more than the longest, so a superset of
+    /// it when two members share a primary muscle, or, where either has no muscles known (one
+    /// someone created), a muscle group; never more than the longest, so a superset of
     /// stretches rests none.
     private func derivedRestAfterRound(of id: RoutineExercise.ID) -> Int {
         guard let row = exercises.first(where: { $0.id == id }) else { return 0 }
-        let members = [row] + partners(of: id)
-        let longest = members.map(\.rest).max() ?? 0
-        let primaries = members.map(\.exercise.tags.primary)
-        let sharesMuscle = primaries.indices.contains { first in
-            primaries.indices.contains { second in
-                first < second && !primaries[first].isDisjoint(with: primaries[second])
+        let rows = [row] + partners(of: id)
+        let longest = rows.map(\.rest).max() ?? 0
+        let members = rows.map(\.exercise)
+        let sharesMuscle = members.indices.contains { first in
+            members.indices.contains { second in
+                first < second && members[first].sharesMuscle(with: members[second])
             }
         }
         return sharesMuscle ? longest : min(longest, max(longest - 60, 30))
+    }
+}
+
+extension Exercise {
+    fileprivate func sharesMuscle(with other: Exercise) -> Bool {
+        guard !tags.primary.isEmpty, !other.tags.primary.isEmpty else {
+            return muscleGroup == other.muscleGroup
+        }
+        return !tags.primary.isDisjoint(with: other.tags.primary)
     }
 }
 

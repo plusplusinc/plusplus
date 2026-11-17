@@ -30,8 +30,9 @@ public actor RoutineStore {
         inProgress.fetchLimit = 1
         if let current = try modelContext.fetch(inProgress).first {
             let workout = current.workout
+            let exercises = try exercises()
             let routine = try stored(id: workout.routineID)
-                .map { Self.routine(from: $0, weightUnit: weightUnit) }
+                .map { Self.routine(from: $0, exercises: exercises, weightUnit: weightUnit) }
                 ?? Routine(id: workout.routineID, name: workout.routineName)
             return (routine, workout)
         }
@@ -46,7 +47,7 @@ public actor RoutineStore {
         finished.fetchLimit = 1
         let lastFinish = try modelContext.fetch(finished).first?.endedAt ?? .distantPast
         guard lastFinish <= latest.recency else { return (nil, nil) }
-        return (Self.routine(from: latest, weightUnit: weightUnit), nil)
+        return try (Self.routine(from: latest, exercises: exercises(), weightUnit: weightUnit), nil)
     }
 
     /// Saves the workout as it is now, every field. Once it has ended, its routine, if cleared
@@ -119,7 +120,7 @@ public actor RoutineStore {
         guard let stored = try stored(id: id) else { return nil }
         stored.openedAt = now
         try modelContext.save()
-        return Self.routine(from: stored, weightUnit: weightUnit)
+        return try Self.routine(from: stored, exercises: exercises(), weightUnit: weightUnit)
     }
 
     /// Every saved routine, the latest opened or edited first; a tie by id, so the order is
@@ -130,8 +131,9 @@ public actor RoutineStore {
     ) throws -> (routines: [Routine], editedAt: [Routine.ID: Date]) {
         let stored = try modelContext.fetch(FetchDescriptor<StoredRoutine>())
             .sorted(by: Self.isMoreRecent(_:than:))
+        let exercises = try exercises()
         return (
-            stored.map { Self.routine(from: $0, weightUnit: weightUnit) },
+            stored.map { Self.routine(from: $0, exercises: exercises, weightUnit: weightUnit) },
             // Ids are unique in the app's own writes; keyed leniently against a store that isn't.
             Dictionary(stored.map { ($0.id, $0.editedAt) }, uniquingKeysWith: max),
         )
@@ -189,9 +191,34 @@ public actor RoutineStore {
         try modelContext.save()
     }
 
+    /// Every exercise there is to pick: the built-ins and each created one this build can read.
+    /// One it can't, from a newer version, is kept in the store, never deleted.
+    public func exercises() throws -> ExerciseList {
+        try ExerciseList(created: modelContext.fetch(FetchDescriptor<StoredExercise>())
+            .compactMap(\.created))
+    }
+
+    /// Stores a created exercise, or updates the one with its id.
+    public func save(_ created: CreatedExercise) throws {
+        let id = created.id
+        var descriptor = FetchDescriptor<StoredExercise>(predicate: #Predicate { $0.id == id })
+        descriptor.fetchLimit = 1
+        let target = try modelContext.fetch(descriptor).first ?? {
+            let new = StoredExercise(id: id)
+            modelContext.insert(new)
+            return new
+        }()
+        target.write(created)
+        try modelContext.save()
+    }
+
     #if DEBUG
-    /// Empties the store, so a UI test starts from a new routine and no workout.
+    /// Empties the store, so a UI test starts from a new routine, no workout, and no exercise
+    /// anyone created.
     public func deleteAll() throws {
+        for exercise in try modelContext.fetch(FetchDescriptor<StoredExercise>()) {
+            modelContext.delete(exercise)
+        }
         for routine in try modelContext.fetch(FetchDescriptor<StoredRoutine>()) {
             modelContext.delete(routine)
         }
@@ -221,12 +248,17 @@ public actor RoutineStore {
         return try modelContext.fetch(descriptor).first
     }
 
-    /// A row whose exercise isn't built in, from a newer version or a renamed slug, is left out
-    /// rather than failing the routine. Supersets come back whole, as the rules keep them.
-    private static func routine(from stored: StoredRoutine, weightUnit: WeightUnit) -> Routine {
+    /// A row whose exercise isn't in `list`, from a newer version, a renamed slug, or a created
+    /// exercise this build can't read, is left out rather than failing the routine. Supersets
+    /// come back whole, as the rules keep them.
+    private static func routine(
+        from stored: StoredRoutine,
+        exercises list: ExerciseList,
+        weightUnit: WeightUnit,
+    ) -> Routine {
         let rows = (stored.exercises ?? []).sorted { $0.position < $1.position }
         var exercises = rows.compactMap { row -> RoutineExercise? in
-            guard let exercise = Exercise.builtIn(id: row.exerciseID) else {
+            guard let exercise = list.exercise(id: row.exerciseID) else {
                 Logger.storage
                     .error("Skipped a row for unknown exercise \(row.exerciseID, privacy: .public)")
                 return nil

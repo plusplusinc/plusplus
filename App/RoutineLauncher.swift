@@ -45,9 +45,10 @@ struct RoutineLauncher: View {
                 .ignoresSafeArea()
                 .task {
                     let launch = await launch()
-                    let session = RoutineSession(
+                    let session = await RoutineSession(
                         routine: launch.routine,
                         workout: launch.workout,
+                        exercises: exercises(),
                         store: store,
                         namer: namer,
                     )
@@ -55,6 +56,17 @@ struct RoutineLauncher: View {
                     // The drawer names the routine last opened, which may not be this one.
                     await session.refreshRecent(weightUnit: WeightUnit(region: locale))
                 }
+        }
+    }
+
+    /// Read after `launch()`, which may reset the store first.
+    private func exercises() async -> ExerciseList {
+        guard let store else { return .builtIn }
+        do {
+            return try await store.exercises()
+        } catch {
+            Logger.app.error("Only the built-in exercises: the created ones didn't load: \(error)")
+            return .builtIn
         }
     }
 
