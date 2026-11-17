@@ -139,11 +139,16 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
         let pounds = reading(Self.pounds(weight), until: { $0 > 45 }, within: 2)
         XCTAssertGreaterThan(pounds, 45, "A drag on the ruler toward heavier left the weight")
         attach(named: "ruler-dragged")
-        // The row steps the value for VoiceOver; the ruler's labels, 45 and 50 under its line
-        // here, are decoration. Hosted, they never reached the tree, so only the running app shows
-        // this.
-        let labels = app.staticTexts.matching(NSPredicate(format: "label IN %@", ["45", "50"]))
-        XCTAssertFalse(labels.firstMatch.exists, "The ruler's labels are in the accessibility tree")
+        // The row steps the value for VoiceOver; the ruler's labels, between its keys and the
+        // next row, are decoration. Hosted, they never reached the tree, so only the running app
+        // shows this.
+        let band = increase.frame.maxY ... rest.frame.minY
+        let labels = app.snapshots { $0.elementType == .staticText && band.contains($0.frame.midY) }
+        XCTAssertEqual(
+            labels.map(\.label),
+            [],
+            "The ruler's labels are in the accessibility tree",
+        )
     }
 
     /// The number a Weight row's value starts with, "49.5 pounds", or 0 with none.
@@ -155,9 +160,8 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
 
     /// The Routines screen lists every routine, latest first; a row or + pushes a routine with a
     /// back chevron in place of ++, which the chevron or an edge swipe pops; the chevron keeps a
-    /// name still being typed, whose touch lands outside the routine screen and ends no edit. The
-    /// edge swipe's touch ends the edit first, as a tap does (`RenameUITests`), and a generated
-    /// name cleared is no name (`EditableTitleTypingTests`).
+    /// name still being typed. The edge swipe's touch ends the edit first, as a tap does
+    /// (`RenameUITests`).
     @MainActor
     private func routinesScreenDrillsIn(in app: XCUIApplication, title: XCUIElement) {
         XCTContext.runActivity(named: "Routines lists every routine, and a row drills in") { _ in

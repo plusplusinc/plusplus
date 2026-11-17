@@ -46,7 +46,7 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
             XCTAssertEqual(title.value as? String, "Push pull")
             attach(named: "typed-name")
         }
-        try clearedRoutineIsGone(in: app, title: title, gray: gray)
+        try clearedRoutineIsNewRoutine(in: app, title: title, gray: gray)
     }
 
     /// An unnamed routine is named for its exercises as they come and go, in white.
@@ -166,7 +166,7 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
     /// deletes it is `RoutineStoreTests`': a relaunch can't show it, since a routine cleared and
     /// kept would open as the same empty New routine.
     @MainActor
-    private func clearedRoutineIsGone(
+    private func clearedRoutineIsNewRoutine(
         in app: XCUIApplication,
         title: XCUIElement,
         gray: Int,
@@ -196,8 +196,7 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
 @MainActor
 extension XCUIElement {
     /// Whether the title's strongest ink is a name's, well past the placeholder's `gray`, once
-    /// a name has typed in or the placeholder has crossfaded back. After two seconds, whatever
-    /// it last was.
+    /// a name has typed in. After two seconds, whatever it last was.
     func inkIsWhite(against gray: Int) -> Bool {
         let frame = frame
         return reading(Self.isWhite(in: frame, against: gray), becoming: true, within: 2)
