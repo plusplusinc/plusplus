@@ -21,6 +21,8 @@ public final class RoutineSession {
     public private(set) var screen = Screen.routine
     /// The workout running the open routine, from Start until Finish or Discard.
     public private(set) var workout: Workout?
+    /// Every exercise there is to pick, the ones created this session included.
+    public private(set) var exercises: ExerciseList
 
     /// The saved routines, latest first, as of the last read, with each routine left since.
     private var saved: [Routine] = []
@@ -47,6 +49,7 @@ public final class RoutineSession {
     public init(
         routine: Routine,
         workout: Workout? = nil,
+        exercises: ExerciseList = .builtIn,
         store: RoutineStore?,
         namer: RoutineNamer,
     ) {
@@ -54,6 +57,7 @@ public final class RoutineSession {
         opened = routine
         current = routine
         self.workout = workout
+        self.exercises = exercises
         self.store = store
         (saves, saving) = Self.startSaving(to: store)
         workoutWrites = Self.startWritingWorkouts(to: store)
@@ -360,5 +364,20 @@ public final class RoutineSession {
             }
         }
         return continuation
+    }
+}
+
+extension RoutineSession {
+    /// Adds a created exercise to the list at once, and returns it once it is stored, so a
+    /// routine save that names it always lands after it: await this before adding its row.
+    /// A failed save is logged, and the exercise stays usable this session.
+    public func create(_ created: CreatedExercise) async -> Exercise {
+        exercises = exercises.adding(created)
+        do {
+            try await store?.save(created)
+        } catch {
+            Logger.session.error("The created exercise didn't save: \(error)")
+        }
+        return Exercise(created: created)
     }
 }

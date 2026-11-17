@@ -346,9 +346,12 @@ struct RoutineScreen: View {
         .background { Color.pp(.background).ignoresSafeArea() }
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $isPicking) {
-            ExercisePicker { exercise in
-                // A second tap while the sheet goes down keeps the first pick.
-                guard isPicking else { return }
+            ExercisePicker(exercises: session.exercises, onPick: addPicked) { created in
+                // Stored before the row is added, so the routine's save that names it lands
+                // after it; the sheet shuts in the same turn as the add, as a pick's does. Add
+                // turns itself off on its tap, so this runs once, and the row goes in even if
+                // the sheet was swiped down while the store saved.
+                let exercise = await session.create(created)
                 isPicking = false
                 add(exercise)
             }

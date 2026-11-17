@@ -145,7 +145,7 @@ struct ExerciseTests {
         #expect(Exercise(
             id: "a",
             name: "A",
-            muscleGroup: .chest,
+            muscleGroups: [.chest],
             equipment: [.bench, .dumbbells],
             plan: plan,
             tags: tags,
@@ -153,7 +153,7 @@ struct ExerciseTests {
         #expect(Exercise(
             id: "b",
             name: "B",
-            muscleGroup: .chest,
+            muscleGroups: [.chest],
             equipment: [.rings, .band, .kettlebell],
             plan: plan,
             tags: tags,

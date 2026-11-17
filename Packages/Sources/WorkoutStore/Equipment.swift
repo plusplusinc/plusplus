@@ -1,17 +1,18 @@
 /// A piece of kit an exercise uses. An exercise with none is bodyweight.
 ///
 /// Cases are declared in display order, which is the order an exercise's equipment is listed
-/// in.
-public enum Equipment: CaseIterable, Sendable {
+/// in. Raw values are what a created exercise stores, written out so renaming a case never
+/// changes stored data.
+public enum Equipment: String, NamedCase {
     case dumbbells
     case kettlebell
     case barbell
-    case medicineBall
+    case medicineBall = "medicine-ball"
     case bench
     case band
-    case pullUpBar
+    case pullUpBar = "pull-up-bar"
     case rings
-    case balanceBoard
+    case balanceBoard = "balance-board"
 
     public var name: String {
         switch self {

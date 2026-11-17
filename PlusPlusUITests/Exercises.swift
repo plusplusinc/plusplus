@@ -80,11 +80,12 @@ extension XCUIApplication {
     }
 
     /// Replaces the search `query` in `search` with one nothing matches, and checks that the
-    /// empty state shows.
+    /// list narrows down to its one row, Create.
     func searchForNothing(replacing query: String, in search: XCUIElement) {
         let delete = XCUIKeyboardKey.delete.rawValue
         search.typeText(String(repeating: delete, count: query.count) + "zzz")
-        XCTAssertTrue(staticTexts["No Results for \u{201C}zzz\u{201D}"].appears())
+        XCTAssertTrue(buttons["Create \u{201C}zzz\u{201D}"].appears(), "No Create for zzz")
+        XCTAssertEqual(pickerRows.count, 0, "Rows other than Create match zzz")
     }
 
     /// Whether the last row shows clear of Add exercise's +, once it does or after the timeout.

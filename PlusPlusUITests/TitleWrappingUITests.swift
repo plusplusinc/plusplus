@@ -150,8 +150,8 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         }
     }
 
-    /// Rows, a row's sheet with a stepper open, and the picker, with and without results, pass
-    /// the audit at this text size.
+    /// Rows, a row's sheet with a stepper open, and the picker, with results and narrowed down
+    /// to its one Create row, pass the audit at this text size.
     @MainActor
     private func auditRowsAndPicker(in app: XCUIApplication) throws {
         let name = "A sheet and the picker at AX5 pass the audit"
@@ -186,9 +186,29 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             XCTAssertTrue(app.pickerRows["Biceps curl, Dumbbells"].appears())
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
             app.searchForNothing(replacing: "curl", in: search)
-            attach(named: "picker-no-results-ax5")
+            attach(named: "picker-create-only-ax5")
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
+            try auditNewExerciseForm(in: app, search: search)
         }
+    }
+
+    /// New exercise passes the audit at this text size, where the name wraps under its label;
+    /// Cancel then leaves the picker as the next check expects it. No cheaper tier reaches the
+    /// form: it is the app's, composed of system rows on the sheet's stack. Its checklists are
+    /// not audited here, to keep the UI tests in their budget.
+    @MainActor
+    private func auditNewExerciseForm(in app: XCUIApplication, search: XCUIElement) throws {
+        let create = app.buttons["picker.create"]
+        XCTAssertTrue(create.settles(), "Create is still moving")
+        create.tap()
+        let name = app.descendants(matching: .any)["newExercise.name"]
+        XCTAssertTrue(name.appears(), "Create opened no form")
+        XCTAssertEqual(name.value as? String, "zzz")
+        attach(named: "new-exercise-form-ax5")
+        // Cancel and Add are the bar's, which caps its text as it does End.
+        try auditBelowTheBar(in: app, systemTexts: ["Cancel", "Add"])
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(search.appears(), "Cancel did not come back to the search")
     }
 
     /// At this size the second row goes in under Add exercise's +, so an add has to scroll to

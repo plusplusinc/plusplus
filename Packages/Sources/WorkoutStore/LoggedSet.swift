@@ -7,7 +7,7 @@ public struct LoggedSet: Identifiable, Equatable, Sendable {
     public let id: UUID
     /// The routine row it was a set of.
     public let row: RoutineExercise.ID
-    /// The exercise's slug, so the set still reads once its row is deleted.
+    /// The exercise's `Exercise.id`, so the set still reads once its row is deleted.
     public let exerciseID: String
     public let round: Int
     public let side: Side?

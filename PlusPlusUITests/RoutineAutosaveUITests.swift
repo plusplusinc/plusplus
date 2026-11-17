@@ -4,7 +4,8 @@ import XCTest
 /// a routine cleared to nothing deleted, and the names are unit-tested in the package; this
 /// holds the wire from the screen to the store, with one relaunch that brings back every saved
 /// field at once (rows in their new order, their duplicates and values, a superset and its
-/// shared rounds, and a name typed with no Return). Names come from the muscle
+/// shared rounds, an exercise created from the picker, and a name typed with no Return). Names come
+/// from the muscle
 /// groups (`-fallbackNames`), so the same name shows on any simulator. The
 /// title's color, white for a name whether typed or generated and gray for New routine, is read
 /// from pixels against the placeholder's own gray at the start. The drawer over saved routines is
@@ -30,19 +31,22 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
         valuesChangeInTheSheet(in: app)
         moveARow(in: app)
         joinASuperset(in: app)
+        createAnExercise(in: app)
         XCTContext.runActivity(
-            named: "Rows, order, a superset, and a typed name survive a quit",
+            named: "Rows, order, a superset, a created exercise, and a typed name survive a quit",
         ) { _ in
             app.relaunch()
             XCTAssertEqual(title.value(becoming: "Push pull"), "Push pull")
             // Moved, joined, and with the rounds the sheet gave both; the second pull-up keeps
             // the reps its sheet gave it, and the first its own.
-            XCTAssertEqual(app.exerciseRowLabels, Self.joined)
-            XCTAssertEqual(app.supersets, "AA.")
+            XCTAssertEqual(app.exerciseRowLabels, Self.joined + [Self.ringRow])
+            XCTAssertEqual(app.supersets, "AA..")
             attach(named: "after-relaunch")
         }
         XCTContext.runActivity(named: "A typed name stays as exercises change") { _ in
-            app.addExercise(Self.gobletSquat, searching: "goblet")
+            // The created exercise, back in the picker's list with its equipment after the
+            // relaunch.
+            app.addExercise("Ring row with rotation, Rings", searching: "ring row")
             // The name comes with the row, so it would already have changed.
             XCTAssertEqual(title.value as? String, "Push pull")
             XCTAssertTrue(title.inkIsWhite(against: gray), "The typed name is not white")
@@ -177,7 +181,7 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
         try XCTContext.runActivity(named: "A routine cleared to nothing is New routine") { _ in
             let plus = app.buttons["Add exercise"]
             let aboveStart = plus.frame
-            for left in (0 ..< 4).reversed() {
+            for left in (0 ..< 5).reversed() {
                 app.lastExerciseRow.fullSwipeLeft()
                 XCTAssertEqual(app.exerciseCount(becoming: left), left)
             }

@@ -6,7 +6,7 @@ extension Exercise {
         Self(
             id: "goblet-squat",
             name: "Goblet squat",
-            muscleGroup: .legs,
+            muscleGroups: [.legs],
             equipment: [.kettlebell],
             plan: .init(sets: 3, target: .reps(10)),
             load: .single,
@@ -16,7 +16,7 @@ extension Exercise {
         Self(
             id: "barbell-back-squat",
             name: "Barbell back squat",
-            muscleGroup: .legs,
+            muscleGroups: [.legs],
             equipment: [.barbell],
             plan: .init(sets: 3, target: .reps(5)),
             load: .bar,
@@ -25,7 +25,7 @@ extension Exercise {
         Self(
             id: "bulgarian-split-squat",
             name: "Bulgarian split squat",
-            muscleGroup: .legs,
+            muscleGroups: [.legs],
             equipment: [.dumbbells, .bench],
             plan: .init(sets: 3, target: .reps(10)),
             load: .pair,
@@ -36,7 +36,7 @@ extension Exercise {
         Self(
             id: "reverse-lunge",
             name: "Reverse lunge",
-            muscleGroup: .legs,
+            muscleGroups: [.legs],
             equipment: [.dumbbells],
             plan: .init(sets: 3, target: .reps(10)),
             load: .pair,
@@ -47,7 +47,7 @@ extension Exercise {
         Self(
             id: "step-up",
             name: "Step-up",
-            muscleGroup: .legs,
+            muscleGroups: [.legs],
             equipment: [.dumbbells, .bench],
             plan: .init(sets: 3, target: .reps(10)),
             load: .pair,
@@ -58,7 +58,7 @@ extension Exercise {
         Self(
             id: "calf-raise",
             name: "Calf raise",
-            muscleGroup: .legs,
+            muscleGroups: [.legs],
             equipment: [.dumbbells],
             plan: .init(sets: 3, target: .reps(15)),
             load: .pair,
@@ -68,7 +68,7 @@ extension Exercise {
         Self(
             id: "romanian-deadlift",
             name: "Romanian deadlift",
-            muscleGroup: .legs,
+            muscleGroups: [.legs],
             equipment: [.dumbbells],
             plan: .init(sets: 3, target: .reps(10)),
             load: .pair,
@@ -78,7 +78,7 @@ extension Exercise {
         Self(
             id: "barbell-deadlift",
             name: "Barbell deadlift",
-            muscleGroup: .legs,
+            muscleGroups: [.legs],
             equipment: [.barbell],
             plan: .init(sets: 3, target: .reps(5)),
             load: .bar,
@@ -91,7 +91,7 @@ extension Exercise {
         Self(
             id: "kettlebell-swing",
             name: "Kettlebell swing",
-            muscleGroup: .legs,
+            muscleGroups: [.legs],
             equipment: [.kettlebell],
             plan: .init(sets: 3, target: .reps(15)),
             load: .single,
@@ -101,14 +101,14 @@ extension Exercise {
         Self(
             id: "glute-bridge",
             name: "Glute bridge",
-            muscleGroup: .legs,
+            muscleGroups: [.legs],
             plan: .init(sets: 3, target: .reps(12)),
             tags: .init(.hinge, [.glutes], [.hamstrings]),
         ),
         Self(
             id: "balance-board-hold",
             name: "Balance board hold",
-            muscleGroup: .legs,
+            muscleGroups: [.legs],
             equipment: [.balanceBoard],
             plan: .init(sets: 3, target: .time(seconds: 30)),
             tags: .init(.hold, [.calves], [.quads, .abs], .balance),
@@ -116,7 +116,7 @@ extension Exercise {
         Self(
             id: "kneeling-hip-flexor-stretch",
             name: "Kneeling hip flexor stretch",
-            muscleGroup: .legs,
+            muscleGroups: [.legs],
             plan: .init(sets: 1, target: .time(seconds: 60)),
             perSide: true,
             tags: .init(nil, [.hipFlexors], [.quads], .stretch),
@@ -124,7 +124,7 @@ extension Exercise {
         Self(
             id: "hamstring-stretch",
             name: "Hamstring stretch",
-            muscleGroup: .legs,
+            muscleGroups: [.legs],
             plan: .init(sets: 1, target: .time(seconds: 60)),
             perSide: true,
             tags: .init(nil, [.hamstrings], [.calves], .stretch),
@@ -132,7 +132,7 @@ extension Exercise {
         Self(
             id: "pigeon-stretch",
             name: "Pigeon stretch",
-            muscleGroup: .legs,
+            muscleGroups: [.legs],
             plan: .init(sets: 1, target: .time(seconds: 60)),
             perSide: true,
             tags: .init(nil, [.glutes], [.hipFlexors], .stretch),
@@ -140,7 +140,7 @@ extension Exercise {
         Self(
             id: "calf-stretch",
             name: "Calf stretch",
-            muscleGroup: .legs,
+            muscleGroups: [.legs],
             plan: .init(sets: 1, target: .time(seconds: 30)),
             perSide: true,
             tags: .init(nil, [.calves], [], .stretch),
@@ -148,7 +148,7 @@ extension Exercise {
         Self(
             id: "worlds-greatest-stretch",
             name: "World\u{2019}s greatest stretch",
-            muscleGroup: .legs,
+            muscleGroups: [.legs],
             plan: .init(sets: 1, target: .reps(5)),
             perSide: true,
             tags: .init(nil, [.hipFlexors, .hamstrings], [.glutes, .upperBack], .stretch),
@@ -157,14 +157,14 @@ extension Exercise {
         Self(
             id: "plank",
             name: "Plank",
-            muscleGroup: .core,
+            muscleGroups: [.core],
             plan: .init(sets: 3, target: .time(seconds: 30)),
             tags: .init(.hold, [.abs], [.obliques, .frontDelts]),
         ),
         Self(
             id: "side-plank",
             name: "Side plank",
-            muscleGroup: .core,
+            muscleGroups: [.core],
             plan: .init(sets: 3, target: .time(seconds: 30)),
             perSide: true,
             tags: .init(.hold, [.obliques], [.abs, .glutes]),
@@ -172,14 +172,14 @@ extension Exercise {
         Self(
             id: "dead-bug",
             name: "Dead bug",
-            muscleGroup: .core,
+            muscleGroups: [.core],
             plan: .init(sets: 3, target: .reps(10)),
             tags: .init(.hold, [.abs], [.hipFlexors]),
         ),
         Self(
             id: "hanging-knee-raise",
             name: "Hanging knee raise",
-            muscleGroup: .core,
+            muscleGroups: [.core],
             equipment: [.pullUpBar],
             plan: .init(sets: 3, target: .reps(10)),
             tags: .init(nil, [.abs, .hipFlexors], [.forearms]),
@@ -187,7 +187,7 @@ extension Exercise {
         Self(
             id: "pallof-press",
             name: "Pallof press",
-            muscleGroup: .core,
+            muscleGroups: [.core],
             equipment: [.band],
             plan: .init(sets: 3, target: .reps(10)),
             perSide: true,
@@ -196,7 +196,7 @@ extension Exercise {
         Self(
             id: "turkish-get-up",
             name: "Turkish get-up",
-            muscleGroup: .core,
+            muscleGroups: [.core],
             equipment: [.kettlebell],
             plan: .init(sets: 3, target: .reps(1)),
             load: .single,
@@ -207,7 +207,7 @@ extension Exercise {
         Self(
             id: "farmers-carry",
             name: "Farmer\u{2019}s carry",
-            muscleGroup: .core,
+            muscleGroups: [.core],
             equipment: [.dumbbells],
             plan: .init(sets: 3, target: .time(seconds: 30)),
             load: .pair,
@@ -217,7 +217,7 @@ extension Exercise {
         Self(
             id: "walking-lunge",
             name: "Walking lunge",
-            muscleGroup: .legs,
+            muscleGroups: [.legs],
             equipment: [.dumbbells],
             plan: .init(sets: 3, target: .reps(10)),
             load: .pair,
@@ -228,28 +228,28 @@ extension Exercise {
         Self(
             id: "bodyweight-squat",
             name: "Bodyweight squat",
-            muscleGroup: .legs,
+            muscleGroups: [.legs],
             plan: .init(sets: 2, target: .reps(15)),
             tags: .init(.squat, [.quads, .glutes], [.hamstrings]),
         ),
         Self(
             id: "inchworm",
             name: "Inchworm",
-            muscleGroup: .legs,
+            muscleGroups: [.legs],
             plan: .init(sets: 1, target: .reps(8)),
             tags: .init(nil, [.hamstrings], [.abs, .frontDelts], .stretch),
         ),
         Self(
             id: "jumping-jacks",
             name: "Jumping jacks",
-            muscleGroup: .legs,
+            muscleGroups: [.legs],
             plan: .init(sets: 1, target: .time(seconds: 60)),
             tags: .init(nil, [.calves, .quads], [.sideDelts], .conditioning),
         ),
         Self(
             id: "burpee",
             name: "Burpee",
-            muscleGroup: .legs,
+            muscleGroups: [.legs],
             plan: .init(sets: 3, target: .reps(10)),
             tags: .init(nil, [.quads, .chest], [.abs, .triceps], .conditioning),
         ),
@@ -257,7 +257,7 @@ extension Exercise {
             // Thrown straight up from a squat: the legs drive it, the arms finish it.
             id: "medicine-ball-toss",
             name: "Medicine ball toss",
-            muscleGroup: .legs,
+            muscleGroups: [.legs],
             equipment: [.medicineBall],
             plan: .init(sets: 3, target: .reps(10)),
             load: .single,
@@ -267,7 +267,7 @@ extension Exercise {
         Self(
             id: "mountain-climber",
             name: "Mountain climber",
-            muscleGroup: .core,
+            muscleGroups: [.core],
             plan: .init(sets: 3, target: .time(seconds: 30)),
             tags: .init(nil, [.abs, .hipFlexors], [.frontDelts], .conditioning),
         ),

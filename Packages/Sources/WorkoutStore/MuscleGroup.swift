@@ -1,8 +1,10 @@
-/// The body part an exercise mostly works. Each exercise has one.
+/// A body part an exercise works. A built-in has one, the part it mostly works; one someone
+/// created has every one they checked.
 ///
 /// Cases are declared from the top of the body down, which is the order a routine's groups are
-/// named in.
-public enum MuscleGroup: CaseIterable, Sendable {
+/// named and an exercise's are listed in. Raw values are what a created exercise stores, written
+/// out so renaming a case never changes stored data.
+public enum MuscleGroup: String, NamedCase {
     case chest
     case back
     case shoulders

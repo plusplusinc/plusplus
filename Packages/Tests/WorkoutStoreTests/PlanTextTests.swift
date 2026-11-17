@@ -42,6 +42,19 @@ struct PlanTextTests {
         #expect(try Self.detail(Self.row("Side plank")) == "3 × 30s per side")
     }
 
+    @Test("A created dumbbell exercise done per side reads per side, one dumbbell at its start")
+    func createdPerSide() {
+        let created = CreatedExercise(
+            name: "Prone external rotation",
+            muscleGroups: [.shoulders],
+            equipment: [.dumbbells],
+            isPerSide: true,
+        )
+        let exercise = Exercise(created: created)
+        let row = RoutineExercise(exercise: exercise, plan: exercise.defaultPlan(in: .pounds))
+        #expect(Self.detail(row) == "3 × 10 reps per side · 10 lb")
+    }
+
     @Test("Numbers and units are joined by a no-break space, the sets count bare")
     func noBreakSpaces() throws {
         #expect(try Self.row("Biceps curl", weight: Weight(25, .pounds))

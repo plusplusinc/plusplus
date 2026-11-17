@@ -27,6 +27,11 @@ extension XCUIElement {
         reading(value as? String, becoming: expected, within: timeout)
     }
 
+    /// The element's label once it is `expected`, or its last label after the timeout.
+    func label(becoming expected: String, within timeout: TimeInterval = 2) -> String {
+        reading(label, becoming: expected, within: timeout)
+    }
+
     /// Taps the title to edit it, and waits for the `_` at its end, where the app puts the caret
     /// once focus lands, which can come after keys sent at once.
     @MainActor

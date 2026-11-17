@@ -1,13 +1,16 @@
 import Foundation
 
-/// What an exercise is: its name, the muscle group it mostly works, and the equipment it uses.
+/// What an exercise is: its name, the muscle groups it works, and the equipment it uses.
 /// A routine holds instances of it, as `RoutineExercise`.
 public struct Exercise: Identifiable, Equatable, Sendable {
-    /// A stable slug, so a routine can refer to a built-in exercise by something its display
-    /// name can change without breaking.
+    /// Stable, so a routine refers to the exercise by something its name can change without
+    /// breaking: a built-in's slug, or a created exercise's `created:` id
+    /// (`CreatedExercise.newID()`).
     public let id: String
     public let name: String
-    public let muscleGroup: MuscleGroup
+    /// One for a built-in, the group it mostly works; any number, all equal, for one someone
+    /// created. Never empty.
+    public let muscleGroups: Set<MuscleGroup>
     /// Empty for bodyweight.
     public let equipment: Set<Equipment>
     /// The sets and target a new row starts with. Its target's case is how a set is measured,
@@ -22,27 +25,31 @@ public struct Exercise: Identifiable, Equatable, Sendable {
     public let isPerSide: Bool
     /// What it does, finer than its group, for naming a routine.
     let tags: ExerciseTags
+    /// How it rests: from its tags for a built-in, from its group for one known only by that.
+    let restKind: RestKind
 
     init(
         id: String,
         name: String,
-        muscleGroup: MuscleGroup,
+        muscleGroups: Set<MuscleGroup>,
         equipment: Set<Equipment> = [],
         plan defaultPlan: ExercisePlan,
         load: Load? = nil,
         startsAt: StartingWeight? = nil,
         perSide isPerSide: Bool = false,
         tags: ExerciseTags,
+        rests restKind: RestKind? = nil,
     ) {
         self.id = id
         self.name = name
-        self.muscleGroup = muscleGroup
+        self.muscleGroups = muscleGroups
         self.equipment = equipment
         plan = defaultPlan
         self.load = load
         self.startsAt = startsAt
         self.isPerSide = isPerSide
         self.tags = tags
+        self.restKind = restKind ?? RestKind(tags: tags)
     }
 
     /// The values a new row starts with, a weight in `unit` included for an exercise that holds
@@ -67,9 +74,7 @@ public struct Exercise: Identifiable, Equatable, Sendable {
     /// The equipment as a line of text in display order, "Dumbbells, bench", or nil for
     /// bodyweight, which shows no line at all.
     public var equipmentLine: String? {
-        let names = Equipment.allCases.filter(equipment.contains).map(\.name)
-        guard let first = names.first else { return nil }
-        return ([first] + names.dropFirst().map { $0.lowercased() }).joined(separator: ", ")
+        equipment.line
     }
 }
 
@@ -87,6 +92,21 @@ extension [Exercise] {
         let query = Self.lettersAndDigits(query)
         guard !query.isEmpty else { return self }
         return filter { Self.lettersAndDigits($0.name).localizedStandardContains(query) }
+    }
+
+    /// Whether one of these is named `name`, by the search's own folding: "pull up" is
+    /// Pull-up's name. A name with no letters or digits, such as "💪", folds to nothing, so it
+    /// is compared whole, trimmed.
+    public func hasExercise(named name: String) -> Bool {
+        let folded = Self.lettersAndDigits(name)
+        guard !folded.isEmpty else {
+            let whole = name.trimmingCharacters(in: .whitespacesAndNewlines)
+            return !whole.isEmpty && contains { $0.name == whole }
+        }
+        return contains {
+            Self.lettersAndDigits($0.name)
+                .compare(folded, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame
+        }
     }
 
     private static func lettersAndDigits(_ text: String) -> String {
