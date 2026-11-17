@@ -170,6 +170,14 @@ struct ExercisePartsTests {
         }
     }
 
+    @Test("Waiter carry and Medicine ball toss start at 10 lb", arguments: [
+        "Waiter carry", "Medicine ball toss",
+    ])
+    func startsAtTenPounds(name: String) throws {
+        let exercise = try Exercise.builtIn(named: name)
+        #expect(exercise.defaultPlan(in: .pounds).weight == Weight(10, .pounds))
+    }
+
     @Test("A new row starts with its exercise's default plan, and has only its exercise's parts")
     func newRowAndParts() throws {
         let bench = try Exercise.builtIn(named: "Barbell bench press")
