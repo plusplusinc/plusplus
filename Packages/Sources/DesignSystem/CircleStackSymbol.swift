@@ -1,73 +1,94 @@
 import SwiftUI
 
-/// Exercises' icon in the drawer: a circle with a checkmark in it, the front of a stack of three,
-/// each behind smaller and raised so only a crescent of it shows above the one in front. A circle
-/// version of `rectangle.stack`, which SF Symbols has no circle of.
+/// Exercises' icon in the drawer: a ticked circle, `checklist`'s, at the front of a stack of
+/// three, each behind smaller and raised so only a crescent of it shows above the one in front. A
+/// circle version of `rectangle.stack`, which SF Symbols has no circle of.
 ///
-/// It stands in a label's icon as a symbol would: sized and stroked from the body text's point
-/// size, so it scales with Dynamic Type beside the drawer's symbols, and drawn in the foreground
-/// style. Its frame is the front circle's, so it centers on the name as `checklist` does; the
-/// crescents rise above it. The space around each circle is cut out of those behind it, not
-/// painted over, so it shows whatever is under it.
+/// It stands in a label's icon as a symbol would beside `checklist`: the crescents' stroke is
+/// `checklist`'s at the same size and weight, the whole stack stands as tall as `checklist`, and
+/// it scales with Dynamic Type from the body text's point size, drawn in the foreground style.
+/// Its frame is the whole stack's, so the stack centers on the name as `checklist` does. The
+/// front circle is filled, with its check cut out in the stroke's width; the space around each
+/// circle is cut out of those behind it. Both are cutouts, not paint, so they show whatever is
+/// under the icon. That space is whole pixels from an edge on the pixel grid: a space a stroke
+/// wide, smoothed across pixel edges, read as narrower and the crescents nearly merged.
 public struct CircleStackSymbol: View {
     /// The point size of the text it sits beside, as a symbol's.
     @ScaledMetric(relativeTo: .body) private var pointSize: CGFloat = 17
+    @Environment(\.displayScale) private var displayScale
 
     public init() { }
 
     public var body: some View {
-        let shape = CircleStack(pointSize: pointSize)
+        let shape = CircleStack(pointSize: pointSize, pixel: 1 / max(displayScale, 1))
         shape
-            .frame(width: shape.frontSide, height: shape.frontSide)
+            .frame(width: shape.frontSide, height: shape.height)
             .accessibilityHidden(true)
     }
 }
 
-/// The stack's outline, filled: rings and a checkmark already stroked, each back ring with its
-/// gap cut out.
+/// The stack, filled: the front disc with its check cut out, and the crescents behind it, each
+/// with its gap cut out.
 private nonisolated struct CircleStack: Shape {
     let pointSize: CGFloat
+    /// One device pixel, in points.
+    let pixel: CGFloat
 
-    /// The front circle's radius, to its stroke's middle.
-    private var radius: CGFloat {
-        pointSize * radiusPerPoint
-    }
-
-    /// One stroke, and the space between a circle and the crescent behind it.
+    /// One stroke: `checklist`'s, unrounded, so the two weigh the same.
     private var stroke: CGFloat {
         pointSize * strokePerPoint
     }
 
-    /// The front circle's outer width.
+    /// The space between a circle and the crescent behind it: the stroke, up to whole pixels so
+    /// it never closes.
+    private var space: CGFloat {
+        up(stroke)
+    }
+
+    /// The front circle's outer width, in whole pixels: what's left of `checklist`'s height
+    /// once the two crescents above it, a space and a stroke each, are taken out.
     var frontSide: CGFloat {
-        2 * radius + stroke
+        ((pointSize * heightPerPoint - 2 * (space + stroke)) / pixel).rounded() * pixel
+    }
+
+    /// The whole stack's height, from the front circle's bottom to the last crescent's top.
+    var height: CGFloat {
+        up(-outerTop(of: circles(bottom: 0)[backScales.count]))
     }
 
     func path(in rect: CGRect) -> Path {
-        let center = CGPoint(x: rect.midX, y: rect.midY)
-        var circles: [(center: CGPoint, radius: CGFloat)] = [(center, radius)]
-        // Each circle behind sits with its top one stroke and one space above the top of the one
-        // in front.
-        for scale in backScales {
-            let front = circles[circles.count - 1]
-            let top = front.center.y - front.radius - 2 * stroke
-            let backRadius = radius * scale
-            circles.append((CGPoint(x: center.x, y: top + backRadius), backRadius))
-        }
-        var outline = Path()
-        for (index, circle) in circles.enumerated() {
-            var ring = ring(circle.center, circle.radius)
+        let circles = circles(bottom: rect.maxY, midX: rect.midX)
+        let front = circles[0]
+        var stack = disc(front.center, frontSide / 2).subtracting(checkmark(front.center))
+        for (index, circle) in circles.enumerated().dropFirst() {
+            var ring = disc(circle.center, circle.radius)
+                .strokedPath(StrokeStyle(lineWidth: stroke))
             // Every circle in front clears its stroke and a space out of this one.
             for front in circles[..<index] {
-                ring = ring.subtracting(disc(front.center, front.radius + stroke / 2 + stroke))
+                ring = ring.subtracting(disc(front.center, front.radius + stroke / 2 + space))
             }
-            outline = outline.union(ring)
+            stack = stack.union(ring)
         }
-        return outline.union(checkmark(center))
+        return stack
     }
 
-    private func ring(_ center: CGPoint, _ radius: CGFloat) -> Path {
-        disc(center, radius).strokedPath(StrokeStyle(lineWidth: stroke))
+    /// The circles, front first, each radius to its stroke's middle. Each circle behind has its
+    /// inner edge a space above the outer edge of the one in front, moved up to the next pixel.
+    private func circles(bottom: CGFloat, midX: CGFloat = 0) -> [Circle] {
+        let radius = (frontSide - stroke) / 2
+        var circles = [Circle(center: CGPoint(x: midX, y: bottom - frontSide / 2), radius: radius)]
+        for scale in backScales {
+            let innerTop = -up(space - outerTop(of: circles[circles.count - 1]))
+            let backRadius = radius * scale
+            let center = CGPoint(x: midX, y: innerTop - stroke / 2 + backRadius)
+            circles.append(Circle(center: center, radius: backRadius))
+        }
+        return circles
+    }
+
+    /// The top of a circle's stroke's outer edge.
+    private func outerTop(of circle: Circle) -> CGFloat {
+        circle.center.y - circle.radius - stroke / 2
     }
 
     private func disc(_ center: CGPoint, _ radius: CGFloat) -> Path {
@@ -79,8 +100,9 @@ private nonisolated struct CircleStack: Shape {
         ))
     }
 
-    /// A check as `checkmark.circle`'s sits in its circle, in the circles' stroke.
+    /// `checkmark.circle.fill`'s check, in the crescents' stroke.
     private func checkmark(_ center: CGPoint) -> Path {
+        let radius = frontSide / 2
         var check = Path()
         check.addLines(checkPoints.map { CGPoint(
             x: center.x + $0.x * radius,
@@ -88,23 +110,34 @@ private nonisolated struct CircleStack: Shape {
         ) })
         return check.strokedPath(StrokeStyle(lineWidth: stroke, lineCap: .round, lineJoin: .round))
     }
+
+    /// Up to whole pixels.
+    private func up(_ length: CGFloat) -> CGFloat {
+        (length / pixel - 0.001).rounded(.up) * pixel
+    }
+
+    private struct Circle {
+        let center: CGPoint
+        let radius: CGFloat
+    }
 }
 
-/// The front circle's radius per point of text: 10.5 pt beside 34 pt text in the chosen design.
-private nonisolated let radiusPerPoint: CGFloat = 10.5 / 34
+/// `checklist`'s circle stroke per point of text at medium weight: 4.3 px at 3x beside 17 pt
+/// text, measured on the simulator.
+private nonisolated let strokePerPoint: CGFloat = 4.3 / 3 / 17
 
-/// The stroke per point of text: the design's 2.2 pt at 34 pt was drawn beside regular-weight
-/// symbols; the drawer's are medium, whose strokes SF Symbols draws 1.2 times as wide.
-private nonisolated let strokePerPoint: CGFloat = 2.2 / 34 * 1.2
+/// `checklist`'s height per point of text at medium weight: 51 px at 3x beside 17 pt text.
+private nonisolated let heightPerPoint: CGFloat = 51.0 / 3 / 17
 
 /// The two circles behind, as fractions of the front one.
 private nonisolated let backScales: [CGFloat] = [0.86, 0.58]
 
-/// The checkmark's short end, corner, and long end, in front radii from its center, y down.
+/// The check's short end, corner, and long end, in the front circle's outer radii from its
+/// center, y down: where `checkmark.circle.fill`'s sit, measured from its cutout.
 private nonisolated let checkPoints: [CGPoint] = [
-    CGPoint(x: -0.42, y: -0.02),
-    CGPoint(x: -0.10, y: 0.32),
-    CGPoint(x: 0.45, y: -0.36),
+    CGPoint(x: -0.36, y: 0.04),
+    CGPoint(x: -0.11, y: 0.34),
+    CGPoint(x: 0.36, y: -0.30),
 ]
 
 #Preview {

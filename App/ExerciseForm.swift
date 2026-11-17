@@ -228,7 +228,7 @@ struct ExerciseForm: View {
                 localized: "It will be removed from the \(usedIn.count) routines that use it.",
             )
         }
-        return routines + " " + String(localized: "Sets you logged keep its name.")
+        return routines + " " + String(localized: "Deleting doesn’t affect your workout history.")
     }
 
     static func routineCount(_ count: Int) -> String {
