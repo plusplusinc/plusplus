@@ -67,11 +67,32 @@ extension XCUIApplication {
         textFields["barSearch.field"]
     }
 
+    /// What VoiceOver reaches in the bar's band, beside the search button and across from it,
+    /// read from one snapshot: each element's type and label, leading to trailing.
+    var barElements: [String] {
+        let band = searchButton.frame
+        let shown = snapshots { element in
+            element.elementType != .other && element.elementType != .application
+                && element.elementType != .window && !element.frame.isEmpty
+                && element.frame.midY >= band.minY && element.frame.midY <= band.maxY
+        }
+        return shown.sorted { $0.frame.minX < $1.frame.minX }.map { element in
+            let type = switch element.elementType {
+            case .button: "button"
+            case .textField: "field"
+            case .image: "image"
+            case .staticText: "text"
+            default: "\(element.elementType.rawValue)"
+            }
+            return "\(type) \(element.label)"
+        }
+    }
+
     /// Opens the bar's search, unless it is open, and types `text` into its field, which opening
     /// focuses.
     func search(for text: String) {
         if searchButton.label == "Search" {
-            tapSearchButton()
+            searchButton.tap()
             XCTAssertEqual(
                 searchButton.label(becoming: "Close search"),
                 "Close search",
@@ -83,8 +104,7 @@ extension XCUIApplication {
 
     /// Types `text` into the open search key by key on the keyboard: XCTest reads the bar's
     /// field as unfocused while it has the keyboard, and its `typeText` refuses an element
-    /// without focus. Letters, spaces, and deletes; Shift where the keys show the other case,
-    /// as they do capitals at the field's start.
+    /// without focus. Letters, spaces, and deletes; Shift for a capital.
     func typeIntoSearch(_ text: String) {
         let keyboard = keyboards.element
         for character in text {
@@ -102,15 +122,6 @@ extension XCUIApplication {
                 key.tap()
             }
         }
-    }
-
-    /// Taps the search button where it draws, a circle at the bar's trailing margin. Its
-    /// element's frame takes in the field's too, which runs past the screen's edge while closed
-    /// and across the bar while open, so `tap()`, at its middle, misses it.
-    func tapSearchButton() {
-        let frame = searchButton.frame
-        let trailing = min(frame.maxX, self.frame.maxX - 16)
-        point(x: trailing - frame.height / 2, y: frame.midY).tap()
     }
 
     /// Opens the picker with Add exercise, the + floating over the list, which stays put as rows

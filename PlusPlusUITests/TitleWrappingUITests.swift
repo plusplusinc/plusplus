@@ -220,7 +220,7 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             // the search; Close then closes the sheet.
             let close = app.buttons["Close"]
             XCTAssertFalse(close.exists, "VoiceOver reaches Close under the open search")
-            app.tapSearchButton()
+            app.searchButton.tap()
             XCTAssertTrue(keyboard.disappears(), "The search's X left the keyboard up")
             XCTAssertTrue(close.appears(), "The search's X did not uncover Close")
             close.tap()

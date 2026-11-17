@@ -186,11 +186,22 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
             let menu = app.buttons["Menu"]
             XCTAssertTrue(app.searchButton.appears(), "Exercises showed no search")
             XCTAssertTrue(menu.exists, "Exercises showed no ++")
+            XCTAssertEqual(app.barElements, ["button Menu", "button Search"])
+            let circle = app.searchButton.frame
+            XCTAssertEqual(circle.width, circle.height, accuracy: 1, "Search isn't its circle")
+            XCTAssertLessThanOrEqual(circle.maxX, app.frame.maxX, "Search runs off the screen")
             // From its frame now: a coordinate on the element resolves it when tapped.
             let menuPoint = app.point(x: menu.frame.midX, y: menu.frame.midY)
-            app.tapSearchButton()
+            app.searchButton.tap()
             XCTAssertTrue(menu.disappears(), "VoiceOver reaches ++ under the open search")
             XCTAssertTrue(app.keyboards.element.appears(), "The open search took no focus")
+            XCTAssertEqual(app.barElements, ["field Search", "button Close search"])
+            XCTAssertEqual(app.searchButton.frame, circle, "Close search isn't the circle")
+            XCTAssertLessThanOrEqual(
+                app.searchField.frame.maxX,
+                circle.minX,
+                "The field runs under Close search",
+            )
             attach(named: "exercises-searching")
             menuPoint.tap()
             XCTAssertFalse(app.drawerTitle.appears(within: 1), "A tap on the covered ++ landed")
@@ -199,8 +210,9 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
             XCTAssertTrue(app.buttons["Exercises"].isSelected, "Exercises isn't marked")
             app.drawerTitle.tap()
             XCTAssertTrue(app.drawerTitle.disappears(), "Tapping the title left the drawer open")
-            app.tapSearchButton()
+            app.searchButton.tap()
             XCTAssertTrue(menu.appears(), "The search's X did not uncover ++")
+            XCTAssertEqual(app.barElements, ["button Menu", "button Search"])
         }
     }
 
@@ -221,11 +233,14 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
             builtIn.tap()
             XCTAssertFalse(save.appears(within: 1), "A built-in's row opened a form")
 
-            app.search(for: "Zq")
+            app.search(for: "zq")
+            XCTAssertEqual(app.searchField.value as? String, "zq", "The search capitalized")
             let create = app.buttons["picker.create"]
             XCTAssertTrue(create.appears(), "Exercises' search offered no Create")
             create.tap()
-            XCTAssertTrue(app.textFields["newExercise.name"].appears(), "Create opened no form")
+            let name = app.textFields["newExercise.name"]
+            XCTAssertTrue(name.appears(), "Create opened no form")
+            XCTAssertEqual(name.value as? String, "Zq", "Create's name isn't capitalized")
             app.buttons["Create"].tap()
             let row = app.pickerRows["Zq"]
             XCTAssertTrue(row.appears(), "The created exercise isn't in the list")

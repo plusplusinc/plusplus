@@ -265,4 +265,14 @@ struct CreatedExerciseTests {
         #expect(!flexed.offersCreate(for: " 💪"))
         #expect(flexed.offersCreate(for: "💪💪"))
     }
+
+    @Test("Create starts from the search trimmed, its first letter a capital, the rest as typed")
+    func createdName() {
+        #expect(ExerciseList.createdName(from: "curl") == "Curl")
+        #expect(ExerciseList
+            .createdName(from: " ring row with rotation ") == "Ring row with rotation")
+        #expect(ExerciseList.createdName(from: "jM curl") == "JM curl")
+        #expect(ExerciseList.createdName(from: "💪 day") == "💪 day")
+        #expect(ExerciseList.createdName(from: "  ").isEmpty)
+    }
 }

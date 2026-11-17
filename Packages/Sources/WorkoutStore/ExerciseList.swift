@@ -56,6 +56,15 @@ public struct ExerciseList: Equatable, Sendable {
         !hasExercise(named: query) && !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    /// The name Create starts from for a search of `query`: as typed, trimmed, its first letter
+    /// a capital, as the built-ins' names are ("curl" → "Curl"). The search itself doesn't
+    /// capitalize, as the system's doesn't.
+    public static func createdName(from query: String) -> String {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let first = trimmed.first else { return trimmed }
+        return first.uppercased() + trimmed.dropFirst()
+    }
+
     /// The settings of the created exercise `id`, or nil for a built-in.
     public func created(id: String) -> CreatedExercise? {
         createdByID[id]

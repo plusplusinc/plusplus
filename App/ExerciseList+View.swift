@@ -134,7 +134,7 @@ struct ExerciseListView<BarLeading: View>: View {
 
     private var createRow: some View {
         Button {
-            creating = trimmedQuery
+            creating = ExerciseList.createdName(from: query)
         } label: {
             createLabel
                 .font(.ppRowTitle)

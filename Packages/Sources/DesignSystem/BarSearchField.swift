@@ -201,11 +201,15 @@ public struct BarSearchField<Leading: View>: View {
         HStack(spacing: Spacing.sm) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(.pp(.textSecondary))
-                .accessibilityHidden(true)
+                .accessibilityShown(false)
             TextField(prompt, text: $text)
                 .focused($isFocused)
                 .submitLabel(.search)
+                // As the system's search field: a search matches either case, and a capital
+                // at the start only takes a Shift to undo.
+                .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
+                .accessibilityLabel(Text(prompt))
                 .accessibilityIdentifier("barSearch.field")
         }
         .padding(.horizontal, Spacing.md)
@@ -222,7 +226,9 @@ public struct BarSearchField<Leading: View>: View {
         )
         .offset(x: fieldOffset)
         .allowsHitTesting(isOpen)
-        .accessibilityHidden(!isOpen)
+        // Out of reach while closed: the field and its magnifying glass, offscreen and faded,
+        // were read out beside the button. The bar ignores `accessibilityHidden`.
+        .accessibilityShown(isOpen)
     }
 
     private var button: some View {
@@ -236,6 +242,9 @@ public struct BarSearchField<Leading: View>: View {
             }
             .font(.ppBarGlyph)
             .foregroundStyle(.pp(.textPrimary))
+            // The button's label says what it does; the symbols, one of them faded out, were
+            // read as images of their own.
+            .accessibilityShown(false)
         }
         .buttonStyle(.barGlass(width: height))
         .accessibilityLabel(isOpen ? "Close search" : "Search")
