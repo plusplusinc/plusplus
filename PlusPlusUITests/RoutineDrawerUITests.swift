@@ -142,7 +142,8 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
         // The row steps the value for VoiceOver; the ruler's labels, between its keys and the
         // next row, are decoration. Hosted, they never reached the tree, so only the running app
         // shows this.
-        let band = increase.frame.maxY ... rest.frame.minY
+        let below = increase.frame.maxY
+        let band = below ... max(below, rest.frame.minY)
         let labels = app.snapshots { $0.elementType == .staticText && band.contains($0.frame.midY) }
         XCTAssertEqual(
             labels.map(\.label),
@@ -160,8 +161,8 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
 
     /// The Routines screen lists every routine, latest first; a row or + pushes a routine with a
     /// back chevron in place of ++, which the chevron or an edge swipe pops; the chevron keeps a
-    /// name still being typed. The edge swipe's touch ends the edit first, as a tap does
-    /// (`RenameUITests`).
+    /// name still being typed. Each key reaches the routine as typed, whichever way the screen
+    /// goes, so the chevron, which ends no edit, shows it for the edge swipe too.
     @MainActor
     private func routinesScreenDrillsIn(in app: XCUIApplication, title: XCUIElement) {
         XCTContext.runActivity(named: "Routines lists every routine, and a row drills in") { _ in
@@ -195,7 +196,9 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
             XCTAssertTrue(app.drawerTitle.disappears(), "Tapping the title left the drawer open")
         }
         XCTContext.runActivity(named: "The chevron keeps a name still being typed") { _ in
-            app.buttons.matching(identifier: "routines.row").element(boundBy: 1).tap()
+            // By name: opening Back may have moved it up the list.
+            app.buttons.matching(identifier: "routines.row")
+                .matching(NSPredicate(format: "label == %@", "Chest")).firstMatch.tap()
             XCTAssertEqual(title.value(becoming: "Chest"), "Chest", "The row pushed no routine")
             typeName("Chest day", over: "Chest", in: app)
             app.navigationBars.buttons.element(boundBy: 0).tap()

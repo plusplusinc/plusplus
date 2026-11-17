@@ -4,7 +4,7 @@ import XCTest
 /// a routine cleared to nothing deleted, and the names are unit-tested in the package; this
 /// holds the wire from the screen to the store, with one relaunch that brings back every saved
 /// field at once (rows in their new order, their duplicates and values, a superset and its
-/// shared rounds, and a name still being typed, with no Return). Names come from the muscle
+/// shared rounds, and a name typed with no Return). Names come from the muscle
 /// groups (`-fallbackNames`), so the same name shows on any simulator. The
 /// title's color, white for a name whether typed or generated and gray for New routine, is read
 /// from pixels against the placeholder's own gray at the start. The drawer over saved routines is
@@ -24,12 +24,14 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
         let gray = try Ink.ofTitle(in: title.frame).contrast
 
         nameFollowsTheExercises(in: app, title: title, gray: gray)
+        // Typed first, so the row edits after it, each saved as made, are what the quit keeps,
+        // and not a save the name's last key made of the whole routine.
+        try nameStillBeingTyped(in: app, title: title)
         valuesChangeInTheSheet(in: app)
         moveARow(in: app)
         joinASuperset(in: app)
-        try nameStillBeingTyped(in: app, title: title)
         XCTContext.runActivity(
-            named: "Rows, order, a superset, and a name still being typed survive a quit",
+            named: "Rows, order, a superset, and a typed name survive a quit",
         ) { _ in
             app.relaunch()
             XCTAssertEqual(title.value(becoming: "Push pull"), "Push pull")
@@ -37,13 +39,13 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
             // the reps its sheet gave it, and the first its own.
             XCTAssertEqual(app.exerciseRowLabels, Self.joined)
             XCTAssertEqual(app.supersets, "AA.")
-            XCTAssertTrue(title.inkIsWhite(against: gray), "The typed name came back gray")
             attach(named: "after-relaunch")
         }
         XCTContext.runActivity(named: "A typed name stays as exercises change") { _ in
             app.addExercise(Self.gobletSquat, searching: "goblet")
             // The name comes with the row, so it would already have changed.
             XCTAssertEqual(title.value as? String, "Push pull")
+            XCTAssertTrue(title.inkIsWhite(against: gray), "The typed name is not white")
             attach(named: "typed-name")
         }
         try clearedRoutineIsNewRoutine(in: app, title: title, gray: gray)
@@ -143,9 +145,10 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
     }
 
     /// Editing opens on the generated name; replaced, the typed name is kept without Return
-    /// through Home and back, and the edit is left open for the quit. A generated name is made
-    /// again from the exercises, never stored (`RoutineNamer`'s tests), so the relaunch reads the
-    /// typed one.
+    /// through Home and back, and the edit is left open for the next tap on a row to end. That
+    /// each key reaches the routine with no edit ended is `RoutineDrawerUITests`' chevron check
+    /// and `EditableTitleTypingTests`'; a generated name is made again from the exercises, never
+    /// stored (`RoutineNamerTests`).
     @MainActor
     private func nameStillBeingTyped(in app: XCUIApplication, title: XCUIElement) throws {
         let keyboard = app.keyboards.element
@@ -157,7 +160,7 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
             XCTAssertEqual(title.value(becoming: "Push pul"), "Push pul")
             attach(named: "still-editing-after-home")
             title.typeText("l")
-            // Typing can return before the app has handled the key, and the quit could beat it.
+            // Typing can return before the app has handled the key.
             XCTAssertEqual(title.value(becoming: "Push pull"), "Push pull")
         }
     }
