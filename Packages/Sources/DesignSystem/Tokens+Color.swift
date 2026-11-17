@@ -6,8 +6,10 @@ import SwiftUI
 /// asset catalog. Light and dark pairs live in `Tokens.xcassets` under the raw value; a case
 /// without a colorset renders clear, which the palette snapshot makes obvious.
 public enum ColorToken: String, CaseIterable, Sendable {
-    /// Green: what's active, and a value that went up; also the ++ mark, and the fill of the +
-    /// that adds an exercise (`FloatingButtonStyle`), the one control filled green.
+    /// Green: what's active, and a value that went up; also the ++ mark, and the controls that
+    /// make something: the fill of the + that adds an exercise (`FloatingButtonStyle`), the one
+    /// control filled green, and those drawn in it (`makesSomething()`). At least 4.5:1 on
+    /// `background` in both palettes.
     case accent = "ppAccent"
     case background = "ppBackground"
     /// Laid over the screen the drawer slides aside, deepening as the drawer opens.

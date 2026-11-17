@@ -9,9 +9,9 @@ Leaf views take plain values and closures so they preview and snapshot without a
 - No raw colors, spacing, font sizes, or corner radii at call sites. Use `Color.pp(.token)`,
   `Font.pp*` or a `.pp*Font()` modifier, `Spacing`, and `Radius` from `DesignSystem`. If a
   token is missing, add a `ColorToken` case and its colorset. Green (`accent`) is what's
-  active, and a value that went up: data, and the one control filled with it, the + that adds
-  an exercise. Purple (`done`) is done: a finished exercise's node and the
-  bars of the sets logged; a set still to do is `toDo`, a filled gray. A resting row shows its
+  active, and a value that went up: data, and the controls that make something
+  (`makesSomething()`). Purple (`done`) is done: a finished exercise's node and the bars of
+  the sets logged; a set still to do is `toDo`, a filled gray. A resting row shows its
   bars only once started and until finished, at its detail line's trailing end.
   Blue (`railJoin`) marks something arriving: a row joining a rail, a superset a node's drag
   just made, and a generated name typing into the title, for the moment it arrives, then gives way to the thing's own color; nothing

@@ -47,6 +47,7 @@ struct RoutinesScreen: View {
                     Button("New routine", systemImage: "plus") {
                         Task { await session.startNew(pushed: true) }
                     }
+                    .makesSomething()
                     .hiddenBehindDrawer()
                 }
             }
