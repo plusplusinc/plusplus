@@ -202,7 +202,7 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         create.tap()
         let name = app.descendants(matching: .any)["newExercise.name"]
         XCTAssertTrue(name.appears(), "Create opened no form")
-        XCTAssertEqual(name.value as? String, "zzz")
+        XCTAssertEqual(name.value as? String, "Zzz", "Create's name isn't the search capitalized")
         attach(named: "new-exercise-form-ax5")
         // Cancel and Add are the bar's, which caps its text as it does End.
         try auditBelowTheBar(in: app, systemTexts: ["Cancel", "Add"])
