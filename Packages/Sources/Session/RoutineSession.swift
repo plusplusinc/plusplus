@@ -19,6 +19,9 @@ public final class RoutineSession {
     public private(set) var isDrawerOpen = false
     /// Where the app is: the routine, the Routines screen, or a routine pushed on it.
     public private(set) var screen = Screen.routine
+    /// Exercises, pushed from the drawer onto whichever screen shows, the routine or the
+    /// Routines list, until its back button or swipe pops it.
+    public private(set) var isExercisesShown = false
     /// The workout running the open routine, from Start until Finish or Discard.
     public private(set) var workout: Workout?
     /// Every exercise there is to pick, the ones created this session included.
@@ -368,6 +371,17 @@ public final class RoutineSession {
 }
 
 extension RoutineSession {
+    /// Pushes Exercises onto the screen showing and closes the drawer.
+    public func showExercises() {
+        isExercisesShown = true
+        closeDrawer()
+    }
+
+    /// Pops Exercises, showing the screen it was pushed on, as its back button and back swipe do.
+    public func popExercises() {
+        isExercisesShown = false
+    }
+
     /// Adds a created exercise to the list at once, and returns it once it is stored, so a
     /// routine save that names it always lands after it: await this before adding its row.
     /// A failed save is logged, and the exercise stays usable this session.
