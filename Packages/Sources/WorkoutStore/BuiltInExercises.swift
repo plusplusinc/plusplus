@@ -51,16 +51,6 @@ extension Exercise {
             tags: .init(.push, [.chest, .frontDelts], [.triceps, .abs]),
         ),
         Self(
-            id: "medicine-ball-toss",
-            name: "Medicine ball toss",
-            muscleGroup: .chest,
-            equipment: [.medicineBall],
-            plan: .init(sets: 3, target: .reps(10)),
-            load: .single,
-            startsAt: StartingWeight(pounds: 10, kilograms: 4),
-            tags: .init(.push, [.chest, .triceps], [.frontDelts, .abs]),
-        ),
-        Self(
             id: "dumbbell-bench-press",
             name: "Dumbbell bench press",
             muscleGroup: .chest,

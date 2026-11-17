@@ -9,7 +9,7 @@ struct MuscleGroupTests {
             .chest: [
                 "Push-up", "Ring push-up", "Dumbbell bench press", "Incline dumbbell press",
                 "Barbell bench press", "Ring dip", "Doorway chest stretch", "Incline push-up",
-                "Decline push-up", "Medicine ball toss",
+                "Decline push-up",
             ],
             .back: [
                 "Pull-up", "Chin-up", "Inverted row", "Dumbbell row", "Barbell row", "Dead hang",
@@ -28,7 +28,7 @@ struct MuscleGroupTests {
                 "Kettlebell swing", "Glute bridge", "Balance board hold",
                 "Kneeling hip flexor stretch", "Hamstring stretch", "Pigeon stretch",
                 "Calf stretch", "World\u{2019}s greatest stretch", "Walking lunge",
-                "Bodyweight squat", "Inchworm", "Jumping jacks", "Burpee",
+                "Bodyweight squat", "Inchworm", "Jumping jacks", "Burpee", "Medicine ball toss",
             ],
             .core: [
                 "Plank", "Side plank", "Dead bug", "Hanging knee raise", "Pallof press",
