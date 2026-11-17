@@ -57,16 +57,8 @@ struct ExercisePicker: View {
                     Button(role: .close) { dismiss() }
                 }
             }
-            .navigationDestination(isPresented: Binding {
-                creating != nil
-            } set: { isShown in
-                if !isShown {
-                    creating = nil
-                }
-            }) {
-                if let creating {
-                    NewExerciseForm(name: creating, exercises: exercises, onAdd: onCreate)
-                }
+            .navigationDestination(item: $creating) { name in
+                NewExerciseForm(name: name, exercises: exercises, onAdd: onCreate)
             }
         }
     }

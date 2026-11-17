@@ -215,7 +215,7 @@ struct CreatedExerciseTests {
         #expect(list.exercise(id: created.id)?.name == "Ring row with rotation")
         #expect(list.all.count == Exercise.builtIn.count + 1)
         #expect(created.id.hasPrefix("created:"))
-        #expect(Exercise.builtIn.allSatisfy { !$0.id.contains(":") && !$0.isCreated })
+        #expect(Exercise.builtIn.allSatisfy { !$0.id.contains(":") })
         #expect(ExerciseList.builtIn.adding(created) == list)
     }
 

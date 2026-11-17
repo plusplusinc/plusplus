@@ -46,7 +46,7 @@ public struct CreatedExercise: Identifiable, Equatable, Sendable {
         self.createdAt = createdAt
     }
 
-    public static let idPrefix = "created:"
+    static let idPrefix = "created:"
 
     public static func newID() -> String {
         idPrefix + UUID().uuidString.lowercased()
@@ -101,11 +101,6 @@ extension Exercise {
             tags: .groupOnly,
             rests: RestKind(groups: created.muscleGroups),
         )
-    }
-
-    /// Whether someone made it, rather than it coming with the app.
-    public var isCreated: Bool {
-        id.hasPrefix(CreatedExercise.idPrefix)
     }
 }
 

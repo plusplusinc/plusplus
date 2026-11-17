@@ -72,11 +72,3 @@ extension RoutineAutosaveUITests {
         XCTAssertTrue(button.disappears(), "Back left the list up")
     }
 }
-
-@MainActor
-extension XCUIElement {
-    /// The label once it is `expected`, or the last label after the timeout.
-    func label(becoming expected: String, within timeout: TimeInterval = 2) -> String {
-        reading(label, becoming: expected, within: timeout)
-    }
-}

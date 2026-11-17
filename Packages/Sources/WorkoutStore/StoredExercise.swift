@@ -61,25 +61,11 @@ extension StoredExercise {
 
     /// Sets only the fields that changed, so an unchanged exercise stays clean.
     func write(_ created: CreatedExercise) {
-        let groups = created.muscleGroups.stored
-        let equipment = created.equipment.stored
-        if name != created.name {
-            name = created.name
-        }
-        if muscleGroup != groups {
-            muscleGroup = groups
-        }
-        if self.equipment != equipment {
-            self.equipment = equipment
-        }
-        if measure != created.measure.rawValue {
-            measure = created.measure.rawValue
-        }
-        if isPerSide != created.isPerSide {
-            isPerSide = created.isPerSide
-        }
-        if createdAt != created.createdAt {
-            createdAt = created.createdAt
-        }
+        update(\.name, to: created.name)
+        update(\.muscleGroup, to: created.muscleGroups.stored)
+        update(\.equipment, to: created.equipment.stored)
+        update(\.measure, to: created.measure.rawValue)
+        update(\.isPerSide, to: created.isPerSide)
+        update(\.createdAt, to: created.createdAt)
     }
 }

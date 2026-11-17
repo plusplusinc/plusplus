@@ -65,6 +65,14 @@ extension RoutineScreen {
         settleFoot(after: footDelay)
     }
 
+    /// Shuts the picker and adds what was picked or created there. A second tap while the sheet
+    /// goes down keeps the first.
+    func addPicked(_ exercise: Exercise) {
+        guard isPicking else { return }
+        isPicking = false
+        add(exercise)
+    }
+
     /// Adds a picked exercise. Its row takes its place at the rail's end as the sheet starts down,
     /// but enters only where it can be seen: a moment into the sheet's slide when everything
     /// still fits, and otherwise once the sheet has gone and a scroll to the end has brought the
