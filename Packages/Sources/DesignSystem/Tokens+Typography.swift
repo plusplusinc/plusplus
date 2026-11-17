@@ -20,6 +20,9 @@ extension Font {
     /// A screen's title collapsed into its bar: SF Mono, as the screen title is, at the size and
     /// weight of the system's inline title.
     public static let ppInlineTitle = Font.system(.headline, design: .monospaced, weight: .semibold)
+    /// The system's own inline bar title, SF Pro, for one drawn by hand where the bar's would
+    /// drop out (`BarSearchField`'s title).
+    public static let ppBarTitle = Font.system(.headline)
     /// The numbers in a row's detail line: SF Mono at the detail's size.
     public static let ppRowDetailNumber = Font.system(.subheadline, design: .monospaced)
     /// The numbers in a value at the row title's size and weight: SF Mono.

@@ -12,9 +12,9 @@ import WorkoutStore
 /// searching and while the keyboard is up, when the matches are few and the keyboard covers
 /// most of it.
 ///
-/// Exercises has its search as a round button at the bar's top trailing edge, which opens out
-/// to the left into a field in the bar beside ++ (`BarSearchField`); Add exercise has the
-/// system's search, in a drawer under its title.
+/// Both have search as a round button at the bar's top trailing edge, which opens out to the
+/// left into a field in the bar (`BarSearchField`), beside ++ in Exercises, under its large
+/// title, and beside Close in Add exercise, where the field slides over the inline title.
 ///
 /// Search does not take focus when the list opens. The list is the fast path: with the
 /// keyboard down, the whole list is in reach of a thumb and a pick is one tap.
@@ -37,6 +37,9 @@ struct ExerciseListView: View {
     /// Whether search is a button at the bar's top trailing edge rather than a field in a
     /// drawer under the title.
     var searchesInBar = false
+    /// The host's inline title, drawn by the bar's search so its field covers the title as it
+    /// opens; nil leaves the bar's own title.
+    var barTitle: LocalizedStringKey?
     /// Stores the exercise; the host decides what shows next.
     let onCreate: (CreatedExercise) async -> Void
 
@@ -85,7 +88,7 @@ struct ExerciseListView: View {
         // and takes it back more slowly than the keyboard leaves, and the window's black showed
         // in between.
         .containerBackground(Color.pp(.background), for: .navigation)
-        .searchField(text: $query, inBar: searchesInBar)
+        .searchField(text: $query, inBar: searchesInBar, title: barTitle)
         .navigationDestination(item: $creating) { name in
             ExerciseForm(
                 name: name,
@@ -156,19 +159,28 @@ extension View {
         }
     }
 
-    fileprivate func searchField(text: Binding<String>, inBar: Bool) -> some View {
-        modifier(SearchField(text: text, inBar: inBar))
+    fileprivate func searchField(
+        text: Binding<String>,
+        inBar: Bool,
+        title: LocalizedStringKey?,
+    ) -> some View {
+        modifier(SearchField(text: text, inBar: inBar, title: title))
     }
 }
 
 /// Search either in the system's drawer under the title or as `BarSearchField`, a round button
-/// at the bar's top trailing edge that opens into a field beside ++.
+/// at the bar's top trailing edge that opens into a field beside ++ (or Close). Given a title,
+/// the bar's own inline title is removed and `BarSearchField` draws it, centered on the screen,
+/// for its field to cover; the screen keeps it as its navigation title.
 private struct SearchField: ViewModifier {
     @Binding var text: String
     let inBar: Bool
+    let title: LocalizedStringKey?
 
     /// The screen's width, which the open field spans but for ++.
     @State private var width: CGFloat = 0
+    /// The screen's middle in global coordinates, where a drawn title centers.
+    @State private var midX: CGFloat = 0
 
     /// What the open field leaves of the bar's width: the margins on both sides, ++ (52 points
     /// in its glass), and the gap after it. A bar item hugs its content, so the field gets its
@@ -180,12 +192,18 @@ private struct SearchField: ViewModifier {
         if inBar {
             content
                 .onGeometryChange(for: CGFloat.self, of: \.size.width) { width = $0 }
+                .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).midX } action: {
+                    midX = $0
+                }
+                .toolbar(removing: title == nil ? nil : .title)
                 .toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         BarSearchField(
                             text: $text,
                             prompt: "Search",
                             openWidth: width - Self.besideMenu,
+                            title: title,
+                            titleCenterX: midX,
                         )
                         .hiddenBehindDrawer()
                     }
