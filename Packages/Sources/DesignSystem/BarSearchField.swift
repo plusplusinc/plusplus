@@ -1,4 +1,4 @@
-import DesignSystem
+#if os(iOS)
 import SwiftUI
 
 /// Search in the navigation bar: one bar item spanning the bar between its margins, with the
@@ -29,25 +29,46 @@ import SwiftUI
 /// Setting the hosting controller's `searchBarPlacementAllowsToolbarIntegration` to false keeps
 /// the field in the bar, but on iOS 27.2 its X closed the field and it opened again by itself
 /// half a second later, with or without an `isPresented` binding. Its in-bar search hid Back.
-struct BarSearchField<Leading: View>: View {
+public struct BarSearchField<Leading: View>: View {
     @Binding var text: String
     let prompt: LocalizedStringKey
     /// The item's width, the bar's between its margins.
     let width: CGFloat
     /// The bar's inline title, drawn here for the field to cover; nil when the bar shows its own.
-    var title: LocalizedStringKey?
+    let title: LocalizedStringKey?
     /// Where the title centers, the screen's middle, in global coordinates.
-    var titleCenterX: CGFloat = 0
+    let titleCenterX: CGFloat
     /// The bar's leading button, drawn at the item's leading edge for the field to cover. It
     /// brings its own glass (`BarGlassButtonStyle`).
     let leading: Leading
 
-    init(
+    public init(
         text: Binding<String>,
         prompt: LocalizedStringKey,
         width: CGFloat,
         title: LocalizedStringKey? = nil,
         titleCenterX: CGFloat = 0,
+        @ViewBuilder leading: () -> Leading,
+    ) {
+        self.init(
+            text: text,
+            prompt: prompt,
+            width: width,
+            title: title,
+            titleCenterX: titleCenterX,
+            isOpen: false,
+            leading: leading,
+        )
+    }
+
+    /// Already open, at rest, for a snapshot.
+    init(
+        text: Binding<String>,
+        prompt: LocalizedStringKey,
+        width: CGFloat,
+        title: LocalizedStringKey?,
+        titleCenterX: CGFloat,
+        isOpen: Bool,
         @ViewBuilder leading: () -> Leading,
     ) {
         _text = text
@@ -56,9 +77,11 @@ struct BarSearchField<Leading: View>: View {
         self.title = title
         self.titleCenterX = titleCenterX
         self.leading = leading()
+        _isOpen = State(initialValue: isOpen)
+        _hasGlass = State(initialValue: isOpen)
     }
 
-    @State private var isOpen = false
+    @State private var isOpen: Bool
     /// The item's middle in global coordinates, where the title is laid out; its offset moves it
     /// to the screen's middle. Read from the item, not the title, which its own offset moves.
     @State private var itemMidX: CGFloat = 0
@@ -66,12 +89,12 @@ struct BarSearchField<Leading: View>: View {
     @Environment(\.displayScale) private var displayScale
     /// Whether the field has its glass: from the open's start to the close's end, hidden under
     /// the button's meanwhile.
-    @State private var hasGlass = false
+    @State private var hasGlass: Bool
     @FocusState private var isFocused: Bool
     @ScaledMetric(relativeTo: .body) private var height: CGFloat = 44
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    var body: some View {
+    public var body: some View {
         // Closed, the field's glass is a circle under the button's; opening pulls it out to the
         // left, and the container blends the two shapes while they are near, so the field splits
         // off the button and merges back into it. The container's spacing matches the gap, so at
@@ -258,12 +281,12 @@ struct BarSearchField<Leading: View>: View {
 /// A button in the bar's own look, drawn outside the bar's own items: its label centered in its
 /// own interactive glass, as tall as the search button and `width` wide, a circle when the two
 /// match, all of it taking the tap. The label keeps its own colors: the bar's style tints nothing.
-struct BarGlassButtonStyle: ButtonStyle {
+public struct BarGlassButtonStyle: ButtonStyle {
     let width: CGFloat
 
     @ScaledMetric(relativeTo: .body) private var height: CGFloat = 44
 
-    func makeBody(configuration: Configuration) -> some View {
+    public func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .frame(width: max(width, height), height: height)
             .contentShape(.capsule)
@@ -272,8 +295,22 @@ struct BarGlassButtonStyle: ButtonStyle {
 }
 
 extension ButtonStyle where Self == BarGlassButtonStyle {
-    static func barGlass(width: CGFloat) -> Self {
+    /// `.buttonStyle(.barGlass(width: 0))`: a circle as tall as the search button.
+    public static func barGlass(width: CGFloat) -> Self {
         BarGlassButtonStyle(width: width)
+    }
+}
+
+extension View {
+    /// Shown to VoiceOver and the UI tests only while `isShown`. A bar item ignores
+    /// `accessibilityHidden`: the bar's title, and Add exercise's + under `hiddenBehindDrawer()`,
+    /// were read out while faded away.
+    public func accessibilityShown(_ isShown: Bool) -> some View {
+        accessibilityRepresentation {
+            if isShown {
+                self
+            }
+        }
     }
 }
 
@@ -295,3 +332,4 @@ extension ButtonStyle where Self == BarGlassButtonStyle {
             }
     }
 }
+#endif

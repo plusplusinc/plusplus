@@ -1,8 +1,7 @@
-import DesignSystem
+#if os(iOS)
 import SwiftUI
-import WorkoutStore
 
-/// A list pushed from one of New exercise's rows, Muscle groups or Equipment: every case, any
+/// A list pushed from one of New exercise's rows, Muscle groups or Equipment: every item, any
 /// number checked, a tap toggling one. Rows with their own marks rather than
 /// `List(selection:)`, which needs edit mode on iPhone. Every row ends in a circle: empty and
 /// gray while unchecked, so an untouched list already says any number can be checked, and
@@ -10,14 +9,28 @@ import WorkoutStore
 /// The two crossfade in the same spot on the tap's quick curve, so a row's text never moves. Each
 /// tap plays the system's selection tick. No note under the list: the
 /// screen's title says what it is.
-struct Checklist<Item: NamedCase>: View {
+public struct Checklist<Item: Hashable>: View {
     let title: String
+    let items: [Item]
     @Binding var checked: Set<Item>
+    let name: (Item) -> String
 
-    var body: some View {
+    public init(
+        title: String,
+        items: [Item],
+        checked: Binding<Set<Item>>,
+        name: @escaping (Item) -> String,
+    ) {
+        self.title = title
+        self.items = items
+        _checked = checked
+        self.name = name
+    }
+
+    public var body: some View {
         Form {
             Section {
-                ForEach(Item.allCases, id: \.self) { item in
+                ForEach(items, id: \.self) { item in
                     let isChecked = checked.contains(item)
                     Button {
                         withAnimation(.tapChange) {
@@ -29,7 +42,7 @@ struct Checklist<Item: NamedCase>: View {
                         }
                     } label: {
                         HStack {
-                            Text(item.name)
+                            Text(name(item))
                                 .foregroundStyle(Color.pp(.textPrimary))
                             Spacer()
                             ZStack {
@@ -59,8 +72,13 @@ struct Checklist<Item: NamedCase>: View {
 }
 
 #Preview {
-    @Previewable @State var checked: Set<MuscleGroup> = [.back, .shoulders]
+    @Previewable @State var checked: Set = ["Back", "Shoulders"]
     NavigationStack {
-        Checklist(title: "Muscle groups", checked: $checked)
+        Checklist(
+            title: "Muscle groups",
+            items: ["Chest", "Back", "Shoulders", "Arms", "Legs", "Core"],
+            checked: $checked,
+        ) { $0 }
     }
 }
+#endif

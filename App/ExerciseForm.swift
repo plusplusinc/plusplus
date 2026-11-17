@@ -122,12 +122,22 @@ struct ExerciseForm: View {
             .listRowBackground(Color.pp(.surface))
             Section {
                 NavigationLink {
-                    Checklist(title: "Muscle groups", checked: $muscleGroups)
+                    Checklist(
+                        title: "Muscle groups",
+                        items: MuscleGroup.allCases,
+                        checked: $muscleGroups,
+                        name: \.name,
+                    )
                 } label: {
                     LabeledContent("Muscle groups", value: muscleGroups.line ?? "None")
                 }
                 NavigationLink {
-                    Checklist(title: "Equipment", checked: $equipment)
+                    Checklist(
+                        title: "Equipment",
+                        items: Equipment.allCases,
+                        checked: $equipment,
+                        name: \.name,
+                    )
                 } label: {
                     LabeledContent("Equipment", value: equipment.line ?? "Bodyweight")
                 }
