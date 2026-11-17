@@ -152,7 +152,7 @@ struct ExercisePartsTests {
             }
             if let pounds, let kilograms, exercise.load != .bar {
                 #expect(pounds.amount.truncatingRemainder(dividingBy: 5) == 0, "\(exercise.name)")
-                // Dumbbells come in 2 kg steps, kettlebells in 4.
+                // Dumbbells and medicine balls come in 2 kg steps, kettlebells in 4.
                 let kilogramStep: Double = exercise.equipment.contains(.kettlebell) ? 4 : 2
                 #expect(
                     kilograms.amount.truncatingRemainder(dividingBy: kilogramStep) == 0,
@@ -161,17 +161,12 @@ struct ExercisePartsTests {
             }
             let hasBarbell = exercise.equipment.contains(.barbell)
             #expect((exercise.load == .bar) == hasBarbell, "\(exercise.name)")
-            if exercise.load == .single || exercise.load == .pair {
-                #expect(
-                    !exercise.equipment.isDisjoint(with: [.dumbbells, .kettlebell, .medicineBall]),
-                    "\(exercise.name)",
-                )
-            }
-            if exercise.equipment.isDisjoint(with: [
-                .dumbbells, .kettlebell, .barbell, .medicineBall,
-            ]) {
-                #expect(exercise.load == nil, "\(exercise.name)")
-            }
+            let held: Set<Equipment> = [.dumbbells, .kettlebell, .medicineBall]
+            #expect(
+                (exercise.load == .single || exercise.load == .pair)
+                    == !exercise.equipment.isDisjoint(with: held),
+                "\(exercise.name)",
+            )
         }
     }
 

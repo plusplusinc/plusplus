@@ -164,8 +164,7 @@ struct ExerciseTests {
     func equipmentNames() {
         #expect(Equipment.allCases.map(\.name) == [
             "Dumbbells", "Kettlebell", "Barbell", "Medicine ball", "Bench", "Band", "Pull-up bar",
-            "Rings",
-            "Balance board",
+            "Rings", "Balance board",
         ])
     }
 
