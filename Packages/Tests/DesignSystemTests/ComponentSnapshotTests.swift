@@ -125,6 +125,17 @@ struct ComponentSnapshotTests {
         assertThemedSnapshots(of: titles, width: Self.screenWidth)
     }
 
+    /// Add exercise's Create row, the + and its title in green, as the + that adds an exercise
+    /// is. The list and its search are the system's, seen on the simulator.
+    @Test("Create draws its + and title in green")
+    func createRow() {
+        let row = CreateLabel("Create \u{201C}Zercher squat\u{201D}")
+            .padding(Spacing.md)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.pp(.background))
+        assertThemedSnapshots(of: row, width: Self.screenWidth)
+    }
+
     @Test("Several exercises, a bodyweight row among them")
     func severalExercises() {
         let rows: [Row] = [

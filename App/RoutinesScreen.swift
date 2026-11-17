@@ -47,6 +47,8 @@ struct RoutinesScreen: View {
                     Button("New routine", systemImage: "plus") {
                         Task { await session.startNew(pushed: true) }
                     }
+                    // Green, as Add exercise's + and the picker's Create are: it makes something.
+                    .tint(.pp(.accent))
                     .hiddenBehindDrawer()
                 }
             }
