@@ -5,10 +5,11 @@ import XCTest
 @MainActor
 extension RenameUITests {
     /// The picker opens fast and without the keyboard, and a pick adds a row, Start rising with
-    /// the + above it. The rest of the rows are seeded at the test's launch, in a routine the
-    /// drawer then opens, and one more is added through the picker's search onto them. Search's
-    /// list and empty state are left to use, and the add's scroll to the list's end is
-    /// `TitleWrappingUITests`' at AX5. Where the + sits, to the point, is `PrimaryKeyBarTests`'.
+    /// the + above it. A tap below the last row opens it too, half up. The rest of the rows are
+    /// seeded at the test's launch, in a routine the drawer then opens, and one more is added
+    /// through the picker's search onto them. Search's list and empty state are left to use, and
+    /// the add's scroll to the list's end is `TitleWrappingUITests`' at AX5. Where the + sits, to
+    /// the point, is `PrimaryKeyBarTests`'.
     func addExercises(in app: XCUIApplication, keyboard: XCUIElement) {
         let search = app.searchFields.firstMatch
         let start = app.buttons["Start"]
@@ -36,6 +37,7 @@ extension RenameUITests {
                     "The + is not above Start",
                 )
             }
+        openPickerFromBelowRows(in: app)
         XCTContext.runActivity(named: "An add through search lands after seeded rows") { _ in
             app.openDrawer(andTap: Self.seededName)
             XCTAssertEqual(app.routineTitle.value(becoming: Self.seededName), Self.seededName)
@@ -62,6 +64,26 @@ extension RenameUITests {
             app.scrollToTop(titled: Self.seededName)
             let smallTitle = app.navigationBars.firstMatch.buttons[Self.seededName]
             XCTAssertTrue(smallTitle.disappears(), "The small title stayed with the title in view")
+        }
+    }
+
+    /// A tap in the empty space below the last row opens the picker at half height; the + opens
+    /// it full, as `addExercise` does.
+    private func openPickerFromBelowRows(in app: XCUIApplication) {
+        let search = app.searchFields.firstMatch
+        XCTContext.runActivity(named: "A tap below the last row opens the picker half up") { _ in
+            let rows = app.exerciseRows
+            rows.element(boundBy: rows.count - 1)
+                .coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 1))
+                .withOffset(CGVector(dx: 0, dy: 120)).tap()
+            XCTAssertTrue(search.appears(within: 1), "The tap below the last row opened no picker")
+            XCTAssertGreaterThan(
+                search.frame.minY,
+                app.frame.height / 3,
+                "The picker opened full height from a tap below the rows",
+            )
+            app.buttons["Close"].tap()
+            XCTAssertTrue(search.disappears(), "Close left the picker up")
         }
     }
 

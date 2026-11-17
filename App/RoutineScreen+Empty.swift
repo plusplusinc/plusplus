@@ -4,10 +4,26 @@ import SwiftUI
 extension RoutineScreen {
     /// Add exercise, a + floating above the key, which opens the picker.
     var addButton: some View {
-        AddExerciseButton(isEditingTitle: $isEditingTitle) { isPicking = true }
+        AddExerciseButton(isEditingTitle: $isEditingTitle) { openPicker(at: .large) }
     }
 
-    /// A touch outside the title ends its edit, and on an empty routine its tap opens the picker
+    func openPicker(at detent: PresentationDetent) {
+        pickerDetent = detent
+        isPicking = true
+    }
+
+    /// A tap anywhere on an empty routine, or below the last row, opens the picker, unless it
+    /// only ended the title's edit.
+    func tappedList(at location: CGPoint) {
+        guard tapOpensPicker else { return }
+        if routine.exercises.isEmpty {
+            openPicker(at: .large)
+        } else if location.y >= listEnd.top {
+            openPicker(at: .medium)
+        }
+    }
+
+    /// A touch outside the title ends its edit, and its tap opens the picker
     /// only if there was no edit to end.
     func touchedDownOutsideTitle() {
         tapOpensPicker = !isEditingTitle
@@ -43,6 +59,12 @@ extension RoutineScreen {
     /// Remove, and at 0.5 s, or at the sheet's `onDismiss` (0.6 s), the foot then stood still for
     /// a beat before dropping.
     static let exerciseSheetGone: Duration = .milliseconds(370)
+}
+
+/// Where the room under the last row starts, in the window's space. A class, unobserved, so
+/// following it as the list scrolls redraws nothing: only a tap reads it.
+final class ListEnd {
+    var top: CGFloat = .infinity
 }
 
 /// Add exercise's +. While the keyboard is up, as the title is edited, it fades out, keeping its
