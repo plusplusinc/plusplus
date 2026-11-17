@@ -13,7 +13,7 @@ import WorkoutStore
 /// most of it.
 ///
 /// Exercises has its search as a round button at the bar's top trailing edge, which opens out
-/// to the left into a field in the bar beside Back (`BarSearchField`); Add exercise has the
+/// to the left into a field in the bar beside ++ (`BarSearchField`); Add exercise has the
 /// system's search, in a drawer under its title.
 ///
 /// Search does not take focus when the list opens. The list is the fast path: with the
@@ -162,17 +162,19 @@ extension View {
 }
 
 /// Search either in the system's drawer under the title or as `BarSearchField`, a round button
-/// at the bar's top trailing edge that opens into a field beside Back.
+/// at the bar's top trailing edge that opens into a field beside ++.
 private struct SearchField: ViewModifier {
     @Binding var text: String
     let inBar: Bool
 
-    /// The screen's width, which the open field spans but for Back.
+    /// The screen's width, which the open field spans but for ++.
     @State private var width: CGFloat = 0
 
-    /// What the open field leaves of the bar's width: the margins on both sides, Back, and the
-    /// gap after it. A bar item hugs its content, so the field gets its width from the screen's.
-    private static let besideBack: CGFloat = 16 + 44 + 8 + 16
+    /// What the open field leaves of the bar's width: the margins on both sides, ++ (52 points
+    /// in its glass), and the gap after it. A bar item hugs its content, so the field gets its
+    /// width from the screen's. With an 8-point gap the bar had no room for the item and put it
+    /// in a More menu.
+    private static let besideMenu: CGFloat = 16 + 52 + 16 + 16
 
     func body(content: Content) -> some View {
         if inBar {
@@ -183,8 +185,9 @@ private struct SearchField: ViewModifier {
                         BarSearchField(
                             text: $text,
                             prompt: "Search",
-                            openWidth: width - Self.besideBack,
+                            openWidth: width - Self.besideMenu,
                         )
+                        .hiddenBehindDrawer()
                     }
                     .sharedBackgroundVisibility(.hidden)
                 }

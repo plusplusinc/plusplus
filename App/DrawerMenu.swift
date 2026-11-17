@@ -5,8 +5,9 @@ import WorkoutStore
 
 /// What ++ opens: the app's title, and Routines, which shows every routine, with three routines
 /// under it and New, an action, last: each routine's node, and New's plus, sit in the column of
-/// Routines' icon. Exercises, under them, pushes the list of every exercise. The place showing is
-/// marked; one always is. An untouched new routine showing
+/// Routines' icon. Exercises, under them, shows the list of every exercise in place of the screen
+/// showing, as Routines does. The place showing is marked; one always is. An untouched new routine
+/// showing
 /// is the first of the three, then the two last opened or edited; otherwise they are the three
 /// last opened or edited, the last edited first.
 ///
@@ -49,8 +50,6 @@ struct DrawerMenu: View {
                     }
                     .buttonStyle(.drawer(isSelected: contents.showing == .routines))
                     routines(contents)
-                    // Pushed onto the screen showing, which stays marked under it: the drawer
-                    // never opens over Exercises, whose edge swipe is Back.
                     Button {
                         session.showExercises()
                     } label: {
@@ -60,7 +59,7 @@ struct DrawerMenu: View {
                             CircleStackSymbol()
                         }
                     }
-                    .buttonStyle(.drawer(isSelected: false))
+                    .buttonStyle(.drawer(isSelected: contents.showing == .exercises))
                     // Apart from the routines, so it doesn't read as one of them.
                     .padding(.top, Spacing.sm)
                 }

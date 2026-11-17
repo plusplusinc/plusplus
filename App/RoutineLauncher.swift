@@ -12,20 +12,22 @@ struct RoutineLauncher: View {
     let resetsStore: Bool
 
     @State private var session: RoutineSession?
+    /// The exercise whose form is pushed onto Exercises, if one is.
+    @State private var customizing: Exercise.ID?
     @Environment(\.locale) private var locale
 
     var body: some View {
         if let session {
-            // A routine pushed onto the Routines screen, and Exercises, take the edge swipe
-            // back, and a workout keeps the drawer shut: the swipe never begins, and the session
-            // refuses any other open.
+            // A routine pushed onto the Routines screen, and an exercise's form pushed onto
+            // Exercises, take the edge swipe back, and a workout keeps the drawer shut: the swipe
+            // never begins, and the session refuses any other open.
             SideDrawer(
                 isOpen: Binding {
                     session.isDrawerOpen
                 } set: { isOpen in
                     isOpen ? session.openDrawer() : session.closeDrawer()
                 },
-                swipeOpens: session.screen != .pushedRoutine && !session.isExercisesShown
+                swipeOpens: session.screen != .pushedRoutine && customizing == nil
                     && !session.isDrawerLocked,
             ) {
                 DrawerMenu(session: session, namer: namer)
@@ -38,6 +40,8 @@ struct RoutineLauncher: View {
                         .id(session.opened.id)
                 case .routines, .pushedRoutine:
                     RoutinesScreen(session: session, namer: namer)
+                case .exercises:
+                    ExercisesScreen(session: session, namer: namer, customizing: $customizing)
                 }
             }
             .keepsScreenOn(session.workout != nil)

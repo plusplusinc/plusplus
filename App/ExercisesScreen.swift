@@ -3,47 +3,56 @@ import Session
 import SwiftUI
 import WorkoutStore
 
-/// Exercises, pushed from the drawer onto the screen that showed, with Back: the exercise list
-/// (`ExerciseListView`) under a large title, with search as a round button at the bar's top
-/// trailing edge that opens into a field in the bar beside Back (`BarSearchField`). Create
-/// stores the new exercise and comes back to the list, where it shows. A tap on an exercise someone
-/// created pushes its Customize form
-/// (`ExerciseForm`); Save and Delete come back to the list once the routines show the change.
-/// A built-in's row opens nothing yet.
+/// Exercises, a screen at the root as Routines is, shown from the drawer in place of the screen
+/// that showed, with ++ leading its bar: the exercise list (`ExerciseListView`) under a large
+/// title, with search as a round button at the bar's top trailing edge that opens into a field
+/// in the bar beside ++ (`BarSearchField`). Create stores the new exercise and comes back to the
+/// list, where it shows. A tap on an exercise someone created pushes its Customize form
+/// (`ExerciseForm`), with Back to the list; Save and Delete come back to the list once the
+/// routines show the change. A built-in's row opens nothing yet.
 struct ExercisesScreen: View {
     let session: RoutineSession
     let namer: RoutineNamer
+    /// The id of the exercise whose form shows, held above the screen so the drawer's edge
+    /// swipe stays off while the form takes it as Back.
+    @Binding var customizing: Exercise.ID?
 
-    /// The id of the exercise whose form shows.
-    @State private var customizing: Exercise.ID?
     @Environment(\.locale) private var locale
 
     var body: some View {
-        ExerciseListView(
-            exercises: session.exercises,
-            onTap: { customizing = $0.id },
-            isTappable: { session.exercises.created(id: $0.id) != nil },
-            returnsAfterCreate: true,
-            searchesInBar: true,
-            onCreate: { _ = await session.create($0) },
-        )
-        .navigationTitle("Exercises")
-        .navigationBarTitleDisplayMode(.large)
-        .navigationDestination(item: $customizing) { id in
-            if let created = session.exercises.created(id: id) {
-                ExerciseForm(
-                    customizing: created,
-                    exercises: session.exercises,
-                    usedIn: session.routines(using: id).map(namer.listedName(of:)),
-                    onSave: { edited in
-                        await session.customize(edited, weightUnit: weightUnit)
-                        customizing = nil
-                    },
-                    onDelete: {
-                        await session.deleteExercise(id, weightUnit: weightUnit)
-                        customizing = nil
-                    },
-                )
+        NavigationStack {
+            ExerciseListView(
+                exercises: session.exercises,
+                onTap: { customizing = $0.id },
+                isTappable: { session.exercises.created(id: $0.id) != nil },
+                returnsAfterCreate: true,
+                searchesInBar: true,
+                onCreate: { _ = await session.create($0) },
+            )
+            .accessibilityHidden(session.isDrawerOpen)
+            .navigationTitle("Exercises")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    MenuButton(session: session)
+                }
+            }
+            .navigationDestination(item: $customizing) { id in
+                if let created = session.exercises.created(id: id) {
+                    ExerciseForm(
+                        customizing: created,
+                        exercises: session.exercises,
+                        usedIn: session.routines(using: id).map(namer.listedName(of:)),
+                        onSave: { edited in
+                            await session.customize(edited, weightUnit: weightUnit)
+                            customizing = nil
+                        },
+                        onDelete: {
+                            await session.deleteExercise(id, weightUnit: weightUnit)
+                            customizing = nil
+                        },
+                    )
+                }
             }
         }
         // The routines the forms count, as stored now.
@@ -55,28 +64,11 @@ struct ExercisesScreen: View {
     }
 }
 
-extension View {
-    /// Pushes Exercises while the session shows it; the back button and swipe pop it.
-    func exercisesDestination(_ session: RoutineSession, namer: RoutineNamer) -> some View {
-        navigationDestination(
-            isPresented: Binding {
-                session.isExercisesShown
-            } set: { isShown in
-                if !isShown {
-                    session.popExercises()
-                }
-            },
-        ) {
-            ExercisesScreen(session: session, namer: namer)
-        }
-    }
-}
-
 #Preview {
-    NavigationStack {
-        ExercisesScreen(
-            session: RoutineSession(routine: Routine(), store: nil, namer: .muscleGroupsOnly),
-            namer: .muscleGroupsOnly,
-        )
-    }
+    @Previewable @State var customizing: Exercise.ID?
+    ExercisesScreen(
+        session: RoutineSession(routine: Routine(), store: nil, namer: .muscleGroupsOnly),
+        namer: .muscleGroupsOnly,
+        customizing: $customizing,
+    )
 }

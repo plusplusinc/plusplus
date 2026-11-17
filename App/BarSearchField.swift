@@ -2,8 +2,8 @@ import DesignSystem
 import SwiftUI
 
 /// Search in the navigation bar, at its top trailing edge: a round glass button with a magnifying
-/// glass, as big as Back. A tap splits a glass field out of the button's glass, which pulls apart
-/// to the left into its own capsule filling the bar up to Back, focused, with the keyboard coming
+/// glass, as big as ++. A tap splits a glass field out of the button's glass, which pulls apart
+/// to the left into its own capsule filling the bar up to ++, focused, with the keyboard coming
 /// up, while the button's symbol turns to an X. The X clears the search and the field merges back
 /// into the button; so does the keyboard going down with nothing typed. With something typed, the
 /// keyboard can go down and the field stays open on the matches. Nothing else in the bar or under

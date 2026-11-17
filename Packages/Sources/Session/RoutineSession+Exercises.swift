@@ -3,17 +3,6 @@ import OSLog
 import WorkoutStore
 
 extension RoutineSession {
-    /// Pushes Exercises onto the screen showing and closes the drawer.
-    public func showExercises() {
-        isExercisesShown = true
-        closeDrawer()
-    }
-
-    /// Pops Exercises, showing the screen it was pushed on, as its back button and back swipe do.
-    public func popExercises() {
-        isExercisesShown = false
-    }
-
     /// Adds a created exercise to the list at once, and returns it once it is stored, so a
     /// routine save that names it always lands after it: await this before adding its row.
     /// A failed save is logged, and the exercise stays usable this session.

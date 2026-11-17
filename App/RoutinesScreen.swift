@@ -38,7 +38,6 @@ struct RoutinesScreen: View {
                 RoutineScreen(session: session, namer: namer, isPushed: true)
                     .id(session.opened.id)
             }
-            .exercisesDestination(session, namer: namer)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {

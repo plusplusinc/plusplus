@@ -17,11 +17,8 @@ public final class RoutineSession {
     public private(set) var current: Routine
     /// Opened through `openDrawer()`, which a workout refuses, and shut through `closeDrawer()`.
     public private(set) var isDrawerOpen = false
-    /// Where the app is: the routine, the Routines screen, or a routine pushed on it.
-    public private(set) var screen = Screen.routine
-    /// Exercises, pushed from the drawer onto whichever screen shows, the routine or the
-    /// Routines list, until its back button or swipe pops it.
-    public internal(set) var isExercisesShown = false
+    /// Where the app is: the routine, the Routines screen, a routine pushed on it, or Exercises.
+    public internal(set) var screen = Screen.routine
     /// The workout running the open routine, from Start until Finish or Discard.
     public private(set) var workout: Workout?
     /// Every exercise there is to pick, the ones created this session included.
@@ -81,24 +78,6 @@ public final class RoutineSession {
         case write(WorkoutWrite)
         /// Every write before it has landed.
         case landed(CheckedContinuation<Void, Never>)
-    }
-
-    /// Where the app is, under the drawer.
-    public enum Screen {
-        /// The open routine, at the root.
-        case routine
-        /// The Routines screen, its list showing.
-        case routines
-        /// The open routine, pushed onto the Routines screen from its list.
-        case pushedRoutine
-    }
-
-    /// Pops the routine pushed onto the Routines screen, showing the list again, as its back
-    /// button and back swipe do. A push goes through `open` or `startNew`.
-    public func popRoutine() {
-        if screen == .pushedRoutine {
-            screen = .routines
-        }
     }
 
     /// Every saved routine, latest first, with the open one first as it is now.
@@ -208,20 +187,6 @@ public final class RoutineSession {
         }
     }
 
-    /// What the drawer marks as showing: the Routines screen, the open routine, or a new one.
-    public var showing: Showing {
-        if screen == .routines {
-            return .routines
-        }
-        return current.isEmpty ? .new : .routine
-    }
-
-    public enum Showing {
-        case routines
-        case routine
-        case new
-    }
-
     /// Reads the saved routines again, for the Routines screen and the drawer's next opening.
     /// A read that fails leaves the last one, to be tried again at the next refresh; one that
     /// started before a switch is dropped, since it may be missing the routine left.
@@ -237,12 +202,6 @@ public final class RoutineSession {
         } catch {
             Logger.session.error("The recent routines didn't load: \(error)")
         }
-    }
-
-    /// Shows the Routines screen and closes the drawer.
-    public func showRoutines() {
-        screen = .routines
-        closeDrawer()
     }
 
     /// Opens a saved routine on the routine screen and closes the drawer, or, `pushed`, pushes

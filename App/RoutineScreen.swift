@@ -154,7 +154,7 @@ struct RoutineScreen: View {
             if isPushed {
                 screen
             } else {
-                NavigationStack { screen.exercisesDestination(session, namer: namer) }
+                NavigationStack { screen }
             }
         }
         // A touch anywhere outside the title, bars included, ends its edit and still acts. The
