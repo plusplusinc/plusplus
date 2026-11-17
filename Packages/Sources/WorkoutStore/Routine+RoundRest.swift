@@ -87,7 +87,7 @@ extension Routine {
     /// The rest after a round when none is set: the longest of the members' own rests, less a
     /// minute for what the others gave its muscles to recover, never under 30 s, or the whole of
     /// it when two members share a primary muscle, or, where either has no muscles known (one
-    /// someone created), a muscle group; never more than the longest, so a superset of
+    /// someone created), any muscle group; never more than the longest, so a superset of
     /// stretches rests none.
     private func derivedRestAfterRound(of id: RoutineExercise.ID) -> Int {
         guard let row = exercises.first(where: { $0.id == id }) else { return 0 }
@@ -106,7 +106,7 @@ extension Routine {
 extension Exercise {
     fileprivate func sharesMuscle(with other: Exercise) -> Bool {
         guard !tags.primary.isEmpty, !other.tags.primary.isEmpty else {
-            return muscleGroup == other.muscleGroup
+            return !muscleGroups.isDisjoint(with: other.muscleGroups)
         }
         return !tags.primary.isDisjoint(with: other.tags.primary)
     }

@@ -12,9 +12,19 @@ struct CreatedExerciseTests {
         perSide: Bool = false,
         name: String = "Made up",
     ) -> Exercise {
+        exercise([group], equipment, measure, perSide: perSide, name: name)
+    }
+
+    private static func exercise(
+        _ groups: Set<MuscleGroup>,
+        _ equipment: Set<Equipment> = [],
+        _ measure: Measure = .reps,
+        perSide: Bool = false,
+        name: String = "Made up",
+    ) -> Exercise {
         Exercise(created: CreatedExercise(
             name: name,
-            muscleGroup: group,
+            muscleGroups: groups,
             equipment: equipment,
             measure: measure,
             isPerSide: perSide,
@@ -73,6 +83,88 @@ struct CreatedExerciseTests {
         #expect(Self.exercise(.core).defaultRest(for: .reps(10)) == 45)
     }
 
+    @Test("With several groups it rests as the longest-resting: legs, then chest, back, shoulders")
+    func restOfSeveralGroups() {
+        let weighted: Set<Equipment> = [.dumbbells]
+        // Any legs: a lower-body compound, 120 s at 10 reps.
+        #expect(Self.exercise([.arms, .legs], weighted).defaultRest(for: .reps(10)) == 120)
+        #expect(Self.exercise([.shoulders, .legs, .core], weighted).defaultRest(for: .reps(10))
+            == 120)
+        // Else any upper-body group: 90 s.
+        #expect(Self.exercise([.arms, .back], weighted).defaultRest(for: .reps(10)) == 90)
+        #expect(Self.exercise([.core, .chest], weighted).defaultRest(for: .reps(10)) == 90)
+        // Else single-joint: 60 s.
+        #expect(Self.exercise([.arms, .core], weighted).defaultRest(for: .reps(10)) == 60)
+        // No weight, one step shorter, as for one group.
+        #expect(Self.exercise([.back, .shoulders], [.rings]).defaultRest(for: .reps(10)) == 60)
+        #expect(Self.exercise([.legs, .core]).defaultRest(for: .reps(10)) == 90)
+    }
+
+    @Test("Add needs a new name and at least one muscle group")
+    func canAdd() {
+        let list = ExerciseList.builtIn
+        #expect(CreatedExercise.canAdd(
+            named: "Ring row with rotation",
+            muscleGroups: [.back],
+            to: list,
+        ))
+        #expect(CreatedExercise.canAdd(
+            named: "Ring row with rotation",
+            muscleGroups: [.back, .shoulders],
+            to: list,
+        ))
+        #expect(!CreatedExercise.canAdd(
+            named: "Ring row with rotation",
+            muscleGroups: [],
+            to: list,
+        ))
+        #expect(!CreatedExercise.canAdd(named: "  ", muscleGroups: [.back], to: list))
+        #expect(!CreatedExercise.canAdd(named: "pull up", muscleGroups: [.back], to: list))
+    }
+
+    @Test("Every checked group counts toward the name; each counts the exercise once")
+    func namingSeveralGroups() {
+        let namer = RoutineNamer.muscleGroupsOnly
+        let id = UUID()
+        // One exercise, Back and Shoulders: both named.
+        let backAndShoulders = [Self.exercise([.back, .shoulders], name: "One")]
+        #expect(namer.name(for: backAndShoulders, of: id) == "Back and shoulders")
+        #expect(RoutineFocus(of: backAndShoulders) == .upperBody)
+        // Back and Shoulders, then Back alone: back works in both, three in five, a back focus.
+        let mostlyBack = backAndShoulders + [Self.exercise(.back, name: "Two")]
+        #expect(RoutineFocus(of: mostlyBack) == .group(.back))
+        // Legs and Core with Shoulders: three groups, full body.
+        let spread = [
+            Self.exercise([.legs, .core], name: "One"),
+            Self.exercise(.shoulders, name: "Two"),
+        ]
+        #expect(namer.name(for: spread, of: id) == "Full body")
+        #expect(RoutineFocus(of: spread) == .fullBody)
+        // Legs and Core alone: a pair.
+        let legsAndCore = [Self.exercise([.legs, .core], name: "One")]
+        #expect(RoutineFocus(of: legsAndCore) == .pair(.legs, .core))
+        #expect(namer.name(for: legsAndCore, of: id) == "Legs and core")
+    }
+
+    @Test("A superset with a created exercise of several groups shares a muscle by any one")
+    func roundRestOfSeveralGroups() throws {
+        let made = Self.exercise([.shoulders, .back], [.dumbbells])
+        var routine = try Routine(exercises: [
+            RoutineExercise(exercise: made, weightUnit: .pounds),
+            RoutineExercise.builtIn("Dumbbell row"),
+        ])
+        routine.join(routine.exercises[0].id, .below)
+        // Back in common: the full 90 s, not 30.
+        #expect(routine.restAfterRound(of: routine.exercises[0].id) == 90)
+    }
+
+    @Test("Muscle groups read as a line from a set, in body order")
+    func muscleGroupLine() {
+        #expect(Set([MuscleGroup.shoulders, .back]).line == "Back, shoulders")
+        #expect(Set([MuscleGroup.core]).line == "Core")
+        #expect(Set<MuscleGroup>().line == nil)
+    }
+
     @Test("A routine of created exercises is named for their groups, never a push or pull focus")
     func naming() {
         let rows = [
@@ -116,7 +208,7 @@ struct CreatedExerciseTests {
 
     @Test("The list is built-ins and created exercises A to Z; ids never collide")
     func list() {
-        let created = CreatedExercise(name: "Ring row with rotation", muscleGroup: .back)
+        let created = CreatedExercise(name: "Ring row with rotation", muscleGroups: [.back])
         let list = ExerciseList(created: [created])
         let names = list.all.map(\.name)
         #expect(names == names.sorted { $0.localizedStandardCompare($1) == .orderedAscending })
@@ -137,7 +229,10 @@ struct CreatedExerciseTests {
         #expect(!list.offersCreate(for: "pull up"))
         #expect(!list.offersCreate(for: ""))
         #expect(!list.offersCreate(for: "  "))
-        let made = list.adding(CreatedExercise(name: "Ring row with rotation", muscleGroup: .back))
+        let made = list.adding(CreatedExercise(
+            name: "Ring row with rotation",
+            muscleGroups: [.back],
+        ))
         #expect(!made.offersCreate(for: "ring row with rotation "))
     }
 }

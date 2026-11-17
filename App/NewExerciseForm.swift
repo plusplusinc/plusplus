@@ -4,19 +4,21 @@ import WorkoutStore
 
 /// New exercise, pushed from the picker's Create: the five settings a created exercise has, and
 /// no more. Name, prefilled with the search text and not focused, since the next thing to set is
-/// the muscle group; Muscle group, which reads Choose until one is picked; Equipment, one row
-/// reading what is checked, or Bodyweight, that opens the full list; Measure; and Per side.
-/// Everything else (its weight, plan, rest, and naming) is derived (`Exercise(created:)`).
+/// the muscle groups; Muscle groups and Equipment, each one row reading what is checked
+/// ("Back, shoulders"; Choose and Bodyweight for none) that opens its full list to check any
+/// number on (`Checklist`); Measure; and Per side. All checked groups are equal. Everything else
+/// (its weight, plan, rest, and naming) is derived (`Exercise(created:)`).
 ///
-/// Add is off while the name is empty or already an exercise's, or no muscle group is chosen,
-/// and after its first tap. Cancel goes back to the search as it was; nothing is created before
+/// Add is off while the name is empty or already an exercise's, or no muscle group is checked
+/// (`CreatedExercise.canAdd`), and after its first tap. Cancel goes back to the search as it was;
+/// nothing is created before
 /// Add.
 struct NewExerciseForm: View {
     let exercises: ExerciseList
     let onAdd: (CreatedExercise) async -> Void
 
     @State private var name: String
-    @State private var muscleGroup: MuscleGroup?
+    @State private var muscleGroups: Set<MuscleGroup> = []
     @State private var equipment: Set<Equipment> = []
     @State private var measure = Measure.reps
     @State private var isPerSide = false
@@ -38,8 +40,8 @@ struct NewExerciseForm: View {
     }
 
     private var canAdd: Bool {
-        !isAdding && muscleGroup != nil && !trimmedName.isEmpty
-            && !exercises.hasExercise(named: trimmedName)
+        !isAdding
+            && CreatedExercise.canAdd(named: name, muscleGroups: muscleGroups, to: exercises)
     }
 
     var body: some View {
@@ -54,19 +56,21 @@ struct NewExerciseForm: View {
             }
             .listRowBackground(Color.pp(.surface))
             Section {
-                Picker("Muscle group", selection: $muscleGroup) {
-                    if muscleGroup == nil {
-                        Text("Choose").tag(MuscleGroup?.none)
-                    }
-                    ForEach(MuscleGroup.allCases, id: \.self) { group in
-                        Text(group.name).tag(MuscleGroup?.some(group))
-                    }
-                }
-                .pickerStyle(.menu)
-                // Its value reads gray, as the Equipment row's does, not in the system's blue.
-                .tint(Color.pp(.textSecondary))
                 NavigationLink {
-                    EquipmentChecklist(checked: $equipment)
+                    Checklist(
+                        title: "Muscle groups",
+                        footer: "Check all it works.",
+                        checked: $muscleGroups,
+                    )
+                } label: {
+                    LabeledContent("Muscle groups", value: muscleGroups.line ?? "Choose")
+                }
+                NavigationLink {
+                    Checklist(
+                        title: "Equipment",
+                        footer: "Check all it needs. None means bodyweight.",
+                        checked: $equipment,
+                    )
                 } label: {
                     LabeledContent("Equipment", value: equipment.line ?? "Bodyweight")
                 }
@@ -103,11 +107,11 @@ struct NewExerciseForm: View {
     }
 
     private func add() {
-        guard canAdd, let muscleGroup else { return }
+        guard canAdd else { return }
         isAdding = true
         let created = CreatedExercise(
             name: trimmedName,
-            muscleGroup: muscleGroup,
+            muscleGroups: muscleGroups,
             equipment: equipment,
             measure: measure,
             isPerSide: isPerSide,

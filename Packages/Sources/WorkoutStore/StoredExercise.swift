@@ -24,10 +24,11 @@ enum RoutineSchemaV8: VersionedSchema {
         /// The id a row stores, `CreatedExercise.id`.
         var id = ""
         var name = ""
-        /// `MuscleGroup`'s raw value.
+        /// `MuscleGroup`'s raw values, joined by commas in declaration order, as `equipment`'s
+        /// are. Named for the one group V8 first held: renaming it would be a new schema
+        /// version, and one group alone, "back", is the same field read the same way.
         var muscleGroup = ""
-        /// `Equipment`'s raw values, joined by commas in display order: a string, not an array,
-        /// which SwiftData would store, and CloudKit sync, as opaque bytes.
+        /// `Equipment`'s raw values, joined by commas in display order (`Set.stored`).
         var equipment = ""
         /// `Measure`'s raw value.
         var measure = "reps"
@@ -41,20 +42,17 @@ enum RoutineSchemaV8: VersionedSchema {
 }
 
 extension StoredExercise {
-    /// The exercise as set, or nil for a muscle group or measure this build doesn't know, from
-    /// a newer version: left out of the list rather than read as something else. An unknown
-    /// piece of equipment is left out of its set.
+    /// The exercise as set, or nil for a measure this build doesn't know, or no muscle group it
+    /// knows, from a newer version: left out of the list rather than read as something else. An
+    /// unknown group or piece of equipment beside known ones is left out of its set.
     var created: CreatedExercise? {
-        guard let group = MuscleGroup(rawValue: muscleGroup),
-              let measure = Measure(rawValue: measure)
-        else { return nil }
+        let groups = Set<MuscleGroup>(stored: muscleGroup)
+        guard !groups.isEmpty, let measure = Measure(rawValue: measure) else { return nil }
         return CreatedExercise(
             id: id,
             name: name,
-            muscleGroup: group,
-            equipment: Set(equipment.split(separator: ",").compactMap {
-                Equipment(rawValue: String($0))
-            }),
+            muscleGroups: groups,
+            equipment: Set(stored: equipment),
             measure: measure,
             isPerSide: isPerSide,
             createdAt: createdAt,
@@ -63,15 +61,13 @@ extension StoredExercise {
 
     /// Sets only the fields that changed, so an unchanged exercise stays clean.
     func write(_ created: CreatedExercise) {
-        let equipment = Equipment.allCases.filter(created.equipment.contains)
-            .map(\.rawValue).joined(separator: ",")
+        let groups = created.muscleGroups.stored
+        let equipment = created.equipment.stored
         if name != created.name {
             name = created.name
         }
-        if muscleGroup != created.muscleGroup
-            .rawValue
-        {
-            muscleGroup = created.muscleGroup.rawValue
+        if muscleGroup != groups {
+            muscleGroup = groups
         }
         if self.equipment != equipment {
             self.equipment = equipment

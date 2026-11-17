@@ -264,7 +264,7 @@ struct RoutineSessionTests {
     @Test("A created exercise is stored before the routine save that names it, and listed at once")
     func createdBeforeRow() async throws {
         let session = session()
-        let created = CreatedExercise(name: "Ring row with rotation", muscleGroup: .back)
+        let created = CreatedExercise(name: "Ring row with rotation", muscleGroups: [.back])
         let exercise = await session.create(created)
         #expect(session.exercises.exercise(id: created.id) == exercise)
         // Stored once `create` returns, before any routine save could name it.

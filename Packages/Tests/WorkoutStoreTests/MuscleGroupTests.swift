@@ -35,8 +35,10 @@ struct MuscleGroupTests {
                 "Turkish get-up", "Farmer\u{2019}s carry", "Mountain climber",
             ],
         ]
-        let actual = Dictionary(grouping: Exercise.builtIn, by: \.muscleGroup)
-            .mapValues { Set($0.map(\.name)) }
+        #expect(Exercise.builtIn.allSatisfy { $0.muscleGroups.count == 1 })
+        let actual = Dictionary(uniqueKeysWithValues: MuscleGroup.allCases.map { group in
+            (group, Set(Exercise.builtIn.filter { $0.muscleGroups == [group] }.map(\.name)))
+        })
         #expect(actual == expected)
     }
 

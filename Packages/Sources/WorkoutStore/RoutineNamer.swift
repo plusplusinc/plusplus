@@ -21,7 +21,7 @@ public struct RoutineNamer: Sendable {
     /// routine keeps its own as its exercises change, and different routines differ.
     public func name(for exercises: [Exercise], of routine: Routine.ID) -> String? {
         let unique = Self.unique(exercises)
-        guard let fallback = MuscleGroup.routineName(for: unique.map(\.muscleGroup)) else {
+        guard let fallback = MuscleGroup.routineName(for: unique.flatMap(\.muscleGroups)) else {
             return nil
         }
         guard usesTags else { return fallback }

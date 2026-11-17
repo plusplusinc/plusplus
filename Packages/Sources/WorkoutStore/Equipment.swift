@@ -3,7 +3,7 @@
 /// Cases are declared in display order, which is the order an exercise's equipment is listed
 /// in. Raw values are what a created exercise stores, written out so renaming a case never
 /// changes stored data.
-public enum Equipment: String, CaseIterable, Sendable {
+public enum Equipment: String, NamedCase {
     case dumbbells
     case kettlebell
     case barbell

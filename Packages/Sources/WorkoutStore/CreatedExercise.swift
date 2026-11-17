@@ -21,7 +21,8 @@ public struct CreatedExercise: Identifiable, Equatable, Sendable {
     /// built-in slug (letters, digits, and hyphens) or another device's exercise.
     public let id: String
     public var name: String
-    public var muscleGroup: MuscleGroup
+    /// Every group checked, all equal; at least one (`canAdd`).
+    public var muscleGroups: Set<MuscleGroup>
     public var equipment: Set<Equipment>
     public var measure: Measure
     public var isPerSide: Bool
@@ -30,7 +31,7 @@ public struct CreatedExercise: Identifiable, Equatable, Sendable {
     public init(
         id: String = Self.newID(),
         name: String,
-        muscleGroup: MuscleGroup,
+        muscleGroups: Set<MuscleGroup>,
         equipment: Set<Equipment> = [],
         measure: Measure = .reps,
         isPerSide: Bool = false,
@@ -38,7 +39,7 @@ public struct CreatedExercise: Identifiable, Equatable, Sendable {
     ) {
         self.id = id
         self.name = name
-        self.muscleGroup = muscleGroup
+        self.muscleGroups = muscleGroups
         self.equipment = equipment
         self.measure = measure
         self.isPerSide = isPerSide
@@ -50,13 +51,25 @@ public struct CreatedExercise: Identifiable, Equatable, Sendable {
     public static func newID() -> String {
         idPrefix + UUID().uuidString.lowercased()
     }
+
+    /// Whether these settings make an exercise to add: a name that is no exercise's yet (by the
+    /// search's folding) and at least one muscle group.
+    public static func canAdd(
+        named name: String,
+        muscleGroups: Set<MuscleGroup>,
+        to exercises: ExerciseList,
+    ) -> Bool {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return !muscleGroups.isEmpty && !name.isEmpty && !exercises.hasExercise(named: name)
+    }
 }
 
 extension Exercise {
     /// The definition a created exercise works as, the same the built-ins have. It holds a
     /// weight by the first of barbell (a bar), dumbbells (one when per side, else a pair),
     /// kettlebell, and medicine ball (one) it uses, starting where the lightest built-in of that
-    /// piece starts; 3 × 10 reps or 3 × 30 s; rests by its group; and is named by its group alone.
+    /// piece starts; 3 × 10 reps or 3 × 30 s; rests as the longest-resting of its groups; and is
+    /// named by its groups alone, every one of them.
     public init(created: CreatedExercise) {
         let load: Load?
         let startsAt: StartingWeight?
@@ -79,14 +92,14 @@ extension Exercise {
         self.init(
             id: created.id,
             name: created.name,
-            muscleGroup: created.muscleGroup,
+            muscleGroups: created.muscleGroups,
             equipment: equipment,
             plan: ExercisePlan(sets: 3, target: target),
             load: load,
             startsAt: startsAt,
             perSide: created.isPerSide,
             tags: .groupOnly,
-            rests: RestKind(group: created.muscleGroup),
+            rests: RestKind(groups: created.muscleGroups),
         )
     }
 
@@ -108,18 +121,8 @@ extension Equipment {
     }
 }
 
-extension Set<Equipment> {
-    /// The equipment as a line of text in display order, "Dumbbells, bench", or nil for
-    /// bodyweight.
-    public var line: String? {
-        let names = Equipment.allCases.filter(contains).map(\.name)
-        guard let first = names.first else { return nil }
-        return ([first] + names.dropFirst().map { $0.lowercased() }).joined(separator: ", ")
-    }
-}
-
 extension ExerciseTags {
-    /// For an exercise known only by its muscle group: no movement and no muscles, so a routine
-    /// is named for its group, never a push or pull day on a claim nobody made.
+    /// For an exercise known only by its muscle groups: no movement and no muscles, so a routine
+    /// is named for its groups, never a push or pull day on a claim nobody made.
     static let groupOnly = ExerciseTags(nil, [])
 }

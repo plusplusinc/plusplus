@@ -54,13 +54,16 @@ enum RestKind: Int, Sendable {
         }
     }
 
-    /// For an exercise known only by its group: legs as a lower-body compound; chest, back, and
-    /// shoulders as an upper-body one; arms and core as single-joint.
-    init(group: MuscleGroup) {
-        switch group {
-        case .legs: self = .lowerCompound
-        case .chest, .back, .shoulders: self = .upperCompound
-        case .arms, .core: self = .singleJoint
+    /// For an exercise known only by its groups, the longest-resting of them: any legs as a
+    /// lower-body compound; else any of chest, back, and shoulders as an upper-body one; else
+    /// (arms, core) single-joint.
+    init(groups: Set<MuscleGroup>) {
+        if groups.contains(.legs) {
+            self = .lowerCompound
+        } else if !groups.isDisjoint(with: [.chest, .back, .shoulders]) {
+            self = .upperCompound
+        } else {
+            self = .singleJoint
         }
     }
 }

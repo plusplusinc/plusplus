@@ -1,13 +1,15 @@
 import Foundation
 
-/// What an exercise is: its name, the muscle group it mostly works, and the equipment it uses.
+/// What an exercise is: its name, the muscle groups it works, and the equipment it uses.
 /// A routine holds instances of it, as `RoutineExercise`.
 public struct Exercise: Identifiable, Equatable, Sendable {
     /// A stable slug, so a routine can refer to a built-in exercise by something its display
     /// name can change without breaking.
     public let id: String
     public let name: String
-    public let muscleGroup: MuscleGroup
+    /// One for a built-in, the group it mostly works; any number, all equal, for one someone
+    /// created. Never empty.
+    public let muscleGroups: Set<MuscleGroup>
     /// Empty for bodyweight.
     public let equipment: Set<Equipment>
     /// The sets and target a new row starts with. Its target's case is how a set is measured,
@@ -28,7 +30,7 @@ public struct Exercise: Identifiable, Equatable, Sendable {
     init(
         id: String,
         name: String,
-        muscleGroup: MuscleGroup,
+        muscleGroups: Set<MuscleGroup>,
         equipment: Set<Equipment> = [],
         plan defaultPlan: ExercisePlan,
         load: Load? = nil,
@@ -39,7 +41,7 @@ public struct Exercise: Identifiable, Equatable, Sendable {
     ) {
         self.id = id
         self.name = name
-        self.muscleGroup = muscleGroup
+        self.muscleGroups = muscleGroups
         self.equipment = equipment
         plan = defaultPlan
         self.load = load

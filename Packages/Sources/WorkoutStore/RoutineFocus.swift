@@ -36,10 +36,14 @@ enum RoutineFocus: Equatable {
             self = .mobility(Self.region(of: exercises.filter(\.isStretch)))
             return
         }
-        let counts = Dictionary(grouping: work, by: \.muscleGroup).mapValues(\.count)
+        // An exercise with several groups (one someone created) counts once in each.
+        let counts = Dictionary(work.flatMap(\.muscleGroups).map { ($0, 1) }, uniquingKeysWith: +)
         let groups = MuscleGroup.allCases.filter { counts[$0] != nil }
-        if let main = groups.first(where: { (counts[$0] ?? 0) * 5 >= work.count * 3 }) {
-            self = .group(main)
+        // Only one group can do three in five unless an exercise counts in several; then two
+        // that both do are equal, and neither is the focus.
+        let mains = groups.filter { (counts[$0] ?? 0) * 5 >= work.count * 3 }
+        if mains.count == 1 {
+            self = .group(mains[0])
         } else if groups.count == 2, !Self.upper.isSuperset(of: groups) {
             self = .pair(groups[0], groups[1])
         } else if counts[.legs] != nil {
@@ -84,7 +88,7 @@ enum RoutineFocus: Equatable {
         } else {
             exercises.filter { !$0.isStretch }
         }
-        let groups = Set(worked.map(\.muscleGroup))
+        let groups = Set(worked.flatMap(\.muscleGroups))
         let muscles = Set(worked.flatMap(\.tags.primary))
         let mentioned = MuscleGroup.allCases.filter { !words.isDisjoint(with: $0.words) }
         let honest = mentioned.allSatisfy(groups.contains)

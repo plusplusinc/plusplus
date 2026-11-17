@@ -168,7 +168,7 @@ private struct Work {
 
     /// Whether every one of these groups has work in it.
     func spans(_ groups: MuscleGroup...) -> Bool {
-        groups.allSatisfy { group in exercises.contains { $0.muscleGroup == group } }
+        groups.allSatisfy { group in exercises.contains { $0.muscleGroups.contains(group) } }
     }
 
     /// A barbell or kettlebell every one of two or more exercises uses.
@@ -190,7 +190,8 @@ private struct Work {
 
     /// No two exercises for the same group: a grab bag.
     var isOneOfEach: Bool {
-        Set(exercises.map(\.muscleGroup)).count == exercises.count
+        let groups = exercises.flatMap(\.muscleGroups)
+        return Set(groups).count == groups.count
     }
 }
 
@@ -297,7 +298,7 @@ extension RoutineFocus.StretchRegion {
                 ? (["Hip and leg stretch", "Lower body stretch"], ["Hip opener", "Slow stretch"])
                 : (["Leg stretch", "Lower body stretch"], ["Stretch the legs"])
         case .upperBody:
-            let shoulders = stretches.contains { $0.muscleGroup == .shoulders }
+            let shoulders = stretches.contains { $0.muscleGroups.contains(.shoulders) }
             return (
                 ["Upper body stretch"] + (shoulders ? ["Shoulder stretch"] : []),
                 ["Open up"] + (shoulders ? ["Loose shoulders"] : []),

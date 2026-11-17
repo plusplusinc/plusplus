@@ -18,14 +18,14 @@ struct RoutineStoreExerciseTests {
 
     private static let ringRow = CreatedExercise(
         name: "Ring row with rotation",
-        muscleGroup: .back,
+        muscleGroups: [.back],
         equipment: [.rings],
         createdAt: Date(timeIntervalSinceReferenceDate: 1),
     )
 
     private static let rotation = CreatedExercise(
         name: "Prone external rotation",
-        muscleGroup: .shoulders,
+        muscleGroups: [.shoulders, .back],
         equipment: [.dumbbells, .bench],
         measure: .time,
         isPerSide: true,
@@ -83,7 +83,7 @@ struct RoutineStoreExerciseTests {
         }
         let odd = StoredExercise(id: "created:odd")
         odd.name = "Odd kit"
-        odd.muscleGroup = "back"
+        odd.muscleGroup = "back,neck"
         odd.equipment = "rings,sled"
         context.insert(odd)
         try context.save()
@@ -91,6 +91,7 @@ struct RoutineStoreExerciseTests {
         let list = try await relaunch().exercises()
         #expect(list.all.count == Exercise.builtIn.count + 1)
         #expect(list.exercise(id: "created:odd")?.equipment == [.rings])
+        #expect(list.exercise(id: "created:odd")?.muscleGroups == [.back])
         #expect(try ModelContext(container).fetchCount(FetchDescriptor<StoredExercise>()) == 3)
     }
 }
