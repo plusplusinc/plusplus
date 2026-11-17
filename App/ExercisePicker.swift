@@ -5,9 +5,8 @@ import WorkoutStore
 /// The sheet Add exercise opens: every exercise, built-in and created, A to Z, narrowed by
 /// search. Picking one hands it back; the presenter closes the sheet.
 ///
-/// Search takes focus as the sheet opens, keyboard up: the list has grown past a thumb's
-/// scroll, and Create follows the typing, so typing is the fast path. Search starts presented
-/// through `searchable(text:isPresented:)`, the system's way to open a sheet already searching.
+/// Search does not take focus when the sheet opens. The list is the fast path: with the
+/// keyboard down, the whole list is in reach of a thumb and a pick is one tap.
 ///
 /// Create follows the typing (`ExerciseList.offersCreate(for:)`): with something typed and no
 /// exercise of exactly that name, Create “…” is the list's last row; with no matches it is the
@@ -21,7 +20,6 @@ struct ExercisePicker: View {
     let onCreate: (CreatedExercise) async -> Void
 
     @State private var query = ""
-    @State private var isSearching = true
     /// The name the form opens with, while it shows.
     @State private var creating: String?
     @Environment(\.dismiss) private var dismiss
@@ -51,7 +49,6 @@ struct ExercisePicker: View {
             .navigationBarTitleDisplayMode(.inline)
             .searchable(
                 text: $query,
-                isPresented: $isSearching,
                 placement: .navigationBarDrawer(displayMode: .always),
                 prompt: "Search",
             )
