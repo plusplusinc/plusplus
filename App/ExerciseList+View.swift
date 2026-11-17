@@ -12,8 +12,9 @@ import WorkoutStore
 /// searching and while the keyboard is up, when the matches are few and the keyboard covers
 /// most of it.
 ///
-/// Exercises has its search in the bar beside Back (`BarSearchField`); Add exercise has the
-/// system's, in a drawer under its title.
+/// Exercises has its search as a round button at the bar's top trailing edge, which opens the
+/// field above the keyboard; Add exercise has its search in a drawer under its title. Both are
+/// the system's.
 ///
 /// Search does not take focus when the list opens. The list is the fast path: with the
 /// keyboard down, the whole list is in reach of a thumb and a pick is one tap.
@@ -33,8 +34,8 @@ struct ExerciseListView: View {
     /// closing around it. Its button reads Create there, since nothing goes into a routine,
     /// and Add where it does.
     var returnsAfterCreate = false
-    /// Whether search sits in the bar's middle, in line with Back (`BarSearchField`), rather
-    /// than in a drawer under the title.
+    /// Whether search is a button at the bar's top trailing edge rather than a field in a
+    /// drawer under the title.
     var searchesInBar = false
     /// Stores the exercise; the host decides what shows next.
     let onCreate: (CreatedExercise) async -> Void
@@ -160,32 +161,29 @@ extension View {
     }
 }
 
-/// Search in a drawer under the title, the system's, or in the bar beside Back.
+/// The system's search, either in a drawer under the title or as a round button at the bar's
+/// top trailing edge.
+///
+/// The button is the toolbar's search (`placement: .toolbar`) minimized to a button and moved
+/// to the top bar. With the default placement instead, the same top bar item drew a button
+/// whose tap hid the bar and showed no field: the search it opened was the drawer's, which a
+/// toolbar item does not show. Tapped, the button opens the field above the keyboard and the
+/// bar steps aside until search closes, as the system does; `.avoidHidingContent` kept the bar
+/// but opened the field without focus, a second tap to type, even with `searchFocused` set
+/// once presented, and neither `toolbarMinimizationBehavior(.never)` nor
+/// `toolbarMinimizationSafeAreaAdjustment(.disabled)` kept the bar or the list in place.
 private struct SearchField: ViewModifier {
     @Binding var text: String
     let inBar: Bool
 
-    /// The screen's width, which the bar's field spans but for Back.
-    @State private var width: CGFloat = 0
-
-    /// What the field leaves of the bar's width: the margins on both sides, Back, and the gap
-    /// after it. A bar item hugs its content, and the middle one stays centered, so the field
-    /// gets its width from the screen's.
-    private static let besideBack: CGFloat = 16 + 44 + 8 + 16
-
     func body(content: Content) -> some View {
         if inBar {
             content
-                .onGeometryChange(for: CGFloat.self, of: \.size.width) { width = $0 }
+                .searchable(text: $text, placement: .toolbar, prompt: "Search")
+                .searchToolbarBehavior(.minimize)
                 .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        BarSearchField(text: $text, prompt: "Search")
-                            .frame(width: max(0, width - Self.besideBack))
-                    }
-                    .sharedBackgroundVisibility(.hidden)
+                    DefaultToolbarItem(kind: .search, placement: .topBarTrailing)
                 }
-                // As the system's search does: a drag down the list drops the keyboard.
-                .scrollDismissesKeyboard(.immediately)
         } else {
             content.searchable(
                 text: $text,

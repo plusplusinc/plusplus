@@ -4,8 +4,8 @@ import SwiftUI
 import WorkoutStore
 
 /// Exercises, pushed from the drawer onto the screen that showed, with Back: the exercise list
-/// (`ExerciseListView`) under a large title, with search in the bar beside Back
-/// (`BarSearchField`); the bar and title stay put while searching. Create
+/// (`ExerciseListView`) under a large title, with search as a round button at the bar's top
+/// trailing edge that opens the field above the keyboard. Create
 /// stores the new exercise and comes back to the list, where it shows. A tap on an exercise someone
 /// created pushes its Customize form
 /// (`ExerciseForm`); Save and Delete come back to the list once the routines show the change.
