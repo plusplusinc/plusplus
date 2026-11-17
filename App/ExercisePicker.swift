@@ -75,7 +75,9 @@ struct ExercisePicker: View {
         Button {
             creating = trimmedQuery
         } label: {
-            CreateLabel(createTitle)
+            Label(createTitle, systemImage: "plus")
+                .font(.ppRowTitle)
+                .makesSomething()
                 // A label's separator starts at its title, past the icon; this one starts at
                 // the row's edge, where a result row's does.
                 .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
