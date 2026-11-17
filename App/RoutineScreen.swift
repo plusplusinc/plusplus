@@ -365,11 +365,9 @@ struct RoutineScreen: View {
                 isPicking = false
                 add(exercise)
             }
-            // Opened full, it stays full, as before; opened half, it can be pulled up.
-            .presentationDetents(
-                pickerDetent == .large ? [.large] : [.medium, .large],
-                selection: $pickerDetent,
-            )
+            // The same two heights however it opens: a set worked out from `pickerDetent` was
+            // read from the opening before, so a first one from below the rows showed full.
+            .presentationDetents([.medium, .large], selection: $pickerDetent)
         }
         // By item, so the sheet keeps its content as it slides away.
         .sheet(item: $editing) { opened in
