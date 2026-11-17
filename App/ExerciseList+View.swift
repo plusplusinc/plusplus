@@ -60,7 +60,10 @@ struct ExerciseListView: View {
         // which in this app marks something arriving.
         .tint(.pp(.accent))
         .scrollContentBackground(.hidden)
-        .background(Color.pp(.background))
+        // Behind the whole screen, not the list's frame: the list gives the keyboard its room
+        // and takes it back more slowly than the keyboard leaves, and the window's black showed
+        // in between.
+        .containerBackground(Color.pp(.background), for: .navigation)
         .searchable(
             text: $query,
             placement: .navigationBarDrawer(displayMode: .always),

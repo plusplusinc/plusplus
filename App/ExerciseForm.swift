@@ -151,10 +151,7 @@ struct ExerciseForm: View {
                 .tint(Color.pp(.textSecondary))
                 Toggle("Per side", isOn: $isPerSide)
             } footer: {
-                Text(customizing == nil
-                    ? "Each side is its own set, left then right."
-                    : "Each side is its own set, left then right. Switching Measure back and "
-                    + "forth loses nothing: each routine keeps its numbers for both.")
+                Text("Each side is its own set, left then right.")
             }
             .listRowBackground(Color.pp(.surface))
             if customizing != nil {

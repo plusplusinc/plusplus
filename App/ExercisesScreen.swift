@@ -4,8 +4,9 @@ import SwiftUI
 import WorkoutStore
 
 /// Exercises, pushed from the drawer onto the screen that showed, with Back: the exercise list
-/// (`ExerciseListView`) under a large title. Create stores the new exercise and comes back to
-/// the list, where it shows. A tap on an exercise someone created pushes its Customize form
+/// (`ExerciseListView`) under a large title, which stays, with Back, while searching. Create
+/// stores the new exercise and comes back to the list, where it shows. A tap on an exercise someone
+/// created pushes its Customize form
 /// (`ExerciseForm`); Save and Delete come back to the list once the routines show the change.
 /// A built-in's row opens nothing yet.
 struct ExercisesScreen: View {
@@ -26,6 +27,10 @@ struct ExercisesScreen: View {
         )
         .navigationTitle("Exercises")
         .navigationBarTitleDisplayMode(.large)
+        // The title and Back stay while searching. Hidden, as by default, they came back on a
+        // pushed screen with the title under the search field for half a second, then snapped
+        // above it, and the list held its old layout until then; a plain List does the same.
+        .searchPresentationToolbarBehavior(.avoidHidingContent)
         .navigationDestination(item: $customizing) { id in
             if let created = session.exercises.created(id: id) {
                 ExerciseForm(
