@@ -150,8 +150,8 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         }
     }
 
-    /// Rows, a row's sheet with a stepper open, and the picker, with and without results, pass
-    /// the audit at this text size.
+    /// Rows, a row's sheet with a stepper open, and the picker, with results and narrowed down
+    /// to its one Create row, pass the audit at this text size.
     @MainActor
     private func auditRowsAndPicker(in app: XCUIApplication) throws {
         let name = "A sheet and the picker at AX5 pass the audit"
@@ -186,7 +186,7 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             XCTAssertTrue(app.pickerRows["Biceps curl, Dumbbells"].appears())
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
             app.searchForNothing(replacing: "curl", in: search)
-            attach(named: "picker-no-results-ax5")
+            attach(named: "picker-create-only-ax5")
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
         }
     }
