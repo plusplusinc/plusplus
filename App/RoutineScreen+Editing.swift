@@ -65,8 +65,8 @@ extension RoutineScreen {
         settleFoot(after: footDelay)
     }
 
-    /// Shuts the picker and adds what was picked or created there. A second tap while the sheet
-    /// goes down keeps the first.
+    /// Shuts the picker and adds what was picked there. A second tap while the sheet goes down
+    /// keeps the first.
     func addPicked(_ exercise: Exercise) {
         guard isPicking else { return }
         isPicking = false

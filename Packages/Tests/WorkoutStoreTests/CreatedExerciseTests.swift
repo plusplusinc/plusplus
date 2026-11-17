@@ -234,5 +234,10 @@ struct CreatedExerciseTests {
             muscleGroups: [.back],
         ))
         #expect(!made.offersCreate(for: "ring row with rotation "))
+        // A name with no letters or digits is taken once, compared whole.
+        let flexed = list.adding(CreatedExercise(name: "💪", muscleGroups: [.arms]))
+        #expect(list.offersCreate(for: "💪"))
+        #expect(!flexed.offersCreate(for: " 💪"))
+        #expect(flexed.offersCreate(for: "💪💪"))
     }
 }

@@ -95,13 +95,17 @@ extension [Exercise] {
     }
 
     /// Whether one of these is named `name`, by the search's own folding: "pull up" is
-    /// Pull-up's name. A name with no letters or digits names none.
+    /// Pull-up's name. A name with no letters or digits, such as "💪", folds to nothing, so it
+    /// is compared whole, trimmed.
     public func hasExercise(named name: String) -> Bool {
-        let name = Self.lettersAndDigits(name)
-        guard !name.isEmpty else { return false }
+        let folded = Self.lettersAndDigits(name)
+        guard !folded.isEmpty else {
+            let whole = name.trimmingCharacters(in: .whitespacesAndNewlines)
+            return !whole.isEmpty && contains { $0.name == whole }
+        }
         return contains {
             Self.lettersAndDigits($0.name)
-                .compare(name, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame
+                .compare(folded, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame
         }
     }
 
