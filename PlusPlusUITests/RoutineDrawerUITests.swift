@@ -35,6 +35,7 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
         }
         routinesScreenDrillsIn(in: app, title: title)
         exercisesSearchCoversMenu(in: app)
+        exercisesCustomizesAndDeletes(in: app)
     }
 
     /// The Routines screen lists every routine, latest first; a row or + pushes a routine with a
@@ -200,6 +201,53 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
             XCTAssertTrue(app.drawerTitle.disappears(), "Tapping the title left the drawer open")
             app.tapSearchButton()
             XCTAssertTrue(menu.appears(), "The search's X did not uncover ++")
+        }
+    }
+
+    /// In Exercises, a built-in's row opens nothing; Create in the search stores the exercise
+    /// and comes back to the list, where it shows; a tap on it pushes its Customize form; and
+    /// Delete asks before it deletes, then comes back to a list without it. What a customize or
+    /// delete does to the routines, and the count the question gives, are the package's
+    /// (`RoutineStoreCustomizeTests`, `RoutineSessionExerciseTests`); this holds the wire through
+    /// the screen's pushes and the question, which only the running app composes.
+    @MainActor
+    private func exercisesCustomizesAndDeletes(in app: XCUIApplication) {
+        XCTContext.runActivity(named: "Exercises creates, customizes, and deletes") { _ in
+            let save = app.buttons["Save"]
+            let builtIn = app.descendants(matching: .any)
+                .matching(identifier: "exercises.row").firstMatch
+            XCTAssertTrue(builtIn.appears(), "Exercises listed nothing")
+            XCTAssertFalse(builtIn.elementType == .button, "A built-in's row takes a tap")
+            builtIn.tap()
+            XCTAssertFalse(save.appears(within: 1), "A built-in's row opened a form")
+
+            app.search(for: "Zq")
+            let create = app.buttons["picker.create"]
+            XCTAssertTrue(create.appears(), "Exercises' search offered no Create")
+            create.tap()
+            XCTAssertTrue(app.textFields["newExercise.name"].appears(), "Create opened no form")
+            app.buttons["Create"].tap()
+            let row = app.pickerRows["Zq"]
+            XCTAssertTrue(row.appears(), "The created exercise isn't in the list")
+            XCTAssertTrue(row.settles(), "The created exercise's row kept moving")
+            row.tap()
+            XCTAssertTrue(save.appears(), "A created exercise's row opened no Customize form")
+            XCTAssertFalse(save.isEnabled, "Save is on before anything changed")
+            XCTAssertTrue(app.buttons["Cancel"].exists, "Customize has no Cancel")
+            XCTAssertEqual(app.textFields["newExercise.name"].value as? String, "Zq")
+
+            app.buttons["Delete exercise"].tap()
+            let question = app.staticTexts["Delete Zq?"]
+            XCTAssertTrue(question.appears(), "Delete didn't ask first")
+            XCTAssertTrue(save.exists, "Delete left the form before an answer")
+            let confirm = app.buttons.matching(identifier: "Delete exercise")
+            XCTAssertEqual(confirm.count, 2, "The question offers no Delete exercise")
+            let answer = confirm.element(boundBy: 1)
+            XCTAssertTrue(answer.settles(), "The question's Delete exercise kept moving")
+            answer.tap()
+            XCTAssertTrue(save.disappears(), "Delete didn't come back to the list")
+            XCTAssertTrue(row.disappears(), "The deleted exercise is still listed")
+            XCTAssertTrue(create.appears(), "Its name isn't free to create again")
         }
     }
 
