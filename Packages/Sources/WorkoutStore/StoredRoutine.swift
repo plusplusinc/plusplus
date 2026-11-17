@@ -43,7 +43,8 @@ enum RoutineSchemaV7: VersionedSchema {
     final class StoredRoutineExercise {
         /// The row's own identity, so duplicates of an exercise stay apart.
         var id = UUID()
-        /// The built-in exercise's slug, `Exercise.id`.
+        /// The exercise's `Exercise.id`, a built-in's slug or a created exercise's id, resolved
+        /// through `ExerciseList.exercise(id:)`.
         var exerciseID = ""
         /// A relationship is unordered, so the row carries its place.
         var position = 0

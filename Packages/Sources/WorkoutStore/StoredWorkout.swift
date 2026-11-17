@@ -45,7 +45,7 @@ enum RoutineSchemaV6: VersionedSchema {
         var id = UUID()
         var workout: StoredWorkout?
         var rowID: UUID?
-        /// The built-in exercise's slug, `Exercise.id`.
+        /// The exercise's `Exercise.id`, a built-in's slug or a created exercise's id.
         var exerciseID = ""
         /// The order it was logged in: a relationship is unordered.
         var position = 0

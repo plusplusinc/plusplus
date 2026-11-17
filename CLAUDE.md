@@ -11,7 +11,7 @@ This file is the constitution: loaded every session, kept short. Detail lives in
 `.claude/rules/*.md`, which load when you touch matching files (read the one for an area before
 planning work in it), and in `docs/`. If this file and a rules file disagree, this file wins.
 
-**Status.** The app is one screen and its drawer: a routine built from built-in exercises, each
+**Status.** The app is one screen and its drawer: a routine built from built-in exercises and ones you create, each
 with its sets, reps or time, weight, and rest, some joined into supersets, saved on the phone as
 it is edited; a workout logged set by set on that same screen; and a Routines screen listing the
 saved ones. It shows only in dark appearance (`Config/Base.xcconfig`); the light palette is seen

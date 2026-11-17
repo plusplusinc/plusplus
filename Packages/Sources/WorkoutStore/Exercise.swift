@@ -3,8 +3,9 @@ import Foundation
 /// What an exercise is: its name, the muscle groups it works, and the equipment it uses.
 /// A routine holds instances of it, as `RoutineExercise`.
 public struct Exercise: Identifiable, Equatable, Sendable {
-    /// A stable slug, so a routine can refer to a built-in exercise by something its display
-    /// name can change without breaking.
+    /// Stable, so a routine refers to the exercise by something its name can change without
+    /// breaking: a built-in's slug, or a created exercise's `created:` id
+    /// (`CreatedExercise.newID()`).
     public let id: String
     public let name: String
     /// One for a built-in, the group it mostly works; any number, all equal, for one someone
