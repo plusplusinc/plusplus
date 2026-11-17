@@ -51,8 +51,14 @@ struct DrawerMenu: View {
                     routines(contents)
                     // Pushed onto the screen showing, which stays marked under it: the drawer
                     // never opens over Exercises, whose edge swipe is Back.
-                    Button("Exercises", systemImage: "rectangle.portrait.on.rectangle.portrait") {
+                    Button {
                         session.showExercises()
+                    } label: {
+                        Label {
+                            Text("Exercises")
+                        } icon: {
+                            CircleStackSymbol()
+                        }
                     }
                     .buttonStyle(.drawer(isSelected: false))
                     // Apart from the routines, so it doesn't read as one of them.
