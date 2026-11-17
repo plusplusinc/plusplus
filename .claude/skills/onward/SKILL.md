@@ -15,8 +15,8 @@ judge, with the reason for each, since the cases it meets are never quite the on
    a slice of that feature, one without is a standalone task, and a Backlog card is never
    picked. Its State section names the worktree, branch, PR, phase, next step, and the leading
    session's id. An In Progress card led by another session that is still active
-   (`get_session` with that id, and its worktree's processes) is left to it; one naming this
-   session's own id is yours.
+   (`get_session` with that id, and its worktree's processes) is left to it, and you take the
+   next Todo card; one naming this session's own id is yours.
 2. Retitle the session for the card (`set_session_title`, with the `session_id` that
    `get_session` with no arguments returns), so the maintainer can find it later.
 3. An open nightly retro PR (`gh pr list --search "Retro of in:title"`) comes first: update it
@@ -122,8 +122,9 @@ Their time is the scarce thing, and it is for the product.
   goes straight to a builder with the card's Plan. With something to see, rounds come first
   (the builder's "Rounds"): before each install, check what they asked for in the round's
   screenshots on content like theirs, and that nothing they corrected earlier moved. The loop
-  ends on their word that it's right; then the builder's full pass and the verifier run once.
-  Work done while they are away is a round for them to try, not the end of the loop.
+  ends on their word that it's right; then the builder's full pass and the verifier run once,
+  while the next card starts (below). Work done while they are away is a round for them to
+  try, not the end of the loop.
 - **Fresh and focused.** Each round or job gets a new agent named for it, starting from the
   slice's handoff note (`.slices/sliceN-handoff.md`) and bringing it up to date; resume one
   only to finish its own job, and wait for its hand-back before acting on its work. A decision
@@ -147,6 +148,20 @@ Their time is the scarce thing, and it is for the product.
 - Rewrite the card's State section (`scripts/board.sh state <id> <<'STATE'`) whenever a phase
   ends, with this session's id, so a cleared context or another session can pick it up.
 
+## The next card starts at the go-ahead
+
+Their word that a round is right ends their part, but the full pass, verifier, and CI take an
+hour or more, so their next card starts then:
+
+1. Record the slice's decisions in the board README (Finish 4) and the card's State.
+2. Start the full-pass builder, and in the same turn propose a fresh session running `/onward`
+   in its own worktree (`start_session`). It aligns, draws, plans, and runs rounds while this
+   one finishes, one simulator agent each.
+3. Finish here without them, bringing only what Finish says is theirs, naming this card.
+
+Its planner reads this PR's diff where they share files, and its first round after this merge
+merges `origin/main` in.
+
 ## Pushes and CI
 
 Each push to a PR that changes the app spends a full Xcode Cloud run, so push only when CI's
@@ -162,16 +177,17 @@ you ask for names the commit CI is green at.
 
 ## Finish
 
-1. Look at the verifier's screenshots yourself. If the maintainer has not had the final build
-   in hand (the full pass changed what they see, or there was no round), install it and say
-   what to try.
-2. Their saying a round looks right is the go-ahead: once the full pass, the verifier, and CI
-   pass, merge and tell them in a line. Ask again only when the full pass changed something
-   they would see, or there was no round, with that build on their phone first. A card that is yours alone needs only the verifier and CI. A wait for
+1. Look at the verifier's screenshots yourself. Their saying a round looks right is the
+   go-ahead: once the full pass, the verifier, and CI pass, merge and tell them in a line. Ask
+   again only when the full pass changed something they would see, or there was no round,
+   with that build on their phone first and what to try. A card that is yours alone needs
+   only the verifier and CI. A wait for
    checks also ends when `gh pr view --json mergeable` reads `CONFLICTING`; after any merge to
    `main`, check every PR that waits.
 3. Move the card to Done, run `scripts/tidy.sh`, and delete the slice's `.slices/` files.
 4. Record the slice's decisions in the feature's section of the board README
    (`scripts/board.sh readme > .slices/readme.md`, edit that section, write the whole file
-   back, delete it), and re-plan later cards they changed.
-5. Tell the maintainer it is merged and that it's a good moment to `/clear` and run `/onward`.
+   back, delete it), and re-plan later cards they changed. Done at the go-ahead, unless the
+   full pass changed them.
+5. Tell the maintainer it is merged; with no next session running, that it's a good moment to
+   `/clear` and run `/onward`.
