@@ -315,13 +315,16 @@ public final class RoutineSession {
 }
 
 extension RoutineSession {
-    /// Lets every edit to the open routine land, then makes `change` to the stored exercises,
+    /// Lets every edit to the open routine land, then stores `change` to the exercises,
     /// and reads the open routine and the saved ones back, so each shows what it did to their
-    /// rows. Refused while a switch is under way, and holds off Start and a switch while it
-    /// runs. With no store, nothing is stored and the routines stay as they were.
+    /// rows. The list takes `listing` only once the change is stored, so a refused or failed
+    /// change shows nowhere, and a form on the exercise stays up while it saves. Refused while a
+    /// switch is under way, and holds off Start and a switch while it runs. With no store,
+    /// nothing changes.
     func changeExercises(
         weightUnit: WeightUnit,
-        _ change: (RoutineStore) async throws -> Void,
+        storing change: (RoutineStore) async throws -> Void,
+        listing: (ExerciseList) -> ExerciseList,
     ) async {
         guard !isSwitching, let store else { return }
         isSwitching = true
@@ -329,6 +332,7 @@ extension RoutineSession {
         await finishSaving()
         do {
             try await change(store)
+            exercises = listing(exercises)
             // Gone only if it was left with nothing: it reads as that, under its id.
             current = try await store.routine(current.id, weightUnit: weightUnit)
                 ?? Routine(id: current.id, name: current.name)

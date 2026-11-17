@@ -38,7 +38,7 @@ struct ExercisePicker: View {
         } label: {
             Label("Close", systemImage: "xmark")
                 .labelStyle(.iconOnly)
-                .font(.body.weight(.medium))
+                .font(.ppBarGlyph)
                 // The bar sets the X a pixel left of the circle's middle and a pixel lower;
                 // centered here, it sat that pixel off from the bar's own Close.
                 .offset(x: -1 / displayScale, y: 1 / displayScale)

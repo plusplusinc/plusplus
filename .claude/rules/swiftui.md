@@ -132,8 +132,8 @@ Each of these cost a round on this app; the code at the named spot works around 
   `accessibilityHidden`: behind the drawer each applies `.hiddenBehindDrawer()`, and a faded bar
   item hides from VoiceOver with `accessibilityShown(_:)`. A bar item's elements update only
   with its host's state, so state they read lives there (`BarSearchField`'s `isOpen`).
-- Attach a `confirmationDialog` to the whole screen, outside the `NavigationStack`; on a button
-  or the stack's content, iOS shows it as a popover with an arrow.
+- Attach a `confirmationDialog` outside the `NavigationStack`; inside, iOS shows a popover with
+  an arrow, so a pushed screen's goes on its button (`ExerciseForm`).
 - A horizontal scroll view's offset set before the room around its content is laid out stays on
   the content it showed as the room arrives: the ruler's line sat half its width past the value.
   Place a value by a scroll anchor, a fraction of the content (`RulerScale.anchor(of:)`), which

@@ -17,6 +17,11 @@ struct ExerciseSectionTests {
         ])
     }
 
+    @Test("A heading is one letter, even where a capital is two")
+    func oneLetter() {
+        #expect(Self.exercises(["ßquat"]).lettered().map(\.letter) == ["S"])
+    }
+
     @Test("A name starting with no letter goes under #, last")
     func other() {
         let sections = Self.exercises(["3-point plank", "💪 curl", "Bench", "Squat"]).lettered()

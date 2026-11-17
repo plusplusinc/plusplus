@@ -43,6 +43,11 @@ extension Font {
     public static let ppPlusOne = Font.system(.title3, design: .monospaced, weight: .bold)
     /// A floating button's icon, such as Add exercise's +.
     public static let ppFloatingIcon = Font.system(.title2, weight: .semibold)
+    /// A glass bar button's glyph, such as search's magnifying glass and Close's X, at the
+    /// weight the bar's own Close draws.
+    public static let ppBarGlyph = Font.system(.body, weight: .medium)
+    /// A checklist row's circle and check.
+    public static let ppCheckMark = Font.system(.title3)
     /// The ++ mark: monospaced so the two pluses read as one glyph.
     public static let ppMark = Font.system(.title2, design: .monospaced, weight: .bold)
 }

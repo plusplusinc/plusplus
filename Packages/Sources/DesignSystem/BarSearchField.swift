@@ -215,7 +215,7 @@ public struct BarSearchField<Leading: View>: View {
                 symbol("magnifyingglass", isShown: !isOpen)
                 symbol("xmark", isShown: isOpen)
             }
-            .font(.body.weight(.medium))
+            .font(.ppBarGlyph)
             .foregroundStyle(.pp(.textPrimary))
         }
         .buttonStyle(.barGlass(width: height))

@@ -166,7 +166,10 @@ struct ExerciseForm: View {
         .navigationBarBackButtonHidden()
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
+                // Not once confirmed: the host pops the form when its save lands, and would pop
+                // whatever was pushed after it.
                 Button("Cancel") { dismiss() }
+                    .disabled(isConfirming)
             }
             ToolbarItem(placement: .confirmationAction) {
                 Button(confirmTitle) { confirm() }

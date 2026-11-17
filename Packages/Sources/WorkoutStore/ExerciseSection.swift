@@ -39,8 +39,10 @@ extension [Exercise] {
         guard let first = name.trimmingCharacters(in: .whitespacesAndNewlines).first,
               first.isLetter
         else { return ExerciseSection.otherLetter }
-        return String(first)
+        // One character: ß capitalizes to SS.
+        return String(String(first)
             .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
             .uppercased()
+            .prefix(1))
     }
 }

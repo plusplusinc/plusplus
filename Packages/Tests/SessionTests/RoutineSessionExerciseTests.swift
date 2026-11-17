@@ -81,4 +81,17 @@ struct RoutineSessionExerciseTests {
         let saved = try #require(session.recent.first { $0.id == other.id })
         #expect(saved.exercises.isEmpty)
     }
+
+    @Test("A change that can't be stored leaves the list as it was")
+    func unstoredChangeListsNothing() async {
+        let session = RoutineSession(routine: Routine(), store: nil, namer: .muscleGroupsOnly)
+        let created = CreatedExercise(name: "Cable curl", muscleGroups: [.arms])
+        _ = await session.create(created)
+        var renamed = created
+        renamed.name = "Hammer curl"
+        await session.customize(renamed, weightUnit: .pounds)
+        #expect(session.exercises.created(id: created.id) == created)
+        await session.deleteExercise(created.id, weightUnit: .pounds)
+        #expect(session.exercises.created(id: created.id) == created)
+    }
 }

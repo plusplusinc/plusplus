@@ -19,14 +19,20 @@ extension RoutineSession {
     /// Saves a created exercise's new settings. Every routine's rows of it read them at once,
     /// keeping their sets, reps or time, and weight; an automatic rest follows its new groups.
     public func customize(_ created: CreatedExercise, weightUnit: WeightUnit) async {
-        exercises = exercises.adding(created)
-        await changeExercises(weightUnit: weightUnit) { try await $0.save(created) }
+        await changeExercises(
+            weightUnit: weightUnit,
+            storing: { try await $0.save(created) },
+            listing: { $0.adding(created) },
+        )
     }
 
     /// Deletes a created exercise, and its rows from every routine that uses it.
     public func deleteExercise(_ id: Exercise.ID, weightUnit: WeightUnit) async {
-        exercises = exercises.removing(id)
-        await changeExercises(weightUnit: weightUnit) { try await $0.deleteExercise(id) }
+        await changeExercises(
+            weightUnit: weightUnit,
+            storing: { try await $0.deleteExercise(id) },
+            listing: { $0.removing(id) },
+        )
     }
 
     /// The routines with a row of `id`, the latest opened or edited first.

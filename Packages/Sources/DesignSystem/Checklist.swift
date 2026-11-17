@@ -54,7 +54,7 @@ public struct Checklist<Item: Hashable>: View {
                                     .foregroundStyle(Color.pp(.accent))
                                     .opacity(isChecked ? 1 : 0)
                             }
-                            .font(.title3)
+                            .font(.ppCheckMark)
                             .accessibilityHidden(true)
                         }
                     }
