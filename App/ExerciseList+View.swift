@@ -9,7 +9,11 @@ import WorkoutStore
 /// Down the trailing edge, the system's section index lists the letters that have an exercise
 /// (`lettered()`), in green; a tap on one jumps to its heading, and a drag along it scrubs
 /// through them. VoiceOver reads it as one adjustable "Section index". It hides while
-/// searching, when the matches are few and the keyboard covers most of it.
+/// searching and while the keyboard is up, when the matches are few and the keyboard covers
+/// most of it.
+///
+/// Exercises has its search in the bar beside Back (`BarSearchField`); Add exercise has the
+/// system's, in a drawer under its title.
 ///
 /// Search does not take focus when the list opens. The list is the fast path: with the
 /// keyboard down, the whole list is in reach of a thumb and a pick is one tap.
@@ -29,12 +33,16 @@ struct ExerciseListView: View {
     /// closing around it. Its button reads Create there, since nothing goes into a routine,
     /// and Add where it does.
     var returnsAfterCreate = false
+    /// Whether search sits in the bar's middle, in line with Back (`BarSearchField`), rather
+    /// than in a drawer under the title.
+    var searchesInBar = false
     /// Stores the exercise; the host decides what shows next.
     let onCreate: (CreatedExercise) async -> Void
 
     @State private var query = ""
     /// The name the form opens with, while it shows.
     @State private var creating: String?
+    @State private var isKeyboardUp = false
 
     var body: some View {
         let sections = exercises.matching(query).lettered()
@@ -48,14 +56,26 @@ struct ExerciseListView: View {
                         .fontWeight(.semibold)
                         .foregroundStyle(.pp(.textSecondary))
                 }
-                .sectionIndexLabel(Text(section.letter))
+                .indexLabel(section.letter, isShown: showsIndex)
             }
             if exercises.offersCreate(for: query) {
                 createRow
             }
         }
         .listStyle(.plain)
-        .listSectionIndexVisibility(query.isEmpty ? .visible : .hidden)
+        // From the keyboard's start up to the end of its way down: the index fits itself to the
+        // list's room, which follows the keyboard, and shown meanwhile it squashed to a third of
+        // its height and grew back.
+        .onReceive(NotificationCenter.default.publisher(
+            for: UIResponder.keyboardWillShowNotification,
+        )) { _ in
+            isKeyboardUp = true
+        }
+        .onReceive(NotificationCenter.default.publisher(
+            for: UIResponder.keyboardDidHideNotification,
+        )) { _ in
+            isKeyboardUp = false
+        }
         // The index takes the tint: green, as in the design, rather than the system's blue,
         // which in this app marks something arriving.
         .tint(.pp(.accent))
@@ -64,11 +84,7 @@ struct ExerciseListView: View {
         // and takes it back more slowly than the keyboard leaves, and the window's black showed
         // in between.
         .containerBackground(Color.pp(.background), for: .navigation)
-        .searchable(
-            text: $query,
-            placement: .navigationBarDrawer(displayMode: .always),
-            prompt: "Search",
-        )
+        .searchField(text: $query, inBar: searchesInBar)
         .navigationDestination(item: $creating) { name in
             ExerciseForm(
                 name: name,
@@ -82,6 +98,10 @@ struct ExerciseListView: View {
                 }
             }
         }
+    }
+
+    private var showsIndex: Bool {
+        query.isEmpty && !isKeyboardUp
     }
 
     @ViewBuilder
@@ -120,6 +140,59 @@ struct ExerciseListView: View {
         .listRowBackground(Color.pp(.background))
         .listRowSeparator(.hidden, edges: .bottom)
         .accessibilityIdentifier("picker.create")
+    }
+}
+
+extension View {
+    /// The section's letter in the index, or none. The index drops out with its labels; a
+    /// change to `listSectionIndexVisibility` alone left it shown until the list's rows changed.
+    @ViewBuilder
+    fileprivate func indexLabel(_ letter: String, isShown: Bool) -> some View {
+        if isShown {
+            sectionIndexLabel(Text(letter))
+        } else {
+            self
+        }
+    }
+
+    fileprivate func searchField(text: Binding<String>, inBar: Bool) -> some View {
+        modifier(SearchField(text: text, inBar: inBar))
+    }
+}
+
+/// Search in a drawer under the title, the system's, or in the bar beside Back.
+private struct SearchField: ViewModifier {
+    @Binding var text: String
+    let inBar: Bool
+
+    /// The screen's width, which the bar's field spans but for Back.
+    @State private var width: CGFloat = 0
+
+    /// What the field leaves of the bar's width: the margins on both sides, Back, and the gap
+    /// after it. A bar item hugs its content, and the middle one stays centered, so the field
+    /// gets its width from the screen's.
+    private static let besideBack: CGFloat = 16 + 44 + 8 + 16
+
+    func body(content: Content) -> some View {
+        if inBar {
+            content
+                .onGeometryChange(for: CGFloat.self, of: \.size.width) { width = $0 }
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        BarSearchField(text: $text, prompt: "Search")
+                            .frame(width: max(0, width - Self.besideBack))
+                    }
+                    .sharedBackgroundVisibility(.hidden)
+                }
+                // As the system's search does: a drag down the list drops the keyboard.
+                .scrollDismissesKeyboard(.immediately)
+        } else {
+            content.searchable(
+                text: $text,
+                placement: .navigationBarDrawer(displayMode: .always),
+                prompt: "Search",
+            )
+        }
     }
 }
 
