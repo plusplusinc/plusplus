@@ -5,10 +5,10 @@ import WorkoutStore
 /// A list pushed from one of New exercise's rows, Muscle groups or Equipment: every case, any
 /// number checked, a tap toggling one. Rows with checkmarks rather than `List(selection:)`,
 /// which needs edit mode on iPhone. Each checkmark keeps its room and fades, so a row's text
-/// never moves.
+/// never moves. Each tap plays the system's selection tick. No note under the list: the
+/// screen's title says what it is.
 struct Checklist<Item: NamedCase>: View {
     let title: String
-    let footer: String
     @Binding var checked: Set<Item>
 
     var body: some View {
@@ -38,11 +38,10 @@ struct Checklist<Item: NamedCase>: View {
                     }
                     .accessibilityAddTraits(isChecked ? .isSelected : [])
                 }
-            } footer: {
-                Text(footer)
             }
             .listRowBackground(Color.pp(.surface))
         }
+        .sensoryFeedback(.selection, trigger: checked)
         .scrollContentBackground(.hidden)
         .background(Color.pp(.background))
         .navigationTitle(title)
@@ -53,6 +52,6 @@ struct Checklist<Item: NamedCase>: View {
 #Preview {
     @Previewable @State var checked: Set<MuscleGroup> = [.back, .shoulders]
     NavigationStack {
-        Checklist(title: "Muscle groups", footer: "Check all it works.", checked: $checked)
+        Checklist(title: "Muscle groups", checked: $checked)
     }
 }
