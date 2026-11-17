@@ -54,7 +54,7 @@ struct ExerciseListSnapshotTests {
         assertThemedSnapshots(of: bar(isOpen: false) { plusPlus }, width: Self.screenWidth)
     }
 
-    @Test("Open, the field spans the bar over ++, its X where the search button was")
+    @Test("Open, the field spans the bar in ++'s place, its X where the search button was")
     func openOverMenu() {
         assertThemedSnapshots(of: bar(isOpen: true) { plusPlus }, width: Self.screenWidth)
     }

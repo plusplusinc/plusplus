@@ -42,13 +42,13 @@ public struct BarSearchField<Leading: View>: View {
     let title: LocalizedStringKey?
     /// Where the title centers, the screen's middle, in global coordinates.
     let titleCenterX: CGFloat
-    /// The bar's leading button, drawn at the item's leading edge for the field to cover. It
+    /// The bar's leading button, drawn at the item's leading edge for the field to take over. It
     /// brings its own glass (`BarGlassButtonStyle`).
     let leading: Leading
 
     /// `isOpen` is the host's: the bar reads its item's elements again only as the host's state
     /// changes. Kept inside the item, the open field read as closed to VoiceOver and the UI
-    /// tests, and the covered button stayed in reach.
+    /// tests.
     public init(
         text: Binding<String>,
         isOpen: Binding<Bool>,
@@ -122,7 +122,7 @@ public struct BarSearchField<Leading: View>: View {
         }
     }
 
-    /// Fades on the field's curve as the field slides over it, and back as the field leaves it;
+    /// Fades on the field's curve as the field stretches over it, and back as the field leaves it;
     /// with Reduce Motion the two crossfade.
     @ViewBuilder
     private var coveredTitle: some View {

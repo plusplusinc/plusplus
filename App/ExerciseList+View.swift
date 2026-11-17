@@ -13,8 +13,8 @@ import WorkoutStore
 /// most of it.
 ///
 /// Both have search as a round button at the bar's top trailing edge, which opens out to the
-/// left into a field across the bar (`BarSearchField`), sliding over the bar's leading button:
-/// ++ in Exercises, under its large title, and Close in Add exercise, where it slides over the
+/// left into a field across the bar (`BarSearchField`), which the bar's leading button turns into:
+/// ++ in Exercises, under its large title, and Close in Add exercise, where the field covers the
 /// inline title too.
 ///
 /// Search does not take focus when the list opens. The list is the fast path: with the
@@ -39,7 +39,7 @@ struct ExerciseListView<BarLeading: View>: View {
     /// opens; nil leaves the bar's own title.
     var barTitle: LocalizedStringKey?
     /// The host's leading bar button, drawn by the bar's search in its own item so its field
-    /// covers the button as it opens; the host puts none in its toolbar.
+    /// takes the button's place as it opens; the host puts none in its toolbar.
     let barLeading: BarLeading
     /// Stores the exercise; the host decides what shows next.
     let onCreate: (CreatedExercise) async -> Void

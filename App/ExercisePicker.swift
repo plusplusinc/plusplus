@@ -4,8 +4,8 @@ import WorkoutStore
 
 /// The sheet Add exercise opens: the exercise list (`ExerciseListView`) on a stack of its own,
 /// with Close. Picking one hands it back; the presenter closes the sheet. Its inline title and
-/// Close are drawn by the bar's search, whose field covers both as it opens and reveals them as
-/// it closes; while covered, Close takes no taps. A swipe down closes the sheet at any time.
+/// Close are drawn by the bar's search: Close turns into its field as it opens, which covers the
+/// title, and back as it closes. A swipe down closes the sheet at any time.
 struct ExercisePicker: View {
     let exercises: ExerciseList
     let onPick: (Exercise) -> Void
