@@ -9,8 +9,9 @@ import WorkoutStore
 /// keyboard down, the whole list is in reach of a thumb and a pick is one tap.
 ///
 /// Create follows the typing (`ExerciseList.offersCreate(for:)`): with something typed and no
-/// exercise of exactly that name, Create “…” is the last row of the matches, or, with none, a
-/// button under the no-results view. It pushes `NewExerciseForm` on the sheet's own stack, so
+/// exercise of exactly that name, Create “…” is the list's last row; with no matches it is the
+/// only row, so the list narrows down to it and there is no separate no-results view. It pushes
+/// `NewExerciseForm` on the sheet's own stack, so
 /// Cancel comes back to the search as it was. Neutral, not green: green is data and the +.
 struct ExercisePicker: View {
     let exercises: ExerciseList
@@ -27,39 +28,22 @@ struct ExercisePicker: View {
         let matches = exercises.matching(query)
         let offersCreate = exercises.offersCreate(for: query)
         NavigationStack {
-            Group {
-                if matches.isEmpty {
-                    // In a scroll view, which keeps clear of the search field and the keyboard
-                    // and scrolls when the text is too large for the room left. Centered over the
-                    // list, it slid under both at the largest text sizes.
-                    ScrollView {
-                        VStack(spacing: Spacing.md) {
-                            ContentUnavailableView.search(text: query)
-                            if offersCreate {
-                                createButton
-                            }
-                        }
+            List {
+                ForEach(matches) { exercise in
+                    Button {
+                        onPick(exercise)
+                    } label: {
+                        RowLabel(title: exercise.name, detail: exercise.equipmentLine)
                     }
-                    .defaultScrollAnchor(.center, for: .alignment)
-                } else {
-                    List {
-                        ForEach(matches) { exercise in
-                            Button {
-                                onPick(exercise)
-                            } label: {
-                                RowLabel(title: exercise.name, detail: exercise.equipmentLine)
-                            }
-                            .listRowBackground(Color.pp(.background))
-                            .accessibilityIdentifier("picker.exercise")
-                        }
-                        if offersCreate {
-                            createRow
-                        }
-                    }
-                    .listStyle(.plain)
-                    .scrollContentBackground(.hidden)
+                    .listRowBackground(Color.pp(.background))
+                    .accessibilityIdentifier("picker.exercise")
+                }
+                if offersCreate {
+                    createRow
                 }
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
             .background(Color.pp(.background))
             .navigationTitle("Add exercise")
             .navigationBarTitleDisplayMode(.inline)
@@ -93,21 +77,6 @@ struct ExercisePicker: View {
 
     private var trimmedQuery: String {
         query.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private var createButton: some View {
-        Button {
-            creating = trimmedQuery
-        } label: {
-            Label(createTitle, systemImage: "plus")
-                .font(.ppButton)
-        }
-        .buttonStyle(.bordered)
-        .buttonBorderShape(.capsule)
-        .controlSize(.large)
-        .tint(Color.pp(.textPrimary))
-        .padding(.horizontal, Spacing.lg)
-        .accessibilityIdentifier("picker.create")
     }
 
     private var createRow: some View {
