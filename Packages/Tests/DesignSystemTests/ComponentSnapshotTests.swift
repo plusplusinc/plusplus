@@ -54,7 +54,7 @@ struct ComponentSnapshotTests {
             minHeight: rows.isEmpty ? Self.screenHeight : nil,
             alignment: .topLeading,
         )
-        .emptyNote("No exercises", isEmpty: rows.isEmpty) { }
+        .emptyNote("No exercises", isEmpty: rows.isEmpty)
         .primaryKeyBar(isPresented: !rows.isEmpty, floatsLow: rows.isEmpty) {
             Button("Start", systemImage: "play.fill") { }
         } floating: {

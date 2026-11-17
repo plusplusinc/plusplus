@@ -9,6 +9,28 @@ import XCTest
 ///
 /// `nonisolated` because XCTestCase's initializers are; the test drives the UI on the main actor.
 final nonisolated class RoutineDrawerUITests: XCTestCase {
+    /// On a saved routine opened with exercises in, a tap in the empty space below the last row
+    /// opens the picker at half height, as the first sheet the screen opens. Here, not after a
+    /// pick, because the first opening is where a height set from the last one showed full. The
+    /// picker's search is a bar button until tapped, so its Close, in the same bar, marks the
+    /// sheet's top.
+    @MainActor
+    private func openPickerFromBelowRows(in app: XCUIApplication) {
+        let close = app.buttons["Close"]
+        XCTContext.runActivity(named: "A tap below the last row opens the picker half up") { _ in
+            app.exerciseRows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 1))
+                .withOffset(CGVector(dx: 0, dy: 120)).tap()
+            XCTAssertTrue(close.appears(within: 2), "The tap below the last row opened no picker")
+            XCTAssertGreaterThan(
+                close.frame.minY,
+                app.frame.height / 3,
+                "The picker opened full height from a tap below the rows",
+            )
+            close.tap()
+            XCTAssertTrue(close.disappears(), "Close left the picker up")
+        }
+    }
+
     /// From one saved routine, the drawer's places, a second routine made and both opened from
     /// the Routines screen, and Exercises.
     @MainActor
@@ -16,6 +38,7 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
         let app = XCUIApplication()
         // Seeded, since the add is `RoutineAutosaveUITests`'.
         let title = app.launchSeeding(["barbell-bench-press"], arguments: ["-fallbackNames", "YES"])
+        openPickerFromBelowRows(in: app)
         XCTContext.runActivity(named: "The drawer offers Routines and Exercises") { _ in
             XCTAssertEqual(title.value(becoming: "Chest"), "Chest")
             XCTAssertTrue(app.buttons["Add exercise"].exists)

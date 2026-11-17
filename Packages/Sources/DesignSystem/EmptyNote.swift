@@ -24,21 +24,15 @@ public struct EmptyNote: View {
 }
 
 extension View {
-    /// While `isEmpty`, `text` as an `EmptyNote` over the view, and a tap anywhere on the view
-    /// runs `onTap`, alongside the taps of what is in it, as a tap in an empty routine's space
-    /// opens the picker. The line fades in and out with the change that empties or fills it.
-    public func emptyNote(
-        _ text: String,
-        isEmpty: Bool,
-        onTap: @escaping () -> Void,
-    ) -> some View {
+    /// While `isEmpty`, `text` as an `EmptyNote` over the view. The line fades in and out with
+    /// the change that empties or fills it.
+    public func emptyNote(_ text: String, isEmpty: Bool) -> some View {
         overlay {
             if isEmpty {
                 EmptyNote(text)
                     .transition(.opacity)
             }
         }
-        .simultaneousGesture(TapGesture().onEnded(onTap), isEnabled: isEmpty)
     }
 }
 
