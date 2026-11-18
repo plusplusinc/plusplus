@@ -20,9 +20,10 @@ struct RoundSteps {
 }
 
 /// A routine row's values, a `ValueRow` for each part its exercise has, under the exercise's
-/// equipment. A row's stepper opens one at a time. Changes apply as they're made; Remove is in
-/// the menu.
-struct ExerciseSheet: View {
+/// equipment. A row's stepper opens one at a time. Changes apply as they're made. The More menu
+/// holds Customize…, which pushes the exercise's Customize form inside the sheet (its back
+/// chevron returns to the sheet, the change showing), and Remove.
+struct ExerciseSheet<Customize: View>: View {
     @Binding var item: RoutineExercise
     /// The names of the exercises in a superset with it, which share its round count, or nil.
     let partners: String?
@@ -30,8 +31,11 @@ struct ExerciseSheet: View {
     let parts: [SheetPart]
     /// Its superset's rest; nil for a plain row.
     var rounds: RoundSteps?
+    /// The exercise's Customize form; its closure goes back to the sheet.
+    @ViewBuilder let customize: (_ back: @escaping () -> Void) -> Customize
     let onDelete: () -> Void
 
+    @State private var isCustomizing = false
     @State private var open: SheetPart?
     @State private var detent = PresentationDetent.medium
     /// The height the sheet grew to, to fit a row as it opened; a detent from then on, so the
@@ -88,12 +92,18 @@ struct ExerciseSheet: View {
             .background(Color.pp(.background))
             .navigationTitle(item.exercise.name)
             .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(isPresented: $isCustomizing) {
+                customize { isCustomizing = false }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(role: .close) { dismiss() }
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Menu("More", systemImage: "ellipsis") {
+                        Button("Customize…", systemImage: "slider.horizontal.3") {
+                            isCustomizing = true
+                        }
                         Button("Remove", systemImage: "minus.circle", role: .destructive) {
                             dismiss()
                             onDelete()
@@ -163,7 +173,9 @@ struct ExerciseSheet: View {
     }
 
     /// Room for a "10:00" label each 30 s, six 5 s ticks apart, with a gap between labels.
-    private static let timeSpacing: CGFloat = 10
+    private static var timeSpacing: CGFloat {
+        10
+    }
 
     /// A ruler in seconds, a timed set's or a rest's: a tick each 5 s, so a drag can rest on any
     /// 5 s (a rest's − / + still go to its 15 s marks), taller each 15 s, labeled each 30 s in

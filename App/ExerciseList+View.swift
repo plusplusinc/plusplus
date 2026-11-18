@@ -3,8 +3,7 @@ import SwiftUI
 import WorkoutStore
 
 /// Every exercise, built-in and created, A to Z under letter headings, narrowed by search: the
-/// one list both Add exercise (`ExercisePicker`) and Exercises (`ExercisesScreen`) show. They
-/// differ only in what a tap on a row does and in how they open.
+/// list Add exercise (`ExercisePicker`) shows.
 ///
 /// Down the trailing edge, the system's section index lists the letters that have an exercise
 /// (`lettered()`), in green; a tap on one jumps to its heading, and a drag along it scrubs
@@ -12,10 +11,9 @@ import WorkoutStore
 /// searching and while the keyboard is up, when the matches are few and the keyboard covers
 /// most of it.
 ///
-/// Both have search as a round button at the bar's top trailing edge, which opens out to the
-/// left into a field across the bar (`BarSearchField`), which the bar's leading button turns into:
-/// ++ in Exercises and Close in Add exercise. The field covers the bar's title too: Add exercise's
-/// always, and Exercises' once its title in the list has gone under the bar.
+/// Search is a round button at the bar's top trailing edge, which opens out to the left into a
+/// field across the bar (`BarSearchField`), which the bar's leading button, Close, turns into.
+/// The field covers the bar's title too.
 ///
 /// Search does not take focus when the list opens. The list is the fast path: with the
 /// keyboard down, the whole list is in reach of a thumb and a pick is one tap.

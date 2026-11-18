@@ -78,24 +78,6 @@ struct RoutineSessionScreenTests {
         #expect(session.showing == .routine)
     }
 
-    @Test("Exercises from the drawer shows it, marked, and leaves the routine and workout be")
-    func showExercises() throws {
-        let routine = Routine(name: "Upper")
-        let session = session(routine)
-        let edited = try addingExercise(to: routine, in: session)
-        // A finished workout, since a running one keeps the drawer shut.
-        session.start(on: edited.id)
-        session.finish()
-        let workout = session.workout
-        session.openDrawer()
-        session.showExercises()
-        #expect(session.screen == .exercises)
-        #expect(session.showing == .exercises)
-        #expect(!session.isDrawerOpen)
-        #expect(session.current == edited)
-        #expect(session.workout == workout)
-    }
-
     @Test("Back from a pushed routine shows the list again")
     func back() async {
         let session = await pushedSession()

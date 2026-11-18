@@ -65,6 +65,36 @@ extension RoutineScreen {
         settleFoot(after: footDelay)
     }
 
+    /// A row's sheet, its More menu's Customize… pushing the exercise's form inside it. Each
+    /// change shows in the routine behind it as it is stored; a Delete there takes the row and
+    /// shuts the sheet.
+    @ViewBuilder
+    func exerciseSheet(_ id: RoutineExercise.ID) -> some View {
+        if let item = row(id) {
+            ExerciseSheet(
+                item: item,
+                partners: routine.partnerNames(of: id),
+                parts: routine.sheetParts(of: id),
+                rounds: roundSteps(of: id),
+                customize: { back in
+                    CustomizeScreen(
+                        id: item.wrappedValue.exercise.id,
+                        session: session,
+                        namer: namer,
+                        onStored: {
+                            showStoredRoutine()
+                            if row(id) == nil {
+                                editing = nil
+                            }
+                        },
+                        back: back,
+                    )
+                },
+                onDelete: { delete(id, footDelay: Self.exerciseSheetGone) },
+            )
+        }
+    }
+
     /// Add exercise's sheet. A created exercise is stored before its row is added, so the
     /// routine's save that names it lands after it; the row goes in even if the sheet was swiped
     /// down meanwhile. Its Customize form shows inside the sheet.
