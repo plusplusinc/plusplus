@@ -103,7 +103,8 @@ struct ScrollBeatTests {
         await task.value
     }
 
-    /// The order run 481 met: a landing asked for, and the row's next place in before the list
+    /// The order a slow machine met after Start: a landing asked for, and the row's next place in
+    /// before the list
     /// reports the scroll. Read from the report alone, the list was elsewhere, so nothing landed
     /// it again.
     @Test("A landing asked for and not yet reported counts as resting there")

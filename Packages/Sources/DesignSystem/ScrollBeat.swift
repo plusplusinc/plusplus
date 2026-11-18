@@ -57,11 +57,12 @@ public final class ScrollBeat {
     }
 
     /// Whether the list rests on `y` or is on its way there: `position` was last scrolled to `y`,
-    /// or, scrolled by a finger, which clears the position's `y`, or to an edge, the list reports
-    /// `y`. A scroll asked for is reported a frame or more later, after the next layout may have
-    /// moved what it was aimed at.
+    /// or, scrolled by a finger or to an edge, the list reports `y`. A scroll asked for is
+    /// reported a frame or more later, after the next layout may have moved what it was aimed at.
     public func rests(on y: CGFloat, asked position: ScrollPosition) -> Bool {
-        abs((position.y ?? scrolledY) - y) < 1
+        // A finger's scroll also clears `y` (iOS 27.2); the documented flag doesn't rely on it.
+        let asked = position.isPositionedByUser ? nil : position.y
+        return abs((asked ?? scrolledY) - y) < 1
     }
 
     public func listMoved(to scrolledY: CGFloat) {
