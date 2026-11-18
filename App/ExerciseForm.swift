@@ -15,13 +15,16 @@ import WorkoutStore
 /// as its edit ends (Return, a tap elsewhere, or going back), never per keystroke. A name that
 /// can't be saved (empty, or another exercise's) goes back to the stored one as its edit ends.
 /// Below the settings, Used in reads how many routines have a row of it and opens their names
-/// (`UsedInList`); last, Delete exercise, in red, asks first, with that count.
+/// (`UsedInList`); last, Delete exercise, in red, asks first, with that count. A built-in's
+/// form, pushed from its row in Exercises, ends instead in Clear customizations, red, disabled
+/// while nothing differs from how it shipped; it asks first, listing what changed, and puts the
+/// form back as shipped.
 struct ExerciseForm: View {
     /// What the form ends in: Delete exercise for one someone created, Clear customizations for
     /// a built-in, with the settings it shipped with.
     enum Ending {
         case delete(() async -> Void)
-        case clear(original: ExerciseSettings)
+        case clear(original: ExerciseSettings, () async -> Void)
     }
 
     /// The exercise customized, which its name may stay the name of.
@@ -41,6 +44,7 @@ struct ExerciseForm: View {
     @State private var lastSave: Task<Void, Never>?
     @State private var isDeleting = false
     @State private var isAskingToDelete = false
+    @State private var isAskingToClear = false
     @FocusState private var isNameFocused: Bool
     @Environment(\.dynamicTypeSize) private var typeSize
 
@@ -59,15 +63,6 @@ struct ExerciseForm: View {
         self.ending = ending
         _stored = State(initialValue: settings)
         _name = State(initialValue: settings.name)
-    }
-
-    /// A built-in's settings, which nothing stores yet, so they don't take a change.
-    private var isLocked: Bool {
-        if case .clear = ending {
-            true
-        } else {
-            false
-        }
     }
 
     private var trimmedName: String {
@@ -89,7 +84,7 @@ struct ExerciseForm: View {
     /// Saves the stored exercise with `change`, after any save still landing. Not once Delete is
     /// confirmed: a save then would put the exercise back.
     private func save(_ change: (inout ExerciseSettings) -> Void) {
-        guard !isDeleting, !isLocked else { return }
+        guard !isDeleting else { return }
         var exercise = stored
         change(&exercise)
         guard exercise != stored else { return }
@@ -122,7 +117,6 @@ struct ExerciseForm: View {
                 }
             }
             .listRowBackground(Color.pp(.surface))
-            .disabled(isLocked)
             Section {
                 NavigationLink {
                     Checklist(
@@ -146,7 +140,6 @@ struct ExerciseForm: View {
                 }
             }
             .listRowBackground(Color.pp(.surface))
-            .disabled(isLocked)
             Section {
                 Picker("Measure", selection: saving(\.measure)) {
                     ForEach(Measure.allCases, id: \.self) { measure in
@@ -156,17 +149,12 @@ struct ExerciseForm: View {
                 .pickerStyle(.menu)
                 .tint(Color.pp(.textSecondary))
                 Toggle("Per side", isOn: saving(\.isPerSide))
-            } footer: {
-                if case .clear = ending {
-                    Text("Built in.")
-                }
             }
             .listRowBackground(Color.pp(.surface))
-            .disabled(isLocked)
             usedInSection
             switch ending {
             case let .delete(onDelete): deleteSection(onDelete)
-            case let .clear(original): clearSection(original)
+            case let .clear(original, onClear): clearSection(original, onClear)
             }
         }
         .scrollContentBackground(.hidden)
@@ -197,14 +185,45 @@ struct ExerciseForm: View {
         .listRowBackground(Color.pp(.surface))
     }
 
-    /// Red, as Delete is; nothing to clear yet while the settings are as they shipped.
-    private func clearSection(_ original: ExerciseSettings) -> some View {
+    /// Red, as Delete is; nothing to clear while the settings are as they shipped. It asks
+    /// first, saying what changed; confirmed, the form reads as shipped.
+    private func clearSection(
+        _ original: ExerciseSettings,
+        _ onClear: @escaping () async -> Void,
+    ) -> some View {
         Section {
-            Button("Clear customizations", role: .destructive) { }
-                .frame(maxWidth: .infinity)
-                .disabled(stored == original)
+            Button("Clear customizations", role: .destructive) {
+                isAskingToClear = true
+            }
+            .frame(maxWidth: .infinity)
+            .disabled(stored == original)
+            // On the button, as Delete's is.
+            .confirmationDialog(
+                "Clear your customizations to \(original.name)?",
+                isPresented: $isAskingToClear,
+                titleVisibility: .visible,
+            ) {
+                Button("Clear customizations", role: .destructive) {
+                    let previous = lastSave
+                    lastSave = Task {
+                        await previous?.value
+                        await onClear()
+                        stored = original
+                        name = original.name
+                    }
+                }
+            } message: {
+                Text(clearMessage(from: original))
+            }
         }
         .listRowBackground(Color.pp(.surface))
+    }
+
+    /// What changed, then that the routines' numbers stay.
+    private func clearMessage(from original: ExerciseSettings) -> String {
+        let changes = stored.changes(from: original).joined(separator: ", ")
+        return String(localized: "Changed from the original: \(changes).") + " "
+            + String(localized: "Sets, reps, and weights in your routines stay.")
     }
 
     private func deleteSection(_ onDelete: @escaping () async -> Void) -> some View {
@@ -325,7 +344,7 @@ struct UsedInList: View {
             exercises: .builtIn,
             usedIn: ["Push day"],
             onSave: { _ in },
-            ending: .clear(original: bench),
+            ending: .clear(original: bench) { },
         )
     }
 }

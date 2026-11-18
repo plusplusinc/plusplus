@@ -47,7 +47,12 @@ struct RoutineSessionExerciseTests {
         let other = Routine(name: "Other", exercises: [row])
         try await store.save(other, at: Date(timeIntervalSinceReferenceDate: 1))
         let open = Routine(name: "Open", exercises: [row])
-        let session = RoutineSession(routine: open, store: store, namer: .muscleGroupsOnly)
+        let session = try await RoutineSession(
+            routine: open,
+            exercises: store.exercises(),
+            store: store,
+            namer: .muscleGroupsOnly,
+        )
         await session.refreshRecent(weightUnit: .pounds)
         var edited = open
         let pushUp = try #require(Exercise.builtIn(id: "push-up"))
@@ -63,7 +68,7 @@ struct RoutineSessionExerciseTests {
         #expect(session.routines(using: created.id).map(\.name) == ["Open", "Other"])
         var renamed = created
         renamed.name = "Hammer curl"
-        await session.customize(renamed, weightUnit: .pounds)
+        await session.customize(renamed.id, to: renamed.settings, weightUnit: .pounds)
         #expect(session.exercises.created(id: created.id) == renamed)
         #expect(session.current.exercises.map(\.exercise.name) == ["Hammer curl", "Push-up"])
         let saved = try #require(session.recent.first { $0.id == other.id })
@@ -89,7 +94,7 @@ struct RoutineSessionExerciseTests {
         _ = await session.create(created)
         var renamed = created
         renamed.name = "Hammer curl"
-        await session.customize(renamed, weightUnit: .pounds)
+        await session.customize(renamed.id, to: renamed.settings, weightUnit: .pounds)
         #expect(session.exercises.created(id: created.id) == created)
         await session.deleteExercise(created.id, weightUnit: .pounds)
         #expect(session.exercises.created(id: created.id) == created)

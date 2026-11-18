@@ -4,8 +4,9 @@ import WorkoutStore
 
 /// An exercise's Customize form (`ExerciseForm`) wired to the session, as Exercises and Add
 /// exercise push it. A created exercise's: each change stored as made, and Delete removing the
-/// exercise and its rows, then going `back`. A built-in's: its settings as it shipped, ending in
-/// Clear customizations. Nothing shows for an id the list no longer has.
+/// exercise and its rows, then going `back`. A built-in's: each change stored as made, apart from
+/// the catalog, and Clear customizations putting it back as it shipped. Nothing shows for an id
+/// the list no longer has.
 struct CustomizeScreen: View {
     let id: Exercise.ID
     let session: RoutineSession
@@ -19,33 +20,35 @@ struct CustomizeScreen: View {
     var body: some View {
         let weightUnit = WeightUnit(region: locale)
         let usedIn = session.routines(using: id).map(namer.listedName(of:))
-        if let created = session.exercises.created(id: id) {
+        if let exercise = session.exercises.exercise(id: id) {
             ExerciseForm(
                 customizing: id,
-                settings: created.settings,
+                settings: exercise.settings,
                 exercises: session.exercises,
                 usedIn: usedIn,
                 onSave: { settings in
-                    var changed = created
-                    changed.settings = settings
-                    await session.customize(changed, weightUnit: weightUnit)
+                    await session.customize(id, to: settings, weightUnit: weightUnit)
                     onStored()
                 },
-                ending: .delete {
-                    await session.deleteExercise(id, weightUnit: weightUnit)
-                    onStored()
-                    back()
-                },
+                ending: ending(weightUnit: weightUnit),
             )
-        } else if let builtIn = session.exercises.exercise(id: id) {
-            ExerciseForm(
-                customizing: id,
-                settings: builtIn.settings,
-                exercises: session.exercises,
-                usedIn: usedIn,
-                onSave: { _ in },
-                ending: .clear(original: builtIn.settings),
-            )
+        }
+    }
+
+    /// Delete for a created exercise; Clear customizations for a built-in, back to how it
+    /// shipped.
+    private func ending(weightUnit: WeightUnit) -> ExerciseForm.Ending {
+        if let original = session.exercises.original(id: id) {
+            .clear(original: original.settings) {
+                await session.clearCustomizations(id, weightUnit: weightUnit)
+                onStored()
+            }
+        } else {
+            .delete {
+                await session.deleteExercise(id, weightUnit: weightUnit)
+                onStored()
+                back()
+            }
         }
     }
 }

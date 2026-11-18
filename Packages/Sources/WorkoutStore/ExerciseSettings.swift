@@ -25,6 +25,40 @@ public struct ExerciseSettings: Equatable, Sendable {
     }
 }
 
+extension ExerciseSettings {
+    /// What differs from `original`, in the form's order: "Renamed from Barbell bench press",
+    /// each group and piece of equipment added or removed ("Arms added", "Bench removed"),
+    /// "Timed" or "In reps", and "Per side" or "Not per side". Empty when nothing differs.
+    public func changes(from original: Self) -> [String] {
+        var changes: [String] = []
+        if name != original.name {
+            changes.append("Renamed from \(original.name)")
+        }
+        changes += Self.changes(of: muscleGroups, from: original.muscleGroups)
+        changes += Self.changes(of: equipment, from: original.equipment)
+        if measure != original.measure {
+            changes.append(measure == .time ? "Timed" : "In reps")
+        }
+        if isPerSide != original.isPerSide {
+            changes.append(isPerSide ? "Per side" : "Not per side")
+        }
+        return changes
+    }
+
+    private static func changes<Element: NamedCase>(
+        of set: Set<Element>,
+        from original: Set<Element>,
+    ) -> [String] {
+        Element.allCases.compactMap { item in
+            switch (set.contains(item), original.contains(item)) {
+            case (true, false): "\(item.name) added"
+            case (false, true): "\(item.name) removed"
+            default: nil
+            }
+        }
+    }
+}
+
 extension CreatedExercise {
     /// Its five settings, read and written over its own stored ones.
     public var settings: ExerciseSettings {

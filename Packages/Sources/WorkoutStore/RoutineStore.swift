@@ -184,16 +184,23 @@ public actor RoutineStore {
         try modelContext.save()
     }
 
-    /// Every exercise there is to pick: the built-ins and each created one this build can read.
-    /// One it can't, from a newer version, is kept in the store, never deleted.
+    /// Every exercise there is to pick: the built-ins, as customized, and each created one this
+    /// build can read. One it can't, from a newer version, is kept in the store, never deleted.
+    /// With two customizations of one built-in, as sync could leave, the latest edited counts.
     public func exercises() throws -> ExerciseList {
-        try ExerciseList(created: modelContext.fetch(FetchDescriptor<StoredExercise>())
-            .compactMap(\.created))
+        let customizations = try modelContext.fetch(FetchDescriptor<StoredCustomization>(
+            sortBy: [SortDescriptor(\.editedAt, order: .reverse)],
+        ))
+        return try ExerciseList(
+            created: modelContext.fetch(FetchDescriptor<StoredExercise>()).compactMap(\.created),
+            customizations: customizations.map(\.customization),
+        )
     }
 
     /// Stores a created exercise, or updates the one with its id.
     public func save(_ created: CreatedExercise) throws {
         let id = created.id
+        try keepLoggedNames(of: id, renamedTo: created.name)
         var descriptor = FetchDescriptor<StoredExercise>(predicate: #Predicate { $0.id == id })
         descriptor.fetchLimit = 1
         let target = try modelContext.fetch(descriptor).first ?? {
@@ -207,10 +214,13 @@ public actor RoutineStore {
 
     #if DEBUG
     /// Empties the store, so a UI test starts from a new routine, no workout, and no exercise
-    /// anyone created.
+    /// anyone created or customized.
     public func deleteAll() throws {
         for exercise in try modelContext.fetch(FetchDescriptor<StoredExercise>()) {
             modelContext.delete(exercise)
+        }
+        for customization in try modelContext.fetch(FetchDescriptor<StoredCustomization>()) {
+            modelContext.delete(customization)
         }
         for routine in try modelContext.fetch(FetchDescriptor<StoredRoutine>()) {
             modelContext.delete(routine)
