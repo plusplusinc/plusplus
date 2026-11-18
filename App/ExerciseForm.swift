@@ -16,10 +16,12 @@ import WorkoutStore
 /// to the search
 /// as it was; nothing is created before it.
 ///
-/// Customize opens with the exercise as set and confirms with Save, off until something
-/// changes, and on the same terms, its own name allowed. Below the settings, Used in reads how
-/// many routines have a row of it and opens their names (`UsedInList`); last, Delete exercise,
-/// in red, asks first, with that count.
+/// Customize opens with the exercise as set, under the system back chevron, with no Cancel and
+/// no Save: Muscle groups, Equipment, Measure, and Per side save as each changes, and the name
+/// as its edit ends (Return, a tap elsewhere, or going back), never per keystroke. A name that
+/// can't be saved (empty, or another exercise's) goes back to the stored one as its edit ends.
+/// Below the settings, Used in reads how many routines have a row of it and opens their names
+/// (`UsedInList`); last, Delete exercise, in red, asks first, with that count.
 struct ExerciseForm: View {
     /// The exercise customized, or nil for a new one.
     let customizing: CreatedExercise?
@@ -36,6 +38,10 @@ struct ExerciseForm: View {
     @State private var equipment: Set<Equipment>
     @State private var measure: Measure
     @State private var isPerSide: Bool
+    /// In Customize, the exercise as last saved.
+    @State private var stored: CreatedExercise?
+    /// In Customize, the latest save, which the next one waits for so they land in order.
+    @State private var lastSave: Task<Void, Never>?
     @State private var isConfirming = false
     @State private var isAskingToDelete = false
     @FocusState private var isNameFocused: Bool
@@ -60,7 +66,7 @@ struct ExerciseForm: View {
         _isPerSide = State(initialValue: false)
     }
 
-    /// Customize, for `exercise` as set.
+    /// Customize, for `exercise` as set; `onSave` takes each change as it is made.
     init(
         customizing exercise: CreatedExercise,
         exercises: ExerciseList,
@@ -70,10 +76,11 @@ struct ExerciseForm: View {
     ) {
         customizing = exercise
         self.exercises = exercises
-        confirmTitle = String(localized: "Save")
+        confirmTitle = ""
         self.usedIn = usedIn
         onConfirm = onSave
         self.onDelete = onDelete
+        _stored = State(initialValue: exercise)
         _name = State(initialValue: exercise.name)
         _muscleGroups = State(initialValue: exercise.muscleGroups)
         _equipment = State(initialValue: exercise.equipment)
@@ -85,28 +92,59 @@ struct ExerciseForm: View {
         name.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// The exercise as the form sets it now.
+    /// The new exercise as the form sets it now.
     private var edited: CreatedExercise {
         CreatedExercise(
-            id: customizing?.id ?? CreatedExercise.newID(),
             name: trimmedName,
             muscleGroups: muscleGroups,
             equipment: equipment,
             measure: measure,
             isPerSide: isPerSide,
-            createdAt: customizing?.createdAt ?? .now,
         )
     }
 
     private var canConfirm: Bool {
-        guard !isConfirming,
-              CreatedExercise.canAdd(
-                  named: name,
-                  to: exercises,
-                  besides: customizing?.id,
-              )
-        else { return false }
-        return customizing.map { edited != $0 } ?? true
+        !isConfirming && CreatedExercise.canAdd(named: name, to: exercises)
+    }
+
+    /// `binding`, which in Customize also saves the exercise with each value it is set to. The
+    /// save is made at the write, not from an `onChange`, which can skip a change.
+    private func saving<Value>(
+        _ binding: Binding<Value>,
+        into keyPath: WritableKeyPath<CreatedExercise, Value>,
+    ) -> Binding<Value> {
+        guard customizing != nil else { return binding }
+        return Binding {
+            binding.wrappedValue
+        } set: { value in
+            binding.wrappedValue = value
+            save { $0[keyPath: keyPath] = value }
+        }
+    }
+
+    /// Saves the stored exercise with `change`, after any save still landing. Not once Delete is
+    /// confirmed: a save then would put the exercise back.
+    private func save(_ change: (inout CreatedExercise) -> Void) {
+        guard var exercise = stored, !isConfirming else { return }
+        change(&exercise)
+        guard exercise != stored else { return }
+        stored = exercise
+        let previous = lastSave
+        lastSave = Task {
+            await previous?.value
+            await onConfirm(exercise)
+        }
+    }
+
+    /// Saves the name as its edit ends, or puts the stored one back if it can't be saved.
+    private func endNameEdit() {
+        guard let stored else { return }
+        if CreatedExercise.canAdd(named: name, to: exercises, besides: stored.id) {
+            name = trimmedName
+            save { $0.name = trimmedName }
+        } else {
+            name = stored.name
+        }
     }
 
     var body: some View {
@@ -125,7 +163,7 @@ struct ExerciseForm: View {
                     Checklist(
                         title: "Muscle groups",
                         items: MuscleGroup.allCases,
-                        checked: $muscleGroups,
+                        checked: saving($muscleGroups, into: \.muscleGroups),
                         name: \.name,
                     )
                 } label: {
@@ -135,7 +173,7 @@ struct ExerciseForm: View {
                     Checklist(
                         title: "Equipment",
                         items: Equipment.allCases,
-                        checked: $equipment,
+                        checked: saving($equipment, into: \.equipment),
                         name: \.name,
                     )
                 } label: {
@@ -144,14 +182,14 @@ struct ExerciseForm: View {
             }
             .listRowBackground(Color.pp(.surface))
             Section {
-                Picker("Measure", selection: $measure) {
+                Picker("Measure", selection: saving($measure, into: \.measure)) {
                     ForEach(Measure.allCases, id: \.self) { measure in
                         Text(measure.name).tag(measure)
                     }
                 }
                 .pickerStyle(.menu)
                 .tint(Color.pp(.textSecondary))
-                Toggle("Per side", isOn: $isPerSide)
+                Toggle("Per side", isOn: saving($isPerSide, into: \.isPerSide))
             }
             .listRowBackground(Color.pp(.surface))
             if customizing != nil {
@@ -163,19 +201,28 @@ struct ExerciseForm: View {
         .background(Color.pp(.background))
         .navigationTitle(customizing == nil ? "New exercise" : "Customize")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden()
+        .navigationBarBackButtonHidden(customizing == nil)
         .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                // Not once confirmed: the host pops the form when its save lands, and would pop
-                // whatever was pushed after it.
-                Button("Cancel") { dismiss() }
-                    .disabled(isConfirming)
-            }
-            ToolbarItem(placement: .confirmationAction) {
-                Button(confirmTitle) { confirm() }
-                    .disabled(!canConfirm)
+            if customizing == nil {
+                ToolbarItem(placement: .cancellationAction) {
+                    // Not once confirmed: the host pops the form when its save lands, and would
+                    // pop whatever was pushed after it.
+                    Button("Cancel") { dismiss() }
+                        .disabled(isConfirming)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(confirmTitle) { confirm() }
+                        .disabled(!canConfirm)
+                }
             }
         }
+        .onChange(of: isNameFocused) { _, isFocused in
+            if !isFocused {
+                endNameEdit()
+            }
+        }
+        // Going back, or pushing a list, ends the edit too, focus or not.
+        .onDisappear { endNameEdit() }
     }
 
     private var usedInSection: some View {

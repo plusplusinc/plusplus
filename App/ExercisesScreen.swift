@@ -42,10 +42,7 @@ struct ExercisesScreen: View {
                         customizing: created,
                         exercises: session.exercises,
                         usedIn: session.routines(using: id).map(namer.listedName(of:)),
-                        onSave: { edited in
-                            await session.customize(edited, weightUnit: weightUnit)
-                            customizing = nil
-                        },
+                        onSave: { await session.customize($0, weightUnit: weightUnit) },
                         onDelete: {
                             await session.deleteExercise(id, weightUnit: weightUnit)
                             customizing = nil
