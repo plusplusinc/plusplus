@@ -32,7 +32,8 @@ cost you find (a pause, a slower path): keep it, and report the cost and what yo
 - A simulator is booted only while you use it. Before you reply, passed or failed, run the
   worktree's `scripts/sim.sh shutdown`. Never shut down another simulator (no `simctl shutdown
   all`, nothing by name): another agent may be mid-run on it. When a boot waits or exits 75
-  because the limit of booted worktree simulators is reached, run the command again later; `scripts/sim.sh list` shows who holds them.
+  because the limit of booted worktree simulators is reached, run the command again
+  later; `scripts/sim.sh list` shows who holds them.
 - Follow the plan in small steps: change one thing, build, look at the screenshot, commit.
 - Before an `axe` command, read `/run`'s notes on AXe (`.claude/skills/run/SKILL.md`): which
   taps, swipes, and drags land and which don't (`axe tap` does nothing on the routine screen or
