@@ -2,71 +2,42 @@ import DesignSystem
 import SwiftUI
 import WorkoutStore
 
-/// The five settings a created exercise has, and no more: New exercise, pushed from Create, or
-/// Customize, pushed from a created exercise's row in Exercises. Name, prefilled and not
-/// focused, since the next thing to set is the muscle groups; Muscle groups and Equipment, each
-/// one row reading what is checked ("Back, shoulders"; None and Bodyweight for none) that
-/// opens its full list to check any number on (`Checklist`); Measure; and Per side. All checked
-/// groups are equal. Everything else (its weight, plan, rest, and naming) is derived
-/// (`Exercise(created:)`).
+/// Customize, the five settings a created exercise has, and no more, pushed from a created
+/// exercise's row in Exercises, or by Create, in Exercises or Add exercise, once it has stored the
+/// exercise. Name, not focused, since the next thing to set is the muscle groups; Muscle groups
+/// and Equipment, each one row reading what is checked ("Back, shoulders"; None and Bodyweight
+/// for none) that opens its full list to check any number on (`Checklist`); Measure; and Per
+/// side. All checked groups are equal; none is needed. Everything else (its weight, plan, rest,
+/// and naming) is derived (`Exercise(created:)`).
 ///
-/// New exercise confirms with the host's word: Add where it goes into a routine, Create in
-/// Exercises. It is off while the name is empty or already an exercise's
-/// (`CreatedExercise.canAdd`), and after its first tap; no muscle group is needed. Cancel goes back
-/// to the search
-/// as it was; nothing is created before it.
-///
-/// Customize opens with the exercise as set, under the system back chevron, with no Cancel and
-/// no Save: Muscle groups, Equipment, Measure, and Per side save as each changes, and the name
+/// It opens with the exercise as set, under the system back chevron, with no Cancel and no
+/// Save: Muscle groups, Equipment, Measure, and Per side save as each changes, and the name
 /// as its edit ends (Return, a tap elsewhere, or going back), never per keystroke. A name that
 /// can't be saved (empty, or another exercise's) goes back to the stored one as its edit ends.
 /// Below the settings, Used in reads how many routines have a row of it and opens their names
 /// (`UsedInList`); last, Delete exercise, in red, asks first, with that count.
 struct ExerciseForm: View {
-    /// The exercise customized, or nil for a new one.
-    let customizing: CreatedExercise?
     let exercises: ExerciseList
-    /// What the confirm button reads.
-    let confirmTitle: String
     /// The names of the routines that use the exercise customized, latest first.
-    var usedIn: [String] = []
-    let onConfirm: (CreatedExercise) async -> Void
-    var onDelete: (() async -> Void)?
+    let usedIn: [String]
+    /// Takes each change as it is made.
+    let onSave: (CreatedExercise) async -> Void
+    let onDelete: () async -> Void
 
     @State private var name: String
     @State private var muscleGroups: Set<MuscleGroup>
     @State private var equipment: Set<Equipment>
     @State private var measure: Measure
     @State private var isPerSide: Bool
-    /// In Customize, the exercise as last saved.
-    @State private var stored: CreatedExercise?
-    /// In Customize, the latest save, which the next one waits for so they land in order.
+    /// The exercise as last saved.
+    @State private var stored: CreatedExercise
+    /// The latest save, which the next one waits for so they land in order.
     @State private var lastSave: Task<Void, Never>?
-    @State private var isConfirming = false
+    @State private var isDeleting = false
     @State private var isAskingToDelete = false
     @FocusState private var isNameFocused: Bool
     @Environment(\.dynamicTypeSize) private var typeSize
-    @Environment(\.dismiss) private var dismiss
 
-    /// New exercise, named `name`, the search's text.
-    init(
-        name: String,
-        exercises: ExerciseList,
-        confirmTitle: String,
-        onAdd: @escaping (CreatedExercise) async -> Void,
-    ) {
-        customizing = nil
-        self.exercises = exercises
-        self.confirmTitle = confirmTitle
-        onConfirm = onAdd
-        _name = State(initialValue: name)
-        _muscleGroups = State(initialValue: [])
-        _equipment = State(initialValue: [])
-        _measure = State(initialValue: .reps)
-        _isPerSide = State(initialValue: false)
-    }
-
-    /// Customize, for `exercise` as set; `onSave` takes each change as it is made.
     init(
         customizing exercise: CreatedExercise,
         exercises: ExerciseList,
@@ -74,11 +45,9 @@ struct ExerciseForm: View {
         onSave: @escaping (CreatedExercise) async -> Void,
         onDelete: @escaping () async -> Void,
     ) {
-        customizing = exercise
         self.exercises = exercises
-        confirmTitle = ""
         self.usedIn = usedIn
-        onConfirm = onSave
+        self.onSave = onSave
         self.onDelete = onDelete
         _stored = State(initialValue: exercise)
         _name = State(initialValue: exercise.name)
@@ -92,29 +61,13 @@ struct ExerciseForm: View {
         name.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// The new exercise as the form sets it now.
-    private var edited: CreatedExercise {
-        CreatedExercise(
-            name: trimmedName,
-            muscleGroups: muscleGroups,
-            equipment: equipment,
-            measure: measure,
-            isPerSide: isPerSide,
-        )
-    }
-
-    private var canConfirm: Bool {
-        !isConfirming && CreatedExercise.canAdd(named: name, to: exercises)
-    }
-
-    /// `binding`, which in Customize also saves the exercise with each value it is set to. The
-    /// save is made at the write, not from an `onChange`, which can skip a change.
+    /// `binding`, which also saves the exercise with each value it is set to. The save is made
+    /// at the write, not from an `onChange`, which can skip a change.
     private func saving<Value>(
         _ binding: Binding<Value>,
         into keyPath: WritableKeyPath<CreatedExercise, Value>,
     ) -> Binding<Value> {
-        guard customizing != nil else { return binding }
-        return Binding {
+        Binding {
             binding.wrappedValue
         } set: { value in
             binding.wrappedValue = value
@@ -125,20 +78,20 @@ struct ExerciseForm: View {
     /// Saves the stored exercise with `change`, after any save still landing. Not once Delete is
     /// confirmed: a save then would put the exercise back.
     private func save(_ change: (inout CreatedExercise) -> Void) {
-        guard var exercise = stored, !isConfirming else { return }
+        guard !isDeleting else { return }
+        var exercise = stored
         change(&exercise)
         guard exercise != stored else { return }
         stored = exercise
         let previous = lastSave
         lastSave = Task {
             await previous?.value
-            await onConfirm(exercise)
+            await onSave(exercise)
         }
     }
 
     /// Saves the name as its edit ends, or puts the stored one back if it can't be saved.
     private func endNameEdit() {
-        guard let stored else { return }
         if CreatedExercise.canAdd(named: name, to: exercises, besides: stored.id) {
             name = trimmedName
             save { $0.name = trimmedName }
@@ -192,30 +145,13 @@ struct ExerciseForm: View {
                 Toggle("Per side", isOn: saving($isPerSide, into: \.isPerSide))
             }
             .listRowBackground(Color.pp(.surface))
-            if customizing != nil {
-                usedInSection
-                deleteSection
-            }
+            usedInSection
+            deleteSection
         }
         .scrollContentBackground(.hidden)
         .background(Color.pp(.background))
-        .navigationTitle(customizing == nil ? "New exercise" : "Customize")
+        .navigationTitle("Customize")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(customizing == nil)
-        .toolbar {
-            if customizing == nil {
-                ToolbarItem(placement: .cancellationAction) {
-                    // Not once confirmed: the host pops the form when its save lands, and would
-                    // pop whatever was pushed after it.
-                    Button("Cancel") { dismiss() }
-                        .disabled(isConfirming)
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(confirmTitle) { confirm() }
-                        .disabled(!canConfirm)
-                }
-            }
-        }
         .onChange(of: isNameFocused) { _, isFocused in
             if !isFocused {
                 endNameEdit()
@@ -246,18 +182,18 @@ struct ExerciseForm: View {
                 isAskingToDelete = true
             }
             .frame(maxWidth: .infinity)
-            .disabled(isConfirming)
+            .disabled(isDeleting)
             // On the button, so the question comes out of it: on a screen pushed inside a
             // stack, iOS shows it as a popover, and attached to the form it pointed at the
             // form's middle.
             .confirmationDialog(
-                "Delete \(customizing?.name ?? "")?",
+                "Delete \(stored.name)?",
                 isPresented: $isAskingToDelete,
                 titleVisibility: .visible,
             ) {
                 Button("Delete exercise", role: .destructive) {
-                    isConfirming = true
-                    Task { await onDelete?() }
+                    isDeleting = true
+                    Task { await onDelete() }
                 }
             } message: {
                 Text(deleteMessage)
@@ -305,13 +241,6 @@ struct ExerciseForm: View {
             .accessibilityLabel("Name")
             .accessibilityIdentifier("newExercise.name")
     }
-
-    private func confirm() {
-        guard canConfirm else { return }
-        isConfirming = true
-        let exercise = edited
-        Task { await onConfirm(exercise) }
-    }
 }
 
 /// The routines a created exercise is used in, by name, the latest opened or edited first,
@@ -337,17 +266,7 @@ struct UsedInList: View {
     }
 }
 
-#Preview("New") {
-    NavigationStack {
-        ExerciseForm(
-            name: "Ring row with rotation",
-            exercises: .builtIn,
-            confirmTitle: "Add",
-        ) { _ in }
-    }
-}
-
-#Preview("Customize") {
+#Preview {
     NavigationStack {
         ExerciseForm(
             customizing: CreatedExercise(name: "Ring row with rotation", muscleGroups: [.back]),

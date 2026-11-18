@@ -43,12 +43,14 @@ enum RoutineSchemaV8: VersionedSchema {
 }
 
 extension StoredExercise {
-    /// The exercise as set, or nil for a measure this build doesn't know, or no muscle group it
-    /// knows, from a newer version: left out of the list rather than read as something else. An
-    /// unknown group or piece of equipment beside known ones is left out of its set.
+    /// The exercise as set, or nil for a measure this build doesn't know, or muscle groups none of
+    /// which it knows, from a newer version: left out of the list rather than read as something
+    /// else. None stored at all is an exercise that works none. An unknown group or piece of
+    /// equipment beside known ones is left out of its set.
     var created: CreatedExercise? {
         let groups = Set<MuscleGroup>(stored: muscleGroup)
-        guard !groups.isEmpty, let measure = Measure(rawValue: measure) else { return nil }
+        guard groups.isEmpty == muscleGroup.isEmpty,
+              let measure = Measure(rawValue: measure) else { return nil }
         return CreatedExercise(
             id: id,
             name: name,

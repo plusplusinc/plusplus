@@ -23,18 +23,15 @@ import WorkoutStore
 /// Create follows the typing (`ExerciseList.offersCreate(for:)`): with something typed and no
 /// exercise of exactly that name, Create “…” is the list's last row, green as what makes
 /// something is; with no matches it is the only row, so the list narrows down to it and there
-/// is no separate no-results view. It pushes `ExerciseForm` on the host's own stack, so
-/// Cancel comes back to the search as it was.
+/// is no separate no-results view. A tap makes the exercise at once, with that name and nothing
+/// else set (`ExerciseList.createdName(from:)`), and hands it to the host, which pushes its
+/// Customize form (`ExerciseForm`) on its own stack; back from there, the search is as it was.
 struct ExerciseListView<BarLeading: View>: View {
     let exercises: ExerciseList
     /// What a tap on a row does.
     let onTap: (Exercise) -> Void
     /// Which rows take a tap; the rest are plain rows that open nothing.
     var isTappable: (Exercise) -> Bool = { _ in true }
-    /// Whether the form goes back to the list once it has created, rather than its host
-    /// closing around it. Its button reads Create there, since nothing goes into a routine,
-    /// and Add where it does.
-    var returnsAfterCreate = false
     /// The host's inline title, drawn by the bar's search so its field covers the title as it
     /// opens; nil leaves the bar's own title.
     var barTitle: LocalizedStringKey?
@@ -44,12 +41,12 @@ struct ExerciseListView<BarLeading: View>: View {
     /// Runs as search opens, in the tap's own transaction, so what it changes moves with the
     /// field: Add exercise's sheet goes to full height.
     var onSearchOpen: () -> Void = { }
-    /// Stores the exercise; the host decides what shows next.
+    /// Stores the exercise and shows its Customize form.
     let onCreate: (CreatedExercise) async -> Void
 
     @State private var query = ""
-    /// The name the form opens with, while it shows.
-    @State private var creating: String?
+    /// While a Create's store lands: a second tap meanwhile would make a second exercise.
+    @State private var isCreating = false
     /// Dropped by a tap that pushes a screen, so the keyboard goes down with the push, as the
     /// system's search does; back on the list, search stays open with its text, keyboard down.
     @FocusState private var isSearchFocused: Bool
@@ -110,19 +107,6 @@ struct ExerciseListView<BarLeading: View>: View {
             focus: $isSearchFocused,
             onOpen: onSearchOpen,
         ))
-        .navigationDestination(item: $creating) { name in
-            ExerciseForm(
-                name: name,
-                exercises: exercises,
-                confirmTitle: returnsAfterCreate
-                    ? String(localized: "Create") : String(localized: "Add"),
-            ) { created in
-                await onCreate(created)
-                if returnsAfterCreate {
-                    creating = nil
-                }
-            }
-        }
     }
 
     private var showsIndex: Bool {
@@ -148,15 +132,21 @@ struct ExerciseListView<BarLeading: View>: View {
         .accessibilityIdentifier("exercises.row")
     }
 
-    /// The name Create makes, as its row shows it and its form opens with it.
+    /// The name Create makes, as its row shows it.
     private var createdName: String {
         ExerciseList.createdName(from: query)
     }
 
     private var createRow: some View {
         Button {
+            guard !isCreating else { return }
             isSearchFocused = false
-            creating = createdName
+            isCreating = true
+            let created = CreatedExercise(name: createdName, muscleGroups: [])
+            Task {
+                await onCreate(created)
+                isCreating = false
+            }
         } label: {
             createLabel
                 .font(.ppRowTitle)

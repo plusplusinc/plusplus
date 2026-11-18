@@ -8,14 +8,21 @@ import WorkoutStore
 /// title, and back as it closes. Opening search takes the sheet to full height, as the system's
 /// search does, whether or not a software keyboard comes up to push it. A swipe down closes the
 /// sheet at any time.
-struct ExercisePicker: View {
+///
+/// Create stores the exercise and adds its row to the routine, as a pick does, but keeps the
+/// sheet up and pushes the exercise's Customize form inside it, with Done in the bar's trailing
+/// spot to close the sheet and the back chevron to the list.
+struct ExercisePicker<Customize: View>: View {
     let exercises: ExerciseList
     let onPick: (Exercise) -> Void
     /// Runs as search opens, in the field's own transaction (`ExerciseListView.onSearchOpen`).
     var onSearchOpen: () -> Void = { }
-    /// Stores the exercise and adds its row; the presenter closes the sheet.
-    let onCreate: (CreatedExercise) async -> Void
+    /// Stores the exercise and adds its row, returning it as stored.
+    let onCreate: (CreatedExercise) async -> Exercise
+    /// The Customize form for an exercise just created; its closure goes back to the list.
+    @ViewBuilder let customize: (Exercise.ID, _ back: @escaping () -> Void) -> Customize
 
+    @State private var customizing: Exercise.ID?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.displayScale) private var displayScale
 
@@ -27,11 +34,20 @@ struct ExercisePicker: View {
                 barTitle: "Add exercise",
                 barLeading: closeButton,
                 onSearchOpen: onSearchOpen,
-                onCreate: onCreate,
+                onCreate: { customizing = await onCreate($0).id },
             )
             // Still the screen's title for VoiceOver; the bar shows the search's drawn copy.
             .navigationTitle("Add exercise")
             .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(item: $customizing) { id in
+                customize(id) { customizing = nil }
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            // The picker's own dismiss, which closes the sheet, not the push.
+                            Button("Done") { dismiss() }
+                        }
+                    }
+            }
         }
     }
 
@@ -53,5 +69,9 @@ struct ExercisePicker: View {
 }
 
 #Preview {
-    ExercisePicker(exercises: .builtIn) { _ in } onCreate: { _ in }
+    ExercisePicker(exercises: .builtIn) { _ in } onCreate: {
+        Exercise(created: $0)
+    } customize: { _, _ in
+        EmptyView()
+    }
 }
