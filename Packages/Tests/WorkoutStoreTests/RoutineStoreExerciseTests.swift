@@ -71,6 +71,20 @@ struct RoutineStoreExerciseTests {
         #expect(try await relaunch().routinesByRecency(weightUnit: .pounds) == [routine])
     }
 
+    @Test("A created exercise with no muscle group reopens, and so does its routine's row")
+    func noMuscleGroupReopens() async throws {
+        let store = relaunch()
+        let none = CreatedExercise(name: "Zq", muscleGroups: [])
+        try await store.save(none)
+        let routine = try Routine(
+            name: "Day A",
+            exercises: [RoutineExercise(exercise: Exercise(created: none), weightUnit: .pounds)],
+        )
+        try await store.save(routine)
+        #expect(try await relaunch().exercises() == ExerciseList(created: [none]))
+        #expect(try await relaunch().launch(weightUnit: .pounds).routine == routine)
+    }
+
     @Test("An exercise this build can't read is left out of the list and kept in the store")
     func unreadable() async throws {
         let context = ModelContext(container)
