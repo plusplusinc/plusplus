@@ -131,7 +131,7 @@ Each of these cost a round on this app; the code at the named spot works around 
 - Controls in a navigation bar or `safeAreaBar` are hosted apart from the screen and ignore
   `accessibilityHidden`: behind the drawer each applies `.hiddenBehindDrawer()`, and a faded bar
   item hides from VoiceOver with `accessibilityShown(_:)`. A bar item's elements update only
-  with its host's state, so state they read lives there (`BarSearchField`'s `isOpen`).
+  with its host's state, so their state lives there (`BarSearchField`'s `isOpen`).
 - Attach a `confirmationDialog` outside the `NavigationStack`; inside, iOS shows a popover with
   an arrow, so a pushed screen's goes on its button (`ExerciseForm`).
 - A horizontal scroll view's offset set before the room around its content is laid out stays on
