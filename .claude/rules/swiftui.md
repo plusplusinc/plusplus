@@ -68,8 +68,9 @@ feature, and change them with it.
   one `SequenceTask` (`RoutineScreen+Sequence.swift`).
 - Dragging a row, and supersets: `RailDrag`, `RailLiftGesture`, `RailAutoscroll`, `LoopPen`
   (`LoopHeads.swift`), `RailPairing`, `RailWell.swift`, `RailRegroup`, `RailStrokes.swift`.
-- The ++ drawer and Routines: `SideDrawer`, `DrawerSwipe`, `DrawerMenu`, `DrawerButtonStyle`,
-  `NameRow`. Add exercise and Customize: `ExercisePicker`, `ExerciseForm`, `BarSearchField`.
+- Drawer, Routines: `SideDrawer`, `DrawerSwipe`, `DrawerMenu`, `DrawerButtonStyle`,
+  `NameRow`. Add exercise, Customize: `ExercisePicker`, `ExerciseListView`, `CustomizeScreen`,
+  `ExerciseForm`, `BarSearchField`.
 - The title and a generated name typing in: `TitleTextView`, `EditableTitle+Typing.swift`,
   `SuggestionTiming`. The exercise sheet: `ValueRow`, `ValueRuler` (`RulerScale`), `TimePiece`,
   `ExerciseSheet.swift`. The current exercise's large numbers: `CurrentFigures`, sized by

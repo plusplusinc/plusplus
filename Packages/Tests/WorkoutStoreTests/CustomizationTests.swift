@@ -66,6 +66,19 @@ struct CustomizationTests {
         #expect(back.defaultPlan(in: .pounds) == bench.defaultPlan(in: .pounds))
     }
 
+    @Test("Adding kit that holds no weight keeps the shipped load and start")
+    func benchKeepsLoad() throws {
+        let triceps = try #require(Exercise.builtIn(id: "triceps-extension"))
+        var settings = triceps.settings
+        settings.equipment.insert(.bench)
+        let customized = Exercise(
+            builtIn: triceps,
+            customized: Customization(of: triceps, to: settings),
+        )
+        #expect(customized.load == .single)
+        #expect(customized.defaultPlan(in: .pounds) == triceps.defaultPlan(in: .pounds))
+    }
+
     @Test("Its plan is the original's until its measure changes, then a created one's")
     func planFollowsMeasure() throws {
         let bench = try Self.bench()

@@ -19,11 +19,11 @@ public struct ExerciseList: Equatable, Sendable {
                 created.map { ($0.id, $0) },
                 uniquingKeysWith: { first, _ in first },
             ),
+            // Two for one slug, as sync could leave: the first counts, even if it reads as empty.
             customizationsByID: Dictionary(
-                customizations.filter { !$0.isEmpty && Exercise.builtIn(id: $0.exerciseID) != nil }
-                    .map { ($0.exerciseID, $0) },
+                customizations.map { ($0.exerciseID, $0) },
                 uniquingKeysWith: { first, _ in first },
-            ),
+            ).filter { !$0.value.isEmpty && Exercise.builtIn(id: $0.key) != nil },
         )
     }
 

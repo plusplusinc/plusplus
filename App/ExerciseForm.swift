@@ -207,12 +207,13 @@ struct ExerciseForm: View {
             ) {
                 Button("Cancel", role: .cancel) { }
                 Button("Clear customizations", role: .destructive) {
+                    // At once, so a change made while the clear lands builds on what shipped.
+                    stored = original
+                    name = original.name
                     let previous = lastSave
                     lastSave = Task {
                         await previous?.value
                         await onClear()
-                        stored = original
-                        name = original.name
                     }
                 }
             } message: {

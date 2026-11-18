@@ -97,16 +97,11 @@ extension Exercise {
         equipment: Set<Equipment>,
         isPerSide: Bool,
     ) -> (load: Load?, startsAt: StartingWeight?) {
-        if equipment.contains(.barbell) {
-            (.bar, nil)
-        } else if equipment.contains(.dumbbells) {
-            (isPerSide ? .single : .pair, Equipment.dumbbells.lightStart)
-        } else if equipment.contains(.kettlebell) {
-            (.single, Equipment.kettlebell.lightStart)
-        } else if equipment.contains(.medicineBall) {
-            (.single, Equipment.medicineBall.lightStart)
-        } else {
-            (nil, nil)
+        switch Equipment.loadPiece(of: equipment) {
+        case .barbell: (.bar, nil)
+        case .dumbbells: (isPerSide ? .single : .pair, Equipment.dumbbells.lightStart)
+        case let .some(piece): (.single, piece.lightStart)
+        case nil: (nil, nil)
         }
     }
 
@@ -122,6 +117,12 @@ extension Exercise {
 }
 
 extension Equipment {
+    /// The piece that holds the weight: the first of barbell, dumbbells, kettlebell, and medicine
+    /// ball in `equipment`; nil for kit that holds none.
+    static func loadPiece(of equipment: Set<Equipment>) -> Equipment? {
+        [.barbell, .dumbbells, .kettlebell, .medicineBall].first(where: equipment.contains)
+    }
+
     /// The lightest start a built-in held in this piece has, for a created exercise to start
     /// at; nil for a bar, which starts empty, and for kit that holds no weight.
     var lightStart: StartingWeight? {

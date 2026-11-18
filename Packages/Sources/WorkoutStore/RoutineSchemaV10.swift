@@ -45,13 +45,17 @@ enum RoutineSchemaV10: VersionedSchema {
 
 extension StoredCustomization {
     /// The customization as set. A setting this build can't read, from a newer version (an
-    /// unknown measure, or muscle groups none of which it knows), reads as shipped; an unknown
-    /// group or piece of equipment beside known ones is left out of its set.
+    /// unknown measure, or muscle groups or equipment none of which it knows), reads as shipped;
+    /// an unknown group or piece of equipment beside known ones is left out of its set.
     var customization: Customization {
         var changed = Set<Customization.Setting>(stored: changed)
         let groups = Set<MuscleGroup>(stored: muscleGroups)
         if groups.isEmpty != muscleGroups.isEmpty {
             changed.remove(.muscleGroups)
+        }
+        let equipment = Set<Equipment>(stored: equipment)
+        if equipment.isEmpty != self.equipment.isEmpty {
+            changed.remove(.equipment)
         }
         let measure = Measure(rawValue: measure)
         if measure == nil {
@@ -62,7 +66,7 @@ extension StoredCustomization {
             settings: ExerciseSettings(
                 name: name,
                 muscleGroups: groups,
-                equipment: Set(stored: equipment),
+                equipment: equipment,
                 measure: measure ?? .reps,
                 isPerSide: isPerSide,
             ),

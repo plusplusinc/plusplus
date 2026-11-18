@@ -157,6 +157,11 @@ struct RoutineStoreBuiltInTests {
         stored.name = "Ignored, unchanged"
         stored.muscleGroups = "wings"
         stored.equipment = "barbell,antigravity-boots"
+        // Another built-in's, whose equipment this build can't read at all.
+        let older = StoredCustomization(exerciseID: "dumbbell-row")
+        older.changed = "equipment"
+        older.equipment = "antigravity-boots"
+        context.insert(older)
         stored.measure = "laps"
         context.insert(stored)
         try context.save()
@@ -167,6 +172,8 @@ struct RoutineStoreBuiltInTests {
         #expect(read.muscleGroups == bench.muscleGroups)
         #expect(read.equipment == [.barbell])
         #expect(read.defaultPlan(in: .pounds).target == bench.defaultPlan(in: .pounds).target)
+        let row = try await relaunch().exercises().exercise(id: "dumbbell-row")
+        #expect(row == Exercise.builtIn(id: "dumbbell-row"))
     }
 
     @Test("Of two customizations of one built-in, as sync could leave, the later edited counts")

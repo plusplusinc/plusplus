@@ -32,6 +32,8 @@ struct CustomizeScreen: View {
                 },
                 ending: ending(weightUnit: weightUnit),
             )
+            // The routines Used in and Delete's question count, as stored now.
+            .task { await session.refreshRecent(weightUnit: weightUnit) }
         }
     }
 
