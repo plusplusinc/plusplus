@@ -342,7 +342,7 @@ struct RoutineScreen: View {
         }
         .onScrollGeometryChange(for: Bool.self, of: Self.endIsInView(of:)) { isEndInView = $1 }
         .onScrollGeometryChange(for: CGFloat.self, of: \.scrolledY) { old, new in
-            scrollBeat.listMoved(to: new)
+            scrollBeat.listMoved(to: new, asked: scrollPosition)
             // Back from past the top, where the key's role was held.
             if old < 0, new >= 0 {
                 settleWayBack()
