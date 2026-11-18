@@ -126,4 +126,18 @@ struct ScrollBeatTests {
         #expect(beat.rests(on: 240, asked: position))
         #expect(!beat.rests(on: 0, asked: position))
     }
+
+    /// A landing asked for, then the list marked as moved by the person: it rests where it
+    /// reports, not on the landing. Setting the flag also clears the position's `y` (iOS 27.2),
+    /// so this holds the outcome, not which of the two the rule reads.
+    @Test("Positioned by the person, the list rests only where it reports")
+    func positionedByUserFallsBackToReport() {
+        let beat = ScrollBeat()
+        var position = ScrollPosition()
+        position.scrollTo(y: 871)
+        position.isPositionedByUser = true
+        beat.listMoved(to: 300)
+        #expect(!beat.rests(on: 871, asked: position))
+        #expect(beat.rests(on: 300, asked: position))
+    }
 }
