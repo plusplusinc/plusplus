@@ -120,8 +120,9 @@ Their time is the scarce thing, and it is for the product.
   (`scripts/board.sh body`), then planner, builder, verifier, and a builder for what the
   verifier found, each given the card id. Size the team to the card: a small task with no UI
   goes straight to a builder with the card's Plan. With something to see, rounds come first
-  (the builder's "Rounds"): before each install, check what they asked for in the round's
-  screenshots on content like theirs, and that nothing they corrected earlier moved. The loop
+  (the builder's "Rounds"); a round's brief asks for the change and nothing "Rounds" leaves
+  out. Before each install, check what they asked for in the round's screenshots on content
+  like theirs, and that nothing they corrected earlier moved. The loop
   ends on their word that it's right; then the builder's full pass and the verifier run once,
   while the next card starts (below). Work done while they are away is a round for them to
   try, not the end of the loop.
@@ -141,10 +142,11 @@ Their time is the scarce thing, and it is for the product.
   `post` (`docs/agent-tooling.md`, "Agent records"); lines from before the PR exists go with
   the first post.
 - **While one runs**, it says nothing until it ends, so about every 15 minutes read where it
-  is and send the maintainer that line. A wake you set says what was true then: cancel it when
-  you stop what it watches, and a check that has finished is a result whatever a watch says. A
-  turn with no text is sent back for one, so a notice that brings nothing new still gets a few
-  words, never a second summary.
+  is and send the maintainer that line. A round still running at 15 minutes is told
+  (SendMessage) to commit what builds and hand back, and that line says where it is. A wake you
+  set says what was true then: cancel it when you stop what it watches, and a check that has
+  finished is a result whatever a watch says. A turn with no text is sent back for one, so a
+  notice that brings nothing new still gets a few words, never a second summary.
 - Rewrite the card's State section (`scripts/board.sh state <id> <<'STATE'`) whenever a phase
   ends, with this session's id, so a cleared context or another session can pick it up.
 
