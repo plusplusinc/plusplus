@@ -47,9 +47,6 @@ struct ExerciseListView<BarLeading: View>: View {
     @State private var query = ""
     /// While a Create's store lands: a second tap meanwhile would make a second exercise.
     @State private var isCreating = false
-    /// Dropped by a tap that pushes a screen, so the keyboard goes down with the push, as the
-    /// system's search does; back on the list, search stays open with its text, keyboard down.
-    @FocusState private var isSearchFocused: Bool
     @State private var isKeyboardUp = false
     /// Where the list's room starts, at the bar's bottom edge, in global coordinates: where a
     /// heading pins, and past which a heading pushed up fades (`LeavesUnderBar`).
@@ -104,7 +101,6 @@ struct ExerciseListView<BarLeading: View>: View {
             text: $query,
             title: barTitle,
             leading: barLeading,
-            focus: $isSearchFocused,
             onOpen: onSearchOpen,
         ))
     }
@@ -119,7 +115,7 @@ struct ExerciseListView<BarLeading: View>: View {
         Group {
             if isTappable(exercise) {
                 Button {
-                    isSearchFocused = false
+                    dropKeyboard()
                     onTap(exercise)
                 } label: {
                     label
@@ -132,6 +128,19 @@ struct ExerciseListView<BarLeading: View>: View {
         .accessibilityIdentifier("exercises.row")
     }
 
+    /// Ends the search's editing at a tap that pushes a screen, so the keyboard goes down with
+    /// the push, as the system's search does; back on the list, search stays open with its text,
+    /// keyboard down. Through the responder chain: the field is in a bar item, hosted apart from
+    /// the list, and a `FocusState` of the list's bound to it never took focus as it opened.
+    private func dropKeyboard() {
+        UIApplication.shared.sendAction(
+            #selector(UIResponder.resignFirstResponder),
+            to: nil,
+            from: nil,
+            for: nil,
+        )
+    }
+
     /// The name Create makes, as its row shows it.
     private var createdName: String {
         ExerciseList.createdName(from: query)
@@ -140,7 +149,7 @@ struct ExerciseListView<BarLeading: View>: View {
     private var createRow: some View {
         Button {
             guard !isCreating else { return }
-            isSearchFocused = false
+            dropKeyboard()
             isCreating = true
             let created = CreatedExercise(name: createdName, muscleGroups: [])
             Task {
@@ -216,7 +225,6 @@ private struct SearchField<Leading: View>: ViewModifier {
     @Binding var text: String
     let title: LocalizedStringKey?
     let leading: Leading
-    let focus: FocusState<Bool>.Binding
     let onOpen: () -> Void
 
     /// The screen's width, which the item spans but for the bar's margins.
@@ -255,7 +263,6 @@ private struct SearchField<Leading: View>: ViewModifier {
                         width: width - 2 * Spacing.md,
                         title: title,
                         titleCenterX: midX,
-                        focus: focus,
                     ) { leading }
                         .hiddenBehindDrawer()
                 }

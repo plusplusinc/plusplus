@@ -56,12 +56,10 @@ public struct BarSearchField<Leading: View>: View {
         width: CGFloat,
         title: LocalizedStringKey? = nil,
         titleCenterX: CGFloat = 0,
-        focus: FocusState<Bool>.Binding? = nil,
         @ViewBuilder leading: () -> Leading,
     ) {
         _text = text
         _isOpen = isOpen
-        self.focus = focus
         self.prompt = prompt
         self.width = width
         self.title = title
@@ -81,13 +79,7 @@ public struct BarSearchField<Leading: View>: View {
     @State private var itemMidX: CGFloat = 0
     @State private var titleWidth: CGFloat = 0
     @Environment(\.displayScale) private var displayScale
-    /// The host's, when it has to drop the keyboard itself: a tap that pushes a screen drops it
-    /// at once, as the system's search does, rather than once the push has hidden the field.
-    private let focus: FocusState<Bool>.Binding?
-    @FocusState private var ownFocus: Bool
-    private var isFocused: FocusState<Bool>.Binding {
-        focus ?? $ownFocus
-    }
+    @FocusState private var isFocused: Bool
 
     @ScaledMetric(relativeTo: .body) private var height: CGFloat = 44
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -124,7 +116,7 @@ public struct BarSearchField<Leading: View>: View {
         // The caret in green, as the list's own controls; the bar is hosted apart from the list
         // and does not take its tint.
         .tint(.pp(.accent))
-        .onChange(of: isFocused.wrappedValue) { _, focused in
+        .onChange(of: isFocused) { _, focused in
             if !focused, text.isEmpty, isOpen {
                 collapse()
             }
@@ -181,7 +173,7 @@ public struct BarSearchField<Leading: View>: View {
                 .foregroundStyle(.pp(.textSecondary))
                 .accessibilityShown(false)
             TextField(prompt, text: $text)
-                .focused(isFocused)
+                .focused($isFocused)
                 .submitLabel(.search)
                 // As the system's search field: a search matches either case, and a capital
                 // at the start only takes a Shift to undo.
@@ -200,7 +192,7 @@ public struct BarSearchField<Leading: View>: View {
         // Laid out at its own width, so the reach runs under the button without moving it.
         .padding(.trailing, -meetingReach)
         // Arrives with this update, so it takes focus as it appears.
-        .onAppear { isFocused.wrappedValue = true }
+        .onAppear { isFocused = true }
     }
 
     private var button: some View {
@@ -281,7 +273,7 @@ public struct BarSearchField<Leading: View>: View {
 
     private func close() {
         text = ""
-        isFocused.wrappedValue = false
+        isFocused = false
         collapse()
     }
 
