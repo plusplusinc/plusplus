@@ -15,45 +15,27 @@ struct DrawerSnapshotTests {
     /// An iPhone's height, so the drawer and the screen beside it are drawn whole.
     private static let screenHeight: CGFloat = 844
 
-    /// The place showing, which the drawer marks.
+    /// The place showing, which the drawer marks; a routine marks neither.
     private enum Showing: Equatable {
         case routines
-        case routine(String)
-        case new
+        case exercises
+        case routine
     }
 
-    /// The drawer as `DrawerMenu` lays it out: the title, Routines, then each routine with its
-    /// node, a new one showing first, in the placeholder's gray, and New, never marked.
-    private func menu(routines: [String], showing: Showing) -> some View {
+    /// The drawer as `DrawerMenu` lays it out: the title, then Routines and Exercises.
+    private func menu(showing: Showing) -> some View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
             Text(verbatim: "PlusPlus")
                 .ppFixedTitleFont()
                 .foregroundStyle(.pp(.textPrimary))
                 .padding(.horizontal, Spacing.sm)
             VStack(alignment: .leading, spacing: Spacing.xs) {
-                Button("Routines", systemImage: "rectangle.stack") { }
+                Button("Routines", systemImage: "checklist") { }
                     .buttonStyle(.drawer(isSelected: showing == .routines))
-                VStack(alignment: .leading, spacing: Spacing.xs) {
-                    if showing == .new {
-                        Button { } label: {
-                            Label {
-                                Text("New routine").foregroundStyle(.pp(.textSecondary))
-                            } icon: {
-                                DrawerNode(isLit: true)
-                            }
-                        }
-                        .buttonStyle(.drawer(isSelected: true, isNested: true))
-                    }
-                    ForEach(routines, id: \.self) { name in
-                        let isShowing = showing == .routine(name)
-                        Button { } label: {
-                            Label { Text(name) } icon: { DrawerNode(isLit: isShowing) }
-                        }
-                        .buttonStyle(.drawer(isSelected: isShowing, isNested: true))
-                    }
-                    Button("New", systemImage: "plus") { }
-                        .buttonStyle(.drawer(isSelected: false, isNested: true))
+                Button { } label: {
+                    Label { Text(verbatim: "Exercises") } icon: { CircleStackSymbol() }
                 }
+                .buttonStyle(.drawer(isSelected: showing == .exercises))
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -91,36 +73,45 @@ struct DrawerSnapshotTests {
         .background(Color.pp(.background))
     }
 
-    private func drawer(routines: [String], showing: Showing) -> some View {
+    private func drawer(showing: Showing) -> some View {
         SideDrawer(isOpen: .constant(true), progress: 1) {
-            menu(routines: routines, showing: showing)
+            menu(showing: showing)
         } content: {
             routine
         }
         .frame(height: Self.screenHeight)
     }
 
-    @Test("The drawer open on a routine: it is marked, its node lit, beside the sliver")
+    @Test("The drawer open on a routine: Routines and Exercises, neither marked, beside the sliver")
     func routineShowing() {
-        assertThemedSnapshots(
-            of: drawer(routines: ["Leg day", "Upper body", "Core"], showing: .routine("Leg day")),
-            width: Self.screenWidth,
-        )
+        assertThemedSnapshots(of: drawer(showing: .routine), width: Self.screenWidth)
     }
 
     @Test("The drawer open on the Routines screen: Routines is marked")
     func routinesShowing() {
-        assertThemedSnapshots(
-            of: drawer(routines: ["Leg day", "Upper body", "Core"], showing: .routines),
-            width: Self.screenWidth,
-        )
+        assertThemedSnapshots(of: drawer(showing: .routines), width: Self.screenWidth)
     }
 
-    @Test("The drawer open on a new routine: its gray row is marked, above the two latest")
-    func newShowing() {
+    @Test("The drawer open on Exercises: Exercises is marked, its stack of circles on the fill")
+    func exercisesShowing() {
+        assertThemedSnapshots(of: drawer(showing: .exercises), width: Self.screenWidth)
+    }
+
+    @Test("Exercises' circle stack stands as tall as checklist, its cutouts showing the fill")
+    func circleStack() {
+        let pair = HStack(spacing: Spacing.lg) {
+            Image(systemName: "checklist")
+            CircleStackSymbol()
+        }
+        .font(.ppDrawerItem)
+        .foregroundStyle(.pp(.textPrimary))
+        .padding(Spacing.md)
         assertThemedSnapshots(
-            of: drawer(routines: ["Leg day", "Upper body"], showing: .new),
-            width: Self.screenWidth,
+            of: VStack(spacing: 0) {
+                pair.background(Color.pp(.background))
+                pair.background(Color.pp(.selectionFill))
+            },
+            width: 160,
         )
     }
 

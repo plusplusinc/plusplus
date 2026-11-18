@@ -1,24 +1,18 @@
 import SwiftUI
 
 /// A place the drawer goes: its icon and name, with no outline, taking taps across the drawer's
-/// width. Every place, nested or not, sets its name in one font, so each reads as equally a
-/// thing to tap. The place showing sits on a rounded fill, icon and name, with as much space to the
+/// width. The place showing sits on a rounded fill, icon and name, with as much space to the
 /// icon's left as above and below it. Pressing dims it, as a key does.
-///
-/// A nested place, under another, puts its icon (a `DrawerNode`, or a symbol) in the column of
-/// the place above's icon, and its name under that place's name.
 public struct DrawerButtonStyle: ButtonStyle {
     private let isSelected: Bool
-    private let isNested: Bool
 
-    public init(isSelected: Bool, isNested: Bool = false) {
+    public init(isSelected: Bool) {
         self.isSelected = isSelected
-        self.isNested = isNested
     }
 
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .labelStyle(DrawerLabelStyle(isSelected: isSelected, isNested: isNested))
+            .labelStyle(DrawerLabelStyle(isSelected: isSelected))
             .font(.ppDrawerItem)
             .foregroundStyle(.pp(.textPrimary))
             .multilineTextAlignment(.leading)
@@ -30,41 +24,34 @@ public struct DrawerButtonStyle: ButtonStyle {
 
 private struct DrawerLabelStyle: LabelStyle {
     let isSelected: Bool
-    let isNested: Bool
 
     func makeBody(configuration: Configuration) -> some View {
-        DrawerLabel(
-            icon: configuration.icon,
-            title: configuration.title,
-            isSelected: isSelected,
-            isNested: isNested,
-        )
+        DrawerLabel(icon: configuration.icon, title: configuration.title, isSelected: isSelected)
     }
 }
 
-/// The icon centered in a column of one width at every level, then the name, a little apart.
+/// The icon centered in a column of one width for every place, then the name, a little apart.
 private struct DrawerLabel<Icon: View, Title: View>: View {
     let icon: Icon
     let title: Title
     let isSelected: Bool
-    let isNested: Bool
 
     /// The minimum touch target, for every place alike.
     private let minHeight: CGFloat = 44
 
-    /// Wide enough for a top-level place's symbol, and scaled with its text.
+    /// Wide enough for a place's symbol, and scaled with its text.
     @ScaledMetric(relativeTo: .body) private var iconColumn: CGFloat = 26
 
     var body: some View {
-        // A nested place's icon sits on the name's first line, as the rail's nodes do, when a
-        // long name wraps.
-        HStack(alignment: isNested ? .firstTextBaseline : .center, spacing: 0) {
-            markedIcon
-            // A top-level place is one word, which at the largest sizes would break mid-word
-            // beside its icon; it shrinks a little to stay whole instead.
+        HStack(spacing: 0) {
+            icon
+                .anchorPreference(key: DrawerIconBounds.self, value: .bounds) { $0 }
+                .frame(width: iconColumn)
+            // A place is one word, which at the largest sizes would break mid-word beside its
+            // icon; it shrinks a little to stay whole instead.
             title
-                .lineLimit(isNested ? nil : 1)
-                .minimumScaleFactor(isNested ? 1 : placeNameScale)
+                .lineLimit(1)
+                .minimumScaleFactor(placeNameScale)
                 .padding(.leading, drawerInset)
         }
         .padding(.leading, iconLead)
@@ -78,15 +65,6 @@ private struct DrawerLabel<Icon: View, Title: View>: View {
                 }
             }
         }
-    }
-
-    /// The icon, its bounds offered for the fill unless it marks its own (a node marks its dot).
-    private var markedIcon: some View {
-        icon
-            .transformAnchorPreference(key: DrawerIconBounds.self, value: .bounds) {
-                $0 = $0 ?? $1
-            }
-            .frame(width: iconColumn)
     }
 
     /// The fill of the place showing: as much space to the icon's left as above and below it,
@@ -109,7 +87,7 @@ private struct DrawerIconBounds: PreferenceKey {
     }
 }
 
-/// How far a top-level place's name may shrink to fit on its line.
+/// How far a place's name may shrink to fit on its line.
 private let placeNameScale: CGFloat = 0.7
 
 /// How far a place's name sits from its icon's column.
@@ -122,52 +100,21 @@ private let iconLead: CGFloat = 17
 /// How far the fill of the place showing stops short of the row's trailing edge.
 private let fillTrailingInset = Spacing.sm
 
-/// A nested place's node, the rail's dot: brighter for the place showing. A plus, held
-/// invisibly, gives it New's baseline, so it sits on its name's first line as New's plus does.
-public struct DrawerNode: View {
-    private let isLit: Bool
-    @ScaledMetric(relativeTo: .body) private var size = railNodeSize
-
-    public init(isLit: Bool) {
-        self.isLit = isLit
-    }
-
-    public var body: some View {
-        Image(systemName: "plus")
-            .hidden()
-            .overlay {
-                Circle()
-                    .fill(.pp(isLit ? .textPrimary : .rail))
-                    .frame(width: size, height: size)
-                    // The dot, not the plus holding its place, is what the fill spaces around.
-                    .anchorPreference(key: DrawerIconBounds.self, value: .bounds) { $0 }
-            }
-            .accessibilityHidden(true)
-    }
-}
-
 extension ButtonStyle where Self == DrawerButtonStyle {
-    /// `.buttonStyle(.drawer(isSelected: true))`: marked as the place showing; nested, it sits
-    /// under another place, its icon in that place's column.
-    public static func drawer(isSelected: Bool, isNested: Bool = false) -> DrawerButtonStyle {
-        DrawerButtonStyle(isSelected: isSelected, isNested: isNested)
+    /// `.buttonStyle(.drawer(isSelected: true))`: marked as the place showing.
+    public static func drawer(isSelected: Bool) -> DrawerButtonStyle {
+        DrawerButtonStyle(isSelected: isSelected)
     }
 }
 
 #Preview {
     VStack(spacing: Spacing.xs) {
-        Button("Routines", systemImage: "rectangle.stack") { }
-            .buttonStyle(.drawer(isSelected: false))
+        Button("Routines", systemImage: "checklist") { }
+            .buttonStyle(.drawer(isSelected: true))
         Button { } label: {
-            Label { Text(verbatim: "Leg day") } icon: { DrawerNode(isLit: true) }
+            Label { Text(verbatim: "Exercises") } icon: { CircleStackSymbol() }
         }
-        .buttonStyle(.drawer(isSelected: true, isNested: true))
-        Button { } label: {
-            Label { Text(verbatim: "Push day") } icon: { DrawerNode(isLit: false) }
-        }
-        .buttonStyle(.drawer(isSelected: false, isNested: true))
-        Button("New", systemImage: "plus") { }
-            .buttonStyle(.drawer(isSelected: false, isNested: true))
+        .buttonStyle(.drawer(isSelected: false))
     }
     .padding()
     .background(Color.pp(.background))

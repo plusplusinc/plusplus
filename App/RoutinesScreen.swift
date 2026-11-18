@@ -12,6 +12,9 @@ struct RoutinesScreen: View {
     /// The order the rows are drawn in, taken only while the list is out of sight or as it
     /// shows, so a routine opened from it moves to the top unseen, not as it slides away.
     @State private var order: [Routine.ID] = []
+    @State private var scrollPosition = ScrollPosition()
+    /// Whether the title has scrolled out of sight under the bar, for its small copy to show.
+    @State private var isTitleUnderBar = false
     @Environment(\.locale) private var locale
 
     var body: some View {
@@ -23,12 +26,18 @@ struct RoutinesScreen: View {
                         .foregroundStyle(.pp(.textPrimary))
                         .accessibilityAddTraits(.isHeader)
                         .padding(.bottom, Spacing.md)
+                        .onScrollVisibilityChange(threshold: 0.01) { isVisible in
+                            withAnimation(.easeOut(duration: RoutineScreen.barFade)) {
+                                isTitleUnderBar = !isVisible
+                            }
+                        }
                     ForEach(shown, content: row)
                 }
                 .padding(.horizontal, Spacing.md)
                 .padding(.top, Spacing.sm)
                 .padding(.bottom, Spacing.md)
             }
+            .scrollPosition($scrollPosition)
             .accessibilityHidden(session.isDrawerOpen)
             .background { Color.pp(.background).ignoresSafeArea() }
             .onAppear(perform: takeOrder)
@@ -40,12 +49,30 @@ struct RoutinesScreen: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                // As the routine screen's: always there, faded, and a tap scrolls to the top.
+                ToolbarItem(placement: .title) {
+                    Button {
+                        withAnimation(.snappy) { scrollPosition.scrollTo(edge: .top) }
+                    } label: {
+                        Text("Routines")
+                            .font(.ppBarTitle)
+                            .foregroundStyle(.pp(.textPrimary))
+                            .lineLimit(1)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(.isHeader)
+                    .accessibilityHint("Scrolls to the top.")
+                    .hiddenBehindDrawer()
+                    .opacity(isTitleUnderBar ? 1 : 0)
+                    .allowsHitTesting(isTitleUnderBar)
+                    .accessibilityShown(isTitleUnderBar)
+                }
                 ToolbarItem(placement: .topBarLeading) {
                     MenuButton(session: session)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("New routine", systemImage: "plus") {
-                        Task { await session.startNew(pushed: true) }
+                        Task { await session.startNew() }
                     }
                     .makesSomething()
                     .hiddenBehindDrawer()
@@ -60,7 +87,7 @@ struct RoutinesScreen: View {
 
     private func row(_ routine: Routine) -> some View {
         Button {
-            Task { await session.open(routine.id, weightUnit: weightUnit, pushed: true) }
+            Task { await session.open(routine.id, weightUnit: weightUnit) }
         } label: {
             NameRow(namer.listedName(of: routine))
         }

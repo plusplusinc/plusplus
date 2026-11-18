@@ -1,9 +1,8 @@
 import XCTest
 
-/// The ++ drawer and the Routines screen over saved routines: switching, a title opened and
-/// left as it was saving nothing, and the drill-in from the Routines screen. Opening counting as
-/// using is `RoutineStoreRecencyTests`', through the
-/// `openRoutine` a switch already shows it called. Names come from the muscle groups
+/// The ++ drawer, the Routines screen over saved routines, and Exercises: the drawer's two places
+/// and its mark, the drill-in from the Routines screen, and Exercises' search covering ++. Which
+/// routines come first is `RoutineStoreRecencyTests`'. Names come from the muscle groups
 /// (`-fallbackNames`). A name typed on a pushed routine and left with no Return shows in the list
 /// once popped, which only the session's save puts there; that a save reaches the store is
 /// `RoutineSessionTests`', and that one survives a quit `RoutineAutosaveUITests`'.
@@ -12,119 +11,128 @@ import XCTest
 final nonisolated class RoutineDrawerUITests: XCTestCase {
     /// On a saved routine opened with exercises in, a tap in the empty space below the last row
     /// opens the picker at half height, as the first sheet the screen opens. Here, not after a
-    /// pick, because the first opening is where a height set from the last one showed full.
+    /// pick, because the first opening is where a height set from the last one showed full. The
+    /// picker's search is a bar button until tapped, so its Close, in the same bar, marks the
+    /// sheet's top.
     @MainActor
     private func openPickerFromBelowRows(in app: XCUIApplication) {
-        let search = app.searchFields.firstMatch
+        let close = app.buttons["Close"]
         XCTContext.runActivity(named: "A tap below the last row opens the picker half up") { _ in
             app.exerciseRows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 1))
                 .withOffset(CGVector(dx: 0, dy: 120)).tap()
-            XCTAssertTrue(search.appears(within: 2), "The tap below the last row opened no picker")
+            XCTAssertTrue(close.appears(within: 2), "The tap below the last row opened no picker")
             XCTAssertGreaterThan(
-                search.frame.minY,
+                close.frame.minY,
                 app.frame.height / 3,
                 "The picker opened full height from a tap below the rows",
             )
-            app.buttons["Close"].tap()
-            XCTAssertTrue(search.disappears(), "Close left the picker up")
+            close.tap()
+            XCTAssertTrue(close.disappears(), "Close left the picker up")
         }
     }
 
-    /// From one saved routine, a second made, the two switched between, and both opened from
-    /// the Routines screen.
+    /// From one saved routine, the drawer's places, a second routine made and both opened from
+    /// the Routines screen, and Exercises.
     @MainActor
     func testDrawerSwitchesRoutines() {
         let app = XCUIApplication()
         // Seeded, since the add is `RoutineAutosaveUITests`'.
         let title = app.launchSeeding(["barbell-bench-press"], arguments: ["-fallbackNames", "YES"])
         openPickerFromBelowRows(in: app)
-        XCTContext.runActivity(named: "The drawer marks the routine showing, or a new one") { _ in
+        XCTContext.runActivity(named: "The drawer offers Routines and Exercises") { _ in
             XCTAssertEqual(title.value(becoming: "Chest"), "Chest")
             XCTAssertTrue(app.buttons["Add exercise"].exists)
             openDrawer(in: app)
-            XCTAssertEqual(drawerRoutines(in: app), ["Chest"])
             XCTAssertTrue(app.buttons["Start"].disappears(), "VoiceOver reaches Start behind it")
             XCTAssertTrue(
                 app.buttons["Add exercise"].disappears(),
                 "VoiceOver reaches Add exercise behind it",
             )
-            XCTAssertTrue(app.buttons["Chest"].isSelected, "The routine showing isn't marked")
-            XCTAssertFalse(app.buttons["Routines"].isSelected)
+            // A routine showing is neither place.
+            XCTAssertFalse(app.buttons["Routines"].isSelected, "Routines is marked on a routine")
+            XCTAssertFalse(app.buttons["Exercises"].isSelected, "Exercises is marked on a routine")
             attach(named: "drawer-routine")
-            app.buttons["New"].tap()
-            XCTAssertTrue(app.drawerTitle.disappears(), "New did not close the drawer")
-            XCTAssertEqual(title.value(becoming: "New routine"), "New routine")
-            XCTAssertEqual(app.exerciseRows.count, 0)
-            openDrawer(in: app)
-            XCTAssertEqual(drawerRoutines(in: app), ["New routine", "Chest"])
-            XCTAssertTrue(app.buttons["New routine"].isSelected, "The new one isn't marked")
-            XCTAssertFalse(app.buttons["New"].isSelected, "New, an action, is marked")
-            XCTAssertFalse(app.buttons["Chest"].isSelected)
-            // The untouched new routine's row only closes the drawer.
-            app.buttons["New routine"].tap()
-            XCTAssertTrue(app.drawerTitle.disappears(), "The new one's row left the drawer open")
-            XCTAssertEqual(title.value as? String, "New routine")
+            app.drawerTitle.tap()
+            XCTAssertTrue(app.drawerTitle.disappears(), "Tapping the title left the drawer open")
+            XCTAssertEqual(title.value as? String, "Chest")
         }
-        XCTContext.runActivity(named: "Switching keeps both, and opening keeps the order") { _ in
-            app.addExercise("Pull-up, Pull-up bar", searching: "pull-up")
-            XCTAssertEqual(title.value(becoming: "Back"), "Back")
-            openDrawer(in: app)
-            XCTAssertEqual(drawerRoutines(in: app), ["Back", "Chest"])
-            app.buttons["Chest"].tap()
-            XCTAssertTrue(app.drawerTitle.disappears(), "Opening a routine left the drawer open")
-            XCTAssertEqual(title.value(becoming: "Chest"), "Chest")
-            XCTAssertEqual(app.exerciseNames, ["Barbell bench press"])
-            openDrawer(in: app)
-            // Opened from the drawer, it keeps its place there, and only the mark moves.
-            XCTAssertEqual(drawerRoutines(in: app), ["Back", "Chest"], "Opening one moved it")
-            XCTAssertTrue(app.buttons["Chest"].isSelected, "The routine opened isn't marked")
-            XCTAssertFalse(app.buttons["Back"].isSelected)
-        }
-        untouchedEditKeepsThePlace(in: app, title: title)
-        drawerEditMovesUp(in: app)
         routinesScreenDrillsIn(in: app, title: title)
+        exercisesSearchCoversMenu(in: app)
+        exercisesCustomizesAndDeletes(in: app)
     }
 
-    /// With the drawer open on Back over Chest, Chest showing: Chest's title opened and left as it
-    /// was with Return is no change, so nothing is saved and Chest keeps its place under Back.
-    /// Leaves the drawer open.
+    /// The Routines screen lists every routine, latest first; a row or + pushes a routine with a
+    /// back chevron in place of ++, which the chevron or an edge swipe pops; the chevron keeps a
+    /// name still being typed. Each key reaches the routine as typed, whichever way the screen
+    /// goes, so the chevron, which ends no edit, shows it for the edge swipe too.
     @MainActor
-    private func untouchedEditKeepsThePlace(in app: XCUIApplication, title: XCUIElement) {
-        XCTContext.runActivity(named: "A title opened and left as it was moves nothing") { _ in
-            app.drawerTitle.tap()
-            XCTAssertTrue(app.drawerTitle.disappears(), "Tapping the title left the drawer open")
-            // The screen slides back from the drawer's side.
-            XCTAssertTrue(title.settles(), "The title kept moving after the drawer shut")
-            let keyboard = app.keyboards.element
-            title.tap()
-            XCTAssertTrue(keyboard.appears(), "Tapping the title opened no keyboard")
-            title.typeText("\n")
-            XCTAssertTrue(keyboard.disappears(), "Return should end editing")
-            XCTAssertEqual(title.value(becoming: "Chest"), "Chest")
+    private func routinesScreenDrillsIn(in app: XCUIApplication, title: XCUIElement) {
+        XCTContext.runActivity(named: "Routines lists every routine, and + pushes a new one") { _ in
+            app.openDrawer(andTap: "Routines")
+            XCTAssertEqual(reading(app.routineRowLabels, becoming: ["Chest"], within: 2), ["Chest"])
             openDrawer(in: app)
-            XCTAssertEqual(drawerRoutines(in: app), ["Back", "Chest"], "No change moved it up")
+            XCTAssertTrue(app.buttons["Routines"].isSelected, "Routines isn't marked")
+            XCTAssertFalse(app.buttons["Exercises"].isSelected)
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+            XCTAssertTrue(app.drawerTitle.disappears(), "A tap on the sliver left it open")
+            app.buttons["New routine"].tap()
+            XCTAssertEqual(title.value(becoming: "New routine"), "New routine")
+            app.tapBack()
+            XCTAssertTrue(title.disappears(), "The chevron did not pop")
+            XCTAssertEqual(app.routineRowLabels, ["Chest"], "The untouched new one was listed")
+            app.buttons["New routine"].tap()
+            XCTAssertEqual(title.value(becoming: "New routine"), "New routine")
+            app.addExercise("Pull-up, Pull-up bar", searching: "pullup")
+            XCTAssertEqual(title.value(becoming: "Back"), "Back")
+            XCTAssertFalse(app.buttons["Menu"].exists, "++ shows on a pushed routine")
+            attach(named: "pushed-routine")
+            app.edgeSwipe()
+            XCTAssertTrue(title.disappears(), "The edge swipe did not pop")
+            XCTAssertFalse(app.drawerTitle.exists, "The edge swipe opened the drawer")
+            XCTAssertTrue(app.buttons["Menu"].appears(), "No ++ back on the Routines screen")
+            let listed = ["Back", "Chest"]
+            XCTAssertEqual(reading(app.routineRowLabels, becoming: listed, within: 2), listed)
+            attach(named: "routines-screen")
+        }
+        XCTContext.runActivity(named: "A row pushes its routine, and an edit moves it up") { _ in
+            app.routineRow(named: "Chest").tap()
+            XCTAssertEqual(title.value(becoming: "Chest"), "Chest", "The row pushed no routine")
+            XCTAssertEqual(app.exerciseNames, ["Barbell bench press"])
+            editTheFirstRow(in: app)
+            app.tapBack()
+            XCTAssertTrue(title.disappears(), "The chevron did not pop")
+            let listed = ["Chest", "Back"]
+            XCTAssertEqual(
+                reading(app.routineRowLabels, becoming: listed, within: 2),
+                listed,
+                "The edited one isn't first",
+            )
+        }
+        XCTContext.runActivity(named: "The chevron keeps a name still being typed") { _ in
+            app.routineRow(named: "Chest").tap()
+            XCTAssertEqual(title.value(becoming: "Chest"), "Chest", "The row pushed no routine")
+            typeName("Chest day", over: "Chest", in: app)
+            app.tapBack()
+            XCTAssertTrue(title.disappears(), "The chevron did not pop")
+            let renamed = ["Chest day", "Back"]
+            XCTAssertEqual(reading(app.routineRowLabels, becoming: renamed, within: 2), renamed)
+            attach(named: "chevron-renamed")
         }
     }
 
-    /// With the drawer open on Back over Chest, Chest showing: editing Chest puts it first in the
-    /// drawer, without a relaunch. Leaves the drawer open.
+    /// On the routine showing, opens its first row's sheet, adds a set, drags the weight ruler,
+    /// and closes the sheet.
     @MainActor
-    private func drawerEditMovesUp(in app: XCUIApplication) {
-        XCTContext.runActivity(named: "Editing a routine moves it to the top of the drawer") { _ in
-            app.drawerTitle.tap()
-            XCTAssertTrue(app.drawerTitle.disappears(), "Tapping the title left the drawer open")
-            app.exerciseRows.element(boundBy: 0).tap()
-            let sets = app.buttons["Sets"]
-            XCTAssertTrue(sets.appears(), "Tapping a row opened no sheet")
-            sets.tap()
-            app.buttons["Increase"].tapAtCenter()
-            XCTAssertEqual(sets.value(becoming: "4 sets"), "4 sets")
-            dragTheWeightRuler(in: app)
-            app.buttons["Close"].tap()
-            XCTAssertTrue(sets.disappears(), "Close left the sheet up")
-            openDrawer(in: app)
-            XCTAssertEqual(drawerRoutines(in: app), ["Chest", "Back"], "The edited one isn't first")
-        }
+    private func editTheFirstRow(in app: XCUIApplication) {
+        app.exerciseRows.element(boundBy: 0).tap()
+        let sets = app.buttons["Sets"]
+        XCTAssertTrue(sets.appears(), "Tapping a row opened no sheet")
+        sets.tap()
+        app.buttons["Increase"].tapAtCenter()
+        XCTAssertEqual(sets.value(becoming: "4 sets"), "4 sets")
+        dragTheWeightRuler(in: app)
+        app.buttons["Close"].tap()
+        XCTAssertTrue(sets.disappears(), "Close left the sheet up")
     }
 
     /// In the open sheet, at half height, Weight opening grows the sheet to fit it, and a drag
@@ -180,57 +188,6 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
         return Double(value.prefix { $0.isNumber || $0 == "." }) ?? 0
     }
 
-    /// The Routines screen lists every routine, latest first; a row or + pushes a routine with a
-    /// back chevron in place of ++, which the chevron or an edge swipe pops; the chevron keeps a
-    /// name still being typed. Each key reaches the routine as typed, whichever way the screen
-    /// goes, so the chevron, which ends no edit, shows it for the edge swipe too.
-    @MainActor
-    private func routinesScreenDrillsIn(in app: XCUIApplication, title: XCUIElement) {
-        XCTContext.runActivity(named: "Routines lists every routine, and a row drills in") { _ in
-            app.buttons["Routines"].tap()
-            XCTAssertTrue(app.drawerTitle.disappears(), "Routines did not close the drawer")
-            let rows = app.buttons.matching(identifier: "routines.row")
-            let listed = ["Chest", "Back"]
-            XCTAssertEqual(reading(app.routineRowLabels, becoming: listed, within: 2), listed)
-            attach(named: "routines-screen")
-            openDrawer(in: app)
-            XCTAssertTrue(app.buttons["Routines"].isSelected, "Routines isn't marked")
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
-            XCTAssertTrue(app.drawerTitle.disappears(), "A tap on the sliver left it open")
-            rows.element(boundBy: 1).tap()
-            XCTAssertEqual(title.value(becoming: "Back"), "Back", "The row pushed no routine")
-            XCTAssertFalse(app.buttons["Menu"].exists, "++ shows on a pushed routine")
-            attach(named: "pushed-routine")
-            app.edgeSwipe()
-            XCTAssertTrue(title.disappears(), "The edge swipe did not pop")
-            XCTAssertFalse(app.drawerTitle.exists, "The edge swipe opened the drawer")
-            XCTAssertTrue(app.buttons["Menu"].appears(), "No ++ back on the Routines screen")
-        }
-        XCTContext.runActivity(named: "+ pushes a new routine, and the chevron pops it") { _ in
-            app.buttons["New routine"].tap()
-            XCTAssertEqual(title.value(becoming: "New routine"), "New routine")
-            app.navigationBars.buttons.element(boundBy: 0).tap()
-            XCTAssertTrue(title.disappears(), "The chevron did not pop")
-            app.edgeSwipe()
-            XCTAssertTrue(app.drawerTitle.appears(), "The edge swipe on Routines did not open it")
-            app.drawerTitle.tap()
-            XCTAssertTrue(app.drawerTitle.disappears(), "Tapping the title left the drawer open")
-        }
-        XCTContext.runActivity(named: "The chevron keeps a name still being typed") { _ in
-            // By name: opening Back may have moved it up the list.
-            app.buttons.matching(identifier: "routines.row")
-                .matching(NSPredicate(format: "label == %@", "Chest")).firstMatch.tap()
-            XCTAssertEqual(title.value(becoming: "Chest"), "Chest", "The row pushed no routine")
-            typeName("Chest day", over: "Chest", in: app)
-            app.navigationBars.buttons.element(boundBy: 0).tap()
-            XCTAssertTrue(title.disappears(), "The chevron did not pop")
-            let renamed = ["Chest day", "Back"]
-            XCTAssertEqual(reading(app.routineRowLabels, becoming: renamed, within: 2), renamed)
-            attach(named: "chevron-renamed")
-        }
-        drawerListsThree(in: app, title: title)
-    }
-
     /// Types `name` over the pushed routine's `old` one, with no Return, so it is still being
     /// edited.
     @MainActor
@@ -240,31 +197,101 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
         XCTAssertEqual(app.routineTitle.value(becoming: name), name)
     }
 
-    /// The new routine left untouched lists nowhere, and with four saved the drawer lists the
-    /// three latest, the one made last first.
+    /// From the Routines screen, the drawer's Exercises shows the exercise list, marked in the
+    /// drawer. Its open search's field covers ++, which then takes no tap and is out of
+    /// VoiceOver's reach, and the search's X uncovers it; the edge swipe opens the drawer with
+    /// the search open. The cover's motion is checked on frames; the bar's item and its
+    /// accessibility only the running app composes.
     @MainActor
-    private func drawerListsThree(in app: XCUIApplication, title: XCUIElement) {
-        XCTContext.runActivity(named: "An untouched new one isn't listed; the drawer has 3") { _ in
-            let listedBefore = Set(app.routineRowLabels)
-            XCTAssertEqual(listedBefore, ["Chest day", "Back"], "The untouched new one was listed")
-            var latest = ""
-            for exercise in ["Backward arm circles", "Band pull-apart, Band"] {
-                app.buttons["New routine"].tap()
-                XCTAssertEqual(title.value(becoming: "New routine"), "New routine")
-                app.addExercise(exercise)
-                let unnamed = { title.value as? String == "New routine" }
-                XCTAssertFalse(reading(unnamed(), becoming: false, within: 2), "Still unnamed")
-                latest = title.value as? String ?? ""
-                app.navigationBars.buttons.element(boundBy: 0).tap()
-                XCTAssertTrue(title.disappears(), "The chevron did not pop")
-            }
-            XCTAssertEqual(reading(app.routineRowLabels.count, becoming: 4, within: 2), 4)
-            openDrawer(in: app)
-            let listed = drawerRoutines(in: app)
-            XCTAssertEqual(listed.count, 3, "The drawer lists \(listed), not the latest three")
-            XCTAssertEqual(listed.first, latest, "The routine made last isn't first")
+    private func exercisesSearchCoversMenu(in app: XCUIApplication) {
+        XCTContext.runActivity(named: "Exercises' search covers ++ while it is open") { _ in
+            app.openDrawer(andTap: "Exercises")
+            let menu = app.buttons["Menu"]
+            XCTAssertTrue(app.searchButton.appears(), "Exercises showed no search")
+            XCTAssertTrue(menu.exists, "Exercises showed no ++")
+            XCTAssertEqual(app.barElements, ["button Menu", "button Search"])
+            let circle = app.searchButton.frame
+            XCTAssertEqual(circle.width, circle.height, accuracy: 1, "Search isn't its circle")
+            XCTAssertLessThanOrEqual(circle.maxX, app.frame.maxX, "Search runs off the screen")
+            // From its frame now: a coordinate on the element resolves it when tapped.
+            let menuPoint = app.point(x: menu.frame.midX, y: menu.frame.midY)
+            app.searchButton.tap()
+            XCTAssertTrue(menu.disappears(), "VoiceOver reaches ++ under the open search")
+            XCTAssertTrue(app.keyboards.element.appears(), "The open search took no focus")
+            XCTAssertEqual(app.barElements, ["field Search", "button Close search"])
+            XCTAssertEqual(app.searchButton.frame, circle, "Close search isn't the circle")
+            XCTAssertLessThanOrEqual(
+                app.searchField.frame.maxX,
+                circle.minX,
+                "The field runs under Close search",
+            )
+            attach(named: "exercises-searching")
+            menuPoint.tap()
+            XCTAssertFalse(app.drawerTitle.appears(within: 1), "A tap on the covered ++ landed")
+            app.edgeSwipe()
+            XCTAssertTrue(app.drawerTitle.appears(), "The edge swipe did not open the drawer")
+            XCTAssertTrue(app.buttons["Exercises"].isSelected, "Exercises isn't marked")
             app.drawerTitle.tap()
             XCTAssertTrue(app.drawerTitle.disappears(), "Tapping the title left the drawer open")
+            app.searchButton.tap()
+            XCTAssertTrue(menu.appears(), "The search's X did not uncover ++")
+            XCTAssertEqual(app.barElements, ["button Menu", "button Search"])
+        }
+    }
+
+    /// In Exercises, a built-in's row opens nothing; Create in the search stores the exercise
+    /// and pushes its Customize form, with no Save or Cancel, and back comes to the list, where
+    /// it shows; a tap on it pushes the form again; and Delete asks before it deletes, then comes
+    /// back to a list without it. What a customize or delete does to the routines, and the count
+    /// the question gives, are the package's (`RoutineStoreCustomizeTests`,
+    /// `RoutineSessionExerciseTests`); this holds the wire through the screen's pushes and the
+    /// question, which only the running app composes.
+    @MainActor
+    private func exercisesCustomizesAndDeletes(in app: XCUIApplication) {
+        XCTContext.runActivity(named: "Exercises creates, customizes, and deletes") { _ in
+            let name = app.textFields["customize.name"]
+            let builtIn = app.descendants(matching: .any)
+                .matching(identifier: "exercises.row").firstMatch
+            XCTAssertTrue(builtIn.appears(), "Exercises listed nothing")
+            XCTAssertFalse(builtIn.elementType == .button, "A built-in's row takes a tap")
+            builtIn.tap()
+            XCTAssertFalse(name.appears(within: 1), "A built-in's row opened a form")
+
+            app.search(for: "zq")
+            XCTAssertEqual(app.searchField.value as? String, "zq", "The search capitalized")
+            let create = app.buttons["picker.create"]
+            XCTAssertTrue(create.appears(), "Exercises' search offered no Create")
+            XCTAssertEqual(
+                create.label,
+                "Create \u{201C}Zq\u{201D}",
+                "Create's row doesn't show the name it creates",
+            )
+            create.tap()
+            XCTAssertTrue(name.appears(), "Create pushed no Customize form")
+            XCTAssertEqual(name.value as? String, "Zq", "Create's name isn't capitalized")
+            XCTAssertFalse(app.buttons["Save"].exists, "Customize has a Save")
+            XCTAssertFalse(app.buttons["Cancel"].exists, "Customize has a Cancel")
+            app.tapBack()
+            let row = app.pickerRows["Zq"]
+            XCTAssertTrue(row.appears(), "The created exercise isn't in the list")
+            XCTAssertEqual(app.searchField.value as? String, "zq", "Back lost the search")
+            XCTAssertFalse(app.keyboards.element.appears(within: 0.5), "Back raised the keyboard")
+            XCTAssertTrue(row.settles(), "The created exercise's row kept moving")
+            row.tap()
+            XCTAssertTrue(name.appears(), "A created exercise's row opened no Customize form")
+
+            app.buttons["Delete exercise"].tap()
+            let question = app.staticTexts["Delete Zq?"]
+            XCTAssertTrue(question.appears(), "Delete didn't ask first")
+            XCTAssertTrue(name.exists, "Delete left the form before an answer")
+            let confirm = app.buttons.matching(identifier: "Delete exercise")
+            XCTAssertEqual(confirm.count, 2, "The question offers no Delete exercise")
+            let answer = confirm.element(boundBy: 1)
+            XCTAssertTrue(answer.settles(), "The question's Delete exercise kept moving")
+            answer.tap()
+            XCTAssertTrue(name.disappears(), "Delete didn't come back to the list")
+            XCTAssertTrue(row.disappears(), "The deleted exercise is still listed")
+            XCTAssertTrue(create.appears(), "Its name isn't free to create again")
         }
     }
 
@@ -275,17 +302,5 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
         // The bars are hosted apart from the screen, and their controls leave the tree on their
         // own, so the drawer's buttons are read only once they have.
         XCTAssertTrue(app.buttons["Menu"].disappears(), "VoiceOver reaches ++ behind the drawer")
-    }
-
-    /// The routines listed under Routines, in order: the buttons between Routines and New.
-    @MainActor
-    private func drawerRoutines(in app: XCUIApplication) -> [String] {
-        // Read from one snapshot: buttons read one by one shift under the reading as the bars'
-        // controls leave the tree, each on its own pass, after the drawer opens.
-        let labels = app.snapshots { $0.elementType == .button }.map(\.label)
-        guard let routines = labels.firstIndex(of: "Routines"),
-              let new = labels[routines...].firstIndex(of: "New")
-        else { return [] }
-        return Array(labels[routines + 1 ..< new])
     }
 }

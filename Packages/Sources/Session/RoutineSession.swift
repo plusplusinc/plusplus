@@ -17,24 +17,22 @@ public final class RoutineSession {
     public private(set) var current: Routine
     /// Opened through `openDrawer()`, which a workout refuses, and shut through `closeDrawer()`.
     public private(set) var isDrawerOpen = false
-    /// Where the app is: the routine, the Routines screen, or a routine pushed on it.
-    public private(set) var screen = Screen.routine
+    /// Where the app is: the routine, the Routines screen, a routine pushed on it, or Exercises.
+    public internal(set) var screen = Screen.routine
     /// The workout running the open routine, from Start until Finish or Discard.
     public private(set) var workout: Workout?
     /// Every exercise there is to pick, the ones created this session included.
-    public private(set) var exercises: ExerciseList
+    public internal(set) var exercises: ExerciseList
 
     /// The saved routines, latest first, as of the last read, with each routine left since.
     private var saved: [Routine] = []
-    /// When each routine was last edited, as of the last read, with each edit made since.
-    private var editedAt: [Routine.ID: Date] = [:]
     private var isSwitching = false
     /// How many times the routine showing has changed, so a read that a switch overtook is
     /// dropped.
     @ObservationIgnored private var switches = 0
 
     /// Nil when the store didn't open: switching works in memory, and nothing saves.
-    @ObservationIgnored private let store: RoutineStore?
+    @ObservationIgnored let store: RoutineStore?
     /// Names a workout after its routine, at Start and again at Finish.
     @ObservationIgnored private let namer: RoutineNamer
     /// Where every change to the routine goes, to be saved one at a time in the order they
@@ -80,39 +78,14 @@ public final class RoutineSession {
         case landed(CheckedContinuation<Void, Never>)
     }
 
-    /// Where the app is, under the drawer.
-    public enum Screen {
-        /// The open routine, at the root.
-        case routine
-        /// The Routines screen, its list showing.
-        case routines
-        /// The open routine, pushed onto the Routines screen from its list.
-        case pushedRoutine
-    }
-
-    /// Pops the routine pushed onto the Routines screen, showing the list again, as its back
-    /// button and back swipe do. A push goes through `open` or `startNew`.
-    public func popRoutine() {
-        if screen == .pushedRoutine {
-            screen = .routines
-        }
-    }
-
     /// Every saved routine, latest first, with the open one first as it is now.
     public var recent: [Routine] {
         saved.withOpen(current)
     }
 
-    /// The drawer's routines: the `count` latest opened or edited, the last edited first, so
-    /// opening one never moves it.
-    public func recentByEdit(first count: Int) -> [Routine] {
-        recent.lastEdited(first: count, editedAt: editedAt)
-    }
-
     /// Saves a change to the open routine.
     public func save(_ routine: Routine) {
         current = routine
-        editedAt[routine.id] = .now
         saves.yield(RoutineSave(routine: routine, keepsEmpty: workout != nil))
     }
 
@@ -205,21 +178,7 @@ public final class RoutineSession {
         }
     }
 
-    /// What the drawer marks as showing: the Routines screen, the open routine, or a new one.
-    public var showing: Showing {
-        if screen == .routines {
-            return .routines
-        }
-        return current.isEmpty ? .new : .routine
-    }
-
-    public enum Showing {
-        case routines
-        case routine
-        case new
-    }
-
-    /// Reads the saved routines again, for the Routines screen and the drawer's next opening.
+    /// Reads the saved routines again, for the Routines screen and Exercises' Used in.
     /// A read that fails leaves the last one, to be tried again at the next refresh; one that
     /// started before a switch is dropped, since it may be missing the routine left.
     public func refreshRecent(weightUnit: WeightUnit) async {
@@ -228,30 +187,21 @@ public final class RoutineSession {
         do {
             let read = try await store.routinesByRecency(weightUnit: weightUnit)
             guard switches == switchesBefore else { return }
-            saved = read.routines
-            // An edit still on its way to the store is newer than what it read.
-            editedAt.merge(read.editedAt, uniquingKeysWith: max)
+            saved = read
         } catch {
             Logger.session.error("The recent routines didn't load: \(error)")
         }
     }
 
-    /// Shows the Routines screen and closes the drawer.
-    public func showRoutines() {
-        screen = .routines
-        closeDrawer()
-    }
-
-    /// Opens a saved routine on the routine screen and closes the drawer, or, `pushed`, pushes
-    /// it onto the Routines screen. The open one shows as it is now, edits included.
-    public func open(_ id: Routine.ID, weightUnit: WeightUnit, pushed: Bool = false) async {
+    /// Pushes a saved routine onto the Routines screen. The open one shows as it is now, edits
+    /// included.
+    public func open(_ id: Routine.ID, weightUnit: WeightUnit) async {
         guard !isSwitching else { return }
         guard id != current.id else {
-            show(current, pushed: pushed)
-            return closeDrawer()
+            return show(current)
         }
         guard let store else { return }
-        await switchTo(pushed: pushed) {
+        await switchTo {
             do {
                 return try await store.openRoutine(id, weightUnit: weightUnit)
             } catch {
@@ -261,22 +211,20 @@ public final class RoutineSession {
         }
     }
 
-    /// Opens a new, empty routine on the routine screen and closes the drawer, or, `pushed`,
-    /// pushes it onto the Routines screen; an empty one open already is shown as it is. Nothing
-    /// is saved for the new routine until it changes.
-    public func startNew(pushed: Bool = false) async {
+    /// Pushes a new, empty routine onto the Routines screen; an empty one open already is shown
+    /// as it is. Nothing is saved for the new routine until it changes.
+    public func startNew() async {
         guard !isSwitching else { return }
         guard !current.isEmpty else {
-            show(current, pushed: pushed)
-            return closeDrawer()
+            return show(current)
         }
-        await switchTo(pushed: pushed) { Routine() }
+        await switchTo { Routine() }
     }
 
-    /// Lets the last edit land, then shows the routine `next` gives, if any, and closes the
-    /// drawer. An edit made while `next` runs lands before the next routine shows, too. A switch
-    /// already under way takes the tap. Internal so a test can hold `next`.
-    func switchTo(pushed: Bool, _ next: () async -> Routine?) async {
+    /// Lets the last edit land, then pushes the routine `next` gives, if any. An edit made while
+    /// `next` runs lands before the next routine shows, too. A switch already under way takes
+    /// the tap. Internal so a test can hold `next`.
+    func switchTo(_ next: () async -> Routine?) async {
         guard !isSwitching else { return }
         isSwitching = true
         defer { isSwitching = false }
@@ -284,18 +232,17 @@ public final class RoutineSession {
         let routine = await next()
         await finishSaving()
         if let routine {
-            show(routine, pushed: pushed)
+            show(routine)
         }
-        closeDrawer()
     }
 
-    private func show(_ routine: Routine, pushed: Bool) {
+    private func show(_ routine: Routine) {
         // The routine left stays in the list at its place, before its last save reads back.
         saved = recent
         switches += 1
         opened = routine
         current = routine
-        screen = pushed ? .pushedRoutine : .routine
+        screen = .pushedRoutine
     }
 
     /// Lets the last edit land: a finished stream still hands over what it holds. An edit made
@@ -368,16 +315,30 @@ public final class RoutineSession {
 }
 
 extension RoutineSession {
-    /// Adds a created exercise to the list at once, and returns it once it is stored, so a
-    /// routine save that names it always lands after it: await this before adding its row.
-    /// A failed save is logged, and the exercise stays usable this session.
-    public func create(_ created: CreatedExercise) async -> Exercise {
-        exercises = exercises.adding(created)
+    /// Lets every edit to the open routine land, then stores `change` to the exercises,
+    /// and reads the open routine and the saved ones back, so each shows what it did to their
+    /// rows. The list takes `listing` only once the change is stored, so a refused or failed
+    /// change shows nowhere, and a form on the exercise stays up while it saves. Refused while a
+    /// switch is under way, and holds off Start and a switch while it runs. With no store,
+    /// nothing changes.
+    func changeExercises(
+        weightUnit: WeightUnit,
+        storing change: (RoutineStore) async throws -> Void,
+        listing: (ExerciseList) -> ExerciseList,
+    ) async {
+        guard !isSwitching, let store else { return }
+        isSwitching = true
+        defer { isSwitching = false }
+        await finishSaving()
         do {
-            try await store?.save(created)
+            try await change(store)
+            exercises = listing(exercises)
+            // Gone only if it was left with nothing: it reads as that, under its id.
+            current = try await store.routine(current.id, weightUnit: weightUnit)
+                ?? Routine(id: current.id, name: current.name)
         } catch {
-            Logger.session.error("The created exercise didn't save: \(error)")
+            Logger.session.error("The exercise change didn't save: \(error)")
         }
-        return Exercise(created: created)
+        await refreshRecent(weightUnit: weightUnit)
     }
 }

@@ -5,13 +5,12 @@ import XCTest
 @MainActor
 extension RenameUITests {
     /// The picker opens fast and without the keyboard, and a pick adds a row, Start rising with
-    /// the + above it. The rest of the rows are
-    /// seeded at the test's launch, in a routine the drawer then opens, and one more is added
-    /// through the picker's search onto them. Search's list and empty state are left to use, and
-    /// the add's scroll to the list's end is `TitleWrappingUITests`' at AX5. Where the + sits, to
-    /// the point, is `PrimaryKeyBarTests`'.
+    /// the + above it. The rest of the rows are seeded at the test's launch, in a routine the
+    /// Routines screen then opens, and one more is added through the picker's search onto them.
+    /// Search's list and empty state are left to use, and the add's scroll to the list's end is
+    /// `TitleWrappingUITests`' at AX5. Where the + sits, to the point, is `PrimaryKeyBarTests`'.
     func addExercises(in app: XCUIApplication, keyboard: XCUIElement) {
-        let search = app.searchFields.firstMatch
+        let search = app.searchButton
         let start = app.buttons["Start"]
         let plus = app.buttons["Add exercise"]
         // At rest, before the picker covers it.
@@ -21,8 +20,7 @@ extension RenameUITests {
         XCTContext
             .runActivity(named: "Start appears with the first exercise, the + above it") { _ in
                 // Below the half-height sheet's first screenful.
-                search.tap()
-                search.typeText("barbell bench")
+                app.search(for: "bench")
                 app.pickerRows[seeded[0].label].tap()
                 XCTAssertTrue(search.disappears(), "The add left the picker open")
                 XCTAssertEqual(app.exerciseCount(becoming: 1), 1, "The pick added no row")
@@ -41,7 +39,9 @@ extension RenameUITests {
                 )
             }
         XCTContext.runActivity(named: "An add through search lands after seeded rows") { _ in
-            app.openDrawer(andTap: Self.seededName)
+            // Back to the Routines screen the new routine was pushed from.
+            app.tapBack()
+            app.routineRow(named: Self.seededName).tap()
             XCTAssertEqual(app.routineTitle.value(becoming: Self.seededName), Self.seededName)
             XCTAssertEqual(app.exerciseCount(becoming: seeded.count), seeded.count)
             app.addExercise(added.label, searching: added.query)
@@ -73,7 +73,7 @@ extension RenameUITests {
     /// the title's edit: through the tap gesture and the touch-down that ends the edit, which
     /// only the running app arbitrates.
     private func openPickerFromEmptySpace(in app: XCUIApplication, keyboard: XCUIElement) {
-        let search = app.searchFields.firstMatch
+        let search = app.searchButton
         // The line takes no touches, so a tap on it lands on the screen's empty space.
         let emptySpace = app.noExercises.center
         XCTContext.runActivity(named: "A tap that ends the title's edit opens no picker") { _ in
@@ -176,7 +176,7 @@ extension XCUIApplication {
         ),
         BuiltInRow(label: "Barbell back squat, Barbell", query: nil, id: "barbell-back-squat"),
         BuiltInRow(label: "Biceps curl, Dumbbells", query: "biceps", id: "biceps-curl"),
-        BuiltInRow(label: "Push-up", query: "push-up", id: "push-up"),
+        BuiltInRow(label: "Push-up", query: "pushup", id: "push-up"),
         BuiltInRow(
             label: "Balance board hold, Balance board",
             query: nil,

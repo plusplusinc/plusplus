@@ -53,17 +53,18 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
             attach(named: "typed-name")
         }
         try clearedRoutineIsNewRoutine(in: app, title: title, gray: gray)
+        deleteInPickerEmptiesRoutine(in: app)
     }
 
     /// An unnamed routine is named for its exercises as they come and go, in white.
     @MainActor
     private func nameFollowsTheExercises(in app: XCUIApplication, title: XCUIElement, gray: Int) {
         XCTContext.runActivity(named: "An unnamed routine is named for its exercises") { _ in
-            app.addExercise(Self.bench, searching: "barbell bench")
+            app.addExercise(Self.bench, searching: "bench")
             XCTAssertEqual(title.value(becoming: "Chest"), "Chest")
-            app.addExercise(Self.pullUp, searching: "pull-up")
+            app.addExercise(Self.pullUp, searching: "pullup")
             XCTAssertEqual(title.value(becoming: "Chest and back"), "Chest and back")
-            app.addExercise(Self.pullUp, searching: "pull-up")
+            app.addExercise(Self.pullUp, searching: "pullup")
             app.addExercise(Self.gobletSquat, searching: "goblet")
             XCTAssertEqual(title.value(becoming: "Full body"), "Full body")
             XCTAssertTrue(title.inkIsWhite(against: gray), "The generated name is not white")

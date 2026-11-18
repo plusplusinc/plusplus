@@ -19,6 +19,16 @@ extension XCUIApplication {
         exerciseRowSnapshots.map(\.label)
     }
 
+    /// The Routines screen's rows.
+    var routineRows: XCUIElementQuery {
+        buttons.matching(identifier: "routines.row")
+    }
+
+    /// The Routines screen's row labeled `name`.
+    func routineRow(named name: String) -> XCUIElement {
+        routineRows.matching(NSPredicate(format: "label == %@", name)).firstMatch
+    }
+
     /// The Routines screen's rows' labels, top to bottom.
     var routineRowLabels: [String] {
         snapshots { $0.elementType == .button && $0.identifier == "routines.row" }.map(\.label)
@@ -38,7 +48,7 @@ extension XCUIApplication {
     }
 
     var pickerRows: XCUIElementQuery {
-        buttons.matching(identifier: "picker.exercise")
+        buttons.matching(identifier: "exercises.row")
     }
 
     /// The line an empty routine shows mid-screen.
@@ -46,11 +56,81 @@ extension XCUIApplication {
         staticTexts["No exercises"]
     }
 
+    /// The bar's round search button, in Add exercise and Exercises, labeled Search while closed
+    /// and Close search while open: there exactly while one of the two shows.
+    var searchButton: XCUIElement {
+        buttons["barSearch.button"]
+    }
+
+    /// The bar's search field, there to type in once the search button has opened it.
+    var searchField: XCUIElement {
+        textFields["barSearch.field"]
+    }
+
+    /// What VoiceOver reaches in the bar's band, beside the search button and across from it,
+    /// read from one snapshot: each element's type and label, leading to trailing.
+    var barElements: [String] {
+        let band = searchButton.frame
+        let shown = snapshots { element in
+            element.elementType != .other && element.elementType != .application
+                && element.elementType != .window && element.elementType != .navigationBar
+                // The inline bar centers on the band, as the large title's bar did not.
+                && !element.frame.isEmpty
+                && element.frame.midY >= band.minY && element.frame.midY <= band.maxY
+        }
+        return shown.sorted { $0.frame.minX < $1.frame.minX }.map { element in
+            let type = switch element.elementType {
+            case .button: "button"
+            case .textField: "field"
+            case .image: "image"
+            case .staticText: "text"
+            default: "\(element.elementType.rawValue)"
+            }
+            return "\(type) \(element.label)"
+        }
+    }
+
+    /// Opens the bar's search, unless it is open, and types `text` into its field, which opening
+    /// focuses.
+    func search(for text: String) {
+        if searchButton.label == "Search" {
+            searchButton.tap()
+            XCTAssertEqual(
+                searchButton.label(becoming: "Close search"),
+                "Close search",
+                "Search did not open",
+            )
+        }
+        typeIntoSearch(text)
+    }
+
+    /// Types `text` into the open search key by key on the keyboard: XCTest reads the bar's
+    /// field as unfocused while it has the keyboard, and its `typeText` refuses an element
+    /// without focus. Letters, spaces, and deletes; Shift for a capital.
+    func typeIntoSearch(_ text: String) {
+        let keyboard = keyboards.element
+        for character in text {
+            switch character {
+            case " ":
+                keyboard.keys["space"].tap()
+            case Character(XCUIKeyboardKey.delete.rawValue):
+                keyboard.keys["delete"].tap()
+            default:
+                let key = keyboard.keys[String(character)]
+                if !key.exists {
+                    // A button, not a key.
+                    keyboard.buttons["shift"].tap()
+                }
+                key.tap()
+            }
+        }
+    }
+
     /// Opens the picker with Add exercise, the + floating over the list, which stays put as rows
-    /// come in, checking that it is up within a second, and returns its search field.
+    /// come in, checking that it is up within a second, and returns its search button.
     func openPicker() -> XCUIElement {
         buttons["Add exercise"].tap()
-        let search = searchFields.firstMatch
+        let search = searchButton
         XCTAssertTrue(search.appears(within: 1), "The picker took over a second to open")
         return search
     }
@@ -73,20 +153,22 @@ extension XCUIApplication {
     func pickExercise(_ label: String, searching query: String? = nil) {
         let search = openPicker()
         if let query {
-            search.tap()
-            search.typeText(query)
+            self.search(for: query)
         }
         pickerRows[label].tap()
         XCTAssertTrue(search.disappears(), "Picking \(label) left the picker open")
     }
 
-    /// Replaces the search `query` in `search` with one nothing matches, and checks that the
-    /// list narrows down to its one row, Create.
-    func searchForNothing(replacing query: String, in search: XCUIElement) {
-        let delete = XCUIKeyboardKey.delete.rawValue
-        search.typeText(String(repeating: delete, count: query.count) + "zzz")
-        XCTAssertTrue(buttons["Create \u{201C}zzz\u{201D}"].appears(), "No Create for zzz")
-        XCTAssertEqual(pickerRows.count, 0, "Rows other than Create match zzz")
+    /// Adds a z to the search `query`, which then matches nothing, and checks that the list
+    /// narrows down to its one row, Create, and returns the name Create makes. One key: each
+    /// costs about half a second.
+    func searchForNothing(extending query: String) -> String {
+        typeIntoSearch("z")
+        // Create capitalizes the first letter, and only that.
+        let name = query.prefix(1).uppercased() + query.dropFirst() + "z"
+        XCTAssertTrue(buttons["Create \u{201C}\(name)\u{201D}"].appears(), "No Create for \(name)")
+        XCTAssertEqual(pickerRows.count, 0, "Rows other than Create match \(name)")
+        return name
     }
 
     /// Whether the last row shows clear of Add exercise's +, once it does or after the timeout.

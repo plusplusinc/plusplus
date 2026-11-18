@@ -9,6 +9,9 @@ public struct LoggedSet: Identifiable, Equatable, Sendable {
     public let row: RoutineExercise.ID
     /// The exercise's `Exercise.id`, so the set still reads once its row is deleted.
     public let exerciseID: String
+    /// The exercise's name when the set was logged, kept through a rename or a delete; nil for
+    /// a set logged before names were kept, which reads as its exercise's name now.
+    public let exerciseName: String?
     public let round: Int
     public let side: Side?
     /// Reps or time, as done.
@@ -23,6 +26,7 @@ public struct LoggedSet: Identifiable, Equatable, Sendable {
         id: UUID = UUID(),
         row: RoutineExercise.ID,
         exerciseID: String,
+        exerciseName: String?,
         round: Int,
         side: Side?,
         target: SetTarget,
@@ -34,6 +38,7 @@ public struct LoggedSet: Identifiable, Equatable, Sendable {
         self.id = id
         self.row = row
         self.exerciseID = exerciseID
+        self.exerciseName = exerciseName
         self.round = round
         self.side = side
         self.target = target

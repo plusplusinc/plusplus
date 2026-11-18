@@ -100,26 +100,51 @@ struct CreatedExerciseTests {
         #expect(Self.exercise([.legs, .core]).defaultRest(for: .reps(10)) == 90)
     }
 
-    @Test("Add needs a new name and at least one muscle group")
+    @Test("Add needs only a name no exercise has, by the search's folding")
     func canAdd() {
         let list = ExerciseList.builtIn
-        #expect(CreatedExercise.canAdd(
-            named: "Ring row with rotation",
-            muscleGroups: [.back],
-            to: list,
-        ))
-        #expect(CreatedExercise.canAdd(
-            named: "Ring row with rotation",
-            muscleGroups: [.back, .shoulders],
-            to: list,
-        ))
-        #expect(!CreatedExercise.canAdd(
-            named: "Ring row with rotation",
-            muscleGroups: [],
-            to: list,
-        ))
-        #expect(!CreatedExercise.canAdd(named: "  ", muscleGroups: [.back], to: list))
-        #expect(!CreatedExercise.canAdd(named: "pull up", muscleGroups: [.back], to: list))
+        #expect(CreatedExercise.canAdd(named: "Ring row with rotation", to: list))
+        #expect(!CreatedExercise.canAdd(named: "  ", to: list))
+        #expect(!CreatedExercise.canAdd(named: "pull up", to: list))
+    }
+
+    @Test("An exercise with no muscle group can be added, and rests as single-joint")
+    func noMuscleGroup() {
+        // Create stays on with nothing checked: it needs only the name.
+        #expect(CreatedExercise.canAdd(named: "Corpse pose", to: .builtIn))
+        let none = Self.exercise([], [], .reps)
+        #expect(none.muscleGroups.isEmpty)
+        // As arms or core: 45 s at 10 reps with no weight, 60 s with one.
+        #expect(none.defaultRest(for: .reps(10)) == Self.exercise(.core)
+            .defaultRest(for: .reps(10)))
+        #expect(Self.exercise([], [.dumbbells]).defaultRest(for: .reps(10))
+            == Self.exercise(.arms, [.dumbbells]).defaultRest(for: .reps(10)))
+    }
+
+    @Test("Saving over an exercise may keep its name, or change its case, but not take another's")
+    func canSaveOver() {
+        let made = CreatedExercise(name: "Ring row", muscleGroups: [.back])
+        let list = ExerciseList.builtIn.adding(made)
+        #expect(!CreatedExercise.canAdd(named: "Ring row", to: list))
+        #expect(CreatedExercise.canAdd(named: "Ring row", to: list, besides: made.id))
+        #expect(CreatedExercise.canAdd(named: "ring ROW", to: list, besides: made.id))
+        #expect(!CreatedExercise.canAdd(named: "Pull-up", to: list, besides: made.id))
+    }
+
+    @Test("The list holds each created exercise's settings, replaced by a save, gone once removed")
+    func createdSettings() {
+        var made = CreatedExercise(name: "Ring row", muscleGroups: [.back], equipment: [.rings])
+        var list = ExerciseList.builtIn.adding(made)
+        #expect(list.created(id: made.id) == made)
+        #expect(list.created(id: "pull-up") == nil)
+        made.name = "Ring row, slow"
+        list = list.adding(made)
+        #expect(list.created(id: made.id) == made)
+        #expect(list.all.count == Exercise.builtIn.count + 1)
+        list = list.removing(made.id)
+        #expect(list == .builtIn)
+        // A built-in's id removes nothing.
+        #expect(list.removing("pull-up") == .builtIn)
     }
 
     @Test("Every checked group counts toward the name; each counts the exercise once")
@@ -239,5 +264,15 @@ struct CreatedExerciseTests {
         #expect(list.offersCreate(for: "💪"))
         #expect(!flexed.offersCreate(for: " 💪"))
         #expect(flexed.offersCreate(for: "💪💪"))
+    }
+
+    @Test("Create starts from the search trimmed, its first letter a capital, the rest as typed")
+    func createdName() {
+        #expect(ExerciseList.createdName(from: "curl") == "Curl")
+        #expect(ExerciseList
+            .createdName(from: " ring row with rotation ") == "Ring row with rotation")
+        #expect(ExerciseList.createdName(from: "jM curl") == "JM curl")
+        #expect(ExerciseList.createdName(from: "💪 day") == "💪 day")
+        #expect(ExerciseList.createdName(from: "  ").isEmpty)
     }
 }

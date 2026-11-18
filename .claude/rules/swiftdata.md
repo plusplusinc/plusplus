@@ -19,7 +19,7 @@ time. Every `@Model` follows these from the start:
 
 `RoutineStore` is the one `@ModelActor`, opened through
 `WorkoutStoreContainer.make(mode:schema:migrationPlan:)` with its own schema, versioned: every
-stored shape shipped so far is a `VersionedSchema` (`RoutineSchemaV1` to `V8`, the older ones in
+stored shape shipped so far is a `VersionedSchema` (`RoutineSchemaV1` to `V9`, the older ones in
 `RoutineSchema+Shipped.swift`, V6's workouts in `StoredWorkout.swift`), and `RoutineMigrationPlan` runs a lightweight stage between each,
 since each change only added an attribute or a model. Staged migration refuses a store whose
 shape matches none of the plan's versions, so a shipped version never changes: a stored change
@@ -47,7 +47,7 @@ supersets opens with every row plain. The store calls `save()` itself, since an
 actor's context does not autosave. An empty routine is deleted rather than stored, and every save
 marks the routine edited (`editedAt`), since a routine saves only when its name or rows changed.
 Opening a saved routine (`openRoutine`) marks it opened (`openedAt`), apart, so an open is never
-taken for an edit; a store written before `openedAt` reads it as `distantPast`. A routine's
+taken for an edit. A routine's
 recency is the later of the two: `routinesByRecency` sorts on it in Swift, since a sort
 descriptor can't take the later of two dates, a tie going by id, and launch opens the routine
 that list puts first.
@@ -57,7 +57,7 @@ the routine's name as it was, so renaming or deleting the routine leaves it. It 
 its start, the moment it was paused, the seconds paused before, and its end make it running,
 paused, or finished, and its time is worked out from them at any moment, so a relaunch or a
 lock never loses any. Its sets (`LoggedSet`, stored as `StoredSet`, a cascade relationship) each
-keep their row's id and exercise id, round, side (`Side`'s raw string, unknown reading as
+keep their row's id, exercise id and, since V9, name, round, side (`Side`'s raw string, unknown reading as
 nil), and numbers as done beside the numbers planned, each measure and weight apart as a row's
 are, with a `position` for the order logged; `save(_ workout:)` diffs them by id, as a routine's
 rows. Discard deletes it, its sets with it. `launch(weightUnit:)` opens a workout in progress with
@@ -67,4 +67,5 @@ workout finished after that, which opens a new routine. While a workout runs, a 
 to nothing is kept (`keepsEmpty`), and deleted once the workout ends.
 
 A row's `exerciseID` resolves through `ExerciseList`, the built-ins and V8's `StoredExercise`s,
-which store only their five settings; a row it can't resolve is left out.
+which store only their five settings; a row it can't resolve is left out. `deleteExercise`
+removes its rows too.

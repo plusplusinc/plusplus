@@ -13,7 +13,12 @@ typealias StoredRoutineExercise = RoutineSchemaV7.StoredRoutineExercise
 enum RoutineSchemaV7: VersionedSchema {
     static let versionIdentifier = Schema.Version(7, 0, 0)
     static var models: [any PersistentModel.Type] {
-        [StoredRoutine.self, StoredRoutineExercise.self, StoredWorkout.self, StoredSet.self]
+        [
+            StoredRoutine.self,
+            StoredRoutineExercise.self,
+            RoutineSchemaV6.StoredWorkout.self,
+            RoutineSchemaV6.StoredSet.self,
+        ]
     }
 
     @Model

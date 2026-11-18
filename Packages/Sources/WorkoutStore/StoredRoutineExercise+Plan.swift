@@ -1,21 +1,22 @@
 import OSLog
 
 extension StoredRoutineExercise {
-    /// Writes every field of the plan, clearing the ones it doesn't use, and setting only the
-    /// fields that differ, so an unchanged row stays clean. A row's plan is stored even when it
-    /// is the default, so it keeps what was shown if a later version's default changes; a rest
-    /// the user never set stays nil, so it follows the reps.
+    /// Writes every field of the plan, setting only the fields that differ, so an unchanged row
+    /// stays clean. A row's plan is stored even when it is the default, so it keeps what was
+    /// shown if a later version's default changes; a rest the user never set stays nil, so it
+    /// follows the reps. The other measure's number, and a weight while its exercise holds
+    /// none, are kept rather than cleared: an exercise someone changes from reps to time and
+    /// back, or to bodyweight and back, comes back with the numbers it had.
     func write(_ plan: ExercisePlan) {
-        let (newReps, newSeconds): (Int?, Int?) =
-            switch plan.target {
-            case let .reps(count): (count, nil)
-            case let .time(time): (nil, time)
-            }
         update(\.sets, to: plan.sets)
-        update(\.reps, to: newReps)
-        update(\.seconds, to: newSeconds)
-        update(\.weight, to: plan.weight?.amount)
-        update(\.weightUnit, to: plan.weight?.unit.rawValue)
+        switch plan.target {
+        case let .reps(count): update(\.reps, to: count)
+        case let .time(time): update(\.seconds, to: time)
+        }
+        if let weight = plan.weight {
+            update(\.weight, to: weight.amount)
+            update(\.weightUnit, to: weight.unit.rawValue)
+        }
         update(\.rest, to: plan.rest.lastByHand)
         update(\.isRestAuto, to: plan.rest.isAuto)
     }

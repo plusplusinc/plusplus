@@ -2,92 +2,76 @@ import DesignSystem
 import SwiftUI
 import WorkoutStore
 
-/// The sheet Add exercise opens: every exercise, built-in and created, A to Z, narrowed by
-/// search. Picking one hands it back; the presenter closes the sheet.
+/// The sheet Add exercise opens: the exercise list (`ExerciseListView`) on a stack of its own,
+/// with Close. Picking one hands it back; the presenter closes the sheet. Its inline title and
+/// Close are drawn by the bar's search: Close turns into its field as it opens, which covers the
+/// title, and back as it closes. Opening search takes the sheet to full height, as the system's
+/// search does, whether or not a software keyboard comes up to push it. A swipe down closes the
+/// sheet at any time.
 ///
-/// Search does not take focus when the sheet opens. The list is the fast path: with the
-/// keyboard down, the whole list is in reach of a thumb and a pick is one tap.
-///
-/// Create follows the typing (`ExerciseList.offersCreate(for:)`): with something typed and no
-/// exercise of exactly that name, Create “…” is the list's last row; with no matches it is the
-/// only row, so the list narrows down to it and there is no separate no-results view. It pushes
-/// `NewExerciseForm` on the sheet's own stack, so
-/// Cancel comes back to the search as it was. Neutral, not green: green is data and the +.
-struct ExercisePicker: View {
+/// Create stores the exercise and adds its row to the routine, as a pick does, but keeps the
+/// sheet up and pushes the exercise's Customize form inside it, with Done in the bar's trailing
+/// spot to close the sheet and the back chevron to the list.
+struct ExercisePicker<Customize: View>: View {
     let exercises: ExerciseList
     let onPick: (Exercise) -> Void
-    /// Stores the exercise and adds its row; the presenter closes the sheet.
-    let onCreate: (CreatedExercise) async -> Void
+    /// Runs as search opens, in the field's own transaction (`ExerciseListView.onSearchOpen`).
+    var onSearchOpen: () -> Void = { }
+    /// Stores the exercise and adds its row, returning it as stored.
+    let onCreate: (CreatedExercise) async -> Exercise
+    /// The Customize form for an exercise just created; its closure goes back to the list.
+    @ViewBuilder let customize: (Exercise.ID, _ back: @escaping () -> Void) -> Customize
 
-    @State private var query = ""
-    /// The name the form opens with, while it shows.
-    @State private var creating: String?
+    @State private var customizing: Exercise.ID?
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.displayScale) private var displayScale
 
     var body: some View {
-        let matches = exercises.matching(query)
-        let offersCreate = exercises.offersCreate(for: query)
         NavigationStack {
-            List {
-                ForEach(matches) { exercise in
-                    Button {
-                        onPick(exercise)
-                    } label: {
-                        RowLabel(title: exercise.name, detail: exercise.equipmentLine)
-                    }
-                    .listRowBackground(Color.pp(.background))
-                    .accessibilityIdentifier("picker.exercise")
-                }
-                if offersCreate {
-                    createRow
-                }
-            }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
-            .background(Color.pp(.background))
+            ExerciseListView(
+                exercises: exercises,
+                onTap: onPick,
+                barTitle: "Add exercise",
+                barLeading: closeButton,
+                onSearchOpen: onSearchOpen,
+                onCreate: { customizing = await onCreate($0).id },
+            )
+            // Still the screen's title for VoiceOver; the bar shows the search's drawn copy.
             .navigationTitle("Add exercise")
             .navigationBarTitleDisplayMode(.inline)
-            .searchable(
-                text: $query,
-                placement: .navigationBarDrawer(displayMode: .always),
-                prompt: "Search",
-            )
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(role: .close) { dismiss() }
-                }
-            }
-            .navigationDestination(item: $creating) { name in
-                NewExerciseForm(name: name, exercises: exercises, onAdd: onCreate)
+            .navigationDestination(item: $customizing) { id in
+                customize(id) { customizing = nil }
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            // The picker's own dismiss, which closes the sheet, not the push.
+                            Button("Done") { dismiss() }
+                        }
+                    }
             }
         }
     }
 
-    private var createTitle: String {
-        "Create \u{201C}\(trimmedQuery)\u{201D}"
-    }
-
-    private var trimmedQuery: String {
-        query.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private var createRow: some View {
-        Button {
-            creating = trimmedQuery
+    /// The system's Close in its glass circle, as the bar draws it, in the label's own primary
+    /// white, not the search button's cream.
+    private var closeButton: some View {
+        Button(role: .close) {
+            dismiss()
         } label: {
-            Label(createTitle, systemImage: "plus")
-                .font(.ppRowTitle)
-                .makesSomething()
-                // A label's separator starts at its title, past the icon; this one starts at
-                // the row's edge, where a result row's does.
-                .alignmentGuide(.listRowSeparatorLeading) { $0[.leading] }
+            Label("Close", systemImage: "xmark")
+                .labelStyle(.iconOnly)
+                .font(.ppBarGlyph)
+                // The bar sets the X a pixel left of the circle's middle and a pixel lower;
+                // centered here, it sat that pixel off from the bar's own Close.
+                .offset(x: -1 / displayScale, y: 1 / displayScale)
         }
-        .listRowBackground(Color.pp(.background))
-        .listRowSeparator(.hidden, edges: .bottom)
-        .accessibilityIdentifier("picker.create")
+        .buttonStyle(.barGlass(width: 0))
     }
 }
 
 #Preview {
-    ExercisePicker(exercises: .builtIn) { _ in } onCreate: { _ in }
+    ExercisePicker(exercises: .builtIn) { _ in } onCreate: {
+        Exercise(created: $0)
+    } customize: { _, _ in
+        EmptyView()
+    }
 }

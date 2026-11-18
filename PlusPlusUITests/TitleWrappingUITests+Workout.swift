@@ -24,7 +24,7 @@ extension TitleWrappingUITests {
                 )
                 // Pushed from the Routines screen, with a back chevron in the bar for ++.
                 app.openDrawer(andTap: "Routines")
-                app.buttons.matching(identifier: "routines.row").firstMatch.tap()
+                app.routineRows.firstMatch.tap()
                 XCTAssertTrue(app.buttons["Start"].appears(), "The routine opened no Start")
                 app.buttons["Start"].tap()
                 let time = app.workoutTime

@@ -68,8 +68,9 @@ feature, and change them with it.
   one `SequenceTask` (`RoutineScreen+Sequence.swift`).
 - Dragging a row, and supersets: `RailDrag`, `RailLiftGesture`, `RailAutoscroll`, `LoopPen`
   (`LoopHeads.swift`), `RailPairing`, `RailWell.swift`, `RailRegroup`, `RailStrokes.swift`.
-- The ++ drawer and the Routines screen: `SideDrawer`, `DrawerSwipe`, `DrawerMenu`,
-  `DrawerButtonStyle`, `NameRow`.
+- The ++ drawer, Routines, and Exercises: `SideDrawer`, `DrawerSwipe`, `DrawerMenu`,
+  `DrawerButtonStyle`, `NameRow`, `ExercisesScreen`, `ExerciseListView`, `ExerciseForm`,
+  `BarSearchField`.
 - The title and a generated name typing in: `TitleTextView`, `EditableTitle+Typing.swift`,
   `SuggestionTiming`. The exercise sheet: `ValueRow`, `ValueRuler` (`RulerScale`), `TimePiece`,
   `ExerciseSheet.swift`. The current exercise's large numbers: `CurrentFigures`, sized by
@@ -129,9 +130,10 @@ Each of these cost a round on this app; the code at the named spot works around 
   The bar draws its edge effect only while the title item shows something.
 - Controls in a navigation bar or `safeAreaBar` are hosted apart from the screen and ignore
   `accessibilityHidden`: behind the drawer each applies `.hiddenBehindDrawer()`, and a faded bar
-  item hides from VoiceOver with an empty `accessibilityRepresentation`.
-- Attach a `confirmationDialog` to the whole screen, outside the `NavigationStack`; on a button
-  or the stack's content, iOS shows it as a popover with an arrow.
+  item hides from VoiceOver with `accessibilityShown(_:)`. A bar item's elements update only
+  with its host's state, so their state lives there (`BarSearchField`'s `isOpen`).
+- Attach a `confirmationDialog` outside the `NavigationStack`; inside, iOS shows a popover with
+  an arrow, so a pushed screen's goes on its button (`ExerciseForm`).
 - A horizontal scroll view's offset set before the room around its content is laid out stays on
   the content it showed as the room arrives: the ruler's line sat half its width past the value.
   Place a value by a scroll anchor, a fraction of the content (`RulerScale.anchor(of:)`), which

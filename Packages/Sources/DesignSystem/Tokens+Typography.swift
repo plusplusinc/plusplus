@@ -20,6 +20,9 @@ extension Font {
     /// A screen's title collapsed into its bar: SF Mono, as the screen title is, at the size and
     /// weight of the system's inline title.
     public static let ppInlineTitle = Font.system(.headline, design: .monospaced, weight: .semibold)
+    /// The system's own inline bar title, SF Pro, for one drawn by hand where the bar's would
+    /// drop out (`BarSearchField`'s title).
+    public static let ppBarTitle = Font.system(.headline)
     /// The numbers in a row's detail line: SF Mono at the detail's size.
     public static let ppRowDetailNumber = Font.system(.subheadline, design: .monospaced)
     /// The numbers in a value at the row title's size and weight: SF Mono.
@@ -40,6 +43,11 @@ extension Font {
     public static let ppPlusOne = Font.system(.title3, design: .monospaced, weight: .bold)
     /// A floating button's icon, such as Add exercise's +.
     public static let ppFloatingIcon = Font.system(.title2, weight: .semibold)
+    /// A glass bar button's glyph, such as search's magnifying glass and Close's X, at the
+    /// weight the bar's own Close draws.
+    public static let ppBarGlyph = Font.system(.body, weight: .medium)
+    /// A checklist row's circle and check.
+    public static let ppCheckMark = Font.system(.title3)
     /// The ++ mark: monospaced so the two pluses read as one glyph.
     public static let ppMark = Font.system(.title2, design: .monospaced, weight: .bold)
 }

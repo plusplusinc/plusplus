@@ -12,22 +12,25 @@ struct RoutineLauncher: View {
     let resetsStore: Bool
 
     @State private var session: RoutineSession?
+    /// The exercise whose form is pushed onto Exercises, if one is.
+    @State private var customizing: Exercise.ID?
     @Environment(\.locale) private var locale
 
     var body: some View {
         if let session {
-            // A routine pushed onto the Routines screen takes the edge swipe back to the list,
-            // and a workout keeps the drawer shut: the swipe never begins, and the session refuses
-            // any other open.
+            // A routine pushed onto the Routines screen, and an exercise's form pushed onto
+            // Exercises, take the edge swipe back, and a workout keeps the drawer shut: the swipe
+            // never begins, and the session refuses any other open.
             SideDrawer(
                 isOpen: Binding {
                     session.isDrawerOpen
                 } set: { isOpen in
                     isOpen ? session.openDrawer() : session.closeDrawer()
                 },
-                swipeOpens: session.screen != .pushedRoutine && !session.isDrawerLocked,
+                swipeOpens: session.screen != .pushedRoutine && customizing == nil
+                    && !session.isDrawerLocked,
             ) {
-                DrawerMenu(session: session, namer: namer)
+                DrawerMenu(session: session)
             } content: {
                 switch session.screen {
                 case .routine:
@@ -37,6 +40,8 @@ struct RoutineLauncher: View {
                         .id(session.opened.id)
                 case .routines, .pushedRoutine:
                     RoutinesScreen(session: session, namer: namer)
+                case .exercises:
+                    ExercisesScreen(session: session, namer: namer, customizing: $customizing)
                 }
             }
             .keepsScreenOn(session.workout != nil)
@@ -53,7 +58,7 @@ struct RoutineLauncher: View {
                         namer: namer,
                     )
                     self.session = session
-                    // The drawer names the routine last opened, which may not be this one.
+                    // Read ahead, so the Routines screen's first showing has its list.
                     await session.refreshRecent(weightUnit: WeightUnit(region: locale))
                 }
         }

@@ -92,7 +92,7 @@ struct RoutineSessionTests {
         let (reading, readStarted) = AsyncStream.makeStream(of: Void.self)
         let (release, releaseRead) = AsyncStream.makeStream(of: Void.self)
         let switching = Task {
-            await session.switchTo(pushed: false) {
+            await session.switchTo {
                 readStarted.yield()
                 for await _ in release {
                     break
@@ -120,7 +120,7 @@ struct RoutineSessionTests {
         var edited = routine
         edited.name = "Push day"
         // The edit is still on its way to the store when the read returns.
-        await session.switchTo(pushed: false) { @MainActor [edited] in
+        await session.switchTo { @MainActor [edited] in
             session.save(edited)
             return other
         }
@@ -231,7 +231,7 @@ struct RoutineSessionTests {
         let (reading, readStarted) = AsyncStream.makeStream(of: Void.self)
         let (release, releaseRead) = AsyncStream.makeStream(of: Void.self)
         let switching = Task {
-            await session.switchTo(pushed: false) {
+            await session.switchTo {
                 readStarted.yield()
                 for await _ in release {
                     break

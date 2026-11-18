@@ -61,15 +61,19 @@ extension XCUIApplication {
         XCTAssertTrue(routineTitle.appears(within: 10), "No title after relaunch")
     }
 
-    /// Opens a new, empty routine with the drawer's New, as a launch with `-resetStore` starts
-    /// on: a test that also needs a seeded routine launches into that one and comes here, a
-    /// couple of taps where a second launch costs 5 to 7 s on Xcode Cloud.
+    /// Pushes a new, empty routine with the Routines screen's +, reached through the drawer, as a
+    /// launch with `-resetStore` starts on: a test that also needs a seeded routine launches into
+    /// that one and comes here, a few taps where a second launch costs 5 to 7 s on Xcode Cloud.
+    /// Its back chevron leads to the Routines screen.
     func openNewRoutine() {
-        openDrawer(andTap: "New")
+        openDrawer(andTap: "Routines")
+        let new = buttons["New routine"]
+        XCTAssertTrue(new.appears(), "Routines showed no +")
+        new.tap()
         XCTAssertEqual(routineTitle.value(becoming: "New routine"), "New routine")
-        XCTAssertEqual(exerciseRows.count, 0, "New opened a routine with rows")
-        // The screen slides back from the drawer's side.
-        XCTAssertTrue(routineTitle.settles(), "The title kept moving after the drawer shut")
+        XCTAssertEqual(exerciseRows.count, 0, "+ opened a routine with rows")
+        // The routine slides in as it is pushed.
+        XCTAssertTrue(routineTitle.settles(), "The title kept moving after the push")
     }
 
     /// Opens the drawer with ++ and taps the place labeled `label` in it.
@@ -81,6 +85,11 @@ extension XCUIApplication {
         XCTAssertTrue(place.settles(), "\(label) kept moving")
         place.tap()
         XCTAssertTrue(drawerTitle.disappears(), "\(label) did not close the drawer")
+    }
+
+    /// Taps the bar's back chevron, on any pushed screen.
+    func tapBack() {
+        buttons["BackButton"].tap()
     }
 
     /// A swipe in from the screen's left edge, which opens the drawer or pops a pushed screen.

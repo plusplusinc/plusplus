@@ -65,6 +65,32 @@ extension RoutineScreen {
         settleFoot(after: footDelay)
     }
 
+    /// Add exercise's sheet. A created exercise is stored before its row is added, so the
+    /// routine's save that names it lands after it; the row goes in even if the sheet was swiped
+    /// down meanwhile. Its Customize form shows inside the sheet.
+    var picker: some View {
+        ExercisePicker(
+            exercises: session.exercises,
+            onPick: addPicked,
+            // Full height with search, in the field's own transaction (decided 2026-11-17).
+            onSearchOpen: { pickerDetent = .large },
+            onCreate: { created in
+                let exercise = await session.create(created)
+                add(exercise)
+                return exercise
+            },
+            customize: { id, back in
+                CustomizeScreen(
+                    id: id,
+                    session: session,
+                    namer: namer,
+                    onStored: showStoredRoutine,
+                    back: back,
+                )
+            },
+        )
+    }
+
     /// Shuts the picker and adds what was picked there. A second tap while the sheet goes down
     /// keeps the first.
     func addPicked(_ exercise: Exercise) {

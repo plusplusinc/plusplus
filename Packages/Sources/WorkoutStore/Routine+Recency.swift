@@ -21,20 +21,4 @@ extension [Routine] {
             }
             .map(\.element)
     }
-
-    /// The first `count`, these being latest first, put in the order they were last edited,
-    /// latest first, so opening one never moves it and editing one does. One never edited, or
-    /// edited at the same moment as another, keeps its place in this order.
-    public func lastEdited(
-        first count: Int,
-        editedAt: [Routine.ID: Date],
-    ) -> [Routine] {
-        prefix(count).enumerated()
-            .sorted { lhs, rhs in
-                let left = editedAt[lhs.element.id] ?? .distantPast
-                let right = editedAt[rhs.element.id] ?? .distantPast
-                return left == right ? lhs.offset < rhs.offset : left > right
-            }
-            .map(\.element)
-    }
 }

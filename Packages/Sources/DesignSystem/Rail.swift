@@ -371,4 +371,8 @@ extension Animation {
     /// A row going onto or off a rail, and what it moves: quicker than `.snappy`'s default, which
     /// let the rows below a deleted one drift up.
     public static let railChange = Animation.snappy(duration: 0.25)
+
+    /// A control opening or closing in answer to a tap, as a search field out of its button: as
+    /// quick as a row onto a rail, since `.snappy`'s default read sluggish there too.
+    public static let tapChange = railChange
 }

@@ -161,7 +161,7 @@ follow the routine's fresh id; and `-seedExercises <id,id,…>` with `-seedName 
 from a routine of those built-in exercises, `-seedSets <n>` giving each that many sets and
 `-seedWorkout <n>` opening a workout on it with its first `n` sets logged (all `LaunchOptions`,
 Debug only). A test that needs both a seeded routine and a new one launches into the seeded
-one and opens the new one with the drawer's New (`openNewRoutine()`), not a second launch.
+one and pushes the new one from Routines (`openNewRoutine()`), not a second launch.
 With UIKit's animations off, the keyboard and sheets appear at once, and XCTest's wait for
 animations can't stall (`LaunchOptions.turnsOffUIKitAnimations` says why). SwiftUI's animations still run, so a
 test that reads what one moves waits for its end state; an added row is in the accessibility
@@ -181,8 +181,7 @@ app has handled them, so a read after one waits for the state it checks: `value(
 XCTest's `tap()` goes to its top-left corner, on the edge of the row above, which closes it.
 Tap anything that may still be moving, such as the key as it comes up, once it
 `settles()`: a view takes taps where it is laid out mid-move, so a tap read from a moving
-frame can land on what is arriving there. Passing locally proves nothing about this, since
-Xcode Cloud's timing differs.
+frame can land on what is arriving there.
 
 ## Every test
 

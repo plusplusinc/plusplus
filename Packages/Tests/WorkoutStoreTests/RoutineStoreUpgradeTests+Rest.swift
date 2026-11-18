@@ -32,7 +32,7 @@ extension RoutineStoreUpgradeTests {
             configurations: ModelConfiguration(schema: RoutineStore.schema, url: url),
         )
         let routines = try await RoutineStore(modelContainer: current)
-            .routinesByRecency(weightUnit: .pounds).routines
+            .routinesByRecency(weightUnit: .pounds)
         #expect(routines.count == 2)
         for routine in routines {
             #expect(routine.exercises.allSatisfy { $0.plan.rest == .neverSet })
