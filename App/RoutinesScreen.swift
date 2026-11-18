@@ -33,6 +33,9 @@ struct RoutinesScreen: View {
                         }
                     ForEach(shown, content: row)
                 }
+                // The scroll view takes its content's width, so with no row to stretch it the
+                // title alone would set it.
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, Spacing.md)
                 .padding(.top, Spacing.sm)
                 .padding(.bottom, Spacing.md)
