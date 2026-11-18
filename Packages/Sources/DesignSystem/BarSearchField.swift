@@ -80,6 +80,9 @@ public struct BarSearchField<Leading: View>: View {
     @State private var titleWidth: CGFloat = 0
     @Environment(\.displayScale) private var displayScale
     @FocusState private var isFocused: Bool
+    /// Set by the tap that opens the field, for it to take focus as it appears; not when it
+    /// appears again as the host comes back from a pushed screen, keyboard down.
+    @State private var focusesOnAppear = false
 
     @ScaledMetric(relativeTo: .body) private var height: CGFloat = 44
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -192,7 +195,12 @@ public struct BarSearchField<Leading: View>: View {
         // Laid out at its own width, so the reach runs under the button without moving it.
         .padding(.trailing, -meetingReach)
         // Arrives with this update, so it takes focus as it appears.
-        .onAppear { isFocused = true }
+        .onAppear {
+            if focusesOnAppear {
+                focusesOnAppear = false
+                isFocused = true
+            }
+        }
     }
 
     private var button: some View {
@@ -242,6 +250,7 @@ public struct BarSearchField<Leading: View>: View {
     /// the button's glass; once it has arrived, it pulls back to rest.
     private func open() {
         meeting?.cancel()
+        focusesOnAppear = true
         withAnimation(motion) {
             isOpen = true
             meetsButton = !reduceMotion

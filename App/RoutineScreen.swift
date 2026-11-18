@@ -149,6 +149,8 @@ struct RoutineScreen: View {
         withAnimation(.railChange) {
             shownRoutine = session.current
         }
+        // A Delete there can leave it empty: Start and the + go down with its last row.
+        settleFoot(after: .zero)
     }
 
     /// The name made for the routine from its exercises, which a chosen name hides and which

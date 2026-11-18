@@ -274,6 +274,8 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
             app.tapBack()
             let row = app.pickerRows["Zq"]
             XCTAssertTrue(row.appears(), "The created exercise isn't in the list")
+            XCTAssertEqual(app.searchField.value as? String, "zq", "Back lost the search")
+            XCTAssertFalse(app.keyboards.element.appears(within: 0.5), "Back raised the keyboard")
             XCTAssertTrue(row.settles(), "The created exercise's row kept moving")
             row.tap()
             XCTAssertTrue(name.appears(), "A created exercise's row opened no Customize form")
