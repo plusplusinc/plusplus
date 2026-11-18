@@ -73,7 +73,9 @@ extension XCUIApplication {
         let band = searchButton.frame
         let shown = snapshots { element in
             element.elementType != .other && element.elementType != .application
-                && element.elementType != .window && !element.frame.isEmpty
+                && element.elementType != .window && element.elementType != .navigationBar
+                // The inline bar centers on the band, as the large title's bar did not.
+                && !element.frame.isEmpty
                 && element.frame.midY >= band.minY && element.frame.midY <= band.maxY
         }
         return shown.sorted { $0.frame.minX < $1.frame.minX }.map { element in
