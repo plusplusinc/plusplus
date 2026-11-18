@@ -18,7 +18,8 @@ struct RoutineScreen: View {
     /// Pushed onto the Routines screen, with a back button where ++ otherwise is.
     let isPushed: Bool
     @State var isPicking = false
-    /// How high the picker is: half as it opens (`openPicker()`), full once pulled up.
+    /// How high the picker is: half as it opens (`openPicker()`), full once pulled up or once
+    /// its search opens.
     @State var pickerDetent: PresentationDetent = .medium
     @State var listEnd = ListEnd()
     /// The row whose values are open in a sheet, as it was when opened: only its id is read.
@@ -354,15 +355,21 @@ struct RoutineScreen: View {
         .background { Color.pp(.background).ignoresSafeArea() }
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $isPicking) {
-            ExercisePicker(exercises: session.exercises, onPick: addPicked) { created in
-                // Stored before the row is added, so the routine's save that names it lands
-                // after it; the sheet shuts in the same turn as the add, as a pick's does. Add
-                // turns itself off on its tap, so this runs once, and the row goes in even if
-                // the sheet was swiped down while the store saved.
-                let exercise = await session.create(created)
-                isPicking = false
-                add(exercise)
-            }
+            ExercisePicker(
+                exercises: session.exercises,
+                onPick: addPicked,
+                // Full height with search, in the field's own transaction (decided 2026-11-17).
+                onSearchOpen: { pickerDetent = .large },
+                onCreate: { created in
+                    // Stored before the row is added, so the routine's save that names it lands
+                    // after it; the sheet shuts in the same turn as the add, as a pick's does.
+                    // Add turns itself off on its tap, so this runs once, and the row goes in
+                    // even if the sheet was swiped down while the store saved.
+                    let exercise = await session.create(created)
+                    isPicking = false
+                    add(exercise)
+                },
+            )
             // A fixed set: one worked out from `pickerDetent` was read from the opening before.
             .presentationDetents([.medium, .large], selection: $pickerDetent)
         }

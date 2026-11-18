@@ -5,10 +5,14 @@ import WorkoutStore
 /// The sheet Add exercise opens: the exercise list (`ExerciseListView`) on a stack of its own,
 /// with Close. Picking one hands it back; the presenter closes the sheet. Its inline title and
 /// Close are drawn by the bar's search: its field takes Close in as it opens, covering the title,
-/// and gives it back as it closes. A swipe down closes the sheet at any time.
+/// and gives it back as it closes. Opening search takes the sheet to full height, as the system's
+/// search does, whether or not a software keyboard comes up to push it. A swipe down closes the
+/// sheet at any time.
 struct ExercisePicker: View {
     let exercises: ExerciseList
     let onPick: (Exercise) -> Void
+    /// Runs as search opens, in the field's own transaction (`ExerciseListView.onSearchOpen`).
+    var onSearchOpen: () -> Void = { }
     /// Stores the exercise and adds its row; the presenter closes the sheet.
     let onCreate: (CreatedExercise) async -> Void
 
@@ -22,6 +26,7 @@ struct ExercisePicker: View {
                 onTap: onPick,
                 barTitle: "Add exercise",
                 barLeading: closeButton,
+                onSearchOpen: onSearchOpen,
                 onCreate: onCreate,
             )
             // Still the screen's title for VoiceOver; the bar shows the search's drawn copy.

@@ -41,6 +41,9 @@ struct ExerciseListView<BarLeading: View>: View {
     /// The host's leading bar button, drawn by the bar's search in its own item so its field
     /// takes the button's place as it opens; the host puts none in its toolbar.
     let barLeading: BarLeading
+    /// Runs as search opens, in the tap's own transaction, so what it changes moves with the
+    /// field: Add exercise's sheet goes to full height.
+    var onSearchOpen: () -> Void = { }
     /// Stores the exercise; the host decides what shows next.
     let onCreate: (CreatedExercise) async -> Void
 
@@ -97,7 +100,12 @@ struct ExerciseListView<BarLeading: View>: View {
         // and takes it back more slowly than the keyboard leaves, and the window's black showed
         // in between.
         .containerBackground(Color.pp(.background), for: .navigation)
-        .modifier(SearchField(text: $query, title: barTitle, leading: barLeading))
+        .modifier(SearchField(
+            text: $query,
+            title: barTitle,
+            leading: barLeading,
+            onOpen: onSearchOpen,
+        ))
         .navigationDestination(item: $creating) { name in
             ExerciseForm(
                 name: name,
@@ -212,6 +220,7 @@ private struct SearchField<Leading: View>: ViewModifier {
     @Binding var text: String
     let title: LocalizedStringKey?
     let leading: Leading
+    let onOpen: () -> Void
 
     /// The screen's width, which the item spans but for the bar's margins.
     @State private var width: CGFloat = 0
@@ -235,7 +244,16 @@ private struct SearchField<Leading: View>: ViewModifier {
                 ToolbarItem(placement: .topBarTrailing) {
                     BarSearchField(
                         text: $text,
-                        isOpen: $isOpen,
+                        // `BarSearchField` turns it inside the open's animation, so `onOpen`
+                        // runs in that transaction, not after it, as an `onChange` would.
+                        isOpen: Binding {
+                            isOpen
+                        } set: { open in
+                            isOpen = open
+                            if open {
+                                onOpen()
+                            }
+                        },
                         prompt: "Search",
                         width: width - 2 * Spacing.md,
                         title: title,
