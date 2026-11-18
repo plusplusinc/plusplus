@@ -9,16 +9,28 @@ enum AddStage: Equatable {
     case created(RoutineExercise.ID)
 }
 
-/// The beats of Create, one thing moving at a time, each starting as the one before it ends
-/// (decided 2026-11-18). The tap drops the keyboard; at `t0`, the moment the exercise is stored,
-/// the sheet pushes the row's values with Customize on top, at the height it has, while the list
-/// behind, out of sight under the full-height sheet, jumps to its end; once the push has landed,
-/// the sheet shrinks to half height over a list that holds still; once the sheet rests, the row
-/// enters just above the sheet's top. A feel round changes a value here, nowhere else.
+/// The beats of Create, one thing moving at a time, each starting as the one before it ends.
+/// The tap drops the keyboard; at `t0`, the moment the exercise is stored, the room under the
+/// list goes on and the list jumps to its end, out of sight under the full-height add sheet;
+/// then the add sheet slides down (about 0.3 s), the new row enters in view on the uncovered
+/// routine, just above where a half-height sheet's top rests, and the row's own sheet rises to
+/// half height with Customize already pushed. One presenter shows one sheet at a time: asked up
+/// while the add sheet was still going, the row's sheet appeared at once, with no rise, as the
+/// other finished (iOS 27.2), so it is asked once the add sheet has gone. A feel round changes a
+/// value here, nowhere else.
 enum CreateLanding {
-    /// From `t0` to the list's jump to its end, under the sheet: a moment after the room under
-    /// it goes on, since a scroll asked in the same update stopped at the old end.
+    /// From `t0` to the list's jump to its end: a moment after the room under the list goes on,
+    /// since a scroll asked in the same update stopped at the old end.
     static let listJump: Duration = .milliseconds(50)
+    /// From `t0` to the add sheet starting down, a moment after the jump: in the jump's own
+    /// update, the jump did not land, and the list scrolled in view as the row entered.
+    static let sheetDown: Duration = .milliseconds(90)
+    /// From the add sheet starting down to the row's entry, as it has gone.
+    static let rowEnters: Duration = .milliseconds(350)
+    /// From the add sheet starting down to the row's sheet being asked up, once the row's node
+    /// has landed (`RailEntry`). It rises 0.2 to 0.3 s later, the screen still while the sheet is
+    /// built. Asked while the row's entry was still landing, it appeared at once, with no rise.
+    static let rowSheetUp: Duration = .milliseconds(750)
     /// From `t0` to the push having landed: the system's push starts 0.06 to 0.15 s after the
     /// path is set (building both pages) and slides for about 0.36 s (measured on iOS 27.2).
     /// The system gives no completion for a `NavigationStack` push. Scrolled in the shrink, the
@@ -96,36 +108,46 @@ extension RoutineScreen {
 
     private func landCreated(_ exercise: Exercise) {
         let t0 = ContinuousClock.now
-        let shrinkStart = t0 + CreateLanding.pushLength
-        // Already at half height (dragged down after a search): no shrink, and the row enters
-        // as the push lands.
-        let shrinks = pickerDetent != .medium
-        let rowEnters = shrinkStart + (shrinks ? CreateLanding.shrinkLength : .zero)
+        let swap = t0 + CreateLanding.sheetDown
+        let rowEnters = swap + CreateLanding.rowEnters
         // In a workout's sequence the end is Start's room: no room, no scroll (`add`). The room
         // goes on out of sight, under the sheet, and is not followed.
         if !isMakingRoom {
             sheetRoom = roomForCreated()
             at(t0 + CreateLanding.listJump) {
                 guard !isMakingRoom else { return }
-                // In view above a half-height sheet, it scrolls instead, with the push.
-                var transaction = Transaction(animation: shrinks ? nil : .railChange)
-                transaction.disablesAnimations = shrinks
-                withTransaction(transaction) {
+                withTransaction(\.disablesAnimations, true) {
                     scrollPosition.scrollTo(edge: .bottom)
                 }
             }
         }
         let row = add(exercise, enteringAt: rowEnters)
-        adding = .created(row)
-        pickerPath = [.values(row), .customize(exercise.id)]
-        if shrinks {
-            at(shrinkStart) {
-                guard isShowingCreated else { return }
-                withAnimation(CreateLanding.shrink) {
-                    pickerDetent = .medium
-                }
+        at(swap) {
+            adding = nil
+            createdSheet = row
+            at(swap + CreateLanding.rowSheetUp) {
+                editing = self.row(row)?.wrappedValue
             }
         }
+    }
+
+    /// The row sheet's binding: a swipe down closes it as Close does.
+    var editedRow: Binding<RoutineExercise?> {
+        Binding { editing } set: {
+            if $0 == nil {
+                closeEditing()
+            }
+        }
+    }
+
+    /// Closes a row's sheet; after Create, the room under the list closes as it goes, and Start
+    /// and the + follow once it has gone.
+    func closeEditing() {
+        editing = nil
+        guard createdSheet != nil else { return }
+        createdSheet = nil
+        closeSheetRoom()
+        settleFoot(after: Self.exerciseSheetGone)
     }
 
     /// Runs `beat` at `deadline`, at once if it has come.
@@ -166,14 +188,18 @@ extension RoutineScreen {
         let wasCreated = isShowingCreated
         adding = nil
         guard wasCreated else { return }
-        if sheetRoom > 0 {
-            isSheetRoomClosing = true
-            withAnimation(.railChange) {
-                sheetRoom = 0
-            }
-            at(.now + Self.sheetRoomClose) { isSheetRoomClosing = false }
-        }
+        closeSheetRoom()
         settleFoot(after: Self.exerciseSheetGone)
+    }
+
+    /// Closes the room under the list as the sheet goes, the list's end held where it shows.
+    private func closeSheetRoom() {
+        guard sheetRoom > 0 else { return }
+        isSheetRoomClosing = true
+        withAnimation(.railChange) {
+            sheetRoom = 0
+        }
+        at(.now + Self.sheetRoomClose) { isSheetRoomClosing = false }
     }
 
     /// The room's close, `railChange`'s duration, while the list's end is held.

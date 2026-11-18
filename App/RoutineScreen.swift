@@ -33,6 +33,8 @@ struct RoutineScreen: View {
     @State var listEnd = ListEnd()
     /// The row whose values are open in a sheet, as it was when opened: only its id is read.
     @State var editing: RoutineExercise?
+    /// The row Create made, while its sheet is up, opened on Customize (`CreateLanding`).
+    @State var createdSheet: RoutineExercise.ID?
     @State var scrollPosition = ScrollPosition()
     /// The row just added, holding its place until it can be seen going in.
     @State var arriving: RoutineExercise.ID?
@@ -380,7 +382,7 @@ struct RoutineScreen: View {
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: isAdding) { addSheet }
         // By item, so the sheet keeps its content as it slides away.
-        .sheet(item: $editing) { opened in
+        .sheet(item: editedRow) { opened in
             exerciseSheet(opened.id)
         }
         .toolbar { barItems }

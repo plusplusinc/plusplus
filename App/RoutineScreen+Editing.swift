@@ -84,13 +84,14 @@ extension RoutineScreen {
                         onStored: {
                             showStoredRoutine()
                             if row(id) == nil {
-                                editing = nil
+                                closeEditing()
                             }
                         },
                         back: back,
                     )
                 },
                 onDelete: { delete(id, footDelay: Self.exerciseSheetGone) },
+                opensCustomizing: id == createdSheet,
             )
         }
     }

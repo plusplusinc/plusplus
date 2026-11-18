@@ -16,6 +16,8 @@ struct ExerciseSheet<Customize: View>: View {
     /// The exercise's Customize form; its closure goes back to the sheet.
     @ViewBuilder let customize: (_ back: @escaping () -> Void) -> Customize
     let onDelete: () -> Void
+    /// Whether it opens with Customize pushed, as after Create.
+    var opensCustomizing = false
 
     @State private var isCustomizing = false
     @State private var detent = PresentationDetent.medium
@@ -43,6 +45,12 @@ struct ExerciseSheet<Customize: View>: View {
             )
             .navigationDestination(isPresented: $isCustomizing) {
                 customize { isCustomizing = false }
+            }
+        }
+        .onAppear {
+            if opensCustomizing {
+                // Pushed before the first frame, with no push to see.
+                withTransaction(\.disablesAnimations, true) { isCustomizing = true }
             }
         }
         .onGeometryChange(for: CGFloat.self, of: \.size.height) { sheetHeight = $0 }
