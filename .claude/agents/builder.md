@@ -30,10 +30,9 @@ cost you find (a pause, a slower path): keep it, and report the cost and what yo
   main checkout's `scripts/tidy.sh`, by its path there, which deletes its simulator (from a
   worktree it tidies nothing).
 - A simulator is booted only while you use it. Before you reply, passed or failed, run the
-  worktree's `scripts/sim.sh shutdown`. It shuts down only that worktree's own simulator; never
-  shut down another (no `simctl shutdown all`, nothing by name), since another agent may be
-  mid-run on it. When a boot waits or exits 75 because the limit of booted worktree simulators
-  is reached, run the command again later; `scripts/sim.sh list` shows who holds them.
+  worktree's `scripts/sim.sh shutdown`. Never shut down another simulator (no `simctl shutdown
+  all`, nothing by name): another agent may be mid-run on it. When a boot waits or exits 75
+  because the limit of booted worktree simulators is reached, run the command again later; `scripts/sim.sh list` shows who holds them.
 - Follow the plan in small steps: change one thing, build, look at the screenshot, commit.
 - Before an `axe` command, read `/run`'s notes on AXe (`.claude/skills/run/SKILL.md`): which
   taps, swipes, and drags land and which don't (`axe tap` does nothing on the routine screen or
@@ -43,22 +42,21 @@ cost you find (a pause, a slower path): keep it, and report the cost and what yo
   change to the app. Read the budget lines each run prints: a test over its budget is fixed at
   its cause, or named in your report with its time.
 - Push only when CI's answer is needed: when opening the PR, after a round of fixes, and before
-  the merge. Commit locally in between, rounds included; each push to a PR that changes the app
-  spends a full Xcode Cloud run.
+  the merge. Commit locally in between, rounds included: each push that changes the app spends
+  an Xcode Cloud run.
 - Bring the branch up to date by merging `origin/main` into it, never by a rebase. Squash, if at
   all, onto the branch's own base, `git reset --soft $(git merge-base HEAD origin/main)`, never
   onto `origin/main`: there the commit keeps the branch's stale copies of whatever `main` changed
   meanwhile and undoes it. Before each push, read `git diff --stat
   origin/main...HEAD`, and stop on a file outside the change's scope, naming it to the lead.
-- Wait for everything you start before your turn ends: a builder whose turn ends while a
-  command or agent it started is still running is made to hand back, unfinished. Run long
-  commands in the foreground, and start `/simplify`'s helper agents with
+- Wait for everything you start before your turn ends, or you are made to hand back
+  unfinished. Run long commands in the foreground, and start `/simplify`'s helper agents with
   `run_in_background: false`, all in one message so they still run in parallel. Anything you
   wait on (a run, a log line) has a real time limit, such as a loop bounded by `$SECONDS`.
   Never write an `until` loop with no exit.
 - A failure CI showed that a few local tries, under load included, don't reproduce: stop trying
   locally and report to the lead what is established (from the run's own log and screenshots)
-  and what catching it where it failed would take. More local tries cost time and prove nothing.
+  and what catching it where it failed would take.
 - A flake's fix is proved from its cause: a log showing the failing order now handled, or a
   test or measurement that forces it, never a count of runs, clean or failing. A test that
   forces the failure fails every time without the fix; the PR says which proof it has.
@@ -74,9 +72,8 @@ cost you find (a pause, a slower path): keep it, and report the cost and what yo
   and with no target they review whatever is checked out there, which on `main` is its last merge.
   `/simplify` runs in your own turn, so pass its helper agents the worktree path and apply its
   fixes there. Before acting on either one's findings, check the branch and HEAD it reviewed
-  against your worktree's (`git rev-parse --abbrev-ref HEAD` and `git rev-parse --short HEAD`
-  there); on a mismatch, run it again with the target named, and never report what a mismatched
-  run found.
+  against your worktree's; on a mismatch, run it again with the target named, and never report
+  what the mismatched run found.
 - A decision the lead sends while you work applies from then on: act on it, and write it into
   the handoff note when there is one.
 - Never merge, never push to `main`, never move the card.
@@ -85,19 +82,19 @@ cost you find (a pause, a slower path): keep it, and report the cost and what yo
 
 When the slice has something to see, get a first version running as soon as the maintainer's
 feedback would help, and write the handoff note the lead names; each round after it is a fresh
-builder, until the lead ends the loop. A
-round is one change, `scripts/run.sh` on the worktree's simulator so it builds and launches, a new
-commit (never amend, so each round stays its own), the handoff note the lead names brought up
-to date, and a reply with the hash and one line on what changed. No tests, lint, rules or docs
-edits, review, or PR during the loop, even when a timing test now fails; when the lead ends it,
-everything under "When it works" runs as usual. A round that changes motion (a drag, an
-animation, a transition) still records it, measures it with `scripts/sim.sh motion` and steps
-through the frames, as `/run` says, and fixes what stalls or jumps before it reports: a still
-says nothing about motion. A stall, jump, wobble, or overlap you found is fixed in the round,
-not listed for the maintainer to find on the phone. A round that only retunes values of a
-motion the maintainer has already seen (a duration, a delay, a size, a curve) skips the
-recording: it builds, commits, and installs with `scripts/device.sh` first, and anything else
-waits until after (the maintainer wants these on the phone at once).
+builder, until the lead ends the loop. A round is one change, `scripts/run.sh` on the
+worktree's simulator so it builds and launches, a new commit (never amend, so each round stays
+its own), the handoff note brought up to date, and a reply with the hash and one line on what
+changed. No tests, lint, rules or docs edits, review, or PR during the loop, even when a timing
+test now fails or the lead's prompt asks for them: skip them and name in the reply what was
+skipped. After the loop, "When it works" runs. A round that changes motion (a drag, an
+animation, a transition) records it in one pass, no before/after, measures it with
+`scripts/sim.sh motion` and steps through the frames, as `/run` says (a still says nothing
+about motion), and fixes only what that shows stalling, jumping, wobbling, or overlapping. A
+round hands back within 15 minutes of starting: if the motion isn't clean by then, commit what
+builds and report what's left for the next round. A round that only retunes values of a motion
+the maintainer has already seen (a duration, a delay, a size, a curve) skips the recording: it
+builds, commits, and installs with `scripts/device.sh` before anything else.
 
 ## Checkpoint
 
