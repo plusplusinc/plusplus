@@ -168,30 +168,35 @@ in_use_by() {
     echo "$(ps -o comm= -p "$pid" 2> /dev/null || echo "$cmd") (pid $pid) works in it"
 }
 
-# The board's rows, "<id>  <status>\t<feature>\t<title>", in BOARD_ROWS, read in one `board.sh list`
-# request on first need. Fails when reading it fails, with the error's last line in BOARD_ERROR.
-BOARD_ROWS=
-BOARD_ERROR=
+# The board's card ids, all of them in KNOWN_IDS and the Done ones in DONE_IDS, from one
+# `board.sh list` request on first need. Fails when reading it fails, with the error's last line
+# in BOARD_ERROR.
+BOARD_READ=
 read_board() {
-    [ -z "$BOARD_ROWS" ] || return 0
-    [ -z "$BOARD_ERROR" ] || return 1
-    local rows
-    if rows=$("$ROOT/scripts/board.sh" list 2>&1); then
-        BOARD_ROWS=$rows
-    else
-        BOARD_ERROR=$(tail -1 <<< "$rows")
-        return 1
+    if [ -z "$BOARD_READ" ]; then
+        BOARD_READ=1
+        local rows
+        if rows=$("$ROOT/scripts/board.sh" list 2>&1); then
+            # A row is "<id>  <status>\t<feature>\t<title>".
+            KNOWN_IDS=$(awk '{ print $1 }' <<< "$rows" | sort -u)
+            DONE_IDS=$(awk -F'\t' '$1 ~ /  Done$/ { split($1, f, " "); print f[1] }' <<< "$rows" | sort -u)
+        else
+            BOARD_ERROR=$(tail -1 <<< "$rows")
+        fi
     fi
+    [ -z "${BOARD_ERROR:-}" ]
 }
 
-# The cards these files name (PVTI_...) that are not Done, the board's unknown ones included,
-# comma-joined; nothing when every one is Done. Needs read_board first.
-open_cards() {
-    local named
-    named=$(grep -rhoE 'PVTI_[A-Za-z0-9_-]+' "$@" 2> /dev/null | sort -u || true)
-    [ -n "$named" ] || return 0
-    comm -23 <(echo "$named") <(awk -F'\t' '$1 ~ /  Done$/ { split($1, f, " "); print f[1] }' <<< "$BOARD_ROWS" | sort -u) |
-        paste -sd, -
+# The card ids (PVTI_...) these files name, one a line, sorted.
+named_cards() {
+    grep -rhoE 'PVTI_[A-Za-z0-9_-]+' "$@" 2> /dev/null | sort -u || true
+}
+
+# Of these ids, comma-joined, the ones the board doesn't have (`unknown`) or that are not Done
+# (`open`, the unknown ones included). Needs read_board first.
+cards_not_in() {
+    local ids=$1 kind=$2
+    comm -23 <(echo "$ids") <([ "$kind" = unknown ] && echo "$KNOWN_IDS" || echo "$DONE_IDS") | paste -sd, -
 }
 
 # The branch a detached worktree last left, from its HEAD's reflog: "checkout: moving from <branch>
@@ -226,13 +231,18 @@ while IFS=$'\t' read -r lock path branch; do
             echo "tidy: kept $path: finished, but $use"
             continue
         fi
-        if grep -rqE 'PVTI_' "$path/.slices" 2> /dev/null; then
+        named=$(named_cards "$path/.slices")
+        if [ -n "$named" ]; then
             if ! read_board; then
                 echo "tidy: kept $path: finished, but reading the board for its .slices/ failed: $BOARD_ERROR"
                 continue
             fi
-            open=$(open_cards "$path/.slices")
-            if [ -n "$open" ]; then
+            unknown=$(cards_not_in "$named" unknown)
+            open=$(cards_not_in "$named" open)
+            if [ -n "$unknown" ]; then
+                echo "tidy: kept $path: finished, but its .slices/ names $unknown, which the board doesn't have"
+                continue
+            elif [ -n "$open" ]; then
                 echo "tidy: kept $path: finished, but its .slices/ holds files for $open, not Done yet"
                 continue
             fi
@@ -341,14 +351,13 @@ if [ -d "$SLICES" ]; then
     done
     if [ "${#candidates[@]}" -gt 0 ] && grep -rqE 'PVTI_' "${candidates[@]}" 2> /dev/null; then
         if read_board; then
-            known=$(awk '{ print $1 }' <<< "$BOARD_ROWS" | sort -u)
             for entry in "${candidates[@]}"; do
-                named=$(grep -rhoE 'PVTI_[A-Za-z0-9_-]+' "$entry" 2> /dev/null | sort -u || true)
+                named=$(named_cards "$entry")
                 [ -n "$named" ] || continue
-                unknown=$(comm -23 <(echo "$named") <(echo "$known") | paste -sd, -)
+                unknown=$(cards_not_in "$named" unknown)
                 if [ -n "$unknown" ]; then
                     echo "tidy: kept $entry: it names $unknown, which the board doesn't have"
-                elif [ -z "$(open_cards "$entry")" ]; then
+                elif [ -z "$(cards_not_in "$named" open)" ]; then
                     run rm -r "$entry"
                 fi
             done
