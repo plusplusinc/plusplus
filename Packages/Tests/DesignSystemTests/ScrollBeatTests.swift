@@ -102,4 +102,62 @@ struct ScrollBeatTests {
         task.cancel()
         await task.value
     }
+
+    /// The order a slow machine met after Start: a landing asked for, and the row's next place in
+    /// before the list reports the scroll. Read from the report alone, the list was elsewhere, so
+    /// nothing landed it again.
+    @Test("A landing asked for and not yet reported counts as resting there")
+    func landingAskedRests() {
+        let beat = ScrollBeat()
+        var position = ScrollPosition()
+        beat.listMoved(to: 0, asked: position)
+        position.scrollTo(y: 871)
+        #expect(beat.rests(on: 871, asked: position))
+        #expect(!beat.rests(on: 813, asked: position))
+        // A report from before it, come in late, leaves it on its way.
+        beat.listMoved(to: 120, asked: position)
+        #expect(beat.rests(on: 871, asked: position))
+    }
+
+    /// The order the verifier found: after Start's landing, a status-bar tap scrolls the list to
+    /// the top, leaving the position on the landing and not marked as the person's, and a rename
+    /// then moves the row.
+    @Test("A landing reported and scrolled away from counts only where the list reports")
+    func landingScrolledAwayFrom() {
+        let beat = ScrollBeat()
+        var position = ScrollPosition()
+        position.scrollTo(y: 493)
+        beat.listMoved(to: 493, asked: position)
+        beat.listMoved(to: 17, asked: position)
+        beat.listMoved(to: 0, asked: position)
+        #expect(!beat.rests(on: 493, asked: position))
+        #expect(beat.rests(on: 0, asked: position))
+        // The next landing asked for counts again until reported.
+        position.scrollTo(y: 551)
+        #expect(beat.rests(on: 551, asked: position))
+    }
+
+    @Test("Scrolled to an edge, the list rests only where it reports")
+    func edgeFallsBackToReport() {
+        let beat = ScrollBeat()
+        var position = ScrollPosition()
+        beat.listMoved(to: 240, asked: position)
+        position.scrollTo(edge: .top)
+        #expect(beat.rests(on: 240, asked: position))
+        #expect(!beat.rests(on: 0, asked: position))
+    }
+
+    /// A landing asked for, then the list marked as moved by the person: it rests where it
+    /// reports, not on the landing. Setting the flag also clears the position's `y` (iOS 27.2),
+    /// so this holds the outcome, not which of the two the rule reads.
+    @Test("Positioned by the person, the list rests only where it reports")
+    func positionedByUserFallsBackToReport() {
+        let beat = ScrollBeat()
+        var position = ScrollPosition()
+        position.scrollTo(y: 871)
+        position.isPositionedByUser = true
+        beat.listMoved(to: 300, asked: position)
+        #expect(!beat.rests(on: 871, asked: position))
+        #expect(beat.rests(on: 300, asked: position))
+    }
 }
