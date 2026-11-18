@@ -1327,6 +1327,44 @@ class TidyWorktrees(unittest.TestCase):
         self.assertIn(f"tidy: git worktree remove {worktree}", out)
         self.assertEqual(run("git", "branch", "--list", "done-card"), "")
 
+    def working_files(self, worktree, text):
+        """A lead's working file in the worktree's .slices/, gitignored as in the repo."""
+        main = worktree.parent.parent.parent
+        (main / ".git/info").mkdir(exist_ok=True)
+        (main / ".git/info/exclude").write_text(".slices/\n")
+        (worktree / ".slices").mkdir()
+        (worktree / ".slices/done-card-handoff.md").write_text(text)
+        return main / "scripts/board.sh"
+
+    def test_a_finished_worktree_holding_an_open_cards_working_files_stays_until_it_is_done(self):
+        # A day session's lead keeps the slice's plan and handoff in its own worktree's gitignored
+        # .slices/, which `git worktree remove` would delete with it.
+        worktree, run, tidy = self.finished_worktree()
+        board = self.working_files(worktree, "Card PVTI_open.")
+        for status in ("In Progress", "Done"):
+            board.write_text(f"#!/bin/bash\n[ \"$1\" = list ] && printf 'PVTI_open  {status}\\t-\\tA\\n'\n")
+            board.chmod(0o755)
+            for args in (["--dry-run"], []):
+                with self.subTest(status=status, args=args):
+                    kept = worktree.exists()
+                    out = tidy(*args)
+                    if status == "Done":
+                        self.assertIn(f"tidy: git worktree remove {worktree}", out)
+                        self.assertEqual(worktree.exists(), bool(args) and kept)
+                    else:
+                        self.assertIn(f"tidy: kept {worktree}: finished, but its .slices/ holds files for "
+                                      "PVTI_open, not Done yet", out)
+                        self.assertTrue((worktree / ".slices/done-card-handoff.md").exists())
+
+    def test_a_finished_worktree_whose_working_files_the_board_cannot_judge_stays(self):
+        worktree, run, tidy = self.finished_worktree()
+        board = self.working_files(worktree, "PVTI_open")
+        board.write_text("#!/bin/bash\necho 'quota spent' >&2; exit 1\n")
+        board.chmod(0o755)
+        out = tidy()
+        self.assertTrue(worktree.exists())
+        self.assertIn(f"tidy: kept {worktree}: finished, but reading the board for its .slices/ failed: quota spent", out)
+
     def test_a_session_worktree_left_detached_keeps_the_branch_it_left(self):
         # A session's fresh branch starts at main, so its tip is in main. On 2026-11-13 an agent
         # checked a PR's commit out in its lead's worktree, detached, and another agent's tidy then

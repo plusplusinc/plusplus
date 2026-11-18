@@ -267,7 +267,7 @@ permission rules and overrides their allow: it reads each command as the shell s
 denies a merge, an `asc xcode-cloud` command that starts or changes a build, an `asc api` write,
 inline or piped code run by a shell or interpreter, a push or new PR past the night's four Xcode
 Cloud runs (counted from Xcode Cloud), and anything new from 7 am; it keeps a card's writes in
-its worktree and `.slices/`, away from the runner, the night's folder, and config dotfiles; any
+its worktree and the main checkout's `.slices/`, away from the runner, the night's folder, and config dotfiles; any
 error in it denies the call. Claude Code's own sandbox can't hold these writes instead: under it
 `gh` fails TLS verification and SwiftPM's nested sandbox fails, so both would run outside it.
 What a command line hides, such as a script file the card writes and runs, meets three more
@@ -289,7 +289,7 @@ setup against what's new (Claude Code's changelog, Apple's release notes, the to
 the retros' friction since: what to keep, what to swap or cut, and what is missing. It also
 looks outward, at a fixed short list of places, for what we don't use yet, and names at most
 three things worth trying, each answering a present need, with the cheapest trial. It edits
-nothing itself: it writes a private report to `.slices/review-setup/` and cards each change
+nothing itself: it writes a private report to the main checkout's `.slices/review-setup/` and cards each change
 worth doing, this file's corrections included, and what costs money, changes an account, widens
 what agents may do, or touches the maintainer's own setup is a question in the report. The
 nightly run starts it between the retro and the cards (`scripts/nightly-tooling.py`'s header
@@ -328,16 +328,14 @@ The feature subagents in `.claude/agents/`, the planner, builder, and verifier, 
 each phase needs the last one's files. The planner and builder work in the slice's worktree. A
 day session's lead starts the verifier with the Agent call's `isolation: "worktree"`, since a
 verifier that shares the lead's checkout is refused writes in the builder's worktree; it then
-works in one of its own, `.claude/worktrees/agent-<id>` in the main checkout: it checks the PR's
-commit out there detached, adds and runs its tests on that worktree's own simulator, pushes them
-with `git push origin HEAD:<branch>`, builds `main` there to compare, and leaves it clean. The
-night's lead starts it with no isolation in the card's worktree, which its session shares, and
-it works there. Claude
-Code holds an isolation worktree locked while its agent runs, removes a clean one when the agent
-ends, and leaves its `worktree-agent-<id>` branch, which `scripts/tidy.sh` deletes; tidy skips a
+works in one of its own, `.claude/worktrees/agent-<id>` in the main checkout, at the PR's commit
+detached, as its definition says. The
+night's lead starts it with no isolation in the card's worktree, which its session shares,
+since the night's hook denies writes in an isolation worktree. Claude
+Code holds an isolation worktree locked while its agent runs, removes a clean one, gitignored
+files included, when the agent ends, and leaves its `worktree-agent-<id>` branch, which `scripts/tidy.sh` deletes; tidy skips a
 locked worktree, and removes one left detached at a commit not in `main` once a merged PR
-contains that commit. The night's lead starts no isolated agent: the night's hook denies writes
-in an isolation worktree, which sits in the main checkout. Claude Code refuses a Write or Edit in a worktree other
+contains that commit. Claude Code refuses a Write or Edit in a worktree other
 than the one an agent's session sits in, a git command an isolated agent aims at another
 checkout with `git -C`, and its `git worktree add` at a path in the main checkout; a checkout in someone
 else's worktree moves their branch, so no agent writes in another's, a capture's temporary
