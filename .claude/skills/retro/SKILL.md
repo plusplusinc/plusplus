@@ -65,7 +65,9 @@ transcript; open one only around a moment, never whole. For each PR: `gh pr diff
 `gh api repos/{owner}/{repo}/pulls/N/comments` for inline review; its Xcode Cloud runs and why any failed (`gh pr checks`, and
 `asc xcode-cloud doctor` with the App Store Connect key), and its last run's times against the
 budgets (`scripts/ci-times.py --run <number>`); its board card; its Friction line. And the last
-merged retro PR's body, for its fixes, and the ledger (below).
+merged retro PR's body, for its fixes, and the ledger (below). And agent memory's prediction
+log: the digest counts its right guesses since the last retro, each miss rewrites the line of
+memory's note on how they judge that it proves wrong, and scored entries go.
 
 ## 2. Rank the findings
 
