@@ -114,10 +114,6 @@ extension RoutineScreen {
                 await session.deleteExercise(id, weightUnit: WeightUnit(region: locale))
                 showStoredRoutine()
             },
-            onClear: { id in
-                await session.clearCustomizations(id, weightUnit: WeightUnit(region: locale))
-                showStoredRoutine()
-            },
             customize: { id, back in
                 CustomizeScreen(
                     id: id,

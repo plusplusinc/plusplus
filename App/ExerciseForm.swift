@@ -198,12 +198,12 @@ struct ExerciseForm: View {
             }
             .frame(maxWidth: .infinity)
             .disabled(stored == original)
-            // On the button, as Delete's is.
-            .confirmationDialog(
+            // A centered alert, as Delete's is.
+            .alert(
                 "Clear your customizations to \(original.name)?",
                 isPresented: $isAskingToClear,
-                titleVisibility: .visible,
             ) {
+                Button("Cancel", role: .cancel) { }
                 Button("Clear customizations", role: .destructive) {
                     let previous = lastSave
                     lastSave = Task {
@@ -238,14 +238,9 @@ struct ExerciseForm: View {
             }
             .frame(maxWidth: .infinity)
             .disabled(isDeleting)
-            // On the button, so the question comes out of it: on a screen pushed inside a
-            // stack, iOS shows it as a popover, and attached to the form it pointed at the
-            // form's middle.
-            .confirmationDialog(
-                "Delete \(stored.name)?",
-                isPresented: $isAskingToDelete,
-                titleVisibility: .visible,
-            ) {
+            // A centered alert, not a dialog anchored to the button (decided 2026-11-17).
+            .alert("Delete \(stored.name)?", isPresented: $isAskingToDelete) {
+                Button("Cancel", role: .cancel) { }
                 Button("Delete exercise", role: .destructive) {
                     isDeleting = true
                     // After any save still landing: the session takes one exercise change at
