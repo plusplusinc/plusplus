@@ -35,18 +35,7 @@ struct ExercisesScreen: View {
             .navigationTitle("Exercises")
             .navigationBarTitleDisplayMode(.large)
             .navigationDestination(item: $customizing) { id in
-                if let created = session.exercises.created(id: id) {
-                    ExerciseForm(
-                        customizing: created,
-                        exercises: session.exercises,
-                        usedIn: session.routines(using: id).map(namer.listedName(of:)),
-                        onSave: { await session.customize($0, weightUnit: weightUnit) },
-                        onDelete: {
-                            await session.deleteExercise(id, weightUnit: weightUnit)
-                            customizing = nil
-                        },
-                    )
-                }
+                CustomizeScreen(id: id, session: session, namer: namer) { customizing = nil }
             }
         }
         // The routines the forms count, as stored now.

@@ -79,32 +79,16 @@ extension RoutineScreen {
                 add(exercise)
                 return exercise
             },
-            customize: customizeForm(of:back:),
+            customize: { id, back in
+                CustomizeScreen(
+                    id: id,
+                    session: session,
+                    namer: namer,
+                    onStored: showStoredRoutine,
+                    back: back,
+                )
+            },
         )
-    }
-
-    @ViewBuilder
-    private func customizeForm(
-        of id: Exercise.ID,
-        back: @escaping () -> Void,
-    ) -> some View {
-        if let created = session.exercises.created(id: id) {
-            let weightUnit = WeightUnit(region: locale)
-            ExerciseForm(
-                customizing: created,
-                exercises: session.exercises,
-                usedIn: session.routines(using: id).map(namer.listedName(of:)),
-                onSave: {
-                    await session.customize($0, weightUnit: weightUnit)
-                    showStoredRoutine()
-                },
-                onDelete: {
-                    await session.deleteExercise(id, weightUnit: weightUnit)
-                    showStoredRoutine()
-                    back()
-                },
-            )
-        }
     }
 
     /// Shuts the picker and adds what was picked there. A second tap while the sheet goes down
