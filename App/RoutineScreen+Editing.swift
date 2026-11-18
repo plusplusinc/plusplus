@@ -101,14 +101,11 @@ extension RoutineScreen {
     var picker: some View {
         ExercisePicker(
             exercises: session.exercises,
+            path: $pickerPath,
             onPick: addPicked,
             // Full height with search, in the field's own transaction (decided 2026-11-17).
             onSearchOpen: { pickerDetent = .large },
-            onCreate: { created in
-                let exercise = await session.create(created)
-                add(exercise)
-                return exercise
-            },
+            onCreate: create,
             routineCount: { session.routines(using: $0).count },
             onDelete: { id in
                 await session.deleteExercise(id, weightUnit: WeightUnit(region: locale))
@@ -119,18 +116,44 @@ extension RoutineScreen {
                     id: id,
                     session: session,
                     namer: namer,
-                    onStored: showStoredRoutine,
+                    onStored: {
+                        showStoredRoutine()
+                        // A Delete there took the created row: the sheet shuts, as a row's does.
+                        if case let .created(rowID) = adding, row(rowID) == nil {
+                            endAdding()
+                        }
+                    },
                     back: back,
                 )
             },
+            values: createdValues,
         )
+    }
+
+    /// A created row's values inside Add exercise, its Customize… pushed on the same stack.
+    @ViewBuilder
+    private func createdValues(_ id: RoutineExercise.ID) -> some View {
+        if let item = row(id) {
+            ExerciseValues(
+                item: item,
+                partners: routine.partnerNames(of: id),
+                parts: routine.sheetParts(of: id),
+                rounds: roundSteps(of: id),
+                onClose: endAdding,
+                onCustomize: { pickerPath.append(.customize(item.wrappedValue.exercise.id)) },
+                onRemove: {
+                    endAdding()
+                    delete(id, footDelay: Self.exerciseSheetGone)
+                },
+            )
+        }
     }
 
     /// Shuts the picker and adds what was picked there. A second tap while the sheet goes down
     /// keeps the first.
     func addPicked(_ exercise: Exercise) {
-        guard isPicking else { return }
-        isPicking = false
+        guard adding == .picking else { return }
+        adding = nil
         add(exercise)
     }
 
@@ -142,42 +165,64 @@ extension RoutineScreen {
     /// enters where it is, with no scroll: the end is then Start's room under the list, out of
     /// sight, and a scroll to it took the list off the screen just as Start went to land on the
     /// first exercise.
-    func add(_ exercise: Exercise) {
-        let added = ContinuousClock.now
+    ///
+    /// A created row (`created`, Create's `t0`) waits, everything fitting or not, until the add
+    /// sheet rests at half height (`CreateLanding.sheetAtHalf`), and the list holds still until
+    /// then: the room under it goes on meanwhile, and following that growth would jump it.
+    @discardableResult
+    func add(_ exercise: Exercise, created: ContinuousClock.Instant? = nil) -> RoutineExercise.ID {
+        let added = created ?? ContinuousClock.now
         let row = RoutineExercise(exercise: exercise, weightUnit: WeightUnit(region: locale))
         arriving = row.id
         entering = row.id
-        endFollow = .waiting
+        endFollow = created == nil ? .waiting : nil
         // The row goes in with no space yet, so nothing moves; its fade, of a row that draws
         // nothing yet, times the entry a moment into the sheet's slide: the line barely moves
         // at first, and the sheet has cleared all but the screen's foot by the time it shows.
         withAnimation(.linear(duration: RailArrival.appendFade)) {
             routine.exercises.append(row)
         }
-        settleFoot(after: Self.pickerGone)
+        // A created row's sheet stays up: the foot follows once it closes (`endAdding()`).
+        if created == nil {
+            settleFoot(after: Self.pickerGone)
+        }
         // Beats on deadlines, not this animation's completion, which once never came, and the
         // row stayed arriving for good (`RailArrival`).
         Task {
             await RailArrival.play {
                 arriving == row.id
             } reachEnd: {
-                await reachEnd(added: added)
+                if created != nil {
+                    await reachEnd(added: added, by: CreateLanding.sheetAtHalf, waitsFirst: true)
+                } else {
+                    await reachEnd(added: added, by: Self.pickerGone, waitsFirst: false)
+                }
             } enter: {
                 letArrivingEnter()
             } entered: {
                 hasEntered(row)
             }
         }
+        return row.id
     }
 
-    /// Once the picker has gone, scrolls the list to its end, the added row's place, and returns
-    /// as it lets the row enter, unless the end is in view or Start's room is opening. On
-    /// deadlines, not the scroll's completion or its phase: the phase reported idle only about
-    /// 0.3 s after the list had stopped, and the row waited on a still list.
-    private func reachEnd(added: ContinuousClock.Instant) async {
+    /// Once the sheet has moved (`deadline` from the add), scrolls the list to its end, the
+    /// added row's place, and returns as it lets the row enter, unless the end is in view or
+    /// Start's room is opening. `waitsFirst` waits for the deadline even where nothing scrolls,
+    /// and holds the list still until then. On deadlines, not the scroll's completion or its
+    /// phase: the phase reported idle only about 0.3 s after the list had stopped, and the row
+    /// waited on a still list.
+    private func reachEnd(
+        added: ContinuousClock.Instant,
+        by deadline: Duration,
+        waitsFirst: Bool,
+    ) async {
+        if waitsFirst {
+            try? await Task.sleep(until: added + deadline, tolerance: .zero, clock: .continuous)
+        }
         endFollow = .ready
         guard !isEndInView, !isMakingRoom else { return }
-        try? await Task.sleep(until: added + Self.pickerGone, tolerance: .zero, clock: .continuous)
+        try? await Task.sleep(until: added + deadline, tolerance: .zero, clock: .continuous)
         // Start pressed meanwhile: the row enters where it is.
         guard !isMakingRoom else { return }
         withAnimation(.railChange) {

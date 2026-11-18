@@ -11,7 +11,10 @@ extension RoutineScreen {
     /// up until it closes.
     func openPicker() {
         pickerDetent = .medium
-        isPicking = true
+        pickerPath = []
+        // Recorded again as it opens (`recordSheetTop(_:)`).
+        sheetLanding.sheetTop = nil
+        adding = .picking
     }
 
     /// A tap anywhere on an empty routine, or below the last row, opens the picker, unless it

@@ -10,35 +10,37 @@ import WorkoutStore
 /// sheet at any time.
 ///
 /// Create stores the exercise and adds its row to the routine, as a pick does, but keeps the
-/// sheet up and pushes the exercise's Customize form inside it, with Done in the bar's trailing
-/// spot to close the sheet and the back chevron to the list.
+/// sheet up: the presenter sets `path` to the row's values with the exercise's Customize form on
+/// top, so the sheet becomes the new row's own sheet, its back chevron to the values.
 ///
-/// Holding a row opens the system's context menu (`HoldMenu`): Customize… pushes that form the
-/// same way, for any exercise, with no Done (back, or a swipe down, is enough), and back finds
-/// the list as it was; then, red, Delete for one someone created, asking first in a centered
-/// alert with the form's own question.
-struct ExercisePicker<Customize: View>: View {
+/// Holding a row opens the system's context menu (`HoldMenu`): Customize… pushes that form, for
+/// any exercise, and back finds the list as it was; then, red, Delete for one someone created,
+/// asking first in a centered alert with the form's own question.
+struct ExercisePicker<Customize: View, Values: View>: View {
     let exercises: ExerciseList
+    /// The pages pushed over the list.
+    @Binding var path: [PickerPage]
     let onPick: (Exercise) -> Void
     /// Runs as search opens, in the field's own transaction (`ExerciseListView.onSearchOpen`).
     var onSearchOpen: () -> Void = { }
-    /// Stores the exercise and adds its row, returning it as stored.
-    let onCreate: (CreatedExercise) async -> Exercise
+    /// Stores the exercise, adds its row, and shows it.
+    let onCreate: (CreatedExercise) async -> Void
     /// How many routines use the exercise, for Delete's question.
     let routineCount: (Exercise.ID) -> Int
     /// Deletes the created exercise and its rows.
     let onDelete: (Exercise.ID) async -> Void
-    /// The exercise's Customize form; its closure goes back to the list.
+    /// The exercise's Customize form; its closure goes back a page.
     @ViewBuilder let customize: (Exercise.ID, _ back: @escaping () -> Void) -> Customize
+    /// A created row's values.
+    @ViewBuilder let values: (RoutineExercise.ID) -> Values
 
-    @State private var customizing: CustomizePush?
     /// The created exercise Delete in the hold menu is asking about.
     @State private var deleting: Exercise?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.displayScale) private var displayScale
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             ExerciseListView(
                 exercises: exercises,
                 onTap: onPick,
@@ -46,23 +48,20 @@ struct ExercisePicker<Customize: View>: View {
                 barTitle: "Add exercise",
                 barLeading: closeButton,
                 onSearchOpen: onSearchOpen,
-                onCreate: {
-                    customizing = await CustomizePush(id: onCreate($0).id, showsDone: true)
-                },
+                onCreate: onCreate,
             )
             // Still the screen's title for VoiceOver; the bar shows the search's drawn copy.
             .navigationTitle("Add exercise")
             .navigationBarTitleDisplayMode(.inline)
-            .navigationDestination(item: $customizing) { push in
-                customize(push.id) { customizing = nil }
-                    .toolbar {
-                        if push.showsDone {
-                            ToolbarItem(placement: .confirmationAction) {
-                                // The picker's own dismiss, which closes the sheet, not the push.
-                                Button("Done") { dismiss() }
-                            }
-                        }
-                    }
+            .navigationDestination(for: PickerPage.self) { page in
+                switch page {
+                case let .customize(id):
+                    customize(id) { path.removeLast() }
+                case let .values(id):
+                    values(id)
+                        // Its Close shuts the sheet; the list under it is never reached again.
+                        .navigationBarBackButtonHidden()
+                }
             }
         }
         // Here, not on the row: under the list's green tint the alert's Cancel came out green,
@@ -88,7 +87,7 @@ struct ExercisePicker<Customize: View>: View {
     private func holdMenu(_ exercise: Exercise) -> HoldMenu {
         HoldMenu(
             isCreated: exercises.original(id: exercise.id) == nil,
-            onCustomize: { customizing = CustomizePush(id: exercise.id, showsDone: false) },
+            onCustomize: { path.append(.customize(exercise.id)) },
             onDelete: { deleting = exercise },
         )
     }
@@ -110,11 +109,11 @@ struct ExercisePicker<Customize: View>: View {
     }
 }
 
-/// The Customize form pushed in Add exercise: Create's shows Done, to close the sheet; the hold
-/// menu's doesn't.
-private struct CustomizePush: Hashable {
-    let id: Exercise.ID
-    let showsDone: Bool
+/// A page pushed in Add exercise: an exercise's Customize form, or, once Create has made it, a
+/// row's values.
+enum PickerPage: Hashable {
+    case customize(Exercise.ID)
+    case values(RoutineExercise.ID)
 }
 
 /// A row's hold menu in Add exercise, the system's context menu: Customize… for any exercise,
@@ -145,12 +144,13 @@ private struct HoldMenu: ViewModifier {
 }
 
 #Preview {
-    ExercisePicker(exercises: .builtIn) { _ in } onCreate: {
-        Exercise(created: $0)
+    ExercisePicker(exercises: .builtIn, path: .constant([])) { _ in } onCreate: { _ in
     } routineCount: { _ in
         0
     } onDelete: { _ in
     } customize: { _, _ in
+        EmptyView()
+    } values: { _ in
         EmptyView()
     }
 }

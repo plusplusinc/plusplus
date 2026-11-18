@@ -245,11 +245,12 @@ extension RoutineScreen {
         }
     }
 
-    /// After the last set, while the room under the list's end closes, keeps the end where it
-    /// shows as the content shortens, a frame at a time, as `keepEndInView(from:to:)` does as it
-    /// grows.
+    /// After the last set, or as Add exercise closes after a Create, while the room under the
+    /// list's end closes, keeps the end where it shows as the content shortens, a frame at a
+    /// time, as `keepEndInView(from:to:)` does as it grows.
     func keepEndPinned(from old: ScrollGeometry, to new: ScrollGeometry) {
-        guard closingRoomTop != nil, new.contentSize.height < old.contentSize.height else { return }
+        guard closingRoomTop != nil || isSheetRoomClosing,
+              new.contentSize.height < old.contentSize.height else { return }
         let shrink = old.contentSize.height - new.contentSize.height
         withTransaction(\.disablesAnimations, true) {
             scrollPosition.scrollTo(y: max(new.scrolledY - shrink, 0))
