@@ -331,7 +331,8 @@ extension RoutineScreen {
     /// list was landed on it and what is above it changes height, as after a text size change
     /// or a rename to a longer name, the list lands on it again: the title's text view settles
     /// its height a pass after the rest, so one landing as the change came in fell short. A
-    /// landing counts from when it is asked for, not reported (`ScrollBeat.rests(on:asked:)`).
+    /// landing counts once asked for (`ScrollBeat.rests(on:asked:)`): after Start on a pushed
+    /// routine, the fresh root screen's row rises into place, and one landing was reported late.
     func placeCurrent(_ place: CurrentPlace) {
         let old = currentPlace
         currentPlace = place

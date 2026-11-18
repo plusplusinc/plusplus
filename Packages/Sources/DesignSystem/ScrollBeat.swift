@@ -56,17 +56,12 @@ public final class ScrollBeat {
         }
     }
 
-    /// Whether the list rests on `y` or is on its way there: `position` was last scrolled to `y`
-    /// and no finger has moved the list since, or, scrolled by a finger or to an edge, the list
-    /// reports `y`. A scroll asked for is reported a frame or more later. A Start on a routine
-    /// pushed from the Routines screen opens a fresh screen at the root on the grow's curve, its
-    /// current exercise first laid out hundreds of points low and rising a frame at a time, each
-    /// place landed on in turn. Read from the report alone, a place that came in before the last
-    /// landing was reported landed nothing more, and the list stayed about 320 pt past the row
-    /// (Xcode Cloud, run 481).
+    /// Whether the list rests on `y` or is on its way there: `position` was last scrolled to `y`,
+    /// or, scrolled by a finger, which clears the position's `y`, or to an edge, the list reports
+    /// `y`. A scroll asked for is reported a frame or more later, after the next layout may have
+    /// moved what it was aimed at.
     public func rests(on y: CGFloat, asked position: ScrollPosition) -> Bool {
-        let asked = position.isPositionedByUser ? nil : position.y
-        return abs((asked ?? scrolledY) - y) < 1
+        abs((position.y ?? scrolledY) - y) < 1
     }
 
     public func listMoved(to scrolledY: CGFloat) {
