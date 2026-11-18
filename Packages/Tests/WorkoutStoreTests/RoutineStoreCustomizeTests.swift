@@ -93,6 +93,27 @@ struct RoutineStoreCustomizeTests {
         #expect(set.exerciseName == "Cable curl")
     }
 
+    @Test("A rename gives a set logged with no name, before names were kept, the old one")
+    func renameFillsUnnamedSet() async throws {
+        let store = relaunch()
+        try await store.save(Self.curl)
+        let routine = Routine(name: "Arms", exercises: [Self.row(of: Self.curl)])
+        try await store.save(routine)
+        var workout = Workout(routineID: routine.id, routineName: "Arms", startedAt: Self.at(10))
+        let next = try #require(routine.nextSet(after: workout.sets))
+        workout = workout.logging(next, of: routine.exercises[0], at: Self.at(20))
+        try await store.save(workout)
+        let context = ModelContext(container)
+        let set = try #require(try context.fetch(FetchDescriptor<StoredSet>()).first)
+        set.exerciseName = nil
+        try context.save()
+
+        var renamed = Self.curl
+        renamed.name = "Hammer curl"
+        try await relaunch().save(renamed)
+        #expect(try workouts().first?.sets.first?.exerciseName == "Cable curl")
+    }
+
     @Test("Switching Measure, or the weight, away and back brings every row's numbers back")
     func measureRoundTrip() async throws {
         let store = relaunch()

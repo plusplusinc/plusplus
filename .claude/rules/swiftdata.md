@@ -19,7 +19,7 @@ time. Every `@Model` follows these from the start:
 
 `RoutineStore` is the one `@ModelActor`, opened through
 `WorkoutStoreContainer.make(mode:schema:migrationPlan:)` with its own schema, versioned: every
-stored shape shipped so far is a `VersionedSchema` (`RoutineSchemaV1` to `V9`, the older ones in
+stored shape shipped so far is a `VersionedSchema` (`RoutineSchemaV1` to `V10`, the older ones in
 `RoutineSchema+Shipped.swift`, V6's workouts in `StoredWorkout.swift`), and `RoutineMigrationPlan` runs a lightweight stage between each,
 since each change only added an attribute or a model. Staged migration refuses a store whose
 shape matches none of the plan's versions, so a shipped version never changes: a stored change
@@ -66,6 +66,7 @@ sync could leave, the one started later), else the routine last opened or edited
 workout finished after that, which opens a new routine. While a workout runs, a routine cleared
 to nothing is kept (`keepsEmpty`), and deleted once the workout ends.
 
-A row's `exerciseID` resolves through `ExerciseList`, the built-ins and V8's `StoredExercise`s,
-which store only their five settings; a row it can't resolve is left out. `deleteExercise`
-removes its rows too.
+A row's `exerciseID` resolves through `ExerciseList`, the built-ins, each with V10's
+`StoredCustomization` applied (the settings someone changed, by slug), and V8's
+`StoredExercise`s, which store only their five settings; a row it can't resolve is left out.
+`deleteExercise` removes its rows too.

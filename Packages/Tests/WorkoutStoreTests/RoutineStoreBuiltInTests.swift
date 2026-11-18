@@ -100,8 +100,94 @@ struct RoutineStoreBuiltInTests {
 
         try await relaunch().save(Self.customized { $0.name = "Bench press" })
         #expect(try await reread(routine.id).exercise.name == "Bench press")
-        let names = try ModelContext(container).fetch(FetchDescriptor<StoredSet>())
-            .map(\.exerciseName)
-        #expect(names == ["Barbell bench press", "Barbell bench press"])
+        #expect(try loggedNames() == ["Barbell bench press", "Barbell bench press"])
+
+        // Logged after the rename, it keeps that name once the rename is cleared.
+        let renamed = try #require(try await relaunch().routine(routine.id, weightUnit: .pounds))
+        let next = try #require(renamed.nextSet(after: workout.sets))
+        workout = workout.logging(
+            next,
+            of: renamed.exercises[0],
+            at: Date(timeIntervalSinceReferenceDate: 40),
+        )
+        try await relaunch().save(workout)
+        try await relaunch().clearCustomizations("barbell-bench-press")
+        #expect(try await reread(routine.id).exercise.name == "Barbell bench press")
+        #expect(try loggedNames() == ["Barbell bench press", "Barbell bench press", "Bench press"])
+    }
+
+    /// Every logged set's name, in the order logged.
+    private func loggedNames() throws -> [String?] {
+        try ModelContext(container).fetch(FetchDescriptor<StoredSet>(
+            sortBy: [SortDescriptor(\.position)],
+        )).map(\.exerciseName)
+    }
+
+    @Test("Clearing every customization brings back what shipped, every routine's numbers kept")
+    func clearRoundTrip() async throws {
+        let routine = try Routine(name: "Push", exercises: [Self.row()])
+        try await relaunch().save(routine)
+        let before = try await reread(routine.id)
+        try await relaunch().save(Self.customized {
+            $0.name = "Bench press"
+            $0.muscleGroups = [.arms]
+            $0.equipment = [.dumbbells]
+            $0.measure = .time
+            $0.isPerSide = true
+        })
+        let changed = try await reread(routine.id)
+        #expect(changed.exercise.name == "Bench press")
+        #expect(changed.exercise.load == .single)
+        #expect(changed.plan.target == .time(seconds: 30))
+
+        try await relaunch().clearCustomizations("barbell-bench-press")
+        #expect(try await relaunch().exercises() == .builtIn)
+        #expect(try ModelContext(container).fetchCount(FetchDescriptor<StoredCustomization>()) == 0)
+        let cleared = try await reread(routine.id)
+        #expect(cleared.exercise == Self.bench)
+        #expect(cleared.plan == before.plan)
+        #expect(cleared.rest == before.rest)
+    }
+
+    @Test("A customization from a newer version degrades to the original, setting by setting")
+    func newerCustomizationDegrades() async throws {
+        let context = ModelContext(container)
+        let stored = StoredCustomization(exerciseID: "barbell-bench-press")
+        stored.changed = "muscle-groups,equipment,measure,tempo"
+        stored.name = "Ignored, unchanged"
+        stored.muscleGroups = "wings"
+        stored.equipment = "barbell,antigravity-boots"
+        stored.measure = "laps"
+        context.insert(stored)
+        try context.save()
+
+        let bench = try #require(Self.bench)
+        let read = try #require(try await relaunch().exercises().exercise(id: bench.id))
+        #expect(read.name == bench.name)
+        #expect(read.muscleGroups == bench.muscleGroups)
+        #expect(read.equipment == [.barbell])
+        #expect(read.defaultPlan(in: .pounds).target == bench.defaultPlan(in: .pounds).target)
+    }
+
+    @Test("Of two customizations of one built-in, as sync could leave, the later edited counts")
+    func laterCustomizationWins() async throws {
+        let context = ModelContext(container)
+        for (name, second) in [("Later", 20.0), ("Earlier", 10)] {
+            let stored = StoredCustomization(exerciseID: "barbell-bench-press")
+            stored.changed = "name"
+            stored.name = name
+            stored.muscleGroups = "chest"
+            stored.equipment = "barbell,bench"
+            stored.editedAt = Date(timeIntervalSinceReferenceDate: second)
+            context.insert(stored)
+        }
+        try context.save()
+        let read = try await relaunch().exercises().exercise(id: "barbell-bench-press")
+        #expect(read?.name == "Later")
+
+        // Saved again, it is the one left.
+        try await relaunch().save(Self.customized { $0.name = "Bench press" })
+        let left = try ModelContext(container).fetch(FetchDescriptor<StoredCustomization>())
+        #expect(left.map(\.name) == ["Bench press"])
     }
 }

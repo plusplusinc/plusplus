@@ -4,8 +4,8 @@ import Testing
 @testable import Session
 @testable import WorkoutStore
 
-/// Where the session shows, one value: the routine, the Routines screen, a routine pushed on
-/// it, or Exercises, through each way in and out, and what the drawer marks for each.
+/// Where the session shows, one value: the routine, the Routines screen, or a routine pushed on
+/// it, through each way in and out, and what the drawer marks for each.
 @Suite("Routine session screen")
 struct RoutineSessionScreenTests {
     private let store: RoutineStore

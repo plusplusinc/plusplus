@@ -75,6 +75,35 @@ struct RoutineSessionExerciseTests {
         #expect(saved.exercises.map(\.exercise.name) == ["Hammer curl"])
     }
 
+    @Test("A built-in's customize and its clear reach the open routine and the saved ones")
+    func builtInCustomizeAndClear() async throws {
+        let store = relaunch()
+        let bench = try #require(Exercise.builtIn(id: "barbell-bench-press"))
+        let row = RoutineExercise(exercise: bench, weightUnit: .pounds)
+        let other = Routine(name: "Other", exercises: [row])
+        try await store.save(other, at: Date(timeIntervalSinceReferenceDate: 1))
+        let open = Routine(name: "Open", exercises: [row])
+        let session = RoutineSession(routine: open, store: store, namer: .muscleGroupsOnly)
+        // Not yet landed as the customize starts.
+        session.save(open)
+        await session.refreshRecent(weightUnit: .pounds)
+        var settings = bench.settings
+        settings.name = "Bench press"
+        await session.customize(bench.id, to: settings, weightUnit: .pounds)
+        #expect(session.exercises.customization(id: bench.id)?.changed == [.name])
+        #expect(session.current.exercises.map(\.exercise.name) == ["Bench press"])
+        let saved = try #require(session.recent.first { $0.id == other.id })
+        #expect(saved.exercises.map(\.exercise.name) == ["Bench press"])
+        #expect(try await relaunch().exercises().exercise(id: bench.id)?.name == "Bench press")
+
+        await session.clearCustomizations(bench.id, weightUnit: .pounds)
+        #expect(session.exercises == .builtIn)
+        #expect(session.current.exercises.map(\.exercise) == [bench])
+        let cleared = try #require(session.recent.first { $0.id == other.id })
+        #expect(cleared.exercises.map(\.exercise) == [bench])
+        #expect(try await relaunch().exercises() == .builtIn)
+    }
+
     @Test("A delete takes the exercise's rows from the open routine and the saved ones")
     func deleteReachesOpen() async throws {
         let created = CreatedExercise(name: "Cable curl", muscleGroups: [.arms])

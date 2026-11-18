@@ -5,8 +5,8 @@ import SwiftUI
 import Testing
 @testable import DesignSystem
 
-/// The parts of Exercises and Add exercise drawn here: the bar's search, closed and open, with
-/// the leading button it covers, and the checklist New exercise pushes. The screens live in the
+/// The parts of Add exercise drawn here: the bar's search, closed and open, with the leading
+/// button it covers, and the checklist Customize pushes. The screens live in the
 /// app, which has no test target; the search's motion, its glass (which a snapshot doesn't
 /// draw), and Add exercise's title (placed from the item's measured frame, which a snapshot
 /// draws before it is measured) are checked on the simulator.
@@ -28,18 +28,6 @@ struct ExerciseListSnapshotTests {
         .background(Color.pp(.background))
     }
 
-    /// ++ as Exercises draws it in the search's item: green, in a glass capsule.
-    private var plusPlus: some View {
-        Button { } label: {
-            Text(verbatim: "++")
-                .font(.ppMark)
-                .foregroundStyle(.pp(.accent))
-                .fixedSize()
-                .frame(width: 20)
-        }
-        .buttonStyle(.barGlass(width: 20 + 2 * Spacing.md))
-    }
-
     /// Close as Add exercise draws it: the system's X in a glass circle.
     private var close: some View {
         Button(role: .close) { } label: {
@@ -49,19 +37,14 @@ struct ExerciseListSnapshotTests {
         .buttonStyle(.barGlass(width: 0))
     }
 
-    @Test("Closed, ++ leads the bar and the round search button ends it")
-    func closedBesideMenu() {
-        assertThemedSnapshots(of: bar(isOpen: false) { plusPlus }, width: Self.screenWidth)
-    }
-
-    @Test("Open, the field spans the bar in ++'s place, its X where the search button was")
-    func openOverMenu() {
-        assertThemedSnapshots(of: bar(isOpen: true) { plusPlus }, width: Self.screenWidth)
-    }
-
     @Test("Closed with Close: the system's X leads the bar, as Add exercise's")
     func closedBesideClose() {
         assertThemedSnapshots(of: bar(isOpen: false) { close }, width: Self.screenWidth)
+    }
+
+    @Test("Open, the field spans the bar in Close's place, its X where the search button was")
+    func openOverClose() {
+        assertThemedSnapshots(of: bar(isOpen: true) { close }, width: Self.screenWidth)
     }
 
     @Test("The checklist: an empty gray circle per row, filled green with a check once checked")

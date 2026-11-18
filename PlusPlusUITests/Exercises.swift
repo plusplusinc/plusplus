@@ -56,8 +56,8 @@ extension XCUIApplication {
         staticTexts["No exercises"]
     }
 
-    /// The bar's round search button, in Add exercise and Exercises, labeled Search while closed
-    /// and Close search while open: there exactly while one of the two shows.
+    /// The bar's round search button, in Add exercise, labeled Search while closed and Close
+    /// search while open: there exactly while Add exercise shows.
     var searchButton: XCUIElement {
         buttons["barSearch.button"]
     }

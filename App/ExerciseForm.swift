@@ -3,9 +3,10 @@ import SwiftUI
 import WorkoutStore
 
 /// Customize, an exercise's five settings, and no more, pushed from a routine row's Customize…
-/// in its sheet, or by Create in Add exercise, once it has stored the exercise. Name, not focused,
-/// since the next thing to set is the muscle groups; Muscle groups
-/// and Equipment, each one row reading what is checked ("Back, shoulders"; None and Bodyweight
+/// in its sheet, from Customize… in a row's hold menu in Add exercise, or by Create there, once
+/// it has stored the exercise. Name, not focused, since the next thing to set is the muscle
+/// groups; Muscle groups and Equipment, each one row reading what is checked ("Back, shoulders";
+/// None and Bodyweight
 /// for none) that opens its full list to check any number on (`Checklist`); Measure; and Per
 /// side. All checked groups are equal; none is needed. Everything else (its weight, plan, rest,
 /// and naming) is derived (`Exercise(created:)`), or for a built-in shipped
@@ -17,9 +18,10 @@ import WorkoutStore
 /// can't be saved (empty, or another exercise's) goes back to the stored one as its edit ends.
 /// Below the settings, Used in reads how many routines have a row of it and opens their names
 /// (`UsedInList`); last, Delete exercise, in red, asks first, with that count. A built-in's
-/// form ends instead in Clear customizations, red, disabled
-/// while nothing differs from how it shipped; it asks first, listing what changed, and puts the
-/// form back as shipped.
+/// form ends instead in Clear customizations, red, disabled while nothing differs from how it
+/// shipped; it asks first, listing what changed, and puts the form back as shipped. Both ask in
+/// a centered alert, with Cancel. There is no footer: what changed shows only in Clear's
+/// question.
 struct ExerciseForm: View {
     /// What the form ends in: Delete exercise for one someone created, Clear customizations for
     /// a built-in, with the settings it shipped with.

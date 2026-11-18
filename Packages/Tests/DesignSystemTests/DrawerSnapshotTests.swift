@@ -15,14 +15,13 @@ struct DrawerSnapshotTests {
     /// An iPhone's height, so the drawer and the screen beside it are drawn whole.
     private static let screenHeight: CGFloat = 844
 
-    /// The place showing, which the drawer marks; a routine marks neither.
+    /// The place showing, which the drawer marks; a routine marks nothing.
     private enum Showing: Equatable {
         case routines
-        case exercises
         case routine
     }
 
-    /// The drawer as `DrawerMenu` lays it out: the title, then Routines and Exercises.
+    /// The drawer as `DrawerMenu` lays it out: the title, then Routines.
     private func menu(showing: Showing) -> some View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
             Text(verbatim: "PlusPlus")
@@ -32,10 +31,6 @@ struct DrawerSnapshotTests {
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 Button("Routines", systemImage: "checklist") { }
                     .buttonStyle(.drawer(isSelected: showing == .routines))
-                Button { } label: {
-                    Label { Text(verbatim: "Exercises") } icon: { CircleStackSymbol() }
-                }
-                .buttonStyle(.drawer(isSelected: showing == .exercises))
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -82,7 +77,7 @@ struct DrawerSnapshotTests {
         .frame(height: Self.screenHeight)
     }
 
-    @Test("The drawer open on a routine: Routines and Exercises, neither marked, beside the sliver")
+    @Test("The drawer open on a routine: Routines, unmarked, beside the sliver")
     func routineShowing() {
         assertThemedSnapshots(of: drawer(showing: .routine), width: Self.screenWidth)
     }
@@ -90,29 +85,6 @@ struct DrawerSnapshotTests {
     @Test("The drawer open on the Routines screen: Routines is marked")
     func routinesShowing() {
         assertThemedSnapshots(of: drawer(showing: .routines), width: Self.screenWidth)
-    }
-
-    @Test("The drawer open on Exercises: Exercises is marked, its stack of circles on the fill")
-    func exercisesShowing() {
-        assertThemedSnapshots(of: drawer(showing: .exercises), width: Self.screenWidth)
-    }
-
-    @Test("Exercises' circle stack stands as tall as checklist, its cutouts showing the fill")
-    func circleStack() {
-        let pair = HStack(spacing: Spacing.lg) {
-            Image(systemName: "checklist")
-            CircleStackSymbol()
-        }
-        .font(.ppDrawerItem)
-        .foregroundStyle(.pp(.textPrimary))
-        .padding(Spacing.md)
-        assertThemedSnapshots(
-            of: VStack(spacing: 0) {
-                pair.background(Color.pp(.background))
-                pair.background(Color.pp(.selectionFill))
-            },
-            width: 160,
-        )
     }
 
     /// The Routines screen's content as `RoutinesScreen` lays it out, under its bar.
