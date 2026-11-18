@@ -62,7 +62,7 @@ Their time is the scarce thing, and it is for the product.
   on the Mac never reaches their phone.
 - **Guess their call first.** Before an ask or a round reaches them, put your guess and why in
   agent memory's prediction log; after they reply, their call and, on a miss, what you
-  misjudged. What misses taught is in agent memory, on how they judge.
+  misjudged. Agent memory holds what misses taught.
 - **Every message reads on its own, on a phone.** Plain words about the app, not the work:
   name a part of the screen by what they see and where, a card by its title, an option by what
   it shows, never an item id, a canvas label, or a platform term. Each ask carries its link and
