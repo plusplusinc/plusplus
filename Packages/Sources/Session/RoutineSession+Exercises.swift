@@ -16,13 +16,41 @@ extension RoutineSession {
         return Exercise(created: created)
     }
 
-    /// Saves a created exercise's new settings. Every routine's rows of it read them at once,
-    /// keeping their sets, reps or time, and weight; an automatic rest follows its new groups.
-    public func customize(_ created: CreatedExercise, weightUnit: WeightUnit) async {
+    /// Saves an exercise's new settings: a created one's own, a built-in's as its customization,
+    /// stored apart from the catalog. Every routine's rows of it read them at once, keeping
+    /// their sets, reps or time, and weight. A created exercise's automatic rest follows its new
+    /// groups; a built-in's stays by its kind of lift.
+    public func customize(
+        _ id: Exercise.ID,
+        to settings: ExerciseSettings,
+        weightUnit: WeightUnit,
+    ) async {
+        let created = exercises.created(id: id).map { created in
+            var created = created
+            created.settings = settings
+            return created
+        }
+        let shipped = exercises.original(id: id)
         await changeExercises(
             weightUnit: weightUnit,
-            storing: { try await $0.save(created) },
-            listing: { $0.adding(created) },
+            storing: { store in
+                if let created {
+                    try await store.save(created)
+                } else if let shipped {
+                    try await store.save(Customization(of: shipped, to: settings))
+                }
+            },
+            listing: { $0.customizing(id, to: settings) },
+        )
+    }
+
+    /// Puts the built-in `id` back as it shipped, in every routine that uses it; the rows keep
+    /// their numbers.
+    public func clearCustomizations(_ id: Exercise.ID, weightUnit: WeightUnit) async {
+        await changeExercises(
+            weightUnit: weightUnit,
+            storing: { try await $0.clearCustomizations(id) },
+            listing: { $0.clearingCustomizations(id) },
         )
     }
 

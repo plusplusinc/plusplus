@@ -111,10 +111,8 @@ extension ButtonStyle where Self == DrawerButtonStyle {
     VStack(spacing: Spacing.xs) {
         Button("Routines", systemImage: "checklist") { }
             .buttonStyle(.drawer(isSelected: true))
-        Button { } label: {
-            Label { Text(verbatim: "Exercises") } icon: { CircleStackSymbol() }
-        }
-        .buttonStyle(.drawer(isSelected: false))
+        Button("Routines", systemImage: "checklist") { }
+            .buttonStyle(.drawer(isSelected: false))
     }
     .padding()
     .background(Color.pp(.background))

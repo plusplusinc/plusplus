@@ -3,8 +3,7 @@ import SwiftUI
 import WorkoutStore
 
 /// Every exercise, built-in and created, A to Z under letter headings, narrowed by search: the
-/// one list both Add exercise (`ExercisePicker`) and Exercises (`ExercisesScreen`) show. They
-/// differ only in what a tap on a row does and in how they open.
+/// list Add exercise (`ExercisePicker`) shows.
 ///
 /// Down the trailing edge, the system's section index lists the letters that have an exercise
 /// (`lettered()`), in green; a tap on one jumps to its heading, and a drag along it scrubs
@@ -12,10 +11,9 @@ import WorkoutStore
 /// searching and while the keyboard is up, when the matches are few and the keyboard covers
 /// most of it.
 ///
-/// Both have search as a round button at the bar's top trailing edge, which opens out to the
-/// left into a field across the bar (`BarSearchField`), which the bar's leading button turns into:
-/// ++ in Exercises and Close in Add exercise. The field covers the bar's title too: Add exercise's
-/// always, and Exercises' once its title in the list has gone under the bar.
+/// Search is a round button at the bar's top trailing edge, which opens out to the left into a
+/// field across the bar (`BarSearchField`), which the bar's leading button, Close, turns into.
+/// The field covers the bar's title too.
 ///
 /// Search does not take focus when the list opens. The list is the fast path: with the
 /// keyboard down, the whole list is in reach of a thumb and a pick is one tap.
@@ -26,18 +24,15 @@ import WorkoutStore
 /// is no separate no-results view. A tap makes the exercise at once, with that name and nothing
 /// else set (`ExerciseList.createdName(from:)`), and hands it to the host, which pushes its
 /// Customize form (`ExerciseForm`) on its own stack; back from there, the search is as it was.
-struct ExerciseListView<BarLeading: View>: View {
+struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
     let exercises: ExerciseList
     /// What a tap on a row does.
     let onTap: (Exercise) -> Void
-    /// Which rows take a tap; the rest are plain rows that open nothing.
-    var isTappable: (Exercise) -> Bool = { _ in true }
+    /// What else a row does, on its row: Add exercise's hold menu.
+    let rowActions: (Exercise) -> RowActions
     /// The host's inline title, drawn by the bar's search so its field covers the title as it
-    /// opens; nil leaves the bar's own title.
-    var barTitle: LocalizedStringKey?
-    /// The host's title drawn as the list's first row, as Routines draws its own, and small in
-    /// the bar once it has gone under it, where a tap scrolls back to the top; nil draws none.
-    var listTitle: LocalizedStringKey?
+    /// opens.
+    let barTitle: LocalizedStringKey
     /// The host's leading bar button, drawn by the bar's search in its own item so its field
     /// takes the button's place as it opens; the host puts none in its toolbar.
     let barLeading: BarLeading
@@ -54,55 +49,21 @@ struct ExerciseListView<BarLeading: View>: View {
     /// Where the list's room starts, at the bar's bottom edge, in global coordinates: where a
     /// heading pins, and past which a heading pushed up fades (`LeavesUnderBar`).
     @State private var listTop: CGFloat = 0
-    /// Whether `listTitle` has scrolled out of sight under the bar, for its small copy to show.
-    @State private var isTitleUnderBar = false
     @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
-        ScrollViewReader { proxy in
-            list
-                .modifier(SearchField(
-                    text: $query,
-                    title: barTitle ?? listTitle,
-                    isTitleShown: barTitle != nil || isTitleUnderBar,
-                    onTitleTap: listTitle == nil ? nil : {
-                        withAnimation(.snappy) {
-                            proxy.scrollTo(TitleRow.id, anchor: .top)
-                        }
-                    },
-                    leading: barLeading,
-                    onOpen: onSearchOpen,
-                ))
-        }
+        list
+            .modifier(SearchField(
+                text: $query,
+                title: barTitle,
+                leading: barLeading,
+                onOpen: onSearchOpen,
+            ))
     }
 
     private var list: some View {
         let sections = exercises.matching(query).lettered()
         return List {
-            if let listTitle {
-                Text(listTitle)
-                    .ppFixedTitleFont()
-                    .foregroundStyle(.pp(.textPrimary))
-                    .accessibilityAddTraits(.isHeader)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .onScrollVisibilityChange(threshold: 0.01) { isVisible in
-                        // As the routine screen's: the small title has gone by the time the
-                        // large one is out from under the bar.
-                        withAnimation(.easeOut(duration: RoutineScreen.barFade)) {
-                            isTitleUnderBar = !isVisible
-                        }
-                    }
-                    .id(TitleRow.id)
-                    .listRowInsets(EdgeInsets(
-                        // The list's own top margin is Routines' `Spacing.sm` above its title.
-                        top: 0,
-                        leading: Spacing.md,
-                        bottom: 0,
-                        trailing: Spacing.md,
-                    ))
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.pp(.background))
-            }
             ForEach(sections) { section in
                 Section {
                     ForEach(section.exercises, content: row)
@@ -150,21 +111,14 @@ struct ExerciseListView<BarLeading: View>: View {
         query.isEmpty && !isKeyboardUp
     }
 
-    @ViewBuilder
     private func row(_ exercise: Exercise) -> some View {
-        let label = RowLabel(title: exercise.name, detail: exercise.equipmentLine)
-        Group {
-            if isTappable(exercise) {
-                Button {
-                    dropKeyboard()
-                    onTap(exercise)
-                } label: {
-                    label
-                }
-            } else {
-                label.accessibilityElement(children: .combine)
-            }
+        Button {
+            dropKeyboard()
+            onTap(exercise)
+        } label: {
+            RowLabel(title: exercise.name, detail: exercise.equipmentLine)
         }
+        .modifier(rowActions(exercise))
         .listRowBackground(Color.pp(.background))
         .accessibilityIdentifier("exercises.row")
     }
@@ -257,21 +211,14 @@ private struct LeavesUnderBar: ViewModifier {
     }
 }
 
-/// The scroll target of `ExerciseListView.listTitle`.
-private nonisolated enum TitleRow: Hashable {
-    case id
-}
-
 /// Search as `BarSearchField`, one bar item holding the host's leading button and the round
 /// search button, spanning the bar between its margins. A bar item hugs its content, so the item
-/// gets its width from the screen's. Given a title, the bar's own inline title is removed and
-/// `BarSearchField` draws it, centered on the screen, for its field to cover; the screen keeps it
-/// as its navigation title.
+/// gets its width from the screen's. The bar's own inline title is removed and `BarSearchField`
+/// draws the title, centered on the screen, for its field to cover; the screen keeps it as its
+/// navigation title.
 private struct SearchField<Leading: View>: ViewModifier {
     @Binding var text: String
-    let title: LocalizedStringKey?
-    let isTitleShown: Bool
-    let onTitleTap: (() -> Void)?
+    let title: LocalizedStringKey
     let leading: Leading
     let onOpen: () -> Void
 
@@ -287,12 +234,9 @@ private struct SearchField<Leading: View>: ViewModifier {
         content
             .onGeometryChange(for: CGFloat.self, of: \.size.width) { width = $0 }
             .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).midX } action: {
-                // Only a drawn title reads it; Exercises' moves with every frame of the drawer.
-                if title != nil {
-                    midX = $0
-                }
+                midX = $0
             }
-            .toolbar(removing: title == nil ? nil : .title)
+            .toolbar(removing: .title)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     BarSearchField(
@@ -311,10 +255,7 @@ private struct SearchField<Leading: View>: ViewModifier {
                         width: width - 2 * Spacing.md,
                         title: title,
                         titleCenterX: midX,
-                        isTitleShown: isTitleShown,
-                        onTitleTap: onTitleTap,
                     ) { leading }
-                        .hiddenBehindDrawer()
                 }
                 .sharedBackgroundVisibility(.hidden)
             }
@@ -328,9 +269,11 @@ private struct SearchField<Leading: View>: ViewModifier {
         ExerciseListView(
             exercises: .builtIn,
             onTap: { _ in },
+            rowActions: { _ in EmptyModifier() },
+            barTitle: "Add exercise",
             barLeading: EmptyView(),
             onCreate: { _ in },
         )
-        .navigationTitle("Exercises")
+        .navigationTitle("Add exercise")
     }
 }

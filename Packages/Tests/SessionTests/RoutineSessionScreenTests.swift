@@ -4,8 +4,8 @@ import Testing
 @testable import Session
 @testable import WorkoutStore
 
-/// Where the session shows, one value: the routine, the Routines screen, a routine pushed on
-/// it, or Exercises, through each way in and out, and what the drawer marks for each.
+/// Where the session shows, one value: the routine, the Routines screen, or a routine pushed on
+/// it, through each way in and out, and what the drawer marks for each.
 @Suite("Routine session screen")
 struct RoutineSessionScreenTests {
     private let store: RoutineStore
@@ -76,24 +76,6 @@ struct RoutineSessionScreenTests {
         #expect(session.screen == .pushedRoutine)
         #expect(session.current.isEmpty)
         #expect(session.showing == .routine)
-    }
-
-    @Test("Exercises from the drawer shows it, marked, and leaves the routine and workout be")
-    func showExercises() throws {
-        let routine = Routine(name: "Upper")
-        let session = session(routine)
-        let edited = try addingExercise(to: routine, in: session)
-        // A finished workout, since a running one keeps the drawer shut.
-        session.start(on: edited.id)
-        session.finish()
-        let workout = session.workout
-        session.openDrawer()
-        session.showExercises()
-        #expect(session.screen == .exercises)
-        #expect(session.showing == .exercises)
-        #expect(!session.isDrawerOpen)
-        #expect(session.current == edited)
-        #expect(session.workout == workout)
     }
 
     @Test("Back from a pushed routine shows the list again")

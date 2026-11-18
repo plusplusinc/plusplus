@@ -12,6 +12,11 @@ import WorkoutStore
 /// Create stores the exercise and adds its row to the routine, as a pick does, but keeps the
 /// sheet up and pushes the exercise's Customize form inside it, with Done in the bar's trailing
 /// spot to close the sheet and the back chevron to the list.
+///
+/// Holding a row opens the system's context menu (`HoldMenu`): Customize… pushes that form the
+/// same way, for any exercise, with no Done (back, or a swipe down, is enough), and back finds
+/// the list as it was; then, red, Delete for one someone created, asking first in a centered
+/// alert with the form's own question.
 struct ExercisePicker<Customize: View>: View {
     let exercises: ExerciseList
     let onPick: (Exercise) -> Void
@@ -19,10 +24,16 @@ struct ExercisePicker<Customize: View>: View {
     var onSearchOpen: () -> Void = { }
     /// Stores the exercise and adds its row, returning it as stored.
     let onCreate: (CreatedExercise) async -> Exercise
-    /// The Customize form for an exercise just created; its closure goes back to the list.
+    /// How many routines use the exercise, for Delete's question.
+    let routineCount: (Exercise.ID) -> Int
+    /// Deletes the created exercise and its rows.
+    let onDelete: (Exercise.ID) async -> Void
+    /// The exercise's Customize form; its closure goes back to the list.
     @ViewBuilder let customize: (Exercise.ID, _ back: @escaping () -> Void) -> Customize
 
-    @State private var customizing: Exercise.ID?
+    @State private var customizing: CustomizePush?
+    /// The created exercise Delete in the hold menu is asking about.
+    @State private var deleting: Exercise?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.displayScale) private var displayScale
 
@@ -31,24 +42,55 @@ struct ExercisePicker<Customize: View>: View {
             ExerciseListView(
                 exercises: exercises,
                 onTap: onPick,
+                rowActions: holdMenu,
                 barTitle: "Add exercise",
                 barLeading: closeButton,
                 onSearchOpen: onSearchOpen,
-                onCreate: { customizing = await onCreate($0).id },
+                onCreate: {
+                    customizing = await CustomizePush(id: onCreate($0).id, showsDone: true)
+                },
             )
             // Still the screen's title for VoiceOver; the bar shows the search's drawn copy.
             .navigationTitle("Add exercise")
             .navigationBarTitleDisplayMode(.inline)
-            .navigationDestination(item: $customizing) { id in
-                customize(id) { customizing = nil }
+            .navigationDestination(item: $customizing) { push in
+                customize(push.id) { customizing = nil }
                     .toolbar {
-                        ToolbarItem(placement: .confirmationAction) {
-                            // The picker's own dismiss, which closes the sheet, not the push.
-                            Button("Done") { dismiss() }
+                        if push.showsDone {
+                            ToolbarItem(placement: .confirmationAction) {
+                                // The picker's own dismiss, which closes the sheet, not the push.
+                                Button("Done") { dismiss() }
+                            }
                         }
                     }
             }
         }
+        // Here, not on the row: under the list's green tint the alert's Cancel came out green,
+        // where the form's is white.
+        .alert(
+            "Delete \(deleting?.name ?? "")?",
+            isPresented: Binding { deleting != nil } set: {
+                if !$0 {
+                    deleting = nil
+                }
+            },
+            presenting: deleting,
+        ) { exercise in
+            Button("Cancel", role: .cancel) { }
+            Button("Delete exercise", role: .destructive) {
+                Task { await onDelete(exercise.id) }
+            }
+        } message: { exercise in
+            Text(ExerciseForm.deleteMessage(routineCount: routineCount(exercise.id)))
+        }
+    }
+
+    private func holdMenu(_ exercise: Exercise) -> HoldMenu {
+        HoldMenu(
+            isCreated: exercises.original(id: exercise.id) == nil,
+            onCustomize: { customizing = CustomizePush(id: exercise.id, showsDone: false) },
+            onDelete: { deleting = exercise },
+        )
     }
 
     /// The system's Close in its glass circle, as the bar draws it, in the label's own primary
@@ -68,9 +110,46 @@ struct ExercisePicker<Customize: View>: View {
     }
 }
 
+/// The Customize form pushed in Add exercise: Create's shows Done, to close the sheet; the hold
+/// menu's doesn't.
+private struct CustomizePush: Hashable {
+    let id: Exercise.ID
+    let showsDone: Bool
+}
+
+/// A row's hold menu in Add exercise, the system's context menu: Customize… for any exercise,
+/// then, for one someone created, Delete, whose question the picker asks.
+private struct HoldMenu: ViewModifier {
+    let isCreated: Bool
+    let onCustomize: () -> Void
+    let onDelete: () -> Void
+
+    func body(content: Content) -> some View {
+        content
+            .contextMenu {
+                menuItems
+                    // The system's colors, not the list's green, which turned Delete's trash
+                    // green beside its red title.
+                    .tint(nil)
+            }
+    }
+
+    @ViewBuilder
+    private var menuItems: some View {
+        Button("Customize…", systemImage: "slider.horizontal.3", action: onCustomize)
+        if isCreated {
+            Button("Delete", systemImage: "trash", role: .destructive, action: onDelete)
+                .accessibilityIdentifier("picker.menu.delete")
+        }
+    }
+}
+
 #Preview {
     ExercisePicker(exercises: .builtIn) { _ in } onCreate: {
         Exercise(created: $0)
+    } routineCount: { _ in
+        0
+    } onDelete: { _ in
     } customize: { _, _ in
         EmptyView()
     }

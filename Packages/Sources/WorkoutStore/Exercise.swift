@@ -76,6 +76,55 @@ public struct Exercise: Identifiable, Equatable, Sendable {
     public var equipmentLine: String? {
         equipment.line
     }
+
+    /// Its five settings as Customize shows them, its measure read from its plan's target.
+    public var settings: ExerciseSettings {
+        let measure: Measure = switch plan.target {
+        case .reps: .reps
+        case .time: .time
+        }
+        return ExerciseSettings(
+            name: name,
+            muscleGroups: muscleGroups,
+            equipment: equipment,
+            measure: measure,
+            isPerSide: isPerSide,
+        )
+    }
+}
+
+extension Exercise {
+    /// A built-in as someone customized it: each setting theirs where they changed it, else as
+    /// shipped. It keeps the shipped tags and rest kind, so a routine still names it for its
+    /// movement and its automatic rest stays by its kind of lift whatever its groups (equipment
+    /// changed to none still rests one step shorter, as any bodyweight built-in does). Its load
+    /// and start are the shipped ones until Per side or the piece that holds the weight changes
+    /// (adding a bench changes neither), then derived as a created exercise's are; its plan is the
+    /// shipped one until its measure changes, then a
+    /// created exercise's for that measure.
+    init(builtIn shipped: Exercise, customized customization: Customization) {
+        let original = shipped.settings
+        let settings = customization.applied(to: original)
+        let keepsLoad = Equipment.loadPiece(of: settings.equipment)
+            == Equipment.loadPiece(of: original.equipment)
+            && settings.isPerSide == original.isPerSide
+        let (load, startsAt) = keepsLoad
+            ? (shipped.load, shipped.startsAt)
+            : Self.derivedLoad(equipment: settings.equipment, isPerSide: settings.isPerSide)
+        self.init(
+            id: shipped.id,
+            name: settings.name,
+            muscleGroups: settings.muscleGroups,
+            equipment: settings.equipment,
+            plan: settings.measure == original.measure
+                ? shipped.plan : Self.derivedPlan(settings.measure),
+            load: load,
+            startsAt: startsAt,
+            perSide: settings.isPerSide,
+            tags: shipped.tags,
+            rests: shipped.restKind,
+        )
+    }
 }
 
 extension [Exercise] {

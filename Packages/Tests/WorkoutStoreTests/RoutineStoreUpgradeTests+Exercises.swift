@@ -191,4 +191,69 @@ extension RoutineStoreUpgradeTests {
         let reread = try await RoutineStore(modelContainer: current).launch(weightUnit: .pounds)
         #expect(reread.workout?.sets.map(\.exerciseName) == [nil, "Push-up"])
     }
+
+    @Test("A V9 store opens with nothing customized, then keeps a built-in's customization")
+    func upgradeBeforeCustomizations() async throws {
+        let folder = FileManager.default.temporaryDirectory
+            .appending(path: "RoutineStoreUpgrade-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let url = folder.appending(path: "PlusPlus.store")
+        let routineID = UUID()
+        let rowID = UUID()
+
+        do {
+            let schema = Schema(versionedSchema: RoutineSchemaV9.self)
+            let old = try ModelContainer(
+                for: schema,
+                configurations: ModelConfiguration(schema: schema, url: url),
+            )
+            let context = ModelContext(old)
+            let routine = RoutineSchemaV7.StoredRoutine(id: routineID)
+            routine.editedAt = Date(timeIntervalSinceReferenceDate: 1)
+            context.insert(routine)
+            let row = RoutineSchemaV7.StoredRoutineExercise(
+                id: rowID,
+                exerciseID: "barbell-bench-press",
+                position: 0,
+            )
+            context.insert(row)
+            row.routine = routine
+            let workout = RoutineSchemaV9.StoredWorkout(id: UUID())
+            workout.routineID = routineID
+            workout.routineName = "Push"
+            workout.startedAt = Date(timeIntervalSinceReferenceDate: 2)
+            context.insert(workout)
+            let set = RoutineSchemaV9.StoredSet(id: UUID())
+            set.rowID = rowID
+            set.exerciseID = "barbell-bench-press"
+            set.exerciseName = "Barbell bench press"
+            set.reps = 5
+            set.plannedReps = 5
+            set.loggedAt = Date(timeIntervalSinceReferenceDate: 3)
+            context.insert(set)
+            set.workout = workout
+            try context.save()
+        }
+
+        let current = try ModelContainer(
+            for: RoutineStore.schema,
+            migrationPlan: RoutineMigrationPlan.self,
+            configurations: ModelConfiguration(schema: RoutineStore.schema, url: url),
+        )
+        let store = RoutineStore(modelContainer: current)
+        #expect(try await store.exercises() == .builtIn)
+        let launch = try await store.launch(weightUnit: .pounds)
+        #expect(launch.routine?.exercises.map(\.id) == [rowID])
+        #expect(launch.workout?.sets.map(\.exerciseName) == ["Barbell bench press"])
+
+        let bench = try #require(Exercise.builtIn(id: "barbell-bench-press"))
+        var settings = bench.settings
+        settings.muscleGroups = [.chest, .arms]
+        try await store.save(Customization(of: bench, to: settings))
+        // Its row, in a second store on the file, reads the customization.
+        let routine = try await RoutineStore(modelContainer: current).launch(weightUnit: .pounds)
+            .routine
+        #expect(routine?.exercises.first?.exercise.muscleGroups == [.chest, .arms])
+    }
 }

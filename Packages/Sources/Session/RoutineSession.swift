@@ -17,7 +17,7 @@ public final class RoutineSession {
     public private(set) var current: Routine
     /// Opened through `openDrawer()`, which a workout refuses, and shut through `closeDrawer()`.
     public private(set) var isDrawerOpen = false
-    /// Where the app is: the routine, the Routines screen, a routine pushed on it, or Exercises.
+    /// Where the app is: the routine, the Routines screen, or a routine pushed on it.
     public internal(set) var screen = Screen.routine
     /// The workout running the open routine, from Start until Finish or Discard.
     public private(set) var workout: Workout?
@@ -178,7 +178,7 @@ public final class RoutineSession {
         }
     }
 
-    /// Reads the saved routines again, for the Routines screen and Exercises' Used in.
+    /// Reads the saved routines again, for the Routines screen and the Customize form's Used in.
     /// A read that fails leaves the last one, to be tried again at the next refresh; one that
     /// started before a switch is dropped, since it may be missing the routine left.
     public func refreshRecent(weightUnit: WeightUnit) async {

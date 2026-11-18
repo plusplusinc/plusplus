@@ -3,8 +3,8 @@ import SwiftUI
 
 /// Search in the navigation bar: one bar item spanning the bar between its margins, with the
 /// bar's leading button at its leading edge and a round glass search button with a magnifying
-/// glass at its trailing edge. A tap turns the leading button (++ in Exercises, Close in Add
-/// exercise) into a glass field across the bar, focused, with the keyboard coming up: the
+/// glass at its trailing edge. A tap turns the leading button (Close, in Add exercise) into a
+/// glass field across the bar, focused, with the keyboard coming up: the
 /// system's glass morph stretches the button's glass to the right into the field's capsule, its
 /// label blurring into the field's, while the search button's symbol turns to an X. The field's
 /// trailing end runs on into the search button's glass, the two fused for a moment, and pulls
@@ -25,9 +25,7 @@ import SwiftUI
 /// inline title font, behind the field, and the host removes the bar's own. The field stretches
 /// over the title as it fades, and back off it as it returns, on the field's own curve. The bar's
 /// own title dropped out at once as the open field took its room and came back only after the
-/// close. With `isTitleShown` false the title is faded out, as a large title's small copy is
-/// until the large one has gone under the bar; with `onTitleTap` a tap on it runs that, as a tap
-/// on the status bar scrolls to the top.
+/// close.
 ///
 /// The system's top bar search does not do this on iPhone. Its round button
 /// (`.searchable(placement: .toolbar)`, `.searchToolbarBehavior(.minimize)` and a top trailing
@@ -44,10 +42,6 @@ public struct BarSearchField<Leading: View>: View {
     let title: LocalizedStringKey?
     /// Where the title centers, the screen's middle, in global coordinates.
     let titleCenterX: CGFloat
-    /// Whether the title shows while the field is closed.
-    let isTitleShown: Bool
-    /// What a tap on the title does; nil leaves it untappable.
-    let onTitleTap: (() -> Void)?
     /// The bar's leading button, drawn at the item's leading edge for the field to take over. It
     /// brings its own glass (`BarGlassButtonStyle`).
     let leading: Leading
@@ -62,8 +56,6 @@ public struct BarSearchField<Leading: View>: View {
         width: CGFloat,
         title: LocalizedStringKey? = nil,
         titleCenterX: CGFloat = 0,
-        isTitleShown: Bool = true,
-        onTitleTap: (() -> Void)? = nil,
         @ViewBuilder leading: () -> Leading,
     ) {
         _text = text
@@ -72,8 +64,6 @@ public struct BarSearchField<Leading: View>: View {
         self.width = width
         self.title = title
         self.titleCenterX = titleCenterX
-        self.isTitleShown = isTitleShown
-        self.onTitleTap = onTitleTap
         self.leading = leading()
     }
 
@@ -120,7 +110,7 @@ public struct BarSearchField<Leading: View>: View {
             .frame(width: max(width, height), alignment: .trailing)
         }
         .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).midX } action: {
-            // Only a title reads it; without one, the item moves with every frame of a drawer.
+            // Only a title reads it.
             if title != nil {
                 itemMidX = $0
             }
@@ -141,31 +131,18 @@ public struct BarSearchField<Leading: View>: View {
     @ViewBuilder
     private var coveredTitle: some View {
         if let title {
-            let isShown = !isOpen && isTitleShown
-            titleButton(title)
+            Text(title)
+                .font(.ppBarTitle)
+                .foregroundStyle(.pp(.textPrimary))
+                .lineLimit(1)
+                .fixedSize()
                 .onGeometryChange(for: CGFloat.self, of: \.size.width) { titleWidth = $0 }
                 .offset(x: titleOffset)
-                .opacity(isShown ? 1 : 0)
-                .allowsHitTesting(isShown && onTitleTap != nil)
+                .opacity(isOpen ? 0 : 1)
+                .allowsHitTesting(false)
                 .accessibilityAddTraits(.isHeader)
                 // The bar ignores `accessibilityHidden`: covered, it was still read out.
-                .accessibilityShown(isShown)
-        }
-    }
-
-    @ViewBuilder
-    private func titleButton(_ title: LocalizedStringKey) -> some View {
-        let text = Text(title)
-            .font(.ppBarTitle)
-            .foregroundStyle(.pp(.textPrimary))
-            .lineLimit(1)
-            .fixedSize()
-        if let onTitleTap {
-            Button(action: onTitleTap) { text }
-                .buttonStyle(.plain)
-                .accessibilityHint("Scrolls to the top.")
-        } else {
-            text
+                .accessibilityShown(!isOpen)
         }
     }
 
@@ -361,7 +338,7 @@ extension ButtonStyle where Self == BarGlassButtonStyle {
     @Previewable @State var isOpen = false
     NavigationStack {
         List(0 ..< 20, id: \.self) { Text("Row \($0)") }
-            .navigationTitle("Exercises")
+            .navigationTitle("Add exercise")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {

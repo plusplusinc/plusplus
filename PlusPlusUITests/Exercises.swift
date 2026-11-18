@@ -56,8 +56,8 @@ extension XCUIApplication {
         staticTexts["No exercises"]
     }
 
-    /// The bar's round search button, in Add exercise and Exercises, labeled Search while closed
-    /// and Close search while open: there exactly while one of the two shows.
+    /// The bar's round search button, in Add exercise, labeled Search while closed and Close
+    /// search while open: there exactly while Add exercise shows.
     var searchButton: XCUIElement {
         buttons["barSearch.button"]
     }
@@ -249,6 +249,44 @@ extension XCUIApplication {
     /// A point on screen, as `x` and `y` in points from its top-left corner.
     func point(x: CGFloat, y: CGFloat) -> XCUICoordinate {
         coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: x, dy: y))
+    }
+}
+
+@MainActor
+extension XCUIApplication {
+    /// Waits for the system alert titled `title`, checks it is centered on the screen rather
+    /// than anchored to the button that asked, and taps its `answer`, the destructive one whose
+    /// title matches the button that asked. Returns the alert's message.
+    @discardableResult
+    func answerAlert(
+        _ title: String,
+        with answer: String,
+        file: StaticString = #filePath,
+        line: UInt = #line,
+    ) -> String {
+        let alert = alerts[title]
+        XCTAssertTrue(alert.appears(), "No alert asked \"\(title)\"", file: file, line: line)
+        XCTAssertTrue(alert.settles(), "The alert kept moving", file: file, line: line)
+        XCTAssertEqual(alert.frame.midX, frame.midX, accuracy: 1, file: file, line: line)
+        XCTAssertEqual(
+            alert.frame.midY,
+            frame.midY,
+            accuracy: frame.height / 8,
+            "The alert isn't centered",
+            file: file,
+            line: line,
+        )
+        let message = alert.staticTexts.allElementsBoundByIndex.map(\.label)
+            .filter { $0 != title }.joined(separator: " ")
+        XCTAssertTrue(
+            alert.buttons["Cancel"].exists,
+            "The alert has no Cancel",
+            file: file,
+            line: line,
+        )
+        alert.buttons[answer].tap()
+        XCTAssertTrue(alert.disappears(), "The alert stayed up", file: file, line: line)
+        return message
     }
 }
 

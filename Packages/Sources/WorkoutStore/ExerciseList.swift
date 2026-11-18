@@ -8,18 +8,36 @@ public struct ExerciseList: Equatable, Sendable {
     private let byID: [String: Exercise]
     /// The created ones as someone set them, by id, for their form to open with.
     private let createdByID: [String: CreatedExercise]
+    /// The built-ins someone customized, by slug, none of them empty.
+    private let customizationsByID: [String: Customization]
 
-    public init(created: [CreatedExercise]) {
+    /// With a customization for a slug no built-in has, or an empty one, read as none.
+    public init(created: [CreatedExercise], customizations: [Customization] = []) {
         // Ids are unique in the app's own writes; keyed leniently against a store that isn't.
-        self.init(createdByID: Dictionary(
-            created.map { ($0.id, $0) },
-            uniquingKeysWith: { first, _ in first },
-        ))
+        self.init(
+            createdByID: Dictionary(
+                created.map { ($0.id, $0) },
+                uniquingKeysWith: { first, _ in first },
+            ),
+            // Two for one slug, as sync could leave: the first counts, even if it reads as empty.
+            customizationsByID: Dictionary(
+                customizations.map { ($0.exerciseID, $0) },
+                uniquingKeysWith: { first, _ in first },
+            ).filter { !$0.value.isEmpty && Exercise.builtIn(id: $0.key) != nil },
+        )
     }
 
-    private init(createdByID: [String: CreatedExercise]) {
+    private init(
+        createdByID: [String: CreatedExercise],
+        customizationsByID: [String: Customization],
+    ) {
         self.createdByID = createdByID
-        let unsorted = Exercise.builtIn + createdByID.values.map(Exercise.init(created:))
+        self.customizationsByID = customizationsByID
+        let builtIns = Exercise.builtIn.map { shipped in
+            customizationsByID[shipped.id]
+                .map { Exercise(builtIn: shipped, customized: $0) } ?? shipped
+        }
+        let unsorted = builtIns + createdByID.values.map(Exercise.init(created:))
         all = unsorted.sorted { one, other in
             switch one.name.localizedStandardCompare(other.name) {
             case .orderedAscending: true
@@ -44,10 +62,16 @@ public struct ExerciseList: Equatable, Sendable {
     }
 
     /// Whether an exercise, other than `id` if given, is named `name`, by the search's folding:
-    /// a rename may keep its own name, or change only its case.
+    /// a rename may keep its own name, or change only its case. A renamed built-in's shipped name
+    /// stays taken, so clearing its customizations can never leave two exercises with one name.
     public func hasExercise(named name: String, besides id: String? = nil) -> Bool {
-        let others = id.map { id in all.filter { $0.id != id } } ?? all
-        return others.hasExercise(named: name)
+        func isTaken(in exercises: [Exercise]) -> Bool {
+            (id.map { id in exercises.filter { $0.id != id } } ?? exercises)
+                .hasExercise(named: name)
+        }
+        let renamed = customizationsByID.values.filter { $0.changed.contains(.name) }
+            .compactMap { Exercise.builtIn(id: $0.exerciseID) }
+        return isTaken(in: all) || isTaken(in: renamed)
     }
 
     /// Whether a search for `query` offers to create an exercise of that name: something is
@@ -70,17 +94,48 @@ public struct ExerciseList: Equatable, Sendable {
         createdByID[id]
     }
 
+    /// The built-in `id` as it shipped, whatever its customization; nil for a created one.
+    public func original(id: String) -> Exercise? {
+        Exercise.builtIn(id: id)
+    }
+
+    /// The changes someone made to the built-in `id`, or nil while it is as shipped.
+    func customization(id: String) -> Customization? {
+        customizationsByID[id]
+    }
+
     /// The list with `created` in it at its place, or in place of the one with its id.
     public func adding(_ created: CreatedExercise) -> Self {
         var createdByID = createdByID
         createdByID[created.id] = created
-        return Self(createdByID: createdByID)
+        return Self(createdByID: createdByID, customizationsByID: customizationsByID)
     }
 
     /// The list without the created exercise `id`.
     public func removing(_ id: String) -> Self {
         var createdByID = createdByID
         createdByID[id] = nil
-        return Self(createdByID: createdByID)
+        return Self(createdByID: createdByID, customizationsByID: customizationsByID)
+    }
+
+    /// The list with the exercise `id` set to `settings`: a created one's own, a built-in's as
+    /// its customization, none at all once they are as it shipped. Unchanged for an unknown id.
+    public func customizing(_ id: String, to settings: ExerciseSettings) -> Self {
+        if var created = created(id: id) {
+            created.settings = settings
+            return adding(created)
+        }
+        guard let shipped = original(id: id) else { return self }
+        var customizationsByID = customizationsByID
+        let customization = Customization(of: shipped, to: settings)
+        customizationsByID[id] = customization.isEmpty ? nil : customization
+        return Self(createdByID: createdByID, customizationsByID: customizationsByID)
+    }
+
+    /// The list with the built-in `id` exactly as it shipped.
+    public func clearingCustomizations(_ id: String) -> Self {
+        var customizationsByID = customizationsByID
+        customizationsByID[id] = nil
+        return Self(createdByID: createdByID, customizationsByID: customizationsByID)
     }
 }

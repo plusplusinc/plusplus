@@ -2,9 +2,11 @@ import Session
 import SwiftUI
 import WorkoutStore
 
-/// A created exercise's Customize form (`ExerciseForm`) wired to the session, as Exercises and
-/// Add exercise push it: each change stored as made, and Delete removing the exercise and its
-/// rows, then going `back`. Nothing shows for an id the list no longer has.
+/// An exercise's Customize form (`ExerciseForm`) wired to the session, as a routine row's
+/// Customize…, and Add exercise's Create and hold menu, push it. Each change is stored as made: a
+/// created exercise's as its own, with Delete removing it and its rows, then going `back`; a
+/// built-in's apart from the catalog, with Clear customizations putting it back as it shipped.
+/// Nothing shows for an id the list no longer has.
 struct CustomizeScreen: View {
     let id: Exercise.ID
     let session: RoutineSession
@@ -16,22 +18,39 @@ struct CustomizeScreen: View {
     @Environment(\.locale) private var locale
 
     var body: some View {
-        if let created = session.exercises.created(id: id) {
-            let weightUnit = WeightUnit(region: locale)
+        let weightUnit = WeightUnit(region: locale)
+        let usedIn = session.routines(using: id).map(namer.listedName(of:))
+        if let exercise = session.exercises.exercise(id: id) {
             ExerciseForm(
-                customizing: created,
+                customizing: id,
+                settings: exercise.settings,
                 exercises: session.exercises,
-                usedIn: session.routines(using: id).map(namer.listedName(of:)),
-                onSave: {
-                    await session.customize($0, weightUnit: weightUnit)
+                usedIn: usedIn,
+                onSave: { settings in
+                    await session.customize(id, to: settings, weightUnit: weightUnit)
                     onStored()
                 },
-                onDelete: {
-                    await session.deleteExercise(id, weightUnit: weightUnit)
-                    onStored()
-                    back()
-                },
+                ending: ending(weightUnit: weightUnit),
             )
+            // The routines Used in and Delete's question count, as stored now.
+            .task { await session.refreshRecent(weightUnit: weightUnit) }
+        }
+    }
+
+    /// Delete for a created exercise; Clear customizations for a built-in, back to how it
+    /// shipped.
+    private func ending(weightUnit: WeightUnit) -> ExerciseForm.Ending {
+        if let original = session.exercises.original(id: id) {
+            .clear(original: original.settings) {
+                await session.clearCustomizations(id, weightUnit: weightUnit)
+                onStored()
+            }
+        } else {
+            .delete {
+                await session.deleteExercise(id, weightUnit: weightUnit)
+                onStored()
+                back()
+            }
         }
     }
 }

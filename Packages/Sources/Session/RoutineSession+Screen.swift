@@ -7,20 +7,11 @@ extension RoutineSession {
         case routines
         /// The open routine, pushed onto the Routines screen from its list.
         case pushedRoutine
-        /// Exercises, at the root as Routines is. The open routine and its workout stay as they
-        /// were, to show again when Routines pushes it.
-        case exercises
     }
 
     /// Shows the Routines screen and closes the drawer.
     public func showRoutines() {
         screen = .routines
-        closeDrawer()
-    }
-
-    /// Shows Exercises in place of the screen showing and closes the drawer.
-    public func showExercises() {
-        screen = .exercises
         closeDrawer()
     }
 
@@ -32,19 +23,16 @@ extension RoutineSession {
         }
     }
 
-    /// What the drawer marks as showing: the Routines screen, Exercises, or a routine, which
-    /// marks neither.
+    /// What the drawer marks as showing: the Routines screen, or a routine, which marks nothing.
     public var showing: Showing {
         switch screen {
         case .routines: .routines
-        case .exercises: .exercises
         case .routine, .pushedRoutine: .routine
         }
     }
 
     public enum Showing {
         case routines
-        case exercises
         case routine
     }
 }

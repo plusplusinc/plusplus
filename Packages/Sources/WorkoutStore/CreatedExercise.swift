@@ -72,30 +72,16 @@ extension Exercise {
     /// piece starts; 3 × 10 reps or 3 × 30 s; rests as the longest-resting of its groups; and is
     /// named by its groups alone, every one of them.
     public init(created: CreatedExercise) {
-        let load: Load?
-        let startsAt: StartingWeight?
-        let equipment = created.equipment
-        if equipment.contains(.barbell) {
-            (load, startsAt) = (.bar, nil)
-        } else if equipment.contains(.dumbbells) {
-            (load, startsAt) = (created.isPerSide ? .single : .pair, Equipment.dumbbells.lightStart)
-        } else if equipment.contains(.kettlebell) {
-            (load, startsAt) = (.single, Equipment.kettlebell.lightStart)
-        } else if equipment.contains(.medicineBall) {
-            (load, startsAt) = (.single, Equipment.medicineBall.lightStart)
-        } else {
-            (load, startsAt) = (nil, nil)
-        }
-        let target: SetTarget = switch created.measure {
-        case .reps: .reps(10)
-        case .time: .time(seconds: 30)
-        }
+        let (load, startsAt) = Self.derivedLoad(
+            equipment: created.equipment,
+            isPerSide: created.isPerSide,
+        )
         self.init(
             id: created.id,
             name: created.name,
             muscleGroups: created.muscleGroups,
-            equipment: equipment,
-            plan: ExercisePlan(sets: 3, target: target),
+            equipment: created.equipment,
+            plan: Self.derivedPlan(created.measure),
             load: load,
             startsAt: startsAt,
             perSide: created.isPerSide,
@@ -103,9 +89,40 @@ extension Exercise {
             rests: RestKind(groups: created.muscleGroups),
         )
     }
+
+    /// What an exercise of this equipment holds and starts at, when nothing shipped says: by the
+    /// first of barbell (a bar), dumbbells (one when per side, else a pair), kettlebell, and
+    /// medicine ball (one), from the lightest built-in of that piece; else no weight.
+    static func derivedLoad(
+        equipment: Set<Equipment>,
+        isPerSide: Bool,
+    ) -> (load: Load?, startsAt: StartingWeight?) {
+        switch Equipment.loadPiece(of: equipment) {
+        case .barbell: (.bar, nil)
+        case .dumbbells: (isPerSide ? .single : .pair, Equipment.dumbbells.lightStart)
+        case let .some(piece): (.single, piece.lightStart)
+        case nil: (nil, nil)
+        }
+    }
+
+    /// The plan a new row starts with for `measure`, when nothing shipped says: 3 × 10 reps or
+    /// 3 × 30 s.
+    static func derivedPlan(_ measure: Measure) -> ExercisePlan {
+        let target: SetTarget = switch measure {
+        case .reps: .reps(10)
+        case .time: .time(seconds: 30)
+        }
+        return ExercisePlan(sets: 3, target: target)
+    }
 }
 
 extension Equipment {
+    /// The piece that holds the weight: the first of barbell, dumbbells, kettlebell, and medicine
+    /// ball in `equipment`; nil for kit that holds none.
+    static func loadPiece(of equipment: Set<Equipment>) -> Equipment? {
+        [.barbell, .dumbbells, .kettlebell, .medicineBall].first(where: equipment.contains)
+    }
+
     /// The lightest start a built-in held in this piece has, for a created exercise to start
     /// at; nil for a bar, which starts empty, and for kit that holds no weight.
     var lightStart: StartingWeight? {

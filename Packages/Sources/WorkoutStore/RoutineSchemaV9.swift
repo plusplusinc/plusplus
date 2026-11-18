@@ -1,8 +1,8 @@
 import Foundation
 import SwiftData
 
-/// Today's shape: V8's, with each logged set keeping its exercise's name as it was, so a set
-/// logged before a rename reads the old name and one whose exercise is deleted still reads.
+/// V8's, with each logged set keeping its exercise's name as it was, so a set logged before a
+/// rename reads the old name and one whose exercise is deleted still reads.
 enum RoutineSchemaV9: VersionedSchema {
     static let versionIdentifier = Schema.Version(9, 0, 0)
     static var models: [any PersistentModel.Type] {

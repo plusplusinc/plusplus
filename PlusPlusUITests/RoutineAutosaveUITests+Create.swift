@@ -85,15 +85,7 @@ extension RoutineAutosaveUITests {
             let delete = app.buttons["Delete exercise"]
             XCTAssertTrue(delete.settles(), "Delete exercise kept moving")
             delete.tap()
-            let confirm = app.buttons.matching(identifier: "Delete exercise")
-            XCTAssertEqual(
-                reading(confirm.count, becoming: 2, within: 2),
-                2,
-                "Delete didn't ask first",
-            )
-            let answer = confirm.element(boundBy: 1)
-            XCTAssertTrue(answer.settles(), "The question's Delete exercise kept moving")
-            answer.tap()
+            app.answerAlert("Delete Zq?", with: "Delete exercise")
             XCTAssertTrue(name.disappears(), "Delete didn't come back to the list")
             XCTAssertEqual(app.exerciseCount(becoming: 0), 0, "The deleted exercise's row stayed")
             // The search is still open, over Close.

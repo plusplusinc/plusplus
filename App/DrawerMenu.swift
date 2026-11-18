@@ -3,8 +3,8 @@ import Session
 import SwiftUI
 import WorkoutStore
 
-/// What ++ opens: the app's title, then two places, Routines and Exercises, each showing its list
-/// in place of the screen showing. The place showing is marked; while a routine shows, neither is.
+/// What ++ opens: the app's title, then Routines, showing its list in place of the screen
+/// showing. It is marked while it shows; while a routine shows, it isn't.
 ///
 /// The mark doesn't change while any of it shows: it is taken as the drawer starts to show and
 /// held until it has fully closed, so a tap that switches places never moves the mark under the
@@ -39,16 +39,6 @@ struct DrawerMenu: View {
                         session.showRoutines()
                     }
                     .buttonStyle(.drawer(isSelected: showing == .routines))
-                    Button {
-                        session.showExercises()
-                    } label: {
-                        Label {
-                            Text("Exercises")
-                        } icon: {
-                            CircleStackSymbol()
-                        }
-                    }
-                    .buttonStyle(.drawer(isSelected: showing == .exercises))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

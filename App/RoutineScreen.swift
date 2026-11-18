@@ -373,14 +373,7 @@ struct RoutineScreen: View {
         }
         // By item, so the sheet keeps its content as it slides away.
         .sheet(item: $editing) { opened in
-            if let item = row(opened.id) {
-                ExerciseSheet(
-                    item: item,
-                    partners: routine.partnerNames(of: opened.id),
-                    parts: routine.sheetParts(of: opened.id),
-                    rounds: roundSteps(of: opened.id),
-                ) { delete(opened.id, footDelay: Self.exerciseSheetGone) }
-            }
+            exerciseSheet(opened.id)
         }
         .toolbar { barItems }
     }

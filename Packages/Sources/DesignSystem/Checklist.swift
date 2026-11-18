@@ -5,7 +5,7 @@ import SwiftUI
 /// number checked, a tap toggling one. Rows with their own marks rather than
 /// `List(selection:)`, which needs edit mode on iPhone. Every row ends in a circle: empty and
 /// gray while unchecked, so an untouched list already says any number can be checked, and
-/// filled green with a cut-out check once checked, as the Exercises icon's front circle is.
+/// filled green with a cut-out check once checked.
 /// The two crossfade in the same spot on the tap's quick curve, so a row's text never moves. Each
 /// tap plays the system's selection tick. No note under the list: the
 /// screen's title says what it is.
