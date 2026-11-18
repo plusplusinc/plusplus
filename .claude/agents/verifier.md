@@ -82,10 +82,9 @@ the one you work in.
    names it; `new` means neither does. The repo is public: describe the app in your own words,
    never quote the card, and leave out anything personal.
 
-You edit test files, and write working files only to the `.slices/` paths the lead names. In
-a worktree of your own, save them and cited screenshots in your scratchpad directory:
-the worktree goes, `.slices/` too, when you end. A
-test that fails because the app is wrong stays failing and goes in the report; the fix belongs
+You edit test files, and write working files and cited screenshots only to the `.slices/`
+paths the lead names or, in a worktree of your own, to your scratchpad directory, since that
+worktree goes, `.slices/` too, when you end. A test that fails because the app is wrong stays failing and goes in the report; the fix belongs
 to a builder.
 
 If the work runs long, stop and write a handoff note to the path the lead names: criteria
