@@ -61,6 +61,8 @@ struct RoutineScreen: View {
     /// the exercises, but the first add and the last Remove change it only once their sheet has
     /// gone, so Start and the + are seen rising or going down (`settleFoot(after:)`).
     @State var footShowsEmpty: Bool
+    /// Start and the + away, keeping their room, from Create to its row sheet's close.
+    @State var isFootAway = false
     /// Whether the title has scrolled up under the bar, where a small copy of it shows instead.
     @State var isTitleUnderBar = false
     /// How far Start rides down with the rows below the current exercise as it grows at Start.
@@ -266,6 +268,7 @@ struct RoutineScreen: View {
                             .railRow()
                             // The whole row, its insets included, as the rail stacks it.
                             .reportingFrame(tracksRows) { rowFrames.tops[item.id] = $0.minY }
+                            .reportingHeight(item.id == arriving, to: placeAhead)
                             .contentShape(.rect)
                             .onTapGesture {
                                 guard item.id != entering else { return }
@@ -360,7 +363,7 @@ struct RoutineScreen: View {
         .primaryKeyBar(
             isPresented: showsKey,
             face: liveKeyRole,
-            keepsRoom: phase.keyGone == .keepingRoom,
+            keepsRoom: phase.keyGone == .keepingRoom || isFootAway,
             plusOnes: setLogs + sideLogs,
             drop: startDrop,
             floatsLow: footShowsEmpty,
@@ -380,7 +383,7 @@ struct RoutineScreen: View {
         // window's black behind the keyboard's rounded top corners.
         .background { Color.pp(.background).ignoresSafeArea() }
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: isAdding) { addSheet }
+        .sheet(isPresented: isAdding, onDismiss: addSheetGone) { addSheet }
         // By item, so the sheet keeps its content as it slides away.
         .sheet(item: editedRow) { opened in
             exerciseSheet(opened.id)

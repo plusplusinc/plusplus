@@ -260,7 +260,9 @@ extension RoutineScreen {
     /// its end, the last row under the + (at AX5, 394 against an end at 435). The change a short
     /// scroll makes is followed in turn, to the end the scroll view has by then.
     func keepEndInView(from old: ScrollGeometry, to new: ScrollGeometry) {
-        guard let follow = endFollow, !isMakingRoom, !isScrollingByHand,
+        // After Create, room put on ahead of the place (`placeAhead(_:)`) already holds the
+        // list where the row lands.
+        guard let follow = endFollow, !isMakingRoom, !isScrollingByHand, sheetLanding.ahead == 0,
               new.endY > new.scrolledY else { return }
         if follow != .following {
             guard new.contentSize.height > old.contentSize.height else { return }
@@ -309,5 +311,6 @@ extension RoutineScreen {
         if entering == row.id {
             entering = nil
         }
+        addedRowLanded()
     }
 }

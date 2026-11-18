@@ -14,10 +14,14 @@ enum AddStage: Equatable {
 /// list goes on and the list jumps to its end, out of sight under the full-height add sheet;
 /// then the add sheet slides down (about 0.3 s), the new row enters in view on the uncovered
 /// routine, just above where a half-height sheet's top rests, and the row's own sheet rises to
-/// half height with Customize already pushed. One presenter shows one sheet at a time: asked up
-/// while the add sheet was still going, the row's sheet appeared at once, with no rise, as the
-/// other finished (iOS 27.2), so it is asked once the add sheet has gone. A feel round changes a
-/// value here, nowhere else.
+/// half height with Customize already pushed. Start and the + are away meanwhile, so they never
+/// show between the two sheets. One presenter shows one sheet at a time: the row's sheet is
+/// asked once the add sheet's dismissal reports it has finished (`addSheetGone()`), about 0.58 s
+/// after it starts down, though it is out of sight at 0.3 s, and once the row has landed; it
+/// rises about 0.12 s after it is asked (Debug, iOS 27.2). Asked while the dismissal was still
+/// finishing, it appeared at once, with no rise. So the row's entry fills that wait, starting
+/// as the add sheet's slide eases out at the screen's foot. A feel round changes a value here,
+/// nowhere else.
 enum CreateLanding {
     /// From `t0` to the list's jump to its end: a moment after the room under the list goes on,
     /// since a scroll asked in the same update stopped at the old end.
@@ -25,22 +29,12 @@ enum CreateLanding {
     /// From `t0` to the add sheet starting down, a moment after the jump: in the jump's own
     /// update, the jump did not land, and the list scrolled in view as the row entered.
     static let sheetDown: Duration = .milliseconds(90)
-    /// From the add sheet starting down to the row's entry, as it has gone.
-    static let rowEnters: Duration = .milliseconds(350)
-    /// From the add sheet starting down to the row's sheet being asked up, once the row's node
-    /// has landed (`RailEntry`). It rises 0.2 to 0.3 s later, the screen still while the sheet is
-    /// built. Asked while the row's entry was still landing, it appeared at once, with no rise.
-    static let rowSheetUp: Duration = .milliseconds(750)
-    /// From `t0` to the push having landed: the system's push starts 0.06 to 0.15 s after the
-    /// path is set (building both pages) and slides for about 0.36 s (measured on iOS 27.2).
-    /// The system gives no completion for a `NavigationStack` push. Scrolled in the shrink, the
-    /// list rose as the sheet fell, two motions.
-    static let pushLength: Duration = .milliseconds(480)
-    /// The sheet's shrink to half height.
-    static let shrink: Animation = .snappy(duration: shrinkSeconds)
-    /// From the shrink's start to the sheet resting at half height, when the row enters.
-    static let shrinkLength: Duration = .seconds(shrinkSeconds)
-    private static let shrinkSeconds: TimeInterval = 0.4
+    /// From the add sheet starting down to the row's entry, its top past the row by then, so
+    /// the row has landed (0.35 s later) as the dismissal reports.
+    static let rowEnters: Duration = .milliseconds(200)
+    /// From the add sheet starting down to the row's sheet being asked up, should the add
+    /// sheet's dismissal never report: well past when it did (0.58 s).
+    static let rowSheetUp: Duration = .milliseconds(900)
 }
 
 /// What the room under a created row is worked out from, recorded as it changes. A class,
@@ -51,6 +45,14 @@ final class SheetLanding {
     /// The list's frame in the window.
     var listFrame: CGRect = .zero
     var geometry: ScrollGeometry?
+    /// From Create's room going on until the created row's height is known: the content's
+    /// height with the room, and the visible area's (`placeAhead(_:)`).
+    var pending: (content: CGFloat, container: CGFloat)?
+    /// Room put on ahead of the created row's place, which the list stands scrolled into, so
+    /// the place opens below rows that hold still; taken off once the row has landed.
+    var ahead: CGFloat = 0
+    /// Whether the add sheet's dismissal has reported it has finished, since Create.
+    var isAddSheetGone = false
 }
 
 extension RoutineScreen {
@@ -110,10 +112,25 @@ extension RoutineScreen {
         let t0 = ContinuousClock.now
         let swap = t0 + CreateLanding.sheetDown
         let rowEnters = swap + CreateLanding.rowEnters
+        sheetLanding.ahead = 0
+        sheetLanding.pending = nil
+        sheetLanding.isAddSheetGone = false
+        // Away under the add sheet until the row's sheet closes: left on, they showed in the gap
+        // between the two sheets, only to be covered again.
+        withTransaction(\.disablesAnimations, true) {
+            isFootAway = true
+        }
         // In a workout's sequence the end is Start's room: no room, no scroll (`add`). The room
         // goes on out of sight, under the sheet, and is not followed.
         if !isMakingRoom {
-            sheetRoom = roomForCreated()
+            let room = roomForCreated()
+            sheetRoom = room
+            if let geometry = sheetLanding.geometry {
+                sheetLanding.pending = (
+                    content: geometry.contentSize.height + room,
+                    container: geometry.containerSize.height,
+                )
+            }
             at(t0 + CreateLanding.listJump) {
                 guard !isMakingRoom else { return }
                 withTransaction(\.disablesAnimations, true) {
@@ -125,10 +142,57 @@ extension RoutineScreen {
         at(swap) {
             adding = nil
             createdSheet = row
-            at(swap + CreateLanding.rowSheetUp) {
-                editing = self.row(row)?.wrappedValue
-            }
+            // Should the add sheet's dismissal never report.
+            at(swap + CreateLanding.rowSheetUp) { showCreatedRow(waits: false) }
         }
+    }
+
+    /// The add sheet's dismissal has finished: the created row's sheet can rise.
+    func addSheetGone() {
+        sheetLanding.isAddSheetGone = true
+        showCreatedRow()
+    }
+
+    /// An added row has landed (`RailArrival`'s entered): after Create, the room put on ahead
+    /// comes off and the row's sheet can rise.
+    func addedRowLanded() {
+        takeOffRoomAhead()
+        showCreatedRow()
+    }
+
+    /// Brings up the created row's sheet, unless it is up or was closed, once both the add
+    /// sheet's dismissal has finished and the row has landed, unless it `waits` for neither.
+    /// Asked while the row's entry ran, the sheet's first frame held up the screen's for about
+    /// 0.1 s, and the row's line stalled and then jumped to its node.
+    private func showCreatedRow(waits: Bool = true) {
+        guard editing == nil, adding == nil, let id = createdSheet,
+              !waits || sheetLanding.isAddSheetGone && entering == nil else { return }
+        editing = row(id)?.wrappedValue
+    }
+
+    /// Once the created row's height is known: where the list scrolls once the row's place has
+    /// opened, the room grows by the row's height, so the list's jump to its end, under the add
+    /// sheet, already stands where the row lands, and the place opens into the room above the
+    /// sheet below rows that hold still, as the add sheet's slide eases out. Followed, the rows
+    /// rode up with the place, over the add sheet's slide; and where the list could not scroll
+    /// before the place opened, only in its last frame, by the few points it took the content
+    /// past the visible area (10 on a two-row routine), a hop.
+    func placeAhead(_ height: CGFloat) {
+        guard let pending = sheetLanding.pending else { return }
+        sheetLanding.pending = nil
+        guard pending.content + height > pending.container else { return }
+        sheetLanding.ahead = height
+        sheetRoom += height
+    }
+
+    /// Takes off the room put on ahead, once the row has landed: out of sight below the list's
+    /// end, where the list stands scrolled, so nothing moves.
+    private func takeOffRoomAhead() {
+        guard sheetLanding.ahead > 0 else { return }
+        withTransaction(\.disablesAnimations, true) {
+            sheetRoom -= sheetLanding.ahead
+        }
+        sheetLanding.ahead = 0
     }
 
     /// The row sheet's binding: a swipe down closes it as Close does.
@@ -141,11 +205,15 @@ extension RoutineScreen {
     }
 
     /// Closes a row's sheet; after Create, the room under the list closes as it goes, and Start
-    /// and the + follow once it has gone.
+    /// and Start and the + are back under it as it starts down, so it uncovers them as a row's
+    /// sheet does; on an empty routine they rise once it has gone, as after a first add.
     func closeEditing() {
         editing = nil
         guard createdSheet != nil else { return }
         createdSheet = nil
+        withTransaction(\.disablesAnimations, true) {
+            isFootAway = false
+        }
         closeSheetRoom()
         settleFoot(after: Self.exerciseSheetGone)
     }

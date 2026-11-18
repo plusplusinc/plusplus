@@ -72,6 +72,18 @@ extension View {
         }
     }
 
+    /// Reports this row's own height, at its full size even while its place is still opening,
+    /// while `isOn`.
+    func reportingHeight(_ isOn: Bool, to action: @escaping (CGFloat) -> Void) -> some View {
+        onGeometryChange(for: CGFloat?.self) { proxy in
+            isOn ? proxy.size.height : nil
+        } action: { height in
+            if let height {
+                action(height)
+            }
+        }
+    }
+
     /// Reports where this row is in the list as it scrolls, while `isOn`.
     func reportingPlace(_ isOn: Bool, to action: @escaping (CurrentPlace) -> Void) -> some View {
         onGeometryChange(for: CurrentPlace?.self) { proxy in

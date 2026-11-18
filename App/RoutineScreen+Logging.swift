@@ -287,9 +287,9 @@ extension RoutineScreen {
     }
 
     /// Whether the key shows, Start or the workout's: with exercises, and not gone for Start's
-    /// grow or a workout's end (`WorkoutPhase.keyGone`).
+    /// grow or a workout's end (`WorkoutPhase.keyGone`), nor away for Create (`isFootAway`).
     var showsKey: Bool {
-        !footShowsEmpty && phase.keyGone == nil
+        !footShowsEmpty && phase.keyGone == nil && !isFootAway
     }
 }
 
