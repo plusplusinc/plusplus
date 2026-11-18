@@ -145,8 +145,8 @@ Their time is the scarce thing, and it is for the product.
   is and send the maintainer that line. A round still running at 15 minutes is told
   (SendMessage) to commit what builds and hand back, and that line says where it is. A wake you
   set says what was true then: cancel it when you stop what it watches, and a check that has
-  finished is a result whatever a watch says. A turn with no text is sent back for one, so a notice that brings nothing new still gets a few
-  words, never a second summary.
+  finished is a result whatever a watch says. A turn with no text is sent back for one, so a
+  notice that brings nothing new still gets a few words, never a second summary.
 - Rewrite the card's State section (`scripts/board.sh state <id> <<'STATE'`) whenever a phase
   ends, with this session's id, so a cleared context or another session can pick it up.
 
