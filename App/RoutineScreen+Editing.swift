@@ -109,6 +109,15 @@ extension RoutineScreen {
                 add(exercise)
                 return exercise
             },
+            routineCount: { session.routines(using: $0).count },
+            onDelete: { id in
+                await session.deleteExercise(id, weightUnit: WeightUnit(region: locale))
+                showStoredRoutine()
+            },
+            onClear: { id in
+                await session.clearCustomizations(id, weightUnit: WeightUnit(region: locale))
+                showStoredRoutine()
+            },
             customize: { id, back in
                 CustomizeScreen(
                     id: id,

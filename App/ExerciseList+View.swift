@@ -24,10 +24,12 @@ import WorkoutStore
 /// is no separate no-results view. A tap makes the exercise at once, with that name and nothing
 /// else set (`ExerciseList.createdName(from:)`), and hands it to the host, which pushes its
 /// Customize form (`ExerciseForm`) on its own stack; back from there, the search is as it was.
-struct ExerciseListView<BarLeading: View>: View {
+struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
     let exercises: ExerciseList
     /// What a tap on a row does.
     let onTap: (Exercise) -> Void
+    /// What else a row does, on its row: Add exercise's hold menu.
+    let rowActions: (Exercise) -> RowActions
     /// The host's inline title, drawn by the bar's search so its field covers the title as it
     /// opens; nil leaves the bar's own title.
     var barTitle: LocalizedStringKey?
@@ -153,6 +155,7 @@ struct ExerciseListView<BarLeading: View>: View {
         } label: {
             RowLabel(title: exercise.name, detail: exercise.equipmentLine)
         }
+        .modifier(rowActions(exercise))
         .listRowBackground(Color.pp(.background))
         .accessibilityIdentifier("exercises.row")
     }
@@ -316,6 +319,7 @@ private struct SearchField<Leading: View>: ViewModifier {
         ExerciseListView(
             exercises: .builtIn,
             onTap: { _ in },
+            rowActions: { _ in EmptyModifier() },
             barLeading: EmptyView(),
             onCreate: { _ in },
         )

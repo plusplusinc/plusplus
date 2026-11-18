@@ -214,14 +214,18 @@ struct ExerciseForm: View {
                     }
                 }
             } message: {
-                Text(clearMessage(from: original))
+                Text(Self.clearMessage(stored, from: original))
             }
         }
         .listRowBackground(Color.pp(.surface))
     }
 
-    /// What changed, then that the routines' numbers stay.
-    private func clearMessage(from original: ExerciseSettings) -> String {
+    /// What changed, then that the routines' numbers stay: Clear's question here and in Add
+    /// exercise's hold menu.
+    static func clearMessage(
+        _ stored: ExerciseSettings,
+        from original: ExerciseSettings,
+    ) -> String {
         let changes = stored.changes(from: original).joined(separator: ", ")
         return String(localized: "Changed from the original: \(changes).") + " "
             + String(localized: "Sets, reps, and weights in your routines stay.")
@@ -253,19 +257,20 @@ struct ExerciseForm: View {
                     }
                 }
             } message: {
-                Text(deleteMessage)
+                Text(Self.deleteMessage(routineCount: usedIn.count))
             }
         }
         .listRowBackground(Color.pp(.surface))
     }
 
-    /// The count, not the names: Used in has those.
-    private var deleteMessage: String {
-        let routines = switch usedIn.count {
+    /// The count, not the names: Used in has those. Delete's question here and in Add
+    /// exercise's hold menu.
+    static func deleteMessage(routineCount: Int) -> String {
+        let routines = switch routineCount {
         case 0: String(localized: "No routine uses it.")
         case 1: String(localized: "It will be removed from the routine that uses it.")
         default: String(
-                localized: "It will be removed from the \(usedIn.count) routines that use it.",
+                localized: "It will be removed from the \(routineCount) routines that use it.",
             )
         }
         return routines + " " + String(localized: "Deleting doesn’t affect your workout history.")
