@@ -61,6 +61,57 @@ extension RoutineAutosaveUITests {
             }
     }
 
+    /// On an empty routine, an exercise created in Add exercise and deleted from its Customize
+    /// form there takes its row with it, and the routine shows empty again once the sheet
+    /// closes: No exercises, no Start, and the + back down where it sat before. Only the
+    /// running app shows the screen taking up the stored routine from inside the sheet; that a
+    /// delete removes its rows is the package's (`RoutineStoreCustomizeTests`).
+    @MainActor
+    func deleteInPickerEmptiesRoutine(in app: XCUIApplication) {
+        XCTContext.runActivity(named: "A Delete in Add exercise that empties the routine") { _ in
+            let plus = app.buttons["Add exercise"]
+            XCTAssertEqual(app.exerciseRows.count, 0, "The routine isn't empty to start")
+            XCTAssertTrue(plus.settles(), "The + kept moving")
+            let low = plus.frame
+            _ = app.openPicker()
+            app.search(for: "zq")
+            let create = app.buttons["picker.create"]
+            XCTAssertTrue(create.appears(), "The search offered no Create")
+            create.tap()
+            let name = app.textFields["customize.name"]
+            XCTAssertTrue(name.appears(), "Create pushed no Customize form")
+            XCTAssertEqual(app.exerciseCount(becoming: 1), 1, "Create added no row")
+            // It arrives with the push.
+            let delete = app.buttons["Delete exercise"]
+            XCTAssertTrue(delete.settles(), "Delete exercise kept moving")
+            delete.tap()
+            let confirm = app.buttons.matching(identifier: "Delete exercise")
+            XCTAssertEqual(
+                reading(confirm.count, becoming: 2, within: 2),
+                2,
+                "Delete didn't ask first",
+            )
+            let answer = confirm.element(boundBy: 1)
+            XCTAssertTrue(answer.settles(), "The question's Delete exercise kept moving")
+            answer.tap()
+            XCTAssertTrue(name.disappears(), "Delete didn't come back to the list")
+            XCTAssertEqual(app.exerciseCount(becoming: 0), 0, "The deleted exercise's row stayed")
+            // The search is still open, over Close.
+            app.searchButton.tap()
+            let close = app.buttons["Close"]
+            XCTAssertTrue(close.appears(), "Closing the search brought back no Close")
+            // It comes back out of the closing field.
+            XCTAssertTrue(close.settles(), "Close kept moving")
+            close.tap()
+            XCTAssertTrue(close.disappears(), "Close left the picker up")
+            XCTAssertTrue(app.noExercises.appears(), "No exercises did not return")
+            XCTAssertFalse(app.buttons["Start"].exists, "Start stayed with no exercises")
+            XCTAssertTrue(plus.settles(), "The + kept moving")
+            XCTAssertEqual(plus.frame.minY, low.minY, accuracy: 1, "The + stayed up with no Start")
+            attach(named: "deleted-in-picker")
+        }
+    }
+
     /// Opens the row labeled `row`, checks `item` there, and comes back to the form.
     @MainActor
     private func check(_ item: String, in app: XCUIApplication, from row: String) {

@@ -53,6 +53,7 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
             attach(named: "typed-name")
         }
         try clearedRoutineIsNewRoutine(in: app, title: title, gray: gray)
+        deleteInPickerEmptiesRoutine(in: app)
     }
 
     /// An unnamed routine is named for its exercises as they come and go, in white.
