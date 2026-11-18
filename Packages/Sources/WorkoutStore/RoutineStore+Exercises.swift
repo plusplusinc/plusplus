@@ -18,14 +18,13 @@ extension RoutineStore {
             return
         }
         let id = customization.exerciseID
-        let shipped = ExerciseList.builtIn.exercise(id: id)
+        guard let shipped = Exercise.builtIn(id: id) else { return }
+        let stored = try storedCustomizations(of: id)
         try keepLoggedNames(
             of: id,
-            renamedTo: shipped.map { customization.applied(to: $0.settings).name },
+            named: name(of: shipped, customizedBy: stored.first),
+            renamedTo: customization.applied(to: shipped.settings).name,
         )
-        let stored = try modelContext.fetch(FetchDescriptor<StoredCustomization>(
-            predicate: #Predicate { $0.exerciseID == id },
-        ))
         // One per built-in: any other sync left goes.
         for extra in stored.dropFirst() {
             modelContext.delete(extra)
@@ -41,20 +40,38 @@ extension RoutineStore {
 
     /// Deletes the built-in `id`'s customization, so it reads as it shipped.
     public func clearCustomizations(_ id: String) throws {
-        try keepLoggedNames(of: id, renamedTo: ExerciseList.builtIn.exercise(id: id)?.name)
-        for stored in try modelContext.fetch(FetchDescriptor<StoredCustomization>(
-            predicate: #Predicate { $0.exerciseID == id },
-        )) {
-            modelContext.delete(stored)
+        let stored = try storedCustomizations(of: id)
+        if let shipped = Exercise.builtIn(id: id) {
+            try keepLoggedNames(
+                of: id,
+                named: name(of: shipped, customizedBy: stored.first),
+                renamedTo: shipped.name,
+            )
+        }
+        for customization in stored {
+            modelContext.delete(customization)
         }
         try modelContext.save()
     }
 
-    /// Before the exercise `id` is renamed to `name`, gives each of its logged sets with no name
-    /// (logged before V9 stored one) the name it reads now, so it keeps the name it was logged
-    /// under. Saved with the rename.
-    func keepLoggedNames(of id: String, renamedTo name: String?) throws {
-        guard let current = try exercises().exercise(id: id)?.name, current != name else { return }
+    /// The built-in `id`'s stored customizations, the latest edited first.
+    private func storedCustomizations(of id: String) throws -> [StoredCustomization] {
+        try modelContext.fetch(FetchDescriptor<StoredCustomization>(
+            predicate: #Predicate { $0.exerciseID == id },
+            sortBy: [SortDescriptor(\.editedAt, order: .reverse)],
+        ))
+    }
+
+    /// The name `shipped` reads under `stored`, or as shipped with none.
+    private func name(of shipped: Exercise, customizedBy stored: StoredCustomization?) -> String {
+        stored.map { $0.customization.applied(to: shipped.settings).name } ?? shipped.name
+    }
+
+    /// Before the exercise `id`, now named `current` (nil when not yet stored), is renamed to
+    /// `name`, gives each of its logged sets with no name (logged before V9 stored one) the name
+    /// it reads now, so it keeps the name it was logged under. Saved with the rename.
+    func keepLoggedNames(of id: String, named current: String?, renamedTo name: String) throws {
+        guard let current, current != name else { return }
         let unnamed = try modelContext.fetch(FetchDescriptor<StoredSet>(
             predicate: #Predicate { $0.exerciseID == id && $0.exerciseName == nil },
         ))

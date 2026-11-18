@@ -31,9 +31,7 @@ struct ExercisePicker<Customize: View>: View {
     /// The exercise's Customize form; its closure goes back to the list.
     @ViewBuilder let customize: (Exercise.ID, _ back: @escaping () -> Void) -> Customize
 
-    @State private var customizing: Exercise.ID?
-    /// Whether the form was pushed by Create, the one way in that shows Done.
-    @State private var isCustomizingCreated = false
+    @State private var customizing: CustomizePush?
     /// The created exercise Delete in the hold menu is asking about.
     @State private var deleting: Exercise?
     @Environment(\.dismiss) private var dismiss
@@ -49,18 +47,16 @@ struct ExercisePicker<Customize: View>: View {
                 barLeading: closeButton,
                 onSearchOpen: onSearchOpen,
                 onCreate: {
-                    let id = await onCreate($0).id
-                    isCustomizingCreated = true
-                    customizing = id
+                    customizing = await CustomizePush(id: onCreate($0).id, showsDone: true)
                 },
             )
             // Still the screen's title for VoiceOver; the bar shows the search's drawn copy.
             .navigationTitle("Add exercise")
             .navigationBarTitleDisplayMode(.inline)
-            .navigationDestination(item: $customizing) { id in
-                customize(id) { customizing = nil }
+            .navigationDestination(item: $customizing) { push in
+                customize(push.id) { customizing = nil }
                     .toolbar {
-                        if isCustomizingCreated {
+                        if push.showsDone {
                             ToolbarItem(placement: .confirmationAction) {
                                 // The picker's own dismiss, which closes the sheet, not the push.
                                 Button("Done") { dismiss() }
@@ -92,10 +88,7 @@ struct ExercisePicker<Customize: View>: View {
     private func holdMenu(_ exercise: Exercise) -> HoldMenu {
         HoldMenu(
             isCreated: exercises.original(id: exercise.id) == nil,
-            onCustomize: {
-                isCustomizingCreated = false
-                customizing = exercise.id
-            },
+            onCustomize: { customizing = CustomizePush(id: exercise.id, showsDone: false) },
             onDelete: { deleting = exercise },
         )
     }
@@ -115,6 +108,13 @@ struct ExercisePicker<Customize: View>: View {
         }
         .buttonStyle(.barGlass(width: 0))
     }
+}
+
+/// The Customize form pushed in Add exercise: Create's shows Done, to close the sheet; the hold
+/// menu's doesn't.
+private struct CustomizePush: Hashable {
+    let id: Exercise.ID
+    let showsDone: Bool
 }
 
 /// A row's hold menu in Add exercise, the system's context menu: Customize… for any exercise,

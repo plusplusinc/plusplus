@@ -222,9 +222,8 @@ struct ExerciseForm: View {
         .listRowBackground(Color.pp(.surface))
     }
 
-    /// What changed, then that the routines' numbers stay: Clear's question here and in Add
-    /// exercise's hold menu.
-    static func clearMessage(
+    /// What changed, then that the routines' numbers stay: Clear's question.
+    private static func clearMessage(
         _ stored: ExerciseSettings,
         from original: ExerciseSettings,
     ) -> String {

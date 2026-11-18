@@ -25,13 +25,18 @@ extension RoutineSession {
         to settings: ExerciseSettings,
         weightUnit: WeightUnit,
     ) async {
-        let changed = exercises.customizing(id, to: settings)
+        let created = exercises.created(id: id).map { created in
+            var created = created
+            created.settings = settings
+            return created
+        }
+        let shipped = exercises.original(id: id)
         await changeExercises(
             weightUnit: weightUnit,
             storing: { store in
-                if let created = changed.created(id: id) {
+                if let created {
                     try await store.save(created)
-                } else if let shipped = changed.original(id: id) {
+                } else if let shipped {
                     try await store.save(Customization(of: shipped, to: settings))
                 }
             },

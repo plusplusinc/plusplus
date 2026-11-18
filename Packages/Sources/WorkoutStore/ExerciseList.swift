@@ -20,7 +20,7 @@ public struct ExerciseList: Equatable, Sendable {
                 uniquingKeysWith: { first, _ in first },
             ),
             customizationsByID: Dictionary(
-                customizations.filter { !$0.isEmpty && Self.catalog[$0.exerciseID] != nil }
+                customizations.filter { !$0.isEmpty && Exercise.builtIn(id: $0.exerciseID) != nil }
                     .map { ($0.exerciseID, $0) },
                 uniquingKeysWith: { first, _ in first },
             ),
@@ -65,11 +65,13 @@ public struct ExerciseList: Equatable, Sendable {
     /// a rename may keep its own name, or change only its case. A renamed built-in's shipped name
     /// stays taken, so clearing its customizations can never leave two exercises with one name.
     public func hasExercise(named name: String, besides id: String? = nil) -> Bool {
+        func isTaken(in exercises: [Exercise]) -> Bool {
+            (id.map { id in exercises.filter { $0.id != id } } ?? exercises)
+                .hasExercise(named: name)
+        }
         let renamed = customizationsByID.values.filter { $0.changed.contains(.name) }
-            .compactMap { Self.catalog[$0.exerciseID] }
-        let taken = all + renamed
-        let others = id.map { id in taken.filter { $0.id != id } } ?? taken
-        return others.hasExercise(named: name)
+            .compactMap { Exercise.builtIn(id: $0.exerciseID) }
+        return isTaken(in: all) || isTaken(in: renamed)
     }
 
     /// Whether a search for `query` offers to create an exercise of that name: something is
@@ -94,11 +96,11 @@ public struct ExerciseList: Equatable, Sendable {
 
     /// The built-in `id` as it shipped, whatever its customization; nil for a created one.
     public func original(id: String) -> Exercise? {
-        Self.catalog[id]
+        Exercise.builtIn(id: id)
     }
 
     /// The changes someone made to the built-in `id`, or nil while it is as shipped.
-    public func customization(id: String) -> Customization? {
+    func customization(id: String) -> Customization? {
         customizationsByID[id]
     }
 
@@ -136,10 +138,4 @@ public struct ExerciseList: Equatable, Sendable {
         customizationsByID[id] = nil
         return Self(createdByID: createdByID, customizationsByID: customizationsByID)
     }
-
-    /// The catalog by slug, never customized.
-    private static let catalog = Dictionary(
-        Exercise.builtIn.map { ($0.id, $0) },
-        uniquingKeysWith: { first, _ in first },
-    )
 }

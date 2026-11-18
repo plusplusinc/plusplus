@@ -200,10 +200,11 @@ public actor RoutineStore {
     /// Stores a created exercise, or updates the one with its id.
     public func save(_ created: CreatedExercise) throws {
         let id = created.id
-        try keepLoggedNames(of: id, renamedTo: created.name)
         var descriptor = FetchDescriptor<StoredExercise>(predicate: #Predicate { $0.id == id })
         descriptor.fetchLimit = 1
-        let target = try modelContext.fetch(descriptor).first ?? {
+        let stored = try modelContext.fetch(descriptor).first
+        try keepLoggedNames(of: id, named: stored?.name, renamedTo: created.name)
+        let target = stored ?? {
             let new = StoredExercise(id: id)
             modelContext.insert(new)
             return new
