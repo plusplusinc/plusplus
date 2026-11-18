@@ -9,9 +9,9 @@ import WorkoutStore
 /// button at the bar's top trailing edge that opens into a field
 /// across the bar, ++ turning into the field as it opens and back as it closes (`BarSearchField`).
 /// While the field is open, ++ is gone; the edge swipe still opens the drawer.
-/// A tap on an exercise someone created pushes its Customize form (`ExerciseForm`), with the back
-/// chevron to the list; so does Create, once it has stored the new exercise. Delete comes back to
-/// the list once the routines show the change. A built-in's row opens nothing yet.
+/// A tap on any exercise pushes its Customize form (`ExerciseForm`), with the back chevron to the
+/// list; so does Create, once it has stored the new exercise. Delete comes back to the list once
+/// the routines show the change.
 struct ExercisesScreen: View {
     let session: RoutineSession
     let namer: RoutineNamer
@@ -26,7 +26,6 @@ struct ExercisesScreen: View {
             ExerciseListView(
                 exercises: session.exercises,
                 onTap: { customizing = $0.id },
-                isTappable: { session.exercises.created(id: $0.id) != nil },
                 listTitle: "Exercises",
                 // In the search's own bar item, not one of its own, so the search's field can
                 // take its place.

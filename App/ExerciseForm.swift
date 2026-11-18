@@ -17,17 +17,26 @@ import WorkoutStore
 /// Below the settings, Used in reads how many routines have a row of it and opens their names
 /// (`UsedInList`); last, Delete exercise, in red, asks first, with that count.
 struct ExerciseForm: View {
+    /// What the form ends in: Delete exercise for one someone created, Clear customizations for
+    /// a built-in, with the settings it shipped with.
+    enum Ending {
+        case delete(() async -> Void)
+        case clear(original: ExerciseSettings)
+    }
+
+    /// The exercise customized, which its name may stay the name of.
+    let id: Exercise.ID
     let exercises: ExerciseList
     /// The names of the routines that use the exercise customized, latest first.
     let usedIn: [String]
     /// Takes each change as it is made.
-    let onSave: (CreatedExercise) async -> Void
-    let onDelete: () async -> Void
+    let onSave: (ExerciseSettings) async -> Void
+    let ending: Ending
 
     @State private var name: String
     /// The exercise as last saved, which every setting but the name reads: those save as they
     /// change, and the name only as its edit ends.
-    @State private var stored: CreatedExercise
+    @State private var stored: ExerciseSettings
     /// The latest save, which the next one waits for so they land in order.
     @State private var lastSave: Task<Void, Never>?
     @State private var isDeleting = false
@@ -36,18 +45,29 @@ struct ExerciseForm: View {
     @Environment(\.dynamicTypeSize) private var typeSize
 
     init(
-        customizing exercise: CreatedExercise,
+        customizing id: Exercise.ID,
+        settings: ExerciseSettings,
         exercises: ExerciseList,
         usedIn: [String],
-        onSave: @escaping (CreatedExercise) async -> Void,
-        onDelete: @escaping () async -> Void,
+        onSave: @escaping (ExerciseSettings) async -> Void,
+        ending: Ending,
     ) {
+        self.id = id
         self.exercises = exercises
         self.usedIn = usedIn
         self.onSave = onSave
-        self.onDelete = onDelete
-        _stored = State(initialValue: exercise)
-        _name = State(initialValue: exercise.name)
+        self.ending = ending
+        _stored = State(initialValue: settings)
+        _name = State(initialValue: settings.name)
+    }
+
+    /// A built-in's settings, which nothing stores yet, so they don't take a change.
+    private var isLocked: Bool {
+        if case .clear = ending {
+            true
+        } else {
+            false
+        }
     }
 
     private var trimmedName: String {
@@ -57,7 +77,7 @@ struct ExerciseForm: View {
     /// The stored exercise's setting at `keyPath`, saving the exercise with each value it is set
     /// to. The save is made at the write, not from an `onChange`, which can skip a change.
     private func saving<Value>(
-        _ keyPath: WritableKeyPath<CreatedExercise, Value>,
+        _ keyPath: WritableKeyPath<ExerciseSettings, Value>,
     ) -> Binding<Value> {
         Binding {
             stored[keyPath: keyPath]
@@ -68,8 +88,8 @@ struct ExerciseForm: View {
 
     /// Saves the stored exercise with `change`, after any save still landing. Not once Delete is
     /// confirmed: a save then would put the exercise back.
-    private func save(_ change: (inout CreatedExercise) -> Void) {
-        guard !isDeleting else { return }
+    private func save(_ change: (inout ExerciseSettings) -> Void) {
+        guard !isDeleting, !isLocked else { return }
         var exercise = stored
         change(&exercise)
         guard exercise != stored else { return }
@@ -83,7 +103,7 @@ struct ExerciseForm: View {
 
     /// Saves the name as its edit ends, or puts the stored one back if it can't be saved.
     private func endNameEdit() {
-        if CreatedExercise.canAdd(named: name, to: exercises, besides: stored.id) {
+        if CreatedExercise.canAdd(named: name, to: exercises, besides: id) {
             name = trimmedName
             save { $0.name = trimmedName }
         } else {
@@ -102,6 +122,7 @@ struct ExerciseForm: View {
                 }
             }
             .listRowBackground(Color.pp(.surface))
+            .disabled(isLocked)
             Section {
                 NavigationLink {
                     Checklist(
@@ -125,6 +146,7 @@ struct ExerciseForm: View {
                 }
             }
             .listRowBackground(Color.pp(.surface))
+            .disabled(isLocked)
             Section {
                 Picker("Measure", selection: saving(\.measure)) {
                     ForEach(Measure.allCases, id: \.self) { measure in
@@ -134,10 +156,18 @@ struct ExerciseForm: View {
                 .pickerStyle(.menu)
                 .tint(Color.pp(.textSecondary))
                 Toggle("Per side", isOn: saving(\.isPerSide))
+            } footer: {
+                if case .clear = ending {
+                    Text("Built in.")
+                }
             }
             .listRowBackground(Color.pp(.surface))
+            .disabled(isLocked)
             usedInSection
-            deleteSection
+            switch ending {
+            case let .delete(onDelete): deleteSection(onDelete)
+            case let .clear(original): clearSection(original)
+            }
         }
         .scrollContentBackground(.hidden)
         .background(Color.pp(.background))
@@ -167,7 +197,17 @@ struct ExerciseForm: View {
         .listRowBackground(Color.pp(.surface))
     }
 
-    private var deleteSection: some View {
+    /// Red, as Delete is; nothing to clear yet while the settings are as they shipped.
+    private func clearSection(_ original: ExerciseSettings) -> some View {
+        Section {
+            Button("Clear customizations", role: .destructive) { }
+                .frame(maxWidth: .infinity)
+                .disabled(stored == original)
+        }
+        .listRowBackground(Color.pp(.surface))
+    }
+
+    private func deleteSection(_ onDelete: @escaping () async -> Void) -> some View {
         Section {
             Button("Delete exercise", role: .destructive) {
                 isAskingToDelete = true
@@ -266,11 +306,26 @@ struct UsedInList: View {
 #Preview {
     NavigationStack {
         ExerciseForm(
-            customizing: CreatedExercise(name: "Ring row with rotation", muscleGroups: [.back]),
+            customizing: "created:preview",
+            settings: ExerciseSettings(name: "Ring row with rotation", muscleGroups: [.back]),
             exercises: .builtIn,
             usedIn: ["PT day A", "Total body"],
             onSave: { _ in },
-            onDelete: { },
+            ending: .delete { },
+        )
+    }
+}
+
+#Preview("Built in") {
+    let bench = ExerciseSettings(name: "Barbell bench press", muscleGroups: [.chest])
+    NavigationStack {
+        ExerciseForm(
+            customizing: "barbell-bench-press",
+            settings: bench,
+            exercises: .builtIn,
+            usedIn: ["Push day"],
+            onSave: { _ in },
+            ending: .clear(original: bench),
         )
     }
 }

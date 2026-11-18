@@ -2,9 +2,10 @@ import Session
 import SwiftUI
 import WorkoutStore
 
-/// A created exercise's Customize form (`ExerciseForm`) wired to the session, as Exercises and
-/// Add exercise push it: each change stored as made, and Delete removing the exercise and its
-/// rows, then going `back`. Nothing shows for an id the list no longer has.
+/// An exercise's Customize form (`ExerciseForm`) wired to the session, as Exercises and Add
+/// exercise push it. A created exercise's: each change stored as made, and Delete removing the
+/// exercise and its rows, then going `back`. A built-in's: its settings as it shipped, ending in
+/// Clear customizations. Nothing shows for an id the list no longer has.
 struct CustomizeScreen: View {
     let id: Exercise.ID
     let session: RoutineSession
@@ -16,21 +17,34 @@ struct CustomizeScreen: View {
     @Environment(\.locale) private var locale
 
     var body: some View {
+        let weightUnit = WeightUnit(region: locale)
+        let usedIn = session.routines(using: id).map(namer.listedName(of:))
         if let created = session.exercises.created(id: id) {
-            let weightUnit = WeightUnit(region: locale)
             ExerciseForm(
-                customizing: created,
+                customizing: id,
+                settings: created.settings,
                 exercises: session.exercises,
-                usedIn: session.routines(using: id).map(namer.listedName(of:)),
-                onSave: {
-                    await session.customize($0, weightUnit: weightUnit)
+                usedIn: usedIn,
+                onSave: { settings in
+                    var changed = created
+                    changed.settings = settings
+                    await session.customize(changed, weightUnit: weightUnit)
                     onStored()
                 },
-                onDelete: {
+                ending: .delete {
                     await session.deleteExercise(id, weightUnit: weightUnit)
                     onStored()
                     back()
                 },
+            )
+        } else if let builtIn = session.exercises.exercise(id: id) {
+            ExerciseForm(
+                customizing: id,
+                settings: builtIn.settings,
+                exercises: session.exercises,
+                usedIn: usedIn,
+                onSave: { _ in },
+                ending: .clear(original: builtIn.settings),
             )
         }
     }

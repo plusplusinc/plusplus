@@ -76,6 +76,21 @@ public struct Exercise: Identifiable, Equatable, Sendable {
     public var equipmentLine: String? {
         equipment.line
     }
+
+    /// Its five settings as Customize shows them, its measure read from its plan's target.
+    public var settings: ExerciseSettings {
+        let measure: Measure = switch plan.target {
+        case .reps: .reps
+        case .time: .time
+        }
+        return ExerciseSettings(
+            name: name,
+            muscleGroups: muscleGroups,
+            equipment: equipment,
+            measure: measure,
+            isPerSide: isPerSide,
+        )
+    }
 }
 
 extension [Exercise] {

@@ -30,8 +30,6 @@ struct ExerciseListView<BarLeading: View>: View {
     let exercises: ExerciseList
     /// What a tap on a row does.
     let onTap: (Exercise) -> Void
-    /// Which rows take a tap; the rest are plain rows that open nothing.
-    var isTappable: (Exercise) -> Bool = { _ in true }
     /// The host's inline title, drawn by the bar's search so its field covers the title as it
     /// opens; nil leaves the bar's own title.
     var barTitle: LocalizedStringKey?
@@ -150,20 +148,12 @@ struct ExerciseListView<BarLeading: View>: View {
         query.isEmpty && !isKeyboardUp
     }
 
-    @ViewBuilder
     private func row(_ exercise: Exercise) -> some View {
-        let label = RowLabel(title: exercise.name, detail: exercise.equipmentLine)
-        Group {
-            if isTappable(exercise) {
-                Button {
-                    dropKeyboard()
-                    onTap(exercise)
-                } label: {
-                    label
-                }
-            } else {
-                label.accessibilityElement(children: .combine)
-            }
+        Button {
+            dropKeyboard()
+            onTap(exercise)
+        } label: {
+            RowLabel(title: exercise.name, detail: exercise.equipmentLine)
         }
         .listRowBackground(Color.pp(.background))
         .accessibilityIdentifier("exercises.row")

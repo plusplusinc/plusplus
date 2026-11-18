@@ -250,12 +250,24 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
     private func exercisesCustomizesAndDeletes(in app: XCUIApplication) {
         XCTContext.runActivity(named: "Exercises creates, customizes, and deletes") { _ in
             let name = app.textFields["customize.name"]
-            let builtIn = app.descendants(matching: .any)
-                .matching(identifier: "exercises.row").firstMatch
-            XCTAssertTrue(builtIn.appears(), "Exercises listed nothing")
-            XCTAssertFalse(builtIn.elementType == .button, "A built-in's row takes a tap")
-            builtIn.tap()
-            XCTAssertFalse(name.appears(within: 1), "A built-in's row opened a form")
+            let bench = app.pickerRows["Barbell bench press, Barbell, bench"]
+            XCTAssertTrue(bench.appears(), "Exercises didn't list Barbell bench press")
+            bench.tap()
+            XCTAssertTrue(name.appears(), "A built-in's row opened no form")
+            XCTAssertEqual(
+                name.value as? String,
+                "Barbell bench press",
+                "A built-in's form doesn't open with its name",
+            )
+            XCTAssertTrue(
+                app.buttons["Clear customizations"].exists,
+                "A built-in's form doesn't end in Clear customizations",
+            )
+            XCTAssertFalse(
+                app.buttons["Delete exercise"].exists,
+                "A built-in's form offers Delete",
+            )
+            app.tapBack()
 
             app.search(for: "zq")
             XCTAssertEqual(app.searchField.value as? String, "zq", "The search capitalized")
