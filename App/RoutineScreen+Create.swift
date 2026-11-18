@@ -106,7 +106,7 @@ extension RoutineScreen {
         if !isMakingRoom {
             sheetRoom = roomForCreated()
             at(t0 + CreateLanding.listJump) {
-                guard !isMakingRoom, !isEndInView else { return }
+                guard !isMakingRoom else { return }
                 // In view above a half-height sheet, it scrolls instead, with the push.
                 var transaction = Transaction(animation: shrinks ? nil : .railChange)
                 transaction.disablesAnimations = shrinks
