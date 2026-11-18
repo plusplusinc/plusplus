@@ -6,7 +6,7 @@ import WorkoutStore
 /// Exercises, a screen at the root as Routines is, shown from the drawer in place of the screen
 /// that showed, with ++ leading its bar: the exercise list (`ExerciseListView`) under a large
 /// title, with search as a round button at the bar's top trailing edge that opens into a field
-/// across the bar, ++ turning into the field as it opens and back as it closes (`BarSearchField`).
+/// across the bar, taking ++ in as it opens and giving it back as it closes (`BarSearchField`).
 /// While the field is open, ++ is gone; the edge swipe still opens the drawer.
 /// Create stores the new exercise and comes back to the
 /// list, where it shows. A tap on an exercise someone created pushes its Customize form

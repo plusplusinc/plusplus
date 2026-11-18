@@ -13,9 +13,9 @@ import WorkoutStore
 /// most of it.
 ///
 /// Both have search as a round button at the bar's top trailing edge, which opens out to the
-/// left into a field across the bar (`BarSearchField`), which the bar's leading button turns into:
-/// ++ in Exercises, under its large title, and Close in Add exercise, where the field covers the
-/// inline title too.
+/// left into a field across the bar (`BarSearchField`), taking in the bar's leading button: ++ in
+/// Exercises, under its large title, and Close in Add exercise, where the field covers the inline
+/// title too.
 ///
 /// Search does not take focus when the list opens. The list is the fast path: with the
 /// keyboard down, the whole list is in reach of a thumb and a pick is one tap.
