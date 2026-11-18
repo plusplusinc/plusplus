@@ -166,11 +166,14 @@ extension RoutineScreen {
     /// sight, and a scroll to it took the list off the screen just as Start went to land on the
     /// first exercise.
     ///
-    /// A created row (`created`, Create's `t0`) waits, everything fitting or not, until the add
-    /// sheet rests at half height (`CreateLanding.sheetAtHalf`), and the list holds still until
-    /// then: the room under it goes on meanwhile, and following that growth would jump it.
+    /// A created row enters at `enteringAt`, everything fitting or not, once the add sheet rests
+    /// at half height (`CreateLanding`), and the list holds still until then but for Create's own
+    /// scroll: the room under it goes on meanwhile, and following that growth would jump it.
     @discardableResult
-    func add(_ exercise: Exercise, created: ContinuousClock.Instant? = nil) -> RoutineExercise.ID {
+    func add(
+        _ exercise: Exercise,
+        enteringAt created: ContinuousClock.Instant? = nil,
+    ) -> RoutineExercise.ID {
         let added = created ?? ContinuousClock.now
         let row = RoutineExercise(exercise: exercise, weightUnit: WeightUnit(region: locale))
         arriving = row.id
@@ -188,12 +191,14 @@ extension RoutineScreen {
         }
         // Beats on deadlines, not this animation's completion, which once never came, and the
         // row stayed arriving for good (`RailArrival`).
+        // A created row's wait is its beats', not the end's: it gives up only well past them.
+        let giveUp = created.map { ContinuousClock.now.duration(to: $0) + RailArrival.endGiveUp }
         Task {
-            await RailArrival.play {
+            await RailArrival.play(givingUpAfter: giveUp ?? RailArrival.endGiveUp) {
                 arriving == row.id
             } reachEnd: {
                 if created != nil {
-                    await reachEnd(added: added, by: CreateLanding.sheetAtHalf, waitsFirst: true)
+                    await reachEnd(added: added, by: .zero, waitsFirst: true)
                 } else {
                     await reachEnd(added: added, by: Self.pickerGone, waitsFirst: false)
                 }

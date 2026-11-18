@@ -9,20 +9,26 @@ enum AddStage: Equatable {
     case created(RoutineExercise.ID)
 }
 
-/// The beats of Create, each a deadline from `t0`, the moment the exercise is stored: the sheet
-/// drops to half height with the exercise's Customize form pushed inside it, and the routine
-/// behind lands the new row just above the sheet's top. A feel round changes a constant here or
-/// moves a line in `landCreated(_:)`, nowhere else.
+/// The beats of Create, one thing moving at a time, each starting as the one before it ends
+/// (decided 2026-11-18). The tap drops the keyboard; at `t0`, the moment the exercise is stored,
+/// the sheet pushes the row's values with Customize on top, at the height it has, while the list
+/// behind, out of sight under the full-height sheet, jumps to its end; once the push has landed,
+/// the sheet shrinks to half height over a list that holds still; once the sheet rests, the row
+/// enters just above the sheet's top. A feel round changes a value here, nowhere else.
 enum CreateLanding {
-    /// The room under the list's end goes on, out of sight under the full-height sheet.
-    static let roomOn: Duration = .zero
-    /// The sheet's detent goes to half height.
-    static let sheetDrop: Duration = .zero
-    /// The row's values, with Customize on top, push in.
-    static let push: Duration = .zero
-    /// The sheet rests at half height and the keyboard has gone: the list scrolls to its end if
-    /// the end isn't in view, then lets the row go (`RoutineScreen.scrollLanding` later).
-    static let sheetAtHalf: Duration = .milliseconds(500)
+    /// From `t0` to the list's jump to its end, under the sheet: a moment after the room under
+    /// it goes on, since a scroll asked in the same update stopped at the old end.
+    static let listJump: Duration = .milliseconds(50)
+    /// From `t0` to the push having landed: the system's push starts 0.06 to 0.15 s after the
+    /// path is set (building both pages) and slides for about 0.36 s (measured on iOS 27.2).
+    /// The system gives no completion for a `NavigationStack` push. Scrolled in the shrink, the
+    /// list rose as the sheet fell, two motions.
+    static let pushLength: Duration = .milliseconds(480)
+    /// The sheet's shrink to half height.
+    static let shrink: Animation = .snappy(duration: shrinkSeconds)
+    /// From the shrink's start to the sheet resting at half height, when the row enters.
+    static let shrinkLength: Duration = .seconds(shrinkSeconds)
+    private static let shrinkSeconds: TimeInterval = 0.4
 }
 
 /// What the room under a created row is worked out from, recorded as it changes. A class,
@@ -90,19 +96,35 @@ extension RoutineScreen {
 
     private func landCreated(_ exercise: Exercise) {
         let t0 = ContinuousClock.now
-        // In a workout's sequence the end is Start's room: no room, no scroll (`add`).
+        let shrinkStart = t0 + CreateLanding.pushLength
+        // Already at half height (dragged down after a search): no shrink, and the row enters
+        // as the push lands.
+        let shrinks = pickerDetent != .medium
+        let rowEnters = shrinkStart + (shrinks ? CreateLanding.shrinkLength : .zero)
+        // In a workout's sequence the end is Start's room: no room, no scroll (`add`). The room
+        // goes on out of sight, under the sheet, and is not followed.
         if !isMakingRoom {
-            at(t0 + CreateLanding.roomOn) { sheetRoom = roomForCreated() }
-        }
-        let row = add(exercise, created: t0)
-        adding = .created(row)
-        at(t0 + CreateLanding.sheetDrop) {
-            withAnimation(.snappy) {
-                pickerDetent = .medium
+            sheetRoom = roomForCreated()
+            at(t0 + CreateLanding.listJump) {
+                guard !isMakingRoom, !isEndInView else { return }
+                // In view above a half-height sheet, it scrolls instead, with the push.
+                var transaction = Transaction(animation: shrinks ? nil : .railChange)
+                transaction.disablesAnimations = shrinks
+                withTransaction(transaction) {
+                    scrollPosition.scrollTo(edge: .bottom)
+                }
             }
         }
-        at(t0 + CreateLanding.push) {
-            pickerPath = [.values(row), .customize(exercise.id)]
+        let row = add(exercise, enteringAt: rowEnters)
+        adding = .created(row)
+        pickerPath = [.values(row), .customize(exercise.id)]
+        if shrinks {
+            at(shrinkStart) {
+                guard isShowingCreated else { return }
+                withAnimation(CreateLanding.shrink) {
+                    pickerDetent = .medium
+                }
+            }
         }
     }
 

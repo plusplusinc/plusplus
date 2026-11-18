@@ -49,6 +49,7 @@ struct ExercisePicker<Customize: View, Values: View>: View {
                 barLeading: closeButton,
                 onSearchOpen: onSearchOpen,
                 onCreate: onCreate,
+                isCovered: !path.isEmpty,
             )
             // Still the screen's title for VoiceOver; the bar shows the search's drawn copy.
             .navigationTitle("Add exercise")

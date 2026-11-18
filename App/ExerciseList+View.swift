@@ -41,10 +41,16 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
     var onSearchOpen: () -> Void = { }
     /// Stores the exercise and shows its Customize form.
     let onCreate: (CreatedExercise) async -> Void
+    /// Whether a page is pushed over the list: the bar's search fades as the push starts. Left
+    /// to the push, the open field stayed over the pushed page's title for about 0.3 s.
+    var isCovered = false
 
     @State private var query = ""
     /// While a Create's store lands: a second tap meanwhile would make a second exercise.
     @State private var isCreating = false
+    /// The exercises as Create was tapped, shown until the page it pushes covers the list: the
+    /// stored exercise took Create's row's place just as the push began.
+    @State private var beforeCreate: ExerciseList?
     @State private var isKeyboardUp = false
     /// Where the list's room starts, at the bar's bottom edge, in global coordinates: where a
     /// heading pins, and past which a heading pushed up fades (`LeavesUnderBar`).
@@ -53,15 +59,23 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
 
     var body: some View {
         list
+            // Back on the list, it shows every exercise again.
+            .onChange(of: isCovered) { _, covered in
+                if !covered {
+                    beforeCreate = nil
+                }
+            }
             .modifier(SearchField(
                 text: $query,
                 title: barTitle,
                 leading: barLeading,
                 onOpen: onSearchOpen,
+                isCovered: isCovered,
             ))
     }
 
     private var list: some View {
+        let exercises = beforeCreate ?? exercises
         let sections = exercises.matching(query).lettered()
         return List {
             ForEach(sections) { section in
@@ -146,6 +160,7 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
             guard !isCreating else { return }
             dropKeyboard()
             isCreating = true
+            beforeCreate = exercises
             let created = CreatedExercise(name: createdName, muscleGroups: [])
             Task {
                 await onCreate(created)
@@ -221,6 +236,7 @@ private struct SearchField<Leading: View>: ViewModifier {
     let title: LocalizedStringKey
     let leading: Leading
     let onOpen: () -> Void
+    let isCovered: Bool
 
     /// The screen's width, which the item spans but for the bar's margins.
     @State private var width: CGFloat = 0
@@ -256,6 +272,8 @@ private struct SearchField<Leading: View>: ViewModifier {
                         title: title,
                         titleCenterX: midX,
                     ) { leading }
+                        .opacity(isCovered ? 0 : 1)
+                        .animation(.snappy(duration: 0.15), value: isCovered)
                 }
                 .sharedBackgroundVisibility(.hidden)
             }
