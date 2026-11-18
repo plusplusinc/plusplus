@@ -59,7 +59,7 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
     @MainActor
     private func nameFollowsTheExercises(in app: XCUIApplication, title: XCUIElement, gray: Int) {
         XCTContext.runActivity(named: "An unnamed routine is named for its exercises") { _ in
-            app.addExercise(Self.bench, searching: "barbell bench")
+            app.addExercise(Self.bench, searching: "bench")
             XCTAssertEqual(title.value(becoming: "Chest"), "Chest")
             app.addExercise(Self.pullUp, searching: "pullup")
             XCTAssertEqual(title.value(becoming: "Chest and back"), "Chest and back")

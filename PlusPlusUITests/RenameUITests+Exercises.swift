@@ -20,7 +20,7 @@ extension RenameUITests {
         XCTContext
             .runActivity(named: "Start appears with the first exercise, the + above it") { _ in
                 // Below the half-height sheet's first screenful.
-                app.search(for: "barbell bench")
+                app.search(for: "bench")
                 app.pickerRows[seeded[0].label].tap()
                 XCTAssertTrue(search.disappears(), "The add left the picker open")
                 XCTAssertEqual(app.exerciseCount(becoming: 1), 1, "The pick added no row")

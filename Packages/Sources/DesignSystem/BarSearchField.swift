@@ -246,6 +246,7 @@ public struct BarSearchField<Leading: View>: View {
             isOpen = true
             meetsButton = !reduceMotion
         }
+        guard !reduceMotion else { return }
         meeting = Task {
             try? await Task.sleep(for: Self.arrival, tolerance: .zero)
             guard !Task.isCancelled else { return }

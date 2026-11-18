@@ -25,11 +25,8 @@ struct ExerciseForm: View {
     let onDelete: () async -> Void
 
     @State private var name: String
-    @State private var muscleGroups: Set<MuscleGroup>
-    @State private var equipment: Set<Equipment>
-    @State private var measure: Measure
-    @State private var isPerSide: Bool
-    /// The exercise as last saved.
+    /// The exercise as last saved, which every setting but the name reads: those save as they
+    /// change, and the name only as its edit ends.
     @State private var stored: CreatedExercise
     /// The latest save, which the next one waits for so they land in order.
     @State private var lastSave: Task<Void, Never>?
@@ -51,26 +48,20 @@ struct ExerciseForm: View {
         self.onDelete = onDelete
         _stored = State(initialValue: exercise)
         _name = State(initialValue: exercise.name)
-        _muscleGroups = State(initialValue: exercise.muscleGroups)
-        _equipment = State(initialValue: exercise.equipment)
-        _measure = State(initialValue: exercise.measure)
-        _isPerSide = State(initialValue: exercise.isPerSide)
     }
 
     private var trimmedName: String {
         name.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// `binding`, which also saves the exercise with each value it is set to. The save is made
-    /// at the write, not from an `onChange`, which can skip a change.
+    /// The stored exercise's setting at `keyPath`, saving the exercise with each value it is set
+    /// to. The save is made at the write, not from an `onChange`, which can skip a change.
     private func saving<Value>(
-        _ binding: Binding<Value>,
-        into keyPath: WritableKeyPath<CreatedExercise, Value>,
+        _ keyPath: WritableKeyPath<CreatedExercise, Value>,
     ) -> Binding<Value> {
         Binding {
-            binding.wrappedValue
+            stored[keyPath: keyPath]
         } set: { value in
-            binding.wrappedValue = value
             save { $0[keyPath: keyPath] = value }
         }
     }
@@ -116,33 +107,33 @@ struct ExerciseForm: View {
                     Checklist(
                         title: "Muscle groups",
                         items: MuscleGroup.allCases,
-                        checked: saving($muscleGroups, into: \.muscleGroups),
+                        checked: saving(\.muscleGroups),
                         name: \.name,
                     )
                 } label: {
-                    LabeledContent("Muscle groups", value: muscleGroups.line ?? "None")
+                    LabeledContent("Muscle groups", value: stored.muscleGroups.line ?? "None")
                 }
                 NavigationLink {
                     Checklist(
                         title: "Equipment",
                         items: Equipment.allCases,
-                        checked: saving($equipment, into: \.equipment),
+                        checked: saving(\.equipment),
                         name: \.name,
                     )
                 } label: {
-                    LabeledContent("Equipment", value: equipment.line ?? "Bodyweight")
+                    LabeledContent("Equipment", value: stored.equipment.line ?? "Bodyweight")
                 }
             }
             .listRowBackground(Color.pp(.surface))
             Section {
-                Picker("Measure", selection: saving($measure, into: \.measure)) {
+                Picker("Measure", selection: saving(\.measure)) {
                     ForEach(Measure.allCases, id: \.self) { measure in
                         Text(measure.name).tag(measure)
                     }
                 }
                 .pickerStyle(.menu)
                 .tint(Color.pp(.textSecondary))
-                Toggle("Per side", isOn: saving($isPerSide, into: \.isPerSide))
+                Toggle("Per side", isOn: saving(\.isPerSide))
             }
             .listRowBackground(Color.pp(.surface))
             usedInSection
@@ -193,7 +184,13 @@ struct ExerciseForm: View {
             ) {
                 Button("Delete exercise", role: .destructive) {
                     isDeleting = true
-                    Task { await onDelete() }
+                    // After any save still landing: the session takes one exercise change at
+                    // a time and drops one that comes in meanwhile.
+                    let previous = lastSave
+                    Task {
+                        await previous?.value
+                        await onDelete()
+                    }
                 }
             } message: {
                 Text(deleteMessage)

@@ -27,7 +27,7 @@ struct ExercisesScreen: View {
                 onTap: { customizing = $0.id },
                 isTappable: { session.exercises.created(id: $0.id) != nil },
                 // In the search's own bar item, not one of its own, so the search's field can
-                // slide over it.
+                // take its place.
                 barLeading: MenuButton(session: session, drawsGlass: true),
                 onCreate: { customizing = await session.create($0).id },
             )
