@@ -102,4 +102,27 @@ struct ScrollBeatTests {
         task.cancel()
         await task.value
     }
+
+    /// The order run 481 met: a landing asked for, and the row's next place in before the list
+    /// reports the scroll. Read from the report alone, the list was elsewhere, so nothing landed
+    /// it again.
+    @Test("A landing asked for and not yet reported counts as resting there")
+    func landingAskedRests() {
+        let beat = ScrollBeat()
+        beat.listMoved(to: 0)
+        var position = ScrollPosition()
+        position.scrollTo(y: 871)
+        #expect(beat.rests(on: 871, asked: position))
+        #expect(!beat.rests(on: 813, asked: position))
+    }
+
+    @Test("Scrolled to an edge, the list rests only where it reports")
+    func edgeFallsBackToReport() {
+        let beat = ScrollBeat()
+        beat.listMoved(to: 240)
+        var position = ScrollPosition()
+        position.scrollTo(edge: .top)
+        #expect(beat.rests(on: 240, asked: position))
+        #expect(!beat.rests(on: 0, asked: position))
+    }
 }

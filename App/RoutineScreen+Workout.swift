@@ -330,7 +330,8 @@ extension RoutineScreen {
     /// Notes where the first exercise is, which a relaunch waits for. In a workout, where the
     /// list was landed on it and what is above it changes height, as after a text size change
     /// or a rename to a longer name, the list lands on it again: the title's text view settles
-    /// its height a pass after the rest, so one landing as the change came in fell short.
+    /// its height a pass after the rest, so one landing as the change came in fell short. A
+    /// landing counts from when it is asked for, not reported (`ScrollBeat.rests(on:asked:)`).
     func placeCurrent(_ place: CurrentPlace) {
         let old = currentPlace
         currentPlace = place
@@ -339,7 +340,7 @@ extension RoutineScreen {
         // is on the way there.
         if let old, currentID != nil, !isScrollingByHand, !isMovingOn,
            place.contentTop != old.contentTop,
-           abs(scrollBeat.scrolledY - old.landingY) < 1
+           scrollBeat.rests(on: old.landingY, asked: scrollPosition)
         {
             scrollToCurrent()
         }
