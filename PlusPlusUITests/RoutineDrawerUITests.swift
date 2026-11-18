@@ -240,21 +240,22 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
     }
 
     /// In Exercises, a built-in's row opens nothing; Create in the search stores the exercise
-    /// and comes back to the list, where it shows; a tap on it pushes its Customize form; and
-    /// Delete asks before it deletes, then comes back to a list without it. What a customize or
-    /// delete does to the routines, and the count the question gives, are the package's
-    /// (`RoutineStoreCustomizeTests`, `RoutineSessionExerciseTests`); this holds the wire through
-    /// the screen's pushes and the question, which only the running app composes.
+    /// and pushes its Customize form, with no Save or Cancel, and back comes to the list, where
+    /// it shows; a tap on it pushes the form again; and Delete asks before it deletes, then comes
+    /// back to a list without it. What a customize or delete does to the routines, and the count
+    /// the question gives, are the package's (`RoutineStoreCustomizeTests`,
+    /// `RoutineSessionExerciseTests`); this holds the wire through the screen's pushes and the
+    /// question, which only the running app composes.
     @MainActor
     private func exercisesCustomizesAndDeletes(in app: XCUIApplication) {
         XCTContext.runActivity(named: "Exercises creates, customizes, and deletes") { _ in
-            let save = app.buttons["Save"]
+            let name = app.textFields["customize.name"]
             let builtIn = app.descendants(matching: .any)
                 .matching(identifier: "exercises.row").firstMatch
             XCTAssertTrue(builtIn.appears(), "Exercises listed nothing")
             XCTAssertFalse(builtIn.elementType == .button, "A built-in's row takes a tap")
             builtIn.tap()
-            XCTAssertFalse(save.appears(within: 1), "A built-in's row opened a form")
+            XCTAssertFalse(name.appears(within: 1), "A built-in's row opened a form")
 
             app.search(for: "zq")
             XCTAssertEqual(app.searchField.value as? String, "zq", "The search capitalized")
@@ -266,29 +267,27 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
                 "Create's row doesn't show the name it creates",
             )
             create.tap()
-            let name = app.textFields["newExercise.name"]
-            XCTAssertTrue(name.appears(), "Create opened no form")
+            XCTAssertTrue(name.appears(), "Create pushed no Customize form")
             XCTAssertEqual(name.value as? String, "Zq", "Create's name isn't capitalized")
-            app.buttons["Create"].tap()
+            XCTAssertFalse(app.buttons["Save"].exists, "Customize has a Save")
+            XCTAssertFalse(app.buttons["Cancel"].exists, "Customize has a Cancel")
+            app.tapBack()
             let row = app.pickerRows["Zq"]
             XCTAssertTrue(row.appears(), "The created exercise isn't in the list")
             XCTAssertTrue(row.settles(), "The created exercise's row kept moving")
             row.tap()
-            XCTAssertTrue(save.appears(), "A created exercise's row opened no Customize form")
-            XCTAssertFalse(save.isEnabled, "Save is on before anything changed")
-            XCTAssertTrue(app.buttons["Cancel"].exists, "Customize has no Cancel")
-            XCTAssertEqual(app.textFields["newExercise.name"].value as? String, "Zq")
+            XCTAssertTrue(name.appears(), "A created exercise's row opened no Customize form")
 
             app.buttons["Delete exercise"].tap()
             let question = app.staticTexts["Delete Zq?"]
             XCTAssertTrue(question.appears(), "Delete didn't ask first")
-            XCTAssertTrue(save.exists, "Delete left the form before an answer")
+            XCTAssertTrue(name.exists, "Delete left the form before an answer")
             let confirm = app.buttons.matching(identifier: "Delete exercise")
             XCTAssertEqual(confirm.count, 2, "The question offers no Delete exercise")
             let answer = confirm.element(boundBy: 1)
             XCTAssertTrue(answer.settles(), "The question's Delete exercise kept moving")
             answer.tap()
-            XCTAssertTrue(save.disappears(), "Delete didn't come back to the list")
+            XCTAssertTrue(name.disappears(), "Delete didn't come back to the list")
             XCTAssertTrue(row.disappears(), "The deleted exercise is still listed")
             XCTAssertTrue(create.appears(), "Its name isn't free to create again")
         }

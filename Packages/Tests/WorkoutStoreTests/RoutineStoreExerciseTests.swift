@@ -76,7 +76,7 @@ struct RoutineStoreExerciseTests {
         let store = relaunch()
         let none = CreatedExercise(name: "Zq", muscleGroups: [])
         try await store.save(none)
-        let routine = try Routine(
+        let routine = Routine(
             name: "Day A",
             exercises: [RoutineExercise(exercise: Exercise(created: none), weightUnit: .pounds)],
         )

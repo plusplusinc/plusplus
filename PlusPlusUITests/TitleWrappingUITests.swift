@@ -82,18 +82,20 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         try drawerAtAX5(in: app)
     }
 
-    /// The second row held and dragged above the first moves there at this size.
+    /// The last row held and dragged above the one before it moves there at this size: the
+    /// rows are the stretch, the exercise Create made in the picker, and the bench press, and
+    /// the list rests at its end, the first row under the bar.
     @MainActor
     private func dragARowAtAX5(in app: XCUIApplication) {
         XCTContext.runActivity(named: "A row drags at the largest text size") { _ in
             let rows = app.exerciseRows
-            let (first, last) = (rows.element(boundBy: 0), rows.element(boundBy: 1))
+            let (first, last) = (rows.element(boundBy: 1), rows.element(boundBy: 2))
             // Its card's top, half the held row's height above the finger, clears the first
             // row's middle. Kept below the bar, where a release would put it back.
             let bar = app.navigationBars.firstMatch.frame.maxY
             let target = app.point(x: last.frame.midX, y: max(first.frame.midY, bar + 70))
             last.center.holdAndDrag(to: target)
-            let moved = ["Dumbbell bench press", "Kneeling hip flexor stretch"]
+            let moved = ["Kneeling hip flexor stretch", "Dumbbell bench press", "Curlz"]
             XCTAssertEqual(reading(app.exerciseNames, becoming: moved, within: 2), moved)
             attach(named: "reorder-ax5")
         }
@@ -124,11 +126,12 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         let name = "A node joins two rows at AX5, and passes the audit"
         try XCTContext.runActivity(named: name) { _ in
             let rows = app.exerciseRows
-            let (first, last) = (rows.element(boundBy: 0), rows.element(boundBy: 1))
-            // The first row's middle is under the bar here, so the drag goes up from the last.
+            let (first, last) = (rows.element(boundBy: 1), rows.element(boundBy: 2))
+            // The upper row's middle can be under the bar here, so the drag goes up from the
+            // last.
             let bar = app.navigationBars.firstMatch.frame.maxY
             last.nodePoint.holdAndDrag(to: app.point(x: 22, y: max(first.frame.midY, bar + 40)))
-            XCTAssertEqual(app.supersets(becoming: "AA"), "AA")
+            XCTAssertEqual(app.supersets(becoming: ".AA"), ".AA")
             // Back at the top, as the rows' audit above was: the bar's small title, shown only
             // scrolled, doesn't scale, which the audit reports.
             app.scrollToTop(titled: app.routineTitle.value as? String ?? "")
@@ -184,30 +187,32 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             app.search(for: "curl")
             XCTAssertTrue(app.pickerRows["Biceps curl, Dumbbells"].appears())
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
-            app.searchForNothing(replacing: "curl")
+            let created = app.searchForNothing(extending: "curl")
             attach(named: "picker-create-only-ax5")
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
-            try auditNewExerciseForm(in: app)
+            try auditCustomizeForm(in: app, named: created)
         }
     }
 
-    /// New exercise passes the audit at this text size, where the name wraps under its label;
-    /// Cancel then leaves the picker as the next check expects it. No cheaper tier reaches the
-    /// form: it is the app's, composed of system rows on the sheet's stack. Its checklists are
-    /// not audited here, to keep the UI tests in their budget.
+    /// Customize, which Create pushes inside the sheet, passes the audit at this text size,
+    /// where the name wraps under its label; back then leaves the picker's search as the next
+    /// check expects it. No cheaper tier reaches the form: it is the app's, composed of system
+    /// rows on the sheet's stack. Its checklists are not audited here, to keep the UI tests in
+    /// their budget.
     @MainActor
-    private func auditNewExerciseForm(in app: XCUIApplication) throws {
+    private func auditCustomizeForm(in app: XCUIApplication, named created: String) throws {
         let create = app.buttons["picker.create"]
         XCTAssertTrue(create.settles(), "Create is still moving")
         create.tap()
-        let name = app.descendants(matching: .any)["newExercise.name"]
-        XCTAssertTrue(name.appears(), "Create opened no form")
-        XCTAssertEqual(name.value as? String, "Zzz", "Create's name isn't the search capitalized")
-        attach(named: "new-exercise-form-ax5")
-        // Cancel and Add are the bar's, which caps its text as it does End.
-        try auditBelowTheBar(in: app, systemTexts: ["Cancel", "Add"])
-        app.buttons["Cancel"].tap()
-        XCTAssertTrue(app.searchField.appears(), "Cancel did not come back to the search")
+        let name = app.descendants(matching: .any)["customize.name"]
+        XCTAssertTrue(name.appears(), "Create pushed no Customize form")
+        XCTAssertEqual(name.value as? String, created, "Create's name isn't the search capitalized")
+        attach(named: "customize-form-ax5")
+        // Done is the bar's, which caps its text as it does End.
+        try auditBelowTheBar(in: app, systemTexts: ["Done"])
+        // The sheet's: the routine, pushed from Routines, has a back button of its own.
+        app.navigationBars["Customize"].buttons["BackButton"].tap()
+        XCTAssertTrue(app.searchField.appears(), "Back did not come back to the search")
     }
 
     /// At this size the second row goes in under Add exercise's +, so an add has to scroll to
@@ -225,7 +230,7 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             XCTAssertTrue(close.appears(), "The search's X did not uncover Close")
             close.tap()
             XCTAssertTrue(app.searchButton.disappears(), "Close left the picker up")
-            app.addExercise("Dumbbell bench press, Dumbbells, bench", searching: "dumbbellb")
+            app.addExercise("Dumbbell bench press, Dumbbells, bench", searching: "bench")
             XCTAssertTrue(app.lastRowClearsAddExercise(), "The add left the row under the +")
             attach(named: "rail-after-add-ax5")
             // The last row: the first, its plan making it taller, has its middle under the bar.

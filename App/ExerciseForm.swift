@@ -239,7 +239,7 @@ struct ExerciseForm: View {
             .focused($isNameFocused)
             // A field that wraps takes no label from its title.
             .accessibilityLabel("Name")
-            .accessibilityIdentifier("newExercise.name")
+            .accessibilityIdentifier("customize.name")
     }
 }
 

@@ -157,13 +157,16 @@ extension XCUIApplication {
         XCTAssertTrue(search.disappears(), "Picking \(label) left the picker open")
     }
 
-    /// Replaces the search `query` with one nothing matches, and checks that the list narrows
-    /// down to its one row, Create.
-    func searchForNothing(replacing query: String) {
-        let delete = XCUIKeyboardKey.delete.rawValue
-        typeIntoSearch(String(repeating: delete, count: query.count) + "zzz")
-        XCTAssertTrue(buttons["Create \u{201C}Zzz\u{201D}"].appears(), "No Create for zzz")
-        XCTAssertEqual(pickerRows.count, 0, "Rows other than Create match zzz")
+    /// Adds a z to the search `query`, which then matches nothing, and checks that the list
+    /// narrows down to its one row, Create, and returns the name Create makes. One key: each
+    /// costs about half a second.
+    func searchForNothing(extending query: String) -> String {
+        typeIntoSearch("z")
+        // Create capitalizes the first letter, and only that.
+        let name = query.prefix(1).uppercased() + query.dropFirst() + "z"
+        XCTAssertTrue(buttons["Create \u{201C}\(name)\u{201D}"].appears(), "No Create for \(name)")
+        XCTAssertEqual(pickerRows.count, 0, "Rows other than Create match \(name)")
+        return name
     }
 
     /// Whether the last row shows clear of Add exercise's +, once it does or after the timeout.
