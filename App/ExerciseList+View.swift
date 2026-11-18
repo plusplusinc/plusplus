@@ -14,8 +14,8 @@ import WorkoutStore
 ///
 /// Both have search as a round button at the bar's top trailing edge, which opens out to the
 /// left into a field across the bar (`BarSearchField`), which the bar's leading button turns into:
-/// ++ in Exercises, under its large title, and Close in Add exercise, where the field covers the
-/// inline title too.
+/// ++ in Exercises and Close in Add exercise. The field covers the bar's title too: Add exercise's
+/// always, and Exercises' once its title in the list has gone under the bar.
 ///
 /// Search does not take focus when the list opens. The list is the fast path: with the
 /// keyboard down, the whole list is in reach of a thumb and a pick is one tap.
@@ -35,6 +35,9 @@ struct ExerciseListView<BarLeading: View>: View {
     /// The host's inline title, drawn by the bar's search so its field covers the title as it
     /// opens; nil leaves the bar's own title.
     var barTitle: LocalizedStringKey?
+    /// The host's title drawn as the list's first row, as Routines draws its own, and small in
+    /// the bar once it has gone under it, where a tap scrolls back to the top; nil draws none.
+    var listTitle: LocalizedStringKey?
     /// The host's leading bar button, drawn by the bar's search in its own item so its field
     /// takes the button's place as it opens; the host puts none in its toolbar.
     let barLeading: BarLeading
@@ -51,11 +54,55 @@ struct ExerciseListView<BarLeading: View>: View {
     /// Where the list's room starts, at the bar's bottom edge, in global coordinates: where a
     /// heading pins, and past which a heading pushed up fades (`LeavesUnderBar`).
     @State private var listTop: CGFloat = 0
+    /// Whether `listTitle` has scrolled out of sight under the bar, for its small copy to show.
+    @State private var isTitleUnderBar = false
     @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
+        ScrollViewReader { proxy in
+            list
+                .modifier(SearchField(
+                    text: $query,
+                    title: barTitle ?? listTitle,
+                    isTitleShown: barTitle != nil || isTitleUnderBar,
+                    onTitleTap: listTitle == nil ? nil : {
+                        withAnimation(.snappy) {
+                            proxy.scrollTo(TitleRow.id, anchor: .top)
+                        }
+                    },
+                    leading: barLeading,
+                    onOpen: onSearchOpen,
+                ))
+        }
+    }
+
+    private var list: some View {
         let sections = exercises.matching(query).lettered()
-        List {
+        return List {
+            if let listTitle {
+                Text(listTitle)
+                    .ppFixedTitleFont()
+                    .foregroundStyle(.pp(.textPrimary))
+                    .accessibilityAddTraits(.isHeader)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .onScrollVisibilityChange(threshold: 0.01) { isVisible in
+                        // As the routine screen's: the small title has gone by the time the
+                        // large one is out from under the bar.
+                        withAnimation(.easeOut(duration: RoutineScreen.barFade)) {
+                            isTitleUnderBar = !isVisible
+                        }
+                    }
+                    .id(TitleRow.id)
+                    .listRowInsets(EdgeInsets(
+                        // The list's own top margin is Routines' `Spacing.sm` above its title.
+                        top: 0,
+                        leading: Spacing.md,
+                        bottom: 0,
+                        trailing: Spacing.md,
+                    ))
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.pp(.background))
+            }
             ForEach(sections) { section in
                 Section {
                     ForEach(section.exercises, content: row)
@@ -97,12 +144,6 @@ struct ExerciseListView<BarLeading: View>: View {
         // and takes it back more slowly than the keyboard leaves, and the window's black showed
         // in between.
         .containerBackground(Color.pp(.background), for: .navigation)
-        .modifier(SearchField(
-            text: $query,
-            title: barTitle,
-            leading: barLeading,
-            onOpen: onSearchOpen,
-        ))
     }
 
     private var showsIndex: Bool {
@@ -216,6 +257,11 @@ private struct LeavesUnderBar: ViewModifier {
     }
 }
 
+/// The scroll target of `ExerciseListView.listTitle`.
+private nonisolated enum TitleRow: Hashable {
+    case id
+}
+
 /// Search as `BarSearchField`, one bar item holding the host's leading button and the round
 /// search button, spanning the bar between its margins. A bar item hugs its content, so the item
 /// gets its width from the screen's. Given a title, the bar's own inline title is removed and
@@ -224,6 +270,8 @@ private struct LeavesUnderBar: ViewModifier {
 private struct SearchField<Leading: View>: ViewModifier {
     @Binding var text: String
     let title: LocalizedStringKey?
+    let isTitleShown: Bool
+    let onTitleTap: (() -> Void)?
     let leading: Leading
     let onOpen: () -> Void
 
@@ -263,6 +311,8 @@ private struct SearchField<Leading: View>: ViewModifier {
                         width: width - 2 * Spacing.md,
                         title: title,
                         titleCenterX: midX,
+                        isTitleShown: isTitleShown,
+                        onTitleTap: onTitleTap,
                     ) { leading }
                         .hiddenBehindDrawer()
                 }

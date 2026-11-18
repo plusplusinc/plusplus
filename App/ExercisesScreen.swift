@@ -4,8 +4,9 @@ import SwiftUI
 import WorkoutStore
 
 /// Exercises, a screen at the root as Routines is, shown from the drawer in place of the screen
-/// that showed, with ++ leading its bar: the exercise list (`ExerciseListView`) under a large
-/// title, with search as a round button at the bar's top trailing edge that opens into a field
+/// that showed, with ++ leading its bar: the exercise list (`ExerciseListView`) under its title,
+/// drawn as Routines draws its own and small in the bar once under it, with search as a round
+/// button at the bar's top trailing edge that opens into a field
 /// across the bar, ++ turning into the field as it opens and back as it closes (`BarSearchField`).
 /// While the field is open, ++ is gone; the edge swipe still opens the drawer.
 /// A tap on an exercise someone created pushes its Customize form (`ExerciseForm`), with the back
@@ -26,14 +27,16 @@ struct ExercisesScreen: View {
                 exercises: session.exercises,
                 onTap: { customizing = $0.id },
                 isTappable: { session.exercises.created(id: $0.id) != nil },
+                listTitle: "Exercises",
                 // In the search's own bar item, not one of its own, so the search's field can
                 // take its place.
                 barLeading: MenuButton(session: session, drawsGlass: true),
                 onCreate: { customizing = await session.create($0).id },
             )
             .accessibilityHidden(session.isDrawerOpen)
+            // Still the screen's title for VoiceOver and the form's Back; the list draws it.
             .navigationTitle("Exercises")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(item: $customizing) { id in
                 CustomizeScreen(id: id, session: session, namer: namer) { customizing = nil }
             }
