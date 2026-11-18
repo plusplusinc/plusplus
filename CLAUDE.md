@@ -63,8 +63,9 @@ state, stateless services hold side effects, free functions hold the math. The a
   tracked files. The team ID is not a secret and lives in `Config/Base.xcconfig`;
   `Config/Local.xcconfig` is the gitignored place for per-developer overrides. Build output and
   other regenerable files go in `.build/`. Product spec, acceptance criteria, and decisions live
-  on the board; the gitignored `.slices/`, in the main checkout, holds only agents' technical
-  working files (plans, handoffs, evidence).
+  on the board; the gitignored `.slices/` in the leading session's own worktree holds only
+  agents' technical working files (plans, handoffs, evidence), which the card's State names by
+  absolute path; night cards, the rules ledger, and setup reviews use the main checkout's.
 - **US English** in code, comments, docs, and commits. A hook checks every edit.
 - **Tense tells the truth.** A present-tense statement says how things are on `main` today, so
   write one only when it is. Something planned is an instruction ("Save the routine once it
@@ -82,7 +83,7 @@ The main session leads a slice, as `/onward` describes: it writes the spec and a
 criteria, makes the technical calls, and hands each phase, in order, to a subagent defined in
 `.claude/agents/`: planner, builder, verifier, then a builder again for what the verifier found.
 It reads their summaries and screenshots, not their work. A subagent follows its definition,
-answers only to the lead, and never merges. Working files go in `.slices/`.
+answers only to the lead, and never merges.
 
 The maintainer owns the product. The lead goes to them to align on a card before it starts, for
 a product call, or to put a build in their hands, and they try every slice before it merges. A
