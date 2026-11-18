@@ -17,7 +17,9 @@
 # shell in it, which tidy names in a line (on 2026-11-11 a verifier's tidy removed the live lead's
 # worktree). A session started elsewhere that works in a worktree by path does not count. Kept
 # too, and named in a line: a finished worktree whose gitignored .slices/, a lead's working files,
-# names a board card not yet Done, since `git worktree remove` deletes those files with it. A
+# names a board card not yet Done, or one the board doesn't have, or when the board can't be read,
+# since `git worktree remove` deletes those files with it; files there that name no card go with
+# it. A
 # worktree left detached keeps the branch it last left (on 2026-11-13 an agent detached its lead's
 # worktree and a tidy deleted the lead's fresh branch, which was at main). Closed but
 # unmerged PRs are never cleaned up; their work may still be wanted. A removed worktree's own
@@ -171,20 +173,21 @@ in_use_by() {
 # The board's card ids, all of them in KNOWN_IDS and the Done ones in DONE_IDS, from one
 # `board.sh list` request on first need. Fails when reading it fails, with the error's last line
 # in BOARD_ERROR.
-BOARD_READ=
+BOARD_OK=
 read_board() {
-    if [ -z "$BOARD_READ" ]; then
-        BOARD_READ=1
+    if [ -z "$BOARD_OK" ]; then
         local rows
         if rows=$("$ROOT/scripts/board.sh" list 2>&1); then
             # A row is "<id>  <status>\t<feature>\t<title>".
             KNOWN_IDS=$(awk '{ print $1 }' <<< "$rows" | sort -u)
             DONE_IDS=$(awk -F'\t' '$1 ~ /  Done$/ { split($1, f, " "); print f[1] }' <<< "$rows" | sort -u)
+            BOARD_OK=yes
         else
-            BOARD_ERROR=$(tail -1 <<< "$rows")
+            BOARD_ERROR=$(tail -1 <<< "${rows:-board.sh list failed with no output}")
+            BOARD_OK=no
         fi
     fi
-    [ -z "${BOARD_ERROR:-}" ]
+    [ "$BOARD_OK" = yes ]
 }
 
 # The card ids (PVTI_...) these files name, one a line, sorted.
@@ -192,11 +195,10 @@ named_cards() {
     grep -rhoE 'PVTI_[A-Za-z0-9_-]+' "$@" 2> /dev/null | sort -u || true
 }
 
-# Of these ids, comma-joined, the ones the board doesn't have (`unknown`) or that are not Done
-# (`open`, the unknown ones included). Needs read_board first.
+# The first list's ids that the second lacks, comma-joined: with $KNOWN_IDS, the cards the board
+# doesn't have; with $DONE_IDS, those not Done. Needs read_board first.
 cards_not_in() {
-    local ids=$1 kind=$2
-    comm -23 <(echo "$ids") <([ "$kind" = unknown ] && echo "$KNOWN_IDS" || echo "$DONE_IDS") | paste -sd, -
+    comm -23 <(echo "$1") <(echo "$2") | paste -sd, -
 }
 
 # The branch a detached worktree last left, from its HEAD's reflog: "checkout: moving from <branch>
@@ -237,12 +239,13 @@ while IFS=$'\t' read -r lock path branch; do
                 echo "tidy: kept $path: finished, but reading the board for its .slices/ failed: $BOARD_ERROR"
                 continue
             fi
-            unknown=$(cards_not_in "$named" unknown)
-            open=$(cards_not_in "$named" open)
+            unknown=$(cards_not_in "$named" "$KNOWN_IDS")
             if [ -n "$unknown" ]; then
                 echo "tidy: kept $path: finished, but its .slices/ names $unknown, which the board doesn't have"
                 continue
-            elif [ -n "$open" ]; then
+            fi
+            open=$(cards_not_in "$named" "$DONE_IDS")
+            if [ -n "$open" ]; then
                 echo "tidy: kept $path: finished, but its .slices/ holds files for $open, not Done yet"
                 continue
             fi
@@ -354,10 +357,10 @@ if [ -d "$SLICES" ]; then
             for entry in "${candidates[@]}"; do
                 named=$(named_cards "$entry")
                 [ -n "$named" ] || continue
-                unknown=$(cards_not_in "$named" unknown)
+                unknown=$(cards_not_in "$named" "$KNOWN_IDS")
                 if [ -n "$unknown" ]; then
                     echo "tidy: kept $entry: it names $unknown, which the board doesn't have"
-                elif [ -z "$(cards_not_in "$named" open)" ]; then
+                elif [ -z "$(cards_not_in "$named" "$DONE_IDS")" ]; then
                     run rm -r "$entry"
                 fi
             done

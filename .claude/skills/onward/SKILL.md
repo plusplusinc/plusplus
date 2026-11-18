@@ -113,7 +113,7 @@ Their time is the scarce thing, and it is for the product.
 - **Where they work.** A session in a worktree of its own (`git rev-parse --show-toplevel`
   is under `.claude/worktrees/`) builds the slice there, on its branch: Claude Code refuses a
   builder's edits in a worktree its session doesn't sit in (`docs/agent-tooling.md`). Only a session in the main checkout adds one
-  (`CLAUDE.md`, Branching). Every path you give an agent is absolute, under your worktree's
+  (`CLAUDE.md`, Branching). Every path you give a planner or builder is absolute, under your worktree's
   `.slices/`; a prompt asking it to save a report asks its hand-back to say what it saved where.
 - Start each verifier with the Agent tool's `isolation: "worktree"`, and say so in its prompt,
   naming the builder's worktree and the branch, so it works in a worktree of its own. Its

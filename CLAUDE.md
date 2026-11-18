@@ -65,7 +65,7 @@ state, stateless services hold side effects, free functions hold the math. The a
   other regenerable files go in `.build/`. Product spec, acceptance criteria, and decisions live
   on the board; the gitignored `.slices/` in the leading session's own worktree holds only
   agents' technical working files (plans, handoffs, evidence), which the card's State names by
-  absolute path; the night's cards, the rules ledger, and setup reviews use the main checkout's.
+  absolute path; night cards, the rules ledger, and setup reviews use the main checkout's.
 - **US English** in code, comments, docs, and commits. A hook checks every edit.
 - **Tense tells the truth.** A present-tense statement says how things are on `main` today, so
   write one only when it is. Something planned is an instruction ("Save the routine once it

@@ -1357,6 +1357,13 @@ class TidyWorktrees(unittest.TestCase):
         self.assertIn(f"tidy: git worktree remove {worktree}", tidy())
         self.assertFalse(worktree.exists())
 
+    def test_working_files_that_name_no_card_go_with_their_finished_worktree(self):
+        worktree, main, tidy = self.finished_worktree_with_working_files()
+        (worktree / ".slices/done-card-handoff.md").write_text("No card named here.")
+        fake_board(main, fails=True)  # never read: nothing names a card
+        self.assertIn(f"tidy: git worktree remove {worktree}", tidy())
+        self.assertFalse(worktree.exists())
+
     def test_a_finished_worktree_whose_working_files_the_board_cannot_judge_stays(self):
         worktree, main, tidy = self.finished_worktree_with_working_files()
         for rows, fails, why in (("", True, "reading the board for its .slices/ failed: quota spent"),

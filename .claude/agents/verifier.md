@@ -83,8 +83,8 @@ the one you work in.
    never quote the card, and leave out anything personal.
 
 You edit test files, and write working files only to the `.slices/` paths the lead names. In
-a worktree of your own, save them and the screenshots you cite in your scratchpad directory:
-it goes, `.slices/` too, when you end. A
+a worktree of your own, save them and cited screenshots in your scratchpad directory:
+the worktree goes, `.slices/` too, when you end. A
 test that fails because the app is wrong stays failing and goes in the report; the fix belongs
 to a builder.
 
