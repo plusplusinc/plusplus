@@ -1,7 +1,7 @@
 import XCTest
 
 /// The ++ drawer and the Routines screen over saved routines: the drawer's mark, a row's
-/// Customize…, and the drill-in from the Routines screen. Which
+/// Customize…, Add exercise's hold menu, and the drill-in from the Routines screen. Which
 /// routines come first is `RoutineStoreRecencyTests`'. Names come from the muscle groups
 /// (`-fallbackNames`). A name typed on a pushed routine and left with no Return shows in the list
 /// once popped, which only the session's save puts there; that a save reaches the store is
@@ -56,6 +56,7 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
             XCTAssertEqual(title.value as? String, "Chest")
         }
         rowCustomizes(in: app)
+        holdMenuCustomizesAndDeletes(in: app)
         routinesScreenDrillsIn(in: app, title: title)
     }
 
@@ -192,41 +193,6 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
         let keyboard = app.keyboards.element
         XCTAssertNoThrow(try app.routineTitle.typeOver(old, with: name, keyboard: keyboard))
         XCTAssertEqual(app.routineTitle.value(becoming: name), name)
-    }
-
-    /// A routine row's More menu offers Customize…, which pushes the exercise's Customize form
-    /// inside the sheet: a built-in's opens with its name and ends in Clear customizations, not
-    /// Delete, disabled while nothing is changed; back comes to the sheet. What a customize does
-    /// to the routines is the package's (`RoutineStoreBuiltInTests`,
-    /// `RoutineSessionExerciseTests`); this holds the wire through the menu and the push, which
-    /// only the running app composes.
-    @MainActor
-    private func rowCustomizes(in app: XCUIApplication) {
-        XCTContext.runActivity(named: "A row's More menu opens its exercise's Customize") { _ in
-            app.exerciseRows.element(boundBy: 0).tap()
-            let sets = app.buttons["Sets"]
-            XCTAssertTrue(sets.appears(), "Tapping a row opened no sheet")
-            app.buttons["More"].tap()
-            let customize = app.buttons["Customize…"]
-            XCTAssertTrue(customize.appears(), "The More menu offers no Customize…")
-            XCTAssertTrue(app.buttons["Remove"].exists, "The More menu offers no Remove")
-            customize.tap()
-            let name = app.textFields["customize.name"]
-            XCTAssertTrue(name.appears(), "Customize… opened no form")
-            XCTAssertEqual(
-                name.value as? String,
-                "Barbell bench press",
-                "A built-in's form doesn't open with its name",
-            )
-            let clear = app.buttons["Clear customizations"]
-            XCTAssertTrue(clear.exists, "A built-in's form doesn't end in Clear customizations")
-            XCTAssertFalse(clear.isEnabled, "Clear customizations is enabled with nothing changed")
-            XCTAssertFalse(app.buttons["Delete exercise"].exists, "A built-in's form offers Delete")
-            app.tapBack()
-            XCTAssertTrue(sets.appears(), "Back didn't come to the row's sheet")
-            app.buttons["Close"].tap()
-            XCTAssertTrue(sets.disappears(), "Close left the sheet up")
-        }
     }
 
     @MainActor
