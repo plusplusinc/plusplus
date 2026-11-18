@@ -9,7 +9,7 @@ import XCTest
 /// groups (`-fallbackNames`), so the same name shows on any simulator. The
 /// title's color, white for a name whether typed or generated and gray for New routine, is read
 /// from pixels against the placeholder's own gray at the start. The drawer over saved routines is
-/// `RoutineDrawerUITests`'.
+/// `RoutineDrawerUITests`'; this test, which ends with none saved, checks Routines empty.
 ///
 /// `nonisolated` because XCTestCase's initializers are; the test drives the UI on the main actor.
 final nonisolated class RoutineAutosaveUITests: XCTestCase {
@@ -54,6 +54,28 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
         }
         try clearedRoutineIsNewRoutine(in: app, title: title, gray: gray)
         deleteInPickerEmptiesRoutine(in: app)
+        emptyRoutinesFillsTheWidth(in: app, margin: title.frame.minX)
+    }
+
+    /// With the routine cleared to nothing, no routine is saved, and Routines has no row to
+    /// stretch its scroll view: its background still reaches both edges, and its title sits at
+    /// the routine screen's `margin`.
+    @MainActor
+    private func emptyRoutinesFillsTheWidth(in app: XCUIApplication, margin: CGFloat) {
+        XCTContext.runActivity(named: "Routines with none saved fills the width") { _ in
+            app.openDrawer(andTap: "Routines")
+            let heading = app.staticTexts["Routines"]
+            XCTAssertTrue(heading.settles(), "The Routines title kept moving")
+            XCTAssertEqual(app.routineRows.count, 0, "Routines lists a routine")
+            XCTAssertEqual(
+                app.scrollViews.firstMatch.frame.width,
+                app.frame.width,
+                accuracy: 1,
+                "The scroll view, and the background on it, is narrower than the screen",
+            )
+            XCTAssertEqual(heading.frame.minX, margin, accuracy: 1, "The title is off the margin")
+            attach(named: "routines-empty")
+        }
     }
 
     /// An unnamed routine is named for its exercises as they come and go, in white.
