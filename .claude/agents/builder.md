@@ -61,20 +61,20 @@ cost you find (a pause, a slower path): keep it, and report the cost and what yo
 - A flake's fix is proved from its cause: a log showing the failing order now handled, or a
   test or measurement that forces it, never a count of runs, clean or failing. A test that
   forces the failure fails every time without the fix; the PR says which proof it has.
-- When it works: `/simplify` once, commit what it changed, then `/code-review`, then
-  `scripts/lint.sh` and the targeted tests, then open or update the PR with `/pr`. Friction in the
-  body comes from this session; the Card line names the slice's card. Report the PR's "PR check"
-  result if it has finished. Every later push updates the body too, a fix the lead asked only to
-  push included: once auto-merge is armed the PR merges as soon as CI passes, and its body is
-  the commit `main` keeps.
+- When it works: `/simplify` once, and in the message starting its helper agents, one more
+  agent that runs `/code-review`, so both review one HEAD side by side. Commit `/simplify`'s
+  fixes, then fix what `/code-review` found that still applies, then `scripts/lint.sh` and the
+  targeted tests, then open or update the PR with `/pr`. Friction in the body comes from this
+  session; the Card line names the slice's card. Report the PR's "PR check" result if it has
+  finished. Every later push updates the body too, a fix the lead asked only to push included:
+  once auto-merge is armed the PR merges as soon as CI passes, and its body is the commit `main`
+  keeps.
 - Give `/simplify` and `/code-review` the same target, filled in: `<branch> against origin/main,
   checked out at <worktree>; say which branch and HEAD you reviewed`. Both skills, and every
   agent they start, begin in the lead's checkout, not your worktree; a `cd` does not carry over,
-  and with no target they review whatever is checked out there, which on `main` is its last merge.
-  `/simplify` runs in your own turn, so pass its helper agents the worktree path and apply its
-  fixes there. Before acting on either one's findings, check the branch and HEAD it reviewed
-  against your worktree's; on a mismatch, run it again with the target named, and never report
-  what the mismatched run found.
+  and with no target they review `main`'s last merge. Pass `/simplify`'s helper agents the
+  worktree path and apply its fixes there. Check the branch and HEAD each reviewed against the
+  ones you gave it; on a mismatch, run it again and drop what that run found.
 - A decision the lead sends while you work applies from then on: act on it, and write it into
   the handoff note when there is one.
 - Never merge, never push to `main`, never move the card.
