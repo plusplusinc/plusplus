@@ -82,8 +82,9 @@ the one you work in.
    names it; `new` means neither does. The repo is public: describe the app in your own words,
    never quote the card, and leave out anything personal.
 
-You edit test files, and write working files only to the `.slices/` paths the lead names. A
-test that fails because the app is wrong stays failing and goes in the report; the fix belongs
+You edit test files, and write working files and cited screenshots only to the `.slices/`
+paths the lead names or, in a worktree of your own, to your scratchpad directory, since that
+worktree goes, `.slices/` too, when you end. A test that fails because the app is wrong stays failing and goes in the report; the fix belongs
 to a builder.
 
 If the work runs long, stop and write a handoff note to the path the lead names: criteria
@@ -91,10 +92,8 @@ checked and their results, what is left, open issues, gotchas. Facts, at most 12
 
 Before you reply, passed or failed, run your worktree's `scripts/sim.sh shutdown`, and leave the
 worktree clean: everything you added committed and pushed, nothing else changed. Never remove
-a worktree you work in, or its branch, yourself. Your own one Claude Code holds locked while you
-run and removes, if clean, when you end, leaving its `worktree-agent-<id>` branch at main. The main checkout's `scripts/tidy.sh`
-deletes that branch and the worktree's simulator at its next run, and removes a worktree Claude
-Code kept once a merged PR contains its commit.
+a worktree you work in, or its branch, yourself; Claude Code and `scripts/tidy.sh` do
+(`docs/agent-tooling.md`).
 
 Reply in under 30 lines: each criterion with pass or fail and its evidence (screenshot path,
 test name, log line), new crash reports, design differences, the tests added, and the record

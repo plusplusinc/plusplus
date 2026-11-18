@@ -1254,6 +1254,15 @@ def scratch_clone(test):
     return root, run, tidy
 
 
+def fake_board(main, rows="", fails=False):
+    """A stand-in scripts/board.sh in the checkout at <main>: `list` prints the rows given
+    ("<id>  <status>\\t<feature>\\t<title>" lines), or fails the way a spent quota does."""
+    board = main / "scripts/board.sh"
+    board.write_text("#!/bin/bash\n" + ("echo 'quota spent' >&2; exit 1\n" if fails
+                                         else f"[ \"$1\" = list ] && printf '{rows}'\n"))
+    board.chmod(0o755)
+
+
 class TidySlices(unittest.TestCase):
     """scripts/tidy.sh's .slices/ cleanup, run whole in a scratch clone with gh and the board faked."""
 
@@ -1261,10 +1270,7 @@ class TidySlices(unittest.TestCase):
 
     def tidy(self, slices, rows=ROWS, board_fails=False):
         root, run, tidy = scratch_clone(self)
-        board = root / "main/scripts/board.sh"
-        board.write_text("#!/bin/bash\n" + ("echo 'quota spent' >&2; exit 1\n" if board_fails
-                                             else f"[ \"$1\" = list ] && printf '{rows}'\n"))
-        board.chmod(0o755)
+        fake_board(root / "main", rows, fails=board_fails)
         run("git", "worktree", "add", "-q", "-b", "live-card", str(root / "main/.claude/worktrees/live-card"))
         old = time.time() - 2 * 86400
         for name, text in slices.items():
@@ -1326,6 +1332,46 @@ class TidyWorktrees(unittest.TestCase):
         self.assertFalse(worktree.exists())
         self.assertIn(f"tidy: git worktree remove {worktree}", out)
         self.assertEqual(run("git", "branch", "--list", "done-card"), "")
+
+    def finished_worktree_with_working_files(self):
+        """A finished worktree whose .slices/, gitignored as in the repo, holds a lead's handoff for
+        PVTI_open; the main checkout is returned too, for its stand-in board."""
+        worktree, _, tidy = self.finished_worktree()
+        main = worktree.parent.parent.parent
+        (main / ".git/info").mkdir(exist_ok=True)
+        (main / ".git/info/exclude").write_text(".slices/\n")
+        (worktree / ".slices").mkdir()
+        (worktree / ".slices/done-card-handoff.md").write_text("Card PVTI_open.")
+        return worktree, main, tidy
+
+    def test_a_finished_worktree_holding_an_open_cards_working_files_stays_until_it_is_done(self):
+        # A day session's lead keeps the slice's plan and handoff in its own worktree's gitignored
+        # .slices/, which `git worktree remove` would delete with it.
+        worktree, main, tidy = self.finished_worktree_with_working_files()
+        fake_board(main, "PVTI_open  In Progress\\t-\\tA\\n")
+        kept = f"tidy: kept {worktree}: finished, but its .slices/ holds files for PVTI_open, not Done yet"
+        self.assertIn(kept, tidy("--dry-run"))
+        self.assertIn(kept, tidy())
+        self.assertTrue((worktree / ".slices/done-card-handoff.md").exists())
+        fake_board(main, "PVTI_open  Done\\t-\\tA\\n")
+        self.assertIn(f"tidy: git worktree remove {worktree}", tidy())
+        self.assertFalse(worktree.exists())
+
+    def test_working_files_that_name_no_card_go_with_their_finished_worktree(self):
+        worktree, main, tidy = self.finished_worktree_with_working_files()
+        (worktree / ".slices/done-card-handoff.md").write_text("No card named here.")
+        fake_board(main, fails=True)  # never read: nothing names a card
+        self.assertIn(f"tidy: git worktree remove {worktree}", tidy())
+        self.assertFalse(worktree.exists())
+
+    def test_a_finished_worktree_whose_working_files_the_board_cannot_judge_stays(self):
+        worktree, main, tidy = self.finished_worktree_with_working_files()
+        for rows, fails, why in (("", True, "reading the board for its .slices/ failed: quota spent"),
+                                 ("PVTI_other  Done\\t-\\tA\\n", False, "its .slices/ names PVTI_open, which the board doesn't have")):
+            with self.subTest(why=why):
+                fake_board(main, rows, fails=fails)
+                self.assertIn(f"tidy: kept {worktree}: finished, but {why}", tidy())
+                self.assertTrue(worktree.exists())
 
     def test_a_session_worktree_left_detached_keeps_the_branch_it_left(self):
         # A session's fresh branch starts at main, so its tip is in main. On 2026-11-13 an agent
