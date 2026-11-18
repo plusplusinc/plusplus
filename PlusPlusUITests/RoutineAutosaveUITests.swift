@@ -22,7 +22,8 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
         let app = XCUIApplication()
         let title = app.launchNewRoutine(arguments: ["-fallbackNames", "YES"])
         XCTAssertEqual(title.value as? String, "New routine")
-        let gray = try Ink.ofTitle(in: title.frame).contrast
+        let field = title.frame
+        let gray = try Ink.ofTitle(in: field).contrast
 
         nameFollowsTheExercises(in: app, title: title, gray: gray)
         // Typed first, so the row edits after it, each saved as made, are what the quit keeps,
@@ -54,7 +55,7 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
         }
         try clearedRoutineIsNewRoutine(in: app, title: title, gray: gray)
         deleteInPickerEmptiesRoutine(in: app)
-        emptyRoutinesFillsTheWidth(in: app, margin: title.frame.minX)
+        emptyRoutinesFillsTheWidth(in: app, margin: field.minX)
     }
 
     /// With the routine cleared to nothing, no routine is saved, and Routines has no row to
@@ -65,15 +66,18 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
         XCTContext.runActivity(named: "Routines with none saved fills the width") { _ in
             app.openDrawer(andTap: "Routines")
             let heading = app.staticTexts["Routines"]
-            XCTAssertTrue(heading.settles(), "The Routines title kept moving")
+            // The screen slides back in as the drawer closes, so the title is read until it
+            // reaches the margin, or for long enough that it would have.
+            let left = reading(heading.frame.minX, until: { abs($0 - margin) <= 1 }, within: 2)
+            XCTAssertEqual(left, margin, accuracy: 1, "The title is off the margin")
             XCTAssertEqual(app.routineRows.count, 0, "Routines lists a routine")
             XCTAssertEqual(
-                app.scrollViews.firstMatch.frame.width,
+                app.scrollViews.containing(.staticText, identifier: "Routines").firstMatch.frame
+                    .width,
                 app.frame.width,
                 accuracy: 1,
                 "The scroll view, and the background on it, is narrower than the screen",
             )
-            XCTAssertEqual(heading.frame.minX, margin, accuracy: 1, "The title is off the margin")
             attach(named: "routines-empty")
         }
     }
