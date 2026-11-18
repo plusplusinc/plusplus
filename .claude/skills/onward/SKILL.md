@@ -60,6 +60,9 @@ Their time is the scarce thing, and it is for the product.
   lettered so they answer in a line, linked from the board README. Check for the Artifact tool
   with ToolSearch before anyone draws; without it, publish as agent memory describes. A file
   on the Mac never reaches their phone.
+- **Guess their call first.** Before an ask or a round reaches them, put your guess and why in
+  agent memory's prediction log; after they reply, their call and, on a miss, what you
+  misjudged. Agent memory holds what misses taught.
 - **Every message reads on its own, on a phone.** Plain words about the app, not the work:
   name a part of the screen by what they see and where, a card by its title, an option by what
   it shows, never an item id, a canvas label, or a platform term. Each ask carries its link and
@@ -94,11 +97,8 @@ Their time is the scarce thing, and it is for the product.
 
 ## What you say is checked
 
-- Read a state at the moment you report it (an agent's last transcript entry, `gh pr view`, a
-  run's result), even mid-summary; what you read earlier may have changed. After an interrupt,
-  check each background agent and restart a stopped one from its commits and handoff.
-- A number a recommendation turns on (a price, a quota, a speed) is read from its source or
-  measured before anything is built on it.
+- After an interrupt, check each background agent and restart a stopped one from its commits
+  and handoff.
 - Reporting a phase done, say where it went less deep than the card asked. A fix to how
   something reaches them is tried the way they will meet it, or called untried; keep sending
   the proven way until the new one has worked for them.
@@ -133,9 +133,7 @@ Their time is the scarce thing, and it is for the product.
   task starts its kind's agent (`lookup`, `repro`, `edit`, `reviewer`); pass no model, since
   each definition sets its own.
 - **Your context is for decisions.** Never read whole the board README, a dump of cards, a
-  transcript, or a large diff: send it to a subagent that returns what the question needs. A
-  thread with its own goal that doesn't feed the card becomes its own session
-  (`start_session`).
+  transcript, or a large diff: send it to a subagent that returns what the question needs.
 - **After each agent hands back**, run `scripts/sim.sh shutdown` in the slice worktree and in
   any worktree of `main` it added (only those simulators, never another's), in case it skipped
   its own, and add its line to the PR's agent record with `scripts/agent-record.py line` and
