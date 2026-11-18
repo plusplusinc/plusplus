@@ -13,6 +13,9 @@ public final class ScrollBeat {
     /// The beat waiting for the scroll to stop, and what gives it up.
     private var waiting: CheckedContinuation<Void, Never>?
     private var giveUp: Task<Void, Never>?
+    /// Where the list last reported reaching a scroll asked for. A scroll asked for there again,
+    /// as a landing asked for each layout pass is, has already been reached.
+    private var reachedY: CGFloat?
 
     public init() { }
 
@@ -56,17 +59,27 @@ public final class ScrollBeat {
         }
     }
 
-    /// Whether the list rests on `y` or is on its way there: `position` was last scrolled to `y`,
-    /// or, scrolled by a finger or to an edge, the list reports `y`. A scroll asked for is
-    /// reported a frame or more later, after the next layout may have moved what it was aimed at.
+    /// Whether the list rests on `y` or is on its way there: `position` was last scrolled to `y`
+    /// and the list has not yet reported getting there, or the list reports `y`. A scroll asked
+    /// for is reported a frame or more later, after the next layout may have moved what it was
+    /// aimed at. Once reported, only the report counts: a scroll the app did not ask for, such as
+    /// a status-bar tap's to the top, leaves `position` where it was and reports no phase.
     public func rests(on y: CGFloat, asked position: ScrollPosition) -> Bool {
         // A finger's scroll also clears `y` (iOS 27.2); the documented flag doesn't rely on it.
-        let asked = position.isPositionedByUser ? nil : position.y
-        return abs((asked ?? scrolledY) - y) < 1
+        guard !position.isPositionedByUser, let asked = position.y,
+              reachedY.map({ abs($0 - asked) >= 1 }) ?? true
+        else {
+            return abs(scrolledY - y) < 1
+        }
+        return abs(asked - y) < 1
     }
 
-    public func listMoved(to scrolledY: CGFloat) {
+    /// `position` is the scroll last asked for, which the list may have just reached.
+    public func listMoved(to scrolledY: CGFloat, asked position: ScrollPosition) {
         self.scrolledY = scrolledY
+        if let y = position.y, abs(scrolledY - y) < 1 {
+            reachedY = y
+        }
     }
 
     public func phaseChanged(to phase: ScrollPhase) {
