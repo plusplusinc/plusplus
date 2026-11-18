@@ -34,6 +34,8 @@ struct ExercisePicker<Customize: View>: View {
     @State private var customizing: Exercise.ID?
     /// Whether the form was pushed by Create, the one way in that shows Done.
     @State private var isCustomizingCreated = false
+    /// The created exercise Delete in the hold menu is asking about.
+    @State private var deleting: Exercise?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.displayScale) private var displayScale
 
@@ -67,19 +69,34 @@ struct ExercisePicker<Customize: View>: View {
                     }
             }
         }
+        // Here, not on the row: under the list's green tint the alert's Cancel came out green,
+        // where the form's is white.
+        .alert(
+            "Delete \(deleting?.name ?? "")?",
+            isPresented: Binding { deleting != nil } set: {
+                if !$0 {
+                    deleting = nil
+                }
+            },
+            presenting: deleting,
+        ) { exercise in
+            Button("Cancel", role: .cancel) { }
+            Button("Delete exercise", role: .destructive) {
+                Task { await onDelete(exercise.id) }
+            }
+        } message: { exercise in
+            Text(ExerciseForm.deleteMessage(routineCount: routineCount(exercise.id)))
+        }
     }
 
     private func holdMenu(_ exercise: Exercise) -> HoldMenu {
-        let id = exercise.id
-        return HoldMenu(
-            exercise: exercise,
-            isCreated: exercises.original(id: id) == nil,
-            routineCount: { routineCount(id) },
+        HoldMenu(
+            isCreated: exercises.original(id: exercise.id) == nil,
             onCustomize: {
                 isCustomizingCreated = false
-                customizing = id
+                customizing = exercise.id
             },
-            onDelete: { await onDelete(id) },
+            onDelete: { deleting = exercise },
         )
     }
 
@@ -101,16 +118,11 @@ struct ExercisePicker<Customize: View>: View {
 }
 
 /// A row's hold menu in Add exercise, the system's context menu: Customize… for any exercise,
-/// then, for one someone created, Delete, which asks first in a centered alert.
+/// then, for one someone created, Delete, whose question the picker asks.
 private struct HoldMenu: ViewModifier {
-    let exercise: Exercise
     let isCreated: Bool
-    /// Read as Delete asks, not for every row the list draws.
-    let routineCount: () -> Int
     let onCustomize: () -> Void
-    let onDelete: () async -> Void
-
-    @State private var isAskingToDelete = false
+    let onDelete: () -> Void
 
     func body(content: Content) -> some View {
         content
@@ -120,24 +132,14 @@ private struct HoldMenu: ViewModifier {
                     // green beside its red title.
                     .tint(nil)
             }
-            .alert("Delete \(exercise.name)?", isPresented: $isAskingToDelete) {
-                Button("Cancel", role: .cancel) { }
-                Button("Delete exercise", role: .destructive) {
-                    Task { await onDelete() }
-                }
-            } message: {
-                Text(ExerciseForm.deleteMessage(routineCount: routineCount()))
-            }
     }
 
     @ViewBuilder
     private var menuItems: some View {
         Button("Customize…", systemImage: "slider.horizontal.3", action: onCustomize)
         if isCreated {
-            Button("Delete", systemImage: "trash", role: .destructive) {
-                isAskingToDelete = true
-            }
-            .accessibilityIdentifier("picker.menu.delete")
+            Button("Delete", systemImage: "trash", role: .destructive, action: onDelete)
+                .accessibilityIdentifier("picker.menu.delete")
         }
     }
 }
