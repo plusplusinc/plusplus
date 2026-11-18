@@ -13,9 +13,9 @@ import WorkoutStore
 /// most of it.
 ///
 /// Both have search as a round button at the bar's top trailing edge, which opens out to the
-/// left into a field across the bar (`BarSearchField`), taking in the bar's leading button: ++ in
-/// Exercises, under its large title, and Close in Add exercise, where the field covers the inline
-/// title too.
+/// left into a field across the bar (`BarSearchField`), which the bar's leading button turns into:
+/// ++ in Exercises, under its large title, and Close in Add exercise, where the field covers the
+/// inline title too.
 ///
 /// Search does not take focus when the list opens. The list is the fast path: with the
 /// keyboard down, the whole list is in reach of a thumb and a pick is one tap.
@@ -50,6 +50,9 @@ struct ExerciseListView<BarLeading: View>: View {
     @State private var query = ""
     /// The name the form opens with, while it shows.
     @State private var creating: String?
+    /// Dropped by a tap that pushes a screen, so the keyboard goes down with the push, as the
+    /// system's search does; back on the list, search stays open with its text, keyboard down.
+    @FocusState private var isSearchFocused: Bool
     @State private var isKeyboardUp = false
     /// Where the list's room starts, at the bar's bottom edge, in global coordinates: where a
     /// heading pins, and past which a heading pushed up fades (`LeavesUnderBar`).
@@ -104,6 +107,7 @@ struct ExerciseListView<BarLeading: View>: View {
             text: $query,
             title: barTitle,
             leading: barLeading,
+            focus: $isSearchFocused,
             onOpen: onSearchOpen,
         ))
         .navigationDestination(item: $creating) { name in
@@ -131,6 +135,7 @@ struct ExerciseListView<BarLeading: View>: View {
         Group {
             if isTappable(exercise) {
                 Button {
+                    isSearchFocused = false
                     onTap(exercise)
                 } label: {
                     label
@@ -150,6 +155,7 @@ struct ExerciseListView<BarLeading: View>: View {
 
     private var createRow: some View {
         Button {
+            isSearchFocused = false
             creating = createdName
         } label: {
             createLabel
@@ -220,6 +226,7 @@ private struct SearchField<Leading: View>: ViewModifier {
     @Binding var text: String
     let title: LocalizedStringKey?
     let leading: Leading
+    let focus: FocusState<Bool>.Binding
     let onOpen: () -> Void
 
     /// The screen's width, which the item spans but for the bar's margins.
@@ -258,6 +265,7 @@ private struct SearchField<Leading: View>: ViewModifier {
                         width: width - 2 * Spacing.md,
                         title: title,
                         titleCenterX: midX,
+                        focus: focus,
                     ) { leading }
                         .hiddenBehindDrawer()
                 }

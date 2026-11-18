@@ -4,8 +4,8 @@ import WorkoutStore
 
 /// The sheet Add exercise opens: the exercise list (`ExerciseListView`) on a stack of its own,
 /// with Close. Picking one hands it back; the presenter closes the sheet. Its inline title and
-/// Close are drawn by the bar's search: its field takes Close in as it opens, covering the title,
-/// and gives it back as it closes. Opening search takes the sheet to full height, as the system's
+/// Close are drawn by the bar's search: Close turns into its field as it opens, which covers the
+/// title, and back as it closes. Opening search takes the sheet to full height, as the system's
 /// search does, whether or not a software keyboard comes up to push it. A swipe down closes the
 /// sheet at any time.
 struct ExercisePicker: View {
