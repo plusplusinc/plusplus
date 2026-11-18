@@ -1,0 +1,308 @@
+import DesignSystem
+import SwiftUI
+import WorkoutStore
+
+/// A superset's rest after each round, read and stepped through the routine, since every member
+/// holds it.
+struct RoundSteps {
+    let value: () -> (text: String, spoken: String)
+    /// The rest in seconds, which its digits roll up or down by.
+    let seconds: () -> Double
+    let canStep: (Int) -> Bool
+    let step: (Int) -> Void
+    /// Sets it by hand to a number of seconds, as its ruler is dragged; Auto goes off.
+    let set: (Int) -> Void
+    /// Whether its rest is derived from the members, and a switch to set that.
+    let isAuto: Binding<Bool>
+    /// What a rest set by hand stays put through, by the members' sets: "reps", "the time", or
+    /// "reps or time".
+    let change: String
+}
+
+/// A routine row's values, a `ValueRow` for each part its exercise has, under the exercise's
+/// equipment, as a page of a sheet's stack: the row's own sheet (`ExerciseSheet`), or Add
+/// exercise's once Create has made the row. A row's stepper opens one at a time. Changes apply
+/// as they're made. Close is the sheet's; the More menu holds Customize…, which the sheet pushes,
+/// and Remove.
+struct ExerciseValues: View {
+    @Binding var item: RoutineExercise
+    /// The names of the exercises in a superset with it, which share its round count, or nil.
+    let partners: String?
+    /// The values it steps, in order (`Routine.sheetParts(of:)`).
+    let parts: [SheetPart]
+    /// Its superset's rest; nil for a plain row.
+    var rounds: RoundSteps?
+    /// Closes the sheet: in a pushed page, the page's own dismiss would only pop it.
+    let onClose: () -> Void
+    let onCustomize: () -> Void
+    /// Closes the sheet and removes the row.
+    let onRemove: () -> Void
+    /// Grows the sheet by what its content overflows as a row opens; nil where the sheet keeps
+    /// its height.
+    var fit: ((CGFloat) -> Void)?
+
+    @State private var open: SheetPart?
+    /// A row is opening where the sheet can grow: it grows to fit once its content has the row's
+    /// open height, or not at all once the row has opened, so a later change in height (a
+    /// footer's, a value's) never grows it.
+    @State private var growsToFit = false
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        ScrollViewReader { scroller in
+            ScrollView {
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    let equipment = [item.exercise].equipment
+                    if !equipment.isEmpty {
+                        Capsules(equipment.map(\.name))
+                            .padding(.bottom, Spacing.sm)
+                    }
+                    ForEach(parts, id: \.self) { part in
+                        let auto = isAuto(part)
+                        ValueRow(
+                            label: label(of: part),
+                            note: note(on: part),
+                            value: value(of: part),
+                            number: number(of: part),
+                            tag: auto == nil ? nil : "Auto",
+                            showsTag: auto?.wrappedValue == true,
+                            spokenValue: spokenValue(of: part),
+                            isOpen: open == part,
+                            canDecrease: canStep(part, by: -1),
+                            canIncrease: canStep(part, by: 1),
+                            onToggle: { toggle(part, scroller) },
+                            onStep: { step(part, by: $0) },
+                            ruler: ruler(for: part),
+                            accessory: auto.map(autoSwitch),
+                            footer: auto.map { restFooter(isAuto: $0.wrappedValue, of: part) },
+                        )
+                        .id(part)
+                    }
+                }
+                .padding(.horizontal, Spacing.md)
+                .padding(.vertical, Spacing.md)
+            }
+            .onScrollGeometryChange(for: CGFloat.self, of: \.endY) { _, overflow in
+                guard growsToFit else { return }
+                growsToFit = false
+                if overflow > 0 {
+                    fit?(overflow)
+                }
+            }
+        }
+        .background(Color.pp(.background))
+        .navigationTitle(item.exercise.name)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button(role: .close, action: onClose)
+            }
+            ToolbarItem(placement: .primaryAction) {
+                Menu("More", systemImage: "ellipsis") {
+                    Button("Customize…", systemImage: "slider.horizontal.3", action: onCustomize)
+                    Button(
+                        "Remove",
+                        systemImage: "minus.circle",
+                        role: .destructive,
+                        action: onRemove,
+                    )
+                }
+            }
+        }
+    }
+
+    /// The weight, a timed set's time, or a rest, dragged on a ruler in its open row.
+    private func ruler(for part: SheetPart) -> ValueRuler? {
+        switch part {
+        case .plan(.weight):
+            guard let amount = item.plan.weight?.amount,
+                  let range = item.weightRange
+            else { return nil }
+            let locale = locale
+            return ValueRuler(
+                value: amount,
+                range: range,
+                label: { $0.formatted(.number.precision(.fractionLength(0 ... 1)).locale(locale)) },
+                onChange: { item.setWeight($0) },
+            )
+        case .plan(.target):
+            guard case let .time(seconds) = item.plan.target else { return nil }
+            return timeRuler(seconds, range: RoutineExercise.timeRange) { item.setTime($0) }
+        case .plan(.rest):
+            return timeRuler(item.rest, range: RoutineExercise.restRange) { item.setRest($0) }
+        case .restAfterRound:
+            return rounds.map { rounds in
+                timeRuler(Int(rounds.seconds()), range: RoutineExercise.restRange, set: rounds.set)
+            }
+        case .plan(.sets):
+            return nil
+        }
+    }
+
+    /// Room for a "10:00" label each 30 s, six 5 s ticks apart, with a gap between labels.
+    private static var timeSpacing: CGFloat {
+        10
+    }
+
+    /// A ruler in seconds, a timed set's or a rest's: a tick each 5 s, so a drag can rest on any
+    /// 5 s (a rest's − / + still go to its 15 s marks), taller each 15 s, labeled each 30 s in
+    /// minutes and seconds as the open row reads.
+    private func timeRuler(
+        _ seconds: Int,
+        range: ClosedRange<Int>,
+        set: @escaping (Int) -> Void,
+    ) -> ValueRuler {
+        let locale = locale
+        return ValueRuler(
+            value: Double(seconds),
+            range: Double(range.lowerBound) ... Double(range.upperBound),
+            tick: Double(RoutineExercise.timeStep),
+            medium: 15,
+            major: 30,
+            spacing: Self.timeSpacing,
+            label: { RoutineExercise.rulerTime(Int($0), locale: locale) },
+            onChange: { set(Int($0.rounded())) },
+        )
+    }
+
+    /// In a superset, sets are rounds, shared with its partners.
+    private func isRounds(_ part: SheetPart) -> Bool {
+        part == .plan(.sets) && partners != nil
+    }
+
+    private func label(of part: SheetPart) -> String {
+        switch part {
+        case .plan where isRounds(part): "Rounds"
+        case let .plan(plan): item.label(of: plan)
+        case .restAfterRound: "Rest"
+        }
+    }
+
+    /// While a ruler shows, its value keeps one shape, a weight one decimal and a time or rest
+    /// both its units ("0m 45s"), so its parts don't come and go as it turns. The shape
+    /// changes in the open's own transaction, so the value's numeric transition slides it in and
+    /// out with the row.
+    private func value(of part: SheetPart) -> String {
+        let dialed = open == part && ruler(for: part) != nil
+        switch part {
+        case let .plan(plan) where dialed: return item.dialedValue(of: plan, locale: locale)
+        case let .plan(plan): return item.value(of: plan, locale: locale)
+        case .restAfterRound where dialed:
+            return RoutineExercise.dialedTime(Int(rounds?.seconds() ?? 0), locale: locale)
+        case .restAfterRound: return rounds?.value().text ?? ""
+        }
+    }
+
+    private func number(of part: SheetPart) -> Double {
+        switch part {
+        case let .plan(plan): item.amount(of: plan)
+        case .restAfterRound: rounds?.seconds() ?? 0
+        }
+    }
+
+    /// Rounds read as the bare count under their label, "Rounds, 3", not "3 sets".
+    private func spokenValue(of part: SheetPart) -> String {
+        switch part {
+        case let .plan(plan) where isRounds(part): item.value(of: plan, locale: locale)
+        case let .plan(plan): item.spokenValue(of: plan, locale: locale)
+        case .restAfterRound: rounds?.value().spoken ?? ""
+        }
+    }
+
+    private func canStep(_ part: SheetPart, by direction: Int) -> Bool {
+        switch part {
+        case let .plan(plan): item.canStep(plan, by: direction)
+        case .restAfterRound: rounds?.canStep(direction) ?? false
+        }
+    }
+
+    private func step(_ part: SheetPart, by direction: Int) {
+        switch part {
+        case let .plan(plan): item.step(plan, by: direction)
+        case .restAfterRound: rounds?.step(direction)
+        }
+    }
+
+    /// Whether a rest part is automatic, as a switch; nil for a part that isn't a rest. The
+    /// switch animates the value and its tag as it goes.
+    private func isAuto(_ part: SheetPart) -> Binding<Bool>? {
+        switch part {
+        case .plan(.rest): $item.isRestAuto.animation(ValueRow.change)
+        case .restAfterRound: rounds?.isAuto.animation(ValueRow.change)
+        case .plan: nil
+        }
+    }
+
+    /// Inside an open rest, under its keys.
+    private func autoSwitch(_ isOn: Binding<Bool>) -> some View {
+        Toggle("Auto", isOn: isOn)
+            .font(.ppRowTitle)
+            .foregroundStyle(.pp(.textPrimary))
+            // The switch draws its track about 2 pt past its frame's trailing edge (measured on
+            // iOS 27); this keeps the track itself as far from the row's edge as the label is.
+            .padding(.trailing, Spacing.xxs)
+    }
+
+    /// Under an open rest: what automatic rest follows while it's on, and that a rest set by
+    /// hand stays put while it's off. Both are laid out, the other one clear, so the footer keeps
+    /// the taller one's height: the first step, which turns Auto off, moves nothing. Otherwise the
+    /// sheet, scrolled to the open row, kept its end in view by sliding the row's keys from under
+    /// the finger, and a second tap landed on the row and closed it.
+    private func restFooter(isAuto: Bool, of part: SheetPart) -> some View {
+        let change = rounds?.change ?? [item].restChange
+        // A sentence, so its time reads condensed ("1 min 35 sec"), open or closed.
+        let seconds = Int(number(of: part))
+        let time = RoutineExercise.restInSentence(seconds, locale: locale)
+        let spokenTime = RoutineExercise.restInSentence(seconds, spoken: true, locale: locale)
+        let held = "Stays at \(time) when you change \(change)."
+        let spokenHeld = "Stays at \(spokenTime) when you change \(change)."
+        return ZStack(alignment: .topLeading) {
+            Text(explanation)
+                .opacity(isAuto ? 1 : 0)
+                .accessibilityHidden(!isAuto)
+            Text(held)
+                .opacity(isAuto ? 0 : 1)
+                .accessibilityLabel(spokenHeld)
+                .accessibilityHidden(isAuto)
+        }
+    }
+
+    /// What automatic rest follows.
+    private var explanation: String {
+        if rounds != nil {
+            return "Auto rest follows the exercises in this superset."
+        }
+        if case .time = item.plan.target {
+            return "Auto rest matches the set's time."
+        }
+        return "Auto rest follows your reps and the exercise. Heavier sets rest longer."
+    }
+
+    /// What a part is for, in gray under its label, where the label alone doesn't say.
+    private func note(on part: SheetPart) -> String? {
+        switch part {
+        case .plan(.sets): partners.map { "Shared with \($0)" }
+        case .plan(.rest): "After each set"
+        case .plan(.target), .plan(.weight): nil
+        case .restAfterRound:
+            "After each round" + (partners.map { ", shared with \($0)" } ?? "")
+        }
+    }
+
+    /// Opens or closes a part's stepper. Once one has opened, the sheet scrolls only as far as
+    /// it takes to show the whole row, its keys below its edge included, so a row in view stays
+    /// put.
+    private func toggle(_ part: SheetPart, _ scroller: ScrollViewProxy) {
+        let opening = open != part
+        growsToFit = opening && fit != nil
+        withAnimation(ValueRow.motion) {
+            open = opening ? part : nil
+        } completion: {
+            growsToFit = false
+            guard opening, open == part else { return }
+            withAnimation(ValueRow.motion) {
+                scroller.scrollTo(part)
+            }
+        }
+    }
+}
