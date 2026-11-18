@@ -66,7 +66,5 @@ sync could leave, the one started later), else the routine last opened or edited
 workout finished after that, which opens a new routine. While a workout runs, a routine cleared
 to nothing is kept (`keepsEmpty`), and deleted once the workout ends.
 
-A row's `exerciseID` resolves through `ExerciseList`, the built-ins, each with V10's
-`StoredCustomization` applied (the settings someone changed, by slug), and V8's
-`StoredExercise`s, which store only their five settings; a row it can't resolve is left out.
-`deleteExercise` removes its rows too.
+A row's `exerciseID` resolves through `ExerciseList`, the customized built-ins (V10) and V8's `StoredExercise`s (five settings each); a row
+it can't resolve is left out. `deleteExercise` removes its rows too.
