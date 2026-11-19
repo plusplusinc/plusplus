@@ -18,6 +18,8 @@ import SwiftUI
 struct GrowingName: View, Animatable {
     let title: String
     var growth: CGFloat
+    /// `textSecondary` on a finished exercise, so what is current reads brightest.
+    var color: ColorToken = .textPrimary
 
     nonisolated var animatableData: CGFloat {
         get { growth }
@@ -53,7 +55,7 @@ struct GrowingName: View, Animatable {
     private func name(_ font: Font) -> some View {
         Text(title)
             .font(font)
-            .foregroundStyle(.pp(.textPrimary))
+            .foregroundStyle(.pp(color))
             .fixedSize(horizontal: false, vertical: true)
     }
 

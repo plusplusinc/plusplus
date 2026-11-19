@@ -14,48 +14,72 @@ public struct SetProgress: Equatable {
     }
 }
 
-/// One short bar per set, side by side: the sets done filled `done` purple, the rest `toDo`
-/// gray. On the current exercise, `isCurrent`, the bar of the set it is on is green, as its node
-/// is. Sized with the detail line's text.
+/// One short bar per set, side by side, at a row's detail line: the sets done filled `done`
+/// purple, the rest `toDo` gray. Sized with the detail line's text.
 public struct SetBars: View {
     private let progress: SetProgress
-    private let isCurrent: Bool
 
     @ScaledMetric(relativeTo: .subheadline) private var width: CGFloat = 9
     @ScaledMetric(relativeTo: .subheadline) private var height: CGFloat = 5
     @ScaledMetric(relativeTo: .subheadline) private var gap: CGFloat = 3
     @ScaledMetric(relativeTo: .subheadline) private var corner: CGFloat = 1.5
 
-    public init(_ progress: SetProgress, isCurrent: Bool = false) {
+    public init(_ progress: SetProgress) {
         self.progress = progress
-        self.isCurrent = isCurrent
     }
 
     public var body: some View {
         HStack(spacing: gap) {
             ForEach(0 ..< max(progress.total, 0), id: \.self) { index in
-                bar(index)
+                RoundedRectangle(cornerRadius: corner)
+                    .fill(.pp(index < progress.done ? .done : .toDo))
+                    .frame(width: width, height: height)
+            }
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+/// The current exercise's sets as a bar of segments across its text column, one per set, of
+/// equal widths, `gap` apart: the sets done `done` purple, the set it is on green, as its node
+/// is, while `isOnSet`, and the sets to come the quiet track gray a rest's bar runs on
+/// (`borderStrong`). Resting between sets, no segment is green: the set just done has turned
+/// purple and the next is still to come. One view per segment, so a segment changing color
+/// changes its fill in place, on the change's animation. With many sets the segments narrow,
+/// the gaps kept.
+struct SetSegments: View {
+    let progress: SetProgress
+    let isOnSet: Bool
+
+    @ScaledMetric(relativeTo: .subheadline) private var height: CGFloat = 4
+
+    var body: some View {
+        HStack(spacing: Spacing.xs) {
+            ForEach(0 ..< max(progress.total, 0), id: \.self) { index in
+                Capsule()
+                    .fill(.pp(color(index)))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: height)
             }
         }
         .accessibilityHidden(true)
     }
 
-    /// One view per bar whatever it shows, so a bar turning green or purple changes its fill in
-    /// place: as two views, one went out and the other came in, sliding apart.
-    private func bar(_ index: Int) -> some View {
-        let shape = RoundedRectangle(cornerRadius: corner)
-        let isOn = isCurrent && index == progress.done
-        return shape
-            .fill(.pp(isOn ? .accent : index < progress.done ? .done : .toDo))
-            .frame(width: width, height: height)
+    private func color(_ index: Int) -> ColorToken {
+        if index < progress.done {
+            return .done
+        }
+        return isOnSet && index == progress.done ? .accent : .borderStrong
     }
 }
 
 #Preview {
     VStack(alignment: .trailing, spacing: Spacing.md) {
         SetBars(SetProgress(done: 2, total: 3, spoken: ""))
-        SetBars(SetProgress(done: 1, total: 4, spoken: ""), isCurrent: true)
         SetBars(SetProgress(done: 5, total: 8, spoken: ""))
+        SetSegments(progress: SetProgress(done: 1, total: 3, spoken: ""), isOnSet: true)
+        SetSegments(progress: SetProgress(done: 1, total: 3, spoken: ""), isOnSet: false)
+        SetSegments(progress: SetProgress(done: 4, total: 12, spoken: ""), isOnSet: true)
     }
     .padding()
     .background(Color.pp(.background))

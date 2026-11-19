@@ -15,14 +15,14 @@ import SwiftUI
 ///   a still screen, the current exercise's parts all still showing, for `landingHold` after it
 ///   lands, as its first squash has sprung back.
 /// - **Leave**: what the current exercise grew to show goes, bottom first, each part fading as it
-///   drops a few points: the numbers, then the equipment and the progress line, as the shift
+///   drops a few points: the equipment, then the numbers and the progress line, as the shift
 ///   starts.
 /// - **Shift** (to `shiftEnd(_:)`): the row shrinks back to a resting row as the next row grows
 ///   into the current exercise and the list scrolls it under the bar, down the rail (`Way.down`)
 ///   and back up a superset's loop (`Way.loop`) alike. Down the rail, what lies between and below
 ///   moves up once, never back down.
 /// - **Arrive**: the next row's parts come in top first as it has room for them, each fading as
-///   it rises a few points: the progress line, the equipment, the numbers.
+///   it rises a few points: the progress line, the numbers, the equipment.
 public enum SetMotion {
     /// Which way a move goes along the rail, which sets the pulse's route and travel.
     public enum Way: Sendable {
@@ -56,8 +56,8 @@ public enum SetMotion {
     static func leaveDelay(_ part: Part, way: Way? = nil) -> Double {
         let start = way.map(moveShiftStart) ?? 0
         return switch part {
-        case .figures: start
-        case .equipment, .progress: start + leaveStagger
+        case .equipment: start
+        case .figures, .progress: start + leaveStagger
         }
     }
 
@@ -177,15 +177,15 @@ public enum SetMotion {
         guard let way else {
             return switch part {
             case .progress: 0.2
-            case .equipment: 0.28
-            case .figures: 0.36
+            case .figures: 0.28
+            case .equipment: 0.36
             }
         }
         return moveShiftStart(way) + {
             switch part {
             case .progress: 0.14
-            case .equipment: 0.18
-            case .figures: 0.22
+            case .figures: 0.18
+            case .equipment: 0.22
             }
         }()
     }
@@ -202,19 +202,41 @@ public enum SetMotion {
     /// countdown's figure turning with it.
     public static let restGlide = 0.45
 
+    /// From a rest between exercises to the next one, the shift's curve and length, started as
+    /// the dot leaves the word "Rest" rather than once it lands: the next exercise opens as the
+    /// dot sets off, and its parts come in as they do at Start (`arriveDelay(_:way:)` with no way).
+    public static var leavingRest: Animation {
+        .timingCurve(0.6, 0, 0.1, 1, duration: moveShift).delay(travelStart)
+    }
+
+    /// When the key at the bottom comes back from a rest between exercises, from the rest's end:
+    /// with the next exercise's figures.
+    public static let keyAfterRest = arriveDelay(.figures)
+
+    // MARK: A rest between sets
+
+    /// Everything a log that rests between sets changes, from the tap, and the rest's end
+    /// changes back, on one curve: the figures and the rest swapping in their slot, the set's
+    /// segment turning purple, the caption line rolling, and the key at the bottom swapping in
+    /// place for −15 s and +15 s.
+    public static var restSwap: Animation {
+        .snappy(duration: roll)
+    }
+
     // MARK: The timeline
 
     /// The whole move, from the log to the shift's end, the next exercise's last part in
     /// place and the pulse's plop settled into the lit node.
     public static func move(_ way: Way) -> Double {
-        max(shiftEnd(way), arriveDelay(.figures, way: way) + arriveFade, PulseShape.runEnd(way))
+        max(shiftEnd(way), arriveDelay(.equipment, way: way) + arriveFade, PulseShape.runEnd(way))
     }
 
-    /// The current exercise's parts under its name, which leave and arrive in turn.
+    /// The current exercise's parts under its name, top to bottom, which leave and arrive in
+    /// turn.
     enum Part {
         case progress
-        case equipment
         case figures
+        case equipment
     }
 
     /// Where along the travel, from 0 to 1, the pulse is a share `time` of the way through it. Down

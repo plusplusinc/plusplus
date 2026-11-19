@@ -58,13 +58,18 @@ extension RoutineScreen {
         if let rest = phase.resting {
             return !rest.isWithinExercise && rest.beat < .settled ? .down : nil
         }
-        return phase.move?.way
+        // Out of a rest, the next exercise opens as the dot leaves, its parts coming in as at
+        // Start, with no landing to wait for (`SetMotion.leavingRest`).
+        guard let move = phase.move, !move.isFromRest else { return nil }
+        return move.way
     }
 
-    /// The current exercise as it grows into `set`: at a superset round's end, it shows the round
-    /// just done, as the logged set's row showed it, until the move rolls it to the new one.
-    func focus(of item: RoutineExercise, on set: PlannedSet) -> RowFocus {
+    /// The current exercise as it grows into `set`, `after` at its caption line's trailing end:
+    /// at a superset round's end, it shows the round just done, as the logged set's row showed
+    /// it, until the move rolls it to the new one.
+    func focus(of item: RoutineExercise, on set: PlannedSet, after: String?) -> RowFocus {
         var focus = item.focus(on: set, inSuperset: routine.isInSuperset(item.id), locale: locale)
+        focus.after = after
         if let move = phase.move, move.holdsRound,
            let left = routine.exercises.first(where: { $0.id == move.set.row })
         {
@@ -74,39 +79,39 @@ extension RoutineScreen {
                 locale: locale,
             )
         }
-        // Resting between two sets, the line says the set just done, "Set 1 of 3 done", until
-        // the next set swaps back up.
+        // Resting between two sets, the line says the set just done, "1 of 3 done", with nothing
+        // after it, until the next set swaps back up.
         if let rest = phase.drawnRest, rest.isWithinExercise, rest.beat >= .shown,
            rest.beat < .returning, rest.set.row == item.id
         {
-            focus.progress = item.progressText(
-                set: rest.set.round,
-                inSuperset: false,
-                locale: locale,
-            )
-                + " done"
+            let round = rest.set.round.formatted(.number.locale(locale))
+            let sets = item.plan.sets.formatted(.number.locale(locale))
+            focus.progress = "\(round) of \(sets) done"
+            focus.after = nil
         }
         return focus
     }
 
-    /// A row's label: the current exercise, grown, on `set`; else a row, with its `bars`. Given
+    /// A row's label: the current exercise, grown, on `set`; else a row, with its parts. Given
     /// the screen's values read once, as the rows' closure holds them: read here, a list
     /// crossfading out took the bars of the workout it faded into, a finished row's gone at once.
     func rowLabel(
         _ item: RoutineExercise,
         current: RoutineExercise.ID?,
         on set: PlannedSet?,
-        bars: SetProgress?,
-        setRest: SetRest? = nil,
+        parts: RowParts?,
     ) -> RowLabel {
-        let focus = item.id == current ? set.map { focus(of: item, on: $0) } : nil
+        let focus = item.id == current
+            ? set.map { focus(of: item, on: $0, after: parts?.after) } : nil
         return RowLabel(
             title: item.exercise.name,
             detail: item.detailParts(locale: locale),
             spokenDetail: item.spokenDetail(locale: locale),
             focus: focus,
-            bars: bars,
-            setRest: setRest,
+            bars: parts?.bars,
+            setRest: parts?.restBetween,
+            isDone: parts?.isDone ?? false,
+            nextUp: parts?.nextUp,
         )
     }
 
@@ -328,9 +333,9 @@ extension RoutineScreen {
     }
 
     /// Whether the key shows, Start or the workout's: with exercises, and not gone for Start's
-    /// grow, a workout's end (`WorkoutPhase.keyGone`), or a rest (`keyRests`).
+    /// grow or a workout's end (`WorkoutPhase.keyGone`).
     var showsKey: Bool {
-        !footShowsEmpty && !keyRests && phase.keyGone == nil
+        !footShowsEmpty && phase.keyGone == nil
     }
 }
 

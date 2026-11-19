@@ -9,8 +9,9 @@ extension RoutineScreen {
     enum KeyRole: Equatable, Identifiable {
         case start
         /// Logs the current set, saying which ("Log set", "Log left", "Log last set"). After the
-        /// last set, as its row closes, it still says "Log last set", and takes no tap.
-        case log(String)
+        /// last set, as its row closes, it still says "Log last set", and takes no tap. During a
+        /// rest, `isResting`, it gives way in place to −15 s and +15 s (`RestKeys`).
+        case log(String, isResting: Bool = false)
         /// The current exercise is scrolled away, above it or not: the key goes back to it.
         case back(name: String, isAbove: Bool)
         case finish
@@ -37,6 +38,19 @@ extension RoutineScreen {
         var id: Kind {
             kind
         }
+
+        var isResting: Bool {
+            if case .log(_, true) = self {
+                return true
+            }
+            return false
+        }
+    }
+
+    /// Whether the key shows −15 s and +15 s: from the log of a set with a rest after it until
+    /// the rest ends, and through End's leaving of a rest.
+    var keyShowsRest: Bool {
+        phase.drawnRest.map { $0.beat < .returning } ?? false
     }
 
     /// What the key is for, as the workout stands. The bar swaps the key as its kind changes
@@ -47,7 +61,7 @@ extension RoutineScreen {
         // shows its own, so it changes with the row: read from the workout, it said the next
         // exercise's set ("Log left") as the pulse set off. After the last set, through the close.
         if let set = phase.keySet, let text = live?.hiding([set]).logText {
-            return .log(text)
+            return .log(text, isResting: keyShowsRest)
         }
         if shown.isDone {
             return .finish
@@ -57,14 +71,26 @@ extension RoutineScreen {
         }
         // As drawn, the held set until the line rolls on, so the key changes with the row, not
         // before it.
-        return shown.logText.map(KeyRole.log) ?? .finish
+        return shown.logText.map { KeyRole.log($0, isResting: keyShowsRest) } ?? .finish
     }
 
     /// The key that `primaryKeyBar` holds, for `role`. Within a kind, one key whose words
     /// change; across kinds, another key, which the bar swaps in. While the bar has it out in a
     /// swap, a tap or a VoiceOver activation does nothing, and the key stays enabled, so
-    /// VoiceOver doesn't read it dimmed for the swap's length.
+    /// VoiceOver doesn't read it dimmed for the swap's length. During a rest it gives way in
+    /// place to −15 s and +15 s, coming back after a rest between exercises with the next
+    /// exercise's figures (`SetMotion.keyAfterRest`).
     func key(_ role: KeyRole, isOut: Bool) -> some View {
+        RestKeys(
+            isResting: role.isResting,
+            delay: phase.move?.isFromRest == true ? SetMotion.keyAfterRest : 0,
+            onShorten: { adjustRest(by: -15) },
+            onExtend: { adjustRest(by: 15) },
+            key: { mainKey(role, isOut: isOut) },
+        )
+    }
+
+    private func mainKey(_ role: KeyRole, isOut: Bool) -> some View {
         Button {
             if !isOut {
                 tapKey()
@@ -93,7 +119,7 @@ extension RoutineScreen {
     private func spokenKey(_ role: KeyRole) -> String {
         switch role {
         case .start: String(localized: "Start")
-        case let .log(text): text
+        case let .log(text, _): text
         case let .back(exercise, _): String(localized: "Go to current exercise, \(exercise)")
         case .finish: String(localized: "Finish workout")
         }
