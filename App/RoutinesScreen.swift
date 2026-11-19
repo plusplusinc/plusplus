@@ -7,7 +7,8 @@ import WorkoutStore
 /// Tapping one pushes it on the routine screen; + pushes a new one.
 ///
 /// A row swiped left shows the system's red Delete, and a row held opens the system's context
-/// menu with Delete, red with a trash. Either asks first in a centered alert, "Delete <name>?",
+/// menu with Delete, red with a trash, the held row lifted on a rounded platter in the screen's
+/// color, as a row in Add exercise is. Either asks first in a centered alert, "Delete <name>?",
 /// the name as the row shows it; confirmed, the row leaves and the rows below close the gap,
 /// and the screen stays on Routines (`RoutineSession.delete(_:)`).
 struct RoutinesScreen: View {
@@ -35,6 +36,7 @@ struct RoutinesScreen: View {
                         .ppFixedTitleFont()
                         .foregroundStyle(.pp(.textPrimary))
                         .accessibilityAddTraits(.isHeader)
+                        .padding(.horizontal, Spacing.md)
                         .padding(.bottom, Spacing.md)
                         .onScrollVisibilityChange(threshold: 0.01) { isVisible in
                             withAnimation(.easeOut(duration: RoutineScreen.barFade)) {
@@ -46,7 +48,6 @@ struct RoutinesScreen: View {
                 // The scroll view takes its content's width, so with no row to stretch it the
                 // title alone would set it.
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, Spacing.md)
                 .padding(.top, Spacing.sm)
                 .padding(.bottom, Spacing.md)
             }
@@ -118,6 +119,13 @@ struct RoutinesScreen: View {
             Task { await session.open(routine.id, weightUnit: weightUnit) }
         } label: {
             NameRow(namer.listedName(of: routine))
+                // The name keeps the screen's margin: half of it outside the platter, half
+                // inside.
+                .padding(.horizontal, Self.platterInset)
+                // The platter the held row lifts on, as a list row's in Add exercise: in the
+                // screen's own color, so it shows only once the screen behind it dims.
+                .background(Color.pp(.background), in: Self.platter)
+                .contentShape(.contextMenuPreview, Self.platter)
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
@@ -128,7 +136,12 @@ struct RoutinesScreen: View {
         .contextMenu {
             Button("Delete", systemImage: "trash", role: .destructive) { deleting = routine }
         }
+        .padding(.horizontal, Self.platterInset)
     }
+
+    /// Half the screen's margin (`Spacing.md`), each side of the platter's edge.
+    private static let platterInset = Spacing.sm
+    private static let platter = RoundedRectangle(cornerRadius: Radius.key, style: .continuous)
 
     /// Takes the row out at once, the rows below closing the gap, then deletes the routine.
     private func delete(_ id: Routine.ID) {
