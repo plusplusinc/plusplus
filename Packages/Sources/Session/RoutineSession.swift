@@ -12,9 +12,9 @@ import WorkoutStore
 @Observable
 public final class RoutineSession {
     /// The routine as it was opened. Changes only on a switch, which gives a fresh screen.
-    public private(set) var opened: Routine
+    public internal(set) var opened: Routine
     /// The open routine as it is now, edits included.
-    public private(set) var current: Routine
+    public internal(set) var current: Routine
     /// Opened through `openDrawer()`, which a workout refuses, and shut through `closeDrawer()`.
     public private(set) var isDrawerOpen = false
     /// The routine screen's open row sheet, through `openRowSheet(_:)` and `closeRowSheet()`.
@@ -32,11 +32,13 @@ public final class RoutineSession {
     @ObservationIgnored var deleting: Set<Exercise.ID> = []
 
     /// The saved routines, latest first, as of the last read, with each routine left since.
-    private var saved: [Routine] = []
-    private var isSwitching = false
-    /// How many times the routine showing has changed, so a read that a switch overtook is
-    /// dropped.
-    @ObservationIgnored private var switches = 0
+    /// Internal, as what the switches below use, for the extensions that change the list apart
+    /// (`delete(_:)`).
+    var saved: [Routine] = []
+    var isSwitching = false
+    /// How many times the routine showing or the list has changed, so a read that one overtook
+    /// is dropped.
+    @ObservationIgnored var switches = 0
 
     /// Nil when the store didn't open: switching works in memory, and nothing saves.
     @ObservationIgnored let store: RoutineStore?
@@ -286,7 +288,7 @@ public final class RoutineSession {
     /// Lets the last edit land: a finished stream still hands over what it holds. An edit made
     /// while it lands reaches only `current`, so it is saved after. Then saving starts again, so
     /// no edit ever goes to a finished stream.
-    private func finishSaving() async {
+    func finishSaving() async {
         var landed = current
         saves.finish()
         await saving.value
