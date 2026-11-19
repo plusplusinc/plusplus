@@ -17,12 +17,13 @@ final nonisolated class RowDragUITests: XCTestCase {
         supersetExercises(in: app)
         deleteExercises(in: app)
         createOnALongRoutine(in: app)
+        createdHoldMenuDeletes(in: app)
     }
 
     /// From the top of a routine longer than the screen, Create scrolls the list to its end and
     /// the row lands there in view, clear of Add exercise's +, before its own sheet opens on
-    /// Customize; a swipe down closes the sheet and keeps the row. The two-row and empty
-    /// routines' are `RoutineDrawerUITests`' and `RoutineAutosaveUITests`'.
+    /// Customize; a swipe down closes the sheet and keeps the row. The empty routine's is
+    /// `RoutineAutosaveUITests`'.
     @MainActor
     private func createOnALongRoutine(in app: XCUIApplication) {
         XCTContext.runActivity(named: "Create on a long routine lands in view") { _ in
@@ -41,6 +42,46 @@ final nonisolated class RowDragUITests: XCTestCase {
             app.swipeSheetDown(titled: "Customize")
             XCTAssertTrue(name.disappears(), "A swipe down left the sheet up")
             XCTAssertTrue(app.lastRowClearsAddExercise(), "The created row rests under the +")
+        }
+    }
+
+    /// Back in Add exercise, the search lists the exercise Create made; held, its menu offers
+    /// Customize… and Delete, which asks in a centered alert and then takes it from the list and
+    /// its row from the routine, its name free to create again. A built-in's menu is
+    /// `RoutineDrawerUITests`'. That a delete removes its rows, and the question's count, are the
+    /// package's (`RoutineStoreCustomizeTests`, `RoutineSessionExerciseTests`).
+    @MainActor
+    private func createdHoldMenuDeletes(in app: XCUIApplication) {
+        XCTContext.runActivity(named: "A created one's hold menu deletes it, asking first") { _ in
+            let count = app.exerciseRows.count
+            let delete = app.buttons["picker.menu.delete"]
+            _ = app.openPicker()
+            app.search(for: "zq")
+            let create = app.buttons["picker.create"]
+            let row = app.pickerRows["Zq"]
+            XCTAssertTrue(row.appears(), "The created exercise isn't in the list")
+            XCTAssertTrue(row.settles(), "The created exercise's row kept moving")
+            row.press(forDuration: 1)
+            XCTAssertTrue(delete.appears(), "A created one's hold menu offers no Delete")
+            XCTAssertTrue(
+                app.buttons["Customize…"].exists,
+                "A created one's hold menu offers no Customize…",
+            )
+            delete.tap()
+            app.answerAlert("Delete Zq?", with: "Delete exercise")
+            XCTAssertTrue(row.disappears(), "The deleted exercise is still listed")
+            XCTAssertTrue(create.appears(), "Its name isn't free to create again")
+            // Closing the search brings Close back, out of the closing field.
+            app.searchButton.tap()
+            let close = app.buttons["Close"]
+            XCTAssertTrue(close.settles(), "Close kept moving")
+            close.tap()
+            XCTAssertTrue(close.disappears(), "Close left the picker up")
+            XCTAssertEqual(
+                app.exerciseCount(becoming: count - 1),
+                count - 1,
+                "The deleted exercise's row stayed",
+            )
         }
     }
 }
