@@ -59,13 +59,6 @@ enum LaunchOptions {
         namer: RoutineNamer,
     ) async throws {
         try await store.deleteAll()
-        // `-seedRoutines`: more saved routines, by name only, comma-separated, each older than
-        // the one before and than the seeded routine, for a list of several.
-        let names = UserDefaults.standard.string(forKey: "seedRoutines")?
-            .split(separator: ",").map(String.init) ?? []
-        for (age, name) in names.enumerated() {
-            try await store.save(Routine(name: name), at: .now - Double(age + 1))
-        }
         guard let seed = seededRoutine else { return }
         let routine = seed.routine(weightUnit: weightUnit)
         try await store.save(routine)

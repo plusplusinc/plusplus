@@ -143,15 +143,9 @@ struct RoutinesScreen: View {
         .contextMenu {
             Button("Delete", systemImage: "trash", role: .destructive) { deleting = routine }
         }
-        // Drawn as Add exercise's list draws its own: the system's separator, a point thick,
-        // across the name's width at the row's foot. Over the row, so no row moves, and
-        // outside the platter, so a held row lifts without it.
+        // Across the name's width, outside the platter, so a held row lifts without it.
         .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(.separator)
-                .frame(height: 1)
-                .padding(.horizontal, Spacing.md)
-                .accessibilityHidden(true)
+            RowLine().padding(.horizontal, Spacing.md)
         }
     }
 
