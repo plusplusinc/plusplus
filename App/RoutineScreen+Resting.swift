@@ -4,15 +4,16 @@ import WorkoutStore
 
 /// The rest between two exercises, after the last set of one, when the routine stores a rest
 /// after it. While the exercise is current, the rest that will follow it shows as a quiet line
-/// under it (`RestBlock.Stage.line`). Logging its last set plays a move's beats with the rest in
-/// the next exercise's place: the dot leaves the node as a pulse does and slows into the rest
-/// (`RailTravel`), and, `SetMotion.landingHold` after, in one shift on the move's curve, the row
-/// closes to a done row as the line grows in place into the rest (`RestBlock.Stage.open`), so
-/// the rows below move once. The dot then crosses its share of the stretch at one speed for the
-/// whole rest, swelling once a second with the countdown. As the countdown reaches 0 the move
-/// goes on as a move with no rest does, its pulse setting off from the dot
-/// (`RailPulse.isAfterRest`): the slide into the next node, the plop, and the next exercise
-/// growing as the rest closes. The key is gone through the rest, its room kept. −15 s with less
+/// under it (`RestBlock.Stage.line`). Logging its last set plays two motions at once: the dot
+/// leaves the node as a pulse does and eases out, long and soft, into the rest's crawl
+/// (`RailTravel`), as, on a close's curve, the row closes to a done row and the line grows in
+/// place into the rest (`RestBlock.Stage.open`), so the rows below move once. The dot then
+/// crawls its share of the stretch at one speed for the whole rest, its size held, its green
+/// dimming and coming back once a second, full as the countdown turns. As the countdown reaches
+/// 0 the move goes on as a move with no rest does, its pulse setting off from the dot, where it
+/// is and at its speed (`RailPulse.afterRest`): the slide into the next node, the plop, and the
+/// next exercise growing as the rest closes. The key is gone through the rest, its room kept. −15 s
+/// with less
 /// than 15 s left ends it; + and − glide the dot to its new place. There is no Skip.
 ///
 /// Not yet: a rest between two sets of one exercise, supersets (their members go straight on),
@@ -47,19 +48,20 @@ extension RoutineScreen {
         return live?.rest(override: restOverride) != nil
     }
 
-    /// The rest's opening, from the log, as a move's: the dot leaves now, and the shift that
-    /// closes the row and opens the rest waits for it on `SetMotion.moving(.down)`'s delay.
+    /// The rest's opening, from the log: the dot leaves now, and as it does the row closes and
+    /// the rest opens, on a close's curve.
     func startRest() {
         withTransaction(\.disablesAnimations, true) {
             isMakingRoom = true
             endFollow = nil
+            restHandoff = nil
         }
-        withAnimation(SetMotion.moving(.down)) {
+        withAnimation(SetMotion.closing) {
             phase.show()
         }
         sequence.run {
             let start = ContinuousClock.now
-            try await beat(until: start + .seconds(SetMotion.move(.down)))
+            try await beat(until: start + .seconds(SetMotion.closeStart + SetMotion.close))
             phase.settleRest()
         }
     }
@@ -71,6 +73,8 @@ extension RoutineScreen {
               resting?.isOver(atClock: workout.clock(at: .now)) ?? true
         else { return }
         noteRestingPitch(of: next.row)
+        let handoff = restHandoff ?? restTravel?.handoff(at: .now)
+        restHandoff = nil
         let target = landing(on: next.row, leaving: rest.set.row)
         withTransaction(\.disablesAnimations, true) {
             if let target {
@@ -87,7 +91,7 @@ extension RoutineScreen {
             to: next.row,
             way: .down,
             run: (railPulse?.run ?? 0) + 1,
-            isAfterRest: true,
+            afterRest: handoff,
         )
         land(.down, scrollingTo: target)
     }
@@ -97,8 +101,15 @@ extension RoutineScreen {
         guard isResting, let live, let last = live.workout.sets.last, let next = live.currentSet
         else { return }
         let length = restOverride ?? routine.rest(after: last.planned, before: next)
+        // Before the end moves: if this ends the rest, the pulse sets off from the dot as it is.
+        let before = restTravel?.handoff(at: .now)
         withAnimation(.snappy(duration: SetMotion.restGlide)) {
             session.adjustRest(by: seconds, length: length)
+        }
+        if let workout = session.workout,
+           resting?.isOver(atClock: workout.clock(at: .now)) ?? false
+        {
+            restHandoff = before
         }
     }
 

@@ -3,7 +3,7 @@ import SwiftUI
 /// The current exercise's pulse: its green dims and comes back, slowly, over and over. One
 /// clock, the time itself, drives every view that pulses, the node and the current set's bar, so
 /// they dim and brighten together and never drift apart. With Reduce Motion it holds steady.
-enum CurrentPulse {
+nonisolated enum CurrentPulse {
     /// One dim and back, in seconds.
     static let period = 1.8
     /// How much of the background is laid over the green at the dimmest.
@@ -12,9 +12,14 @@ enum CurrentPulse {
     /// How dim the green is at `date`: 0 at full green, `deepest` at the dimmest, on a sine, so
     /// it eases in and out at each end.
     static func dim(at date: Date) -> Double {
-        let phase = date.timeIntervalSinceReferenceDate
-            .truncatingRemainder(dividingBy: period) / period
-        return deepest * (1 - cos(2 * .pi * phase)) / 2
+        dim(phase: date.timeIntervalSinceReferenceDate
+            .truncatingRemainder(dividingBy: period) / period)
+    }
+
+    /// How dim the green is a share `phase` of the way through one dim and back, from full green
+    /// at 0 and 1. A rest's dot runs it once a second, full green as the countdown turns.
+    static func dim(phase: Double) -> Double {
+        deepest * (1 - cos(2 * .pi * phase)) / 2
     }
 }
 

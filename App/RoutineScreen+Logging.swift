@@ -50,8 +50,8 @@ extension RoutineScreen {
     /// Which way the move to another exercise under way goes along the rail, which sets the
     /// pulse's travel and when the shift starts.
     var moveWay: SetMotion.Way? {
-        // A rest's opening is a move's shift down the rail, on its timings.
-        phase.move?.way ?? (phase.resting == nil ? nil : .down)
+        // A rest's opening is a close's, at once, as the dot leaves, so none.
+        phase.move?.way
     }
 
     /// The current exercise as it grows into `set`: at a superset round's end, it shows the round

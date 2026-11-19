@@ -200,11 +200,11 @@ public enum SetMotion {
 
     /// Between two exercises with a rest, the stretch of rail from the node left to the next
     /// one's is shared by the dot's three legs, each a share of its length: it leaves as a pulse
-    /// does, over `restLeaveShare`, slowing as it comes into the rest; travels `restShare` at
-    /// one speed for the whole rest; and at 0 runs the last `restArriveShare` into the next node
-    /// as a pulse does, plopping and wiggling there with every timing of a move with no rest.
-    public nonisolated static let restLeaveShare = 0.1
-    public nonisolated static let restShare = 0.8
+    /// does, over `restLeaveShare`, easing out into the rest's speed; crawls `restShare` at that
+    /// one speed for the whole rest; and at 0 runs on from there over `restArriveShare` into the
+    /// next node, plopping and wiggling there with every timing of a move with no rest.
+    public nonisolated static let restLeaveShare = 0.4
+    public nonisolated static let restShare = 0.5
     public nonisolated static let restArriveShare = 0.1
 
     /// Where along the stretch, from 0 to 1, the rest's dot sets off and where it stops: the
@@ -214,48 +214,71 @@ public enum SetMotion {
         return restLeaveShare / whole ... (restLeaveShare + restShare) / whole
     }
 
-    /// The power of the leaving leg's ease: a pulse's charge and shot (`travelPower`) for its
-    /// first half, then braking as hard to nearly the rest's own crawl. It runs a pulse's travel
-    /// (`travel(.down)`), and the rows shift `landingHold` after it, as on a move.
-    nonisolated static let restLeaveEase = travelPower
+    /// The leaving leg, from the log to the crawl: the dot pulls out of the node and shoots off
+    /// as a pulse does, then eases out, long and soft, into the rest's own speed, with no stop
+    /// between. The rows close and the rest opens on `closing`, as it leaves, not after.
+    public nonisolated static let restLeave = 2.0
+    /// When, as a share of the leaving leg's travel, it is fastest: it charges up to there on a
+    /// power ease in (`restLeaveCharge`), about a pulse's travel, and from there eases out on a
+    /// power ease out (`restLeaveEase`) to the crawl's speed.
+    nonisolated static let restLeavePeak = 0.12
+    nonisolated static let restLeaveCharge = 4.0
+    nonisolated static let restLeaveEase = 3.0
 
-    /// The traveling dot's beat, once a second, on the countdown's own clock: each second it
-    /// swells by `restBeatGrow` of its size in `restBeatRise`, as the countdown's figure turns,
-    /// and eases back over `restBeatFall`. The period is the countdown's second, not a setting.
-    public nonisolated static let restBeatGrow = 0.35
-    public nonisolated static let restBeatRise = 0.06
-    public nonisolated static let restBeatFall = 0.3
+    /// The arriving leg's power ease in, from the crawl's speed into the next node: it sets off
+    /// from the dot at once, with no charge, and slides into the node as a pulse does. It runs
+    /// in a pulse's time to its landing (`landing(.down)`), so every beat after is a move's.
+    nonisolated static let restArrivePower = 4.0
 
     /// The dot gliding to its new place after −15 s or +15 s, and the countdown's figure turning
     /// with it.
     public static let restGlide = 0.45
 
-    /// The leaving leg's distance at a share `time` of its travel: a pulse's power ease in for
-    /// its first half, met by a matching ease out for its second, so it shoots off as a pulse
-    /// does and slows into the rest.
-    nonisolated static func restLeaveDistance(at time: Double) -> Double {
+    /// The leaving leg's peak speed against its average, for an end speed `end`, also against
+    /// its average: what makes its distance come to 1.
+    private nonisolated static func restLeavePeakSpeed(end: Double) -> Double {
+        let (peak, ease) = (restLeavePeak, restLeaveEase)
+        return (1 - (1 - peak) * end * ease / (ease + 1))
+            / (peak / restLeaveCharge + (1 - peak) / (ease + 1))
+    }
+
+    /// The leaving leg's distance at a share `time` of its travel, ending at the speed `end`,
+    /// against its average: a power ease in to its peak, then a power ease out to `end`.
+    nonisolated static func restLeaveDistance(at time: Double, end: Double) -> Double {
         let time = min(max(time, 0), 1)
-        return time < 0.5
-            ? pow(2 * time, restLeaveEase) / 2
-            : 1 - pow(2 * (1 - time), restLeaveEase) / 2
+        let (peak, charge, ease) = (restLeavePeak, restLeaveCharge, restLeaveEase)
+        let top = restLeavePeakSpeed(end: end)
+        let charged = top * peak / charge
+        guard time > peak else {
+            return charged * pow(time / peak, charge)
+        }
+        let out = (time - peak) / (1 - peak)
+        return charged + (1 - peak) * (end * out + (top - end) * (1 - pow(1 - out, ease + 1))
+            / (ease + 1))
     }
 
     /// The leaving leg's speed at a share `time` of its travel, against its average.
-    nonisolated static func restLeaveSpeed(at time: Double) -> Double {
+    nonisolated static func restLeaveSpeed(at time: Double, end: Double) -> Double {
         let time = min(max(time, 0), 1)
-        let side = time < 0.5 ? 2 * time : 2 * (1 - time)
-        return restLeaveEase * pow(side, restLeaveEase - 1)
+        let top = restLeavePeakSpeed(end: end)
+        guard time > restLeavePeak else {
+            return top * pow(time / restLeavePeak, restLeaveCharge - 1)
+        }
+        let out = (time - restLeavePeak) / (1 - restLeavePeak)
+        return end + (top - end) * pow(1 - out, restLeaveEase)
     }
 
-    /// How swollen the dot is `time` seconds after the countdown's figure last turned: 0 at
-    /// rest, 1 at its fullest.
-    nonisolated static func restBeat(at time: Double) -> Double {
-        guard time >= 0 else { return 0 }
-        if time < restBeatRise {
-            return time / restBeatRise
-        }
-        let fall = (time - restBeatRise) / restBeatFall
-        return fall < 1 ? (1 + cos(.pi * fall)) / 2 : 0
+    /// The arriving leg's distance at a share `time` of its travel, setting off at the speed
+    /// `start`, against its average.
+    nonisolated static func restArriveDistance(at time: Double, start: Double) -> Double {
+        let (time, start) = (min(max(time, 0), 1), min(start, 1))
+        return start * time + (1 - start) * pow(time, restArrivePower)
+    }
+
+    /// The arriving leg's speed at a share `time` of its travel, against its average.
+    nonisolated static func restArriveSpeed(at time: Double, start: Double) -> Double {
+        let (time, start) = (min(max(time, 0), 1), min(start, 1))
+        return start + (1 - start) * restArrivePower * pow(time, restArrivePower - 1)
     }
 
     // MARK: The timeline

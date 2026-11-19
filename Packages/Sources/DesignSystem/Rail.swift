@@ -288,7 +288,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                     route: pulse.flatMap { route($0.from, $0.to, nodes, in: proxy) },
                     way: pulse?.way ?? .down,
                     run: pulse?.run ?? 0,
-                    isAfterRest: pulse?.isAfterRest ?? false,
+                    afterRest: pulse?.afterRest,
                 )
                 if let travel, let route = route(travel.from, travel.to, nodes, in: proxy) {
                     // Comes and goes with the rest, never faded on the moves' animations: the
