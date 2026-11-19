@@ -4,7 +4,8 @@ import SwiftUI
 import WorkoutStore
 
 /// Every saved routine, most recently opened or edited first, each by its name.
-/// Tapping one pushes it on the routine screen; + pushes a new one.
+/// Tapping one pushes it on the routine screen; + pushes a new one. A line runs under each row,
+/// the last included, as under each row in Add exercise.
 ///
 /// A row swiped left shows the system's red Delete, and a row held opens the system's context
 /// menu with Delete, red with a trash, the held row lifted on a rounded platter in the screen's
@@ -136,6 +137,16 @@ struct RoutinesScreen: View {
         }
         .contextMenu {
             Button("Delete", systemImage: "trash", role: .destructive) { deleting = routine }
+        }
+        // Drawn as Add exercise's list draws its own: the system's separator, a point thick,
+        // across the name's width at the row's foot. Over the row, so no row moves, and
+        // outside the platter, so a held row lifts without it.
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(.separator)
+                .frame(height: 1)
+                .padding(.horizontal, Spacing.md)
+                .accessibilityHidden(true)
         }
     }
 
