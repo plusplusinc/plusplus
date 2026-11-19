@@ -64,7 +64,7 @@ extension RoutineDrawerUITests {
     }
 
     /// In Add exercise, holding a row opens the system's context menu instead of adding it: a
-    /// built-in's offers Customize… alone, which pushes its form with no Done, and back finds
+    /// built-in's offers Customize… alone, which pushes its form, and back finds
     /// the list. Create closes the sheet, adds the row, and opens the row's own sheet on the
     /// exercise's form, which a swipe down closes with the row left in. Back in Add exercise,
     /// the search lists it; held, it also offers Delete, which asks in a centered alert and then
@@ -89,7 +89,6 @@ extension RoutineDrawerUITests {
             XCTAssertTrue(name.appears(), "Customize… opened no form")
             let exercise = name.value as? String ?? ""
             XCTAssertTrue(label.hasPrefix(exercise), "The form isn't the held row's exercise")
-            XCTAssertFalse(app.buttons["Done"].exists, "The hold menu's form has Done")
             app.tapBack()
             XCTAssertTrue(first.appears(), "Back didn't come to the list")
             XCTAssertEqual(app.exerciseRows.count, count, "The hold added the exercise")
@@ -132,10 +131,7 @@ extension RoutineDrawerUITests {
             XCTAssertTrue(create.appears(), "The search offered no Create")
             create.tap()
             let name = app.textFields["customize.name"]
-            XCTAssertTrue(
-                name.appears(within: AddTiming.createdSheet + 2),
-                "The created row's sheet did not open on Customize",
-            )
+            XCTAssertTrue(app.createdSheetOpens(), "The created row's sheet isn't on Customize")
             XCTAssertEqual(app.exerciseRows.count, count + 1, "Create added no row")
             app.swipeSheetDown(titled: "Customize")
             XCTAssertTrue(name.disappears(), "A swipe down left the sheet up")

@@ -163,11 +163,10 @@ extension RoutineScreen {
         // Beats on deadlines, not this animation's completion, which once never came, and the
         // row stayed arriving for good (`RailArrival`).
         Task {
-            await RailArrival.play {
+            await RailArrival.play(pausing: Self.addPause) {
                 arriving == row.id
             } reachEnd: {
                 await reachEnd(added: added)
-                try? await Task.sleep(for: Self.addPause, tolerance: .zero)
             } enter: {
                 letArrivingEnter()
             } entered: {
@@ -177,39 +176,25 @@ extension RoutineScreen {
         }
     }
 
-    /// How long a created row rests after landing before its sheet rises: a little past
-    /// its node giving up its blue, so the arrival is over before the next thing moves.
-    private static let createdHold = 0.5
-
-    /// After Create, a beat after its row has landed, the row's own sheet comes up, as a tap on
-    /// the row brings it, already on Customize: the row is seen landing, then its sheet rises.
-    /// Not if a sheet is up by then, or the row has gone, or Start was pressed since the
-    /// Create (`wasIdle` and no longer idle): the sheet rose over the first exercise growing,
-    /// and the press says the workout comes first. A Create during a workout still opens it, as
-    /// a tap on the row there does.
+    /// After Create, `createdHold` after its row has landed, the row's own sheet comes up, as a
+    /// tap on the row brings it, already on Customize: the row is seen landing, then its sheet
+    /// rises. Not if a sheet or the drawer is up by then, or the row has gone, or Start was
+    /// pressed since the Create (`wasIdle` and no longer idle): the sheet rose over the first
+    /// exercise growing, and the press says the workout comes first. A Create during a workout
+    /// still opens it, as a tap on the row there does.
     private func showCreated(_ id: RoutineExercise.ID, unlessStartedSince wasIdle: Bool) {
         Task {
-            try? await Task.sleep(for: .seconds(Self.createdHold), tolerance: .zero)
-            guard editing == nil, !isPicking, row(id) != nil, !wasIdle || phase == .idle
-            else { return }
+            try? await Task.sleep(for: Self.createdHold, tolerance: .zero)
+            guard editing == nil, !isPicking, !session.isDrawerOpen, row(id) != nil,
+                  !wasIdle || phase == .idle else { return }
             editing = RowSheet(id: id, opensCustomizing: true)
         }
     }
-}
 
-/// A row's open sheet: which row, and whether it opens on Customize, as after Create. The flag
-/// rides with the sheet's item: a separate state set with it read as unset in the sheet.
-struct RowSheet: Identifiable {
-    let id: RoutineExercise.ID
-    var opensCustomizing = false
-}
-
-extension RoutineScreen {
     /// Once the picker has gone, scrolls the list to its end, the added row's place, and returns
     /// as the scroll lands, unless the end is in view or Start's room is opening, when it returns
-    /// at once. On
-    /// deadlines, not the scroll's completion or its phase: the phase reported idle only about
-    /// 0.3 s after the list had stopped, and the row waited on a still list.
+    /// at once. On deadlines, not the scroll's completion or its phase: the phase reported idle
+    /// only about 0.3 s after the list had stopped, and the row waited on a still list.
     private func reachEnd(added: ContinuousClock.Instant) async {
         endFollow = .ready
         guard !isEndInView, !isMakingRoom else { return }
@@ -222,9 +207,10 @@ extension RoutineScreen {
         try? await Task.sleep(for: Self.scrollLanding, tolerance: .zero)
     }
 
-    /// The scroll to the list's end for an added row: a little slower than `.railChange`, whose
-    /// 0.25 s felt fast here (decided 2026-11-18).
-    static let endScroll = Animation.snappy(duration: 0.35)
+    /// How long the scroll to the list's end takes for an added row: a little longer than
+    /// `.railChange`'s 0.25 s, which felt fast here (decided 2026-11-18).
+    private static let endScrollLength = 0.35
+    static let endScroll = Animation.snappy(duration: endScrollLength)
 
     /// From a pick to the picker sheet's dismissal having slid it away, when the scroll to the
     /// list's end starts, so it runs in view, and when the first exercise's Start rises with the
@@ -237,7 +223,11 @@ extension RoutineScreen {
     static let addPause: Duration = .milliseconds(250)
 
     /// From the scroll's start to its landing, `endScroll`'s length; `addPause` follows it.
-    static let scrollLanding: Duration = .milliseconds(350)
+    static let scrollLanding: Duration = .seconds(endScrollLength)
+
+    /// How long a created row rests after landing before its sheet rises: a little past its
+    /// node giving up its blue, so the arrival is over before the next thing moves.
+    static let createdHold: Duration = .milliseconds(500)
 
     /// While an added row's place opens past the visible area, scrolls with it, a frame at a
     /// time, so the list's end stays put on screen as the line grows above it. The place opens
@@ -302,4 +292,11 @@ extension RoutineScreen {
             entering = nil
         }
     }
+}
+
+/// A row's open sheet: which row, and whether it opens on Customize, as after Create. The flag
+/// rides with the sheet's item: a separate state set with it read as unset in the sheet.
+struct RowSheet: Identifiable {
+    let id: RoutineExercise.ID
+    var opensCustomizing = false
 }

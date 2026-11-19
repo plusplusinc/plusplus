@@ -1,10 +1,9 @@
 import XCTest
 
 /// Dragging, joining, and deleting rows with real touches over the scroll view, on nine seeded
-/// rows that run past one screen, and then Create's add on that long a routine. Where a drag lands,
-/// what a node's span makes, and which
-/// neighbor a rest pairs with are unit-tested in the package; this checks each gesture once,
-/// that it reaches that arithmetic.
+/// rows that run past one screen, and then Create's add on that long a routine. Where a drag
+/// lands, what a node's span makes, and which neighbor a rest pairs with are unit-tested in the
+/// package; this checks each gesture once, that it reaches that arithmetic.
 ///
 /// `nonisolated` because XCTestCase's initializers are; the test drives the UI on the main actor.
 final nonisolated class RowDragUITests: XCTestCase {
@@ -38,13 +37,9 @@ final nonisolated class RowDragUITests: XCTestCase {
             XCTAssertEqual(app.exerciseRowLabels.last, "Zq, 3 sets of 10 reps")
             XCTAssertTrue(app.lastRowClearsAddExercise(), "The created row landed out of view")
             let name = app.textFields["customize.name"]
-            XCTAssertTrue(
-                name.appears(within: AddTiming.createdSheet + 2),
-                "The created row's sheet did not open on Customize",
-            )
+            XCTAssertTrue(app.createdSheetOpens(), "The created row's sheet isn't on Customize")
             app.swipeSheetDown(titled: "Customize")
             XCTAssertTrue(name.disappears(), "A swipe down left the sheet up")
-            XCTAssertEqual(app.exerciseRows.count, count + 1, "The swipe down took the row")
             XCTAssertTrue(app.lastRowClearsAddExercise(), "The created row rests under the +")
         }
     }

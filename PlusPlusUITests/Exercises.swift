@@ -189,6 +189,13 @@ extension XCUIApplication {
     ) -> Int {
         reading(exerciseRows.count, becoming: expected, within: timeout)
     }
+
+    /// Whether, after a Create, the created row's sheet opens on its Customize form, once it
+    /// does or after the add's beats and the hold before it.
+    func createdSheetOpens() -> Bool {
+        // Any type: at AX5 the wrapped name is not read as a text field.
+        descendants(matching: .any)["customize.name"].appears(within: AddTiming.createdSheet + 2)
+    }
 }
 
 /// An add's beats, from the app's constants, so a wait for what an add brings covers them.

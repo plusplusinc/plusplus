@@ -20,10 +20,10 @@ extension RoutineScreen {
     /// nothing. The press leaves the drawer open, as Dave decided (2026-11-14): a routine
     /// switched to before the workout begins stops Start's beats (`check(_:)`), and the session
     /// starts a workout only on the routine pressed (`RoutineSession.start(on:at:)`). Start stays
-    /// up after the last Remove until the sheet has gone (`settleFoot(after:)`), doing nothing:
-    /// no exercises. Nor while a row's sheet rises, as after Create: it grew the first behind it.
+    /// up a moment after the last Remove, until the sheet has gone (`settleFoot(after:)`), and
+    /// does nothing then: the session starts nothing on a routine with no exercises.
     func pressStart() {
-        guard phase == .idle, editing == nil, session.canStart(on: routine.id) else { return }
+        guard phase == .idle, session.canStart(on: routine.id) else { return }
         // The list's end lies under the first row until it grows, so a short routine may have
         // nowhere to scroll it to: room under the end, out of sight, lets it go. It goes in
         // ahead of the scroll: a scroll in the same transaction stops at the old end.

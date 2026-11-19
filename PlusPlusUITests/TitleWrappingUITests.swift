@@ -207,10 +207,7 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         XCTAssertTrue(create.settles(), "Create is still moving")
         create.tap()
         let name = app.descendants(matching: .any)["customize.name"]
-        XCTAssertTrue(
-            name.appears(within: AddTiming.createdSheet + 2),
-            "The created row's sheet did not open on Customize",
-        )
+        XCTAssertTrue(app.createdSheetOpens(), "The created row's sheet isn't on Customize")
         XCTAssertEqual(name.value as? String, created, "Create's name isn't the search capitalized")
         attach(named: "customize-form-ax5")
         try auditBelowTheBar(in: app)

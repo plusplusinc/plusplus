@@ -45,10 +45,7 @@ extension RoutineAutosaveUITests {
                     "Create added no row",
                 )
                 let name = app.textFields["customize.name"]
-                XCTAssertTrue(
-                    name.appears(within: AddTiming.createdSheet + 2),
-                    "The created row's sheet did not open on Customize",
-                )
+                XCTAssertTrue(app.createdSheetOpens(), "The created row's sheet isn't on Customize")
                 XCTAssertEqual(name.value as? String, "Ring row with rotation")
                 XCTAssertFalse(app.buttons["Save"].exists, "Customize has a Save")
                 XCTAssertFalse(app.buttons["Done"].exists, "Create's Customize has a Done")
@@ -89,10 +86,7 @@ extension RoutineAutosaveUITests {
             create.tap()
             XCTAssertEqual(app.exerciseCount(becoming: 1), 1, "Create added no row")
             let name = app.textFields["customize.name"]
-            XCTAssertTrue(
-                name.appears(within: AddTiming.createdSheet + 2),
-                "The created row's sheet did not open on Customize",
-            )
+            XCTAssertTrue(app.createdSheetOpens(), "The created row's sheet isn't on Customize")
             // Below the half sheet's fold, out of the tree until the form scrolls to it.
             app.collectionViews.containing(.textField, identifier: "customize.name").firstMatch
                 .swipeUp()
