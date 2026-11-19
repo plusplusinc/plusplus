@@ -64,7 +64,7 @@ extension RoutineScreen {
         return move.way
     }
 
-    /// The current exercise as it grows into `set`, `after` on the quiet line under its figures:
+    /// The current exercise as it grows into `set`, `after` at its caption line's end:
     /// at a superset round's end, it shows the round just done, as the logged set's row showed
     /// it, until the move rolls it to the new one.
     func focus(of item: RoutineExercise, on set: PlannedSet, after: String?) -> RowFocus {
@@ -80,8 +80,8 @@ extension RoutineScreen {
             )
         }
         // Resting between two sets, the line says the set just done, "1 of 3 done", until the
-        // next set swaps back up; the quiet line the rest took the place of still says the rest
-        // it went to as it fades, not what follows the next set.
+        // next set swaps back up; the caption line's end still says the rest it went to as it
+        // fades, not what follows the next set.
         if let rest = phase.drawnRest, rest.isWithinExercise, rest.beat >= .shown,
            rest.beat < .returning, rest.set.row == item.id
         {

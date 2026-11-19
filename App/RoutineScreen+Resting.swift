@@ -3,9 +3,9 @@ import SwiftUI
 import WorkoutStore
 
 /// The rest between two exercises, after the last set of one, when the routine stores a rest
-/// after it. While the exercise is current, the quiet line under its figures says the rest that
-/// will follow the
-/// set, "then rest 1:00" (`afterText(for:)`). The rest is a stop on the way, as if an exercise of
+/// after it. While the exercise is current, its caption line's end says the rest that will follow
+/// the set, "then rest 1:00" (`afterText(for:)`). The rest is a stop on the way, as if an exercise
+/// of
 /// its own: logging the last set plays a move to the next exercise with the rest as its
 /// destination (`RailStop.rest(after:)`), every timing and curve a move's (`SetMotion`): the
 /// pulse shoots down and lands level with the word "Rest", plops and wiggles, and on the shift's
@@ -241,7 +241,6 @@ extension RoutineScreen {
         guard id == current, let shown, let gap = routine.restBetweenSets(of: id),
               (restOverride ?? gap) > 0
         else { return nil }
-        let next = shown.currentSet.map(nextSetLine) ?? ""
         if let within = phase.drawnRest, within.isWithinExercise, within.beat >= .shown,
            let (resting, workout) = drawnResting
         {
@@ -249,7 +248,6 @@ extension RoutineScreen {
             return SetRest(
                 isRunning: !isOver,
                 length: resting.length,
-                next: next,
                 ends: workout.date(ofClock: resting.endClock),
                 pausedLeft: workout.isPaused
                     ? resting.remaining(atClock: workout.clock(at: .now)) : nil,
@@ -257,25 +255,10 @@ extension RoutineScreen {
                 turns: within.beat == .settled,
             )
         }
-        return SetRest(isRunning: false, length: restOverride ?? gap, next: next)
+        return SetRest(isRunning: false, length: restOverride ?? gap)
     }
 
-    /// The next set as the line under the rest reads it, naming the set, so a time after the
-    /// countdown never reads as more rest, and its number says it is the one to come: "Set 2:
-    /// 10 reps · 50 lb", "Set 3: 1 minute".
-    func nextSetLine(_ set: PlannedSet) -> String {
-        guard let item = routine.exercises.first(where: { $0.id == set.row }) else { return "" }
-        let round = set.round.formatted(.number.locale(locale))
-        // Wrapping between parts, each kept whole, as a row's detail line does: "25" never left
-        // at a line's end with "lb/side" under it.
-        let figures = RowLabel.detailText(
-            item.figuresInWords(side: set.side, locale: locale),
-            stacked: false,
-        ) ?? ""
-        return String(localized: "Set \(round): \(figures)")
-    }
-
-    /// What follows `set` on the quiet line under its figures, before it is logged: "then rest
+    /// What follows `set` at its caption line's end, before it is logged: "then rest
     /// 1:00" where a rest will run after it, as `rests(after:leadingTo:)` decides once it is;
     /// "last set" on the workout's last; else nothing.
     func afterText(for set: PlannedSet, in shown: LiveWorkout) -> String? {

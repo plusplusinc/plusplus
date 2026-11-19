@@ -6,9 +6,9 @@ import SwiftUI
 ///
 /// Given a `focus`, it is the current exercise of a workout: the name grows large, and the detail
 /// gives way to, top to bottom, its sets as a bar of segments (`SetSegments`), a caption line,
-/// "Set 1 of 3", the plan's figures, large, side by side (`CurrentFigures`), with a quiet line
-/// under them for what follows the set, "then rest 1:00" or "last set" (`SetRoom`), and the
-/// exercise's equipment, the label growing to their height. Changed in an animation, the name
+/// "Set 1 of 3" and at its end what follows the set, "then rest 1:00" or "last set"
+/// (`CaptionLine`), the plan's figures, large, side by side (`CurrentFigures`, in `SetRoom`), and
+/// the exercise's equipment, the label growing to their height. Changed in an animation, the name
 /// scales between its two sizes
 /// (`GrowingName`), and the parts under it come in, and go, in turn (`SetMotion`).
 ///
@@ -130,7 +130,7 @@ public struct RowLabel: View {
                         }
                     }
                     if let focus {
-                        SetRoom(figures: focus.figures, after: focus.after, rest: setRest)
+                        SetRoom(figures: focus.figures, rest: setRest)
                             .part(.figures)
                     }
                     // One view whether next after a rest or current, so the equipment the next
@@ -180,7 +180,17 @@ public struct RowLabel: View {
                     if let bars {
                         SetSegments(progress: bars, isOnSet: setRest?.isRunning != true)
                     }
-                    progressLine(focus)
+                    CaptionLine(spacing: Spacing.md) {
+                        progressLine(focus)
+                        // Laid out through a rest too, faded, so the line keeps its height.
+                        Text(AttributedString.monoNumbers(
+                            focus.after ?? "",
+                            font: .ppCurrentProgress,
+                        ))
+                        .font(.ppCurrentProgress)
+                        .foregroundStyle(.pp(.textSecondary))
+                        .modifier(SetRoomGoing(isResting: setRest?.isRunning == true))
+                    }
                 }
                 .padding(.top, Spacing.sm)
                 .part(.progress)
@@ -308,8 +318,8 @@ public struct RowFocus: Equatable {
     public var figures: [Figure]
     /// The figures in words, for VoiceOver.
     public var spokenFigures: String
-    /// What follows the set, on the quiet line under the figures: "then rest 1:00", "last set";
-    /// nil for nothing.
+    /// What follows the set, at the caption line's end: "then rest 1:00", "last set"; nil for
+    /// nothing.
     public var after: String?
     public init(
         progress: String,

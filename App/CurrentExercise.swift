@@ -113,25 +113,6 @@ extension RoutineExercise {
             return (number, [unit, figure.unit].filter { !$0.isEmpty }.joined(separator: " "))
         }
     }
-
-    /// The figures in words, the time in words: "10 reps", "25 lb/side"; "1 minute",
-    /// "1 min, 30 sec per side"; never a clock with a unit, which after a rest's countdown read as
-    /// more rest.
-    func figuresInWords(side: Side?, locale: Locale) -> [String] {
-        figures(side: side, locale: locale).enumerated().map { index, figure in
-            guard index == 0, case let .time(seconds) = plan.target else {
-                return [figure.number, figure.unit].filter { !$0.isEmpty }.joined(separator: " ")
-            }
-            // Whole minutes or seconds alone in full words, "1 minute", "30 seconds"; a mix
-            // shortened, "1 min, 30 sec".
-            let width: Duration.UnitsFormatStyle.UnitWidth = seconds < 60 || seconds
-                .isMultiple(of: 60)
-                ? .wide : .abbreviated
-            let time = Duration.seconds(seconds)
-                .formatted(.units(allowed: [.minutes, .seconds], width: width).locale(locale))
-            return [time, figure.unit].filter { !$0.isEmpty }.joined(separator: " ")
-        }
-    }
 }
 
 /// Everything but the top `height` of a view, which nothing else is cut from: the list going out

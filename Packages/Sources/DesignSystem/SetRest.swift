@@ -1,20 +1,17 @@
 import SwiftUI
 
-/// The rest between two sets of the current exercise, which takes the place of its figures and
-/// the line under them (`SetRoom`), line for line: "Rest" in a caption's style over the countdown
-/// in a figure's, the bar of its progress under it (`RestProgress`), and the next set on the
-/// quiet line, "Set 2: 10 reps · 25 lb/side", wrapping rather than cut short. Logging the set
-/// swaps the two on one curve from the tap (`SetMotion.restSwap`): the set's parts fade as they
-/// drop a
-/// few points, then the rest's fade in as they rise into place; at the rest's end they swap back
-/// the same way. The −15 s and +15 s keys are at the bottom, in the key's place.
+/// The rest between two sets of the current exercise, which takes the place of its figures
+/// (`SetRoom`): "Rest" in a caption's style over the countdown in a figure's, and the bar of its
+/// progress under it (`RestProgress`), nothing under the bar, so the bar reads as the countdown's.
+/// Logging the set swaps the two on one curve from the tap (`SetMotion.restSwap`): the set's
+/// parts fade as they drop a few points, "then rest 1:00" at the caption line's end with them,
+/// then the rest's fade in as they rise into place; at the rest's end they swap back the same
+/// way. The −15 s and +15 s keys are at the bottom, in the key's place.
 public struct SetRest {
     /// Whether the rest is in the slot: from the log until its end.
     public let isRunning: Bool
     /// The rest's length, which the countdown shows before it runs.
     let length: Int
-    /// The next set, on the line under the bar: "Set 2: 10 reps".
-    let next: String
     let ends: Date
     let pausedLeft: Double?
     /// Over, and swapping back: the countdown reads 0:00 and holds still as it goes, never
@@ -27,7 +24,6 @@ public struct SetRest {
     public init(
         isRunning: Bool,
         length: Int,
-        next: String = "",
         ends: Date = .distantPast,
         pausedLeft: Double? = nil,
         isOver: Bool = false,
@@ -35,7 +31,6 @@ public struct SetRest {
     ) {
         self.isRunning = isRunning
         self.length = length
-        self.next = next
         self.ends = ends
         self.pausedLeft = pausedLeft
         self.isOver = isOver
@@ -54,24 +49,20 @@ public struct SetRest {
     }
 }
 
-/// The current exercise's figures and what follows them, the same shape during a set and during
-/// a rest between sets, line for line: the number row and its caption, the bar's place, and one
-/// quiet line. During a set, the figures, the bar's place empty, and what follows the set, "then
-/// rest 1:00", "last set", or nothing; during a rest, "Rest" over the countdown, its line in place
-/// of the caption's, its bar (`RestProgress`), and the next set, "Set 2: 10 reps · 25 lb/side".
-/// The quiet line is in a row's detail style, so at the default size a two-figure set fits one
-/// line. "Rest" starts where the figures do, its capitals' tops at theirs, and the countdown
-/// stands a line lower than the figures, which the swap's fade and rise carry, the figures gone
-/// before it shows. Each line is as tall as the
-/// taller of its two states, the one not showing laid out unseen, wrapping included, so nothing
-/// below moves as they swap. An exercise with no rest between its sets has no bar's place.
+/// The current exercise's figures slot, the same height during a set and during a rest between
+/// sets: during a set, the figures and their captions over the bar's place, empty; during a rest,
+/// "Rest" over the countdown, its line in place of the captions', over its bar
+/// (`RestProgress`). Nothing is under the bar. "Rest" starts where the figures do, its capitals'
+/// tops at theirs, and the countdown stands a line lower than the figures, which the swap's fade
+/// and rise carry, the figures gone before it shows. The number row is as tall as the taller of
+/// its two states, so nothing below moves as they swap. An exercise with no rest between its sets
+/// has no bar's place.
 ///
 /// `swap` runs from 0, the set up, to 1, the rest up, on the row's animation, and each part's fade
 /// and rise is worked out from it, so the two swap as one move on its curve, the one going gone
 /// before the one coming shows.
 struct SetRoom: View, Animatable {
     let figures: [RowFocus.Figure]
-    let after: String?
     let rest: SetRest?
     var swap: CGFloat
 
@@ -81,9 +72,8 @@ struct SetRoom: View, Animatable {
     @Environment(\.locale) private var locale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    init(figures: [RowFocus.Figure], after: String?, rest: SetRest?) {
+    init(figures: [RowFocus.Figure], rest: SetRest?) {
         self.figures = figures
-        self.after = after
         self.rest = rest
         swap = rest?.isRunning == true ? 1 : 0
     }
@@ -128,29 +118,8 @@ struct SetRoom: View, Animatable {
                     .padding(.top, Spacing.md)
                     .opacity(coming)
             }
-            ZStack(alignment: .topLeading) {
-                // One line's room even when nothing follows the set, so the line coming in
-                // later, as "last set", moves nothing below.
-                quietLine("0").hidden()
-                quietLine(after ?? "")
-                    .going(going)
-                if let rest {
-                    quietLine(rest.next)
-                        .coming(coming)
-                }
-            }
-            .padding(.top, Spacing.sm)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    /// In a row's detail style, numbers in mono, narrower than the caption line's all-mono, so a
-    /// two-figure set fits one line at the default size.
-    private func quietLine(_ text: String) -> some View {
-        Text(AttributedString.monoNumbers(text, font: .ppRowDetailNumber))
-            .font(.ppRowDetail)
-            .foregroundStyle(.pp(.textSecondary))
-            .fixedSize(horizontal: false, vertical: true)
     }
 
     /// The room a line of the system font at `size` leaves over its capitals.
@@ -165,6 +134,26 @@ struct SetRoom: View, Animatable {
 
     /// Where in the swap the figures have gone and the rest starts to come in, or back.
     static let handOff: CGFloat = 0.4
+}
+
+/// A part of the set outside the figures slot, "then rest 1:00" at the caption line's end, going
+/// as the rest comes in and back as it ends, on the slot's own fade and drop, so it leaves with
+/// the figures. `swap` as `SetRoom`'s.
+struct SetRoomGoing: ViewModifier, Animatable {
+    var swap: CGFloat
+
+    init(isResting: Bool) {
+        swap = isResting ? 1 : 0
+    }
+
+    var animatableData: CGFloat {
+        get { swap }
+        set { swap = newValue }
+    }
+
+    func body(content: Content) -> some View {
+        content.going(RestRoomFade.fade(swap, from: 0, width: SetRoom.handOff))
+    }
 }
 
 extension View {
