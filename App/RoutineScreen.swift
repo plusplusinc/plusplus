@@ -35,7 +35,7 @@ struct RoutineScreen: View {
     @State var isEndInView = true
     /// While an added row's place opens, the list's end stays put on screen: as the content grows
     /// past the visible area, it scrolls in step (`keepEndInView`), at the stage `EndFollow`
-    /// names; nil while no place opens.
+    /// names; nil while no place opens, and from a press of Start until the next add.
     @State var endFollow: EndFollow?
     /// Whether the list is being scrolled by hand, which the in-step scroll leaves alone.
     @State var isScrollingByHand = false

@@ -32,6 +32,7 @@ extension RoutineScreen {
             // bound to that edge, and followed it down into the room, off the screen.
             scrollPosition.scrollTo(y: scrollBeat.scrolledY)
             isMakingRoom = true
+            endFollow = nil
             startDrop = 0
             // Where a workout that ended left its current exercise: the first row reports its
             // own place from the press, and the landing's room waits for it.
@@ -366,9 +367,8 @@ extension RoutineScreen {
         settleWayBack()
     }
 
-    /// The beat between Start's press and its leaving. The
-    /// workout's first frame takes a few more to draw, so the rows move about 0.5 s after the
-    /// press.
+    /// The beat between Start's press and its leaving. The workout's first frame takes a few
+    /// more to draw, so the rows move about 0.5 s after the press.
     static let pressHold = 0.4
     static let scrollDuration = 0.35
     /// How long Start waits for its scroll to the first exercise to report it has stopped

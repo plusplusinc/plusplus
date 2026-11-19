@@ -209,11 +209,16 @@ extension RoutineScreen {
 
     /// Once the picker has gone, scrolls the list to its end, the added row's place, and returns
     /// as the scroll lands, unless the end is in view or Start's room is opening, when it returns
-    /// at once. On deadlines, not the scroll's completion or its phase: the phase reported idle
-    /// only about 0.3 s after the list had stopped, and the row waited on a still list.
+    /// at once. Once Start is pressed the in-step scroll stays off (`pressStart()` turns it
+    /// off), so the row enters where it is: left on, it woke as Start's room went, with the
+    /// landing's room still under the list, and scrolled the list into it, off the screen
+    /// (Xcode Cloud runs 495 and 499). On deadlines, not the scroll's completion or its
+    /// phase: the phase reported idle only about 0.3 s after the list had stopped, and the row
+    /// waited on a still list.
     private func reachEnd(added: ContinuousClock.Instant) async {
+        guard !isMakingRoom else { return }
         endFollow = .ready
-        guard !isEndInView, !isMakingRoom else { return }
+        guard !isEndInView else { return }
         try? await Task.sleep(until: added + Self.pickerGone, tolerance: .zero, clock: .continuous)
         // Start pressed meanwhile: the row enters where it is.
         guard !isMakingRoom else { return }
