@@ -3,9 +3,9 @@ import SwiftUI
 /// The rest between two sets of the current exercise, which takes the place of its figures and
 /// the line under them (`SetRoom`), line for line: "Rest" in a caption's style over the countdown
 /// in a figure's, the bar of its progress under it (`RestProgress`), and the next set on the
-/// quiet line, "Next: set 2 · 10 reps · 25 lb/side", wrapping rather than cut short. Logging the
-/// set swaps
-/// the two on one curve from the tap (`SetMotion.restSwap`): the set's parts fade as they drop a
+/// quiet line, "Set 2: 10 reps · 25 lb/side", wrapping rather than cut short. Logging the set
+/// swaps the two on one curve from the tap (`SetMotion.restSwap`): the set's parts fade as they
+/// drop a
 /// few points, then the rest's fade in as they rise into place; at the rest's end they swap back
 /// the same way. The −15 s and +15 s keys are at the bottom, in the key's place.
 public struct SetRest {
@@ -13,7 +13,7 @@ public struct SetRest {
     public let isRunning: Bool
     /// The rest's length, which the countdown shows before it runs.
     let length: Int
-    /// The next set, on the line under the bar: "Next: set 2 · 10 reps".
+    /// The next set, on the line under the bar: "Set 2: 10 reps".
     let next: String
     let ends: Date
     let pausedLeft: Double?
@@ -58,9 +58,11 @@ public struct SetRest {
 /// a rest between sets, line for line: the number row and its caption, the bar's place, and one
 /// quiet line. During a set, the figures, the bar's place empty, and what follows the set, "then
 /// rest 1:00", "last set", or nothing; during a rest, "Rest" over the countdown, its line in place
-/// of the caption's, its bar (`RestProgress`), and the next set, "Next: set 2 · 10 reps · 25
-/// lb/side". The countdown stands a line lower than the figures, which the swap's fade and rise
-/// carry, the figures gone before it shows. Each line is as tall as the
+/// of the caption's, its bar (`RestProgress`), and the next set, "Set 2: 10 reps · 25 lb/side".
+/// The quiet line is in a row's detail style, so at the default size a two-figure set fits one
+/// line. "Rest" starts where the figures do, its capitals' tops at theirs, and the countdown
+/// stands a line lower than the figures, which the swap's fade and rise carry, the figures gone
+/// before it shows. Each line is as tall as the
 /// taller of its two states, the one not showing laid out unseen, wrapping included, so nothing
 /// below moves as they swap. An exercise with no rest between its sets has no bar's place.
 ///
@@ -74,6 +76,8 @@ struct SetRoom: View, Animatable {
     var swap: CGFloat
 
     @ScaledMetric(relativeTo: CurrentFigure.textStyle) private var size = CurrentFigure.size
+    /// `ppFigureCaption`'s point size, the body style's at the default size.
+    @ScaledMetric(relativeTo: .body) private var captionSize: CGFloat = 17
     @Environment(\.locale) private var locale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -101,10 +105,13 @@ struct SetRoom: View, Animatable {
                     // "Rest" over the countdown, as over the rest between exercises: its line
                     // takes the place of the caption's under the figures.
                     VStack(alignment: .leading, spacing: Spacing.sm) {
+                        // Its capitals' tops where the figures' are, as far under the caption
+                        // line, not the font's room over them lower.
                         Text("Rest")
                             .font(.ppFigureCaption)
                             .foregroundStyle(.pp(.textSecondary))
                             .fixedSize(horizontal: false, vertical: true)
+                            .padding(.top, -Self.overCapitals(size: captionSize))
                         // With Reduce Motion the figure changes at once.
                         block.countdown(
                             size: size,
@@ -137,11 +144,23 @@ struct SetRoom: View, Animatable {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    /// In a row's detail style, numbers in mono, narrower than the caption line's all-mono, so a
+    /// two-figure set fits one line at the default size.
     private func quietLine(_ text: String) -> some View {
-        Text(AttributedString.monoNumbers(text, font: .ppCurrentProgress))
-            .font(.ppCurrentProgress)
+        Text(AttributedString.monoNumbers(text, font: .ppRowDetailNumber))
+            .font(.ppRowDetail)
             .foregroundStyle(.pp(.textSecondary))
             .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// The room a line of the system font at `size` leaves over its capitals.
+    static func overCapitals(size: CGFloat) -> CGFloat {
+        #if canImport(UIKit)
+        let font = UIFont.systemFont(ofSize: size)
+        return font.ascender - font.capHeight
+        #else
+        return 0
+        #endif
     }
 
     /// Where in the swap the figures have gone and the rest starts to come in, or back.

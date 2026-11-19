@@ -261,16 +261,18 @@ extension RoutineScreen {
     }
 
     /// The next set as the line under the rest reads it, naming the set, so a time after the
-    /// countdown never reads as more rest: "Next: set 2 · 10 reps · 50 lb", "Next: set 3 ·
-    /// 1 minute".
+    /// countdown never reads as more rest, and its number says it is the one to come: "Set 2:
+    /// 10 reps · 50 lb", "Set 3: 1 minute".
     func nextSetLine(_ set: PlannedSet) -> String {
         guard let item = routine.exercises.first(where: { $0.id == set.row }) else { return "" }
         let round = set.round.formatted(.number.locale(locale))
-        let parts = [String(localized: "Next: set \(round)")]
-            + item.figuresInWords(side: set.side, locale: locale)
         // Wrapping between parts, each kept whole, as a row's detail line does: "25" never left
         // at a line's end with "lb/side" under it.
-        return RowLabel.detailText(parts, stacked: false) ?? ""
+        let figures = RowLabel.detailText(
+            item.figuresInWords(side: set.side, locale: locale),
+            stacked: false,
+        ) ?? ""
+        return String(localized: "Set \(round): \(figures)")
     }
 
     /// What follows `set` on the quiet line under its figures, before it is logged: "then rest

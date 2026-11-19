@@ -29,9 +29,8 @@ extension Font {
     public static let ppRowTitleNumber = Font.system(.body, design: .monospaced, weight: .semibold)
     /// The current exercise's name, grown from `ppRowTitle`.
     public static let ppCurrentTitle = Font.system(.title, weight: .semibold)
-    /// The current exercise's caption line, "Set 1 of 3", and the quiet line under its figures,
-    /// "then rest 1:00", or under a rest the next set: SF Mono, as numbers are, a step under the
-    /// row's name.
+    /// The current exercise's caption line, "Set 1 of 3": SF Mono, as numbers are, a step under
+    /// the row's name.
     public static let ppCurrentProgress = Font.system(
         .subheadline,
         design: .monospaced,
