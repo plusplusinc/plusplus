@@ -72,7 +72,7 @@ extension RenameUITests {
     }
 
     /// Starts an edit with a tap on the title and ends it with `end`, then watches the title,
-    /// the capsules, and the first row for as long as UIKit could take to move them: none may.
+    /// the capsules, and the first row for `endedEditWindow`: none may move.
     private func endEditWithoutMoving(
         in app: XCUIApplication,
         keyboard: XCUIElement,

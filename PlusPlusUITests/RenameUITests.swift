@@ -13,13 +13,13 @@ final nonisolated class RenameUITests: XCTestCase {
     /// UIKit scrolls the focused field once the keyboard has risen, about 0.8s after the tap,
     /// while the keyboard's element reports its final frame from the start. Whether the title
     /// moved shows only by watching it for longer than that.
-    static let keyboardAvoidanceWindow: TimeInterval = 2
+    private static let keyboardAvoidanceWindow: TimeInterval = 2
 
     /// How long the screen is watched once an edit has ended. The keyboard's going lays out at
     /// once with UIKit's animations off: Start was back at rest at the first read after the
     /// keyboard's element went (Xcode Cloud run 494). A second still takes in a SwiftUI
     /// animation's whole run, and the watch starts after the edit's own start and end, so it
-    /// still reaches past `keyboardAvoidanceWindow`'s 0.8 s from the tap that began the edit.
+    /// still reaches past UIKit's scroll, about 0.8 s after the tap that began the edit.
     static let endedEditWindow: TimeInterval = 1
 
     /// The seeded routine's name, unlike the name the rename types.
@@ -207,7 +207,6 @@ final nonisolated class RenameUITests: XCTestCase {
     /// screen's own background shows. The shot is taken once the keyboard has risen.
     @MainActor
     private func assertNoBandAtCorners(of keyboard: XCUIElement, in shot: TitleShot) throws {
-        // After the checks, so a failing one keeps the shot it read.
         defer { attach(shot.screenshot, named: "keyboard-corners") }
         let frame = keyboard.frame
         let background = try shot.color(at: CGPoint(x: 200, y: frame.minY - 60))

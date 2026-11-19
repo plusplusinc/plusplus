@@ -83,11 +83,18 @@ extension XCUIApplication {
 
     /// Opens the drawer with ++ and taps the place labeled `label` in it.
     func openDrawer(andTap label: String) {
+        openDrawer(andTap: label) { }
+    }
+
+    /// Opens the drawer with ++, runs `whileOpen` once it has slid in, and taps the place labeled
+    /// `label` in it.
+    func openDrawer(andTap label: String, whileOpen: () throws -> Void) rethrows {
         buttons["Menu"].tap()
         XCTAssertTrue(drawerTitle.appears(), "++ did not open the drawer")
         // The drawer slides in, and a tap read from a frame mid-slide lands where it is going.
         let place = buttons[label]
         XCTAssertTrue(place.settles(), "\(label) kept moving")
+        try whileOpen()
         place.tap()
         XCTAssertTrue(drawerTitle.disappears(), "\(label) did not close the drawer")
     }

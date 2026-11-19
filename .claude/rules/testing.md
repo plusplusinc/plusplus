@@ -171,7 +171,7 @@ system's selection to it. `TitleShot.swift` reads the `_`, the title's lines, an
 from pixels: a name, typed or generated, reaches further from the background than the
 placeholder's gray.
 
-Wait with `appears()`, `disappears()`, `value(becoming:)`, and, for anything else read,
+Wait with `appears()`, `disappears()`, `staysAway()`, `value(becoming:)`, and, for anything else,
 `reading(_:becoming:within:)` from `Waits.swift`: XCTest's own waits spend a second before
 their first check, and again between checks. Read many elements' labels or values from one
 snapshot (`exerciseRowLabels`, `snapshots(where:)`): each element read on its own resolves its

@@ -226,7 +226,9 @@ extension XCTestCase {
     /// Keeps the screenshot, the whole screen now by default, in the result bundle, once the test
     /// has failed: from its first failure on, each named step leaves its shot. Nothing reads a
     /// passing run's, and taking and encoding about 50 of them cost each Xcode Cloud run a few
-    /// seconds of the UI tests' budget.
+    /// seconds of the UI tests' budget. The moment a check fails is in the screen recording
+    /// XCTest keeps of a failed test; a shot a check reads its pixels from is attached after its
+    /// checks (`defer`), so a failing one keeps the exact frame.
     func attach(
         _ screenshot: @autoclosure () -> XCUIScreenshot = XCUIScreen.main.screenshot(),
         named name: String,

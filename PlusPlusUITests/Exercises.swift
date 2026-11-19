@@ -167,11 +167,8 @@ extension XCUIApplication {
 
     /// The exercise rows' count once it is `expected`, or the last count after the timeout, which
     /// leaves an add time to land: an added row is in the tree only once it has.
-    func exerciseCount(
-        becoming expected: Int,
-        within timeout: TimeInterval = AddTiming.landed + 2,
-    ) -> Int {
-        reading(exerciseRows.count, becoming: expected, within: timeout)
+    func exerciseCount(becoming expected: Int) -> Int {
+        reading(exerciseRows.count, becoming: expected, within: AddTiming.landed + 2)
     }
 
     /// Whether, after a Create, the created row's sheet opens on its Customize form, once it

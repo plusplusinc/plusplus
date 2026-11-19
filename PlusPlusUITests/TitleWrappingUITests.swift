@@ -103,19 +103,15 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
     }
 
     /// The drawer, its places kept whole, and the Routines screen pass the audit at this size,
-    /// opened over the routine the workout's checks leave pushed. Ends on Routines.
+    /// opened with ++ over the workout's routine, which its relaunch reopened as the launch's
+    /// own. Ends on Routines.
     @MainActor
     private func drawerAtAX5(in app: XCUIApplication) throws {
         try XCTContext.runActivity(named: "The drawer and the Routines screen at AX5") { _ in
-            app.buttons["Menu"].tap()
-            XCTAssertTrue(app.drawerTitle.appears(), "++ did not open the drawer")
-            let routines = app.buttons["Routines"]
-            // The drawer slides in, and a tap read from a frame mid-slide lands where it is going.
-            XCTAssertTrue(routines.settles(), "Routines kept moving")
-            attach(named: "drawer-ax5")
-            try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
-            routines.tap()
-            XCTAssertTrue(app.drawerTitle.disappears(), "Routines did not close the drawer")
+            try app.openDrawer(andTap: "Routines") {
+                attach(named: "drawer-ax5")
+                try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
+            }
             let row = app.routineRows.firstMatch
             XCTAssertTrue(row.appears(), "The routine isn't listed")
             attach(named: "routines-ax5")
@@ -281,7 +277,6 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         while ink.lines.count != expected, Date.now < drawn {
             ink = try read(field)
         }
-        // After the checks, so a failing one keeps the shot it read.
         defer { attach(ink.shot.screenshot, named: label) }
         // The strip was placed by the frame read before the shot.
         XCTAssertEqual(title.frame, field, "\(label): the field moved while read", line: line)
