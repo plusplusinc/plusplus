@@ -8,10 +8,9 @@ import UIKit
 @testable import DesignSystem
 
 /// A list pushed onto a navigation stack, under a bar and over a bottom `safeAreaBar` as the
-/// routine screen is from Routines, has its scroll geometry laid out several times in the push's
-/// first frame: the bars take their room from the container, then the insets grow to them. A
-/// reaction to every field of the geometry ran on each, which SwiftUI logs as an
-/// `OnScrollGeometryChange` fault. Read from the process's own log.
+/// routine screen is from Routines, is laid out several times in the push's first frame
+/// (`ScrollExtent`); its rail autoscroll reacts once a frame all the same, with no
+/// `OnScrollGeometryChange` fault in the process's own log.
 @MainActor
 @Suite("Rail autoscroll on a push")
 struct RailAutoscrollPushTests {
@@ -71,11 +70,15 @@ struct RailAutoscrollPushTests {
         window.settle()
 
         let store = try OSLogStore(scope: .currentProcessIdentifier)
-        let faults = try store.getEntries(at: store.position(date: start))
-            .compactMap { $0 as? OSLogEntryLog }
-            .filter { $0.subsystem == "com.apple.SwiftUI" }
-            .map(\.composedMessage)
-            .filter { $0.contains("OnScrollGeometryChange") }
+        let faults = try store.getEntries(
+            at: store.position(date: start),
+            matching: NSPredicate(
+                format: "subsystem == %@ AND composedMessage CONTAINS %@",
+                "com.apple.SwiftUI",
+                "OnScrollGeometryChange",
+            ),
+        )
+        .map(\.composedMessage)
         #expect(faults.isEmpty, "SwiftUI logged \(faults)")
     }
 }
