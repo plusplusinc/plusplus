@@ -106,21 +106,29 @@ public struct RestBlock: View {
 /// the rest moves with the label's height on every frame. The label stands at least as tall as a
 /// resting row's floor (`restingLabelFloor`), the height a shrinking label stands at until its
 /// shrink ends: shorter at rest, a one-line detail's label let the rest under it jump up 8 pt as
-/// the shrink ended.
+/// the shrink ended. `onRestHeight` hears the rest's height as it lays out: all the row gives back
+/// as the rest closes.
 public struct LabelWithRest<Label: View>: View {
     let label: Label
     let rest: RestBlock
+    let onRestHeight: (CGFloat) -> Void
     @Environment(\.restingLabelFloor) private var floor
 
-    public init(label: Label, rest: RestBlock) {
+    public init(
+        label: Label,
+        rest: RestBlock,
+        onRestHeight: @escaping (CGFloat) -> Void = { _ in },
+    ) {
         self.label = label
         self.rest = rest
+        self.onRestHeight = onRestHeight
     }
 
     public var body: some View {
         RailStack {
             label.frame(minHeight: floor, alignment: .top)
             rest
+                .onGeometryChange(for: CGFloat.self, of: \.size.height, action: onRestHeight)
         }
     }
 }

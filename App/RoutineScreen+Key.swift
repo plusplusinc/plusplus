@@ -34,9 +34,16 @@ extension RoutineScreen {
             }
         }
 
-        /// The key's identity in its bar, which swaps it for another as it changes.
-        var id: Kind {
-            kind
+        /// The key's identity in its bar, which swaps it for another as it changes: during a
+        /// rest, −15 s and +15 s are another key, so they swap with the log key as any two keys
+        /// do, never crossfading through it in its place.
+        var id: Identity {
+            isResting ? .rest : .key(kind)
+        }
+
+        enum Identity: Hashable {
+            case key(Kind)
+            case rest
         }
 
         var isResting: Bool {
@@ -77,17 +84,19 @@ extension RoutineScreen {
     /// The key that `primaryKeyBar` holds, for `role`. Within a kind, one key whose words
     /// change; across kinds, another key, which the bar swaps in. While the bar has it out in a
     /// swap, a tap or a VoiceOver activation does nothing, and the key stays enabled, so
-    /// VoiceOver doesn't read it dimmed for the swap's length. During a rest it gives way in
-    /// place to −15 s and +15 s, coming back after a rest between exercises with the next
-    /// exercise's figures (`SetMotion.keyAfterRest`).
+    /// VoiceOver doesn't read it dimmed for the swap's length. During a rest the bar swaps it for
+    /// −15 s and +15 s (`RestKeys`), and back as the rest ends.
+    @ViewBuilder
     func key(_ role: KeyRole, isOut: Bool) -> some View {
-        RestKeys(
-            isResting: role.isResting,
-            delay: phase.move?.isFromRest == true ? SetMotion.keyAfterRest : 0,
-            onShorten: { adjustRest(by: -15) },
-            onExtend: { adjustRest(by: 15) },
-            key: { mainKey(role, isOut: isOut) },
-        )
+        if role.isResting {
+            RestKeys(
+                isOut: isOut,
+                onShorten: { adjustRest(by: -15) },
+                onExtend: { adjustRest(by: 15) },
+            )
+        } else {
+            mainKey(role, isOut: isOut)
+        }
     }
 
     private func mainKey(_ role: KeyRole, isOut: Bool) -> some View {

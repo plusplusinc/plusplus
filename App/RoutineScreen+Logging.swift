@@ -64,7 +64,7 @@ extension RoutineScreen {
         return move.way
     }
 
-    /// The current exercise as it grows into `set`, `after` at its caption line's trailing end:
+    /// The current exercise as it grows into `set`, `after` on the quiet line under its figures:
     /// at a superset round's end, it shows the round just done, as the logged set's row showed
     /// it, until the move rolls it to the new one.
     func focus(of item: RoutineExercise, on set: PlannedSet, after: String?) -> RowFocus {
@@ -79,15 +79,16 @@ extension RoutineScreen {
                 locale: locale,
             )
         }
-        // Resting between two sets, the line says the set just done, "1 of 3 done", with nothing
-        // after it, until the next set swaps back up.
+        // Resting between two sets, the line says the set just done, "1 of 3 done", until the
+        // next set swaps back up; the quiet line the rest took the place of still says the rest
+        // it went to as it fades, not what follows the next set.
         if let rest = phase.drawnRest, rest.isWithinExercise, rest.beat >= .shown,
            rest.beat < .returning, rest.set.row == item.id
         {
             let round = rest.set.round.formatted(.number.locale(locale))
             let sets = item.plan.sets.formatted(.number.locale(locale))
             focus.progress = "\(round) of \(sets) done"
-            focus.after = nil
+            focus.after = drawnResting.map { thenRestText($0.rest.length) }
         }
         return focus
     }
@@ -325,6 +326,17 @@ extension RoutineScreen {
 
     /// Notes `id`'s pitch at rest, top to the next row's top, before it grows: what it gives
     /// back as it shrinks. The rail keeps a resting row to a rhythm, so it is more than its height.
+    /// Where the list lands `next`'s row under the bar as a rest between exercises ends: up by the
+    /// rest closing under the row left, already a resting row, all it gives back. Nil when the
+    /// row isn't known.
+    func landing(
+        on next: RoutineExercise.ID,
+        closingRestUnder leaving: RoutineExercise.ID,
+    ) -> CGFloat? {
+        guard let nextTop = rowFrames.tops[next] else { return nil }
+        return max(nextTop - (rowFrames.restHeights[leaving] ?? 0), 0)
+    }
+
     func noteRestingPitch(of id: RoutineExercise.ID?) {
         guard let id, let top = rowFrames.tops[id],
               let after = routine.neighbor(of: id, .below).flatMap({ rowFrames.tops[$0.id] })
@@ -359,4 +371,6 @@ extension WorkoutPhase.Move {
 final class RowFrames {
     var tops: [RoutineExercise.ID: CGFloat] = [:]
     var restingPitch: [RoutineExercise.ID: CGFloat] = [:]
+    /// The height of the rest under each row, open or not.
+    var restHeights: [RoutineExercise.ID: CGFloat] = [:]
 }

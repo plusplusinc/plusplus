@@ -1,84 +1,60 @@
 import SwiftUI
 
-/// The key at the bottom, which during a rest swaps in place for −15 s and +15 s: two keys side by
-/// side in its room, each half its width, its height and shape, in the quieter secondary look
-/// (`secondaryKey`). The swap is a crossfade in place, the one going shrinking a little as it
-/// fades and the one coming growing back to its size, on the rest's swap curve
-/// (`SetMotion.restSwap`) after `delay`: at the log from the tap, with everything else it changes;
-/// at a rest's end with the figures coming back. With Reduce Motion, only the fade. Whichever is
-/// not showing takes no taps and is hidden from VoiceOver. The two keys keep the key's room, so
-/// the floating button above it never moves.
-public struct RestKeys<Key: View>: View {
-    let isResting: Bool
-    let delay: Double
-    let key: Key
+/// The keys at the bottom during a rest, in the key's place: −15 s and +15 s side by side in its
+/// room, each half its width, its height and shape, in the quieter secondary look
+/// (`secondaryKey`). They are another key to the bar, so the key and they swap as any two keys do
+/// (`StagedKey`): the one showing goes down out of sight, then the other comes up, never the two
+/// at once; with Reduce Motion, each fades. While the bar has them out in a swap, a tap does
+/// nothing. The two keep the key's room, so the floating button above it never moves, and stand
+/// on a plate of the screen's color in the one key's shape, so no row shows between them.
+public struct RestKeys: View {
+    let isOut: Bool
     let onShorten: () -> Void
     let onExtend: () -> Void
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
     public init(
-        isResting: Bool,
-        delay: Double = 0,
+        isOut: Bool = false,
         onShorten: @escaping () -> Void,
         onExtend: @escaping () -> Void,
-        @ViewBuilder key: () -> Key,
     ) {
-        self.isResting = isResting
-        self.delay = delay
+        self.isOut = isOut
         self.onShorten = onShorten
         self.onExtend = onExtend
-        self.key = key()
     }
 
     public var body: some View {
-        ZStack {
-            key
-                .opacity(isResting ? 0 : 1)
-                .scaleEffect(isResting && !reduceMotion ? Self.shrunk : 1)
-                .allowsHitTesting(!isResting)
-                .accessibilityHidden(isResting)
-            HStack(spacing: Spacing.sm) {
-                Button(action: onShorten) {
-                    Text(AttributedString.monoNumbers("−15 s", font: .ppPrimaryKeyNumber))
+        HStack(spacing: Spacing.sm) {
+            Button {
+                if !isOut {
+                    onShorten()
                 }
-                .accessibilityLabel("Shorten rest by 15 seconds")
-                Button(action: onExtend) {
-                    Text(AttributedString.monoNumbers("+15 s", font: .ppPrimaryKeyNumber))
-                }
-                .accessibilityLabel("Extend rest by 15 seconds")
+            } label: {
+                Text(AttributedString.monoNumbers("−15 s", font: .ppPrimaryKeyNumber))
             }
-            .buttonStyle(.secondaryKey)
-            .opacity(isResting ? 1 : 0)
-            .scaleEffect(isResting || reduceMotion ? 1 : Self.shrunk)
-            .allowsHitTesting(isResting)
-            .accessibilityHidden(!isResting)
+            .accessibilityLabel("Shorten rest by 15 seconds")
+            Button {
+                if !isOut {
+                    onExtend()
+                }
+            } label: {
+                Text(AttributedString.monoNumbers("+15 s", font: .ppPrimaryKeyNumber))
+            }
+            .accessibilityLabel("Extend rest by 15 seconds")
         }
-        .animation(SetMotion.restSwap.delay(delay), value: isResting)
-    }
-
-    /// The size the key going shrinks to as it fades, and the one coming grows from.
-    static var shrunk: CGFloat {
-        0.96
+        .buttonStyle(.secondaryKey)
+        // On a plate of the screen's own color, the one key's footprint, so the rows running on
+        // under the bar show no more between the two keys than around the one: through the gap,
+        // a row's words were readable.
+        .background(Capsule().fill(.pp(.background)))
     }
 }
 
 #Preview {
     VStack(spacing: Spacing.lg) {
-        RestKeys(
-            isResting: false,
-            onShorten: { },
-            onExtend: { },
-            key: { Button("Log set") { } },
-        )
-        RestKeys(
-            isResting: true,
-            onShorten: { },
-            onExtend: { },
-            key: { Button("Log set") { } },
-        )
+        Button("Log set") { }
+            .buttonStyle(.primaryKey)
+        RestKeys(onShorten: { }, onExtend: { })
     }
-    .buttonStyle(.primaryKey)
     .padding()
     .background(Color.pp(.background))
 }

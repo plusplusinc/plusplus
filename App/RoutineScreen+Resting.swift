@@ -3,7 +3,8 @@ import SwiftUI
 import WorkoutStore
 
 /// The rest between two exercises, after the last set of one, when the routine stores a rest
-/// after it. While the exercise is current, its caption line says the rest that will follow the
+/// after it. While the exercise is current, the quiet line under its figures says the rest that
+/// will follow the
 /// set, "then rest 1:00" (`afterText(for:)`). The rest is a stop on the way, as if an exercise of
 /// its own: logging the last set plays a move to the next exercise with the rest as its
 /// destination (`RailStop.rest(after:)`), every timing and curve a move's (`SetMotion`): the
@@ -15,7 +16,7 @@ import WorkoutStore
 /// (`RestProgress`). As the countdown reaches 0 the same move plays from the rest to the next
 /// exercise's node, the next exercise opening as the dot leaves (`SetMotion.leavingRest`).
 ///
-/// Through any rest the key at the bottom gives way in place to −15 s and +15 s (`RestKeys`),
+/// Through any rest the key at the bottom swaps, as keys swap, for −15 s and +15 s (`RestKeys`),
 /// the + above it staying put. −15 s with less than 15 s left ends the rest; + and − glide the bar
 /// and turn the countdown, the dot staying put. Taps on them while the rest is still coming in,
 /// as a double tap's second on Log set, do nothing. There is no Skip. With Reduce Motion, each
@@ -163,7 +164,9 @@ extension RoutineScreen {
         }
         guard rest.beat == .settled else { return }
         noteRestingPitch(of: next.row)
-        let target = landing(on: next.row, leaving: rest.set.row)
+        // From the rest's height, not the row's pitch at rest, which a relaunch into the workout
+        // never noted: with no target, the list landed in a second motion after the move.
+        let target = landing(on: next.row, closingRestUnder: rest.set.row)
         guard !reduceMotion else {
             phase.endRest(moves: false)
             return crossfadeOn(to: next, scrollingTo: target)
@@ -174,8 +177,8 @@ extension RoutineScreen {
                 scrollPosition.scrollTo(y: target)
             }
         }
-        // As the dot leaves the word, not once it lands: the next exercise opens, and the key
-        // comes back with its figures (`SetMotion.keyAfterRest`).
+        // As the dot leaves the word, not once it lands: the next exercise opens as the bar swaps
+        // −15 s and +15 s back for the key.
         withAnimation(SetMotion.leavingRest) {
             phase.endRest()
             growthLift = 0
@@ -235,9 +238,9 @@ extension RoutineScreen {
     /// tall as the rest for every set of an exercise that rests between them. Nil for any other
     /// row, and an exercise with no rest between its sets.
     func setRest(of id: RoutineExercise.ID, current: RoutineExercise.ID?) -> SetRest? {
-        guard id == current, let shown, let gap = routine.restBetweenSets(of: id) else {
-            return nil
-        }
+        guard id == current, let shown, let gap = routine.restBetweenSets(of: id),
+              (restOverride ?? gap) > 0
+        else { return nil }
         let next = shown.currentSet.map(nextSetLine) ?? ""
         if let within = phase.drawnRest, within.isWithinExercise, within.beat >= .shown,
            let (resting, workout) = drawnResting
@@ -257,17 +260,20 @@ extension RoutineScreen {
         return SetRest(isRunning: false, length: restOverride ?? gap, next: next)
     }
 
-    /// The next set as the line under the rest reads it: "Next: 10 reps", "Next: 10 reps ·
-    /// 50 lb".
+    /// The next set as the line under the rest reads it, naming the set, so a time after the
+    /// countdown never reads as more rest: "Next: set 2 · 10 reps · 50 lb", "Next: set 3 ·
+    /// 1 minute".
     func nextSetLine(_ set: PlannedSet) -> String {
         guard let item = routine.exercises.first(where: { $0.id == set.row }) else { return "" }
-        let figures = item.shownFigures(side: set.side, locale: locale).map { figure in
-            [figure.number, figure.unit].filter { !$0.isEmpty }.joined(separator: " ")
-        }
-        return "Next: " + figures.joined(separator: " · ")
+        let round = set.round.formatted(.number.locale(locale))
+        let parts = [String(localized: "Next: set \(round)")]
+            + item.figuresInWords(side: set.side, locale: locale)
+        // Wrapping between parts, each kept whole, as a row's detail line does: "25" never left
+        // at a line's end with "lb/side" under it.
+        return RowLabel.detailText(parts, stacked: false) ?? ""
     }
 
-    /// What follows `set` on the caption line's trailing end, before it is logged: "then rest
+    /// What follows `set` on the quiet line under its figures, before it is logged: "then rest
     /// 1:00" where a rest will run after it, as `rests(after:leadingTo:)` decides once it is;
     /// "last set" on the workout's last; else nothing.
     func afterText(for set: PlannedSet, in shown: LiveWorkout) -> String? {
@@ -283,8 +289,15 @@ extension RoutineScreen {
         default:
             return nil
         }
-        guard gap > 0 else { return nil }
-        let length = Duration.seconds(restOverride ?? gap)
+        // A rest of 0 s runs no rest, so none is promised: it read "then rest 0:00".
+        let length = restOverride ?? gap
+        guard length > 0 else { return nil }
+        return thenRestText(length)
+    }
+
+    /// "then rest 1:00", for a rest of `seconds`.
+    func thenRestText(_ seconds: Int) -> String {
+        let length = Duration.seconds(seconds)
             .formatted(.time(pattern: .minuteSecond).locale(locale))
         return String(localized: "then rest \(length)")
     }
@@ -318,6 +331,7 @@ extension RoutineScreen {
         LabelWithRest(
             label: rowLabel(item, current: current, on: set, parts: parts),
             rest: parts?.restAfter ?? RestBlock(stage: .none, length: 0),
+            onRestHeight: { rowFrames.restHeights[item.id] = $0 },
         )
     }
 

@@ -6,9 +6,10 @@ import SwiftUI
 ///
 /// Given a `focus`, it is the current exercise of a workout: the name grows large, and the detail
 /// gives way to, top to bottom, its sets as a bar of segments (`SetSegments`), a caption line,
-/// "Set 1 of 3" and what follows the set at its trailing end, "then rest 1:00" or "last set", the
-/// plan's figures, large, side by side (`CurrentFigures`), and the exercise's equipment, the
-/// label growing to their height. Changed in an animation, the name scales between its two sizes
+/// "Set 1 of 3", the plan's figures, large, side by side (`CurrentFigures`), with a quiet line
+/// under them for what follows the set, "then rest 1:00" or "last set" (`SetRoom`), and the
+/// exercise's equipment, the label growing to their height. Changed in an animation, the name
+/// scales between its two sizes
 /// (`GrowingName`), and the parts under it come in, and go, in turn (`SetMotion`).
 ///
 /// A finished exercise (`isDone`) goes quiet: its name in `textSecondary`, its detail in
@@ -128,18 +129,15 @@ public struct RowLabel: View {
                                 .part(.progress)
                         }
                     }
-                    if let focus, let setRest {
-                        SetRoom(figures: focus.figures, rest: setRest)
-                            .part(.figures)
-                    } else if let focus {
-                        CurrentFigures(figures: focus.figures)
+                    if let focus {
+                        SetRoom(figures: focus.figures, after: focus.after, rest: setRest)
                             .part(.figures)
                     }
-                    if let focus, !focus.equipment.isEmpty {
-                        Capsules(focus.equipment)
-                            .part(.equipment)
-                    } else if focus == nil, let nextUp, !nextUp.isEmpty {
-                        Capsules(nextUp)
+                    // One view whether next after a rest or current, so the equipment the next
+                    // exercise shows through the rest stays as it becomes the current one's.
+                    let equipment = focus?.equipment ?? nextUp ?? []
+                    if !equipment.isEmpty {
+                        Capsules(equipment)
                             .part(.equipment)
                     }
                 }
@@ -170,6 +168,9 @@ public struct RowLabel: View {
                 .animation(
                     showsDetail
                         ? SetMotion.detailIn(way: exerciseMoveWay)
+                        // Out of a rest, the next exercise's line stays until the progress line
+                        // comes in to take its place.
+                        : nextUp != nil ? SetMotion.detailOutOfRest
                         : SetMotion.detailOut(way: exerciseMoveWay),
                     value: showsDetail,
                 )
@@ -179,15 +180,7 @@ public struct RowLabel: View {
                     if let bars {
                         SetSegments(progress: bars, isOnSet: setRest?.isRunning != true)
                     }
-                    CaptionLine(spacing: Spacing.md) {
-                        progressLine(focus)
-                        Text(AttributedString.monoNumbers(
-                            focus.after ?? "",
-                            font: .ppCurrentProgress,
-                        ))
-                        .font(.ppCurrentProgress)
-                        .foregroundStyle(.pp(.textSecondary))
-                    }
+                    progressLine(focus)
                 }
                 .padding(.top, Spacing.sm)
                 .part(.progress)
@@ -267,7 +260,7 @@ public struct RowLabel: View {
                 title,
                 [focus.progress, focus.side].compactMap(\.self).joined(separator: ", "),
                 focus.spokenFigures,
-                focus.after ?? "",
+                setRest?.isRunning == true ? "" : focus.after ?? "",
             ]
         } else {
             [title, spokenDetail ?? detail.joined(separator: ", ")]
@@ -278,7 +271,7 @@ public struct RowLabel: View {
     /// The detail line from its parts, or nil for none. Joined with dots, each part kept whole,
     /// so a long line wraps between parts; stacked, at the accessibility sizes, a part to a line
     /// with no dots.
-    static func detailText(_ parts: [String], stacked: Bool) -> String? {
+    public static func detailText(_ parts: [String], stacked: Bool) -> String? {
         guard !parts.isEmpty else { return nil }
         guard !stacked else { return parts.joined(separator: "\n") }
         // The space before a dot is no-break too, so a line never starts with one.
@@ -315,7 +308,7 @@ public struct RowFocus: Equatable {
     public var figures: [Figure]
     /// The figures in words, for VoiceOver.
     public var spokenFigures: String
-    /// What follows the set, at the caption line's trailing end: "then rest 1:00", "last set";
+    /// What follows the set, on the quiet line under the figures: "then rest 1:00", "last set";
     /// nil for nothing.
     public var after: String?
     public init(

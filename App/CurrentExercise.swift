@@ -98,7 +98,8 @@ extension RoutineExercise {
     }
 
     /// The figures as the current exercise shows them, each number over what it counts: a time
-    /// as its digits over its unit in words, "30" "seconds", "1:30" "minutes", with "per side"
+    /// under a minute as its seconds over "seconds", "30" "seconds"; a minute or more as a clock
+    /// over "min", "1:30" "min", which a plural unit misread as "1:00 minutes"; with "per side"
     /// after it where the plan's figure has it, so it reads as reps and weight do.
     func shownFigures(side: Side?, locale: Locale) -> [(number: String, unit: String)] {
         figures(side: side, locale: locale).enumerated().map { index, figure in
@@ -108,8 +109,27 @@ extension RoutineExercise {
             let number = seconds < 60
                 ? seconds.formatted(.number.locale(locale))
                 : Duration.seconds(seconds).formatted(.time(pattern: .minuteSecond).locale(locale))
-            let unit = seconds < 60 ? String(localized: "seconds") : String(localized: "minutes")
+            let unit = seconds < 60 ? String(localized: "seconds") : String(localized: "min")
             return (number, [unit, figure.unit].filter { !$0.isEmpty }.joined(separator: " "))
+        }
+    }
+
+    /// The figures in words, the time in words: "10 reps", "25 lb/side"; "1 minute",
+    /// "1 min, 30 sec per side"; never a clock with a unit, which after a rest's countdown read as
+    /// more rest.
+    func figuresInWords(side: Side?, locale: Locale) -> [String] {
+        figures(side: side, locale: locale).enumerated().map { index, figure in
+            guard index == 0, case let .time(seconds) = plan.target else {
+                return [figure.number, figure.unit].filter { !$0.isEmpty }.joined(separator: " ")
+            }
+            // Whole minutes or seconds alone in full words, "1 minute", "30 seconds"; a mix
+            // shortened, "1 min, 30 sec".
+            let width: Duration.UnitsFormatStyle.UnitWidth = seconds < 60 || seconds
+                .isMultiple(of: 60)
+                ? .wide : .abbreviated
+            let time = Duration.seconds(seconds)
+                .formatted(.units(allowed: [.minutes, .seconds], width: width).locale(locale))
+            return [time, figure.unit].filter { !$0.isEmpty }.joined(separator: " ")
         }
     }
 }

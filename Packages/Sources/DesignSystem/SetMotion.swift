@@ -162,6 +162,13 @@ public enum SetMotion {
         .easeIn(duration: 0.06).delay(way.map(moveShiftStart) ?? 0)
     }
 
+    /// Out of a rest between exercises, the detail line on the next row, grown a step through the
+    /// rest, going just as the progress line comes in, never before: gone as the rest ended, it
+    /// left the row bare for a few frames.
+    static var detailOutOfRest: Animation {
+        .easeIn(duration: 0.06).delay(arriveDelay(.progress) - 0.06)
+    }
+
     // MARK: Arrive
 
     /// Each part of the next exercise fading in as it rises into place.
@@ -209,16 +216,12 @@ public enum SetMotion {
         .timingCurve(0.6, 0, 0.1, 1, duration: moveShift).delay(travelStart)
     }
 
-    /// When the key at the bottom comes back from a rest between exercises, from the rest's end:
-    /// with the next exercise's figures.
-    public static let keyAfterRest = arriveDelay(.figures)
-
     // MARK: A rest between sets
 
     /// Everything a log that rests between sets changes, from the tap, and the rest's end
     /// changes back, on one curve: the figures and the rest swapping in their slot, the set's
-    /// segment turning purple, the caption line rolling, and the key at the bottom swapping in
-    /// place for −15 s and +15 s.
+    /// segment turning purple, and the caption line rolling. The key at the bottom swaps for
+    /// −15 s and +15 s on the bar's own swap (`RestKeys`).
     public static var restSwap: Animation {
         .snappy(duration: roll)
     }
