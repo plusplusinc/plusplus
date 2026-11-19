@@ -209,12 +209,9 @@ extension RoutineScreen {
 
     /// Once the picker has gone, scrolls the list to its end, the added row's place, and returns
     /// as the scroll lands, unless the end is in view or Start's room is opening, when it returns
-    /// at once. Once Start is pressed the in-step scroll stays off (`pressStart()` turns it
-    /// off), so the row enters where it is: left on, it woke as Start's room went, with the
-    /// landing's room still under the list, and scrolled the list into it, off the screen
-    /// (Xcode Cloud runs 495 and 499). On deadlines, not the scroll's completion or its
-    /// phase: the phase reported idle only about 0.3 s after the list had stopped, and the row
-    /// waited on a still list.
+    /// at once, leaving the in-step scroll off (`keepEndInView`). On deadlines, not the scroll's
+    /// completion or its phase: the phase reported idle only about 0.3 s after the list had
+    /// stopped, and the row waited on a still list.
     private func reachEnd(added: ContinuousClock.Instant) async {
         guard !isMakingRoom else { return }
         endFollow = .ready
@@ -254,7 +251,9 @@ extension RoutineScreen {
     /// time, so the list's end stays put on screen as the line grows above it. The place opens
     /// with the list's end in view, so the end is where the scroll stays. Not once Start is
     /// pressed: its room under the list grows the content too, and following that took the
-    /// list off the screen, as `add` says.
+    /// list off the screen, as `add` says. The press turns it off (`pressStart()`), not only
+    /// pauses it: left on, it woke as Start's room went, with the landing's room still under
+    /// the list, and scrolled the list into that (Xcode Cloud runs 495 and 499).
     ///
     /// From the place's first growth on (`EndFollow.following`), it follows the end on any
     /// change while short of it, not only on a growth: a growth is reported before the scroll
