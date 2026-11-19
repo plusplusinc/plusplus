@@ -32,7 +32,8 @@ case "$MODE" in
         [ "$status" -eq 0 ] || exit "$status"
         # The scripts' own tests: the night runner's gates, the PR check's revert guard, the
         # models check, board.sh's readme, the agent records' tally, tidy's choice of unused
-        # simulators, device.sh's arguments, and the times' parsing. Nothing else runs them, CI
+        # simulators, device.sh's arguments, the times' parsing, and the conversation extract's
+        # queued messages. Nothing else runs them, CI
         # included, and they need no simulator or network (about 7 s).
         python3 -I "$ROOT/scripts/nightly-tooling-test.py" > "$RESULTS/scripts.log" 2>&1 &&
             python3 -I "$ROOT/scripts/pr-check-test.py" >> "$RESULTS/scripts.log" 2>&1 &&
@@ -41,7 +42,8 @@ case "$MODE" in
             python3 -I "$ROOT/scripts/agent-record-test.py" >> "$RESULTS/scripts.log" 2>&1 &&
             python3 -I "$ROOT/scripts/stale-simulators-test.py" >> "$RESULTS/scripts.log" 2>&1 &&
             python3 -I "$ROOT/scripts/device-test.py" >> "$RESULTS/scripts.log" 2>&1 &&
-            python3 -I -m doctest "$ROOT/scripts/xcresult.py" >> "$RESULTS/scripts.log" 2>&1 ||
+            python3 -I -m doctest "$ROOT/scripts/xcresult.py" >> "$RESULTS/scripts.log" 2>&1 &&
+            python3 -I -m doctest "$ROOT/scripts/conversations.py" >> "$RESULTS/scripts.log" 2>&1 ||
             { cat "$RESULTS/scripts.log"; echo "script tests failed" >&2; exit 1; }
         ;;
     sim)
