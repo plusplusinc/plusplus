@@ -72,6 +72,10 @@ extension RoutineScreen {
             }
             .disabled(!session.canDeleteOpen)
         }
+        // Named once: hidden from VoiceOver through a representation, the menu read out its
+        // Delete too, "More, Delete".
+        .accessibilityLabel("More")
+        .accessibilityIdentifier("routine.more")
         .hiddenBehindDrawer()
         .alert("Delete \(shownName ?? Self.defaultName)?", isPresented: $isAskingToDeleteRoutine) {
             Button("Cancel", role: .cancel) { }
