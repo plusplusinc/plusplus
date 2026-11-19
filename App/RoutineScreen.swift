@@ -66,9 +66,13 @@ struct RoutineScreen: View {
     @State var isConfirmingEnd = false
     /// The scroll in Start's sequence, and how far the list is scrolled.
     @State var scrollBeat = ScrollBeat()
-    /// With Reduce Motion, how many times the list has crossfaded into or out of a workout: each
-    /// a new view, so the old one fades out as the new one fades in.
+    /// With Reduce Motion, how many times the list has crossfaded into or out of a workout, or
+    /// to a deleted exercise's rows gone: each a new view, so the old one fades out as the new
+    /// one fades in.
     @State var listChanges = 0
+    /// A created exercise being deleted, which Add exercise stops listing on its beat, before
+    /// the store takes the delete (`deleteExercise(_:closing:)`).
+    @State var leavingExercise: Exercise.ID?
     /// While the list crossfades, when nothing in it animates but its fade.
     @State var isCrossfading = false
     /// Crossfading up to the list's top, how much of the list going out was under the bar, which
@@ -142,18 +146,9 @@ struct RoutineScreen: View {
         }
     }
 
-    /// Takes up the session's routine once an exercise's change has reached the store: its rows
-    /// read the new settings, or leave as a removed row does with a Delete. Not saved again: it
-    /// is the stored routine. A Delete can leave it empty: Start and the + go down after
-    /// `footDelay`, as after the row's own Remove.
-    func showStoredRoutine(footDelay: Duration = .zero) {
-        let stored = session.current
-        guard stored != shownRoutine else { return }
-        // Only a removal is a leave; a settings change keeps the list, Reduce Motion or not.
-        guard stored.exercises.count < shownRoutine.exercises.count else {
-            return withAnimation(.railChange) { shownRoutine = stored }
-        }
-        leave(footDelay: footDelay) { shownRoutine = stored }
+    /// Shows the routine as the store has it, not saving it again (`showStoredRoutine`).
+    func show(stored: Routine) {
+        shownRoutine = stored
     }
 
     /// The name made for the routine from its exercises, which a chosen name hides and which

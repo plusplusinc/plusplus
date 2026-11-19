@@ -66,22 +66,8 @@ extension RoutineScreen {
     /// Removes a row. The last one takes Start down and the + with it after `footDelay`: at once
     /// from a swipe, and from the exercise sheet's Remove once the sheet has gone.
     func delete(_ id: RoutineExercise.ID, footDelay: Duration = .zero) {
-        leave(footDelay: footDelay) { routine.remove(id) }
-    }
-
-    /// Rows leaving the routine, as `change` takes them, the rows below closing the gap in one
-    /// move, the generated title retyping; if none is left, Start goes down and the + with it
-    /// after `footDelay`. The one motion every removal plays: a row's Remove and swipe, and a
-    /// deleted exercise's rows (`showStoredRoutine(footDelay:)`). With Reduce Motion, the list
-    /// crossfades to its new rows rather than closing the gap.
-    func leave(footDelay: Duration, _ change: () -> Void) {
-        if reduceMotion {
-            withAnimation(Self.crossfadeCurve) {
-                listChanges += 1
-                change()
-            }
-        } else {
-            withAnimation(.railChange, change)
+        withAnimation(.railChange) {
+            routine.remove(id)
         }
         settleFoot(after: footDelay)
     }
@@ -120,7 +106,7 @@ extension RoutineScreen {
     /// sheet opens on Customize (`showCreated()`).
     var picker: some View {
         ExercisePicker(
-            exercises: session.exercises,
+            exercises: leavingExercise.map(session.exercises.removing) ?? session.exercises,
             onPick: addPicked,
             // Full height with search, in the field's own transaction (decided 2026-11-17).
             onSearchOpen: { pickerDetent = .large },
