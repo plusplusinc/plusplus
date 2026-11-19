@@ -174,7 +174,16 @@ def typed(entry):
 
 def queued(entry):
     """A message the maintainer typed while the assistant was mid-turn, which Claude Code keeps
-    as a queued-command attachment rather than a user entry, or None."""
+    as a queued-command attachment rather than a user entry, or None. A prompt queued with an
+    image attached is a list of content blocks, read like a user message's content.
+
+    >>> queued({"attachment": {"type": "queued_command", "prompt": "Make the row taller"}})
+    'Make the row taller'
+    >>> queued({"attachment": {"type": "queued_command", "prompt": [
+    ...     {"type": "text", "text": "Like this one"},
+    ...     {"type": "image", "source": {"type": "base64", "data": "AAAA"}}]}})
+    'Like this one\\n[image]'
+    """
     attachment = entry.get("attachment")
     if not isinstance(attachment, dict) or attachment.get("type") != "queued_command":
         return None
@@ -182,7 +191,7 @@ def queued(entry):
         return None
     if (attachment.get("origin") or {}).get("kind") not in (None, "human"):
         return None
-    text = REMINDER.sub("", attachment.get("prompt") or "").strip()
+    text = REMINDER.sub("", text_parts(attachment.get("prompt")) or "").strip()
     # The desktop app queues its own notices this way too.
     return None if not text or text.startswith("<ci-monitor-event>") else text
 
