@@ -50,6 +50,8 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     private let isSetHeld: Bool
     /// A pulse from one row's node to another's, as a workout moves on (`RailPulse`).
     private let pulse: RailPulse<RowID>?
+    /// A dot traveling from one row's node to another's for a rest's length (`RailTravel`).
+    private let travel: RailTravel<RowID>?
     /// Whether a workout is moving on from one row to another: the rows change height on the
     /// move's animation, so the rail draws every stroke once, as while a row is held.
     private let isMoving: Bool
@@ -120,6 +122,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         done: Set<Data.Element.ID> = [],
         isSetHeld: Bool = false,
         pulse: RailPulse<Data.Element.ID>? = nil,
+        travel: RailTravel<Data.Element.ID>? = nil,
         isMoving: Bool = false,
         onMove: ((Data.Element.ID, RailSlot<Data.Element.ID>) -> Void)? = nil,
         regroup: RailRegroup<Data.Element.ID>? = nil,
@@ -134,6 +137,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
             done: done,
             isSetHeld: isSetHeld,
             pulse: pulse,
+            travel: travel,
             isMoving: isMoving,
             onMove: onMove,
             regroup: regroup,
@@ -152,6 +156,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         done: Set<RowID> = [],
         isSetHeld: Bool = false,
         pulse: RailPulse<RowID>? = nil,
+        travel: RailTravel<RowID>? = nil,
         isMoving: Bool = false,
         onMove: ((RowID, RailSlot<RowID>) -> Void)? = nil,
         regroup: RailRegroup<RowID>? = nil,
@@ -168,6 +173,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         self.done = done
         self.isSetHeld = isSetHeld
         self.pulse = pulse
+        self.travel = travel
         self.isMoving = isMoving
         self.onMove = onMove
         self.regroup = regroup
@@ -279,10 +285,13 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         .overlayPreferenceValue(RowNodes.self) { nodes in
             GeometryReader { proxy in
                 RailPulseRun(
-                    route: pulse.flatMap { route($0, nodes, in: proxy) },
+                    route: pulse.flatMap { route($0.from, $0.to, nodes, in: proxy) },
                     way: pulse?.way ?? .down,
                     run: pulse?.run ?? 0,
                 )
+                if let travel, let route = route(travel.from, travel.to, nodes, in: proxy) {
+                    RailTravelDot(travel: travel, route: route)
+                }
             }
         }
         // The card, over the rows it passes and the rail's end. It is placed in the rail's space,
@@ -341,18 +350,20 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
 }
 
 extension Rail {
-    /// The way `pulse` goes between its nodes: up a superset's loop to its first member, from a
-    /// later one in the same superset; straight along the rail otherwise.
+    /// The way from `fromID`'s node to `toID`'s, for a pulse or a rest's dot: up a superset's
+    /// loop to its first member, from a later one in the same superset; straight along the rail
+    /// otherwise.
     private func route(
-        _ pulse: RailPulse<RowID>,
+        _ fromID: RowID,
+        _ toID: RowID,
         _ nodes: [AnyHashable: Anchor<CGPoint>],
         in proxy: GeometryProxy,
     ) -> RailRoute? {
-        guard let from = nodes[AnyHashable(pulse.from)].map({ proxy[$0] }),
-              let to = nodes[AnyHashable(pulse.to)].map({ proxy[$0] })
+        guard let from = nodes[AnyHashable(fromID)].map({ proxy[$0] }),
+              let to = nodes[AnyHashable(toID)].map({ proxy[$0] })
         else { return nil }
         let ids = data.map(\.id)
-        guard let start = ids.firstIndex(of: pulse.to), let end = ids.firstIndex(of: pulse.from),
+        guard let start = ids.firstIndex(of: toID), let end = ids.firstIndex(of: fromID),
               start < end, ids[start ..< end].allSatisfy(links.contains)
         else { return .line(from: from, to: to) }
         return .loop(from: from, to: to, x: pen.runX(nodeX: from.x), radius: pen.radius)

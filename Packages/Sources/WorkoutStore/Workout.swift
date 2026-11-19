@@ -57,9 +57,30 @@ public struct Workout: Identifiable, Equatable, Sendable {
     /// The time spent working out at `now`, pauses left out, in whole seconds rounded down.
     /// Fixed once paused or finished; never below zero, as with a clock set back.
     public func elapsed(at now: Date) -> Duration {
+        .seconds(clock(at: now).rounded(.down))
+    }
+
+    /// The seconds spent working out at `now`, pauses left out, not rounded: the clock a rest
+    /// runs on, so a pause stops it. Never below zero.
+    public func clock(at now: Date) -> Double {
         let end = endedAt ?? pausedAt ?? now
-        let seconds = end.timeIntervalSince(startedAt) - pausedSeconds
-        return .seconds(max(0, seconds.rounded(.down)))
+        return max(0, end.timeIntervalSince(startedAt) - pausedSeconds)
+    }
+
+    /// When the clock reads `clock`, while it runs on from now with no pause.
+    public func date(ofClock clock: Double) -> Date {
+        clockStart.addingTimeInterval(clock)
+    }
+
+    /// With the rest after the last set logged changed by `seconds`, as a + or − tap does, at
+    /// `now`. Unchanged once that rest is over, so a tap landing as it ends brings nothing back.
+    public func adjustingRest(by seconds: Int, length: Int, at now: Date) -> Self {
+        guard let last = sets.last, let start = last.clockWhenLogged,
+              Double(length + last.restAdjustment) > clock(at: now) - start
+        else { return self }
+        var adjusted = self
+        adjusted.sets[adjusted.sets.count - 1].restAdjustment += seconds
+        return adjusted
     }
 
     /// When the elapsed time last stood at zero, as if there had been no pauses: whole seconds
@@ -102,6 +123,7 @@ public struct Workout: Identifiable, Equatable, Sendable {
             plannedWeight: row.shownWeight,
             loggedAt: now,
         ))
+        logged.sets[logged.sets.count - 1].clockWhenLogged = clock(at: now)
         return logged
     }
 

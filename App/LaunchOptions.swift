@@ -26,6 +26,14 @@ enum LaunchOptions {
         UserDefaults.standard.bool(forKey: "noUIKitAnimations")
     }
 
+    /// `-seedRest <seconds>`: every rest after a set lasts this long, in place of the routine's,
+    /// so the UI tests, launched with 0, log on with no rest between exercises.
+    static var restOverride: Int? {
+        UserDefaults.standard.object(forKey: "seedRest").flatMap { _ in
+            UserDefaults.standard.integer(forKey: "seedRest")
+        }
+    }
+
     /// With `resetsStore`, a routine to launch into in place of a new one: `-seedExercises`
     /// lists built-in exercise ids, comma-separated, and `-seedName` names it. A test that needs
     /// rows but doesn't check adding them starts with them, rather than spending seconds an add

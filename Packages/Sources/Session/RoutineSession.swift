@@ -164,6 +164,13 @@ public final class RoutineSession {
         change(.save(workout.logging(planned, of: row, at: now)))
     }
 
+    /// Shortens or extends the rest after the last set by `seconds`, a rest `length` long as the
+    /// routine has it, unless that rest is over.
+    public func adjustRest(by seconds: Int, length: Int, at now: Date = .now) {
+        guard let workout else { return }
+        change(.save(workout.adjustingRest(by: seconds, length: length, at: now)))
+    }
+
     /// Finishes the workout, keeping it with the name the routine shows now.
     public func finish(at now: Date = .now) {
         guard let workout else { return }

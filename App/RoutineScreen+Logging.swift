@@ -26,7 +26,8 @@ extension RoutineScreen {
 
     /// The exercise the workout is on, as drawn. None once every set is logged.
     var currentID: RoutineExercise.ID? {
-        shown?.currentSet?.row
+        // Resting between exercises, no row is grown: the next grows as the rest ends.
+        phase.resting == nil ? shown?.currentSet?.row : nil
     }
 
     /// The row whose node is lit on the rail: the current exercise, but while a move to it is on
@@ -87,8 +88,12 @@ extension RoutineScreen {
     /// to hold as values.
     func rowBars(in shown: LiveWorkout?) -> [RoutineExercise.ID: SetProgress] {
         guard let shown else { return [:] }
+        let restingTo = phase.resting.flatMap { _ in shown.currentSet?.row }
         return routine.exercises.reduce(into: [:]) { bars, item in
-            guard let (done, total) = shown.bars(of: item.id) else { return }
+            guard let (done, total) = shown.bars(of: item.id),
+                  // Resting, the next exercise is a row like any other until it grows.
+                  item.id != restingTo || done > 0
+            else { return }
             bars[item.id] = SetProgress(
                 done: done,
                 total: total,
@@ -124,7 +129,16 @@ extension RoutineScreen {
         // In the tap's own transaction, as the stored log is: entered with animations disabled,
         // the last set's room went at once, the list jumping to its top.
         // Only from rest: the key takes a log only then, so a refused one has nothing to show.
-        guard phase.log(set, leadingTo: step, moves: !reduceMotion) else { return }
+        guard phase.log(
+            set,
+            leadingTo: step,
+            rests: rests(after: set, leadingTo: step),
+            moves: !reduceMotion,
+        )
+        else { return }
+        if phase.resting != nil {
+            return startRest()
+        }
         let next: PlannedSet?
         let isBack: Bool
         switch step {
@@ -196,7 +210,7 @@ extension RoutineScreen {
     /// start, which End reads, the round's roll once the next row shows it, then the move's end,
     /// timed from the log by design: nothing is waited for. With no `target` worked out ahead, as
     /// after a relaunch, the list lands after.
-    private func land(_ way: SetMotion.Way, scrollingTo target: CGFloat?) {
+    func land(_ way: SetMotion.Way, scrollingTo target: CGFloat?) {
         sequence.run {
             let start = ContinuousClock.now
             try await beat(until: start + .seconds(SetMotion.landing(way)))
@@ -268,7 +282,7 @@ extension RoutineScreen {
     /// stays where it is; one below rises by what `leaving` gives back, from its pitch now, top
     /// to the next row's top, to its pitch at rest, noted as it grew. Nil when either isn't
     /// known, as after a relaunch into a workout.
-    private func landing(on next: RoutineExercise.ID, leaving: RoutineExercise.ID) -> CGFloat? {
+    func landing(on next: RoutineExercise.ID, leaving: RoutineExercise.ID) -> CGFloat? {
         guard let nextTop = rowFrames.tops[next], let leavingTop = rowFrames.tops[leaving]
         else { return nil }
         guard nextTop > leavingTop else { return max(nextTop, 0) }
@@ -302,9 +316,9 @@ extension SetMotion.Way {
 }
 
 extension WorkoutPhase.Move {
-    /// Which way the move goes along the rail.
+    /// Which way the move goes along the rail, or on from a rest's end, timed from its landing.
     var way: SetMotion.Way {
-        SetMotion.Way(isBack: isBack)
+        isAfterRest ? .afterRest : SetMotion.Way(isBack: isBack)
     }
 }
 

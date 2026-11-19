@@ -102,6 +102,12 @@ enum CurrentFigure {
     static let textStyle = Font.TextStyle.largeTitle
 }
 
+/// A rest's countdown: bold SF Mono, about half the current exercise's figures, scaling with
+/// them (`CurrentFigure.textStyle`).
+enum RestFigure {
+    static let size: CGFloat = 52
+}
+
 private struct ScreenTitleFont: ViewModifier {
     let design: Font.Design
     @ScaledMetric(relativeTo: ScreenTitle.textStyle) private var size = ScreenTitle.size

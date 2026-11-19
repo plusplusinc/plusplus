@@ -30,6 +30,9 @@ public enum SetMotion {
         case down
         /// Back up a superset's loop to its first member, at a round's end.
         case loop
+        /// On from a rest's end, whose dot has already traveled: no pulse, and every timing
+        /// counts from the landing (`landing(_:)` is 0).
+        case afterRest
     }
 
     // MARK: Within one exercise
@@ -107,6 +110,7 @@ public enum SetMotion {
         switch way {
         case .down: 0.25
         case .loop: 0.42
+        case .afterRest: 0
         }
     }
 
@@ -126,7 +130,10 @@ public enum SetMotion {
     /// When the pulse lands on the next row's node as a circle and plops in, with a light
     /// haptic, and the node lights under it, from the log.
     public nonisolated static func landing(_ way: Way) -> Double {
-        travelStart + travel(way) + collapse
+        if case .afterRest = way {
+            return 0
+        }
+        return travelStart + travel(way) + collapse
     }
 
     /// The plop: the landed pulse squashing and wiggling back to a circle on the node, a damped
@@ -217,7 +224,7 @@ public enum SetMotion {
     /// ease-out, fastest as it sets off and landing at `travelLanding`.
     nonisolated static func distance(at time: Double, _ way: Way) -> Double {
         switch way {
-        case .down: pow(time, travelPower)
+        case .down, .afterRest: pow(time, travelPower)
         case .loop: (2 - travelLanding) * time - (1 - travelLanding) * time * time
         }
     }
@@ -225,7 +232,7 @@ public enum SetMotion {
     /// The pulse's speed at a share `time` of its travel, against its average.
     nonisolated static func speed(at time: Double, _ way: Way) -> Double {
         switch way {
-        case .down: travelPower * pow(time, travelPower - 1)
+        case .down, .afterRest: travelPower * pow(time, travelPower - 1)
         case .loop: (2 - travelLanding) - 2 * (1 - travelLanding) * time
         }
     }

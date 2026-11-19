@@ -149,11 +149,6 @@ struct RoutineScreen: View {
         }
     }
 
-    /// Shows the routine as the store has it, not saving it again (`showStoredRoutine`).
-    func show(stored: Routine) {
-        shownRoutine = stored
-    }
-
     /// The name made for the routine from its exercises, which a chosen name hides and which
     /// clearing it brings back. Not stored: made again from the same exercises, it is the same
     /// name, so it is the same after a relaunch.
@@ -235,11 +230,12 @@ struct RoutineScreen: View {
                         done: shown?.finishedRows ?? [],
                         isSetHeld: heldSet != nil,
                         pulse: railPulse,
+                        travel: restTravel,
                         isMoving: isMovingOn,
                         onMove: move,
                         regroup: regroup,
                     ) { item in
-                        rowLabel(item, current: currentID, on: currentSet, bars: rowBars[item.id])
+                        rowContent(item, current: currentID, on: currentSet, bars: rowBars[item.id])
                             .environment(\.exerciseMoveWay, moveWay)
                             .id(item.id)
                             .padding(.top, item.id == currentID ? Self.currentTopSpace : 0)
@@ -358,6 +354,7 @@ struct RoutineScreen: View {
         .onDisappear { stopSequence() }
         // Cancelled as the screen goes, so the wait never outlives it.
         .task(id: createdWait) { await showCreated() }
+        .task(id: restWatch) { await watchRest() }
         // One row open at a time, closed by a scroll or a tap anywhere else, Start included,
         // so the container holds Start's bar as well as the scroll view.
         .swipeActionsContainer()
@@ -385,6 +382,13 @@ struct RoutineScreen: View {
                 .id(opened.opening)
         }
         .toolbar { barItems }
+    }
+}
+
+extension RoutineScreen {
+    /// Shows the routine as the store has it, not saving it again (`showStoredRoutine`).
+    func show(stored: Routine) {
+        shownRoutine = stored
     }
 }
 
