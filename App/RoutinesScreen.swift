@@ -119,11 +119,12 @@ struct RoutinesScreen: View {
             Task { await session.open(routine.id, weightUnit: weightUnit) }
         } label: {
             NameRow(namer.listedName(of: routine))
-                // The name keeps the screen's margin: half of it outside the platter, half
-                // inside.
-                .padding(.horizontal, Self.platterInset)
+                .padding(.horizontal, Spacing.md)
                 // The platter the held row lifts on, as a list row's in Add exercise: in the
-                // screen's own color, so it shows only once the screen behind it dims.
+                // screen's own color, so it shows only once the screen behind it dims. Like a
+                // picker row's cell, it spans the screen with the name a margin inside, and the
+                // system shrinks the lifted row into the screen's margins, which leaves the
+                // name the picker's room inside the lifted platter.
                 .background(Color.pp(.background), in: Self.platter)
                 .contentShape(.contextMenuPreview, Self.platter)
         }
@@ -136,11 +137,8 @@ struct RoutinesScreen: View {
         .contextMenu {
             Button("Delete", systemImage: "trash", role: .destructive) { deleting = routine }
         }
-        .padding(.horizontal, Self.platterInset)
     }
 
-    /// Half the screen's margin (`Spacing.md`), each side of the platter's edge.
-    private static let platterInset = Spacing.sm
     private static let platter = RoundedRectangle(cornerRadius: Radius.key, style: .continuous)
 
     /// Takes the row out at once, the rows below closing the gap, then deletes the routine.
