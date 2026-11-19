@@ -33,8 +33,8 @@ case "$MODE" in
         # The scripts' own tests: the night runner's gates, the PR check's revert guard, the
         # models check, board.sh's readme, the agent records' tally, tidy's choice of unused
         # simulators, device.sh's arguments, the times' parsing, and the conversation extract's
-        # queued messages. Nothing else runs them, CI
-        # included, and they need no simulator or network (about 7 s).
+        # queued messages. Nothing else runs them, CI included, and they need no simulator or
+        # network (about 7 s).
         python3 -I "$ROOT/scripts/nightly-tooling-test.py" > "$RESULTS/scripts.log" 2>&1 &&
             python3 -I "$ROOT/scripts/pr-check-test.py" >> "$RESULTS/scripts.log" 2>&1 &&
             python3 -I "$ROOT/scripts/models-test.py" >> "$RESULTS/scripts.log" 2>&1 &&
