@@ -175,9 +175,9 @@ extension RoutineScreen {
         }
     }
 
-    /// How long a created row rests after landing before its sheet rises: about as long as
-    /// its node takes to give up its blue, so the arrival is over before the next thing moves.
-    private static let createdHold = 0.35
+    /// How long a created row rests after landing before its sheet rises: a little past
+    /// its node giving up its blue, so the arrival is over before the next thing moves.
+    private static let createdHold = 0.5
 
     /// After Create, a beat after its row has landed, the row's own sheet comes up, as a tap on
     /// the row brings it, already on Customize: the row is seen landing, then its sheet rises.
@@ -223,7 +223,7 @@ extension RoutineScreen {
 
     /// A breath between the picker sheet going and the added row showing, so the two read as
     /// one thing after the other.
-    static let addPause: Duration = .milliseconds(150)
+    static let addPause: Duration = .milliseconds(250)
 
     /// From the scroll's start to the row's entry, where the scroll's completion used to let it
     /// go. The entry's growth shows once the scroll has landed, as it did then.
