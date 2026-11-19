@@ -6,13 +6,12 @@ import SwiftUI
 ///   progress line's style, "Rest 1:30".
 /// - **Open**: under the exercise just finished, the line grown in place into the rest: the
 ///   length goes as the exercise's own parts go, and under "Rest" the time left comes in, in
-///   bold SF Mono at about half the figures' size (`RestFigure`), then −15 s and +15 s, as the
-///   next exercise's parts come in (`RestRoom`).
+///   bold SF Mono at about half the figures' size (`RestFigure`), then the bar of its progress
+///   (`RestProgress`) and −15 s and +15 s, as the next exercise's parts come in (`RestRoom`).
 /// - **None**: no room.
 ///
-/// "Rest" is one `Text` through every stage, so it never crossfades. Nothing in it is green or
-/// blue: the fill on the rail beside it is the rest's one color. The time ticks on whole seconds
-/// before `ends` on a
+/// "Rest" is one `Text` through every stage, so it never crossfades. Nothing in it is green: a
+/// rest looks like an active exercise. The time ticks on whole seconds before `ends` on a
 /// timeline, drawing once while paused (`pausedLeft`), so nothing is written per second. It reads
 /// "0:35", rounded up, so it shows the whole rest as it starts and 0:00 only as it ends. To
 /// VoiceOver the open rest is one element, "Rest", its value the time left in words, and the two
@@ -90,6 +89,15 @@ public struct RestBlock: View {
                 .accessibilityLabel("Rest")
                 .accessibilityValue(Self.spoken(left, locale: locale))
         }
+    }
+
+    /// How far through the rest it is, as a bar under the countdown (`RestProgress`).
+    var progress: some View {
+        RestProgress(
+            ends: ends.timeIntervalSinceReferenceDate,
+            starts: ends.timeIntervalSinceReferenceDate - Double(length),
+            pausedLeft: stage == .open ? pausedLeft : Double(length),
+        )
     }
 
     var buttons: some View {
@@ -185,6 +193,9 @@ private struct RestRoom: View, Animatable {
                 block.countdown(size: size, locale: locale)
                     .opacity(Self.fade(open, from: 0.4))
                     .offset(y: (1 - Self.fade(open, from: 0.4)) * SetMotion.arriveRise)
+                block.progress
+                    .opacity(Self.fade(open, from: 0.45))
+                    .offset(y: (1 - Self.fade(open, from: 0.45)) * SetMotion.arriveRise)
                 block.buttons
                     .opacity(Self.fade(open, from: 0.55))
                     .offset(y: (1 - Self.fade(open, from: 0.55)) * SetMotion.arriveRise)
@@ -238,6 +249,56 @@ private struct RestRoomLayout: Layout {
             at: CGPoint(x: bounds.minX, y: bounds.minY + lineHeight * line),
             proposal: offer,
         )
+    }
+}
+
+/// The rest's progress: a thin bar with round ends, as wide as the text column, whose fill, in the
+/// countdown's own color over a quiet gray track, runs left to right at one rate for the rest's
+/// length, full at 0:00. Drawn, not a `ProgressView`: the linear style takes neither a track color
+/// nor a height, and its fill jumps when its value changes. `ends` is animatable, so + and −,
+/// which move it on the glide's animation (`SetMotion.restGlide`), glide the fill back or on
+/// rather than jumping it; `starts` stays put through them. Paused, it holds at `pausedLeft`.
+/// Hidden from VoiceOver: the countdown says the time left.
+struct RestProgress: View, Animatable {
+    var ends: Double
+    let starts: Double
+    let pausedLeft: Double?
+
+    @ScaledMetric(relativeTo: .body) private var height = Self.height
+
+    /// The bar's height, a little thicker than the rail's line.
+    static let height: CGFloat = 4
+
+    var animatableData: Double {
+        get { ends }
+        set { ends = newValue }
+    }
+
+    var body: some View {
+        // Frame by frame, so the fill runs on steadily rather than stepping each second.
+        TimelineView(.animation(minimumInterval: 1.0 / 60, paused: pausedLeft != nil)) { context in
+            let share = share(at: context.date.timeIntervalSinceReferenceDate)
+            Capsule()
+                .fill(.pp(.borderStrong))
+                .overlay(alignment: .leading) {
+                    GeometryReader { proxy in
+                        Capsule()
+                            .fill(.pp(.textPrimary))
+                            .frame(width: max(proxy.size.width * share, share > 0 ? height : 0))
+                    }
+                }
+        }
+        .frame(height: height)
+        .frame(maxWidth: .infinity)
+        .accessibilityHidden(true)
+    }
+
+    /// The share of the rest gone at `now`, from 0 to 1.
+    private func share(at now: Double) -> CGFloat {
+        let total = ends - starts
+        guard total > 0 else { return 1 }
+        let left = pausedLeft ?? (ends - now)
+        return CGFloat(min(max(1 - left / total, 0), 1))
     }
 }
 

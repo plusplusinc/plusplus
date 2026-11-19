@@ -5,23 +5,24 @@ import WorkoutStore
 /// The rest between two exercises, after the last set of one, when the routine stores a rest
 /// after it. While the exercise is current, the rest that will follow it shows as a quiet line
 /// under it (`RestBlock.Stage.line`). Logging its last set plays two motions at once: the dot
-/// leaves the node as a pulse does and eases out into the top of the rest's bar, thinning to it
-/// and turning blue (`RailTravel`), as, on a close's curve, the row closes to a done row and the
+/// leaves the node as a pulse does and eases out, a quarter of the way to the next node, into the
+/// crawl's speed (`RailTravel`), as, on a close's curve, the row closes to a done row and the
 /// line grows in place into the rest (`RestBlock.Stage.open`), so the rows below move once. The
-/// blue fills the bar at one speed for the whole rest, steady. As the countdown reaches 0 the
-/// move goes on as a move with no rest does, its pulse setting off from the fill, where it is and
-/// at its speed, gathering back into the green dot (`RailPulse.afterRest`): the slide into the
-/// next node, the plop, and the next exercise growing as the rest closes. The key is gone through
-/// the rest, its room kept. −15 s with less than 15 s left ends it; + and − glide the fill to its
-/// new place. There is no Skip.
+/// dot then crosses the middle half of the way at one speed for the whole rest, its place the
+/// share of the rest gone, as the bar under the countdown fills (`RestProgress`). The rail is as
+/// with no rest; the dot is the node's, steady green. As the countdown reaches 0 the move goes on
+/// as a move with no rest does, its pulse setting off from the dot, where it is and at its speed
+/// (`RailPulse.afterRest`): the slide into the next node, the plop, and the next exercise growing
+/// as the rest closes. The key is gone through the rest, its room kept. −15 s with less than 15 s
+/// left ends it; + and − glide the dot and the bar together to their new place. There is no Skip.
 ///
-/// Between two sets of one plain exercise, the rest takes the set's numbers' place (`SetRest`)
-/// and a bar beside it fills blue (`SetRestBar`), the exercise's node steady green; with Reduce
-/// Motion it swaps in and out at once.
+/// Between two sets of one plain exercise, the rest takes the set's numbers' place (`SetRest`),
+/// with the same bar, and the exercise's node stays steady green; with Reduce Motion it swaps in
+/// and out at once.
 ///
-/// Not yet: supersets (their members go straight on), pause beyond the countdown and fill
-/// holding, a relaunch or a return from the background mid-rest, and Reduce Motion between
-/// exercises (its crossfade goes straight on). The rest's taps are kept in memory only.
+/// Not yet: supersets (their members go straight on), a relaunch or a return from the background
+/// mid-rest, and Reduce Motion between exercises (its crossfade goes straight on). The rest's
+/// taps are kept in memory only.
 extension RoutineScreen {
     /// For the UI tests, every rest's length (`-seedRest`); nil in a release build.
     var restOverride: Int? {
@@ -235,30 +236,10 @@ extension RoutineScreen {
         return "Set \(round): " + figures.joined(separator: " · ")
     }
 
-    /// While the current exercise rests between its sets, the bar beside its rest that fills
-    /// for the rest's length, from the log until the swap back is over: from the swap, as the
-    /// rest comes up at the bar's top.
-    private var setRestTravel: RailTravel<RoutineExercise.ID>? {
-        guard let rest = phase.resting, rest.isWithinExercise, let workout = session.workout,
-              let resting = live?.rest(override: restOverride), !resting.isBetweenExercises
-        else { return nil }
-        let starts = workout.date(ofClock: resting.startClock)
-        return RailTravel(
-            from: rest.set.row,
-            to: rest.set.row,
-            starts: starts.addingTimeInterval(reduceMotion ? 0 : SetMotion.heldRoll),
-            ends: workout.date(ofClock: resting.endClock),
-            heldAt: workout.pausedAt,
-            betweenSets: rest.beat == .logged ? .coming : rest.beat == .returning ? .going : .shown,
-        )
-    }
-
-    /// The dot crossing the rail for the rest, from the log, from the row left's node to the
-    /// next's; between two sets, the bar beside the rest.
+    /// The dot crossing the rail for a rest between two exercises, from the log, from the row
+    /// left's node to the next's. Between two sets of one exercise, none: the dot stays on its
+    /// node.
     var restTravel: RailTravel<RoutineExercise.ID>? {
-        if let setRestTravel {
-            return setRestTravel
-        }
         guard let resting, resting.isBetweenExercises, let workout = session.workout
         else { return nil }
         return RailTravel(

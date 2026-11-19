@@ -138,15 +138,12 @@ nonisolated struct PulseShape: Shape {
         case whole
         /// Out of the node left into the rest, along the route to where the rest's dot crawls
         /// on, over `SetMotion.restLeave`: pulled out and shot as a whole pulse is, then easing
-        /// out to the crawl's speed `end`, against its average, with no node to join and no plop,
-        /// thinning to `barWidth` as it pours into the rest's bar.
-        case leave(end: Double, barWidth: CGFloat)
+        /// out to the crawl's speed `end`, against its average, with no node to join and no plop.
+        case leave(end: Double)
         /// From the rest's dot into the next node, as the end of a whole pulse, setting off at
         /// once at the crawl's speed `start`, against its average, in a pulse's time to its
-        /// landing: no node is left behind, since the dot is the mass. After the rest's bar has
-        /// filled, its route starts at the fill's top and the mass sets off `lead` of the way
-        /// along, a line `barWidth` wide whose tail catches up with its head (`gathered(_:)`).
-        case arrive(start: Double, lead: Double = 0, barWidth: CGFloat = 0)
+        /// landing: no node is left behind, since the dot is the mass.
+        case arrive(start: Double)
     }
 
     /// How much longer the mass is for each point a second of its speed.
@@ -198,24 +195,19 @@ nonisolated struct PulseShape: Shape {
         let share = min(max((time - start) / travel, 0), 1)
         let total = route.length
         let (distance, speed) = leg.motion(at: share, way)
-        let lead = CGFloat(leg.lead)
+        let headAlong = total * CGFloat(distance)
         var length = min(
-            size + Self.stretch * CGFloat(speed) * total * (1 - lead) / travel,
+            size + Self.stretch * CGFloat(speed) * total / travel,
             size * Self.longest,
         )
         // It reaches the node still moving, stretched, and gathers into a circle on it, its
         // leading end held on the node as the rest catches up.
-        let gathered = max((time - start - travel) / SetMotion.collapse, 0)
-        length = size + (length - size) * CGFloat(max(1 - gathered, 0))
-        let drawn = leg.mass(
-            length: length,
-            at: share,
-            distance: CGFloat(distance),
-            total: total,
-            size: size,
-        )
-        let (width, apart, headAlong) = (drawn.width, drawn.apart, drawn.head)
-        let tailAlong = max(headAlong - apart, 0)
+        let gathered = (time - start - travel) / SetMotion.collapse
+        if gathered > 0 {
+            length = size + (length - size) * CGFloat(max(1 - gathered, 0))
+        }
+        let width = Self.width(length: length, size: size)
+        let tailAlong = max(headAlong - (length - width), 0)
         let head = Circle(center: route.point(at: headAlong), radius: width / 2)
         let tail = Circle(center: route.point(at: tailAlong), radius: width / 2)
         var mass = Path()
@@ -329,18 +321,17 @@ nonisolated struct PulseShape: Shape {
 /// The pulse drawn over a rail, from the rows' nodes as they are on each frame. It plays once
 /// for each new `run`, from the log to its plop settled on the node it lands on
 /// (`PulseShape.runEnd(_:)`), and draws nothing between runs. In the nodes' steady green, so it
-/// takes over from one and hands over to the other without a seam; after a rest, from the fill's
-/// blue as its line gathers. With Reduce Motion there is none: the move crossfades.
+/// takes over from the current node it leaves, or a rest's dot, and hands over to the one it
+/// becomes without a seam. With Reduce Motion there is none: the move crossfades.
 struct RailPulseRun: View {
     let route: RailRoute?
     let way: SetMotion.Way
     let run: Int
-    /// After a rest, where its dot was: the route is the part from there on, it sets off at the
-    /// dot's speed, and it turns from the fill's blue to green as its line gathers.
+    /// After a rest, where its dot was: the route is the part from there on, and it sets off at
+    /// the dot's speed.
     var afterRest: RestHandoff?
     @ScaledMetric(relativeTo: .body) private var size = currentNodeSize
     @ScaledMetric(relativeTo: .body) private var restingSize = railNodeSize
-    @ScaledMetric(relativeTo: .body) private var barWidth = RestBar.size
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -351,33 +342,21 @@ struct RailPulseRun: View {
             if time >= 0, !reduceMotion {
                 let whole = route ?? RailRoute([])
                 let from = min(afterRest?.share ?? 0, 0.99)
-                let tail = afterRest.map { rest in
-                    RestBar.tail(of: rest, from: from, on: whole, size: size, barWidth: barWidth)
-                } ?? 0
                 let leg = afterRest.map { rest in
                     PulseShape.Leg.arrive(
                         start: rest.speed * (SetMotion.travelStart + SetMotion.travel(way))
                             / (1 - from),
-                        lead: (from - tail) / (1 - tail),
-                        barWidth: barWidth,
                     )
                 } ?? .whole
                 let shape = PulseShape(
                     time: time,
-                    route: afterRest == nil ? whole : whole.part(tail ... 1),
+                    route: afterRest == nil ? whole : whole.part(from ... 1),
                     size: size,
                     restingSize: restingSize,
                     way: way,
                     leg: leg,
                 )
-                let into = afterRest == nil ? 1 : min(time / SetMotion.landing(way), 1)
-                shape.tinted(blue: shape.blue)
-                    // The rest's bar narrows back into the rail as the fill leaves it.
-                    .background {
-                        if afterRest != nil {
-                            RestBarView(route: whole, grown: 1 - into)
-                        }
-                    }
+                shape.fill(.pp(.accent))
             }
         } keyframes: { _ in
             PulseShape.run(way)

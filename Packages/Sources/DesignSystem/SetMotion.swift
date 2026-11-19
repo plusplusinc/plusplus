@@ -230,8 +230,8 @@ public enum SetMotion {
     /// between. The rows close and the rest opens on `closing`, as it leaves, not after.
     /// Shorter since its share went to a quarter: over 2 s, a short rest's crawl was nearly the
     /// leave's own average speed, and the shot out of the node all but went. About the close's
-    /// length, so it pours into the bar's top as the bar arrives under it: at 1.2 s the mass sat
-    /// over the bar's top for half a second, a hold on the screen while the list scrolled.
+    /// length, so it reaches the crawl as the rows settle: at 1.2 s the mass sat over the crawl's
+    /// start for half a second, a hold on the screen while the list scrolled.
     public nonisolated static let restLeave = 0.8
     /// When, as a share of the leaving leg's travel, it is fastest: it charges up to there on a
     /// power ease in (`restLeaveCharge`), a pulse's travel and its power, and from there eases

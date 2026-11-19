@@ -5,9 +5,10 @@ import SwiftUI
 /// line under the numbers, "Rest 0:45", as the rest before the next exercise does
 /// (`RestBlock.Stage.line`). Logging the set swaps the two in one move: the line grows up into
 /// the numbers' place, "Rest" rising whole as the countdown grows in under it and −15 s and
-/// +15 s come in, while the numbers shrink down into the line's place, where they read as the
-/// next set, "Set 2: 10 reps". Beside them a bar fills blue down the rail from "Rest" to that
-/// line (`SetRestBar`). At the rest's end they swap back. The room for the numbers is as tall as
+/// +15 s come in, with the rest's progress bar between the two (`RestProgress`), while the
+/// numbers shrink down into the line's place, where they read as the next set, "Set 2: 10 reps".
+/// The rail beside them is as with no rest. At the rest's end they swap back. The room for the
+/// numbers is as tall as
 /// the numbers, the rest fitting in it and the gap under it, and the line's room stays through
 /// the last set, so nothing below it moves and the row is no taller for its rests.
 public struct SetRest {
@@ -105,9 +106,6 @@ struct SetRoom: View, Animatable {
                 .opacity(RestRoomFade.fade(swap, from: 0.6, width: 0.4))
             restLook
                 .opacity(hasLine ? 1 : 0)
-            if hasLine {
-                Color.clear.anchorPreference(key: SetRestSpan.self, value: .bounds) { $0 }
-            }
         }
         // Fading, the keys take no taps, and one aimed at a key as the rest ended fell through to
         // the row and opened its sheet: through the swap back, the room takes it, doing nothing.
@@ -117,10 +115,6 @@ struct SetRoom: View, Animatable {
             }
         }
     }
-
-    /// How far below the room's top the bar's top end is, its round end's center: about where
-    /// the top of "Rest" is, grown.
-    static let barInset: CGFloat = 6
 
     /// The rest, as its line at `swap` 0 and grown at 1: "Rest" whole all the way, the line's
     /// length going first, the countdown growing in under it, then the keys.
@@ -147,6 +141,10 @@ struct SetRoom: View, Animatable {
             block.countdown(size: size, locale: locale, turns: !rest.isOver && !reduceMotion)
                 .scaleEffect(Self.grown + (1 - Self.grown) * countdown, anchor: .topLeading)
                 .opacity(countdown)
+            block.progress
+                .padding(.top, Spacing.xs)
+                .padding(.bottom, Spacing.sm)
+                .opacity(countdown)
             block.buttons
                 .opacity(keys)
                 .offset(y: (1 - keys) * SetMotion.arriveRise)
@@ -161,7 +159,7 @@ struct SetRoom: View, Animatable {
     static let grown: CGFloat = 0.35
 }
 
-/// The numbers' room, as tall as the numbers, the grown rest fitting in it, and under it, with
+/// The numbers' room, as tall as the numbers or the grown rest, and under it, with
 /// `hasLine`, the line's room. The numbers and the next set's line travel from the room's top to
 /// the line's as `swap` runs to 1; the rest from the line's to the room's top.
 private struct SetRoomLayout: Layout {
@@ -175,10 +173,11 @@ private struct SetRoomLayout: Layout {
         let offer = ProposedViewSize(width: width, height: nil)
         let heights = subviews.map { $0.sizeThatFits(offer).height }
         let line = heights.count > 1 ? heights[1] : 0
-        // The numbers' own height: the rest fits in it and the gap under it, so a row that rests
-        // between its sets is no taller than one that doesn't but for the rest's line. Held as
-        // tall as the grown rest, it stood 16 pt taller.
-        return (heights.first ?? 0, line)
+        // As tall as the numbers or the grown rest, whichever is taller, the same through every
+        // set, so nothing below moves as they swap. With its progress bar the rest no longer fits
+        // in the numbers' height: held to it, the keys overlapped the next set's line.
+        let rest = heights.count > 2 ? heights[2] : 0
+        return (max(heights.first ?? 0, rest), line)
     }
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
@@ -201,18 +200,6 @@ private struct SetRoomLayout: Layout {
         let down = bounds.minY + lineY * swap
         let up = bounds.minY + lineY * (1 - swap)
         for (index, subview) in subviews.enumerated() {
-            guard index < 3 else {
-                // The bar's span, from the top of "Rest" grown to the middle of the next set's
-                // line, where neither moves as they swap.
-                subview.place(
-                    at: CGPoint(x: bounds.minX, y: bounds.minY + SetRoom.barInset),
-                    proposal: ProposedViewSize(
-                        width: 1,
-                        height: lineY + line / 2 - SetRoom.barInset,
-                    ),
-                )
-                continue
-            }
             subview.place(
                 at: CGPoint(x: bounds.minX, y: index < 2 ? down : up),
                 proposal: offer,
