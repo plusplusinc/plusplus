@@ -31,7 +31,7 @@ extension RoutineScreen {
         // transaction, not at the log's: changed at the log, it went at once and the rows below
         // jumped up before the rest opened and pushed them back down.
         // Between two sets of one exercise, it stays grown.
-        phase.resting.map { $0.isWithinExercise || $0.beat == .logged } ?? true
+        phase.drawnRest.map { $0.isWithinExercise || $0.beat == .logged } ?? true
             ? shown?.currentSet?.row : nil
     }
 
@@ -39,7 +39,8 @@ extension RoutineScreen {
     /// its way, none until the pulse lands on its node, nor through a rest, whose dot is the
     /// green on the rail.
     var litID: RoutineExercise.ID? {
-        phase.move.map(\.isLanded) == false || phase.resting.map { !$0.isWithinExercise } == true
+        phase.move.map(\.isLanded) == false
+            || phase.drawnRest.map { !$0.isWithinExercise } == true
             ? nil : currentID
     }
 
@@ -75,7 +76,7 @@ extension RoutineScreen {
         }
         // Resting between two sets, the line says the set just done, "Set 1 of 3 done", until
         // the next set swaps back up.
-        if let rest = phase.resting, rest.isWithinExercise, rest.beat >= .shown,
+        if let rest = phase.drawnRest, rest.isWithinExercise, rest.beat >= .shown,
            rest.beat < .returning, rest.set.row == item.id
         {
             focus.progress = item.progressText(
@@ -113,7 +114,7 @@ extension RoutineScreen {
     /// to hold as values.
     func rowBars(in shown: LiveWorkout?) -> [RoutineExercise.ID: SetProgress] {
         guard let shown else { return [:] }
-        let restingTo = phase.resting.flatMap { $0.beat > .logged ? shown.currentSet?.row : nil }
+        let restingTo = phase.drawnRest.flatMap { $0.beat > .logged ? shown.currentSet?.row : nil }
         return routine.exercises.reduce(into: [:]) { bars, item in
             guard let (done, total) = shown.bars(of: item.id),
                   // Resting, the next exercise is a row like any other until it grows.

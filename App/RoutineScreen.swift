@@ -197,7 +197,7 @@ struct RoutineScreen: View {
         let currentID = currentID
         let shown = shown
         let currentSet = shown?.currentSet
-        let rowBars = rowBars(in: shown)
+        let rows = rowParts(in: shown, current: currentID)
         let tracksRows = shown != nil || isStarting
         let underBar = underBarCut
         return ScrollView {
@@ -239,7 +239,7 @@ struct RoutineScreen: View {
                         onMove: move,
                         regroup: regroup,
                     ) { item in
-                        rowContent(item, current: currentID, on: currentSet, bars: rowBars[item.id])
+                        rowContent(item, current: currentID, on: currentSet, parts: rows[item.id])
                             .environment(\.exerciseMoveWay, moveWay)
                             .id(item.id)
                             .padding(.top, item.id == currentID ? Self.currentTopSpace : 0)

@@ -58,6 +58,8 @@ public enum WorkoutPhase: Equatable, Sendable {
         /// Whether the list still draws the workout as it was: from End's choice, which ends the
         /// stored workout at once, until the list shrinks or crossfades out of it.
         public internal(set) var drawsWorkout = true
+        /// The rest showing when End came, drawn until the workout goes (`drawnRest`).
+        public internal(set) var rest: Resting?
 
         /// An ending's beats, in order.
         public enum Beat: Comparable, Sendable {
@@ -182,7 +184,9 @@ public enum WorkoutPhase: Equatable, Sendable {
         case let .resting(rest):
             rest.beat == .logged ? rest.set : nil
         }
-        self = .ending(Ending(workout: workout, hidden: hidden, beat: .began))
+        var ending = Ending(workout: workout, hidden: hidden, beat: .began)
+        ending.rest = resting.flatMap { $0.beat >= .shown ? $0 : nil }
+        self = .ending(ending)
         return true
     }
 

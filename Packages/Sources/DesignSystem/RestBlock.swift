@@ -27,7 +27,7 @@ public struct RestBlock: View {
     /// The rest's length, which the line shows.
     let length: Int
     let ends: Date
-    /// While paused, the seconds left; nil while running.
+    /// While paused, or closing as the workout ends, the seconds left; nil while running.
     let pausedLeft: Double?
     let onShorten: () -> Void
     let onExtend: () -> Void
@@ -69,8 +69,9 @@ public struct RestBlock: View {
             ends: ends,
             isPaused: pausedLeft != nil || !isOpen,
         )) { context in
-            let left = isOpen
-                ? pausedLeft ?? max(0, ends.timeIntervalSince(context.date)) : Double(length)
+            // Closing with a time given, as a workout ended mid-rest, it holds that time.
+            let left = pausedLeft
+                ?? (isOpen ? max(0, ends.timeIntervalSince(context.date)) : Double(length))
             Text(Self.text(left, locale: locale))
                 .font(.system(size: size, weight: .bold, design: .monospaced))
                 .foregroundStyle(.pp(.textPrimary))
@@ -78,10 +79,11 @@ public struct RestBlock: View {
                 .minimumScaleFactor(0.5)
                 // A + or − turns the figure; a second going by, or the rest's end on the move's
                 // delayed shift, changes it at once: on that shift, 0:00 came in half a second
-                // after the dot had left.
+                // after the dot had left. So does a − that ends the rest: turning, the figure
+                // rolled down to 0:00 as it shrank away.
                 .contentTransition(turns ? .numericText(countsDown: true) : .identity)
                 .animation(
-                    isOpen && turns ? .snappy(duration: SetMotion.restGlide) : nil,
+                    isOpen && turns && left > 0 ? .snappy(duration: SetMotion.restGlide) : nil,
                     value: ends,
                 )
                 .transaction { $0.animation = nil }
@@ -94,9 +96,9 @@ public struct RestBlock: View {
     /// How far through the rest it is, as a bar under the countdown (`RestProgress`).
     var progress: some View {
         RestProgress(
-            ends: ends.timeIntervalSinceReferenceDate,
             starts: ends.timeIntervalSinceReferenceDate - Double(length),
-            pausedLeft: stage == .open ? pausedLeft : Double(length),
+            length: Double(length),
+            pausedLeft: pausedLeft ?? (stage == .open ? nil : Double(length)),
         )
     }
 
@@ -271,13 +273,15 @@ private struct RestRoomLayout: Layout {
 /// The rest's progress: a thin bar with round ends, as wide as the text column, whose fill, in the
 /// countdown's own color over a quiet gray track, runs left to right at one rate for the rest's
 /// length, full at 0:00. Drawn, not a `ProgressView`: the linear style takes neither a track color
-/// nor a height, and its fill jumps when its value changes. `ends` is animatable, so + and −,
-/// which move it on the glide's animation (`SetMotion.restGlide`), glide the fill back or on
-/// rather than jumping it; `starts` stays put through them. Paused, it holds at `pausedLeft`.
-/// Hidden from VoiceOver: the countdown says the time left.
+/// nor a height, and its fill jumps when its value changes. `length` is animatable, so + and −,
+/// which change it on the glide's animation (`SetMotion.restGlide`), glide the fill back or on
+/// rather than jumping it; `starts` stays put through them. Not the end: as a rest opened, the
+/// line's end, the distant past, ran to the rest's on the open's curve, and the bar drew full
+/// until it got there. Paused, it holds at `pausedLeft`. Hidden from VoiceOver: the countdown
+/// says the time left.
 struct RestProgress: View, Animatable {
-    var ends: Double
     let starts: Double
+    var length: Double
     let pausedLeft: Double?
 
     @ScaledMetric(relativeTo: .body) private var height = Self.height
@@ -286,8 +290,8 @@ struct RestProgress: View, Animatable {
     static let height: CGFloat = 4
 
     var animatableData: Double {
-        get { ends }
-        set { ends = newValue }
+        get { length }
+        set { length = newValue }
     }
 
     var body: some View {
@@ -311,10 +315,9 @@ struct RestProgress: View, Animatable {
 
     /// The share of the rest gone at `now`, from 0 to 1.
     private func share(at now: Double) -> CGFloat {
-        let total = ends - starts
-        guard total > 0 else { return 1 }
-        let left = pausedLeft ?? (ends - now)
-        return CGFloat(min(max(1 - left / total, 0), 1))
+        guard length > 0 else { return 1 }
+        let left = pausedLeft ?? (starts + length - now)
+        return CGFloat(min(max(1 - left / length, 0), 1))
     }
 }
 

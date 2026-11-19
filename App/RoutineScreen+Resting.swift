@@ -45,6 +45,14 @@ extension RoutineScreen {
         isResting ? live?.rest(override: restOverride) : nil
     }
 
+    /// The rest as drawn, with the workout it runs on: the one running, or the one End came in
+    /// until the list leaves it (`WorkoutPhase.drawnRest`).
+    var drawnResting: (rest: WorkoutRest, workout: Workout)? {
+        guard phase.drawnRest != nil, let shown, let rest = shown.rest(override: restOverride)
+        else { return nil }
+        return (rest, shown.workout)
+    }
+
     /// Whether logging `set`, already stored, leading to `step`, rests first: on to another
     /// exercise down the rail from a plain row, with a rest after it; or on to the same plain
     /// row's next set, done on both sides at once, with a rest between its sets.
@@ -130,7 +138,7 @@ extension RoutineScreen {
     /// The row whose rest the dot waits at: from the pulse's landing there until the next one
     /// sets off from it.
     var restDotRow: RoutineExercise.ID? {
-        guard let rest = phase.resting, !rest.isWithinExercise, rest.beat >= .landed
+        guard let rest = phase.drawnRest, !rest.isWithinExercise, rest.beat >= .landed
         else { return nil }
         return rest.set.row
     }
@@ -203,8 +211,8 @@ extension RoutineScreen {
     /// The rest under `id`'s row: the line under the current exercise, the rest open under the
     /// row left once it shows, or none.
     func restBlock(under id: RoutineExercise.ID) -> RestBlock {
-        if let rest = phase.resting, !rest.isWithinExercise, rest.beat >= .shown,
-           rest.set.row == id, let resting, let workout = session.workout
+        if let rest = phase.drawnRest, !rest.isWithinExercise, rest.beat >= .shown,
+           rest.set.row == id, let (resting, workout) = drawnResting
         {
             return RestBlock(
                 stage: .open,
@@ -214,6 +222,17 @@ extension RoutineScreen {
                     ? resting.remaining(atClock: workout.clock(at: .now)) : nil,
                 onShorten: { adjustRest(by: -15) },
                 onExtend: { adjustRest(by: 15) },
+            )
+        }
+        // Ended mid-rest, its room closes with the list showing the time it had.
+        if let (rest, workout) = phase.restLeft, !rest.isWithinExercise, rest.set.row == id,
+           let left = LiveWorkout(routine: routine, workout: workout).rest(override: restOverride)
+        {
+            return RestBlock(
+                stage: .none,
+                length: left.length,
+                ends: workout.date(ofClock: left.endClock),
+                pausedLeft: left.remaining(atClock: workout.clock(at: .now)),
             )
         }
         // A rest between its sets has its own line, in its numbers' room (`setRest(of:current:)`).
@@ -233,10 +252,12 @@ extension RoutineScreen {
     func setRest(of id: RoutineExercise.ID, current: RoutineExercise.ID?) -> SetRest? {
         guard id == current, let shown, routine.restBetweenSets(of: id) != nil else { return nil }
         let next = shown.currentSet.map(nextSetLine) ?? ""
-        let within = phase.resting.flatMap { $0.isWithinExercise ? $0 : nil }
-        let workout = session.workout
-        let ends = resting.flatMap { rest in workout.map { $0.date(ofClock: rest.endClock) } }
-        if let within, within.beat >= .shown, within.beat < .returning, let resting, let workout {
+        let within = phase.drawnRest.flatMap { $0.isWithinExercise ? $0 : nil }
+        let drawn = drawnResting
+        let ends = drawn.map { $0.workout.date(ofClock: $0.rest.endClock) }
+        if let within, within.beat >= .shown, within.beat < .returning,
+           let (resting, workout) = drawn
+        {
             return SetRest(
                 stage: .running,
                 length: resting.length,
@@ -306,18 +327,37 @@ extension RoutineScreen {
         _ item: RoutineExercise,
         current: RoutineExercise.ID?,
         on set: PlannedSet?,
-        bars: SetProgress?,
+        parts: RowParts?,
     ) -> some View {
         LabelWithRest(
             label: rowLabel(
                 item,
                 current: current,
                 on: set,
-                bars: bars,
-                setRest: setRest(of: item.id, current: current),
+                bars: parts?.bars,
+                setRest: parts?.restBetween,
             ),
-            rest: restBlock(under: item.id),
+            rest: parts?.restAfter ?? RestBlock(stage: .none, length: 0),
         )
+    }
+
+    /// Each row's bars and rests, for the rows' closure to hold as values. Worked out in the
+    /// closure, the rests read the stored workout live but the phase as the closure was made: a
+    /// row redrawn on its own as a log was stored read the set in the workout with the phase from
+    /// before the log, which hides it, and the last set's rest line went into the numbers' room
+    /// for a pass, the rows below jumping up 24 pt as it came back out.
+    func rowParts(
+        in shown: LiveWorkout?,
+        current: RoutineExercise.ID?,
+    ) -> [RoutineExercise.ID: RowParts] {
+        let bars = rowBars(in: shown)
+        return routine.exercises.reduce(into: [:]) { parts, item in
+            parts[item.id] = RowParts(
+                bars: bars[item.id],
+                restBetween: setRest(of: item.id, current: current),
+                restAfter: restBlock(under: item.id),
+            )
+        }
     }
 
     /// Scrolls the current exercise's row up to just under the bar.
@@ -326,6 +366,14 @@ extension RoutineScreen {
             scrollPosition.scrollTo(y: place.landingY)
         }
     }
+}
+
+/// What a row draws of the workout: its set bars, its rest between sets in its numbers' room, and
+/// the rest after it, under it.
+struct RowParts {
+    let bars: SetProgress?
+    let restBetween: SetRest?
+    let restAfter: RestBlock
 }
 
 struct RestWatch: Equatable {

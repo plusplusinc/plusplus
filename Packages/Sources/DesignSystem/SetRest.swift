@@ -79,6 +79,27 @@ struct SetRoom: View, Animatable {
     @ScaledMetric(relativeTo: CurrentFigure.textStyle) private var size = RestFigure.size
     @Environment(\.locale) private var locale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The heights `SetRoomLayout` places from, measured, for the cuts where the parts cross.
+    @State private var heights = Heights()
+
+    private struct Heights: Equatable {
+        var figures: CGFloat = 0
+        var rest: CGFloat = 0
+        /// The line "Rest" heads it with.
+        var header: CGFloat = 0
+
+        /// How far the line's place is below the room's top: what each part travels.
+        var lineY: CGFloat {
+            max(figures, rest) + Spacing.sm
+        }
+
+        /// A cut's height from the line's place, `height(lineY)`: none where nothing crosses, at
+        /// either end of the swap, or before the parts are measured, which cut what showed at
+        /// once, as at a relaunch mid-rest, for its first frame.
+        func cut(_ isWhole: Bool, _ height: (CGFloat) -> CGFloat) -> CGFloat? {
+            isWhole || rest == 0 ? nil : max(0, height(lineY))
+        }
+    }
 
     init(figures: [RowFocus.Figure], rest: SetRest) {
         self.figures = figures
@@ -99,6 +120,14 @@ struct SetRoom: View, Animatable {
                 // Gone before the rest rising through it has grown, so the two never blur
                 // into each other where they cross.
                 .opacity(1 - RestRoomFade.fade(swap, from: 0, width: 0.4))
+                // Cut off where the rest's top is, so coming back, the numbers grow under
+                // "Rest" going down, never over it.
+                .mask(alignment: .top) {
+                    Rectangle().frame(height: heights.cut(swap <= 0) { (1 - 2 * swap) * $0 })
+                }
+                .onGeometryChange(for: CGFloat.self, of: \.size.height) {
+                    heights.figures = $0
+                }
             Text(AttributedString.monoNumbers(rest.next, font: .ppCurrentProgress))
                 .font(.ppCurrentProgress)
                 .foregroundStyle(.pp(.textSecondary))
@@ -106,6 +135,7 @@ struct SetRoom: View, Animatable {
                 .opacity(RestRoomFade.fade(swap, from: 0.6, width: 0.4))
             restLook
                 .opacity(hasLine ? 1 : 0)
+                .onGeometryChange(for: CGFloat.self, of: \.size.height) { heights.rest = $0 }
         }
         // Fading, the keys take no taps, and one aimed at a key as the rest ended fell through to
         // the row and opened its sheet: through the swap back, the room takes it, doing nothing.
@@ -136,19 +166,29 @@ struct SetRoom: View, Animatable {
             .foregroundStyle(.pp(.textSecondary))
             // With no rest to come, the line goes as the numbers come back.
             .opacity(rest.length == nil ? swap : 1)
-            // With Reduce Motion the figure changes at once: rolling, it came up turning from 0:00
-            // to the rest's length, with no swap to hide it.
-            block.countdown(size: size, locale: locale, turns: !rest.isOver && !reduceMotion)
-                .scaleEffect(Self.grown + (1 - Self.grown) * countdown, anchor: .topLeading)
-                .opacity(countdown)
-            block.progress
-                .padding(.top, Spacing.xs)
-                .padding(.bottom, Spacing.sm)
-                .opacity(countdown)
-            block.buttons
-                .opacity(keys)
-                .offset(y: (1 - keys) * SetMotion.arriveRise)
-                .allowsHitTesting(rest.stage == .running)
+            .onGeometryChange(for: CGFloat.self, of: \.size.height) { heights.header = $0 }
+            VStack(alignment: .leading, spacing: 0) {
+                // With Reduce Motion the figure changes at once: rolling, it came up turning from
+                // 0:00 to the rest's length, with no swap to hide it.
+                block.countdown(size: size, locale: locale, turns: !rest.isOver && !reduceMotion)
+                    .scaleEffect(Self.grown + (1 - Self.grown) * countdown, anchor: .topLeading)
+                    .opacity(countdown)
+                block.progress
+                    .padding(.top, Spacing.xs)
+                    .padding(.bottom, Spacing.sm)
+                    .opacity(countdown)
+                block.buttons
+                    .opacity(keys)
+                    .offset(y: (1 - keys) * SetMotion.arriveRise)
+                    .allowsHitTesting(rest.stage == .running)
+            }
+            // Cut off at the next set's line, coming down as they rise past it, so they never
+            // draw over it: by their place under "Rest", the rest's place, and the line's.
+            .mask(alignment: .top) {
+                Rectangle().frame(height: heights.cut(swap >= 1) {
+                    (2 * swap - 1) * $0 - heights.header
+                })
+            }
         }
         .accessibilityHidden(rest.stage != .running)
     }
