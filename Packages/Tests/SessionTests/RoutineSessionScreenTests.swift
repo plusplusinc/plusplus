@@ -92,6 +92,20 @@ struct RoutineSessionScreenTests {
         #expect(session.rowSheet?.id == row)
     }
 
+    @Test("A row's sheet opened again after closing is a new opening; the same ask keeps its own")
+    func eachOpeningIsItsOwn() throws {
+        let (session, row) = try sessionWithRow()
+        session.openRowSheet(RowSheet(id: row))
+        let first = try #require(session.rowSheet).opening
+        // A double tap, the sheet still rising.
+        session.openRowSheet(RowSheet(id: row))
+        #expect(session.rowSheet?.opening == first)
+        session.closeRowSheet()
+        session.openRowSheet(RowSheet(id: row))
+        let second = try #require(session.rowSheet).opening
+        #expect(second != first, "The sheet opened again would keep the last one's state")
+    }
+
     @Test("A row the open routine no longer has opens no sheet, as when tapped as it leaves")
     func goneRowOpensNoSheet() throws {
         let (session, row) = try sessionWithRow()
