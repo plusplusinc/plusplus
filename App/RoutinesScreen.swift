@@ -5,6 +5,11 @@ import WorkoutStore
 
 /// Every saved routine, most recently opened or edited first, each by its name.
 /// Tapping one pushes it on the routine screen; + pushes a new one.
+///
+/// A row swiped left shows the system's red Delete, and a row held opens the system's context
+/// menu with Delete, red with a trash. Either asks first in a centered alert, "Delete <name>?",
+/// the name as the row shows it; confirmed, the row leaves and the rows below close the gap,
+/// and the screen stays on Routines (`RoutineSession.delete(_:)`).
 struct RoutinesScreen: View {
     @Bindable var session: RoutineSession
     let namer: RoutineNamer
@@ -15,6 +20,11 @@ struct RoutinesScreen: View {
     @State private var scrollPosition = ScrollPosition()
     /// Whether the title has scrolled out of sight under the bar, for its small copy to show.
     @State private var isTitleUnderBar = false
+    /// The routine Delete is asking about.
+    @State private var deleting: Routine?
+    /// Routines whose delete is confirmed, left out of the list from the confirming tap, in its
+    /// animation, before the store has taken the delete.
+    @State private var leaving: Set<Routine.ID> = []
     @Environment(\.locale) private var locale
 
     var body: some View {
@@ -41,6 +51,8 @@ struct RoutinesScreen: View {
                 .padding(.bottom, Spacing.md)
             }
             .scrollPosition($scrollPosition)
+            // One row open at a time, closed by a scroll or a tap anywhere else.
+            .swipeActionsContainer()
             .accessibilityHidden(session.isDrawerOpen)
             .background { Color.pp(.background).ignoresSafeArea() }
             .onAppear(perform: takeOrder)
@@ -82,6 +94,19 @@ struct RoutinesScreen: View {
                 }
             }
         }
+        // Outside the stack, as the picker's: centered, with the system's colors.
+        .alert(
+            "Delete \(deleting.map(namer.listedName(of:)) ?? "")?",
+            isPresented: Binding { deleting != nil } set: {
+                if !$0 {
+                    deleting = nil
+                }
+            },
+            presenting: deleting,
+        ) { routine in
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) { delete(routine.id) }
+        }
         .task {
             await session.refreshRecent(weightUnit: weightUnit)
             takeOrder()
@@ -97,6 +122,24 @@ struct RoutinesScreen: View {
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("routines.row")
+        .swipeActions(edge: .trailing) {
+            Button("Delete", role: .destructive) { deleting = routine }
+        }
+        .contextMenu {
+            Button("Delete", systemImage: "trash", role: .destructive) { deleting = routine }
+        }
+    }
+
+    /// Takes the row out at once, the rows below closing the gap, then deletes the routine.
+    private func delete(_ id: Routine.ID) {
+        withAnimation(.snappy) {
+            _ = leaving.insert(id)
+        }
+        Task {
+            await session.delete(id)
+            // Gone from the session's list once stored; back in the list if the delete failed.
+            leaving.remove(id)
+        }
     }
 
     /// The stack's push: the session's pushed routine, which the back button and the back swipe
@@ -112,7 +155,7 @@ struct RoutinesScreen: View {
     }
 
     private var shown: [Routine] {
-        session.recent.held(in: order)
+        session.recent.held(in: order).filter { !leaving.contains($0.id) }
     }
 
     private func takeOrder() {

@@ -32,13 +32,42 @@ extension RoutineScreen {
                 .animation(.easeOut(duration: Self.barFade), value: session.workout == nil)
             }
         }
-        // The time fades out of its glass, and then the glass goes, the bar fading it: the bar
-        // took the item out with its content on the frame, and only the glass faded.
-        if let workout = session.workout ?? phase.endingWorkout {
-            ToolbarItem(placement: .topBarTrailing) {
-                WorkoutTimeKey(session: session, workout: workout)
-                    .opacity(session.workout == nil ? 0 : 1)
-                    .animation(.easeOut(duration: Self.barFade), value: session.workout == nil)
+        // One item, as leading's: ••• outside a workout and its time during one, crossfading.
+        // Taken out, the bar took the item's content out on the frame and only faded its glass.
+        // The time fades out at End and ••• comes back once End has played.
+        ToolbarItem(placement: .topBarTrailing) {
+            let timed = session.workout ?? phase.endingWorkout
+            ZStack {
+                if let timed {
+                    WorkoutTimeKey(session: session, workout: timed)
+                        .opacity(session.workout == nil ? 0 : 1)
+                        .transition(.opacity)
+                } else {
+                    moreMenu
+                        .transition(.opacity)
+                }
+            }
+            .animation(.easeOut(duration: Self.barFade), value: session.workout == nil)
+            .animation(.easeOut(duration: Self.barFade), value: timed == nil)
+        }
+    }
+
+    /// •••, the routine's own actions: Delete, red, dimmed while the routine has nothing saved.
+    /// It asks first in a centered alert, "Delete <name>?", the name as the title shows it;
+    /// confirmed, the session shows Routines on a new routine (`RoutineSession.delete(_:)`).
+    private var moreMenu: some View {
+        Menu("More", systemImage: "ellipsis") {
+            Button("Delete", systemImage: "trash", role: .destructive) {
+                isAskingToDeleteRoutine = true
+            }
+            .disabled(!session.canDeleteOpen)
+        }
+        .hiddenBehindDrawer()
+        .alert("Delete \(shownName ?? Self.defaultName)?", isPresented: $isAskingToDeleteRoutine) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) {
+                let id = session.current.id
+                Task { await session.delete(id) }
             }
         }
     }
