@@ -17,24 +17,13 @@ struct RoutineScreen: View {
     let namer: RoutineNamer
     /// Pushed onto the Routines screen, with a back button where ++ otherwise is.
     let isPushed: Bool
-    /// Add exercise's sheet, up while set: picking, or showing a row Create made.
-    @State var adding: AddStage?
+    @State var isPicking = false
     /// How high the picker is: half as it opens (`openPicker()`), full once pulled up or once
-    /// its search opens, half again on Create.
+    /// its search opens.
     @State var pickerDetent: PresentationDetent = .medium
-    /// The pages pushed in Add exercise.
-    @State var pickerPath: [PickerPage] = []
-    /// After Create, room under the list's end, so its last row can rest above the half-height
-    /// sheet (`CreateLanding`).
-    @State var sheetRoom: CGFloat = 0
-    /// While that room closes with the sheet, the list's end is held where it shows.
-    @State var isSheetRoomClosing = false
-    @State var sheetLanding = SheetLanding()
     @State var listEnd = ListEnd()
-    /// The row whose values are open in a sheet, as it was when opened: only its id is read.
-    @State var editing: RoutineExercise?
-    /// The row Create made, while its sheet is up, opened on Customize (`CreateLanding`).
-    @State var createdSheet: RoutineExercise.ID?
+    /// The row whose values are open in a sheet.
+    @State var editing: RowSheet?
     @State var scrollPosition = ScrollPosition()
     /// The row just added, holding its place until it can be seen going in.
     @State var arriving: RoutineExercise.ID?
@@ -61,8 +50,6 @@ struct RoutineScreen: View {
     /// the exercises, but the first add and the last Remove change it only once their sheet has
     /// gone, so Start and the + are seen rising or going down (`settleFoot(after:)`).
     @State var footShowsEmpty: Bool
-    /// Start and the + away, keeping their room, from Create to its row sheet's close.
-    @State var isFootAway = false
     /// Whether the title has scrolled up under the bar, where a small copy of it shows instead.
     @State var isTitleUnderBar = false
     /// How far Start rides down with the rows below the current exercise as it grows at Start.
@@ -162,7 +149,8 @@ struct RoutineScreen: View {
         withAnimation(.railChange) {
             shownRoutine = session.current
         }
-        settleFootAfterCustomize()
+        // A Delete there can leave it empty: Start and the + go down with its last row.
+        settleFoot(after: .zero)
     }
 
     /// The name made for the routine from its exercises, which a chosen name hides and which
@@ -268,11 +256,10 @@ struct RoutineScreen: View {
                             .railRow()
                             // The whole row, its insets included, as the rail stacks it.
                             .reportingFrame(tracksRows) { rowFrames.tops[item.id] = $0.minY }
-                            .reportingHeight(item.id == arriving, to: placeAhead)
                             .contentShape(.rect)
                             .onTapGesture {
                                 guard item.id != entering else { return }
-                                editing = item
+                                editing = RowSheet(id: item.id)
                             }
                             .accessibilityAddTraits(.isButton)
                             .accessibilityValue(supersetValue(item.id))
@@ -304,7 +291,6 @@ struct RoutineScreen: View {
                 // With the floating +'s room above it, so at the end of a long list the last row
                 // scrolls clear of the +.
                 .padding(.bottom, Spacing.md)
-                .roomUnderSheet(sheetRoom)
                 // In the content, not a margin, so the visible height the row is sized from
                 // stays.
                 .roomToLand(top: landingRoomTop)
@@ -334,7 +320,6 @@ struct RoutineScreen: View {
         .scrollPosition($scrollPosition)
         .railAutoscroll($scrollPosition)
         .onScrollGeometryChange(for: ScrollGeometry.self, of: \.self) { old, new in
-            sheetLanding.geometry = new
             keepEndInView(from: old, to: new)
             keepEndPinned(from: old, to: new)
         }
@@ -352,9 +337,6 @@ struct RoutineScreen: View {
             }
         }
         .onGeometryChange(for: CGFloat.self, of: \.size.height) { listHeight = $0 }
-        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: {
-            sheetLanding.listFrame = $0
-        }
         .emptyNote("No exercises", isEmpty: routine.exercises.isEmpty)
         // Alongside the taps of what is in the list, which never reach below its end.
         .simultaneousGesture(SpatialTapGesture(coordinateSpace: .global).onEnded { tap in
@@ -363,7 +345,7 @@ struct RoutineScreen: View {
         .primaryKeyBar(
             isPresented: showsKey,
             face: liveKeyRole,
-            keepsRoom: phase.keyGone == .keepingRoom || isFootAway,
+            keepsRoom: phase.keyGone == .keepingRoom,
             plusOnes: setLogs + sideLogs,
             drop: startDrop,
             floatsLow: footShowsEmpty,
@@ -383,10 +365,15 @@ struct RoutineScreen: View {
         // window's black behind the keyboard's rounded top corners.
         .background { Color.pp(.background).ignoresSafeArea() }
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: isAdding, onDismiss: addSheetGone) { addSheet }
+        .sheet(isPresented: $isPicking) {
+            picker
+                // A fixed set: one worked out from `pickerDetent` was read from the opening
+                // before.
+                .presentationDetents([.medium, .large], selection: $pickerDetent)
+        }
         // By item, so the sheet keeps its content as it slides away.
-        .sheet(item: editedRow) { opened in
-            exerciseSheet(opened.id)
+        .sheet(item: $editing) { opened in
+            exerciseSheet(opened)
         }
         .toolbar { barItems }
     }

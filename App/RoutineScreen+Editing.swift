@@ -69,7 +69,8 @@ extension RoutineScreen {
     /// change shows in the routine behind it as it is stored; a Delete there takes the row and
     /// shuts the sheet.
     @ViewBuilder
-    func exerciseSheet(_ id: RoutineExercise.ID) -> some View {
+    func exerciseSheet(_ opened: RowSheet) -> some View {
+        let id = opened.id
         if let item = row(id) {
             ExerciseSheet(
                 item: item,
@@ -84,29 +85,33 @@ extension RoutineScreen {
                         onStored: {
                             showStoredRoutine()
                             if row(id) == nil {
-                                closeEditing()
+                                editing = nil
                             }
                         },
                         back: back,
                     )
                 },
                 onDelete: { delete(id, footDelay: Self.exerciseSheetGone) },
-                opensCustomizing: id == createdSheet,
+                opensCustomizing: opened.opensCustomizing,
             )
         }
     }
 
     /// Add exercise's sheet. A created exercise is stored before its row is added, so the
-    /// routine's save that names it lands after it; the row goes in even if the sheet was swiped
-    /// down meanwhile. Its Customize form shows inside the sheet.
+    /// routine's save that names it lands after it; then the sheet closes and the row goes in as
+    /// a pick's does, even if the sheet was swiped down meanwhile, and once it has landed its own
+    /// sheet opens on Customize (`showCreated(_:)`).
     var picker: some View {
         ExercisePicker(
             exercises: session.exercises,
-            path: $pickerPath,
             onPick: addPicked,
             // Full height with search, in the field's own transaction (decided 2026-11-17).
             onSearchOpen: { pickerDetent = .large },
-            onCreate: create,
+            onCreate: { made in
+                let exercise = await session.create(made)
+                isPicking = false
+                add(exercise, landed: showCreated)
+            },
             routineCount: { session.routines(using: $0).count },
             onDelete: { id in
                 await session.deleteExercise(id, weightUnit: WeightUnit(region: locale))
@@ -117,44 +122,18 @@ extension RoutineScreen {
                     id: id,
                     session: session,
                     namer: namer,
-                    onStored: {
-                        showStoredRoutine()
-                        // A Delete there took the created row: the sheet shuts, as a row's does.
-                        if case let .created(rowID) = adding, row(rowID) == nil {
-                            endAdding()
-                        }
-                    },
+                    onStored: showStoredRoutine,
                     back: back,
                 )
             },
-            values: createdValues,
         )
-    }
-
-    /// A created row's values inside Add exercise, its Customize… pushed on the same stack.
-    @ViewBuilder
-    private func createdValues(_ id: RoutineExercise.ID) -> some View {
-        if let item = row(id) {
-            ExerciseValues(
-                item: item,
-                partners: routine.partnerNames(of: id),
-                parts: routine.sheetParts(of: id),
-                rounds: roundSteps(of: id),
-                onClose: endAdding,
-                onCustomize: { pickerPath.append(.customize(item.wrappedValue.exercise.id)) },
-                onRemove: {
-                    endAdding()
-                    delete(id, footDelay: Self.exerciseSheetGone)
-                },
-            )
-        }
     }
 
     /// Shuts the picker and adds what was picked there. A second tap while the sheet goes down
     /// keeps the first.
     func addPicked(_ exercise: Exercise) {
-        guard adding == .picking else { return }
-        adding = nil
+        guard isPicking else { return }
+        isPicking = false
         add(exercise)
     }
 
@@ -165,70 +144,64 @@ extension RoutineScreen {
     /// the row went in, it stopped at the end the list had before. Once Start is pressed, it
     /// enters where it is, with no scroll: the end is then Start's room under the list, out of
     /// sight, and a scroll to it took the list off the screen just as Start went to land on the
-    /// first exercise.
-    ///
-    /// A created row enters at `enteringAt`, everything fitting or not, once the add sheet rests
-    /// at half height (`CreateLanding`), and the list holds still until then but for Create's own
-    /// scroll: the room under it goes on meanwhile, and following that growth would jump it.
-    @discardableResult
-    func add(
-        _ exercise: Exercise,
-        enteringAt created: ContinuousClock.Instant? = nil,
-    ) -> RoutineExercise.ID {
-        let added = created ?? ContinuousClock.now
+    /// first exercise. `landed` runs once the row has landed.
+    func add(_ exercise: Exercise, landed: @escaping (RoutineExercise.ID) -> Void = { _ in }) {
+        let added = ContinuousClock.now
         let row = RoutineExercise(exercise: exercise, weightUnit: WeightUnit(region: locale))
         arriving = row.id
         entering = row.id
-        endFollow = created == nil ? .waiting : nil
+        endFollow = .waiting
         // The row goes in with no space yet, so nothing moves; its fade, of a row that draws
         // nothing yet, times the entry a moment into the sheet's slide: the line barely moves
         // at first, and the sheet has cleared all but the screen's foot by the time it shows.
         withAnimation(.linear(duration: RailArrival.appendFade)) {
             routine.exercises.append(row)
         }
-        // A created row's sheet stays up: the foot follows once it closes (`endAdding()`).
-        if created == nil {
-            settleFoot(after: Self.pickerGone)
-        }
+        settleFoot(after: Self.pickerGone)
         // Beats on deadlines, not this animation's completion, which once never came, and the
         // row stayed arriving for good (`RailArrival`).
-        // A created row's wait is its beats', not the end's: it gives up only well past them.
-        let giveUp = created.map { ContinuousClock.now.duration(to: $0) + RailArrival.endGiveUp }
         Task {
-            await RailArrival.play(givingUpAfter: giveUp ?? RailArrival.endGiveUp) {
+            await RailArrival.play {
                 arriving == row.id
             } reachEnd: {
-                if created != nil {
-                    await reachEnd(added: added, by: .zero, waitsFirst: true)
-                } else {
-                    await reachEnd(added: added, by: Self.pickerGone, waitsFirst: false)
-                }
+                await reachEnd(added: added)
             } enter: {
                 letArrivingEnter()
             } entered: {
                 hasEntered(row)
+                landed(row.id)
             }
         }
-        return row.id
     }
 
-    /// Once the sheet has moved (`deadline` from the add), scrolls the list to its end, the
-    /// added row's place, and returns as it lets the row enter, unless the end is in view or
-    /// Start's room is opening. `waitsFirst` waits for the deadline even where nothing scrolls,
-    /// and holds the list still until then. On deadlines, not the scroll's completion or its
-    /// phase: the phase reported idle only about 0.3 s after the list had stopped, and the row
-    /// waited on a still list.
-    private func reachEnd(
-        added: ContinuousClock.Instant,
-        by deadline: Duration,
-        waitsFirst: Bool,
-    ) async {
-        if waitsFirst {
-            try? await Task.sleep(until: added + deadline, tolerance: .zero, clock: .continuous)
+    /// After Create, a beat after its row has landed, the row's own sheet comes up, as a tap on
+    /// the row brings it, already on Customize: the row is seen landing, then its sheet rises.
+    /// Not if a sheet is up by then, or the row has gone.
+    private func showCreated(_ id: RoutineExercise.ID) {
+        Task {
+            try? await Task.sleep(for: .seconds(Self.landingHold), tolerance: .zero)
+            guard editing == nil, !isPicking, row(id) != nil else { return }
+            editing = RowSheet(id: id, opensCustomizing: true)
         }
+    }
+}
+
+/// A row's open sheet: which row, and whether it opens on Customize, as after Create. The flag
+/// rides with the sheet's item: a separate state set with it read as unset in the sheet.
+struct RowSheet: Identifiable {
+    let id: RoutineExercise.ID
+    var opensCustomizing = false
+}
+
+extension RoutineScreen {
+    /// Once the picker has gone, scrolls the list to its end, the added row's place, and returns
+    /// as it lets the row enter, unless the end is in view or Start's room is opening. On
+    /// deadlines, not the scroll's completion or its phase: the phase reported idle only about
+    /// 0.3 s after the list had stopped, and the row waited on a still list.
+    private func reachEnd(added: ContinuousClock.Instant) async {
         endFollow = .ready
         guard !isEndInView, !isMakingRoom else { return }
-        try? await Task.sleep(until: added + deadline, tolerance: .zero, clock: .continuous)
+        try? await Task.sleep(until: added + Self.pickerGone, tolerance: .zero, clock: .continuous)
         // Start pressed meanwhile: the row enters where it is.
         guard !isMakingRoom else { return }
         withAnimation(.railChange) {
@@ -260,9 +233,7 @@ extension RoutineScreen {
     /// its end, the last row under the + (at AX5, 394 against an end at 435). The change a short
     /// scroll makes is followed in turn, to the end the scroll view has by then.
     func keepEndInView(from old: ScrollGeometry, to new: ScrollGeometry) {
-        // After Create, room put on ahead of the place (`placeAhead(_:)`) already holds the
-        // list where the row lands.
-        guard let follow = endFollow, !isMakingRoom, !isScrollingByHand, sheetLanding.ahead == 0,
+        guard let follow = endFollow, !isMakingRoom, !isScrollingByHand,
               new.endY > new.scrolledY else { return }
         if follow != .following {
             guard new.contentSize.height > old.contentSize.height else { return }
@@ -311,6 +282,5 @@ extension RoutineScreen {
         if entering == row.id {
             entering = nil
         }
-        addedRowLanded()
     }
 }

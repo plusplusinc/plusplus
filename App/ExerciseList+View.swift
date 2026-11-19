@@ -22,8 +22,7 @@ import WorkoutStore
 /// exercise of exactly that name, Create “…” is the list's last row, green as what makes
 /// something is; with no matches it is the only row, so the list narrows down to it and there
 /// is no separate no-results view. A tap makes the exercise at once, with that name and nothing
-/// else set (`ExerciseList.createdName(from:)`), and hands it to the host, which pushes its
-/// Customize form (`ExerciseForm`) on its own stack; back from there, the search is as it was.
+/// else set (`ExerciseList.createdName(from:)`), and hands it to the host.
 struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
     let exercises: ExerciseList
     /// What a tap on a row does.
@@ -39,18 +38,12 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
     /// Runs as search opens, in the tap's own transaction, so what it changes moves with the
     /// field: Add exercise's sheet goes to full height.
     var onSearchOpen: () -> Void = { }
-    /// Stores the exercise and shows its Customize form.
+    /// Stores the exercise and shows it.
     let onCreate: (CreatedExercise) async -> Void
-    /// Whether a page is pushed over the list: the bar's search fades as the push starts. Left
-    /// to the push, the open field stayed over the pushed page's title for about 0.3 s.
-    var isCovered = false
 
     @State private var query = ""
     /// While a Create's store lands: a second tap meanwhile would make a second exercise.
     @State private var isCreating = false
-    /// The exercises as Create was tapped, shown until the page it pushes covers the list: the
-    /// stored exercise took Create's row's place just as the push began.
-    @State private var beforeCreate: ExerciseList?
     @State private var isKeyboardUp = false
     /// Where the list's room starts, at the bar's bottom edge, in global coordinates: where a
     /// heading pins, and past which a heading pushed up fades (`LeavesUnderBar`).
@@ -59,23 +52,15 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
 
     var body: some View {
         list
-            // Back on the list, it shows every exercise again.
-            .onChange(of: isCovered) { _, covered in
-                if !covered {
-                    beforeCreate = nil
-                }
-            }
             .modifier(SearchField(
                 text: $query,
                 title: barTitle,
                 leading: barLeading,
                 onOpen: onSearchOpen,
-                isCovered: isCovered,
             ))
     }
 
     private var list: some View {
-        let exercises = beforeCreate ?? exercises
         let sections = exercises.matching(query).lettered()
         return List {
             ForEach(sections) { section in
@@ -160,7 +145,6 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
             guard !isCreating else { return }
             dropKeyboard()
             isCreating = true
-            beforeCreate = exercises
             let created = CreatedExercise(name: createdName, muscleGroups: [])
             Task {
                 await onCreate(created)
@@ -236,7 +220,6 @@ private struct SearchField<Leading: View>: ViewModifier {
     let title: LocalizedStringKey
     let leading: Leading
     let onOpen: () -> Void
-    let isCovered: Bool
 
     /// The screen's width, which the item spans but for the bar's margins.
     @State private var width: CGFloat = 0
@@ -272,8 +255,6 @@ private struct SearchField<Leading: View>: ViewModifier {
                         title: title,
                         titleCenterX: midX,
                     ) { leading }
-                        .opacity(isCovered ? 0 : 1)
-                        .animation(.snappy(duration: 0.15), value: isCovered)
                 }
                 .sharedBackgroundVisibility(.hidden)
             }

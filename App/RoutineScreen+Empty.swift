@@ -4,17 +4,14 @@ import SwiftUI
 extension RoutineScreen {
     /// Add exercise, a + floating above the key, which opens the picker.
     var addButton: some View {
-        AddExerciseButton(isEditingTitle: $isEditingTitle, isAway: isFootAway) { openPicker() }
+        AddExerciseButton(isEditingTitle: $isEditingTitle) { openPicker() }
     }
 
     /// Half up, however it opens, which puts Search within a thumb's reach; pulled up, it stays
     /// up until it closes.
     func openPicker() {
         pickerDetent = .medium
-        pickerPath = []
-        // Recorded again as it opens (`recordSheetTop(_:)`).
-        sheetLanding.sheetTop = nil
-        adding = .picking
+        isPicking = true
     }
 
     /// A tap anywhere on an empty routine, or below the last row, opens the picker, unless it
@@ -70,19 +67,15 @@ final class ListEnd {
 
 /// Add exercise's +. While the keyboard is up, as the title is edited, it fades out, keeping its
 /// place. It reads the edit through a binding, so a focus change redraws it and not the screen.
-/// While `isAway`, under Create's sheets, it is gone too, and comes back on the animation that
-/// brings Start back.
 struct AddExerciseButton: View {
     @Binding var isEditingTitle: Bool
-    var isAway = false
     let action: () -> Void
 
     var body: some View {
         Button("Add exercise", systemImage: "plus", action: action)
             .opacity(isEditingTitle ? 0 : 1)
+            .allowsHitTesting(!isEditingTitle)
+            .accessibilityShown(!isEditingTitle)
             .animation(.easeOut(duration: RoutineScreen.barFade), value: isEditingTitle)
-            .opacity(isAway ? 0 : 1)
-            .allowsHitTesting(!isEditingTitle && !isAway)
-            .accessibilityShown(!isEditingTitle && !isAway)
     }
 }
