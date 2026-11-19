@@ -15,7 +15,7 @@
 # (which scripts/lint.sh runs), .swiftformat, .swiftlint.yml. Not listed yet, though no build reads
 # them, since Xcode Cloud's copy doesn't list them: scripts/models-test.py, scripts/board-test.py,
 # scripts/agent-record.py, scripts/agent-record-test.py, scripts/stale-simulators.py,
-# scripts/stale-simulators-test.py.
+# scripts/stale-simulators-test.py, scripts/device-test.py.
 # Not listed, and never no-code whatever this file says, since they decide the check: this file,
 # scripts/pr-check.sh, and .github/workflows/. Not listed either: scripts/pr-check-test.py, which
 # changes along with the check. scripts/pr-check-test.py fails when a script is neither listed
