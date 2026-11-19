@@ -219,8 +219,7 @@ private struct PrimaryKeyBar<
     /// `floating` over an unseen copy of the key it sits over, `shown` (the staged key's
     /// `KeyStage.floatingFace(for:)`) or, with no key presented, the key as things stand, so a
     /// key coming in leaves it where it is. The copy's ledge sits where the key's does,
-    /// `ledgeLift` above the screen's bottom, the keyboard's inset left out, so the button stays
-    /// put as the keyboard rises.
+    /// `ledgeLift` above the screen's bottom.
     private func floatingPlace(over shown: Face?) -> some View {
         FloatingPlace(
             key: key(shown ?? face, true).buttonStyle(.primaryKey),
