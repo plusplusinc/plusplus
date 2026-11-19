@@ -138,8 +138,9 @@ nonisolated struct PulseShape: Shape {
         case whole
         /// Out of the node left into the rest, along the route to where the rest's dot crawls
         /// on, over `SetMotion.restLeave`: pulled out and shot as a whole pulse is, then easing
-        /// out to the crawl's speed `end`, against its average, with no node to join and no plop.
-        case leave(end: Double)
+        /// out to the crawl's speed `end`, against its average, with no node to join and no plop,
+        /// thinning to `barWidth` as it pours into the rest's bar.
+        case leave(end: Double, barWidth: CGFloat)
         /// From the rest's dot into the next node, as the end of a whole pulse, setting off at
         /// once at the crawl's speed `start`, against its average, in a pulse's time to its
         /// landing: no node is left behind, since the dot is the mass. After the rest's bar has
@@ -198,23 +199,22 @@ nonisolated struct PulseShape: Shape {
         let total = route.length
         let (distance, speed) = leg.motion(at: share, way)
         let lead = CGFloat(leg.lead)
-        let headAlong = total * (lead + (1 - lead) * CGFloat(distance))
         var length = min(
             size + Self.stretch * CGFloat(speed) * total * (1 - lead) / travel,
             size * Self.longest,
         )
         // It reaches the node still moving, stretched, and gathers into a circle on it, its
         // leading end held on the node as the rest catches up.
-        let gathered = (time - start - travel) / SetMotion.collapse
-        if gathered > 0 {
-            length = size + (length - size) * CGFloat(max(1 - gathered, 0))
-        }
-        var width = Self.width(length: length, size: size)
-        var apart = length - width
-        if let (line, barWidth) = leg.gathered(share, total: total) {
-            apart = max(apart, line)
-            width = max(Self.width(apart: apart, size: size), barWidth)
-        }
+        let gathered = max((time - start - travel) / SetMotion.collapse, 0)
+        length = size + (length - size) * CGFloat(max(1 - gathered, 0))
+        let drawn = leg.mass(
+            length: length,
+            at: share,
+            distance: CGFloat(distance),
+            total: total,
+            size: size,
+        )
+        let (width, apart, headAlong) = (drawn.width, drawn.apart, drawn.head)
         let tailAlong = max(headAlong - apart, 0)
         let head = Circle(center: route.point(at: headAlong), radius: width / 2)
         let tail = Circle(center: route.point(at: tailAlong), radius: width / 2)
@@ -328,15 +328,15 @@ nonisolated struct PulseShape: Shape {
 
 /// The pulse drawn over a rail, from the rows' nodes as they are on each frame. It plays once
 /// for each new `run`, from the log to its plop settled on the node it lands on
-/// (`PulseShape.runEnd(_:)`), and draws nothing between runs. It dims with the current node it
-/// leaves and becomes (`currentPulse(in:)`), so it takes over from one and hands over to the
-/// other without a seam. With Reduce Motion there is none: the move crossfades.
+/// (`PulseShape.runEnd(_:)`), and draws nothing between runs. In the nodes' steady green, so it
+/// takes over from one and hands over to the other without a seam; after a rest, from the fill's
+/// blue as its line gathers. With Reduce Motion there is none: the move crossfades.
 struct RailPulseRun: View {
     let route: RailRoute?
     let way: SetMotion.Way
     let run: Int
     /// After a rest, where its dot was: the route is the part from there on, it sets off at the
-    /// dot's speed, and its green comes from the dot's into the node's dimming over the travel.
+    /// dot's speed, and it turns from the fill's blue to green as its line gathers.
     var afterRest: RestHandoff?
     @ScaledMetric(relativeTo: .body) private var size = currentNodeSize
     @ScaledMetric(relativeTo: .body) private var restingSize = railNodeSize
@@ -347,8 +347,7 @@ struct RailPulseRun: View {
         // Always in place, so the first run is a change it sees: put in with its first run, it
         // started at that run and never played it.
         KeyframeAnimator(initialValue: -1.0, trigger: run) { time in
-            // Only during a run: between runs there is nothing to draw, and the dimming's
-            // timeline would tick through the whole workout.
+            // Only during a run: between runs there is nothing to draw.
             if time >= 0, !reduceMotion {
                 let whole = route ?? RailRoute([])
                 let from = min(afterRest?.share ?? 0, 0.99)
@@ -372,12 +371,8 @@ struct RailPulseRun: View {
                     leg: leg,
                 )
                 let into = afterRest == nil ? 1 : min(time / SetMotion.landing(way), 1)
-                shape.fill(.pp(.accent))
-                    .overlay {
-                        shape.fill(.pp(.background)).opacity((afterRest?.dim ?? 0) * (1 - into))
-                    }
-                    .currentPulse(in: shape, share: into)
-                    // The rest's bar narrows back into the rail as the green leaves it.
+                shape.tinted(blue: shape.blue)
+                    // The rest's bar narrows back into the rail as the fill leaves it.
                     .background {
                         if afterRest != nil {
                             RestBarView(route: whole, grown: 1 - into)

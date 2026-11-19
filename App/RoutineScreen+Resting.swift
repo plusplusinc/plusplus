@@ -5,21 +5,23 @@ import WorkoutStore
 /// The rest between two exercises, after the last set of one, when the routine stores a rest
 /// after it. While the exercise is current, the rest that will follow it shows as a quiet line
 /// under it (`RestBlock.Stage.line`). Logging its last set plays two motions at once: the dot
-/// leaves the node as a pulse does and eases out, long and soft, into the rest's crawl
-/// (`RailTravel`), as, on a close's curve, the row closes to a done row and the line grows in
-/// place into the rest (`RestBlock.Stage.open`), so the rows below move once. The dot then
-/// crawls its share of the stretch at one speed for the whole rest, its size held, its green
-/// dimming and coming back once a second, full as the countdown turns. As the countdown reaches
-/// 0 the move goes on as a move with no rest does, its pulse setting off from the dot, where it
-/// is and at its speed (`RailPulse.afterRest`): the slide into the next node, the plop, and the
-/// next exercise growing as the rest closes. The key is gone through the rest, its room kept. −15 s
-/// with less
-/// than 15 s left ends it; + and − glide the dot to its new place. There is no Skip.
+/// leaves the node as a pulse does and eases out into the top of the rest's bar, thinning to it
+/// and turning blue (`RailTravel`), as, on a close's curve, the row closes to a done row and the
+/// line grows in place into the rest (`RestBlock.Stage.open`), so the rows below move once. The
+/// blue fills the bar at one speed for the whole rest, steady. As the countdown reaches 0 the
+/// move goes on as a move with no rest does, its pulse setting off from the fill, where it is and
+/// at its speed, gathering back into the green dot (`RailPulse.afterRest`): the slide into the
+/// next node, the plop, and the next exercise growing as the rest closes. The key is gone through
+/// the rest, its room kept. −15 s with less than 15 s left ends it; + and − glide the fill to its
+/// new place. There is no Skip.
 ///
-/// Not yet: a rest between two sets of one exercise, supersets (their members go straight on),
-/// pause beyond the countdown and dot holding, a relaunch or a return from the background
-/// mid-rest, and Reduce Motion (its crossfade goes straight on). The rest's taps are kept in
-/// memory only.
+/// Between two sets of one plain exercise, the rest takes the set's numbers' place (`SetRest`)
+/// and a bar beside it fills blue (`SetRestBar`), the exercise's node steady green; with Reduce
+/// Motion it swaps in and out at once.
+///
+/// Not yet: supersets (their members go straight on), pause beyond the countdown and fill
+/// holding, a relaunch or a return from the background mid-rest, and Reduce Motion between
+/// exercises (its crossfade goes straight on). The rest's taps are kept in memory only.
 extension RoutineScreen {
     /// For the UI tests, every rest's length (`-seedRest`); nil in a release build.
     var restOverride: Int? {
@@ -62,6 +64,12 @@ extension RoutineScreen {
         if phase.resting?.isWithinExercise == true {
             return sequence.run {
                 let start = ContinuousClock.now
+                // With Reduce Motion, at once: the rest swaps in with no ease.
+                guard !reduceMotion else {
+                    phase.show()
+                    phase.settleRest()
+                    return
+                }
                 try await beat(until: start + .seconds(SetMotion.heldRoll))
                 withAnimation(.snappy(duration: SetMotion.roll)) { phase.show() }
                 try await beat(until: start + .seconds(SetMotion.heldRoll + SetMotion.roll))
@@ -93,6 +101,11 @@ extension RoutineScreen {
             // The next set's numbers swap back into their place as the line rolls on, and the
             // key comes back once they are up.
             guard rest.beat < .returning else { return }
+            guard !reduceMotion else {
+                phase.endRest()
+                phase.settleReturn()
+                return
+            }
             withAnimation(.snappy(duration: SetMotion.roll)) { phase.endRest() }
             return sequence.run {
                 try await beat(until: ContinuousClock.now + .seconds(SetMotion.roll))
@@ -196,12 +209,19 @@ extension RoutineScreen {
                 length: coming ?? shown.restAfterCurrentExercise(override: restOverride),
                 next: next,
                 ends: ends ?? .distantPast,
-                // Over: it reads 0:00 as it goes, never the last second it showed.
-                pausedLeft: 0,
+                isOver: true,
             )
         }
-        return coming.map { SetRest(stage: .coming, length: $0, next: next) }
-            ?? SetRest(stage: .held, length: nil)
+        if let coming {
+            // Its end from the log, while it is still hidden, so the countdown comes up on its
+            // time rather than turning to it from 0:00, as it did with no swap to hide it.
+            return SetRest(stage: .coming, length: coming, next: next, ends: ends ?? .distantPast)
+        }
+        // At the last set, the line is the rest before the next exercise's, under the row; with
+        // none, its room is kept, empty, so the row keeps its height.
+        return shown.restAfterCurrentExercise(override: restOverride) == nil
+            ? SetRest(stage: .coming, length: nil, next: next)
+            : SetRest(stage: .held, length: nil)
     }
 
     /// The next set as the line under the rest reads it: "Set 2: 10 reps", "Set 2: 10 reps ·
@@ -215,21 +235,30 @@ extension RoutineScreen {
         return "Set \(round): " + figures.joined(separator: " · ")
     }
 
-    /// While the current exercise rests between its sets, the beat its pulse takes on.
-    var restBeat: RestBeat? {
-        guard !reduceMotion, let rest = live?.rest(override: restOverride),
-              !rest.isBetweenExercises, let workout = session.workout
+    /// While the current exercise rests between its sets, the bar beside its rest that fills
+    /// for the rest's length, from the log until the swap back is over: from the swap, as the
+    /// rest comes up at the bar's top.
+    private var setRestTravel: RailTravel<RoutineExercise.ID>? {
+        guard let rest = phase.resting, rest.isWithinExercise, let workout = session.workout,
+              let resting = live?.rest(override: restOverride), !resting.isBetweenExercises
         else { return nil }
-        return RestBeat(
-            starts: workout.date(ofClock: rest.startClock),
-            ends: workout.date(ofClock: rest.endClock),
-            pausedLeft: workout.isPaused ? rest.remaining(atClock: workout.clock(at: .now)) : nil,
+        let starts = workout.date(ofClock: resting.startClock)
+        return RailTravel(
+            from: rest.set.row,
+            to: rest.set.row,
+            starts: starts.addingTimeInterval(reduceMotion ? 0 : SetMotion.heldRoll),
+            ends: workout.date(ofClock: resting.endClock),
+            heldAt: workout.pausedAt,
+            betweenSets: rest.beat == .logged ? .coming : rest.beat == .returning ? .going : .shown,
         )
     }
 
     /// The dot crossing the rail for the rest, from the log, from the row left's node to the
-    /// next's.
+    /// next's; between two sets, the bar beside the rest.
     var restTravel: RailTravel<RoutineExercise.ID>? {
+        if let setRestTravel {
+            return setRestTravel
+        }
         guard let resting, resting.isBetweenExercises, let workout = session.workout
         else { return nil }
         return RailTravel(

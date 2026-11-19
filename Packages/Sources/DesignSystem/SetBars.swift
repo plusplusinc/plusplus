@@ -15,8 +15,8 @@ public struct SetProgress: Equatable {
 }
 
 /// One short bar per set, side by side: the sets done filled `done` purple, the rest `toDo`
-/// gray. On the current exercise, `isCurrent`, the bar of the set it is on is green, pulsing with
-/// its node. Sized with the detail line's text.
+/// gray. On the current exercise, `isCurrent`, the bar of the set it is on is green, as its node
+/// is. Sized with the detail line's text.
 public struct SetBars: View {
     private let progress: SetProgress
     private let isCurrent: Bool
@@ -47,11 +47,6 @@ public struct SetBars: View {
         let isOn = isCurrent && index == progress.done
         return shape
             .fill(.pp(isOn ? .accent : index < progress.done ? .done : .toDo))
-            .overlay {
-                if isOn {
-                    Color.clear.currentPulse(in: shape)
-                }
-            }
             .frame(width: width, height: height)
     }
 }

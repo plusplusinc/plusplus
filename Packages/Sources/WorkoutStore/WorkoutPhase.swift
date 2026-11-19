@@ -215,7 +215,8 @@ public enum WorkoutPhase: Equatable, Sendable {
     ) -> Bool {
         guard self == .running else { return false }
         switch step {
-        case .nextSet where moves && rests:
+        // A rest between sets runs with no motion too, its swap at once.
+        case .nextSet where rests:
             self = .resting(Resting(
                 set: set,
                 isBack: false,

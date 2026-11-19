@@ -13,8 +13,9 @@ nonisolated struct RestBar: Shape {
     let dotSize: CGFloat
     var grown: Double
 
-    /// The bar's width at its full, about the green line's in a move with no rest.
-    static let size: CGFloat = 6
+    /// The bar's width at its full: a little wider than the rail's 2 pt, so it reads as the rail
+    /// itself thickened (Dave, after the fourth build: 6 pt read heavy).
+    static let size: CGFloat = 4
 
     /// Where the move's pulse takes the green on from after a rest, along `route` from 0 to 1:
     /// the fill's top end, a dot `size` wide come into a bar `barWidth` wide, once it fills; the
@@ -83,26 +84,20 @@ nonisolated extension PulseShape {
         return ((apart * apart + round * round * size * size).squareRoot() - apart) / round
     }
 
-    /// The rest's green from the bar's top to its leading end, the end's center `along` the route,
-    /// the top's `top`: a capsule of the dot's area while short, never thinner than the bar.
+    /// The rest's fill from the bar's top to its leading end, the end's center `along` the route,
+    /// `top` the place whose dot's top edge the bar's top meets: a line exactly the bar's width,
+    /// which the leaving leg has thinned to as it poured in.
     static func fill(
         route: RailRoute,
         top: CGFloat,
         along: CGFloat,
         size: CGFloat,
-        barWidth: CGFloat,
+        barWidth width: CGFloat,
     ) -> Path {
-        // The top edge stays where the dot's was as it came in, so as the line thins its top
-        // holds still: its end's center rises by half what its width gives up.
-        var width = size
-        for _ in 0 ..< 3 {
-            let tail = Self.fillTail(top: top, width: width, size: size)
-            width = max(Self.width(apart: max(along - tail, 0), size: size), barWidth)
-        }
         var line = Path()
         let points = route.stretch(
             from: Self.fillTail(top: top, width: width, size: size),
-            to: along,
+            to: max(along, Self.fillTail(top: top, width: width, size: size)),
         )
         if let first = points.first {
             line.move(to: first)

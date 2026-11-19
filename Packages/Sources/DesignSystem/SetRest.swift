@@ -6,9 +6,10 @@ import SwiftUI
 /// (`RestBlock.Stage.line`). Logging the set swaps the two in one move: the line grows up into
 /// the numbers' place, "Rest" rising whole as the countdown grows in under it and −15 s and
 /// +15 s come in, while the numbers shrink down into the line's place, where they read as the
-/// next set, "Set 2: 10 reps". At the rest's end they swap back. The room for the numbers is as
-/// tall as the taller of the numbers and the rest through every set of the exercise, so nothing
-/// below it moves.
+/// next set, "Set 2: 10 reps". Beside them a bar fills blue down the rail from "Rest" to that
+/// line (`SetRestBar`). At the rest's end they swap back. The room for the numbers is as tall as
+/// the numbers, the rest fitting in it and the gap under it, and the line's room stays through
+/// the last set, so nothing below it moves and the row is no taller for its rests.
 public struct SetRest {
     public enum Stage: Sendable {
         /// The exercise rests between its sets, but not after this one: the room is held, and
@@ -27,6 +28,10 @@ public struct SetRest {
     let next: String
     let ends: Date
     let pausedLeft: Double?
+    /// Over, and swapping back: the countdown reads 0:00 and holds still as it goes, never
+    /// rolling its last figure, and the keys still take taps, doing nothing, so one aimed at a key
+    /// as the rest ends never falls through to the row and opens its sheet.
+    let isOver: Bool
     let onShorten: () -> Void
     let onExtend: () -> Void
 
@@ -36,9 +41,11 @@ public struct SetRest {
         next: String = "",
         ends: Date = .distantPast,
         pausedLeft: Double? = nil,
+        isOver: Bool = false,
         onShorten: @escaping () -> Void = { },
         onExtend: @escaping () -> Void = { },
     ) {
+        self.isOver = isOver
         self.stage = stage
         self.length = length
         self.next = next
@@ -53,7 +60,7 @@ public struct SetRest {
             stage: .open,
             length: length ?? 0,
             ends: ends,
-            pausedLeft: pausedLeft,
+            pausedLeft: isOver ? 0 : pausedLeft,
             onShorten: onShorten,
             onExtend: onExtend,
         )
@@ -70,6 +77,7 @@ struct SetRoom: View, Animatable {
 
     @ScaledMetric(relativeTo: CurrentFigure.textStyle) private var size = RestFigure.size
     @Environment(\.locale) private var locale
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(figures: [RowFocus.Figure], rest: SetRest) {
         self.figures = figures
@@ -97,8 +105,22 @@ struct SetRoom: View, Animatable {
                 .opacity(RestRoomFade.fade(swap, from: 0.6, width: 0.4))
             restLook
                 .opacity(hasLine ? 1 : 0)
+            if hasLine {
+                Color.clear.anchorPreference(key: SetRestSpan.self, value: .bounds) { $0 }
+            }
+        }
+        // Fading, the keys take no taps, and one aimed at a key as the rest ended fell through to
+        // the row and opened its sheet: through the swap back, the room takes it, doing nothing.
+        .overlay {
+            if rest.isOver {
+                Color.clear.contentShape(.rect).onTapGesture { }.accessibilityHidden(true)
+            }
         }
     }
+
+    /// How far below the room's top the bar's top end is, its round end's center: about where
+    /// the top of "Rest" is, grown.
+    static let barInset: CGFloat = 6
 
     /// The rest, as its line at `swap` 0 and grown at 1: "Rest" whole all the way, the line's
     /// length going first, the countdown growing in under it, then the keys.
@@ -120,14 +142,14 @@ struct SetRoom: View, Animatable {
             .foregroundStyle(.pp(.textSecondary))
             // With no rest to come, the line goes as the numbers come back.
             .opacity(rest.length == nil ? swap : 1)
-            block.countdown(size: size, locale: locale)
+            // With Reduce Motion the figure changes at once: rolling, it came up turning from 0:00
+            // to the rest's length, with no swap to hide it.
+            block.countdown(size: size, locale: locale, turns: !rest.isOver && !reduceMotion)
                 .scaleEffect(Self.grown + (1 - Self.grown) * countdown, anchor: .topLeading)
                 .opacity(countdown)
-                .padding(.top, Spacing.xxs)
             block.buttons
                 .opacity(keys)
                 .offset(y: (1 - keys) * SetMotion.arriveRise)
-                .padding(.top, Spacing.sm)
                 .allowsHitTesting(rest.stage == .running)
         }
         .accessibilityHidden(rest.stage != .running)
@@ -139,7 +161,7 @@ struct SetRoom: View, Animatable {
     static let grown: CGFloat = 0.35
 }
 
-/// The numbers' room, as tall as the taller of the numbers and the grown rest, and under it, with
+/// The numbers' room, as tall as the numbers, the grown rest fitting in it, and under it, with
 /// `hasLine`, the line's room. The numbers and the next set's line travel from the room's top to
 /// the line's as `swap` runs to 1; the rest from the line's to the room's top.
 private struct SetRoomLayout: Layout {
@@ -152,10 +174,11 @@ private struct SetRoomLayout: Layout {
     ) -> (room: CGFloat, line: CGFloat) {
         let offer = ProposedViewSize(width: width, height: nil)
         let heights = subviews.map { $0.sizeThatFits(offer).height }
-        let figures = heights.first ?? 0
-        let rest = heights.count > 2 ? heights[2] : 0
         let line = heights.count > 1 ? heights[1] : 0
-        return (max(figures, rest), line)
+        // The numbers' own height: the rest fits in it and the gap under it, so a row that rests
+        // between its sets is no taller than one that doesn't but for the rest's line. Held as
+        // tall as the grown rest, it stood 16 pt taller.
+        return (heights.first ?? 0, line)
     }
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
@@ -173,11 +196,23 @@ private struct SetRoomLayout: Layout {
         cache _: inout (),
     ) {
         let offer = ProposedViewSize(width: bounds.width, height: nil)
-        let (room, _) = metrics(bounds.width, subviews)
+        let (room, line) = metrics(bounds.width, subviews)
         let lineY = room + Spacing.sm
         let down = bounds.minY + lineY * swap
         let up = bounds.minY + lineY * (1 - swap)
         for (index, subview) in subviews.enumerated() {
+            guard index < 3 else {
+                // The bar's span, from the top of "Rest" grown to the middle of the next set's
+                // line, where neither moves as they swap.
+                subview.place(
+                    at: CGPoint(x: bounds.minX, y: bounds.minY + SetRoom.barInset),
+                    proposal: ProposedViewSize(
+                        width: 1,
+                        height: lineY + line / 2 - SetRoom.barInset,
+                    ),
+                )
+                continue
+            }
             subview.place(
                 at: CGPoint(x: bounds.minX, y: index < 2 ? down : up),
                 proposal: offer,

@@ -5,47 +5,54 @@ import SwiftUI
 /// (`SetMotion.restLeaveShare`). It leaves as a pulse does, from the log, and eases out over
 /// `SetMotion.restLeave` into the crawl's speed; crawls at that one speed to the rest's end, its
 /// place a straight line in the time gone; and, as the rest ends, the move's pulse takes it on
-/// from where it is, at its speed and brightness (`handoff(at:)`). A + or − moves `ends`; while
-/// paused (`heldAt`), it holds.
+/// from where it is, at its speed (`handoff(at:)`). A + or − moves `ends`; while paused
+/// (`heldAt`), it holds.
+///
+/// Between two sets of one exercise (`betweenSets`), `from` and `to` are that exercise, and the
+/// rest is a bar beside the rest in its numbers' place, filling from `starts` (`SetRestBar`).
 public struct RailTravel<ID: Hashable>: Equatable {
     public var from: ID
     public var to: ID
-    /// The log.
+    /// The log; between sets, when the fill sets off.
     public var starts: Date
     /// The rest's end.
     public var ends: Date
     public var heldAt: Date?
+    /// Between two sets of one exercise, where the bar is in its change.
+    public var betweenSets: SetRestStage?
 
-    public init(from: ID, to: ID, starts: Date, ends: Date, heldAt: Date?) {
+    public init(
+        from: ID,
+        to: ID,
+        starts: Date,
+        ends: Date,
+        heldAt: Date?,
+        betweenSets: SetRestStage? = nil,
+    ) {
         self.from = from
         self.to = to
         self.starts = starts
         self.ends = ends
         self.heldAt = heldAt
+        self.betweenSets = betweenSets
     }
 
-    /// Where the dot is at `date`, how fast it goes, and how dim, for the move's pulse to set off
-    /// from as the rest ends.
+    /// Where the dot is at `date` and how fast it goes, for the move's pulse to set off from as
+    /// the rest ends.
     public func handoff(at date: Date) -> RestHandoff {
         let now = (heldAt ?? date).timeIntervalSinceReferenceDate
         let place = RestDotPlace(travel: self, ends: ends.timeIntervalSinceReferenceDate, now: now)
-        return RestHandoff(
-            share: place.share,
-            tail: place.tail,
-            speed: place.speed,
-            dim: place.dim,
-        )
+        return RestHandoff(share: place.share, tail: place.tail, speed: place.speed)
     }
 }
 
 /// Where the move's pulse sets off after a rest: the green's leading end along the stretch from
-/// the node left to the next one's, from 0 to 1, and its tail, the bar's top once it fills; its
-/// speed in stretches a second; and how dim its green is.
+/// the node left to the next one's, from 0 to 1, and its tail, the bar's top once it fills; and
+/// its speed in stretches a second.
 public struct RestHandoff: Equatable, Sendable {
     public var share: Double
     public var tail: Double
     public var speed: Double
-    public var dim: Double
 }
 
 /// The rest's dot at a time `now`, worked out from the log and the rest's end `ends`, both in
@@ -64,8 +71,6 @@ nonisolated struct RestDotPlace {
     let crawl: Double
     /// The crawl's speed, in the leaving leg's lengths over its travel, for its end to meet.
     let leaveEnd: Double
-    /// How dim the green is, from 0 at full green.
-    let dim: Double
 
     /// How long past the rest's end the dot crawls on, for the move's pulse to take it over in
     /// its first frames, where it is, with no stop at 0.
@@ -93,16 +98,32 @@ nonisolated struct RestDotPlace {
             share = min(span.lowerBound + (span.upperBound - span.lowerBound) * gone, 0.98)
             speed = crawl
         }
-        // The rest's end as it is, not as it glides: the countdown turns to the new time at once,
-        // and the beat with it, not once for each second the glide passes.
-        let left = travel.ends.timeIntervalSinceReferenceDate - now
-        // Since the countdown's figure last turned, as it does on each whole second left: full
-        // green as it turns.
-        let beat = left > 0 ? CurrentPulse.dim(phase: left.rounded(.up) - left) : 0
-        // Out of the node's slow pulse into the rest's, over the leaving leg.
-        let into = min(max(sinceLog / SetMotion.restLeave, 0), 1)
-        let node = CurrentPulse.dim(at: Date(timeIntervalSinceReferenceDate: now))
-        dim = node * (1 - into) + beat * into
+    }
+}
+
+nonisolated extension PulseShape {
+    /// The traveling mass: its width, the distance between its ends' centers, and its head's
+    /// center along the route.
+    struct Mass {
+        let width: CGFloat
+        let apart: CGFloat
+        let head: CGFloat
+    }
+
+    /// How blue the mass is at `time`, from 0, green, to 1, the rest's fill (`Leg.blue`).
+    var blue: Double {
+        let share = min(max((time - leg.start) / leg.travel(way), 0), 1)
+        let distance = CGFloat(leg.motion(at: share, way).distance)
+        return leg.blue(at: share, distance: distance, total: route.length, size: size)
+    }
+}
+
+@MainActor
+extension PulseShape {
+    /// Drawn green, turning to the rest's blue by `blue`. On the main actor, as the colors are,
+    /// though the shape is not.
+    func tinted(blue: Double) -> some View {
+        fill(.pp(.accent)).overlay { fill(.pp(.restFill)).opacity(blue) }
     }
 }
 
@@ -135,15 +156,76 @@ nonisolated extension PulseShape.Leg {
 
     /// An arriving leg's line out of the bar at a share `time` of its travel, on a route `total`
     /// long: the distance from its tail's center to its head's, gathering in an ease out and in
-    /// over `gather` of the travel, the tail setting off from the bar's top at rest; and the
-    /// bar's width it narrows from, to none. Nil with no line.
-    func gathered(_ time: Double, total: CGFloat) -> (line: CGFloat, barWidth: CGFloat)? {
-        guard case let .arrive(_, lead, barWidth) = self, lead > 0 else { return nil }
+    /// over `gather` of the travel, the tail setting off from the bar's top at rest; the bar's
+    /// width it sets off at; and how far it has grown from that width to the dot's own, on the
+    /// same ease, so it leaves the bar at the fill's width with no jump. Nil with no line.
+    func gathered(_ time: Double, total: CGFloat) -> Gather? {
+        guard case let .arrive(_, lead, _) = self, lead > 0 else { return nil }
         let into = min(max(time / Self.gather, 0), 1)
         let eased = CGFloat(into * into * (3 - 2 * into))
-        // The bar's width held until the line is short, where the dot's own area is wider.
-        let thin = CGFloat(min(max((into - 0.6) / 0.4, 0), 1))
-        return (total * CGFloat(lead) * (1 - eased), barWidth * (1 - thin * thin * (3 - 2 * thin)))
+        return Gather(line: total * CGFloat(lead) * (1 - eased), grown: eased)
+    }
+
+    struct Gather {
+        let line: CGFloat
+        let grown: CGFloat
+    }
+
+    var barWidth: CGFloat {
+        switch self {
+        case .whole: 0
+        case let .leave(_, barWidth), let .arrive(_, _, barWidth): barWidth
+        }
+    }
+
+    /// The mass for its stretched `length`, at a share `time` of its travel, `distance` along a
+    /// route `total` long. An arriving leg's line grows from the bar's width
+    /// (`gathered(_:total:)`); a leaving leg pours into the bar (`poured(_:total:size:)`).
+    func mass(
+        length: CGFloat,
+        at time: Double,
+        distance: CGFloat,
+        total: CGFloat,
+        size: CGFloat,
+    ) -> PulseShape.Mass {
+        var width = PulseShape.width(length: length, size: size)
+        var apart = length - width
+        if let gather = gathered(time, total: total) {
+            apart = max(apart, gather.line)
+            width = barWidth + (PulseShape.width(apart: apart, size: size) - barWidth)
+                * gather.grown
+        }
+        let lead = CGFloat(lead)
+        let head = total * (lead + (1 - lead) * distance)
+        guard isLeave else { return PulseShape.Mass(width: width, apart: apart, head: head) }
+        let (edge, narrowed) = poured(distance, total: total, size: size)
+        width += (barWidth - width) * narrowed
+        let poured = length + ((size + barWidth) / 2 - length) * narrowed
+        return PulseShape.Mass(width: width, apart: poured - width, head: edge - width / 2)
+    }
+
+    /// A leaving leg `distance` along a route `total` long: its leading edge, and how far it has
+    /// poured into the bar, from 0 to 1. The edge, not the center, runs the leg's curve, from the
+    /// node's edge to the fill's leading edge as the crawl starts: the center lags as the width
+    /// changes, and the edge stalled after the shot as the mass gathered. As the edge comes into
+    /// the bar's top it pours in, thinning to the bar's width and its length to the fill's as the
+    /// crawl starts, so the two meet.
+    func poured(_ distance: CGFloat, total: CGFloat, size: CGFloat) -> (CGFloat, CGFloat) {
+        guard isLeave else { return (0, 0) }
+        let edge = size / 2 + (total + (barWidth - size) / 2) * distance
+        let into = min(max((edge - (total - size / 2)) / ((size + barWidth) / 2), 0), 1)
+        return (edge, into * into * (3 - 2 * into))
+    }
+
+    /// How blue the green is at a share `time` of its travel, `distance` along a route `total`
+    /// long, from 0, green, to 1, the rest's blue: a leaving leg turns blue as it pours into the
+    /// bar; an arriving leg back to green as its line gathers into the dot.
+    func blue(at time: Double, distance: CGFloat, total: CGFloat, size: CGFloat) -> Double {
+        switch self {
+        case .whole: 0
+        case .leave: Double(poured(distance, total: total, size: size).1)
+        case .arrive: Double(1 - (gathered(time, total: total)?.grown ?? 1))
+        }
     }
 
     /// The share of an arriving leg's travel its line takes to gather into the mass.
@@ -169,7 +251,7 @@ nonisolated extension PulseShape.Leg {
         switch self {
         case .whole:
             (SetMotion.distance(at: time, way), SetMotion.speed(at: time, way))
-        case let .leave(end):
+        case let .leave(end, _):
             (
                 SetMotion.restLeaveDistance(at: time, end: end),
                 SetMotion.restLeaveSpeed(at: time, end: end),
@@ -185,11 +267,10 @@ nonisolated extension PulseShape.Leg {
 
 /// The traveling dot: the current node's size and green, on its own timeline over the rail, so
 /// nothing else redraws. Through the leaving leg it is a pulse's leaving leg
-/// (`PulseShape.Leg.leave`); then a circle at its place in the rest, its size held. Its green
-/// dims and comes back as the current node's does, but once a second, full as the countdown's
-/// figure turns, read from the same `ends` as the countdown, so they cannot drift; through the
-/// leaving leg it moves over from the node's slower pulse. `ends` animates: after a + or −, the
-/// dot glides to its new place on the tap's animation.
+/// (`PulseShape.Leg.leave`), turning from green to the rest's blue as it pours into the bar's
+/// top; then the bar's fill, a steady blue line the bar's width from its top to the leading end,
+/// read from the same `ends` as the countdown, so they cannot drift. `ends` animates: after a +
+/// or −, the fill glides to its new place on the tap's animation.
 struct RailTravelDot<ID: Hashable>: View, Animatable {
     let travel: RailTravel<ID>
     let route: RailRoute
@@ -198,8 +279,6 @@ struct RailTravelDot<ID: Hashable>: View, Animatable {
     @ScaledMetric(relativeTo: .body) private var size = currentNodeSize
     @ScaledMetric(relativeTo: .body) private var restingSize = railNodeSize
     @ScaledMetric(relativeTo: .body) private var barWidth = RestBar.size
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.isPulseHeld) private var isPulseHeld
     /// Where the node left was at the log, which the leaving leg sets off from.
     @State private var origin: CGPoint?
     /// Where the bar's top was at the log.
@@ -224,20 +303,21 @@ struct RailTravelDot<ID: Hashable>: View, Animatable {
         TimelineView(schedule) { context in
             let now = (travel.heldAt ?? context.date).timeIntervalSinceReferenceDate
             let place = RestDotPlace(travel: travel, ends: ends, now: now)
-            let dim = reduceMotion || isPulseHeld ? 0 : place.dim
             // The bar widens out of the rail as the rest opens, on the opening's time.
             let opened = place.sinceLog / (SetMotion.closeStart + SetMotion.close)
             RestBarView(route: route, grown: min(max(opened, 0), 1))
             if place.sinceLog < SetMotion.restLeave {
-                dimmed(leaving(place), by: dim)
+                let shape = leaving(place)
+                shape.tinted(blue: shape.blue)
             } else {
-                dimmed(PulseShape.fill(
+                PulseShape.fill(
                     route: route,
                     top: route.length * place.tail,
                     along: route.length * place.share,
                     size: size,
                     barWidth: barWidth,
-                ), by: dim)
+                )
+                .fill(.pp(.restFill))
             }
         }
         .allowsHitTesting(false)
@@ -267,21 +347,17 @@ struct RailTravelDot<ID: Hashable>: View, Animatable {
             y: start.y + (now.y - start.y) / closed,
         )
         let leg = RailRoute.line(from: from, to: to)
-        // The crawl's speed, against the leg's own average, so the two meet.
+        // The crawl's speed, against the leg's own average over the way its leading edge runs,
+        // so the two meet.
         let end = place.crawl * route.length * (SetMotion.restLeave - SetMotion.travelStart)
-            / max(leg.length, 1)
+            / max(leg.length + (barWidth - size) / 2, 1)
         return PulseShape(
             time: place.sinceLog,
             route: leg,
             size: size,
             restingSize: restingSize,
-            leg: .leave(end: end),
+            leg: .leave(end: end, barWidth: barWidth),
             nodeLeft: node,
         )
-    }
-
-    private func dimmed(_ shape: some Shape, by dim: Double) -> some View {
-        shape.fill(.pp(.accent))
-            .overlay { shape.fill(.pp(.background)).opacity(dim) }
     }
 }

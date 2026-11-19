@@ -10,8 +10,9 @@ import SwiftUI
 ///   next exercise's parts come in (`RestRoom`).
 /// - **None**: no room.
 ///
-/// "Rest" is one `Text` through every stage, so it never crossfades. Nothing in it is green: the
-/// dot on the rail is the rest's one green. The time ticks on whole seconds before `ends` on a
+/// "Rest" is one `Text` through every stage, so it never crossfades. Nothing in it is green or
+/// blue: the fill on the rail beside it is the rest's one color. The time ticks on whole seconds
+/// before `ends` on a
 /// timeline, drawing once while paused (`pausedLeft`), so nothing is written per second. It reads
 /// "0:35", rounded up, so it shows the whole rest as it starts and 0:00 only as it ends. To
 /// VoiceOver the open rest is one element, "Rest", its value the time left in words, and the two
@@ -62,7 +63,8 @@ public struct RestBlock: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    func countdown(size: CGFloat, locale: Locale) -> some View {
+    /// The time left; with `turns` off, it changes at once rather than rolling.
+    func countdown(size: CGFloat, locale: Locale, turns: Bool = true) -> some View {
         let isOpen = stage == .open
         return TimelineView(RestSchedule(
             ends: ends,
@@ -78,8 +80,11 @@ public struct RestBlock: View {
                 // A + or − turns the figure; a second going by, or the rest's end on the move's
                 // delayed shift, changes it at once: on that shift, 0:00 came in half a second
                 // after the dot had left.
-                .contentTransition(.numericText(countsDown: true))
-                .animation(isOpen ? .snappy(duration: SetMotion.restGlide) : nil, value: ends)
+                .contentTransition(turns ? .numericText(countsDown: true) : .identity)
+                .animation(
+                    isOpen && turns ? .snappy(duration: SetMotion.restGlide) : nil,
+                    value: ends,
+                )
                 .transaction { $0.animation = nil }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Rest")

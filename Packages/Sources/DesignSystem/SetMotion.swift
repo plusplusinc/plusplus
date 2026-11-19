@@ -229,14 +229,18 @@ public enum SetMotion {
     /// as a pulse does, then eases out, long and soft, into the rest's own speed, with no stop
     /// between. The rows close and the rest opens on `closing`, as it leaves, not after.
     /// Shorter since its share went to a quarter: over 2 s, a short rest's crawl was nearly the
-    /// leave's own average speed, and the shot out of the node all but went.
-    public nonisolated static let restLeave = 1.2
+    /// leave's own average speed, and the shot out of the node all but went. About the close's
+    /// length, so it pours into the bar's top as the bar arrives under it: at 1.2 s the mass sat
+    /// over the bar's top for half a second, a hold on the screen while the list scrolled.
+    public nonisolated static let restLeave = 0.8
     /// When, as a share of the leaving leg's travel, it is fastest: it charges up to there on a
-    /// power ease in (`restLeaveCharge`), about a pulse's travel, and from there eases out on a
-    /// power ease out (`restLeaveEase`) to the crawl's speed.
-    nonisolated static let restLeavePeak = 0.12
-    nonisolated static let restLeaveCharge = 4.0
-    nonisolated static let restLeaveEase = 3.0
+    /// power ease in (`restLeaveCharge`), a pulse's travel and its power, and from there eases
+    /// out on a steep power ease out (`restLeaveEase`) to the crawl's speed: the shot covers most
+    /// of the way before it slows, as a move's does. At 0.12 and powers 4 and 3 it slowed as soon
+    /// as it had charged, and the shot read as a nudge.
+    nonisolated static let restLeavePeak = 0.2
+    nonisolated static let restLeaveCharge = 6.0
+    nonisolated static let restLeaveEase = 5.0
 
     /// The arriving leg's power ease in, from the crawl's speed into the next node: it sets off
     /// from the dot at once, with no charge, and slides into the node as a pulse does. It runs

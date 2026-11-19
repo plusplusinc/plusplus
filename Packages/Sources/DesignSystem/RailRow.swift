@@ -24,7 +24,7 @@ struct RailPlace {
     /// Whether the row's stretch of loop is hidden: a row of its group is swiped open, which
     /// slides that row's stretch away from the rest.
     var isLoopHidden = false
-    /// The row a workout is on: its node is larger, green, and pulses.
+    /// The row a workout is on: its node is larger and a steady green.
     var isCurrent = false
     /// A row whose sets are all done in a workout: its node is filled purple.
     var isDone = false
@@ -97,11 +97,6 @@ private struct RailNode: View {
                 // blob landed re-laid the row out unanimated, and the node jumped to the row's
                 // end place while its name still waited on the move's delay.
                 .frame(width: currentSize, height: currentSize)
-                .overlay {
-                    if place.isCurrent {
-                        Color.clear.currentPulse(in: Circle())
-                    }
-                }
                 // A set done that stays on this exercise: the node shrinks and grays as the set
                 // logs, rests so while the key does, and pops back green as the line rolls.
                 // Animated from where the node is drawn, either way: a keyframe animator's
@@ -115,7 +110,7 @@ private struct RailNode: View {
                 .animation(SetBeat.scaleAnimation(held: isHeld)) { node in
                     node.scaleEffect(beat.scale)
                 }
-                // Scaled with its pulse and gray, so they grow with the node.
+                // Scaled with its gray, so it grows with the node.
                 .scaleEffect(drawnSize / currentSize)
                 .anchorPreference(key: NodeCenter.self, value: .center) { $0 }
                 .anchorPreference(key: RailNodes.self, value: .center) { [$0] }

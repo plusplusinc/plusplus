@@ -31,6 +31,9 @@ public enum ColorToken: String, CaseIterable, Sendable {
     /// settles to `rail`; a group's loop as a drop makes the group, then settling to
     /// `rail`. Never at rest, and never the line.
     case railJoin = "ppRailJoin"
+    /// Blue: a rest's fill, running down its bar on the rail toward what comes next, apart from
+    /// the green of the exercise it rests in (Dave, 2026-11-19). Only in a rest's bar.
+    case restFill = "ppRestFill"
     /// A set still to do: its bar, filled, a gray darker than `rail`, so `done` stands apart from
     /// it in lightness too.
     case toDo = "ppToDo"

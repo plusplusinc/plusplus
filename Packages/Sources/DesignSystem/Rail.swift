@@ -80,6 +80,8 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     /// How far below its row's top the held card's fill starts (`HeldCardInset`): on the current
     /// exercise, where its superset's well wraps it.
     @State var heldCardInset: CGFloat = 0
+    /// A rest between two sets' span beside the current exercise's numbers (`SetRestSpan`).
+    @State var setRestSpan: Anchor<CGRect>?
     /// Where a row's node is from its top leading corner, as the rows report it, the same on
     /// every row: what places a superset's well.
     @State var railNode: CGPoint?
@@ -290,7 +292,9 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                     run: pulse?.run ?? 0,
                     afterRest: pulse?.afterRest,
                 )
-                if let travel, let route = route(travel.from, travel.to, nodes, in: proxy) {
+                if let travel, let stage = travel.betweenSets {
+                    setRestBar(travel, stage, nodes, in: proxy)
+                } else if let travel, let route = route(travel.from, travel.to, nodes, in: proxy) {
                     // Comes and goes with the rest, never faded on the moves' animations: the
                     // pulse takes over from it in the same update.
                     RailTravelDot(travel: travel, route: route).transition(.identity)
@@ -312,6 +316,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
             }
         }
         .onPreferenceChange(HeldCardInset.self) { heldCardInset = $0 }
+        .onPreferenceChange(SetRestSpan.self) { setRestSpan = $0 }
         // Room above the rows for what a held row's superset shows past the rail's top, which
         // the list scrolls by, so the rows stay put and what is above the rail moves up.
         .padding(.top, edges?.room ?? room)
