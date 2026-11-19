@@ -27,6 +27,9 @@ public final class RoutineSession {
     public private(set) var workout: Workout?
     /// Every exercise there is to pick, the ones created this session included.
     public internal(set) var exercises: ExerciseList
+    /// The exercises whose delete is confirmed and not yet stored
+    /// (`deleteExercise(_:weightUnit:once:)`). Read only by taps, never by a view's body.
+    @ObservationIgnored var deleting: Set<Exercise.ID> = []
 
     /// The saved routines, latest first, as of the last read, with each routine left since.
     private var saved: [Routine] = []
@@ -110,8 +113,19 @@ public final class RoutineSession {
     /// when a created row's sheet came up on its own, opened the drawer under it; a swipe under
     /// way asks for the drawer as ++ does, and a sheet rising mid-swipe left the drawer drawn
     /// open under it.
+    ///
+    /// Only a row the open routine has, of an exercise not being deleted (`isDeleting(_:)`),
+    /// opens: a row tapped as it left, its removal already stored, opened an empty sheet that
+    /// kept the drawer shut until swiped down, and one whose delete is confirmed would show a
+    /// form for an exercise on its way out. The same ask again keeps the opening already asked
+    /// for, so a double tap doesn't build the rising sheet again.
     public func openRowSheet(_ sheet: RowSheet) {
-        guard !isDrawerOpen, !isDrawerHeld else { return }
+        guard !isDrawerOpen, !isDrawerHeld, canOpenSheet(of: sheet.id) else { return }
+        if let rowSheet, rowSheet.id == sheet.id,
+           rowSheet.opensCustomizing == sheet.opensCustomizing
+        {
+            return
+        }
         rowSheet = sheet
     }
 

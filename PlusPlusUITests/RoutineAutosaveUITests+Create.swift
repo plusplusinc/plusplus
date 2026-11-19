@@ -67,11 +67,12 @@ extension RoutineAutosaveUITests {
     }
 
     /// On an empty routine, an exercise created in Add exercise lands as the first row, and
-    /// its sheet opens on Customize; deleted there, it takes its row with it and shuts the
-    /// sheet, and the routine shows empty again: No exercises, no Start, and the + back down
-    /// where it sat before. Only the running app shows the screen taking up the stored routine
-    /// from inside the sheet; that a delete removes its rows is the package's
-    /// (`RoutineStoreCustomizeTests`).
+    /// its sheet opens on Customize; deleted there, with a question naming this routine, it
+    /// shuts the sheet, and only then takes its row, and the routine shows empty again: No
+    /// exercises, no Start, and the + back down where it sat before. Only the running app shows
+    /// the screen taking up the stored routine from inside the sheet; that a delete removes its
+    /// rows, and the question's wording, are the package's (`RoutineStoreCustomizeTests`,
+    /// `DeleteQuestionTests`).
     @MainActor
     func deleteCreatedEmptiesRoutine(in app: XCUIApplication) {
         XCTContext.runActivity(named: "Deleting a created exercise that empties the routine") { _ in
@@ -93,11 +94,18 @@ extension RoutineAutosaveUITests {
             let delete = app.buttons["Delete exercise"]
             XCTAssertTrue(delete.settles(), "Delete exercise kept moving")
             delete.tap()
-            app.answerAlert("Delete Zq?", with: "Delete exercise")
+            let message = app.answerAlert("Delete Zq?", with: "Delete exercise")
+            XCTAssertTrue(
+                message.hasPrefix("It will be removed from this routine."),
+                "The question doesn't name the open routine: \(message)",
+            )
             XCTAssertTrue(name.disappears(), "Delete left the sheet up")
+            // The row leaves once the sheet has gone, a rest after it.
+            XCTAssertEqual(app.exerciseRows.count, 1, "The row went before the sheet had gone")
             XCTAssertEqual(app.exerciseCount(becoming: 0), 0, "The deleted exercise's row stayed")
             XCTAssertTrue(app.noExercises.appears(), "No exercises did not return")
-            XCTAssertFalse(app.buttons["Start"].exists, "Start stayed with no exercises")
+            // A beat after the row, as after Remove.
+            XCTAssertTrue(app.buttons["Start"].disappears(), "Start stayed with no exercises")
             XCTAssertTrue(plus.settles(), "The + kept moving")
             XCTAssertEqual(plus.frame.minY, low.minY, accuracy: 1, "The + stayed up with no Start")
             attach(named: "deleted-in-picker")
