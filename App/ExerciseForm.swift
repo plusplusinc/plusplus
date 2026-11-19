@@ -16,7 +16,10 @@ import WorkoutStore
 /// as its edit ends (Return, a tap elsewhere, or going back), never per keystroke. A name that
 /// can't be saved (empty, or another exercise's) goes back to the stored one as its edit ends.
 /// Below the settings, Used in reads how many routines have a row of it and opens their names
-/// (`UsedInList`); last, Delete exercise, in red, asks first, with that count. A built-in's
+/// (`UsedInList`); last, Delete exercise, in red, asks first, with that count, naming the open
+/// routine first when it uses the exercise (`DeleteQuestion`); confirmed, the form stays as it
+/// is while what shows it closes, and its host shows the delete in beats
+/// (`RoutineScreen.deleteExercise(_:closing:)`). A built-in's
 /// form ends instead in Clear customizations, red, disabled while nothing differs from how it
 /// shipped; it asks first, listing what changed, and puts the form back as shipped. Both ask in
 /// a centered alert, with Cancel. There is no footer: what changed shows only in Clear's

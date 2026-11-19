@@ -15,7 +15,9 @@ import WorkoutStore
 /// Holding a row opens the system's context menu (`HoldMenu`): Customize… pushes that exercise's
 /// Customize form inside the sheet, for any exercise, and back finds the list as it was; then,
 /// red, Delete for one someone created, asking first in a centered alert with the form's own
-/// question.
+/// question (`DeleteQuestion`). Confirmed, the row leaves the list as the rows below close the
+/// gap, its letter heading with it if it was the letter's last; then, after a rest, its rows
+/// leave the routine behind the sheet (`RoutineScreen.deleteExercise(_:closing:)`).
 struct ExercisePicker<Customize: View>: View {
     let exercises: ExerciseList
     let onPick: (Exercise) -> Void
