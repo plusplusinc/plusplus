@@ -91,8 +91,6 @@ public enum WorkoutPhase: Equatable, Sendable {
         /// shows the round just done until the move rolls it on.
         public let startsRound: Bool
         public internal(set) var beat: Beat
-        /// Whether it goes on from a rest's end, whose dot has traveled: no pulse plays.
-        public internal(set) var isAfterRest = false
 
         /// A move's beats, in order.
         public enum Beat: Comparable, Sendable {

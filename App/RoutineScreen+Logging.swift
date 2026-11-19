@@ -26,14 +26,18 @@ extension RoutineScreen {
 
     /// The exercise the workout is on, as drawn. None once every set is logged.
     var currentID: RoutineExercise.ID? {
-        // Resting between exercises, no row is grown: the next grows as the rest ends.
-        phase.resting == nil ? shown?.currentSet?.row : nil
+        // Resting between exercises, no row is grown once the rest shows: the next grows as the
+        // rest ends. Until then the row left stays grown, so it shrinks in the rest's animated
+        // transaction, not at the log's: changed at the log, it went at once and the rows below
+        // jumped up before the rest opened and pushed them back down.
+        phase.resting.map { $0.beat == .logged } ?? true ? shown?.currentSet?.row : nil
     }
 
     /// The row whose node is lit on the rail: the current exercise, but while a move to it is on
-    /// its way, none until the pulse lands on its node.
+    /// its way, none until the pulse lands on its node, nor through a rest, whose dot is the
+    /// green on the rail.
     var litID: RoutineExercise.ID? {
-        phase.move.map(\.isLanded) == false ? nil : currentID
+        phase.move.map(\.isLanded) == false || phase.resting != nil ? nil : currentID
     }
 
     /// A set logged that stays on the current exercise, saved at once, but shown as still to do
@@ -46,7 +50,8 @@ extension RoutineScreen {
     /// Which way the move to another exercise under way goes along the rail, which sets the
     /// pulse's travel and when the shift starts.
     var moveWay: SetMotion.Way? {
-        phase.move?.way
+        // A rest's opening is a move's shift down the rail, on its timings.
+        phase.move?.way ?? (phase.resting == nil ? nil : .down)
     }
 
     /// The current exercise as it grows into `set`: at a superset round's end, it shows the round
@@ -88,7 +93,7 @@ extension RoutineScreen {
     /// to hold as values.
     func rowBars(in shown: LiveWorkout?) -> [RoutineExercise.ID: SetProgress] {
         guard let shown else { return [:] }
-        let restingTo = phase.resting.flatMap { _ in shown.currentSet?.row }
+        let restingTo = phase.resting.flatMap { $0.beat > .logged ? shown.currentSet?.row : nil }
         return routine.exercises.reduce(into: [:]) { bars, item in
             guard let (done, total) = shown.bars(of: item.id),
                   // Resting, the next exercise is a row like any other until it grows.
@@ -316,9 +321,9 @@ extension SetMotion.Way {
 }
 
 extension WorkoutPhase.Move {
-    /// Which way the move goes along the rail, or on from a rest's end, timed from its landing.
+    /// Which way the move goes along the rail.
     var way: SetMotion.Way {
-        isAfterRest ? .afterRest : SetMotion.Way(isBack: isBack)
+        SetMotion.Way(isBack: isBack)
     }
 }
 

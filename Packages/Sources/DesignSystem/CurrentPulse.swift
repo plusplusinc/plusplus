@@ -24,26 +24,29 @@ extension EnvironmentValues {
 }
 
 extension View {
-    /// Pulses this view's green within `shape`, on the one clock every pulse shares.
-    func currentPulse(in shape: some Shape) -> some View {
-        modifier(CurrentPulseOverlay(shape: shape))
+    /// Pulses this view's green within `shape`, on the one clock every pulse shares, dimmed by
+    /// `share` of the pulse's dimming: less than 1 where it hands over to or from the rest's dot,
+    /// which holds its green full.
+    func currentPulse(in shape: some Shape, share: Double = 1) -> some View {
+        modifier(CurrentPulseOverlay(shape: shape, share: share))
     }
 }
 
 private struct CurrentPulseOverlay<S: Shape>: ViewModifier {
     let shape: S
+    let share: Double
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.isPulseHeld) private var isHeld
 
     func body(content: Content) -> some View {
         content.overlay {
-            if !reduceMotion, !isHeld {
+            if !reduceMotion, !isHeld, share > 0 {
                 // A slow sine in brightness: 30 frames a second draw it smoothly, at a quarter of a
                 // ProMotion screen's rate, through a workout that keeps the screen on.
                 TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
                     shape
                         .fill(.pp(.background))
-                        .opacity(CurrentPulse.dim(at: context.date))
+                        .opacity(CurrentPulse.dim(at: context.date) * share)
                 }
                 .allowsHitTesting(false)
             }

@@ -30,9 +30,6 @@ public enum SetMotion {
         case down
         /// Back up a superset's loop to its first member, at a round's end.
         case loop
-        /// On from a rest's end, whose dot has already traveled: no pulse, and every timing
-        /// counts from the landing (`landing(_:)` is 0).
-        case afterRest
     }
 
     // MARK: Within one exercise
@@ -110,7 +107,6 @@ public enum SetMotion {
         switch way {
         case .down: 0.25
         case .loop: 0.42
-        case .afterRest: 0
         }
     }
 
@@ -130,10 +126,7 @@ public enum SetMotion {
     /// When the pulse lands on the next row's node as a circle and plops in, with a light
     /// haptic, and the node lights under it, from the log.
     public nonisolated static func landing(_ way: Way) -> Double {
-        if case .afterRest = way {
-            return 0
-        }
-        return travelStart + travel(way) + collapse
+        travelStart + travel(way) + collapse
     }
 
     /// The plop: the landed pulse squashing and wiggling back to a circle on the node, a damped
@@ -203,6 +196,68 @@ public enum SetMotion {
         arriveDelay(.progress, way: way) + arriveFade
     }
 
+    // MARK: A rest between exercises
+
+    /// Between two exercises with a rest, the stretch of rail from the node left to the next
+    /// one's is shared by the dot's three legs, each a share of its length: it leaves as a pulse
+    /// does, over `restLeaveShare`, slowing as it comes into the rest; travels `restShare` at
+    /// one speed for the whole rest; and at 0 runs the last `restArriveShare` into the next node
+    /// as a pulse does, plopping and wiggling there with every timing of a move with no rest.
+    public nonisolated static let restLeaveShare = 0.1
+    public nonisolated static let restShare = 0.8
+    public nonisolated static let restArriveShare = 0.1
+
+    /// Where along the stretch, from 0 to 1, the rest's dot sets off and where it stops: the
+    /// three shares taken against their sum, so a tweak to one needs no other.
+    nonisolated static var restSpan: ClosedRange<Double> {
+        let whole = restLeaveShare + restShare + restArriveShare
+        return restLeaveShare / whole ... (restLeaveShare + restShare) / whole
+    }
+
+    /// The power of the leaving leg's ease: a pulse's charge and shot (`travelPower`) for its
+    /// first half, then braking as hard to nearly the rest's own crawl. It runs a pulse's travel
+    /// (`travel(.down)`), and the rows shift `landingHold` after it, as on a move.
+    nonisolated static let restLeaveEase = travelPower
+
+    /// The traveling dot's beat, once a second, on the countdown's own clock: each second it
+    /// swells by `restBeatGrow` of its size in `restBeatRise`, as the countdown's figure turns,
+    /// and eases back over `restBeatFall`. The period is the countdown's second, not a setting.
+    public nonisolated static let restBeatGrow = 0.35
+    public nonisolated static let restBeatRise = 0.06
+    public nonisolated static let restBeatFall = 0.3
+
+    /// The dot gliding to its new place after −15 s or +15 s, and the countdown's figure turning
+    /// with it.
+    public static let restGlide = 0.45
+
+    /// The leaving leg's distance at a share `time` of its travel: a pulse's power ease in for
+    /// its first half, met by a matching ease out for its second, so it shoots off as a pulse
+    /// does and slows into the rest.
+    nonisolated static func restLeaveDistance(at time: Double) -> Double {
+        let time = min(max(time, 0), 1)
+        return time < 0.5
+            ? pow(2 * time, restLeaveEase) / 2
+            : 1 - pow(2 * (1 - time), restLeaveEase) / 2
+    }
+
+    /// The leaving leg's speed at a share `time` of its travel, against its average.
+    nonisolated static func restLeaveSpeed(at time: Double) -> Double {
+        let time = min(max(time, 0), 1)
+        let side = time < 0.5 ? 2 * time : 2 * (1 - time)
+        return restLeaveEase * pow(side, restLeaveEase - 1)
+    }
+
+    /// How swollen the dot is `time` seconds after the countdown's figure last turned: 0 at
+    /// rest, 1 at its fullest.
+    nonisolated static func restBeat(at time: Double) -> Double {
+        guard time >= 0 else { return 0 }
+        if time < restBeatRise {
+            return time / restBeatRise
+        }
+        let fall = (time - restBeatRise) / restBeatFall
+        return fall < 1 ? (1 + cos(.pi * fall)) / 2 : 0
+    }
+
     // MARK: The timeline
 
     /// The whole move, from the log to the shift's end, the next exercise's last part in
@@ -224,7 +279,7 @@ public enum SetMotion {
     /// ease-out, fastest as it sets off and landing at `travelLanding`.
     nonisolated static func distance(at time: Double, _ way: Way) -> Double {
         switch way {
-        case .down, .afterRest: pow(time, travelPower)
+        case .down: pow(time, travelPower)
         case .loop: (2 - travelLanding) * time - (1 - travelLanding) * time * time
         }
     }
@@ -232,7 +287,7 @@ public enum SetMotion {
     /// The pulse's speed at a share `time` of its travel, against its average.
     nonisolated static func speed(at time: Double, _ way: Way) -> Double {
         switch way {
-        case .down, .afterRest: travelPower * pow(time, travelPower - 1)
+        case .down: travelPower * pow(time, travelPower - 1)
         case .loop: (2 - travelLanding) - 2 * (1 - travelLanding) * time
         }
     }

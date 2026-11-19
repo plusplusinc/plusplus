@@ -65,4 +65,21 @@ extension LiveWorkout {
             startClock: start,
         )
     }
+
+    /// The rest that will follow the current exercise once its last set is logged, in seconds:
+    /// nil in a superset, before nothing, before a row above it, or for a rest of 0. The rest a
+    /// screen shows under the current exercise before it runs.
+    public func restAfterCurrentExercise(override: Int? = nil) -> Int? {
+        guard let set = currentSet, !routine.isInSuperset(set.row) else { return nil }
+        let own = routine.setOrder.filter { $0.row == set.row }
+        guard let last = own.last else { return nil }
+        let done = Set(workout.sets.map(\.planned)).union(own)
+        guard let next = routine.nextSet(notIn: done) else { return nil }
+        let rows = routine.exercises.map(\.id)
+        guard let from = rows.firstIndex(of: set.row), let to = rows.firstIndex(of: next.row),
+              to > from
+        else { return nil }
+        let gap = override ?? routine.rest(after: last, before: next)
+        return gap > 0 ? gap : nil
+    }
 }

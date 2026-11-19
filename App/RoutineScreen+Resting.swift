@@ -3,13 +3,17 @@ import SwiftUI
 import WorkoutStore
 
 /// The rest between two exercises, after the last set of one, when the routine stores a rest
-/// after it. One motion in, a still screen with a moving dot, one motion out: the row left closes
-/// to a done row as the last set's row closes (`SetMotion.closing`), the Rest block opening under
-/// it on the same curve (`RestBlock`), the key gone with its room kept; the dot travels down the
-/// rail from its node to the next one's for the whole rest (`RailTravel`), the rail staying gray;
-/// as the countdown reaches 0 the move goes on from its landing, as if a pulse had just landed
-/// (`SetMotion.Way.afterRest`), the room closing as the next row grows. −15 s with less than
-/// 15 s left ends it; +15 s moves the dot back up. There is no Skip.
+/// after it. While the exercise is current, the rest that will follow it shows as a quiet line
+/// under it (`RestBlock.Stage.line`). Logging its last set plays a move's beats with the rest in
+/// the next exercise's place: the dot leaves the node as a pulse does and slows into the rest
+/// (`RailTravel`), and, `SetMotion.landingHold` after, in one shift on the move's curve, the row
+/// closes to a done row as the line grows in place into the rest (`RestBlock.Stage.open`), so
+/// the rows below move once. The dot then crosses its share of the stretch at one speed for the
+/// whole rest, swelling once a second with the countdown. As the countdown reaches 0 the move
+/// goes on as a move with no rest does, its pulse setting off from the dot
+/// (`RailPulse.isAfterRest`): the slide into the next node, the plop, and the next exercise
+/// growing as the rest closes. The key is gone through the rest, its room kept. −15 s with less
+/// than 15 s left ends it; + and − glide the dot to its new place. There is no Skip.
 ///
 /// Not yet: a rest between two sets of one exercise, supersets (their members go straight on),
 /// pause beyond the countdown and dot holding, a relaunch or a return from the background
@@ -43,23 +47,25 @@ extension RoutineScreen {
         return live?.rest(override: restOverride) != nil
     }
 
-    /// The row left closes and the rest opens under it, in the tap's own transaction.
+    /// The rest's opening, from the log, as a move's: the dot leaves now, and the shift that
+    /// closes the row and opens the rest waits for it on `SetMotion.moving(.down)`'s delay.
     func startRest() {
         withTransaction(\.disablesAnimations, true) {
             isMakingRoom = true
             endFollow = nil
         }
-        withAnimation(SetMotion.closing) {
+        withAnimation(SetMotion.moving(.down)) {
             phase.show()
         }
         sequence.run {
             let start = ContinuousClock.now
-            try await beat(until: start + .seconds(SetMotion.closeStart + SetMotion.close))
+            try await beat(until: start + .seconds(SetMotion.move(.down)))
             phase.settleRest()
         }
     }
 
-    /// The rest is over: the move to the next exercise goes on from its landing, with the tick.
+    /// The rest is over: the move to the next exercise plays as one with no rest from its log,
+    /// its pulse setting off from the dot.
     func endRest() {
         guard let rest = phase.resting, let workout = session.workout, let next = live?.currentSet,
               resting?.isOver(atClock: workout.clock(at: .now)) ?? true
@@ -72,40 +78,56 @@ extension RoutineScreen {
                 scrollPosition.scrollTo(y: target)
             }
         }
-        withAnimation(SetMotion.moving(.afterRest)) {
+        withAnimation(SetMotion.moving(.down)) {
             phase.endRest()
             growthLift = 0
         }
-        land(.afterRest, scrollingTo: target)
+        railPulse = RailPulse(
+            from: rest.set.row,
+            to: next.row,
+            way: .down,
+            run: (railPulse?.run ?? 0) + 1,
+            isAfterRest: true,
+        )
+        land(.down, scrollingTo: target)
     }
 
-    /// −15 s or +15 s on the rest running.
+    /// −15 s or +15 s on the rest running, the dot gliding to its new place.
     func adjustRest(by seconds: Int) {
         guard isResting, let live, let last = live.workout.sets.last, let next = live.currentSet
         else { return }
         let length = restOverride ?? routine.rest(after: last.planned, before: next)
-        session.adjustRest(by: seconds, length: length)
+        withAnimation(.snappy(duration: SetMotion.restGlide)) {
+            session.adjustRest(by: seconds, length: length)
+        }
     }
 
-    /// The Rest block under `id`'s row, once the rest is drawn.
-    func restBlock(under id: RoutineExercise.ID) -> RestBlock? {
-        guard let rest = phase.resting, rest.beat >= .shown, rest.set.row == id,
-              let resting, let workout = session.workout
-        else { return nil }
-        return RestBlock(
-            ends: workout.date(ofClock: resting.endClock),
-            pausedLeft: workout.isPaused
-                ? resting.remaining(atClock: workout.clock(at: .now)) : nil,
-            onShorten: { adjustRest(by: -15) },
-            onExtend: { adjustRest(by: 15) },
-        )
+    /// The rest under `id`'s row: the line under the current exercise, the rest open under the
+    /// row left once it shows, or none.
+    func restBlock(under id: RoutineExercise.ID) -> RestBlock {
+        if let rest = phase.resting, rest.beat >= .shown, rest.set.row == id,
+           let resting, let workout = session.workout
+        {
+            return RestBlock(
+                stage: .open,
+                length: resting.length,
+                ends: workout.date(ofClock: resting.endClock),
+                pausedLeft: workout.isPaused
+                    ? resting.remaining(atClock: workout.clock(at: .now)) : nil,
+                onShorten: { adjustRest(by: -15) },
+                onExtend: { adjustRest(by: 15) },
+            )
+        }
+        if id == currentID, let length = shown?.restAfterCurrentExercise(override: restOverride) {
+            return RestBlock(stage: .line, length: length)
+        }
+        return RestBlock(stage: .none, length: 0)
     }
 
-    /// The dot traveling for the rest, from the row left's node to the next's.
+    /// The dot crossing the rail for the rest, from the log, from the row left's node to the
+    /// next's.
     var restTravel: RailTravel<RoutineExercise.ID>? {
-        guard let rest = phase.resting, rest.beat >= .shown, let resting,
-              let workout = session.workout
-        else { return nil }
+        guard let resting, let workout = session.workout else { return nil }
         return RailTravel(
             from: resting.after.row,
             to: resting.next.row,
@@ -133,18 +155,18 @@ extension RoutineScreen {
         endRest()
     }
 
-    /// A row's content: its label, and under the row left, the rest, as part of the row, so the
-    /// row's own stretch of rail runs through the room it opens.
+    /// A row's content: its label, and under it its rest, as part of the row, so the row's own
+    /// stretch of rail runs through the room it opens.
     func rowContent(
         _ item: RoutineExercise,
         current: RoutineExercise.ID?,
         on set: PlannedSet?,
         bars: SetProgress?,
     ) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            rowLabel(item, current: current, on: set, bars: bars)
-            restBlock(under: item.id).map { $0.transition(.opacity) }
-        }
+        LabelWithRest(
+            label: rowLabel(item, current: current, on: set, bars: bars),
+            rest: restBlock(under: item.id),
+        )
     }
 
     /// Scrolls the current exercise's row up to just under the bar.

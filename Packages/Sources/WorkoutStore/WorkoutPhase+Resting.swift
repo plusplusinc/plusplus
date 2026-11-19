@@ -26,8 +26,8 @@ extension WorkoutPhase {
         return true
     }
 
-    /// A rest is over: the move to the next exercise goes on from its landing, as if a pulse had
-    /// just landed on the next row's node. Only once the rest is drawn.
+    /// A rest is over: the move to the next exercise goes on as a move with no rest does from its
+    /// log, its pulse setting off from where the rest's dot stopped. Only once the rest is drawn.
     @discardableResult
     public mutating func endRest() -> Bool {
         guard case let .resting(rest) = self, rest.beat >= .shown else { return false }
@@ -35,8 +35,7 @@ extension WorkoutPhase {
             set: rest.set,
             isBack: rest.isBack,
             startsRound: rest.startsRound,
-            beat: .landed,
-            isAfterRest: true,
+            beat: .shown,
         ))
         return true
     }
