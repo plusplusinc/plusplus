@@ -174,12 +174,16 @@ extension RoutineScreen {
         }
     }
 
+    /// How long a created row rests after landing before its sheet rises: about as long as
+    /// its node takes to give up its blue, so the arrival is over before the next thing moves.
+    private static let createdHold = 0.35
+
     /// After Create, a beat after its row has landed, the row's own sheet comes up, as a tap on
     /// the row brings it, already on Customize: the row is seen landing, then its sheet rises.
     /// Not if a sheet is up by then, or the row has gone.
     private func showCreated(_ id: RoutineExercise.ID) {
         Task {
-            try? await Task.sleep(for: .seconds(Self.landingHold), tolerance: .zero)
+            try? await Task.sleep(for: .seconds(Self.createdHold), tolerance: .zero)
             guard editing == nil, !isPicking, row(id) != nil else { return }
             editing = RowSheet(id: id, opensCustomizing: true)
         }
