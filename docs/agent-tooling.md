@@ -232,8 +232,8 @@ it's installed and running, the retro's last reply, read from the transcript, an
 runner's last digest.
 
 The night runs the main checkout's scripts and skills, so the run first fast-forwards that
-checkout to `origin/main`; one off `main` or with tracked changes stays as it is, and the
-digest's top says so. Before the retro starts, the run also updates the command-line Claude Code (`claude update`, bounded
+checkout to `origin/main`; one off `main`, or whose uncommitted change `origin/main` also
+changed, stays as it is, and the digest's top says so. Before the retro starts, the run also updates the command-line Claude Code (`claude update`, bounded
 to three minutes; a failure is logged and the night runs on the installed version), so each night
 uses the latest, and the digest's top says when the version changed or the update failed. A
 running session keeps its version until it exits, so nothing in flight breaks. The desktop app's
