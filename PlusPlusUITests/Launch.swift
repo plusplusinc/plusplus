@@ -103,6 +103,17 @@ extension XCUIApplication {
             thenHoldForDuration: 0,
         )
     }
+
+    /// Swipes a sheet down by its bar, titled `title`, to the screen's foot, which closes it.
+    func swipeSheetDown(titled title: String) {
+        let bar = navigationBars[title].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        bar.press(
+            forDuration: 0.05,
+            thenDragTo: coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 1)),
+            withVelocity: .fast,
+            thenHoldForDuration: 0,
+        )
+    }
 }
 
 /// A workout's controls in the bar.

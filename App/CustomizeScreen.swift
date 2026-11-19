@@ -3,10 +3,10 @@ import SwiftUI
 import WorkoutStore
 
 /// An exercise's Customize form (`ExerciseForm`) wired to the session, as a routine row's
-/// Customize…, and Add exercise's Create and hold menu, push it. Each change is stored as made: a
-/// created exercise's as its own, with Delete removing it and its rows, then going `back`; a
-/// built-in's apart from the catalog, with Clear customizations putting it back as it shipped.
-/// Nothing shows for an id the list no longer has.
+/// Customize… (and its sheet after Create) and Add exercise's hold menu push it. Each change is
+/// stored as made: a created exercise's as its own, with Delete removing it and its rows, then
+/// going `back`; a built-in's apart from the catalog, with Clear customizations putting it back
+/// as it shipped. Nothing shows for an id the list no longer has.
 struct CustomizeScreen: View {
     let id: Exercise.ID
     let session: RoutineSession

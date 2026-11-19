@@ -22,8 +22,7 @@ import WorkoutStore
 /// exercise of exactly that name, Create “…” is the list's last row, green as what makes
 /// something is; with no matches it is the only row, so the list narrows down to it and there
 /// is no separate no-results view. A tap makes the exercise at once, with that name and nothing
-/// else set (`ExerciseList.createdName(from:)`), and hands it to the host, which pushes its
-/// Customize form (`ExerciseForm`) on its own stack; back from there, the search is as it was.
+/// else set (`ExerciseList.createdName(from:)`), and hands it to the host.
 struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
     let exercises: ExerciseList
     /// What a tap on a row does.
@@ -39,7 +38,7 @@ struct ExerciseListView<BarLeading: View, RowActions: ViewModifier>: View {
     /// Runs as search opens, in the tap's own transaction, so what it changes moves with the
     /// field: Add exercise's sheet goes to full height.
     var onSearchOpen: () -> Void = { }
-    /// Stores the exercise and shows its Customize form.
+    /// Stores the exercise and shows it.
     let onCreate: (CreatedExercise) async -> Void
 
     @State private var query = ""

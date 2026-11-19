@@ -37,7 +37,9 @@ func laterTurn() async throws {
 extension RoutineScreen {
     /// The screen going away: the sequence playing stops, and the phase settles at once to what
     /// the store holds, so the key never waits on a workout that is gone, or ignores one there.
+    /// A row's sheet still set closes: with no screen to show it, it kept the drawer shut.
     func stopSequence() {
+        session.closeRowSheet()
         sequence.cancel()
         withTransaction(\.disablesAnimations, true) {
             phase.settleAtOnce(hasWorkout: session.workout != nil)

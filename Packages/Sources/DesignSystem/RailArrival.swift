@@ -7,12 +7,13 @@ import SwiftUI
 /// tree, for good. The wait for the end is given up at a deadline too, so no path leaves a row
 /// arriving.
 public enum RailArrival {
-    /// The append's fade, of a row that draws nothing yet, which times the entry a moment into
-    /// the picker's slide.
+    /// The append's fade, of a row that draws nothing yet, which starts the wait for the list's
+    /// end a moment into the picker's slide.
     public static let appendFade: TimeInterval = 0.1
-    /// From the add to the row's entry where the list's end is in view: the append's fade and
-    /// the frames its completion took to come behind the picker's dismissal, which timed the
-    /// entry as it was approved (measured 0.37 to 0.41 s from the sheet's slide to the node).
+    /// From the add to the wait for the list's end: the append's fade and the frames its
+    /// completion took to come behind the picker's dismissal, which once timed the entry where
+    /// the end is in view (measured 0.37 to 0.41 s from the sheet's slide to the node), before
+    /// the pause `play` takes once the end is reached.
     static let appended: Duration = .milliseconds(180)
     /// From the row being let go to its node and content having landed (`RailEntry`): until
     /// then it takes no taps and VoiceOver does not reach it.
@@ -24,10 +25,12 @@ public enum RailArrival {
 extension RailArrival {
     /// Plays an added row's beats. `isArriving` says whether the row is still the one arriving,
     /// as a later add takes its place; `reachEnd` returns once the list's end is in view, at
-    /// once if it already is; `enter` lets the row go onto the rail; `entered` runs once it has
-    /// landed.
+    /// once if it already is; after it, or the give-up, the row waits `pause`, so the list at
+    /// rest and the row's entry read one after the other; `enter` lets the row go onto the
+    /// rail; `entered` runs once it has landed.
     public static func play(
         givingUpAfter giveUp: Duration = endGiveUp,
+        pausing pause: Duration = .zero,
         isArriving: () -> Bool,
         reachEnd: @escaping @MainActor () async -> Void,
         enter: () -> Void,
@@ -41,6 +44,7 @@ extension RailArrival {
             await group.next()
             group.cancelAll()
         }
+        try? await Task.sleep(for: pause, tolerance: .zero)
         guard isArriving() else { return }
         enter()
         try? await Task.sleep(for: entry, tolerance: .zero)

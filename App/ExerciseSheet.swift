@@ -22,7 +22,8 @@ struct RoundSteps {
 /// A routine row's values, a `ValueRow` for each part its exercise has, under the exercise's
 /// equipment. A row's stepper opens one at a time. Changes apply as they're made. The More menu
 /// holds Customize…, which pushes the exercise's Customize form inside the sheet (its back
-/// chevron returns to the sheet, the change showing), and Remove.
+/// chevron returns to the sheet, the change showing), and Remove. After Create, the new row's
+/// sheet opens with that form already pushed.
 struct ExerciseSheet<Customize: View>: View {
     @Binding var item: RoutineExercise
     /// The names of the exercises in a superset with it, which share its round count, or nil.
@@ -34,6 +35,8 @@ struct ExerciseSheet<Customize: View>: View {
     /// The exercise's Customize form; its closure goes back to the sheet.
     @ViewBuilder let customize: (_ back: @escaping () -> Void) -> Customize
     let onDelete: () -> Void
+    /// Whether it opens with Customize already pushed, as after Create.
+    var opensCustomizing = false
 
     @State private var isCustomizing = false
     @State private var open: SheetPart?
@@ -112,18 +115,11 @@ struct ExerciseSheet<Customize: View>: View {
                 }
             }
         }
+        .onAppear(perform: pushCustomizeIfOpening)
         .onGeometryChange(for: CGFloat.self, of: \.size.height) { sheetHeight = $0 }
         .presentationDetents(detents, selection: $detent)
         .presentationDragIndicator(.visible)
         .presentationBackground(Color.pp(.background))
-    }
-
-    private var detents: Set<PresentationDetent> {
-        var detents: Set<PresentationDetent> = [.medium, .large]
-        if let fitted {
-            detents.insert(.height(fitted))
-        }
-        return detents
     }
 
     /// At the medium height an open ruler sat near the screen's bottom edge, under the thumb's
@@ -336,6 +332,25 @@ struct ExerciseSheet<Customize: View>: View {
             withAnimation(ValueRow.motion) {
                 scroller.scrollTo(part)
             }
+        }
+    }
+}
+
+extension ExerciseSheet {
+    private var detents: Set<PresentationDetent> {
+        var detents: Set<PresentationDetent> = [.medium, .large]
+        if let fitted {
+            detents.insert(.height(fitted))
+        }
+        return detents
+    }
+
+    /// After Create, Customize is pushed before the sheet's first frame, so the sheet rises on
+    /// it with no push to see.
+    private func pushCustomizeIfOpening() {
+        guard opensCustomizing else { return }
+        withTransaction(\.disablesAnimations, true) {
+            isCustomizing = true
         }
     }
 }

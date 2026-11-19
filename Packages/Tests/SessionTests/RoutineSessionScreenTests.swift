@@ -51,6 +51,70 @@ struct RoutineSessionScreenTests {
         #expect(!session.isDrawerOpen)
     }
 
+    @Test("The drawer and a row's sheet keep each other out, whichever was asked for first")
+    func drawerAndRowSheetExclude() {
+        let row = UUID()
+        let session = session()
+        // A ++ after a sheet is asked for, before it rises over ++, as after Create.
+        session.openRowSheet(RowSheet(id: row, opensCustomizing: true))
+        session.openDrawer()
+        #expect(!session.isDrawerOpen)
+        #expect(session.rowSheet?.id == row)
+        session.closeRowSheet()
+        session.openDrawer()
+        #expect(session.isDrawerOpen)
+        // A created row's sheet due after ++ opened the drawer.
+        session.openRowSheet(RowSheet(id: row, opensCustomizing: true))
+        #expect(session.rowSheet == nil)
+    }
+
+    @Test("A swipe under way keeps a row's sheet out, and the drawer still opens as it ends")
+    func heldDrawerKeepsRowSheetOut() {
+        let row = UUID()
+        let session = session()
+        session.holdDrawer(true)
+        session.openRowSheet(RowSheet(id: row, opensCustomizing: true))
+        #expect(session.rowSheet == nil)
+        session.holdDrawer(false)
+        session.openDrawer()
+        #expect(session.isDrawerOpen)
+    }
+
+    @Test("A created row's sheet waited for opens once the hold has passed")
+    func rowSheetAfterHold() async {
+        let row = UUID()
+        let session = session()
+        await session.openRowSheet(RowSheet(id: row), after: .milliseconds(10)) { true }
+        #expect(session.rowSheet?.id == row)
+    }
+
+    @Test("A wait cancelled as its screen goes sets nothing")
+    func cancelledWaitSetsNothing() async {
+        let session = session()
+        let wait = Task {
+            await session.openRowSheet(RowSheet(id: UUID()), after: .seconds(60)) { true }
+        }
+        wait.cancel()
+        await wait.value
+        #expect(session.rowSheet == nil)
+        session.openDrawer()
+        #expect(session.isDrawerOpen)
+    }
+
+    @Test("A wait outlived by a pop off the Routines screen sets nothing")
+    func poppedWaitSetsNothing() async {
+        let session = await pushedSession()
+        // The pushed screen goes only once its pop has played, after the pop itself; the pop
+        // lands at the hold's end, as the wait's own conditions are read.
+        await session.openRowSheet(RowSheet(id: UUID()), after: .milliseconds(10)) {
+            session.popRoutine()
+            return true
+        }
+        #expect(session.rowSheet == nil)
+        session.openDrawer()
+        #expect(session.isDrawerOpen)
+    }
+
     @Test("A routine opened from the list is pushed on it")
     func openFromList() async {
         let session = await pushedSession()

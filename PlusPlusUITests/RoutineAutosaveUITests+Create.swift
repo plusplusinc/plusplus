@@ -5,14 +5,15 @@ extension RoutineAutosaveUITests {
     static let ringRow = "Ring row with rotation, 3 sets of 10 reps"
 
     /// A search with no exact name offers Create as the list's last row, and one with no match
-    /// narrows the list down to it; Create stores the exercise under the search text and pushes
-    /// its Customize form inside the sheet, with no Save; the two checklists mark what is
-    /// checked for VoiceOver and the form reads it back; and Done closes the sheet on a routine
-    /// with the row in. The relaunch after it lists the exercise with the equipment checked
-    /// here, so each change was stored as made. The rule for Create, the derived plan, and the
-    /// store's round trip are the package's (`CreatedExerciseTests`, `RoutineStoreExerciseTests`,
-    /// `RoutineSessionTests`); this holds the wire through the sheet, its search, and its pushed
-    /// screens.
+    /// narrows the list down to it; Create stores the exercise under the search text, closes
+    /// Add exercise, and adds its row; then the row's own sheet opens by itself on the
+    /// exercise's Customize form, with no Save and no Done; the two checklists mark what is
+    /// checked for VoiceOver and the form reads it back; back goes to the row's values, and
+    /// Close leaves the routine with the row in. The relaunch after it lists the exercise with
+    /// the equipment checked here, so each change was stored as made. The rule for Create, the
+    /// derived plan, and the store's round trip are the package's (`CreatedExerciseTests`,
+    /// `RoutineStoreExerciseTests`, `RoutineSessionTests`); this holds the wire through the
+    /// sheets, the search, and the pushed screens.
     @MainActor
     func createAnExercise(in app: XCUIApplication) {
         XCTContext
@@ -37,38 +38,43 @@ extension RoutineAutosaveUITests {
                 attach(named: "picker-create-only")
                 let count = app.exerciseRows.count
                 create.tap()
-                let name = app.textFields["customize.name"]
-                XCTAssertTrue(name.appears(), "Create pushed no Customize form")
-                XCTAssertEqual(name.value as? String, "Ring row with rotation")
-                XCTAssertFalse(app.buttons["Save"].exists, "Customize has a Save")
-                check("Back", in: app, from: "Muscle groups, None")
-                check("Rings", in: app, from: "Equipment, Bodyweight")
-                XCTAssertTrue(app.buttons["Muscle groups, Back"].exists)
-                XCTAssertTrue(app.buttons["Equipment, Rings"].exists)
-                XCTAssertTrue(app.buttons["Measure, Reps"].exists, "Measure reads no value")
-                XCTAssertEqual(app.switches["Per side"].value as? String, "0")
-                attach(named: "customize-form")
-                app.buttons["Done"].tap()
-                // The pushed form hides the list's search, so the form going is the sheet's.
-                XCTAssertTrue(name.disappears(), "Done left Customize up")
-                XCTAssertFalse(search.exists, "Done went back to the list, not out of the sheet")
+                XCTAssertTrue(search.disappears(), "Create left Add exercise up")
                 XCTAssertEqual(
                     app.exerciseCount(becoming: count + 1),
                     count + 1,
                     "Create added no row",
                 )
+                let name = app.textFields["customize.name"]
+                XCTAssertTrue(app.createdSheetOpens(), "The created row's sheet isn't on Customize")
+                XCTAssertEqual(name.value as? String, "Ring row with rotation")
+                XCTAssertFalse(app.buttons["Save"].exists, "Customize has a Save")
+                XCTAssertFalse(app.buttons["Done"].exists, "Create's Customize has a Done")
+                check("Back", in: app, from: "Muscle groups, None")
+                // In view in the half sheet, and holds no weight, so the row reads no load.
+                check("Bench", in: app, from: "Equipment, Bodyweight")
+                XCTAssertTrue(app.buttons["Muscle groups, Back"].exists)
+                XCTAssertTrue(app.buttons["Equipment, Bench"].exists)
+                XCTAssertTrue(app.buttons["Measure, Reps"].exists, "Measure reads no value")
+                XCTAssertEqual(app.switches["Per side"].value as? String, "0")
+                attach(named: "customize-form")
+                app.tapBack()
+                let sets = app.buttons["Sets"]
+                XCTAssertTrue(sets.appears(), "Back didn't come to the row's values")
+                app.buttons["Close"].tap()
+                XCTAssertTrue(sets.disappears(), "Close left the sheet up")
                 XCTAssertEqual(app.exerciseRowLabels.last, Self.ringRow)
             }
     }
 
-    /// On an empty routine, an exercise created in Add exercise and deleted from its Customize
-    /// form there takes its row with it, and the routine shows empty again once the sheet
-    /// closes: No exercises, no Start, and the + back down where it sat before. Only the
-    /// running app shows the screen taking up the stored routine from inside the sheet; that a
-    /// delete removes its rows is the package's (`RoutineStoreCustomizeTests`).
+    /// On an empty routine, an exercise created in Add exercise lands as the first row, and
+    /// its sheet opens on Customize; deleted there, it takes its row with it and shuts the
+    /// sheet, and the routine shows empty again: No exercises, no Start, and the + back down
+    /// where it sat before. Only the running app shows the screen taking up the stored routine
+    /// from inside the sheet; that a delete removes its rows is the package's
+    /// (`RoutineStoreCustomizeTests`).
     @MainActor
-    func deleteInPickerEmptiesRoutine(in app: XCUIApplication) {
-        XCTContext.runActivity(named: "A Delete in Add exercise that empties the routine") { _ in
+    func deleteCreatedEmptiesRoutine(in app: XCUIApplication) {
+        XCTContext.runActivity(named: "Deleting a created exercise that empties the routine") { _ in
             let plus = app.buttons["Add exercise"]
             XCTAssertEqual(app.exerciseRows.count, 0, "The routine isn't empty to start")
             XCTAssertTrue(plus.settles(), "The + kept moving")
@@ -78,24 +84,18 @@ extension RoutineAutosaveUITests {
             let create = app.buttons["picker.create"]
             XCTAssertTrue(create.appears(), "The search offered no Create")
             create.tap()
-            let name = app.textFields["customize.name"]
-            XCTAssertTrue(name.appears(), "Create pushed no Customize form")
             XCTAssertEqual(app.exerciseCount(becoming: 1), 1, "Create added no row")
-            // It arrives with the push.
+            let name = app.textFields["customize.name"]
+            XCTAssertTrue(app.createdSheetOpens(), "The created row's sheet isn't on Customize")
+            // Below the half sheet's fold, out of the tree until the form scrolls to it.
+            app.collectionViews.containing(.textField, identifier: "customize.name").firstMatch
+                .swipeUp()
             let delete = app.buttons["Delete exercise"]
             XCTAssertTrue(delete.settles(), "Delete exercise kept moving")
             delete.tap()
             app.answerAlert("Delete Zq?", with: "Delete exercise")
-            XCTAssertTrue(name.disappears(), "Delete didn't come back to the list")
+            XCTAssertTrue(name.disappears(), "Delete left the sheet up")
             XCTAssertEqual(app.exerciseCount(becoming: 0), 0, "The deleted exercise's row stayed")
-            // The search is still open, over Close.
-            app.searchButton.tap()
-            let close = app.buttons["Close"]
-            XCTAssertTrue(close.appears(), "Closing the search brought back no Close")
-            // It comes back out of the closing field.
-            XCTAssertTrue(close.settles(), "Close kept moving")
-            close.tap()
-            XCTAssertTrue(close.disappears(), "Close left the picker up")
             XCTAssertTrue(app.noExercises.appears(), "No exercises did not return")
             XCTAssertFalse(app.buttons["Start"].exists, "Start stayed with no exercises")
             XCTAssertTrue(plus.settles(), "The + kept moving")

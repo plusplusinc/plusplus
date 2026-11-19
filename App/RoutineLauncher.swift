@@ -16,16 +16,18 @@ struct RoutineLauncher: View {
 
     var body: some View {
         if let session {
-            // A routine pushed onto the Routines screen takes the edge swipe back, and a workout
-            // keeps the drawer shut: the swipe never begins, and the session refuses any other
-            // open.
+            // A routine pushed onto the Routines screen takes the edge swipe back, and a workout,
+            // or a row's sheet asked for, keeps the drawer shut: the swipe never begins, and the
+            // session refuses any other open. A swipe under way keeps a row's sheet out.
             SideDrawer(
                 isOpen: Binding {
                     session.isDrawerOpen
                 } set: { isOpen in
                     isOpen ? session.openDrawer() : session.closeDrawer()
                 },
-                swipeOpens: session.screen != .pushedRoutine && !session.isDrawerLocked,
+                isHeld: Binding { session.isDrawerHeld } set: { session.holdDrawer($0) },
+                swipeOpens: session.screen != .pushedRoutine && !session.isDrawerLocked
+                    && session.rowSheet == nil,
             ) {
                 DrawerMenu(session: session)
             } content: {

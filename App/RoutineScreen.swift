@@ -22,8 +22,6 @@ struct RoutineScreen: View {
     /// its search opens.
     @State var pickerDetent: PresentationDetent = .medium
     @State var listEnd = ListEnd()
-    /// The row whose values are open in a sheet, as it was when opened: only its id is read.
-    @State var editing: RoutineExercise?
     @State var scrollPosition = ScrollPosition()
     /// The row just added, holding its place until it can be seen going in.
     @State var arriving: RoutineExercise.ID?
@@ -31,6 +29,8 @@ struct RoutineScreen: View {
     /// will end up, not where it's drawn, so while its place opens a tap there, on what is still
     /// drawn there, lands on it; it ignores taps until it has landed.
     @State var entering: RoutineExercise.ID?
+    /// A created row landed, its sheet waiting out `createdHold` (`showCreated()`).
+    @State var createdWait: CreatedWait?
     /// Whether the list's end, the room it leaves for the floating +, is fully in view.
     @State var isEndInView = true
     /// While an added row's place opens, the list's end stays put on screen: as the content grows
@@ -259,7 +259,7 @@ struct RoutineScreen: View {
                             .contentShape(.rect)
                             .onTapGesture {
                                 guard item.id != entering else { return }
-                                editing = item
+                                session.openRowSheet(RowSheet(id: item.id))
                             }
                             .accessibilityAddTraits(.isButton)
                             .accessibilityValue(supersetValue(item.id))
@@ -355,6 +355,8 @@ struct RoutineScreen: View {
             addButton
         }
         .onDisappear { stopSequence() }
+        // Cancelled as the screen goes, so the wait never outlives it.
+        .task(id: createdWait) { await showCreated() }
         // One row open at a time, closed by a scroll or a tap anywhere else, Start included,
         // so the container holds Start's bar as well as the scroll view.
         .swipeActionsContainer()
@@ -372,8 +374,12 @@ struct RoutineScreen: View {
                 .presentationDetents([.medium, .large], selection: $pickerDetent)
         }
         // By item, so the sheet keeps its content as it slides away.
-        .sheet(item: $editing) { opened in
-            exerciseSheet(opened.id)
+        .sheet(item: Binding { editing } set: {
+            if $0 == nil {
+                session.closeRowSheet()
+            }
+        }) { opened in
+            exerciseSheet(opened)
         }
         .toolbar { barItems }
     }
