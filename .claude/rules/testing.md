@@ -88,7 +88,7 @@ Cheapest first. The tests' display names are the inventory of what each tier hol
   trip. A relaunch costs 5 to 7 s on CI.
 - **Rows come from `-seedExercises`**, not adds through the picker, unless the add is what's
   checked.
-- **Screenshots in UI tests are kept only on failure** (`attach(named:)`).
+- **A UI test screenshots only once it has failed** (`attach(named:)`).
 - **Hosted and snapshot tests are main-actor work**, and `DesignSystemTests` runs them one at
   a time (the test plan's `parallelizable: false`), so each one's own time is read, and a slow
   one is named.

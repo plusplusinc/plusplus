@@ -19,9 +19,11 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
     func testWrappedTitleAtLargestTextSize() throws {
         let app = XCUIApplication()
         // The workout's routine is seeded at this launch, and the title's checks run on a new
-        // routine opened after it, so the test launches once.
+        // routine opened after it, so the test launches once. The drawer and Routines are
+        // audited on the way to the new routine.
         try workoutAtAX5(in: app)
-        app.openNewRoutine()
+        try drawerAtAX5(in: app)
+        app.pushNewRoutine()
         let title = app.routineTitle
         let keyboard = app.keyboards.element
 
@@ -79,7 +81,6 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         assertLastRowClearsAddAtTheEnd(in: app)
         dragARowAtAX5(in: app)
         try supersetAtAX5(in: app)
-        try drawerAtAX5(in: app)
     }
 
     /// The last row held and dragged above the one before it moves there at this size: the
@@ -101,17 +102,19 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         }
     }
 
-    /// The drawer, its places kept whole, and the Routines screen pass the audit at this size.
+    /// The drawer, its places kept whole, and the Routines screen pass the audit at this size,
+    /// opened over the routine the workout's checks leave pushed. Ends on Routines.
     @MainActor
     private func drawerAtAX5(in app: XCUIApplication) throws {
         try XCTContext.runActivity(named: "The drawer and the Routines screen at AX5") { _ in
-            // Back from the routine pushed from Routines, to ++.
-            app.tapBack()
             app.buttons["Menu"].tap()
             XCTAssertTrue(app.drawerTitle.appears(), "++ did not open the drawer")
+            let routines = app.buttons["Routines"]
+            // The drawer slides in, and a tap read from a frame mid-slide lands where it is going.
+            XCTAssertTrue(routines.settles(), "Routines kept moving")
             attach(named: "drawer-ax5")
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
-            app.buttons["Routines"].tap()
+            routines.tap()
             XCTAssertTrue(app.drawerTitle.disappears(), "Routines did not close the drawer")
             let row = app.routineRows.firstMatch
             XCTAssertTrue(row.appears(), "The routine isn't listed")

@@ -67,6 +67,11 @@ extension XCUIApplication {
     /// Its back chevron leads to the Routines screen.
     func openNewRoutine() {
         openDrawer(andTap: "Routines")
+        pushNewRoutine()
+    }
+
+    /// Pushes a new, empty routine with the + of the Routines screen showing.
+    func pushNewRoutine() {
         let new = buttons["New routine"]
         XCTAssertTrue(new.appears(), "Routines showed no +")
         new.tap()
