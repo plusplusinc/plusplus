@@ -39,36 +39,30 @@ extension RoutineScreen {
     /// alert's Delete.
     func deleteExercise(_ id: Exercise.ID, closing: DeleteClosing) async {
         let confirmed = ContinuousClock.now
-        let shows: ContinuousClock.Instant
-        var inPicker = true
-        switch closing {
-        case .nothing:
-            shows = confirmed
-        case let .pop(back):
-            back()
-            shows = confirmed + Self.formPopped + Self.addPause
-        case .rowSheet:
-            inPicker = false
+        let weightUnit = WeightUnit(region: locale)
+        if case .rowSheet = closing {
             session.closeRowSheet()
-            shows = confirmed + Self.exerciseSheetGone + Self.addPause
-        }
-        await session.deleteExercise(id, weightUnit: WeightUnit(region: locale)) { show in
-            try? await Task.sleep(until: shows, tolerance: .zero, clock: .continuous)
-            guard inPicker else {
+            let shows = confirmed + Self.exerciseSheetGone + Self.addPause
+            await session.deleteExercise(id, weightUnit: weightUnit) { show in
+                try? await beat(until: shows)
                 // Unseen: the sheet has gone. Start and the + follow as after Remove.
                 show()
-                return showStoredRoutine(footDelay: Self.exerciseSheetGone)
+                showStoredRoutine(footDelay: Self.exerciseSheetGone)
             }
+            return
+        }
+        var shows = confirmed
+        if case let .pop(back) = closing {
+            back()
+            shows += Self.formPopped + Self.addPause
+        }
+        await session.deleteExercise(id, weightUnit: weightUnit) { [shows] show in
+            try? await beat(until: shows)
             // With Reduce Motion, at once: the system's list slides its rows on any animation,
             // and a list rebuilt to crossfade would lose its scroll.
             withAnimation(reduceMotion ? nil : .railChange, show)
         }
-        guard inPicker else { return }
-        try? await Task.sleep(
-            until: shows + Self.listChange + Self.addPause,
-            tolerance: .zero,
-            clock: .continuous,
-        )
+        try? await beat(until: shows + Self.listChange + Self.addPause)
         showStoredRoutine()
     }
 

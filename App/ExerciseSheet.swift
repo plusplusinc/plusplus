@@ -32,8 +32,8 @@ struct ExerciseSheet<Customize: View>: View {
     let parts: [SheetPart]
     /// Its superset's rest; nil for a plain row.
     var rounds: RoundSteps?
-    /// The exercise's Customize form; its closure goes back to the sheet.
-    @ViewBuilder let customize: (_ back: @escaping () -> Void) -> Customize
+    /// The exercise's Customize form, pushed inside the sheet.
+    @ViewBuilder let customize: () -> Customize
     let onDelete: () -> Void
     /// Whether it opens with Customize already pushed, as after Create.
     var opensCustomizing = false
@@ -96,7 +96,7 @@ struct ExerciseSheet<Customize: View>: View {
             .navigationTitle(item.exercise.name)
             .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(isPresented: $isCustomizing) {
-                customize { isCustomizing = false }
+                customize()
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

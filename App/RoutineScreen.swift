@@ -147,7 +147,13 @@ struct RoutineScreen: View {
     /// is the stored routine. A Delete can leave it empty: Start and the + go down after
     /// `footDelay`, as after the row's own Remove.
     func showStoredRoutine(footDelay: Duration = .zero) {
-        leave(footDelay: footDelay) { shownRoutine = session.current }
+        let stored = session.current
+        guard stored != shownRoutine else { return }
+        // Only a removal is a leave; a settings change keeps the list, Reduce Motion or not.
+        guard stored.exercises.count < shownRoutine.exercises.count else {
+            return withAnimation(.railChange) { shownRoutine = stored }
+        }
+        leave(footDelay: footDelay) { shownRoutine = stored }
     }
 
     /// The name made for the routine from its exercises, which a chosen name hides and which

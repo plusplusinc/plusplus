@@ -98,7 +98,7 @@ extension RoutineScreen {
                 partners: routine.partnerNames(of: id),
                 parts: routine.sheetParts(of: id),
                 rounds: roundSteps(of: id),
-                customize: { _ in
+                customize: {
                     let exercise = item.wrappedValue.exercise.id
                     CustomizeScreen(
                         id: exercise,
