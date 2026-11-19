@@ -62,7 +62,7 @@ public struct RestBlock: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    fileprivate func countdown(size: CGFloat, locale: Locale) -> some View {
+    func countdown(size: CGFloat, locale: Locale) -> some View {
         let isOpen = stage == .open
         return TimelineView(RestSchedule(
             ends: ends,
@@ -87,7 +87,7 @@ public struct RestBlock: View {
         }
     }
 
-    fileprivate var buttons: some View {
+    var buttons: some View {
         HStack(spacing: Spacing.sm) {
             Button(action: onShorten) { Text(AttributedString.monoNumbers(
                 "−15 s",

@@ -215,6 +215,14 @@ public enum WorkoutPhase: Equatable, Sendable {
     ) -> Bool {
         guard self == .running else { return false }
         switch step {
+        case .nextSet where moves && rests:
+            self = .resting(Resting(
+                set: set,
+                isBack: false,
+                startsRound: false,
+                isWithinExercise: true,
+                beat: .logged,
+            ))
         case .nextSet:
             self = .held(set)
         case let .nextExercise(_, isBack, startsRound) where moves && rests:
@@ -222,6 +230,7 @@ public enum WorkoutPhase: Equatable, Sendable {
                 set: set,
                 isBack: isBack,
                 startsRound: startsRound,
+                isWithinExercise: false,
                 beat: .logged,
             ))
         case let .nextExercise(_, isBack, startsRound) where moves:
@@ -343,25 +352,15 @@ public enum WorkoutPhase: Equatable, Sendable {
         }
     }
 
-    /// The set logged that stays on its exercise, shown as still to do until the line rolls on.
-    public var held: PlannedSet? {
-        guard case let .held(set) = self else { return nil }
-        return set
-    }
-
     /// Whether the workout moves on from a set logged: to another exercise, or past its last.
     public var isMovingOn: Bool {
         switch self {
         case .movingOn, .closing, .fadingOn: true
         // Until its close is over: the rows change height under it.
-        case let .resting(rest): rest.beat < .settled
+        // Between two sets of one, no row changes height.
+        case let .resting(rest): !rest.isWithinExercise && rest.beat < .settled
         case .idle, .starting, .running, .held, .ending: false
         }
-    }
-
-    /// From Start's press until the first exercise has grown: the key is Start's.
-    public var isStarting: Bool {
-        self == .starting(.pressed) || self == .starting(.growing)
     }
 
     /// How the key is gone from its bar: as Start lands, with its room kept, until the workout's
@@ -374,13 +373,6 @@ public enum WorkoutPhase: Equatable, Sendable {
         case let .ending(ending) where ending.beat >= .keyLeaving: .givingUpRoom
         default: nil
         }
-    }
-
-    /// As a workout ends, it as it was, until its time has faded: the time key's glass stays in
-    /// the bar while the time fades out of it.
-    public var endingWorkout: Workout? {
-        guard case let .ending(ending) = self, ending.beat < .timeGone else { return nil }
-        return ending.workout
     }
 
     /// Whether the key takes a log: only at rest. While a set is held, a second tap in its beat,

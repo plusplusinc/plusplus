@@ -30,14 +30,17 @@ extension RoutineScreen {
         // rest ends. Until then the row left stays grown, so it shrinks in the rest's animated
         // transaction, not at the log's: changed at the log, it went at once and the rows below
         // jumped up before the rest opened and pushed them back down.
-        phase.resting.map { $0.beat == .logged } ?? true ? shown?.currentSet?.row : nil
+        // Between two sets of one exercise, it stays grown.
+        phase.resting.map { $0.isWithinExercise || $0.beat == .logged } ?? true
+            ? shown?.currentSet?.row : nil
     }
 
     /// The row whose node is lit on the rail: the current exercise, but while a move to it is on
     /// its way, none until the pulse lands on its node, nor through a rest, whose dot is the
     /// green on the rail.
     var litID: RoutineExercise.ID? {
-        phase.move.map(\.isLanded) == false || phase.resting != nil ? nil : currentID
+        phase.move.map(\.isLanded) == false || phase.resting.map { !$0.isWithinExercise } == true
+            ? nil : currentID
     }
 
     /// A set logged that stays on the current exercise, saved at once, but shown as still to do
@@ -67,6 +70,18 @@ extension RoutineScreen {
                 locale: locale,
             )
         }
+        // Resting between two sets, the line says the set just done, "Set 1 of 3 done", until
+        // the next set swaps back up.
+        if let rest = phase.resting, rest.isWithinExercise, rest.beat >= .shown,
+           rest.beat < .returning, rest.set.row == item.id
+        {
+            focus.progress = item.progressText(
+                set: rest.set.round,
+                inSuperset: false,
+                locale: locale,
+            )
+                + " done"
+        }
         return focus
     }
 
@@ -78,6 +93,7 @@ extension RoutineScreen {
         current: RoutineExercise.ID?,
         on set: PlannedSet?,
         bars: SetProgress?,
+        setRest: SetRest? = nil,
     ) -> RowLabel {
         let focus = item.id == current ? set.map { focus(of: item, on: $0) } : nil
         return RowLabel(
@@ -86,6 +102,7 @@ extension RoutineScreen {
             spokenDetail: item.spokenDetail(locale: locale),
             focus: focus,
             bars: bars,
+            setRest: setRest,
         )
     }
 

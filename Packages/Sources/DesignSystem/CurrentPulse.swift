@@ -26,6 +26,37 @@ nonisolated enum CurrentPulse {
 extension EnvironmentValues {
     /// Holds the pulse at full green, so a snapshot or a preview draws it at rest.
     @Entry var isPulseHeld = false
+    /// A rest between two sets of the current exercise, whose beat the pulse takes on.
+    @Entry public var restBeat: RestBeat?
+}
+
+/// A rest between two sets, on whose countdown the current exercise's pulse beats once a second,
+/// full green as each figure turns, as the rest's dot does between exercises. It blends in from
+/// the slow pulse over `blend` from the log, and back to it over `blend` after the end.
+public nonisolated struct RestBeat: Equatable, Sendable {
+    let starts: Date
+    let ends: Date
+    /// While paused, the seconds left; nil while running.
+    let pausedLeft: Double?
+
+    public init(starts: Date, ends: Date, pausedLeft: Double?) {
+        self.starts = starts
+        self.ends = ends
+        self.pausedLeft = pausedLeft
+    }
+
+    static let blend = 1.0
+
+    func dim(at date: Date) -> Double {
+        let node = CurrentPulse.dim(at: date)
+        let left = pausedLeft ?? ends.timeIntervalSince(date)
+        let beat = left > 0 ? CurrentPulse.dim(phase: left.rounded(.up) - left) : 0
+        let into = min(max(date.timeIntervalSince(starts) / Self.blend, 0), 1)
+        let out = pausedLeft == nil
+            ? min(max(date.timeIntervalSince(ends) / Self.blend, 0), 1) : 0
+        let weight = into * (1 - out)
+        return node * (1 - weight) + beat * weight
+    }
 }
 
 extension View {
@@ -42,6 +73,7 @@ private struct CurrentPulseOverlay<S: Shape>: ViewModifier {
     let share: Double
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.isPulseHeld) private var isHeld
+    @Environment(\.restBeat) private var restBeat
 
     func body(content: Content) -> some View {
         content.overlay {
@@ -51,7 +83,8 @@ private struct CurrentPulseOverlay<S: Shape>: ViewModifier {
                 TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
                     shape
                         .fill(.pp(.background))
-                        .opacity(CurrentPulse.dim(at: context.date) * share)
+                        .opacity((restBeat?.dim(at: context.date)
+                                ?? CurrentPulse.dim(at: context.date)) * share)
                 }
                 .allowsHitTesting(false)
             }

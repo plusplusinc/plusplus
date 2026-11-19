@@ -142,8 +142,10 @@ nonisolated struct PulseShape: Shape {
         case leave(end: Double)
         /// From the rest's dot into the next node, as the end of a whole pulse, setting off at
         /// once at the crawl's speed `start`, against its average, in a pulse's time to its
-        /// landing: no node is left behind, since the dot is the mass.
-        case arrive(start: Double)
+        /// landing: no node is left behind, since the dot is the mass. After the rest's bar has
+        /// filled, its route starts at the fill's top and the mass sets off `lead` of the way
+        /// along, a line `barWidth` wide whose tail catches up with its head (`gathered(_:)`).
+        case arrive(start: Double, lead: Double = 0, barWidth: CGFloat = 0)
     }
 
     /// How much longer the mass is for each point a second of its speed.
@@ -195,9 +197,10 @@ nonisolated struct PulseShape: Shape {
         let share = min(max((time - start) / travel, 0), 1)
         let total = route.length
         let (distance, speed) = leg.motion(at: share, way)
-        let headAlong = total * CGFloat(distance)
+        let lead = CGFloat(leg.lead)
+        let headAlong = total * (lead + (1 - lead) * CGFloat(distance))
         var length = min(
-            size + Self.stretch * CGFloat(speed) * total / travel,
+            size + Self.stretch * CGFloat(speed) * total * (1 - lead) / travel,
             size * Self.longest,
         )
         // It reaches the node still moving, stretched, and gathers into a circle on it, its
@@ -206,8 +209,13 @@ nonisolated struct PulseShape: Shape {
         if gathered > 0 {
             length = size + (length - size) * CGFloat(max(1 - gathered, 0))
         }
-        let width = Self.width(length: length, size: size)
-        let tailAlong = max(headAlong - (length - width), 0)
+        var width = Self.width(length: length, size: size)
+        var apart = length - width
+        if let (line, barWidth) = leg.gathered(share, total: total) {
+            apart = max(apart, line)
+            width = max(Self.width(apart: apart, size: size), barWidth)
+        }
+        let tailAlong = max(headAlong - apart, 0)
         let head = Circle(center: route.point(at: headAlong), radius: width / 2)
         let tail = Circle(center: route.point(at: tailAlong), radius: width / 2)
         var mass = Path()
@@ -332,6 +340,7 @@ struct RailPulseRun: View {
     var afterRest: RestHandoff?
     @ScaledMetric(relativeTo: .body) private var size = currentNodeSize
     @ScaledMetric(relativeTo: .body) private var restingSize = railNodeSize
+    @ScaledMetric(relativeTo: .body) private var barWidth = RestBar.size
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -343,15 +352,20 @@ struct RailPulseRun: View {
             if time >= 0, !reduceMotion {
                 let whole = route ?? RailRoute([])
                 let from = min(afterRest?.share ?? 0, 0.99)
+                let tail = afterRest.map { rest in
+                    RestBar.tail(of: rest, from: from, on: whole, size: size, barWidth: barWidth)
+                } ?? 0
                 let leg = afterRest.map { rest in
                     PulseShape.Leg.arrive(
                         start: rest.speed * (SetMotion.travelStart + SetMotion.travel(way))
                             / (1 - from),
+                        lead: (from - tail) / (1 - tail),
+                        barWidth: barWidth,
                     )
                 } ?? .whole
                 let shape = PulseShape(
                     time: time,
-                    route: afterRest == nil ? whole : whole.part(from ... 1),
+                    route: afterRest == nil ? whole : whole.part(tail ... 1),
                     size: size,
                     restingSize: restingSize,
                     way: way,
@@ -363,6 +377,12 @@ struct RailPulseRun: View {
                         shape.fill(.pp(.background)).opacity((afterRest?.dim ?? 0) * (1 - into))
                     }
                     .currentPulse(in: shape, share: into)
+                    // The rest's bar narrows back into the rail as the green leaves it.
+                    .background {
+                        if afterRest != nil {
+                            RestBarView(route: whole, grown: 1 - into)
+                        }
+                    }
             }
         } keyframes: { _ in
             PulseShape.run(way)

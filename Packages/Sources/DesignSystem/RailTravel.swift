@@ -29,14 +29,21 @@ public struct RailTravel<ID: Hashable>: Equatable {
     public func handoff(at date: Date) -> RestHandoff {
         let now = (heldAt ?? date).timeIntervalSinceReferenceDate
         let place = RestDotPlace(travel: self, ends: ends.timeIntervalSinceReferenceDate, now: now)
-        return RestHandoff(share: place.share, speed: place.speed, dim: place.dim)
+        return RestHandoff(
+            share: place.share,
+            tail: place.tail,
+            speed: place.speed,
+            dim: place.dim,
+        )
     }
 }
 
-/// Where the move's pulse sets off after a rest: the dot's place along the stretch from the node
-/// left to the next one's, from 0 to 1, its speed in stretches a second, and how dim its green is.
+/// Where the move's pulse sets off after a rest: the green's leading end along the stretch from
+/// the node left to the next one's, from 0 to 1, and its tail, the bar's top once it fills; its
+/// speed in stretches a second; and how dim its green is.
 public struct RestHandoff: Equatable, Sendable {
     public var share: Double
+    public var tail: Double
     public var speed: Double
     public var dim: Double
 }
@@ -48,6 +55,9 @@ nonisolated struct RestDotPlace {
     let sinceLog: Double
     /// Along the stretch, from 0 to 1.
     let share: Double
+    /// Where its tail is: the leading end's own place while it leaves, the bar's top once it
+    /// fills.
+    let tail: Double
     /// In stretches a second.
     let speed: Double
     /// The crawl's speed, in stretches a second.
@@ -75,7 +85,9 @@ nonisolated struct RestDotPlace {
             share = span.lowerBound * SetMotion.restLeaveDistance(at: time, end: leaveEnd)
             speed = span.lowerBound / leaveTravel
                 * SetMotion.restLeaveSpeed(at: time, end: leaveEnd)
+            tail = share
         } else {
+            tail = span.lowerBound
             let gone = ends > setOff
                 ? max((min(now, ends + Self.overrun) - setOff) / (ends - setOff), 0) : 1
             share = min(span.lowerBound + (span.upperBound - span.lowerBound) * gone, 0.98)
@@ -111,6 +123,32 @@ nonisolated extension PulseShape.Leg {
         }
     }
 
+    /// How far along its route the mass sets off, from 0 to 1: an arriving leg's from the bar's
+    /// top, where its route starts, to its leading end.
+    var lead: Double {
+        if case let .arrive(_, lead, _) = self {
+            lead
+        } else {
+            0
+        }
+    }
+
+    /// An arriving leg's line out of the bar at a share `time` of its travel, on a route `total`
+    /// long: the distance from its tail's center to its head's, gathering in an ease out and in
+    /// over `gather` of the travel, the tail setting off from the bar's top at rest; and the
+    /// bar's width it narrows from, to none. Nil with no line.
+    func gathered(_ time: Double, total: CGFloat) -> (line: CGFloat, barWidth: CGFloat)? {
+        guard case let .arrive(_, lead, barWidth) = self, lead > 0 else { return nil }
+        let into = min(max(time / Self.gather, 0), 1)
+        let eased = CGFloat(into * into * (3 - 2 * into))
+        // The bar's width held until the line is short, where the dot's own area is wider.
+        let thin = CGFloat(min(max((into - 0.6) / 0.4, 0), 1))
+        return (total * CGFloat(lead) * (1 - eased), barWidth * (1 - thin * thin * (3 - 2 * thin)))
+    }
+
+    /// The share of an arriving leg's travel its line takes to gather into the mass.
+    static let gather = 0.7
+
     /// When it sets off, from the log: a whole pulse and a leaving leg wait on the node for
     /// `SetMotion.travelStart`; an arriving leg goes on from the dot at once.
     var start: Double {
@@ -136,7 +174,7 @@ nonisolated extension PulseShape.Leg {
                 SetMotion.restLeaveDistance(at: time, end: end),
                 SetMotion.restLeaveSpeed(at: time, end: end),
             )
-        case let .arrive(start):
+        case let .arrive(start, _, _):
             (
                 SetMotion.restArriveDistance(at: time, start: start),
                 SetMotion.restArriveSpeed(at: time, start: start),
@@ -159,10 +197,13 @@ struct RailTravelDot<ID: Hashable>: View, Animatable {
     var ends: Double
     @ScaledMetric(relativeTo: .body) private var size = currentNodeSize
     @ScaledMetric(relativeTo: .body) private var restingSize = railNodeSize
+    @ScaledMetric(relativeTo: .body) private var barWidth = RestBar.size
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.isPulseHeld) private var isPulseHeld
     /// Where the node left was at the log, which the leaving leg sets off from.
     @State private var origin: CGPoint?
+    /// Where the bar's top was at the log.
+    @State private var barTop: CGPoint?
 
     init(travel: RailTravel<ID>, route: RailRoute) {
         self.travel = travel
@@ -184,16 +225,27 @@ struct RailTravelDot<ID: Hashable>: View, Animatable {
             let now = (travel.heldAt ?? context.date).timeIntervalSinceReferenceDate
             let place = RestDotPlace(travel: travel, ends: ends, now: now)
             let dim = reduceMotion || isPulseHeld ? 0 : place.dim
+            // The bar widens out of the rail as the rest opens, on the opening's time.
+            let opened = place.sinceLog / (SetMotion.closeStart + SetMotion.close)
+            RestBarView(route: route, grown: min(max(opened, 0), 1))
             if place.sinceLog < SetMotion.restLeave {
                 dimmed(leaving(place), by: dim)
             } else {
-                let point = route.point(at: route.length * place.share)
-                dimmed(Circle(center: point, radius: size / 2).path, by: dim)
+                dimmed(PulseShape.fill(
+                    route: route,
+                    top: route.length * place.tail,
+                    along: route.length * place.share,
+                    size: size,
+                    barWidth: barWidth,
+                ), by: dim)
             }
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
-        .onAppear { origin = route.points.first }
+        .onAppear {
+            origin = route.points.first
+            barTop = route.point(at: route.length * SetMotion.restSpan.lowerBound)
+        }
     }
 
     private typealias Circle = PulseShape.Circle
@@ -204,7 +256,16 @@ struct RailTravelDot<ID: Hashable>: View, Animatable {
     private func leaving(_ place: RestDotPlace) -> PulseShape {
         let node = route.points.first ?? .zero
         let from = origin ?? node
-        let to = route.point(at: route.length * SetMotion.restSpan.lowerBound)
+        let now = route.point(at: route.length * SetMotion.restSpan.lowerBound)
+        // Aimed at where the bar's top will be once the rows have closed, worked out from how
+        // far it has come on the close's curve: aimed at where it was, the dot ran backward on
+        // the screen as the bar's top rose past it with the rows.
+        let start = barTop ?? now
+        let closed = CGFloat(SetMotion.closed(at: place.sinceLog))
+        let to = closed < 0.02 ? now : CGPoint(
+            x: start.x + (now.x - start.x) / closed,
+            y: start.y + (now.y - start.y) / closed,
+        )
         let leg = RailRoute.line(from: from, to: to)
         // The crawl's speed, against the leg's own average, so the two meet.
         let end = place.crawl * route.length * (SetMotion.restLeave - SetMotion.travelStart)

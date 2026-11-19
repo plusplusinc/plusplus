@@ -65,7 +65,7 @@ public enum SetMotion {
 
     /// After the last set, when the row starts to close, from the log: as its parts start to go,
     /// so nothing waits; the row's bottom cuts off whatever is still going as it closes.
-    public static let closeStart = 0.04
+    public nonisolated static let closeStart = 0.04
     /// After the last set, the row closing as the list settles on its end, on one curve.
     public nonisolated static let close = 0.65
 
@@ -73,6 +73,15 @@ public enum SetMotion {
     /// a stop with no overshoot. With no pulse to follow, it runs on its own clock.
     public static var closing: Animation {
         .timingCurve(0.42, 0, 0.2, 1, duration: close).delay(closeStart)
+    }
+
+    /// How far through `closing` the rows are, from 0 to 1, `time` seconds after the log.
+    nonisolated static func closed(at time: Double) -> Double {
+        let curve = UnitCurve.bezier(
+            startControlPoint: UnitPoint(x: 0.42, y: 0),
+            endControlPoint: UnitPoint(x: 0.2, y: 1),
+        )
+        return curve.value(at: min(max((time - closeStart) / close, 0), 1))
     }
 
     /// Moving to another exercise, the shift's curve, shared by both rows' heights, the names'
@@ -203,9 +212,11 @@ public enum SetMotion {
     /// does, over `restLeaveShare`, easing out into the rest's speed; crawls `restShare` at that
     /// one speed for the whole rest; and at 0 runs on from there over `restArriveShare` into the
     /// next node, plopping and wiggling there with every timing of a move with no rest.
-    public nonisolated static let restLeaveShare = 0.4
+    /// Leave and arrival take equal shares, so the rest's part of the rail sits centered in the
+    /// stretch (Dave, 2026-11-19).
+    public nonisolated static let restLeaveShare = 0.25
     public nonisolated static let restShare = 0.5
-    public nonisolated static let restArriveShare = 0.1
+    public nonisolated static let restArriveShare = 0.25
 
     /// Where along the stretch, from 0 to 1, the rest's dot sets off and where it stops: the
     /// three shares taken against their sum, so a tweak to one needs no other.
@@ -217,7 +228,9 @@ public enum SetMotion {
     /// The leaving leg, from the log to the crawl: the dot pulls out of the node and shoots off
     /// as a pulse does, then eases out, long and soft, into the rest's own speed, with no stop
     /// between. The rows close and the rest opens on `closing`, as it leaves, not after.
-    public nonisolated static let restLeave = 2.0
+    /// Shorter since its share went to a quarter: over 2 s, a short rest's crawl was nearly the
+    /// leave's own average speed, and the shot out of the node all but went.
+    public nonisolated static let restLeave = 1.2
     /// When, as a share of the leaving leg's travel, it is fastest: it charges up to there on a
     /// power ease in (`restLeaveCharge`), about a pulse's travel, and from there eases out on a
     /// power ease out (`restLeaveEase`) to the crawl's speed.

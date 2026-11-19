@@ -243,16 +243,14 @@ struct RoutineScreen: View {
                             .padding(.top, item.id == currentID ? Self.currentTopSpace : 0)
                             // Only while it is read: as the list scrolls, every change redraws the
                             // screen.
-                            .reportingPlace(
-                                item.id == growingID && tracksRows,
-                                to: placeCurrent,
-                            )
+                            .reportingPlace(item.id == growingID && tracksRows, to: placeCurrent)
                             // Until an added row has entered it takes no taps, and its frame is
                             // where it will be rather than where it is drawn, so VoiceOver and the
                             // UI tests find it once it has. On the label, the row's one element:
                             // on the row, `false` would un-hide the rail's node.
                             .accessibilityHidden(item.id == entering)
                             .railRow()
+                            .environment(\.restBeat, restBeat)
                             // The whole row, its insets included, as the rail stacks it.
                             .reportingFrame(tracksRows) { rowFrames.tops[item.id] = $0.minY }
                             .contentShape(.rect)

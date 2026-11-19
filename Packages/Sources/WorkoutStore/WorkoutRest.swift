@@ -13,6 +13,16 @@ extension Routine {
         }
         return next.row == set.row && next.round == set.round ? 0 : row.rest
     }
+
+    /// The rest between two sets of `id`, in seconds, where a screen runs one: none in a
+    /// superset, for an exercise done per side, for one set, or for a rest of 0.
+    public func restBetweenSets(of id: RoutineExercise.ID) -> Int? {
+        guard let row = exercises.first(where: { $0.id == id }), !isInSuperset(id),
+              row.plan.sets > 1, row.rest > 0,
+              !setOrder.contains(where: { $0.row == id && $0.side != nil })
+        else { return nil }
+        return row.rest
+    }
 }
 
 /// The rest running after a set, on the workout's clock (`Workout.clock(at:)`), so a pause stops
@@ -51,12 +61,14 @@ public struct WorkoutRest: Equatable, Sendable {
 extension LiveWorkout {
     /// The rest after the last set logged, while there is one: nil with no gap after it, a set
     /// logged before its clock was kept, or nothing left to do. Whether it is over is the
-    /// caller's, at its moment. `override`, for the UI tests, replaces every rest's length.
+    /// caller's, at its moment. `override`, for the UI tests, replaces every rest's length where
+    /// the routine has one, never where it has none, as between a set's sides.
     public func rest(override: Int? = nil) -> WorkoutRest? {
         guard let last = workout.sets.last, let start = last.clockWhenLogged,
               let next = currentSet
         else { return nil }
-        let gap = override ?? routine.rest(after: last.planned, before: next)
+        let stored = routine.rest(after: last.planned, before: next)
+        let gap = stored > 0 ? override ?? stored : 0
         guard gap > 0 else { return nil }
         return WorkoutRest(
             after: last.planned,
@@ -81,5 +93,16 @@ extension LiveWorkout {
         else { return nil }
         let gap = override ?? routine.rest(after: last, before: next)
         return gap > 0 ? gap : nil
+    }
+
+    /// The rest that will follow the current set before the same exercise's next set, in
+    /// seconds (`Routine.restBetweenSets(of:)`): nil when another exercise, or nothing, follows.
+    public func restAfterCurrentSet(override: Int? = nil) -> Int? {
+        guard let set = currentSet, let gap = routine.restBetweenSets(of: set.row) else {
+            return nil
+        }
+        let done = Set(workout.sets.map(\.planned)).union([set])
+        guard routine.nextSet(notIn: done)?.row == set.row else { return nil }
+        return override ?? gap
     }
 }

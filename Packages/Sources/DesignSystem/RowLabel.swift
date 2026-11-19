@@ -17,6 +17,8 @@ public struct RowLabel: View {
     /// How far the exercise is through its sets in a workout, shown as bars at the trailing
     /// end of its detail line, or of its progress line on the current exercise.
     private let bars: SetProgress?
+    /// On the current exercise, the rest between its sets, which takes the numbers' place.
+    private let setRest: SetRest?
 
     /// The label's height as a row, which its height runs from and back to, so the
     /// label grows and shrinks over the whole animation, on its curve.
@@ -35,7 +37,9 @@ public struct RowLabel: View {
         spokenDetail: String? = nil,
         focus: RowFocus? = nil,
         bars: SetProgress? = nil,
+        setRest: SetRest? = nil,
     ) {
+        self.setRest = setRest
         self.title = title
         self.detail = detail
         self.spokenDetail = spokenDetail
@@ -106,7 +110,10 @@ public struct RowLabel: View {
                         Capsules(focus.equipment)
                             .part(.equipment)
                     }
-                    if let focus {
+                    if let focus, let setRest {
+                        SetRoom(figures: focus.figures, rest: setRest)
+                            .part(.figures)
+                    } else if let focus {
                         CurrentFigures(figures: focus.figures)
                             .part(.figures)
                     }
@@ -207,7 +214,9 @@ public struct RowLabel: View {
                 .font(.ppCurrentProgress)
                 .foregroundStyle(Color.pp(color))
                 .fixedSize()
-                .id(word)
+                // By the word alone: "3" gaining the space before a word added after it, "Set 1
+                // of 3 done", stays put.
+                .id(word.trimmingCharacters(in: .whitespaces))
                 .transition(.push(from: .bottom))
         }
         .clipped()

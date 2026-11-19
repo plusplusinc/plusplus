@@ -41,16 +41,33 @@ extension RoutineScreen {
     }
 
     /// Whether logging `set`, already stored, leading to `step`, rests first: on to another
-    /// exercise down the rail from a plain row, with a rest after it.
+    /// exercise down the rail from a plain row, with a rest after it; or on to the same plain
+    /// row's next set, done on both sides at once, with a rest between its sets.
     func rests(after set: PlannedSet, leadingTo step: LiveWorkout.Step) -> Bool {
-        guard case .nextExercise(_, false, _) = step, !routine.isInSuperset(set.row)
-        else { return false }
+        switch step {
+        case .nextExercise(_, false, _) where !routine.isInSuperset(set.row):
+            break
+        case .nextSet where set.side == nil && routine.restBetweenSets(of: set.row) != nil:
+            break
+        default:
+            return false
+        }
         return live?.rest(override: restOverride) != nil
     }
 
     /// The rest's opening, from the log: the dot leaves now, and as it does the row closes and
-    /// the rest opens, on a close's curve.
+    /// the rest opens, on a close's curve. Between two sets of one exercise, the set is held as
+    /// a set logged is, then the rest and the next set swap places as the line rolls on.
     func startRest() {
+        if phase.resting?.isWithinExercise == true {
+            return sequence.run {
+                let start = ContinuousClock.now
+                try await beat(until: start + .seconds(SetMotion.heldRoll))
+                withAnimation(.snappy(duration: SetMotion.roll)) { phase.show() }
+                try await beat(until: start + .seconds(SetMotion.heldRoll + SetMotion.roll))
+                phase.settleRest()
+            }
+        }
         withTransaction(\.disablesAnimations, true) {
             isMakingRoom = true
             endFollow = nil
@@ -72,6 +89,16 @@ extension RoutineScreen {
         guard let rest = phase.resting, let workout = session.workout, let next = live?.currentSet,
               resting?.isOver(atClock: workout.clock(at: .now)) ?? true
         else { return }
+        if rest.isWithinExercise {
+            // The next set's numbers swap back into their place as the line rolls on, and the
+            // key comes back once they are up.
+            guard rest.beat < .returning else { return }
+            withAnimation(.snappy(duration: SetMotion.roll)) { phase.endRest() }
+            return sequence.run {
+                try await beat(until: ContinuousClock.now + .seconds(SetMotion.roll))
+                withTransaction(\.disablesAnimations, true) { phase.settleReturn() }
+            }
+        }
         noteRestingPitch(of: next.row)
         let handoff = restHandoff ?? restTravel?.handoff(at: .now)
         restHandoff = nil
@@ -116,8 +143,8 @@ extension RoutineScreen {
     /// The rest under `id`'s row: the line under the current exercise, the rest open under the
     /// row left once it shows, or none.
     func restBlock(under id: RoutineExercise.ID) -> RestBlock {
-        if let rest = phase.resting, rest.beat >= .shown, rest.set.row == id,
-           let resting, let workout = session.workout
+        if let rest = phase.resting, !rest.isWithinExercise, rest.beat >= .shown,
+           rest.set.row == id, let resting, let workout = session.workout
         {
             return RestBlock(
                 stage: .open,
@@ -129,16 +156,82 @@ extension RoutineScreen {
                 onExtend: { adjustRest(by: 15) },
             )
         }
-        if id == currentID, let length = shown?.restAfterCurrentExercise(override: restOverride) {
+        // A rest between its sets has its own line, in its numbers' room (`setRest(of:current:)`).
+        let ownsLine = setRest(of: id, current: currentID).map { $0.stage != .held } ?? false
+        if id == currentID, !ownsLine,
+           let length = shown?.restAfterCurrentExercise(override: restOverride)
+        {
             return RestBlock(stage: .line, length: length)
         }
         return RestBlock(stage: .none, length: 0)
     }
 
+    /// The rest between two sets of the current exercise, `id`, in its numbers' room: running
+    /// from the swap until the swap back; coming during a set with one after it; else held, the
+    /// room kept as tall as the rest for every set of an exercise that rests between them. Nil
+    /// for any other row, and an exercise with no rest between its sets.
+    func setRest(of id: RoutineExercise.ID, current: RoutineExercise.ID?) -> SetRest? {
+        guard id == current, let shown, routine.restBetweenSets(of: id) != nil else { return nil }
+        let next = shown.currentSet.map(nextSetLine) ?? ""
+        let within = phase.resting.flatMap { $0.isWithinExercise ? $0 : nil }
+        let workout = session.workout
+        let ends = resting.flatMap { rest in workout.map { $0.date(ofClock: rest.endClock) } }
+        if let within, within.beat >= .shown, within.beat < .returning, let resting, let workout {
+            return SetRest(
+                stage: .running,
+                length: resting.length,
+                next: next,
+                ends: ends ?? .distantPast,
+                pausedLeft: workout.isPaused
+                    ? resting.remaining(atClock: workout.clock(at: .now)) : nil,
+                onShorten: { adjustRest(by: -15) },
+                onExtend: { adjustRest(by: 15) },
+            )
+        }
+        let coming = shown.restAfterCurrentSet(override: restOverride)
+        if within?.beat == .returning {
+            // Swapping back into the last set, the line is the rest before the next exercise.
+            return SetRest(
+                stage: .coming,
+                length: coming ?? shown.restAfterCurrentExercise(override: restOverride),
+                next: next,
+                ends: ends ?? .distantPast,
+                // Over: it reads 0:00 as it goes, never the last second it showed.
+                pausedLeft: 0,
+            )
+        }
+        return coming.map { SetRest(stage: .coming, length: $0, next: next) }
+            ?? SetRest(stage: .held, length: nil)
+    }
+
+    /// The next set as the line under the rest reads it: "Set 2: 10 reps", "Set 2: 10 reps ·
+    /// 50 lb".
+    func nextSetLine(_ set: PlannedSet) -> String {
+        guard let item = routine.exercises.first(where: { $0.id == set.row }) else { return "" }
+        let figures = item.figures(side: set.side, locale: locale).map { figure in
+            [figure.number, figure.unit].filter { !$0.isEmpty }.joined(separator: " ")
+        }
+        let round = set.round.formatted(.number.locale(locale))
+        return "Set \(round): " + figures.joined(separator: " · ")
+    }
+
+    /// While the current exercise rests between its sets, the beat its pulse takes on.
+    var restBeat: RestBeat? {
+        guard !reduceMotion, let rest = live?.rest(override: restOverride),
+              !rest.isBetweenExercises, let workout = session.workout
+        else { return nil }
+        return RestBeat(
+            starts: workout.date(ofClock: rest.startClock),
+            ends: workout.date(ofClock: rest.endClock),
+            pausedLeft: workout.isPaused ? rest.remaining(atClock: workout.clock(at: .now)) : nil,
+        )
+    }
+
     /// The dot crossing the rail for the rest, from the log, from the row left's node to the
     /// next's.
     var restTravel: RailTravel<RoutineExercise.ID>? {
-        guard let resting, let workout = session.workout else { return nil }
+        guard let resting, resting.isBetweenExercises, let workout = session.workout
+        else { return nil }
         return RailTravel(
             from: resting.after.row,
             to: resting.next.row,
@@ -175,7 +268,13 @@ extension RoutineScreen {
         bars: SetProgress?,
     ) -> some View {
         LabelWithRest(
-            label: rowLabel(item, current: current, on: set, bars: bars),
+            label: rowLabel(
+                item,
+                current: current,
+                on: set,
+                bars: bars,
+                setRest: setRest(of: item.id, current: current),
+            ),
             rest: restBlock(under: item.id),
         )
     }

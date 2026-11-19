@@ -1,20 +1,34 @@
 extension WorkoutPhase {
-    /// A rest between exercises, from the log until it ends.
+    /// A rest after a set, from the log until it ends: between exercises, or between two sets of
+    /// one (`isWithinExercise`), where the rest takes the place of the set's numbers.
     public struct Resting: Equatable, Sendable {
         /// The set logged.
         public let set: PlannedSet
         public let isBack: Bool
         public let startsRound: Bool
+        public let isWithinExercise: Bool
         public internal(set) var beat: Beat
 
         public enum Beat: Comparable, Sendable {
             /// Logged, and not yet drawn.
             case logged
-            /// Drawn: the row left closing, the rest opening under it.
+            /// Drawn: the row left closing and the rest opening under it, or, within one
+            /// exercise, the rest and the next set swapping places.
             case shown
-            /// The close is over: nothing moves but the countdown and the dot.
+            /// The change is over: nothing moves but the countdown and the dot.
             case settled
+            /// Within one exercise, the rest over: the next set swapping back into the
+            /// numbers' place.
+            case returning
         }
+    }
+
+    /// Within one exercise, the swap back is over: the next set is up.
+    @discardableResult
+    public mutating func settleReturn() -> Bool {
+        guard case let .resting(rest) = self, rest.beat == .returning else { return false }
+        self = .running
+        return true
     }
 
     /// A rest's opening is over: the row left has closed.
@@ -30,7 +44,13 @@ extension WorkoutPhase {
     /// log, its pulse setting off from where the rest's dot stopped. Only once the rest is drawn.
     @discardableResult
     public mutating func endRest() -> Bool {
-        guard case let .resting(rest) = self, rest.beat >= .shown else { return false }
+        guard case var .resting(rest) = self, rest.beat >= .shown, rest.beat < .returning
+        else { return false }
+        guard !rest.isWithinExercise else {
+            rest.beat = .returning
+            self = .resting(rest)
+            return true
+        }
         self = .movingOn(Move(
             set: rest.set,
             isBack: rest.isBack,
@@ -40,7 +60,25 @@ extension WorkoutPhase {
         return true
     }
 
-    /// The rest between exercises under way, if one is.
+    /// From Start's press until the first exercise has grown: the key is Start's.
+    public var isStarting: Bool {
+        self == .starting(.pressed) || self == .starting(.growing)
+    }
+
+    /// The set logged that stays on its exercise, shown as still to do until the line rolls on.
+    public var held: PlannedSet? {
+        guard case let .held(set) = self else { return nil }
+        return set
+    }
+
+    /// As a workout ends, it as it was, until its time has faded: the time key's glass stays in
+    /// the bar while the time fades out of it.
+    public var endingWorkout: Workout? {
+        guard case let .ending(ending) = self, ending.beat < .timeGone else { return nil }
+        return ending.workout
+    }
+
+    /// The rest under way, if one is.
     public var resting: Resting? {
         guard case let .resting(rest) = self else { return nil }
         return rest
