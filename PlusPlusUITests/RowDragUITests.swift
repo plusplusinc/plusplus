@@ -1,14 +1,15 @@
 import XCTest
 
 /// Dragging, joining, and deleting rows with real touches over the scroll view, on nine seeded
-/// rows that run past one screen, and then Create's add on that long a routine. Where a drag
+/// rows that run past one screen, and then Create's add on that long a routine and the created
+/// exercise's Delete from its hold menu. Where a drag
 /// lands, what a node's span makes, and which neighbor a rest pairs with are unit-tested in the
 /// package; this checks each gesture once, that it reaches that arithmetic.
 ///
 /// `nonisolated` because XCTestCase's initializers are; the test drives the UI on the main actor.
 final nonisolated class RowDragUITests: XCTestCase {
     /// Reordering, supersets, and deleting, on the nine rows `testRenameAtDefaultSize` adds,
-    /// seeded.
+    /// seeded; then a created exercise, added and deleted.
     @MainActor
     func testDragAndDeleteRows() {
         let app = XCUIApplication()
@@ -41,11 +42,13 @@ final nonisolated class RowDragUITests: XCTestCase {
             XCTAssertTrue(app.createdSheetOpens(), "The created row's sheet isn't on Customize")
             app.swipeSheetDown(titled: "Customize")
             XCTAssertTrue(name.disappears(), "A swipe down left the sheet up")
+            XCTAssertEqual(app.exerciseRows.count, count + 1, "The swipe down took the row")
             XCTAssertTrue(app.lastRowClearsAddExercise(), "The created row rests under the +")
         }
     }
 
-    /// Back in Add exercise, the search lists the exercise Create made; held, its menu offers
+    /// Back in Add exercise, the search lists the exercise `createOnALongRoutine` made, which
+    /// this needs run first; held, its menu offers
     /// Customize… and Delete, which asks in a centered alert and then takes it from the list and
     /// its row from the routine, its name free to create again. A built-in's menu is
     /// `RoutineDrawerUITests`'. That a delete removes its rows, and the question's count, are the

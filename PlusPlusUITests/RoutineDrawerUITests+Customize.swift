@@ -91,6 +91,7 @@ extension RoutineDrawerUITests {
             XCTAssertTrue(first.appears(), "Back didn't come to the list")
             XCTAssertEqual(app.exerciseRows.count, count, "The hold added the exercise")
             let close = app.buttons["Close"]
+            XCTAssertTrue(close.settles(), "Close kept moving")
             close.tap()
             XCTAssertTrue(close.disappears(), "Close left the picker up")
         }

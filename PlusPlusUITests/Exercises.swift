@@ -106,8 +106,7 @@ extension XCUIApplication {
 
     /// Types `text` into the open search through the app, whose focused field takes it: XCTest
     /// reads the bar's field itself as unfocused while it has the keyboard, and the field's own
-    /// `typeText` refuses an element without focus. One call types the whole text, where a tap
-    /// on each key cost about 0.4 s.
+    /// `typeText` refuses an element without focus.
     func typeIntoSearch(_ text: String) {
         typeText(text)
     }
