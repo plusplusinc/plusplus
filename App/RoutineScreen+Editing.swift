@@ -66,15 +66,29 @@ extension RoutineScreen {
     /// Removes a row. The last one takes Start down and the + with it after `footDelay`: at once
     /// from a swipe, and from the exercise sheet's Remove once the sheet has gone.
     func delete(_ id: RoutineExercise.ID, footDelay: Duration = .zero) {
-        withAnimation(.railChange) {
-            routine.remove(id)
+        leave(footDelay: footDelay) { routine.remove(id) }
+    }
+
+    /// Rows leaving the routine, as `change` takes them, the rows below closing the gap in one
+    /// move, the generated title retyping; if none is left, Start goes down and the + with it
+    /// after `footDelay`. The one motion every removal plays: a row's Remove and swipe, and a
+    /// deleted exercise's rows (`showStoredRoutine(footDelay:)`). With Reduce Motion, the list
+    /// crossfades to its new rows rather than closing the gap.
+    func leave(footDelay: Duration, _ change: () -> Void) {
+        if reduceMotion {
+            withAnimation(Self.crossfadeCurve) {
+                listChanges += 1
+                change()
+            }
+        } else {
+            withAnimation(.railChange, change)
         }
         settleFoot(after: footDelay)
     }
 
     /// A row's sheet, its More menu's Customize… pushing the exercise's form inside it. Each
-    /// change shows in the routine behind it as it is stored; a Delete there takes the row and
-    /// shuts the sheet.
+    /// change shows in the routine behind it as it is stored; a Delete there shuts the sheet,
+    /// still on the form, and then takes the exercise's rows (`deleteExercise(_:closing:)`).
     @ViewBuilder
     func exerciseSheet(_ opened: RowSheet) -> some View {
         let id = opened.id
@@ -84,18 +98,14 @@ extension RoutineScreen {
                 partners: routine.partnerNames(of: id),
                 parts: routine.sheetParts(of: id),
                 rounds: roundSteps(of: id),
-                customize: { back in
+                customize: { _ in
+                    let exercise = item.wrappedValue.exercise.id
                     CustomizeScreen(
-                        id: item.wrappedValue.exercise.id,
+                        id: exercise,
                         session: session,
                         namer: namer,
-                        onStored: {
-                            showStoredRoutine()
-                            if row(id) == nil {
-                                session.closeRowSheet()
-                            }
-                        },
-                        back: back,
+                        onStored: { showStoredRoutine() },
+                        onDelete: { await deleteExercise(exercise, closing: .rowSheet) },
                     )
                 },
                 onDelete: { delete(id, footDelay: Self.exerciseSheetGone) },
@@ -120,18 +130,20 @@ extension RoutineScreen {
                 isPicking = false
                 add(exercise) { createdWait = CreatedWait(row: $0, wasIdle: wasIdle) }
             },
-            routineCount: { session.routines(using: $0).count },
-            onDelete: { id in
-                await session.deleteExercise(id, weightUnit: WeightUnit(region: locale))
-                showStoredRoutine()
+            deleteMessage: { id in
+                DeleteQuestion.message(
+                    routineCount: session.routines(using: id).count,
+                    usedByOpenRoutine: session.openRoutineUses(id),
+                )
             },
+            onDelete: { await deleteExercise($0, closing: .nothing) },
             customize: { id, back in
                 CustomizeScreen(
                     id: id,
                     session: session,
                     namer: namer,
-                    onStored: showStoredRoutine,
-                    back: back,
+                    onStored: { showStoredRoutine() },
+                    onDelete: { await deleteExercise(id, closing: .pop(back: back)) },
                 )
             },
         )

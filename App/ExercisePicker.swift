@@ -23,9 +23,10 @@ struct ExercisePicker<Customize: View>: View {
     var onSearchOpen: () -> Void = { }
     /// Stores the exercise, closes the sheet, and adds its row.
     let onCreate: (CreatedExercise) async -> Void
-    /// How many routines use the exercise, for Delete's question.
-    let routineCount: (Exercise.ID) -> Int
-    /// Deletes the created exercise and its rows.
+    /// Delete's question for the exercise, below its title (`DeleteQuestion`).
+    let deleteMessage: (Exercise.ID) -> String
+    /// Deletes the created exercise and its rows, from the confirming tap, showing its row
+    /// leave the list (`RoutineScreen.deleteExercise(_:closing:)`).
     let onDelete: (Exercise.ID) async -> Void
     /// The exercise's Customize form; its closure goes back to the list.
     @ViewBuilder let customize: (Exercise.ID, _ back: @escaping () -> Void) -> Customize
@@ -71,7 +72,7 @@ struct ExercisePicker<Customize: View>: View {
                 Task { await onDelete(exercise.id) }
             }
         } message: { exercise in
-            Text(ExerciseForm.deleteMessage(routineCount: routineCount(exercise.id)))
+            Text(deleteMessage(exercise.id))
         }
     }
 
@@ -130,8 +131,8 @@ private struct HoldMenu: ViewModifier {
 #Preview {
     ExercisePicker(exercises: .builtIn) { _ in } onCreate: {
         Exercise(created: $0)
-    } routineCount: { _ in
-        0
+    } deleteMessage: { _ in
+        ""
     } onDelete: { _ in
     } customize: { _, _ in
         EmptyView()

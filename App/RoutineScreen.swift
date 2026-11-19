@@ -142,15 +142,12 @@ struct RoutineScreen: View {
         }
     }
 
-    /// Takes up the session's routine once a created exercise's Customize, inside Add exercise,
-    /// has changed it in the store: its rows read the new settings, or are gone with a Delete.
-    /// Not saved again: it is the stored routine.
-    func showStoredRoutine() {
-        withAnimation(.railChange) {
-            shownRoutine = session.current
-        }
-        // A Delete there can leave it empty: Start and the + go down with its last row.
-        settleFoot(after: .zero)
+    /// Takes up the session's routine once an exercise's change has reached the store: its rows
+    /// read the new settings, or leave as a removed row does with a Delete. Not saved again: it
+    /// is the stored routine. A Delete can leave it empty: Start and the + go down after
+    /// `footDelay`, as after the row's own Remove.
+    func showStoredRoutine(footDelay: Duration = .zero) {
+        leave(footDelay: footDelay) { shownRoutine = session.current }
     }
 
     /// The name made for the routine from its exercises, which a chosen name hides and which

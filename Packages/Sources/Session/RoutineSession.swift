@@ -341,14 +341,16 @@ public final class RoutineSession {
 extension RoutineSession {
     /// Lets every edit to the open routine land, then stores `change` to the exercises,
     /// and reads the open routine and the saved ones back, so each shows what it did to their
-    /// rows. The list takes `listing` only once the change is stored, so a refused or failed
-    /// change shows nowhere, and a form on the exercise stays up while it saves. Refused while a
-    /// switch is under way, and holds off Start and a switch while it runs. With no store,
-    /// nothing changes.
+    /// rows. The list and the open routine take the change only once it is stored, so a refused
+    /// or failed change shows nowhere, and a form on the exercise stays up while it saves; then
+    /// they take it in one step, which `showing` runs when and how the caller chooses, as a
+    /// delete waits for its sheet to go. Refused while a switch is under way, and holds off
+    /// Start and a switch while it runs. With no store, nothing changes.
     func changeExercises(
         weightUnit: WeightUnit,
         storing change: (RoutineStore) async throws -> Void,
-        listing: (ExerciseList) -> ExerciseList,
+        listing: @escaping (ExerciseList) -> ExerciseList,
+        showing: (_ show: () -> Void) async -> Void = { $0() },
     ) async {
         guard !isSwitching, let store else { return }
         isSwitching = true
@@ -356,10 +358,14 @@ extension RoutineSession {
         await finishSaving()
         do {
             try await change(store)
-            exercises = listing(exercises)
             // Gone only if it was left with nothing: it reads as that, under its id.
-            current = try await store.routine(current.id, weightUnit: weightUnit)
+            let stored = try await store.routine(current.id, weightUnit: weightUnit)
                 ?? Routine(id: current.id, name: current.name)
+            await showing {
+                // The list as it is by then: a Create can land while `showing` waits.
+                exercises = listing(exercises)
+                current = stored
+            }
         } catch {
             Logger.session.error("The exercise change didn't save: \(error)")
         }

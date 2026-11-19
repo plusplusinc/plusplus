@@ -54,13 +54,25 @@ extension RoutineSession {
         )
     }
 
-    /// Deletes a created exercise, and its rows from every routine that uses it.
-    public func deleteExercise(_ id: Exercise.ID, weightUnit: WeightUnit) async {
+    /// Deletes a created exercise, and its rows from every routine that uses it. Once it is
+    /// stored, `showing` gets the step that takes it from the list and the open routine, to run
+    /// when the screen is ready to show it go; the store holds the delete either way.
+    public func deleteExercise(
+        _ id: Exercise.ID,
+        weightUnit: WeightUnit,
+        showing: (_ show: () -> Void) async -> Void = { $0() },
+    ) async {
         await changeExercises(
             weightUnit: weightUnit,
             storing: { try await $0.deleteExercise(id) },
             listing: { $0.removing(id) },
+            showing: showing,
         )
+    }
+
+    /// Whether the open routine has a row of `id`: the routine a delete's question names first.
+    public func openRoutineUses(_ id: Exercise.ID) -> Bool {
+        current.exercises.contains { $0.exercise.id == id }
     }
 
     /// The routines with a row of `id`, the latest opened or edited first.

@@ -23,9 +23,10 @@ import WorkoutStore
 /// question.
 struct ExerciseForm: View {
     /// What the form ends in: Delete exercise for one someone created, Clear customizations for
-    /// a built-in, with the settings it shipped with.
+    /// a built-in, with the settings it shipped with. Delete's question names the open routine
+    /// first when it uses the exercise (`DeleteQuestion`).
     enum Ending {
-        case delete(() async -> Void)
+        case delete(usedByOpenRoutine: Bool, () async -> Void)
         case clear(original: ExerciseSettings, () async -> Void)
     }
 
@@ -155,7 +156,8 @@ struct ExerciseForm: View {
             .listRowBackground(Color.pp(.surface))
             usedInSection
             switch ending {
-            case let .delete(onDelete): deleteSection(onDelete)
+            case let .delete(usedByOpen, onDelete):
+                deleteSection(usedByOpenRoutine: usedByOpen, onDelete)
             case let .clear(original, onClear): clearSection(original, onClear)
             }
         }
@@ -232,7 +234,10 @@ struct ExerciseForm: View {
             + String(localized: "Sets, reps, and weights in your routines stay.")
     }
 
-    private func deleteSection(_ onDelete: @escaping () async -> Void) -> some View {
+    private func deleteSection(
+        usedByOpenRoutine: Bool,
+        _ onDelete: @escaping () async -> Void,
+    ) -> some View {
         Section {
             Button("Delete exercise", role: .destructive) {
                 isAskingToDelete = true
@@ -253,23 +258,13 @@ struct ExerciseForm: View {
                     }
                 }
             } message: {
-                Text(Self.deleteMessage(routineCount: usedIn.count))
+                Text(DeleteQuestion.message(
+                    routineCount: usedIn.count,
+                    usedByOpenRoutine: usedByOpenRoutine,
+                ))
             }
         }
         .listRowBackground(Color.pp(.surface))
-    }
-
-    /// The count, not the names: Used in has those. Delete's question here and in Add
-    /// exercise's hold menu.
-    static func deleteMessage(routineCount: Int) -> String {
-        let routines = switch routineCount {
-        case 0: String(localized: "No routine uses it.")
-        case 1: String(localized: "It will be removed from the routine that uses it.")
-        default: String(
-                localized: "It will be removed from the \(routineCount) routines that use it.",
-            )
-        }
-        return routines + " " + String(localized: "Deleting doesn’t affect your workout history.")
     }
 
     static func routineCount(_ count: Int) -> String {
@@ -332,7 +327,7 @@ struct UsedInList: View {
             exercises: .builtIn,
             usedIn: ["PT day A", "Total body"],
             onSave: { _ in },
-            ending: .delete { },
+            ending: .delete(usedByOpenRoutine: true) { },
         )
     }
 }
