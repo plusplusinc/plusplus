@@ -67,10 +67,11 @@ extension RoutineDrawerUITests {
     /// built-in's offers Customize… alone, which pushes its form, and back finds
     /// the list. Create closes the sheet, adds the row, and opens the row's own sheet on the
     /// exercise's form, which a swipe down closes with the row left in. Back in Add exercise,
-    /// the search lists it; held, it also offers Delete, which asks in a centered alert and then
-    /// takes it from the list and its row from the routine, its name free to create again. That
-    /// a delete removes its rows, and the question's count, are the package's
-    /// (`RoutineStoreCustomizeTests`, `RoutineSessionExerciseTests`).
+    /// the search lists it; held, it also offers Delete, which asks in a centered alert, naming
+    /// the routine behind the sheet, and then takes it from the list and its row from the
+    /// routine, its name free to create again. That a delete removes its rows, and the
+    /// question's wording, are the package's (`RoutineStoreCustomizeTests`,
+    /// `RoutineSessionExerciseTests`, `DeleteQuestionTests`).
     func holdMenuCustomizesAndDeletes(in app: XCUIApplication) {
         let name = app.textFields["customize.name"]
         let customize = app.buttons["Customize…"]
@@ -105,7 +106,11 @@ extension RoutineDrawerUITests {
             XCTAssertTrue(delete.appears(), "A created one's hold menu offers no Delete")
             XCTAssertTrue(customize.exists, "A created one's hold menu offers no Customize…")
             delete.tap()
-            app.answerAlert("Delete Zq?", with: "Delete exercise")
+            let message = app.answerAlert("Delete Zq?", with: "Delete exercise")
+            XCTAssertTrue(
+                message.hasPrefix("It will be removed from this routine."),
+                "The question doesn't name the routine behind the sheet: \(message)",
+            )
             XCTAssertTrue(row.disappears(), "The deleted exercise is still listed")
             XCTAssertTrue(create.appears(), "Its name isn't free to create again")
             // Closing the search brings Close back, out of the closing field.

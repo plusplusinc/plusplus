@@ -116,6 +116,24 @@ struct RoutineSessionExerciseTests {
         #expect(saved.exercises.isEmpty)
     }
 
+    @Test("A delete is stored at once, but lists and opens without it only as it's shown")
+    func deleteShowsWhenAsked() async throws {
+        let created = CreatedExercise(name: "Cable curl", muscleGroups: [.arms])
+        let (session, _) = try await sessionUsing(created)
+        #expect(session.openRoutineUses(created.id))
+        await session.deleteExercise(created.id, weightUnit: .pounds) { show in
+            // The form on it, and the routine's row, still have it while a sheet goes.
+            #expect(session.exercises.created(id: created.id) == created)
+            #expect(session.openRoutineUses(created.id))
+            let stored = try? await relaunch().exercises()
+            #expect(stored != nil && stored?.created(id: created.id) == nil)
+            show()
+            #expect(session.exercises.created(id: created.id) == nil)
+            #expect(!session.openRoutineUses(created.id))
+        }
+        #expect(session.current.exercises.map(\.exercise.name) == ["Push-up"])
+    }
+
     @Test("A change that can't be stored leaves the list as it was")
     func unstoredChangeListsNothing() async {
         let session = RoutineSession(routine: Routine(), store: nil, namer: .muscleGroupsOnly)
