@@ -16,16 +16,20 @@ import WorkoutStore
 /// as its edit ends (Return, a tap elsewhere, or going back), never per keystroke. A name that
 /// can't be saved (empty, or another exercise's) goes back to the stored one as its edit ends.
 /// Below the settings, Used in reads how many routines have a row of it and opens their names
-/// (`UsedInList`); last, Delete exercise, in red, asks first, with that count. A built-in's
+/// (`UsedInList`); last, Delete exercise, in red, asks first, with that count, naming the open
+/// routine first when it uses the exercise (`DeleteQuestion`); confirmed, the form stays as it
+/// is while what shows it closes, and its host shows the delete in beats
+/// (`RoutineScreen.deleteExercise(_:closing:)`). A built-in's
 /// form ends instead in Clear customizations, red, disabled while nothing differs from how it
 /// shipped; it asks first, listing what changed, and puts the form back as shipped. Both ask in
 /// a centered alert, with Cancel. There is no footer: what changed shows only in Clear's
 /// question.
 struct ExerciseForm: View {
     /// What the form ends in: Delete exercise for one someone created, Clear customizations for
-    /// a built-in, with the settings it shipped with.
+    /// a built-in, with the settings it shipped with. Delete's question names the open routine
+    /// first when it uses the exercise (`DeleteQuestion`).
     enum Ending {
-        case delete(() async -> Void)
+        case delete(usedByOpenRoutine: Bool, () async -> Void)
         case clear(original: ExerciseSettings, () async -> Void)
     }
 
@@ -155,7 +159,8 @@ struct ExerciseForm: View {
             .listRowBackground(Color.pp(.surface))
             usedInSection
             switch ending {
-            case let .delete(onDelete): deleteSection(onDelete)
+            case let .delete(usedByOpen, onDelete):
+                deleteSection(usedByOpenRoutine: usedByOpen, onDelete)
             case let .clear(original, onClear): clearSection(original, onClear)
             }
         }
@@ -232,13 +237,17 @@ struct ExerciseForm: View {
             + String(localized: "Sets, reps, and weights in your routines stay.")
     }
 
-    private func deleteSection(_ onDelete: @escaping () async -> Void) -> some View {
+    private func deleteSection(
+        usedByOpenRoutine: Bool,
+        _ onDelete: @escaping () async -> Void,
+    ) -> some View {
         Section {
             Button("Delete exercise", role: .destructive) {
                 isAskingToDelete = true
             }
             .frame(maxWidth: .infinity)
-            .disabled(isDeleting)
+            // Not disabled: dimmed, it grayed out on the form as the sheet went down with it.
+            .allowsHitTesting(!isDeleting)
             // A centered alert, not a dialog anchored to the button (decided 2026-11-17).
             .alert("Delete \(stored.name)?", isPresented: $isAskingToDelete) {
                 Button("Cancel", role: .cancel) { }
@@ -253,23 +262,13 @@ struct ExerciseForm: View {
                     }
                 }
             } message: {
-                Text(Self.deleteMessage(routineCount: usedIn.count))
+                Text(DeleteQuestion.message(
+                    routineCount: usedIn.count,
+                    usedByOpenRoutine: usedByOpenRoutine,
+                ))
             }
         }
         .listRowBackground(Color.pp(.surface))
-    }
-
-    /// The count, not the names: Used in has those. Delete's question here and in Add
-    /// exercise's hold menu.
-    static func deleteMessage(routineCount: Int) -> String {
-        let routines = switch routineCount {
-        case 0: String(localized: "No routine uses it.")
-        case 1: String(localized: "It will be removed from the routine that uses it.")
-        default: String(
-                localized: "It will be removed from the \(routineCount) routines that use it.",
-            )
-        }
-        return routines + " " + String(localized: "Deleting doesn’t affect your workout history.")
     }
 
     static func routineCount(_ count: Int) -> String {
@@ -332,7 +331,7 @@ struct UsedInList: View {
             exercises: .builtIn,
             usedIn: ["PT day A", "Total body"],
             onSave: { _ in },
-            ending: .delete { },
+            ending: .delete(usedByOpenRoutine: true) { },
         )
     }
 }

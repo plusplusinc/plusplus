@@ -67,9 +67,13 @@ struct RoutineScreen: View {
     @State var isConfirmingEnd = false
     /// The scroll in Start's sequence, and how far the list is scrolled.
     @State var scrollBeat = ScrollBeat()
-    /// With Reduce Motion, how many times the list has crossfaded into or out of a workout: each
-    /// a new view, so the old one fades out as the new one fades in.
+    /// With Reduce Motion, how many times the list has crossfaded into or out of a workout, or
+    /// to a deleted exercise's rows gone: each a new view, so the old one fades out as the new
+    /// one fades in.
     @State var listChanges = 0
+    /// A created exercise being deleted, which Add exercise stops listing on its beat, before
+    /// the store takes the delete (`deleteExercise(_:closing:)`).
+    @State var leavingExercise: Exercise.ID?
     /// While the list crossfades, when nothing in it animates but its fade.
     @State var isCrossfading = false
     /// Crossfading up to the list's top, how much of the list going out was under the bar, which
@@ -143,15 +147,9 @@ struct RoutineScreen: View {
         }
     }
 
-    /// Takes up the session's routine once a created exercise's Customize, inside Add exercise,
-    /// has changed it in the store: its rows read the new settings, or are gone with a Delete.
-    /// Not saved again: it is the stored routine.
-    func showStoredRoutine() {
-        withAnimation(.railChange) {
-            shownRoutine = session.current
-        }
-        // A Delete there can leave it empty: Start and the + go down with its last row.
-        settleFoot(after: .zero)
+    /// Shows the routine as the store has it, not saving it again (`showStoredRoutine`).
+    func show(stored: Routine) {
+        shownRoutine = stored
     }
 
     /// The name made for the routine from its exercises, which a chosen name hides and which
@@ -374,13 +372,15 @@ struct RoutineScreen: View {
                 // before.
                 .presentationDetents([.medium, .large], selection: $pickerDetent)
         }
-        // By item, so the sheet keeps its content as it slides away.
+        // By item, so the sheet keeps its content as it slides away; by opening, so each opening
+        // starts from fresh state (`RowSheet.opening`).
         .sheet(item: Binding { editing } set: {
             if $0 == nil {
                 session.closeRowSheet()
             }
         }) { opened in
             exerciseSheet(opened)
+                .id(opened.opening)
         }
         .toolbar { barItems }
     }

@@ -15,7 +15,9 @@ import WorkoutStore
 /// Holding a row opens the system's context menu (`HoldMenu`): Customize… pushes that exercise's
 /// Customize form inside the sheet, for any exercise, and back finds the list as it was; then,
 /// red, Delete for one someone created, asking first in a centered alert with the form's own
-/// question.
+/// question (`DeleteQuestion`). Confirmed, the row leaves the list as the rows below close the
+/// gap, its letter heading with it if it was the letter's last; then, after a rest, its rows
+/// leave the routine behind the sheet (`RoutineScreen.deleteExercise(_:closing:)`).
 struct ExercisePicker<Customize: View>: View {
     let exercises: ExerciseList
     let onPick: (Exercise) -> Void
@@ -23,9 +25,10 @@ struct ExercisePicker<Customize: View>: View {
     var onSearchOpen: () -> Void = { }
     /// Stores the exercise, closes the sheet, and adds its row.
     let onCreate: (CreatedExercise) async -> Void
-    /// How many routines use the exercise, for Delete's question.
-    let routineCount: (Exercise.ID) -> Int
-    /// Deletes the created exercise and its rows.
+    /// Delete's question for the exercise, below its title (`DeleteQuestion`).
+    let deleteMessage: (Exercise.ID) -> String
+    /// Deletes the created exercise and its rows, from the confirming tap, showing its row
+    /// leave the list (`RoutineScreen.deleteExercise(_:closing:)`).
     let onDelete: (Exercise.ID) async -> Void
     /// The exercise's Customize form; its closure goes back to the list.
     @ViewBuilder let customize: (Exercise.ID, _ back: @escaping () -> Void) -> Customize
@@ -71,7 +74,7 @@ struct ExercisePicker<Customize: View>: View {
                 Task { await onDelete(exercise.id) }
             }
         } message: { exercise in
-            Text(ExerciseForm.deleteMessage(routineCount: routineCount(exercise.id)))
+            Text(deleteMessage(exercise.id))
         }
     }
 
@@ -130,8 +133,8 @@ private struct HoldMenu: ViewModifier {
 #Preview {
     ExercisePicker(exercises: .builtIn) { _ in } onCreate: {
         Exercise(created: $0)
-    } routineCount: { _ in
-        0
+    } deleteMessage: { _ in
+        ""
     } onDelete: { _ in
     } customize: { _, _ in
         EmptyView()

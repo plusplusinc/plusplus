@@ -1,0 +1,30 @@
+import Foundation
+
+/// What Delete asks before a created exercise goes, in its Customize form and in Add exercise's
+/// hold menu: the routines it will be removed from, by count, not by name (Used in has those),
+/// then that workout history stays.
+public enum DeleteQuestion {
+    /// When the open routine, the one behind the sheet, uses the exercise, it is named first, as
+    /// this routine, and the others are counted after it (decided 2026-11-18); otherwise the
+    /// routines are counted. `routineCount` counts every routine that uses it, the open one
+    /// included.
+    public static func message(routineCount: Int, usedByOpenRoutine: Bool) -> String {
+        let others = routineCount - 1
+        let routines = if usedByOpenRoutine {
+            switch others {
+            case ...0: String(localized: "It will be removed from this routine.")
+            case 1: String(localized: "It will be removed from this routine and 1 other.")
+            default: String(localized: "It will be removed from this routine and \(others) others.")
+            }
+        } else {
+            switch routineCount {
+            case ...0: String(localized: "No routine uses it.")
+            case 1: String(localized: "It will be removed from the routine that uses it.")
+            default: String(
+                    localized: "It will be removed from the \(routineCount) routines that use it.",
+                )
+            }
+        }
+        return routines + " " + String(localized: "Deleting doesn’t affect your workout history.")
+    }
+}
