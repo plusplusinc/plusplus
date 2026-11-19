@@ -109,8 +109,6 @@ struct RoutineScreen: View {
     @State var closingRoomTop: CGFloat?
     /// The pulse that carries the workout from one exercise's node to the next one's.
     @State var railPulse: RailPulse<RoutineExercise.ID>?
-    /// Where the rest's dot was as a − ended its rest, which the move's pulse sets off from.
-    @State var restHandoff: RestHandoff?
     /// Counts the moves to another exercise that have landed on its node, each with a light tick,
     /// lighter than a log's.
     @State var landings = 0
@@ -232,7 +230,7 @@ struct RoutineScreen: View {
                         done: shown?.finishedRows ?? [],
                         isSetHeld: heldSet != nil,
                         pulse: railPulse,
-                        travel: restTravel,
+                        restDot: restDotRow,
                         isMoving: isMovingOn,
                         onMove: move,
                         regroup: regroup,

@@ -1,22 +1,43 @@
 import SwiftUI
 
 /// A pulse to run along a rail, from one row's node to another's: a workout moving on from the
-/// exercise it was on to the next. Each new `run` plays it once (`SetMotion`).
+/// exercise it was on to the next. Each new `run` plays it once (`SetMotion`). With a rest
+/// between two exercises, it is two moves, each a whole pulse: from the node left to the rest,
+/// and at the rest's end from the rest to the next node.
 public struct RailPulse<ID: Hashable>: Equatable {
-    public var from: ID
-    public var to: ID
+    public var from: RailStop<ID>
+    public var to: RailStop<ID>
     public var way: SetMotion.Way
     public var run: Int
-    /// After a rest, where its dot was as the rest ended, which it sets off from, rather than
-    /// from the node.
-    public var afterRest: RestHandoff?
 
-    public init(from: ID, to: ID, way: SetMotion.Way, run: Int, afterRest: RestHandoff? = nil) {
+    public init(from: RailStop<ID>, to: RailStop<ID>, way: SetMotion.Way, run: Int) {
         self.from = from
         self.to = to
         self.way = way
         self.run = run
-        self.afterRest = afterRest
+    }
+}
+
+/// Where a pulse sets off or lands: a row's node, or the rest open under a row's label, level
+/// with the middle of the word "Rest"'s capitals, on the rail's line (`RestBlock`). Nothing on
+/// the rail marks the rest: only the dot, while it waits there.
+public enum RailStop<ID: Hashable>: Hashable {
+    case node(ID)
+    case rest(after: ID)
+
+    /// The row whose node, or whose rest, it is.
+    var row: ID {
+        switch self {
+        case let .node(id), let .rest(after: id): id
+        }
+    }
+
+    var isNode: Bool {
+        if case .node = self {
+            true
+        } else {
+            false
+        }
     }
 }
 
@@ -78,11 +99,6 @@ nonisolated struct RailRoute: Equatable {
         distances.last ?? 0
     }
 
-    /// The part of the route between two shares of its length.
-    func part(_ shares: ClosedRange<Double>) -> Self {
-        Self(stretch(from: length * shares.lowerBound, to: length * shares.upperBound))
-    }
-
     /// The point `distance` along the route, held within it.
     func point(at distance: CGFloat) -> CGPoint {
         guard let first = points.first else { return .zero }
@@ -125,26 +141,10 @@ nonisolated struct PulseShape: Shape {
     let restingSize: CGFloat
     /// Which way it goes, which sets its travel's length and curve.
     var way = SetMotion.Way.down
-    /// Which part of a move it plays: all of it, as with no rest; or, between exercises with a
-    /// rest, the leaving leg into the rest, or the arriving leg out of it.
-    var leg = Leg.whole
-    /// Where the node left is, when the route starts elsewhere: a leaving leg's starts where the
-    /// node was at the log, as the node rises with the row closing under it.
-    var nodeLeft: CGPoint?
-
-    /// A pulse's part of a move between exercises (`SetMotion.restLeaveShare`).
-    enum Leg: Equatable {
-        /// From the node left to the next one, as with no rest.
-        case whole
-        /// Out of the node left into the rest, along the route to where the rest's dot crawls
-        /// on, over `SetMotion.restLeave`: pulled out and shot as a whole pulse is, then easing
-        /// out to the crawl's speed `end`, against its average, with no node to join and no plop.
-        case leave(end: Double)
-        /// From the rest's dot into the next node, as the end of a whole pulse, setting off at
-        /// once at the crawl's speed `start`, against its average, in a pulse's time to its
-        /// landing: no node is left behind, since the dot is the mass.
-        case arrive(start: Double)
-    }
+    /// Whether a node is at each end: a rest has none, so nothing is left behind as the pulse
+    /// pulls out of it, and nothing joins it as it lands there.
+    var leavesNode = true
+    var joinsNode = true
 
     /// How much longer the mass is for each point a second of its speed.
     static let stretch: CGFloat = 0.03
@@ -176,28 +176,27 @@ nonisolated struct PulseShape: Shape {
     }
 
     func path(in _: CGRect) -> Path {
-        let start = leg.start
+        let start = SetMotion.travelStart
         // From the log, so the node left, gone to its own color, is never seen before the pulse
         // covers it; it waits there, round, until `travelStart`.
-        let travel = leg.travel(way)
-        let landed = time - start - travel - SetMotion.collapse
-        guard time >= 0, landed < SetMotion.plop, route.length > 0,
+        guard time >= 0, time < Self.runEnd(way), route.length > 0,
               let target = route.points.last
         else { return Path() }
+        let landed = time - SetMotion.landing(way)
         if landed >= 0 {
-            let squash = leg.isLeave ? 0 : CGFloat(SetMotion.squash(at: landed))
+            let squash = CGFloat(SetMotion.squash(at: landed))
             let width = size * (1 + CGFloat(SetMotion.plopWiden) * squash)
             let height = size * (1 - CGFloat(SetMotion.plopFlatten) * squash)
             return Path(ellipseIn: CGRect(
                 x: target.x - width / 2, y: target.y - height / 2, width: width, height: height,
             ))
         }
+        let travel = SetMotion.travel(way)
         let share = min(max((time - start) / travel, 0), 1)
         let total = route.length
-        let (distance, speed) = leg.motion(at: share, way)
-        let headAlong = total * CGFloat(distance)
+        let headAlong = total * CGFloat(SetMotion.distance(at: share, way))
         var length = min(
-            size + Self.stretch * CGFloat(speed) * total / travel,
+            size + Self.stretch * CGFloat(SetMotion.speed(at: share, way)) * total / travel,
             size * Self.longest,
         )
         // It reaches the node still moving, stretched, and gathers into a circle on it, its
@@ -223,30 +222,22 @@ nonisolated struct PulseShape: Shape {
         var shape = mass
             .strokedPath(StrokeStyle(lineWidth: width, lineCap: .round, lineJoin: .round))
             .union(head.path)
-        if !leg.isArrive {
-            shape = joiningNodeLeft(shape, tail: tail)
-        }
-        let next = Circle(center: target, radius: restingSize / 2)
-        if !leg.isLeave, next.distance(to: head) < next.radius + head.radius {
-            shape = shape.union(next.path)
-            if let neck = Self.neck(head, next, goo: size * Self.goo) {
-                shape = shape.union(neck)
-            }
-        }
-        return shape
-    }
-
-    /// `shape` with the node left, while the mass still overlaps it, its tail held there, or a
-    /// neck joins them.
-    private func joiningNodeLeft(_ shape: Path, tail: Circle) -> Path {
-        var shape = shape
-        let left = Circle(center: nodeLeft ?? route.points[0], radius: restingSize / 2)
-        let neck = Self.neck(left, tail, goo: size * Self.goo)
-        if neck != nil || left.distance(to: tail) < left.radius + tail.radius {
+        let left = Circle(center: route.points[0], radius: restingSize / 2)
+        // Attached while the mass still overlaps the node left, its tail held there, or a neck
+        // joins them.
+        let neck = leavesNode ? Self.neck(left, tail, goo: size * Self.goo) : nil
+        if leavesNode, neck != nil || left.distance(to: tail) < left.radius + tail.radius {
             shape = shape.union(left.path)
         }
         if let neck {
             shape = shape.union(neck)
+        }
+        let next = Circle(center: target, radius: restingSize / 2)
+        if joinsNode, next.distance(to: head) < next.radius + head.radius {
+            shape = shape.union(next.path)
+            if let neck = Self.neck(head, next, goo: size * Self.goo) {
+                shape = shape.union(neck)
+            }
         }
         return shape
     }
@@ -327,9 +318,8 @@ struct RailPulseRun: View {
     let route: RailRoute?
     let way: SetMotion.Way
     let run: Int
-    /// After a rest, where its dot was: the route is the part from there on, and it sets off at
-    /// the dot's speed.
-    var afterRest: RestHandoff?
+    var leavesNode = true
+    var joinsNode = true
     @ScaledMetric(relativeTo: .body) private var size = currentNodeSize
     @ScaledMetric(relativeTo: .body) private var restingSize = railNodeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -340,23 +330,16 @@ struct RailPulseRun: View {
         KeyframeAnimator(initialValue: -1.0, trigger: run) { time in
             // Only during a run: between runs there is nothing to draw.
             if time >= 0, !reduceMotion {
-                let whole = route ?? RailRoute([])
-                let from = min(afterRest?.share ?? 0, 0.99)
-                let leg = afterRest.map { rest in
-                    PulseShape.Leg.arrive(
-                        start: rest.speed * (SetMotion.travelStart + SetMotion.travel(way))
-                            / (1 - from),
-                    )
-                } ?? .whole
-                let shape = PulseShape(
+                PulseShape(
                     time: time,
-                    route: afterRest == nil ? whole : whole.part(from ... 1),
+                    route: route ?? RailRoute([]),
                     size: size,
                     restingSize: restingSize,
                     way: way,
-                    leg: leg,
+                    leavesNode: leavesNode,
+                    joinsNode: joinsNode,
                 )
-                shape.fill(.pp(.accent))
+                .fill(.pp(.accent))
             }
         } keyframes: { _ in
             PulseShape.run(way)

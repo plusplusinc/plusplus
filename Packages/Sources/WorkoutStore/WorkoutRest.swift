@@ -51,11 +51,6 @@ public struct WorkoutRest: Equatable, Sendable {
     public func isOver(atClock clock: Double) -> Bool {
         remaining(atClock: clock) <= 0
     }
-
-    /// Whether it leads to another exercise, rather than the same one's next set.
-    public var isBetweenExercises: Bool {
-        next.row != after.row
-    }
 }
 
 extension LiveWorkout {

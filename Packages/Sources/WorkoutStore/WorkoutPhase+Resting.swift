@@ -15,6 +15,8 @@ extension WorkoutPhase {
             /// Drawn: the row left closing and the rest opening under it, or, within one
             /// exercise, the rest and the next set swapping places.
             case shown
+            /// Between exercises, the pulse has landed at the rest, where the dot waits.
+            case landed
             /// The change is over: nothing moves but the countdown and the dot.
             case settled
             /// Within one exercise, the rest over: the next set swapping back into the
@@ -31,24 +33,41 @@ extension WorkoutPhase {
         return true
     }
 
+    /// Between exercises, the move into the rest has landed: the dot waits at the rest.
+    @discardableResult
+    public mutating func landRest() -> Bool {
+        guard case var .resting(rest) = self, !rest.isWithinExercise, rest.beat == .shown
+        else { return false }
+        rest.beat = .landed
+        self = .resting(rest)
+        return true
+    }
+
     /// A rest's opening is over: the row left has closed.
     @discardableResult
     public mutating func settleRest() -> Bool {
-        guard case var .resting(rest) = self, rest.beat == .shown else { return false }
+        guard case var .resting(rest) = self, rest.beat == .shown || rest.beat == .landed
+        else { return false }
         rest.beat = .settled
         self = .resting(rest)
         return true
     }
 
-    /// A rest is over: the move to the next exercise goes on as a move with no rest does from its
-    /// log, its pulse setting off from where the rest's dot stopped. Only once the rest is drawn.
+    /// A rest is over: the move to the next exercise plays from the rest as a move with no rest
+    /// does from its log, or with no motion (`moves`), fades on. Only once the rest is drawn and,
+    /// between exercises, the move into it over.
     @discardableResult
-    public mutating func endRest() -> Bool {
-        guard case var .resting(rest) = self, rest.beat >= .shown, rest.beat < .returning
+    public mutating func endRest(moves: Bool = true) -> Bool {
+        guard case var .resting(rest) = self, rest.beat < .returning,
+              rest.beat >= (rest.isWithinExercise ? .shown : .settled)
         else { return false }
         guard !rest.isWithinExercise else {
             rest.beat = .returning
             self = .resting(rest)
+            return true
+        }
+        guard moves else {
+            self = .fadingOn(rest.set, isShown: false)
             return true
         }
         self = .movingOn(Move(

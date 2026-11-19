@@ -164,6 +164,16 @@ private struct RestRoom: View, Animatable {
     let locale: Locale
     var line: CGFloat
     var open: CGFloat
+    /// The cap height of "Rest"'s font (`Font.ppCurrentProgress`), SF Mono medium at body's size
+    /// at the default text size, scaled with it.
+    @ScaledMetric(relativeTo: .body) private var capHeight = UIFont
+        .monospacedSystemFont(
+            ofSize: UIFont.preferredFont(
+                forTextStyle: .body,
+                compatibleWith: UITraitCollection(preferredContentSizeCategory: .large),
+            ).pointSize,
+            weight: .medium,
+        ).capHeight
 
     var animatableData: AnimatablePair<CGFloat, CGFloat> {
         get { AnimatablePair(line, open) }
@@ -175,6 +185,12 @@ private struct RestRoom: View, Animatable {
         RestRoomLayout(line: line, open: open) {
             HStack(alignment: .firstTextBaseline, spacing: 0) {
                 Text("Rest")
+                // Where the workout's dot waits through the rest, on the rail: level with the
+                // middle of the word's capitals, standing on its baseline, not the line's box.
+                Color.clear
+                    .frame(width: 0, height: capHeight)
+                    .alignmentGuide(.firstTextBaseline) { $0[.bottom] }
+                    .restStop(line > 0 || open > 0)
                 Text(AttributedString.monoNumbers(
                     " " + RestBlock.text(Double(block.length), locale: locale),
                     font: .ppCurrentProgress,

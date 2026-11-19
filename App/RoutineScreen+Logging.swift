@@ -53,8 +53,11 @@ extension RoutineScreen {
     /// Which way the move to another exercise under way goes along the rail, which sets the
     /// pulse's travel and when the shift starts.
     var moveWay: SetMotion.Way? {
-        // A rest's opening is a close's, at once, as the dot leaves, so none.
-        phase.move?.way
+        // The move into a rest between exercises is one down the rail, to the rest.
+        if let rest = phase.resting {
+            return !rest.isWithinExercise && rest.beat < .settled ? .down : nil
+        }
+        return phase.move?.way
     }
 
     /// The current exercise as it grows into `set`: at a superset round's end, it shows the round
@@ -197,8 +200,8 @@ extension RoutineScreen {
             growthLift = 0
         }
         railPulse = RailPulse(
-            from: set.row,
-            to: next.row,
+            from: .node(set.row),
+            to: .node(next.row),
             way: way,
             run: (railPulse?.run ?? 0) + 1,
         )
@@ -210,7 +213,7 @@ extension RoutineScreen {
     /// changing under it doesn't land it again (`placeCurrent(_:)`), and the key logs nothing
     /// until it is over. With no `target` worked out ahead, as after a relaunch, the list lands
     /// after.
-    private func crossfadeOn(to next: PlannedSet?, scrollingTo target: CGFloat?) {
+    func crossfadeOn(to next: PlannedSet?, scrollingTo target: CGFloat?) {
         beginCrossfade(scrollingTo: target ?? scrollBeat.scrolledY)
         sequence.run {
             try await crossfade {

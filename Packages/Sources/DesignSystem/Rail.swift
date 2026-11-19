@@ -50,8 +50,9 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     private let isSetHeld: Bool
     /// A pulse from one row's node to another's, as a workout moves on (`RailPulse`).
     private let pulse: RailPulse<RowID>?
-    /// A dot traveling from one row's node to another's for a rest's length (`RailTravel`).
-    private let travel: RailTravel<RowID>?
+    /// The row whose rest the workout's dot waits at, beside the word "Rest", for the rest's
+    /// length: the current node's size and steady green, on bare rail.
+    private let restDot: RowID?
     /// Whether a workout is moving on from one row to another: the rows change height on the
     /// move's animation, so the rail draws every stroke once, as while a row is held.
     private let isMoving: Bool
@@ -122,7 +123,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         done: Set<Data.Element.ID> = [],
         isSetHeld: Bool = false,
         pulse: RailPulse<Data.Element.ID>? = nil,
-        travel: RailTravel<Data.Element.ID>? = nil,
+        restDot: Data.Element.ID? = nil,
         isMoving: Bool = false,
         onMove: ((Data.Element.ID, RailSlot<Data.Element.ID>) -> Void)? = nil,
         regroup: RailRegroup<Data.Element.ID>? = nil,
@@ -137,7 +138,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
             done: done,
             isSetHeld: isSetHeld,
             pulse: pulse,
-            travel: travel,
+            restDot: restDot,
             isMoving: isMoving,
             onMove: onMove,
             regroup: regroup,
@@ -156,7 +157,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         done: Set<RowID> = [],
         isSetHeld: Bool = false,
         pulse: RailPulse<RowID>? = nil,
-        travel: RailTravel<RowID>? = nil,
+        restDot: RowID? = nil,
         isMoving: Bool = false,
         onMove: ((RowID, RailSlot<RowID>) -> Void)? = nil,
         regroup: RailRegroup<RowID>? = nil,
@@ -173,7 +174,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
         self.done = done
         self.isSetHeld = isSetHeld
         self.pulse = pulse
-        self.travel = travel
+        self.restDot = restDot
         self.isMoving = isMoving
         self.onMove = onMove
         self.regroup = regroup
@@ -261,6 +262,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                     onPhase: { dragged(item.id, $0, at: $1) },
                 )
                 .reportingNode(of: item.id)
+                .reportingRestStop(of: item.id)
             }
             // Between the last row and the end view, as the design has it.
             end.padding(.top, data.isEmpty ? 0 : Spacing.xxs)
@@ -288,12 +290,13 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                     route: pulse.flatMap { route($0.from, $0.to, nodes, in: proxy) },
                     way: pulse?.way ?? .down,
                     run: pulse?.run ?? 0,
-                    afterRest: pulse?.afterRest,
+                    leavesNode: pulse?.from.isNode ?? true,
+                    joinsNode: pulse?.to.isNode ?? true,
                 )
-                if let travel, let route = route(travel.from, travel.to, nodes, in: proxy) {
-                    // Comes and goes with the rest, never faded on the moves' animations: the
-                    // pulse takes over from it in the same update.
-                    RailTravelDot(travel: travel, route: route).transition(.identity)
+                if let restDot, let center = point(of: .rest(after: restDot), nodes, in: proxy) {
+                    // Comes and goes with the moves' pulses, never faded on their animations: lit
+                    // under the plop as one lands, gone as the next sets off over it.
+                    RestDot(center: center).transition(.identity)
                 }
             }
         }
@@ -349,27 +352,6 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
     /// The top of the gap the held row is over.
     func gapTop(of drag: RailDragState<RowID>) -> CGFloat {
         gapTop(lifting: drag.lifted, at: drag.slot) ?? 0
-    }
-}
-
-extension Rail {
-    /// The way from `fromID`'s node to `toID`'s, for a pulse or a rest's dot: up a superset's
-    /// loop to its first member, from a later one in the same superset; straight along the rail
-    /// otherwise.
-    private func route(
-        _ fromID: RowID,
-        _ toID: RowID,
-        _ nodes: [AnyHashable: Anchor<CGPoint>],
-        in proxy: GeometryProxy,
-    ) -> RailRoute? {
-        guard let from = nodes[AnyHashable(fromID)].map({ proxy[$0] }),
-              let to = nodes[AnyHashable(toID)].map({ proxy[$0] })
-        else { return nil }
-        let ids = data.map(\.id)
-        guard let start = ids.firstIndex(of: toID), let end = ids.firstIndex(of: fromID),
-              start < end, ids[start ..< end].allSatisfy(links.contains)
-        else { return .line(from: from, to: to) }
-        return .loop(from: from, to: to, x: pen.runX(nodeX: from.x), radius: pen.radius)
     }
 }
 

@@ -226,7 +226,8 @@ public enum WorkoutPhase: Equatable, Sendable {
             ))
         case .nextSet:
             self = .held(set)
-        case let .nextExercise(_, isBack, startsRound) where moves && rests:
+        // With no motion too: the rest crossfades in and out.
+        case let .nextExercise(_, isBack, startsRound) where rests:
             self = .resting(Resting(
                 set: set,
                 isBack: isBack,

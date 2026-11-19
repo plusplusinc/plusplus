@@ -65,7 +65,7 @@ public enum SetMotion {
 
     /// After the last set, when the row starts to close, from the log: as its parts start to go,
     /// so nothing waits; the row's bottom cuts off whatever is still going as it closes.
-    public nonisolated static let closeStart = 0.04
+    public static let closeStart = 0.04
     /// After the last set, the row closing as the list settles on its end, on one curve.
     public nonisolated static let close = 0.65
 
@@ -73,15 +73,6 @@ public enum SetMotion {
     /// a stop with no overshoot. With no pulse to follow, it runs on its own clock.
     public static var closing: Animation {
         .timingCurve(0.42, 0, 0.2, 1, duration: close).delay(closeStart)
-    }
-
-    /// How far through `closing` the rows are, from 0 to 1, `time` seconds after the log.
-    nonisolated static func closed(at time: Double) -> Double {
-        let curve = UnitCurve.bezier(
-            startControlPoint: UnitPoint(x: 0.42, y: 0),
-            endControlPoint: UnitPoint(x: 0.2, y: 1),
-        )
-        return curve.value(at: min(max((time - closeStart) / close, 0), 1))
     }
 
     /// Moving to another exercise, the shift's curve, shared by both rows' heights, the names'
@@ -207,96 +198,9 @@ public enum SetMotion {
 
     // MARK: A rest between exercises
 
-    /// Between two exercises with a rest, the stretch of rail from the node left to the next
-    /// one's is shared by the dot's three legs, each a share of its length: it leaves as a pulse
-    /// does, over `restLeaveShare`, easing out into the rest's speed; crawls `restShare` at that
-    /// one speed for the whole rest; and at 0 runs on from there over `restArriveShare` into the
-    /// next node, plopping and wiggling there with every timing of a move with no rest.
-    /// Leave and arrival take equal shares, so the rest's part of the rail sits centered in the
-    /// stretch (Dave, 2026-11-19).
-    public nonisolated static let restLeaveShare = 0.25
-    public nonisolated static let restShare = 0.5
-    public nonisolated static let restArriveShare = 0.25
-
-    /// Where along the stretch, from 0 to 1, the rest's dot sets off and where it stops: the
-    /// three shares taken against their sum, so a tweak to one needs no other.
-    nonisolated static var restSpan: ClosedRange<Double> {
-        let whole = restLeaveShare + restShare + restArriveShare
-        return restLeaveShare / whole ... (restLeaveShare + restShare) / whole
-    }
-
-    /// The leaving leg, from the log to the crawl: the dot pulls out of the node and shoots off
-    /// as a pulse does, then eases out, long and soft, into the rest's own speed, with no stop
-    /// between. The rows close and the rest opens on `closing`, as it leaves, not after.
-    /// Shorter since its share went to a quarter: over 2 s, a short rest's crawl was nearly the
-    /// leave's own average speed, and the shot out of the node all but went. About the close's
-    /// length, so it reaches the crawl as the rows settle: at 1.2 s the mass sat over the crawl's
-    /// start for half a second, a hold on the screen while the list scrolled.
-    public nonisolated static let restLeave = 0.8
-    /// When, as a share of the leaving leg's travel, it is fastest: it charges up to there on a
-    /// power ease in (`restLeaveCharge`), a pulse's travel and its power, and from there eases
-    /// out on a steep power ease out (`restLeaveEase`) to the crawl's speed: the shot covers most
-    /// of the way before it slows, as a move's does. At 0.12 and powers 4 and 3 it slowed as soon
-    /// as it had charged, and the shot read as a nudge.
-    nonisolated static let restLeavePeak = 0.2
-    nonisolated static let restLeaveCharge = 6.0
-    nonisolated static let restLeaveEase = 5.0
-
-    /// The arriving leg's power ease in, from the crawl's speed into the next node: it sets off
-    /// from the dot at once, with no charge, and slides into the node as a pulse does. It runs
-    /// in a pulse's time to its landing (`landing(.down)`), so every beat after is a move's.
-    nonisolated static let restArrivePower = 4.0
-
-    /// The dot gliding to its new place after −15 s or +15 s, and the countdown's figure turning
-    /// with it.
+    /// The bar under a rest's countdown gliding to its new fill after −15 s or +15 s, and the
+    /// countdown's figure turning with it.
     public static let restGlide = 0.45
-
-    /// The leaving leg's peak speed against its average, for an end speed `end`, also against
-    /// its average: what makes its distance come to 1.
-    private nonisolated static func restLeavePeakSpeed(end: Double) -> Double {
-        let (peak, ease) = (restLeavePeak, restLeaveEase)
-        return (1 - (1 - peak) * end * ease / (ease + 1))
-            / (peak / restLeaveCharge + (1 - peak) / (ease + 1))
-    }
-
-    /// The leaving leg's distance at a share `time` of its travel, ending at the speed `end`,
-    /// against its average: a power ease in to its peak, then a power ease out to `end`.
-    nonisolated static func restLeaveDistance(at time: Double, end: Double) -> Double {
-        let time = min(max(time, 0), 1)
-        let (peak, charge, ease) = (restLeavePeak, restLeaveCharge, restLeaveEase)
-        let top = restLeavePeakSpeed(end: end)
-        let charged = top * peak / charge
-        guard time > peak else {
-            return charged * pow(time / peak, charge)
-        }
-        let out = (time - peak) / (1 - peak)
-        return charged + (1 - peak) * (end * out + (top - end) * (1 - pow(1 - out, ease + 1))
-            / (ease + 1))
-    }
-
-    /// The leaving leg's speed at a share `time` of its travel, against its average.
-    nonisolated static func restLeaveSpeed(at time: Double, end: Double) -> Double {
-        let time = min(max(time, 0), 1)
-        let top = restLeavePeakSpeed(end: end)
-        guard time > restLeavePeak else {
-            return top * pow(time / restLeavePeak, restLeaveCharge - 1)
-        }
-        let out = (time - restLeavePeak) / (1 - restLeavePeak)
-        return end + (top - end) * pow(1 - out, restLeaveEase)
-    }
-
-    /// The arriving leg's distance at a share `time` of its travel, setting off at the speed
-    /// `start`, against its average.
-    nonisolated static func restArriveDistance(at time: Double, start: Double) -> Double {
-        let (time, start) = (min(max(time, 0), 1), min(start, 1))
-        return start * time + (1 - start) * pow(time, restArrivePower)
-    }
-
-    /// The arriving leg's speed at a share `time` of its travel, against its average.
-    nonisolated static func restArriveSpeed(at time: Double, start: Double) -> Double {
-        let (time, start) = (min(max(time, 0), 1), min(start, 1))
-        return start + (1 - start) * restArrivePower * pow(time, restArrivePower - 1)
-    }
 
     // MARK: The timeline
 
