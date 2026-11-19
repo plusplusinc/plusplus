@@ -246,7 +246,8 @@ struct ExerciseForm: View {
                 isAskingToDelete = true
             }
             .frame(maxWidth: .infinity)
-            .disabled(isDeleting)
+            // Not disabled: dimmed, it grayed out on the form as the sheet went down with it.
+            .allowsHitTesting(!isDeleting)
             // A centered alert, not a dialog anchored to the button (decided 2026-11-17).
             .alert("Delete \(stored.name)?", isPresented: $isAskingToDelete) {
                 Button("Cancel", role: .cancel) { }
