@@ -65,6 +65,7 @@ struct RoutineScreen: View {
     @State var sideLogs = 0
     /// Whether the dialog asking how to end the workout shows.
     @State var isConfirmingEnd = false
+    /// Whether the alert asking to delete the routine shows.
     @State var isAskingToDeleteRoutine = false
     /// The scroll in Start's sequence, and how far the list is scrolled.
     @State var scrollBeat = ScrollBeat()
@@ -183,7 +184,8 @@ struct RoutineScreen: View {
             isPresented: $isConfirmingEnd,
             session: session,
             end: end,
-        ).sensoryFeedback(.impact(weight: .light, intensity: 0.6), trigger: landings)
+        )
+        .sensoryFeedback(.impact(weight: .light, intensity: 0.6), trigger: landings)
         .sensoryFeedback(.impact(weight: .medium), trigger: setLogs)
         .sensoryFeedback(.impact(weight: .light), trigger: sideLogs)
         .sensoryFeedback(.impact(weight: .medium), trigger: isStarting) { !$0 && $1 }

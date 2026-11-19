@@ -2,7 +2,7 @@ import DesignSystem
 import SwiftUI
 import WorkoutStore
 
-/// The screen's bar: ++ or End, the title once it is under the bar, and a workout's time.
+/// The screen's bar: ++ or End, the title once it is under the bar, and ••• or a workout's time.
 extension RoutineScreen {
     @ToolbarContentBuilder
     var barItems: some ToolbarContent {

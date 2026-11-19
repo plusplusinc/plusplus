@@ -12,9 +12,9 @@ import WorkoutStore
 @Observable
 public final class RoutineSession {
     /// The routine as it was opened. Changes only on a switch, which gives a fresh screen.
-    public internal(set) var opened: Routine
+    public private(set) var opened: Routine
     /// The open routine as it is now, edits included.
-    public internal(set) var current: Routine
+    public private(set) var current: Routine
     /// Opened through `openDrawer()`, which a workout refuses, and shut through `closeDrawer()`.
     public private(set) var isDrawerOpen = false
     /// The routine screen's open row sheet, through `openRowSheet(_:)` and `closeRowSheet()`.
@@ -32,13 +32,11 @@ public final class RoutineSession {
     @ObservationIgnored var deleting: Set<Exercise.ID> = []
 
     /// The saved routines, latest first, as of the last read, with each routine left since.
-    /// Internal, as what the switches below use, for the extensions that change the list apart
-    /// (`delete(_:)`).
-    var saved: [Routine] = []
-    var isSwitching = false
+    private var saved: [Routine] = []
+    private var isSwitching = false
     /// How many times the routine showing or the list has changed, so a read that one overtook
     /// is dropped.
-    @ObservationIgnored var switches = 0
+    @ObservationIgnored private var switches = 0
 
     /// Nil when the store didn't open: switching works in memory, and nothing saves.
     @ObservationIgnored let store: RoutineStore?
@@ -68,23 +66,6 @@ public final class RoutineSession {
         self.store = store
         (saves, saving) = Self.startSaving(to: store)
         workoutWrites = Self.startWritingWorkouts(to: store)
-    }
-
-    /// A routine to save, and whether to keep it once it is empty, as while its workout runs.
-    private struct RoutineSave {
-        let routine: Routine
-        let keepsEmpty: Bool
-    }
-
-    private enum WorkoutWrite {
-        case save(Workout)
-        case discard(Workout.ID)
-    }
-
-    private enum WorkoutQueueEntry {
-        case write(WorkoutWrite)
-        /// Every write before it has landed.
-        case landed(CheckedContinuation<Void, Never>)
     }
 
     /// Every saved routine, latest first, with the open one first as it is now.
@@ -276,19 +257,19 @@ public final class RoutineSession {
         }
     }
 
-    private func show(_ routine: Routine) {
+    private func show(_ routine: Routine, on shown: Screen = .pushedRoutine) {
         // The routine left stays in the list at its place, before its last save reads back.
         saved = recent
         switches += 1
         opened = routine
         current = routine
-        screen = .pushedRoutine
+        screen = shown
     }
 
     /// Lets the last edit land: a finished stream still hands over what it holds. An edit made
     /// while it lands reaches only `current`, so it is saved after. Then saving starts again, so
     /// no edit ever goes to a finished stream.
-    func finishSaving() async {
+    private func finishSaving() async {
         var landed = current
         saves.finish()
         await saving.value
@@ -309,48 +290,6 @@ public final class RoutineSession {
     func writesLanded() async {
         await finishSaving()
         await withCheckedContinuation { done in workoutWrites.yield(.landed(done)) }
-    }
-
-    private static func startSaving(
-        to store: RoutineStore?,
-    ) -> (AsyncStream<RoutineSave>.Continuation, Task<Void, Never>) {
-        let (stream, continuation) = AsyncStream.makeStream(
-            of: RoutineSave.self,
-            bufferingPolicy: .bufferingNewest(1),
-        )
-        let task = Task {
-            for await version in stream {
-                do {
-                    try await store?.save(version.routine, keepsEmpty: version.keepsEmpty)
-                } catch {
-                    Logger.session.error("The routine didn't save: \(error)")
-                }
-            }
-        }
-        return (continuation, task)
-    }
-
-    private static func startWritingWorkouts(
-        to store: RoutineStore?,
-    ) -> AsyncStream<WorkoutQueueEntry>.Continuation {
-        let (stream, continuation) = AsyncStream.makeStream(
-            of: WorkoutQueueEntry.self,
-            bufferingPolicy: .unbounded,
-        )
-        Task {
-            for await entry in stream {
-                do {
-                    switch entry {
-                    case let .write(.save(workout)): try await store?.save(workout)
-                    case let .write(.discard(id)): try await store?.discardWorkout(id)
-                    case let .landed(done): done.resume()
-                    }
-                } catch {
-                    Logger.session.error("The workout didn't save: \(error)")
-                }
-            }
-        }
-        return continuation
     }
 }
 
@@ -380,5 +319,37 @@ extension RoutineSession {
             Logger.session.error("The exercise change didn't save: \(error)")
         }
         await refreshRecent(weightUnit: weightUnit)
+    }
+}
+
+extension RoutineSession {
+    /// Whether the open routine has anything to delete: one with nothing saved has none, and
+    /// the one a workout runs on is not deleted.
+    public var canDeleteOpen: Bool {
+        !current.isEmpty && workout == nil
+    }
+
+    /// Deletes a saved routine, its finished workouts staying stored. For the open one, its last
+    /// edit lands and the session takes a new, empty routine and shows Routines, whether the
+    /// deleted one was pushed or at the root, before the store deletes it, so no save can bring
+    /// it back. Refused for the routine a workout runs on, and while a switch is under way. A
+    /// delete that fails leaves the routine listed.
+    public func delete(_ id: Routine.ID) async {
+        guard !isSwitching, workout?.routineID != id else { return }
+        isSwitching = true
+        defer { isSwitching = false }
+        if id == current.id {
+            await finishSaving()
+            show(Routine(), on: .routines)
+        }
+        do {
+            try await store?.deleteRoutine(id)
+        } catch {
+            Logger.session.error("The routine didn't delete: \(error)")
+            return
+        }
+        // A read of the list the delete overtook still holds the routine: dropped.
+        switches += 1
+        saved.removeAll { $0.id == id }
     }
 }

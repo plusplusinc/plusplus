@@ -17,7 +17,7 @@ extension RoutineDrawerUITests {
             XCTAssertTrue(delete.appears(), "Holding a row opened no menu with Delete")
             attach(named: "routine-held")
             delete.tap()
-            _ = app.answerAlert("Delete Back?", with: "Cancel")
+            app.answerAlert("Delete Back?", with: "Cancel")
             XCTAssertEqual(app.routineRowLabels, listed, "Cancel changed the list")
         }
         XCTContext.runActivity(named: "A row's swipe asks first, and Delete takes it out") { _ in
@@ -25,7 +25,7 @@ extension RoutineDrawerUITests {
             XCTAssertTrue(delete.appears(), "A swipe did not open the row")
             attach(named: "routine-swiped")
             delete.tap()
-            _ = app.answerAlert("Delete Back?", with: "Delete")
+            app.answerAlert("Delete Back?", with: "Delete")
             let left = ["Chest day"]
             XCTAssertEqual(reading(app.routineRowLabels, becoming: left, within: 2), left)
         }
@@ -42,7 +42,7 @@ extension RoutineDrawerUITests {
             more.tap()
             XCTAssertTrue(delete.appears(), "••• opened no menu with Delete")
             delete.tap()
-            _ = app.answerAlert("Delete Chest day?", with: "Delete")
+            app.answerAlert("Delete Chest day?", with: "Delete")
             XCTAssertTrue(title.disappears(), "Deleting the routine left it showing")
             XCTAssertTrue(app.buttons["Menu"].appears(), "Routines did not show")
             XCTAssertEqual(reading(app.routineRowLabels, becoming: [], within: 2), [])

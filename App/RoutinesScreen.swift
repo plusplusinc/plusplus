@@ -22,8 +22,9 @@ struct RoutinesScreen: View {
     @State private var scrollPosition = ScrollPosition()
     /// Whether the title has scrolled out of sight under the bar, for its small copy to show.
     @State private var isTitleUnderBar = false
-    /// The routine Delete is asking about.
+    /// The routine Delete last asked about, kept as the alert goes, so its title keeps the name.
     @State private var deleting: Routine?
+    @State private var isAskingToDelete = false
     /// Routines whose delete is confirmed, left out of the list from the confirming tap, in its
     /// animation, before the store has taken the delete.
     @State private var leaving: Set<Routine.ID> = []
@@ -99,11 +100,7 @@ struct RoutinesScreen: View {
         // Outside the stack, as the picker's: centered, with the system's colors.
         .alert(
             "Delete \(deleting.map(namer.listedName(of:)) ?? "")?",
-            isPresented: Binding { deleting != nil } set: {
-                if !$0 {
-                    deleting = nil
-                }
-            },
+            isPresented: $isAskingToDelete,
             presenting: deleting,
         ) { routine in
             Button("Cancel", role: .cancel) { }
@@ -130,7 +127,7 @@ struct RoutinesScreen: View {
         // ends that far short of the screen's edge, and Delete ends in line with the line
         // under the row and with the bar's +.
         .swipeActions(edge: .trailing) {
-            Button("Delete", role: .destructive) { deleting = routine }
+            Button("Delete", role: .destructive) { askToDelete(routine) }
         }
         .padding(.trailing, Self.swipeInset)
         // The platter the held row lifts on, as a list row's in Add exercise: in the screen's
@@ -141,7 +138,7 @@ struct RoutinesScreen: View {
         .background(Color.pp(.background), in: Self.platter)
         .contentShape(.contextMenuPreview, Self.platter)
         .contextMenu {
-            Button("Delete", systemImage: "trash", role: .destructive) { deleting = routine }
+            Button("Delete", systemImage: "trash", role: .destructive) { askToDelete(routine) }
         }
         // Across the name's width, outside the platter, so a held row lifts without it.
         .overlay(alignment: .bottom) {
@@ -153,6 +150,11 @@ struct RoutinesScreen: View {
     /// How far inside its row's end the system draws a swiped action.
     private static let swipeInset = Spacing.sm
 
+    private func askToDelete(_ routine: Routine) {
+        deleting = routine
+        isAskingToDelete = true
+    }
+
     /// Takes the row out at once, the rows below closing the gap, then deletes the routine.
     private func delete(_ id: Routine.ID) {
         withAnimation(.snappy) {
@@ -160,8 +162,11 @@ struct RoutinesScreen: View {
         }
         Task {
             await session.delete(id)
-            // Gone from the session's list once stored; back in the list if the delete failed.
-            leaving.remove(id)
+            // Gone from the session's list once stored; back in the list if the delete failed,
+            // or was refused as a switch was under way.
+            withAnimation(.snappy) {
+                _ = leaving.remove(id)
+            }
         }
     }
 
