@@ -76,6 +76,7 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
             XCTAssertTrue(app.drawerTitle.disappears(), "A tap on the sliver left it open")
             app.buttons["New routine"].tap()
             XCTAssertEqual(title.value(becoming: "New routine"), "New routine")
+            newRoutineDimsDelete(in: app)
             app.tapBack()
             XCTAssertTrue(title.disappears(), "The chevron did not pop")
             XCTAssertEqual(app.routineRowLabels, ["Chest"], "The untouched new one was listed")

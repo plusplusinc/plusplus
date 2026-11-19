@@ -2,6 +2,27 @@ import XCTest
 
 @MainActor
 extension RoutineDrawerUITests {
+    /// On a new routine with nothing saved, the ••• menu's Delete is dimmed. That such a routine
+    /// can't be deleted is `RoutineSessionDeleteTests`'; this is the menu item's wire to it,
+    /// which only the running app's bar menu shows. Leaves the menu closed.
+    func newRoutineDimsDelete(in app: XCUIApplication) {
+        let more = app.buttons["routine.more"]
+        XCTAssertTrue(more.settles(), "••• kept moving")
+        more.tap()
+        let delete = app.buttons["Delete"]
+        XCTAssertTrue(delete.appears(), "••• opened no menu with Delete")
+        XCTAssertFalse(delete.isEnabled, "Delete isn't dimmed on a routine with nothing saved")
+        // A tap away from the menu closes it, and the bar takes taps again once it has closed.
+        // In the bar, between the chevron and the menu: the empty routine below opens Add
+        // exercise on a tap.
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.1)).tap()
+        XCTAssertTrue(delete.disappears(), "The menu stayed open")
+        XCTAssertTrue(
+            reading(app.buttons["BackButton"].isHittable, becoming: true, within: 2),
+            "The bar stayed covered after the menu closed",
+        )
+    }
+
     /// On the Routines screen with two routines, a row's hold menu and its swipe each ask before
     /// deleting, and the pushed routine's ••• deletes it and shows Routines. The system's swipe
     /// actions, context menu, and alert, and a bar menu, show only in the running app; what a
