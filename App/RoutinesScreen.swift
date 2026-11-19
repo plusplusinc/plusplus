@@ -120,21 +120,26 @@ struct RoutinesScreen: View {
             Task { await session.open(routine.id, weightUnit: weightUnit) }
         } label: {
             NameRow(namer.listedName(of: routine))
-                .padding(.horizontal, Spacing.md)
-                // The platter the held row lifts on, as a list row's in Add exercise: in the
-                // screen's own color, so it shows only once the screen behind it dims. Like a
-                // picker row's cell, it spans the screen with the name a margin inside, and the
-                // system shrinks the lifted row into the screen's margins, which leaves the
-                // name the picker's room inside the lifted platter.
-                .background(Color.pp(.background), in: Self.platter)
-                .contentShape(.contextMenuPreview, Self.platter)
+                .padding(.leading, Spacing.md)
+                .padding(.trailing, Spacing.md - Self.swipeInset)
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("routines.row")
+        // The system draws a swiped action inset from its row's end, so the row it swipes
+        // ends that far short of the screen's edge, and Delete ends in line with the line
+        // under the row and with the bar's +.
         .swipeActions(edge: .trailing) {
             Button("Delete", role: .destructive) { deleting = routine }
         }
+        .padding(.trailing, Self.swipeInset)
+        // The platter the held row lifts on, as a list row's in Add exercise: in the screen's
+        // own color, so it shows only once the screen behind it dims. Like a picker row's cell,
+        // it spans the screen with the name a margin inside, and the system shrinks the lifted
+        // row into the screen's margins, which leaves the name the picker's room inside the
+        // lifted platter. Behind the swiped row, so it never covers Delete.
+        .background(Color.pp(.background), in: Self.platter)
+        .contentShape(.contextMenuPreview, Self.platter)
         .contextMenu {
             Button("Delete", systemImage: "trash", role: .destructive) { deleting = routine }
         }
@@ -151,6 +156,8 @@ struct RoutinesScreen: View {
     }
 
     private static let platter = RoundedRectangle(cornerRadius: Radius.key, style: .continuous)
+    /// How far inside its row's end the system draws a swiped action.
+    private static let swipeInset = Spacing.sm
 
     /// Takes the row out at once, the rows below closing the gap, then deletes the routine.
     private func delete(_ id: Routine.ID) {
