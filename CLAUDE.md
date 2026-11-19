@@ -82,9 +82,8 @@ state, stateless services hold side effects, free functions hold the math. The a
 The main session leads a slice, as `/onward` describes: it writes the spec and acceptance
 criteria, makes the technical calls, and hands each phase, in order, to a subagent defined in
 `.claude/agents/`: planner, builder, verifier, then a builder again for what the verifier found.
-It reads their summaries and screenshots, not their work, and itself makes a few-line change to
-a value the maintainer is tuning. A subagent follows its definition,
-answers only to the lead, and never merges.
+It reads their summaries and screenshots, not their work, and tunes a value itself. A subagent
+follows its definition, answers only to the lead, and never merges.
 
 The maintainer owns the product. The lead goes to them to align on a card before it starts, for
 a product call, or to put a build in their hands, and they try every slice before it merges. A

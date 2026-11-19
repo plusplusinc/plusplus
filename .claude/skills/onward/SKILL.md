@@ -123,10 +123,10 @@ Their time is the scarce thing, and it is for the product.
   verifier found, each given the card id. Size the team to the card: a small task with no UI
   goes straight to a builder with the card's Plan. With something to see, rounds come first
   (the builder's "Rounds"); a round's brief asks for the change, and for a recording, frame
-  grid, measurement, or cleanup only with the question it answers. A change of a few lines to a
-  value they are tuning (a duration, a spacing) you make, commit, and install yourself in the
-  slice's worktree, in place of a builder; the full pass reviews them.
-  Before each install, check what they asked for in the round's screenshots on content
+  grid, measurement, or cleanup only with the question it answers. A value they are tuning (a
+  duration, a spacing), a few lines, you change, commit, and install with `scripts/device.sh`
+  yourself in the slice's worktree, with no builder or simulator; the full pass reviews it.
+  Before a builder round's install, check what they asked for in the round's screenshots on content
   like theirs, and that nothing they corrected earlier moved. The loop
   ends on their word that it's right; then the builder's full pass and the verifier run once,
   while the next card starts (below). Work done while they are away is a round for them to

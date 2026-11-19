@@ -89,9 +89,9 @@ amend, so each round stays its own), the handoff note brought up to date, and a 
 hash and one line on what changed; the lead installs it. No tests, lint, rules or docs edits,
 review, or PR during the loop, even when a timing test now fails or the lead's prompt asks for
 them: skip them and name in the reply what was skipped. After the loop, "When it works" runs.
-A round records, measures, or cleans up only when the lead's brief names the question that
-answers; then it records one pass, measured and stepped through as `/run` says, and fixes only
-what stalls, jumps, wobbles, or overlaps. A round hands back within 15 minutes of starting:
+It records, measures, or cleans up only for a question the lead's brief names: one pass,
+measured and stepped through as `/run` says, fixing only what stalls, jumps, wobbles, or
+overlaps. A round hands back within 15 minutes of starting:
 commit what builds and report what's left.
 
 ## Checkpoint
