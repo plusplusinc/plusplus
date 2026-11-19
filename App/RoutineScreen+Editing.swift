@@ -5,6 +5,12 @@ import WorkoutStore
 
 /// Editing the rows: the sheet's binding, moves, deletes, and adds.
 extension RoutineScreen {
+    /// The row whose values are open in a sheet, kept by the session, which keeps it and the
+    /// drawer apart.
+    var editing: RowSheet? {
+        session.rowSheet
+    }
+
     /// The row with this id, bound by id rather than by index, so a sheet still showing it
     /// never reads past the end of the rows once it is deleted.
     func row(_ id: RoutineExercise.ID) -> Binding<RoutineExercise>? {
@@ -101,7 +107,7 @@ extension RoutineScreen {
     /// Add exercise's sheet. A created exercise is stored before its row is added, so the
     /// routine's save that names it lands after it; then the sheet closes and the row goes in as
     /// a pick's does, even if the sheet was swiped down meanwhile, and once it has landed its own
-    /// sheet opens on Customize (`showCreated(_:)`).
+    /// sheet opens on Customize (`showCreated()`).
     var picker: some View {
         ExercisePicker(
             exercises: session.exercises,
@@ -112,7 +118,7 @@ extension RoutineScreen {
                 let wasIdle = phase == .idle
                 let exercise = await session.create(made)
                 isPicking = false
-                add(exercise) { showCreated($0, unlessStartedSince: wasIdle) }
+                add(exercise) { createdWait = CreatedWait(row: $0, wasIdle: wasIdle) }
             },
             routineCount: { session.routines(using: $0).count },
             onDelete: { id in
@@ -184,12 +190,20 @@ extension RoutineScreen {
     /// rose over the first exercise growing, and the press says the workout comes first. A
     /// Create during a workout still opens it, as a tap on the row there does. The drawer and
     /// the sheet keep each other out as a tap's sheet does (`RoutineSession.openRowSheet(_:)`).
-    private func showCreated(_ id: RoutineExercise.ID, unlessStartedSince wasIdle: Bool) {
-        Task {
-            try? await Task.sleep(for: Self.createdHold, tolerance: .zero)
-            guard editing == nil, !isPicking, entering == nil,
-                  row(id) != nil, !wasIdle || phase == .idle else { return }
-            session.openRowSheet(RowSheet(id: id, opensCustomizing: true))
+    /// The wait is the screen's own task (`createdWait`), so it ends with the screen, and the
+    /// session drops it if the app has left this screen or routine by then.
+    func showCreated() async {
+        guard let wait = createdWait else { return }
+        let id = wait.row
+        await session.openRowSheet(
+            RowSheet(id: id, opensCustomizing: true),
+            after: Self.createdHold,
+        ) {
+            editing == nil && !isPicking && entering == nil && row(id) != nil
+                && (!wait.wasIdle || phase == .idle)
+        }
+        if !Task.isCancelled, createdWait == wait {
+            createdWait = nil
         }
     }
 
@@ -294,4 +308,11 @@ extension RoutineScreen {
             entering = nil
         }
     }
+}
+
+/// A created row that has landed, its sheet waiting out `createdHold`, and whether the routine
+/// was idle at the Create, so a Start pressed since keeps the sheet down.
+struct CreatedWait: Equatable {
+    let row: RoutineExercise.ID
+    let wasIdle: Bool
 }

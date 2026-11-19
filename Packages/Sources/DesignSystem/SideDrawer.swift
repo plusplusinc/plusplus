@@ -8,10 +8,15 @@ import SwiftUI
 /// and another, firmer, the moment it starts to shut; a swipe plays one only as it is let go,
 /// and a swipe that springs back to where it began plays none.
 ///
+/// Whoever keeps `isOpen` may refuse an open: the drawer then goes back closed, never resting
+/// open over a screen that reads it shut. `isHeld` is true while a finger holds the drawer, so
+/// what keeps it can treat a swipe under way as the drawer asked for.
+///
 /// The drawer is in the hierarchy only while it shows, so what it holds, a pushed screen
 /// included, starts fresh each time it opens.
 public struct SideDrawer<Drawer: View, Content: View>: View {
     @Binding private var isOpen: Bool
+    @Binding private var isHeld: Bool
     /// Whether a swipe in from the left edge opens the drawer, off where the edge goes back.
     private let swipeOpens: Bool
     private let drawer: Drawer
@@ -38,23 +43,31 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
 
     public init(
         isOpen: Binding<Bool>,
+        isHeld: Binding<Bool> = .constant(false),
         swipeOpens: Bool = true,
         @ViewBuilder drawer: () -> Drawer,
         @ViewBuilder content: () -> Content,
     ) {
         self.init(
-            isOpen: isOpen, swipeOpens: swipeOpens, progress: nil, drawer: drawer, content: content,
+            isOpen: isOpen,
+            isHeld: isHeld,
+            swipeOpens: swipeOpens,
+            progress: nil,
+            drawer: drawer,
+            content: content,
         )
     }
 
     init(
         isOpen: Binding<Bool>,
+        isHeld: Binding<Bool> = .constant(false),
         swipeOpens: Bool = true,
         progress: CGFloat?,
         @ViewBuilder drawer: () -> Drawer,
         @ViewBuilder content: () -> Content,
     ) {
         _isOpen = isOpen
+        _isHeld = isHeld
         self.swipeOpens = swipeOpens
         fixedProgress = progress
         let open = isOpen.wrappedValue || (progress ?? 0) > 0
@@ -142,6 +155,9 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
     private func follow(_ phase: DrawerDrag.Phase, width: CGFloat) {
         switch phase {
         case let .changed(translation):
+            if !isHeld {
+                isHeld = true
+            }
             // With Reduce Motion nothing follows the finger: the release fades.
             guard !reduceMotion else { return }
             let start = swipeStart ?? drawn.value
@@ -150,6 +166,7 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
             let progress = DrawerDrag.progress(translation: translation, width: width, from: start)
             withTransaction(Transaction(animation: nil)) { heading = progress }
         case let .ended(translation, velocity):
+            isHeld = false
             let start = swipeStart ?? drawn.value
             swipeStart = nil
             if reduceMotion {
@@ -162,6 +179,7 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
                 velocity: velocity, progress: progress, opens: opens, width: width,
             ))
         case .cancelled:
+            isHeld = false
             swipeStart = nil
             settle(open: isOpen)
         }
@@ -170,10 +188,12 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
     /// Slides the drawer open or closed, leaving at `speed` (lengths of its way a second). With
     /// Reduce Motion only opacity animates: opening, the screen and its dim take their place
     /// beside the drawer at once and the drawer fades in; closing, the drawer fades out and the
-    /// screen goes back once it has.
-    private func settle(open: Bool, speed: CGFloat = 0) {
+    /// screen goes back once it has. An open that `isOpen`'s keeper refuses settles closed.
+    private func settle(open asked: Bool, speed asSwiped: CGFloat = 0) {
+        let open = settledSide(asking: asked, of: $isOpen)
+        // A release toward an open that was refused springs back from rest.
+        let speed = open == asked ? asSwiped : 0
         target = open
-        isOpen = open
         isDrawerInView = true
         let end: CGFloat = open ? 1 : 0
         guard !reduceMotion else {
@@ -205,6 +225,15 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
             isDrawerFaded = false
         }
     }
+}
+
+/// The side a drawer asked to settle `open` comes to rest on: what `isOpen` holds once asked.
+/// Its keeper may refuse an open, as the routine's session does once a row's sheet has been
+/// asked for; a drawer that settled where it was asked then rested open, drawn over a screen that
+/// read it shut, its title and swipe dead.
+func settledSide(asking open: Bool, of isOpen: Binding<Bool>) -> Bool {
+    isOpen.wrappedValue = open
+    return isOpen.wrappedValue
 }
 
 /// How far open a `SideDrawer` is drawn, written as each frame is drawn and read only as a

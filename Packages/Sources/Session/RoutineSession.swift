@@ -19,6 +19,8 @@ public final class RoutineSession {
     public private(set) var isDrawerOpen = false
     /// The routine screen's open row sheet, through `openRowSheet(_:)` and `closeRowSheet()`.
     public private(set) var rowSheet: RowSheet?
+    /// A finger holds the drawer, through `holdDrawer(_:)`: a swipe under way.
+    public private(set) var isDrawerHeld = false
     /// Where the app is: the routine, the Routines screen, or a routine pushed on it.
     public internal(set) var screen = Screen.routine
     /// The workout running the open routine, from Start until Finish or Discard.
@@ -102,13 +104,20 @@ public final class RoutineSession {
         isDrawerOpen = true
     }
 
-    /// Opens a row's sheet, unless the drawer is open. The drawer and a row's sheet keep each
-    /// other out, whichever was asked for first: the sheet covers ++ only once it starts to
-    /// rise, a frame or more after it is asked for, and a ++ in between, as when a created
-    /// row's sheet came up on its own, opened the drawer under it.
+    /// Opens a row's sheet, unless the drawer is open or a finger holds it. The drawer and a
+    /// row's sheet keep each other out, whichever was asked for first: the sheet covers ++ only
+    /// once it starts to rise, a frame or more after it is asked for, and a ++ in between, as
+    /// when a created row's sheet came up on its own, opened the drawer under it; a swipe under
+    /// way asks for the drawer as ++ does, and a sheet rising mid-swipe left the drawer drawn
+    /// open under it.
     public func openRowSheet(_ sheet: RowSheet) {
-        guard !isDrawerOpen else { return }
+        guard !isDrawerOpen, !isDrawerHeld else { return }
         rowSheet = sheet
+    }
+
+    /// Whether a finger holds the drawer, as the edge swipe brings it in.
+    public func holdDrawer(_ held: Bool) {
+        isDrawerHeld = held
     }
 
     public func closeRowSheet() {
