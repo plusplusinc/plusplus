@@ -41,8 +41,6 @@ extension RoutineScreen {
     /// alert's Delete.
     func deleteExercise(_ id: Exercise.ID, closing: DeleteClosing) async {
         let confirmed = ContinuousClock.now
-        // Through the beats, its rows open no sheet and Add exercise's row of it adds nothing
-        // (`RoutineSession.isDeleting(_:)`); any other row opens its own sheet as ever.
         await session.deleteExercise(id, weightUnit: WeightUnit(region: locale)) {
             let stores: ContinuousClock.Instant
             switch closing {

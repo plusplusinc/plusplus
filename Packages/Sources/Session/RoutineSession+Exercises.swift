@@ -83,8 +83,7 @@ extension RoutineSession {
     /// Whether the open routine has the row `row`, of an exercise not being deleted: the only
     /// rows whose sheet can open.
     func canOpenSheet(of row: RoutineExercise.ID) -> Bool {
-        current.exercises.first { $0.id == row }.map { !deleting.contains($0.exercise.id) }
-            ?? false
+        current.exercises.contains { $0.id == row && !deleting.contains($0.exercise.id) }
     }
 
     /// Whether the open routine has a row of `id`: the routine a delete's question names first.

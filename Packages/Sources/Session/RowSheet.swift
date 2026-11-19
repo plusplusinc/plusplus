@@ -3,7 +3,7 @@ import WorkoutStore
 
 /// A row's open sheet: which row, and whether it opens on Customize, as after Create. The flag
 /// rides with the sheet's item: a separate state set with it read as unset in the sheet.
-public struct RowSheet: Identifiable, Equatable {
+public struct RowSheet: Identifiable {
     public let id: RoutineExercise.ID
     public var opensCustomizing: Bool
     /// This opening's own identity, which the sheet's content takes, so every opening starts
