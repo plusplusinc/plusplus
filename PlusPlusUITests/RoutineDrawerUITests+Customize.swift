@@ -125,6 +125,51 @@ extension RoutineDrawerUITests {
                 "The deleted exercise's row stayed",
             )
         }
+        customizeInPickerDeletes(in: app, from: count)
+    }
+
+    /// Created again, the exercise is deleted from the form its hold menu's Customize… pushes
+    /// inside Add exercise: the form goes back to the list, still searched, and only then does
+    /// the row leave it, the name free to create again, and its row leave the routine. Only the
+    /// running app shows the sheet's own navigation popping under an alert's answer; the hold
+    /// menu's Delete above and the row's sheet (`deleteCreatedEmptiesRoutine`) close nothing or
+    /// a whole sheet.
+    private func customizeInPickerDeletes(in app: XCUIApplication, from count: Int) {
+        _ = app.openPicker()
+        createdSheetSwipesDown(in: app, from: count)
+        XCTContext.runActivity(named: "Customize… in Add exercise deletes a created one") { _ in
+            let search = app.openPicker()
+            app.search(for: "zq")
+            let row = app.pickerRows["Zq"]
+            XCTAssertTrue(row.appears(), "The created exercise isn't in the list")
+            XCTAssertTrue(row.settles(), "The created exercise's row kept moving")
+            row.press(forDuration: 1)
+            let customize = app.buttons["Customize…"]
+            XCTAssertTrue(customize.appears(), "Holding the row opened no menu")
+            customize.tap()
+            let name = app.textFields["customize.name"]
+            XCTAssertTrue(name.appears(), "Customize… opened no form")
+            let delete = app.buttons["Delete exercise"]
+            XCTAssertTrue(delete.appears(), "The form has no Delete exercise")
+            XCTAssertTrue(delete.settles(), "Delete exercise kept moving")
+            delete.tap()
+            app.answerAlert("Delete Zq?", with: "Delete exercise")
+            XCTAssertTrue(name.disappears(), "Delete left the form up")
+            XCTAssertTrue(search.exists, "Delete closed Add exercise with the form")
+            // The row leaves a rest after the list is back.
+            XCTAssertTrue(row.disappears(within: 4), "The deleted exercise is still listed")
+            XCTAssertTrue(app.buttons["picker.create"].appears(), "Its name isn't free again")
+            search.tap()
+            let close = app.buttons["Close"]
+            XCTAssertTrue(close.settles(), "Close kept moving")
+            close.tap()
+            XCTAssertTrue(close.disappears(), "Close left the picker up")
+            XCTAssertEqual(
+                app.exerciseCount(becoming: count),
+                count,
+                "The deleted exercise's row stayed",
+            )
+        }
     }
 
     /// From Add exercise's list, Create "Zq" on a routine of `count` rows: the sheet closes, the
