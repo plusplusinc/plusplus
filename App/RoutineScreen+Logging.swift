@@ -148,6 +148,8 @@ extension RoutineScreen {
         withTransaction(\.disablesAnimations, true) {
             if let target {
                 isMakingRoom = true
+                // A row still entering stays where it is, as at Start (`pressStart()`).
+                endFollow = nil
                 growthLift = target - scrollBeat.scrolledY
                 scrollPosition.scrollTo(y: target)
             }

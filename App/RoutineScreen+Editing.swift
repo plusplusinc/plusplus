@@ -160,7 +160,8 @@ extension RoutineScreen {
         let row = RoutineExercise(exercise: exercise, weightUnit: WeightUnit(region: locale))
         arriving = row.id
         entering = row.id
-        endFollow = .waiting
+        // Under Start's room or a move's, the row enters where it is (`keepEndInView`).
+        endFollow = isMakingRoom ? nil : .waiting
         // The row goes in with no space yet, so nothing moves; its fade, of a row that draws
         // nothing yet, starts the wait for the list's end a moment into the sheet's slide.
         withAnimation(.linear(duration: RailArrival.appendFade)) {
@@ -209,7 +210,8 @@ extension RoutineScreen {
 
     /// Once the picker has gone, scrolls the list to its end, the added row's place, and returns
     /// as the scroll lands, unless the end is in view or Start's room is opening, when it returns
-    /// at once, leaving the in-step scroll off (`keepEndInView`). On deadlines, not the scroll's
+    /// at once, the room leaving the in-step scroll off (`keepEndInView`). On deadlines, not the
+    /// scroll's
     /// completion or its phase: the phase reported idle only about 0.3 s after the list had
     /// stopped, and the row waited on a still list.
     private func reachEnd(added: ContinuousClock.Instant) async {
@@ -251,8 +253,9 @@ extension RoutineScreen {
     /// time, so the list's end stays put on screen as the line grows above it. The place opens
     /// with the list's end in view, so the end is where the scroll stays. Not once Start is
     /// pressed: its room under the list grows the content too, and following that took the
-    /// list off the screen, as `add` says. The press turns it off (`pressStart()`), not only
-    /// pauses it: left on, it woke as Start's room went, with the landing's room still under
+    /// list off the screen, as `add` says. Start's room and a move's turn it off, not only
+    /// pause it (`pressStart()`, `add`): left on, it woke as Start's room went, with the landing's
+    /// room still under
     /// the list, and scrolled the list into that (Xcode Cloud runs 495 and 499).
     ///
     /// From the place's first growth on (`EndFollow.following`), it follows the end on any
