@@ -22,6 +22,9 @@ import WorkoutStore
 ///
 /// The store takes the delete only once nothing shows the form, and the routine shows it as
 /// soon as it is stored, so no edit lands on a routine the screen and the store disagree on.
+/// From the confirming tap until it is stored, a tap on one of the exercise's rows opens
+/// nothing, and its row in Add exercise adds nothing; any other row opens its own sheet, on its
+/// sets and reps, and the delete lands behind it.
 extension RoutineScreen {
     /// What shows the exercise's form as Delete is confirmed.
     enum DeleteClosing {
@@ -38,20 +41,23 @@ extension RoutineScreen {
     /// alert's Delete.
     func deleteExercise(_ id: Exercise.ID, closing: DeleteClosing) async {
         let confirmed = ContinuousClock.now
-        let stores: ContinuousClock.Instant
-        switch closing {
-        case .rowSheet:
-            session.closeRowSheet()
-            stores = confirmed + Self.exerciseSheetGone + Self.addPause
-        case let .pop(back):
-            back()
-            try? await beat(until: confirmed + Self.formPopped + Self.addPause)
-            stores = leaveList(id)
-        case .nothing:
-            stores = leaveList(id)
+        // Through the beats, its rows open no sheet and Add exercise's row of it adds nothing
+        // (`RoutineSession.isDeleting(_:)`); any other row opens its own sheet as ever.
+        await session.deleteExercise(id, weightUnit: WeightUnit(region: locale)) {
+            let stores: ContinuousClock.Instant
+            switch closing {
+            case .rowSheet:
+                session.closeRowSheet()
+                stores = confirmed + Self.exerciseSheetGone + Self.addPause
+            case let .pop(back):
+                back()
+                try? await beat(until: confirmed + Self.formPopped + Self.addPause)
+                stores = leaveList(id)
+            case .nothing:
+                stores = leaveList(id)
+            }
+            try? await beat(until: stores)
         }
-        try? await beat(until: stores)
-        await session.deleteExercise(id, weightUnit: WeightUnit(region: locale))
         // From a row's sheet, Start and the + follow as after its Remove.
         if case .rowSheet = closing {
             showStoredRoutine(footDelay: Self.exerciseSheetGone)

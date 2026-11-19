@@ -54,13 +54,37 @@ extension RoutineSession {
         )
     }
 
-    /// Deletes a created exercise, and its rows from every routine that uses it.
-    public func deleteExercise(_ id: Exercise.ID, weightUnit: WeightUnit) async {
+    /// Deletes a created exercise, and its rows from every routine that uses it, once `ready`
+    /// has returned: the beats a screen plays first, while its rows still show. From the call
+    /// until the delete is stored or refused, it is deleting (`isDeleting(_:)`), so none of its
+    /// rows opens a sheet and it can't be picked: a row tapped in the beats opened on a form
+    /// for an exercise going, and a pick added a row the delete then took.
+    public func deleteExercise(
+        _ id: Exercise.ID,
+        weightUnit: WeightUnit,
+        once ready: () async -> Void = { },
+    ) async {
+        deleting.insert(id)
+        defer { deleting.remove(id) }
+        await ready()
         await changeExercises(
             weightUnit: weightUnit,
             storing: { try await $0.deleteExercise(id) },
             listing: { $0.removing(id) },
         )
+    }
+
+    /// Whether `id`'s delete is confirmed and not yet stored: it is still listed, and its rows
+    /// still show, but it can't be picked.
+    public func isDeleting(_ id: Exercise.ID) -> Bool {
+        deleting.contains(id)
+    }
+
+    /// Whether the open routine has the row `row`, of an exercise not being deleted: the only
+    /// rows whose sheet can open.
+    func canOpenSheet(of row: RoutineExercise.ID) -> Bool {
+        current.exercises.first { $0.id == row }.map { !deleting.contains($0.exercise.id) }
+            ?? false
     }
 
     /// Whether the open routine has a row of `id`: the routine a delete's question names first.

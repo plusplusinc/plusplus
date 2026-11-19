@@ -24,6 +24,13 @@ struct RoutineSessionScreenTests {
         RoutineSession(routine: routine, store: store, namer: .muscleGroupsOnly)
     }
 
+    /// A session on a routine of one bench press row, and the row, whose sheet can open.
+    private func sessionWithRow() throws -> (RoutineSession, row: RoutineExercise.ID) {
+        let exercise = try #require(Exercise.builtIn(id: "barbell-bench-press"))
+        let row = RoutineExercise(exercise: exercise, weightUnit: .pounds)
+        return (session(Routine(name: "Upper", exercises: [row])), row.id)
+    }
+
     /// A session on the Routines screen, `saved` pushed on it.
     private func pushedSession() async -> RoutineSession {
         let session = session()
@@ -52,9 +59,8 @@ struct RoutineSessionScreenTests {
     }
 
     @Test("The drawer and a row's sheet keep each other out, whichever was asked for first")
-    func drawerAndRowSheetExclude() {
-        let row = UUID()
-        let session = session()
+    func drawerAndRowSheetExclude() throws {
+        let (session, row) = try sessionWithRow()
         // A ++ after a sheet is asked for, before it rises over ++, as after Create.
         session.openRowSheet(RowSheet(id: row, opensCustomizing: true))
         session.openDrawer()
@@ -69,9 +75,8 @@ struct RoutineSessionScreenTests {
     }
 
     @Test("A swipe under way keeps a row's sheet out, and the drawer still opens as it ends")
-    func heldDrawerKeepsRowSheetOut() {
-        let row = UUID()
-        let session = session()
+    func heldDrawerKeepsRowSheetOut() throws {
+        let (session, row) = try sessionWithRow()
         session.holdDrawer(true)
         session.openRowSheet(RowSheet(id: row, opensCustomizing: true))
         #expect(session.rowSheet == nil)
@@ -81,18 +86,27 @@ struct RoutineSessionScreenTests {
     }
 
     @Test("A created row's sheet waited for opens once the hold has passed")
-    func rowSheetAfterHold() async {
-        let row = UUID()
-        let session = session()
+    func rowSheetAfterHold() async throws {
+        let (session, row) = try sessionWithRow()
         await session.openRowSheet(RowSheet(id: row), after: .milliseconds(10)) { true }
         #expect(session.rowSheet?.id == row)
     }
 
+    @Test("A row the open routine no longer has opens no sheet, as when tapped as it leaves")
+    func goneRowOpensNoSheet() throws {
+        let (session, row) = try sessionWithRow()
+        session.save(Routine(id: session.current.id, name: "Upper"))
+        session.openRowSheet(RowSheet(id: row))
+        #expect(session.rowSheet == nil)
+        session.openDrawer()
+        #expect(session.isDrawerOpen, "The gone row's sheet kept the drawer shut")
+    }
+
     @Test("A wait cancelled as its screen goes sets nothing")
-    func cancelledWaitSetsNothing() async {
-        let session = session()
+    func cancelledWaitSetsNothing() async throws {
+        let (session, row) = try sessionWithRow()
         let wait = Task {
-            await session.openRowSheet(RowSheet(id: UUID()), after: .seconds(60)) { true }
+            await session.openRowSheet(RowSheet(id: row), after: .seconds(60)) { true }
         }
         wait.cancel()
         await wait.value
@@ -102,11 +116,12 @@ struct RoutineSessionScreenTests {
     }
 
     @Test("A wait outlived by a pop off the Routines screen sets nothing")
-    func poppedWaitSetsNothing() async {
+    func poppedWaitSetsNothing() async throws {
         let session = await pushedSession()
+        let row = try #require(addingExercise(to: saved, in: session).exercises.first).id
         // The pushed screen goes only once its pop has played, after the pop itself; the pop
         // lands at the hold's end, as the wait's own conditions are read.
-        await session.openRowSheet(RowSheet(id: UUID()), after: .milliseconds(10)) {
+        await session.openRowSheet(RowSheet(id: row), after: .milliseconds(10)) {
             session.popRoutine()
             return true
         }

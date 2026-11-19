@@ -136,9 +136,10 @@ extension RoutineScreen {
     }
 
     /// Shuts the picker and adds what was picked there. A second tap while the sheet goes down
-    /// keeps the first.
+    /// keeps the first. One whose delete is confirmed, still listed until its row's beat, adds
+    /// nothing.
     func addPicked(_ exercise: Exercise) {
-        guard isPicking else { return }
+        guard isPicking, !session.isDeleting(exercise.id) else { return }
         isPicking = false
         add(exercise)
     }

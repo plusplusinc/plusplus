@@ -371,13 +371,15 @@ struct RoutineScreen: View {
                 // before.
                 .presentationDetents([.medium, .large], selection: $pickerDetent)
         }
-        // By item, so the sheet keeps its content as it slides away.
+        // By item, so the sheet keeps its content as it slides away; by opening, so each opening
+        // starts from fresh state (`RowSheet.opening`).
         .sheet(item: Binding { editing } set: {
             if $0 == nil {
                 session.closeRowSheet()
             }
         }) { opened in
             exerciseSheet(opened)
+                .id(opened.opening)
         }
         .toolbar { barItems }
     }

@@ -22,8 +22,9 @@ struct RoundSteps {
 /// A routine row's values, a `ValueRow` for each part its exercise has, under the exercise's
 /// equipment. A row's stepper opens one at a time. Changes apply as they're made. The More menu
 /// holds Customize…, which pushes the exercise's Customize form inside the sheet (its back
-/// chevron returns to the sheet, the change showing), and Remove. After Create, the new row's
-/// sheet opens with that form already pushed.
+/// chevron returns to the sheet, the change showing), and Remove. Each opening starts afresh,
+/// on the row's values, even one asked for as the last sheet goes down; after Create, the new
+/// row's sheet opens with that form already pushed.
 struct ExerciseSheet<Customize: View>: View {
     @Binding var item: RoutineExercise
     /// The names of the exercises in a superset with it, which share its round count, or nil.
