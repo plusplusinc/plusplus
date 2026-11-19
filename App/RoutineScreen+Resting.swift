@@ -13,7 +13,9 @@ import WorkoutStore
 /// and steady green, still, with nothing on the rail to mark the place (`restDotRow`); the bar
 /// under the countdown shows how far through it is (`RestProgress`). As the countdown reaches 0
 /// the same move plays from the rest to the next exercise's node, as the rest closes and the next
-/// exercise grows. The key is gone through the rest, its room kept. −15 s with less than 15 s
+/// exercise grows. The key is gone through the rest, its room kept: it drops out at the log and
+/// the + goes down with it to the bottom, and both rise as the rest ends (`keyRests`). −15 s with
+/// less than 15 s
 /// left ends it; + and − glide the bar and turn the countdown, the dot staying put. There is no
 /// Skip. With Reduce Motion, each move is one crossfade, the dot at the word through the rest.
 ///
@@ -62,6 +64,9 @@ extension RoutineScreen {
     /// the rest opens, on a close's curve. Between two sets of one exercise, the set is held as
     /// a set logged is, then the rest and the next set swap places as the line rolls on.
     func startRest() {
+        // From the log, as Remove's last exercise takes Start away: the key drops out and the +
+        // goes down to the bottom with it, in one transaction.
+        withAnimation(.keyDrop) { keyRests = true }
         if phase.resting?.isWithinExercise == true {
             return sequence.run {
                 let start = ContinuousClock.now
@@ -143,17 +148,19 @@ extension RoutineScreen {
             guard !reduceMotion else {
                 phase.endRest()
                 phase.settleReturn()
-                return
+                return keyReturnsFromRest()
             }
             withAnimation(.snappy(duration: SetMotion.roll)) { phase.endRest() }
             return sequence.run {
                 try await beat(until: ContinuousClock.now + .seconds(SetMotion.roll))
                 withTransaction(\.disablesAnimations, true) { phase.settleReturn() }
+                keyReturnsFromRest()
             }
         }
         guard rest.beat == .settled else { return }
         noteRestingPitch(of: next.row)
         let target = landing(on: next.row, leaving: rest.set.row)
+        keyReturnsFromRest()
         guard !reduceMotion else {
             phase.endRest(moves: false)
             return crossfadeOn(to: next, scrollingTo: target)
@@ -175,6 +182,12 @@ extension RoutineScreen {
             run: (railPulse?.run ?? 0) + 1,
         )
         land(.down, scrollingTo: target)
+    }
+
+    /// The key comes back up as the rest ends and the + rises with it, in one transaction, as
+    /// the first exercise added brings Start up.
+    func keyReturnsFromRest() {
+        withAnimation(.keyRise) { keyRests = false }
     }
 
     /// −15 s or +15 s on the rest running, the bar gliding to its new fill; the dot stays put.

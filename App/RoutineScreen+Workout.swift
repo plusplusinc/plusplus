@@ -208,7 +208,11 @@ extension RoutineScreen {
         }
         // The workout's key slides down as it fades, and Start stays away until the list has
         // landed: taken out with no animation, the key went on the frame.
-        withAnimation(.easeOut(duration: Self.barFade)) { phase.keyLeaves() }
+        withAnimation(.easeOut(duration: Self.barFade)) {
+            phase.keyLeaves()
+            // Ended mid-rest, the key stays gone: End's own leaving holds it away from here.
+            keyRests = false
+        }
         guard !reduceMotion else {
             withAnimation(Self.crossfadeCurve) { change() }
             beginCrossfade(scrollingTo: 0)

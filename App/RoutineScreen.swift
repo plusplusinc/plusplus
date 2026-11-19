@@ -51,6 +51,10 @@ struct RoutineScreen: View {
     /// the exercises, but the first add and the last Remove change it only once their sheet has
     /// gone, so Start and the + are seen rising or going down (`settleFoot(after:)`).
     @State var footShowsEmpty: Bool
+    /// Whether the key is gone for a rest, its room kept and the + low, as with an empty routine.
+    /// State of its own, changed in the key's drop and rise: derived from the phase, which the log
+    /// enters in the tap's own transaction, the key went at once and the + stayed above nothing.
+    @State var keyRests = false
     /// Whether the title has scrolled up under the bar, where a small copy of it shows instead.
     @State var isTitleUnderBar = false
     /// How far Start rides down with the rows below the current exercise as it grows at Start.
@@ -339,10 +343,10 @@ struct RoutineScreen: View {
         .primaryKeyBar(
             isPresented: showsKey,
             face: liveKeyRole,
-            keepsRoom: phase.keyGone == .keepingRoom,
+            keepsRoom: phase.keyGone == .keepingRoom || keyRests,
             plusOnes: setLogs + sideLogs,
             drop: startDrop,
-            floatsLow: footShowsEmpty,
+            floatsLow: footShowsEmpty || keyRests,
         ) { role, isOut in
             key(role, isOut: isOut)
         } floating: {

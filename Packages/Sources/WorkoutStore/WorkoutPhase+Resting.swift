@@ -75,6 +75,7 @@ extension WorkoutPhase {
             isBack: rest.isBack,
             startsRound: rest.startsRound,
             beat: .shown,
+            isFromRest: true,
         ))
         return true
     }
@@ -114,7 +115,7 @@ extension WorkoutPhase {
     /// row, not before it.
     public var keySet: PlannedSet? {
         switch self {
-        case let .movingOn(move) where !move.hasRolled: move.set
+        case let .movingOn(move) where !move.hasRolled && !move.isFromRest: move.set
         case let .closing(set, _), let .fadingOn(set, _): set
         default: nil
         }

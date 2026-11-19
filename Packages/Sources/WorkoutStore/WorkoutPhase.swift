@@ -91,6 +91,9 @@ public enum WorkoutPhase: Equatable, Sendable {
         /// shows the round just done until the move rolls it on.
         public let startsRound: Bool
         public internal(set) var beat: Beat
+        /// Whether the move sets off from a rest, whose row has already closed: the key comes
+        /// back with the next set's words, not the set logged's.
+        public internal(set) var isFromRest = false
 
         /// A move's beats, in order.
         public enum Beat: Comparable, Sendable {
@@ -367,10 +370,11 @@ public enum WorkoutPhase: Equatable, Sendable {
 
     /// How the key is gone from its bar: as Start lands, with its room kept, until the workout's
     /// key comes up; as Start fades in with no motion, and from the key's leaving at the end to
-    /// the end's rest, with its room. None while it shows.
+    /// the end's rest, with its room. None while it shows. A rest's key is the screen's to take
+    /// away, in a transaction of its own, with the + (`RoutineScreen.keyRests`).
     public var keyGone: KeyGone? {
         switch self {
-        case .starting(.landed), .resting: .keepingRoom
+        case .starting(.landed): .keepingRoom
         case .starting(.fadingIn): .givingUpRoom
         case let .ending(ending) where ending.beat >= .keyLeaving: .givingUpRoom
         default: nil
