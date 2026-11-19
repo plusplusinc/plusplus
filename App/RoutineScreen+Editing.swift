@@ -164,8 +164,8 @@ extension RoutineScreen {
             await RailArrival.play {
                 arriving == row.id
             } reachEnd: {
+                await reachEnd(added: added)
                 try? await Task.sleep(for: Self.addPause, tolerance: .zero)
-                await reachEnd(added: added + Self.addPause)
             } enter: {
                 letArrivingEnter()
             } entered: {
@@ -221,13 +221,12 @@ extension RoutineScreen {
     /// used to start it, late behind the dismissal: 0.43 to 0.47 s into the sheet's slide.
     static let pickerGone: Duration = .milliseconds(500)
 
-    /// A breath between the picker sheet going and the added row showing, so the two read as
-    /// one thing after the other.
+    /// A breath between the list resting at its end, the picker sheet gone, and the added row
+    /// showing, so each reads as one thing after the other.
     static let addPause: Duration = .milliseconds(250)
 
-    /// From the scroll's start to the row's entry, where the scroll's completion used to let it
-    /// go. The entry's growth shows once the scroll has landed, as it did then.
-    static let scrollLanding: Duration = .milliseconds(30)
+    /// From the scroll's start to its landing, `.railChange`'s length; `addPause` follows it.
+    static let scrollLanding: Duration = .milliseconds(250)
 
     /// While an added row's place opens past the visible area, scrolls with it, a frame at a
     /// time, so the list's end stays put on screen as the line grows above it. The place opens
