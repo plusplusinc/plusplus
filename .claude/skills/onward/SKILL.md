@@ -65,8 +65,9 @@ Their time is the scarce thing, and it is for the product.
   misjudged. Agent memory holds what misses taught.
 - **Every message reads on its own, on a phone.** Plain words about the app, not the work:
   name a part of the screen by what they see and where, a card by its title, an option by what
-  it shows, never an item id, a canvas label, or a platform term. Each ask carries its link and
-  says what a yes does, again when it is repeated hours later. With a build: what changed, that
+  it shows, never an item id, a canvas label, or a platform term. One question to a message,
+  the next after their reply; each carries its link and says what a yes does, again when it is
+  repeated hours later. With a build: what changed, that
   it is unverified, and what to do and what they should see. No time estimates; during a long
   phase, a line now and then on what is happening and why it still serves the card. Text
   before a tool call reaches them as a message, so write none that tells them nothing.

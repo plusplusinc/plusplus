@@ -317,12 +317,27 @@ class CatchUp(unittest.TestCase):
         self.assertEqual(self.catch_up(), "merged since")
         self.assertFalse((self.night / "main-checkout.txt").exists())
 
-    def test_a_changed_checkout_stays_and_says_why(self):
+    def test_a_change_origin_left_alone_stays_through_the_fast_forward(self):
+        (self.root / "main/README").write_text("edited\n")
+        self.assertEqual(self.catch_up(), "merged since")
+        self.assertEqual((self.root / "main/README").read_text(), "edited\n")
+        self.assertFalse((self.night / "main-checkout.txt").exists())
+
+    def test_a_change_to_a_file_origin_changed_stays_and_says_why(self):
+        (self.root / "origin/README").write_text("theirs\n")
+        self.git("commit", "-q", "-am", "changes the README", cwd=self.root / "origin")
         (self.root / "main/README").write_text("edited\n")
         self.assertEqual(self.catch_up(), "base")
-        self.assertIn("it has uncommitted changes", (self.night / "main-checkout.txt").read_text())
+        self.assertEqual((self.root / "main/README").read_text(), "edited\n")
+        why = "it has uncommitted changes to files origin/main changed"
+        self.assertIn(why, (self.night / "main-checkout.txt").read_text())
         self.assertTrue(nightly.checkout_note(self.night)[0].startswith(
-            "Not checked: Main checkout not brought up to date: it has uncommitted changes; the night runs "))
+            f"Not checked: Main checkout not brought up to date: {why}; the night runs "))
+
+    def test_a_main_with_its_own_commit_stays_and_says_why(self):
+        self.git("commit", "-q", "--allow-empty", "-m", "local", cwd=self.root / "main")
+        self.assertEqual(self.catch_up(), "local")
+        self.assertIn("its main has commits origin/main doesn't", (self.night / "main-checkout.txt").read_text())
 
     def test_another_branch_stays_and_says_why(self):
         self.git("checkout", "-q", "-b", "side", cwd=self.root / "main")

@@ -209,8 +209,7 @@ approve.
 
 On the maintainer's Mac, in the main checkout: a launchd agent starts one Claude Code run in
 print mode (`claude -p`, auto mode) at midnight local time, and the run exits once its report
-is printed. No session stays open, so a restart of the Mac changes nothing. It is installed
-once, from any checkout, with:
+is printed. It is installed once, from any checkout, with:
 
 ```sh
 scripts/nightly-retro.sh install
