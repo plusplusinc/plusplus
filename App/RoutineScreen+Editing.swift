@@ -108,9 +108,9 @@ extension RoutineScreen {
             // Full height with search, in the field's own transaction (decided 2026-11-17).
             onSearchOpen: { pickerDetent = .large },
             onCreate: { made in
+                let wasIdle = phase == .idle
                 let exercise = await session.create(made)
                 isPicking = false
-                let wasIdle = phase == .idle
                 add(exercise) { showCreated($0, unlessStartedSince: wasIdle) }
             },
             routineCount: { session.routines(using: $0).count },
@@ -178,15 +178,15 @@ extension RoutineScreen {
 
     /// After Create, `createdHold` after its row has landed, the row's own sheet comes up, as a
     /// tap on the row brings it, already on Customize: the row is seen landing, then its sheet
-    /// rises. Not if a sheet or the drawer is up by then, or the row has gone, or Start was
-    /// pressed since the Create (`wasIdle` and no longer idle): the sheet rose over the first
-    /// exercise growing, and the press says the workout comes first. A Create during a workout
-    /// still opens it, as a tap on the row there does.
+    /// rises. Not if a sheet or the drawer is up by then, a later add's row is still going in,
+    /// or the row has gone, or Start was pressed since the Create (`wasIdle` and no longer
+    /// idle): the sheet rose over the first exercise growing, and the press says the workout
+    /// comes first. A Create during a workout still opens it, as a tap on the row there does.
     private func showCreated(_ id: RoutineExercise.ID, unlessStartedSince wasIdle: Bool) {
         Task {
             try? await Task.sleep(for: Self.createdHold, tolerance: .zero)
-            guard editing == nil, !isPicking, !session.isDrawerOpen, row(id) != nil,
-                  !wasIdle || phase == .idle else { return }
+            guard editing == nil, !isPicking, !session.isDrawerOpen, entering == nil,
+                  row(id) != nil, !wasIdle || phase == .idle else { return }
             editing = RowSheet(id: id, opensCustomizing: true)
         }
     }
