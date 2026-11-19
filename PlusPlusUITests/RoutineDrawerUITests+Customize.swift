@@ -65,11 +65,12 @@ extension RoutineDrawerUITests {
 
     /// In Add exercise, holding a row opens the system's context menu instead of adding it: a
     /// built-in's offers Customize… alone, which pushes its form with no Done, and back finds
-    /// the list. Create stores an exercise and pushes its form, with Done; back, the search keeps
-    /// its text and lists it; held, it also offers Delete, which asks in a centered alert and
-    /// then takes it from the list, its name free to create again. That a delete removes its
-    /// rows, and the question's count, are the package's (`RoutineStoreCustomizeTests`,
-    /// `RoutineSessionExerciseTests`).
+    /// the list. Create closes the sheet, adds the row, and opens the row's own sheet on the
+    /// exercise's form, which a swipe down closes with the row left in. Back in Add exercise,
+    /// the search lists it; held, it also offers Delete, which asks in a centered alert and then
+    /// takes it from the list and its row from the routine, its name free to create again. That
+    /// a delete removes its rows, and the question's count, are the package's
+    /// (`RoutineStoreCustomizeTests`, `RoutineSessionExerciseTests`).
     func holdMenuCustomizesAndDeletes(in app: XCUIApplication) {
         let name = app.textFields["customize.name"]
         let customize = app.buttons["Customize…"]
@@ -93,17 +94,13 @@ extension RoutineDrawerUITests {
             XCTAssertTrue(first.appears(), "Back didn't come to the list")
             XCTAssertEqual(app.exerciseRows.count, count, "The hold added the exercise")
         }
+        createdSheetSwipesDown(in: app, from: count)
         XCTContext.runActivity(named: "A created one's hold menu deletes it, asking first") { _ in
+            _ = app.openPicker()
             app.search(for: "zq")
             let create = app.buttons["picker.create"]
-            XCTAssertTrue(create.appears(), "The search offered no Create")
-            create.tap()
-            XCTAssertTrue(name.appears(), "Create pushed no Customize form")
-            XCTAssertTrue(app.buttons["Done"].exists, "Create's form has no Done")
-            app.tapBack()
             let row = app.pickerRows["Zq"]
             XCTAssertTrue(row.appears(), "The created exercise isn't in the list")
-            XCTAssertEqual(app.searchField.value as? String, "zq", "Back lost the search")
             XCTAssertTrue(row.settles(), "The created exercise's row kept moving")
             row.press(forDuration: 1)
             XCTAssertTrue(delete.appears(), "A created one's hold menu offers no Delete")
@@ -118,7 +115,31 @@ extension RoutineDrawerUITests {
             XCTAssertTrue(close.settles(), "Close kept moving")
             close.tap()
             XCTAssertTrue(close.disappears(), "Close left the picker up")
-            XCTAssertEqual(app.exerciseRows.count, count, "The deleted exercise's row stayed")
+            XCTAssertEqual(
+                app.exerciseCount(becoming: count),
+                count,
+                "The deleted exercise's row stayed",
+            )
+        }
+    }
+
+    /// From Add exercise's list, Create "Zq" on a routine of `count` rows: the sheet closes, the
+    /// row goes in, and its own sheet opens on Customize; a swipe down closes it, the row kept.
+    private func createdSheetSwipesDown(in app: XCUIApplication, from count: Int) {
+        XCTContext.runActivity(named: "Create's sheet swipes down, leaving its row") { _ in
+            app.search(for: "zq")
+            let create = app.buttons["picker.create"]
+            XCTAssertTrue(create.appears(), "The search offered no Create")
+            create.tap()
+            let name = app.textFields["customize.name"]
+            XCTAssertTrue(
+                name.appears(within: AddTiming.createdSheet + 2),
+                "The created row's sheet did not open on Customize",
+            )
+            XCTAssertEqual(app.exerciseRows.count, count + 1, "Create added no row")
+            app.swipeSheetDown(titled: "Customize")
+            XCTAssertTrue(name.disappears(), "A swipe down left the sheet up")
+            XCTAssertEqual(app.exerciseRows.count, count + 1, "The swipe down took the row")
         }
     }
 }

@@ -3,8 +3,9 @@ import SwiftUI
 import WorkoutStore
 
 /// Customize, an exercise's five settings, and no more, pushed from a routine row's Customize…
-/// in its sheet, from Customize… in a row's hold menu in Add exercise, or by Create there, once
-/// it has stored the exercise. Name, not focused, since the next thing to set is the muscle
+/// in its sheet (the sheet a created exercise's row opens on after Create), or from Customize…
+/// in a row's hold menu in Add exercise. Name, not focused, since the next thing to set is the
+/// muscle
 /// groups; Muscle groups and Equipment, each one row reading what is checked ("Back, shoulders";
 /// None and Bodyweight
 /// for none) that opens its full list to check any number on (`Checklist`); Measure; and Per

@@ -1,7 +1,8 @@
 import XCTest
 
 /// Dragging, joining, and deleting rows with real touches over the scroll view, on nine seeded
-/// rows that run past one screen. Where a drag lands, what a node's span makes, and which
+/// rows that run past one screen, and then Create's add on that long a routine. Where a drag lands,
+/// what a node's span makes, and which
 /// neighbor a rest pairs with are unit-tested in the package; this checks each gesture once,
 /// that it reaches that arithmetic.
 ///
@@ -16,6 +17,36 @@ final nonisolated class RowDragUITests: XCTestCase {
         reorderExercises(in: app)
         supersetExercises(in: app)
         deleteExercises(in: app)
+        createOnALongRoutine(in: app)
+    }
+
+    /// From the top of a routine longer than the screen, Create scrolls the list to its end and
+    /// the row lands there in view, clear of Add exercise's +, before its own sheet opens on
+    /// Customize; a swipe down closes the sheet and keeps the row. The two-row and empty
+    /// routines' are `RoutineDrawerUITests`' and `RoutineAutosaveUITests`'.
+    @MainActor
+    private func createOnALongRoutine(in app: XCUIApplication) {
+        XCTContext.runActivity(named: "Create on a long routine lands in view") { _ in
+            let count = app.exerciseRows.count
+            app.exerciseRows.firstMatch.swipeDown()
+            let search = app.openPicker()
+            app.search(for: "zq")
+            app.buttons["picker.create"].tap()
+            XCTAssertTrue(search.disappears(), "Create left Add exercise up")
+            XCTAssertEqual(app.exerciseCount(becoming: count + 1), count + 1, "Create added no row")
+            // Landed at the list's end, clear of the +, before its sheet covers it.
+            XCTAssertEqual(app.exerciseRowLabels.last, "Zq, 3 sets of 10 reps")
+            XCTAssertTrue(app.lastRowClearsAddExercise(), "The created row landed out of view")
+            let name = app.textFields["customize.name"]
+            XCTAssertTrue(
+                name.appears(within: AddTiming.createdSheet + 2),
+                "The created row's sheet did not open on Customize",
+            )
+            app.swipeSheetDown(titled: "Customize")
+            XCTAssertTrue(name.disappears(), "A swipe down left the sheet up")
+            XCTAssertEqual(app.exerciseRows.count, count + 1, "The swipe down took the row")
+            XCTAssertTrue(app.lastRowClearsAddExercise(), "The created row rests under the +")
+        }
     }
 }
 

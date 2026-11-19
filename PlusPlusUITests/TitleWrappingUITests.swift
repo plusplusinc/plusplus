@@ -76,7 +76,7 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         }
 
         try auditRowsAndPicker(in: app)
-        assertLastRowClearsAddAtTheEnd(in: app, keyboard: keyboard)
+        assertLastRowClearsAddAtTheEnd(in: app)
         dragARowAtAX5(in: app)
         try supersetAtAX5(in: app)
         try drawerAtAX5(in: app)
@@ -190,46 +190,44 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             let created = app.searchForNothing(extending: "curl")
             attach(named: "picker-create-only-ax5")
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
+            // The open search's field covers Close, out of VoiceOver's reach.
+            XCTAssertFalse(app.buttons["Close"].exists, "VoiceOver reaches Close under the search")
             try auditCustomizeForm(in: app, named: created)
         }
     }
 
-    /// Customize, which Create pushes inside the sheet, passes the audit at this text size,
-    /// where the name wraps under its label; back then leaves the picker's search as the next
-    /// check expects it. No cheaper tier reaches the form: it is the app's, composed of system
-    /// rows on the sheet's stack. Its checklists are not audited here, to keep the UI tests in
-    /// their budget.
+    /// Customize, which the created row's sheet opens on after Create, passes the audit at this
+    /// text size, where the name wraps under its label; back and Close then leave the routine
+    /// with the row in, as the next check expects it. No cheaper tier reaches the form: it is
+    /// the app's, composed of system rows on the sheet's stack. Its checklists are not audited
+    /// here, to keep the UI tests in their budget.
     @MainActor
     private func auditCustomizeForm(in app: XCUIApplication, named created: String) throws {
         let create = app.buttons["picker.create"]
         XCTAssertTrue(create.settles(), "Create is still moving")
         create.tap()
         let name = app.descendants(matching: .any)["customize.name"]
-        XCTAssertTrue(name.appears(), "Create pushed no Customize form")
+        XCTAssertTrue(
+            name.appears(within: AddTiming.createdSheet + 2),
+            "The created row's sheet did not open on Customize",
+        )
         XCTAssertEqual(name.value as? String, created, "Create's name isn't the search capitalized")
         attach(named: "customize-form-ax5")
-        // Done is the bar's, which caps its text as it does End.
-        try auditBelowTheBar(in: app, systemTexts: ["Done"])
+        try auditBelowTheBar(in: app)
         // The sheet's: the routine, pushed from Routines, has a back button of its own.
         app.navigationBars["Customize"].buttons["BackButton"].tap()
-        XCTAssertTrue(app.searchField.appears(), "Back did not come back to the search")
+        let sets = app.buttons["Sets"]
+        XCTAssertTrue(sets.appears(), "Back did not come to the row's values")
+        app.buttons["Close"].tap()
+        XCTAssertTrue(sets.disappears(), "Close left the sheet up")
     }
 
     /// At this size the second row goes in under Add exercise's +, so an add has to scroll to
     /// the end of the list, where the last row clears the + with the screen's spacing to spare.
     @MainActor
-    private func assertLastRowClearsAddAtTheEnd(in app: XCUIApplication, keyboard: XCUIElement) {
+    private func assertLastRowClearsAddAtTheEnd(in app: XCUIApplication) {
         let name = "At the end of a long list, the last row clears Add exercise's +"
         XCTContext.runActivity(named: name) { _ in
-            // The open search's field covers Close, out of VoiceOver's reach, until its X ends
-            // the search; Close then closes the sheet.
-            let close = app.buttons["Close"]
-            XCTAssertFalse(close.exists, "VoiceOver reaches Close under the open search")
-            app.searchButton.tap()
-            XCTAssertTrue(keyboard.disappears(), "The search's X left the keyboard up")
-            XCTAssertTrue(close.appears(), "The search's X did not uncover Close")
-            close.tap()
-            XCTAssertTrue(app.searchButton.disappears(), "Close left the picker up")
             app.addExercise("Dumbbell bench press, Dumbbells, bench", searching: "bench")
             XCTAssertTrue(app.lastRowClearsAddExercise(), "The add left the row under the +")
             attach(named: "rail-after-add-ax5")

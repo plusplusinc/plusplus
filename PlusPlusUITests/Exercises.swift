@@ -181,10 +181,23 @@ extension XCUIApplication {
         )
     }
 
-    /// The exercise rows' count once it is `expected`, or the last count after the timeout.
-    func exerciseCount(becoming expected: Int, within timeout: TimeInterval = 2) -> Int {
+    /// The exercise rows' count once it is `expected`, or the last count after the timeout, which
+    /// leaves an add time to land: an added row is in the tree only once it has.
+    func exerciseCount(
+        becoming expected: Int,
+        within timeout: TimeInterval = AddTiming.landed + 2,
+    ) -> Int {
         reading(exerciseRows.count, becoming: expected, within: timeout)
     }
+}
+
+/// An add's beats, from the app's constants, so a wait for what an add brings covers them.
+enum AddTiming {
+    /// From a pick or Create to its row landing, at the most: `RoutineScreen.pickerGone`,
+    /// `scrollLanding`, and `addPause`, then `RailArrival.entry`.
+    static let landed: TimeInterval = 0.5 + 0.35 + 0.25 + 0.35
+    /// From Create to its row's sheet on Customize: the landing, then `createdHold`.
+    static let createdSheet: TimeInterval = landed + 0.5
 }
 
 extension XCUIElement {
