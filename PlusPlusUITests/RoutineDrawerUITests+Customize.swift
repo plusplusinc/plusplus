@@ -16,7 +16,8 @@ extension RoutineDrawerUITests {
         XCTContext.runActivity(named: "A row's More menu opens its exercise's Customize") { _ in
             app.exerciseRows.element(boundBy: 0).tap()
             XCTAssertTrue(sets.appears(), "Tapping a row opened no sheet")
-            app.buttons["More"].tap()
+            // The sheet's, not the routine's ••• in the bar behind it, also More.
+            app.buttons["exerciseSheet.more"].tap()
             let customize = app.buttons["Customize…"]
             XCTAssertTrue(customize.appears(), "The More menu offers no Customize…")
             XCTAssertTrue(app.buttons["Remove"].exists, "The More menu offers no Remove")

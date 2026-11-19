@@ -113,6 +113,7 @@ struct ExerciseSheet<Customize: View>: View {
                             onDelete()
                         }
                     }
+                    .accessibilityIdentifier("exerciseSheet.more")
                 }
             }
         }

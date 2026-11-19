@@ -109,6 +109,14 @@ public actor RoutineStore {
         modelContext.delete(routine)
     }
 
+    /// Deletes the routine and its rows; nothing if there is none. Its workouts hold its id and
+    /// name, not a relationship, so they stay stored.
+    public func deleteRoutine(_ id: Routine.ID) throws {
+        guard let routine = try stored(id: id) else { return }
+        modelContext.delete(routine)
+        try modelContext.save()
+    }
+
     /// Marks the routine opened at `now` and returns it, or nil, storing nothing, if there is
     /// no such routine. Opening counts as using: it moves the routine to the top of the recent
     /// list, and a relaunch opens it.

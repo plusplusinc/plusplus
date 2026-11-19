@@ -21,9 +21,13 @@ final nonisolated class WorkoutFinishUITests: XCTestCase {
         let name = "Finish check"
         let title = app.launchSeeding(["push-up"], named: name, arguments: ["-seedSets", "1"])
         let row = app.exerciseRows.element(boundBy: 0)
+        // The bar's ••• gives its place to the workout's time, and takes it back after: the bar
+        // draws its items itself, so only the running app shows which one is there.
+        let more = app.buttons["routine.more"]
         XCTContext.runActivity(named: "Start leaves the list resting on the exercise") { _ in
             app.buttons["Start"].tap()
             XCTAssertTrue(app.workoutTime.appears(), "Start began no workout")
+            XCTAssertTrue(more.disappears(), "••• stayed in the bar during a workout")
             // Read once the workout's key is up, past Start's hand-off to it: a bottom inset that
             // changed there left this routine's list 52.7 pt low in most runs.
             XCTAssertEqual(
@@ -74,6 +78,7 @@ final nonisolated class WorkoutFinishUITests: XCTestCase {
             XCTAssertTrue(app.buttons["Start"].appears(), "Finish workout left the workout running")
             XCTAssertFalse(app.buttons["Discard workout"].exists, "Finish workout asked first")
             XCTAssertFalse(app.endKey.exists, "End stayed after Finish workout")
+            XCTAssertTrue(more.appears(), "••• did not come back after the workout")
         }
         XCTContext.runActivity(named: "The workout was kept: launch opens a new routine") { _ in
             app.relaunch()

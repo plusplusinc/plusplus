@@ -2,7 +2,7 @@ import DesignSystem
 import SwiftUI
 import WorkoutStore
 
-/// The screen's bar: ++ or End, the title once it is under the bar, and a workout's time.
+/// The screen's bar: ++ or End, the title once it is under the bar, and ••• or a workout's time.
 extension RoutineScreen {
     @ToolbarContentBuilder
     var barItems: some ToolbarContent {
@@ -32,13 +32,56 @@ extension RoutineScreen {
                 .animation(.easeOut(duration: Self.barFade), value: session.workout == nil)
             }
         }
-        // The time fades out of its glass, and then the glass goes, the bar fading it: the bar
-        // took the item out with its content on the frame, and only the glass faded.
-        if let workout = session.workout ?? phase.endingWorkout {
-            ToolbarItem(placement: .topBarTrailing) {
-                WorkoutTimeKey(session: session, workout: workout)
-                    .opacity(session.workout == nil ? 0 : 1)
-                    .animation(.easeOut(duration: Self.barFade), value: session.workout == nil)
+        // One item, as leading's: ••• outside a workout and its time during one, crossfading
+        // inside the time's glass. Taken out, the bar took the item's content out on the frame
+        // and only faded its glass. The glass changes size on the frame: it grows at Start
+        // before the crossfade, and shrinks at End once the time has faded out.
+        ToolbarItem(placement: .topBarTrailing) {
+            let timed = session.workout ?? phase.endingWorkout
+            // Trailing, where ••• sits in its own glass, so it holds still as the glass changes.
+            ZStack(alignment: .trailing) {
+                // Always there, faded rather than put in or taken out. While the item holds only
+                // the menu, the bar draws it as a menu item of its own, ignoring any fade, and
+                // swaps the two on the frame: at Start the bar fades its ••• out itself, and at
+                // End ••• fades in here while the time still holds the item, so it is whole when
+                // the glass shrinks. Taken out, a ••• going faded at the glass's top-left corner,
+                // where it sat before the glass grew.
+                moreMenu
+                    .fixedSize()
+                    .opacity(session.workout == nil ? 1 : 0)
+                    .allowsHitTesting(timed == nil)
+                    .accessibilityShown(timed == nil)
+                if let timed {
+                    WorkoutTimeKey(session: session, workout: timed)
+                        .opacity(session.workout == nil ? 0 : 1)
+                        .transition(.opacity)
+                }
+            }
+            .animation(.easeOut(duration: Self.barFade), value: session.workout == nil)
+            .animation(.easeOut(duration: Self.barFade), value: timed == nil)
+        }
+    }
+
+    /// •••, the routine's own actions: Delete, red, dimmed while the routine has nothing saved.
+    /// It asks first in a centered alert, "Delete <name>?", the name as the title shows it;
+    /// confirmed, the session shows Routines on a new routine (`RoutineSession.delete(_:)`).
+    private var moreMenu: some View {
+        Menu("More", systemImage: "ellipsis") {
+            Button("Delete", systemImage: "trash", role: .destructive) {
+                isAskingToDeleteRoutine = true
+            }
+            .disabled(!session.canDeleteOpen)
+        }
+        // Named once: hidden from VoiceOver through a representation, the menu read out its
+        // Delete too, "More, Delete".
+        .accessibilityLabel("More")
+        .accessibilityIdentifier("routine.more")
+        .hiddenBehindDrawer()
+        .alert("Delete \(shownName ?? Self.defaultName)?", isPresented: $isAskingToDeleteRoutine) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) {
+                let id = session.current.id
+                Task { await session.delete(id) }
             }
         }
     }

@@ -65,6 +65,8 @@ struct RoutineScreen: View {
     @State var sideLogs = 0
     /// Whether the dialog asking how to end the workout shows.
     @State var isConfirmingEnd = false
+    /// Whether the alert asking to delete the routine shows.
+    @State var isAskingToDeleteRoutine = false
     /// The scroll in Start's sequence, and how far the list is scrolled.
     @State var scrollBeat = ScrollBeat()
     /// With Reduce Motion, how many times the list has crossfaded into or out of a workout, or
