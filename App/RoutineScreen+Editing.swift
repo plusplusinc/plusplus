@@ -110,7 +110,8 @@ extension RoutineScreen {
             onCreate: { made in
                 let exercise = await session.create(made)
                 isPicking = false
-                add(exercise, landed: showCreated)
+                let wasIdle = phase == .idle
+                add(exercise) { showCreated($0, unlessStartedSince: wasIdle) }
             },
             routineCount: { session.routines(using: $0).count },
             onDelete: { id in
@@ -137,14 +138,16 @@ extension RoutineScreen {
         add(exercise)
     }
 
-    /// Adds a picked exercise. Its row takes its place at the rail's end as the sheet starts down,
-    /// but enters only where it can be seen: a moment into the sheet's slide when everything
-    /// still fits, and otherwise once the sheet has gone and a scroll to the end has brought the
-    /// row and the list's end into view. The scroll waits for the row's place: asked for while
-    /// the row went in, it stopped at the end the list had before. Once Start is pressed, it
-    /// enters where it is, with no scroll: the end is then Start's room under the list, out of
-    /// sight, and a scroll to it took the list off the screen just as Start went to land on the
-    /// first exercise. `landed` runs once the row has landed.
+    /// Adds a picked or created exercise. Its row takes its place at the rail's end as the sheet
+    /// starts down, but enters only where it can be seen, and `addPause` after the list comes to
+    /// rest there, so the scroll and the row read one after the other: when everything still
+    /// fits, `addPause` after the wait that follows the append, as the sheet finishes its
+    /// slide; otherwise once the sheet has gone and a scroll to the end (`endScroll`) has
+    /// landed with the row's place and the list's end in view. The scroll waits for the row's
+    /// place: asked for while the row went in, it stopped at the end the list had before. Once
+    /// Start is pressed, it enters where it is, with no scroll: the end is then Start's room
+    /// under the list, out of sight, and a scroll to it took the list off the screen just as
+    /// Start went to land on the first exercise. `landed` runs once the row has landed.
     func add(_ exercise: Exercise, landed: @escaping (RoutineExercise.ID) -> Void = { _ in }) {
         let added = ContinuousClock.now
         let row = RoutineExercise(exercise: exercise, weightUnit: WeightUnit(region: locale))
@@ -152,8 +155,7 @@ extension RoutineScreen {
         entering = row.id
         endFollow = .waiting
         // The row goes in with no space yet, so nothing moves; its fade, of a row that draws
-        // nothing yet, times the entry a moment into the sheet's slide: the line barely moves
-        // at first, and the sheet has cleared all but the screen's foot by the time it shows.
+        // nothing yet, starts the wait for the list's end a moment into the sheet's slide.
         withAnimation(.linear(duration: RailArrival.appendFade)) {
             routine.exercises.append(row)
         }
@@ -181,11 +183,15 @@ extension RoutineScreen {
 
     /// After Create, a beat after its row has landed, the row's own sheet comes up, as a tap on
     /// the row brings it, already on Customize: the row is seen landing, then its sheet rises.
-    /// Not if a sheet is up by then, or the row has gone.
-    private func showCreated(_ id: RoutineExercise.ID) {
+    /// Not if a sheet is up by then, or the row has gone, or Start was pressed since the
+    /// Create (`wasIdle` and no longer idle): the sheet rose over the first exercise growing,
+    /// and the press says the workout comes first. A Create during a workout still opens it, as
+    /// a tap on the row there does.
+    private func showCreated(_ id: RoutineExercise.ID, unlessStartedSince wasIdle: Bool) {
         Task {
             try? await Task.sleep(for: .seconds(Self.createdHold), tolerance: .zero)
-            guard editing == nil, !isPicking, row(id) != nil else { return }
+            guard editing == nil, !isPicking, row(id) != nil, !wasIdle || phase == .idle
+            else { return }
             editing = RowSheet(id: id, opensCustomizing: true)
         }
     }
@@ -200,7 +206,8 @@ struct RowSheet: Identifiable {
 
 extension RoutineScreen {
     /// Once the picker has gone, scrolls the list to its end, the added row's place, and returns
-    /// as it lets the row enter, unless the end is in view or Start's room is opening. On
+    /// as the scroll lands, unless the end is in view or Start's room is opening, when it returns
+    /// at once. On
     /// deadlines, not the scroll's completion or its phase: the phase reported idle only about
     /// 0.3 s after the list had stopped, and the row waited on a still list.
     private func reachEnd(added: ContinuousClock.Instant) async {
@@ -209,11 +216,15 @@ extension RoutineScreen {
         try? await Task.sleep(until: added + Self.pickerGone, tolerance: .zero, clock: .continuous)
         // Start pressed meanwhile: the row enters where it is.
         guard !isMakingRoom else { return }
-        withAnimation(.railChange) {
+        withAnimation(Self.endScroll) {
             scrollPosition.scrollTo(edge: .bottom)
         }
         try? await Task.sleep(for: Self.scrollLanding, tolerance: .zero)
     }
+
+    /// The scroll to the list's end for an added row: a little slower than `.railChange`, whose
+    /// 0.25 s felt fast here (decided 2026-11-18).
+    static let endScroll = Animation.snappy(duration: 0.35)
 
     /// From a pick to the picker sheet's dismissal having slid it away, when the scroll to the
     /// list's end starts, so it runs in view, and when the first exercise's Start rises with the
@@ -225,8 +236,8 @@ extension RoutineScreen {
     /// showing, so each reads as one thing after the other.
     static let addPause: Duration = .milliseconds(250)
 
-    /// From the scroll's start to its landing, `.railChange`'s length; `addPause` follows it.
-    static let scrollLanding: Duration = .milliseconds(250)
+    /// From the scroll's start to its landing, `endScroll`'s length; `addPause` follows it.
+    static let scrollLanding: Duration = .milliseconds(350)
 
     /// While an added row's place opens past the visible area, scrolls with it, a frame at a
     /// time, so the list's end stays put on screen as the line grows above it. The place opens
