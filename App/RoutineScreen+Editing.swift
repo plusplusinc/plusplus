@@ -1,4 +1,5 @@
 import DesignSystem
+import Session
 import SwiftUI
 import WorkoutStore
 
@@ -85,7 +86,7 @@ extension RoutineScreen {
                         onStored: {
                             showStoredRoutine()
                             if row(id) == nil {
-                                editing = nil
+                                session.closeRowSheet()
                             }
                         },
                         back: back,
@@ -178,16 +179,17 @@ extension RoutineScreen {
 
     /// After Create, `createdHold` after its row has landed, the row's own sheet comes up, as a
     /// tap on the row brings it, already on Customize: the row is seen landing, then its sheet
-    /// rises. Not if a sheet or the drawer is up by then, a later add's row is still going in,
-    /// or the row has gone, or Start was pressed since the Create (`wasIdle` and no longer
-    /// idle): the sheet rose over the first exercise growing, and the press says the workout
-    /// comes first. A Create during a workout still opens it, as a tap on the row there does.
+    /// rises. Not if a sheet is up by then, a later add's row is still going in, or the row has
+    /// gone, or Start was pressed since the Create (`wasIdle` and no longer idle): the sheet
+    /// rose over the first exercise growing, and the press says the workout comes first. A
+    /// Create during a workout still opens it, as a tap on the row there does. The drawer and
+    /// the sheet keep each other out as a tap's sheet does (`RoutineSession.openRowSheet(_:)`).
     private func showCreated(_ id: RoutineExercise.ID, unlessStartedSince wasIdle: Bool) {
         Task {
             try? await Task.sleep(for: Self.createdHold, tolerance: .zero)
-            guard editing == nil, !isPicking, !session.isDrawerOpen, entering == nil,
+            guard editing == nil, !isPicking, entering == nil,
                   row(id) != nil, !wasIdle || phase == .idle else { return }
-            editing = RowSheet(id: id, opensCustomizing: true)
+            session.openRowSheet(RowSheet(id: id, opensCustomizing: true))
         }
     }
 
@@ -292,11 +294,4 @@ extension RoutineScreen {
             entering = nil
         }
     }
-}
-
-/// A row's open sheet: which row, and whether it opens on Customize, as after Create. The flag
-/// rides with the sheet's item: a separate state set with it read as unset in the sheet.
-struct RowSheet: Identifiable {
-    let id: RoutineExercise.ID
-    var opensCustomizing = false
 }

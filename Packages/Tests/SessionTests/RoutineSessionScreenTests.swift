@@ -51,6 +51,23 @@ struct RoutineSessionScreenTests {
         #expect(!session.isDrawerOpen)
     }
 
+    @Test("The drawer and a row's sheet keep each other out, whichever was asked for first")
+    func drawerAndRowSheetExclude() {
+        let row = UUID()
+        let session = session()
+        // A ++ after a sheet is asked for, before it rises over ++, as after Create.
+        session.openRowSheet(RowSheet(id: row, opensCustomizing: true))
+        session.openDrawer()
+        #expect(!session.isDrawerOpen)
+        #expect(session.rowSheet?.id == row)
+        session.closeRowSheet()
+        session.openDrawer()
+        #expect(session.isDrawerOpen)
+        // A created row's sheet due after ++ opened the drawer.
+        session.openRowSheet(RowSheet(id: row, opensCustomizing: true))
+        #expect(session.rowSheet == nil)
+    }
+
     @Test("A routine opened from the list is pushed on it")
     func openFromList() async {
         let session = await pushedSession()

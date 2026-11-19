@@ -17,6 +17,8 @@ public final class RoutineSession {
     public private(set) var current: Routine
     /// Opened through `openDrawer()`, which a workout refuses, and shut through `closeDrawer()`.
     public private(set) var isDrawerOpen = false
+    /// The routine screen's open row sheet, through `openRowSheet(_:)` and `closeRowSheet()`.
+    public private(set) var rowSheet: RowSheet?
     /// Where the app is: the routine, the Routines screen, or a routine pushed on it.
     public internal(set) var screen = Screen.routine
     /// The workout running the open routine, from Start until Finish or Discard.
@@ -94,10 +96,23 @@ public final class RoutineSession {
         workout != nil
     }
 
-    /// Opens the drawer, unless a workout keeps it shut.
+    /// Opens the drawer, unless a workout keeps it shut or a row's sheet has been asked for.
     public func openDrawer() {
-        guard !isDrawerLocked else { return }
+        guard !isDrawerLocked, rowSheet == nil else { return }
         isDrawerOpen = true
+    }
+
+    /// Opens a row's sheet, unless the drawer is open. The drawer and a row's sheet keep each
+    /// other out, whichever was asked for first: the sheet covers ++ only once it starts to
+    /// rise, a frame or more after it is asked for, and a ++ in between, as when a created
+    /// row's sheet came up on its own, opened the drawer under it.
+    public func openRowSheet(_ sheet: RowSheet) {
+        guard !isDrawerOpen else { return }
+        rowSheet = sheet
+    }
+
+    public func closeRowSheet() {
+        rowSheet = nil
     }
 
     public func closeDrawer() {

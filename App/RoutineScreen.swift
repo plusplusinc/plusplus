@@ -22,8 +22,12 @@ struct RoutineScreen: View {
     /// its search opens.
     @State var pickerDetent: PresentationDetent = .medium
     @State var listEnd = ListEnd()
-    /// The row whose values are open in a sheet.
-    @State var editing: RowSheet?
+    /// The row whose values are open in a sheet, kept by the session, which keeps it and the
+    /// drawer apart.
+    var editing: RowSheet? {
+        session.rowSheet
+    }
+
     @State var scrollPosition = ScrollPosition()
     /// The row just added, holding its place until it can be seen going in.
     @State var arriving: RoutineExercise.ID?
@@ -259,7 +263,7 @@ struct RoutineScreen: View {
                             .contentShape(.rect)
                             .onTapGesture {
                                 guard item.id != entering else { return }
-                                editing = RowSheet(id: item.id)
+                                session.openRowSheet(RowSheet(id: item.id))
                             }
                             .accessibilityAddTraits(.isButton)
                             .accessibilityValue(supersetValue(item.id))
@@ -372,7 +376,11 @@ struct RoutineScreen: View {
                 .presentationDetents([.medium, .large], selection: $pickerDetent)
         }
         // By item, so the sheet keeps its content as it slides away.
-        .sheet(item: $editing) { opened in
+        .sheet(item: Binding { editing } set: {
+            if $0 == nil {
+                session.closeRowSheet()
+            }
+        }) { opened in
             exerciseSheet(opened)
         }
         .toolbar { barItems }
