@@ -77,7 +77,7 @@ extension View {
     /// floats: its ledge's bottom 21 pt above the screen's bottom, and its sides 21 pt from the
     /// screen's. Each time `plusOnes` goes up, a +1 pops off the key's top. `drop` moves the key
     /// down by that much, at least off the screen, which an animation carries it along at its own
-    /// pace.
+    /// pace. The keyboard covers the key, and the screen with it, rather than lifting them.
     ///
     /// `floating`, a button drawn in the `floating` style, floats above the key's right end, its
     /// right edge on the key's and 16 pt above the key's top, whether the key shows or not: with
@@ -168,13 +168,10 @@ private struct PrimaryKeyBar<
     let key: (Face, _ isOut: Bool) -> Key
     let floating: Floating
 
-    /// The screen's bottom safe area, less the keyboard's, measured on the screen rather than on
-    /// the key, so a key coming in has it from its first frame: measured on the key, it came in
-    /// 16 pt from the sides, then narrowed to its place on the screen's next animation.
+    /// The screen's bottom safe area, measured on the screen rather than on the key, so a key
+    /// coming in has it from its first frame: measured on the key, it came in 16 pt from the
+    /// sides, then narrowed to its place on the screen's next animation.
     @State private var bottomInset: CGFloat = 0
-    /// The screen's bottom safe area with the keyboard's: more than `bottomInset` while the
-    /// keyboard is up, which the bar then sits on.
-    @State private var keyboardInset: CGFloat = 0
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     /// The key's inset from the screen's sides: `lowInset`, and with no home indicator, as far as
@@ -192,14 +189,9 @@ private struct PrimaryKeyBar<
         bottomInset > 0 ? PrimaryKeyButtonStyle.lowInset : 0
     }
 
-    private var isOnKeyboard: Bool {
-        keyboardInset > bottomInset
-    }
-
-    /// How far below its place in the bar the key is drawn: down to its ledge's place, or on the
-    /// keyboard, up by its ledge.
+    /// How far below its place in the bar the key is drawn: down to its ledge's place.
     private var drawnLower: CGFloat {
-        (isOnKeyboard ? 0 : bottomInset - ledgeLift) - PrimaryKeyButtonStyle.ledge
+        bottomInset - ledgeLift - PrimaryKeyButtonStyle.ledge
     }
 
     /// `face`, the key as drawn, in its place in the bar, where it sizes the bar's room.
@@ -208,10 +200,8 @@ private struct PrimaryKeyBar<
             .padding(.horizontal, sideInset)
             // The bar's room is the resting face's, laid out on the safe area's bottom, and the
             // key is drawn down from there to its ledge's place, `ledgeLift` above the screen's
-            // bottom, into the safe area; on the keyboard, up by its ledge, which so shows above
-            // it: drawn down, the face went behind the keyboard's top. The bar keeps its room, so
-            // the list under it doesn't move as the key is pressed. The move is an offset, never
-            // the bar's height:
+            // bottom, into the safe area. The bar keeps its room, so the list under it doesn't
+            // move as the key is pressed. The move is an offset, never the bar's height:
             // `bottomInset` is measured only after the first layout, and a bar whose height
             // followed it changed the list's inset a second time in its first frame, which SwiftUI
             // logs as an `OnScrollGeometryChange` fault.
@@ -275,23 +265,9 @@ private struct PrimaryKeyBar<
                     }
                 }
             }
-            // The screen's own inset, without the keyboard's when it is up: with the keyboard's
-            // height as the side insets, the key stood tall and narrow over it, and the bar,
-            // wider than the screen, pushed the whole screen off its left edge. Measured inside
-            // the view that ignores the keyboard, which takes its inset away from what it holds;
-            // measured on that view, the keyboard's inset still counted.
-            .background {
-                Color.clear
-                    .onGeometryChange(for: CGFloat.self, of: \.safeAreaInsets.bottom) {
-                        bottomInset = $0
-                    }
-                    .ignoresSafeArea(.keyboard)
-            }
-            // Measured as `bottomInset` is but with the keyboard's inset, which is more than
-            // the screen's own while the keyboard is up.
             .background {
                 Color.clear.onGeometryChange(for: CGFloat.self, of: \.safeAreaInsets.bottom) {
-                    keyboardInset = $0
+                    bottomInset = $0
                 }
             }
             // Over the screen rather than in the bar, so it can rise above the bar's room.
@@ -313,6 +289,10 @@ private struct PrimaryKeyBar<
             .overlayPreferenceValue(FloatingFace<Face>.self, alignment: .bottom) { shown in
                 floatingPlace(over: shown)
             }
+            // The keyboard covers the key rather than lifting it: the screen and its bar stay
+            // where they are as it rises. Everything above measures inside this, where the
+            // keyboard's inset is taken away.
+            .ignoresSafeArea(.keyboard, edges: .bottom)
     }
 }
 
