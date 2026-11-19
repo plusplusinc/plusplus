@@ -117,11 +117,15 @@ public final class RoutineSession {
     /// Only a row the open routine has, of an exercise not being deleted (`isDeleting(_:)`),
     /// opens: a row tapped as it left, its removal already stored, opened an empty sheet that
     /// kept the drawer shut until swiped down, and one whose delete is confirmed would show a
-    /// form for an exercise on its way out. A second ask for the row already asked for keeps
-    /// that opening, so a double tap doesn't build the rising sheet again.
+    /// form for an exercise on its way out. The same ask again keeps the opening already asked
+    /// for, so a double tap doesn't build the rising sheet again.
     public func openRowSheet(_ sheet: RowSheet) {
-        guard !isDrawerOpen, !isDrawerHeld, rowSheet?.id != sheet.id,
-              canOpenSheet(of: sheet.id) else { return }
+        guard !isDrawerOpen, !isDrawerHeld, canOpenSheet(of: sheet.id) else { return }
+        if let rowSheet, rowSheet.id == sheet.id,
+           rowSheet.opensCustomizing == sheet.opensCustomizing
+        {
+            return
+        }
         rowSheet = sheet
     }
 

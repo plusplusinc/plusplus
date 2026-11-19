@@ -22,9 +22,10 @@ import WorkoutStore
 ///
 /// The store takes the delete only once nothing shows the form, and the routine shows it as
 /// soon as it is stored, so no edit lands on a routine the screen and the store disagree on.
-/// From the confirming tap until it is stored, a tap on one of the exercise's rows opens
-/// nothing, and its row in Add exercise adds nothing; any other row opens its own sheet, on its
-/// sets and reps, and the delete lands behind it.
+/// From the alert's Delete running until the delete is stored, a tap on one of the exercise's
+/// rows opens nothing, and its row in Add exercise adds nothing (after a row's sheet, Add
+/// exercise opened meanwhile doesn't list it); any other row opens its own sheet, on its sets
+/// and reps, and the delete lands behind it.
 extension RoutineScreen {
     /// What shows the exercise's form as Delete is confirmed.
     enum DeleteClosing {
@@ -46,6 +47,9 @@ extension RoutineScreen {
             switch closing {
             case .rowSheet:
                 session.closeRowSheet()
+                // Add exercise isn't up, so its list goes without it from now: opened in the
+                // beats, it never offers the exercise going.
+                leavingExercise = id
                 stores = confirmed + Self.exerciseSheetGone + Self.addPause
             case let .pop(back):
                 back()
