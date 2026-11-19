@@ -4,7 +4,6 @@
 #
 #   scripts/device.sh                                  # the one available iPhone, else a link
 #   PLUSPLUS_DEVICE="<name or UDID>" scripts/device.sh
-#   scripts/device.sh --link                           # a link, even with an iPhone in reach
 #   scripts/device.sh --list                           # the iPhone it would use, and why others not
 #   PLUSPLUS_OLDER_SCHEMA=1 scripts/device.sh          # install over a newer store schema anyway
 #
@@ -15,6 +14,11 @@
 # phone that is reachable takes the install but not the launch, and the script says to open the
 # app there. When the install itself fails, devicectl's reason is printed and it makes a link. The build is incremental in the worktree's .build/device, apart from the
 # simulator's derived data so both can build at once.
+#
+# There is no way to ask for a link with an iPhone in reach. A direct install reaches the phone
+# in under 20 s with no step for the maintainer, while a link needs them to open it and tap
+# Install; on 2026-11-18 `--link` was run with the phone in reach, and the build reached it a
+# minute later, by a direct install, once the maintainer asked why it hadn't.
 #
 # The link is a development-signed .ipa, an install manifest, and a one-button page, deployed
 # under a fresh random path as static assets of a Cloudflare Worker on workers.dev. Opened in
@@ -293,12 +297,12 @@ case "${1:-}" in
         exit
         ;;
     --link)
-        schema_guard
-        install_link
-        exit
+        echo "there is no --link: run scripts/device.sh, which installs on the iPhone when it is" \
+            "in reach and makes an install link itself, saying why, when it isn't" >&2
+        exit 64
         ;;
     *)
-        echo "usage: scripts/device.sh [--link | --list]" >&2
+        echo "usage: scripts/device.sh [--list]" >&2
         exit 64
         ;;
 esac

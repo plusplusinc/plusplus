@@ -82,7 +82,8 @@ state, stateless services hold side effects, free functions hold the math. The a
 The main session leads a slice, as `/onward` describes: it writes the spec and acceptance
 criteria, makes the technical calls, and hands each phase, in order, to a subagent defined in
 `.claude/agents/`: planner, builder, verifier, then a builder again for what the verifier found.
-It reads their summaries and screenshots, not their work. A subagent follows its definition,
+It reads their summaries and screenshots, not their work, and itself makes a few-line change to
+a value the maintainer is tuning. A subagent follows its definition,
 answers only to the lead, and never merges.
 
 The maintainer owns the product. The lead goes to them to align on a card before it starts, for
@@ -123,7 +124,7 @@ scripts/test.sh              # package and script tests on macOS, no simulator, 
 scripts/build.sh             # app for the simulator, compact diagnostics
 scripts/test.sh sim          # everything on the simulator, including snapshots
 scripts/run.sh [name]        # build, install, launch, screenshot to .build/screenshots/
-scripts/device.sh [--link]   # build, install, launch on the iPhone, else an install link
+scripts/device.sh            # build, install, launch on the iPhone, else an install link
 scripts/sim.sh <command>     # drive the simulator: shots, appearance, reset, erase, log, motion, shutdown, list
 scripts/lint.sh [--fix]      # SwiftFormat, SwiftLint, US English, as CI runs them
 scripts/board.sh <command>   # the private project board; run bare to list its commands
