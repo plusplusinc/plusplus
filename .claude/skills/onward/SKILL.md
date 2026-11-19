@@ -49,12 +49,12 @@ Their time is the scarce thing, and it is for the product.
   command, paste a setting, allow a tool) is redone until it needs none; bring the ask only
   when no such design exists, saying what was ruled out.
 - **Show, then ask.** Anything they can see goes on their phone the moment it builds
-  (`scripts/device.sh` from the slice's worktree; it prints an install link, and why, when no
-  iPhone is in reach), before tests, cleanup, or review, and never as a step inside a longer
-  job. A choice of look or behavior is drawn before it is asked or built: options as
-  phone-size frames on a Design canvas (Artifact `quickstart`, intent "design"), the
-  platform's own control first (principle 4), each other option saying what it does that the
-  system one can't, options that differ in motion drawn moving. What a system control can do
+  (`scripts/device.sh` from the slice's worktree, which installs directly, else prints a link
+  and why), before tests, cleanup, or review, and never as a step inside a longer job. A
+  choice of look or behavior is drawn before it is asked or built: options as phone-size
+  frames on a Design canvas (Artifact `quickstart`, intent "design"), the platform's own
+  control first (principle 4), each other option saying what it does that the system one
+  can't, options that differ in motion drawn moving. What a system control can do
   is read from its Apple doc then, never from memory. One small canvas per open question,
   since a link to a page of a larger canvas doesn't reliably open on that page, numbered and
   lettered so they answer in a line, linked from the board README. Check for the Artifact tool
@@ -122,13 +122,16 @@ Their time is the scarce thing, and it is for the product.
   (`scripts/board.sh body`), then planner, builder, verifier, and a builder for what the
   verifier found, each given the card id. Size the team to the card: a small task with no UI
   goes straight to a builder with the card's Plan. With something to see, rounds come first
-  (the builder's "Rounds"); a round's brief asks for the change and nothing "Rounds" leaves
-  out. Before each install, check what they asked for in the round's screenshots on content
-  like theirs, and that nothing they corrected earlier moved. The loop
-  ends on their word that it's right; then the builder's full pass and the verifier run once,
+  (the builder's "Rounds"); a round's brief asks for the change, and for a recording, frame
+  grid, measurement, or cleanup only with the question it answers. A value they name a change to
+  (a duration, a spacing) you change, commit, and install with `scripts/device.sh` in the
+  slice's worktree while no builder runs there, with a line in the handoff note; the full
+  pass reviews it. Before a builder round's install, check what they asked for in the
+  round's screenshots on content like theirs, and that nothing they corrected earlier moved.
+  The loop ends on their word that it's right; then the builder's full pass and the verifier run once,
   while the next card starts (below). Work done while they are away is a round for them to
   try, not the end of the loop.
-- **Fresh and focused.** Each round or job gets a new agent named for it, starting from the
+- **Fresh and focused.** Each builder round or job gets a new agent named for it, starting from the
   slice's handoff note (`.slices/sliceN-handoff.md`) and bringing it up to date; resume one
   only to finish its own job, and wait for its hand-back before acting on its work. A decision
   made while a builder works goes to it at once (SendMessage) and into the handoff. A one-off
@@ -168,8 +171,8 @@ merges `origin/main` in.
 
 Each push to a PR that changes the app spends a full Xcode Cloud run, so push only when CI's
 answer is needed: when the PR opens, after a round of fixes, and before the merge. Commit
-locally in between; rounds reach the phone by `scripts/device.sh`. Bring a pushed branch up to
-date by merging `origin/main`, never a rebase, whose push agents are denied.
+locally in between. Bring a pushed branch up to date by merging `origin/main`, never a rebase,
+whose push agents are denied.
 
 After every push, watch "PR check" to the end yourself (`/pr`): `gh pr checks <n> --watch
 --interval 60` in the background, stopping an earlier watch first (`TaskStop`). A subagent's "still queued"

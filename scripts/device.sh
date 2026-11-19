@@ -4,17 +4,18 @@
 #
 #   scripts/device.sh                                  # the one available iPhone, else a link
 #   PLUSPLUS_DEVICE="<name or UDID>" scripts/device.sh
-#   scripts/device.sh --link                           # a link, even with an iPhone in reach
 #   scripts/device.sh --list                           # the iPhone it would use, and why others not
 #   PLUSPLUS_OLDER_SCHEMA=1 scripts/device.sh          # install over a newer store schema anyway
+#
+# No flag forces a link: a direct install needs no step from the maintainer.
 #
 # The phone is looked up each time, never stored, since the repo is public. It must be paired
 # with this Mac and reachable: devicectl marks it unavailable when it is away or off the Mac's
 # Wi-Fi, and then the script makes a link. The build targets any iPhone, not this one, since
 # xcodebuild refuses a locked phone as a destination while devicectl installs on it: a locked
 # phone that is reachable takes the install but not the launch, and the script says to open the
-# app there. When the install itself fails, devicectl's reason is printed and it makes a link. The build is incremental in the worktree's .build/device, apart from the
-# simulator's derived data so both can build at once.
+# app there. When the install itself fails, devicectl's reason is printed and it makes a link. The build is incremental in
+# the worktree's .build/device, apart from the simulator's derived data so both can build at once.
 #
 # The link is a development-signed .ipa, an install manifest, and a one-button page, deployed
 # under a fresh random path as static assets of a Cloudflare Worker on workers.dev. Opened in
@@ -292,13 +293,9 @@ case "${1:-}" in
         available_iphones
         exit
         ;;
-    --link)
-        schema_guard
-        install_link
-        exit
-        ;;
     *)
-        echo "usage: scripts/device.sh [--link | --list]" >&2
+        echo "usage: scripts/device.sh [--list]; it makes an install link itself when no iPhone" \
+            "is in reach" >&2
         exit 64
         ;;
 esac
