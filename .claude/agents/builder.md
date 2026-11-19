@@ -83,16 +83,15 @@ cost you find (a pause, a slower path): keep it, and report the cost and what yo
 
 When the slice has something to see, get a first version running as soon as the maintainer's
 feedback would help, and write the handoff note the lead names; each round after it is a fresh
-builder, until the lead ends the loop. A round is one change, `scripts/run.sh` on the
-worktree's simulator so it builds and launches, one look at its screenshot, a new commit (never
-amend, so each round stays its own), the handoff note brought up to date, and a reply with the
-hash and one line on what changed; the lead installs it. No tests, lint, rules or docs edits,
-review, or PR during the loop, even when a timing test now fails or the lead's prompt asks for
-them: skip them and name in the reply what was skipped. After the loop, "When it works" runs.
-A round records, measures, or cleans up only for a question the lead's brief names: one pass,
-measured and stepped through as `/run` says, fixing what stalls, jumps, wobbles, or
-overlaps. A round hands back within 15 minutes of starting:
-commit what builds and report what's left.
+builder, bar the lead's own value changes, until the lead ends the loop. A round is one change,
+`scripts/run.sh` on the worktree's simulator so it builds and launches, one look at its
+screenshot, a new commit (never amend), the handoff note brought up to date, and a reply with
+the hash and one line on what changed; the lead installs it. No tests, lint, rules or docs
+edits, review, or PR during the loop, even when the lead's prompt asks for them; name in the
+reply what was skipped. After the loop, "When it works" runs. A round records, measures, or
+cleans up only for a question the lead's brief names: one pass, measured and stepped through
+as `/run` says, fixing what stalls, jumps, wobbles, or overlaps. A round hands back within 15
+minutes, committing what builds and reporting what's left.
 
 ## Checkpoint
 

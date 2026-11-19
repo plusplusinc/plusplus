@@ -125,13 +125,13 @@ Their time is the scarce thing, and it is for the product.
   (the builder's "Rounds"); a round's brief asks for the change, and for a recording, frame
   grid, measurement, or cleanup only with the question it answers. A value they name a change to
   (a duration, a spacing) you change, commit, and install with `scripts/device.sh` in the
-  slice's worktree while no builder runs there; the full pass reviews it.
-  Before a builder round's install, check what they asked for in the round's screenshots on content
-  like theirs, and that nothing they corrected earlier moved. The loop
-  ends on their word that it's right; then the builder's full pass and the verifier run once,
+  slice's worktree while no builder runs there, with a line in the handoff note; the full
+  pass reviews it. Before a builder round's install, check what they asked for in the
+  round's screenshots on content like theirs, and that nothing they corrected earlier moved.
+  The loop ends on their word that it's right; then the builder's full pass and the verifier run once,
   while the next card starts (below). Work done while they are away is a round for them to
   try, not the end of the loop.
-- **Fresh and focused.** Each round or job gets a new agent named for it, starting from the
+- **Fresh and focused.** Each builder round or job gets a new agent named for it, starting from the
   slice's handoff note (`.slices/sliceN-handoff.md`) and bringing it up to date; resume one
   only to finish its own job, and wait for its hand-back before acting on its work. A decision
   made while a builder works goes to it at once (SendMessage) and into the handoff. A one-off

@@ -31,7 +31,8 @@ Leaf views take plain values and closures so they preview and snapshot without a
   there. Do not set `UIDesignRequiresCompatibility`.
 - Anything that shows and hides beside or above other content (a tag, a line, a control) keeps
   its room laid out and fades, so nothing near it moves or rewraps as it comes and goes. Before
-  the full pass, step through each state change it adds and look at what moves.
+  a slice's "When it works" pass, step through the slice's state changes and look at what
+  moves.
 - Every tappable element that is not a `Button` gets `.accessibilityAddTraits(.isButton)`;
   icon-only controls get `.accessibilityLabel`; decorative images get
   `.accessibilityHidden(true)`, but a view already `.hidden()` gets nothing more: the modifier
