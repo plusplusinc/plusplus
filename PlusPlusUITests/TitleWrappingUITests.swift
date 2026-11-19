@@ -256,7 +256,7 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         title.typeText("\n")
         XCTAssertTrue(keyboard.disappears(), "Return did not end the edit", line: line)
         XCTAssertEqual(
-            watchFrames(of: [title], for: RenameUITests.keyboardAvoidanceWindow),
+            watchFrames(of: [title], for: RenameUITests.endedEditWindow),
             before,
             "Ending the edit moved the title",
             line: line,
@@ -278,7 +278,8 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         while ink.lines.count != expected, Date.now < drawn {
             ink = try read(field)
         }
-        attach(ink.shot.screenshot, named: label)
+        // After the checks, so a failing one keeps the shot it read.
+        defer { attach(ink.shot.screenshot, named: label) }
         // The strip was placed by the frame read before the shot.
         XCTAssertEqual(title.frame, field, "\(label): the field moved while read", line: line)
         XCTAssertEqual(ink.lines.count, expected, "\(label): line count", line: line)

@@ -113,7 +113,9 @@ extension RowDragUITests {
             app.buttons["Start"].tap()
             XCTAssertTrue(delete.disappears(), "A tap on Start left the row open")
             app.discardWorkout()
-            XCTAssertEqual(app.exerciseCount(becoming: 7, within: 1), 8, "Start deleted the row")
+            // Read once: End's dialog and Discard came after the tap, longer than a delete takes
+            // to land.
+            XCTAssertEqual(app.exerciseRows.count, 8, "Start deleted the row")
         }
         XCTContext.runActivity(named: "A full swipe deletes") { _ in
             // Scrolled to the list's end, so the swipe starts on the row and not on Add

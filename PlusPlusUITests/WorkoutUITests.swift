@@ -34,7 +34,7 @@ final nonisolated class WorkoutUITests: XCTestCase {
         XCTContext.runActivity(named: "The drawer is locked") { _ in
             XCTAssertFalse(app.buttons["Menu"].exists, "++ shows in a workout")
             app.edgeSwipe()
-            XCTAssertFalse(app.drawerTitle.appears(within: 1), "The edge swipe opened the drawer")
+            XCTAssertTrue(app.drawerTitle.staysAway(), "The edge swipe opened the drawer")
         }
         // What launch opens after Discard is `RoutineStoreWorkoutTests`'.
         XCTContext
@@ -86,7 +86,7 @@ final nonisolated class WorkoutUITests: XCTestCase {
             )
             attach(named: "workout-started")
             current.swipeOpen()
-            XCTAssertFalse(app.buttons["Remove"].appears(within: 1), "The current row swiped")
+            XCTAssertTrue(app.buttons["Remove"].staysAway(), "The current row swiped")
         }
     }
 

@@ -91,7 +91,7 @@ extension RenameUITests {
         end()
         XCTAssertTrue(keyboard.disappears(), "The edit did not end")
         XCTAssertEqual(
-            watchFrames(of: elements, for: Self.keyboardAvoidanceWindow),
+            watchFrames(of: elements, for: Self.endedEditWindow),
             atRest,
             "The title, the capsules, or the first row moved",
         )
