@@ -32,7 +32,7 @@ final class RailEdges {
     /// Where this hold last scrolled the list to, which the scroll view may not have reported
     /// yet: the next step goes on from there, so no distance is counted twice.
     @ObservationIgnored private var scrolledTo: CGFloat?
-    @ObservationIgnored fileprivate var scroll: ScrollGeometry?
+    @ObservationIgnored fileprivate var scroll: ScrollExtent?
     /// Scrolls the list to a `scrollTo(y:)` value, in the transaction it is called in.
     @ObservationIgnored fileprivate var scrollTo: ((CGFloat) -> Void)?
     /// Told each time the frame clock that steps the list is read, so a test can see it is read
@@ -59,7 +59,7 @@ final class RailEdges {
         // The scroll view's frame starts under the top bar, and its container is the area
         // between the bars; the content insets cover the bars it scrolls under.
         guard let scroll else { return nil }
-        return 0 ... scroll.containerSize.height
+        return 0 ... scroll.containerHeight
     }
 
     /// Whether the list scrolls a frame at a time, for the finger or the room.
@@ -81,7 +81,7 @@ final class RailEdges {
         travel = RailDrag.Travel(from: y)
         scrolledTo = nil
         if let scroll {
-            let end = scroll.contentSize.height - scroll.containerSize.height
+            let end = scroll.contentHeight - scroll.containerHeight
             roomBelow = max(roomBelow, room - end)
         }
         self.onScroll = onScroll
@@ -222,8 +222,8 @@ private struct RailAutoscroll: ViewModifier {
             .environment(\.railEdges, edges)
             // The scroll view's frame, which `visible` and the finger are measured in.
             .coordinateSpace(.named(RailDrag.scrollSpace))
-            .onScrollGeometryChange(for: ScrollGeometry.self) { $0 } action: { _, scroll in
-                edges.scroll = scroll
+            .onScrollGeometryChange(for: ScrollExtent.self, of: ScrollExtent.init) {
+                edges.scroll = $1
             }
             .onAppear {
                 let position = $position
