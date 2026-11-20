@@ -28,6 +28,9 @@ public enum WorkoutPhase: Equatable, Sendable {
     case fadingOn(PlannedSet, isShown: Bool)
     /// From End's choice until Start has come back up: the workout as it was, for the bar.
     case ending(Ending)
+    /// A set logged that moves the workout on to another exercise after a rest: the row left
+    /// closes, the rest counts down under it, and at its end the move goes on from its landing.
+    case resting(Resting)
 
     /// Start's beats: `pressed`, then `growing` and `landed`, or with no motion `fadingIn`.
     /// `pressed` covers the hold after the press and the scroll to the
@@ -55,6 +58,8 @@ public enum WorkoutPhase: Equatable, Sendable {
         /// Whether the list still draws the workout as it was: from End's choice, which ends the
         /// stored workout at once, until the list shrinks or crossfades out of it.
         public internal(set) var drawsWorkout = true
+        /// The rest showing when End came, drawn until the workout goes (`drawnRest`).
+        public internal(set) var rest: Resting?
 
         /// An ending's beats, in order.
         public enum Beat: Comparable, Sendable {
@@ -87,7 +92,10 @@ public enum WorkoutPhase: Equatable, Sendable {
         /// Whether the move goes back to a superset's member in a later round, whose first member
         /// shows the round just done until the move rolls it on.
         public let startsRound: Bool
-        public fileprivate(set) var beat: Beat
+        public internal(set) var beat: Beat
+        /// Whether the move sets off from a rest, whose row has already closed: the key comes
+        /// back with the next set's words, not the set logged's.
+        public internal(set) var isFromRest = false
 
         /// A move's beats, in order.
         public enum Beat: Comparable, Sendable {
@@ -118,11 +126,6 @@ public enum WorkoutPhase: Equatable, Sendable {
         public var holdsRound: Bool {
             startsRound && !hasRolled
         }
-    }
-
-    /// A screen opening: at rest in a workout, or out of one.
-    public init(hasWorkout: Bool) {
-        self = hasWorkout ? .running : .idle
     }
 
     // MARK: Transitions
@@ -173,8 +176,12 @@ public enum WorkoutPhase: Equatable, Sendable {
             set
         case let .movingOn(move):
             move.beat < .shifting ? move.set : nil
+        case let .resting(rest):
+            rest.beat == .logged ? rest.set : nil
         }
-        self = .ending(Ending(workout: workout, hidden: hidden, beat: .began))
+        var ending = Ending(workout: workout, hidden: hidden, beat: .began)
+        ending.rest = resting.flatMap { $0.beat >= .shown ? $0 : nil }
+        self = .ending(ending)
         return true
     }
 
@@ -200,16 +207,34 @@ public enum WorkoutPhase: Equatable, Sendable {
 
     /// `set` was logged and stored, leading to `step`. Only at rest. `moves`: whether the screen
     /// plays motion; with none, a step to another exercise, or past the last set, is one fade.
+    /// `rests`: whether a rest runs before the step to another exercise.
     @discardableResult
     public mutating func log(
         _ set: PlannedSet,
         leadingTo step: LiveWorkout.Step,
+        rests: Bool = false,
         moves: Bool,
     ) -> Bool {
         guard self == .running else { return false }
         switch step {
+        // A rest between sets runs with no motion too, its swap at once.
+        case .nextSet where rests:
+            self = .resting(Resting(
+                set: set,
+                isBack: false,
+                isWithinExercise: true,
+                beat: .logged,
+            ))
         case .nextSet:
             self = .held(set)
+        // With no motion too: the rest crossfades in and out.
+        case let .nextExercise(_, isBack, _) where rests:
+            self = .resting(Resting(
+                set: set,
+                isBack: isBack,
+                isWithinExercise: false,
+                beat: .logged,
+            ))
         case let .nextExercise(_, isBack, startsRound) where moves:
             self = .movingOn(Move(
                 set: set,
@@ -239,6 +264,9 @@ public enum WorkoutPhase: Equatable, Sendable {
             self = .closing(set, isShown: true)
         case let .fadingOn(set, false):
             self = .fadingOn(set, isShown: true)
+        case var .resting(rest) where rest.beat == .logged:
+            rest.beat = .shown
+            self = .resting(rest)
         default:
             return false
         }
@@ -277,13 +305,6 @@ public enum WorkoutPhase: Equatable, Sendable {
         return true
     }
 
-    /// At once, at rest as the store stands: in its workout if there is one, else out of one, as
-    /// the screen goes away. What the stopped sequence was playing is dropped, so the phase never
-    /// says there is a workout the store doesn't hold, or none where it holds one.
-    public mutating func settleAtOnce(hasWorkout: Bool) {
-        self = Self(hasWorkout: hasWorkout)
-    }
-
     /// Whether there is a workout for End to end: none before Start's grow, and none once ending.
     private var canEnd: Bool {
         switch self {
@@ -320,33 +341,27 @@ public enum WorkoutPhase: Equatable, Sendable {
         case let .held(set): [set]
         case let .movingOn(move) where move.beat == .logged: [move.set]
         case let .closing(set, false), let .fadingOn(set, false): [set]
+        case let .resting(rest) where rest.beat == .logged: [rest.set]
         case let .ending(ending): ending.hidden.map { [$0] } ?? []
         default: []
         }
-    }
-
-    /// The set logged that stays on its exercise, shown as still to do until the line rolls on.
-    public var held: PlannedSet? {
-        guard case let .held(set) = self else { return nil }
-        return set
     }
 
     /// Whether the workout moves on from a set logged: to another exercise, or past its last.
     public var isMovingOn: Bool {
         switch self {
         case .movingOn, .closing, .fadingOn: true
+        // Until its close is over: the rows change height under it.
+        // Between two sets of one, no row changes height.
+        case let .resting(rest): !rest.isWithinExercise && rest.beat < .settled
         case .idle, .starting, .running, .held, .ending: false
         }
     }
 
-    /// From Start's press until the first exercise has grown: the key is Start's.
-    public var isStarting: Bool {
-        self == .starting(.pressed) || self == .starting(.growing)
-    }
-
     /// How the key is gone from its bar: as Start lands, with its room kept, until the workout's
     /// key comes up; as Start fades in with no motion, and from the key's leaving at the end to
-    /// the end's rest, with its room. None while it shows.
+    /// the end's rest, with its room. None while it shows. A rest's key is the screen's to take
+    /// away: the bar swaps the key for −15 s and +15 s (`RoutineScreen.key(_:isOut:)`).
     public var keyGone: KeyGone? {
         switch self {
         case .starting(.landed): .keepingRoom
@@ -356,35 +371,11 @@ public enum WorkoutPhase: Equatable, Sendable {
         }
     }
 
-    /// As a workout ends, it as it was, until its time has faded: the time key's glass stays in
-    /// the bar while the time fades out of it.
-    public var endingWorkout: Workout? {
-        guard case let .ending(ending) = self, ending.beat < .timeGone else { return nil }
-        return ending.workout
-    }
-
     /// Whether the key takes a log: only at rest. While a set is held, a second tap in its beat,
     /// as a double tap would be, is dropped; while the workout moves on, the stored workout is
     /// already past the set drawn as current, and a log taken then would land on a set, or an
     /// exercise, not yet shown.
     public var takesLog: Bool {
         self == .running
-    }
-
-    /// The move to another exercise under way, if one is.
-    public var move: Move? {
-        guard case let .movingOn(move) = self else { return nil }
-        return move
-    }
-
-    /// The set whose words the key keeps while the workout moves on from it: a move's until the
-    /// next row rolls on, a close's and a fade's until they are over, so the key changes with the
-    /// row, not before it.
-    public var keySet: PlannedSet? {
-        switch self {
-        case let .movingOn(move) where !move.hasRolled: move.set
-        case let .closing(set, _), let .fadingOn(set, _): set
-        default: nil
-        }
     }
 }

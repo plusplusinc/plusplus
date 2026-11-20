@@ -44,7 +44,7 @@ extension RenameUITests {
         XCTContext.runActivity(named: "A scroll ends the edit and scrolls the list") { _ in
             startEdit()
             let top = row(0).frame.minY
-            // Row 1, clear of Start riding above the keyboard, which covers row 3.
+            // Row 1, clear of the keyboard, which covers the lower rows.
             row(1).center.press(
                 forDuration: 0.05,
                 thenDragTo: row(1).center.down(-200),

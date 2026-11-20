@@ -232,8 +232,8 @@ it's installed and running, the retro's last reply, read from the transcript, an
 runner's last digest.
 
 The night runs the main checkout's scripts and skills, so the run first fast-forwards that
-checkout to `origin/main`; one off `main` or with tracked changes stays as it is, and the
-digest's top says so. Before the retro starts, the run also updates the command-line Claude Code (`claude update`, bounded
+checkout to `origin/main`; one off `main`, or whose uncommitted change `origin/main` also
+changed, stays as it is, and the digest's top says so. Before the retro starts, the run also updates the command-line Claude Code (`claude update`, bounded
 to three minutes; a failure is logged and the night runs on the installed version), so each night
 uses the latest, and the digest's top says when the version changed or the update failed. A
 running session keeps its version until it exits, so nothing in flight breaks. The desktop app's
@@ -272,8 +272,8 @@ error in it denies the call. Claude Code's own sandbox can't hold these writes i
 `gh` fails TLS verification and SwiftPM's nested sandbox fails, so both would run outside it.
 What a command line hides, such as a script file the card writes and runs, meets three more
 checks: the card's git runs the night's pre-push hook on every push; the runner turns auto-merge
-off on every PR a card opened unless it arms one itself; and it ends the night, naming them at
-the top of the digest, on any PR merged since the night started that it didn't arm. A new gate
+off on every PR opened tonight from a branch a card made or pushed, unless it arms one itself;
+and it ends the night, naming them atop the digest, on any such PR merged unarmed. A new gate
 starts from such a check on what happened (a merge, a push, a run started); denying a command's
 spellings only narrows it, since every verifier pass and review on #118 found more spellings.
 Its digest, in the night's folder, is what `show` prints after the retro's reply. It exists because

@@ -22,7 +22,7 @@ extension XCUIApplication {
         arguments: [String] = [],
     ) -> XCUIElement {
         launchArguments = ["-UIPreferredContentSizeCategoryName", category]
-            + ["-resetStore", "YES", "-noUIKitAnimations", "YES"] + arguments
+            + ["-resetStore", "YES", "-noUIKitAnimations", "YES", "-seedRest", "0"] + arguments
         launch()
         XCTAssertTrue(routineTitle.appears(within: 10), "No title after launch")
         return routineTitle

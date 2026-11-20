@@ -31,8 +31,8 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
         }
     }
 
-    /// From one saved routine, the drawer, a row's Customize…, and a second routine made and both
-    /// opened from the Routines screen.
+    /// From one saved routine, the drawer, a row's Customize…, a second routine made and both
+    /// opened from the Routines screen, and both deleted.
     @MainActor
     func testDrawerSwitchesRoutines() {
         let app = XCUIApplication()
@@ -57,7 +57,9 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
         }
         rowCustomizes(in: app)
         builtInHoldMenuCustomizes(in: app)
+        customizeInPickerDeletes(in: app)
         routinesScreenDrillsIn(in: app, title: title)
+        routinesDeleteRoutines(in: app, title: title)
     }
 
     /// The Routines screen lists every routine, latest first; a row or + pushes a routine with a
@@ -75,6 +77,7 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
             XCTAssertTrue(app.drawerTitle.disappears(), "A tap on the sliver left it open")
             app.buttons["New routine"].tap()
             XCTAssertEqual(title.value(becoming: "New routine"), "New routine")
+            newRoutineDimsDelete(in: app)
             app.tapBack()
             XCTAssertTrue(title.disappears(), "The chevron did not pop")
             XCTAssertEqual(app.routineRowLabels, ["Chest"], "The untouched new one was listed")

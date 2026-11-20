@@ -35,7 +35,8 @@ struct RoutineScreen: View {
     @State var isEndInView = true
     /// While an added row's place opens, the list's end stays put on screen: as the content grows
     /// past the visible area, it scrolls in step (`keepEndInView`), at the stage `EndFollow`
-    /// names; nil while no place opens.
+    /// names; nil while no place opens, and from Start's press or a move to the next exercise
+    /// until an add with no room under the list (`isMakingRoom`).
     @State var endFollow: EndFollow?
     /// Whether the list is being scrolled by hand, which the in-step scroll leaves alone.
     @State var isScrollingByHand = false
@@ -57,18 +58,24 @@ struct RoutineScreen: View {
     /// While the current exercise is scrolled away, which way the key points back to it,
     /// held while a finger is on the list and following the row as the list coasts once it lifts
     /// (`settleWayBack()`); none while it logs.
-    @State var keyWayBack: VerticalEdge?
+    @State var keyWayBack: WorkoutKey.WayBack?
     /// The key's logs of a set, each with a medium impact, and of a side, each with a light one;
     /// each log pops a +1 off the key.
     @State var setLogs = 0
     @State var sideLogs = 0
     /// Whether the dialog asking how to end the workout shows.
     @State var isConfirmingEnd = false
+    /// Whether the alert asking to delete the routine shows.
+    @State var isAskingToDeleteRoutine = false
     /// The scroll in Start's sequence, and how far the list is scrolled.
     @State var scrollBeat = ScrollBeat()
-    /// With Reduce Motion, how many times the list has crossfaded into or out of a workout: each
-    /// a new view, so the old one fades out as the new one fades in.
+    /// With Reduce Motion, how many times the list has crossfaded into or out of a workout, or
+    /// to a deleted exercise's rows gone: each a new view, so the old one fades out as the new
+    /// one fades in.
     @State var listChanges = 0
+    /// A created exercise being deleted, which Add exercise stops listing on its beat, before
+    /// the store takes the delete (`deleteExercise(_:closing:)`).
+    @State var leavingExercise: Exercise.ID?
     /// While the list crossfades, when nothing in it animates but its fade.
     @State var isCrossfading = false
     /// Crossfading up to the list's top, how much of the list going out was under the bar, which
@@ -105,6 +112,9 @@ struct RoutineScreen: View {
     /// Counts the moves to another exercise that have landed on its node, each with a light tick,
     /// lighter than a log's.
     @State var landings = 0
+    /// Counts the rests that have run to their end, each with a heavy tap, the strongest of the
+    /// screen's, so the end of a rest is felt with the phone set down.
+    @State var restEnds = 0
     /// Where the workout is in its sequence: out of one, starting, at rest, showing a set just
     /// logged (`play(_:leadingTo:)`), or ending. Every change to it lands in a transaction the
     /// screen names.
@@ -122,7 +132,11 @@ struct RoutineScreen: View {
     init(session: RoutineSession, namer: RoutineNamer, isPushed: Bool = false) {
         _shownRoutine = State(initialValue: session.opened)
         _opensOnCurrent = State(initialValue: session.workout != nil)
-        _phase = State(initialValue: WorkoutPhase(hasWorkout: session.workout != nil))
+        _phase = State(initialValue: WorkoutPhase(
+            resuming: session.workout.map { LiveWorkout(routine: session.opened, workout: $0) },
+            restOverride: Self.restOverride,
+            at: .now,
+        ))
         _footShowsEmpty = State(initialValue: session.opened.exercises.isEmpty)
         self.session = session
         self.namer = namer
@@ -140,17 +154,6 @@ struct RoutineScreen: View {
             shownRoutine = newValue
             session.save(newValue)
         }
-    }
-
-    /// Takes up the session's routine once a created exercise's Customize, inside Add exercise,
-    /// has changed it in the store: its rows read the new settings, or are gone with a Delete.
-    /// Not saved again: it is the stored routine.
-    func showStoredRoutine() {
-        withAnimation(.railChange) {
-            shownRoutine = session.current
-        }
-        // A Delete there can leave it empty: Start and the + go down with its last row.
-        settleFoot(after: .zero)
     }
 
     /// The name made for the routine from its exercises, which a chosen name hides and which
@@ -186,6 +189,7 @@ struct RoutineScreen: View {
         )
         .sensoryFeedback(.impact(weight: .light, intensity: 0.6), trigger: landings)
         .sensoryFeedback(.impact(weight: .medium), trigger: setLogs)
+        .sensoryFeedback(.impact(weight: .heavy), trigger: restEnds)
         .sensoryFeedback(.impact(weight: .light), trigger: sideLogs)
         .sensoryFeedback(.impact(weight: .medium), trigger: isStarting) { !$0 && $1 }
     }
@@ -197,7 +201,7 @@ struct RoutineScreen: View {
         let currentID = currentID
         let shown = shown
         let currentSet = shown?.currentSet
-        let rowBars = rowBars(in: shown)
+        let rows = rowParts(in: shown, current: currentID)
         let tracksRows = shown != nil || isStarting
         let underBar = underBarCut
         return ScrollView {
@@ -234,26 +238,29 @@ struct RoutineScreen: View {
                         done: shown?.finishedRows ?? [],
                         isSetHeld: heldSet != nil,
                         pulse: railPulse,
+                        restDot: restDotRow,
                         isMoving: isMovingOn,
                         onMove: move,
                         regroup: regroup,
                     ) { item in
-                        rowLabel(item, current: currentID, on: currentSet, bars: rowBars[item.id])
+                        rowContent(item, current: currentID, on: currentSet, parts: rows[item.id])
                             .environment(\.exerciseMoveWay, moveWay)
                             .id(item.id)
-                            .padding(.top, item.id == currentID ? Self.currentTopSpace : 0)
+                            .topSpace(item.id == currentID ? Self.currentTopSpace : 0)
                             // Only while it is read: as the list scrolls, every change redraws the
                             // screen.
-                            .reportingPlace(
-                                item.id == growingID && tracksRows,
-                                to: placeCurrent,
-                            )
+                            .reportingPlace(item.id == growingID && tracksRows, to: placeCurrent)
                             // Until an added row has entered it takes no taps, and its frame is
                             // where it will be rather than where it is drawn, so VoiceOver and the
                             // UI tests find it once it has. On the label, the row's one element:
                             // on the row, `false` would un-hide the rail's node.
                             .accessibilityHidden(item.id == entering)
                             .railRow()
+                            .reportingRailPitch(
+                                isOn: notesRestingPitch(of: item.id, current: currentID),
+                            ) { restingContent(item, in: shown) } to: {
+                                rowFrames.restingPitch[item.id] = $0
+                            }
                             // The whole row, its insets included, as the rail stacks it.
                             .reportingFrame(tracksRows) { rowFrames.tops[item.id] = $0.minY }
                             .contentShape(.rect)
@@ -261,20 +268,6 @@ struct RoutineScreen: View {
                                 guard item.id != entering else { return }
                                 session.openRowSheet(RowSheet(id: item.id))
                             }
-                            .accessibilityAddTraits(.isButton)
-                            .accessibilityValue(supersetValue(item.id))
-                            // None where it would do nothing: at an end, or with one row. None
-                            // logs a set, on the current exercise either: the key logs.
-                            .accessibilityActions {
-                                if let up = routine.slotMovingUp(item.id) {
-                                    Button("Move up") { step(item.id, to: up, wentUp: true) }
-                                }
-                                if let down = routine.slotMovingDown(item.id) {
-                                    Button("Move down") { step(item.id, to: down, wentUp: false) }
-                                }
-                                supersetActions(item.id)
-                            }
-                            .accessibilityIdentifier("routine.exercise")
                             // Outermost, as the system's swipe actions are, or their Remove is
                             // folded into the row's accessibility element, where VoiceOver and
                             // the UI tests never find it. The row's tap stays on where the swipe
@@ -344,7 +337,7 @@ struct RoutineScreen: View {
         })
         .primaryKeyBar(
             isPresented: showsKey,
-            face: liveKeyRole,
+            face: liveKey.role,
             keepsRoom: phase.keyGone == .keepingRoom,
             plusOnes: setLogs + sideLogs,
             drop: startDrop,
@@ -357,6 +350,7 @@ struct RoutineScreen: View {
         .onDisappear { stopSequence() }
         // Cancelled as the screen goes, so the wait never outlives it.
         .task(id: createdWait) { await showCreated() }
+        .task(id: restWatch) { await watchRest() }
         // One row open at a time, closed by a scroll or a tap anywhere else, Start included,
         // so the container holds Start's bar as well as the scroll view.
         .swipeActionsContainer()
@@ -373,15 +367,24 @@ struct RoutineScreen: View {
                 // before.
                 .presentationDetents([.medium, .large], selection: $pickerDetent)
         }
-        // By item, so the sheet keeps its content as it slides away.
+        // By item, so the sheet keeps its content as it slides away; by opening, so each opening
+        // starts from fresh state (`RowSheet.opening`).
         .sheet(item: Binding { editing } set: {
             if $0 == nil {
                 session.closeRowSheet()
             }
         }) { opened in
             exerciseSheet(opened)
+                .id(opened.opening)
         }
         .toolbar { barItems }
+    }
+}
+
+extension RoutineScreen {
+    /// Shows the routine as the store has it, not saving it again (`showStoredRoutine`).
+    func show(stored: Routine) {
+        shownRoutine = stored
     }
 }
 

@@ -124,9 +124,14 @@ final nonisolated class WorkoutUITests: XCTestCase {
                         .hasPrefix("Pull-up, Set 1 of 3"),
                     "The last set did not move on to Pull-up: \(pullUp.label)",
                 )
-                let bar = app.navigationBars.firstMatch.frame.maxY
-                let top = reading(pullUp.frame.minY, until: { abs($0 - bar) < 30 }, within: 3)
-                XCTAssertLessThan(abs(top - bar), 30, "Pull-up did not land under the bar: \(top)")
+                let landed = app.navigationBars.firstMatch.frame.maxY
+                    + XCUIApplication.currentLabelDrop
+                let top = reading(pullUp.frame.minY, until: { abs($0 - landed) < 30 }, within: 3)
+                XCTAssertLessThan(
+                    abs(top - landed),
+                    30,
+                    "Pull-up did not land under the bar: \(top)",
+                )
                 attach(named: "workout-moved-on")
             }
     }
@@ -189,6 +194,18 @@ final nonisolated class WorkoutUITests: XCTestCase {
         try XCTContext
             .runActivity(named: "Edits stay on, and paused, a relaunch keeps the time") { _ in
                 app.addExercise("Push-up", searching: "pushup")
+                // The add scrolls the list to its end: the new row, the last, is on screen, where
+                // it takes a tap once landed, and the key leads back to the current exercise.
+                let added = app.exerciseRows.element(boundBy: 12)
+                XCTAssertTrue(
+                    reading(added.isHittable, becoming: true, within: 3),
+                    "The added row is not on screen: \(added.frame)",
+                )
+                let wayBack = "Go to current exercise"
+                let role = reading(
+                    app.workoutKey.label, until: { $0.hasPrefix(wayBack) }, within: 2,
+                )
+                XCTAssertTrue(role.hasPrefix(wayBack), "The add left the key reading \(role)")
                 // Near the end, where the add left the list: rows near its top are under the bar.
                 app.exerciseRows.element(boundBy: 10).fullSwipeLeft()
                 XCTAssertEqual(app.exerciseCount(becoming: 12), 12, "The swipe deleted nothing")

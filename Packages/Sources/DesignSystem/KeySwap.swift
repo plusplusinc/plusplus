@@ -90,6 +90,34 @@ struct StagedKey<Face: Equatable & Identifiable, Content: View>: View {
     }
 }
 
+/// The key coming up from below the screen's edge, unfaded, and going back down as it fades;
+/// with Reduce Motion, only fading. `below` is how far the screen runs on below the bar.
+struct KeyBarTransition: Transition {
+    let below: CGFloat
+
+    func body(content: Content, phase: TransitionPhase) -> some View {
+        content.modifier(KeyBarPlace(phase: phase, below: below))
+    }
+}
+
+private struct KeyBarPlace: ViewModifier {
+    let phase: TransitionPhase
+    let below: CGFloat
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        let isFaded = phase == .didDisappear || (reduceMotion && !phase.isIdentity)
+        let isDown = !phase.isIdentity && !reduceMotion
+        let below = below
+        content
+            .visualEffect { content, proxy in
+                content.offset(y: isDown ? proxy.size.height + below : 0)
+            }
+            .opacity(isFaded ? 0 : 1)
+    }
+}
+
 /// The face of the key the bar's floating button sits over, from the staged key, while the bar
 /// presents one.
 struct FloatingFace<Face: Equatable>: PreferenceKey {

@@ -94,36 +94,40 @@ extension RenameUITests {
         }
     }
 
-    /// Start rides above the keyboard while the title is edited, rather than staying behind it.
-    /// A long press on the title shows the edit menu, and a long name shortened goes back to one
-    /// line.
-    func startClearsKeyboard(in app: XCUIApplication, keyboard: XCUIElement) throws {
+    /// Start stays where it rests while the title is edited, behind the keyboard, rather than
+    /// riding up on it. A long press on the title shows the edit menu, and a long name shortened
+    /// goes back to one line.
+    func keyboardCoversStart(in app: XCUIApplication, keyboard: XCUIElement) throws {
         let title = app.routineTitle
         let start = app.buttons["Start"]
         let atRest = start.frame
         let name = try XCTUnwrap(title.value as? String)
         let longer = name + " and core and arms"
-        try XCTContext.runActivity(named: "Start rides above the keyboard") { _ in
+        try XCTContext.runActivity(named: "The keyboard covers Start") { _ in
             try title.tapToEditAtEnd(keyboard: keyboard)
             XCTAssertTrue(
-                reading(start.frame.maxY <= keyboard.frame.minY, becoming: true, within: 2),
-                "Start is behind the keyboard",
+                reading(keyboard.frame.minY < atRest.minY, becoming: true, within: 2),
+                "The keyboard did not rise over Start's place",
             )
+            XCTAssertEqual(start.frame, atRest, "Start moved as the keyboard rose")
             // Two lines, so the title is taller than its 44pt target.
             title.typeText(String(longer.dropFirst(name.count)))
             XCTAssertEqual(title.value(becoming: longer), longer)
             XCTAssertGreaterThan(title.frame.height, 44, "The longer name did not wrap")
+            // Read again after the typing, past the time a lift took to follow the keyboard.
+            XCTAssertEqual(start.frame, atRest, "Start moved while the keyboard was up")
         }
         title.typeText("\n")
         XCTAssertTrue(keyboard.disappears(), "Return did not end the edit")
         // The keyboard's element goes before the keyboard has finished going down. Pressed
         // 0.1 s after Return, in a full parallel run, the long press once showed no edit menu,
-        // so it waits for the edit's end to finish: Start back where it rests.
-        XCTAssertEqual(
-            reading(start.frame, becoming: atRest, within: 2),
-            atRest,
-            "Start did not go back down with the keyboard",
+        // so it waits for the edit's end to finish: Add exercise back, and the title still.
+        XCTAssertTrue(
+            app.buttons["Add exercise"].appears(),
+            "Add exercise did not come back as the edit ended",
         )
+        XCTAssertTrue(title.settles(), "The title kept moving after the edit")
+        XCTAssertEqual(start.frame, atRest, "Start moved as the keyboard went down")
         XCTContext.runActivity(named: "A long press on the title shows the edit menu") { _ in
             title.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.25))
                 .press(forDuration: 1)

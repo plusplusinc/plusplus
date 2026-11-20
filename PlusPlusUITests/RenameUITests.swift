@@ -77,7 +77,7 @@ final nonisolated class RenameUITests: XCTestCase {
         }
         addExercises(in: app, keyboard: keyboard)
         endEditsWithoutMoving(in: app, keyboard: keyboard)
-        try startClearsKeyboard(in: app, keyboard: keyboard)
+        try keyboardCoversStart(in: app, keyboard: keyboard)
     }
 
     /// Taps the default title: it has to stay put, by frame and by pixel, as the keyboard rises,

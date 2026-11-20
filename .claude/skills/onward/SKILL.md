@@ -21,7 +21,8 @@ judge, with the reason for each, since the cases it meets are never quite the on
    `get_session` with no arguments returns), so the maintainer can find it later.
 3. An open nightly retro PR (`gh pr list --search "Retro of in:title"`) comes first: update it
    from `main`, check each hunk against `main`, then trim, merge, or close it, and say in a line
-   what it changed.
+   what it changed. So does a night card's PR left for you (`scripts/nightly-retro.sh show`):
+   merge it or say why not.
 4. Read the feature's settled design, `scripts/board.sh readme <feature>` (never the whole
    README, which is hundreds of lines), and the `.slices/` files State names. Quote a settled
    rule in the README's words; a paraphrase drifts.
@@ -65,8 +66,9 @@ Their time is the scarce thing, and it is for the product.
   misjudged. Agent memory holds what misses taught.
 - **Every message reads on its own, on a phone.** Plain words about the app, not the work:
   name a part of the screen by what they see and where, a card by its title, an option by what
-  it shows, never an item id, a canvas label, or a platform term. Each ask carries its link and
-  says what a yes does, again when it is repeated hours later. With a build: what changed, that
+  it shows, never an item id, a canvas label, or a platform term. One question to a message,
+  the next after their reply; each carries its link and says what a yes does, again when it is
+  repeated hours later. With a build: what changed, that
   it is unverified, and what to do and what they should see. No time estimates; during a long
   phase, a line now and then on what is happening and why it still serves the card. Text
   before a tool call reaches them as a message, so write none that tells them nothing.
@@ -97,8 +99,9 @@ Their time is the scarce thing, and it is for the product.
 
 ## What you say is checked
 
-- After an interrupt, check each background agent and restart a stopped one from its commits
-  and handoff.
+- Read a state when you report or build on it (a run's result, a frame, how the code stores a
+  thing), never from an earlier look. After an interrupt, check each background agent and
+  restart a stopped one from its commits and handoff.
 - Reporting a phase done, say where it went less deep than the card asked. A fix to how
   something reaches them is tried the way they will meet it, or called untried; keep sending
   the proven way until the new one has worked for them.

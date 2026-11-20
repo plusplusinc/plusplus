@@ -116,6 +116,52 @@ struct RoutineSessionExerciseTests {
         #expect(saved.exercises.isEmpty)
     }
 
+    @Test("The open routine uses an exercise while it has a row of it, and not once deleted")
+    func openRoutineUsesUntilDeleted() async throws {
+        let created = CreatedExercise(name: "Cable curl", muscleGroups: [.arms])
+        let (session, _) = try await sessionUsing(created)
+        #expect(session.openRoutineUses(created.id))
+        #expect(!session.openRoutineUses("push-up-unused"))
+        await session.deleteExercise(created.id, weightUnit: .pounds)
+        #expect(!session.openRoutineUses(created.id))
+    }
+
+    @Test("Through a delete's beats, its rows open no sheet and it can't be picked; others can")
+    func deletingKeepsItsRowsShut() async throws {
+        let created = CreatedExercise(name: "Cable curl", muscleGroups: [.arms])
+        let (session, _) = try await sessionUsing(created)
+        let rows = session.current.exercises
+        let curl = try #require(rows.first { $0.exercise.id == created.id }).id
+        let pushUp = try #require(rows.first { $0.exercise.id == "push-up" }).id
+        #expect(!session.isDeleting(created.id))
+        await session.deleteExercise(created.id, weightUnit: .pounds) {
+            #expect(session.isDeleting(created.id))
+            #expect(!session.isDeleting("push-up"))
+            session.openRowSheet(RowSheet(id: curl))
+            #expect(session.rowSheet == nil, "The leaving row opened a sheet")
+            session.openRowSheet(RowSheet(id: pushUp))
+            #expect(session.rowSheet?.id == pushUp, "Another row's sheet didn't open")
+        }
+        #expect(!session.isDeleting(created.id))
+        #expect(session.current.exercises.map(\.id) == [pushUp])
+    }
+
+    @Test("A delete that can't be stored leaves its rows opening as before")
+    func refusedDeleteReopensRows() async {
+        let created = CreatedExercise(name: "Cable curl", muscleGroups: [.arms])
+        let row = RoutineExercise(exercise: Exercise(created: created), weightUnit: .pounds)
+        let session = RoutineSession(
+            routine: Routine(exercises: [row]),
+            store: nil,
+            namer: .muscleGroupsOnly,
+        )
+        _ = await session.create(created)
+        await session.deleteExercise(created.id, weightUnit: .pounds)
+        #expect(!session.isDeleting(created.id))
+        session.openRowSheet(RowSheet(id: row.id))
+        #expect(session.rowSheet?.id == row.id)
+    }
+
     @Test("A change that can't be stored leaves the list as it was")
     func unstoredChangeListsNothing() async {
         let session = RoutineSession(routine: Routine(), store: nil, namer: .muscleGroupsOnly)

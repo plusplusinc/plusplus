@@ -49,10 +49,11 @@ final nonisolated class RowDragUITests: XCTestCase {
 
     /// Back in Add exercise, the search lists the exercise `createOnALongRoutine` made, which
     /// this needs run first; held, its menu offers
-    /// Customize… and Delete, which asks in a centered alert and then takes it from the list and
-    /// its row from the routine, its name free to create again. A built-in's menu is
-    /// `RoutineDrawerUITests`'. That a delete removes its rows, and the question's count, are the
-    /// package's (`RoutineStoreCustomizeTests`, `RoutineSessionExerciseTests`).
+    /// Customize… and Delete, which asks in a centered alert, naming the routine behind the
+    /// sheet, and then takes it from the list and its row from the routine, its name free to
+    /// create again. A built-in's menu is `RoutineDrawerUITests`'. That a delete removes its rows,
+    /// and the question's wording, are the package's (`RoutineStoreCustomizeTests`,
+    /// `RoutineSessionExerciseTests`, `DeleteQuestionTests`).
     @MainActor
     private func createdHoldMenuDeletes(in app: XCUIApplication) {
         XCTContext.runActivity(named: "A created one's hold menu deletes it, asking first") { _ in
@@ -71,7 +72,11 @@ final nonisolated class RowDragUITests: XCTestCase {
                 "A created one's hold menu offers no Customize…",
             )
             delete.tap()
-            app.answerAlert("Delete Zq?", with: "Delete exercise")
+            let message = app.answerAlert("Delete Zq?", with: "Delete exercise")
+            XCTAssertTrue(
+                message.hasPrefix("It will be removed from this routine."),
+                "The question doesn't name the routine behind the sheet: \(message)",
+            )
             XCTAssertTrue(row.disappears(), "The deleted exercise is still listed")
             XCTAssertTrue(create.appears(), "Its name isn't free to create again")
             // Closing the search brings Close back, out of the closing field.
