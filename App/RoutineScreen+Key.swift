@@ -108,7 +108,7 @@ extension RoutineScreen {
         case let .adjustRest(seconds):
             adjustRest(by: seconds)
         case .startNow:
-            session.startCountNow()
+            withAnimation(SetMotion.restSwap) { session.startCountNow() }
         case let .extendCount(seconds):
             session.extendCount(by: seconds)
         case .nothing:

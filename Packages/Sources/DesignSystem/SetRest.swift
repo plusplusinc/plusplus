@@ -118,6 +118,8 @@ struct SetRoom: View, Animatable {
                 if let rest, let block {
                     // "Rest" over the countdown, as over the rest between exercises: its line
                     // takes the place of the caption's under the figures.
+                    // A wait of one kind giving way to another ("Starts in" reaching 0, a rest
+                    // ending on a timed set's count) swaps as the figures and a rest do.
                     VStack(alignment: .leading, spacing: Spacing.sm) {
                         // Its capitals' tops where the figures' are, as far under the caption
                         // line, not the font's room over them lower.
@@ -138,31 +140,59 @@ struct SetRoom: View, Animatable {
                         )
                         .figureBox(size: size)
                     }
+                    .id(rest.kind.swapID)
+                    .transition(Self.kindSwap)
                     .coming(coming)
                 }
             }
             if let rest, let block {
-                switch rest.kind {
-                case .rest:
-                    block.progress
-                        .padding(.top, Spacing.md)
-                        .opacity(coming)
-                case let .startsIn(time):
-                    Text(time)
-                        .font(.ppFigureCaption)
-                        .foregroundStyle(.pp(.textSecondary))
-                        .padding(.top, Spacing.sm)
-                        .opacity(coming)
-                case .count:
-                    // The time's line kept, unseen, for the same room.
-                    Text(verbatim: " ")
-                        .font(.ppFigureCaption)
-                        .padding(.top, Spacing.sm)
-                        .accessibilityHidden(true)
+                // In a stack of its own, so the line going and the one coming share one place.
+                ZStack(alignment: .topLeading) {
+                    under(rest, block: block)
+                        .id(rest.kind.swapID)
+                        .transition(Self.kindSwap)
                 }
+                .opacity(coming)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// What stands under the countdown: a rest's bar, the set's time in words under "Starts in",
+    /// or under a set's own count its line kept, unseen, for the same room.
+    @ViewBuilder
+    private func under(_ rest: SetRest, block: RestBlock) -> some View {
+        switch rest.kind {
+        case .rest:
+            block.progress
+                .padding(.top, Spacing.md)
+        case let .startsIn(time):
+            Text(time)
+                .font(.ppFigureCaption)
+                .foregroundStyle(.pp(.textSecondary))
+                .padding(.top, Spacing.sm)
+        case .count:
+            Text(verbatim: " ")
+                .font(.ppFigureCaption)
+                .padding(.top, Spacing.sm)
+                .accessibilityHidden(true)
+        }
+    }
+
+    /// One wait giving way to another in the slot: the one going fades as it drops, over the
+    /// swap's first part, then the one coming fades in as it rises, on the change's own curve
+    /// (`SetMotion.restSwap`), as the figures and a rest swap.
+    private static var kindSwap: AnyTransition {
+        .asymmetric(
+            insertion: .modifier(
+                active: KindSwap(swap: 0, isComing: true),
+                identity: KindSwap(swap: 1, isComing: true),
+            ),
+            removal: .modifier(
+                active: KindSwap(swap: 1, isComing: false),
+                identity: KindSwap(swap: 0, isComing: false),
+            ),
+        )
     }
 
     /// The word over the countdown: none over a timed set's own count.
@@ -186,6 +216,41 @@ struct SetRoom: View, Animatable {
 
     /// Where in the swap the figures have gone and the rest starts to come in, or back.
     static let handOff: CGFloat = 0.4
+}
+
+/// A wait going or coming in the figures' slot as another kind takes its place, `swap` from 0 to
+/// 1, its fade and drop or rise worked out as `SetRoom`'s are.
+private struct KindSwap: ViewModifier, Animatable {
+    var swap: CGFloat
+    let isComing: Bool
+
+    var animatableData: CGFloat {
+        get { swap }
+        set { swap = newValue }
+    }
+
+    func body(content: Content) -> some View {
+        if isComing {
+            content.coming(RestRoomFade.fade(
+                swap,
+                from: SetRoom.handOff,
+                width: 1 - SetRoom.handOff,
+            ))
+        } else {
+            content.going(RestRoomFade.fade(swap, from: 0, width: SetRoom.handOff))
+        }
+    }
+}
+
+extension SetRest.Kind {
+    /// Which wait this is in the slot: a change swaps one for the other.
+    var swapID: Int {
+        switch self {
+        case .rest: 0
+        case .startsIn: 1
+        case .count: 2
+        }
+    }
 }
 
 /// A part of the set outside the figures slot, "then rest 1:00" at the caption line's end, going
