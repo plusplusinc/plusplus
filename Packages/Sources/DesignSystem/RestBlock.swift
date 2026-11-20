@@ -198,14 +198,21 @@ private struct RestRoom: View, Animatable {
     var open: CGFloat
     /// The cap height of "Rest"'s font (`Font.ppRowTitle`), SF Pro semibold at body's size at the
     /// default text size, scaled with it.
-    @ScaledMetric(relativeTo: .body) private var capHeight = UIFont
-        .systemFont(
+    @ScaledMetric(relativeTo: .body) private var capHeight = Self.defaultCapHeight
+
+    private static var defaultCapHeight: CGFloat {
+        #if canImport(UIKit)
+        UIFont.systemFont(
             ofSize: UIFont.preferredFont(
                 forTextStyle: .body,
                 compatibleWith: UITraitCollection(preferredContentSizeCategory: .large),
             ).pointSize,
             weight: .semibold,
         ).capHeight
+        #else
+        12
+        #endif
+    }
 
     var animatableData: CGFloat {
         get { open }

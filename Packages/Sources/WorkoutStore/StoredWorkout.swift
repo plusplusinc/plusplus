@@ -2,8 +2,8 @@ import Foundation
 import OSLog
 import SwiftData
 
-typealias StoredWorkout = RoutineSchemaV9.StoredWorkout
-typealias StoredSet = RoutineSchemaV9.StoredSet
+typealias StoredWorkout = RoutineSchemaV11.StoredWorkout
+typealias StoredSet = RoutineSchemaV11.StoredSet
 
 /// As #127 shipped it, with logged sets, its routines still V4's.
 enum RoutineSchemaV6: VersionedSchema {
@@ -118,6 +118,8 @@ extension StoredSet {
         update(\.plannedWeight, to: planned.weight)
         update(\.plannedWeightUnit, to: planned.unit)
         update(\.loggedAt, to: set.loggedAt)
+        update(\.clockWhenLogged, to: set.clockWhenLogged)
+        update(\.restAdjustment, to: set.restAdjustment)
     }
 
     /// A set's reps or time and weight, as the stored fields hold them.
@@ -152,7 +154,7 @@ extension StoredSet {
             Logger.storage.error("Skipped a logged set with no row or no reps or time")
             return nil
         }
-        return LoggedSet(
+        var set = LoggedSet(
             id: id,
             row: rowID,
             exerciseID: exerciseID,
@@ -165,6 +167,9 @@ extension StoredSet {
             plannedWeight: Self.storedWeight(plannedWeight, plannedWeightUnit),
             loggedAt: loggedAt,
         )
+        set.clockWhenLogged = clockWhenLogged
+        set.restAdjustment = restAdjustment
+        return set
     }
 
     private static func storedTarget(_ reps: Int?, _ seconds: Int?) -> SetTarget? {

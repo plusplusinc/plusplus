@@ -22,10 +22,9 @@ public struct LoggedSet: Identifiable, Equatable, Sendable {
     public let plannedWeight: Weight?
     public let loggedAt: Date
     /// Where the workout's clock stood at the log, pauses left out (`Workout.clock(at:)`): where
-    /// the rest after it starts. Nil for a set logged before this was kept, which rests for none.
-    /// Not stored yet: a relaunch reads nil.
+    /// the rest after it starts. Nil for a set logged before V11 kept it, which rests for none.
     public var clockWhenLogged: Double?
-    /// The + and − taps on the rest after this set, in seconds. Not stored yet.
+    /// The + and − taps on the rest after this set, in seconds.
     public var restAdjustment = 0
 
     public init(
