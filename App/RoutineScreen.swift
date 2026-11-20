@@ -112,6 +112,9 @@ struct RoutineScreen: View {
     /// Counts the moves to another exercise that have landed on its node, each with a light tick,
     /// lighter than a log's.
     @State var landings = 0
+    /// Counts the rests that have run to their end, each with a heavy tap, the strongest of the
+    /// screen's, so the end of a rest is felt with the phone set down.
+    @State var restEnds = 0
     /// Where the workout is in its sequence: out of one, starting, at rest, showing a set just
     /// logged (`play(_:leadingTo:)`), or ending. Every change to it lands in a transaction the
     /// screen names.
@@ -129,7 +132,11 @@ struct RoutineScreen: View {
     init(session: RoutineSession, namer: RoutineNamer, isPushed: Bool = false) {
         _shownRoutine = State(initialValue: session.opened)
         _opensOnCurrent = State(initialValue: session.workout != nil)
-        _phase = State(initialValue: WorkoutPhase(hasWorkout: session.workout != nil))
+        _phase = State(initialValue: WorkoutPhase(
+            resuming: session.workout.map { LiveWorkout(routine: session.opened, workout: $0) },
+            restOverride: Self.restOverride,
+            at: .now,
+        ))
         _footShowsEmpty = State(initialValue: session.opened.exercises.isEmpty)
         self.session = session
         self.namer = namer
@@ -182,6 +189,7 @@ struct RoutineScreen: View {
         )
         .sensoryFeedback(.impact(weight: .light, intensity: 0.6), trigger: landings)
         .sensoryFeedback(.impact(weight: .medium), trigger: setLogs)
+        .sensoryFeedback(.impact(weight: .heavy), trigger: restEnds)
         .sensoryFeedback(.impact(weight: .light), trigger: sideLogs)
         .sensoryFeedback(.impact(weight: .medium), trigger: isStarting) { !$0 && $1 }
     }
@@ -255,20 +263,6 @@ struct RoutineScreen: View {
                                 guard item.id != entering else { return }
                                 session.openRowSheet(RowSheet(id: item.id))
                             }
-                            .accessibilityAddTraits(.isButton)
-                            .accessibilityValue(supersetValue(item.id))
-                            // None where it would do nothing: at an end, or with one row. None
-                            // logs a set, on the current exercise either: the key logs.
-                            .accessibilityActions {
-                                if let up = routine.slotMovingUp(item.id) {
-                                    Button("Move up") { step(item.id, to: up, wentUp: true) }
-                                }
-                                if let down = routine.slotMovingDown(item.id) {
-                                    Button("Move down") { step(item.id, to: down, wentUp: false) }
-                                }
-                                supersetActions(item.id)
-                            }
-                            .accessibilityIdentifier("routine.exercise")
                             // Outermost, as the system's swipe actions are, or their Remove is
                             // folded into the row's accessibility element, where VoiceOver and
                             // the UI tests never find it. The row's tap stays on where the swipe

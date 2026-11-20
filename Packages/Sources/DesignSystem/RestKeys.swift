@@ -7,6 +7,7 @@ import SwiftUI
 /// at once; with Reduce Motion, each fades. While the bar has them out in a swap, a tap does
 /// nothing. The two keep the key's room, so the floating button above it never moves, and stand
 /// on a plate of the screen's color in the one key's shape, so no row shows between them.
+/// VoiceOver reads them as two buttons, "Minus 15 seconds" and "Plus 15 seconds".
 public struct RestKeys: View {
     let isOut: Bool
     let onShorten: () -> Void
@@ -31,7 +32,7 @@ public struct RestKeys: View {
             } label: {
                 Text(AttributedString.monoNumbers("−15 s", font: .ppPrimaryKeyNumber))
             }
-            .accessibilityLabel("Shorten rest by 15 seconds")
+            .accessibilityLabel("Minus 15 seconds")
             Button {
                 if !isOut {
                     onExtend()
@@ -39,7 +40,7 @@ public struct RestKeys: View {
             } label: {
                 Text(AttributedString.monoNumbers("+15 s", font: .ppPrimaryKeyNumber))
             }
-            .accessibilityLabel("Extend rest by 15 seconds")
+            .accessibilityLabel("Plus 15 seconds")
         }
         .buttonStyle(.secondaryKey)
         // On a plate of the screen's own color, the one key's footprint, so the rows running on

@@ -12,5 +12,12 @@ struct RowParts {
     let restBefore: RestBlock
     let isDone: Bool
     let nextUp: [String]?
-    let after: String?
+    let after: CaptionEnd?
+}
+
+/// What follows a set at the end of the current exercise's caption line, "then rest 1:00", and
+/// in words for VoiceOver, "then rest 1 minute".
+struct CaptionEnd: Equatable {
+    let text: String
+    let spoken: String
 }

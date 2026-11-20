@@ -128,11 +128,6 @@ public enum WorkoutPhase: Equatable, Sendable {
         }
     }
 
-    /// A screen opening: at rest in a workout, or out of one.
-    public init(hasWorkout: Bool) {
-        self = hasWorkout ? .running : .idle
-    }
-
     // MARK: Transitions
 
     /// Start is pressed. Only out of a workout.
@@ -227,18 +222,16 @@ public enum WorkoutPhase: Equatable, Sendable {
             self = .resting(Resting(
                 set: set,
                 isBack: false,
-                startsRound: false,
                 isWithinExercise: true,
                 beat: .logged,
             ))
         case .nextSet:
             self = .held(set)
         // With no motion too: the rest crossfades in and out.
-        case let .nextExercise(_, isBack, startsRound) where rests:
+        case let .nextExercise(_, isBack, _) where rests:
             self = .resting(Resting(
                 set: set,
                 isBack: isBack,
-                startsRound: startsRound,
                 isWithinExercise: false,
                 beat: .logged,
             ))
@@ -310,13 +303,6 @@ public enum WorkoutPhase: Equatable, Sendable {
             return false
         }
         return true
-    }
-
-    /// At once, at rest as the store stands: in its workout if there is one, else out of one, as
-    /// the screen goes away. What the stopped sequence was playing is dropped, so the phase never
-    /// says there is a workout the store doesn't hold, or none where it holds one.
-    public mutating func settleAtOnce(hasWorkout: Bool) {
-        self = Self(hasWorkout: hasWorkout)
     }
 
     /// Whether there is a workout for End to end: none before Start's grow, and none once ending.

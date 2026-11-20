@@ -272,8 +272,11 @@ public struct RowLabel: View {
                 title,
                 [focus.progress, focus.showsSide ? focus.side : nil].compactMap(\.self)
                     .joined(separator: ", "),
-                focus.spokenFigures,
-                setRest?.isRunning == true || !focus.showsAfter ? "" : focus.after ?? "",
+                // During a rest between sets the figures are gone from its place; the rest reads
+                // as its own element after the label (`SetRest.spoken`).
+                setRest?.isRunning == true ? "" : focus.spokenFigures,
+                setRest?.isRunning == true || !focus.showsAfter
+                    ? "" : focus.spokenAfter ?? focus.after ?? "",
             ]
         } else {
             [title, spokenDetail ?? detail.joined(separator: ", ")]
@@ -324,6 +327,8 @@ public struct RowFocus: Equatable {
     /// What follows the set, at the caption line's end: "then rest 1:00", "last set"; nil for
     /// nothing.
     public var after: String?
+    /// `after` in words, for VoiceOver, "then rest 1 minute": a clock time read as one.
+    public var spokenAfter: String?
     /// Whether the side shows; unseen, it keeps its room, so the caption line keeps the height
     /// a side gives it, as through a rest after a set's two sides.
     public var showsSide = true

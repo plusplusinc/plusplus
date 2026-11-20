@@ -262,6 +262,8 @@ private struct RestRoom: View, Animatable {
             }
             .font(.ppRowTitle)
             .foregroundStyle(.pp(.textPrimary))
+            // The countdown reads "Rest" with its time.
+            .accessibilityRepresentation { EmptyView() }
             .padding(.top, Spacing.sm)
             .modifier(BottomIn(Self.space) { bottoms.word = $0 })
             .opacity(word)
@@ -345,37 +347,6 @@ private struct RestRoomLayout: Layout {
             at: bounds.origin,
             proposal: ProposedViewSize(width: bounds.width, height: nil),
         )
-    }
-}
-
-/// Whole seconds counting down to `ends`, a tick as each second of the rest goes, so "0:35" turns
-/// to "0:34" as a whole second has gone; one entry while paused.
-private struct RestSchedule: TimelineSchedule {
-    let ends: Date
-    let isPaused: Bool
-
-    func entries(from startDate: Date, mode _: Mode) -> AnyIterator<Date> {
-        guard !isPaused else {
-            var once = true
-            return AnyIterator {
-                defer { once = false }
-                return once ? startDate : nil
-            }
-        }
-        // Counted down in whole seconds from `ends`, so the last entry is `ends` itself: stepped
-        // up from the first, a second at a time, it ran a hair past `ends` and the figure stayed
-        // on 0:01 as the dot left.
-        var secondsLeft = max(ends.timeIntervalSince(startDate).rounded(.down), 0)
-        var first = true
-        return AnyIterator {
-            if first {
-                first = false
-                return startDate
-            }
-            guard secondsLeft >= 0 else { return nil }
-            defer { secondsLeft -= 1 }
-            return ends.addingTimeInterval(-secondsLeft)
-        }
     }
 }
 

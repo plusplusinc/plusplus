@@ -35,6 +35,10 @@ import WorkoutStore
 extension RoutineScreen {
     /// For the UI tests, every rest's length (`-seedRest`); nil in a release build.
     var restOverride: Int? {
+        Self.restOverride
+    }
+
+    static var restOverride: Int? {
         #if DEBUG
         LaunchOptions.restOverride
         #else
@@ -60,26 +64,11 @@ extension RoutineScreen {
         return (rest, shown.workout)
     }
 
-    /// Whether logging `set`, already stored, leading to `step`, rests first: on to another
-    /// exercise down the rail from a plain row, with a rest after it; or on to the same plain
-    /// row's next set, with a rest between its sets: after a set's last side when it is done one
-    /// side at a time, never between its sides.
-    func rests(after set: PlannedSet, leadingTo step: LiveWorkout.Step) -> Bool {
-        switch step {
-        case let .nextExercise(_, isBack, _) where !isBack || routine.isInSuperset(set.row):
-            break
-        case .nextSet where routine.restBetweenSets(after: set) != nil:
-            break
-        default:
-            return false
-        }
-        return live?.rest(override: restOverride) != nil
-    }
-
     /// The rest's opening, from the log: the dot leaves now, and as it does the row closes and
     /// the rest opens, on a close's curve. Between two sets of one exercise, from the tap, the
     /// rest and the figures swap in their slot as the segment turns and the line rolls on.
     func startRest() {
+        announceRest()
         if phase.resting?.isWithinExercise == true {
             // With Reduce Motion, at once: the rest swaps in with no ease.
             guard !reduceMotion else {
@@ -151,6 +140,15 @@ extension RoutineScreen {
         }
     }
 
+    /// Tells VoiceOver a rest has started, and how long it is, "Rest, 1 minute": its focus stays
+    /// on the key, which swaps for −15 s and +15 s.
+    private func announceRest() {
+        guard let resting else { return }
+        let length = Duration.seconds(resting.length)
+            .formatted(.units(allowed: [.minutes, .seconds], width: .wide).locale(locale))
+        AccessibilityNotification.Announcement(String(localized: "Rest, \(length)")).post()
+    }
+
     /// The row whose rest the dot waits at: from the pulse's landing there until the next one
     /// sets off from it.
     var restDotRow: RoutineExercise.ID? {
@@ -170,6 +168,7 @@ extension RoutineScreen {
             // The next set's figures swap back into their slot as the line rolls on, and Log set
             // comes back in place with them, taking a log once they are up.
             guard rest.beat < .returning else { return }
+            restEnds += 1
             guard !reduceMotion else {
                 phase.endRest()
                 phase.settleReturn()
@@ -182,6 +181,7 @@ extension RoutineScreen {
             }
         }
         guard rest.beat == .settled else { return }
+        restEnds += 1
         noteRestingPitch(of: rest.isBack ? nil : next.row)
         // From the rest's height, not the row's pitch at rest, which a relaunch never noted (the
         // list landed in a second motion). Before a superset's next round the rest closes above
@@ -287,18 +287,20 @@ extension RoutineScreen {
     }
 
     /// What follows `set` at its caption line's end, before it is logged: "then rest
-    /// 1:00" where a rest will run after it, as `rests(after:leadingTo:)` decides once it is;
+    /// 1:00" where a rest will run after it, as `LiveWorkout.rests(after:leadingTo:)` decides once
+    /// it is;
     /// "last set" on the workout's last; else nothing. `earlier`, sets taken as logged first.
     func afterText(
         for set: PlannedSet,
         in shown: LiveWorkout,
         after earlier: [PlannedSet] = [],
-    ) -> String? {
+    ) -> CaptionEnd? {
         let step = shown.step(logging: set, after: earlier)
         let gap: Int
         switch step {
         case .last:
-            return String(localized: "last set")
+            let last = String(localized: "last set")
+            return CaptionEnd(text: last, spoken: last)
         case .nextSet:
             gap = routine.restBetweenSets(after: set) ?? 0
         case let .nextExercise(next, isBack, _) where !isBack || routine.isInSuperset(set.row):
@@ -311,14 +313,20 @@ extension RoutineScreen {
         // The tests' length stands in only where the routine rests, never between two sides.
         let length = gap > 0 ? restOverride ?? gap : 0
         guard length > 0 else { return nil }
-        return thenRestText(length)
+        return thenRest(length)
     }
 
-    /// "then rest 1:00", for a rest of `seconds`.
-    func thenRestText(_ seconds: Int) -> String {
+    /// "then rest 1:00", for a rest of `seconds`, and in words, "then rest 1 minute".
+    func thenRest(_ seconds: Int) -> CaptionEnd {
         let length = Duration.seconds(seconds)
-            .formatted(.time(pattern: .minuteSecond).locale(locale))
-        return String(localized: "then rest \(length)")
+        let clock = length.formatted(.time(pattern: .minuteSecond).locale(locale))
+        let words = length.formatted(
+            .units(allowed: [.minutes, .seconds], width: .wide).locale(locale),
+        )
+        return CaptionEnd(
+            text: String(localized: "then rest \(clock)"),
+            spoken: String(localized: "then rest \(words)"),
+        )
     }
 
     /// What the rest's watch waits on: a + or −, a pause, or a resume starts it again.
@@ -333,62 +341,6 @@ extension RoutineScreen {
         let left = resting.remaining(atClock: workout.clock(at: .now))
         guard await (try? Task.sleep(for: .seconds(left), tolerance: .zero)) != nil else { return }
         endRest()
-    }
-
-    /// A row's content: its label, and under it its rest, as part of the row, so the row's own
-    /// stretch of rail runs through the room it opens.
-    func rowContent(
-        _ item: RoutineExercise,
-        current: RoutineExercise.ID?,
-        on set: PlannedSet?,
-        parts: RowParts?,
-    ) -> some View {
-        LabelWithRest(
-            label: rowLabel(item, current: current, on: set, parts: parts),
-            rest: parts?.restAfter ?? RestBlock(stage: .none, length: 0),
-            restAbove: parts?.restBefore ?? RestBlock(stage: .none, length: 0),
-            onRestHeight: { rowFrames.restHeights[item.id] = $0 },
-        )
-    }
-
-    /// Each row's bars, rests, and state in the workout, for the rows' closure to hold as values.
-    /// Worked out in the closure, the rests read the stored workout live but the phase as the
-    /// closure was made: a row redrawn on its own as a log was stored read the set in the workout
-    /// with the phase from before the log, which hides it, and the last set's rest line went into
-    /// the numbers' room for a pass, the rows below jumping up 24 pt as it came back out.
-    func rowParts(
-        in shown: LiveWorkout?,
-        current: RoutineExercise.ID?,
-    ) -> [RoutineExercise.ID: RowParts] {
-        let bars = rowBars(in: shown)
-        let finished = Set(shown?.finishedRows ?? [])
-        let after = shown.flatMap { shown in
-            shown.currentSet.flatMap { afterText(for: $0, in: shown) }
-        }
-        // Resting between two exercises, the next one grows a step once the rest shows, and
-        // stays grown through the move out of the rest until it opens: dropped as the rest
-        // ended, it shrank back and lost its equipment for a frame before growing again.
-        let isRestingBetween = phase.drawnRest.map { !$0.isWithinExercise && $0.beat >= .shown }
-            ?? (phase.move?.isFromRest == true)
-        let nextUp = isRestingBetween ? shown?.currentSet?.row : nil
-        return routine.exercises.reduce(into: [:]) { parts, item in
-            parts[item.id] = RowParts(
-                bars: bars[item.id],
-                restBetween: setRest(of: item.id, current: current),
-                restAfter: restBlock(in: item.id, above: false),
-                restBefore: restBlock(in: item.id, above: true),
-                isDone: finished.contains(item.id),
-                nextUp: item.id == nextUp ? [item.exercise].equipment.map(\.name) : nil,
-                after: item.id == current ? after : nil,
-            )
-        }
-    }
-
-    /// Scrolls the current exercise's row up to just under the bar.
-    func scrollToCurrent() {
-        if let place = currentPlace {
-            scrollPosition.scrollTo(y: place.landingY)
-        }
     }
 }
 

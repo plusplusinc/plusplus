@@ -37,6 +37,15 @@ public struct SetRest {
         self.turns = turns
     }
 
+    /// The rest as VoiceOver reads it while it runs: its own element after the exercise's label,
+    /// which holds every other part of the current exercise as one, "Rest", its time left as its
+    /// value, changing as the countdown does. Nothing before it runs, or once it is over.
+    public var spoken: some View {
+        SpokenRest(block: block)
+            .opacity(isRunning && !isOver ? 1 : 0)
+            .accessibilityHidden(!isRunning || isOver)
+    }
+
     /// The rest as a block, for its countdown and bar: unseen before it runs, its length on the
     /// countdown and the bar empty, so it comes in on its time.
     var block: RestBlock {

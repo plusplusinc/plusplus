@@ -82,6 +82,22 @@ extension LiveWorkout {
         )
     }
 
+    /// Whether logging `set`, already stored, leading to `step`, rests first: on to another
+    /// exercise down the rail, or back up a superset's loop to its next round, with a rest after
+    /// it; or on to the same row's next set, with a rest between its sets, after a set's last side
+    /// when it is done one side at a time, never between its sides.
+    public func rests(after set: PlannedSet, leadingTo step: Step, override: Int? = nil) -> Bool {
+        switch step {
+        case let .nextExercise(_, isBack, _) where !isBack || routine.isInSuperset(set.row):
+            break
+        case .nextSet where routine.restBetweenSets(after: set) != nil:
+            break
+        default:
+            return false
+        }
+        return rest(override: override) != nil
+    }
+
     /// The rest that will follow the current exercise once its last set is logged, in seconds:
     /// nil in a superset, before nothing, before a row above it, or for a rest of 0. The rest a
     /// screen shows under the current exercise before it runs.

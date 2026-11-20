@@ -1,11 +1,14 @@
+import Foundation
+
 extension WorkoutPhase {
     /// A rest after a set, from the log until it ends: between exercises, or between two sets of
     /// one (`isWithinExercise`), where the rest takes the place of the set's numbers.
     public struct Resting: Equatable, Sendable {
         /// The set logged.
         public let set: PlannedSet
+        /// Whether the next exercise is above, back up a superset's loop, where the rest opens
+        /// above its first member.
         public let isBack: Bool
-        public let startsRound: Bool
         public let isWithinExercise: Bool
         public internal(set) var beat: Beat
 
@@ -23,6 +26,45 @@ extension WorkoutPhase {
             /// numbers' place.
             case returning
         }
+    }
+
+    /// At once, as the store stands, as the screen goes away (`init(resuming:restOverride:at:)`).
+    /// What the stopped sequence was playing is dropped, so the phase never says there is a
+    /// workout the store doesn't hold, or none where it holds one.
+    public mutating func settleAtOnce(
+        resuming live: LiveWorkout?,
+        restOverride: Int?,
+        at now: Date,
+    ) {
+        self = Self(resuming: live, restOverride: restOverride, at: now)
+    }
+
+    /// Where a screen opening on `live` is, as after a relaunch: out of a workout with none; in
+    /// the rest after its last set, drawn and settled, while one runs at `now`; else at rest on
+    /// the next set. `restOverride` as `LiveWorkout.rest(override:)`'s.
+    public init(resuming live: LiveWorkout?, restOverride: Int? = nil, at now: Date) {
+        guard let live else {
+            self = .idle
+            return
+        }
+        self = .running
+        guard let rest = live.rest(override: restOverride),
+              !rest.isOver(atClock: live.workout.clock(at: now))
+        else { return }
+        let step = live.hiding([rest.after]).step(logging: rest.after)
+        guard live.rests(after: rest.after, leadingTo: step, override: restOverride) else {
+            return
+        }
+        var isBack = false
+        if case let .nextExercise(_, back, _) = step {
+            isBack = back
+        }
+        self = .resting(Resting(
+            set: rest.after,
+            isBack: isBack,
+            isWithinExercise: step == .nextSet,
+            beat: .settled,
+        ))
     }
 
     /// Within one exercise, the swap back is over: the next set is up.

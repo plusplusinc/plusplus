@@ -68,9 +68,10 @@ extension RoutineScreen {
     /// The current exercise as it grows into `set`, `after` at its caption line's end:
     /// at a superset round's end, it shows the round just done, as the logged set's row showed
     /// it, until the move rolls it to the new one.
-    func focus(of item: RoutineExercise, on set: PlannedSet, after: String?) -> RowFocus {
+    func focus(of item: RoutineExercise, on set: PlannedSet, after: CaptionEnd?) -> RowFocus {
         var focus = item.focus(on: set, inSuperset: routine.isInSuperset(item.id), locale: locale)
-        focus.after = after
+        focus.after = after?.text
+        focus.spokenAfter = after?.spoken
         if let move = phase.move, move.holdsRound,
            let left = routine.exercises.first(where: { $0.id == move.set.row })
         {
@@ -89,7 +90,7 @@ extension RoutineScreen {
                 for: PlannedSet(row: set.row, round: set.round, side: last),
                 in: shown,
                 after: [set],
-            )
+            )?.text
             focus.showsAfter = false
         }
         // Resting between two sets, the line says the set just done, "1 of 3 done", until the
@@ -100,11 +101,11 @@ extension RoutineScreen {
         {
             let round = rest.set.round.formatted(.number.locale(locale))
             let sets = item.plan.sets.formatted(.number.locale(locale))
-            focus.progress = "\(round) of \(sets) done"
+            focus.progress = String(localized: "\(round) of \(sets) done")
             // Done one side at a time, the set just done was both sides: no side to name, though
             // its room stays, so the line keeps its height.
             focus.showsSide = false
-            focus.after = drawnResting.map { thenRestText($0.rest.length) }
+            focus.after = drawnResting.map { thenRest($0.rest.length).text }
         }
         return focus
     }
@@ -153,7 +154,10 @@ extension RoutineScreen {
     /// The row that grows, or stands grown: the current exercise, or, out of a workout, the
     /// first, which Start grows.
     var growingID: RoutineExercise.ID? {
-        shown == nil ? routine.exercises.first?.id : currentID
+        guard shown != nil else { return routine.exercises.first?.id }
+        // Relaunched into a rest between exercises, no row is grown until it ends: the list opens
+        // on the row the rest is drawn in.
+        return currentID ?? (opensOnCurrent ? restDotRow : nil)
     }
 
     /// Plays `step`, what logging `set` led to, the set already stored: the screen's one entry
@@ -180,7 +184,7 @@ extension RoutineScreen {
         guard phase.log(
             set,
             leadingTo: step,
-            rests: rests(after: set, leadingTo: step),
+            rests: live?.rests(after: set, leadingTo: step, override: restOverride) ?? false,
             moves: !reduceMotion,
         )
         else { return }
