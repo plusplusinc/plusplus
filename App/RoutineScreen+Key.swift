@@ -5,31 +5,23 @@ import WorkoutStore
 /// The screen's one key, at the bottom: Start, then in a workout what logs its sets, goes back
 /// to the current exercise while it is scrolled away, and finishes the workout.
 extension RoutineScreen {
-    typealias KeyRole = WorkoutKey.Role
-
-    /// The key as the workout stands: what it says and what a tap does, both worked out by
-    /// `WorkoutKey`.
+    /// The key as the workout stands: what it says, which the bar swaps as its kind changes
+    /// (`primaryKeyBar`), and what a tap does.
     var liveKey: WorkoutKey {
         WorkoutKey(
             stored: live,
             shown: shown,
             phase: phase,
-            wayBack: keyWayBack.map { $0 == .top ? .up : .down },
+            wayBack: keyWayBack,
             isScrolledAway: currentPlace?.isScrolledAway == true,
         )
-    }
-
-    /// What the key is for, as the workout stands. The bar swaps the key as its kind changes
-    /// (`primaryKeyBar`).
-    var liveKeyRole: KeyRole {
-        liveKey.role
     }
 
     /// The key that `primaryKeyBar` holds, for `role`. Within a kind, one key whose words
     /// change; across kinds, another key, which the bar swaps in. While the bar has it out in a
     /// swap, a tap or a VoiceOver activation does nothing, and the key stays enabled, so
     /// VoiceOver doesn't read it dimmed for the swap's length.
-    func key(_ role: KeyRole, isOut: Bool) -> some View {
+    func key(_ role: WorkoutKey.Role, isOut: Bool) -> some View {
         Button {
             if !isOut {
                 tapKey()
@@ -41,7 +33,7 @@ extension RoutineScreen {
     }
 
     @ViewBuilder
-    private func keyLabel(_ role: KeyRole) -> some View {
+    private func keyLabel(_ role: WorkoutKey.Role) -> some View {
         switch role {
         case .start:
             Label("Start", systemImage: "play.fill")
@@ -55,7 +47,7 @@ extension RoutineScreen {
         }
     }
 
-    private func spokenKey(_ role: KeyRole) -> String {
+    private func spokenKey(_ role: WorkoutKey.Role) -> String {
         switch role {
         case .start: String(localized: "Start")
         case let .log(text): text
@@ -64,10 +56,7 @@ extension RoutineScreen {
         }
     }
 
-    /// A tap on the key, as `WorkoutKey.tap` says. Where the current exercise is scrolled away
-    /// when the tap lands, as on a list still moving away under a finger that still says "Log
-    /// set", the list goes back to it and nothing is logged: the key changes only once the finger
-    /// lifts (`settleWayBack()`), the place at once. A log is stored through the session at once
+    /// A tap on the key, as `WorkoutKey.tap` says. A log is stored through the session at once
     /// and shown through `play(_:leadingTo:)`. Nothing while a row's sheet is up: it covers the
     /// key, but a tap as it began to rise, as after Create, reached the key and started or logged
     /// behind it. While the key swaps, `key` drops the tap.
@@ -111,10 +100,10 @@ extension RoutineScreen {
         guard !isMovingOn, !opensOnCurrent, !scrollBeat.isFingerOn, !scrollBeat.isPastTop else {
             return
         }
-        let way: VerticalEdge? = if let place = currentPlace, place.isScrolledAway,
-                                    currentID != nil
+        let way: WorkoutKey.WayBack? = if let place = currentPlace, place.isScrolledAway,
+                                          currentID != nil
         {
-            place.isAbove ? .top : .bottom
+            place.isAbove ? .up : .down
         } else {
             nil
         }

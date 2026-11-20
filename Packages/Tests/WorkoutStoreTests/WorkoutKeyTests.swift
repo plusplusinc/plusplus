@@ -178,12 +178,32 @@ struct WorkoutKeyTests {
                 says: .log("Log set"),
                 taps: .back,
             ),
+            Row(
+                "Back in view under a finger, the key still pointing up: back",
+                on.key(logged: 1, wayBack: .up),
+                says: .back(name: name, isAbove: true),
+                taps: .back,
+            ),
+        ]
+    }
+
+    /// As a workout ends: the stored workout gone, the key keeps the words drawn.
+    private static func ending(_ on: Seed) -> [Row] {
+        var phase = WorkoutPhase.running
+        phase.end(on.live(logged: 1).workout)
+        return [
+            Row(
+                "Ending: the words drawn, a tap Start's",
+                on.key(logged: nil, shown: 1, phase: phase),
+                says: .log("Log set"),
+                taps: .start,
+            ),
         ]
     }
 
     static func rows() throws -> [Row] {
         let seed = try Seed()
-        return logs(seed) + playing(seed) + away(seed)
+        return logs(seed) + playing(seed) + away(seed) + ending(seed)
     }
 
     @Test("The key's words and tap", arguments: try rows())

@@ -2,21 +2,24 @@ import Foundation
 
 /// The routine screen's key at the bottom, from the workout, the phase, and where the current
 /// exercise is: what it says (`role`) and what a tap on it does (`tap`), worked out in one place
-/// so the two agree but where they differ on purpose. A key that still says "Log set" while the
-/// current exercise is scrolled away under a finger goes back to it, since the words change only
-/// once the finger lifts; "Log last set" takes no tap while its row closes.
-public struct WorkoutKey: Equatable, Sendable {
-    /// The workout as stored, every log in it: what a tap reads. Nil out of a workout.
-    public var stored: LiveWorkout?
+/// so the two agree, except where they differ on purpose. A key that still says "Log set" while
+/// the current exercise is scrolled away under a finger goes back to it, since the words change
+/// only once the finger lifts; "Log last set" takes no tap while its row closes; and as a
+/// workout ends, the key keeps its words while a tap is Start's, which does nothing until Start
+/// is back. What a tap lands on (a sheet over the key, the key out in a swap) is the screen's.
+public struct WorkoutKey: Sendable {
+    /// The workout as stored, every log in it: what a tap reads. Nil out of a workout, and from
+    /// End's choice.
+    public let stored: LiveWorkout?
     /// The workout as the screen draws it, less the sets logged and not yet shown: what the
     /// words read. Nil out of a workout.
-    public var shown: LiveWorkout?
-    public var phase: WorkoutPhase
+    public let shown: LiveWorkout?
+    public let phase: WorkoutPhase
     /// Which way the key points back to the current exercise, as last settled: nil while it
     /// doesn't. Held while a finger is on the list.
-    public var wayBack: WayBack?
+    public let wayBack: WayBack?
     /// Whether the current exercise is scrolled away now, where a tap lands, settled or not.
-    public var isScrolledAway: Bool
+    public let isScrolledAway: Bool
 
     public init(
         stored: LiveWorkout?,
