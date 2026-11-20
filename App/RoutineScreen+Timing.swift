@@ -40,8 +40,8 @@ extension RoutineScreen {
                 pausedLeft: timed.remaining(atClock: shown.workout.clock(at: .now)),
             )
         }
-        let key = liveKey
-        guard countBeats.earlyLog == nil, key.keptCount == nil, key.drawnCount == .counting,
+        guard countBeats.earlyLog == nil, phase.loggedAndDrawn == nil,
+              liveKey.drawnCount == .counting,
               let timed = live?.timedSet,
               let workout = session.workout
         else { return .logged }

@@ -5,10 +5,13 @@ import Testing
 struct WaitShownTests {
     private static let locale = Locale(identifier: "en_US")
 
-    /// What a countdown of `kind`, 10 s long, reads with `left` seconds to go.
+    /// What a countdown of `kind`, 10 s long, reads with `left` seconds to go, held there.
     private static func reads(_ kind: SetRest.Kind, left: Double) -> String {
-        let shown = kind.shown(length: 10)
-        return RestBlock.text(min(shown.upperBound, max(shown.lowerBound, left)), locale: locale)
+        let block = RestBlock(stage: .open, length: 10, pausedLeft: left)
+        return RestBlock.text(
+            block.left(at: .now, within: kind.shown(length: 10)),
+            locale: locale,
+        )
     }
 
     @Test("Starts in never reads 0:00, and reads 0:10 while its count has not yet begun")

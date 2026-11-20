@@ -41,9 +41,15 @@ public struct RestBlock: View {
 
     /// The block held at what it showed at `date`.
     func holding(at date: Date) -> Self {
+        Self(stage: stage, length: length, ends: ends, pausedLeft: left(at: date))
+    }
+
+    /// The seconds the countdown shows at `date`, kept within `shown`. Closing with a time
+    /// given, as a workout ended mid-rest, it holds that time.
+    func left(at date: Date, within shown: ClosedRange<Double> = 0 ... .infinity) -> Double {
         let left = pausedLeft
             ?? (stage == .open ? max(0, ends.timeIntervalSince(date)) : Double(length))
-        return Self(stage: stage, length: length, ends: ends, pausedLeft: left)
+        return min(shown.upperBound, max(shown.lowerBound, left))
     }
 
     /// No rest: a row's room for one, closed.
@@ -75,13 +81,8 @@ public struct RestBlock: View {
             ends: ends,
             isPaused: pausedLeft != nil || !isOpen,
         )) { context in
-            // Closing with a time given, as a workout ended mid-rest, it holds that time.
-            let left = min(shown.upperBound, max(
-                shown.lowerBound,
-                pausedLeft
-                    ?? (isOpen ? max(0, ends.timeIntervalSince(context.date)) : Double(length)),
-            ))
-            let text = Self.text(left, locale: locale)
+            let seconds = left(at: context.date, within: shown)
+            let text = Self.text(seconds, locale: locale)
             Text(text)
                 .font(.system(size: size, weight: .bold, design: .monospaced))
                 .foregroundStyle(.pp(color))
@@ -95,7 +96,7 @@ public struct RestBlock: View {
                 // while the part faded on its curve.
                 .contentTransition(turns ? .numericText(countsDown: true) : .identity)
                 .transaction(value: ends) {
-                    if isOpen, turns, left > 0 {
+                    if isOpen, turns, seconds > 0 {
                         $0.animation = .snappy(duration: SetMotion.restGlide)
                     }
                 }
@@ -114,7 +115,7 @@ public struct RestBlock: View {
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Rest")
-                .accessibilityValue(Self.spoken(left, locale: locale))
+                .accessibilityValue(Self.spoken(seconds, locale: locale))
         }
     }
 

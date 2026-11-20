@@ -80,12 +80,11 @@ struct WorkoutKeyCountTests {
         #expect(logged.loggedCount(of: set) == LoggedCount(length: 30, done: 12))
         let key = Self.key(logged, phase: .held(set), shown: logged.hiding([set]))
         #expect(key.drawnCount == .counting)
-        #expect(key.keptCount == LoggedCount(length: 30, done: 12))
         #expect(key.role == .count("Log early"))
         #expect(key.countTap(by: 15) == .nothing)
         // Rolled on, the next set's "Starts in" takes over: one swap, from the count.
         let next = Self.key(logged, phase: .timing(.startsIn))
-        #expect(next.keptCount == nil)
+        #expect(next.drawnCount == .startsIn)
         #expect(next.role == .startNow)
     }
 
@@ -104,11 +103,11 @@ struct WorkoutKeyCountTests {
         let last = try #require(live.workout.sets.last?.planned)
         var move = WorkoutPhase.Move(set: last, isBack: false, startsRound: false, beat: .shown)
         let held = Self.key(live, phase: .movingOn(move))
-        #expect(held.drawnCount == .counting)
-        #expect(held.keptCount != nil, "The count logged, held full for its beat")
+        #expect(held.drawnCount == .counting, "The count logged, held full for its beat")
+        #expect(held.phase.loggedAndDrawn == last)
         move.beat = .shifting
         let shifting = Self.key(live, phase: .movingOn(move))
-        #expect(shifting.keptCount == nil)
+        #expect(shifting.phase.loggedAndDrawn == nil)
         #expect(shifting.drawnCount == .startsIn, "Then Start now, as the move begins")
         #expect(shifting.role == .startNow)
         #expect(shifting.tap == .nothing, "Nothing while the move plays")

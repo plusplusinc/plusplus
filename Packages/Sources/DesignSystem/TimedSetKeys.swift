@@ -16,6 +16,7 @@ public struct TimedSetKeys: View {
     /// +15 s's width at the default text size, as drawn.
     @ScaledMetric(relativeTo: .title3) private var extendWidth: CGFloat = 112
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
 
     public init(
         logText: String,
@@ -33,15 +34,15 @@ public struct TimedSetKeys: View {
 
     public var body: some View {
         HStack(spacing: Spacing.sm) {
-            Button {
-                if !isOut {
-                    onLog()
+            // Its value, the seconds done, follows the count each second only while VoiceOver
+            // runs: no other reader needs it redrawn.
+            if voiceOver {
+                TimelineView(.periodic(from: filling.ends, by: 1)) { context in
+                    logKey(at: context.date)
                 }
-            } label: {
-                Text(verbatim: logText)
+            } else {
+                logKey(at: .now)
             }
-            .buttonStyle(.countKey(filling: filling))
-            .accessibilityIdentifier("workout.key")
             Button {
                 if !isOut {
                     onExtend()
@@ -57,6 +58,20 @@ public struct TimedSetKeys: View {
             .accessibilityLabel("Plus 15 seconds")
         }
         .background(Capsule().fill(.pp(.background)))
+    }
+
+    /// "Log early", its value the seconds done at `date`.
+    private func logKey(at date: Date) -> some View {
+        Button {
+            if !isOut {
+                onLog()
+            }
+        } label: {
+            Text(verbatim: logText)
+        }
+        .buttonStyle(.countKey(filling: filling))
+        .accessibilityIdentifier("workout.key")
+        .accessibilityValue(filling.spokenDone(at: date) ?? "")
     }
 }
 

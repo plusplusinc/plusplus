@@ -56,11 +56,6 @@ public struct WorkoutKey: Sendable {
         return phase.isLeavingRest ? .counting : .startsIn
     }
 
-    /// The count of a timed set just logged and still drawn, as it stopped: nil for none.
-    public var keptCount: LoggedCount? {
-        phase.loggedAndDrawn.flatMap { stored?.loggedCount(of: $0) }
-    }
-
     /// What the key is for, as the workout is drawn.
     public var role: Role {
         guard let shown, !phase.isStarting else { return .start }

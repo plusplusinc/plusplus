@@ -46,6 +46,12 @@ public struct SetRest {
         }
     }
 
+    /// "starts in 10 seconds", for the exercise's label during "Starts in"; nil otherwise.
+    var spokenStartsIn: String? {
+        guard case .startsIn = kind else { return nil }
+        return String(localized: "starts in \(length) seconds")
+    }
+
     /// What a wait in the figures' slot is.
     public enum Kind: Equatable, Sendable {
         /// "Rest" over the countdown, over its bar.
@@ -79,11 +85,12 @@ public struct SetRest {
         self.turns = turns
     }
 
-    /// The rest as VoiceOver reads it while it runs: its own element after the exercise's label,
-    /// which holds every other part of the current exercise as one, "Rest", its time left as its
-    /// value, changing as the countdown does. Nothing before it runs, or once it is over.
+    /// The wait as VoiceOver reads it while it runs: its own element after the exercise's label,
+    /// which holds every other part of the current exercise as one, "Rest", "Starts in", or, for
+    /// a timed set's own count, "Time left", its time left as its value, changing as the
+    /// countdown does. Nothing before it runs, or once it is over.
     public var spoken: some View {
-        SpokenRest(block: block)
+        SpokenRest(block: block, label: kind.spokenAs, shown: kind.shown(length: length))
             .opacity(isRunning && !isOver ? 1 : 0)
             .accessibilityHidden(!isRunning || isOver)
     }
@@ -314,6 +321,16 @@ extension SetRest.Kind {
             0.001 ... Double(length)
         } else {
             0 ... .infinity
+        }
+    }
+
+    /// What VoiceOver calls the countdown: a set's own count is read as the time it has left,
+    /// never as a rest.
+    var spokenAs: LocalizedStringKey {
+        switch self {
+        case .rest: "Rest"
+        case .startsIn: "Starts in"
+        case .count: "Time left"
         }
     }
 

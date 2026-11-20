@@ -25,10 +25,13 @@ struct RestSchedule: TimelineSchedule {
     }
 }
 
-/// A rest's countdown to VoiceOver alone, drawing nothing: "Rest", its time left as its value, on
-/// the countdown's schedule, for a rest drawn inside an element that reads as one (`SetRest`).
+/// A countdown to VoiceOver alone, drawing nothing: `label` ("Rest", "Starts in", "Time left"),
+/// its time left as its value as the countdown shows it (`shown`), on the countdown's schedule,
+/// for a countdown drawn inside an element that reads as one (`SetRest`).
 struct SpokenRest: View {
     let block: RestBlock
+    var label: LocalizedStringKey = "Rest"
+    var shown: ClosedRange<Double> = 0 ... .infinity
     @Environment(\.locale) private var locale
 
     var body: some View {
@@ -36,12 +39,14 @@ struct SpokenRest: View {
             ends: block.ends,
             isPaused: block.pausedLeft != nil || block.stage != .open,
         )) { context in
-            let left = block.pausedLeft ?? max(0, block.ends.timeIntervalSince(context.date))
             Color.clear
                 .frame(maxWidth: .infinity, maxHeight: 1)
                 .accessibilityElement()
-                .accessibilityLabel("Rest")
-                .accessibilityValue(RestBlock.spoken(left, locale: locale))
+                .accessibilityLabel(Text(label))
+                .accessibilityValue(RestBlock.spoken(
+                    block.left(at: context.date, within: shown),
+                    locale: locale,
+                ))
         }
     }
 }

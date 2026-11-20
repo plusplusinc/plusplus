@@ -35,6 +35,15 @@ public struct KeyFill: Equatable, Sendable {
         return min(1, max(0, 1 - left / length))
     }
 
+    /// "12 of 30 seconds done" at `date`, as VoiceOver hears the key's fill: the seconds done as
+    /// the count shows them, its time left rounded up. Nil once logged.
+    public func spokenDone(at date: Date) -> String? {
+        guard !isLogged, length > 0 else { return nil }
+        let total = Int(length.rounded())
+        let left = Int(min(length, max(0, pausedLeft ?? ends.timeIntervalSince(date))).rounded(.up))
+        return String(localized: "\(max(0, total - left)) of \(total) seconds done")
+    }
+
     /// Whether the fill stands still: paused, or logged.
     var holds: Bool {
         pausedLeft != nil || isLogged
