@@ -60,7 +60,8 @@ struct FillingFace: View {
     var color: ColorToken?
 
     var body: some View {
-        TimelineView(.animation(paused: filling.holds)) { context in
+        // At most 60 a second, as the rest's bar: on ProMotion, 120 moved it under a point.
+        TimelineView(.animation(minimumInterval: 1.0 / 60, paused: filling.holds)) { context in
             GeometryReader { geometry in
                 Rectangle()
                     .fill(.pp(color ?? (filling.isPaused ? .textSecondary : .done)))
