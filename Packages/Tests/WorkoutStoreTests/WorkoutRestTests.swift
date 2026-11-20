@@ -136,20 +136,31 @@ struct WorkoutRestTests {
     @Test("+15 s adds 15 seconds; −15 s takes 15 off, and with less left ends the rest")
     func plusAndMinus() throws {
         var live = try Self.live(Self.plain(), logged: 1)
-        live.workout = live.workout.adjustingRest(by: 15, length: 90, at: Self.at(20))
+        live.workout = live.adjustingRest(by: 15, at: Self.at(20))
         #expect(live.rest()?.length == 105)
-        live.workout = live.workout.adjustingRest(by: -15, length: 90, at: Self.at(30))
-        live.workout = live.workout.adjustingRest(by: -15, length: 90, at: Self.at(30))
+        live.workout = live.adjustingRest(by: -15, at: Self.at(30))
+        live.workout = live.adjustingRest(by: -15, at: Self.at(30))
         let shortened = try #require(live.rest())
         #expect(shortened.length == 75)
         // At 80 s, 5 s are left: −15 s ends it.
-        live.workout = live.workout.adjustingRest(by: -15, length: 90, at: Self.at(80))
+        live.workout = live.adjustingRest(by: -15, at: Self.at(80))
         let ended = try #require(live.rest())
         #expect(ended.isOver(atClock: live.workout.clock(at: Self.at(80))))
         // Once it is over, a tap changes nothing.
         let over = live.workout
-        live.workout = live.workout.adjustingRest(by: 15, length: 90, at: Self.at(80))
+        live.workout = live.adjustingRest(by: 15, at: Self.at(80))
         #expect(live.workout == over)
+    }
+
+    @Test("+15 s changes nothing with no rest running: between a set's sides, or once ended")
+    func plusWithNoRest() throws {
+        // Bench press's 3 sets, then the split squat's first side: none between its sides.
+        let sides = try Self.live(Self.plain(), logged: 4)
+        #expect(sides.rest() == nil)
+        #expect(sides.adjustingRest(by: 15, at: Self.at(45)) == sides.workout)
+        var ended = try Self.live(Self.plain(), logged: 1)
+        ended.workout = ended.workout.finishing(at: Self.at(12))
+        #expect(ended.adjustingRest(by: 15, at: Self.at(13)) == ended.workout)
     }
 
     @Test("A screen opens in the rest running, settled: between sets, or between exercises")

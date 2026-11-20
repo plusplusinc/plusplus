@@ -72,17 +72,6 @@ public struct Workout: Identifiable, Equatable, Sendable {
         clockStart.addingTimeInterval(clock)
     }
 
-    /// With the rest after the last set logged changed by `seconds`, as a + or − tap does, at
-    /// `now`. Unchanged once that rest is over, so a tap landing as it ends brings nothing back.
-    public func adjustingRest(by seconds: Int, length: Int, at now: Date) -> Self {
-        guard let last = sets.last, let start = last.clockWhenLogged,
-              Double(length + last.restAdjustment) > clock(at: now) - start
-        else { return self }
-        var adjusted = self
-        adjusted.sets[adjusted.sets.count - 1].restAdjustment += seconds
-        return adjusted
-    }
-
     /// When the elapsed time last stood at zero, as if there had been no pauses: whole seconds
     /// of the elapsed time fall on whole seconds from here, so a clock can tick on them.
     public var clockStart: Date {

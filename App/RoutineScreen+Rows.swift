@@ -15,8 +15,8 @@ extension RoutineScreen {
         LabelWithRest(
             label: rowElement(rowLabel(item, current: current, on: set, parts: parts), of: item.id)
                 .overlay(alignment: .bottom) { parts?.restBetween.map(\.spoken) },
-            rest: parts?.restAfter ?? RestBlock(stage: .none, length: 0),
-            restAbove: parts?.restBefore ?? RestBlock(stage: .none, length: 0),
+            rest: parts?.restAfter ?? .closed,
+            restAbove: parts?.restBefore ?? .closed,
             onRestHeight: { rowFrames.restHeights[item.id] = $0 },
         )
     }
@@ -62,12 +62,13 @@ extension RoutineScreen {
         let isRestingBetween = phase.drawnRest.map { !$0.isWithinExercise && $0.beat >= .shown }
             ?? (phase.move?.isFromRest == true)
         let nextUp = isRestingBetween ? shown?.currentSet?.row : nil
+        let rest = drawnRestBlock()
         return routine.exercises.reduce(into: [:]) { parts, item in
             parts[item.id] = RowParts(
                 bars: bars[item.id],
                 restBetween: setRest(of: item.id, current: current),
-                restAfter: restBlock(in: item.id, above: false),
-                restBefore: restBlock(in: item.id, above: true),
+                restAfter: rest?.block(in: item.id, above: false) ?? .closed,
+                restBefore: rest?.block(in: item.id, above: true) ?? .closed,
                 isDone: finished.contains(item.id),
                 nextUp: item.id == nextUp ? [item.exercise].equipment.map(\.name) : nil,
                 after: item.id == current ? after : nil,

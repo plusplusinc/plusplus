@@ -7,13 +7,7 @@ struct RestSchedule: TimelineSchedule {
     let isPaused: Bool
 
     func entries(from startDate: Date, mode _: Mode) -> AnyIterator<Date> {
-        guard !isPaused else {
-            var once = true
-            return AnyIterator {
-                defer { once = false }
-                return once ? startDate : nil
-            }
-        }
+        guard !isPaused else { return AnyIterator([startDate].makeIterator()) }
         // Counted down in whole seconds from `ends`, so the last entry is `ends` itself: stepped
         // up from the first, a second at a time, it ran a hair past `ends` and the figure stayed
         // on 0:01 as the dot left.

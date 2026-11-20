@@ -164,11 +164,12 @@ public final class RoutineSession {
         change(.save(workout.logging(planned, of: row, at: now)))
     }
 
-    /// Shortens or extends the rest after the last set by `seconds`, a rest `length` long as the
-    /// routine has it, unless that rest is over.
-    public func adjustRest(by seconds: Int, length: Int, at now: Date = .now) {
+    /// Shortens or extends the rest running after the last set by `seconds`, unless it is over.
+    /// `override`, for the UI tests, is every rest's length (`LiveWorkout.rest(override:)`).
+    public func adjustRest(by seconds: Int, override: Int? = nil, at now: Date = .now) {
         guard let workout else { return }
-        change(.save(workout.adjustingRest(by: seconds, length: length, at: now)))
+        let live = LiveWorkout(routine: current, workout: workout)
+        change(.save(live.adjustingRest(by: seconds, override: override, at: now)))
     }
 
     /// Finishes the workout, keeping it with the name the routine shows now.

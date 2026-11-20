@@ -82,19 +82,43 @@ extension LiveWorkout {
         )
     }
 
+    /// The workout with the rest running after the last set changed by `seconds`, as a + or − tap
+    /// does, at `now`. Unchanged with no rest running, or once it is over, so a tap landing as it
+    /// ends brings nothing back.
+    public func adjustingRest(by seconds: Int, override: Int? = nil, at now: Date) -> Workout {
+        guard workout.isInProgress, let rest = rest(override: override),
+              !rest.isOver(atClock: workout.clock(at: now))
+        else { return workout }
+        var adjusted = workout
+        adjusted.sets[adjusted.sets.count - 1].restAdjustment += seconds
+        return adjusted
+    }
+
     /// Whether logging `set`, already stored, leading to `step`, rests first: on to another
     /// exercise down the rail, or back up a superset's loop to its next round, with a rest after
     /// it; or on to the same row's next set, with a rest between its sets, after a set's last side
     /// when it is done one side at a time, never between its sides.
     public func rests(after set: PlannedSet, leadingTo step: Step, override: Int? = nil) -> Bool {
+        restLength(after: set, leadingTo: step, override: override) > 0
+            && rest(override: override) != nil
+    }
+
+    /// The seconds of rest logging `set` leading to `step` runs, 0 for none, which a screen can
+    /// promise before the log: `rests(after:leadingTo:override:)`'s rule.
+    public func restLength(
+        after set: PlannedSet,
+        leadingTo step: Step,
+        override: Int? = nil,
+    ) -> Int {
+        let stored: Int
         switch step {
-        case let .nextExercise(_, isBack, _) where !isBack || routine.isInSuperset(set.row):
-            break
-        case .nextSet where routine.restBetweenSets(after: set) != nil:
-            break
+        case let .nextExercise(next, isBack, _) where !isBack || routine.isInSuperset(set.row):
+            stored = routine.rest(after: set, before: next)
+        case .nextSet:
+            stored = routine.restBetweenSets(after: set) ?? 0
         default:
-            return false
+            return 0
         }
-        return rest(override: override) != nil
+        return stored > 0 ? override ?? stored : 0
     }
 }

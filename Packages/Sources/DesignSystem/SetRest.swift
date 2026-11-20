@@ -172,14 +172,14 @@ extension View {
     }
 
     /// A part of the rest coming in, `coming` from 0 to 1: fading in as it rises into place.
-    fileprivate func coming(_ coming: CGFloat) -> some View {
+    func coming(_ coming: CGFloat) -> some View {
         opacity(coming).offset(y: (1 - coming) * SetMotion.arriveRise)
     }
 }
 
 /// A part's fade over a change from 0 to 1: 0 until `start`, 1 `width` later.
 enum RestRoomFade {
-    static func fade(_ share: CGFloat, from start: CGFloat, width: CGFloat = 0.3) -> CGFloat {
+    static func fade(_ share: CGFloat, from start: CGFloat, width: CGFloat) -> CGFloat {
         min(max((share - start) / width, 0), 1)
     }
 }

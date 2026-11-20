@@ -39,6 +39,9 @@ public struct RestBlock: View {
         self.pausedLeft = pausedLeft
     }
 
+    /// No rest: a row's room for one, closed.
+    public static let closed = Self(stage: .none, length: 0)
+
     public var body: some View {
         RestRoom(
             block: self,
@@ -89,14 +92,14 @@ public struct RestBlock: View {
         )
     }
 
-    /// "0:35", the seconds rounded up.
-    static func text(_ seconds: Double, locale: Locale) -> String {
+    /// "0:35", the seconds rounded up: a rest's time as the countdown and a caption show it.
+    public static func text(_ seconds: Double, locale: Locale) -> String {
         Duration.seconds(seconds.rounded(.up))
             .formatted(.time(pattern: .minuteSecond).locale(locale))
     }
 
-    /// "35 seconds".
-    static func spoken(_ seconds: Double, locale: Locale) -> String {
+    /// "35 seconds", as VoiceOver hears a rest's time.
+    public static func spoken(_ seconds: Double, locale: Locale) -> String {
         Duration.seconds(seconds.rounded(.up))
             .formatted(.units(allowed: [.minutes, .seconds], width: .wide).locale(locale))
     }
@@ -190,7 +193,7 @@ private struct RestsAroundLabel: Layout {
 /// its curve whatever the transaction, a move's, whose scroll is set with animations disabled,
 /// included: an implicit `.animation(_:value:)` there was dropped, and the parts changed at once.
 /// Coming in, top first, each once the room has grown enough to hold it; going, bottom first, as
-/// the room starts to close (`fade(_:from:)`).
+/// the room starts to close (`RestRoomFade.fade(_:from:width:)`).
 private struct RestRoom: View, Animatable {
     let block: RestBlock
     let size: CGFloat
@@ -200,7 +203,7 @@ private struct RestRoom: View, Animatable {
     /// default text size, scaled with it.
     @ScaledMetric(relativeTo: .body) private var capHeight = Self.defaultCapHeight
 
-    private static var defaultCapHeight: CGFloat {
+    private static let defaultCapHeight: CGFloat = {
         #if canImport(UIKit)
         UIFont.systemFont(
             ofSize: UIFont.preferredFont(
@@ -212,7 +215,7 @@ private struct RestRoom: View, Animatable {
         #else
         12
         #endif
-    }
+    }()
 
     var animatableData: CGFloat {
         get { open }
@@ -242,13 +245,13 @@ private struct RestRoom: View, Animatable {
         // From the share of the room that holds each part whole, so nothing is drawn cut off at
         // the room's bottom against the row under it: from fixed shares, the countdown came in
         // with the room a third open, half of it drawn against the first member's name.
-        let word = Self.fade(open, from: bottoms.start(bottoms.word, or: 0.2), width: 0.15)
-        let countdown = Self.fade(
+        let word = RestRoomFade.fade(open, from: bottoms.start(bottoms.word, or: 0.2), width: 0.15)
+        let countdown = RestRoomFade.fade(
             open,
             from: bottoms.start(bottoms.countdown, or: 0.7),
             width: 0.15,
         )
-        let bar = Self.fade(open, from: bottoms.start(bottoms.bar, or: 0.85), width: 0.1)
+        let bar = RestRoomFade.fade(open, from: bottoms.start(bottoms.bar, or: 0.85), width: 0.1)
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .firstTextBaseline, spacing: 0) {
                 Text("Rest")
@@ -271,25 +274,17 @@ private struct RestRoom: View, Animatable {
                 .figureBox(size: size)
                 .padding(.top, Spacing.md)
                 .modifier(BottomIn(Self.space) { bottoms.countdown = $0 + SetMotion.arriveRise })
-                .opacity(countdown)
-                .offset(y: (1 - countdown) * SetMotion.arriveRise)
+                .coming(countdown)
             block.progress
                 .padding(.top, Spacing.md)
                 .modifier(BottomIn(Self.space) { bottoms.bar = $0 + SetMotion.arriveRise })
-                .opacity(bar)
-                .offset(y: (1 - bar) * SetMotion.arriveRise)
+                .coming(bar)
         }
         .padding(.bottom, Spacing.lg)
         .coordinateSpace(.named(Self.space))
         .onGeometryChange(for: CGFloat.self, of: \.size.height) { bottoms.room = $0 }
         .accessibilityHidden(block.stage != .open)
         .modifier(RestRoomHeight(open: open))
-    }
-
-    /// How far a part has faded in at `share` of the room's change: from 0 at `start` to 1
-    /// `width` later.
-    static func fade(_ share: CGFloat, from start: CGFloat, width: CGFloat) -> CGFloat {
-        min(max((share - start) / width, 0), 1)
     }
 }
 

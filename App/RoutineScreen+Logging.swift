@@ -216,8 +216,7 @@ extension RoutineScreen {
                 isMakingRoom = true
                 // A row still entering stays where it is, as at Start (`pressStart()`).
                 endFollow = nil
-                growthLift = target - scrollBeat.scrolledY
-                scrollPosition.scrollTo(y: target)
+                liftScroll(to: target)
             }
         }
         // One transaction: the parts going and coming each on their own delays
