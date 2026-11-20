@@ -23,6 +23,9 @@ extension RoutineScreen {
 
     /// The key's fill while the set counts.
     var keyFill: KeyFill? {
+        if let kept = liveKey.keptCount {
+            return KeyFill(length: Double(kept.length), ends: .distantPast, pausedLeft: kept.left)
+        }
         guard let timed = live?.timedSet, let workout = session.workout else { return nil }
         let clock = workout.clock(at: .now)
         return KeyFill(
@@ -52,7 +55,18 @@ extension RoutineScreen {
               case let .time(seconds) = row.plan.target
         else { return rest }
         let words = RestBlock.spoken(Double(seconds), locale: locale)
-        guard phase.takesLog, let stage = countStage, let timed = shown?.timedSet,
+        // The key's count, so the slot and the key tell one story at every frame, a move out of
+        // a rest included.
+        let key = liveKey
+        if key.drawnCount != nil, let kept = key.keptCount {
+            return SetRest(
+                isRunning: true,
+                length: kept.length,
+                pausedLeft: kept.left,
+                kind: .count,
+            )
+        }
+        guard let stage = key.drawnCount, let timed = live?.timedSet,
               let workout = session.workout
         else {
             return rest ?? SetRest(isRunning: false, length: 0, kind: .startsIn(time: words))
@@ -104,7 +118,8 @@ extension RoutineScreen {
             let clock = workout.clock(at: .now)
             if clock >= watch.startClock, sleptToStart {
                 sleptToStart = false
-                countBeats.starts += 1
+                // "Starts in" swaps for the count as the figures and a rest swap.
+                withAnimation(SetMotion.restSwap) { countBeats.starts += 1 }
             }
             let target = clock < watch.startClock ? watch.startClock : watch.endClock
             guard clock < target else { break }

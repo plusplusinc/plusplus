@@ -49,6 +49,25 @@ public struct WorkoutKey: Sendable {
         return phase.takesLog || fromRest ? countStage : nil
     }
 
+    /// The count as the key and the figures' slot draw it, the one both read so they tell one
+    /// story: `restingCount`, but while a set just logged is still drawn (held, as between a
+    /// side plank's sides, moving on, or before its rest shows), a timed set's count, stopped
+    /// where the log took it (`keptCount`), so each swaps once, from that count to what follows,
+    /// never through the log key or the set's figures.
+    public var drawnCount: CountStage? {
+        guard let kept = keptSet else { return restingCount }
+        return stored?.loggedCount(of: kept) == nil ? nil : .counting
+    }
+
+    /// The count of a timed set just logged and still drawn, as it stopped: nil for none.
+    public var keptCount: LoggedCount? {
+        keptSet.flatMap { stored?.loggedCount(of: $0) }
+    }
+
+    private var keptSet: PlannedSet? {
+        phase.held ?? phase.keySet ?? phase.resting.flatMap { $0.beat == .logged ? $0.set : nil }
+    }
+
     /// What the key is for, as the workout is drawn.
     public var role: Role {
         guard let shown, !phase.isStarting else { return .start }
@@ -76,7 +95,7 @@ public struct WorkoutKey: Sendable {
         if isResting {
             return .rest
         }
-        return switch restingCount {
+        return switch drawnCount {
         case .startsIn: .startNow
         case .counting: .count(text)
         case nil: .log(text)

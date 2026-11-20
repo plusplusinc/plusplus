@@ -18,6 +18,17 @@ public struct SetCount: Equatable, Sendable {
     }
 }
 
+/// A timed set's count as its log stopped it: its length, +15 s taps in, and the seconds done.
+public struct LoggedCount: Equatable, Sendable {
+    public let length: Int
+    public let done: Int
+
+    /// The seconds the count had left.
+    public var left: Double {
+        Double(max(0, length - done))
+    }
+}
+
 /// Where a timed set's count stands: its short "Starts in" count, then its own.
 public enum CountStage: Comparable, Sendable {
     case startsIn
@@ -87,6 +98,15 @@ extension LiveWorkout {
     public func countStage(at now: Date) -> CountStage? {
         guard let timed = timedSet else { return nil }
         return timed.startsIn(atClock: workout.clock(at: now)) > 0 ? .startsIn : .counting
+    }
+
+    /// The count `set` stopped at as it was logged: nil for a set not logged, or not timed.
+    public func loggedCount(of set: PlannedSet) -> LoggedCount? {
+        guard let logged = workout.sets.last(where: { $0.planned == set }),
+              case let .time(done) = logged.target,
+              case let .time(planned) = logged.plannedTarget
+        else { return nil }
+        return LoggedCount(length: planned + logged.timeAdded, done: done)
     }
 
     /// Whether the current set is timed, so its turn begins a count.
