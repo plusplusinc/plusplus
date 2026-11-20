@@ -77,17 +77,7 @@ extension RoutineScreen {
     func startRest() {
         announceRest()
         if phase.resting?.isWithinExercise == true {
-            // With Reduce Motion, at once: the rest swaps in with no ease.
-            guard !reduceMotion else {
-                phase.show()
-                phase.settleRest()
-                return
-            }
-            withAnimation(SetMotion.restSwap) { phase.show() }
-            return sequence.run {
-                try await beat(until: ContinuousClock.now + .seconds(SetMotion.roll))
-                phase.settleRest()
-            }
+            return startRestBetweenSets()
         }
         guard let rest = phase.resting, let live, let row = restRow(of: rest, in: live.workout)
         else { return }
@@ -146,6 +136,26 @@ extension RoutineScreen {
         }
     }
 
+    /// Between two sets of one exercise, from the tap, the rest and the figures swap in their
+    /// slot. With Reduce Motion, the list's crossfade, as every move has: set at once, the rest
+    /// cut in on one frame.
+    private func startRestBetweenSets() {
+        guard !reduceMotion else {
+            beginCrossfade(scrollingTo: scrollBeat.scrolledY)
+            return sequence.run {
+                try await crossfade { phase.show() }
+                phase.settleRest()
+                // A rest ended while it faded in goes on now.
+                endRest()
+            }
+        }
+        withAnimation(SetMotion.restSwap) { phase.show() }
+        sequence.run {
+            try await beat(until: ContinuousClock.now + .seconds(SetMotion.roll))
+            phase.settleRest()
+        }
+    }
+
     /// Tells VoiceOver a rest has started, and how long it is, "Rest, 1 minute": its focus stays
     /// on the key, which swaps for −15 s and +15 s.
     private func announceRest() {
@@ -172,12 +182,14 @@ extension RoutineScreen {
         if rest.isWithinExercise {
             // The next set's figures swap back into their slot as the line rolls on, and Log set
             // comes back in place with them, taking a log once they are up.
-            guard rest.beat < .returning else { return }
+            guard rest.beat < .returning, !isCrossfading else { return }
             restEnds += 1
             guard !reduceMotion else {
-                phase.endRest()
-                phase.settleReturn()
-                return
+                beginCrossfade(scrollingTo: scrollBeat.scrolledY)
+                return sequence.run {
+                    try await crossfade { phase.endRest() }
+                    phase.settleReturn()
+                }
             }
             withAnimation(SetMotion.restSwap) { phase.endRest() }
             return sequence.run {
@@ -185,7 +197,8 @@ extension RoutineScreen {
                 withTransaction(\.disablesAnimations, true) { phase.settleReturn() }
             }
         }
-        guard rest.beat == .settled else { return }
+        // Not again while its fade waits for its turn to start.
+        guard rest.beat == .settled, !isCrossfading else { return }
         restEnds += 1
         noteRestingPitch(of: rest.isBack ? nil : next.row)
         // From the rest's height, not the row's pitch at rest, which a relaunch never noted (the
@@ -195,8 +208,7 @@ extension RoutineScreen {
             ? landing(on: next.row, leaving: rest.set.row)
             : landing(on: next.row, closingRestUnder: rest.set.row)
         guard !reduceMotion else {
-            phase.endRest(moves: false)
-            return crossfadeOn(to: next, scrollingTo: target)
+            return crossfadeOn(to: next, scrollingTo: target, endingRest: true)
         }
         if let target {
             withTransaction(\.disablesAnimations, true) { liftScroll(to: target) }

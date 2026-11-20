@@ -103,7 +103,8 @@ extension RoutineScreen {
             let sets = item.plan.sets.formatted(.number.locale(locale))
             focus.progress = String(localized: "\(round) of \(sets) done")
             // Done one side at a time, the set just done was both sides: no side to name, though
-            // its room stays, so the line keeps its height.
+            // its room stays, so the line keeps its height. Its word, the side just done, fades.
+            focus.side = rest.set.side?.text
             focus.showsSide = false
             focus.after = drawnResting.map { thenRest($0.rest.length).text }
         }
@@ -238,12 +239,13 @@ extension RoutineScreen {
     /// played as the next node lights in it. A move like any other: the current exercise's place
     /// changing under it doesn't land it again (`placeCurrent(_:)`), and the key logs nothing
     /// until it is over. With no `target` worked out ahead, as after a relaunch, the list lands
-    /// after.
-    func crossfadeOn(to next: PlannedSet?, scrollingTo target: CGFloat?) {
+    /// after. `endingRest`: the rest between exercises ends inside the fade, its set drawn as it
+    /// was, so the rest is what fades out.
+    func crossfadeOn(to next: PlannedSet?, scrollingTo target: CGFloat?, endingRest: Bool = false) {
         beginCrossfade(scrollingTo: target ?? scrollBeat.scrolledY)
         sequence.run {
             try await crossfade {
-                phase.show()
+                _ = endingRest ? phase.endRest(moves: false) : phase.show()
                 if next != nil {
                     landings += 1
                 }

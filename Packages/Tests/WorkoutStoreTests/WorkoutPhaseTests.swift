@@ -201,6 +201,21 @@ struct WorkoutPhaseTests {
         #expect(Self.after([.settle], from: shown) == .running)
     }
 
+    @Test("With no motion, a rest's end keeps the set it followed drawn, then settles at rest")
+    func noMotionRestEnd() {
+        var phase = WorkoutPhase.running
+        phase.log(Self.logged, leadingTo: Self.down, rests: true, moves: false)
+        phase.show()
+        phase.landRest()
+        phase.settleRest()
+        let ended = phase.endRest(moves: false)
+        #expect(ended)
+        // Hidden again, the finished exercise drew grown as the current one before the fade.
+        #expect(phase.hidden.isEmpty)
+        #expect(phase.isMovingOn)
+        #expect(Self.after([.settle], from: phase) == .running)
+    }
+
     @Test("Stopped at once, the phase follows the store: at rest in a workout, out of one without")
     func settleAtOnce() {
         for phase in Self.everyPhase + Self.startAndEnd {

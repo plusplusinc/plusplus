@@ -226,7 +226,7 @@ public struct RowLabel: View {
             FigureLayout(spacing: 0) {
                 rolling(focus.progress, color: .textSecondary)
                 rolling("\(noBreakSpace)·\(noBreakSpace)\(side)", color: .textPrimary, dot: true)
-                    .opacity(focus.showsSide ? 1 : 0)
+                    .fadingQuickly(focus.showsSide)
             }
         } else {
             rolling(focus.progress, color: .textSecondary)

@@ -96,8 +96,10 @@ extension WorkoutPhase {
     }
 
     /// A rest is over: the move to the next exercise plays from the rest as a move with no rest
-    /// does from its log, or with no motion (`moves`), fades on. Only once the rest is drawn and,
-    /// between exercises, the move into it over.
+    /// does from its log, or with no motion (`moves`), fades on, called inside the fade: the set
+    /// stays shown, as the rest drew it. Hidden again, the finished exercise stood grown as the
+    /// current one for the frames before the fade. Only once the rest is drawn and, between
+    /// exercises, the move into it over.
     @discardableResult
     public mutating func endRest(moves: Bool = true) -> Bool {
         guard case var .resting(rest) = self, rest.beat < .returning,
@@ -109,7 +111,7 @@ extension WorkoutPhase {
             return true
         }
         guard moves else {
-            self = .fadingOn(rest.set, isShown: false)
+            self = .fadingOn(rest.set, isShown: true)
             return true
         }
         // Out of a rest, the next round shows from the start, its words arriving with its

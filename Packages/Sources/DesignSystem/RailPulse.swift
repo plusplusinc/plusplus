@@ -145,9 +145,6 @@ nonisolated struct PulseShape: Shape {
     /// pulls out of it, and nothing joins it as it lands there.
     var leavesNode = true
     var joinsNode = true
-    /// The node left as it is now, where it has moved off the route's start: the node left
-    /// behind is drawn there, and a neck joins it to the mass.
-    var left: CGPoint?
 
     /// How much longer the mass is for each point a second of its speed.
     static let stretch: CGFloat = 0.03
@@ -225,7 +222,7 @@ nonisolated struct PulseShape: Shape {
         var shape = mass
             .strokedPath(StrokeStyle(lineWidth: width, lineCap: .round, lineJoin: .round))
             .union(head.path)
-        let left = Circle(center: left ?? route.points[0], radius: restingSize / 2)
+        let left = Circle(center: route.points[0], radius: restingSize / 2)
         // Attached while the mass still overlaps the node left, its tail held there, or a neck
         // joins them.
         let neck = leavesNode ? Self.neck(left, tail, goo: size * Self.goo) : nil
@@ -347,9 +344,8 @@ struct RailPulseRun: View {
                     size: size,
                     restingSize: restingSize,
                     way: way,
-                    leavesNode: leavesNode,
+                    leavesNode: drawn.leavesNode,
                     joinsNode: joinsNode,
-                    left: drawn.left,
                 )
                 .fill(.pp(.accent))
             }
@@ -363,15 +359,32 @@ struct RailPulseRun: View {
         .accessibilityHidden(true)
     }
 
-    /// The route, down the rail from where the node left was as the run started, and the node
-    /// left as it is now. Into a rest, the row left closes from the tap, and its node rises with
-    /// its name shrinking: from the node as it is, the pulse rose with it before it shot down
-    /// (2026-11-19). Round a loop it heads up anyway, along the loop drawn from the node.
-    private var drawnRoute: (route: RailRoute, left: CGPoint?) {
-        guard let route else { return (RailRoute([]), nil) }
-        guard way == .down, leavesNode, let origin, origin.run == run,
-              let start = route.points.first, start != origin.point
-        else { return (route, nil) }
-        return (RailRoute([origin.point] + route.points.dropFirst()), start)
+    private var drawnRoute: (route: RailRoute, leavesNode: Bool) {
+        guard let route else { return (RailRoute([]), leavesNode) }
+        return Self.drawn(
+            route,
+            way: way,
+            leavesNode: leavesNode,
+            origin: origin?.run == run ? origin?.point : nil,
+        )
+    }
+
+    /// The route as drawn, down the rail from `origin`, where the node left was as the run
+    /// started, and whether it leaves a node behind. Into a rest, the row left closes from the
+    /// tap, and its node rises with its name shrinking: from the node as it is, the pulse rose
+    /// with it before it shot down (2026-11-19); with a neck to it, the green split and stretched
+    /// up after it. Once the node has moved, the pulse leaves it behind at once, in its own
+    /// color, and goes on down as one shape. Round a loop it heads up anyway, along the loop
+    /// drawn from the node.
+    static func drawn(
+        _ route: RailRoute,
+        way: SetMotion.Way,
+        leavesNode: Bool,
+        origin: CGPoint?,
+    ) -> (route: RailRoute, leavesNode: Bool) {
+        guard way == .down, leavesNode, let origin, let start = route.points.first,
+              start != origin
+        else { return (route, leavesNode) }
+        return (RailRoute([origin] + route.points.dropFirst()), false)
     }
 }

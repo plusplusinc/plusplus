@@ -58,8 +58,8 @@ feature, and change them with it.
 - Start, End, and the current exercise: `RoutineScreen+Workout.swift`, `CurrentExercise.swift`,
   `RowLabel.swift` (`RowFocus`, `CaptionLine`), `GrowingName`, `RailStack`, `RailEntry` (a row joining a rail).
   Their beats are `WorkoutPhase`'s `starting` and `ending`, on a log's `SequenceTask`; Start's scroll to the top waits on `ScrollBeat.settled(after:orWhen:)`.
-- The key at the bottom and the +1: `RoutineScreen+Key.swift`, `PrimaryKeyButtonStyle.swift`,
-  `PlusOneBurst`. The bar swaps the key on its own as its kind changes: the swap's stage is
+- The key at the bottom and the +1: `WorkoutKey`, `RoutineScreen+Key.swift`,
+  `PrimaryKeyButtonStyle.swift`, `PlusOneBurst`. The bar swaps the key on its own as its kind changes: the swap's stage is
   `KeyStage`, held by `StagedKey` in `KeySwap.swift`.
 - Logging a set and moving on to the next exercise: `RoutineScreen+Logging.swift` (`play(_:leadingTo:)`,
   the one entry that shows a stored log), `SetMotion`, `RailPulse`, `SetBeat` in `RailRow.swift`.

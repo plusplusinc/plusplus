@@ -51,14 +51,23 @@ public enum SetMotion {
     /// How long after the part below it each part starts to go, bottom first.
     static let leaveStagger = 0.025
 
-    /// When `part` starts to go, from the log: on a move to another exercise `way`, as
-    /// the shift starts; with no pulse to wait for, after the last set, at once.
-    static func leaveDelay(_ part: Part, way: Way? = nil) -> Double {
-        let start = way.map(moveShiftStart) ?? 0
+    /// When `part` starts to go, from the log, on a move to another exercise `way`: as the shift
+    /// starts, bottom first.
+    static func leaveDelay(_ part: Part, way: Way) -> Double {
+        let start = moveShiftStart(way)
         return switch part {
         case .equipment: start
         case .figures, .progress: start + leaveStagger
         }
+    }
+
+    /// `part` going: on a move to another exercise `way`, held, then easing in as the shift
+    /// starts; with none, as the row closes from the log, into a rest or after the last set,
+    /// all at once, easing out, so each is mostly gone before the row's bottom reaches it: eased
+    /// in, bottom first, the numbers were cut off at half strength over "Rest" for three frames.
+    static func leaving(_ part: Part, way: Way?) -> Animation {
+        guard let way else { return .easeOut(duration: leaveFade) }
+        return .easeIn(duration: leaveFade).delay(leaveDelay(part, way: way))
     }
 
     // MARK: Shift

@@ -139,6 +139,34 @@ struct RailPulseTests {
         #expect(gone <= SetMotion.move(way))
     }
 
+    @Test(
+        "Into a rest, as the node left rises with its closing row, the pulse never goes up with it",
+    )
+    @MainActor
+    func leavesRisingNode() {
+        // The node left has risen 20 pt since the tap; the rest is 64 pt below where it was.
+        let risen = RailRoute.line(from: CGPoint(x: 0, y: -20), to: CGPoint(x: 0, y: 64))
+        let drawn = RailPulseRun.drawn(risen, way: .down, leavesNode: true, origin: .zero)
+        #expect(drawn.route.points.first == .zero)
+        #expect(!drawn.leavesNode)
+        for step in 0 ... 60 {
+            let time = PulseShape.runEnd(.down) * Double(step) / 60
+            let box = PulseShape(
+                time: time,
+                route: drawn.route,
+                size: 14,
+                restingSize: 10,
+                leavesNode: drawn.leavesNode,
+                joinsNode: false,
+            ).path(in: .zero).boundingRect
+            // One shape, never above the dot it set off as.
+            #expect(box.isNull || box.minY >= -7 - 1e-9, "at \(time) s: \(box)")
+        }
+        // A node that stays put is left behind as before.
+        let still = RailRoute.line(from: .zero, to: CGPoint(x: 0, y: 64))
+        #expect(RailPulseRun.drawn(still, way: .down, leavesNode: true, origin: .zero).leavesNode)
+    }
+
     @Test("Up a loop, the travel shoots off, ends where it lands, and still moves as it lands")
     func loopTravel() {
         #expect(SetMotion.distance(at: 0, .loop) == 0)
