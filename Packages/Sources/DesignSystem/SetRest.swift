@@ -304,6 +304,8 @@ private struct WaitCountdown: View {
             .onChange(of: leaves, initial: true) {
                 leftAt = leaves ? .now : nil
             }
+            // Read by its own element, named for its kind (`SetRest.spoken`), never as "Rest".
+            .accessibilityHidden(true)
     }
 }
 
