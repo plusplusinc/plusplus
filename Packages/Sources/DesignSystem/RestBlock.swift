@@ -4,7 +4,7 @@ import SwiftUI
 /// row's own animation, so its height and the rows below move with the row. Open, under the
 /// exercise just finished, as the exercise closes to its row: "Rest" in a row's name style, as
 /// an exercise's name, then the time left in a large figure's style and size (`CurrentFigure`),
-/// then the bar of its progress (`RestProgress`), each coming in as the room has grown to hold it
+/// then the bar of its progress (`RestProgress`), each shown as the room's edge reaches it
 /// (`RestRoom`). −15 s and +15 s are at the bottom, in the key's place.
 ///
 /// Nothing in it is green: a rest looks like an active exercise. The time ticks on whole seconds
@@ -186,11 +186,11 @@ private struct RestsAroundLabel: Layout {
 }
 
 /// The rest drawn at a point in its opening or closing: `open` runs from 0 to 1 on the row's
-/// animation, and every part's fade is worked out from it, so the parts move with the room on
-/// its curve whatever the transaction, a move's, whose scroll is set with animations disabled,
-/// included: an implicit `.animation(_:value:)` there was dropped, and the parts changed at once.
-/// Coming in, top first, each once the room has grown enough to hold it; going, bottom first, as
-/// the room starts to close (`fade(_:from:)`).
+/// animation, whatever the transaction, a move's, whose scroll is set with animations disabled,
+/// included. Its parts are drawn whole throughout, from its top, and the room's bottom edge shows
+/// them as it opens and cuts them off as it closes, so they come and go with the room. Faded in
+/// once the room held each whole, and out as it started to close, "Rest" stood over an empty room
+/// for a few frames each way (2026-11-19).
 private struct RestRoom: View, Animatable {
     let block: RestBlock
     let size: CGFloat
@@ -212,36 +212,7 @@ private struct RestRoom: View, Animatable {
         set { open = newValue }
     }
 
-    /// Each part's bottom in the room, and the room's height, open: a part comes in only once
-    /// the room has grown past it, and has gone by the time the room, closing, reaches it.
-    @State private var bottoms = Bottoms()
-
-    private struct Bottoms: Equatable {
-        var word: CGFloat = 0
-        var countdown: CGFloat = 0
-        var bar: CGFloat = 0
-        var room: CGFloat = 0
-
-        /// The share of the room open from which a part ending at `bottom` shows whole, or
-        /// `fallback` before the room is measured.
-        func start(_ bottom: CGFloat, or fallback: CGFloat) -> CGFloat {
-            room > 0 ? bottom / room : fallback
-        }
-    }
-
-    private static let space = "restRoom"
-
     var body: some View {
-        // From the share of the room that holds each part whole, so nothing is drawn cut off at
-        // the room's bottom against the row under it: from fixed shares, the countdown came in
-        // with the room a third open, half of it drawn against the first member's name.
-        let word = Self.fade(open, from: bottoms.start(bottoms.word, or: 0.2), width: 0.15)
-        let countdown = Self.fade(
-            open,
-            from: bottoms.start(bottoms.countdown, or: 0.7),
-            width: 0.15,
-        )
-        let bar = Self.fade(open, from: bottoms.start(bottoms.bar, or: 0.85), width: 0.1)
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .firstTextBaseline, spacing: 0) {
                 Text("Rest")
@@ -256,50 +227,17 @@ private struct RestRoom: View, Animatable {
             .font(.ppRowTitle)
             .foregroundStyle(.pp(.textPrimary))
             .padding(.top, Spacing.sm)
-            .modifier(BottomIn(Self.space) { bottoms.word = $0 })
-            .opacity(word)
             block.countdown(size: size, locale: locale)
                 .figureBox(size: size)
                 .padding(.top, Spacing.md)
-                .modifier(BottomIn(Self.space) { bottoms.countdown = $0 + SetMotion.arriveRise })
-                .opacity(countdown)
-                .offset(y: (1 - countdown) * SetMotion.arriveRise)
             block.progress
                 .padding(.top, Spacing.md)
-                .modifier(BottomIn(Self.space) { bottoms.bar = $0 + SetMotion.arriveRise })
-                .opacity(bar)
-                .offset(y: (1 - bar) * SetMotion.arriveRise)
         }
         .padding(.bottom, Spacing.lg)
-        .coordinateSpace(.named(Self.space))
-        .onGeometryChange(for: CGFloat.self, of: \.size.height) { bottoms.room = $0 }
+        // Drawn only while it has room, so nothing of it shows past a closed room's edge.
+        .opacity(open > 0 ? 1 : 0)
         .accessibilityHidden(block.stage != .open)
         .modifier(RestRoomHeight(open: open))
-    }
-
-    /// How far a part has faded in at `share` of the room's change: from 0 at `start` to 1
-    /// `width` later.
-    static func fade(_ share: CGFloat, from start: CGFloat, width: CGFloat) -> CGFloat {
-        min(max((share - start) / width, 0), 1)
-    }
-}
-
-/// Hears a view's bottom edge in a named space.
-private struct BottomIn: ViewModifier {
-    let space: String
-    let action: (CGFloat) -> Void
-
-    init(_ space: String, action: @escaping (CGFloat) -> Void) {
-        self.space = space
-        self.action = action
-    }
-
-    func body(content: Content) -> some View {
-        content.onGeometryChange(
-            for: CGFloat.self,
-            of: { $0.frame(in: .named(space)).maxY },
-            action: action,
-        )
     }
 }
 

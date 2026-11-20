@@ -82,11 +82,9 @@ public enum SetMotion {
         shiftCurve.delay(moveShiftStart(way))
     }
 
-    /// The shift's curve, under way soon after it starts so a row's height goes with its parts,
-    /// at most twice its average speed: on (0.6, 0, 0.1, 1), over four times, the row closing
-    /// stood open over nothing for a few frames, then the list moved 45 pt a frame (2026-11-19).
+    /// The shift's curve, as Dave tuned it: started from rest, then quick, easing to a stop.
     static var shiftCurve: Animation {
-        .timingCurve(0.25, 0, 0.35, 1, duration: moveShift)
+        .timingCurve(0.6, 0, 0.1, 1, duration: moveShift)
     }
 
     /// Moving to another exercise, the shift's length.
@@ -169,11 +167,17 @@ public enum SetMotion {
         .easeIn(duration: 0.06).delay(way.map(moveShiftStart) ?? 0)
     }
 
-    /// Out of a rest between exercises, the detail line on the next row, grown a step through the
-    /// rest, going just as the progress line comes in, never before: gone as the rest ended, it
-    /// left the row bare for a few frames.
-    static var detailOutOfRest: Animation {
-        .easeIn(duration: 0.06).delay(arriveDelay(.progress) - 0.06)
+    /// The progress line coming in on the row growing, as soon as the detail line has gone from
+    /// its place (`detailOut(way:)`): later, after fixed delays, the row stood open two lines
+    /// under its name with nothing in them.
+    static func progressIn(way: Way?) -> Animation {
+        .easeOut(duration: 0.1).delay((way.map(moveShiftStart) ?? 0) + 0.06)
+    }
+
+    /// The progress line on the row closing going as the detail line comes back in its place
+    /// (`detailIn(way:)`), its room closing to the detail line's.
+    static func progressOut(way: Way?) -> Animation {
+        .easeInOut(duration: 0.12).delay(way.map(moveShiftStart) ?? 0.05)
     }
 
     // MARK: Arrive
@@ -230,9 +234,6 @@ public enum SetMotion {
     public static var toRestAbove: Animation {
         .timingCurve(0.42, 0, 0.2, 1, duration: travel(.loop) + collapse).delay(travelStart)
     }
-
-    /// Into a superset round's rest above, when the rows have done changing, from the log.
-    static let restAboveOpen = travelStart + travel(.loop) + collapse
 
     // MARK: A rest between sets
 

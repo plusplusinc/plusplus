@@ -11,9 +11,10 @@ import SwiftUI
 /// narrower per point at the large size, so the font sizes' ratio alone left it about 3% narrower
 /// than the name it hands off to, which then stepped wider. Where they don't, as a long name can,
 /// both scale by the font sizes' ratio and hand over in a short span (`Drawing.handOverSpan`)
-/// ending where the small name, scaled up, would no longer fit the row: the small fades out, then
-/// the large fades in, never both over each other. The name's first baseline runs between the
-/// two sizes' as drawn, and its height across the growth up to the large name showing (`room`).
+/// ending where the small name, scaled up, would no longer fit the row: the two crossfade, the
+/// name's first baseline and height running between the two sizes' as drawn over the same span
+/// (`room`), the large name cut off at that height so its second line never lies over what is
+/// under the name.
 /// The rail's node keeps the place it has
 /// on a row's name, its center that far above the baseline grown by the letters' scale
 /// (`railNodeBaseline`): on the baseline alone, it kept a row's height above it and sat low on the
@@ -49,6 +50,7 @@ struct GrowingName: View, Animatable {
                         }
                 }
                 .onGeometryChange(for: CGSize.self, of: \.size) { sizes.large = $0 }
+                .mask { TopPart(height: drawing.largeShown(sizes)) }
                 .scaleEffect(drawing.largeScale, anchor: .topLeading)
                 .opacity(drawing.largeOpacity)
             RailNodeGlyph()
@@ -154,24 +156,32 @@ struct GrowingName: View, Animatable {
             // Over a short span ending where the small name, scaled up, stops fitting the row:
             // across the whole growth, both were drawn at once, the two names' lines over each
             // other, and held there by the next exercise's step through a rest (`nextGrowth`).
+            // The two crossfade over the span, the name's room running from the small's height to
+            // the large's through the same frames, and the large name cut off at the room's
+            // bottom, so its second line shows as the room reaches it, never over what is under
+            // the name. Each fading in a half of the span, a frame drew neither; with the room
+            // running ahead of the hand-over, a line stood empty under the small name.
             let span = Self.handOverSpan
             let end = max(sizes.handOver(ratio: ratio), span)
             let share = min(max((growth - (end - span)) / span, 0), 1)
             handOff = growth >= 1 ? 1 : growth <= 0 ? 0 : share
-            smallOpacity = 1 - min(max(handOff * 2, 0), 1)
-            largeOpacity = min(max(handOff * 2 - 1, 0), 1)
-            // From 0 to where the large name starts to show, easing out to it: the room is all
-            // the large name's by the time it draws, so it never runs past the name's bottom.
-            let shown = max(end - span / 2, 0.01)
-            let along = min(max(growth / shown, 0), 1)
-            room = 1 - (1 - along) * (1 - along)
+            smallOpacity = 1 - handOff
+            largeOpacity = handOff
+            room = handOff
         }
 
-        /// Where crossfading names' room is, from the small name's at 0 to the large's at 1:
-        /// across the growth up to the large name showing, so the name's height runs on with the
-        /// row's growth. Over the hand-off alone, the height stepped a line in a few frames
-        /// (2026-11-19). Where the two break alike, the growth.
+        /// Where crossfading names' room is, from the small name's at 0 to the large's at 1: over
+        /// the hand-off. Where the two break alike, the growth.
         var room: CGFloat = 0
+
+        /// The large name's height drawn, in its own unscaled points: where they crossfade, cut
+        /// off at the name's room; else all of it.
+        func largeShown(_ sizes: Sizes) -> CGFloat {
+            guard crossfades, largeScale.height > 0 else { return .infinity }
+            let small = sizes.small.height * smallScale
+            let large = sizes.large.height * largeScale.height
+            return (small + (large - small) * room) / largeScale.height
+        }
     }
 }
 
@@ -247,5 +257,21 @@ private struct GrowingNameLayout: Layout {
         guard subviews.count == 3 else { return (.zero, .zero) }
         let offer = ProposedViewSize(width: proposal.width, height: nil)
         return (subviews[0].sizeThatFits(offer), subviews[1].sizeThatFits(offer))
+    }
+}
+
+/// Everything down to `height` from the top, however far it reaches up or to either side.
+private nonisolated struct TopPart: Shape {
+    var height: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        let far = max(rect.width, rect.height) * 4
+        let bottom = height.isFinite ? rect.minY + height : rect.maxY + far
+        return Path(CGRect(
+            x: rect.minX - far,
+            y: rect.minY - far,
+            width: rect.width + far * 2,
+            height: bottom - rect.minY + far,
+        ))
     }
 }

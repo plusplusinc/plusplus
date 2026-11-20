@@ -10,7 +10,9 @@ import SwiftUI
 /// (`CaptionLine`), the plan's figures, large, side by side (`CurrentFigures`, in `SetRoom`), and
 /// the exercise's equipment, the label growing to their height. Changed in an animation, the name
 /// scales between its two sizes
-/// (`GrowingName`), and the parts under it come in, and go, in turn (`SetMotion`).
+/// (`GrowingName`), and the parts under it come and go with the row's height: shown as its
+/// opening bottom reaches them, and, closing, taken up with the name until its bottom has cut
+/// them off (`PartMotion.swift`).
 ///
 /// A finished exercise (`isDone`) goes quiet: its name in `textSecondary`, its detail in
 /// `textTertiary`. The exercise next after a rest between two exercises (`nextUp`) grows a step
@@ -40,6 +42,8 @@ public struct RowLabel: View {
     /// The label's height as the current exercise, which the height runs from as it shrinks back:
     /// by then its column has given up the parts that made it that tall.
     @State private var grownHeight: CGFloat = 0
+    /// What the row last showed as the current exercise, which it takes with it as it closes.
+    @State private var lastFocus: RowFocus?
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.restingLabelFloor) private var restingLabelFloor
@@ -103,6 +107,11 @@ public struct RowLabel: View {
         // going is cut off by its bottom, never over them.
         .clipShape(BottomClip())
         .frame(maxWidth: .infinity, alignment: .leading)
+        .onChange(of: focus, initial: true) { _, focus in
+            if let focus {
+                lastFocus = focus
+            }
+        }
     }
 
     private func column(_ detailText: String?) -> some View {
@@ -126,19 +135,29 @@ public struct RowLabel: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                         if let bars, focus == nil {
                             barsOnFirstLine(bars)
-                                .part(.progress)
+                                .rowBars()
                         }
+                    }
+                    .overlay(alignment: .topLeading) {
+                        ClosingParts(growth: focus == nil ? 0 : 1, isClosing: focus == nil) {
+                            if let lastFocus {
+                                closingParts(lastFocus, detailText: detailText)
+                            }
+                        }
+                        .accessibilityHidden(true)
                     }
                     if let focus {
                         SetRoom(figures: focus.figures, rest: setRest)
                             .part(.figures)
                     }
-                    // One view whether next after a rest or current, so the equipment the next
-                    // exercise shows through the rest stays as it becomes the current one's.
+                    // The next exercise's through a rest is put back by the current one's in its
+                    // place as the rest ends, laid out afresh under the figures as they open:
+                    // kept as one view, it went down on its own, over the figures coming in.
                     let equipment = focus?.equipment ?? nextUp ?? []
                     if !equipment.isEmpty {
                         Capsules(equipment)
                             .part(.equipment)
+                            .id(focus != nil)
                     }
                 }
             }
@@ -168,33 +187,53 @@ public struct RowLabel: View {
                 .animation(
                     showsDetail
                         ? SetMotion.detailIn(way: exerciseMoveWay)
-                        // Out of a rest, the next exercise's line stays until the progress line
-                        // comes in to take its place.
-                        : nextUp != nil ? SetMotion.detailOutOfRest
                         : SetMotion.detailOut(way: exerciseMoveWay),
                     value: showsDetail,
                 )
             }
             if let focus {
-                VStack(alignment: .leading, spacing: Spacing.sm) {
-                    if let bars {
-                        SetSegments(progress: bars, isOnSet: setRest?.isRunning != true)
-                    }
-                    CaptionLine(spacing: Spacing.md) {
-                        progressLine(focus)
-                        // Laid out through a rest too, faded, so the line keeps its height.
-                        Text(AttributedString.monoNumbers(
-                            focus.after ?? "",
-                            font: .ppCurrentProgress,
-                        ))
-                        .font(.ppCurrentProgress)
-                        .foregroundStyle(.pp(.textSecondary))
-                        .opacity(focus.showsAfter ? 1 : 0)
-                        .modifier(SetRoomGoing(isResting: setRest?.isRunning == true))
-                    }
-                }
-                .padding(.top, Spacing.sm)
-                .part(.progress)
+                progressBlock(focus)
+                    .part(.progress)
+            }
+        }
+    }
+
+    /// The segments over the caption line.
+    private func progressBlock(_ focus: RowFocus) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            if let bars {
+                SetSegments(progress: bars, isOnSet: setRest?.isRunning != true)
+            }
+            CaptionLine(spacing: Spacing.md) {
+                progressLine(focus)
+                // Laid out through a rest too, faded, so the line keeps its height.
+                Text(AttributedString.monoNumbers(
+                    focus.after ?? "",
+                    font: .ppCurrentProgress,
+                ))
+                .font(.ppCurrentProgress)
+                .foregroundStyle(.pp(.textSecondary))
+                .opacity(focus.showsAfter ? 1 : 0)
+                .modifier(SetRoomGoing(isResting: setRest?.isRunning == true))
+            }
+        }
+        .padding(.top, Spacing.sm)
+    }
+
+    /// What the exercise showed under its name, laid out as it was, for the row closing to take
+    /// with it (`ClosingParts`): the progress line going as the detail line comes back.
+    private func closingParts(_ shown: RowFocus, detailText: String?) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.lg) {
+            ProgressGoing(animation: SetMotion.progressOut(way: exerciseMoveWay)) {
+                Text(AttributedString.monoNumbers(detailText ?? "", font: .ppRowDetailNumber))
+                    .font(.ppRowDetail)
+                    .hidden()
+            } line: {
+                progressBlock(shown)
+            }
+            SetRoom(figures: shown.figures, rest: nil)
+            if !shown.equipment.isEmpty {
+                Capsules(shown.equipment)
             }
         }
     }
@@ -307,54 +346,6 @@ private nonisolated struct BottomClip: Shape {
             width: rect.width + far * 2,
             height: rect.height + far,
         ))
-    }
-}
-
-/// A row grown into the current exercise of a workout.
-public struct RowFocus: Equatable {
-    /// Which set it is on: "Set 1 of 3".
-    public var progress: String
-    /// The side the set works, "Left", for an exercise done one side at a time.
-    public var side: String?
-    /// The exercise's own equipment, as capsules; none for an exercise that needs none.
-    public var equipment: [String]
-    public var figures: [Figure]
-    /// The figures in words, for VoiceOver.
-    public var spokenFigures: String
-    /// What follows the set, at the caption line's end: "then rest 1:00", "last set"; nil for
-    /// nothing.
-    public var after: String?
-    /// Whether the side shows; unseen, it keeps its room, so the caption line keeps the height
-    /// a side gives it, as through a rest after a set's two sides.
-    public var showsSide = true
-    /// Whether `after` shows; unseen, it keeps its room, as on a set's first side, where the
-    /// other side follows, so the line holds the height the second side's rest gives it.
-    public var showsAfter = true
-    public init(
-        progress: String,
-        side: String? = nil,
-        equipment: [String] = [],
-        figures: [Figure],
-        spokenFigures: String,
-        after: String? = nil,
-    ) {
-        self.progress = progress
-        self.after = after
-        self.side = side
-        self.equipment = equipment
-        self.figures = figures
-        self.spokenFigures = spokenFigures
-    }
-
-    /// A number shown large, with what it counts: "10" "reps".
-    public struct Figure: Hashable {
-        public var number: String
-        public var unit: String
-
-        public init(number: String, unit: String) {
-            self.number = number
-            self.unit = unit
-        }
     }
 }
 

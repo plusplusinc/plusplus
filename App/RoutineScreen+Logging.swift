@@ -67,12 +67,6 @@ extension RoutineScreen {
         return move.way
     }
 
-    /// Whether a superset round's rest is opening above its first member, the row left closing
-    /// from the tap, which cuts its figures and equipment off as it goes.
-    var isOpeningRestAbove: Bool {
-        phase.resting.map { !$0.isWithinExercise && $0.isBack && $0.beat < .settled } ?? false
-    }
-
     /// The current exercise as it grows into `set`, `after` at its caption line's end:
     /// at a superset round's end, it shows the round just done, as the logged set's row showed
     /// it, until the move rolls it to the new one.
