@@ -160,6 +160,37 @@ extension RoutineScreen {
     }
 }
 
+extension RoutineScreen {
+    /// What an edit at rest can change under a count: the set current, whether it is timed, and
+    /// the set the stored count is for.
+    var countSubject: CountSubject {
+        CountSubject(
+            set: live?.currentSet,
+            isTimed: live?.isOnTimedSet == true,
+            counted: live?.timedSet?.set,
+        )
+    }
+
+    /// An edit at rest made another set current, or changed the current set's measure: the
+    /// count goes with the set it was begun for, and a timed set made current opens on "Starts
+    /// in" from now, as any with no rest before it. A time changed mid-count needs nothing
+    /// here: the count's length follows the row, its start kept, and its watch wakes to the new
+    /// end.
+    func settleCountAfterEdit() {
+        guard phase.isAtRest else { return }
+        session.beginCount(override: restOverride)
+        withAnimation(SetMotion.restSwap) {
+            phase.settleCount(on: live?.countStage(at: .now))
+        }
+    }
+}
+
+struct CountSubject: Equatable {
+    let set: PlannedSet?
+    let isTimed: Bool
+    let counted: PlannedSet?
+}
+
 /// The beats of a timed set the screen plays: "Starts in" reaching 0, with a light tap, and the
 /// set's own end, with the heavy one and the +1.
 struct CountBeats {
@@ -200,5 +231,6 @@ extension View {
         sensoryFeedback(.impact(weight: .light, intensity: 0.6), trigger: screen.countBeats.starts)
             .sensoryFeedback(.impact(weight: .heavy), trigger: screen.countBeats.ends)
             .task(id: screen.countWatch) { await screen.watchCount() }
+            .onChange(of: screen.countSubject) { screen.settleCountAfterEdit() }
     }
 }

@@ -198,6 +198,60 @@ struct TimedSetTests {
         #expect(live.countStage(at: Self.at(20)) == nil)
     }
 
+    @Test("A timed set an edit makes current mid-count opens on Starts in from the edit")
+    func editMakesCurrent() throws {
+        var live = try Self.started(Self.routine())
+        // The plank counts from 10; at 20 a side plank is moved ahead of it.
+        let side = live.routine.exercises.remove(at: 1)
+        live.routine.exercises.insert(side, at: 0)
+        #expect(live.timedSet == nil, "The plank's count stays with the plank")
+        let begun = LiveWorkout(
+            routine: live.routine,
+            workout: live.beginningCount(at: Self.at(20)),
+        )
+        #expect(begun.currentSet?.row == side.id)
+        #expect(begun.timedSet?.startClock == 30)
+        #expect(begun.countStage(at: Self.at(20)) == .startsIn)
+    }
+
+    @Test("A time changed mid-count keeps its start; cut below the time done, it logs that time")
+    func timeChangedMidCount() throws {
+        var live = try Self.started(Self.routine())
+        // Counting from 10; at 15, 5 s done, 25 left.
+        live.routine.exercises[0].plan.target = .time(seconds: 20)
+        let longer = try #require(live.timedSet)
+        #expect(longer.startClock == 10)
+        #expect(longer.remaining(atClock: 15) == 15)
+        #expect(live.beginningCount(at: Self.at(15)) == live.workout, "No second count begins")
+        live.routine.exercises[0].plan.target = .time(seconds: 3)
+        let shorter = try #require(live.timedSet)
+        #expect(shorter.isOver(atClock: 15))
+        let after = try Self.logged(live, at: 15)
+        let set = try #require(after.workout.sets.first)
+        #expect(set.target == .time(seconds: 3))
+        #expect(set.clockWhenLogged == 13)
+    }
+
+    @Test("An edit settles the phase only at rest: onto a count, off one, never mid-sequence")
+    func settleCount() throws {
+        var running = WorkoutPhase.running
+        let ontoCount = running.settleCount(on: .startsIn)
+        #expect(ontoCount)
+        #expect(running == .timing(.startsIn))
+        var timing = WorkoutPhase.timing(.counting)
+        let offCount = timing.settleCount(on: nil)
+        #expect(offCount, "The row changed to reps")
+        #expect(timing == .running)
+        var same = WorkoutPhase.timing(.startsIn)
+        let unchanged = same.settleCount(on: .startsIn)
+        #expect(!unchanged)
+        let set = try #require(Self.started(Self.routine()).currentSet)
+        var held = WorkoutPhase.held(set)
+        let midSequence = held.settleCount(on: .startsIn)
+        #expect(!midSequence)
+        #expect(held == .held(set))
+    }
+
     @Test("A reps set logs as before, and begins no count")
     func reps() throws {
         let routine = try Routine(exercises: [RoutineExercise.builtIn("Push-up") { $0.sets = 2 }])

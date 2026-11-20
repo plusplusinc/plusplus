@@ -22,6 +22,16 @@ extension WorkoutPhase {
         return true
     }
 
+    /// An edit under the screen at rest (a row added, deleted, moved, changed to reps or to a
+    /// time) made another set current, or took the count away: at rest on what the store says
+    /// now, `count`. Only at rest, never mid-sequence, whose own landing begins the count.
+    @discardableResult
+    public mutating func settleCount(on count: CountStage?) -> Bool {
+        guard isAtRest, timing != count else { return false }
+        self = .atRest(on: count)
+        return true
+    }
+
     /// Whether the workout is at rest on a set, timed or not: the key's tap is the set's.
     public var isAtRest: Bool {
         self == .running || timing != nil
