@@ -121,13 +121,15 @@ struct SetRoom: View, Animatable {
                     VStack(alignment: .leading, spacing: Spacing.sm) {
                         // Its capitals' tops where the figures' are, as far under the caption
                         // line, not the font's room over them lower.
-                        if let word = Self.word(rest.kind) {
-                            Text(word)
-                                .font(.ppFigureCaption)
-                                .foregroundStyle(.pp(.textSecondary))
-                                .fixedSize(horizontal: false, vertical: true)
-                                .padding(.top, -Self.overCapitals(size: captionSize))
-                        }
+                        // Over a timed set's own count, unseen, so the count stands where
+                        // "Starts in"'s did and nothing below moves between them.
+                        Text(Self.word(rest.kind) ?? "Starts in")
+                            .font(.ppFigureCaption)
+                            .foregroundStyle(.pp(.textSecondary))
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.top, -Self.overCapitals(size: captionSize))
+                            .opacity(Self.word(rest.kind) == nil ? 0 : 1)
+                            .accessibilityHidden(Self.word(rest.kind) == nil)
                         // With Reduce Motion the figure changes at once.
                         block.countdown(
                             size: size,
@@ -152,7 +154,11 @@ struct SetRoom: View, Animatable {
                         .padding(.top, Spacing.sm)
                         .opacity(coming)
                 case .count:
-                    EmptyView()
+                    // The time's line kept, unseen, for the same room.
+                    Text(verbatim: " ")
+                        .font(.ppFigureCaption)
+                        .padding(.top, Spacing.sm)
+                        .accessibilityHidden(true)
                 }
             }
         }
