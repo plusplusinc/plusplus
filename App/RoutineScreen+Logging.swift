@@ -79,6 +79,16 @@ extension RoutineScreen {
                 locale: locale,
             )
         }
+        // On a set's first side the other side follows, so nothing is said at the line's end, but
+        // the second side's words keep their room there: the line stacked on the second side
+        // alone, and the equipment below jumped down a line between the two.
+        if let side = set.side, let last = Side.allCases.last, side != last, let shown {
+            focus.after = afterText(
+                for: PlannedSet(row: set.row, round: set.round, side: last),
+                in: shown,
+            )
+            focus.showsAfter = false
+        }
         // Resting between two sets, the line says the set just done, "1 of 3 done", until the
         // next set swaps back up; the caption line's end still says the rest it went to as it
         // fades, not what follows the next set.
@@ -88,6 +98,9 @@ extension RoutineScreen {
             let round = rest.set.round.formatted(.number.locale(locale))
             let sets = item.plan.sets.formatted(.number.locale(locale))
             focus.progress = "\(round) of \(sets) done"
+            // Done one side at a time, the set just done was both sides: no side to name, though
+            // its room stays, so the line keeps its height.
+            focus.showsSide = false
             focus.after = drawnResting.map { thenRestText($0.rest.length) }
         }
         return focus

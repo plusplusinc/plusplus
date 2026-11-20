@@ -189,6 +189,7 @@ public struct RowLabel: View {
                         ))
                         .font(.ppCurrentProgress)
                         .foregroundStyle(.pp(.textSecondary))
+                        .opacity(focus.showsAfter ? 1 : 0)
                         .modifier(SetRoomGoing(isResting: setRest?.isRunning == true))
                     }
                 }
@@ -225,6 +226,7 @@ public struct RowLabel: View {
             FigureLayout(spacing: 0) {
                 rolling(focus.progress, color: .textSecondary)
                 rolling("\(noBreakSpace)·\(noBreakSpace)\(side)", color: .textPrimary, dot: true)
+                    .opacity(focus.showsSide ? 1 : 0)
             }
         } else {
             rolling(focus.progress, color: .textSecondary)
@@ -268,9 +270,10 @@ public struct RowLabel: View {
         let parts = if let focus {
             [
                 title,
-                [focus.progress, focus.side].compactMap(\.self).joined(separator: ", "),
+                [focus.progress, focus.showsSide ? focus.side : nil].compactMap(\.self)
+                    .joined(separator: ", "),
                 focus.spokenFigures,
-                setRest?.isRunning == true ? "" : focus.after ?? "",
+                setRest?.isRunning == true || !focus.showsAfter ? "" : focus.after ?? "",
             ]
         } else {
             [title, spokenDetail ?? detail.joined(separator: ", ")]
@@ -321,6 +324,12 @@ public struct RowFocus: Equatable {
     /// What follows the set, at the caption line's end: "then rest 1:00", "last set"; nil for
     /// nothing.
     public var after: String?
+    /// Whether the side shows; unseen, it keeps its room, so the caption line keeps the height
+    /// a side gives it, as through a rest after a set's two sides.
+    public var showsSide = true
+    /// Whether `after` shows; unseen, it keeps its room, as on a set's first side, where the
+    /// other side follows, so the line holds the height the second side's rest gives it.
+    public var showsAfter = true
     public init(
         progress: String,
         side: String? = nil,

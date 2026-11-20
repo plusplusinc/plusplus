@@ -22,8 +22,9 @@ import WorkoutStore
 /// as a double tap's second on Log set, do nothing. There is no Skip. With Reduce Motion, each
 /// move is one crossfade, the dot at the word through the rest.
 ///
-/// Between two sets of one plain exercise, the rest takes the figures' slot (`SetRest`), with the
-/// same bar, from the tap, everything the log changes on one curve (`SetMotion.restSwap`), and the
+/// Between two sets of one plain exercise, the rest takes the figures' slot (`SetRest`); done one
+/// side at a time, after a set's second side, never between its sides. With the same bar, from the
+/// tap, everything the log changes on one curve (`SetMotion.restSwap`), and the
 /// exercise's node stays steady green; with Reduce Motion it swaps in and out at once.
 ///
 /// Not yet: supersets (their members go straight on), and a relaunch or a return from the
@@ -58,12 +59,13 @@ extension RoutineScreen {
 
     /// Whether logging `set`, already stored, leading to `step`, rests first: on to another
     /// exercise down the rail from a plain row, with a rest after it; or on to the same plain
-    /// row's next set, done on both sides at once, with a rest between its sets.
+    /// row's next set, with a rest between its sets: after a set's last side when it is done one
+    /// side at a time, never between its sides.
     func rests(after set: PlannedSet, leadingTo step: LiveWorkout.Step) -> Bool {
         switch step {
         case .nextExercise(_, false, _) where !routine.isInSuperset(set.row):
             break
-        case .nextSet where set.side == nil && routine.restBetweenSets(of: set.row) != nil:
+        case .nextSet where routine.restBetweenSets(after: set) != nil:
             break
         default:
             return false
@@ -267,15 +269,16 @@ extension RoutineScreen {
         switch step {
         case .last:
             return String(localized: "last set")
-        case .nextSet where set.side == nil:
-            gap = routine.restBetweenSets(of: set.row) ?? 0
+        case .nextSet:
+            gap = routine.restBetweenSets(after: set) ?? 0
         case let .nextExercise(next, false, _) where !routine.isInSuperset(set.row):
             gap = routine.rest(after: set, before: next)
         default:
             return nil
         }
         // A rest of 0 s runs no rest, so none is promised: it read "then rest 0:00".
-        let length = restOverride ?? gap
+        // The tests' length stands in only where the routine rests, never between two sides.
+        let length = gap > 0 ? restOverride ?? gap : 0
         guard length > 0 else { return nil }
         return thenRestText(length)
     }

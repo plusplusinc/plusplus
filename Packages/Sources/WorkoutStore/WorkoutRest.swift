@@ -15,13 +15,22 @@ extension Routine {
     }
 
     /// The rest between two sets of `id`, in seconds, where a screen runs one: none in a
-    /// superset, for an exercise done per side, for one set, or for a rest of 0.
+    /// superset, for one set, or for a rest of 0. An exercise done per side rests after each
+    /// set's last side, as a plain one after each set.
     public func restBetweenSets(of id: RoutineExercise.ID) -> Int? {
         guard let row = exercises.first(where: { $0.id == id }), !isInSuperset(id),
-              row.plan.sets > 1, row.rest > 0,
-              !setOrder.contains(where: { $0.row == id && $0.side != nil })
+              row.plan.sets > 1, row.rest > 0
         else { return nil }
         return row.rest
+    }
+
+    /// The rest between sets that follows `set`, where its row rests between them: none after a
+    /// side its other side follows.
+    public func restBetweenSets(after set: PlannedSet) -> Int? {
+        guard let row = exercises.first(where: { $0.id == set.row }),
+              set.side == row.sides.last
+        else { return nil }
+        return restBetweenSets(of: set.row)
     }
 }
 
@@ -91,9 +100,10 @@ extension LiveWorkout {
     }
 
     /// The rest that will follow the current set before the same exercise's next set, in
-    /// seconds (`Routine.restBetweenSets(of:)`): nil when another exercise, or nothing, follows.
+    /// seconds (`Routine.restBetweenSets(after:)`): nil when another exercise, nothing, or the
+    /// set's other side follows.
     public func restAfterCurrentSet(override: Int? = nil) -> Int? {
-        guard let set = currentSet, let gap = routine.restBetweenSets(of: set.row) else {
+        guard let set = currentSet, let gap = routine.restBetweenSets(after: set) else {
             return nil
         }
         let done = Set(workout.sets.map(\.planned)).union([set])
