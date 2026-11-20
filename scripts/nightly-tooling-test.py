@@ -32,6 +32,7 @@ spec.loader.exec_module(nightly)
 
 NIGHT = datetime(2026, 10, 28, 1, 30).astimezone()  # a Wednesday, 1:30 am local
 CUTOFF, STOP = nightly.night_window(NIGHT)
+LATER = "9999-12-31T00:00:00Z"  # a PR's createdAt after any night's start, a test's run included
 
 
 def at(hours):
@@ -1648,8 +1649,10 @@ class AutoMergeOff(unittest.TestCase):
 
         def gh_json(*args):
             if "--author" in args:  # the card's PRs, both armed during its run
-                return [{"number": 7, "autoMergeRequest": {"mergeMethod": "SQUASH"}},
-                        {"number": 9, "autoMergeRequest": {"mergeMethod": "SQUASH"}}]
+                return [{"number": 7, "autoMergeRequest": {"mergeMethod": "SQUASH"}, "headRefName": "night-card",
+                         "createdAt": LATER},
+                        {"number": 9, "autoMergeRequest": {"mergeMethod": "SQUASH"}, "headRefName": "night-card-2",
+                         "createdAt": LATER}]
             return [{"number": 7, "title": "Card", "state": "OPEN", "headRefOid": "a" * 40, "body": "",
                      "comments": []}]
 
@@ -1681,7 +1684,9 @@ class AutoMergeOff(unittest.TestCase):
         saved = nightly.tidy
         self.addCleanup(setattr, nightly, "tidy", saved)
         nightly.tidy = lambda: None
-        merged = [{"number": 50, "title": "Sneaky", "mergedBy": {"login": "me"}, "mergeCommit": {"oid": "b" * 40}}]
+        # A card's own branch, merged unarmed.
+        merged = [{"number": 50, "title": "Sneaky", "mergedBy": {"login": "me"}, "mergeCommit": {"oid": "b" * 40},
+                   "headRefName": "night-card-0", "createdAt": LATER}]
         night = Loop.night(self, ["waiting"] * 4, weekly_resets=100, finish=True,
                            gh=lambda *a: merged if "merged" in a else [])
         self.assertEqual(night.taken, ["card 0"])
@@ -1689,14 +1694,51 @@ class AutoMergeOff(unittest.TestCase):
         self.assertTrue(digest[0].startswith("Merged without the runner: #50 Sneaky, by me"), digest[0])
         self.assertIn("git revert bbbbbbb", digest[0])
 
+    def test_a_day_sessions_merge_tonight_is_one_plain_line_and_the_night_goes_on(self):
+        saved = nightly.tidy
+        self.addCleanup(setattr, nightly, "tidy", saved)
+        nightly.tidy = lambda: None
+        # The maintainer's session opened and merged it during the night, as the same account.
+        merged = [{"number": 203, "title": "Save every change", "mergedBy": {"login": "me"},
+                   "mergeCommit": {"oid": "b" * 40}, "headRefName": "save-every-change", "createdAt": LATER}]
+        night = Loop.night(self, ["waiting"] * 4, weekly_resets=100, finish=True,
+                           gh=lambda *a: merged if "merged" in a else [])
+        self.assertEqual(night.taken, ["card 0", "card 1", "card 2"])
+        digest = (night.dir / "digest.md").read_text()
+        self.assertNotIn("Merged without the runner", digest)
+        self.assertNotIn("git revert", digest)
+        self.assertIn("\nAlso merged tonight, not by a card: #203 Save every change\n", digest)
+
+    def test_a_day_sessions_pr_opened_tonight_keeps_its_auto_merge(self):
+        calls = []
+        night = nightly.Night(tempfile.mkdtemp(), NIGHT, False)
+        self.addCleanup(shutil.rmtree, night.dir, True)
+        night.start = NIGHT
+        saved = nightly.gh_json, nightly.sh
+        self.addCleanup(lambda: (setattr(nightly, "gh_json", saved[0]), setattr(nightly, "sh", saved[1])))
+        nightly.sh = lambda *a, **k: calls.append(" ".join(map(str, a))) or ""
+        nightly.gh_json = lambda *a: [
+            {"number": 203, "autoMergeRequest": {"mergeMethod": "SQUASH"}, "headRefName": "save-every-change",
+             "createdAt": LATER},
+            {"number": 7, "autoMergeRequest": {"mergeMethod": "SQUASH"}, "headRefName": "night-card",
+             "createdAt": LATER}]
+        self.assertEqual(night.disarm(), [7])
+        self.assertIn("gh pr merge 7 --disable-auto", calls)
+        self.assertNotIn("gh pr merge 203 --disable-auto", calls)
+
     def test_the_runners_own_merge_and_a_day_sessions_are_no_finding(self):
         night = nightly.Night(tempfile.mkdtemp(), NIGHT, False)
         self.addCleanup(shutil.rmtree, night.dir, True)
-        night.start, night.armed, night.armed_before = NIGHT, {7}, {3}
+        night.start, night.armed = NIGHT, {7}
         saved = nightly.gh_json
         self.addCleanup(setattr, nightly, "gh_json", saved)
-        nightly.gh_json = lambda *a: [{"number": 7, "title": "Card"}, {"number": 3, "title": "Day"}]
+        # A day session's, and an earlier night's PR a day session merged tonight.
+        nightly.gh_json = lambda *a: [{"number": 7, "title": "Card", "headRefName": "night-card", "createdAt": LATER},
+                                      {"number": 3, "title": "Day", "headRefName": "day", "createdAt": LATER},
+                                      {"number": 2, "title": "Parked", "headRefName": "night-old",
+                                       "createdAt": "2026-10-01T00:00:00Z"}]
         self.assertFalse(night.audit())
+        self.assertEqual([pr["number"] for pr in night.others], [3, 2])
 
     def test_a_merge_search_does_not_list_yet_is_still_found(self):
         night = nightly.Night(tempfile.mkdtemp(), NIGHT, False)

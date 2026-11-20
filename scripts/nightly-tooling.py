@@ -1055,9 +1055,18 @@ def main_checkout():
     return Path(sh("git", "rev-parse", "--path-format=absolute", "--git-common-dir").strip()).parent
 
 
+NIGHT_BRANCH = "night-"
+
+
 def slug(title):
     words = re.findall(r"[a-z0-9]+", title.lower())
-    return "night-" + "-".join(words[:6])
+    return NIGHT_BRANCH + "-".join(words[:6])
+
+
+def tonights(pr, since):
+    """Whether a PR is one of the night's: opened since it started, on a branch named as only the
+    runner names one. The maintainer's sessions use the same account, so its PRs aren't enough."""
+    return (pr.get("headRefName") or "").startswith(NIGHT_BRANCH) and (pr.get("createdAt") or "") >= since
 
 
 class Night:
@@ -1070,14 +1079,14 @@ class Night:
         self.parked = []
         self.waiting = []
         self.armed = set()  # the PRs the runner armed auto-merge on
-        self.armed_before = set()  # PRs a day session armed, which may merge tonight
         self.seen = set()  # tonight's PRs an earlier sweep found
         self.merged_during = []  # cards' PRs found merged when their run ended
         self.usage = []
         self.tried = set()
         self.cards = 0
         self.me = None  # the account the verifier comments as, read once a night
-        self.unarmed = []  # PRs merged to main tonight that the runner didn't arm
+        self.unarmed = []  # the night's PRs merged to main that the runner didn't arm
+        self.others = []  # PRs merged to main tonight that aren't the night's
         self.unchecked = []  # what the runner couldn't make sure of, for the top of the digest
         self.added = []  # the titles of the update cards the runner put on the board tonight
         self.closed = []  # cards moved to Done tonight, since a day session merged their PR
@@ -1106,8 +1115,6 @@ class Night:
         return self.finish()
 
     def loop(self):
-        self.armed_before = {pr["number"] for pr in gh_json("pr", "list", "--state", "open", "--json",
-                                                           "number,autoMergeRequest") if pr.get("autoMergeRequest")}
         sh("git", "fetch", "--quiet", "origin", "main")
         self.tests_before = test_counts("origin/main")
         self.close_merged()
@@ -1423,27 +1430,32 @@ class Night:
         return self.start.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     def disarm(self):
-        """Turns auto-merge off on every open PR this account opened tonight, and returns their
-        numbers. A failure raises, which ends the night."""
+        """Turns auto-merge off on every open PR of the night's, and returns their numbers. A
+        failure raises, which ends the night."""
         prs = gh_json("pr", "list", "--state", "open", "--author", "@me", "--search", f"created:>={self.since()}",
-                      "--json", "number,autoMergeRequest")
+                      "--json", "number,autoMergeRequest,headRefName,createdAt")
+        prs = [pr for pr in prs if tonights(pr, self.since())]
         for pr in prs:
             if pr.get("autoMergeRequest"):
                 disable_auto(pr["number"])
         return [pr["number"] for pr in prs]
 
     def audit(self):
-        """Every PR merged to main since the night started that the runner didn't arm, kept for the
-        top of the digest. Any ends the night: something got past the gates."""
+        """Every PR of the night's merged to main that the runner didn't arm, kept for the top of
+        the digest. Any ends the night: something got past the gates. Other merges since the night
+        started, the maintainer's sessions', are kept for one plain line."""
         try:
             merged = gh_json("pr", "list", "--state", "merged", "--base", "main", "--search",
-                             f"merged:>={self.since()}", "--json", "number,title,mergedBy,mergeCommit")
+                             f"merged:>={self.since()}", "--json",
+                             "number,title,mergedBy,mergeCommit,headRefName,createdAt")
         except FAILURES as error:
             self.unchecked.append(f"reading tonight's merges failed ({error})")
             return True
         found = {pr["number"] for pr in merged}
-        self.unarmed = [pr for pr in merged + [p for p in self.merged_during if p["number"] not in found]
-                        if pr["number"] not in self.armed | self.armed_before]
+        ours = [pr for pr in merged if tonights(pr, self.since())]
+        self.others = [pr for pr in merged if pr not in ours]
+        self.unarmed = [pr for pr in ours + [p for p in self.merged_during if p["number"] not in found]
+                        if pr["number"] not in self.armed]
         return bool(self.unarmed)
 
     def park(self, item, title, pr, why):
@@ -1511,6 +1523,9 @@ class Night:
                                            for t in sorted(set(self.tests_before) | set(after))))
         lines += [f"Added: {title}, at the top of Todo" for title in self.added]
         lines += [f"Done: {c}" for c in self.closed]
+        if self.others:
+            lines.append("Also merged tonight, not by a card: "
+                         + ", ".join(f"#{pr['number']} {pr['title']}" for pr in self.others))
         lines += [f"Parked: {p}" for p in self.parked]
         lines += [f"Waiting: {w}" for w in self.waiting]
         lines += [f"Behind main: #{pr['number']} {pr['title']}" for pr in behind]
