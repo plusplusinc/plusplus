@@ -74,7 +74,8 @@ public struct RestBlock: View {
             // Closing with a time given, as a workout ended mid-rest, it holds that time.
             let left = pausedLeft
                 ?? (isOpen ? max(0, ends.timeIntervalSince(context.date)) : Double(length))
-            Text(Self.text(left, locale: locale))
+            let text = Self.text(left, locale: locale)
+            Text(text)
                 .font(.system(size: size, weight: .bold, design: .monospaced))
                 .foregroundStyle(.pp(color))
                 .lineLimit(1)
@@ -82,13 +83,16 @@ public struct RestBlock: View {
                 // A + or − turns the figure; a second going by, or the rest's end on the move's
                 // delayed shift, changes it at once: on that shift, 0:00 came in half a second
                 // after the dot had left. So does a − that ends the rest: turning, the figure
-                // rolled down to 0:00 as it shrank away.
+                // rolled down to 0:00 as it shrank away. Only a change of its own: taking every
+                // update's animation away, the figure jumped to where a part going drops it
+                // while the part faded on its curve.
                 .contentTransition(turns ? .numericText(countsDown: true) : .identity)
-                .animation(
-                    isOpen && turns && left > 0 ? .snappy(duration: SetMotion.restGlide) : nil,
-                    value: ends,
-                )
-                .transaction { $0.animation = nil }
+                .transaction(value: ends) {
+                    if isOpen, turns, left > 0 {
+                        $0.animation = .snappy(duration: SetMotion.restGlide)
+                    }
+                }
+                .transaction(value: text) { $0.animation = nil }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Rest")
                 .accessibilityValue(Self.spoken(left, locale: locale))
