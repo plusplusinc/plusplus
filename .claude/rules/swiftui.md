@@ -10,8 +10,8 @@ Leaf views take plain values and closures so they preview and snapshot without a
   `Font.pp*` or a `.pp*Font()` modifier, `Spacing`, and `Radius` from `DesignSystem`. If a
   token is missing, add a `ColorToken` case and its colorset. Green (`accent`) is what's
   active, and a value that went up: data, and the controls that make something
-  (`makesSomething()`). Purple (`done`) is done: a finished exercise's node and the bars of
-  the sets logged; a set still to do is `toDo`, a filled gray. A resting row shows its
+  (`makesSomething()`). Purple (`done`) is done: a finished exercise's node, the bars of
+  the sets logged, and a timed set's key filling as it counts (`KeyFill`); a set still to do is `toDo`, a filled gray. A resting row shows its
   bars only once started and until finished, at its detail line's trailing end.
   Blue (`railJoin`) marks something arriving: a row joining a rail, a superset a node's drag
   just made, and a generated name typing into the title, for the moment it arrives, then gives way to the thing's own color; nothing
@@ -67,6 +67,7 @@ feature, and change them with it.
   showing a log `WorkoutPhase`'s, both in `WorkoutStore`; its timed beats run on the screen's
   one `SequenceTask` (`RoutineScreen+Sequence.swift`).
 - Rests: `RoutineScreen+Resting.swift`, `RestBlock`, `SetRest`, `RestKeys`, `WorkoutRest`.
+  A timed set's "Starts in" and count: `RoutineScreen+Timing.swift`, `TimedSetKeys`, `TimedSet`.
 - Dragging a row, and supersets: `RailDrag`, `RailLiftGesture`, `RailAutoscroll`, `LoopPen`
   (`LoopHeads.swift`), `RailPairing`, `RailWell.swift`, `RailRegroup`, `RailStrokes.swift`.
 - Drawer, Routines: `SideDrawer`, `DrawerSwipe`, `DrawerMenu`, `DrawerButtonStyle`,
@@ -132,7 +133,8 @@ Each of these cost a round on this app; the code at the named spot works around 
 - Controls in a navigation bar or `safeAreaBar` are hosted apart from the screen and ignore
   `accessibilityHidden`: behind the drawer each applies `.hiddenBehindDrawer()`, and a faded bar
   item hides from VoiceOver with `accessibilityShown(_:)`. A bar item's elements update only
-  with its host's state, so their state lives there (`BarSearchField`'s `isOpen`).
+  with its host's state, so their state lives there (`BarSearchField`'s `isOpen`). A bar item
+  ticks from a task, never a `TimelineView` while one ticks in the screen (`WorkoutTimeKey`).
 - Attach a `confirmationDialog` outside the `NavigationStack`; inside, iOS shows a popover with
   an arrow, so a pushed screen's goes on its button (`ExerciseForm`).
 - A horizontal scroll view's offset set before the room around its content is laid out stays on

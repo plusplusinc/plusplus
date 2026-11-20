@@ -19,7 +19,7 @@ time. Every `@Model` follows these from the start:
 
 `RoutineStore` is the one `@ModelActor`, opened through
 `WorkoutStoreContainer.make(mode:schema:migrationPlan:)` with its own schema, versioned: every
-stored shape shipped so far is a `VersionedSchema` (`RoutineSchemaV1` to `V11`, the older ones in
+stored shape shipped so far is a `VersionedSchema` (`RoutineSchemaV1` to `V12`, the older ones in
 `RoutineSchema+Shipped.swift`, V6's workouts in `StoredWorkout.swift`), and `RoutineMigrationPlan` runs a lightweight stage between each,
 since each change only added an attribute or a model. Staged migration refuses a store whose
 shape matches none of the plan's versions, so a shipped version never changes: a stored change
@@ -41,15 +41,13 @@ and one set by hand with no seconds in range as Auto, never set; a store from be
 with every rest automatic. Every save stores every
 row's plan, default or not, setting only the fields that changed, so an unchanged row stays
 clean. A row's `supersetID`, optional, joins it to the rows next to it with the same id; a
-routine is normalized as it loads (`normalizeSupersets()`): a split run gets a second id, a run
-of one goes plain, and a superset's rows take its first row's sets, so a routine saved before
-supersets opens with every row plain. The store calls `save()` itself, since an
+routine is normalized as it loads (`normalizeSupersets()`). The store calls `save()` itself, since an
 actor's context does not autosave. An empty routine is deleted rather than stored, and every save
 marks the routine edited (`editedAt`), since a routine saves only when its name or rows changed.
 Opening a saved routine (`openRoutine`) marks it opened (`openedAt`), apart, so an open is never
 taken for an edit. A routine's
-recency is the later of the two: `routinesByRecency` sorts on it in Swift, since a sort
-descriptor can't take the later of two dates, a tie going by id, and launch opens the routine
+recency is the later of the two: `routinesByRecency` sorts on it in Swift, a tie going by id,
+and launch opens the routine
 that list puts first.
 
 A workout (`Workout`, stored as `StoredWorkout`) holds its routine's id, not a relationship, and
@@ -59,12 +57,12 @@ paused, or finished, and its time is worked out from them at any moment, so a re
 lock never loses any. Its sets (`LoggedSet`, stored as `StoredSet`, a cascade relationship) each
 keep their row's id, exercise id and, since V9, name, round, side (`Side`'s raw string, unknown reading as
 nil), and numbers as done beside the numbers planned, each measure and weight apart as a row's
-are, with a `position` for the order logged, and (V11) its rest's start and taps; `save(_ workout:)` diffs them by id, as a routine's
-rows. Discard deletes it, its sets with it. `launch(weightUnit:)` opens a workout in progress with
+are, with a `position` for the order logged, (V11) its rest's start and taps, and (V12) the
+seconds +15 s added (`timeAdded`); `save(_ workout:)` diffs them by id, as a routine's rows.
+Since V12 it keeps the timed set counting (`SetCount`), so a relaunch opens on the count. Discard deletes it, its sets with it. `launch(weightUnit:)` opens a workout in progress with
 its routine (an empty one under its id and name if the routine is gone; of two in progress, as
 sync could leave, the one started later), else the routine last opened or edited, unless a
-workout finished after that, which opens a new routine. While a workout runs, a routine cleared
-to nothing is kept (`keepsEmpty`), and deleted once the workout ends.
+workout finished after that, which opens a new routine.
 
 A row's `exerciseID` resolves through `ExerciseList`, the customized built-ins (V10) and V8's `StoredExercise`s (five settings each); a row
 it can't resolve is left out. `deleteExercise` removes its rows too.

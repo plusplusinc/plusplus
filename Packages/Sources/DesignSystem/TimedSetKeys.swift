@@ -3,9 +3,11 @@ import SwiftUI
 /// The keys at the bottom while a timed set counts, in the key's place: its log key, "Log
 /// early", wide, gray as a secondary key, filling with the done purple from its leading edge as
 /// the set counts (`KeyFill`, `PrimaryKeyButtonStyle.countKey(filling:)`), and +15 s beside it
-/// in the same quieter look, 8 pt apart. Another key to the bar, so the log key
-/// and they swap as any two keys do. While the bar has them out in a swap, a tap does nothing.
-/// They stand on a plate of the screen's color, as `RestKeys` do.
+/// in the same quieter look, 8 pt apart. To the bar they are one more key, so they swap with
+/// the others as any two keys do; while the bar has them out in a swap, a tap does nothing.
+/// They stand on a plate of the screen's color, as `RestKeys` do. VoiceOver reads the log key
+/// with the seconds done as its value ("12 of 30 seconds done"), updated each second only while
+/// VoiceOver runs.
 public struct TimedSetKeys: View {
     let logText: String
     let filling: KeyFill
