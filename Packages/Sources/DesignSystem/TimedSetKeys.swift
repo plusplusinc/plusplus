@@ -14,6 +14,7 @@ public struct TimedSetKeys: View {
 
     /// +15 s's width at the default text size, as drawn.
     @ScaledMetric(relativeTo: .title3) private var extendWidth: CGFloat = 112
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     public init(
         logText: String,
@@ -48,7 +49,10 @@ public struct TimedSetKeys: View {
                 Text(AttributedString.monoNumbers("+15 s", font: .ppPrimaryKeyNumber))
             }
             .buttonStyle(.secondaryKey)
-            .frame(width: extendWidth)
+            // At the accessibility sizes its scaled width left the log key a letter wide, its
+            // words stacked: there it takes only its own words' room.
+            .frame(width: dynamicTypeSize.isAccessibilitySize ? nil : extendWidth)
+            .fixedSize(horizontal: dynamicTypeSize.isAccessibilitySize, vertical: false)
             .accessibilityLabel("Plus 15 seconds")
         }
         .background(Capsule().fill(.pp(.background)))
