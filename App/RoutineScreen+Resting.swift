@@ -6,20 +6,20 @@ import WorkoutStore
 /// after it. While the exercise is current, its caption line's end says the rest that will follow
 /// the set, "then rest 1:00" (`afterText(for:)`). The rest is a stop on the way: logging the last
 /// set plays a move to the next exercise with the rest as its destination (`RailStop.rest(in:)`),
-/// every timing and curve a move's (`SetMotion`): the pulse shoots down and lands level with the
-/// word "Rest", plops and wiggles, and on the shift's curve the row closes to a done row and the
-/// rest opens under it (`RestBlock`), the list staying where it is, as the next exercise grows a
-/// step and shows its equipment (`nextUp`). Through the rest the dot waits there, the current
-/// node's size and steady green, with nothing on the rail to mark the place (`restDotRow`); the
-/// bar under the countdown shows how far through it is (`RestProgress`). As the countdown reaches
-/// 0 the same move plays from the rest to the next exercise's node, the next exercise opening as
-/// the dot leaves (`SetMotion.leavingRest`).
+/// with a move's pulse (`SetMotion`): from the tap the row closes to a done row and the rest opens
+/// under it (`RestBlock`), the list staying where it is, as the next exercise grows a step and
+/// shows its equipment (`nextUp`), all still by the time the pulse, shooting down, reaches the
+/// word "Rest", where it plops and wiggles (`SetMotion.aroundRest(_:)`), short of the next
+/// exercise's node. Through the rest the dot waits there, the current node's size and steady
+/// green, with nothing on the rail to mark the place (`restDotRow`); the bar under the countdown
+/// shows how far through it is (`RestProgress`). As the countdown reaches 0 the same move plays
+/// from the rest to the next exercise's node, the rest closing and the exercise opening at once.
 ///
 /// In a superset only a round's last member rests. With a round left, the rest opens above the
 /// first member (`restRow(of:in:)`): the pulse runs up the loop and on up the rail to the word,
 /// the list scrolling it under the bar, the row left closing, and the rest opening, all from the
-/// tap (`SetMotion.toRestAbove`), and at 0 the dot moves down to the first member. After the
-/// last round it opens under the last member.
+/// tap, and at 0 the dot moves down to the first member. After the last round it opens under the
+/// last member.
 ///
 /// Through any rest the key at the bottom swaps, as keys swap, for −15 s and +15 s (`RestKeys`),
 /// the + above it staying put. −15 s with less than 15 s left ends the rest; + and − glide the bar
@@ -122,11 +122,11 @@ extension RoutineScreen {
                 endRest()
             }
         }
-        // A move to the next exercise with the rest as its destination: the same pulse, hold, and
-        // shift, the row left closing and the rest opening on the shift's curve, the list staying
-        // where it is. A round's rest above opens from the tap, with the scroll, landing with the
-        // pulse: on the shift's curve, it came in all at once, a beat after the scroll stopped.
-        withAnimation(rest.isBack ? SetMotion.toRestAbove : SetMotion.moving(way)) {
+        // A move to the next exercise with the rest as its destination: the same pulse, the row
+        // left closing and the rest opening from the tap, still by the time the pulse gets there.
+        // A round's rest above opens with the scroll: on the shift's curve, it came in all at
+        // once, a beat after the scroll stopped.
+        withAnimation(SetMotion.aroundRest(way)) {
             phase.show()
             growthLift = 0
         }
@@ -199,12 +199,10 @@ extension RoutineScreen {
                 scrollPosition.scrollTo(y: target)
             }
         }
-        // As the dot leaves the word, not once it lands: the next exercise opens as the bar swaps
-        // −15 s and +15 s back for the key.
-        withAnimation(SetMotion.leavingRest) {
-            phase.endRest()
-            growthLift = 0
-        }
+        // The next exercise opens as the dot leaves the word; the list scrolls it under the bar
+        // once the dot has landed: from the tap, the dot rose under the bar and came back down.
+        withAnimation(SetMotion.aroundRest(.down)) { phase.endRest() }
+        withAnimation(SetMotion.moving(.down)) { growthLift = 0 }
         railPulse = RailPulse(
             from: .rest(in: restRow(of: rest, in: workout) ?? rest.set.row),
             to: .node(next.row),

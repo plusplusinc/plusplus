@@ -54,15 +54,13 @@ extension RoutineScreen {
     /// Which way the move to another exercise under way goes along the rail, which sets the
     /// pulse's travel and when the shift starts.
     var moveWay: SetMotion.Way? {
-        // The move into a rest between exercises is one down the rail to the rest. Into a
-        // superset round's rest above its first member, the rows change from the tap, with no
-        // landing to wait for (`SetMotion.toRestAbove`), so the parts go at once, as after the
-        // last set.
-        if let rest = phase.resting {
-            return !rest.isWithinExercise && !rest.isBack && rest.beat < .settled ? .down : nil
+        // Into a rest between exercises, the rows change from the tap, with no landing to wait
+        // for (`SetMotion.aroundRest(_:)`), so the parts go at once, as after the last set.
+        if phase.resting != nil {
+            return nil
         }
         // Out of a rest, the next exercise opens as the dot leaves, its parts coming in as at
-        // Start, with no landing to wait for (`SetMotion.leavingRest`).
+        // Start, with no landing to wait for (`SetMotion.aroundRest(_:)`).
         guard let move = phase.move, !move.isFromRest else { return nil }
         return move.way
     }

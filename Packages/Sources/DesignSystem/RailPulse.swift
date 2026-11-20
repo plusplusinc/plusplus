@@ -145,6 +145,9 @@ nonisolated struct PulseShape: Shape {
     /// pulls out of it, and nothing joins it as it lands there.
     var leavesNode = true
     var joinsNode = true
+    /// The node left as it is now, where it has moved off the route's start: the node left
+    /// behind is drawn there, and a neck joins it to the mass.
+    var left: CGPoint?
 
     /// How much longer the mass is for each point a second of its speed.
     static let stretch: CGFloat = 0.03
@@ -222,7 +225,7 @@ nonisolated struct PulseShape: Shape {
         var shape = mass
             .strokedPath(StrokeStyle(lineWidth: width, lineCap: .round, lineJoin: .round))
             .union(head.path)
-        let left = Circle(center: route.points[0], radius: restingSize / 2)
+        let left = Circle(center: left ?? route.points[0], radius: restingSize / 2)
         // Attached while the mass still overlaps the node left, its tail held there, or a neck
         // joins them.
         let neck = leavesNode ? Self.neck(left, tail, goo: size * Self.goo) : nil
@@ -323,8 +326,16 @@ struct RailPulseRun: View {
     @ScaledMetric(relativeTo: .body) private var size = currentNodeSize
     @ScaledMetric(relativeTo: .body) private var restingSize = railNodeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Where the run down the rail set off, as the node left was at its start.
+    @State private var origin: Origin?
+
+    private struct Origin: Equatable {
+        let run: Int
+        let point: CGPoint
+    }
 
     var body: some View {
+        let drawn = drawnRoute
         // Always in place, so the first run is a change it sees: put in with its first run, it
         // started at that run and never played it.
         KeyframeAnimator(initialValue: -1.0, trigger: run) { time in
@@ -332,19 +343,35 @@ struct RailPulseRun: View {
             if time >= 0, !reduceMotion {
                 PulseShape(
                     time: time,
-                    route: route ?? RailRoute([]),
+                    route: drawn.route,
                     size: size,
                     restingSize: restingSize,
                     way: way,
                     leavesNode: leavesNode,
                     joinsNode: joinsNode,
+                    left: drawn.left,
                 )
                 .fill(.pp(.accent))
             }
         } keyframes: { _ in
             PulseShape.run(way)
         }
+        .onChange(of: run, initial: true) {
+            origin = route?.points.first.map { Origin(run: run, point: $0) }
+        }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
+    }
+
+    /// The route, down the rail from where the node left was as the run started, and the node
+    /// left as it is now. Into a rest, the row left closes from the tap, and its node rises with
+    /// its name shrinking: from the node as it is, the pulse rose with it before it shot down
+    /// (2026-11-19). Round a loop it heads up anyway, along the loop drawn from the node.
+    private var drawnRoute: (route: RailRoute, left: CGPoint?) {
+        guard let route else { return (RailRoute([]), nil) }
+        guard way == .down, leavesNode, let origin, origin.run == run,
+              let start = route.points.first, start != origin.point
+        else { return (route, nil) }
+        return (RailRoute([origin.point] + route.points.dropFirst()), start)
     }
 }

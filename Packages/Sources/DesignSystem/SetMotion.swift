@@ -219,19 +219,17 @@ public enum SetMotion {
     /// countdown's figure turning with it.
     public static let restGlide = 0.45
 
-    /// From a rest between exercises to the next one, the shift's curve and length, started as
-    /// the dot leaves the word "Rest" rather than once it lands: the next exercise opens as the
-    /// dot sets off, and its parts come in as they do at Start (`arriveDelay(_:way:)` with no way).
-    public static var leavingRest: Animation {
-        shiftCurve.delay(travelStart)
-    }
-
-    /// Into a superset round's rest, above its first member, everything the log changes: the
-    /// list's scroll bringing it under the bar, the row left closing, the rest's room opening,
-    /// and the first member growing a step, from the pulse setting off, easing to a stop as it
-    /// lands at the word "Rest", so the place it heads for is open as it gets there.
-    public static var toRestAbove: Animation {
-        .timingCurve(0.42, 0, 0.2, 1, duration: travel(.loop) + collapse).delay(travelStart)
+    /// Into a rest between exercises, or out of one, everything the move changes: the row left
+    /// closing, the rest's room opening or closing, the next exercise growing, and any scroll,
+    /// from the pulse setting off, easing to a stop just as the pulse's leading end reaches the
+    /// place it heads for. The pulse runs to that place as it is on each frame, so the place has
+    /// to be still by then: on a move's shift, after the landing, the dot landed on the next
+    /// exercise's node, under the row left still open, and rode back up to the word as the rest
+    /// opened (2026-11-19). The pulse barely moves through the first half of its travel
+    /// (`travelPower`), while this curve has done most of its change, so the dot only goes on
+    /// toward the place, never back.
+    public static func aroundRest(_ way: Way) -> Animation {
+        .timingCurve(0.42, 0, 0.2, 1, duration: travel(way)).delay(travelStart)
     }
 
     // MARK: A rest between sets
