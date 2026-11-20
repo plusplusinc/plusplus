@@ -79,7 +79,9 @@ extension RoutineScreen {
     /// the key, but a tap as it began to rise, as after Create, reached the key and started or
     /// logged behind it. While the key swaps, `key` drops the tap.
     func tapKey() {
-        guard editing == nil, countBeats.earlyLog == nil else { return }
+        guard editing == nil else { return }
+        // Nothing more once "Log early" has stopped the set.
+        guard countBeats.earlyLog == nil else { return }
         perform(liveKey.tap)
     }
 
