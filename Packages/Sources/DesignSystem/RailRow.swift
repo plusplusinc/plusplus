@@ -112,7 +112,7 @@ private struct RailNode: View {
                 }
                 // Scaled with its gray, so it grows with the node.
                 .scaleEffect(drawnSize / currentSize)
-                .anchorPreference(key: NodeCenter.self, value: .center) { $0 }
+                .anchorPreference(key: NodeCenter.self, value: .center) { .init(node: $0) }
                 .anchorPreference(key: RailNodes.self, value: .center) { [$0] }
                 // It pops from the line's tip as the line lands: shown at the line's width
                 // and grown to its own size in the same moment. On the drawn size's scale,
@@ -138,12 +138,19 @@ extension VerticalAlignment {
     nonisolated static let railNodeBaseline = VerticalAlignment(RailNodeBaseline.self)
 }
 
-/// Where a row's node's center is, so the row's stretch of line can run through it.
+/// Where a row's node's center is, so the row's stretch of line can run through it, and its rest
+/// stop, where the workout's dot waits beside "Rest" (`View.restStop(_:)`).
 private struct NodeCenter: PreferenceKey {
-    static let defaultValue: Anchor<CGPoint>? = nil
+    struct Marks {
+        var node: Anchor<CGPoint>?
+        var rest: Anchor<CGPoint>?
+    }
 
-    static func reduce(value: inout Anchor<CGPoint>?, nextValue: () -> Anchor<CGPoint>?) {
-        value = value ?? nextValue()
+    static let defaultValue = Marks()
+
+    static func reduce(value: inout Marks, nextValue: () -> Marks) {
+        let next = nextValue()
+        value = Marks(node: value.node ?? next.node, rest: value.rest ?? next.rest)
     }
 }
 
@@ -167,14 +174,20 @@ private struct RailRow: ViewModifier {
                 .committing(when: place.isArriving)
         }
         .modifier(SwipeReport())
+        // The row's rest stop, among its marks, so its line can reach the dot waiting there.
+        .backgroundPreferenceValue(RestStops.self) { stops in
+            Color.clear.preference(key: NodeCenter.self, value: .init(rest: stops.first))
+        }
         // In the gap, the node and content are on the card.
         .opacity(place.isGap ? 0 : 1)
         // The row's stretch of line, top edge to bottom edge through its node, or from the node
         // on the first row and to it on the last, drawn as part of the row so it moves with it.
         // It is drawn in two, above and below the node, so the parts an entry adds can each grow
         // on their own stretch of the shot while the rest stays as it was.
-        .backgroundPreferenceValue(NodeCenter.self) { center in
+        .backgroundPreferenceValue(NodeCenter.self) { marks in
             GeometryReader { proxy in
+                let center = marks.node
+                let rest = marks.rest.map { proxy[$0].y }
                 // While a row is held, the rail draws every stroke once, under the rows, and the
                 // card draws it again over its fill. The row's own strokes are kept then, only
                 // hidden, so a group a drop makes flashes, and so they show again at once, in the
@@ -194,7 +207,7 @@ private struct RailRow: ViewModifier {
                         )
                         .opacity(place.isLoopHidden ? 0 : 1)
                         .animation(.snappy(duration: 0.2), value: place.isLoopHidden)
-                        spine(node: node, height: proxy.size.height)
+                        spine(node: node, height: proxy.size.height, rest: rest)
                     }
                     // The rail's drawing gives way to them at once, the two drawn alike.
                     .opacity(place.drawsOwnLine ? 1 : 0)
@@ -204,12 +217,14 @@ private struct RailRow: ViewModifier {
         }
     }
 
-    /// The row's stretch of line, above its node and below it.
+    /// The row's stretch of line, above its node and below it. On the first row it reaches up to
+    /// a rest open above the node, and on the last down to one under it, so the dot waiting at
+    /// the rest sits on the line; it grows and goes with the rest's room, which moves the stop.
     @ViewBuilder
-    private func spine(node: CGPoint, height: CGFloat) -> some View {
-        let top = place.isFirst ? node.y : 0
+    private func spine(node: CGPoint, height: CGFloat, rest: CGFloat?) -> some View {
+        let top = place.isFirst ? min(node.y, rest ?? node.y) : 0
         let above = place.isArriving ? top : node.y
-        let below = place.isLast ? node.y : height
+        let below = place.isLast ? max(node.y, rest ?? node.y) : height
         let split = RailEntry.split(height: height, node: node.y)
         Rectangle()
             .fill(.pp(.rail))

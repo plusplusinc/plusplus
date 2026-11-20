@@ -70,10 +70,13 @@ extension WorkoutPhase {
             self = .fadingOn(rest.set, isShown: false)
             return true
         }
+        // Out of a rest, the next round shows from the start, its words arriving with its
+        // segments and figures: held on the round just done, the caption read "Round 1 of 3" over
+        // the next round's green segment for half a second.
         self = .movingOn(Move(
             set: rest.set,
             isBack: rest.isBack,
-            startsRound: rest.startsRound,
+            startsRound: false,
             beat: .shown,
             isFromRest: true,
         ))

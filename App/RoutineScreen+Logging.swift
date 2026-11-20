@@ -54,16 +54,23 @@ extension RoutineScreen {
     /// Which way the move to another exercise under way goes along the rail, which sets the
     /// pulse's travel and when the shift starts.
     var moveWay: SetMotion.Way? {
-        // The move into a rest between exercises is one down the rail to the rest, or, to a
-        // superset round's rest above its first member, up the loop.
+        // The move into a rest between exercises is one down the rail to the rest. Into a
+        // superset round's rest above its first member, the rows change from the tap, with no
+        // landing to wait for (`SetMotion.toRestAbove`), so the parts go at once, as after the
+        // last set.
         if let rest = phase.resting {
-            return !rest.isWithinExercise && rest.beat < .settled
-                ? SetMotion.Way(isBack: rest.isBack) : nil
+            return !rest.isWithinExercise && !rest.isBack && rest.beat < .settled ? .down : nil
         }
         // Out of a rest, the next exercise opens as the dot leaves, its parts coming in as at
         // Start, with no landing to wait for (`SetMotion.leavingRest`).
         guard let move = phase.move, !move.isFromRest else { return nil }
         return move.way
+    }
+
+    /// Whether a superset round's rest is opening above its first member, the row left closing
+    /// from the tap, which cuts its figures and equipment off as it goes.
+    var isOpeningRestAbove: Bool {
+        phase.resting.map { !$0.isWithinExercise && $0.isBack && $0.beat < .settled } ?? false
     }
 
     /// The current exercise as it grows into `set`, `after` at its caption line's end:
@@ -83,11 +90,13 @@ extension RoutineScreen {
         }
         // On a set's first side the other side follows, so nothing is said at the line's end, but
         // the second side's words keep their room there: the line stacked on the second side
-        // alone, and the equipment below jumped down a line between the two.
+        // alone, and the equipment below jumped down a line between the two. With this side
+        // logged: else the other led back to it, and a superset's member promised no rest.
         if let side = set.side, let last = Side.allCases.last, side != last, let shown {
             focus.after = afterText(
                 for: PlannedSet(row: set.row, round: set.round, side: last),
                 in: shown,
+                after: [set],
             )
             focus.showsAfter = false
         }

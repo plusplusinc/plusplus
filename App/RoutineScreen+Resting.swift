@@ -17,8 +17,9 @@ import WorkoutStore
 ///
 /// In a superset only a round's last member rests. With a round left, the rest opens above the
 /// first member (`restRow(of:in:)`): the pulse runs up the loop and on up the rail to the word,
-/// the list scrolling it under the bar from the tap (`SetMotion.toRestAbove`), and at 0 the dot
-/// moves down to the first member. After the last round it opens under the last member.
+/// the list scrolling it under the bar, the row left closing, and the rest opening, all from the
+/// tap (`SetMotion.toRestAbove`), and at 0 the dot moves down to the first member. After the
+/// last round it opens under the last member.
 ///
 /// Through any rest the key at the bottom swaps, as keys swap, for −15 s and +15 s (`RestKeys`),
 /// the + above it staying put. −15 s with less than 15 s left ends the rest; + and − glide the bar
@@ -120,12 +121,13 @@ extension RoutineScreen {
             }
         }
         // A move to the next exercise with the rest as its destination: the same pulse, hold, and
-        // shift, the row left closing and the rest opening on the shift's curve. The list stays
-        // where it is, but for a round's rest above.
-        withAnimation(SetMotion.moving(way)) {
+        // shift, the row left closing and the rest opening on the shift's curve, the list staying
+        // where it is. A round's rest above opens from the tap, with the scroll, landing with the
+        // pulse: on the shift's curve, it came in all at once, a beat after the scroll stopped.
+        withAnimation(rest.isBack ? SetMotion.toRestAbove : SetMotion.moving(way)) {
             phase.show()
+            growthLift = 0
         }
-        withAnimation(SetMotion.toRestAbove) { growthLift = 0 }
         railPulse = RailPulse(
             from: .node(rest.set.row),
             to: .rest(in: row),
@@ -288,9 +290,13 @@ extension RoutineScreen {
 
     /// What follows `set` at its caption line's end, before it is logged: "then rest
     /// 1:00" where a rest will run after it, as `rests(after:leadingTo:)` decides once it is;
-    /// "last set" on the workout's last; else nothing.
-    func afterText(for set: PlannedSet, in shown: LiveWorkout) -> String? {
-        let step = shown.step(logging: set)
+    /// "last set" on the workout's last; else nothing. `earlier`, sets taken as logged first.
+    func afterText(
+        for set: PlannedSet,
+        in shown: LiveWorkout,
+        after earlier: [PlannedSet] = [],
+    ) -> String? {
+        let step = shown.step(logging: set, after: earlier)
         let gap: Int
         switch step {
         case .last:
@@ -327,11 +333,7 @@ extension RoutineScreen {
     func watchRest() async {
         guard let resting, let workout = session.workout, !workout.isPaused else { return }
         let left = resting.remaining(atClock: workout.clock(at: .now))
-        do {
-            try await Task.sleep(for: .seconds(left), tolerance: .zero)
-        } catch {
-            return
-        }
+        guard await (try? Task.sleep(for: .seconds(left), tolerance: .zero)) != nil else { return }
         endRest()
     }
 

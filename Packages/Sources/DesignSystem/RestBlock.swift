@@ -212,9 +212,36 @@ private struct RestRoom: View, Animatable {
         set { open = newValue }
     }
 
+    /// Each part's bottom in the room, and the room's height, open: a part comes in only once
+    /// the room has grown past it, and has gone by the time the room, closing, reaches it.
+    @State private var bottoms = Bottoms()
+
+    private struct Bottoms: Equatable {
+        var word: CGFloat = 0
+        var countdown: CGFloat = 0
+        var bar: CGFloat = 0
+        var room: CGFloat = 0
+
+        /// The share of the room open from which a part ending at `bottom` shows whole, or
+        /// `fallback` before the room is measured.
+        func start(_ bottom: CGFloat, or fallback: CGFloat) -> CGFloat {
+            room > 0 ? bottom / room : fallback
+        }
+    }
+
+    private static let space = "restRoom"
+
     var body: some View {
-        let countdown = Self.fade(open, from: 0.4)
-        let bar = Self.fade(open, from: 0.5)
+        // From the share of the room that holds each part whole, so nothing is drawn cut off at
+        // the room's bottom against the row under it: from fixed shares, the countdown came in
+        // with the room a third open, half of it drawn against the first member's name.
+        let word = Self.fade(open, from: bottoms.start(bottoms.word, or: 0.2), width: 0.15)
+        let countdown = Self.fade(
+            open,
+            from: bottoms.start(bottoms.countdown, or: 0.7),
+            width: 0.15,
+        )
+        let bar = Self.fade(open, from: bottoms.start(bottoms.bar, or: 0.85), width: 0.1)
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .firstTextBaseline, spacing: 0) {
                 Text("Rest")
@@ -228,27 +255,51 @@ private struct RestRoom: View, Animatable {
             }
             .font(.ppRowTitle)
             .foregroundStyle(.pp(.textPrimary))
-            .opacity(Self.fade(open, from: 0.2))
             .padding(.top, Spacing.sm)
+            .modifier(BottomIn(Self.space) { bottoms.word = $0 })
+            .opacity(word)
             block.countdown(size: size, locale: locale)
                 .figureBox(size: size)
                 .padding(.top, Spacing.md)
+                .modifier(BottomIn(Self.space) { bottoms.countdown = $0 + SetMotion.arriveRise })
                 .opacity(countdown)
                 .offset(y: (1 - countdown) * SetMotion.arriveRise)
             block.progress
                 .padding(.top, Spacing.md)
+                .modifier(BottomIn(Self.space) { bottoms.bar = $0 + SetMotion.arriveRise })
                 .opacity(bar)
                 .offset(y: (1 - bar) * SetMotion.arriveRise)
         }
         .padding(.bottom, Spacing.lg)
+        .coordinateSpace(.named(Self.space))
+        .onGeometryChange(for: CGFloat.self, of: \.size.height) { bottoms.room = $0 }
         .accessibilityHidden(block.stage != .open)
         .modifier(RestRoomHeight(open: open))
     }
 
     /// How far a part has faded in at `share` of the room's change: from 0 at `start` to 1
     /// `width` later.
-    static func fade(_ share: CGFloat, from start: CGFloat, width: CGFloat = 0.3) -> CGFloat {
+    static func fade(_ share: CGFloat, from start: CGFloat, width: CGFloat) -> CGFloat {
         min(max((share - start) / width, 0), 1)
+    }
+}
+
+/// Hears a view's bottom edge in a named space.
+private struct BottomIn: ViewModifier {
+    let space: String
+    let action: (CGFloat) -> Void
+
+    init(_ space: String, action: @escaping (CGFloat) -> Void) {
+        self.space = space
+        self.action = action
+    }
+
+    func body(content: Content) -> some View {
+        content.onGeometryChange(
+            for: CGFloat.self,
+            of: { $0.frame(in: .named(space)).maxY },
+            action: action,
+        )
     }
 }
 
@@ -287,57 +338,6 @@ private struct RestRoomLayout: Layout {
             at: bounds.origin,
             proposal: ProposedViewSize(width: bounds.width, height: nil),
         )
-    }
-}
-
-/// The rest's progress: a thin bar with round ends, as wide as the text column, whose fill, in the
-/// countdown's own color over a quiet gray track, runs left to right at one rate for the rest's
-/// length, full at 0:00. Drawn, not a `ProgressView`: the linear style takes neither a track color
-/// nor a height, and its fill jumps when its value changes. `length` is animatable, so + and −,
-/// which change it on the glide's animation (`SetMotion.restGlide`), glide the fill back or on
-/// rather than jumping it; `starts` stays put through them. Not the end: as a rest opened, the
-/// line's end, the distant past, ran to the rest's on the open's curve, and the bar drew full
-/// until it got there. Paused, it holds at `pausedLeft`. Hidden from VoiceOver: the countdown
-/// says the time left.
-struct RestProgress: View, Animatable {
-    let starts: Double
-    var length: Double
-    let pausedLeft: Double?
-
-    @ScaledMetric(relativeTo: .body) private var height = Self.height
-
-    /// The bar's height, a little thicker than the rail's line.
-    static let height: CGFloat = 4
-
-    var animatableData: Double {
-        get { length }
-        set { length = newValue }
-    }
-
-    var body: some View {
-        // Frame by frame, so the fill runs on steadily rather than stepping each second.
-        TimelineView(.animation(minimumInterval: 1.0 / 60, paused: pausedLeft != nil)) { context in
-            let share = share(at: context.date.timeIntervalSinceReferenceDate)
-            Capsule()
-                .fill(.pp(.borderStrong))
-                .overlay(alignment: .leading) {
-                    GeometryReader { proxy in
-                        Capsule()
-                            .fill(.pp(.textPrimary))
-                            .frame(width: max(proxy.size.width * share, share > 0 ? height : 0))
-                    }
-                }
-        }
-        .frame(height: height)
-        .frame(maxWidth: .infinity)
-        .accessibilityHidden(true)
-    }
-
-    /// The share of the rest gone at `now`, from 0 to 1.
-    private func share(at now: Double) -> CGFloat {
-        guard length > 0 else { return 1 }
-        let left = pausedLeft ?? (starts + length - now)
-        return CGFloat(min(max(1 - left / length, 0), 1))
     }
 }
 

@@ -236,7 +236,7 @@ struct RoutineScreen: View {
                         regroup: regroup,
                     ) { item in
                         rowContent(item, current: currentID, on: currentSet, parts: rows[item.id])
-                            .environment(\.exerciseMoveWay, moveWay)
+                            .exerciseMove(moveWay, leavesUnderCut: isOpeningRestAbove)
                             .id(item.id)
                             .padding(.top, item.id == currentID ? Self.currentTopSpace : 0)
                             // Only while it is read: as the list scrolls, every change redraws the
