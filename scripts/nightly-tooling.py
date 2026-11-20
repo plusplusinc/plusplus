@@ -56,11 +56,12 @@ the runner, the night's folder, or a dotfile in the home folder. Any error in it
 It reads only what the command line shows, and a script file the card writes and runs is past
 it: that is the accepted limit, since the night's agents are no adversaries. Three checks back
 it: git runs the night's `pre-push` hook (through GIT_CONFIG_* in the card's environment) on
-every push, refusing one past the budget, with tonight's runs counted from Xcode Cloud itself;
-once a card's claude ends, the runner turns auto-merge off on every PR the card opened, arming
+every push, refusing one past the budget, with tonight's runs counted from Xcode Cloud itself,
+and recording the branch; once a card's claude ends, the runner turns auto-merge off on every
+PR opened tonight from the night's branches (the cards' own and those their git pushed), arming
 it again only on a PR that passes every gate; and after each card, and at the end, it lists the
-PRs merged to main since the night started that it didn't arm, ending the night on any and
-putting them at the top of the digest.
+PRs from those branches merged to main that it didn't arm, ending the night on any and putting
+them at the top of the digest. Other merges, the maintainer's sessions', get one plain line.
 
 Tests: python3 scripts/nightly-tooling-test.py, against fixtures, with no network.
 """
@@ -1055,6 +1056,9 @@ def main_checkout():
     return Path(sh("git", "rev-parse", "--path-format=absolute", "--git-common-dir").strip()).parent
 
 
+PUSHED = "pushed-branches"  # in the night's folder: each branch a card's git pushed, a line each
+
+
 def slug(title):
     words = re.findall(r"[a-z0-9]+", title.lower())
     return "night-" + "-".join(words[:6])
@@ -1070,14 +1074,15 @@ class Night:
         self.parked = []
         self.waiting = []
         self.armed = set()  # the PRs the runner armed auto-merge on
-        self.armed_before = set()  # PRs a day session armed, which may merge tonight
+        self.made = set()  # the branches the runner made for tonight's cards
         self.seen = set()  # tonight's PRs an earlier sweep found
         self.merged_during = []  # cards' PRs found merged when their run ended
         self.usage = []
         self.tried = set()
         self.cards = 0
         self.me = None  # the account the verifier comments as, read once a night
-        self.unarmed = []  # PRs merged to main tonight that the runner didn't arm
+        self.unarmed = []  # the night's PRs merged to main that the runner didn't arm
+        self.others = []  # PRs merged to main tonight that aren't the night's
         self.unchecked = []  # what the runner couldn't make sure of, for the top of the digest
         self.added = []  # the titles of the update cards the runner put on the board tonight
         self.closed = []  # cards moved to Done tonight, since a day session merged their PR
@@ -1106,8 +1111,6 @@ class Night:
         return self.finish()
 
     def loop(self):
-        self.armed_before = {pr["number"] for pr in gh_json("pr", "list", "--state", "open", "--json",
-                                                           "number,autoMergeRequest") if pr.get("autoMergeRequest")}
         sh("git", "fetch", "--quiet", "origin", "main")
         self.tests_before = test_counts("origin/main")
         self.close_merged()
@@ -1298,6 +1301,7 @@ class Night:
         self.tried.add(item)
         n = self.cards
         worktree, branch = self.paths(title)
+        self.made.add(branch)
         handoff = f".slices/{branch}-handoff.md"  # in the main checkout, the worktrees' parent
         sh("git", "fetch", "--quiet", "origin", "main")
         sh("git", "worktree", "add", "--no-track", str(worktree), "-b", branch, "origin/main")
@@ -1423,27 +1427,41 @@ class Night:
         return self.start.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     def disarm(self):
-        """Turns auto-merge off on every open PR this account opened tonight, and returns their
-        numbers. A failure raises, which ends the night."""
+        """Turns auto-merge off on every open PR of the night's, and returns their numbers. A
+        failure raises, which ends the night."""
         prs = gh_json("pr", "list", "--state", "open", "--author", "@me", "--search", f"created:>={self.since()}",
-                      "--json", "number,autoMergeRequest")
+                      "--json", "number,autoMergeRequest,headRefName")
+        branches = self.branches()
+        prs = [pr for pr in prs if pr["headRefName"] in branches]
         for pr in prs:
             if pr.get("autoMergeRequest"):
                 disable_auto(pr["number"])
         return [pr["number"] for pr in prs]
 
+    def branches(self):
+        """The night's branches: those the runner made for its cards, and every branch a card's git
+        pushed, which the night's pre-push hook records. The maintainer's sessions use the same
+        account but not that hook, so their PRs aren't the night's."""
+        pushed = self.dir / PUSHED
+        return self.made | (set(pushed.read_text().split()) if pushed.exists() else set())
+
     def audit(self):
-        """Every PR merged to main since the night started that the runner didn't arm, kept for the
-        top of the digest. Any ends the night: something got past the gates."""
+        """Every PR of the night's merged to main that the runner didn't arm, kept for the top of
+        the digest. Any ends the night: something got past the gates. Other merges since the night
+        started, the maintainer's sessions', are kept for one plain line."""
         try:
             merged = gh_json("pr", "list", "--state", "merged", "--base", "main", "--search",
-                             f"merged:>={self.since()}", "--json", "number,title,mergedBy,mergeCommit")
+                             f"merged:>={self.since()}", "--json",
+                             "number,title,mergedBy,mergeCommit,headRefName")
+            branches = self.branches()
         except FAILURES as error:
             self.unchecked.append(f"reading tonight's merges failed ({error})")
             return True
         found = {pr["number"] for pr in merged}
-        self.unarmed = [pr for pr in merged + [p for p in self.merged_during if p["number"] not in found]
-                        if pr["number"] not in self.armed | self.armed_before]
+        ours = [pr for pr in merged if pr["headRefName"] in branches]
+        self.others = [pr for pr in merged if pr["headRefName"] not in branches]
+        self.unarmed = [pr for pr in ours + [p for p in self.merged_during if p["number"] not in found]
+                        if pr["number"] not in self.armed]
         return bool(self.unarmed)
 
     def park(self, item, title, pr, why):
@@ -1511,6 +1529,9 @@ class Night:
                                            for t in sorted(set(self.tests_before) | set(after))))
         lines += [f"Added: {title}, at the top of Todo" for title in self.added]
         lines += [f"Done: {c}" for c in self.closed]
+        if self.others:
+            lines.append("Also merged tonight, not by a card: "
+                         + ", ".join(f"#{pr['number']} {pr['title']}" for pr in self.others))
         lines += [f"Parked: {p}" for p in self.parked]
         lines += [f"Waiting: {w}" for w in self.waiting]
         lines += [f"Behind main: #{pr['number']} {pr['title']}" for pr in behind]
@@ -1657,7 +1678,10 @@ def pre_push(folder):
         # commit. A deleted ref's local commit is all zeros. `scripts/pr-media.sh` pushes to
         # pr-media, which shares no history with main and has no PR, so it starts no run.
         refs = [line.split() for line in sys.stdin.read().splitlines()]
-        revs = [ref[1] for ref in refs if len(ref) == 4 and ref[1].strip("0") and ref[2] != "refs/heads/pr-media"]
+        # Each branch pushed, so the runner tells the night's PRs from the maintainer's sessions'.
+        with (folder / PUSHED).open("a") as out:
+            out.writelines(ref[2].removeprefix("refs/heads/") + "\n" for ref in refs if len(ref) == 4)
+        revs =[ref[1] for ref in refs if len(ref) == 4 and ref[1].strip("0") and ref[2] != "refs/heads/pr-media"]
         why = run_budget(folder, os.getcwd(), state, record=True, revs=revs)
     except Exception as error:  # noqa: BLE001 - an error must refuse, whatever it is
         why = f"the nightly pre-push hook failed ({type(error).__name__}: {error})"
