@@ -23,7 +23,13 @@ extension RoutineScreen {
 
     /// The key's fill while the set counts.
     var keyFill: KeyFill? {
-        if let kept = liveKey.keptCount {
+        let key = liveKey
+        // Once no count is drawn the count's keys are only going, in the bar's swap: they keep
+        // the fill the last log left, never the next set's, which starts empty.
+        let last = key.drawnCount == .counting ? nil : live.flatMap { live in
+            live.workout.sets.last.flatMap { live.loggedCount(of: $0.planned) }
+        }
+        if let kept = key.keptCount ?? last {
             return KeyFill(length: Double(kept.length), ends: .distantPast, pausedLeft: kept.left)
         }
         guard let timed = live?.timedSet, let workout = session.workout else { return nil }
