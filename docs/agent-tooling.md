@@ -272,8 +272,8 @@ error in it denies the call. Claude Code's own sandbox can't hold these writes i
 `gh` fails TLS verification and SwiftPM's nested sandbox fails, so both would run outside it.
 What a command line hides, such as a script file the card writes and runs, meets three more
 checks: the card's git runs the night's pre-push hook on every push; the runner turns auto-merge
-off on every `night-` branch's PR opened tonight unless it arms one itself; and it ends the night,
-naming them atop the digest, on any such PR merged that it didn't arm. A new gate
+off on every PR opened tonight from a branch a card made or pushed, unless it arms one itself;
+and it ends the night, naming them atop the digest, on any such PR merged unarmed. A new gate
 starts from such a check on what happened (a merge, a push, a run started); denying a command's
 spellings only narrows it, since every verifier pass and review on #118 found more spellings.
 Its digest, in the night's folder, is what `show` prints after the retro's reply. It exists because
