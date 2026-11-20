@@ -82,11 +82,11 @@ extension RoutineScreen {
         guard let rest = phase.resting, let live, let row = restRow(of: rest, in: live.workout)
         else { return }
         // Back up a superset's loop, the round's rest opens above its first member, maybe out of
-        // sight: the list scrolls it under the bar from the tap, on the dot's way there, its pitch
-        // at rest noted first (at the rest's end it held the rest: the next move overshot).
+        // sight: the list scrolls it under the bar from the tap, on the dot's way there. Its pitch
+        // at rest is measured with no rest around it (`restingContent(_:in:)`): measured at the
+        // rest's end, it held the rest, and the next move overshot.
         let way = SetMotion.Way(isBack: rest.isBack)
         let target = rest.isBack ? landing(on: row, leaving: rest.set.row) : nil
-        noteRestingPitch(of: rest.isBack ? row : nil)
         withTransaction(\.disablesAnimations, true) {
             isMakingRoom = true
             endFollow = nil
@@ -200,9 +200,9 @@ extension RoutineScreen {
         // Not again while its fade waits for its turn to start.
         guard rest.beat == .settled, !isCrossfading else { return }
         restEnds += 1
-        noteRestingPitch(of: rest.isBack ? nil : next.row)
-        // From the rest's height, not the row's pitch at rest, which a relaunch never noted (the
-        // list landed in a second motion). Before a superset's next round the rest closes above
+        // From the rest's height, not the row's pitch at rest, which a relaunch into the rest never
+        // measured (the list landed in a second motion). Before a superset's next round the rest
+        // closes above
         // the next row, in its own row, whose top stays where it is: a short move down.
         let target = rest.isBack
             ? landing(on: next.row, leaving: rest.set.row)

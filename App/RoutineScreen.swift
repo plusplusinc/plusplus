@@ -256,6 +256,11 @@ struct RoutineScreen: View {
                             // on the row, `false` would un-hide the rail's node.
                             .accessibilityHidden(item.id == entering)
                             .railRow()
+                            .reportingRailPitch(
+                                isOn: notesRestingPitch(of: item.id, current: currentID),
+                            ) { restingContent(item, in: shown) } to: {
+                                rowFrames.restingPitch[item.id] = $0
+                            }
                             // The whole row, its insets included, as the rail stacks it.
                             .reportingFrame(tracksRows) { rowFrames.tops[item.id] = $0.minY }
                             .contentShape(.rect)

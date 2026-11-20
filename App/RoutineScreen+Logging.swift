@@ -203,7 +203,6 @@ extension RoutineScreen {
             (next, isBack) = (nil, false)
         }
         let target = next.flatMap { landing(on: $0.row, leaving: set.row) }
-        noteRestingPitch(of: next?.row)
         guard !reduceMotion else {
             return crossfadeOn(to: next, scrollingTo: target)
         }
@@ -238,8 +237,8 @@ extension RoutineScreen {
     /// With Reduce Motion, moving on, or closing after the last set, is one crossfade, the tick
     /// played as the next node lights in it. A move like any other: the current exercise's place
     /// changing under it doesn't land it again (`placeCurrent(_:)`), and the key logs nothing
-    /// until it is over. With no `target` worked out ahead, as after a relaunch, the list lands
-    /// after. `endingRest`: the rest between exercises ends inside the fade, its set drawn as it
+    /// until it is over. With no `target` worked out ahead, the list lands after. `endingRest`: the
+    /// rest between exercises ends inside the fade, its set drawn as it
     /// was, so the rest is what fades out.
     func crossfadeOn(to next: PlannedSet?, scrollingTo target: CGFloat?, endingRest: Bool = false) {
         beginCrossfade(scrollingTo: target ?? scrollBeat.scrolledY)
@@ -261,8 +260,8 @@ extension RoutineScreen {
 
     /// A move's landing, with its tick and the node lighting under the pulse's plop, the shift's
     /// start, which End reads, the round's roll once the next row shows it, then the move's end,
-    /// timed from the log by design: nothing is waited for. With no `target` worked out ahead, as
-    /// after a relaunch, the list lands after.
+    /// timed from the log by design: nothing is waited for. With no `target` worked out ahead, the
+    /// list lands after, in a second motion.
     func land(_ way: SetMotion.Way, scrollingTo target: CGFloat?) {
         sequence.run {
             let start = ContinuousClock.now
@@ -333,8 +332,8 @@ extension RoutineScreen {
     /// Where the list lands `next`'s row under the bar once `leaving`, the current row, has
     /// shrunk back: at the row's top, where its label lands just under the bar. A row above
     /// stays where it is; one below rises by what `leaving` gives back, from its pitch now, top
-    /// to the next row's top, to its pitch at rest, noted as it grew. Nil when either isn't
-    /// known, as after a relaunch into a workout.
+    /// to the next row's top, to its pitch at rest, measured from a copy of it at rest while it
+    /// was current (`notesRestingPitch(of:current:)`). Nil when either isn't known.
     func landing(on next: RoutineExercise.ID, leaving: RoutineExercise.ID) -> CGFloat? {
         guard let nextTop = rowFrames.tops[next], let leavingTop = rowFrames.tops[leaving]
         else { return nil }
@@ -354,15 +353,6 @@ extension RoutineScreen {
     ) -> CGFloat? {
         guard let nextTop = rowFrames.tops[next] else { return nil }
         return max(nextTop - (rowFrames.restHeights[leaving] ?? 0), 0)
-    }
-
-    /// Notes `id`'s pitch at rest, top to the next row's top, before it grows: what it gives
-    /// back as it shrinks. The rail keeps a resting row to a rhythm, so it is more than its height.
-    func noteRestingPitch(of id: RoutineExercise.ID?) {
-        guard let id, let top = rowFrames.tops[id],
-              let after = routine.neighbor(of: id, .below).flatMap({ rowFrames.tops[$0.id] })
-        else { return }
-        rowFrames.restingPitch[id] = after - top
     }
 
     /// Whether the key shows, Start or the workout's: with exercises, and not gone for Start's
@@ -391,6 +381,8 @@ extension WorkoutPhase.Move {
 /// would redraw it on every frame of a move.
 final class RowFrames {
     var tops: [RoutineExercise.ID: CGFloat] = [:]
+    /// Each row's pitch at rest, top to the next row's top, as it will rest once a set has moved
+    /// the workout off it: what it gives back as it shrinks.
     var restingPitch: [RoutineExercise.ID: CGFloat] = [:]
     /// The height of the rest under each row, open or not.
     var restHeights: [RoutineExercise.ID: CGFloat] = [:]
