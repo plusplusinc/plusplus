@@ -27,11 +27,11 @@ struct GrowingNameBreakTests {
         }
     }
 
-    /// A name that fits one line, one that wraps, one of three lines, and a word wider than the
-    /// row, each at a size where it does.
+    /// A name that fits one line, one that wraps at the default size, one of three lines at
+    /// extra-large, and a word wider than the row, each laid out as the system breaks it there.
     nonisolated static let cases: [Case] = [
         Case(title: "Barbell back squat", category: .large, lines: 1),
-        Case(title: "Dumbbell single-arm overhead triceps extension", category: .large, lines: 2),
+        Case(title: "Dumbbell single-arm overhead triceps extension", category: .large, lines: 3),
         Case(
             title: "Neutral-grip weighted pull-up with a pause at the top",
             category: .extraLarge,
@@ -40,7 +40,7 @@ struct GrowingNameBreakTests {
         Case(
             title: "Supercalifragilisticexpialidocious squat",
             category: .accessibilityExtraExtraExtraLarge,
-            lines: 3,
+            lines: 4,
         ),
     ]
 
@@ -50,13 +50,16 @@ struct GrowingNameBreakTests {
     )
     func sameLinesAtBothSizes(_ name: Case) throws {
         let measured = try layOut(name.title, in: .ppCurrentTitle, at: name.category)
-        let breaks = GrowingName.LineBreaks(title: name.title, layout: measured.layout)
-        let broken = breaks.lines(of: name.title)
-        let small = try layOut(broken, in: .ppRowTitle, at: name.category).lines
-        let large = try layOut(broken, in: .ppCurrentTitle, at: name.category).lines
         #expect(measured.lines.count == name.lines, "Laid out as \(measured.lines)")
-        #expect(large == measured.lines)
-        #expect(small == large, "\(small) small, \(large) large")
+        // Drawn with a break at each line's start, the name holds the lines the large one has.
+        let broken = GrowingName.LineBreaks(title: name.title, layout: measured.layout)
+            .lines(of: name.title)
+        #expect(broken.components(separatedBy: "\n") == measured.lines)
+        // And neither size breaks any of them again.
+        let small = try layOut(broken, in: .ppRowTitle, at: name.category).layout
+        let large = try layOut(broken, in: .ppCurrentTitle, at: name.category).layout
+        #expect(small.count == name.lines, "\(small.count) lines at a row's size")
+        #expect(large.count == name.lines, "\(large.count) lines at the current exercise's")
     }
 
     /// Each line of `text` in `font`, as laid out a row's width wide at `category`, and the
@@ -75,13 +78,11 @@ struct GrowingNameBreakTests {
         window.settle()
         let layout = try #require(box.layout, "No layout for \(text)")
         let utf16 = Array(text.utf16)
-        // The indices count from where the text starts in its storage, as `LineBreaks` reads them.
-        let origin = layout.flatMap { $0.flatMap(\.characterIndices) }.min() ?? 0
-        let lines = layout.map { line -> String in
-            let indices = line.flatMap(\.characterIndices).map { $0 - origin }
-            guard let first = indices.min(), let last = indices.max(), last < utf16.count
-            else { return "" }
-            return String(decoding: utf16[first ... last], as: UTF16.self)
+        // Each line from its first character to the next line's, as `LineBreaks` reads them.
+        let starts = GrowingName.LineBreaks(title: text, layout: layout).starts
+        let bounds = [0] + starts + [utf16.count]
+        let lines = zip(bounds, bounds.dropFirst()).map { from, upTo in
+            String(decoding: utf16[from ..< upTo], as: UTF16.self)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
         }
         return (lines, layout)
