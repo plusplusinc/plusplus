@@ -58,9 +58,14 @@ struct EditableTitleTextSizeTests {
             ))
             host.safeAreaRegions = []
             window = .sceneless(hosting: host, at: category)
+            window.layoutIfNeeded()
+            // As a tap on the text does. The binding alone would focus it only once this test's
+            // turn on the main queue has ended (`TitleTextView.Coordinator.followFocus(of:)`).
+            if isEditing {
+                _ = field?.becomeFirstResponder()
+            }
             // Once focused, where the text system put the caret as editing began.
             if let offset {
-                window.layoutIfNeeded()
                 let index = draft.index(draft.startIndex, offsetBy: offset)
                 field?.selectedRange = NSRange(index ..< index, in: draft)
             }
