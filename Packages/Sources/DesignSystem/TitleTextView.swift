@@ -88,12 +88,8 @@ struct TitleTextView: UIViewRepresentable {
         view.accessibilityHint = accessibilityHint
         view.accessibilityPlaceholder = accessibilityPlaceholder
 
-        if let isFocused {
-            if isFocused.wrappedValue, !view.isFirstResponder {
-                _ = view.becomeFirstResponder()
-            } else if !isFocused.wrappedValue, view.isFirstResponder {
-                _ = view.resignFirstResponder()
-            }
+        if let isFocused, isFocused.wrappedValue != view.isFirstResponder {
+            context.coordinator.followFocus(of: view)
         }
         if let selection, view.selectedRange != selection {
             view.selectedRange = selection
@@ -153,8 +149,31 @@ struct TitleTextView: UIViewRepresentable {
     final class Coordinator: NSObject, UITextViewDelegate {
         var parent: TitleTextView
 
+        /// Whether a change of focus the binding asked for is waiting for SwiftUI's update to end.
+        private var isFollowingFocus = false
+
         init(_ parent: TitleTextView) {
             self.parent = parent
+        }
+
+        /// Gives the field focus, or takes it away, as the binding says, once SwiftUI's update
+        /// has ended. Never inside it: on its way along the responder chain UIKit asks the
+        /// hosting view whether it can take focus, SwiftUI answers from the graph it is still
+        /// updating, and AttributeGraph logs a dependency cycle, as a tap below a short title
+        /// and a touch outside an edited one each did. Read when it runs, so a binding that
+        /// changes back meanwhile changes nothing.
+        func followFocus(of view: TitleFieldView) {
+            guard !isFollowingFocus else { return }
+            isFollowingFocus = true
+            DispatchQueue.main.async { [self, weak view] in
+                isFollowingFocus = false
+                guard let view, let isFocused = parent.isFocused?.wrappedValue else { return }
+                if isFocused, !view.isFirstResponder {
+                    _ = view.becomeFirstResponder()
+                } else if !isFocused, view.isFirstResponder {
+                    _ = view.resignFirstResponder()
+                }
+            }
         }
 
         func textView(
