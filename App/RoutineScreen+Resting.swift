@@ -63,7 +63,7 @@ extension RoutineScreen {
     /// side at a time, never between its sides.
     func rests(after set: PlannedSet, leadingTo step: LiveWorkout.Step) -> Bool {
         switch step {
-        case .nextExercise(_, false, _) where !routine.isInSuperset(set.row):
+        case let .nextExercise(_, isBack, _) where !isBack || routine.isInSuperset(set.row):
             break
         case .nextSet where routine.restBetweenSets(after: set) != nil:
             break
@@ -168,7 +168,11 @@ extension RoutineScreen {
         noteRestingPitch(of: next.row)
         // From the rest's height, not the row's pitch at rest, which a relaunch into the workout
         // never noted: with no target, the list landed in a second motion after the move.
-        let target = landing(on: next.row, closingRestUnder: rest.set.row)
+        // Back up a superset's loop the next row is above the rest, which closes under it.
+        let way = SetMotion.Way(isBack: rest.isBack)
+        let target = rest.isBack
+            ? landing(on: next.row, leaving: rest.set.row)
+            : landing(on: next.row, closingRestUnder: rest.set.row)
         guard !reduceMotion else {
             phase.endRest(moves: false)
             return crossfadeOn(to: next, scrollingTo: target)
@@ -188,10 +192,10 @@ extension RoutineScreen {
         railPulse = RailPulse(
             from: .rest(after: rest.set.row),
             to: .node(next.row),
-            way: .down,
+            way: way,
             run: (railPulse?.run ?? 0) + 1,
         )
-        land(.down, scrollingTo: target)
+        land(way, scrollingTo: target)
     }
 
     /// −15 s or +15 s on the rest running, the bar gliding to its new fill; the dot stays put.
@@ -271,7 +275,8 @@ extension RoutineScreen {
             return String(localized: "last set")
         case .nextSet:
             gap = routine.restBetweenSets(after: set) ?? 0
-        case let .nextExercise(next, false, _) where !routine.isInSuperset(set.row):
+        case let .nextExercise(next, isBack, _) where !isBack || routine.isInSuperset(set.row):
+            // In a superset, none within a round: only its last member rests.
             gap = routine.rest(after: set, before: next)
         default:
             return nil
@@ -340,8 +345,11 @@ extension RoutineScreen {
         // Resting between two exercises, the next one grows a step once the rest shows, and
         // stays grown through the move out of the rest until it opens: dropped as the rest
         // ended, it shrank back and lost its equipment for a frame before growing again.
-        let isRestingBetween = phase.drawnRest.map { !$0.isWithinExercise && $0.beat >= .shown }
-            ?? (phase.move?.isFromRest == true)
+        // Not back up a superset's loop: its first member, above the rest, grown, pushed the
+        // rest down under the dot.
+        let isRestingBetween = phase.drawnRest
+            .map { !$0.isWithinExercise && !$0.isBack && $0.beat >= .shown }
+            ?? (phase.move.map { $0.isFromRest && !$0.isBack } == true)
         let nextUp = isRestingBetween ? shown?.currentSet?.row : nil
         return routine.exercises.reduce(into: [:]) { parts, item in
             parts[item.id] = RowParts(

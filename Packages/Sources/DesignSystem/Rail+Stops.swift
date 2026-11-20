@@ -5,7 +5,8 @@ import SwiftUI
 
 extension Rail {
     /// The way from `fromStop` to `toStop` for a pulse: up a superset's loop to its first member,
-    /// from a later one in the same superset; straight along the rail otherwise, to or from a
+    /// from a later one in the same superset, or from the round's rest under its last member, up
+    /// the rail to that member's node first; straight along the rail otherwise, to or from a
     /// rest included.
     func route(
         _ fromStop: RailStop<RowID>,
@@ -17,12 +18,19 @@ extension Rail {
               let to = point(of: toStop, nodes, in: proxy)
         else { return nil }
         let ids = data.map(\.id)
-        guard fromStop.isNode, toStop.isNode,
+        guard toStop.isNode,
               let start = ids.firstIndex(of: toStop.row),
               let end = ids.firstIndex(of: fromStop.row),
-              start < end, ids[start ..< end].allSatisfy(links.contains)
+              start < end, ids[start ..< end].allSatisfy(links.contains),
+              let node = point(of: .node(fromStop.row), nodes, in: proxy)
         else { return .line(from: from, to: to) }
-        return .loop(from: from, to: to, x: pen.runX(nodeX: from.x), radius: pen.radius)
+        let loop = RailRoute.loop(
+            from: node,
+            to: to,
+            x: pen.runX(nodeX: node.x),
+            radius: pen.radius,
+        )
+        return fromStop.isNode ? loop : RailRoute([from] + loop.points)
     }
 
     /// Where `stop` is on each frame: a row's node; or, for a rest, on the rail's line under the
