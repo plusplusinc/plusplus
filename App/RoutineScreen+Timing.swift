@@ -82,10 +82,11 @@ extension RoutineScreen {
     }
 
     /// A timed set's caption line: it keeps room for both the set's time and what follows it,
-    /// so it wraps the same through "Starts in" and the count, on either side, and the figures
+    /// so it is as tall through "Starts in" and the count, on either side, and the figures
     /// under it never move. During "Starts in", the set's time in words, "30 seconds", stands
-    /// where "then rest 0:30" will once it counts, in the same update as the slot's change, so
-    /// the line changes once, with it.
+    /// at the line's trailing end where it fits beside the counter, else under it, as "then rest
+    /// 0:30" will once it counts; the change comes in the same update as the slot's, so the line
+    /// changes once, with it.
     func timedCaption(_ focus: inout RowFocus, of item: RoutineExercise) {
         guard case let .time(seconds) = item.plan.target else { return }
         focus.afterRoom = [focus.after, RestBlock.spoken(Double(seconds), locale: locale)]
