@@ -131,7 +131,8 @@ public final class RoutineSession {
         guard canStart(on: routine) else { return }
         // The workout first: a screen shown at the root reads it as it is made, to open on the
         // current exercise.
-        change(.save(Workout(routineID: routine, routineName: shownName, startedAt: now)))
+        let started = Workout(routineID: routine, routineName: shownName, startedAt: now)
+        change(.save(LiveWorkout(routine: current, workout: started).beginningCount(at: now)))
         if screen != .routine {
             // A fresh screen at the root, opening on the routine as it is now.
             opened = current
@@ -158,10 +159,18 @@ public final class RoutineSession {
         change(.save(workout.isPaused ? workout.resuming(at: now) : workout.pausing(at: now)))
     }
 
-    /// Logs `planned`, a set of `row`, at the numbers `row` plans now.
-    public func log(_ planned: PlannedSet, of row: RoutineExercise, at now: Date = .now) {
+    /// Logs `planned`, a set of `row`, at the numbers `row` plans now, or a timed set at the time
+    /// its count has run, then begins the next set's count (`LiveWorkout.logging`). `override`,
+    /// for the UI tests, is every rest's length.
+    public func log(
+        _ planned: PlannedSet,
+        of row: RoutineExercise,
+        override: Int? = nil,
+        at now: Date = .now,
+    ) {
         guard let workout else { return }
-        change(.save(workout.logging(planned, of: row, at: now)))
+        let live = LiveWorkout(routine: current, workout: workout)
+        change(.save(live.logging(planned, of: row, at: now, restOverride: override)))
     }
 
     /// Shortens or extends the rest running after the last set by `seconds`, unless it is over.
@@ -191,7 +200,7 @@ public final class RoutineSession {
     /// The one way the workout changes: to what `write` stores, sent to be stored in the same
     /// call, so no change shows that a relaunch would lose. A workout saved in progress is the
     /// one running; one saved ended, or discarded, leaves none.
-    private func change(_ write: WorkoutWrite) {
+    func change(_ write: WorkoutWrite) {
         switch write {
         case let .save(changed): workout = changed.isInProgress ? changed : nil
         case .discard: workout = nil

@@ -20,6 +20,19 @@ public struct SetRest {
     /// Whether a + or − turns the countdown's figure: once it is up. Turning as it came in, its
     /// end set at the log, it rolled from its length to itself.
     let turns: Bool
+    /// What waits in the slot: a rest, a timed set's "Starts in", or the set's own count.
+    let kind: Kind
+
+    /// What a wait in the figures' slot is.
+    public enum Kind: Equatable, Sendable {
+        /// "Rest" over the countdown, over its bar.
+        case rest
+        /// "Starts in" over the short count, over the set's time in words ("30 seconds") in the
+        /// bar's place.
+        case startsIn(time: String)
+        /// A timed set's own count where the figures stand, with no word over it and no bar.
+        case count
+    }
 
     public init(
         isRunning: Bool,
@@ -28,7 +41,9 @@ public struct SetRest {
         pausedLeft: Double? = nil,
         isOver: Bool = false,
         turns: Bool = false,
+        kind: Kind = .rest,
     ) {
+        self.kind = kind
         self.isRunning = isRunning
         self.length = length
         self.ends = ends
@@ -106,11 +121,13 @@ struct SetRoom: View, Animatable {
                     VStack(alignment: .leading, spacing: Spacing.sm) {
                         // Its capitals' tops where the figures' are, as far under the caption
                         // line, not the font's room over them lower.
-                        Text("Rest")
-                            .font(.ppFigureCaption)
-                            .foregroundStyle(.pp(.textSecondary))
-                            .fixedSize(horizontal: false, vertical: true)
-                            .padding(.top, -Self.overCapitals(size: captionSize))
+                        if let word = Self.word(rest.kind) {
+                            Text(word)
+                                .font(.ppFigureCaption)
+                                .foregroundStyle(.pp(.textSecondary))
+                                .fixedSize(horizontal: false, vertical: true)
+                                .padding(.top, -Self.overCapitals(size: captionSize))
+                        }
                         // With Reduce Motion the figure changes at once.
                         block.countdown(
                             size: size,
@@ -122,13 +139,33 @@ struct SetRoom: View, Animatable {
                     .coming(coming)
                 }
             }
-            if let block {
-                block.progress
-                    .padding(.top, Spacing.md)
-                    .opacity(coming)
+            if let rest, let block {
+                switch rest.kind {
+                case .rest:
+                    block.progress
+                        .padding(.top, Spacing.md)
+                        .opacity(coming)
+                case let .startsIn(time):
+                    Text(time)
+                        .font(.ppFigureCaption)
+                        .foregroundStyle(.pp(.textSecondary))
+                        .padding(.top, Spacing.sm)
+                        .opacity(coming)
+                case .count:
+                    EmptyView()
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// The word over the countdown: none over a timed set's own count.
+    private static func word(_ kind: SetRest.Kind) -> LocalizedStringKey? {
+        switch kind {
+        case .rest: "Rest"
+        case .startsIn: "Starts in"
+        case .count: nil
+        }
     }
 
     /// The room a line of the system font at `size` leaves over its capitals.

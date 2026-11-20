@@ -43,6 +43,9 @@ public struct PrimaryKeyButtonStyle: ButtonStyle {
 
     public init() { }
 
+    /// How far the face has filled with the done purple, from its leading edge; nil for none.
+    fileprivate var filling: KeyFill?
+
     public func makeBody(configuration: Configuration) -> some View {
         let shape = RoundedRectangle(cornerRadius: minHeight / 2)
         configuration.label
@@ -51,7 +54,14 @@ public struct PrimaryKeyButtonStyle: ButtonStyle {
             .padding(.horizontal, dynamicTypeSize.isAccessibilitySize ? Spacing.md : Spacing.lg)
             .padding(.vertical, labelInset)
             .frame(maxWidth: .infinity, minHeight: minHeight)
-            .background(shape.fill(.pp(fill)))
+            .background {
+                ZStack(alignment: .leading) {
+                    shape.fill(.pp(fill))
+                    if let filling {
+                        FillingFace(filling: filling).clipShape(shape)
+                    }
+                }
+            }
             .contentShape(shape)
             .offset(y: configuration.isPressed ? Self.ledge : 0)
             .animation(Self.press, value: configuration.isPressed)
@@ -73,6 +83,14 @@ extension ButtonStyle where Self == PrimaryKeyButtonStyle {
         style.fill = .surfaceRaised
         style.ledgeFill = .well
         style.labelColor = .textPrimary
+        return style
+    }
+
+    /// The primary key, its face filling with the done purple from its leading edge as
+    /// `filling` runs, as a timed set's log key does while the set counts.
+    public static func primaryKey(filling: KeyFill?) -> PrimaryKeyButtonStyle {
+        var style = PrimaryKeyButtonStyle()
+        style.filling = filling
         return style
     }
 }

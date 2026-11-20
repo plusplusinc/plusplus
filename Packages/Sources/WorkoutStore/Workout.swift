@@ -19,6 +19,8 @@ public struct Workout: Identifiable, Equatable, Sendable {
     public var endedAt: Date?
     /// Every set done in it, in the order logged.
     public var sets: [LoggedSet]
+    /// The timed set whose turn has come, until it is logged; nil for none.
+    public var count: SetCount?
 
     public init(
         id: UUID = UUID(),
@@ -29,7 +31,9 @@ public struct Workout: Identifiable, Equatable, Sendable {
         pausedSeconds: Double = 0,
         endedAt: Date? = nil,
         sets: [LoggedSet] = [],
+        count: SetCount? = nil,
     ) {
+        self.count = count
         self.id = id
         self.routineID = routineID
         self.routineName = routineName

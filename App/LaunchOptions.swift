@@ -57,6 +57,7 @@ enum LaunchOptions {
             sets: defaults.string(forKey: "seedSets").flatMap { Int($0) }.map { max($0, 1) },
             loggedSets: defaults.string(forKey: "seedWorkout").flatMap { Int($0) }
                 .map { max($0, 0) },
+            time: defaults.string(forKey: "seedTime").flatMap { Int($0) }.map { max($0, 1) },
         )
     }
 
@@ -101,6 +102,8 @@ struct SeededRoutine {
     let sets: Int?
     /// With a workout in progress, how many of its sets are logged.
     let loggedSets: Int?
+    /// `-seedTime <seconds>`: every timed row's time, so a timed set runs out in seconds.
+    let time: Int?
 
     func routine(weightUnit: WeightUnit) -> Routine {
         var routine = Routine(
@@ -109,6 +112,9 @@ struct SeededRoutine {
                 var row = RoutineExercise(exercise: exercise, weightUnit: weightUnit)
                 if let sets {
                     row.plan.sets = sets
+                }
+                if let time, case .time = row.plan.target {
+                    row.plan.target = .time(seconds: time)
                 }
                 return row
             },

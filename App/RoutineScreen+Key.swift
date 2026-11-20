@@ -14,6 +14,7 @@ extension RoutineScreen {
             phase: phase,
             wayBack: keyWayBack,
             isScrolledAway: currentPlace?.isScrolledAway == true,
+            countStage: countStage,
         )
     }
 
@@ -30,6 +31,8 @@ extension RoutineScreen {
                 onShorten: { perform(liveKey.restTap(by: -15)) },
                 onExtend: { perform(liveKey.restTap(by: 15)) },
             )
+        } else if case let .count(text) = role {
+            countKeys(text, isOut: isOut)
         } else {
             mainKey(role, isOut: isOut)
         }
@@ -54,7 +57,7 @@ extension RoutineScreen {
         case let .back(exercise, isAbove):
             // Whole, wrapping at the largest text sizes rather than cut short.
             Label(exercise, systemImage: isAbove ? "arrow.up" : "arrow.down")
-        case .log, .finish, .rest:
+        case .log, .finish, .rest, .startNow, .count:
             // One branch, so words that stay are the same view: a branch per role crossfaded
             // "Log last set" into itself as the last set's row closed, which dimmed it.
             Text(verbatim: spokenKey(role))
@@ -64,7 +67,8 @@ extension RoutineScreen {
     private func spokenKey(_ role: WorkoutKey.Role) -> String {
         switch role {
         case .start: String(localized: "Start")
-        case let .log(text): text
+        case let .log(text), let .count(text): text
+        case .startNow: String(localized: "Start now")
         case let .back(exercise, _): String(localized: "Go to current exercise, \(exercise)")
         case .finish: String(localized: "Finish workout")
         // Never drawn as this key: `key` draws `RestKeys`, which speak for themselves.
@@ -82,7 +86,7 @@ extension RoutineScreen {
 
     /// What a tap on the key, or on −15 s or +15 s, does. A log is stored through the session at
     /// once and shown through `play(_:leadingTo:)`; a rest's change glides its bar.
-    private func perform(_ tap: WorkoutKey.Tap) {
+    func perform(_ tap: WorkoutKey.Tap) {
         switch tap {
         case .start:
             pressStart()
@@ -95,13 +99,18 @@ extension RoutineScreen {
             switch impact {
             case .set: setLogs += 1
             case .side: sideLogs += 1
+            case .runOut: countBeats.ends += 1
             }
             // Stored at once, at the numbers the row shows; then shown, from the workout before
             // it.
-            session.log(set, of: current)
+            session.log(set, of: current, override: restOverride)
             play(set, leadingTo: step)
         case let .adjustRest(seconds):
             adjustRest(by: seconds)
+        case .startNow:
+            session.startCountNow()
+        case let .extendCount(seconds):
+            session.extendCount(by: seconds)
         case .nothing:
             break
         }

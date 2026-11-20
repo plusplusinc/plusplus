@@ -179,6 +179,8 @@ extension RoutineScreen {
         guard let rest = phase.resting, let workout = session.workout, let next = live?.currentSet,
               resting?.isOver(atClock: workout.clock(at: .now)) ?? true
         else { return }
+        // A timed set next counts from the rest's end, in the same update as the rest ends.
+        session.beginCount(override: restOverride)
         if rest.isWithinExercise {
             // The next set's figures swap back into their slot as the line rolls on, and Log set
             // comes back in place with them, taking a log once they are up.

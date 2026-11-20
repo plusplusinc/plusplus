@@ -28,12 +28,25 @@ public struct WorkoutKey: Sendable {
         phase: WorkoutPhase,
         wayBack: WayBack?,
         isScrolledAway: Bool,
+        countStage: CountStage? = nil,
     ) {
         self.stored = stored
         self.shown = shown
         self.phase = phase
         self.wayBack = wayBack
         self.isScrolledAway = isScrolledAway
+        self.countStage = countStage
+    }
+
+    /// Where the current set's count stands as the screen draws it: nil for a reps set
+    /// (`LiveWorkout.countStage(at:)`).
+    public let countStage: CountStage?
+
+    /// The count's stage while the key is the current set's: at rest, and coming out of a rest,
+    /// so the rest's keys swap straight for the count's.
+    private var restingCount: CountStage? {
+        let fromRest = phase.resting?.beat == .returning || phase.move?.isFromRest == true
+        return phase.takesLog || fromRest ? countStage : nil
     }
 
     /// What the key is for, as the workout is drawn.
@@ -60,7 +73,30 @@ public struct WorkoutKey: Sendable {
     /// a set with a rest after it until the rest ends, and through End's leaving of a rest.
     private func logRole(_ text: String) -> Role {
         let isResting = phase.drawnRest.map { $0.beat < .returning } ?? false
-        return isResting ? .rest : .log(text)
+        if isResting {
+            return .rest
+        }
+        return switch restingCount {
+        case .startsIn: .startNow
+        case .counting: .count(text)
+        case nil: .log(text)
+        }
+    }
+
+    /// What a tap on +15 s does: adds to the set counting, once it counts.
+    public func countTap(by seconds: Int) -> Tap {
+        restingCount == .counting ? .extendCount(by: seconds) : .nothing
+    }
+
+    /// What the count reaching zero does: logs the set, with the heavy tap, as a tap on the key
+    /// would, whether or not the exercise is scrolled away or a sheet covers the key. Nothing
+    /// unless the set counts at rest.
+    public var runOut: Tap {
+        guard phase.takesLog, countStage == .counting, let stored,
+              let current = stored.currentExercise,
+              let set = stored.currentSet
+        else { return .nothing }
+        return .log(set, of: current, impact: .runOut, leadingTo: stored.step(logging: set))
     }
 
     /// What a tap on −15 s or +15 s does: changes the rest running by `seconds`, once it has
@@ -91,6 +127,9 @@ public struct WorkoutKey: Sendable {
             return .back
         }
         guard phase.takesLog else { return .nothing }
+        if restingCount == .startsIn {
+            return .startNow
+        }
         return .log(
             set,
             of: current,
@@ -120,6 +159,11 @@ extension WorkoutKey {
         /// During a rest, −15 s and +15 s in the log key's place: another key, so they swap with
         /// it as any two keys do, never crossfading through it in its place.
         case rest
+        /// During a timed set's "Starts in", the key that starts it now.
+        case startNow
+        /// A timed set counting: its log key, saying which as `log` does, filling as it counts,
+        /// with +15 s beside it. Another key than `log`, which the bar swaps in.
+        case count(String)
 
         /// Which key this is: a change of kind swaps the key for another, a change within one,
         /// as "Log left" to "Log right", changes its words.
@@ -129,6 +173,8 @@ extension WorkoutKey {
             case back
             case finish
             case rest
+            case startNow
+            case count
         }
 
         public var kind: Kind {
@@ -138,6 +184,8 @@ extension WorkoutKey {
             case .back: .back
             case .finish: .finish
             case .rest: .rest
+            case .startNow: .startNow
+            case .count: .count
             }
         }
 
@@ -158,12 +206,18 @@ extension WorkoutKey {
         case finish
         /// −15 s or +15 s: the rest running changes by `seconds`.
         case adjustRest(by: Int)
+        /// "Start now": the timed set counts from now.
+        case startNow
+        /// +15 s: the timed set counting gets `by` seconds more.
+        case extendCount(by: Int)
         case nothing
     }
 
-    /// The haptic a log plays: a set's is heavier than one side's.
+    /// The haptic a log plays: a set's is heavier than one side's, and a timed set's own end
+    /// heaviest, so it is felt with the phone set down.
     public enum Impact: Equatable, Sendable {
         case set
         case side
+        case runOut
     }
 }
