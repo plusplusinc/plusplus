@@ -58,7 +58,7 @@ struct RoutineScreen: View {
     /// While the current exercise is scrolled away, which way the key points back to it,
     /// held while a finger is on the list and following the row as the list coasts once it lifts
     /// (`settleWayBack()`); none while it logs.
-    @State var keyWayBack: VerticalEdge?
+    @State var keyWayBack: WorkoutKey.WayBack?
     /// The key's logs of a set, each with a medium impact, and of a side, each with a light one;
     /// each log pops a +1 off the key.
     @State var setLogs = 0
@@ -345,7 +345,7 @@ struct RoutineScreen: View {
         })
         .primaryKeyBar(
             isPresented: showsKey,
-            face: liveKeyRole,
+            face: liveKey.role,
             keepsRoom: phase.keyGone == .keepingRoom,
             plusOnes: setLogs + sideLogs,
             drop: startDrop,

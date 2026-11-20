@@ -5,66 +5,23 @@ import WorkoutStore
 /// The screen's one key, at the bottom: Start, then in a workout what logs its sets, goes back
 /// to the current exercise while it is scrolled away, and finishes the workout.
 extension RoutineScreen {
-    /// What the key is for now.
-    enum KeyRole: Equatable, Identifiable {
-        case start
-        /// Logs the current set, saying which ("Log set", "Log left", "Log last set"). After the
-        /// last set, as its row closes, it still says "Log last set", and takes no tap.
-        case log(String)
-        /// The current exercise is scrolled away, above it or not: the key goes back to it.
-        case back(name: String, isAbove: Bool)
-        case finish
-
-        /// Which key this is: a change of kind swaps the key for another, a change within one,
-        /// as "Log left" to "Log right", changes its words.
-        enum Kind: Hashable {
-            case start
-            case log
-            case back
-            case finish
-        }
-
-        var kind: Kind {
-            switch self {
-            case .start: .start
-            case .log: .log
-            case .back: .back
-            case .finish: .finish
-            }
-        }
-
-        /// The key's identity in its bar, which swaps it for another as it changes.
-        var id: Kind {
-            kind
-        }
-    }
-
-    /// What the key is for, as the workout stands. The bar swaps the key as its kind changes
-    /// (`primaryKeyBar`).
-    var liveKeyRole: KeyRole {
-        guard let shown, !isStarting else { return .start }
-        // While the workout moves on from a set, the key is still that set's until the next row
-        // shows its own, so it changes with the row: read from the workout, it said the next
-        // exercise's set ("Log left") as the pulse set off. After the last set, through the close.
-        if let set = phase.keySet, let text = live?.hiding([set]).logText {
-            return .log(text)
-        }
-        if shown.isDone {
-            return .finish
-        }
-        if let way = keyWayBack, let current = shown.currentExercise {
-            return .back(name: current.exercise.name, isAbove: way == .top)
-        }
-        // As drawn, the held set until the line rolls on, so the key changes with the row, not
-        // before it.
-        return shown.logText.map(KeyRole.log) ?? .finish
+    /// The key as the workout stands: what it says, which the bar swaps as its kind changes
+    /// (`primaryKeyBar`), and what a tap does.
+    var liveKey: WorkoutKey {
+        WorkoutKey(
+            stored: live,
+            shown: shown,
+            phase: phase,
+            wayBack: keyWayBack,
+            isScrolledAway: currentPlace?.isScrolledAway == true,
+        )
     }
 
     /// The key that `primaryKeyBar` holds, for `role`. Within a kind, one key whose words
     /// change; across kinds, another key, which the bar swaps in. While the bar has it out in a
     /// swap, a tap or a VoiceOver activation does nothing, and the key stays enabled, so
     /// VoiceOver doesn't read it dimmed for the swap's length.
-    func key(_ role: KeyRole, isOut: Bool) -> some View {
+    func key(_ role: WorkoutKey.Role, isOut: Bool) -> some View {
         Button {
             if !isOut {
                 tapKey()
@@ -76,7 +33,7 @@ extension RoutineScreen {
     }
 
     @ViewBuilder
-    private func keyLabel(_ role: KeyRole) -> some View {
+    private func keyLabel(_ role: WorkoutKey.Role) -> some View {
         switch role {
         case .start:
             Label("Start", systemImage: "play.fill")
@@ -90,7 +47,7 @@ extension RoutineScreen {
         }
     }
 
-    private func spokenKey(_ role: KeyRole) -> String {
+    private func spokenKey(_ role: WorkoutKey.Role) -> String {
         switch role {
         case .start: String(localized: "Start")
         case let .log(text): text
@@ -99,40 +56,32 @@ extension RoutineScreen {
         }
     }
 
-    /// A tap on the key. Out of a workout, Start. After the last set, Finish workout. Otherwise,
-    /// where the current exercise is scrolled away when the tap lands, as on a list still
-    /// moving away under a finger that still says "Log set", the list goes back to it and nothing
-    /// is logged: the key changes only once the finger lifts (`settleWayBack()`), the place at
-    /// once. A log is stored through the session at once and shown through `play(_:leadingTo:)`.
-    /// Nothing while a row's sheet is up: it covers the key, but a tap as it began to rise, as
-    /// after Create, reached the key and started or logged behind it.
+    /// A tap on the key, as `WorkoutKey.tap` says. A log is stored through the session at once
+    /// and shown through `play(_:leadingTo:)`. Nothing while a row's sheet is up: it covers the
+    /// key, but a tap as it began to rise, as after Create, reached the key and started or logged
+    /// behind it. While the key swaps, `key` drops the tap.
     func tapKey() {
         guard editing == nil else { return }
-        guard let live, !isStarting else { return pressStart() }
-        // Nothing while the workout moves on to the next exercise; while the key swaps, `key`
-        // drops the tap.
-        guard !isMovingOn else { return }
-        if live.isDone {
-            return finish()
-        }
-        guard let current = live.currentExercise, let set = live.currentSet else { return }
-        if keyWayBack != nil || currentPlace?.isScrolledAway == true {
+        switch liveKey.tap {
+        case .start:
+            pressStart()
+        case .finish:
+            finish()
+        case .back:
             // With Reduce Motion the list jumps back, as the key's swap only fades.
             withAnimation(reduceMotion ? nil : .snappy(duration: 0.4), scrollToCurrent)
-            return
+        case let .log(set, current, impact, step):
+            switch impact {
+            case .set: setLogs += 1
+            case .side: sideLogs += 1
+            }
+            // Stored at once, at the numbers the row shows; then shown, from the workout before
+            // it.
+            session.log(set, of: current)
+            play(set, leadingTo: step)
+        case .nothing:
+            break
         }
-        // A second tap while the set just logged is held, as a double tap would be, is dropped;
-        // a move already returned above.
-        guard phase.takesLog else { return }
-        if set.side == nil {
-            setLogs += 1
-        } else {
-            sideLogs += 1
-        }
-        // Stored at once, at the numbers the row shows; then shown, from the workout before it.
-        let step = live.step(logging: set)
-        session.log(set, of: current)
-        play(set, leadingTo: step)
     }
 
     /// Settles which way the key points: back to the current exercise while it is scrolled away,
@@ -151,10 +100,10 @@ extension RoutineScreen {
         guard !isMovingOn, !opensOnCurrent, !scrollBeat.isFingerOn, !scrollBeat.isPastTop else {
             return
         }
-        let way: VerticalEdge? = if let place = currentPlace, place.isScrolledAway,
-                                    currentID != nil
+        let way: WorkoutKey.WayBack? = if let place = currentPlace, place.isScrolledAway,
+                                          currentID != nil
         {
-            place.isAbove ? .top : .bottom
+            place.isAbove ? .up : .down
         } else {
             nil
         }
