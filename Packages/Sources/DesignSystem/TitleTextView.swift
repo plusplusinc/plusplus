@@ -149,9 +149,6 @@ struct TitleTextView: UIViewRepresentable {
     final class Coordinator: NSObject, UITextViewDelegate {
         var parent: TitleTextView
 
-        /// Whether a change of focus the binding asked for is waiting for SwiftUI's update to end.
-        private var isFollowingFocus = false
-
         init(_ parent: TitleTextView) {
             self.parent = parent
         }
@@ -161,16 +158,18 @@ struct TitleTextView: UIViewRepresentable {
         /// hosting view whether it can take focus, SwiftUI answers from the graph it is still
         /// updating, and AttributeGraph logs a dependency cycle, as a tap below a short title
         /// and a touch outside an edited one each did. Read when it runs, so a binding that
-        /// changes back meanwhile changes nothing.
+        /// changes back meanwhile changes nothing; a field that can't take focus then, gone from
+        /// its window, sets the binding back, so the title doesn't keep its editing look.
         func followFocus(of view: TitleFieldView) {
-            guard !isFollowingFocus else { return }
-            isFollowingFocus = true
             DispatchQueue.main.async { [self, weak view] in
-                isFollowingFocus = false
-                guard let view, let isFocused = parent.isFocused?.wrappedValue else { return }
-                if isFocused, !view.isFirstResponder {
-                    _ = view.becomeFirstResponder()
-                } else if !isFocused, view.isFirstResponder {
+                guard let view, let isFocused = parent.isFocused,
+                      isFocused.wrappedValue != view.isFirstResponder
+                else { return }
+                if isFocused.wrappedValue {
+                    if !view.becomeFirstResponder() {
+                        isFocused.wrappedValue = false
+                    }
+                } else {
                     _ = view.resignFirstResponder()
                 }
             }

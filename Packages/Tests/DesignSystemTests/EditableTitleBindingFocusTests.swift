@@ -7,10 +7,9 @@ import UIKit
 @testable import DesignSystem
 
 /// The caller's binding starts and ends an edit (a tap below a short title, a touch outside an
-/// edited one), and the field takes or gives up focus only once SwiftUI's update has ended.
-/// Inside it, UIKit asks the hosting view whether it can take focus, SwiftUI answers from the
-/// graph it is still updating, and AttributeGraph logs a dependency cycle. That log line does
-/// not reach a test, so this checks where the focus changes instead.
+/// edited one), and the field takes or gives up focus only once SwiftUI's update has ended,
+/// as `TitleTextView.Coordinator.followFocus(of:)` says why. The dependency cycle a change
+/// inside it logs does not reach a test, so this checks where the focus changes instead.
 @MainActor
 @Suite("Editable title follows its binding's focus after SwiftUI's update")
 struct EditableTitleBindingFocusTests {
@@ -50,8 +49,8 @@ struct EditableTitleBindingFocusTests {
         let window = UIWindow.sceneless(hosting: host, at: .large)
         defer { window.isHidden = true }
         window.settle()
-        func field(in view: UIView) -> UITextView? {
-            view as? UITextView ?? view.subviews.lazy.compactMap(field(in:)).first
+        func field(in view: UIView) -> TitleFieldView? {
+            view as? TitleFieldView ?? view.subviews.lazy.compactMap(field(in:)).first
         }
         let field = try #require(field(in: host.view))
 
@@ -76,6 +75,9 @@ struct EditableTitleBindingFocusTests {
             changes.insideUpdate = true
             host.view.setNeedsLayout()
             host.view.layoutIfNeeded()
+            // The update did run in the marked span: the field took the look the binding asks
+            // for. Without this, an update moved after the span would pass with nothing checked.
+            #expect(field.isEditingLook == isEditing, "SwiftUI's update ran outside the span")
             changes.insideUpdate = false
             await withCheckedContinuation { done in
                 DispatchQueue.main.async { done.resume() }

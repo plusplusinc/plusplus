@@ -42,8 +42,7 @@ struct EditableTitleTextSizeTests {
             host = UIHostingController(rootView: AnyView(
                 EditableTitleContent(
                     draft: .constant(draft),
-                    // Focused as a tap focuses it, so the text system lays it out as it does
-                    // while editing.
+                    // Held as the field is focused below, so nothing asks it to give up focus.
                     isFocused: .constant(isEditing),
                     placeholder: "New routine",
                     shownPlaceholder: "New routine",
@@ -59,8 +58,9 @@ struct EditableTitleTextSizeTests {
             host.safeAreaRegions = []
             window = .sceneless(hosting: host, at: category)
             window.layoutIfNeeded()
-            // As a tap on the text does. The binding alone would focus it only once this test's
-            // turn on the main queue has ended (`TitleTextView.Coordinator.followFocus(of:)`).
+            // As a tap on the text does, so the text system lays it out as it does while
+            // editing. The binding alone would focus it only once this test's turn on the main
+            // queue has ended (`TitleTextView.Coordinator.followFocus(of:)`).
             if isEditing {
                 _ = field?.becomeFirstResponder()
             }
