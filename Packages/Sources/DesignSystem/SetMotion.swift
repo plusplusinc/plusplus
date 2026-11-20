@@ -157,9 +157,12 @@ public enum SetMotion {
 
     /// The detail line, back on the row closing, fading in once the progress line has gone and
     /// the row is well on its way to a resting row: on a move to another exercise `way`, timed
-    /// from its shift's start.
+    /// from its shift's start, once the progress line's fade is done. Earlier, the two lines
+    /// were drawn one over the other for a few frames (2026-11-19).
     static func detailIn(way: Way?) -> Animation {
-        .easeOut(duration: 0.15).delay(way.map { moveShiftStart($0) + 0.08 } ?? 0.15)
+        .easeOut(duration: 0.15).delay(
+            way.map { leaveDelay(.progress, way: $0) + leaveFade } ?? 0.15,
+        )
     }
 
     /// The detail line on the next row going as its name starts to grow.
@@ -167,17 +170,11 @@ public enum SetMotion {
         .easeIn(duration: 0.06).delay(way.map(moveShiftStart) ?? 0)
     }
 
-    /// The progress line coming in on the row growing, as soon as the detail line has gone from
-    /// its place (`detailOut(way:)`): later, after fixed delays, the row stood open two lines
-    /// under its name with nothing in them.
-    static func progressIn(way: Way?) -> Animation {
-        .easeOut(duration: 0.1).delay((way.map(moveShiftStart) ?? 0) + 0.06)
-    }
-
-    /// The progress line on the row closing going as the detail line comes back in its place
-    /// (`detailIn(way:)`), its room closing to the detail line's.
-    static func progressOut(way: Way?) -> Animation {
-        .easeInOut(duration: 0.12).delay(way.map(moveShiftStart) ?? 0.05)
+    /// Out of a rest between exercises, the detail line on the next row, grown a step through the
+    /// rest, going just as the progress line comes in, never before: gone as the rest ended, it
+    /// left the row bare for a few frames.
+    static var detailOutOfRest: Animation {
+        .easeIn(duration: 0.06).delay(arriveDelay(.progress) - 0.06)
     }
 
     // MARK: Arrive
@@ -199,11 +196,13 @@ public enum SetMotion {
             case .equipment: 0.36
             }
         }
+        // Once the row's opening bottom, on the shift's curve, has passed each: at 0.18 s the
+        // figures faded in cut off by it (2026-11-19).
         return moveShiftStart(way) + {
             switch part {
-            case .progress: 0.14
-            case .figures: 0.18
-            case .equipment: 0.22
+            case .progress: 0.2
+            case .figures: 0.28
+            case .equipment: 0.36
             }
         }()
     }
