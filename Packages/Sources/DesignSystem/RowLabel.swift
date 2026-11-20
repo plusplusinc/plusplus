@@ -191,6 +191,8 @@ public struct RowLabel: View {
                         .foregroundStyle(.pp(.textSecondary))
                         .opacity(focus.showsAfter ? 1 : 0)
                         .modifier(SetRoomGoing(isResting: setRest?.isResting == true))
+                        // New words are a new view: crossfading, an unseen "then rest" showed.
+                        .id(focus.after)
                     }
                 }
                 .padding(.top, Spacing.sm)
