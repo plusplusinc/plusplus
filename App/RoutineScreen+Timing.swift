@@ -32,6 +32,7 @@ extension RoutineScreen {
             length: Double(timed.length),
             ends: workout.date(ofClock: timed.endClock),
             pausedLeft: workout.isPaused ? timed.remaining(atClock: clock) : nil,
+            isPaused: workout.isPaused,
         )
     }
 
@@ -81,6 +82,7 @@ extension RoutineScreen {
                 ends: workout.date(ofClock: timed.startClock),
                 pausedLeft: paused ? timed.startsIn(atClock: clock) : nil,
                 kind: .startsIn(time: RestBlock.spoken(Double(timed.length), locale: locale)),
+                isPaused: paused,
             )
         case .counting:
             return SetRest(
@@ -90,6 +92,7 @@ extension RoutineScreen {
                 pausedLeft: paused ? timed.remaining(atClock: clock) : nil,
                 turns: true,
                 kind: .count,
+                isPaused: paused,
             )
         }
     }

@@ -53,7 +53,12 @@ public struct RestBlock: View {
     }
 
     /// The time left; with `turns` off, it changes at once rather than rolling.
-    func countdown(size: CGFloat, locale: Locale, turns: Bool = true) -> some View {
+    func countdown(
+        size: CGFloat,
+        locale: Locale,
+        turns: Bool = true,
+        color: ColorToken = .textPrimary,
+    ) -> some View {
         let isOpen = stage == .open
         return TimelineView(RestSchedule(
             ends: ends,
@@ -64,7 +69,7 @@ public struct RestBlock: View {
                 ?? (isOpen ? max(0, ends.timeIntervalSince(context.date)) : Double(length))
             Text(Self.text(left, locale: locale))
                 .font(.system(size: size, weight: .bold, design: .monospaced))
-                .foregroundStyle(.pp(.textPrimary))
+                .foregroundStyle(.pp(color))
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
                 // A + or − turns the figure; a second going by, or the rest's end on the move's

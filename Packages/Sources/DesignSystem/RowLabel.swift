@@ -190,7 +190,7 @@ public struct RowLabel: View {
                         .font(.ppCurrentProgress)
                         .foregroundStyle(.pp(.textSecondary))
                         .opacity(focus.showsAfter ? 1 : 0)
-                        .modifier(SetRoomGoing(isResting: setRest?.isRunning == true))
+                        .modifier(SetRoomGoing(isResting: setRest?.isResting == true))
                     }
                 }
                 .padding(.top, Spacing.sm)

@@ -22,6 +22,15 @@ public struct SetRest {
     let turns: Bool
     /// What waits in the slot: a rest, a timed set's "Starts in", or the set's own count.
     let kind: Kind
+    /// Held by a pause: the count takes the gray the workout's paused time does, and its white
+    /// back on resume. A count held by its log, as between a side plank's sides, stays white.
+    let isPaused: Bool
+
+    /// Whether a rest runs in the slot: "then rest 1:00" goes for a rest only, and stays through
+    /// "Starts in" and a set's count, as through a reps set.
+    var isResting: Bool {
+        isRunning && kind == .rest
+    }
 
     /// What a wait in the figures' slot is.
     public enum Kind: Equatable, Sendable {
@@ -42,8 +51,10 @@ public struct SetRest {
         isOver: Bool = false,
         turns: Bool = false,
         kind: Kind = .rest,
+        isPaused: Bool = false,
     ) {
         self.kind = kind
+        self.isPaused = isPaused
         self.isRunning = isRunning
         self.length = length
         self.ends = ends
@@ -137,6 +148,7 @@ struct SetRoom: View, Animatable {
                             size: size,
                             locale: locale,
                             turns: rest.turns && !reduceMotion,
+                            color: rest.isPaused ? .textSecondary : .textPrimary,
                         )
                         .figureBox(size: size)
                     }
