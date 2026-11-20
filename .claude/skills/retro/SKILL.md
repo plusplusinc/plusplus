@@ -40,7 +40,7 @@ Output: a short report, a private digest, and one PR when there is something to 
   `gh pr list --state all --search "Retro of in:title"` (without `--state all` only open PRs
   are searched).
 - **One retro per merge.** Before starting, check that no retro PR, open or merged, already
-  names the PR number. The nightly run and one run by hand can both run this.
+  names the PR number.
 
 ## Never, in any run
 
@@ -223,8 +223,7 @@ morning; `run` starts one now, as launchd does. Each run's output and errors go 
 review when one is due (`.claude/skills/review-setup/`) and the night's tooling cards (its header
 has the gates); the retro itself does nothing for them.
 
-launchd runs a midnight missed while the Mac slept once it wakes; a night missed while it was
-off is covered by the next run, and `show` and the log say why. The run is named "Nightly retro", which keeps it out of `scripts/conversations.py`, so a
+The run is named "Nightly retro", which keeps it out of `scripts/conversations.py`, so a
 run never reads the last run's digest. Each `/retro nightly` does this, in order:
 
 1. **Note the start.** `date -u +%Y-%m-%dT%H:%M:%SZ`, kept to save in step 5, so work that
