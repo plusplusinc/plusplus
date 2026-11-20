@@ -79,7 +79,14 @@ public enum SetMotion {
     /// sizes, and the list's scroll: held until the pulse has landed and plopped
     /// (`moveShiftStart(_:)`), then started from rest, easing to a stop with no overshoot.
     public static func moving(_ way: Way) -> Animation {
-        .timingCurve(0.6, 0, 0.1, 1, duration: moveShift).delay(moveShiftStart(way))
+        shiftCurve.delay(moveShiftStart(way))
+    }
+
+    /// The shift's curve, under way soon after it starts so a row's height goes with its parts,
+    /// at most twice its average speed: on (0.6, 0, 0.1, 1), over four times, the row closing
+    /// stood open over nothing for a few frames, then the list moved 45 pt a frame (2026-11-19).
+    static var shiftCurve: Animation {
+        .timingCurve(0.25, 0, 0.35, 1, duration: moveShift)
     }
 
     /// Moving to another exercise, the shift's length.
@@ -213,7 +220,7 @@ public enum SetMotion {
     /// the dot leaves the word "Rest" rather than once it lands: the next exercise opens as the
     /// dot sets off, and its parts come in as they do at Start (`arriveDelay(_:way:)` with no way).
     public static var leavingRest: Animation {
-        .timingCurve(0.6, 0, 0.1, 1, duration: moveShift).delay(travelStart)
+        shiftCurve.delay(travelStart)
     }
 
     /// Into a superset round's rest, above its first member, everything the log changes: the

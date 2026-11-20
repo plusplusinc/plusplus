@@ -96,9 +96,11 @@ extension RoutineScreen {
         guard let rest = phase.resting, let live, let row = restRow(of: rest, in: live.workout)
         else { return }
         // Back up a superset's loop, the round's rest opens above its first member, maybe out of
-        // sight: the list scrolls it under the bar from the tap, on the dot's way there.
+        // sight: the list scrolls it under the bar from the tap, on the dot's way there, its pitch
+        // at rest noted first (at the rest's end it held the rest: the next move overshot).
         let way = SetMotion.Way(isBack: rest.isBack)
         let target = rest.isBack ? landing(on: row, leaving: rest.set.row) : nil
+        noteRestingPitch(of: rest.isBack ? row : nil)
         withTransaction(\.disablesAnimations, true) {
             isMakingRoom = true
             endFollow = nil
@@ -180,11 +182,10 @@ extension RoutineScreen {
             }
         }
         guard rest.beat == .settled else { return }
-        noteRestingPitch(of: next.row)
-        // From the rest's height, not the row's pitch at rest, which a relaunch into the workout
-        // never noted: with no target, the list landed in a second motion after the move.
-        // Before a superset's next round the rest closes above the next row, in its own row,
-        // whose top stays where it is: a short move down.
+        noteRestingPitch(of: rest.isBack ? nil : next.row)
+        // From the rest's height, not the row's pitch at rest, which a relaunch never noted (the
+        // list landed in a second motion). Before a superset's next round the rest closes above
+        // the next row, in its own row, whose top stays where it is: a short move down.
         let target = rest.isBack
             ? landing(on: next.row, leaving: rest.set.row)
             : landing(on: next.row, closingRestUnder: rest.set.row)
@@ -228,8 +229,7 @@ extension RoutineScreen {
     }
 
     /// The row a rest between exercises is drawn in, `workout` holding the set it follows: the
-    /// row left, under its label; or, before a superset's next round, the first member's, above
-    /// its label (`isBack`).
+    /// row left, under its label; before a superset's next round, the first member's, above it.
     func restRow(of rest: WorkoutPhase.Resting, in workout: Workout) -> RoutineExercise.ID? {
         rest.isBack ? LiveWorkout(routine: routine, workout: workout).currentSet?.row : rest.set.row
     }

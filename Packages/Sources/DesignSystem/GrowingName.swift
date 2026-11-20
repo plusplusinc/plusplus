@@ -12,8 +12,9 @@ import SwiftUI
 /// than the name it hands off to, which then stepped wider. Where they don't, as a long name can,
 /// both scale by the font sizes' ratio and hand over in a short span (`Drawing.handOverSpan`)
 /// ending where the small name, scaled up, would no longer fit the row: the small fades out, then
-/// the large fades in, never both over each other. The name's height and first baseline run
-/// between the two sizes', as drawn. The rail's node keeps the place it has
+/// the large fades in, never both over each other. The name's first baseline runs between the
+/// two sizes' as drawn, and its height across the growth up to the large name showing (`room`).
+/// The rail's node keeps the place it has
 /// on a row's name, its center that far above the baseline grown by the letters' scale
 /// (`railNodeBaseline`): on the baseline alone, it kept a row's height above it and sat low on the
 /// large name.
@@ -147,6 +148,7 @@ struct GrowingName: View, Animatable {
                 largeOpacity = growth > 0 ? 1 : 0
                 smallOpacity = 1 - largeOpacity
                 handOff = growth
+                room = growth
                 return
             }
             // Over a short span ending where the small name, scaled up, stops fitting the row:
@@ -158,7 +160,18 @@ struct GrowingName: View, Animatable {
             handOff = growth >= 1 ? 1 : growth <= 0 ? 0 : share
             smallOpacity = 1 - min(max(handOff * 2, 0), 1)
             largeOpacity = min(max(handOff * 2 - 1, 0), 1)
+            // From 0 to where the large name starts to show, easing out to it: the room is all
+            // the large name's by the time it draws, so it never runs past the name's bottom.
+            let shown = max(end - span / 2, 0.01)
+            let along = min(max(growth / shown, 0), 1)
+            room = 1 - (1 - along) * (1 - along)
         }
+
+        /// Where crossfading names' room is, from the small name's at 0 to the large's at 1:
+        /// across the growth up to the large name showing, so the name's height runs on with the
+        /// row's growth. Over the hand-off alone, the height stepped a line in a few frames
+        /// (2026-11-19). Where the two break alike, the growth.
+        var room: CGFloat = 0
     }
 }
 
@@ -182,18 +195,19 @@ private struct GrowingNameLayout: Layout {
         let width = proposal.width.flatMap { $0.isFinite ? $0 : nil }
         return CGSize(
             width: width ?? max(small.width, large.width),
-            height: between(small.height, large.height),
+            height: between(small.height, large.height, by: drawing.room),
         )
     }
 
     /// A length of the small name and the large, at the growth: where the two break alike, run
-    /// straight between; where they crossfade, between the two as drawn, by the hand-off, so the
-    /// room is the name showing's, not a two-line name's at a growth the small name still shows.
-    private func between(_ small: CGFloat, _ large: CGFloat) -> CGFloat {
+    /// straight between; where they crossfade, between the two as drawn, `share` of the way: the
+    /// hand-off for the first baseline, which is the name showing's; the room's share for the
+    /// height, which runs on with the growth.
+    private func between(_ small: CGFloat, _ large: CGFloat, by share: CGFloat) -> CGFloat {
         guard drawing.crossfades else { return small + (large - small) * growth }
         let drawnSmall = small * drawing.smallScale
         let drawnLarge = large * drawing.largeScale.height
-        return drawnSmall + (drawnLarge - drawnSmall) * drawing.handOff
+        return drawnSmall + (drawnLarge - drawnSmall) * share
     }
 
     func placeSubviews(
@@ -223,7 +237,7 @@ private struct GrowingNameLayout: Layout {
         let offer = ProposedViewSize(width: proposal.width, height: nil)
         let small = subviews[0].dimensions(in: offer)[.firstTextBaseline]
         let large = subviews[1].dimensions(in: offer)[.firstTextBaseline]
-        let baseline = bounds.minY + between(small, large)
+        let baseline = bounds.minY + between(small, large, by: drawing.handOff)
         guard guide == .railNodeBaseline else { return baseline }
         let glyph = subviews[2].dimensions(in: .unspecified)
         return baseline - (glyph[.firstTextBaseline] - glyph.height / 2) * (letterScale - 1)

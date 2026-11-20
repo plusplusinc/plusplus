@@ -20,9 +20,9 @@ extension EnvironmentValues {
     /// landed, so the current exercise's parts go later (`SetMotion.leaveDelay(_:way:)`) and the
     /// next one's come in later (`SetMotion.arriveDelay(_:way:)`). None after the last set.
     @Entry public var exerciseMoveWay: SetMotion.Way?
-    /// Whether the figures and the equipment go under the row's bottom, closing from the tap,
-    /// dimming as it cuts them off, as into a superset round's rest above: faded at once, they
-    /// left the row standing empty and tall under its name as it closed.
+    /// Whether the figures and the equipment go under the row's bottom as it closes, dimming as
+    /// it cuts them off, into a superset round's rest above and on any move's shift: faded at
+    /// once, they left the row standing empty and tall under its name as it closed.
     @Entry var partsLeaveUnderCut = false
 }
 
@@ -33,10 +33,14 @@ private struct PartMotion: ViewModifier {
     @Environment(\.partsLeaveUnderCut) private var leavesUnderCut
 
     func body(content: Content) -> some View {
-        // Under the cut they dim over the whole close as its bottom passes them. The progress
-        // line still goes at once, before the detail line comes back in its place.
+        // Under the cut they dim over the whole close as its bottom passes them: on a move's
+        // shift, from its start. The progress line still goes at once, before the detail line
+        // comes back in its place.
         let leaving = leavesUnderCut && part != .progress
-            ? Animation.easeIn(duration: SetMotion.restAboveOpen)
+            ? exerciseMoveWay.map {
+                Animation.easeIn(duration: SetMotion.moveShift)
+                    .delay(SetMotion.moveShiftStart($0))
+            } ?? .easeIn(duration: SetMotion.restAboveOpen)
             : .easeIn(duration: SetMotion.leaveFade)
             .delay(SetMotion.leaveDelay(part, way: exerciseMoveWay))
         let arriveDelay = SetMotion.arriveDelay(part, way: exerciseMoveWay)
