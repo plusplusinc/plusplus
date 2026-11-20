@@ -109,26 +109,11 @@ extension XCUIApplication {
         typeIntoSearch(text)
     }
 
-    /// Types `text` into the open search key by key on the keyboard: XCTest reads the bar's
-    /// field as unfocused while it has the keyboard, and its `typeText` refuses an element
-    /// without focus. Letters, spaces, and deletes; Shift for a capital.
+    /// Types `text` into the open search through the app, whose focused field takes it: XCTest
+    /// reads the bar's field itself as unfocused while it has the keyboard, and the field's own
+    /// `typeText` refuses an element without focus.
     func typeIntoSearch(_ text: String) {
-        let keyboard = keyboards.element
-        for character in text {
-            switch character {
-            case " ":
-                keyboard.keys["space"].tap()
-            case Character(XCUIKeyboardKey.delete.rawValue):
-                keyboard.keys["delete"].tap()
-            default:
-                let key = keyboard.keys[String(character)]
-                if !key.exists {
-                    // A button, not a key.
-                    keyboard.buttons["shift"].tap()
-                }
-                key.tap()
-            }
-        }
+        typeText(text)
     }
 
     /// Opens the picker with Add exercise, the + floating over the list, which stays put as rows
@@ -165,8 +150,7 @@ extension XCUIApplication {
     }
 
     /// Adds a z to the search `query`, which then matches nothing, and checks that the list
-    /// narrows down to its one row, Create, and returns the name Create makes. One key: each
-    /// costs about half a second.
+    /// narrows down to its one row, Create, and returns the name Create makes.
     func searchForNothing(extending query: String) -> String {
         typeIntoSearch("z")
         // Create capitalizes the first letter, and only that.
@@ -188,11 +172,8 @@ extension XCUIApplication {
 
     /// The exercise rows' count once it is `expected`, or the last count after the timeout, which
     /// leaves an add time to land: an added row is in the tree only once it has.
-    func exerciseCount(
-        becoming expected: Int,
-        within timeout: TimeInterval = AddTiming.landed + 2,
-    ) -> Int {
-        reading(exerciseRows.count, becoming: expected, within: timeout)
+    func exerciseCount(becoming expected: Int) -> Int {
+        reading(exerciseRows.count, becoming: expected, within: AddTiming.landed + 2)
     }
 
     /// Whether, after a Create, the created row's sheet opens on its Customize form, once it

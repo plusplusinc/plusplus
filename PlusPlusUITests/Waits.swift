@@ -12,6 +12,14 @@ extension XCUIElement {
         !reading(exists, becoming: false, within: timeout)
     }
 
+    /// Whether the element stays out of the tree for `timeout`, which a passing check waits out
+    /// in full. A sheet, the drawer, or a row's swipe actions that do come are there at the
+    /// first read after what brings them returns (Xcode Cloud run 494's positive checks), so
+    /// half a second gives one that came late about ten reads to show on Xcode Cloud.
+    func staysAway(for timeout: TimeInterval = 0.5) -> Bool {
+        !appears(within: timeout)
+    }
+
     /// Whether the element has stopped moving: its frame unchanged for `still` seconds, within
     /// the timeout from the first frame read's answer (`settling`). A row's place on the rail
     /// opens frame by frame, and where a view takes taps moves with it, so a tap read from a frame

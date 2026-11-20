@@ -1,8 +1,8 @@
 import XCTest
 
 /// The ++ drawer and the Routines screen over saved routines: the drawer's mark, a row's
-/// Customize…, Add exercise's hold menu, and the drill-in from the Routines screen. Which
-/// routines come first is `RoutineStoreRecencyTests`'. Names come from the muscle groups
+/// Customize…, a built-in's hold menu in Add exercise, and the drill-in from the Routines screen.
+/// Which routines come first is `RoutineStoreRecencyTests`'. Names come from the muscle groups
 /// (`-fallbackNames`). A name typed on a pushed routine and left with no Return shows in the list
 /// once popped, which only the session's save puts there; that a save reaches the store is
 /// `RoutineSessionTests`', and that one survives a quit `RoutineAutosaveUITests`'.
@@ -56,7 +56,8 @@ final nonisolated class RoutineDrawerUITests: XCTestCase {
             XCTAssertEqual(title.value as? String, "Chest")
         }
         rowCustomizes(in: app)
-        holdMenuCustomizesAndDeletes(in: app)
+        builtInHoldMenuCustomizes(in: app)
+        customizeInPickerDeletes(in: app)
         routinesScreenDrillsIn(in: app, title: title)
         routinesDeleteRoutines(in: app, title: title)
     }
