@@ -67,14 +67,12 @@ public struct RestBlock: View {
 
     /// The time left; with `turns` off, it changes at once rather than rolling. Always within
     /// `shown`: "Starts in" reads 0:10 as it comes in and 0:01 until it goes, never 0:00.
-    /// `staysPut`, it takes no motion of the parts around it and only fades, as at End.
     func countdown(
         size: CGFloat,
         locale: Locale,
         turns: Bool = true,
         color: ColorToken = .textPrimary,
         shown: ClosedRange<Double> = 0 ... .infinity,
-        staysPut: Bool = false,
     ) -> some View {
         let isOpen = stage == .open
         return TimelineView(RestSchedule(
@@ -86,6 +84,10 @@ public struct RestBlock: View {
             Text(text)
                 .font(.system(size: size, weight: .bold, design: .monospaced))
                 .foregroundStyle(.pp(color))
+                // Gray at a pause and white at a resume at once, with the bar's time and the
+                // key's fill: a resume moves `ends`, and the figure's glide below grayed it out
+                // over half a second.
+                .animation(nil, value: color)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
                 // A + or − turns the figure; a second going by, or the rest's end on the move's
@@ -105,11 +107,6 @@ public struct RestBlock: View {
                 // its leaving exercise drops it.
                 .transaction(value: text) {
                     if turns {
-                        $0.animation = nil
-                    }
-                }
-                .transaction {
-                    if staysPut {
                         $0.animation = nil
                     }
                 }

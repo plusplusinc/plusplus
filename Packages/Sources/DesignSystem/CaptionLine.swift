@@ -56,24 +56,42 @@ struct CaptionLine: Layout {
 }
 
 /// The words at the caption line's end, "then rest 1:00", "30 seconds", or "last set": laid out
-/// through a rest too, faded, so the line keeps its height. One part of the line with its right
-/// edge fixed: new words fade in as the old fade out, both in place, never sliding across the
-/// counter beside them; each words a view of their own, so an unseen "then rest" never shows
-/// as it gives way.
+/// through a rest too, faded, so the line keeps its height, and as wide as the widest words it
+/// keeps room for (`RowFocus.afterRoom`), so it wraps the same in each of a set's states. One
+/// part of the line with its right edge fixed: words that change fade in place, never sliding
+/// across the counter beside them, the old gone before the new show, never legible together,
+/// both within the slot's swap (`SetMotion.restSwap`, `SetRoom.handOff`); each words a view of
+/// their own, so an unseen "then rest" never shows as it gives way.
 struct CaptionEndWords: View {
-    let words: String?
-    let shows: Bool
+    let focus: RowFocus
     let isResting: Bool
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            Text(AttributedString.monoNumbers(words ?? "", font: .ppCurrentProgress))
-                .font(.ppCurrentProgress)
-                .foregroundStyle(.pp(.textSecondary))
-                .opacity(shows ? 1 : 0)
+            ForEach(focus.afterRoom, id: \.self) { words in
+                text(words).hidden()
+            }
+            text(focus.after ?? "")
+                .opacity(focus.showsAfter ? 1 : 0)
                 .modifier(SetRoomGoing(isResting: isResting))
-                .id(words)
-                .transition(.opacity)
+                .id(focus.after)
+                .transition(Self.change)
         }
+    }
+
+    private func text(_ words: String) -> some View {
+        Text(AttributedString.monoNumbers(words, font: .ppCurrentProgress))
+            .font(.ppCurrentProgress)
+            .foregroundStyle(.pp(.textSecondary))
+    }
+
+    /// The old words fade over the swap's first part, the new over the next, as the figures
+    /// and a wait swap.
+    private static var change: AnyTransition {
+        let part = SetMotion.roll * SetRoom.handOff
+        return .asymmetric(
+            insertion: .opacity.animation(.easeOut(duration: part).delay(part)),
+            removal: .opacity.animation(.easeIn(duration: part)),
+        )
     }
 }

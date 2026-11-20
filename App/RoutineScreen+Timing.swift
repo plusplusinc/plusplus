@@ -78,6 +78,22 @@ extension RoutineScreen {
         }
     }
 
+    /// A timed set's caption line: it keeps room for both the set's time and what follows it,
+    /// so it wraps the same through "Starts in" and the count, on either side, and the figures
+    /// under it never move. During "Starts in", the set's time in words, "30 seconds", stands
+    /// where "then rest 0:30" will once it counts, in the same update as the slot's change, so
+    /// the line changes once, with it.
+    func timedCaption(_ focus: inout RowFocus, of item: RoutineExercise) {
+        guard case let .time(seconds) = item.plan.target else { return }
+        focus.afterRoom = [focus.after, RestBlock.spoken(Double(seconds), locale: locale)]
+            .compactMap(\.self)
+        if case let .startsIn(time) = setWait(of: item.id, current: item.id)?.kind {
+            focus.after = time
+            focus.spokenAfter = time
+            focus.showsAfter = true
+        }
+    }
+
     /// The keys while the set counts: "Log early", filling, and +15 s.
     func countKeys(_ text: String, isOut: Bool) -> some View {
         TimedSetKeys(
@@ -117,7 +133,6 @@ extension RoutineScreen {
                 length: kept.length,
                 pausedLeft: kept.left,
                 kind: .count,
-                staysPut: phase.isEnding,
             )
         }
         let stage = phase.timing ?? phase.endingCount ?? (phase.isLeavingRest ? .counting : nil)
@@ -128,7 +143,6 @@ extension RoutineScreen {
                 length: LiveWorkout.startsIn,
                 pausedLeft: Double(LiveWorkout.startsIn),
                 kind: .startsIn(time: time),
-                staysPut: phase.isEnding,
             )
         }
         let workout = shown.workout
@@ -145,7 +159,6 @@ extension RoutineScreen {
                 pausedLeft: holds ? timed.startsIn(atClock: clock) : nil,
                 kind: .startsIn(time: RestBlock.spoken(Double(timed.length), locale: locale)),
                 isPaused: workout.isPaused,
-                staysPut: phase.isEnding,
             )
         case .counting:
             return SetRest(
@@ -156,7 +169,6 @@ extension RoutineScreen {
                 turns: true,
                 kind: .count,
                 isPaused: workout.isPaused,
-                staysPut: phase.isEnding,
             )
         }
     }
@@ -251,15 +263,6 @@ struct CountWatch: Equatable {
 }
 
 extension WorkoutPhase {
-    /// Whether End is playing: a count or "Starts in" fades where it stands.
-    var isEnding: Bool {
-        if case .ending = self {
-            true
-        } else {
-            false
-        }
-    }
-
     /// The count End came in, drawn as it stood until the workout goes.
     var endingCount: CountStage? {
         guard case let .ending(ending) = self else { return nil }

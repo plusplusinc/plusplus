@@ -93,14 +93,7 @@ extension RoutineScreen {
             )?.text
             focus.showsAfter = false
         }
-        // During "Starts in", the set's time in words, "30 seconds", where "then rest 0:30" will
-        // stand once it counts; in the same update as the slot's change, so the line changes
-        // once, with it.
-        if case let .startsIn(time) = setWait(of: item.id, current: item.id)?.kind {
-            focus.after = time
-            focus.spokenAfter = time
-            focus.showsAfter = true
-        }
+        timedCaption(&focus, of: item)
         // Resting between two sets, the line says the set just done, "1 of 3 done", until the
         // next set swaps back up; the caption line's end still says the rest it went to as it
         // fades, not what follows the next set.

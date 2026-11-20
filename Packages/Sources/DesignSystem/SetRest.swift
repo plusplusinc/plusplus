@@ -25,9 +25,6 @@ public struct SetRest {
     /// Held by a pause: the count takes the gray the workout's paused time does, and its white
     /// back on resume. A count held by its log, as between a side plank's sides, stays white.
     let isPaused: Bool
-    /// Ended with the workout: the countdown fades where it stands, never moving with the parts
-    /// around it.
-    let staysPut: Bool
 
     /// Whether a rest runs in the slot: "then rest 1:00" goes for a rest only, and stays through
     /// "Starts in" and a set's count, as through a reps set.
@@ -72,11 +69,9 @@ public struct SetRest {
         turns: Bool = false,
         kind: Kind = .rest,
         isPaused: Bool = false,
-        staysPut: Bool = false,
     ) {
         self.kind = kind
         self.isPaused = isPaused
-        self.staysPut = staysPut
         self.isRunning = isRunning
         self.length = length
         self.ends = ends
@@ -173,7 +168,6 @@ struct SetRoom: View, Animatable {
                             turns: rest.turns && !reduceMotion,
                             color: rest.isPaused ? .textSecondary : .textPrimary,
                             shown: rest.kind.shown(length: rest.length),
-                            staysPut: rest.staysPut,
                         )
                         .figureBox(size: size)
                     }
@@ -285,7 +279,6 @@ private struct WaitCountdown: View {
     let turns: Bool
     let color: ColorToken
     let shown: ClosedRange<Double>
-    let staysPut: Bool
 
     @Environment(\.locale) private var locale
     @Environment(\.waitLeaves) private var leaves
@@ -299,7 +292,6 @@ private struct WaitCountdown: View {
                 turns: turns,
                 color: color,
                 shown: shown,
-                staysPut: staysPut,
             )
             .onChange(of: leaves, initial: true) {
                 leftAt = leaves ? .now : nil

@@ -182,11 +182,7 @@ public struct RowLabel: View {
                     }
                     CaptionLine(spacing: Spacing.md) {
                         progressLine(focus)
-                        CaptionEndWords(
-                            words: focus.after,
-                            shows: focus.showsAfter,
-                            isResting: setRest?.isResting == true,
-                        )
+                        CaptionEndWords(focus: focus, isResting: setRest?.isResting == true)
                     }
                 }
                 .padding(.top, Spacing.sm)
@@ -340,6 +336,9 @@ public struct RowFocus: Equatable {
     /// Whether `after` shows; unseen, it keeps its room, as on a set's first side, where the
     /// other side follows, so the line holds the height the second side's rest gives it.
     public var showsAfter = true
+    /// Words the line's end keeps room for, unseen, in every state of the set: a timed set's
+    /// time and its "then rest", so the line, and the figures under it, never move between them.
+    public var afterRoom: [String] = []
     public init(
         progress: String,
         side: String? = nil,
