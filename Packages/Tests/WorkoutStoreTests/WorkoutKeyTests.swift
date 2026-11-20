@@ -4,7 +4,7 @@ import Testing
 
 /// The key at the bottom: what it says and what a tap on it does, one row per case, from the
 /// workout as stored and as drawn, the phase, and where the current exercise is.
-@Suite("Workout key")
+@Suite("What the workout key says and does")
 struct WorkoutKeyTests {
     /// One case of the key: its inputs, and the role and tap it should give.
     struct Row: CustomTestStringConvertible, Sendable {
