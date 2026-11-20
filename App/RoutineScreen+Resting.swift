@@ -30,8 +30,15 @@ import WorkoutStore
 /// Between two sets of one plain exercise, the rest takes the figures' slot (`SetRest`); done one
 /// side at a time, after a set's second side, never between its sides. With the same bar, from
 /// the tap, everything the log changes on one curve (`SetMotion.restSwap`), and the exercise's
-/// node stays steady green; with Reduce Motion it swaps in and out at once. Not yet: a relaunch
-/// or a return from the background mid-rest. The rest's taps are kept in memory only.
+/// node stays steady green; with Reduce Motion it crossfades in and out.
+///
+/// A rest runs on the workout's clock from its log, its taps kept with the set logged
+/// (`Workout.adjustingRest(by:length:at:)`), so a pause stops it, and a relaunch or a return
+/// from the background opens in it, drawn and settled, at the time left, or past its end on the
+/// next set (`WorkoutPhase(resuming:restOverride:at:)`). VoiceOver hears "Rest" and its length as
+/// it starts (`announceRest()`), reads the countdown as its own element, with the time left, and
+/// the keys as "Minus 15 seconds" and "Plus 15 seconds". At its end the phone taps once, heavy
+/// (`restEnds`).
 extension RoutineScreen {
     /// For the UI tests, every rest's length (`-seedRest`); nil in a release build.
     var restOverride: Int? {

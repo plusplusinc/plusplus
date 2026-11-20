@@ -267,15 +267,20 @@ public struct RowLabel: View {
     }
 
     private var spokenLabel: String {
+        let isResting = setRest?.isRunning == true
         let parts = if let focus {
             [
                 title,
-                [focus.progress, focus.showsSide ? focus.side : nil].compactMap(\.self)
-                    .joined(separator: ", "),
+                // Resting, the caption's "1 of 3 done" says what the bars' words say.
+                [
+                    isResting && bars != nil ? nil : focus.progress,
+                    focus.showsSide ? focus.side : nil,
+                ]
+                .compactMap(\.self).joined(separator: ", "),
                 // During a rest between sets the figures are gone from its place; the rest reads
                 // as its own element after the label (`SetRest.spoken`).
-                setRest?.isRunning == true ? "" : focus.spokenFigures,
-                setRest?.isRunning == true || !focus.showsAfter
+                isResting ? "" : focus.spokenFigures,
+                isResting || !focus.showsAfter
                     ? "" : focus.spokenAfter ?? focus.after ?? "",
             ]
         } else {

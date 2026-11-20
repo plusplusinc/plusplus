@@ -20,7 +20,7 @@ struct GrowingNameSnapshotTests {
         .background(Color.pp(.background))
     }
 
-    @Test("A long name halfway: crossfades where its sizes break apart, not where alike (AX5)")
+    @Test("A long name halfway: one piece, on the lines the grown name breaks at (AX5)")
     func wrapsDifferently() {
         assertThemedSnapshots(of: stages("Single-leg Romanian deadlift"), width: 320)
     }

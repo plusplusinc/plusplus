@@ -344,8 +344,6 @@ extension RoutineScreen {
         return max(nextTop - (after - leavingTop - resting), 0)
     }
 
-    /// Notes `id`'s pitch at rest, top to the next row's top, before it grows: what it gives
-    /// back as it shrinks. The rail keeps a resting row to a rhythm, so it is more than its height.
     /// Where the list lands `next`'s row under the bar as a rest between exercises ends: up by the
     /// rest closing under the row left, already a resting row, all it gives back. Nil when the
     /// row isn't known.
@@ -357,6 +355,8 @@ extension RoutineScreen {
         return max(nextTop - (rowFrames.restHeights[leaving] ?? 0), 0)
     }
 
+    /// Notes `id`'s pitch at rest, top to the next row's top, before it grows: what it gives
+    /// back as it shrinks. The rail keeps a resting row to a rhythm, so it is more than its height.
     func noteRestingPitch(of id: RoutineExercise.ID?) {
         guard let id, let top = rowFrames.tops[id],
               let after = routine.neighbor(of: id, .below).flatMap({ rowFrames.tops[$0.id] })

@@ -43,7 +43,7 @@ enum LaunchOptions {
     /// `-seedSets` gives every seeded row that many sets, for a test that needs fewer logs to
     /// reach a workout's end. `-seedWorkout <n>` also starts a workout on the routine, with its
     /// first `n` sets logged as taps would, so the app opens mid-workout through the relaunch
-    /// path.
+    /// path, on the next set: none of them starts a rest.
     static var seededRoutine: SeededRoutine? {
         let defaults = UserDefaults.standard
         guard let ids = defaults.string(forKey: "seedExercises") else { return nil }
@@ -80,6 +80,11 @@ enum LaunchOptions {
             if let row = routine.exercises.first(where: { $0.id == set.row }) {
                 workout = workout.logging(set, of: row, at: .now)
             }
+        }
+        // Logged with no time kept, as before a rest's was: the workout opens on its next set,
+        // not in the rest after the last one seeded.
+        for index in workout.sets.indices {
+            workout.sets[index].clockWhenLogged = nil
         }
         try await store.save(workout)
     }
