@@ -182,17 +182,11 @@ public struct RowLabel: View {
                     }
                     CaptionLine(spacing: Spacing.md) {
                         progressLine(focus)
-                        // Laid out through a rest too, faded, so the line keeps its height.
-                        Text(AttributedString.monoNumbers(
-                            focus.after ?? "",
-                            font: .ppCurrentProgress,
-                        ))
-                        .font(.ppCurrentProgress)
-                        .foregroundStyle(.pp(.textSecondary))
-                        .opacity(focus.showsAfter ? 1 : 0)
-                        .modifier(SetRoomGoing(isResting: setRest?.isResting == true))
-                        // New words are a new view: crossfading, an unseen "then rest" showed.
-                        .id(focus.after)
+                        CaptionEndWords(
+                            words: focus.after,
+                            shows: focus.showsAfter,
+                            isResting: setRest?.isResting == true,
+                        )
                     }
                 }
                 .padding(.top, Spacing.sm)

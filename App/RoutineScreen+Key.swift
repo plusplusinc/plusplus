@@ -79,7 +79,7 @@ extension RoutineScreen {
     /// the key, but a tap as it began to rise, as after Create, reached the key and started or
     /// logged behind it. While the key swaps, `key` drops the tap.
     func tapKey() {
-        guard editing == nil else { return }
+        guard editing == nil, countBeats.earlyLog == nil else { return }
         perform(liveKey.tap)
     }
 
@@ -95,6 +95,9 @@ extension RoutineScreen {
             // With Reduce Motion the list jumps back, as the key's swap only fades.
             withAnimation(reduceMotion ? nil : .snappy(duration: 0.4), scrollToCurrent)
         case let .log(set, current, impact, step):
+            if impact != .runOut, phase.timing == .counting {
+                return logEarly(set, of: current, impact: impact, leadingTo: step)
+            }
             switch impact {
             case .set: setLogs += 1
             case .side: sideLogs += 1
@@ -154,7 +157,7 @@ extension RoutineScreen {
             let start = ContinuousClock.now
             try await beat(until: start + .seconds(SetMotion.heldRoll))
             withAnimation(.snappy(duration: SetMotion.roll)) {
-                phase.rollOn(on: arrivingCount())
+                phase.rollOn(on: arrivingCount(lead: SetMotion.roll))
             }
         }
     }

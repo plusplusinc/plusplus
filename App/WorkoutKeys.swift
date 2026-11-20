@@ -85,16 +85,25 @@ struct WorkoutTimeKey: View {
     }
 }
 
-/// The whole seconds of a workout's elapsed time while it runs; while paused, once.
+/// The whole seconds of a workout's elapsed time while it runs; while paused, once. It holds
+/// only the two values its ticks depend on: holding the whole workout, every change to it (a
+/// log, a timed set's count beginning) gave the timeline a new schedule, and the label held a
+/// second for up to 1.6 s after a log.
 private struct SecondsSchedule: TimelineSchedule {
-    let workout: Workout
+    let clockStart: Date
+    let isPaused: Bool
+
+    init(workout: Workout) {
+        clockStart = workout.clockStart
+        isPaused = workout.isPaused
+    }
 
     func entries(from startDate: Date, mode: Mode) -> AnyIterator<Date> {
-        if workout.isPaused {
+        if isPaused {
             return AnyIterator([startDate].makeIterator())
         }
         return AnyIterator(
-            PeriodicTimelineSchedule(from: workout.clockStart, by: 1)
+            PeriodicTimelineSchedule(from: clockStart, by: 1)
                 .entries(from: startDate, mode: mode),
         )
     }

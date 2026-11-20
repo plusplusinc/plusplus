@@ -21,8 +21,10 @@ import WorkoutStore
 extension RoutineScreen {
     /// Begins the current set's count as the screen comes to rest on it, when it is timed and
     /// has none, and says where it stands: what each transition that lands at rest is given.
-    func arrivingCount() -> CountStage? {
-        session.beginCount(override: restOverride)
+    /// `lead`, the seconds the slot takes to come in from here: "Starts in" counts from then, so
+    /// its 0:10 shows a full second at full strength.
+    func arrivingCount(lead: Double = 0) -> CountStage? {
+        session.beginCount(override: restOverride, at: .now.addingTimeInterval(lead))
         return live?.countStage(at: .now)
     }
 
@@ -30,8 +32,17 @@ extension RoutineScreen {
     /// set just logged holds it, early or run out, and as the count's keys leave in the bar's
     /// swap.
     var keyFill: KeyFill {
+        // Ended mid-count: the fill holds where End found it as the key goes.
+        if phase.endingCount == .counting, let shown, let timed = shown.timedSet {
+            return KeyFill(
+                length: Double(timed.length),
+                ends: .distantPast,
+                pausedLeft: timed.remaining(atClock: shown.workout.clock(at: .now)),
+            )
+        }
         let key = liveKey
-        guard key.keptCount == nil, key.drawnCount == .counting, let timed = live?.timedSet,
+        guard countBeats.earlyLog == nil, key.keptCount == nil, key.drawnCount == .counting,
+              let timed = live?.timedSet,
               let workout = session.workout
         else { return .logged }
         let clock = workout.clock(at: .now)
@@ -41,6 +52,30 @@ extension RoutineScreen {
             pausedLeft: workout.isPaused ? timed.remaining(atClock: clock) : nil,
             isPaused: workout.isPaused,
         )
+    }
+
+    /// "Log early" tapped: the fill runs on to full from the tap as the count holds, then the
+    /// log is stored at the tap's time, so a rest after it starts there, and shown, the slot and
+    /// the keys changing together once the key is full.
+    func logEarly(
+        _ set: PlannedSet,
+        of row: RoutineExercise,
+        impact: WorkoutKey.Impact,
+        leadingTo step: LiveWorkout.Step,
+    ) {
+        let tapped = Date.now
+        countBeats.earlyLog = tapped
+        Task {
+            try? await Task.sleep(for: .seconds(PrimaryKeyButtonStyle.swapHalf), tolerance: .zero)
+            guard countBeats.earlyLog == tapped else { return }
+            countBeats.earlyLog = nil
+            switch impact {
+            case .set, .runOut: setLogs += 1
+            case .side: sideLogs += 1
+            }
+            session.log(set, of: row, at: tapped)
+            play(set, leadingTo: step)
+        }
     }
 
     /// The keys while the set counts: "Log early", filling, and +15 s.
@@ -82,6 +117,7 @@ extension RoutineScreen {
                 length: kept.length,
                 pausedLeft: kept.left,
                 kind: .count,
+                staysPut: phase.isEnding,
             )
         }
         let stage = phase.timing ?? phase.endingCount ?? (phase.isLeavingRest ? .counting : nil)
@@ -92,12 +128,14 @@ extension RoutineScreen {
                 length: LiveWorkout.startsIn,
                 pausedLeft: Double(LiveWorkout.startsIn),
                 kind: .startsIn(time: time),
+                staysPut: phase.isEnding,
             )
         }
         let workout = shown.workout
-        let clock = workout.clock(at: .now)
-        // Held: paused, or ended, as the workout's time holds.
-        let holds = workout.isPaused || phase.endingCount != nil
+        // Held: paused, or ended, as the workout's time holds; or logged early, where the tap
+        // stopped it, as its fill runs on.
+        let clock = countBeats.earlyLog.map { workout.clock(at: $0) } ?? workout.clock(at: .now)
+        let holds = workout.isPaused || phase.endingCount != nil || countBeats.earlyLog != nil
         switch stage {
         case .startsIn:
             return SetRest(
@@ -107,6 +145,7 @@ extension RoutineScreen {
                 pausedLeft: holds ? timed.startsIn(atClock: clock) : nil,
                 kind: .startsIn(time: RestBlock.spoken(Double(timed.length), locale: locale)),
                 isPaused: workout.isPaused,
+                staysPut: phase.isEnding,
             )
         case .counting:
             return SetRest(
@@ -117,6 +156,7 @@ extension RoutineScreen {
                 turns: true,
                 kind: .count,
                 isPaused: workout.isPaused,
+                staysPut: phase.isEnding,
             )
         }
     }
@@ -149,6 +189,8 @@ extension RoutineScreen {
             else { return }
         }
         guard watch.stage == .startsIn else {
+            // Logged early in the count's last moment: that log stands.
+            guard countBeats.earlyLog == nil else { return }
             return perform(liveKey.runOut)
         }
         // "Starts in" swaps for the count as the figures and a rest swap, the key with it.
@@ -196,6 +238,8 @@ struct CountSubject: Equatable {
 struct CountBeats {
     var starts = 0
     var ends = 0
+    /// When "Log early" was tapped, while its fill runs on to full before the log shows.
+    var earlyLog: Date?
 }
 
 struct CountWatch: Equatable {
@@ -207,6 +251,15 @@ struct CountWatch: Equatable {
 }
 
 extension WorkoutPhase {
+    /// Whether End is playing: a count or "Starts in" fades where it stands.
+    var isEnding: Bool {
+        if case .ending = self {
+            true
+        } else {
+            false
+        }
+    }
+
     /// The count End came in, drawn as it stood until the workout goes.
     var endingCount: CountStage? {
         guard case let .ending(ending) = self else { return nil }

@@ -25,6 +25,9 @@ public struct SetRest {
     /// Held by a pause: the count takes the gray the workout's paused time does, and its white
     /// back on resume. A count held by its log, as between a side plank's sides, stays white.
     let isPaused: Bool
+    /// Ended with the workout: the countdown fades where it stands, never moving with the parts
+    /// around it.
+    let staysPut: Bool
 
     /// Whether a rest runs in the slot: "then rest 1:00" goes for a rest only, and stays through
     /// "Starts in" and a set's count, as through a reps set.
@@ -63,9 +66,11 @@ public struct SetRest {
         turns: Bool = false,
         kind: Kind = .rest,
         isPaused: Bool = false,
+        staysPut: Bool = false,
     ) {
         self.kind = kind
         self.isPaused = isPaused
+        self.staysPut = staysPut
         self.isRunning = isRunning
         self.length = length
         self.ends = ends
@@ -160,6 +165,8 @@ struct SetRoom: View, Animatable {
                             size: size,
                             turns: rest.turns && !reduceMotion,
                             color: rest.isPaused ? .textSecondary : .textPrimary,
+                            shown: rest.kind.shown(length: rest.length),
+                            staysPut: rest.staysPut,
                         )
                         .figureBox(size: size)
                     }
@@ -270,6 +277,8 @@ private struct WaitCountdown: View {
     let size: CGFloat
     let turns: Bool
     let color: ColorToken
+    let shown: ClosedRange<Double>
+    let staysPut: Bool
 
     @Environment(\.locale) private var locale
     @Environment(\.waitLeaves) private var leaves
@@ -277,7 +286,14 @@ private struct WaitCountdown: View {
 
     var body: some View {
         (leaves ? block.holding(at: leftAt ?? .now) : block)
-            .countdown(size: size, locale: locale, turns: turns, color: color)
+            .countdown(
+                size: size,
+                locale: locale,
+                turns: turns,
+                color: color,
+                shown: shown,
+                staysPut: staysPut,
+            )
             .onChange(of: leaves, initial: true) {
                 leftAt = leaves ? .now : nil
             }
@@ -290,6 +306,17 @@ extension EnvironmentValues {
 }
 
 extension SetRest.Kind {
+    /// The seconds left a countdown of this kind shows, `length` long. "Starts in" reads 0:01
+    /// through its last second until it goes, never 0:00; and at most its length, as it counts
+    /// from after the slot has come in, so its 0:10 shows a full second at full strength.
+    func shown(length: Int) -> ClosedRange<Double> {
+        if case .startsIn = self {
+            0.001 ... Double(length)
+        } else {
+            0 ... .infinity
+        }
+    }
+
     /// Which wait this is in the slot: a change swaps one for the other.
     var swapID: Int {
         switch self {
@@ -301,8 +328,8 @@ extension SetRest.Kind {
 }
 
 /// A part of the set outside the figures slot, "then rest 1:00" at the caption line's end, going
-/// as the rest comes in and back as it ends, on the slot's own fade and drop, so it leaves with
-/// the figures. `swap` as `SetRoom`'s.
+/// as the rest comes in and back as it ends, on the slot's own fade, in place: words at the line's
+/// end never move or cross the words beside them. `swap` as `SetRoom`'s.
 struct SetRoomGoing: ViewModifier, Animatable {
     var swap: CGFloat
 
@@ -316,7 +343,7 @@ struct SetRoomGoing: ViewModifier, Animatable {
     }
 
     func body(content: Content) -> some View {
-        content.going(RestRoomFade.fade(swap, from: 0, width: SetRoom.handOff))
+        content.opacity(1 - RestRoomFade.fade(swap, from: 0, width: SetRoom.handOff))
     }
 }
 

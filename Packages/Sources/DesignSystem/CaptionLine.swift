@@ -54,3 +54,26 @@ struct CaptionLine: Layout {
         )
     }
 }
+
+/// The words at the caption line's end, "then rest 1:00", "30 seconds", or "last set": laid out
+/// through a rest too, faded, so the line keeps its height. One part of the line with its right
+/// edge fixed: new words fade in as the old fade out, both in place, never sliding across the
+/// counter beside them; each words a view of their own, so an unseen "then rest" never shows
+/// as it gives way.
+struct CaptionEndWords: View {
+    let words: String?
+    let shows: Bool
+    let isResting: Bool
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            Text(AttributedString.monoNumbers(words ?? "", font: .ppCurrentProgress))
+                .font(.ppCurrentProgress)
+                .foregroundStyle(.pp(.textSecondary))
+                .opacity(shows ? 1 : 0)
+                .modifier(SetRoomGoing(isResting: isResting))
+                .id(words)
+                .transition(.opacity)
+        }
+    }
+}

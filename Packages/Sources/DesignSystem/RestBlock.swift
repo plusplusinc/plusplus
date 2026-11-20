@@ -59,12 +59,16 @@ public struct RestBlock: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// The time left; with `turns` off, it changes at once rather than rolling.
+    /// The time left; with `turns` off, it changes at once rather than rolling. Always within
+    /// `shown`: "Starts in" reads 0:10 as it comes in and 0:01 until it goes, never 0:00.
+    /// `staysPut`, it takes no motion of the parts around it and only fades, as at End.
     func countdown(
         size: CGFloat,
         locale: Locale,
         turns: Bool = true,
         color: ColorToken = .textPrimary,
+        shown: ClosedRange<Double> = 0 ... .infinity,
+        staysPut: Bool = false,
     ) -> some View {
         let isOpen = stage == .open
         return TimelineView(RestSchedule(
@@ -72,8 +76,11 @@ public struct RestBlock: View {
             isPaused: pausedLeft != nil || !isOpen,
         )) { context in
             // Closing with a time given, as a workout ended mid-rest, it holds that time.
-            let left = pausedLeft
-                ?? (isOpen ? max(0, ends.timeIntervalSince(context.date)) : Double(length))
+            let left = min(shown.upperBound, max(
+                shown.lowerBound,
+                pausedLeft
+                    ?? (isOpen ? max(0, ends.timeIntervalSince(context.date)) : Double(length)),
+            ))
             let text = Self.text(left, locale: locale)
             Text(text)
                 .font(.system(size: size, weight: .bold, design: .monospaced))
@@ -92,7 +99,19 @@ public struct RestBlock: View {
                         $0.animation = .snappy(duration: SetMotion.restGlide)
                     }
                 }
-                .transaction(value: text) { $0.animation = nil }
+                // A figure that turns only: one that never rolls, as a held count, changes at
+                // once anyway, and taking the animation, a count at its run-out jumped to where
+                // its leaving exercise drops it.
+                .transaction(value: text) {
+                    if turns {
+                        $0.animation = nil
+                    }
+                }
+                .transaction {
+                    if staysPut {
+                        $0.animation = nil
+                    }
+                }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Rest")
                 .accessibilityValue(Self.spoken(left, locale: locale))
