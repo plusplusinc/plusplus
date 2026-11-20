@@ -63,6 +63,52 @@ struct WorkoutKeyCountTests {
         #expect(Self.key(live, .counting, phase: .held(set)).runOut == .nothing)
     }
 
+    @Test("A timed set just logged and held keeps its count, stopped, until the next shows")
+    func held() throws {
+        let live = try Self.live()
+        let set = try #require(live.currentSet)
+        let row = try #require(live.currentExercise)
+        let start = Date(timeIntervalSinceReferenceDate: 1000)
+        // "Starts in" ends 10 s in; logged 12 s into the set's own 30.
+        let logged = LiveWorkout(
+            routine: live.routine,
+            workout: live.logging(set, of: row, at: start.addingTimeInterval(22)),
+        )
+        #expect(logged.loggedCount(of: set) == LoggedCount(length: 30, done: 12))
+        let key = WorkoutKey(
+            stored: logged,
+            shown: logged.hiding([set]),
+            phase: .held(set),
+            wayBack: nil,
+            isScrolledAway: false,
+            countStage: .startsIn,
+        )
+        #expect(key.drawnCount == .counting)
+        #expect(key.keptCount == LoggedCount(length: 30, done: 12))
+        #expect(key.role == .count("Log set"))
+        #expect(key.countTap(by: 15) == .nothing)
+        // Shown, the next set's "Starts in" takes over: one swap, from the count.
+        let next = Self.key(logged, .startsIn)
+        #expect(next.keptCount == nil)
+        #expect(next.role == .startNow)
+    }
+
+    @Test("Moving out of a rest, the slot's count is the key's; moving on from a reps set, none")
+    func fromRest() throws {
+        let live = try Self.live()
+        var move = try WorkoutPhase.Move(
+            set: #require(live.currentSet),
+            isBack: false,
+            startsRound: false,
+            beat: .shown,
+        )
+        #expect(Self.key(live, .counting, phase: .movingOn(move)).drawnCount == nil)
+        move.isFromRest = true
+        let key = Self.key(live, .counting, phase: .movingOn(move))
+        #expect(key.drawnCount == .counting)
+        #expect(key.role == .count("Log set"))
+    }
+
     @Test("A reps set's key is Log set, as before")
     func reps() throws {
         let key = try Self.key(Self.live(), nil)
