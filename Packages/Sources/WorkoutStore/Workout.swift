@@ -76,6 +76,12 @@ public struct Workout: Identifiable, Equatable, Sendable {
         clockStart.addingTimeInterval(clock)
     }
 
+    /// When the elapsed time next turns over after `now`: its next whole second, on the clock
+    /// as it runs on from now with no pause.
+    public func nextSecond(after now: Date) -> Date {
+        date(ofClock: clock(at: now).rounded(.down) + 1)
+    }
+
     /// When the elapsed time last stood at zero, as if there had been no pauses: whole seconds
     /// of the elapsed time fall on whole seconds from here, so a clock can tick on them.
     public var clockStart: Date {

@@ -58,19 +58,39 @@ struct WorkoutTimeKey: View {
     let workout: Workout
 
     @Environment(\.locale) private var locale
+    /// The moment the time is drawn for: now, as each whole second of it comes (`tick()`).
+    @State private var shownAt = Date.now
 
     var body: some View {
         Button {
             session.togglePause()
         } label: {
-            // One timeline whether running or paused, so the label stays the same view and
-            // its icon can change from one symbol to the other.
-            TimelineView(SecondsSchedule(workout: workout)) { context in
-                label(at: workout.pausedAt ?? context.date)
-            }
+            label(at: workout.pausedAt ?? shownAt)
         }
         .hiddenBehindDrawer()
         .accessibilityIdentifier("workout.time")
+        .task(id: Ticking(clockStart: workout.clockStart, runs: workout.runs)) {
+            await tick()
+        }
+    }
+
+    /// Sets `shownAt` now, then at each whole second of the elapsed time while it runs. Not a
+    /// `TimelineView`: one in a bar item and one ticking in the screen ("Starts in") rendered
+    /// each other's hosts in a layout loop, holding the main thread a quarter second after each
+    /// tick, the time showing late (UIKit's layout feedback loop debugger).
+    private func tick() async {
+        shownAt = .now
+        guard workout.runs else { return }
+        while true {
+            let next = workout.nextSecond(after: shownAt)
+            let wait = next.timeIntervalSinceNow
+            if wait > 0 {
+                guard await (try? Task.sleep(for: .seconds(wait), tolerance: .zero)) != nil
+                else { return }
+            }
+            // Woken a hair early, the time still turns over: never drawn short of `next`.
+            shownAt = max(.now, next)
+        }
     }
 
     private func label(at date: Date) -> some View {
@@ -85,17 +105,15 @@ struct WorkoutTimeKey: View {
     }
 }
 
-/// The whole seconds of a workout's elapsed time while it runs; while paused, once.
-private struct SecondsSchedule: TimelineSchedule {
-    let workout: Workout
+/// What the time's ticking runs on: a pause, a resume, or the end starts it again.
+private struct Ticking: Equatable {
+    let clockStart: Date
+    let runs: Bool
+}
 
-    func entries(from startDate: Date, mode: Mode) -> AnyIterator<Date> {
-        if workout.isPaused {
-            return AnyIterator([startDate].makeIterator())
-        }
-        return AnyIterator(
-            PeriodicTimelineSchedule(from: workout.clockStart, by: 1)
-                .entries(from: startDate, mode: mode),
-        )
+extension Workout {
+    /// Whether its time is running on: in progress and not paused.
+    fileprivate var runs: Bool {
+        isInProgress && !isPaused
     }
 }
