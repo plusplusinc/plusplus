@@ -5,6 +5,11 @@ import XCTest
 extension XCUIApplication {
     private static let exerciseRowID = "routine.exercise"
 
+    /// How far under the bar the current exercise's label rests once the list lands on its row:
+    /// the room above the current exercise (`RoutineScreen.currentTopSpace`) and the row's inset.
+    /// A row's element is its label, not the whole row, so a rest drawn in the row is no button.
+    static let currentLabelDrop: CGFloat = 32
+
     var exerciseRows: XCUIElementQuery {
         descendants(matching: .any).matching(identifier: Self.exerciseRowID)
     }
@@ -218,9 +223,13 @@ extension XCUIElement {
         dragLeft(by: 300, velocity: .fast)
     }
 
-    /// Drags left from near the trailing edge, `distance` points at `velocity`, and lifts.
+    /// Drags left from near the screen's trailing edge, at the element's height, `distance`
+    /// points at `velocity`, and lifts. From the screen's edge, not the element's: a routine
+    /// row's element is its label, as wide as its words.
     private func dragLeft(by distance: CGFloat, velocity: XCUIGestureVelocity) {
-        let start = coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5))
+        let edge = XCUIApplication().frame.width * 0.9 - frame.minX
+        let start = coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0.5))
+            .withOffset(CGVector(dx: edge, dy: 0))
         start.press(
             forDuration: 0.05,
             thenDragTo: start.withOffset(CGVector(dx: -distance, dy: 0)),
@@ -312,10 +321,11 @@ extension XCUIApplication {
 
 @MainActor
 extension XCUIElement {
-    /// In a row's rail column, beside its node, where a hold lifts nothing.
+    /// In a row's rail column, beside its node, where a hold lifts nothing: 22 pt from the
+    /// screen's leading edge, at the height of the row's label, the element its identifier is on.
     var nodePoint: XCUICoordinate {
         coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0.5))
-            .withOffset(CGVector(dx: 22, dy: 0))
+            .withOffset(CGVector(dx: 22 - frame.minX, dy: 0))
     }
 }
 

@@ -1,0 +1,154 @@
+// Runs only where UIKit exists, so `swift test` on macOS compiles it away and stays fast.
+#if canImport(UIKit) && !os(watchOS)
+
+import DesignSystem
+import SwiftUI
+import Testing
+
+/// A workout's rests on the rail, as the routine screen composes them, each held at 1:02 of
+/// 1:30 (`pausedLeft`): before one, the current exercise saying the rest to follow; between two
+/// sets, the rest in the figures' place; between exercises, under the one done, the dot at its
+/// word; and in a superset with a round left, above its first member. With the routine list, a
+/// long name on the lines it grows into.
+@Suite("Rests")
+struct RestSnapshotTests {
+    private static let width: CGFloat = 390
+
+    private struct Row: Identifiable {
+        let id = UUID()
+        let title: String
+        let detail: [String]
+        var focus: RowFocus?
+        var bars: SetProgress?
+        var setRest: SetRest?
+        var isDone = false
+        var nextUp: [String]?
+        var rest = RestBlock(stage: .none, length: 0)
+        var restAbove = RestBlock(stage: .none, length: 0)
+    }
+
+    private static let open = RestBlock(stage: .open, length: 90, pausedLeft: 62)
+
+    private func rail(
+        _ rows: [Row],
+        links: Set<UUID> = [],
+        current: UUID? = nil,
+        restDot: UUID? = nil,
+    ) -> some View {
+        Rail(
+            rows,
+            links: links,
+            current: current,
+            done: Set(rows.filter(\.isDone).map(\.id)),
+            restDot: restDot,
+        ) { row in
+            LabelWithRest(
+                label: RowLabel(
+                    title: row.title,
+                    detail: row.detail,
+                    focus: row.focus,
+                    bars: row.bars,
+                    setRest: row.setRest,
+                    isDone: row.isDone,
+                    nextUp: row.nextUp,
+                ),
+                rest: row.rest,
+                restAbove: row.restAbove,
+            )
+            .railRow()
+        } end: {
+            FloatingButtonRoom()
+        }
+        .padding(Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.pp(.background))
+    }
+
+    private static let figures: [RowFocus.Figure] = [
+        .init(number: "10", unit: "reps"),
+        .init(number: "25", unit: "lb/side"),
+    ]
+
+    private static func bench(progress: String, after: String? = nil) -> RowFocus {
+        RowFocus(
+            progress: progress,
+            equipment: ["Dumbbells", "Bench"],
+            figures: figures,
+            spokenFigures: "10 reps, 25 pounds per side",
+            after: after,
+        )
+    }
+
+    private let next = Row(title: "Push-up", detail: ["3 × 10 reps"])
+
+    @Test("In a set: the rest to follow at the caption line's end")
+    func currentInSet() {
+        let current = Row(
+            title: "Dumbbell bench press",
+            detail: ["3 × 10 reps", "25 lb/side"],
+            focus: Self.bench(progress: "Set 2 of 3", after: "then rest 1:30"),
+            bars: SetProgress(done: 1, total: 3, spoken: "1 of 3 sets done"),
+        )
+        assertThemedSnapshots(of: rail([current, next], current: current.id), width: Self.width)
+    }
+
+    @Test("Between sets: Rest over the countdown and its bar, in the figures' place")
+    func betweenSets() {
+        let current = Row(
+            title: "Dumbbell bench press",
+            detail: ["3 × 10 reps", "25 lb/side"],
+            focus: Self.bench(progress: "1 of 3 done"),
+            bars: SetProgress(done: 1, total: 3, spoken: "1 of 3 sets done"),
+            setRest: SetRest(isRunning: true, length: 90, pausedLeft: 62),
+        )
+        assertThemedSnapshots(of: rail([current, next], current: current.id), width: Self.width)
+    }
+
+    @Test("Between exercises: under the one done, the dot at its word, the next one's equipment")
+    func betweenExercises() {
+        let done = Row(
+            title: "Dumbbell bench press",
+            detail: ["3 × 10 reps", "25 lb/side"],
+            isDone: true,
+            rest: Self.open,
+        )
+        let coming = Row(
+            title: "Goblet squat",
+            detail: ["3 × 10 reps", "35 lb"],
+            nextUp: ["Kettlebell"],
+        )
+        assertThemedSnapshots(of: rail([done, coming, next], restDot: done.id), width: Self.width)
+    }
+
+    @Test("A superset with a round left: the rest above its first member, the dot at its word")
+    func supersetAbove() {
+        let first = Row(
+            title: "Dumbbell bench press",
+            detail: ["3 × 10 reps", "25 lb/side"],
+            bars: SetProgress(done: 1, total: 3, spoken: "1 of 3 sets done"),
+            nextUp: ["Dumbbells", "Bench"],
+            restAbove: Self.open,
+        )
+        let second = Row(
+            title: "Pull-up",
+            detail: ["3 × 6 reps"],
+            bars: SetProgress(done: 1, total: 3, spoken: "1 of 3 sets done"),
+        )
+        assertThemedSnapshots(
+            of: rail([first, second, next], links: [first.id], restDot: first.id),
+            width: Self.width,
+        )
+    }
+
+    @Test("A routine's list: a long name on the lines the current exercise's name breaks at")
+    func wrappedNames() {
+        let rows = [
+            Row(title: "Cross-body shoulder stretch", detail: ["30s per side"]),
+            Row(title: "Neutral-grip weighted pull-up with a pause", detail: ["3 × 6 reps"]),
+            next,
+        ]
+        assertThemedSnapshots(of: rail(rows), width: Self.width)
+    }
+}
+
+#endif

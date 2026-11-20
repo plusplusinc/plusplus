@@ -20,8 +20,22 @@ extension RoutineScreen {
     /// The key that `primaryKeyBar` holds, for `role`. Within a kind, one key whose words
     /// change; across kinds, another key, which the bar swaps in. While the bar has it out in a
     /// swap, a tap or a VoiceOver activation does nothing, and the key stays enabled, so
-    /// VoiceOver doesn't read it dimmed for the swap's length.
+    /// VoiceOver doesn't read it dimmed for the swap's length. During a rest the bar swaps it for
+    /// −15 s and +15 s (`RestKeys`), and back as the rest ends.
+    @ViewBuilder
     func key(_ role: WorkoutKey.Role, isOut: Bool) -> some View {
+        if role == .rest {
+            RestKeys(
+                isOut: isOut,
+                onShorten: { perform(liveKey.restTap(by: -15)) },
+                onExtend: { perform(liveKey.restTap(by: 15)) },
+            )
+        } else {
+            mainKey(role, isOut: isOut)
+        }
+    }
+
+    private func mainKey(_ role: WorkoutKey.Role, isOut: Bool) -> some View {
         Button {
             if !isOut {
                 tapKey()
@@ -40,7 +54,7 @@ extension RoutineScreen {
         case let .back(exercise, isAbove):
             // Whole, wrapping at the largest text sizes rather than cut short.
             Label(exercise, systemImage: isAbove ? "arrow.up" : "arrow.down")
-        case .log, .finish:
+        case .log, .finish, .rest:
             // One branch, so words that stay are the same view: a branch per role crossfaded
             // "Log last set" into itself as the last set's row closed, which dimmed it.
             Text(verbatim: spokenKey(role))
@@ -53,16 +67,23 @@ extension RoutineScreen {
         case let .log(text): text
         case let .back(exercise, _): String(localized: "Go to current exercise, \(exercise)")
         case .finish: String(localized: "Finish workout")
+        // Never drawn as this key: `key` draws `RestKeys`, which speak for themselves.
+        case .rest: ""
         }
     }
 
-    /// A tap on the key, as `WorkoutKey.tap` says. A log is stored through the session at once
-    /// and shown through `play(_:leadingTo:)`. Nothing while a row's sheet is up: it covers the
-    /// key, but a tap as it began to rise, as after Create, reached the key and started or logged
-    /// behind it. While the key swaps, `key` drops the tap.
+    /// A tap on the key, as `WorkoutKey.tap` says. Nothing while a row's sheet is up: it covers
+    /// the key, but a tap as it began to rise, as after Create, reached the key and started or
+    /// logged behind it. While the key swaps, `key` drops the tap.
     func tapKey() {
         guard editing == nil else { return }
-        switch liveKey.tap {
+        perform(liveKey.tap)
+    }
+
+    /// What a tap on the key, or on −15 s or +15 s, does. A log is stored through the session at
+    /// once and shown through `play(_:leadingTo:)`; a rest's change glides its bar.
+    private func perform(_ tap: WorkoutKey.Tap) {
+        switch tap {
         case .start:
             pressStart()
         case .finish:
@@ -79,6 +100,8 @@ extension RoutineScreen {
             // it.
             session.log(set, of: current)
             play(set, leadingTo: step)
+        case let .adjustRest(seconds):
+            adjustRest(by: seconds)
         case .nothing:
             break
         }

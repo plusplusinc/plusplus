@@ -43,8 +43,8 @@ final nonisolated class WorkoutFinishUITests: XCTestCase {
                 "After Start, the list never came to rest",
             )
             let bar = app.navigationBars.firstMatch.frame.maxY
-            let top = row.frame.minY
-            XCTAssertLessThan(abs(top - bar), 1, "After Start, the list rests \(top - bar) pt low")
+            let low = row.frame.minY - bar - XCUIApplication.currentLabelDrop
+            XCTAssertLessThan(abs(low), 1, "After Start, the list rests \(low) pt low")
         }
         // Which slot a drop lands in is `RailDragTests`'; this is the scroll view's range across
         // the drop, which only the running app shows: on this list, shorter than the screen, the

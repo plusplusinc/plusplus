@@ -15,6 +15,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parent.parent
 spec = importlib.util.spec_from_file_location("stale", ROOT / "scripts" / "stale-simulators.py")
@@ -157,7 +158,10 @@ class Tidy(unittest.TestCase):
             path = os.path.join(self.fake, name)
             Path(path).write_text(text)
             os.chmod(path, 0o755)
-        self.env = {key: value for key, value in os.environ.items() if not key.startswith("PLUSPLUS_")}
+        # A night card's claude runs with the night's pre-push hook in GIT_CONFIG_*, which refuses
+        # the push to this scratch origin (as it did nightly-tooling-test.py's, #150).
+        self.env = {key: value for key, value in os.environ.items()
+                    if not key.startswith(("PLUSPLUS_", "GIT_CONFIG_"))}
         self.env.update(
             PATH=self.fake + os.pathsep + os.environ["PATH"],
             GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM="1",
@@ -207,6 +211,18 @@ class Tidy(unittest.TestCase):
         self.simulator("recent", 2 * HOUR)
         self.simulator("clone", 30 * DAY, worktree=False)  # the main checkout's own
         self.simulator("person", 30 * DAY, worktree=False, record=False)
+
+    def test_a_push_hook_in_the_environment_does_not_reach_the_scratch_clone(self):
+        hooks = os.path.join(self.tmp, "hooks")
+        os.makedirs(hooks)
+        Path(hooks, "pre-push").write_text("#!/bin/sh\nexit 1\n")
+        os.chmod(os.path.join(hooks, "pre-push"), 0o755)
+        night = {"GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "core.hooksPath", "GIT_CONFIG_VALUE_0": hooks}
+        with mock.patch.dict(os.environ, night):
+            other = Tidy("test_a_push_hook_in_the_environment_does_not_reach_the_scratch_clone")
+            self.addCleanup(other.doCleanups)
+            other.setUp()  # its push to the scratch origin raises when the hook runs
+        self.assertIn("main", other.git("ls-remote", "origin"))
 
     def test_a_dry_run_names_each_stale_simulator_and_its_idle_time_and_deletes_nothing(self):
         self.one_of_each()

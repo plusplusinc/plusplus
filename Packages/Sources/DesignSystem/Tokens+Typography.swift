@@ -29,8 +29,21 @@ extension Font {
     public static let ppRowTitleNumber = Font.system(.body, design: .monospaced, weight: .semibold)
     /// The current exercise's name, grown from `ppRowTitle`.
     public static let ppCurrentTitle = Font.system(.title, weight: .semibold)
-    /// Which set the current exercise is on, "Set 1 of 3": SF Mono, as numbers are.
-    public static let ppCurrentProgress = Font.system(.body, design: .monospaced, weight: .medium)
+    /// The current exercise's caption line, "Set 1 of 3" and "then rest 1:00": SF Mono, as
+    /// numbers are, a step under the row's name.
+    public static let ppCurrentProgress = Font.system(
+        .subheadline,
+        design: .monospaced,
+        weight: .medium,
+    )
+    /// What a large figure counts, under it: "reps", "lb/side", "rest".
+    public static let ppFigureCaption = Font.system(.body)
+    /// A number on a key, such as −15 s's: SF Mono at the key's size and weight.
+    public static let ppPrimaryKeyNumber = Font.system(
+        .title3,
+        design: .monospaced,
+        weight: .semibold,
+    )
     /// A workout's time on its key in the bar: SF Mono, so the digits hold still as they tick.
     public static let ppWorkoutTime = ppRowTitleNumber
     /// A place in the drawer, Routines or a routine under it: one font for all, so none reads as
@@ -85,21 +98,16 @@ enum ScreenTitle {
     #endif
 }
 
-/// The current exercise's large figure: its digits 104pt bold at the default size, and the
-/// letters with them, a time's "m" and "s" and what a number counts, "reps", "lb", bold and a bit
-/// over half the digits' size, in the same color, on their baseline (Dave's pick, 2026-11-14).
-/// Both scale as `largeTitle` does. Read with
+/// The current exercise's large figures and a rest's countdown: bold SF Mono, 76 pt at the default
+/// size, so two three-digit numbers fit side by side in a phone's text column, each in its half
+/// (Dave's pick of the side-by-side layout, 2026-11-19). Scales as `largeTitle` does. Read with
 /// `@ScaledMetric(relativeTo: CurrentFigure.textStyle) var size = CurrentFigure.size`.
 enum CurrentFigure {
-    static let size: CGFloat = 104
-    /// The letters' size: 0.57 of the digits', as in the drawing picked.
-    static let unitSize: CGFloat = 59
-    /// The gap between a number's last digit and the letters after it.
-    static let unitGap: CGFloat = 6
-    /// A word space in the letters' font, as a fraction of their size: between a time's last
-    /// letter and the words after it, "45s per side".
-    static let wordSpace: CGFloat = 0.26
+    static let size: CGFloat = 76
     static let textStyle = Font.TextStyle.largeTitle
+    /// How far a figure's digits are drawn left of the column's edge, against their size: the
+    /// side bearing of SF Mono's bold digits, so their left edge lines up with the name's.
+    static let bearing: CGFloat = 0.06
 }
 
 private struct ScreenTitleFont: ViewModifier {
