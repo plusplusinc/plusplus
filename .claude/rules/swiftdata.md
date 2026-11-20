@@ -19,7 +19,7 @@ time. Every `@Model` follows these from the start:
 
 `RoutineStore` is the one `@ModelActor`, opened through
 `WorkoutStoreContainer.make(mode:schema:migrationPlan:)` with its own schema, versioned: every
-stored shape shipped so far is a `VersionedSchema` (`RoutineSchemaV1` to `V10`, the older ones in
+stored shape shipped so far is a `VersionedSchema` (`RoutineSchemaV1` to `V11`, the older ones in
 `RoutineSchema+Shipped.swift`, V6's workouts in `StoredWorkout.swift`), and `RoutineMigrationPlan` runs a lightweight stage between each,
 since each change only added an attribute or a model. Staged migration refuses a store whose
 shape matches none of the plan's versions, so a shipped version never changes: a stored change
@@ -59,7 +59,7 @@ paused, or finished, and its time is worked out from them at any moment, so a re
 lock never loses any. Its sets (`LoggedSet`, stored as `StoredSet`, a cascade relationship) each
 keep their row's id, exercise id and, since V9, name, round, side (`Side`'s raw string, unknown reading as
 nil), and numbers as done beside the numbers planned, each measure and weight apart as a row's
-are, with a `position` for the order logged; `save(_ workout:)` diffs them by id, as a routine's
+are, with a `position` for the order logged, and (V11) its rest's start and taps; `save(_ workout:)` diffs them by id, as a routine's
 rows. Discard deletes it, its sets with it. `launch(weightUnit:)` opens a workout in progress with
 its routine (an empty one under its id and name if the routine is gone; of two in progress, as
 sync could leave, the one started later), else the routine last opened or edited, unless a

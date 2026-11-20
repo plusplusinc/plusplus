@@ -19,9 +19,6 @@ import Testing
 /// machines do not read as design regressions, but none by more. Letting even 1% of pixels
 /// differ freely would let the `_` move a cell, or vanish, unseen.
 ///
-/// The current exercise's pulse is held at full green (`isPulseHeld`): on its clock, each run drew
-/// it at another brightness.
-///
 /// References live in `__Snapshots__/<TestFile>` at the test target's root, which is where
 /// recording writes, including a new suite's first recording. When `__Snapshots__` itself is
 /// absent, as on Xcode Cloud's test machines, which have the built products but not the source
@@ -55,7 +52,6 @@ func assertThemedSnapshots(
     for appearance in appearances {
         let failure = verifySnapshot(
             of: view
-                .environment(\.isPulseHeld, true)
                 .frame(width: width)
                 .fixedSize(horizontal: false, vertical: true),
             as: .image(

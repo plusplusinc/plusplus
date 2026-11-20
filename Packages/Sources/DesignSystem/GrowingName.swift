@@ -2,22 +2,30 @@ import CoreText
 import SwiftUI
 
 /// A row's name, `ppRowTitle` on a row and `ppCurrentTitle` on the current exercise, growing
-/// between the two as `growth` animates from 0 to 1. Both sizes are laid out at the row's width
-/// once, and the one showing is scaled from its top leading corner, so the name grows as one
-/// drawn piece: a font size animated frame by frame reflowed its text on every frame, stepped
-/// where the system font changes its optical size, and could break its lines differently partway.
-/// Where the two sizes break into the same number of lines, the large name is drawn throughout,
-/// scaled down, and across from the small name's measured width at 0: the system font sets words
-/// narrower per point at the large size, so the font sizes' ratio alone left it about 3% narrower
-/// than the name it hands off to, which then stepped wider. Where they don't, as a long name can,
-/// the two crossfade as they scale by the font sizes' ratio. The name's
-/// height and first baseline run between the two sizes'. The rail's node keeps the place it has
-/// on a row's name, its center that far above the baseline grown by the letters' scale
-/// (`railNodeBaseline`): on the baseline alone, it kept a row's height above it and sat low on the
-/// large name.
+/// between the two as `growth` animates from 0 to 1, as one block that scales from its top leading
+/// corner: a font size animated frame by frame reflowed its text on every frame, stepped where the
+/// system font changes its optical size, and could break its lines differently partway.
+///
+/// Both sizes hold the same words on each line, the lines the large name breaks into at the row's
+/// width (`LineBreaks`): a hidden copy of the large name is laid out at that width, the system
+/// wraps it, and the name is drawn at both sizes with a line break where each of its lines
+/// starts. Each line fits the row at the large size, so at the small size, a few percent wider
+/// per point at most, it fits too, and neither size has a break of its own to make. Laid out
+/// apart, the two broke at other words where a long name fit one line small and two large, and
+/// the row's height had to change by a line partway (rounds 15 to 19).
+///
+/// The small name is drawn at rest and the large throughout the growth, scaled down, and across
+/// from the small name's measured width at 0, so each is sharp at its own size: the system font
+/// sets words narrower per point at the large size, so the font sizes' ratio alone left it about
+/// 3% narrower than the name it takes over from, which then stepped wider. The name's height and
+/// first baseline run between the two sizes'. The rail's node keeps the place it has on a row's
+/// name, its center that far above the baseline grown by the letters' scale (`railNodeBaseline`):
+/// on the baseline alone, it kept a row's height above it and sat low on the large name.
 struct GrowingName: View, Animatable {
     let title: String
     var growth: CGFloat
+    /// `textSecondary` on a finished exercise, so what is current reads brightest.
+    var color: ColorToken = .textPrimary
 
     nonisolated var animatableData: CGFloat {
         get { growth }
@@ -25,16 +33,18 @@ struct GrowingName: View, Animatable {
     }
 
     @State private var sizes = Sizes()
+    @State private var breaks = LineBreaks()
     @Environment(\.fontResolutionContext) private var fontContext
 
     var body: some View {
         let drawing = Drawing(growth: growth, ratio: ratio, sizes: sizes)
+        let lines = breaks.lines(of: title)
         GrowingNameLayout(growth: growth, letterScale: drawing.smallScale) {
-            name(.ppRowTitle)
+            name(lines, .ppRowTitle)
                 .onGeometryChange(for: CGSize.self, of: \.size) { sizes.small = $0 }
                 .scaleEffect(drawing.smallScale, anchor: .topLeading)
                 .opacity(1 - drawing.largeOpacity)
-            name(.ppCurrentTitle)
+            name(lines, .ppCurrentTitle)
                 .overlay(alignment: Alignment(horizontal: .leading, vertical: .firstTextBaseline)) {
                     Color.clear
                         .frame(width: 0, height: capHeight)
@@ -47,14 +57,46 @@ struct GrowingName: View, Animatable {
                 .scaleEffect(drawing.largeScale, anchor: .topLeading)
                 .opacity(drawing.largeOpacity)
             RailNodeGlyph()
+            linesProbe(1, .ppRowTitle)
+            linesProbe(2, .ppRowTitle)
+            linesProbe(1, .ppCurrentTitle)
+            linesProbe(2, .ppCurrentTitle)
         }
+        .background(alignment: .topLeading) { measure }
     }
 
-    private func name(_ font: Font) -> some View {
-        Text(title)
+    /// `count` lines in `font`, never drawn, from which the layout reads a line's height and the
+    /// next line's advance (`GrowingNameLayout`).
+    private func linesProbe(_ count: Int, _ font: Font) -> some View {
+        Text(verbatim: Array(repeating: "X", count: count).joined(separator: "\n"))
             .font(font)
-            .foregroundStyle(.pp(.textPrimary))
+            .fixedSize()
+            .hidden()
+    }
+
+    private func name(_ text: String, _ font: Font) -> some View {
+        Text(text)
+            .font(font)
+            .foregroundStyle(.pp(color))
             .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// The large name as the system wraps it at the row's width, never drawn, where its lines are
+    /// read from.
+    private var measure: some View {
+        let title = title
+        return Text(title)
+            .font(.ppCurrentTitle)
+            .fixedSize(horizontal: false, vertical: true)
+            .opacity(0)
+            .accessibilityHidden(true)
+            .onPreferenceChange(Text.LayoutKey.self) { layouts in
+                guard let layout = layouts.first?.layout else { return }
+                let measured = LineBreaks(title: title, layout: layout)
+                if breaks != measured {
+                    breaks = measured
+                }
+            }
     }
 
     private var capHeight: CGFloat {
@@ -68,23 +110,62 @@ struct GrowingName: View, Animatable {
         return small > 0 ? max(large / small, 1) : 1
     }
 
-    /// Both sizes laid out at the row's width.
+    /// Where the large name's lines start, as the system laid it out at the row's width: offsets
+    /// into the title's UTF-16 view, the first line's at 0 left out.
+    struct LineBreaks: Equatable {
+        var title = ""
+        var starts: [Int] = []
+
+        init() { }
+
+        init(title: String, starts: [Int]) {
+            self.title = title
+            self.starts = starts
+        }
+
+        init(title: String, layout: Text.Layout) {
+            let firsts = layout.compactMap { line in
+                line.flatMap(\.characterIndices).min()
+            }
+            guard let origin = firsts.first else {
+                self.init(title: title, starts: [])
+                return
+            }
+            self.init(title: title, starts: firsts.dropFirst().map { origin.distance(to: $0) })
+        }
+
+        /// The title with a line break where each line starts and the spaces before it dropped,
+        /// or the title as it is when these were measured for another.
+        func lines(of title: String) -> String {
+            guard title == self.title, !starts.isEmpty else { return title }
+            let utf16 = title.utf16
+            var lines: [String] = []
+            var from = 0
+            for start in starts + [utf16.count] {
+                guard start > from, start <= utf16.count,
+                      let lower = utf16.index(
+                          utf16.startIndex,
+                          offsetBy: from,
+                          limitedBy: utf16.endIndex,
+                      ),
+                      let upper = utf16.index(
+                          utf16.startIndex,
+                          offsetBy: start,
+                          limitedBy: utf16.endIndex,
+                      ),
+                      let line = String(utf16[lower ..< upper])
+                else { return title }
+                lines.append(line.trimmingCharacters(in: .whitespaces))
+                from = start
+            }
+            return lines.joined(separator: "\n")
+        }
+    }
+
+    /// Both sizes, laid out at the row's width.
     struct Sizes: Equatable {
         var small: CGSize = .zero
         var large: CGSize = .zero
-
-        /// Whether the two sizes break into the same lines: the large as tall as the small
-        /// scaled up, give or take less than a line, and as wide, give or take a tenth. The
-        /// system font's width per point differs between the sizes by only a few percent, so
-        /// as many lines broken at other words show as widest lines far further apart.
-        func breakAlike(ratio: CGFloat) -> Bool {
-            guard small.height > 0 else { return true }
-            let lines = large.height / (small.height * ratio)
-            guard lines > 0.75, lines < 1.33 else { return false }
-            guard small.width > 0, large.width > 0 else { return true }
-            let widths = small.width * ratio / large.width
-            return widths > 0.9 && widths < 1.1
-        }
 
         /// The large name's scale across at rest: the small's width over its own, or the font
         /// sizes' ratio before both are measured.
@@ -104,13 +185,12 @@ struct GrowingName: View, Animatable {
         var largeOpacity: CGFloat
 
         init(growth: CGFloat, ratio: CGFloat, sizes: Sizes) {
-            let crossfades = !sizes.breakAlike(ratio: ratio)
             // Each way, from its scale at rest (at 0) to the large name's own size (at 1). Up and
             // down, a row's size by the font sizes' ratio, which keeps the letters' height.
-            // Across, where the large name is drawn throughout, the small name's measured width,
-            // so the hand-off at rest lands on the same width.
+            // Across, the small name's measured width, so the large name taking over at rest
+            // lands on the same width.
             let scale = 1 / ratio + (1 - 1 / ratio) * growth
-            let resting = crossfades ? 1 / ratio : sizes.restingWidthScale(ratio: ratio)
+            let resting = sizes.restingWidthScale(ratio: ratio)
             let widthScale = resting + (1 - resting) * growth
             smallScale = scale * ratio
             // Unscaled at rest, where it doesn't show: scaled down to a row's size, its text at
@@ -119,11 +199,7 @@ struct GrowingName: View, Animatable {
             largeScale = growth == 0
                 ? CGSize(width: 1, height: 1)
                 : CGSize(width: widthScale, height: scale)
-            largeOpacity = switch growth {
-            case ...0: 0
-            case 1...: 1
-            default: crossfades ? growth : 1
-            }
+            largeOpacity = growth > 0 ? 1 : 0
         }
     }
 }
@@ -132,16 +208,29 @@ struct GrowingName: View, Animatable {
 /// in is, `growth` of the way from the small's height to the large's, with its first baseline as
 /// far between theirs. Its third subview is the node's glyph, which a node centers on at a row's
 /// size: the node's center is as far above the baseline as the glyph's, times `letterScale`, so the
-/// node column's baseline (`railNodeBaseline`) rises that offset times `letterScale - 1`.
+/// node column's baseline (`railNodeBaseline`) rises that offset times `letterScale - 1`. The last
+/// four are one line and two at each size, never drawn.
+///
+/// The small name's height is that of as many lines at a row's size as the large name has, from
+/// the probes' line height and advance, so the row is laid out once, at the height it keeps:
+/// until the large name's lines are read, the small one is drawn whole, and from its own height
+/// the row grew a line in the pass after, a list of them reporting its height twice in one frame.
 private struct GrowingNameLayout: Layout {
     var growth: CGFloat
     /// How large the letters are drawn against a row's name.
     var letterScale: CGFloat
 
+    /// As wide as the row, where it is given, so the name knows the width it has to grow in.
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
-        let (small, large) = sizes(proposal, subviews)
+        var (small, large) = sizes(proposal, subviews)
+        if subviews.count == 7 {
+            let row = Lines(one: subviews[3], two: subviews[4])
+            let current = Lines(one: subviews[5], two: subviews[6])
+            small.height = row.height(of: current.count(in: large.height))
+        }
+        let width = proposal.width.flatMap { $0.isFinite ? $0 : nil }
         return CGSize(
-            width: max(small.width, large.width),
+            width: width ?? max(small.width, large.width),
             height: small.height + (large.height - small.height) * growth,
         )
     }
@@ -157,7 +246,30 @@ private struct GrowingNameLayout: Layout {
             subview.place(at: bounds.origin, anchor: .topLeading, proposal: offer)
         }
         // Offered as `explicitAlignment` measures it, so it is measured once.
-        subviews.last?.place(at: bounds.origin, anchor: .topLeading, proposal: .unspecified)
+        for subview in subviews.dropFirst(2) {
+            subview.place(at: bounds.origin, anchor: .topLeading, proposal: .unspecified)
+        }
+    }
+
+    /// A name's lines at one size: a line's height and the next one's advance, from one line of
+    /// the name and two of the probe.
+    private struct Lines {
+        let first: CGFloat
+        let advance: CGFloat
+
+        init(one: LayoutSubview, two: LayoutSubview) {
+            first = one.sizeThatFits(.unspecified).height
+            advance = two.sizeThatFits(.unspecified).height - first
+        }
+
+        func count(in height: CGFloat) -> Int {
+            guard advance > 0 else { return 1 }
+            return max(1, Int(((height - first) / advance).rounded()) + 1)
+        }
+
+        func height(of lines: Int) -> CGFloat {
+            first + advance * CGFloat(lines - 1)
+        }
     }
 
     func explicitAlignment(
@@ -167,7 +279,7 @@ private struct GrowingNameLayout: Layout {
         subviews: Subviews,
         cache _: inout (),
     ) -> CGFloat? {
-        guard guide == .firstTextBaseline || guide == .railNodeBaseline, subviews.count == 3 else {
+        guard guide == .firstTextBaseline || guide == .railNodeBaseline, subviews.count == 7 else {
             return nil
         }
         let offer = ProposedViewSize(width: proposal.width, height: nil)
@@ -180,7 +292,7 @@ private struct GrowingNameLayout: Layout {
     }
 
     private func sizes(_ proposal: ProposedViewSize, _ subviews: Subviews) -> (CGSize, CGSize) {
-        guard subviews.count == 3 else { return (.zero, .zero) }
+        guard subviews.count == 7 else { return (.zero, .zero) }
         let offer = ProposedViewSize(width: proposal.width, height: nil)
         return (subviews[0].sizeThatFits(offer), subviews[1].sizeThatFits(offer))
     }

@@ -124,9 +124,14 @@ final nonisolated class WorkoutUITests: XCTestCase {
                         .hasPrefix("Pull-up, Set 1 of 3"),
                     "The last set did not move on to Pull-up: \(pullUp.label)",
                 )
-                let bar = app.navigationBars.firstMatch.frame.maxY
-                let top = reading(pullUp.frame.minY, until: { abs($0 - bar) < 30 }, within: 3)
-                XCTAssertLessThan(abs(top - bar), 30, "Pull-up did not land under the bar: \(top)")
+                let landed = app.navigationBars.firstMatch.frame.maxY
+                    + XCUIApplication.currentLabelDrop
+                let top = reading(pullUp.frame.minY, until: { abs($0 - landed) < 30 }, within: 3)
+                XCTAssertLessThan(
+                    abs(top - landed),
+                    30,
+                    "Pull-up did not land under the bar: \(top)",
+                )
                 attach(named: "workout-moved-on")
             }
     }

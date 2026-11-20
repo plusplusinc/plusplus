@@ -21,6 +21,11 @@ public struct PrimaryKeyButtonStyle: ButtonStyle {
     fileprivate static let faceHeight: CGFloat = 58
     /// What `faceHeight` scales with: the label's text style.
     fileprivate static let textStyle = Font.TextStyle.title3
+    /// The face's fill, its ledge's, and its label's color: the light primary key's, or a
+    /// secondary key's on the same shape (`secondaryKey`).
+    fileprivate var fill: ColorToken = .primaryKey
+    fileprivate var ledgeFill: ColorToken = .borderStrong
+    fileprivate var labelColor: ColorToken = .onPrimaryKey
     /// How far the key goes down onto its ledge when pressed, and how far the ledge shows below it.
     fileprivate static let ledge: CGFloat = 4
     /// In `primaryKeyBar`, how far the key's ledge sits above the screen's bottom, and the key
@@ -42,15 +47,15 @@ public struct PrimaryKeyButtonStyle: ButtonStyle {
         let shape = RoundedRectangle(cornerRadius: minHeight / 2)
         configuration.label
             .font(.ppPrimaryKey)
-            .foregroundStyle(.pp(.onPrimaryKey))
+            .foregroundStyle(.pp(labelColor))
             .padding(.horizontal, dynamicTypeSize.isAccessibilitySize ? Spacing.md : Spacing.lg)
             .padding(.vertical, labelInset)
             .frame(maxWidth: .infinity, minHeight: minHeight)
-            .background(shape.fill(.pp(.primaryKey)))
+            .background(shape.fill(.pp(fill)))
             .contentShape(shape)
             .offset(y: configuration.isPressed ? Self.ledge : 0)
             .animation(Self.press, value: configuration.isPressed)
-            .background(shape.fill(.pp(.borderStrong)).offset(y: Self.ledge))
+            .background(shape.fill(.pp(ledgeFill)).offset(y: Self.ledge))
             .padding(.bottom, Self.ledge)
     }
 }
@@ -59,6 +64,16 @@ extension ButtonStyle where Self == PrimaryKeyButtonStyle {
     /// `.buttonStyle(.primaryKey)`.
     public static var primaryKey: PrimaryKeyButtonStyle {
         PrimaryKeyButtonStyle()
+    }
+
+    /// A key in the primary key's place and shape, quieter: a dark raised fill on a ledge of the
+    /// well's color, its label in the text's own color, as −15 s and +15 s during a rest.
+    public static var secondaryKey: PrimaryKeyButtonStyle {
+        var style = PrimaryKeyButtonStyle()
+        style.fill = .surfaceRaised
+        style.ledgeFill = .well
+        style.labelColor = .textPrimary
+        return style
     }
 }
 
@@ -330,34 +345,6 @@ private struct PrimaryKeyBounds: PreferenceKey {
 
     static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
         value = value ?? nextValue()
-    }
-}
-
-/// The key coming up from below the screen's edge, unfaded, and going back down as it fades;
-/// with Reduce Motion, only fading. `below` is how far the screen runs on below the bar.
-struct KeyBarTransition: Transition {
-    let below: CGFloat
-
-    func body(content: Content, phase: TransitionPhase) -> some View {
-        content.modifier(KeyBarPlace(phase: phase, below: below))
-    }
-}
-
-private struct KeyBarPlace: ViewModifier {
-    let phase: TransitionPhase
-    let below: CGFloat
-
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    func body(content: Content) -> some View {
-        let isFaded = phase == .didDisappear || (reduceMotion && !phase.isIdentity)
-        let isDown = !phase.isIdentity && !reduceMotion
-        let below = below
-        content
-            .visualEffect { content, proxy in
-                content.offset(y: isDown ? proxy.size.height + below : 0)
-            }
-            .opacity(isFaded ? 0 : 1)
     }
 }
 

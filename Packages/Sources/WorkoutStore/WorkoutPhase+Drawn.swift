@@ -5,6 +5,26 @@ extension WorkoutPhase {
         return ending.workout
     }
 
+    /// The rest the screen draws: the one under way, or the one End came in, while the list still
+    /// draws the workout, so End shrinks the list from the rest as drawn. Dropped at End, the
+    /// rest went on the frame and the next exercise stood grown before it shrank.
+    public var drawnRest: Resting? {
+        if let resting {
+            return resting
+        }
+        guard case let .ending(ending) = self, ending.drawsWorkout else { return nil }
+        return ending.rest
+    }
+
+    /// The rest End came in, with the workout as it was, once the list has left it: its room
+    /// closes showing the time it had. Gone with the list, its room closed drawing an empty rest,
+    /// "0:00" over a full bar.
+    public var restLeft: (rest: Resting, workout: Workout)? {
+        guard case let .ending(ending) = self, !ending.drawsWorkout, let rest = ending.rest
+        else { return nil }
+        return (rest, ending.workout)
+    }
+
     /// The list leaves the workout End took from the store: it shrinks, or crossfades, out of it.
     @discardableResult
     public mutating func listLeaves() -> Bool {
