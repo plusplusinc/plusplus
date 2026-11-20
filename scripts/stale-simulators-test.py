@@ -157,10 +157,7 @@ class Tidy(unittest.TestCase):
             path = os.path.join(self.fake, name)
             Path(path).write_text(text)
             os.chmod(path, 0o755)
-        # A night card's git carries the night's pre-push hook in GIT_CONFIG_*, which refuses the
-        # scratch repo's push, as it did nightly-tooling-test.py's (#150).
-        self.env = {key: value for key, value in os.environ.items()
-                    if not key.startswith(("PLUSPLUS_", "GIT_CONFIG_"))}
+        self.env = {key: value for key, value in os.environ.items() if not key.startswith("PLUSPLUS_")}
         self.env.update(
             PATH=self.fake + os.pathsep + os.environ["PATH"],
             GIT_CONFIG_GLOBAL=os.devnull, GIT_CONFIG_NOSYSTEM="1",
