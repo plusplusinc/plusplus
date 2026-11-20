@@ -98,7 +98,41 @@ struct TimedSetTests {
         let after = try Self.logged(extended, at: 55)
         #expect(after.workout.sets.first?.target == .time(seconds: 45))
         #expect(after.workout.sets.first?.timeAdded == 15)
-        #expect(after.timedSet?.length == 30)
+        #expect(Self.landed(after, at: 56).timedSet?.length == 30)
+    }
+
+    /// `live` as the screen lands on its current set at `seconds`, beginning its count.
+    private static func landed(_ live: LiveWorkout, at seconds: Double) -> LiveWorkout {
+        LiveWorkout(routine: live.routine, workout: live.beginningCount(at: at(seconds)))
+    }
+
+    @Test("A log begins no count: with no rest before it, Starts in begins as the screen lands")
+    func startsInAtLanding() throws {
+        let live = try Self.started(Self.routine())
+        let after = try Self.logged(live, at: 40)
+        #expect(after.workout.count == nil)
+        // Landed 0.75 s after the log: its ten seconds are all from there.
+        let landed = Self.landed(after, at: 40.75)
+        #expect(landed.timedSet?.startClock == 50.75)
+        #expect(landed.timedSet?.startsIn(atClock: 40.75) == 10)
+    }
+
+    @Test("A rest cut short by −15 s ends now: the timed set next counts from the tap")
+    func restCutShort() throws {
+        let live = try Self.started(Self.routine(rest: 30))
+        let after = try Self.logged(live, at: 45)
+        // The rest runs from 40 to 70; 7 s left at 63, cut by 15 s.
+        let cut = LiveWorkout(
+            routine: after.routine,
+            workout: after.adjustingRest(by: -15, at: Self.at(63)),
+        )
+        let timed = try #require(cut.timedSet, "Begun at the tap, not from the cut's end")
+        #expect(timed.startClock == 63)
+        #expect(cut.countStage(at: Self.at(63)) == .counting)
+        // The screen's own begin, as the rest ends, changes nothing.
+        #expect(cut.beginningCount(at: Self.at(63.1)) == cut.workout)
+        // A cut that leaves time begins nothing.
+        #expect(after.adjustingRest(by: -15, at: Self.at(50)).count == nil)
     }
 
     @Test("A rest that just ended starts the count at its end; while it runs, none begins")
@@ -125,17 +159,18 @@ struct TimedSetTests {
         #expect(begun.timedSet?.startClock == 110)
     }
 
-    @Test("Between a set's sides, the right side gets Starts in as the left logs")
+    @Test("Between a set's sides, the right side gets Starts in as it shows")
     func sides() throws {
         var live = try Self.started(Self.routine())
         for second in [40.0, 80, 120] {
-            live = try Self.logged(live, at: second)
+            live = try Self.landed(Self.logged(live, at: second), at: second)
         }
         #expect(live.currentSet?.side == .left)
         let left = try #require(live.timedSet)
         live = try Self.logged(live, at: left.endClock)
         #expect(live.currentSet?.side == .right)
-        #expect(live.timedSet?.startClock == left.endClock + 10)
+        live = Self.landed(live, at: left.endClock + 0.5)
+        #expect(live.timedSet?.startClock == left.endClock + 10.5)
     }
 
     @Test("A pause stops the count; resumed, it carries on")

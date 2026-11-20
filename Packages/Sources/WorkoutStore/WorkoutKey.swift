@@ -28,44 +28,37 @@ public struct WorkoutKey: Sendable {
         phase: WorkoutPhase,
         wayBack: WayBack?,
         isScrolledAway: Bool,
-        countStage: CountStage? = nil,
     ) {
         self.stored = stored
         self.shown = shown
         self.phase = phase
         self.wayBack = wayBack
         self.isScrolledAway = isScrolledAway
-        self.countStage = countStage
     }
 
-    /// Where the current set's count stands as the screen draws it: nil for a reps set
-    /// (`LiveWorkout.countStage(at:)`).
-    public let countStage: CountStage?
-
-    /// The count's stage while the key is the current set's: at rest, and coming out of a rest,
-    /// so the rest's keys swap straight for the count's.
-    private var restingCount: CountStage? {
-        let fromRest = phase.resting?.beat == .returning || phase.move?.isFromRest == true
-        return phase.takesLog || fromRest ? countStage : nil
-    }
-
-    /// The count as the key and the figures' slot draw it, the one both read so they tell one
-    /// story: `restingCount`, but while a set just logged is still drawn (held, as between a
-    /// side plank's sides, moving on, or before its rest shows), a timed set's count, stopped
-    /// where the log took it (`keptCount`), so each swaps once, from that count to what follows,
-    /// never through the log key or the set's figures.
+    /// The timed set's count as the key draws it, from the phase alone: "Starts in" or the
+    /// count, at rest on a timed set (`WorkoutPhase.timing`); a timed set just logged and still
+    /// drawn, held full for its beat (held, as between a side plank's sides, moving on until the
+    /// rows shift, or before its rest shows), as a count, so the key swaps once, from it to
+    /// what follows; out of a rest onto a timed set, its count, which the rest's end began; and
+    /// on the way to a timed set with no rest before it (Start, or a move once the rows shift),
+    /// "Starts in". Nil for a reps set.
     public var drawnCount: CountStage? {
-        guard let kept = keptSet else { return restingCount }
-        return stored?.loggedCount(of: kept) == nil ? nil : .counting
+        if let logged = phase.loggedAndDrawn {
+            return stored?.loggedCount(of: logged) == nil ? nil : .counting
+        }
+        if let stage = phase.timing {
+            return stage
+        }
+        guard shown?.isOnTimedSet == true, phase.isMovingOn || phase.isLeavingRest else {
+            return nil
+        }
+        return phase.isLeavingRest ? .counting : .startsIn
     }
 
     /// The count of a timed set just logged and still drawn, as it stopped: nil for none.
     public var keptCount: LoggedCount? {
-        keptSet.flatMap { stored?.loggedCount(of: $0) }
-    }
-
-    private var keptSet: PlannedSet? {
-        phase.held ?? phase.keySet ?? phase.resting.flatMap { $0.beat == .logged ? $0.set : nil }
+        phase.loggedAndDrawn.flatMap { stored?.loggedCount(of: $0) }
     }
 
     /// What the key is for, as the workout is drawn.
@@ -97,21 +90,21 @@ public struct WorkoutKey: Sendable {
         }
         return switch drawnCount {
         case .startsIn: .startNow
-        case .counting: .count(text)
+        case .counting: .count(String(localized: "Log early"))
         case nil: .log(text)
         }
     }
 
     /// What a tap on +15 s does: adds to the set counting, once it counts.
     public func countTap(by seconds: Int) -> Tap {
-        restingCount == .counting ? .extendCount(by: seconds) : .nothing
+        phase.timing == .counting ? .extendCount(by: seconds) : .nothing
     }
 
     /// What the count reaching zero does: logs the set, with the heavy tap, as a tap on the key
     /// would, whether or not the exercise is scrolled away or a sheet covers the key. Nothing
     /// unless the set counts at rest.
     public var runOut: Tap {
-        guard phase.takesLog, countStage == .counting, let stored,
+        guard phase.timing == .counting, let stored,
               let current = stored.currentExercise,
               let set = stored.currentSet
         else { return .nothing }
@@ -145,10 +138,10 @@ public struct WorkoutKey: Sendable {
         if wayBack != nil || isScrolledAway {
             return .back
         }
-        guard phase.takesLog else { return .nothing }
-        if restingCount == .startsIn {
+        if phase.timing == .startsIn {
             return .startNow
         }
+        guard phase.takesLog else { return .nothing }
         return .log(
             set,
             of: current,

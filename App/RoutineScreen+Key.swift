@@ -14,7 +14,6 @@ extension RoutineScreen {
             phase: phase,
             wayBack: keyWayBack,
             isScrolledAway: currentPlace?.isScrolledAway == true,
-            countStage: countStage,
         )
     }
 
@@ -103,12 +102,16 @@ extension RoutineScreen {
             }
             // Stored at once, at the numbers the row shows; then shown, from the workout before
             // it.
-            session.log(set, of: current, override: restOverride)
+            session.log(set, of: current)
             play(set, leadingTo: step)
         case let .adjustRest(seconds):
             adjustRest(by: seconds)
         case .startNow:
-            withAnimation(SetMotion.restSwap) { session.startCountNow() }
+            // The count, the key, and the segment all change from the tap, on the slot's swap.
+            withAnimation(SetMotion.restSwap) {
+                session.startCountNow()
+                phase.startCount()
+            }
         case let .extendCount(seconds):
             session.extendCount(by: seconds)
         case .nothing:
@@ -150,7 +153,9 @@ extension RoutineScreen {
         sequence.run {
             let start = ContinuousClock.now
             try await beat(until: start + .seconds(SetMotion.heldRoll))
-            withAnimation(.snappy(duration: SetMotion.roll)) { phase.show() }
+            withAnimation(.snappy(duration: SetMotion.roll)) {
+                phase.rollOn(on: arrivingCount())
+            }
         }
     }
 }

@@ -48,12 +48,16 @@ public struct PrimaryKeyButtonStyle: ButtonStyle {
 
     public func makeBody(configuration: Configuration) -> some View {
         let shape = RoundedRectangle(cornerRadius: minHeight / 2)
-        configuration.label
-            .font(.ppPrimaryKey)
-            .foregroundStyle(.pp(labelColor))
-            .padding(.horizontal, dynamicTypeSize.isAccessibilitySize ? Spacing.md : Spacing.lg)
-            .padding(.vertical, labelInset)
-            .frame(maxWidth: .infinity, minHeight: minHeight)
+        face(configuration.label, color: labelColor)
+            // Over the fill, the label in the light key's dark, switching where the fill's edge
+            // crosses it.
+            .overlay {
+                if let filling {
+                    face(configuration.label, color: .onPrimaryKey)
+                        .mask(alignment: .leading) { FillingFace(filling: filling, color: .done) }
+                        .accessibilityHidden(true)
+                }
+            }
             .background {
                 ZStack(alignment: .leading) {
                     shape.fill(.pp(fill))
@@ -67,6 +71,16 @@ public struct PrimaryKeyButtonStyle: ButtonStyle {
             .animation(Self.press, value: configuration.isPressed)
             .background(shape.fill(.pp(ledgeFill)).offset(y: Self.ledge))
             .padding(.bottom, Self.ledge)
+    }
+
+    /// The label on the key's face, in `color`, padded to the face's size.
+    private func face(_ label: Configuration.Label, color: ColorToken) -> some View {
+        label
+            .font(.ppPrimaryKey)
+            .foregroundStyle(.pp(color))
+            .padding(.horizontal, dynamicTypeSize.isAccessibilitySize ? Spacing.md : Spacing.lg)
+            .padding(.vertical, labelInset)
+            .frame(maxWidth: .infinity, minHeight: minHeight)
     }
 }
 
@@ -86,10 +100,11 @@ extension ButtonStyle where Self == PrimaryKeyButtonStyle {
         return style
     }
 
-    /// The primary key, its face filling with the done purple from its leading edge as
-    /// `filling` runs, as a timed set's log key does while the set counts.
-    public static func primaryKey(filling: KeyFill?) -> PrimaryKeyButtonStyle {
-        var style = PrimaryKeyButtonStyle()
+    /// A timed set's log key: the secondary key's gray face, filling with the done purple from
+    /// its leading edge as `filling` runs, its label light over the gray and dark over the
+    /// purple, switching where the fill's edge crosses it.
+    public static func countKey(filling: KeyFill) -> PrimaryKeyButtonStyle {
+        var style = PrimaryKeyButtonStyle.secondaryKey
         style.filling = filling
         return style
     }

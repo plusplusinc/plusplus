@@ -178,7 +178,7 @@ public struct RowLabel: View {
             if let focus {
                 VStack(alignment: .leading, spacing: Spacing.sm) {
                     if let bars {
-                        SetSegments(progress: bars, isOnSet: setRest?.isRunning != true)
+                        SetSegments(progress: bars, isOnSet: setRest?.isOnSet ?? true)
                     }
                     CaptionLine(spacing: Spacing.md) {
                         progressLine(focus)

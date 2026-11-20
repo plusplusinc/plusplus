@@ -47,7 +47,7 @@ extension WorkoutPhase {
             self = .idle
             return
         }
-        self = .running
+        self = .atRest(on: live.countStage(at: now))
         guard let rest = live.rest(override: restOverride),
               !rest.isOver(atClock: live.workout.clock(at: now))
         else { return }
@@ -67,11 +67,12 @@ extension WorkoutPhase {
         ))
     }
 
-    /// Within one exercise, the swap back is over: the next set is up.
+    /// Within one exercise, the swap back is over: the next set is up, timed (`count`, begun as
+    /// the rest ended) or not.
     @discardableResult
-    public mutating func settleReturn() -> Bool {
+    public mutating func settleReturn(on count: CountStage?) -> Bool {
         guard case let .resting(rest) = self, rest.beat == .returning else { return false }
-        self = .running
+        self = .atRest(on: count)
         return true
     }
 

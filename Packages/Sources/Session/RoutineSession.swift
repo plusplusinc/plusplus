@@ -131,8 +131,8 @@ public final class RoutineSession {
         guard canStart(on: routine) else { return }
         // The workout first: a screen shown at the root reads it as it is made, to open on the
         // current exercise.
-        let started = Workout(routineID: routine, routineName: shownName, startedAt: now)
-        change(.save(LiveWorkout(routine: current, workout: started).beginningCount(at: now)))
+        // A timed first set's "Starts in" begins as the screen lands on it (`beginCount`).
+        change(.save(Workout(routineID: routine, routineName: shownName, startedAt: now)))
         if screen != .routine {
             // A fresh screen at the root, opening on the routine as it is now.
             opened = current
@@ -160,17 +160,11 @@ public final class RoutineSession {
     }
 
     /// Logs `planned`, a set of `row`, at the numbers `row` plans now, or a timed set at the time
-    /// its count has run, then begins the next set's count (`LiveWorkout.logging`). `override`,
-    /// for the UI tests, is every rest's length.
-    public func log(
-        _ planned: PlannedSet,
-        of row: RoutineExercise,
-        override: Int? = nil,
-        at now: Date = .now,
-    ) {
+    /// its count has run (`LiveWorkout.logging`).
+    public func log(_ planned: PlannedSet, of row: RoutineExercise, at now: Date = .now) {
         guard let workout else { return }
         let live = LiveWorkout(routine: current, workout: workout)
-        change(.save(live.logging(planned, of: row, at: now, restOverride: override)))
+        change(.save(live.logging(planned, of: row, at: now)))
     }
 
     /// Shortens or extends the rest running after the last set by `seconds`, unless it is over.

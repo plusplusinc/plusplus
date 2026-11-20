@@ -190,13 +190,15 @@ extension RoutineScreen {
                 beginCrossfade(scrollingTo: scrollBeat.scrolledY)
                 return sequence.run {
                     try await crossfade { phase.endRest() }
-                    phase.settleReturn()
+                    phase.settleReturn(on: arrivingCount())
                 }
             }
             withAnimation(SetMotion.restSwap) { phase.endRest() }
             return sequence.run {
                 try await beat(until: ContinuousClock.now + .seconds(SetMotion.roll))
-                withTransaction(\.disablesAnimations, true) { phase.settleReturn() }
+                withTransaction(\.disablesAnimations, true) {
+                    phase.settleReturn(on: arrivingCount())
+                }
             }
         }
         // Not again while its fade waits for its turn to start.

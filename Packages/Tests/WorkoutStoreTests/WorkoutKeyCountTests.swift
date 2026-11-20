@@ -2,15 +2,19 @@ import Foundation
 import Testing
 @testable import WorkoutStore
 
-/// The key on a timed set: "Start now" during "Starts in", the log key with +15 s while it
-/// counts, and the log its end makes.
+/// The key on a timed set: "Start now" during "Starts in", "Log early" with +15 s while it
+/// counts, and the log its end makes, all from the phase.
 @Suite("Workout key on a timed set")
 struct WorkoutKeyCountTests {
+    private static let start = Date(timeIntervalSinceReferenceDate: 1000)
+
+    /// A workout on two planks, the first of two sets, its count begun at `start`.
     private static func live() throws -> LiveWorkout {
         var plank = try RoutineExercise.builtIn("Plank") { $0.sets = 2 }
         plank.plan.target = .time(seconds: 30)
-        let routine = Routine(exercises: [plank])
-        let start = Date(timeIntervalSinceReferenceDate: 1000)
+        var second = try RoutineExercise.builtIn("Plank") { $0.sets = 1 }
+        second.plan.target = .time(seconds: 30)
+        let routine = Routine(exercises: [plank, second])
         let workout = Workout(routineID: routine.id, routineName: "Test", startedAt: start)
         let begun = LiveWorkout(routine: routine, workout: workout).beginningCount(at: start)
         return LiveWorkout(routine: routine, workout: begun)
@@ -18,34 +22,33 @@ struct WorkoutKeyCountTests {
 
     private static func key(
         _ live: LiveWorkout,
-        _ stage: CountStage?,
-        phase: WorkoutPhase = .running,
+        phase: WorkoutPhase,
+        shown: LiveWorkout? = nil,
         isScrolledAway: Bool = false,
     ) -> WorkoutKey {
         WorkoutKey(
             stored: live,
-            shown: live,
+            shown: shown ?? live,
             phase: phase,
             wayBack: nil,
             isScrolledAway: isScrolledAway,
-            countStage: stage,
         )
     }
 
     @Test("During Starts in the key is Start now, and its tap starts the set")
     func startsIn() throws {
-        let key = try Self.key(Self.live(), .startsIn)
+        let key = try Self.key(Self.live(), phase: .timing(.startsIn))
         #expect(key.role == .startNow)
         #expect(key.tap == .startNow)
         #expect(key.countTap(by: 15) == .nothing)
         #expect(key.runOut == .nothing)
     }
 
-    @Test("While the set counts, the key is its log key, +15 s adds, and a tap logs")
+    @Test("While the set counts, the key is Log early, +15 s adds, and a tap logs")
     func counting() throws {
         let live = try Self.live()
-        let key = Self.key(live, .counting)
-        #expect(key.role == .count("Log set"))
+        let key = Self.key(live, phase: .timing(.counting))
+        #expect(key.role == .count("Log early"))
         #expect(key.countTap(by: 15) == .extendCount(by: 15))
         let set = try #require(live.currentSet)
         let row = try #require(live.currentExercise)
@@ -58,9 +61,10 @@ struct WorkoutKeyCountTests {
         let set = try #require(live.currentSet)
         let row = try #require(live.currentExercise)
         let expected = WorkoutKey.Tap.log(set, of: row, impact: .runOut, leadingTo: .nextSet)
-        #expect(Self.key(live, .counting).runOut == expected)
-        #expect(Self.key(live, .counting, isScrolledAway: true).runOut == expected)
-        #expect(Self.key(live, .counting, phase: .held(set)).runOut == .nothing)
+        #expect(Self.key(live, phase: .timing(.counting)).runOut == expected)
+        #expect(Self.key(live, phase: .timing(.counting), isScrolledAway: true).runOut == expected)
+        #expect(Self.key(live, phase: .held(set)).runOut == .nothing)
+        #expect(Self.key(live, phase: .timing(.startsIn)).runOut == .nothing)
     }
 
     @Test("A timed set just logged and held keeps its count, stopped, until the next shows")
@@ -68,32 +72,49 @@ struct WorkoutKeyCountTests {
         let live = try Self.live()
         let set = try #require(live.currentSet)
         let row = try #require(live.currentExercise)
-        let start = Date(timeIntervalSinceReferenceDate: 1000)
         // "Starts in" ends 10 s in; logged 12 s into the set's own 30.
         let logged = LiveWorkout(
             routine: live.routine,
-            workout: live.logging(set, of: row, at: start.addingTimeInterval(22)),
+            workout: live.logging(set, of: row, at: Self.start.addingTimeInterval(22)),
         )
         #expect(logged.loggedCount(of: set) == LoggedCount(length: 30, done: 12))
-        let key = WorkoutKey(
-            stored: logged,
-            shown: logged.hiding([set]),
-            phase: .held(set),
-            wayBack: nil,
-            isScrolledAway: false,
-            countStage: .startsIn,
-        )
+        let key = Self.key(logged, phase: .held(set), shown: logged.hiding([set]))
         #expect(key.drawnCount == .counting)
         #expect(key.keptCount == LoggedCount(length: 30, done: 12))
-        #expect(key.role == .count("Log set"))
+        #expect(key.role == .count("Log early"))
         #expect(key.countTap(by: 15) == .nothing)
-        // Shown, the next set's "Starts in" takes over: one swap, from the count.
-        let next = Self.key(logged, .startsIn)
+        // Rolled on, the next set's "Starts in" takes over: one swap, from the count.
+        let next = Self.key(logged, phase: .timing(.startsIn))
         #expect(next.keptCount == nil)
         #expect(next.role == .startNow)
     }
 
-    @Test("Moving out of a rest, the slot's count is the key's; moving on from a reps set, none")
+    @Test("On to another timed exercise the key holds the set logged until the rows shift")
+    func moveToTimed() throws {
+        var live = try Self.live()
+        // Both sets of the first plank logged, early, the second's count running 5 s.
+        for seconds in [15.0, 40.0] {
+            let set = try #require(live.currentSet)
+            let row = try #require(live.currentExercise)
+            let at = Self.start.addingTimeInterval(seconds)
+            live = LiveWorkout(routine: live.routine, workout: live.logging(set, of: row, at: at))
+            live = LiveWorkout(routine: live.routine, workout: live.startingCountNow(at: at))
+            live = LiveWorkout(routine: live.routine, workout: live.beginningCount(at: at))
+        }
+        let last = try #require(live.workout.sets.last?.planned)
+        var move = WorkoutPhase.Move(set: last, isBack: false, startsRound: false, beat: .shown)
+        let held = Self.key(live, phase: .movingOn(move))
+        #expect(held.drawnCount == .counting)
+        #expect(held.keptCount != nil, "The count logged, held full for its beat")
+        move.beat = .shifting
+        let shifting = Self.key(live, phase: .movingOn(move))
+        #expect(shifting.keptCount == nil)
+        #expect(shifting.drawnCount == .startsIn, "Then Start now, as the move begins")
+        #expect(shifting.role == .startNow)
+        #expect(shifting.tap == .nothing, "Nothing while the move plays")
+    }
+
+    @Test("Moving out of a rest the key is the count's, which the rest's end began")
     func fromRest() throws {
         let live = try Self.live()
         var move = try WorkoutPhase.Move(
@@ -102,16 +123,18 @@ struct WorkoutKeyCountTests {
             startsRound: false,
             beat: .shown,
         )
-        #expect(Self.key(live, .counting, phase: .movingOn(move)).drawnCount == nil)
         move.isFromRest = true
-        let key = Self.key(live, .counting, phase: .movingOn(move))
+        let key = Self.key(live, phase: .movingOn(move))
         #expect(key.drawnCount == .counting)
-        #expect(key.role == .count("Log set"))
+        #expect(key.role == .count("Log early"))
     }
 
     @Test("A reps set's key is Log set, as before")
     func reps() throws {
-        let key = try Self.key(Self.live(), nil)
+        let routine = try Routine(exercises: [RoutineExercise.builtIn("Push-up") { $0.sets = 2 }])
+        let workout = Workout(routineID: routine.id, routineName: "Test", startedAt: Self.start)
+        let key = Self.key(LiveWorkout(routine: routine, workout: workout), phase: .running)
+        #expect(key.drawnCount == nil)
         #expect(key.role == .log("Log set"))
     }
 }

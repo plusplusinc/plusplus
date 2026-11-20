@@ -110,7 +110,7 @@ extension LiveWorkout {
     }
 
     /// Whether the current set is timed, so its turn begins a count.
-    var isOnTimedSet: Bool {
+    public var isOnTimedSet: Bool {
         guard let row = currentExercise, case .time = row.plan.target else { return false }
         return true
     }
@@ -134,15 +134,12 @@ extension LiveWorkout {
         return begun
     }
 
-    /// The workout with `set`, a set of `row`, logged at `now`, then the next set's count begun.
-    /// A set with a count logs the time done, its +15 s taps, and, when it ran out, the clock
-    /// at its end, so the rest after it starts where the set ended however late it is noticed.
-    public func logging(
-        _ set: PlannedSet,
-        of row: RoutineExercise,
-        at now: Date,
-        restOverride: Int? = nil,
-    ) -> Workout {
+    /// The workout with `set`, a set of `row`, logged at `now`. A set with a count logs the time
+    /// done, its +15 s taps, and, when it ran out, the clock at its end, so the rest after it
+    /// starts where the set ended however late it is noticed. The next set's count is not begun
+    /// here: with no rest before it, its "Starts in" begins as the screen lands on it, so its
+    /// ten seconds are all seen (`beginningCount(at:restOverride:)`).
+    public func logging(_ set: PlannedSet, of row: RoutineExercise, at now: Date) -> Workout {
         var logged = workout.logging(set, of: row, at: now)
         guard logged.sets.count > workout.sets.count else { return workout }
         if let timed = timedSet, timed.set == set {
@@ -155,8 +152,7 @@ extension LiveWorkout {
             }
         }
         logged.count = nil
-        return LiveWorkout(routine: routine, workout: logged)
-            .beginningCount(at: now, restOverride: restOverride)
+        return logged
     }
 
     /// The workout with "Starts in" cut short at `now`: the set counts from now. Unchanged
@@ -185,11 +181,12 @@ extension LiveWorkout {
     /// The workout as a screen opening at `now` finds it: a count that ran out meanwhile
     /// logged at its full time, then the next set's count begun. One set, never a chain.
     public func caughtUp(at now: Date, restOverride: Int? = nil) -> Workout {
+        var live = self
         if let timed = timedSet, timed.isOver(atClock: workout.clock(at: now)),
            let row = currentExercise
         {
-            return logging(timed.set, of: row, at: now, restOverride: restOverride)
+            live = LiveWorkout(routine: routine, workout: logging(timed.set, of: row, at: now))
         }
-        return beginningCount(at: now, restOverride: restOverride)
+        return live.beginningCount(at: now, restOverride: restOverride)
     }
 }

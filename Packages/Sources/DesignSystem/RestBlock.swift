@@ -39,6 +39,13 @@ public struct RestBlock: View {
         self.pausedLeft = pausedLeft
     }
 
+    /// The block held at what it showed at `date`.
+    func holding(at date: Date) -> Self {
+        let left = pausedLeft
+            ?? (stage == .open ? max(0, ends.timeIntervalSince(date)) : Double(length))
+        return Self(stage: stage, length: length, ends: ends, pausedLeft: left)
+    }
+
     /// No rest: a row's room for one, closed.
     public static let closed = Self(stage: .none, length: 0)
 

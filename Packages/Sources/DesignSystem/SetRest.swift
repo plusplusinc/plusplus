@@ -21,7 +21,7 @@ public struct SetRest {
     /// end set at the log, it rolled from its length to itself.
     let turns: Bool
     /// What waits in the slot: a rest, a timed set's "Starts in", or the set's own count.
-    let kind: Kind
+    public let kind: Kind
     /// Held by a pause: the count takes the gray the workout's paused time does, and its white
     /// back on resume. A count held by its log, as between a side plank's sides, stays white.
     let isPaused: Bool
@@ -32,12 +32,23 @@ public struct SetRest {
         isRunning && kind == .rest
     }
 
+    /// Whether the set's segment is green, as the set is under way: not through a rest, nor
+    /// through a timed set's "Starts in", but while its count runs, and held where its log
+    /// stopped it until the segment turns purple.
+    var isOnSet: Bool {
+        switch kind {
+        case .rest: !isRunning
+        case .startsIn: false
+        case .count: true
+        }
+    }
+
     /// What a wait in the figures' slot is.
     public enum Kind: Equatable, Sendable {
         /// "Rest" over the countdown, over its bar.
         case rest
-        /// "Starts in" over the short count, over the set's time in words ("30 seconds") in the
-        /// bar's place.
+        /// "Starts in" over the short count, nothing under it: the set's time in words ("30
+        /// seconds") is at the caption line's end. `time` is for VoiceOver.
         case startsIn(time: String)
         /// A timed set's own count where the figures stand, with no word over it and no bar.
         case count
@@ -144,9 +155,9 @@ struct SetRoom: View, Animatable {
                             .opacity(Self.word(rest.kind) == nil ? 0 : 1)
                             .accessibilityHidden(Self.word(rest.kind) == nil)
                         // With Reduce Motion the figure changes at once.
-                        block.countdown(
+                        WaitCountdown(
+                            block: block,
                             size: size,
-                            locale: locale,
                             turns: rest.turns && !reduceMotion,
                             color: rest.isPaused ? .textSecondary : .textPrimary,
                         )
@@ -170,20 +181,15 @@ struct SetRoom: View, Animatable {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// What stands under the countdown: a rest's bar, the set's time in words under "Starts in",
-    /// or under a set's own count its line kept, unseen, for the same room.
+    /// What stands under the countdown: a rest's bar, or under "Starts in" and a set's own count
+    /// a caption's line, unseen, for the same room.
     @ViewBuilder
     private func under(_ rest: SetRest, block: RestBlock) -> some View {
         switch rest.kind {
         case .rest:
             block.progress
                 .padding(.top, Spacing.md)
-        case let .startsIn(time):
-            Text(time)
-                .font(.ppFigureCaption)
-                .foregroundStyle(.pp(.textSecondary))
-                .padding(.top, Spacing.sm)
-        case .count:
+        case .startsIn, .count:
             Text(verbatim: " ")
                 .font(.ppFigureCaption)
                 .padding(.top, Spacing.sm)
@@ -250,8 +256,37 @@ private struct KindSwap: ViewModifier, Animatable {
             ))
         } else {
             content.going(RestRoomFade.fade(swap, from: 0, width: SetRoom.handOff))
+                // Going, its count holds where it stood: still ticking, "Starts in" cut short by
+                // "Start now" read one second less as it went.
+                .environment(\.waitLeaves, swap > 0)
         }
     }
+}
+
+/// A wait's countdown in the figures' slot, held where it stood once it is going
+/// (`waitLeaves`).
+private struct WaitCountdown: View {
+    let block: RestBlock
+    let size: CGFloat
+    let turns: Bool
+    let color: ColorToken
+
+    @Environment(\.locale) private var locale
+    @Environment(\.waitLeaves) private var leaves
+    @State private var leftAt: Date?
+
+    var body: some View {
+        (leaves ? block.holding(at: leftAt ?? .now) : block)
+            .countdown(size: size, locale: locale, turns: turns, color: color)
+            .onChange(of: leaves, initial: true) {
+                leftAt = leaves ? .now : nil
+            }
+    }
+}
+
+extension EnvironmentValues {
+    /// Whether a wait in the figures' slot is going, as another kind takes its place.
+    @Entry var waitLeaves = false
 }
 
 extension SetRest.Kind {
