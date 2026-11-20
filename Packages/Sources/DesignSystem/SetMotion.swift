@@ -216,6 +216,13 @@ public enum SetMotion {
         .timingCurve(0.6, 0, 0.1, 1, duration: moveShift).delay(travelStart)
     }
 
+    /// Into a superset round's rest, above its first member, the list's scroll bringing it under
+    /// the bar: from the pulse setting off, easing to a stop as it lands at the word "Rest", so
+    /// the place it heads for is in sight as it gets there.
+    public static var toRestAbove: Animation {
+        .timingCurve(0.42, 0, 0.2, 1, duration: travel(.loop) + collapse).delay(travelStart)
+    }
+
     // MARK: A rest between sets
 
     /// Everything a log that rests between sets changes, from the tap, and the rest's end

@@ -18,17 +18,17 @@ public struct RailPulse<ID: Hashable>: Equatable {
     }
 }
 
-/// Where a pulse sets off or lands: a row's node, or the rest open under a row's label, level
-/// with the middle of the word "Rest"'s capitals, on the rail's line (`RestBlock`). Nothing on
-/// the rail marks the rest: only the dot, while it waits there.
+/// Where a pulse sets off or lands: a row's node, or the rest open in a row, under its label or
+/// above it, level with the middle of the word "Rest"'s capitals, on the rail's line
+/// (`RestBlock`). Nothing on the rail marks the rest: only the dot, while it waits there.
 public enum RailStop<ID: Hashable>: Hashable {
     case node(ID)
-    case rest(after: ID)
+    case rest(in: ID)
 
     /// The row whose node, or whose rest, it is.
     var row: ID {
         switch self {
-        case let .node(id), let .rest(after: id): id
+        case let .node(id), let .rest(in: id): id
         }
     }
 

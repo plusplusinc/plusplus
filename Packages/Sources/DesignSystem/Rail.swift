@@ -293,7 +293,7 @@ public struct Rail<Data: RandomAccessCollection, Row: View, End: View>: View
                     leavesNode: pulse?.from.isNode ?? true,
                     joinsNode: pulse?.to.isNode ?? true,
                 )
-                if let restDot, let center = point(of: .rest(after: restDot), nodes, in: proxy) {
+                if let restDot, let center = point(of: .rest(in: restDot), nodes, in: proxy) {
                     // Comes and goes with the moves' pulses, never faded on their animations: lit
                     // under the plop as one lands, gone as the next sets off over it.
                     RestDot(center: center).transition(.identity)

@@ -5,9 +5,8 @@ import SwiftUI
 
 extension Rail {
     /// The way from `fromStop` to `toStop` for a pulse: up a superset's loop to its first member,
-    /// from a later one in the same superset, or from the round's rest under its last member, up
-    /// the rail to that member's node first; straight along the rail otherwise, to or from a
-    /// rest included.
+    /// from a later one in the same superset, on up the rail from the first member's node to the
+    /// round's rest above it; straight along the rail otherwise, to or from a rest included.
     func route(
         _ fromStop: RailStop<RowID>,
         _ toStop: RailStop<RowID>,
@@ -18,22 +17,22 @@ extension Rail {
               let to = point(of: toStop, nodes, in: proxy)
         else { return nil }
         let ids = data.map(\.id)
-        guard toStop.isNode,
+        guard fromStop.isNode,
               let start = ids.firstIndex(of: toStop.row),
               let end = ids.firstIndex(of: fromStop.row),
               start < end, ids[start ..< end].allSatisfy(links.contains),
-              let node = point(of: .node(fromStop.row), nodes, in: proxy)
+              let node = point(of: .node(toStop.row), nodes, in: proxy)
         else { return .line(from: from, to: to) }
         let loop = RailRoute.loop(
-            from: node,
-            to: to,
-            x: pen.runX(nodeX: node.x),
+            from: from,
+            to: node,
+            x: pen.runX(nodeX: from.x),
             radius: pen.radius,
         )
-        return fromStop.isNode ? loop : RailRoute([from] + loop.points)
+        return toStop.isNode ? loop : RailRoute(loop.points + [to])
     }
 
-    /// Where `stop` is on each frame: a row's node; or, for a rest, on the rail's line under the
+    /// Where `stop` is on each frame: a row's node; or, for a rest, on the rail's line through the
     /// row's node, as high as the rest reports it (`View.restStop(_:)`).
     func point(
         of stop: RailStop<RowID>,
@@ -54,7 +53,7 @@ struct RestStopKey: Hashable {
     let row: AnyHashable
 }
 
-/// The rest stops in a view: a rest open, or opening or closing, under a row's label.
+/// The rest stops in a view: a rest open, or opening or closing, under a row's label or above it.
 struct RestStops: PreferenceKey {
     static let defaultValue: [Anchor<CGPoint>] = []
 

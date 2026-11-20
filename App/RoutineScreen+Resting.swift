@@ -4,17 +4,21 @@ import WorkoutStore
 
 /// The rest between two exercises, after the last set of one, when the routine stores a rest
 /// after it. While the exercise is current, its caption line's end says the rest that will follow
-/// the set, "then rest 1:00" (`afterText(for:)`). The rest is a stop on the way, as if an exercise
-/// of
-/// its own: logging the last set plays a move to the next exercise with the rest as its
-/// destination (`RailStop.rest(after:)`), every timing and curve a move's (`SetMotion`): the
-/// pulse shoots down and lands level with the word "Rest", plops and wiggles, and on the shift's
-/// curve the row closes to a done row and the rest opens under it (`RestBlock`), the list staying
-/// where it is, as the next exercise grows a step and shows its equipment (`nextUp`). Through the
-/// rest the dot waits there, the current node's size and steady green, still, with nothing on the
-/// rail to mark the place (`restDotRow`); the bar under the countdown shows how far through it is
-/// (`RestProgress`). As the countdown reaches 0 the same move plays from the rest to the next
-/// exercise's node, the next exercise opening as the dot leaves (`SetMotion.leavingRest`).
+/// the set, "then rest 1:00" (`afterText(for:)`). The rest is a stop on the way: logging the last
+/// set plays a move to the next exercise with the rest as its destination (`RailStop.rest(in:)`),
+/// every timing and curve a move's (`SetMotion`): the pulse shoots down and lands level with the
+/// word "Rest", plops and wiggles, and on the shift's curve the row closes to a done row and the
+/// rest opens under it (`RestBlock`), the list staying where it is, as the next exercise grows a
+/// step and shows its equipment (`nextUp`). Through the rest the dot waits there, the current
+/// node's size and steady green, with nothing on the rail to mark the place (`restDotRow`); the
+/// bar under the countdown shows how far through it is (`RestProgress`). As the countdown reaches
+/// 0 the same move plays from the rest to the next exercise's node, the next exercise opening as
+/// the dot leaves (`SetMotion.leavingRest`).
+///
+/// In a superset only a round's last member rests. With a round left, the rest opens above the
+/// first member (`restRow(of:in:)`): the pulse runs up the loop and on up the rail to the word,
+/// the list scrolling it under the bar from the tap (`SetMotion.toRestAbove`), and at 0 the dot
+/// moves down to the first member. After the last round it opens under the last member.
 ///
 /// Through any rest the key at the bottom swaps, as keys swap, for −15 s and +15 s (`RestKeys`),
 /// the + above it staying put. −15 s with less than 15 s left ends the rest; + and − glide the bar
@@ -23,12 +27,10 @@ import WorkoutStore
 /// move is one crossfade, the dot at the word through the rest.
 ///
 /// Between two sets of one plain exercise, the rest takes the figures' slot (`SetRest`); done one
-/// side at a time, after a set's second side, never between its sides. With the same bar, from the
-/// tap, everything the log changes on one curve (`SetMotion.restSwap`), and the
-/// exercise's node stays steady green; with Reduce Motion it swaps in and out at once.
-///
-/// Not yet: supersets (their members go straight on), and a relaunch or a return from the
-/// background mid-rest. The rest's taps are kept in memory only.
+/// side at a time, after a set's second side, never between its sides. With the same bar, from
+/// the tap, everything the log changes on one curve (`SetMotion.restSwap`), and the exercise's
+/// node stays steady green; with Reduce Motion it swaps in and out at once. Not yet: a relaunch
+/// or a return from the background mid-rest. The rest's taps are kept in memory only.
 extension RoutineScreen {
     /// For the UI tests, every rest's length (`-seedRest`); nil in a release build.
     var restOverride: Int? {
@@ -90,14 +92,23 @@ extension RoutineScreen {
                 phase.settleRest()
             }
         }
-        guard let rest = phase.resting else { return }
+        guard let rest = phase.resting, let live, let row = restRow(of: rest, in: live.workout)
+        else { return }
+        // Back up a superset's loop, the round's rest opens above its first member, maybe out of
+        // sight: the list scrolls it under the bar from the tap, on the dot's way there.
+        let way = SetMotion.Way(isBack: rest.isBack)
+        let target = rest.isBack ? landing(on: row, leaving: rest.set.row) : nil
         withTransaction(\.disablesAnimations, true) {
             isMakingRoom = true
             endFollow = nil
+            if let target {
+                growthLift = target - scrollBeat.scrolledY
+                scrollPosition.scrollTo(y: target)
+            }
         }
         guard !reduceMotion else {
             // One crossfade into the rest, the dot at its word.
-            beginCrossfade(scrollingTo: scrollBeat.scrolledY)
+            beginCrossfade(scrollingTo: target ?? scrollBeat.scrolledY)
             return sequence.run {
                 try await crossfade {
                     phase.show()
@@ -110,25 +121,26 @@ extension RoutineScreen {
         }
         // A move to the next exercise with the rest as its destination: the same pulse, hold, and
         // shift, the row left closing and the rest opening on the shift's curve. The list stays
-        // where it is.
-        withAnimation(SetMotion.moving(.down)) {
+        // where it is, but for a round's rest above.
+        withAnimation(SetMotion.moving(way)) {
             phase.show()
         }
+        withAnimation(SetMotion.toRestAbove) { growthLift = 0 }
         railPulse = RailPulse(
             from: .node(rest.set.row),
-            to: .rest(after: rest.set.row),
-            way: .down,
+            to: .rest(in: row),
+            way: way,
             run: (railPulse?.run ?? 0) + 1,
         )
         sequence.run {
             let start = ContinuousClock.now
-            try await beat(until: start + .seconds(SetMotion.landing(.down)))
+            try await beat(until: start + .seconds(SetMotion.landing(way)))
             landings += 1
             // At once, under the plop: the dot waiting at the rest is the plop's size and green.
             withTransaction(\.disablesAnimations, true) {
                 phase.landRest()
             }
-            try await beat(until: start + .seconds(SetMotion.move(.down)))
+            try await beat(until: start + .seconds(SetMotion.move(way)))
             phase.settleRest()
             // A rest ended while the move into it played goes on now.
             endRest()
@@ -138,9 +150,10 @@ extension RoutineScreen {
     /// The row whose rest the dot waits at: from the pulse's landing there until the next one
     /// sets off from it.
     var restDotRow: RoutineExercise.ID? {
-        guard let rest = phase.drawnRest, !rest.isWithinExercise, rest.beat >= .landed
+        guard let rest = phase.drawnRest, !rest.isWithinExercise, rest.beat >= .landed,
+              let shown
         else { return nil }
-        return rest.set.row
+        return restRow(of: rest, in: shown.workout)
     }
 
     /// The rest is over: the move to the next exercise plays as one with no rest from its log,
@@ -168,8 +181,8 @@ extension RoutineScreen {
         noteRestingPitch(of: next.row)
         // From the rest's height, not the row's pitch at rest, which a relaunch into the workout
         // never noted: with no target, the list landed in a second motion after the move.
-        // Back up a superset's loop the next row is above the rest, which closes under it.
-        let way = SetMotion.Way(isBack: rest.isBack)
+        // Before a superset's next round the rest closes above the next row, in its own row,
+        // whose top stays where it is: a short move down.
         let target = rest.isBack
             ? landing(on: next.row, leaving: rest.set.row)
             : landing(on: next.row, closingRestUnder: rest.set.row)
@@ -190,12 +203,12 @@ extension RoutineScreen {
             growthLift = 0
         }
         railPulse = RailPulse(
-            from: .rest(after: rest.set.row),
+            from: .rest(in: restRow(of: rest, in: workout) ?? rest.set.row),
             to: .node(next.row),
-            way: way,
+            way: .down,
             run: (railPulse?.run ?? 0) + 1,
         )
-        land(way, scrollingTo: target)
+        land(.down, scrollingTo: target)
     }
 
     /// −15 s or +15 s on the rest running, the bar gliding to its new fill; the dot stays put.
@@ -212,10 +225,18 @@ extension RoutineScreen {
         }
     }
 
-    /// The rest under `id`'s row: open under the row left once it shows, or none.
-    func restBlock(under id: RoutineExercise.ID) -> RestBlock {
+    /// The row a rest between exercises is drawn in, `workout` holding the set it follows: the
+    /// row left, under its label; or, before a superset's next round, the first member's, above
+    /// its label (`isBack`).
+    func restRow(of rest: WorkoutPhase.Resting, in workout: Workout) -> RoutineExercise.ID? {
+        rest.isBack ? LiveWorkout(routine: routine, workout: workout).currentSet?.row : rest.set.row
+    }
+
+    /// The rest in `id`'s row, under its label or `above` it: open once it shows, or none.
+    func restBlock(in id: RoutineExercise.ID, above: Bool) -> RestBlock {
         if let rest = phase.drawnRest, !rest.isWithinExercise, rest.beat >= .shown,
-           rest.set.row == id, let (resting, workout) = drawnResting
+           rest.isBack == above, let (resting, workout) = drawnResting,
+           restRow(of: rest, in: workout) == id
         {
             return RestBlock(
                 stage: .open,
@@ -226,7 +247,8 @@ extension RoutineScreen {
             )
         }
         // Ended mid-rest, its room closes with the list showing the time it had.
-        if let (rest, workout) = phase.restLeft, !rest.isWithinExercise, rest.set.row == id,
+        if let (rest, workout) = phase.restLeft, !rest.isWithinExercise, rest.isBack == above,
+           restRow(of: rest, in: workout) == id,
            let left = LiveWorkout(routine: routine, workout: workout).rest(override: restOverride)
         {
             return RestBlock(
@@ -324,6 +346,7 @@ extension RoutineScreen {
         LabelWithRest(
             label: rowLabel(item, current: current, on: set, parts: parts),
             rest: parts?.restAfter ?? RestBlock(stage: .none, length: 0),
+            restAbove: parts?.restBefore ?? RestBlock(stage: .none, length: 0),
             onRestHeight: { rowFrames.restHeights[item.id] = $0 },
         )
     }
@@ -345,17 +368,15 @@ extension RoutineScreen {
         // Resting between two exercises, the next one grows a step once the rest shows, and
         // stays grown through the move out of the rest until it opens: dropped as the rest
         // ended, it shrank back and lost its equipment for a frame before growing again.
-        // Not back up a superset's loop: its first member, above the rest, grown, pushed the
-        // rest down under the dot.
-        let isRestingBetween = phase.drawnRest
-            .map { !$0.isWithinExercise && !$0.isBack && $0.beat >= .shown }
-            ?? (phase.move.map { $0.isFromRest && !$0.isBack } == true)
+        let isRestingBetween = phase.drawnRest.map { !$0.isWithinExercise && $0.beat >= .shown }
+            ?? (phase.move?.isFromRest == true)
         let nextUp = isRestingBetween ? shown?.currentSet?.row : nil
         return routine.exercises.reduce(into: [:]) { parts, item in
             parts[item.id] = RowParts(
                 bars: bars[item.id],
                 restBetween: setRest(of: item.id, current: current),
-                restAfter: restBlock(under: item.id),
+                restAfter: restBlock(in: item.id, above: false),
+                restBefore: restBlock(in: item.id, above: true),
                 isDone: finished.contains(item.id),
                 nextUp: item.id == nextUp ? [item.exercise].equipment.map(\.name) : nil,
                 after: item.id == current ? after : nil,
@@ -369,18 +390,6 @@ extension RoutineScreen {
             scrollPosition.scrollTo(y: place.landingY)
         }
     }
-}
-
-/// What a row draws of the workout: its set bars, its rest between sets in its figures' slot,
-/// the rest after it, under it, whether it is finished, its equipment while it is next after a
-/// rest, and on the current exercise what follows its set.
-struct RowParts {
-    let bars: SetProgress?
-    let restBetween: SetRest?
-    let restAfter: RestBlock
-    let isDone: Bool
-    let nextUp: [String]?
-    let after: String?
 }
 
 struct RestWatch: Equatable {
