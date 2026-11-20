@@ -252,6 +252,27 @@ struct TimedSetTests {
         #expect(held == .held(set))
     }
 
+    @Test("A count's set changed to reps and back opens on Starts in, not its old count")
+    func timedAgain() throws {
+        var routine = try Self.routine()
+        let live = Self.started(routine)
+        routine.exercises[0].plan.target = .reps(10)
+        let asReps = LiveWorkout(routine: routine, workout: live.workout)
+            .beginningCount(at: Self.at(60))
+        #expect(asReps.count == nil)
+        routine.exercises[0].plan.target = .time(seconds: 30)
+        let again = LiveWorkout(routine: routine, workout: asReps)
+            .beginningCount(at: Self.at(60))
+        #expect(again.count?.startClock == 70)
+    }
+
+    @Test("A workout finished mid-count keeps no count")
+    func finishedMidCount() throws {
+        let live = try Self.started(Self.routine())
+        #expect(live.workout.count != nil)
+        #expect(live.workout.finishing(at: Self.at(15)).count == nil)
+    }
+
     @Test("A reps set logs as before, and begins no count")
     func reps() throws {
         let routine = try Routine(exercises: [RoutineExercise.builtIn("Push-up") { $0.sets = 2 }])

@@ -30,7 +30,7 @@ public struct LoggedCount: Equatable, Sendable {
 }
 
 /// Where a timed set's count stands: its short "Starts in" count, then its own.
-public enum CountStage: Comparable, Sendable {
+public enum CountStage: Sendable {
     case startsIn
     case counting
 }
@@ -117,19 +117,22 @@ extension LiveWorkout {
 
     /// The workout with the current set's count begun at `now`, when it is timed and has none of
     /// its own: at the end of the rest before it, when that just ended; else after "Starts in"
-    /// from now. Unchanged while that rest runs.
+    /// from now. A count kept for no set counting goes, as after the set changed to reps, so it
+    /// never comes back with its old start; the rest of the workout is unchanged while the rest
+    /// before the set runs.
     public func beginningCount(at now: Date, restOverride: Int? = nil) -> Workout {
-        guard workout.isInProgress, let set = currentSet, isOnTimedSet, timedSet == nil
-        else { return workout }
+        guard workout.isInProgress, timedSet == nil else { return workout }
+        var begun = workout
+        begun.count = nil
+        guard let set = currentSet, isOnTimedSet else { return begun }
         let clock = workout.clock(at: now)
         var start = clock + Double(Self.startsIn)
         if let rest = rest(override: restOverride) {
-            guard rest.isOver(atClock: clock) else { return workout }
+            guard rest.isOver(atClock: clock) else { return begun }
             if clock - rest.endClock <= Self.missedBy {
                 start = rest.endClock
             }
         }
-        var begun = workout
         begun.count = SetCount(set: set, startClock: start)
         return begun
     }

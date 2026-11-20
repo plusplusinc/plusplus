@@ -69,6 +69,9 @@ extension RoutineScreen {
             try? await Task.sleep(for: .seconds(PrimaryKeyButtonStyle.swapHalf), tolerance: .zero)
             guard countBeats.earlyLog == tapped else { return }
             countBeats.earlyLog = nil
+            // Stored only where it shows: End, a sheet, or a stopped sequence meanwhile moved
+            // the screen off rest, where a log is refused, and the store would run ahead of it.
+            guard phase.isAtRest, editing == nil else { return }
             switch impact {
             case .set, .runOut: setLogs += 1
             case .side: sideLogs += 1
@@ -101,7 +104,12 @@ extension RoutineScreen {
             filling: keyFill,
             isOut: isOut,
             onLog: { tapKey() },
-            onExtend: { perform(liveKey.countTap(by: 15)) },
+            // Nothing once "Log early" has stopped the set, as with a tap on the log key.
+            onExtend: {
+                if countBeats.earlyLog == nil {
+                    perform(liveKey.countTap(by: 15))
+                }
+            },
         )
     }
 

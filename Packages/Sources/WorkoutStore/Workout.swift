@@ -126,11 +126,13 @@ public struct Workout: Identifiable, Equatable, Sendable {
         return logged
     }
 
-    /// Finished at `now`, a pause in progress counting as paused; unchanged if already finished.
+    /// Finished at `now`, a pause in progress counting as paused, with no count kept: a set
+    /// counting is left unlogged. Unchanged if already finished.
     public func finishing(at now: Date) -> Self {
         guard isInProgress else { return self }
         var finished = resuming(at: now)
         finished.endedAt = now
+        finished.count = nil
         return finished
     }
 }
