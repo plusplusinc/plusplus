@@ -53,8 +53,6 @@ extension RoutineScreen {
     /// motion, and the key rides down off the screen with the rows below it. With Reduce
     /// Motion, the list crossfades into the workout.
     private func leave(_ pressed: Routine.ID) async throws {
-        // What the first row gives back as it shrinks, which the move off it lands by.
-        noteRestingPitch(of: routine.exercises.first?.id)
         guard !reduceMotion else {
             try check(pressed)
             beginCrossfade(scrollingTo: currentPlace?.landingY ?? scrollBeat.scrolledY)
