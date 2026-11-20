@@ -5,18 +5,34 @@ import SwiftUI
 /// words when `spokenDetail` is given.
 ///
 /// Given a `focus`, it is the current exercise of a workout: the name grows large, and the detail
-/// gives way to which set it is on, the exercise's equipment, and the plan's numbers, large, the
-/// label growing to their height. Changed in an animation, the name
-/// scales between its two sizes (`GrowingName`), and the parts under it come in, and go, in turn
-/// (`SetMotion`).
+/// gives way to, top to bottom, its sets as a bar of segments (`SetSegments`), a caption line,
+/// "Set 1 of 3" and at its end what follows the set, "then rest 1:00" or "last set"
+/// (`CaptionLine`), the plan's figures, large, side by side (`CurrentFigures`, in `SetRoom`), and
+/// the exercise's equipment, the label growing to their height. Changed in an animation, the name
+/// scales between its two sizes
+/// (`GrowingName`), and the parts under it come in, and go, in turn (`SetMotion`).
+///
+/// A finished exercise (`isDone`) goes quiet: its name in `textSecondary`, its detail in
+/// `textTertiary`. The exercise next after a rest between two exercises (`nextUp`) grows a step
+/// for the rest's length, its name part of the way to the current exercise's size
+/// (`nextGrowth`), its equipment under its detail line.
 public struct RowLabel: View {
     private let title: String
     private let detail: [String]
     private let spokenDetail: String?
     private let focus: RowFocus?
     /// How far the exercise is through its sets in a workout, shown as bars at the trailing
-    /// end of its detail line, or of its progress line on the current exercise.
+    /// end of its detail line, or as segments on the current exercise.
     private let bars: SetProgress?
+    /// On the current exercise, the rest between its sets, which takes the figures' slot.
+    private let setRest: SetRest?
+    private let isDone: Bool
+    /// The equipment of the exercise next after the rest running, which grows a step.
+    private let nextUp: [String]?
+
+    /// How far the name of the exercise next after a rest grows toward the current exercise's
+    /// size: about 22 pt from a row's 17 and the current exercise's 28, as in the drawing picked.
+    static let nextGrowth: CGFloat = 5 / 11
 
     /// The label's height as a row, which its height runs from and back to, so the
     /// label grows and shrinks over the whole animation, on its curve.
@@ -35,7 +51,13 @@ public struct RowLabel: View {
         spokenDetail: String? = nil,
         focus: RowFocus? = nil,
         bars: SetProgress? = nil,
+        setRest: SetRest? = nil,
+        isDone: Bool = false,
+        nextUp: [String]? = nil,
     ) {
+        self.setRest = setRest
+        self.isDone = isDone
+        self.nextUp = nextUp
         self.title = title
         self.detail = detail
         self.spokenDetail = spokenDetail
@@ -84,31 +106,39 @@ public struct RowLabel: View {
     }
 
     private func column(_ detailText: String?) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.xxs) {
-            GrowingName(title: title, growth: focus == nil ? 0 : 1)
+        let nameGrowth = focus != nil ? 1 : nextUp != nil ? Self.nextGrowth : 0
+        return VStack(alignment: .leading, spacing: Spacing.xxs) {
+            GrowingName(
+                title: title,
+                growth: nameGrowth,
+                color: isDone ? .textSecondary : .textPrimary,
+            )
             // Out of a workout, a row with no detail has nothing under its name, not even
             // spacing.
             if detailText != nil || focus != nil {
-                VStack(alignment: .leading, spacing: Spacing.lg) {
-                    // The detail line gives way to which set it is on, in the same place, the
-                    // bars at its trailing end: beside it, or under it at the accessibility
-                    // sizes, where beside it eight bars squeezed the line to nothing.
+                VStack(alignment: .leading, spacing: focus == nil ? Spacing.sm : Spacing.lg) {
+                    // The detail line gives way to the segments and the caption line, in the
+                    // same place; a row's bars are at the detail line's trailing end: beside it,
+                    // or under it at the accessibility sizes, where beside it eight bars squeezed
+                    // the line to nothing.
                     linesAndBars {
                         lines(detailText)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                        if let bars {
-                            // Kept as the row leaves: on a superset's member, the round goes on.
+                        if let bars, focus == nil {
                             barsOnFirstLine(bars)
                                 .part(.progress)
                         }
                     }
-                    if let focus, !focus.equipment.isEmpty {
-                        Capsules(focus.equipment)
-                            .part(.equipment)
-                    }
                     if let focus {
-                        CurrentFigures(figures: focus.figures)
+                        SetRoom(figures: focus.figures, rest: setRest)
                             .part(.figures)
+                    }
+                    // One view whether next after a rest or current, so the equipment the next
+                    // exercise shows through the rest stays as it becomes the current one's.
+                    let equipment = focus?.equipment ?? nextUp ?? []
+                    if !equipment.isEmpty {
+                        Capsules(equipment)
+                            .part(.equipment)
                     }
                 }
             }
@@ -131,20 +161,40 @@ public struct RowLabel: View {
                     font: .ppRowDetailNumber,
                 ))
                 .font(.ppRowDetail)
-                .foregroundStyle(.pp(.textSecondary))
+                .foregroundStyle(.pp(isDone ? .textTertiary : .textSecondary))
                 // Never over the progress line: back once it has gone, and gone as the name
                 // starts to grow, before the progress line comes in.
                 .opacity(showsDetail ? 1 : 0)
                 .animation(
                     showsDetail
                         ? SetMotion.detailIn(way: exerciseMoveWay)
+                        // Out of a rest, the next exercise's line stays until the progress line
+                        // comes in to take its place.
+                        : nextUp != nil ? SetMotion.detailOutOfRest
                         : SetMotion.detailOut(way: exerciseMoveWay),
                     value: showsDetail,
                 )
             }
             if let focus {
-                progressLine(focus)
-                    .part(.progress)
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    if let bars {
+                        SetSegments(progress: bars, isOnSet: setRest?.isRunning != true)
+                    }
+                    CaptionLine(spacing: Spacing.md) {
+                        progressLine(focus)
+                        // Laid out through a rest too, faded, so the line keeps its height.
+                        Text(AttributedString.monoNumbers(
+                            focus.after ?? "",
+                            font: .ppCurrentProgress,
+                        ))
+                        .font(.ppCurrentProgress)
+                        .foregroundStyle(.pp(.textSecondary))
+                        .opacity(focus.showsAfter ? 1 : 0)
+                        .modifier(SetRoomGoing(isResting: setRest?.isRunning == true))
+                    }
+                }
+                .padding(.top, Spacing.sm)
+                .part(.progress)
             }
         }
     }
@@ -159,9 +209,9 @@ public struct RowLabel: View {
     private func barsOnFirstLine(_ bars: SetProgress) -> some View {
         ZStack {
             Text(verbatim: "0")
-                .font(focus == nil ? .ppRowDetail : .ppCurrentProgress)
+                .font(.ppRowDetail)
                 .hidden()
-            SetBars(bars, isCurrent: focus != nil)
+            SetBars(bars)
         }
         .fixedSize()
     }
@@ -176,6 +226,7 @@ public struct RowLabel: View {
             FigureLayout(spacing: 0) {
                 rolling(focus.progress, color: .textSecondary)
                 rolling("\(noBreakSpace)·\(noBreakSpace)\(side)", color: .textPrimary, dot: true)
+                    .fadingQuickly(focus.showsSide)
             }
         } else {
             rolling(focus.progress, color: .textSecondary)
@@ -207,18 +258,30 @@ public struct RowLabel: View {
                 .font(.ppCurrentProgress)
                 .foregroundStyle(Color.pp(color))
                 .fixedSize()
-                .id(word)
+                // By the word alone: "3" gaining the space before a word added after it, "Set 1
+                // of 3 done", stays put.
+                .id(word.trimmingCharacters(in: .whitespaces))
                 .transition(.push(from: .bottom))
         }
         .clipped()
     }
 
     private var spokenLabel: String {
+        let isResting = setRest?.isRunning == true
         let parts = if let focus {
             [
                 title,
-                [focus.progress, focus.side].compactMap(\.self).joined(separator: ", "),
-                focus.spokenFigures,
+                // Resting, the caption's "1 of 3 done" says what the bars' words say.
+                [
+                    isResting && bars != nil ? nil : focus.progress,
+                    focus.showsSide ? focus.side : nil,
+                ]
+                .compactMap(\.self).joined(separator: ", "),
+                // During a rest between sets the figures are gone from its place; the rest reads
+                // as its own element after the label (`SetRest.spoken`).
+                isResting ? "" : focus.spokenFigures,
+                isResting || !focus.showsAfter
+                    ? "" : focus.spokenAfter ?? focus.after ?? "",
             ]
         } else {
             [title, spokenDetail ?? detail.joined(separator: ", ")]
@@ -229,7 +292,7 @@ public struct RowLabel: View {
     /// The detail line from its parts, or nil for none. Joined with dots, each part kept whole,
     /// so a long line wraps between parts; stacked, at the accessibility sizes, a part to a line
     /// with no dots.
-    static func detailText(_ parts: [String], stacked: Bool) -> String? {
+    public static func detailText(_ parts: [String], stacked: Bool) -> String? {
         guard !parts.isEmpty else { return nil }
         guard !stacked else { return parts.joined(separator: "\n") }
         // The space before a dot is no-break too, so a line never starts with one.
@@ -266,14 +329,27 @@ public struct RowFocus: Equatable {
     public var figures: [Figure]
     /// The figures in words, for VoiceOver.
     public var spokenFigures: String
+    /// What follows the set, at the caption line's end: "then rest 1:00", "last set"; nil for
+    /// nothing.
+    public var after: String?
+    /// `after` in words, for VoiceOver, "then rest 1 minute": a clock time read as one.
+    public var spokenAfter: String?
+    /// Whether the side shows; unseen, it keeps its room, so the caption line keeps the height
+    /// a side gives it, as through a rest after a set's two sides.
+    public var showsSide = true
+    /// Whether `after` shows; unseen, it keeps its room, as on a set's first side, where the
+    /// other side follows, so the line holds the height the second side's rest gives it.
+    public var showsAfter = true
     public init(
         progress: String,
         side: String? = nil,
         equipment: [String] = [],
         figures: [Figure],
         spokenFigures: String,
+        after: String? = nil,
     ) {
         self.progress = progress
+        self.after = after
         self.side = side
         self.equipment = equipment
         self.figures = figures
@@ -312,35 +388,11 @@ public struct RowFocus: Equatable {
                     .init(number: "50", unit: "lb"),
                 ],
                 spokenFigures: "",
+                after: "then rest 1:00",
             ),
+            bars: SetProgress(done: 1, total: 3, spoken: ""),
         )
     }
     .padding()
     .background(Color.pp(.background))
-}
-
-/// `text`'s words, each with the whitespace after it, so the words set side by side read as
-/// one string, and a word rolls only when it changes; grouped where no-break spaces join them,
-/// so a line wraps only at a breaking space. None empty.
-func rollingWords(_ text: String) -> [[String]] {
-    var groups: [[String]] = []
-    var group: [String] = []
-    var word = ""
-    for character in text {
-        word.append(character)
-        guard character.isWhitespace else { continue }
-        group.append(word)
-        word = ""
-        if String(character) != noBreakSpace {
-            groups.append(group)
-            group = []
-        }
-    }
-    if !word.isEmpty {
-        group.append(word)
-    }
-    if !group.isEmpty {
-        groups.append(group)
-    }
-    return groups
 }

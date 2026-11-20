@@ -1,18 +1,43 @@
 import SwiftUI
 
 /// A pulse to run along a rail, from one row's node to another's: a workout moving on from the
-/// exercise it was on to the next. Each new `run` plays it once (`SetMotion`).
+/// exercise it was on to the next. Each new `run` plays it once (`SetMotion`). With a rest
+/// between two exercises, it is two moves, each a whole pulse: from the node left to the rest,
+/// and at the rest's end from the rest to the next node.
 public struct RailPulse<ID: Hashable>: Equatable {
-    public var from: ID
-    public var to: ID
+    public var from: RailStop<ID>
+    public var to: RailStop<ID>
     public var way: SetMotion.Way
     public var run: Int
 
-    public init(from: ID, to: ID, way: SetMotion.Way, run: Int) {
+    public init(from: RailStop<ID>, to: RailStop<ID>, way: SetMotion.Way, run: Int) {
         self.from = from
         self.to = to
         self.way = way
         self.run = run
+    }
+}
+
+/// Where a pulse sets off or lands: a row's node, or the rest open in a row, under its label or
+/// above it, level with the middle of the word "Rest"'s capitals, on the rail's line
+/// (`RestBlock`). Nothing on the rail marks the rest: only the dot, while it waits there.
+public enum RailStop<ID: Hashable>: Hashable {
+    case node(ID)
+    case rest(in: ID)
+
+    /// The row whose node, or whose rest, it is.
+    var row: ID {
+        switch self {
+        case let .node(id), let .rest(in: id): id
+        }
+    }
+
+    var isNode: Bool {
+        if case .node = self {
+            true
+        } else {
+            false
+        }
     }
 }
 
@@ -116,6 +141,10 @@ nonisolated struct PulseShape: Shape {
     let restingSize: CGFloat
     /// Which way it goes, which sets its travel's length and curve.
     var way = SetMotion.Way.down
+    /// Whether a node is at each end: a rest has none, so nothing is left behind as the pulse
+    /// pulls out of it, and nothing joins it as it lands there.
+    var leavesNode = true
+    var joinsNode = true
 
     /// How much longer the mass is for each point a second of its speed.
     static let stretch: CGFloat = 0.03
@@ -196,15 +225,15 @@ nonisolated struct PulseShape: Shape {
         let left = Circle(center: route.points[0], radius: restingSize / 2)
         // Attached while the mass still overlaps the node left, its tail held there, or a neck
         // joins them.
-        let neck = Self.neck(left, tail, goo: size * Self.goo)
-        if neck != nil || left.distance(to: tail) < left.radius + tail.radius {
+        let neck = leavesNode ? Self.neck(left, tail, goo: size * Self.goo) : nil
+        if leavesNode, neck != nil || left.distance(to: tail) < left.radius + tail.radius {
             shape = shape.union(left.path)
         }
         if let neck {
             shape = shape.union(neck)
         }
         let next = Circle(center: target, radius: restingSize / 2)
-        if next.distance(to: head) < next.radius + head.radius {
+        if joinsNode, next.distance(to: head) < next.radius + head.radius {
             shape = shape.union(next.path)
             if let neck = Self.neck(head, next, goo: size * Self.goo) {
                 shape = shape.union(neck)
@@ -282,37 +311,80 @@ nonisolated struct PulseShape: Shape {
 
 /// The pulse drawn over a rail, from the rows' nodes as they are on each frame. It plays once
 /// for each new `run`, from the log to its plop settled on the node it lands on
-/// (`PulseShape.runEnd(_:)`), and draws nothing between runs. It dims with the current node it
-/// leaves and becomes (`currentPulse(in:)`), so it takes over from one and hands over to the
-/// other without a seam. With Reduce Motion there is none: the move crossfades.
+/// (`PulseShape.runEnd(_:)`), and draws nothing between runs. In the nodes' steady green, so it
+/// takes over from the current node it leaves, or a rest's dot, and hands over to the one it
+/// becomes without a seam. With Reduce Motion there is none: the move crossfades.
 struct RailPulseRun: View {
     let route: RailRoute?
     let way: SetMotion.Way
     let run: Int
+    var leavesNode = true
+    var joinsNode = true
     @ScaledMetric(relativeTo: .body) private var size = currentNodeSize
     @ScaledMetric(relativeTo: .body) private var restingSize = railNodeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Where the run down the rail set off, as the node left was at its start.
+    @State private var origin: Origin?
+
+    private struct Origin: Equatable {
+        let run: Int
+        let point: CGPoint
+    }
 
     var body: some View {
+        let drawn = drawnRoute
         // Always in place, so the first run is a change it sees: put in with its first run, it
         // started at that run and never played it.
         KeyframeAnimator(initialValue: -1.0, trigger: run) { time in
-            // Only during a run: between runs there is nothing to draw, and the dimming's
-            // timeline would tick through the whole workout.
+            // Only during a run: between runs there is nothing to draw.
             if time >= 0, !reduceMotion {
-                let shape = PulseShape(
+                PulseShape(
                     time: time,
-                    route: route ?? RailRoute([]),
+                    route: drawn.route,
                     size: size,
                     restingSize: restingSize,
                     way: way,
+                    leavesNode: drawn.leavesNode,
+                    joinsNode: joinsNode,
                 )
-                shape.fill(.pp(.accent)).currentPulse(in: shape)
+                .fill(.pp(.accent))
             }
         } keyframes: { _ in
             PulseShape.run(way)
         }
+        .onChange(of: run, initial: true) {
+            origin = route?.points.first.map { Origin(run: run, point: $0) }
+        }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
+    }
+
+    private var drawnRoute: (route: RailRoute, leavesNode: Bool) {
+        guard let route else { return (RailRoute([]), leavesNode) }
+        return Self.drawn(
+            route,
+            way: way,
+            leavesNode: leavesNode,
+            origin: origin?.run == run ? origin?.point : nil,
+        )
+    }
+
+    /// The route as drawn, down the rail from `origin`, where the node left was as the run
+    /// started, and whether it leaves a node behind. Into a rest, the row left closes from the
+    /// tap, and its node rises with its name shrinking: from the node as it is, the pulse rose
+    /// with it before it shot down (2026-11-19); with a neck to it, the green split and stretched
+    /// up after it. Once the node has moved, the pulse leaves it behind at once, in its own
+    /// color, and goes on down as one shape. Round a loop it heads up anyway, along the loop
+    /// drawn from the node.
+    static func drawn(
+        _ route: RailRoute,
+        way: SetMotion.Way,
+        leavesNode: Bool,
+        origin: CGPoint?,
+    ) -> (route: RailRoute, leavesNode: Bool) {
+        guard way == .down, leavesNode, let origin, let start = route.points.first,
+              start != origin
+        else { return (route, leavesNode) }
+        return (RailRoute([origin] + route.points.dropFirst()), false)
     }
 }

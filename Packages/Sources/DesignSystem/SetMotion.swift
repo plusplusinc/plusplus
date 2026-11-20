@@ -15,14 +15,14 @@ import SwiftUI
 ///   a still screen, the current exercise's parts all still showing, for `landingHold` after it
 ///   lands, as its first squash has sprung back.
 /// - **Leave**: what the current exercise grew to show goes, bottom first, each part fading as it
-///   drops a few points: the numbers, then the equipment and the progress line, as the shift
+///   drops a few points: the equipment, then the numbers and the progress line, as the shift
 ///   starts.
 /// - **Shift** (to `shiftEnd(_:)`): the row shrinks back to a resting row as the next row grows
 ///   into the current exercise and the list scrolls it under the bar, down the rail (`Way.down`)
 ///   and back up a superset's loop (`Way.loop`) alike. Down the rail, what lies between and below
 ///   moves up once, never back down.
 /// - **Arrive**: the next row's parts come in top first as it has room for them, each fading as
-///   it rises a few points: the progress line, the equipment, the numbers.
+///   it rises a few points: the progress line, the numbers, the equipment.
 public enum SetMotion {
     /// Which way a move goes along the rail, which sets the pulse's route and travel.
     public enum Way: Sendable {
@@ -51,14 +51,23 @@ public enum SetMotion {
     /// How long after the part below it each part starts to go, bottom first.
     static let leaveStagger = 0.025
 
-    /// When `part` starts to go, from the log: on a move to another exercise `way`, as
-    /// the shift starts; with no pulse to wait for, after the last set, at once.
-    static func leaveDelay(_ part: Part, way: Way? = nil) -> Double {
-        let start = way.map(moveShiftStart) ?? 0
+    /// When `part` starts to go, from the log, on a move to another exercise `way`: as the shift
+    /// starts, bottom first.
+    static func leaveDelay(_ part: Part, way: Way) -> Double {
+        let start = moveShiftStart(way)
         return switch part {
-        case .figures: start
-        case .equipment, .progress: start + leaveStagger
+        case .equipment: start
+        case .figures, .progress: start + leaveStagger
         }
+    }
+
+    /// `part` going: on a move to another exercise `way`, held, then easing in as the shift
+    /// starts; with none, as the row closes from the log, into a rest or after the last set,
+    /// all at once, easing out, so each is mostly gone before the row's bottom reaches it: eased
+    /// in, bottom first, the numbers were cut off at half strength over "Rest" for three frames.
+    static func leaving(_ part: Part, way: Way?) -> Animation {
+        guard let way else { return .easeOut(duration: leaveFade) }
+        return .easeIn(duration: leaveFade).delay(leaveDelay(part, way: way))
     }
 
     // MARK: Shift
@@ -79,7 +88,12 @@ public enum SetMotion {
     /// sizes, and the list's scroll: held until the pulse has landed and plopped
     /// (`moveShiftStart(_:)`), then started from rest, easing to a stop with no overshoot.
     public static func moving(_ way: Way) -> Animation {
-        .timingCurve(0.6, 0, 0.1, 1, duration: moveShift).delay(moveShiftStart(way))
+        shiftCurve.delay(moveShiftStart(way))
+    }
+
+    /// The shift's curve, as Dave tuned it: started from rest, then quick, easing to a stop.
+    static var shiftCurve: Animation {
+        .timingCurve(0.6, 0, 0.1, 1, duration: moveShift)
     }
 
     /// Moving to another exercise, the shift's length.
@@ -152,14 +166,24 @@ public enum SetMotion {
 
     /// The detail line, back on the row closing, fading in once the progress line has gone and
     /// the row is well on its way to a resting row: on a move to another exercise `way`, timed
-    /// from its shift's start.
+    /// from its shift's start, once the progress line's fade is done. Earlier, the two lines
+    /// were drawn one over the other for a few frames (2026-11-19).
     static func detailIn(way: Way?) -> Animation {
-        .easeOut(duration: 0.15).delay(way.map { moveShiftStart($0) + 0.08 } ?? 0.15)
+        .easeOut(duration: 0.15).delay(
+            way.map { leaveDelay(.progress, way: $0) + leaveFade } ?? 0.15,
+        )
     }
 
     /// The detail line on the next row going as its name starts to grow.
     static func detailOut(way: Way?) -> Animation {
         .easeIn(duration: 0.06).delay(way.map(moveShiftStart) ?? 0)
+    }
+
+    /// Out of a rest between exercises, the detail line on the next row, grown a step through the
+    /// rest, going just as the progress line comes in, never before: gone as the rest ended, it
+    /// left the row bare for a few frames.
+    static var detailOutOfRest: Animation {
+        .easeIn(duration: 0.06).delay(arriveDelay(.progress) - 0.06)
     }
 
     // MARK: Arrive
@@ -177,15 +201,17 @@ public enum SetMotion {
         guard let way else {
             return switch part {
             case .progress: 0.2
-            case .equipment: 0.28
-            case .figures: 0.36
+            case .figures: 0.28
+            case .equipment: 0.36
             }
         }
+        // Once the row's opening bottom, on the shift's curve, has passed each: at 0.18 s the
+        // figures faded in cut off by it (2026-11-19).
         return moveShiftStart(way) + {
             switch part {
-            case .progress: 0.14
-            case .equipment: 0.18
-            case .figures: 0.22
+            case .progress: 0.2
+            case .figures: 0.28
+            case .equipment: 0.36
             }
         }()
     }
@@ -196,19 +222,49 @@ public enum SetMotion {
         arriveDelay(.progress, way: way) + arriveFade
     }
 
+    // MARK: A rest between exercises
+
+    /// The bar under a rest's countdown gliding to its new fill after −15 s or +15 s, and the
+    /// countdown's figure turning with it.
+    public static let restGlide = 0.45
+
+    /// Into a rest between exercises, or out of one, everything the move changes: the row left
+    /// closing, the rest's room opening or closing, the next exercise growing, and any scroll,
+    /// from the pulse setting off, easing to a stop just as the pulse's leading end reaches the
+    /// place it heads for. The pulse runs to that place as it is on each frame, so the place has
+    /// to be still by then: on a move's shift, after the landing, the dot landed on the next
+    /// exercise's node, under the row left still open, and rode back up to the word as the rest
+    /// opened (2026-11-19). The pulse barely moves through the first half of its travel
+    /// (`travelPower`), while this curve has done most of its change, so the dot only goes on
+    /// toward the place, never back.
+    public static func aroundRest(_ way: Way) -> Animation {
+        .timingCurve(0.42, 0, 0.2, 1, duration: travel(way)).delay(travelStart)
+    }
+
+    // MARK: A rest between sets
+
+    /// Everything a log that rests between sets changes, from the tap, and the rest's end
+    /// changes back, on one curve: the figures and the rest swapping in their slot, the set's
+    /// segment turning purple, and the caption line rolling. The key at the bottom swaps for
+    /// −15 s and +15 s on the bar's own swap (`RestKeys`).
+    public static var restSwap: Animation {
+        .snappy(duration: roll)
+    }
+
     // MARK: The timeline
 
     /// The whole move, from the log to the shift's end, the next exercise's last part in
     /// place and the pulse's plop settled into the lit node.
     public static func move(_ way: Way) -> Double {
-        max(shiftEnd(way), arriveDelay(.figures, way: way) + arriveFade, PulseShape.runEnd(way))
+        max(shiftEnd(way), arriveDelay(.equipment, way: way) + arriveFade, PulseShape.runEnd(way))
     }
 
-    /// The current exercise's parts under its name, which leave and arrive in turn.
+    /// The current exercise's parts under its name, top to bottom, which leave and arrive in
+    /// turn.
     enum Part {
         case progress
-        case equipment
         case figures
+        case equipment
     }
 
     /// Where along the travel, from 0 to 1, the pulse is a share `time` of the way through it. Down

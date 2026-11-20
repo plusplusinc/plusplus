@@ -49,6 +49,9 @@ public enum ColorToken: String, CaseIterable, Sendable {
     case textPrimary = "ppTextPrimary"
     /// Placeholder text: the default title while it is being edited.
     case textSecondary = "ppTextSecondary"
+    /// A step quieter than `textSecondary`: a finished exercise's detail line, under its name in
+    /// `textSecondary`, so what is current reads brightest.
+    case textTertiary = "ppTextTertiary"
     /// A region sunk into the screen, flat, with no shadow: the rows of a superset while a drag
     /// changes it. Darker than `background` in both appearances, as if
     /// further from the light.

@@ -7,6 +7,7 @@ import Foundation
 /// only once the finger lifts; "Log last set" takes no tap while its row closes; and as a
 /// workout ends, the key keeps its words while a tap is Start's, which does nothing until Start
 /// is back. What a tap lands on (a sheet over the key, the key out in a swap) is the screen's.
+/// During a rest the key is −15 s and +15 s (`Role.rest`), whose taps are `restTap(by:)`'s.
 public struct WorkoutKey: Sendable {
     /// The workout as stored, every log in it: what a tap reads. Nil out of a workout, and from
     /// End's choice.
@@ -42,7 +43,7 @@ public struct WorkoutKey: Sendable {
         // shows its own, so it changes with the row: read from the workout, it said the next
         // exercise's set ("Log left") as the pulse set off. After the last set, through the close.
         if let set = phase.keySet, let text = stored?.hiding([set]).logText {
-            return .log(text)
+            return logRole(text)
         }
         if shown.isDone {
             return .finish
@@ -52,7 +53,25 @@ public struct WorkoutKey: Sendable {
         }
         // As drawn, the held set until the line rolls on, so the key changes with the row, not
         // before it.
-        return shown.logText.map(Role.log) ?? .finish
+        return shown.logText.map(logRole) ?? .finish
+    }
+
+    /// The log key saying `text`, or during a rest −15 s and +15 s in its place: from the log of
+    /// a set with a rest after it until the rest ends, and through End's leaving of a rest.
+    private func logRole(_ text: String) -> Role {
+        let isResting = phase.drawnRest.map { $0.beat < .returning } ?? false
+        return isResting ? .rest : .log(text)
+    }
+
+    /// What a tap on −15 s or +15 s does: changes the rest running by `seconds`, once it has
+    /// come in (between exercises, once the pulse has landed at it; between sets, once the swap
+    /// is over), so a double tap's second on Log set, landing on −15 s as it swaps in, changes
+    /// nothing; nothing once the rest is over.
+    public func restTap(by seconds: Int) -> Tap {
+        guard let rest = phase.resting, rest.beat < .returning,
+              rest.beat >= (rest.isWithinExercise ? .settled : .landed)
+        else { return .nothing }
+        return .adjustRest(by: seconds)
     }
 
     /// What a tap on the key does, as the workout is stored. Out of a workout, Start. After the
@@ -98,6 +117,9 @@ extension WorkoutKey {
         /// The current exercise is scrolled away, above it or not: the key goes back to it.
         case back(name: String, isAbove: Bool)
         case finish
+        /// During a rest, −15 s and +15 s in the log key's place: another key, so they swap with
+        /// it as any two keys do, never crossfading through it in its place.
+        case rest
 
         /// Which key this is: a change of kind swaps the key for another, a change within one,
         /// as "Log left" to "Log right", changes its words.
@@ -106,6 +128,7 @@ extension WorkoutKey {
             case log
             case back
             case finish
+            case rest
         }
 
         public var kind: Kind {
@@ -114,6 +137,7 @@ extension WorkoutKey {
             case .log: .log
             case .back: .back
             case .finish: .finish
+            case .rest: .rest
             }
         }
 
@@ -132,6 +156,8 @@ extension WorkoutKey {
         /// Goes back to the current exercise, logging nothing.
         case back
         case finish
+        /// −15 s or +15 s: the rest running changes by `seconds`.
+        case adjustRest(by: Int)
         case nothing
     }
 

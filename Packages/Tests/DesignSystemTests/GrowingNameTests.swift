@@ -12,11 +12,6 @@ struct GrowingNameTests {
         small: CGSize(width: 148, height: 22),
         large: CGSize(width: 235, height: 34),
     )
-    /// One line at the small size, two at the large.
-    private let wrapsAtLarge = GrowingName.Sizes(
-        small: CGSize(width: 300, height: 22),
-        large: CGSize(width: 340, height: 68),
-    )
 
     /// The font sizes' ratio's scale at `growth`: a row's size at 0, the large name's own at 1.
     private func ratioScale(_ growth: CGFloat) -> CGFloat {
@@ -54,26 +49,25 @@ struct GrowingNameTests {
         #expect(rest.largeOpacity == 0)
     }
 
-    @Test("Breaking differently, the two crossfade, both scaled by the font sizes' ratio alone")
-    func crossfadesWhenBreakingDifferently() {
-        let drawing = GrowingName.Drawing(growth: 0.25, ratio: ratio, sizes: wrapsAtLarge)
-        let scale = ratioScale(0.25)
-        #expect(abs(drawing.largeScale.width - scale) < 0.0001)
-        #expect(abs(drawing.largeScale.height - scale) < 0.0001)
-        #expect(abs(drawing.smallScale - scale * ratio) < 0.0001)
-        #expect(drawing.largeOpacity == 0.25)
+    @Test("A name is drawn with a line break where each measured line starts, its spaces dropped")
+    func linesAtMeasuredStarts() {
+        let title = "Neutral-grip weighted pull-up with a pause at the top"
+        let breaks = GrowingName.LineBreaks(title: title, starts: [22, 43])
+        #expect(breaks
+            .lines(of: title) == "Neutral-grip weighted\npull-up with a pause\nat the top")
+        // A word wider than the line splits where the system split it, with no hyphen.
+        let word = "Supercalifragilisticexpialidocious squat"
+        #expect(GrowingName.LineBreaks(title: word, starts: [20]).lines(of: word)
+            == "Supercalifragilistic\nexpialidocious squat")
     }
 
-    @Test("As many lines broken at other words crossfade, like a different number of lines")
-    func crossfadesWhenBreakingAtOtherWords() {
-        // Two lines both ways, the widest far narrower at the large size than the ratio has it.
-        let otherWords = GrowingName.Sizes(
-            small: CGSize(width: 300, height: 44),
-            large: CGSize(width: 330, height: 72),
-        )
-        let drawing = GrowingName.Drawing(growth: 0.25, ratio: ratio, sizes: otherWords)
-        #expect(abs(drawing.largeScale.width - ratioScale(0.25)) < 0.0001)
-        #expect(drawing.largeOpacity == 0.25)
+    @Test("A name on one line, or measured for another title, is drawn as it is")
+    func linesUnbroken() {
+        #expect(GrowingName.LineBreaks(title: "Plank", starts: []).lines(of: "Plank") == "Plank")
+        let squat = GrowingName.LineBreaks(title: "Barbell back squat", starts: [8])
+        #expect(squat.lines(of: "Barbell front squat") == "Barbell front squat")
+        // Starts past the title's end, as a stale measure could hold, leave it whole.
+        #expect(GrowingName.LineBreaks(title: "Plank", starts: [9]).lines(of: "Plank") == "Plank")
     }
 
     @Test("Before both sizes are measured, the font sizes' ratio scales both ways")

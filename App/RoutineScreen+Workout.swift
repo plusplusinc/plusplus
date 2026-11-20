@@ -158,14 +158,15 @@ extension RoutineScreen {
     /// it. Switched on with the grow, the room grew in with it, and when the room under the list
     /// went mid-grow the scroll view's trailing size, 45 to 130 pt short, clamped the list down.
     var landingRoomTop: CGFloat? {
-        let isLanding = currentID != nil || isMovingOn || isStarting
+        let isLanding = currentID != nil || isMovingOn || isStarting || isResting
         return closingRoomTop ?? (isLanding ? currentPlace?.landingY : nil)
     }
 
     /// Takes away the screen's room under the list's end once Start or a move to the next
     /// exercise is over. It can go at any moment: `landingRoomTop` holds the landing.
     func letRoomGo() {
-        guard isMakingRoom, !isStarting, !isMovingOn, session.workout != nil else { return }
+        guard isMakingRoom, !isStarting, !isMovingOn, !isResting, session.workout != nil
+        else { return }
         withTransaction(\.disablesAnimations, true) { isMakingRoom = false }
     }
 
@@ -207,7 +208,9 @@ extension RoutineScreen {
         }
         // The workout's key slides down as it fades, and Start stays away until the list has
         // landed: taken out with no animation, the key went on the frame.
-        withAnimation(.easeOut(duration: Self.barFade)) { phase.keyLeaves() }
+        withAnimation(.easeOut(duration: Self.barFade)) {
+            phase.keyLeaves()
+        }
         guard !reduceMotion else {
             withAnimation(Self.crossfadeCurve) { change() }
             beginCrossfade(scrollingTo: 0)
@@ -348,13 +351,6 @@ extension RoutineScreen {
         }
         openOnCurrentIfDue()
         settleWayBack()
-    }
-
-    /// Scrolls the current exercise's row up to just under the bar.
-    func scrollToCurrent() {
-        if let place = currentPlace {
-            scrollPosition.scrollTo(y: place.landingY)
-        }
     }
 
     /// Back in a workout after a relaunch, opens the list on the current exercise, once it has

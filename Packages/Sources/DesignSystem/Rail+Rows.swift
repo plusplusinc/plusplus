@@ -103,11 +103,16 @@ extension Rail {
         // A superset with a row swiped open shows no loop, as its rows' own strokes don't.
         let joined = shownJoined.subtracting(loopsHidden(ids))
         let flags = ids.dropLast().map(joined.contains)
+        // Out to a rest open above the first node or under the last, as each row's own line runs.
+        let restY = { (id: RowID?) in
+            id.flatMap { nodes[AnyHashable(RestStopKey(row: AnyHashable($0)))] }.map { proxy[$0].y }
+        }
+        let top = min(first.y, restY(ids.first) ?? first.y)
         return RailDrawing(
             nodeX: first.x,
             nodes: points.map(\.y),
             joined: flags,
-            spine: first.y ... max(first.y, last.y),
+            spine: top ... max(top, last.y, restY(ids.last) ?? last.y),
             shape: AnyHashable(ids.map(AnyHashable.init) + flags.map(AnyHashable.init)),
         )
     }
