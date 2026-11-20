@@ -222,12 +222,8 @@ extension RoutineScreen {
     }
 
     /// −15 s or +15 s on the rest running, the bar gliding to its new fill; the dot stays put.
-    /// Nothing while the rest is still coming in, so a double tap's second on Log set, landing on
-    /// −15 s as it swaps in, changes nothing; nor once it is over.
+    /// Only when `WorkoutKey.restTap(by:)` says so.
     func adjustRest(by seconds: Int) {
-        guard let rest = phase.resting, rest.beat < .returning,
-              rest.beat >= (rest.isWithinExercise ? .settled : .landed)
-        else { return }
         withAnimation(.snappy(duration: SetMotion.restGlide)) {
             session.adjustRest(by: seconds, override: restOverride)
         }
