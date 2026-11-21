@@ -161,7 +161,7 @@ extension RoutineScreen {
     }
 
     /// Tells VoiceOver a rest has started, and how long it is, "Rest, 1 minute": its focus stays
-    /// on the key, which swaps for −15 s and +15 s.
+    /// on the key, which swaps for Skip rest and +15 s.
     private func announceRest() {
         guard let resting else { return }
         let length = RestBlock.spoken(Double(resting.length), locale: locale)

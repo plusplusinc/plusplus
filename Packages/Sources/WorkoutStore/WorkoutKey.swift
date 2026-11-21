@@ -77,7 +77,8 @@ public struct WorkoutKey: Sendable {
         return shown.logText.map(logRole) ?? .finish
     }
 
-    /// The log key saying `text`, or during a rest −15 s and +15 s in its place: from the log of
+    /// The log key saying `text`, or during a rest Skip rest and +15 s in its place: from the log
+    /// of
     /// a set with a rest after it until the rest ends, and through End's leaving of a rest.
     private func logRole(_ text: String) -> Role {
         let isResting = phase.drawnRest.map { $0.beat < .returning } ?? false

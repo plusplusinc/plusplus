@@ -6,27 +6,27 @@ import Testing
 /// workout as stored and as drawn, the phase, and where the current exercise is.
 @Suite("What the workout key says and does")
 struct WorkoutKeyTests {
-    /// One case of the key: its inputs, the role and tap it should give, and whether −15 s and
-    /// +15 s change the rest.
+    /// One case of the key: its inputs, the role and tap it should give, and whether Skip rest
+    /// and +15 s change the rest.
     struct Row: CustomTestStringConvertible, Sendable {
         let name: String
         let key: WorkoutKey
         let role: WorkoutKey.Role
         let tap: WorkoutKey.Tap
-        let adjustsRest: Bool
+        let takesRestTaps: Bool
 
         init(
             _ name: String,
             _ key: WorkoutKey,
             says role: WorkoutKey.Role,
             taps tap: WorkoutKey.Tap,
-            adjustsRest: Bool = false,
+            takesRestTaps: Bool = false,
         ) {
             self.name = name
             self.key = key
             self.role = role
             self.tap = tap
-            self.adjustsRest = adjustsRest
+            self.takesRestTaps = takesRestTaps
         }
 
         var testDescription: String {
@@ -214,7 +214,7 @@ struct WorkoutKeyTests {
     func key(_ row: Row) {
         #expect(row.key.role == row.role)
         #expect(row.key.tap == row.tap)
-        #expect(row.key.skipRest == (row.adjustsRest ? .skipRest : .nothing))
-        #expect(row.key.extendRest(by: 15) == (row.adjustsRest ? .extendRest(by: 15) : .nothing))
+        #expect(row.key.skipRest == (row.takesRestTaps ? .skipRest : .nothing))
+        #expect(row.key.extendRest(by: 15) == (row.takesRestTaps ? .extendRest(by: 15) : .nothing))
     }
 }

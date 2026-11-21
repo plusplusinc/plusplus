@@ -369,7 +369,7 @@ public enum WorkoutPhase: Equatable, Sendable {
     /// How the key is gone from its bar: as Start lands, with its room kept, until the workout's
     /// key comes up; as Start fades in with no motion, and from the key's leaving at the end to
     /// the end's rest, with its room. None while it shows. A rest's key is the screen's to take
-    /// away: the bar swaps the key for −15 s and +15 s (`RoutineScreen.key(_:isOut:)`).
+    /// away: the bar swaps the key for Skip rest and +15 s (`RoutineScreen.key(_:isOut:)`).
     public var keyGone: KeyGone? {
         switch self {
         case .starting(.landed): .keepingRoom

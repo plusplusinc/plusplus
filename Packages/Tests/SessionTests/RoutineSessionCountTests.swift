@@ -57,6 +57,37 @@ struct RoutineSessionCountTests {
         #expect(session.workout?.count == nil)
     }
 
+    @Test("+15 s and Skip rest on the rest after a set are each stored; reopened, the rest is over")
+    func restTapsStored() async throws {
+        var routine = try Self.planks()
+        routine.exercises[0].setRest(30)
+        let row = routine.exercises[0]
+        let session = RoutineSession(routine: routine, store: relaunch(), namer: .muscleGroupsOnly)
+        session.save(routine)
+        session.start(on: routine.id, at: Self.at(0))
+        session.beginCount(at: Self.at(0))
+        session.startCountNow(at: Self.at(0))
+        // Logged early at 20 s: its rest runs from 20 to 50.
+        session.log(PlannedSet(row: row.id, round: 1), of: row, at: Self.at(20))
+        let steps: [(name: String, change: () -> Void)] = [
+            ("+15 s", { session.extendRest(by: 15, at: Self.at(25)) }),
+            ("skip", { session.skipRest(at: Self.at(30)) }),
+        ]
+        for step in steps {
+            step.change()
+            await session.writesLanded()
+            let relaunched = try await relaunch().launch(weightUnit: .pounds).workout
+            #expect(relaunched == session.workout, "after \(step.name)")
+        }
+        let stored = try #require(try await relaunch().launch(weightUnit: .pounds).workout)
+        let live = LiveWorkout(routine: routine, workout: stored)
+        let rest = try #require(live.rest())
+        #expect(rest.length == 10)
+        #expect(rest.isOver(atClock: stored.clock(at: Self.at(30))))
+        // The next plank counts from the skip.
+        #expect(stored.count?.startClock == 30)
+    }
+
     @Test("Reopened after the count would have ended, the set is logged at its full time")
     func catchUpAtLaunch() async throws {
         let routine = try Self.planks()
