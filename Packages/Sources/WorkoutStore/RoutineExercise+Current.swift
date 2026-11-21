@@ -11,12 +11,11 @@ public struct PlanFigure: Hashable, Sendable {
 }
 
 extension RoutineExercise {
-    /// "Set 1 of 3", or "Round 1 of 3" in a superset, whose rows share one round count. A side
-    /// reads apart (`Side.text`), so the view can set it off.
-    public func progressText(set: Int, inSuperset: Bool, locale: Locale = .current) -> String {
-        let set = set.formatted(.number.locale(locale))
-        let sets = plan.sets.formatted(.number.locale(locale))
-        return "\(inSuperset ? "Round" : "Set") \(set) of \(sets)"
+    /// The word that names where the current exercise is, "Set 1 of 3": "Set", or "Round" in a
+    /// superset, whose rows share one round count. A side reads apart (`Side.text`), so the view
+    /// can set it off.
+    public static func progressWord(inSuperset: Bool) -> String {
+        inSuperset ? "Round" : "Set"
     }
 
     /// The reps or time, then the weight if the exercise holds one, each saying what it is for

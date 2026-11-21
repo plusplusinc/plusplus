@@ -46,7 +46,7 @@ struct CurrentExerciseSnapshotTests {
             title: "Dumbbell bench press",
             detail: ["3 × 10 reps", "25 lb/side"],
             focus: RowFocus(
-                progress: "Set 1 of 3",
+                place: SetPlace(word: "Set", number: 1, total: 3),
                 equipment: ["Dumbbells", "Bench"],
                 figures: [
                     .init(number: "10", unit: "reps"),
@@ -65,7 +65,7 @@ struct CurrentExerciseSnapshotTests {
             title: "Dumbbell row",
             detail: ["3 × 10 reps per side", "30 lb"],
             focus: RowFocus(
-                progress: "Set 1 of 3",
+                place: SetPlace(word: "Set", number: 1, total: 3),
                 side: "Right",
                 equipment: ["Dumbbells", "Bench"],
                 figures: [
@@ -85,7 +85,7 @@ struct CurrentExerciseSnapshotTests {
             title: "Kneeling hip flexor stretch",
             detail: ["1m per side"],
             focus: RowFocus(
-                progress: "Set 1 of 1",
+                place: SetPlace(word: "Set", number: 1, total: 1),
                 figures: [.init(number: "1m", unit: "per side")],
                 spokenFigures: "60 seconds per side",
             ),

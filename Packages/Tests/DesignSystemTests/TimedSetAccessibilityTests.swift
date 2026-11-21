@@ -14,7 +14,7 @@ import UIKit
 @Suite("Timed set's accessibility")
 struct TimedSetAccessibilityTests {
     private static let focus = RowFocus(
-        progress: "Set 1 of 3",
+        place: SetPlace(word: "Set", number: 1, total: 3),
         figures: [.init(number: "30", unit: "sec")],
         spokenFigures: "30 seconds",
         after: "30 seconds",

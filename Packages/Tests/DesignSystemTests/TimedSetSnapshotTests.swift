@@ -48,7 +48,7 @@ struct TimedSetSnapshotTests {
 
     private static func plank(after: String?, side: String? = nil) -> RowFocus {
         RowFocus(
-            progress: "Set 2 of 3",
+            place: SetPlace(word: "Set", number: 2, total: 3),
             side: side,
             figures: [.init(number: "30", unit: "sec")],
             spokenFigures: "30 seconds",
@@ -83,7 +83,7 @@ struct TimedSetSnapshotTests {
     @Test("Starts in: 0:10, the set's time beside the side though its rest wraps, and Start now")
     func startsIn() {
         var focus = Self.plank(after: "30 seconds", side: "Left")
-        focus.progress = "Round 1 of 3"
+        focus.place = SetPlace(word: "Round", number: 1, total: 3)
         focus.afterRoom = ["30 seconds", "then rest 0:30"]
         let plank = Row(
             title: "Side plank",
