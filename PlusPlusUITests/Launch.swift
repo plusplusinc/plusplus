@@ -137,7 +137,8 @@ extension XCUIApplication {
     }
 
     /// The key at the bottom while a workout runs, labeled by its role: Log set, Log last set,
-    /// Go to current exercise, or Finish workout. Found by its identifier, never by the label
+    /// Log early, Skip rest, Go to current exercise, or Finish workout. Found by its identifier,
+    /// never by the label
     /// Finish workout, which End's dialog also offers.
     var workoutKey: XCUIElement {
         buttons["workout.key"]

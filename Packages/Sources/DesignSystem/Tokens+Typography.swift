@@ -38,7 +38,7 @@ extension Font {
     )
     /// What a large figure counts, under it: "reps", "lb/side", "rest".
     public static let ppFigureCaption = Font.system(.body)
-    /// A number on a key, such as −15 s's: SF Mono at the key's size and weight.
+    /// A number on a key, such as +15 s's: SF Mono at the key's size and weight.
     public static let ppPrimaryKeyNumber = Font.system(
         .title3,
         design: .monospaced,

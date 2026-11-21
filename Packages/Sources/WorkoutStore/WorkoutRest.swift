@@ -35,8 +35,8 @@ extension Routine {
 }
 
 /// The rest running after a set, on the workout's clock (`Workout.clock(at:)`), so a pause stops
-/// it. It holds no date: it changes only with a log, a + or − tap, or an edit to the routine.
-/// −15 s needs no rule of its own: the length drops, and a rest with less left is over.
+/// it. It holds no date: it changes only with a log, a +15 s tap, a skip, or an edit to the
+/// routine.
 public struct WorkoutRest: Equatable, Sendable {
     /// The set it follows.
     public let after: PlannedSet
@@ -82,25 +82,35 @@ extension LiveWorkout {
         )
     }
 
-    /// The workout with the rest running after the last set changed by `seconds`, as a + or − tap
-    /// does, at `now`. Unchanged with no rest running, or once it is over, so a tap landing as it
-    /// ends brings nothing back.
-    public func adjustingRest(by seconds: Int, override: Int? = nil, at now: Date) -> Workout {
+    /// The workout with the rest running after the last set made longer by `seconds`, as a +15 s
+    /// tap does, at `now`. Unchanged with no rest running, or once it is over, so a tap landing
+    /// as it ends brings nothing back.
+    public func extendingRest(by seconds: Int, override: Int? = nil, at now: Date) -> Workout {
         guard workout.isInProgress, let rest = rest(override: override),
               !rest.isOver(atClock: workout.clock(at: now))
         else { return workout }
-        var adjusted = workout
-        adjusted.sets[adjusted.sets.count - 1].restAdjustment += seconds
-        // A cut past the rest's end ends it now: a timed set next counts from the tap, not from
-        // where the cut put the end, up to 15 s back, which read as a rest missed.
+        var extended = workout
+        extended.sets[extended.sets.count - 1].restAdjustment += seconds
+        return extended
+    }
+
+    /// The workout with the rest running after the last set ended at `now`, as a tap on Skip
+    /// rest does: its length becomes the whole seconds rested, so it is over at the tap and its
+    /// stored adjustment holds the rest taken; a timed set next counts from the tap. Unchanged
+    /// with no rest running, or once it is over.
+    public func skippingRest(override: Int? = nil, at now: Date) -> Workout {
         let clock = workout.clock(at: now)
-        let next = LiveWorkout(routine: routine, workout: adjusted)
-        if next.rest(override: override)?.isOver(atClock: clock) == true, next.isOnTimedSet,
-           let set = next.currentSet
-        {
-            adjusted.count = SetCount(set: set, startClock: clock)
+        guard workout.isInProgress, let rest = rest(override: override),
+              !rest.isOver(atClock: clock)
+        else { return workout }
+        var skipped = workout
+        let rested = Int((clock - rest.startClock).rounded(.down))
+        skipped.sets[skipped.sets.count - 1].restAdjustment += rested - rest.length
+        let next = LiveWorkout(routine: routine, workout: skipped)
+        if next.isOnTimedSet, let set = next.currentSet {
+            skipped.count = SetCount(set: set, startClock: clock)
         }
-        return adjusted
+        return skipped
     }
 
     /// Whether logging `set`, already stored, leading to `step`, rests first: on to another

@@ -25,12 +25,21 @@ struct RestAccessibilityTests {
         #expect(try spokenRests(in: RestBlock.closed) == [])
     }
 
-    @Test("The rest's keys are two buttons, Minus 15 seconds and Plus 15 seconds")
+    @Test(
+        "The rest's keys are two buttons, Skip rest, its value the time left, and Plus 15 seconds",
+    )
     func keysAreNamedButtons() throws {
-        let keys = RestKeys(onShorten: { }, onExtend: { })
+        let keys = CountKeys(
+            text: "Skip rest",
+            filling: KeyFill(length: 90, ends: .now, pausedLeft: 35),
+            spoken: .left,
+            onKey: { },
+            onExtend: { },
+        )
         let buttons = try AccessibilityTree.nodes(of: keys.frame(width: 402))
             .filter { $0.accessibilityTraits.contains(.button) }
-        #expect(buttons.map(\.accessibilityLabel) == ["Minus 15 seconds", "Plus 15 seconds"])
+        #expect(buttons.map(\.accessibilityLabel) == ["Skip rest", "Plus 15 seconds"])
+        #expect(buttons.first?.accessibilityValue == "35 seconds left")
     }
 
     /// The value of each element labeled "Rest" that VoiceOver stops on in `view`, at a phone's

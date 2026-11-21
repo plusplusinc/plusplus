@@ -91,7 +91,7 @@ extension ButtonStyle where Self == PrimaryKeyButtonStyle {
     }
 
     /// A key in the primary key's place and shape, quieter: a dark raised fill on a ledge of the
-    /// well's color, its label in the text's own color, as −15 s and +15 s during a rest.
+    /// well's color, its label in the text's own color, as +15 s beside a count (`CountKeys`).
     public static var secondaryKey: PrimaryKeyButtonStyle {
         var style = PrimaryKeyButtonStyle()
         style.fill = .surfaceRaised

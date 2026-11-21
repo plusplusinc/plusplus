@@ -7,7 +7,8 @@ import Foundation
 /// only once the finger lifts; "Log last set" takes no tap while its row closes; and as a
 /// workout ends, the key keeps its words while a tap is Start's, which does nothing until Start
 /// is back. What a tap lands on (a sheet over the key, the key out in a swap) is the screen's.
-/// During a rest the key is −15 s and +15 s (`Role.rest`), whose taps are `restTap(by:)`'s.
+/// During a rest the key is Skip rest and +15 s (`Role.rest`), whose taps are `skipRest`'s and
+/// `extendRest(by:)`'s.
 public struct WorkoutKey: Sendable {
     /// The workout as stored, every log in it: what a tap reads. Nil out of a workout, and from
     /// End's choice.
@@ -76,8 +77,8 @@ public struct WorkoutKey: Sendable {
         return shown.logText.map(logRole) ?? .finish
     }
 
-    /// The log key saying `text`, or during a rest −15 s and +15 s in its place: from the log of
-    /// a set with a rest after it until the rest ends, and through End's leaving of a rest.
+    /// The log key saying `text`, or during a rest Skip rest and +15 s in its place: from the log
+    /// of a set with a rest after it until the rest ends, and through End's leaving of a rest.
     private func logRole(_ text: String) -> Role {
         let isResting = phase.drawnRest.map { $0.beat < .returning } ?? false
         if isResting {
@@ -106,15 +107,23 @@ public struct WorkoutKey: Sendable {
         return .log(set, of: current, impact: .runOut, leadingTo: stored.step(logging: set))
     }
 
-    /// What a tap on −15 s or +15 s does: changes the rest running by `seconds`, once it has
-    /// come in (between exercises, once the pulse has landed at it; between sets, once the swap
-    /// is over), so a double tap's second on Log set, landing on −15 s as it swaps in, changes
-    /// nothing; nothing once the rest is over.
-    public func restTap(by seconds: Int) -> Tap {
-        guard let rest = phase.resting, rest.beat < .returning,
-              rest.beat >= (rest.isWithinExercise ? .settled : .landed)
-        else { return .nothing }
-        return .adjustRest(by: seconds)
+    /// What a tap on Skip rest does: ends the rest running, once it has come in (between
+    /// exercises, once the pulse has landed at it; between sets, once the swap is over), so a
+    /// double tap's second on Log set, landing on Skip rest as it swaps in, skips nothing;
+    /// nothing once the rest is over.
+    public var skipRest: Tap {
+        isRestIn ? .skipRest : .nothing
+    }
+
+    /// What a tap on +15 s during a rest does: makes the rest running `seconds` longer, on
+    /// `skipRest`'s terms.
+    public func extendRest(by seconds: Int) -> Tap {
+        isRestIn ? .extendRest(by: seconds) : .nothing
+    }
+
+    private var isRestIn: Bool {
+        guard let rest = phase.resting else { return false }
+        return rest.beat < .returning && rest.beat >= (rest.isWithinExercise ? .settled : .landed)
     }
 
     /// What a tap on the key does, as the workout is stored. Out of a workout, Start. After the
@@ -163,8 +172,8 @@ extension WorkoutKey {
         /// The current exercise is scrolled away, above it or not: the key goes back to it.
         case back(name: String, isAbove: Bool)
         case finish
-        /// During a rest, −15 s and +15 s in the log key's place: another key, so they swap with
-        /// it as any two keys do, never crossfading through it in its place.
+        /// During a rest, Skip rest and +15 s in the log key's place: another key, so they swap
+        /// with it as any two keys do, never crossfading through it in its place.
         case rest
         /// During a timed set's "Starts in", the key that starts it now.
         case startNow
@@ -211,8 +220,10 @@ extension WorkoutKey {
         /// Goes back to the current exercise, logging nothing.
         case back
         case finish
-        /// −15 s or +15 s: the rest running changes by `seconds`.
-        case adjustRest(by: Int)
+        /// Skip rest: the rest running ends now.
+        case skipRest
+        /// +15 s: the rest running gets `by` seconds more.
+        case extendRest(by: Int)
         /// "Start now": the timed set counts from now.
         case startNow
         /// +15 s: the timed set counting gets `by` seconds more.

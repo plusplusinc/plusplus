@@ -1,12 +1,11 @@
 import SwiftUI
 
 /// The rest between two sets of the current exercise, which takes the place of its figures
-/// (`SetRoom`): "Rest" in a caption's style over the countdown in a figure's, and the bar of its
-/// progress under it (`RestProgress`), nothing under the bar, so the bar reads as the countdown's.
+/// (`SetRoom`): "Rest" in a caption's style over the countdown in a figure's, gray while paused.
 /// Logging the set swaps the two on one curve from the tap (`SetMotion.restSwap`): the set's
 /// parts fade as they drop a few points, "then rest 1:00" at the caption line's end with them,
 /// then the rest's fade in as they rise into place; at the rest's end they swap back the same
-/// way. The −15 s and +15 s keys are at the bottom, in the key's place.
+/// way. Skip rest, filling, and +15 s are at the bottom, in the key's place (`CountKeys`).
 public struct SetRest {
     /// Whether the rest is in the slot: from the log until its end.
     public let isRunning: Bool
@@ -17,7 +16,7 @@ public struct SetRest {
     /// Over, and swapping back: the countdown reads 0:00 and holds still as it goes, never
     /// rolling its last figure.
     let isOver: Bool
-    /// Whether a + or − turns the countdown's figure: once it is up. Turning as it came in, its
+    /// Whether +15 s turns the countdown's figure: once it is up. Turning as it came in, its
     /// end set at the log, it rolled from its length to itself.
     let turns: Bool
     /// What waits in the slot: a rest, a timed set's "Starts in", or the set's own count.
@@ -51,7 +50,7 @@ public struct SetRest {
 
     /// What a wait in the figures' slot is.
     public enum Kind: Equatable, Sendable {
-        /// "Rest" over the countdown, over its bar.
+        /// "Rest" over the countdown.
         case rest
         /// "Starts in" over the short count, nothing under it: the set's time in words ("30
         /// seconds") is at the caption line's end. `time` is for VoiceOver.
@@ -90,8 +89,8 @@ public struct SetRest {
             .accessibilityHidden(!isRunning || isOver)
     }
 
-    /// The rest as a block, for its countdown and bar: unseen before it runs, its length on the
-    /// countdown and the bar empty, so it comes in on its time.
+    /// The rest as a block, for its countdown: unseen before it runs, its length on the
+    /// countdown, so it comes in on its time.
     var block: RestBlock {
         RestBlock(
             stage: isRunning ? .open : .none,
@@ -103,13 +102,12 @@ public struct SetRest {
 }
 
 /// The current exercise's figures slot, the same height during a set and during a rest between
-/// sets: during a set, the figures and their captions over the bar's place, empty; during a rest,
-/// "Rest" over the countdown, its line in place of the captions', over its bar
-/// (`RestProgress`). Nothing is under the bar. "Rest" starts where the figures do, its capitals'
-/// tops at theirs, and the countdown stands a line lower than the figures, which the swap's fade
-/// and rise carry, the figures gone before it shows. The number row is as tall as the taller of
-/// its two states, so nothing below moves as they swap. An exercise with no rest between its sets
-/// has no bar's place.
+/// sets: during a set, the figures and their captions; during a rest, "Rest" over the countdown,
+/// its line in place of the captions', over an unseen caption's line, as under every wait's
+/// countdown. There is no bar: Skip rest fills instead. "Rest" starts where the figures do, its
+/// capitals' tops at theirs, and the countdown stands a line lower than the figures, which the
+/// swap's fade and rise carry, the figures gone before it shows. The number row is as tall as the
+/// taller of its two states, so nothing below moves as they swap.
 ///
 /// `swap` runs from 0, the set up, to 1, the rest up, on the row's animation, and each part's fade
 /// and rise is worked out from it, so the two swap as one move on its curve, the one going gone
@@ -176,33 +174,16 @@ struct SetRoom: View, Animatable {
                     .coming(coming)
                 }
             }
-            if let rest, let block {
-                // In a stack of its own, so the line going and the one coming share one place.
-                ZStack(alignment: .topLeading) {
-                    under(rest, block: block)
-                        .id(rest.kind.swapID)
-                        .transition(Self.kindSwap)
-                }
-                .opacity(coming)
+            if rest != nil {
+                // Under every wait's countdown, a caption's line, unseen, so a timed exercise's
+                // slot stays one height as its rest gives way to its count.
+                Text(verbatim: " ")
+                    .font(.ppFigureCaption)
+                    .padding(.top, Spacing.sm)
+                    .accessibilityHidden(true)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    /// What stands under the countdown: a rest's bar, or under "Starts in" and a set's own count
-    /// a caption's line, unseen, for the same room.
-    @ViewBuilder
-    private func under(_ rest: SetRest, block: RestBlock) -> some View {
-        switch rest.kind {
-        case .rest:
-            block.progress
-                .padding(.top, Spacing.md)
-        case .startsIn, .count:
-            Text(verbatim: " ")
-                .font(.ppFigureCaption)
-                .padding(.top, Spacing.sm)
-                .accessibilityHidden(true)
-        }
     }
 
     /// One wait giving way to another in the slot: the one going fades as it drops, over the
@@ -370,9 +351,10 @@ extension View {
     }
 }
 
-/// A part's fade over a change from 0 to 1: 0 until `start`, 1 `width` later.
+/// A part's fade over a change from 0 to 1: 0 until `start`, 1 `width` later, and whole by the
+/// change's end however late `start` is.
 enum RestRoomFade {
     static func fade(_ share: CGFloat, from start: CGFloat, width: CGFloat) -> CGFloat {
-        min(max((share - start) / width, 0), 1)
+        min(max((share - min(start, 1 - width)) / width, 0), 1)
     }
 }

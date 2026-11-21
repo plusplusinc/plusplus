@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import WorkoutStore
 
-/// The key during a rest: −15 s and +15 s in its place, between sets, between exercises, and
+/// The key during a rest: Skip rest and +15 s in its place, between sets, between exercises, and
 /// after a superset's round, and which beats of the rest they change it in.
 extension WorkoutKeyTests {
     /// The phase after `set` was logged with a rest after it, leading to `step`, played on to
@@ -34,8 +34,8 @@ extension WorkoutKeyTests {
         try betweenSets(on) + betweenExercises(on) + endingInRest(on) + supersetRound()
     }
 
-    /// During a rest between sets: −15 s and +15 s in the key's place from the log, changing the
-    /// rest once the swap is over, until the next set swaps back.
+    /// During a rest between sets: Skip rest and +15 s in the key's place from the log, changing
+    /// the rest once the swap is over, until the next set swaps back.
     private static func betweenSets(_ on: Seed) -> [Row] {
         let rest = { (beat: WorkoutPhase.Resting.Beat) in
             resting(on.first, leadingTo: .nextSet, to: beat)
@@ -58,7 +58,7 @@ extension WorkoutKeyTests {
                 on.key(logged: 1, phase: rest(.settled)),
                 says: .rest,
                 taps: .nothing,
-                adjustsRest: true,
+                takesRestTaps: true,
             ),
             Row(
                 "Rest between sets over, the next set swapping back: Log set, no tap yet",
@@ -71,7 +71,7 @@ extension WorkoutKeyTests {
                 on.key(logged: 1, phase: rest(.settled), wayBack: .up, isScrolledAway: true),
                 says: .back(name: on.push.exercise.name, isAbove: true),
                 taps: .back,
-                adjustsRest: true,
+                takesRestTaps: true,
             ),
         ]
     }
@@ -94,14 +94,14 @@ extension WorkoutKeyTests {
                 on.key(logged: 2, phase: rest(.landed)),
                 says: .rest,
                 taps: .nothing,
-                adjustsRest: true,
+                takesRestTaps: true,
             ),
             Row(
                 "Rest between exercises, settled: the rest's keys change it",
                 on.key(logged: 2, phase: rest(.settled)),
                 says: .rest,
                 taps: .nothing,
-                adjustsRest: true,
+                takesRestTaps: true,
             ),
         ]
     }
@@ -169,14 +169,14 @@ extension WorkoutKeyTests {
                 key(live, .landed),
                 says: .rest,
                 taps: .nothing,
-                adjustsRest: true,
+                takesRestTaps: true,
             ),
             Row(
                 "Superset round's rest, settled: the rest's keys change it",
                 key(live, .settled),
                 says: .rest,
                 taps: .nothing,
-                adjustsRest: true,
+                takesRestTaps: true,
             ),
         ]
     }

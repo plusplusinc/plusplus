@@ -21,14 +21,17 @@ extension RoutineScreen {
     /// change; across kinds, another key, which the bar swaps in. While the bar has it out in a
     /// swap, a tap or a VoiceOver activation does nothing, and the key stays enabled, so
     /// VoiceOver doesn't read it dimmed for the swap's length. During a rest the bar swaps it for
-    /// −15 s and +15 s (`RestKeys`), and back as the rest ends.
+    /// Skip rest, filling as the rest runs, and +15 s (`CountKeys`), and back as the rest ends.
     @ViewBuilder
     func key(_ role: WorkoutKey.Role, isOut: Bool) -> some View {
         if role == .rest {
-            RestKeys(
+            CountKeys(
+                text: spokenKey(role),
+                filling: restKeyFill,
+                spoken: .left,
                 isOut: isOut,
-                onShorten: { perform(liveKey.restTap(by: -15)) },
-                onExtend: { perform(liveKey.restTap(by: 15)) },
+                onKey: { perform(liveKey.skipRest) },
+                onExtend: { perform(liveKey.extendRest(by: 15)) },
             )
         } else if case let .count(text) = role {
             countKeys(text, isOut: isOut)
@@ -70,8 +73,7 @@ extension RoutineScreen {
         case .startNow: String(localized: "Start now")
         case let .back(exercise, _): String(localized: "Go to current exercise, \(exercise)")
         case .finish: String(localized: "Finish workout")
-        // Never drawn as this key: `key` draws `RestKeys`, which speak for themselves.
-        case .rest: ""
+        case .rest: String(localized: "Skip rest")
         }
     }
 
@@ -85,8 +87,45 @@ extension RoutineScreen {
         perform(liveKey.tap)
     }
 
-    /// What a tap on the key, or on −15 s or +15 s, does. A log is stored through the session at
-    /// once and shown through `play(_:leadingTo:)`; a rest's change glides its bar.
+    /// +15 s on the rest running: the key's fill steps back at once and the countdown turns; the
+    /// dot stays put. Only when `WorkoutKey.extendRest(by:)` says so.
+    private func extendRest(by seconds: Int) {
+        withAnimation(.snappy(duration: SetMotion.restGlide)) {
+            session.extendRest(by: seconds, override: restOverride)
+        }
+    }
+
+    /// Skip rest: the rest is stored as ended at the tap, then ends as one that ran out does
+    /// (`endRest()`). Only when `WorkoutKey.skipRest` says so.
+    private func skipRest() {
+        session.skipRest(override: restOverride)
+        endRest()
+    }
+
+    /// The fill of Skip rest: running while the rest runs, gray and held while paused; held where
+    /// it stood where End came mid-rest; else full, as the keys leave once the rest is over.
+    var restKeyFill: KeyFill {
+        if let (_, workout) = phase.restLeft,
+           let left = LiveWorkout(routine: routine, workout: workout).rest(override: restOverride)
+        {
+            let (ends, pausedLeft) = Self.times(of: left, on: workout, stopped: true)
+            return KeyFill(length: Double(left.length), ends: ends, pausedLeft: pausedLeft)
+        }
+        guard let rest = phase.drawnRest, rest.beat < .returning,
+              let (resting, workout) = drawnResting,
+              !resting.isOver(atClock: workout.clock(at: .now))
+        else { return .over }
+        let (ends, pausedLeft) = Self.times(of: resting, on: workout)
+        return KeyFill(
+            length: Double(resting.length),
+            ends: ends,
+            pausedLeft: pausedLeft,
+            isPaused: workout.isPaused,
+        )
+    }
+
+    /// What a tap on the key, or on Skip rest or +15 s, does. A log is stored through the session
+    /// at once and shown through `play(_:leadingTo:)`.
     func perform(_ tap: WorkoutKey.Tap) {
         switch tap {
         case .start:
@@ -97,20 +136,11 @@ extension RoutineScreen {
             // With Reduce Motion the list jumps back, as the key's swap only fades.
             withAnimation(reduceMotion ? nil : .snappy(duration: 0.4), scrollToCurrent)
         case let .log(set, current, impact, step):
-            if impact != .runOut, phase.timing == .counting {
-                return logEarly(set, of: current, impact: impact, leadingTo: step)
-            }
-            switch impact {
-            case .set: setLogs += 1
-            case .side: sideLogs += 1
-            case .runOut: countBeats.ends += 1
-            }
-            // Stored at once, at the numbers the row shows; then shown, from the workout before
-            // it.
-            session.log(set, of: current)
-            play(set, leadingTo: step)
-        case let .adjustRest(seconds):
-            adjustRest(by: seconds)
+            log(set, of: current, impact: impact, leadingTo: step)
+        case .skipRest:
+            skipRest()
+        case let .extendRest(seconds):
+            extendRest(by: seconds)
         case .startNow:
             // The count, the key, and the segment all change from the tap, on the slot's swap.
             withAnimation(SetMotion.restSwap) {
@@ -122,6 +152,25 @@ extension RoutineScreen {
         case .nothing:
             break
         }
+    }
+
+    private func log(
+        _ set: PlannedSet,
+        of current: RoutineExercise,
+        impact: WorkoutKey.Impact,
+        leadingTo step: LiveWorkout.Step,
+    ) {
+        if impact != .runOut, phase.timing == .counting {
+            return logEarly(set, of: current, impact: impact, leadingTo: step)
+        }
+        switch impact {
+        case .set: setLogs += 1
+        case .side: sideLogs += 1
+        case .runOut: countBeats.ends += 1
+        }
+        // Stored at once, at the numbers the row shows; then shown, from the workout before it.
+        session.log(set, of: current)
+        play(set, leadingTo: step)
     }
 
     /// Settles which way the key points: back to the current exercise while it is scrolled away,

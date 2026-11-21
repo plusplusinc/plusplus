@@ -24,7 +24,8 @@ public struct LoggedSet: Identifiable, Equatable, Sendable {
     /// Where the workout's clock stood at the log, pauses left out (`Workout.clock(at:)`): where
     /// the rest after it starts. Nil for a set logged before V11 kept it, which rests for none.
     public var clockWhenLogged: Double?
-    /// The + and − taps on the rest after this set, in seconds.
+    /// The rest after this set against the routine's, in seconds: its +15 s taps, and a skip's cut
+    /// to the seconds rested (`LiveWorkout.skippingRest(override:at:)`).
     public var restAdjustment = 0
     /// The +15 s taps on this set's own count, a timed set's, in seconds.
     public var timeAdded = 0
