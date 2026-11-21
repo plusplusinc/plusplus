@@ -34,9 +34,9 @@ public enum SetMotion {
 
     // MARK: Within one exercise
 
-    /// "Set 2 of 3" rolling to "Set 3 of 3", only the words that change, each up and out as the
-    /// new one rolls up and in, once the held set's beat is over (`heldRoll`); the side word,
-    /// "Left" to "Right", rolls with it.
+    /// The current exercise moving on to its next set once the held set's beat is over
+    /// (`heldRoll`): "done" and a side's word, "Left" to "Right", fade in over it
+    /// (`ProgressLine`), as the set's number rolls (`restRoll`).
     public static let roll = 0.3
     /// After a tap logs a set that stays on the exercise, how long it is held as still to do
     /// before the line rolls on: about as the +1 has risen. Taps inside it are dropped.

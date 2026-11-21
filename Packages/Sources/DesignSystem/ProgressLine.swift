@@ -53,7 +53,7 @@ struct ProgressLine: View {
                     .animation(doneFade, value: focus.place.isDone)
                 if let side = focus.side {
                     SideWord(side: side)
-                        // Within a set, Left rolls to Right; a side changed as it hides, the
+                        // Within a set, Left fades to Right; a side changed as it hides, the
                         // next set's taking the place of the one just done, changes at once.
                         .transaction(value: side) {
                             if !focus.showsSide {
@@ -113,10 +113,14 @@ struct ProgressLine: View {
     }
 }
 
-/// "· Left": the dot in the set's gray, the side in the name's color, rolling as it changes, the
-/// new side in from below as the old goes out above, clipped around itself.
+/// "· Left": the dot in the set's gray, the side in the name's color. Left to Right, the old side
+/// fades out where it stands and the new one fades in once it has gone, so the two are never seen
+/// over each other and no letter is cut, as a push clipped them, "Right" losing its g for six
+/// frames. With Reduce Motion the side changes in place.
 private struct SideWord: View {
     let side: String
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 0) {
@@ -126,11 +130,17 @@ private struct SideWord: View {
                 Text(verbatim: side)
                     .foregroundStyle(.pp(.textPrimary))
                     .id(side)
-                    .transition(.push(from: .bottom))
+                    .transition(reduceMotion ? .identity : Self.swap)
             }
-            .clipped()
         }
         .font(.ppCurrentProgress)
         .fixedSize()
     }
+
+    private static let swap = AnyTransition.asymmetric(
+        insertion: .opacity.animation(
+            .easeOut(duration: SetMotion.roll).delay(SetMotion.leaveFade),
+        ),
+        removal: .opacity.animation(.easeOut(duration: SetMotion.leaveFade)),
+    )
 }
