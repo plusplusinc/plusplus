@@ -216,10 +216,9 @@ extension Workout {
 }
 
 extension GroupRecency {
-    /// "16 days ago" from 2 weeks to 4, else "No sets in 4 weeks".
-    public func text(locale: Locale = .current) -> String {
-        guard let daysAgo, daysAgo < WorkoutLog.progressDays else { return "No sets in 4 weeks" }
-        return "\(counted(daysAgo, "day", "days", locale: locale)) ago"
+    /// "Core, 0 sets in the last 4 weeks".
+    public func spokenText(locale: Locale = .current) -> String {
+        "\(group.name), \(counted(sets, "set", "sets", locale: locale)) in the last 4 weeks"
     }
 }
 

@@ -1,14 +1,12 @@
 import Foundation
 
-/// When a muscle group was last worked, and which of the last four weeks had a set for it.
+/// A muscle group's sets in the last 4 weeks, and when it was last worked.
 public struct GroupRecency: Identifiable, Equatable, Sendable {
     public let group: MuscleGroup
-    /// When the newest workout with a set for it finished; nil for none.
-    public let lastWorked: Date?
-    /// Days between that workout's day and today; nil for none.
+    /// Days between the day of the newest workout with a set for it and today; nil for none.
     public let daysAgo: Int?
-    /// The last four weeks, this one first, each 7 days back from today: whether it had a set.
-    public let weeks: [Bool]
+    /// Its sets in the last 4 weeks, a round done one side at a time counted once.
+    public let sets: Int
 
     public var id: MuscleGroup {
         group
@@ -32,17 +30,13 @@ public struct StuckExercise: Identifiable, Equatable, Sendable {
 
 /// What has been left alone: muscle groups not worked lately, and exercises not moving.
 public struct Gaps: Equatable, Sendable {
-    /// All six groups, in declaration order.
+    /// All six groups, fewest sets first, ties in declaration order.
     public let groups: [GroupRecency]
     public let notMoving: [StuckExercise]
 
-    /// The groups not worked in the last 2 weeks.
-    public var notWorkedLately: [GroupRecency] {
-        groups.filter(\.isMissed)
-    }
-
-    public var isEmpty: Bool {
-        notWorkedLately.isEmpty && notMoving.isEmpty
+    /// The most sets any group has, the length a group's bar is measured against; 0 for none.
+    public var mostSets: Int {
+        groups.map(\.sets).max() ?? 0
     }
 }
 
@@ -56,24 +50,25 @@ extension WorkoutLog {
     /// created exercise toward every group it checks, and one that no longer resolves toward
     /// none.
     public func gaps(in list: ExerciseList, now: Date, calendar: Calendar) -> Gaps {
-        let groups = MuscleGroup.allCases.map { group in
-            let worked = workouts.filter { workout in
+        let recent = within(days: Self.progressDays, of: now, calendar: calendar)
+        let recentExercises = recent.flatMap { $0.loggedExercises(in: list) }
+        let groups = MuscleGroup.allCases.enumerated().map { index, group in
+            let newest = workouts.first { workout in
                 workout.sets.contains {
                     list.exercise(id: $0.exerciseID)?.muscleGroups.contains(group) ?? false
                 }
             }
-            let days = worked.map { Self.daysAgo($0, now: now, calendar: calendar) }
-            let weeks = (0 ..< 4).map { week in
-                days.contains { $0 >= week * 7 && $0 < (week + 1) * 7 }
-            }
-            return GroupRecency(
+            let sets = recentExercises
+                .filter { $0.exercise?.muscleGroups.contains(group) ?? false }
+                .reduce(0) { $0 + $1.rounds.count }
+            return (index, GroupRecency(
                 group: group,
-                lastWorked: worked.first?.endedAt,
-                daysAgo: days.first,
-                weeks: weeks,
-            )
+                daysAgo: newest.map { Self.daysAgo($0, now: now, calendar: calendar) },
+                sets: sets,
+            ))
         }
-        let recent = within(days: Self.progressDays, of: now, calendar: calendar)
+        .sorted { ($0.1.sets, $0.0) < ($1.1.sets, $1.0) }
+        .map(\.1)
         let notMoving = history(of: recent, in: list)
             .filter { history in
                 history.topSets.count >= Self.stuckWorkouts

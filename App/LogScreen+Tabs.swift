@@ -14,14 +14,8 @@ extension LogScreen {
                 ? "Nothing here yet. Do an exercise in two workouts."
                 : "Nothing here yet. Finish a workout."
         }
-        switch tab {
-        case .workouts:
-            return nil
-        case .progress:
-            return progress(log).isEmpty ? "Nothing here yet. Do an exercise in two workouts." : nil
-        case .gaps:
-            return gaps(log).isEmpty ? "Nothing here. No gaps in the last 4 weeks." : nil
-        }
+        guard tab == .progress else { return nil }
+        return progress(log).isEmpty ? "Nothing here yet. Do an exercise in two workouts." : nil
     }
 
     func workoutRows(_ log: WorkoutLog) -> some View {
@@ -67,16 +61,20 @@ extension LogScreen {
     @ViewBuilder
     func gapRows(_ log: WorkoutLog) -> some View {
         let gaps = gaps(log)
-        if !gaps.notWorkedLately.isEmpty {
-            heading("Not worked lately")
-            ForEach(gaps.notWorkedLately) { group in
-                LogRow(
-                    group.group.name,
-                    tag: .quiet(group.text(locale: locale)),
-                    spoken: "\(group.group.name), \(group.text(locale: locale))",
-                )
-                .overlay(alignment: .bottom) { RowLine() }
-            }
+        let most = gaps.mostSets
+        Text("Sets in the last 4 weeks, fewest first")
+            .font(.ppRowDetail)
+            .foregroundStyle(.pp(.textSecondary))
+            .padding(.top, Spacing.sm)
+        ForEach(gaps.groups) { group in
+            CountRow(
+                group.group.name,
+                count: group.sets.formatted(.number.locale(locale)),
+                fraction: most > 0 ? Double(group.sets) / Double(most) : 0,
+                isStressed: group.isMissed,
+                spoken: group.spokenText(locale: locale),
+            )
+            .overlay(alignment: .bottom) { RowLine() }
         }
         if !gaps.notMoving.isEmpty {
             heading("Not moving")
