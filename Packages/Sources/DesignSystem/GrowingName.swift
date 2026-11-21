@@ -61,10 +61,8 @@ struct GrowingName: View, Animatable {
             linesProbe(2, .ppRowTitle)
             linesProbe(1, .ppCurrentTitle)
             linesProbe(2, .ppCurrentTitle)
-            name(title, .ppCurrentTitle)
-                .hidden()
+            measure
         }
-        .background(alignment: .topLeading) { measure }
     }
 
     /// `count` lines in `font`, never drawn, from which the layout reads a line's height and the
@@ -83,8 +81,8 @@ struct GrowingName: View, Animatable {
             .fixedSize(horizontal: false, vertical: true)
     }
 
-    /// The large name as the system wraps it at the row's width, never drawn, where its lines are
-    /// read from.
+    /// The large name whole, as the system wraps it at the row's width, never drawn: where its
+    /// lines are read from, and what the layout counts them by (`GrowingNameLayout`).
     private var measure: some View {
         let title = title
         return Text(title)
@@ -214,13 +212,13 @@ struct GrowingName: View, Animatable {
 /// four are one line and two at each size, never drawn, and the eighth the large name whole,
 /// never drawn either.
 ///
-/// The small name's height is that of as many lines at a row's size as the large name whole
-/// breaks into at the width offered, from the probes' line height and advance, so the row is laid
-/// out once, at the height it keeps: until the large name's lines are read, the small one is drawn
+/// The large name's height is the whole one's at the width offered, and the small name's that of
+/// as many lines at a row's size, from the probes' line height and advance, so the row is laid out
+/// once, at the height it keeps: until the large name's lines are read, the small one is drawn
 /// whole, and from its own height the row grew a line in the pass after, a list of them reporting
-/// its height twice in one frame. Not from the drawn large name, whose breaks were read at the
-/// last width: at launch, read at the window's narrow first width, they stood the row that many
-/// lines tall at its full width for a pass.
+/// its height twice in one frame. Not from the drawn names, whose breaks were read at the last
+/// width: at launch, read at the window's narrow first width, they stood the row that many lines
+/// tall at its full width for a pass.
 private struct GrowingNameLayout: Layout {
     var growth: CGFloat
     /// How large the letters are drawn against a row's name.
@@ -235,10 +233,11 @@ private struct GrowingNameLayout: Layout {
             let current = Lines(one: subviews[5], two: subviews[6])
             // Offered no width, the whole name would stand on one line: the drawn one's breaks
             // are all there is to go by.
-            let lines = width.map {
-                subviews[7].sizeThatFits(ProposedViewSize(width: $0, height: nil)).height
-            } ?? large.height
-            small.height = row.height(of: current.count(in: lines))
+            if let width {
+                large.height = subviews[7].sizeThatFits(ProposedViewSize(width: width, height: nil))
+                    .height
+            }
+            small.height = row.height(of: current.count(in: large.height))
         }
         return CGSize(
             width: width ?? max(small.width, large.width),
@@ -260,8 +259,12 @@ private struct GrowingNameLayout: Layout {
         for subview in subviews.dropFirst(2).prefix(5) {
             subview.place(at: bounds.origin, anchor: .topLeading, proposal: .unspecified)
         }
-        // At the width `sizeThatFits` measures it, so it is measured once.
-        subviews.dropFirst(7).first?.place(at: bounds.origin, anchor: .topLeading, proposal: offer)
+        // At the row's width, where its lines are read; offered one, as `sizeThatFits` measures it.
+        subviews.dropFirst(7).first?.place(
+            at: bounds.origin,
+            anchor: .topLeading,
+            proposal: ProposedViewSize(width: bounds.width, height: nil),
+        )
     }
 
     /// A name's lines at one size: a line's height and the next one's advance, from one line of

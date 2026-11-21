@@ -29,10 +29,11 @@ struct GrowingNameWidenTests {
     private struct List: View {
         let width: Width
         let readings: Readings
+        let growth: CGFloat
 
         var body: some View {
             ScrollView {
-                RowLabel(title: "Barbell bench press", detail: "3 × 8")
+                GrowingName(title: "Barbell bench press", growth: growth)
                     .padding(.horizontal)
             }
             .onScrollGeometryChange(
@@ -47,14 +48,16 @@ struct GrowingNameWidenTests {
         }
     }
 
-    @Test("A list's name laid out narrow, then wide, has one height at each width")
-    func oneHeightAtEachWidth() throws {
+    /// At a row's size, and grown, as the current exercise is when the app reopens into a workout.
+    @Test(
+        "A list's name laid out narrow, then wide, has one height at each width",
+        arguments: [CGFloat(0), 1],
+    )
+    func oneHeightAtEachWidth(growth: CGFloat) throws {
         let width = Width()
         let readings = Readings()
-        let window = UIWindow.sceneless(
-            hosting: UIHostingController(rootView: List(width: width, readings: readings)),
-            at: .large,
-        )
+        let list = List(width: width, readings: readings, growth: growth)
+        let window = UIWindow.sceneless(hosting: UIHostingController(rootView: list), at: .large)
         defer { window.isHidden = true }
         window.settle()
         let narrow = try #require(readings.seen.last)
