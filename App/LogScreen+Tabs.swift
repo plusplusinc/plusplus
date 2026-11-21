@@ -68,7 +68,7 @@ extension LogScreen {
                 .foregroundStyle(.pp(.textSecondary))
                 .multilineTextAlignment(.center)
             Button(Self.goToWorkoutsLabel, action: goToWorkouts)
-                .buttonStyle(.compactKey)
+                .buttonStyle(.pill)
                 .accessibilityIdentifier("log.goToWorkouts")
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
