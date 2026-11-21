@@ -19,8 +19,6 @@ public struct TimedSetKeys: View {
     @ScaledMetric(relativeTo: .title3) private var extendWidth: CGFloat = 112
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
-    /// The moment VoiceOver's value is read for: now, as each whole second of the count comes.
-    @State private var spokenAt = Date.now
 
     public init(
         logText: String,
@@ -40,8 +38,13 @@ public struct TimedSetKeys: View {
         HStack(spacing: Spacing.sm) {
             // Its value, the seconds done, follows the count each second only while VoiceOver
             // runs: no other reader needs it redrawn.
-            logKey(at: voiceOver ? spokenAt : .now)
-                .task(id: voiceOver && !filling.holds ? filling : nil) { await tick() }
+            if voiceOver {
+                TimelineView(.periodic(from: filling.ends, by: 1)) { context in
+                    logKey(at: context.date)
+                }
+            } else {
+                logKey(at: .now)
+            }
             Button {
                 if !isOut {
                     onExtend()
@@ -57,25 +60,6 @@ public struct TimedSetKeys: View {
             .accessibilityLabel("Plus 15 seconds")
         }
         .background(Capsule().fill(.pp(.background)))
-    }
-
-    /// While VoiceOver runs, sets `spokenAt` now, then at each whole second of the count while
-    /// it runs; paused or logged, the value reads the fill's own seconds. A task, as the
-    /// bar's time key ticks (`WorkoutTimeKey`), not a `TimelineView`.
-    private func tick() async {
-        guard voiceOver, !filling.holds else { return }
-        spokenAt = .now
-        while true {
-            let next = filling.ends.addingTimeInterval(
-                spokenAt.timeIntervalSince(filling.ends).rounded(.down) + 1,
-            )
-            let wait = next.timeIntervalSinceNow
-            if wait > 0 {
-                guard await (try? Task.sleep(for: .seconds(wait), tolerance: .zero)) != nil
-                else { return }
-            }
-            spokenAt = max(.now, next)
-        }
     }
 
     /// "Log early", its value the seconds done at `date`.

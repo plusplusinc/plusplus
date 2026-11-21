@@ -134,8 +134,8 @@ Each of these cost a round on this app; the code at the named spot works around 
   `accessibilityHidden`: behind the drawer each applies `.hiddenBehindDrawer()`, and a faded bar
   item hides from VoiceOver with `accessibilityShown(_:)`. A bar item's elements update only
   with its host's state, so their state lives there (`BarSearchField`'s `isOpen`). A
-  `TimelineView` in the time key stalled each "Starts in" tick (a layout loop between hosts):
-  it ticks from a task (`WorkoutTimeKey`).
+  `TimelineView` in a navigation bar item looped layout with "Starts in"'s count,
+  stalling it: the time key ticks from a task (`WorkoutTimeKey`).
 - Attach a `confirmationDialog` outside the `NavigationStack`; inside, iOS shows a popover with
   an arrow, so a pushed screen's goes on its button (`ExerciseForm`).
 - A horizontal scroll view's offset set before the room around its content is laid out stays on
