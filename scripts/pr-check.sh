@@ -154,7 +154,9 @@ they are back, start the run again and re-run this check. $url"
 # changed meanwhile (#136 undid #134 so). A file head moves is judged at its new path; one it
 # deletes outright counts only when all of the commit that still stands is undone too
 # (docs/pr-check.md says why). A revert made with `git revert`, whose message says "This reverts
-# commit <sha>" (a short sha too), is meant, and passes.
+# commit <sha>" (a short sha too), is meant, and passes. So does a commit whose message says "This
+# rewrites commit <sha>": a rename that changes every line a small commit added to a file undoes
+# nothing, and the guard cannot tell it from a stale copy.
 REVERT_WINDOW=30
 reverts() {
     git -C "$ROOT" rev-parse --quiet --verify "$1^{commit}" > /dev/null &&
@@ -211,7 +213,7 @@ for status in fields:
     elif status == "D":
         deleted.add(path)
 messages = git("log", "--format=%B", f"{merge_base}..{head}").decode()
-meant = re.findall(r"This reverts commit ([0-9a-f]{7,40})", messages)
+meant = re.findall(r"This (?:reverts|rewrites) commit ([0-9a-f]{7,40})", messages)
 for commit in git("rev-list", "--first-parent", "-n", window, merge_base).decode().split():
     parents = git("rev-list", "--parents", "-n", "1", commit).decode().split()[1:]
     if not parents or any(commit.startswith(sha) for sha in meant):
@@ -246,7 +248,8 @@ PY
 (git reset --soft origin/main) does that: merge origin/main into the branch instead, and squash, \
 if at all, onto git merge-base HEAD origin/main (/pr). A revert that is meant is made with git \
 revert, whose \"This reverts commit <sha>\" line passes this check; deleting all a commit \
-added is such a revert."
+added is such a revert. A rename that rewrote every line a commit added to a file, losing none \
+of it, says so in a commit message: \"This rewrites commit <sha>\"."
     fi
     echo "reverts nothing main added in its last $REVERT_WINDOW commits"
 }
