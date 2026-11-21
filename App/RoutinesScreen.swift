@@ -34,7 +34,7 @@ struct RoutinesScreen: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("Routine")
+                    Text("Workouts")
                         .ppFixedTitleFont()
                         .foregroundStyle(.pp(.textPrimary))
                         .accessibilityAddTraits(.isHeader)
@@ -72,7 +72,7 @@ struct RoutinesScreen: View {
                     Button {
                         withAnimation(.snappy) { scrollPosition.scrollTo(edge: .top) }
                     } label: {
-                        Text("Routine")
+                        Text("Workouts")
                             .font(.ppBarTitle)
                             .foregroundStyle(.pp(.textPrimary))
                             .lineLimit(1)

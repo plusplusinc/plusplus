@@ -35,7 +35,7 @@ struct DrawerMenu: View {
                 .accessibilityFocused($isTitleFocused)
                 .padding(.horizontal, Spacing.sm)
                 VStack(alignment: .leading, spacing: Spacing.xs) {
-                    Button("Routine", systemImage: "checklist") {
+                    Button("Workouts", systemImage: "checklist") {
                         session.showRoutines()
                     }
                     .buttonStyle(.drawer(isSelected: showing == .routines))
