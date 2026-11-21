@@ -39,6 +39,10 @@ struct DrawerMenu: View {
                         session.showRoutines()
                     }
                     .buttonStyle(.drawer(isSelected: showing == .routines))
+                    Button("Log", systemImage: "book.closed") {
+                        session.showLog()
+                    }
+                    .buttonStyle(.drawer(isSelected: showing == .log))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

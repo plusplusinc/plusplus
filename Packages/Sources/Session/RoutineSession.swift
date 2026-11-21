@@ -21,8 +21,11 @@ public final class RoutineSession {
     public private(set) var rowSheet: RowSheet?
     /// A finger holds the drawer, through `holdDrawer(_:)`: a swipe under way.
     public private(set) var isDrawerHeld = false
-    /// Where the app is: the routine, the Routines screen, or a routine pushed on it.
+    /// Where the app is: the routine, the Routines screen, or a routine pushed on it, or Log, or
+    /// a workout pushed on it.
     public internal(set) var screen = Screen.routine
+    /// The finished workouts as of the last read (`refreshLog()`); nil until the first.
+    public internal(set) var log: WorkoutLog?
     /// The workout running the open routine, from Start until Finish or Discard.
     public private(set) var workout: Workout?
     /// Every exercise there is to pick, the ones created this session included.

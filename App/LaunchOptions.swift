@@ -68,6 +68,9 @@ enum LaunchOptions {
         namer: RoutineNamer,
     ) async throws {
         try await store.deleteAll()
+        if seedsLog {
+            try await seedLog(store)
+        }
         guard let seed = seededRoutine else { return }
         let routine = seed.routine(weightUnit: weightUnit)
         try await store.save(routine)

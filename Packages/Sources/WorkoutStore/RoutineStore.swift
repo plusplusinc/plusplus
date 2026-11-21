@@ -88,6 +88,16 @@ public actor RoutineStore {
         }
     }
 
+    /// Every finished workout, the latest finish first, a tie by id. All of them, not a window:
+    /// an opened workout compares with the time before, however long ago.
+    public func finishedWorkouts() throws -> [Workout] {
+        let finished = FetchDescriptor<StoredWorkout>(
+            predicate: #Predicate { $0.endedAt != nil },
+            sortBy: [SortDescriptor(\.endedAt, order: .reverse), SortDescriptor(\.id)],
+        )
+        return try modelContext.fetch(finished).map(\.workout)
+    }
+
     /// Deletes the workout, keeping nothing of it, its sets with it, and its routine if cleared to
     /// nothing while it ran, in one save; nothing if there is none.
     public func discardWorkout(_ id: Workout.ID) throws {

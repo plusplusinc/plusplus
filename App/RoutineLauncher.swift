@@ -26,7 +26,7 @@ struct RoutineLauncher: View {
                     isOpen ? session.openDrawer() : session.closeDrawer()
                 },
                 isHeld: Binding { session.isDrawerHeld } set: { session.holdDrawer($0) },
-                swipeOpens: session.screen != .pushedRoutine && !session.isDrawerLocked
+                swipeOpens: !session.screen.isPushed && !session.isDrawerLocked
                     && session.rowSheet == nil,
             ) {
                 DrawerMenu(session: session)
@@ -39,6 +39,8 @@ struct RoutineLauncher: View {
                         .id(session.opened.id)
                 case .routines, .pushedRoutine:
                     RoutinesScreen(session: session, namer: namer)
+                case .log, .loggedWorkout:
+                    LogScreen(session: session)
                 }
             }
             .keepsScreenOn(session.workout != nil)
@@ -60,6 +62,7 @@ struct RoutineLauncher: View {
                     self.session = session
                     // Read ahead, so the Routines screen's first showing has its list.
                     await session.refreshRecent(weightUnit: WeightUnit(region: locale))
+                    await session.refreshLog()
                 }
         }
     }
