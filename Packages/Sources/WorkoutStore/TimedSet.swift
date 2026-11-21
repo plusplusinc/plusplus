@@ -138,24 +138,46 @@ extension LiveWorkout {
     }
 
     /// The workout with `set`, a set of `row`, logged at `now`. A set with a count logs the time
-    /// done, its +15 s taps, and, when it ran out, the clock at its end, so the rest after it
-    /// starts where the set ended however late it is noticed. The next set's count is not begun
-    /// here: with no rest before it, its "Starts in" begins as the screen lands on it, so its
-    /// ten seconds are all seen (`beginningCount(at:restOverride:)`).
+    /// done, its +15 s taps, and, when it ran out, the clock and the time of day at its end, so
+    /// the rest after it starts where the set ended, and the set reads as done then, however
+    /// late it is noticed. The end's time of day is the clock's at the end, read as if no pause
+    /// was resumed since: a count can't end in a pause, and one that ends on screen is logged as
+    /// it ends, so a pause between the end and the log is never resumed before it. The next
+    /// set's count is not begun here: with no rest before it, its "Starts in" begins as the
+    /// screen lands on it, so its ten seconds are all seen (`beginningCount(at:restOverride:)`).
     public func logging(_ set: PlannedSet, of row: RoutineExercise, at now: Date) -> Workout {
-        var logged = workout.logging(set, of: row, at: now)
+        let clock = workout.clock(at: now)
+        let timed = timedSet.flatMap { $0.set == set ? $0 : nil }
+        let endClock = timed.flatMap { $0.isOver(atClock: clock) ? $0.endClock : nil }
+        var logged = workout.logging(
+            set,
+            of: row,
+            at: endClock.map(workout.date(ofClock:)) ?? now,
+        )
         guard logged.sets.count > workout.sets.count else { return workout }
-        if let timed = timedSet, timed.set == set {
-            let clock = workout.clock(at: now)
+        if let timed {
             let last = logged.sets.count - 1
             logged.sets[last].target = .time(seconds: timed.done(atClock: clock))
             logged.sets[last].timeAdded = timed.added
-            if timed.isOver(atClock: clock) {
-                logged.sets[last].clockWhenLogged = timed.endClock
+            if let endClock {
+                logged.sets[last].clockWhenLogged = endClock
             }
         }
         logged.count = nil
         return logged
+    }
+
+    /// The workout finished at `now` (`Workout.finishing(at:)`), a set counting logged first at
+    /// the time done, as a log at that moment logs it, and one whose count ran out at its full
+    /// time. A set still in "Starts in" logs nothing: it never began.
+    public func finishing(at now: Date) -> Workout {
+        var last = workout
+        if let timed = timedSet, timed.startsIn(atClock: workout.clock(at: now)) == 0,
+           let row = currentExercise
+        {
+            last = logging(timed.set, of: row, at: now)
+        }
+        return last.finishing(at: now)
     }
 
     /// The workout with "Starts in" cut short at `now`: the set counts from now. Unchanged

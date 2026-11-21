@@ -14,7 +14,9 @@ import WorkoutStore
 /// with +15 s beside it (`CountKeys`). At 0 the set logs itself at its full time, with the
 /// heavy tap and the +1, and whatever follows begins: a rest, or the next set's "Starts in". A
 /// tap on "Log early" mid-count logs the time done, the fill running on to full and the count
-/// holding where it stopped; +15 s adds to this set only. Where the set is, at rest on it, is
+/// holding where it stopped; +15 s adds to this set only. Finish mid-count logs the time done,
+/// as "Log early" then would; Finish during "Starts in" logs nothing for the set
+/// (`LiveWorkout.finishing(at:)`). Where the set is, at rest on it, is
 /// the phase's (`WorkoutPhase.timing`), which the key, the slot, the segment, and the watch
 /// all read. The count runs on the workout's clock (`TimedSet`), so a pause stops it, and a
 /// count that ran out while the app was away is logged at launch (`catchUp`).

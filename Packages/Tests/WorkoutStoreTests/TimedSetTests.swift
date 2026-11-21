@@ -6,16 +6,16 @@ import Testing
 /// log, +15 s, the rest after it, and a count that ran out while the app was away.
 @Suite("Timed set")
 struct TimedSetTests {
-    private static let start = Date(timeIntervalSinceReferenceDate: 1000)
+    static let start = Date(timeIntervalSinceReferenceDate: 1000)
 
     /// `start` plus `seconds`.
-    private static func at(_ seconds: Double) -> Date {
+    static func at(_ seconds: Double) -> Date {
         start.addingTimeInterval(seconds)
     }
 
     /// A plank, 3 × 30 s resting `rest` s between sets, then a side plank, 1 × 20 s per side,
     /// then push-ups.
-    private static func routine(rest: Int = 0) throws -> Routine {
+    static func routine(rest: Int = 0) throws -> Routine {
         var plank = try RoutineExercise.builtIn("Plank") { $0.sets = 3 }
         plank.plan.target = .time(seconds: 30)
         plank.setRest(rest)
@@ -27,14 +27,14 @@ struct TimedSetTests {
     }
 
     /// The workout as Start begins it on `routine`, at `start`.
-    private static func started(_ routine: Routine) -> LiveWorkout {
+    static func started(_ routine: Routine) -> LiveWorkout {
         let workout = Workout(routineID: routine.id, routineName: "Test", startedAt: start)
         let begun = LiveWorkout(routine: routine, workout: workout).beginningCount(at: start)
         return LiveWorkout(routine: routine, workout: begun)
     }
 
     /// `live` with its current set logged at `seconds`.
-    private static func logged(_ live: LiveWorkout, at seconds: Double) throws -> LiveWorkout {
+    static func logged(_ live: LiveWorkout, at seconds: Double) throws -> LiveWorkout {
         let set = try #require(live.currentSet)
         let row = try #require(live.currentExercise)
         return LiveWorkout(
@@ -185,6 +185,7 @@ struct TimedSetTests {
         let caught = LiveWorkout(routine: live.routine, workout: live.caughtUp(at: Self.at(300)))
         #expect(caught.workout.sets.count == 1)
         #expect(caught.workout.sets.first?.clockWhenLogged == 40)
+        #expect(caught.workout.sets.first?.loggedAt == Self.at(40))
         #expect(caught.timedSet?.startClock == 310)
     }
 
@@ -262,13 +263,6 @@ struct TimedSetTests {
         let again = LiveWorkout(routine: routine, workout: asReps)
             .beginningCount(at: Self.at(60))
         #expect(again.count?.startClock == 70)
-    }
-
-    @Test("A workout finished mid-count keeps no count")
-    func finishedMidCount() throws {
-        let live = try Self.started(Self.routine())
-        #expect(live.workout.count != nil)
-        #expect(live.workout.finishing(at: Self.at(15)).count == nil)
     }
 
     @Test("A reps set logs as before, and begins no count")
