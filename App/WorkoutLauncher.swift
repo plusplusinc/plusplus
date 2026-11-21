@@ -13,6 +13,7 @@ struct WorkoutLauncher: View {
 
     @State private var session: AppSession?
     @Environment(\.locale) private var locale
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         if let session {
@@ -33,20 +34,34 @@ struct WorkoutLauncher: View {
             } content: {
                 // A place changed from the drawer swaps at once, under the drawer as it closes.
                 // One changed from the screen itself, as Log's Go to Workouts, has nothing over
-                // it, so it changes inside an animation and these fade one into the other.
-                switch session.screen {
-                case .workout:
-                    // A switch to another workout gives a fresh screen: scroll, sheets,
-                    // and title.
-                    WorkoutScreen(session: session, namer: namer)
-                        .id(session.opened.id)
-                        .transition(.opacity)
-                case .workouts, .pushedWorkout:
-                    WorkoutsScreen(session: session, namer: namer)
-                        .transition(.opacity)
-                case .log, .loggedWorkout:
-                    LogScreen(session: session)
-                        .transition(.opacity)
+                // it, so it changes inside an animation: Log is put away below as Workouts comes
+                // forward in front of it (`PlaceShuffle`).
+                ZStack {
+                    // What Log uncovers as it slides away, so nothing behind it shows darker.
+                    Color.pp(.background)
+                        .ignoresSafeArea()
+                        .zIndex(-1)
+                    switch session.screen {
+                    case .workout:
+                        // A switch to another workout gives a fresh screen: scroll, sheets,
+                        // and title.
+                        WorkoutScreen(session: session, namer: namer)
+                            .id(session.opened.id)
+                            .transition(.opacity)
+                    case .workouts, .pushedWorkout:
+                        WorkoutsScreen(session: session, namer: namer)
+                            .transition(.asymmetric(
+                                insertion: PlaceShuffle.arriving(reduceMotion: reduceMotion),
+                                removal: .opacity,
+                            ))
+                            .zIndex(1)
+                    case .log, .loggedWorkout:
+                        LogScreen(session: session)
+                            .transition(.asymmetric(
+                                insertion: .opacity,
+                                removal: PlaceShuffle.leaving(reduceMotion: reduceMotion),
+                            ))
+                    }
                 }
             }
             .keepsScreenOn(session.loggedWorkout != nil)
