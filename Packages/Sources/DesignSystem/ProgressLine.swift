@@ -65,21 +65,26 @@ struct ProgressWords: Equatable {
 /// while resting after the set, or the side, "· Left", set off in the name's color; the two
 /// never show together. As the sets go by only the number changes, rolling as a count's digits
 /// do (`RestBlock.countdown`, Dave, 2026-11-20): "Set", "of 3" hold still, and "done" keeps its
-/// room and fades, so nothing beside it moves. Changed with no animation, as a relaunch or End's
+/// room and fades, so nothing beside it moves; that room may sit under the line's end words,
+/// which fade while it shows (`CaptionLine`), so "then rest 0:05" stays beside "Round 1 of 3"
+/// at the default size, as before "done". Changed with no animation, as a relaunch or End's
 /// set-back does, every part changes at once. With Reduce Motion the number changes in place and
 /// "done" shows or goes at once. The words wrap between words, as at the accessibility sizes,
 /// "done" with them; a side, or "done" in its place, goes beside the set where it fits, else
 /// under it (`FigureLayout`).
 struct ProgressLine: View {
     let focus: RowFocus
+    /// Whether "done" keeps its room; without it, the line as it reads while a set is current,
+    /// the width `CaptionLine` fits its end words by (`besideEnds()`).
+    var keepsDoneRoom = true
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let words = ProgressWords(focus)
         let showsDone = words.end == .done
-        let done = word("done")
-            .fading(showsDone, on: doneFade)
+        let done = keepsDoneRoom
+            ? word("done").fading(showsDone, on: doneFade) : nil
         if let side = focus.side {
             let showsSide = !showsDone
             FigureLayout(spacing: 0) {

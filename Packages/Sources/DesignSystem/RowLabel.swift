@@ -180,10 +180,7 @@ public struct RowLabel: View {
                     if let bars {
                         SetSegments(progress: bars, isOnSet: setRest?.isOnSet ?? true)
                     }
-                    CaptionLine(spacing: Spacing.md) {
-                        ProgressLine(focus: focus)
-                        CaptionEndWords(focus: focus, isResting: setRest?.isResting == true)
-                    }
+                    FocusCaption(focus: focus, isResting: setRest?.isResting == true)
                 }
                 .padding(.top, Spacing.sm)
                 .part(.progress)
