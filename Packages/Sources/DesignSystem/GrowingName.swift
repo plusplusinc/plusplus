@@ -229,16 +229,17 @@ private struct GrowingNameLayout: Layout {
     /// As wide as the row, where it is given, so the name knows the width it has to grow in.
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
         var (small, large) = sizes(proposal, subviews)
+        let width = proposal.width.flatMap { $0.isFinite ? $0 : nil }
         if subviews.count == 8 {
             let row = Lines(one: subviews[3], two: subviews[4])
             let current = Lines(one: subviews[5], two: subviews[6])
-            let whole = subviews[7].sizeThatFits(ProposedViewSize(
-                width: proposal.width,
-                height: nil,
-            ))
-            small.height = row.height(of: current.count(in: whole.height))
+            // Offered no width, the whole name would stand on one line: the drawn one's breaks
+            // are all there is to go by.
+            let lines = width.map {
+                subviews[7].sizeThatFits(ProposedViewSize(width: $0, height: nil)).height
+            } ?? large.height
+            small.height = row.height(of: current.count(in: lines))
         }
-        let width = proposal.width.flatMap { $0.isFinite ? $0 : nil }
         return CGSize(
             width: width ?? max(small.width, large.width),
             height: small.height + (large.height - small.height) * growth,
