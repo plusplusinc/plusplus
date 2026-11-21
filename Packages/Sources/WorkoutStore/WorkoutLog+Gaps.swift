@@ -25,7 +25,8 @@ public struct StuckExercise: Identifiable, Equatable, Sendable {
     public let exercise: Exercise?
     public let isPerSide: Bool
     public let topSet: TopSet
-    public let workouts: Int
+    /// The logged workouts it was in.
+    public let loggedWorkouts: Int
 }
 
 /// What has been left alone: muscle groups not worked lately, and exercises not moving.
@@ -43,8 +44,8 @@ public struct Gaps: Equatable, Sendable {
 extension WorkoutLog {
     /// A group unworked for this many days is listed.
     public static let missedDays = 14
-    /// An exercise in this many workouts with one top set is not moving.
-    public static let stuckWorkouts = 3
+    /// An exercise in this many logged workouts with one top set is not moving.
+    public static let stuckLoggedWorkouts = 3
 
     /// Gaps at `now`. A set counts toward each group its exercise works now, through `list`: a
     /// created exercise toward every group it checks, and one that no longer resolves toward
@@ -53,8 +54,8 @@ extension WorkoutLog {
         let recent = inPeriod(now: now, calendar: calendar)
         let recentExercises = recent.flatMap { $0.loggedExercises(in: list) }
         let groups = MuscleGroup.allCases.enumerated().map { index, group in
-            let newest = workouts.first { workout in
-                workout.sets.contains {
+            let newest = loggedWorkouts.first { loggedWorkout in
+                loggedWorkout.sets.contains {
                     list.exercise(id: $0.exerciseID)?.muscleGroups.contains(group) ?? false
                 }
             }
@@ -71,7 +72,7 @@ extension WorkoutLog {
         .map(\.1)
         let notMoving = history(of: recent, in: list)
             .filter { history in
-                history.topSets.count >= Self.stuckWorkouts
+                history.topSets.count >= Self.stuckLoggedWorkouts
                     && zip(history.topSets, history.topSets.dropFirst())
                     .allSatisfy { $1.change(from: $0) == .same }
             }
@@ -83,7 +84,7 @@ extension WorkoutLog {
                     exercise: history.exercise,
                     isPerSide: history.isPerSide,
                     topSet: history.topSets[history.topSets.count - 1],
-                    workouts: history.topSets.count,
+                    loggedWorkouts: history.topSets.count,
                 )
             }
         return Gaps(groups: groups, notMoving: notMoving)

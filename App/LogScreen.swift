@@ -9,7 +9,8 @@ import WorkoutStore
 /// own inline title, centered, with ++ leading. It opens on Workouts each time the drawer shows
 /// it. The period is `LogPeriod`'s four calendar weeks, and the three tabs name its first day.
 /// Purple marks every logged number and green only a gain; nothing else on it is green. A
-/// workout's row pushes it, read-only, with the system push, as a routine is pushed on Routines.
+/// logged workout's row pushes it, read-only, with the system push, as a routine is pushed on
+/// Routines.
 struct LogScreen: View {
     @Bindable var session: RoutineSession
 
@@ -65,9 +66,13 @@ struct LogScreen: View {
             }
             .accessibilityHidden(session.isDrawerOpen)
             .background { Color.pp(.background).ignoresSafeArea() }
-            .navigationDestination(item: pushedWorkout) { id in
-                if let log = session.log, let workout = log.workout(id: id) {
-                    LoggedWorkoutScreen(workout: workout, log: log, exercises: session.exercises)
+            .navigationDestination(item: pushedLoggedWorkout) { id in
+                if let log = session.log, let loggedWorkout = log.loggedWorkout(id: id) {
+                    LoggedWorkoutScreen(
+                        loggedWorkout: loggedWorkout,
+                        log: log,
+                        exercises: session.exercises,
+                    )
                 }
             }
             .navigationTitle("Log")
@@ -91,11 +96,11 @@ struct LogScreen: View {
     }
 
     private var isWorkoutsEmpty: Bool {
-        tab == .workouts && session.log?.workouts.isEmpty == true
+        tab == .workouts && session.log?.loggedWorkouts.isEmpty == true
     }
 
-    /// The pushed workout, which the back button and the back swipe pop.
-    private var pushedWorkout: Binding<Workout.ID?> {
+    /// The pushed logged workout, which the back button and the back swipe pop.
+    private var pushedLoggedWorkout: Binding<LoggedWorkout.ID?> {
         Binding {
             if case let .loggedWorkout(id) = session.screen {
                 id
@@ -104,15 +109,15 @@ struct LogScreen: View {
             }
         } set: { id in
             if let id {
-                session.openWorkout(id)
+                session.openLoggedWorkout(id)
             } else {
-                session.popWorkout()
+                session.popLoggedWorkout()
             }
         }
     }
 
-    func openWorkout(_ id: Workout.ID) {
-        session.openWorkout(id)
+    func openLoggedWorkout(_ id: LoggedWorkout.ID) {
+        session.openLoggedWorkout(id)
     }
 
     /// Routines at the root, as the drawer's Routines row shows it, never pushed onto Log.

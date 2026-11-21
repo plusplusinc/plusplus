@@ -8,23 +8,23 @@ extension RoutineSession {
         closeDrawer()
     }
 
-    /// Pushes a finished workout onto Log, read-only.
-    public func openWorkout(_ id: Workout.ID) {
+    /// Pushes a finished logged workout onto Log, read-only.
+    public func openLoggedWorkout(_ id: LoggedWorkout.ID) {
         screen = .loggedWorkout(id)
     }
 
-    /// Pops the workout pushed onto Log, as its back button and back swipe do.
-    public func popWorkout() {
+    /// Pops the logged workout pushed onto Log, as its back button and back swipe do.
+    public func popLoggedWorkout() {
         if case .loggedWorkout = screen {
             screen = .log
         }
     }
 
-    /// Reads the finished workouts again, for Log. A read that fails leaves the last one.
+    /// Reads the finished logged workouts again, for Log. A read that fails leaves the last one.
     public func refreshLog() async {
         guard let store else { return }
         do {
-            log = try await WorkoutLog(workouts: store.finishedWorkouts())
+            log = try await WorkoutLog(loggedWorkouts: store.finishedLoggedWorkouts())
         } catch {
             Logger.session.error("The log didn't load: \(error)")
         }

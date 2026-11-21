@@ -21,7 +21,7 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         // The workout's routine is seeded at this launch, and the title's checks run on a new
         // routine opened after it, so the test launches once. The drawer and Routines are
         // audited on the way to the new routine.
-        try workoutAtAX5(in: app)
+        try liveWorkoutAtAX5(in: app)
         try drawerAtAX5(in: app)
         app.pushNewRoutine()
         let title = app.routineTitle

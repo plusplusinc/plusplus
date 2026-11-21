@@ -6,17 +6,17 @@ import Foundation
 /// mid-workout counts at once.
 public struct LiveWorkout: Equatable, Sendable {
     public var routine: Routine
-    public var workout: Workout
+    public var loggedWorkout: LoggedWorkout
 
-    public init(routine: Routine, workout: Workout) {
+    public init(routine: Routine, loggedWorkout: LoggedWorkout) {
         self.routine = routine
-        self.workout = workout
+        self.loggedWorkout = loggedWorkout
     }
 
     /// The set it does next: the first in the routine's order not yet logged. None once every
     /// one is.
     public var currentSet: PlannedSet? {
-        routine.nextSet(after: workout.sets)
+        routine.nextSet(after: loggedWorkout.sets)
     }
 
     /// The exercise it is on: the row of the set it does next.
@@ -34,7 +34,7 @@ public struct LiveWorkout: Equatable, Sendable {
     /// planned.
     public var finishedRows: Set<RoutineExercise.ID> {
         Set(routine.exercises.lazy.map(\.id).filter { id in
-            let progress = routine.progress(of: id, logged: workout.sets)
+            let progress = routine.progress(of: id, logged: loggedWorkout.sets)
             return progress.total > 0 && progress.done == progress.total
         })
     }
@@ -42,9 +42,9 @@ public struct LiveWorkout: Equatable, Sendable {
     /// The set bars a row shows: on the current exercise always, from its first set; on any other
     /// only once started and until finished, where its node shows it done. Nil for none.
     public func bars(of id: RoutineExercise.ID) -> (done: Int, total: Int)? {
-        let progress = routine.progress(of: id, logged: workout.sets)
+        let progress = routine.progress(of: id, logged: loggedWorkout.sets)
         guard id == currentSet?.row
-            || routine.isStarted(id, logged: workout.sets) && progress.done < progress.total
+            || routine.isStarted(id, logged: loggedWorkout.sets) && progress.done < progress.total
         else { return nil }
         return progress
     }
@@ -52,13 +52,13 @@ public struct LiveWorkout: Equatable, Sendable {
     /// What the key that logs the current set says ("Log set", "Log left", "Log last set"). None
     /// once every set is logged.
     public var logText: String? {
-        currentSet.map { routine.logText(for: $0, after: workout.sets) }
+        currentSet.map { routine.logText(for: $0, after: loggedWorkout.sets) }
     }
 
     /// What logging `set` leads to, from where the workout is, with `earlier` logged first, as a
     /// set's first side is before its second.
     public func step(logging set: PlannedSet, after earlier: [PlannedSet] = []) -> Step {
-        let done = Set(workout.sets.map(\.planned)).union(earlier).union([set])
+        let done = Set(loggedWorkout.sets.map(\.planned)).union(earlier).union([set])
         guard let next = routine.nextSet(notIn: done) else { return .last }
         guard next.row != set.row else { return .nextSet }
         let rows = routine.exercises.map(\.id)
@@ -76,8 +76,8 @@ public struct LiveWorkout: Equatable, Sendable {
     public func hiding(_ unshown: [PlannedSet]) -> Self {
         guard !unshown.isEmpty else { return self }
         var hidden = self
-        while let last = hidden.workout.sets.last, unshown.contains(last.planned) {
-            hidden.workout.sets.removeLast()
+        while let last = hidden.loggedWorkout.sets.last, unshown.contains(last.planned) {
+            hidden.loggedWorkout.sets.removeLast()
         }
         return hidden
     }

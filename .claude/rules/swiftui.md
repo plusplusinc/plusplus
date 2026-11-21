@@ -55,7 +55,7 @@ How each part of the screen looks, moves, sounds, and reads to VoiceOver is in t
 of the types that draw it, with its timings in named constants. Read them before changing a
 feature, and change them with it.
 
-- Start, End, and the current exercise: `RoutineScreen+Workout.swift`, `CurrentExercise.swift`,
+- Start, End, and the current exercise: `RoutineScreen+LiveWorkout.swift`, `CurrentExercise.swift`,
   `RowLabel.swift` (`RowFocus`, `CaptionLine`, `ProgressLine`), `GrowingName`, `RailStack`, `RailEntry` (a row joining a rail).
   Their beats are `WorkoutPhase`'s `starting` and `ending`, on a log's `SequenceTask`; Start's scroll to the top waits on `ScrollBeat.settled(after:orWhen:)`.
 - The key at the bottom and the +1: `WorkoutKey`, `RoutineScreen+Key.swift`,

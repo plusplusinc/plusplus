@@ -11,7 +11,7 @@ extension RoutineStoreUpgradeTests {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         let url = folder.appending(path: "PlusPlus.store")
-        try Self.writeBeforeWorkouts(to: url)
+        try Self.writeBeforeLoggedWorkouts(to: url)
         do {
             // Touch the store in V6's shape, so the upgrade starts from it.
             let schema = Schema(versionedSchema: RoutineSchemaV6.self)
@@ -20,9 +20,9 @@ extension RoutineStoreUpgradeTests {
                 configurations: ModelConfiguration(schema: schema, url: url),
             )
             let context = ModelContext(old)
-            let workout = RoutineSchemaV6.StoredWorkout(id: UUID())
-            workout.routineName = "Older"
-            context.insert(workout)
+            let loggedWorkout = RoutineSchemaV6.StoredWorkout(id: UUID())
+            loggedWorkout.routineName = "Older"
+            context.insert(loggedWorkout)
             try context.save()
         }
 
@@ -68,10 +68,10 @@ extension RoutineStoreUpgradeTests {
             )
             context.insert(row)
             row.routine = routine
-            let workout = RoutineSchemaV9.StoredWorkout(id: UUID())
-            workout.routineID = routine.id
-            workout.startedAt = Date(timeIntervalSinceReferenceDate: 2)
-            context.insert(workout)
+            let loggedWorkout = RoutineSchemaV9.StoredWorkout(id: UUID())
+            loggedWorkout.routineID = routine.id
+            loggedWorkout.startedAt = Date(timeIntervalSinceReferenceDate: 2)
+            context.insert(loggedWorkout)
             let set = RoutineSchemaV9.StoredSet(id: UUID())
             set.rowID = rowID
             set.exerciseID = "barbell-bench-press"
@@ -79,7 +79,7 @@ extension RoutineStoreUpgradeTests {
             set.plannedReps = 5
             set.loggedAt = Date(timeIntervalSinceReferenceDate: 3)
             context.insert(set)
-            set.workout = workout
+            set.workout = loggedWorkout
             try context.save()
         }
 
@@ -89,15 +89,15 @@ extension RoutineStoreUpgradeTests {
             configurations: ModelConfiguration(schema: RoutineStore.schema, url: url),
         )
         let store = RoutineStore(modelContainer: current)
-        var workout = try #require(try await store.launch(weightUnit: .pounds).workout)
-        #expect(workout.sets.map(\.clockWhenLogged) == [nil])
-        #expect(workout.sets.map(\.restAdjustment) == [0])
+        var loggedWorkout = try #require(try await store.launch(weightUnit: .pounds).loggedWorkout)
+        #expect(loggedWorkout.sets.map(\.clockWhenLogged) == [nil])
+        #expect(loggedWorkout.sets.map(\.restAdjustment) == [0])
 
-        workout.sets[0].clockWhenLogged = 1
-        workout.sets[0].restAdjustment = 15
-        try await store.save(workout)
+        loggedWorkout.sets[0].clockWhenLogged = 1
+        loggedWorkout.sets[0].restAdjustment = 15
+        try await store.save(loggedWorkout)
         let relaunched = try await RoutineStore(modelContainer: current)
-            .launch(weightUnit: .pounds).workout
+            .launch(weightUnit: .pounds).loggedWorkout
         #expect(relaunched?.sets.map(\.clockWhenLogged) == [1])
         #expect(relaunched?.sets.map(\.restAdjustment) == [15])
     }

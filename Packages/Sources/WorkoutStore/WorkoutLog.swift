@@ -1,15 +1,15 @@
 import Foundation
 
-/// The record of finished workouts, newest first, and its readings: an opened workout's
-/// exercises against the time before, the diff over the period (`LogPeriod`), and what has been
-/// left alone. Days are calendar days: a workout is `n` days ago when `n` days lie between the
-/// start of the day it finished and the start of today.
+/// The record of finished logged workouts, newest first, and its readings: an opened logged
+/// workout's exercises against the time before, the diff over the period (`LogPeriod`), and what
+/// has been left alone. Days are calendar days: a logged workout is `n` days ago when `n` days lie
+/// between the start of the day it finished and the start of today.
 public struct WorkoutLog: Equatable, Sendable {
-    /// Finished workouts, the latest finish first.
-    public let workouts: [Workout]
+    /// Finished logged workouts, the latest finish first.
+    public let loggedWorkouts: [LoggedWorkout]
 
-    public init(workouts: [Workout]) {
-        self.workouts = workouts
+    public init(loggedWorkouts: [LoggedWorkout]) {
+        self.loggedWorkouts = loggedWorkouts
             .filter { !$0.isInProgress }
             .sorted { one, other in
                 let (oneEnd, otherEnd) = (
@@ -21,17 +21,19 @@ public struct WorkoutLog: Equatable, Sendable {
             }
     }
 
-    public func workout(id: Workout.ID) -> Workout? {
-        workouts.first { $0.id == id }
+    public func loggedWorkout(id: LoggedWorkout.ID) -> LoggedWorkout? {
+        loggedWorkouts.first { $0.id == id }
     }
 
-    /// The workout's exercises in the order done, each with the change from the newest workout
-    /// that finished before this one started and has a set of the same exercise.
+    /// The logged workout's exercises in the order done, each with the change from the newest
+    /// logged workout that finished before this one started and has a set of the same exercise.
     public func exercises(
-        of workout: Workout,
+        of loggedWorkout: LoggedWorkout,
         in list: ExerciseList,
     ) -> [(exercise: LoggedExercise, change: Change)] {
-        let before = workouts.filter { ($0.endedAt ?? .distantFuture) < workout.startedAt }
+        let before = loggedWorkouts.filter {
+            ($0.endedAt ?? .distantFuture) < loggedWorkout.startedAt
+        }
         var earlier: [String: TopSet] = [:]
         // Oldest first, so the newest before wins.
         for previous in before.reversed() {
@@ -39,36 +41,36 @@ public struct WorkoutLog: Equatable, Sendable {
                 earlier[exercise.id] = exercise.topSet
             }
         }
-        return workout.loggedExercises(in: list).map { exercise in
+        return loggedWorkout.loggedExercises(in: list).map { exercise in
             (exercise, exercise.topSet.change(from: earlier[exercise.id]))
         }
     }
 
-    /// How many days before `now` the workout finished, in `calendar`'s days.
-    static func daysAgo(_ workout: Workout, now: Date, calendar: Calendar) -> Int {
-        let end = calendar.startOfDay(for: workout.endedAt ?? now)
+    /// How many days before `now` the logged workout finished, in `calendar`'s days.
+    static func daysAgo(_ loggedWorkout: LoggedWorkout, now: Date, calendar: Calendar) -> Int {
+        let end = calendar.startOfDay(for: loggedWorkout.endedAt ?? now)
         let today = calendar.startOfDay(for: now)
         return calendar.dateComponents([.day], from: end, to: today).day ?? 0
     }
 
-    /// The workouts finished in the period around `now`, newest first.
-    func inPeriod(now: Date, calendar: Calendar) -> [Workout] {
+    /// The logged workouts finished in the period around `now`, newest first.
+    func inPeriod(now: Date, calendar: Calendar) -> [LoggedWorkout] {
         let firstDay = LogPeriod.firstDay(calendar: calendar, now: now)
-        return workouts.filter { ($0.endedAt ?? .distantPast) >= firstDay }
+        return loggedWorkouts.filter { ($0.endedAt ?? .distantPast) >= firstDay }
     }
 
-    /// The period around `now`, with the days a workout finished on.
+    /// The period around `now`, with the days a logged workout finished on.
     public func period(now: Date, calendar: Calendar) -> LogPeriod {
-        LogPeriod(workouts: workouts, calendar: calendar, now: now)
+        LogPeriod(loggedWorkouts: loggedWorkouts, calendar: calendar, now: now)
     }
 
-    /// Every exercise in the workouts, by id, with its top set in each, oldest workout first, and
-    /// the name the newest logged it with.
-    func history(of workouts: [Workout], in list: ExerciseList) -> [ExerciseHistory] {
+    /// Every exercise in the logged workouts, by id, with its top set in each, oldest logged
+    /// workout first, and the name the newest logged it with.
+    func history(of loggedWorkouts: [LoggedWorkout], in list: ExerciseList) -> [ExerciseHistory] {
         var order: [String] = []
         var byID: [String: ExerciseHistory] = [:]
-        for workout in workouts.reversed() {
-            for exercise in workout.loggedExercises(in: list) {
+        for loggedWorkout in loggedWorkouts.reversed() {
+            for exercise in loggedWorkout.loggedExercises(in: list) {
                 if byID[exercise.id] == nil {
                     order.append(exercise.id)
                     byID[exercise.id] = ExerciseHistory(
@@ -80,20 +82,20 @@ public struct WorkoutLog: Equatable, Sendable {
                 }
                 byID[exercise.id]?.name = exercise.name
                 byID[exercise.id]?.topSets.append(exercise.topSet)
-                byID[exercise.id]?.lastDone = workout.endedAt ?? .distantPast
+                byID[exercise.id]?.lastDone = loggedWorkout.endedAt ?? .distantPast
             }
         }
         return order.compactMap { byID[$0] }
     }
 }
 
-/// One exercise across several workouts.
+/// One exercise across several logged workouts.
 struct ExerciseHistory {
     let id: String
     var name: String
     let exercise: Exercise?
     let isPerSide: Bool
-    /// Oldest workout first.
+    /// Oldest logged workout first.
     var topSets: [TopSet] = []
     var lastDone = Date.distantPast
 }

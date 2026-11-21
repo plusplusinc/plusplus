@@ -11,8 +11,8 @@ extension RoutineSession {
         case pushedRoutine
         /// Log, its tabs showing.
         case log
-        /// A finished workout, pushed onto Log from its Workouts tab.
-        case loggedWorkout(Workout.ID)
+        /// A finished logged workout, pushed onto Log from its Workouts tab.
+        case loggedWorkout(LoggedWorkout.ID)
 
         /// Whether something is pushed, so the edge swipe goes back rather than opening the
         /// drawer.

@@ -47,14 +47,14 @@ struct RoutineSessionCountTests {
         for step in steps {
             step.change()
             await session.writesLanded()
-            let relaunched = try await relaunch().launch(weightUnit: .pounds).workout
-            #expect(relaunched == session.workout, "after \(step.name)")
+            let relaunched = try await relaunch().launch(weightUnit: .pounds).loggedWorkout
+            #expect(relaunched == session.loggedWorkout, "after \(step.name)")
         }
-        let set = try #require(session.workout?.sets.first)
+        let set = try #require(session.loggedWorkout?.sets.first)
         #expect(set.target == .time(seconds: 18))
         #expect(set.timeAdded == 15)
         // The next set's "Starts in" waits for the screen to land on it.
-        #expect(session.workout?.count == nil)
+        #expect(session.loggedWorkout?.count == nil)
     }
 
     @Test("+15 s and Skip rest on the rest after a set are each stored; reopened, the rest is over")
@@ -76,11 +76,11 @@ struct RoutineSessionCountTests {
         for step in steps {
             step.change()
             await session.writesLanded()
-            let relaunched = try await relaunch().launch(weightUnit: .pounds).workout
-            #expect(relaunched == session.workout, "after \(step.name)")
+            let relaunched = try await relaunch().launch(weightUnit: .pounds).loggedWorkout
+            #expect(relaunched == session.loggedWorkout, "after \(step.name)")
         }
-        let stored = try #require(try await relaunch().launch(weightUnit: .pounds).workout)
-        let live = LiveWorkout(routine: routine, workout: stored)
+        let stored = try #require(try await relaunch().launch(weightUnit: .pounds).loggedWorkout)
+        let live = LiveWorkout(routine: routine, loggedWorkout: stored)
         let rest = try #require(live.rest())
         #expect(rest.length == 10)
         #expect(rest.isOver(atClock: stored.clock(at: Self.at(30))))
@@ -100,7 +100,7 @@ struct RoutineSessionCountTests {
         session.finish(at: Self.at(28))
         await session.writesLanded()
         let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkout>())
-            .map(\.workout)
+            .map(\.loggedWorkout)
         #expect(stored.first?.sets.map(\.target) == [.time(seconds: 18)])
     }
 
@@ -113,16 +113,16 @@ struct RoutineSessionCountTests {
         first.beginCount(at: Self.at(0))
         await first.writesLanded()
 
-        let stored = try await relaunch().launch(weightUnit: .pounds).workout
+        let stored = try await relaunch().launch(weightUnit: .pounds).loggedWorkout
         let second = RoutineSession(
             routine: routine,
-            workout: stored,
+            loggedWorkout: stored,
             store: relaunch(),
             namer: .muscleGroupsOnly,
         )
         second.catchUp(at: Self.at(300))
-        #expect(second.workout?.sets.map(\.target) == [.time(seconds: 30)])
-        #expect(second.workout?.sets.first?.clockWhenLogged == 40)
-        #expect(second.workout?.count?.startClock == 310)
+        #expect(second.loggedWorkout?.sets.map(\.target) == [.time(seconds: 30)])
+        #expect(second.loggedWorkout?.sets.first?.clockWhenLogged == 40)
+        #expect(second.loggedWorkout?.count?.startClock == 310)
     }
 }

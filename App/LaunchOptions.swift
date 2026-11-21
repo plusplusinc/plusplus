@@ -75,22 +75,22 @@ enum LaunchOptions {
         let routine = seed.routine(weightUnit: weightUnit)
         try await store.save(routine)
         guard let logged = seed.loggedSets else { return }
-        var workout = Workout(
+        var loggedWorkout = LoggedWorkout(
             routineID: routine.id,
             routineName: namer.shownName(of: routine) ?? "",
             startedAt: .now,
         )
         for set in routine.setOrder.prefix(logged) {
             if let row = routine.exercises.first(where: { $0.id == set.row }) {
-                workout = workout.logging(set, of: row, at: .now)
+                loggedWorkout = loggedWorkout.logging(set, of: row, at: .now)
             }
         }
         // Logged with no time kept, as before a rest's was: the workout opens on its next set,
         // not in the rest after the last one seeded.
-        for index in workout.sets.indices {
-            workout.sets[index].clockWhenLogged = nil
+        for index in loggedWorkout.sets.indices {
+            loggedWorkout.sets[index].clockWhenLogged = nil
         }
-        try await store.save(workout)
+        try await store.save(loggedWorkout)
     }
 }
 

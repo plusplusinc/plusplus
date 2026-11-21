@@ -50,15 +50,15 @@ enum LogFixture {
         )
     }
 
-    /// A workout of 51 minutes, finished `daysAgo` calendar days before `now` at 11 am.
-    static func workout(
+    /// A logged workout of 51 minutes, finished `daysAgo` calendar days before `now` at 11 am.
+    static func loggedWorkout(
         daysAgo: Int,
         _ sets: [LoggedSet],
         name: String = "Upper",
-    ) -> Workout {
+    ) -> LoggedWorkout {
         let end = calendar.date(byAdding: .day, value: -daysAgo, to: date(day: 21, hour: 11))
             ?? .distantPast
-        return Workout(
+        return LoggedWorkout(
             routineID: UUID(),
             routineName: name,
             startedAt: end.addingTimeInterval(-51 * 60),

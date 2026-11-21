@@ -125,15 +125,15 @@ struct RoutineScreen: View {
     @State var rowFrames = RowFrames()
     @Environment(\.locale) var locale
     @Environment(\.accessibilityReduceMotion) var reduceMotion
-
     static let defaultName = String(localized: "New workout")
 
     /// Shows the routine the session opened. A switch to another gives a new screen.
     init(session: RoutineSession, namer: RoutineNamer, isPushed: Bool = false) {
         _shownRoutine = State(initialValue: session.opened)
-        _opensOnCurrent = State(initialValue: session.workout != nil)
+        _opensOnCurrent = State(initialValue: session.loggedWorkout != nil)
         _phase = State(initialValue: WorkoutPhase(
-            resuming: session.workout.map { LiveWorkout(routine: session.opened, workout: $0) },
+            resuming: session.loggedWorkout
+                .map { LiveWorkout(routine: session.opened, loggedWorkout: $0) },
             restOverride: Self.restOverride,
             at: .now,
         ))

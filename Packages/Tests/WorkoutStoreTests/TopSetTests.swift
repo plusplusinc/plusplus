@@ -7,7 +7,7 @@ struct TopSetTests {
     private typealias Fixture = LogFixture
 
     private func top(_ sets: [LoggedSet]) -> TopSet {
-        Fixture.workout(daysAgo: 0, sets).loggedExercises(in: .builtIn)[0].topSet
+        Fixture.loggedWorkout(daysAgo: 0, sets).loggedExercises(in: .builtIn)[0].topSet
     }
 
     @Test("With weight the heaviest wins, then the most reps at it")

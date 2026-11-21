@@ -39,20 +39,20 @@ extension RoutineScreen {
             return KeyFill(
                 length: Double(timed.length),
                 ends: .distantPast,
-                pausedLeft: timed.remaining(atClock: shown.workout.clock(at: .now)),
+                pausedLeft: timed.remaining(atClock: shown.loggedWorkout.clock(at: .now)),
             )
         }
         guard countBeats.earlyLog == nil, phase.loggedAndDrawn == nil,
               liveKey.drawnCount == .counting,
               let timed = live?.timedSet,
-              let workout = session.workout
+              let loggedWorkout = session.loggedWorkout
         else { return .over }
-        let clock = workout.clock(at: .now)
+        let clock = loggedWorkout.clock(at: .now)
         return KeyFill(
             length: Double(timed.length),
-            ends: workout.date(ofClock: timed.endClock),
-            pausedLeft: workout.isPaused ? timed.remaining(atClock: clock) : nil,
-            isPaused: workout.isPaused,
+            ends: loggedWorkout.date(ofClock: timed.endClock),
+            pausedLeft: loggedWorkout.isPaused ? timed.remaining(atClock: clock) : nil,
+            isPaused: loggedWorkout.isPaused,
         )
     }
 
@@ -133,8 +133,8 @@ extension RoutineScreen {
         }
         let time = RestBlock.spoken(Double(seconds), locale: locale)
         // The workout with every log, the one drawn hidden included.
-        let logs = (session.workout ?? phase.drawnWorkout).map {
-            LiveWorkout(routine: routine, workout: $0)
+        let logs = (session.loggedWorkout ?? phase.drawnLoggedWorkout).map {
+            LiveWorkout(routine: routine, loggedWorkout: $0)
         }
         if let logged = phase.loggedAndDrawn ?? phase.endingHidden, logged.row == id,
            let kept = logs?.loggedCount(of: logged)
@@ -156,31 +156,31 @@ extension RoutineScreen {
                 kind: .startsIn(time: time),
             )
         }
-        let workout = shown.workout
+        let loggedWorkout = shown.loggedWorkout
         // Held: paused, or ended, as the workout's time holds; or logged early, where the tap
         // stopped it, as its fill runs on.
-        let clock = countBeats.earlyLog.map { workout.clock(at: $0) } ?? workout.clock(at: .now)
-        let holds = workout.isPaused || phase.endingCount != nil || countBeats.earlyLog != nil
+        let clock = loggedWorkout.clock(at: countBeats.earlyLog ?? .now)
+        let holds = loggedWorkout.isPaused || phase.endingCount != nil || countBeats.earlyLog != nil
         switch stage {
         case .startsIn:
             return SetRest(
                 isRunning: true,
                 length: LiveWorkout.startsIn,
-                ends: workout.date(ofClock: timed.startClock),
+                ends: loggedWorkout.date(ofClock: timed.startClock),
                 pausedLeft: holds ? timed.startsIn(atClock: clock) : nil,
                 turns: true,
                 kind: .startsIn(time: RestBlock.spoken(Double(timed.length), locale: locale)),
-                isPaused: workout.isPaused,
+                isPaused: loggedWorkout.isPaused,
             )
         case .counting:
             return SetRest(
                 isRunning: true,
                 length: timed.length,
-                ends: workout.date(ofClock: timed.endClock),
+                ends: loggedWorkout.date(ofClock: timed.endClock),
                 pausedLeft: holds ? timed.remaining(atClock: clock) : nil,
                 turns: true,
                 kind: .count,
-                isPaused: workout.isPaused,
+                isPaused: loggedWorkout.isPaused,
             )
         }
     }
@@ -188,14 +188,15 @@ extension RoutineScreen {
     /// What the count's watch waits on: the phase's count, a new count, "Start now", +15 s, a
     /// pause, or a resume starts it again.
     var countWatch: CountWatch? {
-        guard let stage = phase.timing, let timed = live?.timedSet, let workout = session.workout
+        guard let stage = phase.timing, let timed = live?.timedSet,
+              let loggedWorkout = session.loggedWorkout
         else { return nil }
         return CountWatch(
             stage: stage,
             set: timed.set,
             startClock: timed.startClock,
             endClock: timed.endClock,
-            isPaused: workout.isPaused,
+            isPaused: loggedWorkout.isPaused,
         )
     }
 
@@ -206,8 +207,8 @@ extension RoutineScreen {
     func watchCount() async {
         guard let watch = countWatch, !watch.isPaused else { return }
         let target = watch.stage == .startsIn ? watch.startClock : watch.endClock
-        while let workout = session.workout {
-            let left = target - workout.clock(at: .now)
+        while let loggedWorkout = session.loggedWorkout {
+            let left = target - loggedWorkout.clock(at: .now)
             guard left > 0 else { break }
             guard await (try? Task.sleep(for: .seconds(left), tolerance: .zero)) != nil
             else { return }

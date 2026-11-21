@@ -150,7 +150,7 @@ UI test budget, each a series of named `XCTContext.runActivity` checks:
 seeded), `TitleWrappingUITests/testWrappedTitleAtLargestTextSize`,
 `RoutineAutosaveUITests/testRoutineSurvivesRelaunch`,
 `RoutineDrawerUITests/testDrawerSwitchesRoutines` (a routine seeded),
-`WorkoutUITests/testWorkoutSurvivesRelaunch`, and
+`LiveWorkoutUITests/testLiveWorkoutSurvivesRelaunch`, and
 `WorkoutFinishUITests/testFinishKeyKeepsTheWorkout` (one exercise of one set seeded). A new check joins the test for its launch only
 when it names what only the running app shows (G) and the lower test that holds the rest, sets
 its state up by launch argument, and keeps its test within the UI budget; otherwise it goes in

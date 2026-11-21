@@ -38,15 +38,15 @@ struct WorkoutLogTextTests {
 
     @Test("Per side, and a set short of its plan")
     func detail() {
-        let workout = Fixture.workout(daysAgo: 0, [
+        let loggedWorkout = Fixture.loggedWorkout(daysAgo: 0, [
             Fixture.set("plank", round: 1, .time(seconds: 60)),
             Fixture.set("plank", round: 2, .time(seconds: 48), planned: .time(seconds: 60)),
             Fixture.set("plank", round: 3, .time(seconds: 50), planned: .time(seconds: 60)),
         ])
-        let plank = workout.loggedExercises(in: .builtIn)[0]
+        let plank = loggedWorkout.loggedExercises(in: .builtIn)[0]
         #expect(plank.detail(locale: locale)
             == "Set 2 planned at 1:00. Last set planned at 1:00.")
-        let sides = Fixture.workout(daysAgo: 0, [
+        let sides = Fixture.loggedWorkout(daysAgo: 0, [
             Fixture.set("side-plank", .time(seconds: 48), planned: .time(seconds: 60), side: .left),
             Fixture.set("side-plank", .time(seconds: 60), side: .right),
         ]).loggedExercises(in: .builtIn)[0]
@@ -57,11 +57,12 @@ struct WorkoutLogTextTests {
     }
 
     @Test("A workout's line: its day and length, and its sets")
-    func workoutLine() {
-        let workout = Fixture.workout(daysAgo: 2, [])
+    func loggedWorkoutLine() {
+        let loggedWorkout = Fixture.loggedWorkout(daysAgo: 2, [])
         let calendar = Fixture.calendar
-        #expect(workout.logLine(locale: locale, calendar: calendar) == "Thu, Nov 19 · 51 min")
-        #expect(workout.logLine(sets: 21, locale: locale, calendar: calendar)
+        #expect(loggedWorkout.logLine(locale: locale, calendar: calendar)
+            == "Thu, Nov 19 · 51 min")
+        #expect(loggedWorkout.logLine(sets: 21, locale: locale, calendar: calendar)
             == "Thu, Nov 19 · 51 min · 21 sets")
     }
 
@@ -73,7 +74,7 @@ struct WorkoutLogTextTests {
             exercise: nil,
             isPerSide: false,
             topSet: TopSet(target: .reps(10), weight: nil),
-            workouts: 3,
+            loggedWorkouts: 3,
         )
         #expect(stuck.countText(locale: locale) == "3 workouts")
     }

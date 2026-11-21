@@ -6,17 +6,20 @@ import Testing
 struct WorkoutDiffTests {
     private typealias Fixture = LogFixture
 
-    private func progress(_ workouts: [Workout]) -> [DiffItem] {
-        WorkoutLog(workouts: workouts)
+    private func progress(_ loggedWorkouts: [LoggedWorkout]) -> [DiffItem] {
+        WorkoutLog(loggedWorkouts: loggedWorkouts)
             .diff(in: .builtIn, now: Fixture.now, calendar: Fixture.calendar)
     }
 
-    private func bench(_ daysAgo: Int, _ pounds: Double, id: String = "bench") -> Workout {
-        Fixture.workout(daysAgo: daysAgo, [Fixture.set(id, .reps(8), Fixture.pounds(pounds))])
+    private func bench(_ daysAgo: Int, _ pounds: Double, id: String = "bench") -> LoggedWorkout {
+        Fixture.loggedWorkout(
+            daysAgo: daysAgo,
+            [Fixture.set(id, .reps(8), Fixture.pounds(pounds))],
+        )
     }
 
     @Test("An exercise in one workout is left out, and in two is in")
-    func twoWorkouts() {
+    func twoLoggedWorkouts() {
         #expect(progress([bench(1, 135)]).isEmpty)
         #expect(progress([bench(1, 135), bench(3, 135)]).count == 1)
     }

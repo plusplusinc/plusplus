@@ -7,7 +7,7 @@ import WorkoutStore
 
 extension LogScreen {
     /// Workouts with nothing logged, under the empty calendar.
-    static let noWorkoutsText = "A workout shows here once it's finished."
+    static let noLoggedWorkoutsText = "A workout shows here once it's finished."
     static let goToRoutinesLabel = "Go to Routines"
     /// Under Diff's rows, or in their place while it has none.
     static let diffRuleText = "An exercise shows here once it has been done in two workouts."
@@ -21,7 +21,7 @@ extension LogScreen {
                         "Since \(period.spokenFirstDay(locale: locale, calendar: calendar))",
                     )
                 Spacer(minLength: Spacing.sm)
-                workoutCount(period)
+                loggedWorkoutCount(period)
             }
             .accessibilityElement(children: .combine)
             .padding(.bottom, Spacing.sm)
@@ -31,7 +31,7 @@ extension LogScreen {
                     week.map { day in
                         DayGrid.Square(
                             id: day.date,
-                            isDone: day.hasWorkout,
+                            isDone: day.hasLoggedWorkout,
                             isToday: day.isToday,
                             isShown: !day.isAfterToday,
                             spoken: LogPeriod.spokenDay(day, locale: locale, calendar: calendar),
@@ -40,18 +40,18 @@ extension LogScreen {
                 },
             )
             .padding(.bottom, Spacing.md)
-            if log.workouts.isEmpty {
-                noWorkouts
+            if log.loggedWorkouts.isEmpty {
+                noLoggedWorkouts
             } else {
-                workoutRows(log)
+                loggedWorkoutRows(log)
             }
         }
     }
 
     /// "9 workouts", its number in purple.
-    private func workoutCount(_ period: LogPeriod) -> some View {
-        let text = period.workoutCountText(locale: locale)
-        let number = period.workoutCount.formatted(.number.locale(locale))
+    private func loggedWorkoutCount(_ period: LogPeriod) -> some View {
+        let text = period.loggedWorkoutCountText(locale: locale)
+        let number = period.loggedWorkoutCount.formatted(.number.locale(locale))
         var attributed = AttributedString.monoNumbers(text, font: .ppRowDetailNumber)
         if let range = attributed.range(of: number) {
             attributed[range].foregroundColor = .pp(.done)
@@ -61,9 +61,9 @@ extension LogScreen {
             .foregroundStyle(.pp(.textSecondary))
     }
 
-    private var noWorkouts: some View {
+    private var noLoggedWorkouts: some View {
         VStack(spacing: Spacing.md) {
-            Text(Self.noWorkoutsText)
+            Text(Self.noLoggedWorkoutsText)
                 .font(.ppRowDetail)
                 .foregroundStyle(.pp(.textSecondary))
                 .multilineTextAlignment(.center)
@@ -74,16 +74,17 @@ extension LogScreen {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private func workoutRows(_ log: WorkoutLog) -> some View {
-        ForEach(log.workouts) { workout in
-            let name = Self.name(of: workout)
+    private func loggedWorkoutRows(_ log: WorkoutLog) -> some View {
+        ForEach(log.loggedWorkouts) { loggedWorkout in
+            let name = Self.name(of: loggedWorkout)
+            let spoken = loggedWorkout.spokenLogLine(locale: locale, calendar: calendar)
             Button {
-                openWorkout(workout.id)
+                openLoggedWorkout(loggedWorkout.id)
             } label: {
                 LogRow(
                     name,
-                    detail: workout.logLine(locale: locale, calendar: calendar),
-                    spoken: "\(name), \(workout.spokenLogLine(locale: locale, calendar: calendar))",
+                    detail: loggedWorkout.logLine(locale: locale, calendar: calendar),
+                    spoken: "\(name), \(spoken)",
                 )
             }
             .buttonStyle(.plain)
@@ -183,9 +184,9 @@ extension LogScreen {
             .padding(.top, Spacing.lg)
     }
 
-    /// A workout's name as it was, New routine for an empty one.
-    static func name(of workout: Workout) -> String {
-        workout.routineName.isEmpty ? RoutineScreen.defaultName : workout.routineName
+    /// A logged workout's name as it was, New routine for an empty one.
+    static func name(of loggedWorkout: LoggedWorkout) -> String {
+        loggedWorkout.routineName.isEmpty ? RoutineScreen.defaultName : loggedWorkout.routineName
     }
 
     /// A gain in green; anything else in gray; nothing for a change of measure.

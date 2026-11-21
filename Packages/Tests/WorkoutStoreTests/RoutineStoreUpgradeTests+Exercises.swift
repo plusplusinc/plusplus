@@ -35,11 +35,11 @@ extension RoutineStoreUpgradeTests {
             row.isRestAuto = false
             context.insert(row)
             row.routine = routine
-            let workout = RoutineSchemaV6.StoredWorkout(id: UUID())
-            workout.routineID = routineID
-            workout.routineName = "Upper"
-            workout.startedAt = Date(timeIntervalSinceReferenceDate: 2)
-            context.insert(workout)
+            let loggedWorkout = RoutineSchemaV6.StoredWorkout(id: UUID())
+            loggedWorkout.routineID = routineID
+            loggedWorkout.routineName = "Upper"
+            loggedWorkout.startedAt = Date(timeIntervalSinceReferenceDate: 2)
+            context.insert(loggedWorkout)
             try context.save()
         }
 
@@ -51,7 +51,7 @@ extension RoutineStoreUpgradeTests {
         let store = RoutineStore(modelContainer: current)
         let launch = try await store.launch(weightUnit: .pounds)
         let routine = try #require(launch.routine)
-        #expect(launch.workout?.routineID == routineID)
+        #expect(launch.loggedWorkout?.routineID == routineID)
         #expect(routine.name == "Upper")
         #expect(routine.exercises.map(\.id) == [rowID])
         #expect(routine.exercises.first?.plan.sets == 4)
@@ -158,11 +158,11 @@ extension RoutineStoreUpgradeTests {
             )
             context.insert(row)
             row.routine = routine
-            let workout = RoutineSchemaV6.StoredWorkout(id: UUID())
-            workout.routineID = routineID
-            workout.routineName = "Upper"
-            workout.startedAt = Date(timeIntervalSinceReferenceDate: 2)
-            context.insert(workout)
+            let loggedWorkout = RoutineSchemaV6.StoredWorkout(id: UUID())
+            loggedWorkout.routineID = routineID
+            loggedWorkout.routineName = "Upper"
+            loggedWorkout.startedAt = Date(timeIntervalSinceReferenceDate: 2)
+            context.insert(loggedWorkout)
             let set = RoutineSchemaV6.StoredSet(id: UUID())
             set.rowID = rowID
             set.exerciseID = "push-up"
@@ -170,7 +170,7 @@ extension RoutineStoreUpgradeTests {
             set.plannedReps = 10
             set.loggedAt = Date(timeIntervalSinceReferenceDate: 3)
             context.insert(set)
-            set.workout = workout
+            set.workout = loggedWorkout
             try context.save()
         }
 
@@ -180,16 +180,16 @@ extension RoutineStoreUpgradeTests {
             configurations: ModelConfiguration(schema: RoutineStore.schema, url: url),
         )
         let launch = try await RoutineStore(modelContainer: current).launch(weightUnit: .pounds)
-        var workout = try #require(launch.workout)
+        var loggedWorkout = try #require(launch.loggedWorkout)
         let routine = try #require(launch.routine)
-        #expect(workout.sets.map(\.exerciseID) == ["push-up"])
-        #expect(workout.sets.map(\.exerciseName) == [nil])
+        #expect(loggedWorkout.sets.map(\.exerciseID) == ["push-up"])
+        #expect(loggedWorkout.sets.map(\.exerciseName) == [nil])
 
-        let next = try #require(routine.nextSet(after: workout.sets))
-        workout = workout.logging(next, of: routine.exercises[0], at: .now)
-        try await RoutineStore(modelContainer: current).save(workout)
+        let next = try #require(routine.nextSet(after: loggedWorkout.sets))
+        loggedWorkout = loggedWorkout.logging(next, of: routine.exercises[0], at: .now)
+        try await RoutineStore(modelContainer: current).save(loggedWorkout)
         let reread = try await RoutineStore(modelContainer: current).launch(weightUnit: .pounds)
-        #expect(reread.workout?.sets.map(\.exerciseName) == [nil, "Push-up"])
+        #expect(reread.loggedWorkout?.sets.map(\.exerciseName) == [nil, "Push-up"])
     }
 
     @Test("A V9 store opens with nothing customized, then keeps a built-in's customization")
@@ -219,11 +219,11 @@ extension RoutineStoreUpgradeTests {
             )
             context.insert(row)
             row.routine = routine
-            let workout = RoutineSchemaV9.StoredWorkout(id: UUID())
-            workout.routineID = routineID
-            workout.routineName = "Push"
-            workout.startedAt = Date(timeIntervalSinceReferenceDate: 2)
-            context.insert(workout)
+            let loggedWorkout = RoutineSchemaV9.StoredWorkout(id: UUID())
+            loggedWorkout.routineID = routineID
+            loggedWorkout.routineName = "Push"
+            loggedWorkout.startedAt = Date(timeIntervalSinceReferenceDate: 2)
+            context.insert(loggedWorkout)
             let set = RoutineSchemaV9.StoredSet(id: UUID())
             set.rowID = rowID
             set.exerciseID = "barbell-bench-press"
@@ -232,7 +232,7 @@ extension RoutineStoreUpgradeTests {
             set.plannedReps = 5
             set.loggedAt = Date(timeIntervalSinceReferenceDate: 3)
             context.insert(set)
-            set.workout = workout
+            set.workout = loggedWorkout
             try context.save()
         }
 
@@ -245,7 +245,7 @@ extension RoutineStoreUpgradeTests {
         #expect(try await store.exercises() == .builtIn)
         let launch = try await store.launch(weightUnit: .pounds)
         #expect(launch.routine?.exercises.map(\.id) == [rowID])
-        #expect(launch.workout?.sets.map(\.exerciseName) == ["Barbell bench press"])
+        #expect(launch.loggedWorkout?.sets.map(\.exerciseName) == ["Barbell bench press"])
 
         let bench = try #require(Exercise.builtIn(id: "barbell-bench-press"))
         var settings = bench.settings
