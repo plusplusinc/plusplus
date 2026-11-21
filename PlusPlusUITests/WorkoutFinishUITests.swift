@@ -28,7 +28,7 @@ final nonisolated class WorkoutFinishUITests: XCTestCase {
         let row = app.exerciseRows.element(boundBy: 0)
         // The bar's ••• gives its place to the workout's time, and takes it back after: the bar
         // draws its items itself, so only the running app shows which one is there.
-        let more = app.buttons["routine.more"]
+        let more = app.buttons["workout.more"]
         XCTContext.runActivity(named: "Start leaves the list resting on the exercise") { _ in
             app.buttons["Start"].tap()
             XCTAssertTrue(app.workoutTime.appears(), "Start began no workout")
@@ -40,7 +40,7 @@ final nonisolated class WorkoutFinishUITests: XCTestCase {
                 "Start now",
                 "The workout's key never came up",
             )
-            // The key comes up near the end of the grow's spring (`RoutineScreen.keyReturnDelay`,
+            // The key comes up near the end of the grow's spring (`WorkoutScreen.keyReturnDelay`,
             // `growBeat`), so read where the row rests once its top holds still, not within a
             // clock's window: on a slow runner one accessibility query can outlast the window.
             XCTAssertTrue(

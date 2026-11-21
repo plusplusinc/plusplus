@@ -6,7 +6,7 @@ extension RoutineDrawerUITests {
     /// can't be deleted is `AppSessionDeleteTests`'; this is the menu item's wire to it,
     /// which only the running app's bar menu shows. Leaves the menu closed.
     func newRoutineDimsDelete(in app: XCUIApplication) {
-        let more = app.buttons["routine.more"]
+        let more = app.buttons["workout.more"]
         XCTAssertTrue(more.settles(), "••• kept moving")
         more.tap()
         let delete = app.buttons["Delete"]
@@ -57,7 +57,7 @@ extension RoutineDrawerUITests {
                 "Chest day",
                 "The row pushed no routine",
             )
-            let more = app.buttons["routine.more"]
+            let more = app.buttons["workout.more"]
             XCTAssertTrue(more.settles(), "••• kept moving")
             XCTAssertEqual(more.label, "More", "VoiceOver doesn't read ••• as More")
             more.tap()

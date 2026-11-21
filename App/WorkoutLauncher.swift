@@ -6,7 +6,7 @@ import WorkoutStore
 
 /// Opens the routine the app launches into before showing it, so the title never shows New
 /// routine and then the saved name.
-struct RoutineLauncher: View {
+struct WorkoutLauncher: View {
     let store: Store?
     let namer: WorkoutNamer
     let resetsStore: Bool
@@ -35,10 +35,10 @@ struct RoutineLauncher: View {
                 case .workout:
                     // A switch to another routine gives a fresh screen: scroll, sheets,
                     // and title.
-                    RoutineScreen(session: session, namer: namer)
+                    WorkoutScreen(session: session, namer: namer)
                         .id(session.opened.id)
                 case .workouts, .pushedWorkout:
-                    RoutinesScreen(session: session, namer: namer)
+                    WorkoutsScreen(session: session, namer: namer)
                 }
             }
             .keepsScreenOn(session.loggedWorkout != nil)
@@ -48,7 +48,7 @@ struct RoutineLauncher: View {
                 .task {
                     let launch = await launch()
                     let session = await AppSession(
-                        workout: launch.routine,
+                        workout: launch.workout,
                         loggedWorkout: launch.loggedWorkout,
                         exercises: exercises(),
                         store: store,
@@ -56,7 +56,7 @@ struct RoutineLauncher: View {
                     )
                     // A timed set that ran out while the app was away is logged, before the
                     // screen opens on the workout.
-                    session.catchUp(override: RoutineScreen.restOverride)
+                    session.catchUp(override: WorkoutScreen.restOverride)
                     self.session = session
                     // Read ahead, so the Routines screen's first showing has its list.
                     await session.refreshRecent(weightUnit: WeightUnit(region: locale))
@@ -75,7 +75,7 @@ struct RoutineLauncher: View {
         }
     }
 
-    private func launch() async -> (routine: Workout, loggedWorkout: LoggedWorkout?) {
+    private func launch() async -> (workout: Workout, loggedWorkout: LoggedWorkout?) {
         guard let store else { return (Workout(), nil) }
         do {
             #if DEBUG
@@ -97,5 +97,5 @@ struct RoutineLauncher: View {
 }
 
 #Preview {
-    RoutineLauncher(store: nil, namer: .muscleGroupsOnly, resetsStore: false)
+    WorkoutLauncher(store: nil, namer: .muscleGroupsOnly, resetsStore: false)
 }

@@ -33,7 +33,7 @@ struct PlusPlusApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RoutineLauncher(store: store, namer: namer, resetsStore: resetsStore)
+            WorkoutLauncher(store: store, namer: namer, resetsStore: resetsStore)
         }
     }
 }

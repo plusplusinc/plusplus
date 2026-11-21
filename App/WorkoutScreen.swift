@@ -7,11 +7,11 @@ import WorkoutStore
 ///
 /// Every change saves on its own, with no drafts. A new routine is saved once something is put
 /// in it, and deleted once it is cleared back to nothing.
-struct RoutineScreen: View {
-    // What the `RoutineScreen+` extensions read is internal, not private, so they can be apart.
+struct WorkoutScreen: View {
+    // What the `WorkoutScreen+` extensions read is internal, not private, so they can be apart.
 
     /// The routine as drawn. Written only through `routine`, which saves each change.
-    @State private var shownRoutine: Workout
+    @State private var shownWorkout: Workout
     /// Saves every change, and opens the drawer.
     let session: AppSession
     let namer: WorkoutNamer
@@ -64,7 +64,7 @@ struct RoutineScreen: View {
     /// Whether the dialog asking how to end the workout shows.
     @State var isConfirmingEnd = false
     /// Whether the alert asking to delete the routine shows.
-    @State var isAskingToDeleteRoutine = false
+    @State var isAskingToDeleteWorkout = false
     /// The scroll in Start's sequence, and how far the list is scrolled.
     @State var scrollBeat = ScrollBeat()
     /// With Reduce Motion, how many times the list has crossfaded into or out of a workout, or
@@ -113,7 +113,7 @@ struct RoutineScreen: View {
     /// and the taps on Skip rest, each a new count figure (`RestBlock.figureKey(skips:)`).
     @State var restEnds = 0
     @State var restSkips = 0
-    /// A timed set's beats: "Starts in" ending, and the set running out (`RoutineScreen+Timing`).
+    /// A timed set's beats: "Starts in" ending, and the set running out (`WorkoutScreen+Timing`).
     @State var countBeats = CountBeats()
     /// Where the workout is in its sequence: out of one, starting, at rest, showing a set just
     /// logged (`play(_:leadingTo:)`), or ending. Every change to it lands in a transaction the
@@ -129,7 +129,7 @@ struct RoutineScreen: View {
 
     /// Shows the routine the session opened. A switch to another gives a new screen.
     init(session: AppSession, namer: WorkoutNamer, isPushed: Bool = false) {
-        _shownRoutine = State(initialValue: session.opened)
+        _shownWorkout = State(initialValue: session.opened)
         _opensOnCurrent = State(initialValue: session.loggedWorkout != nil)
         _phase = State(initialValue: WorkoutPhase(
             resuming: session.loggedWorkout
@@ -147,11 +147,11 @@ struct RoutineScreen: View {
     /// nothing saves nothing, so a routine opened and left alone is never saved. Saved here, not
     /// from an `onChange` of the routine, which SwiftUI skips when the routine changes again in a
     /// frame its action already ran in, losing the last key of a name typed fast.
-    var routine: Workout {
-        get { shownRoutine }
+    var workout: Workout {
+        get { shownWorkout }
         nonmutating set {
-            guard newValue != shownRoutine else { return }
-            shownRoutine = newValue
+            guard newValue != shownWorkout else { return }
+            shownWorkout = newValue
             session.save(newValue)
         }
     }
@@ -160,12 +160,12 @@ struct RoutineScreen: View {
     /// clearing it brings back. Not stored: made again from the same exercises, it is the same
     /// name, so it is the same after a relaunch.
     private var generatedName: String? {
-        namer.name(for: routine.exercises.map(\.exercise), of: routine.id)
+        namer.name(for: workout.exercises.map(\.exercise), of: workout.id)
     }
 
     /// The name the routine shows: its chosen one, or else the one made for it.
     var shownName: String? {
-        namer.shownName(of: routine)
+        namer.shownName(of: workout)
     }
 
     var body: some View {
@@ -211,7 +211,7 @@ struct RoutineScreen: View {
             ZStack(alignment: .topLeading) {
                 VStack(alignment: .leading, spacing: Spacing.md) {
                     EditableTitle(
-                        text: Binding { routine.name } set: { routine.name = $0 },
+                        text: Binding { workout.name } set: { workout.name = $0 },
                         isEditing: $isEditingTitle,
                         placeholder: Self.defaultName,
                         suggestion: generatedName,
@@ -225,15 +225,15 @@ struct RoutineScreen: View {
                             isTitleUnderBar = !isVisible
                         }
                     }
-                    let equipment = routine.exercises.map(\.exercise).equipment
+                    let equipment = workout.exercises.map(\.exercise).equipment
                     if !equipment.isEmpty {
                         Capsules(equipment.map(\.name))
-                            .accessibilityIdentifier("routine.equipment")
+                            .accessibilityIdentifier("workout.equipment")
                             .transition(.opacity)
                     }
                     Rail(
-                        routine.exercises,
-                        links: routine.joinedToNext,
+                        workout.exercises,
+                        links: workout.joinedToNext,
                         arriving: arriving,
                         current: litID,
                         done: shown?.finishedRows ?? [],
@@ -333,7 +333,7 @@ struct RoutineScreen: View {
             }
         }
         .onGeometryChange(for: CGFloat.self, of: \.size.height) { listHeight = $0 }
-        .emptyNote("No exercises", isEmpty: routine.exercises.isEmpty)
+        .emptyNote("No exercises", isEmpty: workout.exercises.isEmpty)
         // Alongside the taps of what is in the list, which never reach below its end.
         .simultaneousGesture(SpatialTapGesture(coordinateSpace: .global).onEnded { tap in
             tappedList(at: tap.location)
@@ -385,15 +385,15 @@ struct RoutineScreen: View {
     }
 }
 
-extension RoutineScreen {
-    /// Shows the routine as the store has it, not saving it again (`showStoredRoutine`).
+extension WorkoutScreen {
+    /// Shows the routine as the store has it, not saving it again (`showStoredWorkout`).
     func show(stored: Workout) {
-        shownRoutine = stored
+        shownWorkout = stored
     }
 }
 
 #Preview {
-    RoutineScreen(
+    WorkoutScreen(
         session: AppSession(workout: Workout(), store: nil, namer: .muscleGroupsOnly),
         namer: .muscleGroupsOnly,
     )

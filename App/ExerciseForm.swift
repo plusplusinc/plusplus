@@ -19,7 +19,7 @@ import WorkoutStore
 /// (`UsedInList`); last, Delete exercise, in red, asks first, with that count, naming the open
 /// routine first when it uses the exercise (`DeleteQuestion`); confirmed, the form stays as it
 /// is while what shows it closes, and its host shows the delete in beats
-/// (`RoutineScreen.deleteExercise(_:closing:)`). A built-in's
+/// (`WorkoutScreen.deleteExercise(_:closing:)`). A built-in's
 /// form ends instead in Clear customizations, red, disabled while nothing differs from how it
 /// shipped; it asks first, listing what changed, and puts the form back as shipped. Both ask in
 /// a centered alert, with Cancel. There is no footer: what changed shows only in Clear's

@@ -16,7 +16,7 @@ import WorkoutStore
 ///    whose only result it was narrows to Create in the same move.
 /// 3. After a rest (`addPause`, then the store's write and read back, about 0.1 s on the
 ///    simulator), the open routine's rows of it leave as a row's Remove takes its row, in the
-///    turn the session has them gone (`showStoredRoutine`),
+///    turn the session has them gone (`showStoredWorkout`),
 ///    Start and the + going down after if none is left: seen where the routine shows, above a
 ///    half-height Add exercise or once a row's sheet has gone; behind a full one, unseen.
 ///
@@ -26,7 +26,7 @@ import WorkoutStore
 /// rows opens nothing, and its row in Add exercise adds nothing (after a row's sheet, Add
 /// exercise opened meanwhile doesn't list it); any other row opens its own sheet, on its sets
 /// and reps, and the delete lands behind it.
-extension RoutineScreen {
+extension WorkoutScreen {
     /// What shows the exercise's form as Delete is confirmed.
     enum DeleteClosing {
         /// Add exercise's hold menu: nothing closes; the list shows the row go.
@@ -62,9 +62,9 @@ extension RoutineScreen {
         }
         // From a row's sheet, Start and the + follow as after its Remove.
         if case .rowSheet = closing {
-            showStoredRoutine(footDelay: Self.exerciseSheetGone)
+            showStoredWorkout(footDelay: Self.exerciseSheetGone)
         } else {
-            showStoredRoutine()
+            showStoredWorkout()
         }
         // Gone from the session's list by now, or back in it if the delete was refused.
         leavingExercise = nil
@@ -83,11 +83,11 @@ extension RoutineScreen {
     /// Motion, the list crossfades to them gone. Not saved again: it is the stored routine. A
     /// Delete can leave it empty: Start and the + go down after `footDelay`, as after the row's
     /// own Remove.
-    func showStoredRoutine(footDelay: Duration = .zero) {
+    func showStoredWorkout(footDelay: Duration = .zero) {
         let stored = session.current
-        guard stored != routine else { return }
+        guard stored != workout else { return }
         let kept = Set(stored.exercises.map(\.id))
-        if reduceMotion, routine.exercises.contains(where: { !kept.contains($0.id) }) {
+        if reduceMotion, workout.exercises.contains(where: { !kept.contains($0.id) }) {
             withAnimation(Self.crossfadeCurve) {
                 listChanges += 1
                 show(stored: stored)

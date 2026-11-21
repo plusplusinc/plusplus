@@ -4,7 +4,7 @@ import WorkoutStore
 
 /// The screen's one key, at the bottom: Start, then in a workout what logs its sets, goes back
 /// to the current exercise while it is scrolled away, and finishes the workout.
-extension RoutineScreen {
+extension WorkoutScreen {
     /// The key as the workout stands: what it says, which the bar swaps as its kind changes
     /// (`primaryKeyBar`), and what a tap does.
     var liveKey: WorkoutKey {
@@ -109,7 +109,7 @@ extension RoutineScreen {
     /// it stood where End came mid-rest; else full, as the keys leave once the rest is over.
     var restKeyFill: KeyFill {
         if let (_, loggedWorkout) = phase.restLeft,
-           let left = LiveWorkout(workout: routine, loggedWorkout: loggedWorkout)
+           let left = LiveWorkout(workout: workout, loggedWorkout: loggedWorkout)
                .rest(override: restOverride)
         {
             let (ends, pausedLeft) = Self.times(of: left, on: loggedWorkout, stopped: true)

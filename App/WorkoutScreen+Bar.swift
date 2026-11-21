@@ -3,7 +3,7 @@ import SwiftUI
 import WorkoutStore
 
 /// The screen's bar: ++ or End, the title once it is under the bar, and ••• or a workout's time.
-extension RoutineScreen {
+extension WorkoutScreen {
     @ToolbarContentBuilder
     var barItems: some ToolbarContent {
         // As a large title does, the title shows small in the bar once it is under it.
@@ -68,16 +68,16 @@ extension RoutineScreen {
     private var moreMenu: some View {
         Menu("More", systemImage: "ellipsis") {
             Button("Delete", systemImage: "trash", role: .destructive) {
-                isAskingToDeleteRoutine = true
+                isAskingToDeleteWorkout = true
             }
             .disabled(!session.canDeleteOpen)
         }
         // Named once: hidden from VoiceOver through a representation, the menu read out its
         // Delete too, "More, Delete".
         .accessibilityLabel("More")
-        .accessibilityIdentifier("routine.more")
+        .accessibilityIdentifier("workout.more")
         .hiddenBehindDrawer()
-        .alert("Delete \(shownName ?? Self.defaultName)?", isPresented: $isAskingToDeleteRoutine) {
+        .alert("Delete \(shownName ?? Self.defaultName)?", isPresented: $isAskingToDeleteWorkout) {
             Button("Cancel", role: .cancel) { }
             Button("Delete", role: .destructive) {
                 let id = session.current.id
@@ -87,7 +87,7 @@ extension RoutineScreen {
     }
 }
 
-extension RoutineScreen {
+extension WorkoutScreen {
     /// The title, small in the bar. As a tap on the status bar does, a tap brings the title back.
     /// At the accessibility text sizes the bar keeps touches on its title for the large content
     /// viewer, so there the button is reached through VoiceOver only.

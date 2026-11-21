@@ -17,8 +17,8 @@ struct DrawerSnapshotTests {
 
     /// The place showing, which the drawer marks; a routine marks nothing.
     private enum Showing: Equatable {
-        case routines
-        case routine
+        case workouts
+        case workout
     }
 
     /// The drawer as `DrawerMenu` lays it out: the title, then Routines.
@@ -30,7 +30,7 @@ struct DrawerSnapshotTests {
                 .padding(.horizontal, Spacing.sm)
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 Button("Workouts", systemImage: "checklist") { }
-                    .buttonStyle(.drawer(isSelected: showing == .routines))
+                    .buttonStyle(.drawer(isSelected: showing == .workouts))
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -47,7 +47,7 @@ struct DrawerSnapshotTests {
     private static let rows = [Row(name: "Goblet squat"), Row(name: "Romanian deadlift")]
 
     /// A routine screen behind, slid aside to its sliver.
-    private var routine: some View {
+    private var workout: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             EditableTitle(
                 text: .constant("Leg day"),
@@ -72,23 +72,23 @@ struct DrawerSnapshotTests {
         SideDrawer(isOpen: .constant(true), progress: 1) {
             menu(showing: showing)
         } content: {
-            routine
+            workout
         }
         .frame(height: Self.screenHeight)
     }
 
     @Test("The drawer open on a routine: Routines, unmarked, beside the sliver")
-    func routineShowing() {
-        assertThemedSnapshots(of: drawer(showing: .routine), width: Self.screenWidth)
+    func workoutShowing() {
+        assertThemedSnapshots(of: drawer(showing: .workout), width: Self.screenWidth)
     }
 
     @Test("The drawer open on the Routines screen: Routines is marked")
-    func routinesShowing() {
-        assertThemedSnapshots(of: drawer(showing: .routines), width: Self.screenWidth)
+    func workoutsShowing() {
+        assertThemedSnapshots(of: drawer(showing: .workouts), width: Self.screenWidth)
     }
 
-    /// The Routines screen's content as `RoutinesScreen` lays it out, under its bar.
-    private func routinesList(_ names: [String]) -> some View {
+    /// The Routines screen's content as `WorkoutsScreen` lays it out, under its bar.
+    private func workoutsList(_ names: [String]) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Workouts")
                 .ppFixedTitleFont()
@@ -108,9 +108,9 @@ struct DrawerSnapshotTests {
     }
 
     @Test("The Routines screen: a name per row under a line, a long one wrapping")
-    func routinesScreen() {
+    func workoutsScreen() {
         assertThemedSnapshots(
-            of: routinesList([
+            of: workoutsList([
                 "Leg day",
                 "Upper body strength, conditioning, and mobility",
                 "Chest and back",

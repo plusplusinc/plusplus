@@ -12,7 +12,7 @@ import WorkoutStore
 /// color, as a row in Add exercise is. Either asks first in a centered alert, "Delete <name>?",
 /// the name as the row shows it; confirmed, the row leaves and the rows below close the gap,
 /// and the screen stays on Routines (`AppSession.delete(_:)`).
-struct RoutinesScreen: View {
+struct WorkoutsScreen: View {
     @Bindable var session: AppSession
     let namer: WorkoutNamer
 
@@ -41,7 +41,7 @@ struct RoutinesScreen: View {
                         .padding(.horizontal, Spacing.md)
                         .padding(.bottom, Spacing.md)
                         .onScrollVisibilityChange(threshold: 0.01) { isVisible in
-                            withAnimation(.easeOut(duration: RoutineScreen.barFade)) {
+                            withAnimation(.easeOut(duration: WorkoutScreen.barFade)) {
                                 isTitleUnderBar = !isVisible
                             }
                         }
@@ -60,9 +60,9 @@ struct RoutinesScreen: View {
             .background { Color.pp(.background).ignoresSafeArea() }
             .onAppear(perform: takeOrder)
             .onDisappear(perform: takeOrder)
-            .navigationDestination(isPresented: isRoutinePushed) {
+            .navigationDestination(isPresented: isWorkoutPushed) {
                 // Each routine opened gives a fresh screen: scroll, sheets, and title.
-                RoutineScreen(session: session, namer: namer, isPushed: true)
+                WorkoutScreen(session: session, namer: namer, isPushed: true)
                     .id(session.opened.id)
             }
             .navigationBarTitleDisplayMode(.inline)
@@ -102,9 +102,9 @@ struct RoutinesScreen: View {
             "Delete \(deleting.map(namer.listedName(of:)) ?? "")?",
             isPresented: $isAskingToDelete,
             presenting: deleting,
-        ) { routine in
+        ) { workout in
             Button("Cancel", role: .cancel) { }
-            Button("Delete", role: .destructive) { delete(routine.id) }
+            Button("Delete", role: .destructive) { delete(workout.id) }
         }
         .task {
             await session.refreshRecent(weightUnit: weightUnit)
@@ -112,22 +112,22 @@ struct RoutinesScreen: View {
         }
     }
 
-    private func row(_ routine: Workout) -> some View {
+    private func row(_ workout: Workout) -> some View {
         Button {
-            Task { await session.open(routine.id, weightUnit: weightUnit) }
+            Task { await session.open(workout.id, weightUnit: weightUnit) }
         } label: {
-            NameRow(namer.listedName(of: routine))
+            NameRow(namer.listedName(of: workout))
                 .padding(.leading, Spacing.md)
                 .padding(.trailing, Spacing.md - Self.swipeInset)
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("routines.row")
+        .accessibilityIdentifier("workouts.row")
         // The system draws a swiped action inset from its row's end, so the row it swipes
         // ends that far short of the screen's edge, and Delete ends in line with the line
         // under the row and with the bar's +.
         .swipeActions(edge: .trailing) {
-            Button("Delete", role: .destructive) { askToDelete(routine) }
+            Button("Delete", role: .destructive) { askToDelete(workout) }
         }
         .padding(.trailing, Self.swipeInset)
         // The platter the held row lifts on, as a list row's in Add exercise: in the screen's
@@ -138,7 +138,7 @@ struct RoutinesScreen: View {
         .background(Color.pp(.background), in: Self.platter)
         .contentShape(.contextMenuPreview, Self.platter)
         .contextMenu {
-            Button("Delete", systemImage: "trash", role: .destructive) { askToDelete(routine) }
+            Button("Delete", systemImage: "trash", role: .destructive) { askToDelete(workout) }
         }
         // Across the name's width, outside the platter, so a held row lifts without it.
         .overlay(alignment: .bottom) {
@@ -150,8 +150,8 @@ struct RoutinesScreen: View {
     /// How far inside its row's end the system draws a swiped action.
     private static let swipeInset = Spacing.sm
 
-    private func askToDelete(_ routine: Workout) {
-        deleting = routine
+    private func askToDelete(_ workout: Workout) {
+        deleting = workout
         isAskingToDelete = true
     }
 
@@ -172,7 +172,7 @@ struct RoutinesScreen: View {
 
     /// The stack's push: the session's pushed routine, which the back button and the back swipe
     /// pop.
-    private var isRoutinePushed: Binding<Bool> {
+    private var isWorkoutPushed: Binding<Bool> {
         Binding {
             session.screen == .pushedWorkout
         } set: { isPushed in
@@ -196,7 +196,7 @@ struct RoutinesScreen: View {
 }
 
 #Preview {
-    RoutinesScreen(
+    WorkoutsScreen(
         session: AppSession(
             workout: Workout(name: "Upper body"),
             store: nil,
@@ -208,7 +208,7 @@ struct RoutinesScreen: View {
 
 extension WorkoutNamer {
     /// A routine's name where routines are listed: the name it shows, else New workout.
-    func listedName(of routine: Workout) -> String {
-        shownName(of: routine) ?? RoutineScreen.defaultName
+    func listedName(of workout: Workout) -> String {
+        shownName(of: workout) ?? WorkoutScreen.defaultName
     }
 }

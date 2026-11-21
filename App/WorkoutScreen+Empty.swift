@@ -1,7 +1,7 @@
 import DesignSystem
 import SwiftUI
 
-extension RoutineScreen {
+extension WorkoutScreen {
     /// Add exercise, a + floating above the key, which opens the picker.
     var addButton: some View {
         AddExerciseButton(isEditingTitle: $isEditingTitle) { openPicker() }
@@ -19,7 +19,7 @@ extension RoutineScreen {
     /// title's edit opens it only on an empty routine; below the last row it has only ended the
     /// edit (`TapPastTitle`).
     func tappedList(at location: CGPoint) {
-        let isEmpty = routine.exercises.isEmpty
+        let isEmpty = workout.exercises.isEmpty
         guard isEmpty || location.y >= listEnd.top else { return }
         if titleTap.tap(actsAfterEdit: isEmpty) {
             openPicker()
@@ -39,7 +39,7 @@ extension RoutineScreen {
     /// Remove, not the sheet's `onDismiss`, which came about 0.6 s after either, once the sheet
     /// had visibly gone (`exerciseSheetGone`).
     func settleFoot(after delay: Duration) {
-        guard routine.exercises.isEmpty != footShowsEmpty else { return }
+        guard workout.exercises.isEmpty != footShowsEmpty else { return }
         guard delay > .zero else { return footFollowsExercises() }
         let start = ContinuousClock.now
         Task {
@@ -49,7 +49,7 @@ extension RoutineScreen {
     }
 
     private func footFollowsExercises() {
-        let isEmpty = routine.exercises.isEmpty
+        let isEmpty = workout.exercises.isEmpty
         guard isEmpty != footShowsEmpty else { return }
         withAnimation(isEmpty ? .keyDrop : .keyRise) {
             footShowsEmpty = isEmpty
@@ -80,6 +80,6 @@ struct AddExerciseButton: View {
             .opacity(isEditingTitle ? 0 : 1)
             .allowsHitTesting(!isEditingTitle)
             .accessibilityShown(!isEditingTitle)
-            .animation(.easeOut(duration: RoutineScreen.barFade), value: isEditingTitle)
+            .animation(.easeOut(duration: WorkoutScreen.barFade), value: isEditingTitle)
     }
 }

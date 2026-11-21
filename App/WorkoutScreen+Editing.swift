@@ -4,7 +4,7 @@ import SwiftUI
 import WorkoutStore
 
 /// Editing the rows: the sheet's binding, moves, deletes, and adds.
-extension RoutineScreen {
+extension WorkoutScreen {
     /// The row whose values are open in a sheet, kept by the session, which keeps it and the
     /// drawer apart.
     var editing: RowSheet? {
@@ -14,34 +14,34 @@ extension RoutineScreen {
     /// The row with this id, bound by id rather than by index, so a sheet still showing it
     /// never reads past the end of the rows once it is deleted.
     func row(_ id: WorkoutExercise.ID) -> Binding<WorkoutExercise>? {
-        guard let current = routine.exercises.first(where: { $0.id == id }) else { return nil }
+        guard let current = workout.exercises.first(where: { $0.id == id }) else { return nil }
         return Binding {
-            routine.exercises.first { $0.id == id } ?? current
+            workout.exercises.first { $0.id == id } ?? current
         } set: { item in
-            routine.update(item)
+            workout.update(item)
         }
     }
 
     /// The rest of `id`'s superset, read and stepped on every member; nil for a plain row.
     func roundSteps(of id: WorkoutExercise.ID) -> RoundSteps? {
-        guard routine.isInSuperset(id) else { return nil }
+        guard workout.isInSuperset(id) else { return nil }
         return RoundSteps(
             value: {
                 (
-                    routine.restAfterRoundText(of: id, locale: locale),
-                    routine.spokenRestAfterRound(of: id, locale: locale),
+                    workout.restAfterRoundText(of: id, locale: locale),
+                    workout.spokenRestAfterRound(of: id, locale: locale),
                 )
             },
-            seconds: { Double(routine.restAfterRound(of: id) ?? 0) },
-            canStep: { routine.canStepRestAfterRound(of: id, by: $0) },
-            step: { routine.stepRestAfterRound(of: id, by: $0) },
-            set: { routine.setRestAfterRound($0, of: id) },
+            seconds: { Double(workout.restAfterRound(of: id) ?? 0) },
+            canStep: { workout.canStepRestAfterRound(of: id, by: $0) },
+            step: { workout.stepRestAfterRound(of: id, by: $0) },
+            set: { workout.setRestAfterRound($0, of: id) },
             isAuto: Binding {
-                routine.isRoundAuto(of: id)
+                workout.isRoundAuto(of: id)
             } set: { isAuto in
-                routine.setRoundAuto(isAuto, of: id)
+                workout.setRoundAuto(isAuto, of: id)
             },
-            change: (routine.exercises.filter { $0.id == id } + routine.partners(of: id))
+            change: (workout.exercises.filter { $0.id == id } + workout.partners(of: id))
                 .restChange,
         )
     }
@@ -49,16 +49,16 @@ extension RoutineScreen {
     /// Moves a row dropped on the rail, in the rail's transaction, so the order changes as the
     /// card settles into its gap; it saves once, as any change does.
     func move(_ id: WorkoutExercise.ID, to slot: RailSlot<WorkoutExercise.ID>) {
-        routine.move(id, to: WorkoutSlot(slot))
+        workout.move(id, to: WorkoutSlot(slot))
     }
 
     /// Moves a row one place with VoiceOver's Move up or Move down, and says which row it
     /// passed.
     func step(_ id: WorkoutExercise.ID, to slot: WorkoutSlot, wentUp: Bool) {
         withAnimation(.railChange) {
-            routine.move(id, to: slot)
+            workout.move(id, to: slot)
         }
-        if let announcement = routine.moveAnnouncement(for: id, wentUp: wentUp) {
+        if let announcement = workout.moveAnnouncement(for: id, wentUp: wentUp) {
             AccessibilityNotification.Announcement(announcement).post()
         }
     }
@@ -67,7 +67,7 @@ extension RoutineScreen {
     /// from a swipe, and from the exercise sheet's Remove once the sheet has gone.
     func delete(_ id: WorkoutExercise.ID, footDelay: Duration = .zero) {
         withAnimation(.railChange) {
-            routine.remove(id)
+            workout.remove(id)
         }
         settleFoot(after: footDelay)
     }
@@ -81,8 +81,8 @@ extension RoutineScreen {
         if let item = row(id) {
             ExerciseSheet(
                 item: item,
-                partners: routine.partnerNames(of: id),
-                parts: routine.sheetParts(of: id),
+                partners: workout.partnerNames(of: id),
+                parts: workout.sheetParts(of: id),
                 rounds: roundSteps(of: id),
                 customize: {
                     let exercise = item.wrappedValue.exercise.id
@@ -90,7 +90,7 @@ extension RoutineScreen {
                         id: exercise,
                         session: session,
                         namer: namer,
-                        onStored: { showStoredRoutine() },
+                        onStored: { showStoredWorkout() },
                         onDelete: { await deleteExercise(exercise, closing: .rowSheet) },
                     )
                 },
@@ -128,7 +128,7 @@ extension RoutineScreen {
                     id: id,
                     session: session,
                     namer: namer,
-                    onStored: { showStoredRoutine() },
+                    onStored: { showStoredWorkout() },
                     onDelete: { await deleteExercise(id, closing: .pop(back: back)) },
                 )
             },
@@ -164,7 +164,7 @@ extension RoutineScreen {
         // The row goes in with no space yet, so nothing moves; its fade, of a row that draws
         // nothing yet, starts the wait for the list's end a moment into the sheet's slide.
         withAnimation(.linear(duration: RailArrival.appendFade)) {
-            routine.exercises.append(row)
+            workout.exercises.append(row)
         }
         settleFoot(after: Self.pickerGone)
         // Beats on deadlines, not this animation's completion, which once never came, and the

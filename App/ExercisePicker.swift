@@ -17,7 +17,7 @@ import WorkoutStore
 /// red, Delete for one someone created, asking first in a centered alert with the form's own
 /// question (`DeleteQuestion`). Confirmed, the row leaves the list as the rows below close the
 /// gap, its letter heading with it if it was the letter's last; then, after a rest, its rows
-/// leave the routine behind the sheet (`RoutineScreen.deleteExercise(_:closing:)`).
+/// leave the routine behind the sheet (`WorkoutScreen.deleteExercise(_:closing:)`).
 struct ExercisePicker<Customize: View>: View {
     let exercises: ExerciseList
     let onPick: (Exercise) -> Void
@@ -28,7 +28,7 @@ struct ExercisePicker<Customize: View>: View {
     /// Delete's question for the exercise, below its title (`DeleteQuestion`).
     let deleteMessage: (Exercise.ID) -> String
     /// Deletes the created exercise and its rows, from the confirming tap, showing its row
-    /// leave the list (`RoutineScreen.deleteExercise(_:closing:)`).
+    /// leave the list (`WorkoutScreen.deleteExercise(_:closing:)`).
     let onDelete: (Exercise.ID) async -> Void
     /// The exercise's Customize form; its closure goes back to the list.
     @ViewBuilder let customize: (Exercise.ID, _ back: @escaping () -> Void) -> Customize

@@ -64,7 +64,7 @@ struct ComponentSnapshotTests {
     }
 
     @Test("A new routine: title at rest, No exercises mid-screen, and the + low")
-    func newRoutine() {
+    func newWorkout() {
         assertThemedSnapshots(of: content(), width: Self.screenWidth)
     }
 

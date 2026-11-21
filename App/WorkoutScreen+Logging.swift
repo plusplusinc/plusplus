@@ -4,10 +4,10 @@ import WorkoutStore
 
 /// A workout's sets as the screen draws them, and `play(_:leadingTo:)`, which shows what a
 /// stored log leads to: the next set, the move to the next exercise, or the close after the last.
-extension RoutineScreen {
+extension WorkoutScreen {
     /// The workout on the routine as stored, every log in it: what the key's taps read.
     var live: LiveWorkout? {
-        session.loggedWorkout.map { LiveWorkout(workout: routine, loggedWorkout: $0) }
+        session.loggedWorkout.map { LiveWorkout(workout: workout, loggedWorkout: $0) }
     }
 
     /// The workout as the screen draws it: `live`, or as End took it from the store until the
@@ -16,7 +16,7 @@ extension RoutineScreen {
     var shown: LiveWorkout? {
         let loggedWorkout = session.loggedWorkout ?? phase.drawnLoggedWorkout
         return loggedWorkout
-            .map { LiveWorkout(workout: routine, loggedWorkout: $0).hiding(phase.hidden) }
+            .map { LiveWorkout(workout: workout, loggedWorkout: $0).hiding(phase.hidden) }
     }
 
     /// While a step to another exercise, or past the last set, plays: rows' heights are
@@ -70,15 +70,15 @@ extension RoutineScreen {
     /// at a superset round's end, it shows the round just done, as the logged set's row showed
     /// it, until the move rolls it to the new one.
     func focus(of item: WorkoutExercise, on set: PlannedSet, after: CaptionEnd?) -> RowFocus {
-        var focus = item.focus(on: set, inSuperset: routine.isInSuperset(item.id), locale: locale)
+        var focus = item.focus(on: set, inSuperset: workout.isInSuperset(item.id), locale: locale)
         focus.after = after?.text
         focus.spokenAfter = after?.spoken
         if let move = phase.move, move.holdsRound,
-           let left = routine.exercises.first(where: { $0.id == move.set.row })
+           let left = workout.exercises.first(where: { $0.id == move.set.row })
         {
             focus.place = left.place(
                 set: move.set.round,
-                inSuperset: routine.isInSuperset(left.id),
+                inSuperset: workout.isInSuperset(left.id),
                 locale: locale,
             )
         }
@@ -139,7 +139,7 @@ extension RoutineScreen {
     func rowBars(in shown: LiveWorkout?) -> [WorkoutExercise.ID: SetProgress] {
         guard let shown else { return [:] }
         let restingTo = phase.drawnRest.flatMap { $0.beat > .logged ? shown.currentSet?.row : nil }
-        return routine.exercises.reduce(into: [:]) { bars, item in
+        return workout.exercises.reduce(into: [:]) { bars, item in
             guard let (done, total) = shown.bars(of: item.id),
                   // Resting, the next exercise is a row like any other until it grows.
                   item.id != restingTo || done > 0
@@ -155,7 +155,7 @@ extension RoutineScreen {
     /// The row that grows, or stands grown: the current exercise, or, out of a workout, the
     /// first, which Start grows.
     var growingID: WorkoutExercise.ID? {
-        guard shown != nil else { return routine.exercises.first?.id }
+        guard shown != nil else { return workout.exercises.first?.id }
         // Relaunched into a rest between exercises, no row is grown until it ends: the list opens
         // on the row the rest is drawn in.
         return currentID ?? (opensOnCurrent ? restDotRow : nil)
@@ -338,7 +338,7 @@ extension RoutineScreen {
         guard let nextTop = rowFrames.tops[next], let leavingTop = rowFrames.tops[leaving]
         else { return nil }
         guard nextTop > leavingTop else { return max(nextTop, 0) }
-        guard let after = routine.neighbor(of: leaving, .below).flatMap({ rowFrames.tops[$0.id] }),
+        guard let after = workout.neighbor(of: leaving, .below).flatMap({ rowFrames.tops[$0.id] }),
               let resting = rowFrames.restingPitch[leaving]
         else { return nil }
         return max(nextTop - (after - leavingTop - resting), 0)

@@ -34,7 +34,7 @@ func laterTurn() async throws {
     try Task.checkCancellation()
 }
 
-extension RoutineScreen {
+extension WorkoutScreen {
     /// The screen going away: the sequence playing stops, and the phase settles at once to what
     /// the store holds, so the key never waits on a workout that is gone, or ignores one there,
     /// a rest still running settled in place, as a relaunch opens on it.

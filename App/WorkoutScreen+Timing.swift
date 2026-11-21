@@ -20,7 +20,7 @@ import WorkoutStore
 /// the phase's (`WorkoutPhase.timing`), which the key, the slot, the segment, and the watch
 /// all read. The count runs on the workout's clock (`TimedSet`), so a pause stops it, and a
 /// count that ran out while the app was away is logged at launch (`catchUp`).
-extension RoutineScreen {
+extension WorkoutScreen {
     /// Begins the current set's count as the screen comes to rest on it, when it is timed and
     /// has none, and says where it stands: what each transition that lands at rest is given.
     /// `lead`, the seconds the slot takes to come in from here: "Starts in" counts from then, so
@@ -123,7 +123,7 @@ extension RoutineScreen {
     /// to it (Start, a move), "Starts in", held at 0:10 until the screen comes to rest on it.
     func setWait(of id: WorkoutExercise.ID, current: WorkoutExercise.ID?) -> SetRest? {
         let rest = setRest(of: id, current: current)
-        guard id == current, let shown, let row = routine.exercises.first(where: { $0.id == id }),
+        guard id == current, let shown, let row = workout.exercises.first(where: { $0.id == id }),
               case let .time(seconds) = row.plan.target
         else { return rest }
         if let within = phase.drawnRest, within.isWithinExercise, within.beat >= .shown,
@@ -134,7 +134,7 @@ extension RoutineScreen {
         let time = RestBlock.spoken(Double(seconds), locale: locale)
         // The workout with every log, the one drawn hidden included.
         let logs = (session.loggedWorkout ?? phase.drawnLoggedWorkout).map {
-            LiveWorkout(workout: routine, loggedWorkout: $0)
+            LiveWorkout(workout: workout, loggedWorkout: $0)
         }
         if let logged = phase.loggedAndDrawn ?? phase.endingHidden, logged.row == id,
            let kept = logs?.loggedCount(of: logged)
@@ -227,7 +227,7 @@ extension RoutineScreen {
     }
 }
 
-extension RoutineScreen {
+extension WorkoutScreen {
     /// What an edit at rest can change under a count: the set current, whether it is timed, and
     /// the set the stored count is for.
     var countSubject: CountSubject {
@@ -291,7 +291,7 @@ extension WorkoutPhase {
 
 extension View {
     /// The taps a timed set plays, and its watch, on `screen`.
-    func timedSets(_ screen: RoutineScreen) -> some View {
+    func timedSets(_ screen: WorkoutScreen) -> some View {
         sensoryFeedback(.impact(weight: .light, intensity: 0.6), trigger: screen.countBeats.starts)
             .sensoryFeedback(.impact(weight: .heavy), trigger: screen.countBeats.ends)
             .task(id: screen.countWatch) { await screen.watchCount() }

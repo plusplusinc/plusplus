@@ -3,7 +3,7 @@ import SwiftUI
 import WorkoutStore
 
 /// A workout: Start's press, and the first exercise growing into the current one.
-extension RoutineScreen {
+extension WorkoutScreen {
     /// The current exercise's own space above its label, part of its row, so where the list
     /// lands on the row, just under the bar, everything above it is under the bar and the space
     /// between shows only the background.
@@ -23,7 +23,7 @@ extension RoutineScreen {
     /// up a moment after the last Remove, until the sheet has gone (`settleFoot(after:)`), and
     /// does nothing then: the session starts nothing on a routine with no exercises.
     func pressStart() {
-        guard phase == .idle, session.canStart(on: routine.id) else { return }
+        guard phase == .idle, session.canStart(on: workout.id) else { return }
         // The list's end lies under the first row until it grows, so a short routine may have
         // nowhere to scroll it to: room under the end, out of sight, lets it go. It goes in
         // ahead of the scroll: a scroll in the same transaction stops at the old end.
@@ -39,7 +39,7 @@ extension RoutineScreen {
             currentPlace = nil
         }
         phase.pressStart()
-        let pressed = routine.id
+        let pressed = workout.id
         sequence.run {
             let start = ContinuousClock.now
             try await beat(until: start + .seconds(Self.pressHold))

@@ -2,7 +2,7 @@ import DesignSystem
 import SwiftUI
 import WorkoutStore
 
-extension RoutineScreen {
+extension WorkoutScreen {
     /// A row's content: its label, and under it its rest, as part of the row, so the row's own
     /// stretch of rail runs through the room it opens. A rest between sets, drawn inside the
     /// label, reads to VoiceOver as its own element after it (`SetRest.spoken`).
@@ -31,15 +31,15 @@ extension RoutineScreen {
             // None where it would do nothing: at an end, or with one row. None logs a set, on the
             // current exercise either: the key logs.
             .accessibilityActions {
-                if let up = routine.slotMovingUp(id) {
+                if let up = workout.slotMovingUp(id) {
                     Button("Move up") { step(id, to: up, wentUp: true) }
                 }
-                if let down = routine.slotMovingDown(id) {
+                if let down = workout.slotMovingDown(id) {
                     Button("Move down") { step(id, to: down, wentUp: false) }
                 }
                 supersetActions(id)
             }
-            .accessibilityIdentifier("routine.exercise")
+            .accessibilityIdentifier("workout.exercise")
     }
 
     /// Each row's bars, rests, and state in the workout, for the rows' closure to hold as values.
@@ -63,7 +63,7 @@ extension RoutineScreen {
             ?? (phase.move?.isFromRest == true)
         let nextUp = isRestingBetween ? shown?.currentSet?.row : nil
         let rest = drawnRestBlock()
-        return routine.exercises.reduce(into: [:]) { parts, item in
+        return workout.exercises.reduce(into: [:]) { parts, item in
             parts[item.id] = RowParts(
                 bars: bars[item.id],
                 restBetween: setWait(of: item.id, current: current),
