@@ -8,7 +8,7 @@ import WorkoutStore
 extension LogScreen {
     /// Workouts with nothing logged, under the empty calendar.
     static let noLoggedWorkoutsText = "A workout shows here once it's finished."
-    static let goToRoutinesLabel = "Go to Routines"
+    static let goToRoutinesLabel = "Go to Workouts"
     /// Under Diff's rows, or in their place while it has none.
     static let diffRuleText = "An exercise shows here once it has been done in two workouts."
 

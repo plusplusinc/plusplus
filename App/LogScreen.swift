@@ -21,7 +21,7 @@ struct LogScreen: View {
 
         var title: String {
             switch self {
-            case .workouts: "Workouts"
+            case .workouts: "History"
             case .diff: "Diff"
             case .gaps: "Gaps"
             }
