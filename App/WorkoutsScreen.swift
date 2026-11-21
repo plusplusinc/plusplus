@@ -3,29 +3,29 @@ import Session
 import SwiftUI
 import WorkoutStore
 
-/// Every saved routine, most recently opened or edited first, each by its name.
-/// Tapping one pushes it on the routine screen; + pushes a new one. A line runs under each row,
+/// Every saved workout, most recently opened or edited first, each by its name.
+/// Tapping one pushes it on the workout screen; + pushes a new one. A line runs under each row,
 /// the last included, as under each row in Add exercise.
 ///
 /// A row swiped left shows the system's red Delete, and a row held opens the system's context
 /// menu with Delete, red with a trash, the held row lifted on a rounded platter in the screen's
 /// color, as a row in Add exercise is. Either asks first in a centered alert, "Delete <name>?",
 /// the name as the row shows it; confirmed, the row leaves and the rows below close the gap,
-/// and the screen stays on Routines (`AppSession.delete(_:)`).
+/// and the screen stays on Workouts (`AppSession.delete(_:)`).
 struct WorkoutsScreen: View {
     @Bindable var session: AppSession
     let namer: WorkoutNamer
 
     /// The order the rows are drawn in, taken only while the list is out of sight or as it
-    /// shows, so a routine opened from it moves to the top unseen, not as it slides away.
+    /// shows, so a workout opened from it moves to the top unseen, not as it slides away.
     @State private var order: [Workout.ID] = []
     @State private var scrollPosition = ScrollPosition()
     /// Whether the title has scrolled out of sight under the bar, for its small copy to show.
     @State private var isTitleUnderBar = false
-    /// The routine Delete last asked about, kept as the alert goes, so its title keeps the name.
+    /// The workout Delete last asked about, kept as the alert goes, so its title keeps the name.
     @State private var deleting: Workout?
     @State private var isAskingToDelete = false
-    /// Routines whose delete is confirmed, left out of the list from the confirming tap, in its
+    /// Workouts whose delete is confirmed, left out of the list from the confirming tap, in its
     /// animation, before the store has taken the delete.
     @State private var leaving: Set<Workout.ID> = []
     @Environment(\.locale) private var locale
@@ -61,13 +61,13 @@ struct WorkoutsScreen: View {
             .onAppear(perform: takeOrder)
             .onDisappear(perform: takeOrder)
             .navigationDestination(isPresented: isWorkoutPushed) {
-                // Each routine opened gives a fresh screen: scroll, sheets, and title.
+                // Each workout opened gives a fresh screen: scroll, sheets, and title.
                 WorkoutScreen(session: session, namer: namer, isPushed: true)
                     .id(session.opened.id)
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                // As the routine screen's: always there, faded, and a tap scrolls to the top.
+                // As the workout screen's: always there, faded, and a tap scrolls to the top.
                 ToolbarItem(placement: .title) {
                     Button {
                         withAnimation(.snappy) { scrollPosition.scrollTo(edge: .top) }
@@ -155,7 +155,7 @@ struct WorkoutsScreen: View {
         isAskingToDelete = true
     }
 
-    /// Takes the row out at once, the rows below closing the gap, then deletes the routine.
+    /// Takes the row out at once, the rows below closing the gap, then deletes the workout.
     private func delete(_ id: Workout.ID) {
         withAnimation(.snappy) {
             _ = leaving.insert(id)
@@ -170,7 +170,7 @@ struct WorkoutsScreen: View {
         }
     }
 
-    /// The stack's push: the session's pushed routine, which the back button and the back swipe
+    /// The stack's push: the session's pushed workout, which the back button and the back swipe
     /// pop.
     private var isWorkoutPushed: Binding<Bool> {
         Binding {
@@ -207,7 +207,7 @@ struct WorkoutsScreen: View {
 }
 
 extension WorkoutNamer {
-    /// A routine's name where routines are listed: the name it shows, else New workout.
+    /// A workout's name where workouts are listed: the name it shows, else New workout.
     func listedName(of workout: Workout) -> String {
         shownName(of: workout) ?? WorkoutScreen.defaultName
     }

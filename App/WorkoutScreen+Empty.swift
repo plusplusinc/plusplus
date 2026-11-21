@@ -14,9 +14,9 @@ extension WorkoutScreen {
         isPicking = true
     }
 
-    /// A tap anywhere on an empty routine, or below the last row, opens the picker, once the
+    /// A tap anywhere on an empty workout, or below the last row, opens the picker, once the
     /// keyboard is down if it is up or going down, so the two never cross. One that ended the
-    /// title's edit opens it only on an empty routine; below the last row it has only ended the
+    /// title's edit opens it only on an empty workout; below the last row it has only ended the
     /// edit (`TapPastTitle`).
     func tappedList(at location: CGPoint) {
         let isEmpty = workout.exercises.isEmpty
@@ -32,10 +32,10 @@ extension WorkoutScreen {
         isEditingTitle = false
     }
 
-    /// After `delay`, once the sheet that changed the routine has gone, brings the screen's foot
+    /// After `delay`, once the sheet that changed the workout has gone, brings the screen's foot
     /// in line with the exercises, in one transaction for Start and the +: rising on the rising
     /// half of the key's swap, going down on its dropping half. Read when it runs, so an add or
-    /// Remove meanwhile leaves it where the routine is by then. On a deadline from the pick or
+    /// Remove meanwhile leaves it where the workout is by then. On a deadline from the pick or
     /// Remove, not the sheet's `onDismiss`, which came about 0.6 s after either, once the sheet
     /// had visibly gone (`exerciseSheetGone`).
     func settleFoot(after delay: Duration) {

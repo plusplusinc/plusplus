@@ -1,6 +1,6 @@
 import XCTest
 
-/// The routine's exercise rows and the picker's, found by the identifiers the app sets.
+/// The workout's exercise rows and the picker's, found by the identifiers the app sets.
 @MainActor
 extension XCUIApplication {
     private static let exerciseRowID = "workout.exercise"
@@ -24,22 +24,22 @@ extension XCUIApplication {
         exerciseRowSnapshots.map(\.label)
     }
 
-    /// The Routines screen's rows.
+    /// The Workouts screen's rows.
     var workoutRows: XCUIElementQuery {
         buttons.matching(identifier: "workouts.row")
     }
 
-    /// The Routines screen's row labeled `name`.
+    /// The Workouts screen's row labeled `name`.
     func workoutRow(named name: String) -> XCUIElement {
         workoutRows.matching(NSPredicate(format: "label == %@", name)).firstMatch
     }
 
-    /// The Routines screen's rows' labels, top to bottom.
+    /// The Workouts screen's rows' labels, top to bottom.
     var workoutRowLabels: [String] {
         snapshots { $0.elementType == .button && $0.identifier == "workouts.row" }.map(\.label)
     }
 
-    /// The routine's equipment, the capsules under its title.
+    /// The workout's equipment, the capsules under its title.
     var equipment: XCUIElement {
         descendants(matching: .any).matching(identifier: "workout.equipment").firstMatch
     }
@@ -56,7 +56,7 @@ extension XCUIApplication {
         buttons.matching(identifier: "exercises.row")
     }
 
-    /// The line an empty routine shows mid-screen.
+    /// The line an empty workout shows mid-screen.
     var noExercises: XCUIElement {
         staticTexts["No exercises"]
     }
@@ -205,7 +205,7 @@ extension XCUIElement {
     }
 
     /// Drags left from near the screen's trailing edge, at the element's height, `distance`
-    /// points at `velocity`, and lifts. From the screen's edge, not the element's: a routine
+    /// points at `velocity`, and lifts. From the screen's edge, not the element's: a workout
     /// row's element is its label, as wide as its words.
     private func dragLeft(by distance: CGFloat, velocity: XCUIGestureVelocity) {
         let edge = XCUIApplication().frame.width * 0.9 - frame.minX

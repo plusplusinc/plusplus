@@ -1,12 +1,12 @@
 import Foundation
 
 /// What Delete asks before a created exercise goes, in its Customize form and in Add exercise's
-/// hold menu: the routines it will be removed from, by count, not by name (Used in has those),
+/// hold menu: the workouts it will be removed from, by count, not by name (Used in has those),
 /// then that workout history stays.
 public enum DeleteQuestion {
-    /// When the open routine, the one behind the sheet, uses the exercise, it is named first, as
+    /// When the open workout, the one behind the sheet, uses the exercise, it is named first, as
     /// "this workout", and the others are counted after it (decided 2026-11-18); otherwise the
-    /// routines are counted. `workoutCount` counts every routine that uses it, the open one
+    /// workouts are counted. `workoutCount` counts every workout that uses it, the open one
     /// included.
     public static func message(workoutCount: Int, usedByOpenWorkout: Bool) -> String {
         let others = workoutCount - 1

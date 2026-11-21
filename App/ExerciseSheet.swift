@@ -2,7 +2,7 @@ import DesignSystem
 import SwiftUI
 import WorkoutStore
 
-/// A superset's rest after each round, read and stepped through the routine, since every member
+/// A superset's rest after each round, read and stepped through the workout, since every member
 /// holds it.
 struct RoundSteps {
     let value: () -> (text: String, spoken: String)
@@ -19,7 +19,7 @@ struct RoundSteps {
     let change: String
 }
 
-/// A routine row's values, a `ValueRow` for each part its exercise has, under the exercise's
+/// A workout row's values, a `ValueRow` for each part its exercise has, under the exercise's
 /// equipment. A row's stepper opens one at a time. Changes apply as they're made. The More menu
 /// holds Customize…, which pushes the exercise's Customize form inside the sheet (its back
 /// chevron returns to the sheet, the change showing), and Remove. Each opening starts afresh,

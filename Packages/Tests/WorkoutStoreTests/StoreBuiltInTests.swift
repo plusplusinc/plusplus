@@ -3,9 +3,9 @@ import SwiftData
 import Testing
 @testable import WorkoutStore
 
-/// A built-in customized and cleared after routines use it. A relaunch is a second store over
+/// A built-in customized and cleared after workouts use it. A relaunch is a second store over
 /// the same container: it sees only what was saved.
-@Suite("Routine store, customizing a built-in")
+@Suite("Workout store, customizing a built-in")
 struct StoreBuiltInTests {
     private let container: ModelContainer
 
@@ -42,7 +42,7 @@ struct StoreBuiltInTests {
         try #require(try await relaunch().workout(id, weightUnit: .pounds)?.exercises.first)
     }
 
-    @Test("A built-in's new muscle group reaches every routine's row, its numbers and rest kept")
+    @Test("A built-in's new muscle group reaches every workout's row, its numbers and rest kept")
     func groupsKeepNumbersAndRest() async throws {
         let store = relaunch()
         let workouts = try [
@@ -123,7 +123,7 @@ struct StoreBuiltInTests {
         )).map(\.exerciseName)
     }
 
-    @Test("Clearing every customization brings back what shipped, every routine's numbers kept")
+    @Test("Clearing every customization brings back what shipped, every workout's numbers kept")
     func clearRoundTrip() async throws {
         let workout = try Workout(name: "Push", exercises: [Self.row()])
         try await relaunch().save(workout)

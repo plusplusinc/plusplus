@@ -62,9 +62,9 @@ extension WorkoutScreen {
         }
     }
 
-    /// •••, the routine's own actions: Delete, red, dimmed while the routine has nothing saved.
+    /// •••, the workout's own actions: Delete, red, dimmed while the workout has nothing saved.
     /// It asks first in a centered alert, "Delete <name>?", the name as the title shows it;
-    /// confirmed, the session shows Routines on a new routine (`AppSession.delete(_:)`).
+    /// confirmed, the session shows Workouts on a new workout (`AppSession.delete(_:)`).
     private var moreMenu: some View {
         Menu("More", systemImage: "ellipsis") {
             Button("Delete", systemImage: "trash", role: .destructive) {

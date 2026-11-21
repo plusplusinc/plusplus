@@ -17,7 +17,7 @@ import WorkoutStore
 /// red, Delete for one someone created, asking first in a centered alert with the form's own
 /// question (`DeleteQuestion`). Confirmed, the row leaves the list as the rows below close the
 /// gap, its letter heading with it if it was the letter's last; then, after a rest, its rows
-/// leave the routine behind the sheet (`WorkoutScreen.deleteExercise(_:closing:)`).
+/// leave the workout behind the sheet (`WorkoutScreen.deleteExercise(_:closing:)`).
 struct ExercisePicker<Customize: View>: View {
     let exercises: ExerciseList
     let onPick: (Exercise) -> Void

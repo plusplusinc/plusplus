@@ -6,7 +6,7 @@ import Testing
 
 /// The order the session sends its writes in. A relaunch is a second store over the same
 /// container: it sees only what landed.
-@Suite("Routine session")
+@Suite("Workout session")
 struct AppSessionTests {
     private let container: ModelContainer
 
@@ -32,7 +32,7 @@ struct AppSessionTests {
         return Workout(name: "Upper", exercises: [bench])
     }
 
-    @Test("An edit just before a switch is saved before the next routine opens")
+    @Test("An edit just before a switch is saved before the next workout opens")
     func editBeforeSwitch() async throws {
         let session = session()
         let workout = try Self.upper()
@@ -42,7 +42,7 @@ struct AppSessionTests {
         #expect(try await relaunch().launch(weightUnit: .pounds).workout == workout)
     }
 
-    @Test("An edit just before opening another routine is saved")
+    @Test("An edit just before opening another workout is saved")
     func editBeforeOpen() async throws {
         let other = Workout(name: "Lower")
         try await relaunch().save(other, at: Self.at(1))
@@ -66,10 +66,10 @@ struct AppSessionTests {
         #expect(try await relaunch().openWorkout(workout.id, weightUnit: .pounds)?.name == "Three")
     }
 
-    /// The store deletes a cleared routine it is handed (`StoreTests`); this holds that the
+    /// The store deletes a cleared workout it is handed (`StoreTests`); this holds that the
     /// session hands it one, with no workout running and no switch, as the screen's last edit
     /// before a quit.
-    @Test("A saved routine cleared to nothing, rows then name, is gone at a relaunch")
+    @Test("A saved workout cleared to nothing, rows then name, is gone at a relaunch")
     func clearedIsGone() async throws {
         let session = session()
         var workout = try Self.upper()
@@ -84,7 +84,7 @@ struct AppSessionTests {
         #expect(try await relaunch().launch(weightUnit: .pounds).workout == nil)
     }
 
-    @Test("An edit made while the next routine is being read is saved")
+    @Test("An edit made while the next workout is being read is saved")
     func editDuringRead() async throws {
         let workout = try Self.upper()
         let session = session(workout)
@@ -112,7 +112,7 @@ struct AppSessionTests {
         #expect(try await relaunch().openWorkout(workout.id, weightUnit: .pounds) == edited)
     }
 
-    @Test("An edit made as the read ends is saved before the next routine shows")
+    @Test("An edit made as the read ends is saved before the next workout shows")
     func editAsReadEnds() async throws {
         let workout = try Self.upper()
         let session = session(workout)
@@ -145,7 +145,7 @@ struct AppSessionTests {
         #expect(stored.first { $0.id == second.id }?.isInProgress == true)
     }
 
-    @Test("Finish writes the name the routine shows then, not the one at Start")
+    @Test("Finish writes the name the workout shows then, not the one at Start")
     func finishName() async throws {
         var workout = try Self.upper()
         workout.name = ""
@@ -161,7 +161,7 @@ struct AppSessionTests {
         #expect(stored.map(\.loggedWorkout.workoutName) == ["Push day"])
     }
 
-    @Test("A routine emptied during a workout is kept until the workout ends, then deleted")
+    @Test("A workout emptied while in progress is kept until it ends, then deleted")
     func emptiedDuringLiveWorkout() async throws {
         let workout = try Self.upper()
         let session = session(workout)
@@ -203,7 +203,7 @@ struct AppSessionTests {
         #expect(stored.map(\.loggedWorkout.startedAt) == [Self.at(10)])
     }
 
-    @Test("Start pressed on a routine with no exercises starts nothing")
+    @Test("Start pressed on a workout with no exercises starts nothing")
     func startOnEmptyWorkout() async throws {
         let workout = Workout(name: "Empty")
         let session = session(workout)
@@ -214,7 +214,7 @@ struct AppSessionTests {
         #expect(try await relaunch().launch(weightUnit: .pounds).loggedWorkout == nil)
     }
 
-    @Test("Start pressed on a routine since switched away from starts nothing")
+    @Test("Start pressed on a workout since switched away from starts nothing")
     func startOnAnotherWorkout() async throws {
         let session = try session(Self.upper())
         session.start(on: Workout().id)
@@ -223,7 +223,7 @@ struct AppSessionTests {
         #expect(try await relaunch().launch(weightUnit: .pounds).loggedWorkout == nil)
     }
 
-    @Test("Start pressed on a routine while a switch away from it is under way starts nothing")
+    @Test("Start pressed on a workout while a switch away from it is under way starts nothing")
     func startDuringSwitch() async throws {
         let workout = try Self.upper()
         let session = session(workout)

@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import WorkoutStore
 
-/// Where a workout on the routine screen is in its sequence, and what a log shows in turn.
+/// Where a workout on the workout screen is in its sequence, and what a log shows in turn.
 @Suite("Workout phase")
 struct WorkoutPhaseTests {
     private static let row = UUID()

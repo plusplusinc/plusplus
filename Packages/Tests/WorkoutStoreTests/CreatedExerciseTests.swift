@@ -190,7 +190,7 @@ struct CreatedExerciseTests {
         #expect(Set<MuscleGroup>().line == nil)
     }
 
-    @Test("A routine of created exercises is named for their groups, never a push or pull focus")
+    @Test("A workout of created exercises is named for their groups, never a push or pull focus")
     func naming() {
         let rows = [
             Self.exercise(.back, [.rings], name: "One"),

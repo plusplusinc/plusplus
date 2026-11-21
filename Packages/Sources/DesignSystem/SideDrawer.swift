@@ -228,7 +228,7 @@ public struct SideDrawer<Drawer: View, Content: View>: View {
 }
 
 /// The side a drawer asked to settle `open` comes to rest on: what `isOpen` holds once asked.
-/// Its keeper may refuse an open, as the routine's session does once a row's sheet has been
+/// Its keeper may refuse an open, as the workout's session does once a row's sheet has been
 /// asked for; a drawer that settled where it was asked then rested open, drawn over a screen that
 /// read it shut, its title and swipe dead.
 func settledSide(asking open: Bool, of isOpen: Binding<Bool>) -> Bool {

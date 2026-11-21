@@ -1,7 +1,7 @@
 import Foundation
 
 extension Workout {
-    /// The rest between `set` and `next`, in seconds, as the routine stores it now: none after the
+    /// The rest between `set` and `next`, in seconds, as the workout stores it now: none after the
     /// workout's last set, or the set's row gone; none between a set's two sides, or between a
     /// superset's members in one round; a superset's rest after each round where a round ends;
     /// else the row's own rest, to its next set or to another exercise alike.
@@ -36,13 +36,13 @@ extension Workout {
 
 /// The rest running after a set, on the workout's clock (`LoggedWorkout.clock(at:)`), so a pause
 /// stops it. It holds no date: it changes only with a log, a +15 s tap, a skip, or an edit to
-/// the routine.
+/// the workout.
 public struct WorkoutRest: Equatable, Sendable {
     /// The set it follows.
     public let after: PlannedSet
     /// The set it leads to.
     public let next: PlannedSet
-    /// The routine's rest, with this rest's taps, in seconds.
+    /// The workout's rest, with this rest's taps, in seconds.
     public let length: Int
     /// The clock at the log.
     public let startClock: Double
@@ -66,7 +66,7 @@ extension LiveWorkout {
     /// The rest after the last set logged, while there is one: nil with no gap after it, a set
     /// logged before its clock was kept, or nothing left to do. Whether it is over is the
     /// caller's, at its moment. `override`, for the UI tests, replaces every rest's length where
-    /// the routine has one, never where it has none, as between a set's sides.
+    /// the workout has one, never where it has none, as between a set's sides.
     public func rest(override: Int? = nil) -> WorkoutRest? {
         guard let last = loggedWorkout.sets.last, let start = last.clockWhenLogged,
               let next = currentSet

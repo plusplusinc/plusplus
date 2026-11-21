@@ -21,9 +21,9 @@ public struct RowSheet: Identifiable {
 extension AppSession {
     /// Opens `sheet` once `hold` has passed, as a created row's does, if `wanted()` still says so
     /// then. Nothing opens if the wait is cancelled, as when the screen that asked goes and its
-    /// task with it, or the app has left that screen or routine meanwhile: a routine popped off
-    /// the Routines screen goes some 0.3 s after the pop, and a sheet set in between, with
-    /// nothing to show it, kept the drawer shut on the Routines screen.
+    /// task with it, or the app has left that screen or workout meanwhile: a workout popped off
+    /// the Workouts screen goes some 0.3 s after the pop, and a sheet set in between, with
+    /// nothing to show it, kept the drawer shut on the Workouts screen.
     public func openRowSheet(
         _ sheet: RowSheet,
         after hold: Duration,

@@ -50,7 +50,7 @@ struct EditableTitleChangeBackTests {
         }
     }
 
-    /// From the placeholder to a suggestion and back, as a new routine's first exercise added
+    /// From the placeholder to a suggestion and back, as a new workout's first exercise added
     /// and deleted, and from one suggestion to another and back.
     @Test(
         "A title changed and changed back inside the fade-out shows again, whole",

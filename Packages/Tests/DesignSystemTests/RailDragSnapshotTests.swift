@@ -52,7 +52,7 @@ struct RailDragSnapshotTests {
             cardOffset: offset,
         ) { row in
             RowLabel(title: row.title, detail: row.detail, focus: row.focus)
-                // As the routine screen gives the current exercise (`currentTopSpace`).
+                // As the workout screen gives the current exercise (`currentTopSpace`).
                 .padding(.top, row.focus == nil ? 0 : Spacing.lg)
                 .railRow()
         } end: {
@@ -200,7 +200,7 @@ struct RailDragSnapshotTests {
         )
     }
 
-    @Test("A routine of one row lifts it, with nowhere to move")
+    @Test("A workout of one row lifts it, with nowhere to move")
     func oneRowLifted() {
         let one = [Self.rows[0]]
         assertThemedSnapshots(
@@ -237,7 +237,7 @@ struct RailDragSnapshotTests {
     }
 
     /// With no plain row on the rail to read a plain row's node from, the card is shaped as one.
-    @Test("The current exercise alone in its routine lifts into a plain row's card")
+    @Test("The current exercise alone in its workout lifts into a plain row's card")
     func currentAloneLifted() {
         let one = [Self.liveWorkoutRows[0]]
         assertThemedSnapshots(

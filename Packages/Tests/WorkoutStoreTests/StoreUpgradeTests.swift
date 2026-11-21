@@ -3,12 +3,12 @@ import SwiftData
 import Testing
 @testable import WorkoutStore
 
-@Suite("Routine store upgrade")
+@Suite("Workout store upgrade")
 struct StoreUpgradeTests {
     @Test("A store written before plans opens, each row with its exercise's defaults")
     func upgradeOnDisk() async throws {
         let folder = FileManager.default.temporaryDirectory
-            .appending(path: "RoutineStoreUpgrade-\(UUID().uuidString)")
+            .appending(path: "StoreUpgrade-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         let url = folder.appending(path: "PlusPlus.store")
@@ -60,7 +60,7 @@ struct StoreUpgradeTests {
     @Test("A store written before supersets opens with every row plain, plans kept")
     func upgradeBeforeSupersets() async throws {
         let folder = FileManager.default.temporaryDirectory
-            .appending(path: "RoutineStoreUpgrade-\(UUID().uuidString)")
+            .appending(path: "StoreUpgrade-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         let url = folder.appending(path: "PlusPlus.store")
@@ -106,10 +106,10 @@ struct StoreUpgradeTests {
         #expect(workout.exercises.map(\.plan.target) == [.reps(8), .reps(8)])
     }
 
-    @Test("A store written before routines were opened opens in edited order")
+    @Test("A store written before workouts were opened opens in edited order")
     func upgradeBeforeOpening() async throws {
         let folder = FileManager.default.temporaryDirectory
-            .appending(path: "RoutineStoreUpgrade-\(UUID().uuidString)")
+            .appending(path: "StoreUpgrade-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         let url = folder.appending(path: "PlusPlus.store")
@@ -144,10 +144,12 @@ struct StoreUpgradeTests {
             == ["Newer", "Older"])
     }
 
-    @Test("A store written before workouts opens with every routine, then keeps a workout")
+    @Test(
+        "A store written before logged workouts opens with every workout, then keeps a logged one",
+    )
     func upgradeBeforeLoggedWorkouts() async throws {
         let folder = FileManager.default.temporaryDirectory
-            .appending(path: "RoutineStoreUpgrade-\(UUID().uuidString)")
+            .appending(path: "StoreUpgrade-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         let url = folder.appending(path: "PlusPlus.store")
@@ -185,7 +187,7 @@ struct StoreUpgradeTests {
     @Test("A store written before logged sets opens with its workout in progress, no sets")
     func upgradeBeforeSets() async throws {
         let folder = FileManager.default.temporaryDirectory
-            .appending(path: "RoutineStoreUpgrade-\(UUID().uuidString)")
+            .appending(path: "StoreUpgrade-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         let url = folder.appending(path: "PlusPlus.store")
@@ -220,7 +222,7 @@ struct StoreUpgradeTests {
         #expect(launch.workout?.name == "Older")
     }
 
-    /// Today's routines as #91 stored them: two, each with a superset of two rows with plans,
+    /// Today's workouts as #91 stored them: two, each with a superset of two rows with plans,
     /// one opened after the other's edit.
     static func writeBeforeLoggedWorkouts(to url: URL) throws {
         let schema = Schema([

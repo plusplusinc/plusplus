@@ -2,7 +2,7 @@ import DesignSystem
 import WorkoutStore
 
 extension WorkoutSlot {
-    /// The routine's slot for one dropped on the rail, joining what the rail's joins.
+    /// The workout's slot for one dropped on the rail, joining what the rail's joins.
     init(_ slot: RailSlot<WorkoutExercise.ID>) {
         let place: Place = switch slot.place {
         case let .before(id): .before(id)

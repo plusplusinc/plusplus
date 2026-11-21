@@ -11,7 +11,7 @@ struct WorkoutLoggingTests {
         LoggedWorkout(workoutID: workout.id, workoutName: "Upper", startedAt: start)
     }
 
-    /// Logs the routine's next set, as the key does.
+    /// Logs the workout's next set, as the key does.
     private func logNext(
         _ loggedWorkout: LoggedWorkout,
         _ workout: Workout,

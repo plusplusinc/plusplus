@@ -5,7 +5,7 @@ import Testing
 
 /// A relaunch is a second store over the same container: it sees only what was saved. Dates are
 /// explicit, so the order never rests on how fast the test runs.
-@Suite("Routine store recency")
+@Suite("Workout store recency")
 struct StoreRecencyTests {
     private let container: ModelContainer
 
@@ -29,7 +29,7 @@ struct StoreRecencyTests {
         try await relaunch().workoutsByRecency(weightUnit: .pounds).map(\.name)
     }
 
-    @Test("Routines list by when they were last opened or edited")
+    @Test("Workouts list by when they were last opened or edited")
     func listOrder() async throws {
         let store = relaunch()
         let first = Self.workout("A")
@@ -43,7 +43,7 @@ struct StoreRecencyTests {
         #expect(try await listed() == ["B again", "A"])
     }
 
-    @Test("Launch reopens the routine opened last")
+    @Test("Launch reopens the workout opened last")
     func launchOpened() async throws {
         let store = relaunch()
         let first = Self.workout("A")
@@ -53,7 +53,7 @@ struct StoreRecencyTests {
         #expect(try await relaunch().launch(weightUnit: .pounds).workout?.name == "A")
     }
 
-    @Test("Launch reopens the routine edited last, after an open")
+    @Test("Launch reopens the workout edited last, after an open")
     func launchEditedAfterOpen() async throws {
         let store = relaunch()
         let first = Self.workout("A")
@@ -63,7 +63,7 @@ struct StoreRecencyTests {
         #expect(try await relaunch().launch(weightUnit: .pounds).workout?.name == "B")
     }
 
-    @Test("Launch opens the routine listed first, whatever ties")
+    @Test("Launch opens the workout listed first, whatever ties")
     func launchMatchesList() async throws {
         let store = relaunch()
         for name in ["A", "B", "C", "D"] {
@@ -73,7 +73,7 @@ struct StoreRecencyTests {
         #expect(try await relaunch().launch(weightUnit: .pounds).workout?.name == first)
     }
 
-    @Test("Opening a routine returns it whole: name, rows, plans, and supersets")
+    @Test("Opening a workout returns it whole: name, rows, plans, and supersets")
     func openReturnsWhole() async throws {
         let rows = try ["Push-up", "Plank", "Pull-up"].map { try WorkoutExercise.builtIn($0) }
         var workout = Workout(name: "Whole", exercises: rows)
@@ -86,20 +86,20 @@ struct StoreRecencyTests {
         #expect(opened == workout)
     }
 
-    @Test("Opening an unknown routine stores nothing")
+    @Test("Opening an unknown workout stores nothing")
     func openUnknown() async throws {
         try await relaunch().save(Self.workout("A"), at: Self.at(1))
         #expect(try await relaunch().openWorkout(UUID(), weightUnit: .pounds) == nil)
         #expect(try ModelContext(container).fetchCount(FetchDescriptor<StoredRoutine>()) == 1)
     }
 
-    @Test("An untouched routine never lists")
+    @Test("An untouched workout never lists")
     func untouchedNeverLists() async throws {
         try await relaunch().save(Workout())
         #expect(try await listed().isEmpty)
     }
 
-    @Test("Every saved routine lists, not just five")
+    @Test("Every saved workout lists, not just five")
     func everyWorkoutLists() async throws {
         let store = relaunch()
         let names = (1 ... 7).map { "R\($0)" }
@@ -109,7 +109,7 @@ struct StoreRecencyTests {
         #expect(try await listed() == names.reversed())
     }
 
-    @Test("The open routine comes first, as it is now")
+    @Test("The open workout comes first, as it is now")
     func withOpen() {
         let first = Self.workout("A")
         var second = Self.workout("B")
@@ -120,7 +120,7 @@ struct StoreRecencyTests {
         #expect(stored.withOpen(Workout()).map(\.name) == ["A", "B", "C"])
     }
 
-    @Test("A list holds the order it was drawn in, as the routines change")
+    @Test("A list holds the order it was drawn in, as the workouts change")
     func heldOrder() {
         let first = Self.workout("A")
         var second = Self.workout("B")
@@ -133,14 +133,14 @@ struct StoreRecencyTests {
         #expect([third, first].held(in: order).map(\.name) == ["A", "C"])
     }
 
-    @Test("A routine the order hasn't seen goes first, in its place among the new")
+    @Test("A workout the order hasn't seen goes first, in its place among the new")
     func heldNewFirst() {
         let old = Self.workout("Old")
         let order = [old.id]
         let newer = Self.workout("Newer")
         let newest = Self.workout("Newest")
         #expect([newest, newer, old].held(in: order).map(\.name) == ["Newest", "Newer", "Old"])
-        // Read before the saved routines arrived, the order holds only the open one.
+        // Read before the saved workouts arrived, the order holds only the open one.
         #expect([old, newer, newest].held(in: order).map(\.name) == ["Newer", "Newest", "Old"])
     }
 }

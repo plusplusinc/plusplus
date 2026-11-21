@@ -4,10 +4,10 @@ import Testing
 @testable import WorkoutStore
 
 extension StoreUpgradeTests {
-    @Test("A store written in V7 opens with its routines and workout, then keeps a created one")
+    @Test("A store written in V7 opens with its workouts and logged one, then keeps a created one")
     func upgradeBeforeCreatedExercises() async throws {
         let folder = FileManager.default.temporaryDirectory
-            .appending(path: "RoutineStoreUpgrade-\(UUID().uuidString)")
+            .appending(path: "StoreUpgrade-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         let url = folder.appending(path: "PlusPlus.store")
@@ -71,10 +71,10 @@ extension StoreUpgradeTests {
         #expect(try await reopened.launch(weightUnit: .pounds).workout == edited)
     }
 
-    @Test("A V8 store's exercise of one muscle group opens with that group, in its routine")
+    @Test("A V8 store's exercise of one muscle group opens with that group, in its workout")
     func oneGroupExercise() async throws {
         let folder = FileManager.default.temporaryDirectory
-            .appending(path: "RoutineStoreUpgrade-\(UUID().uuidString)")
+            .appending(path: "StoreUpgrade-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         let url = folder.appending(path: "PlusPlus.store")
@@ -133,7 +133,7 @@ extension StoreUpgradeTests {
     @Test("A V8 store's logged set opens with no name kept, then a set logged keeps its name")
     func upgradeBeforeLoggedNames() async throws {
         let folder = FileManager.default.temporaryDirectory
-            .appending(path: "RoutineStoreUpgrade-\(UUID().uuidString)")
+            .appending(path: "StoreUpgrade-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         let url = folder.appending(path: "PlusPlus.store")
@@ -195,7 +195,7 @@ extension StoreUpgradeTests {
     @Test("A V9 store opens with nothing customized, then keeps a built-in's customization")
     func upgradeBeforeCustomizations() async throws {
         let folder = FileManager.default.temporaryDirectory
-            .appending(path: "RoutineStoreUpgrade-\(UUID().uuidString)")
+            .appending(path: "StoreUpgrade-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         let url = folder.appending(path: "PlusPlus.store")

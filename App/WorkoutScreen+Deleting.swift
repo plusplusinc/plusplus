@@ -3,25 +3,25 @@ import Session
 import SwiftUI
 import WorkoutStore
 
-/// Deleting a created exercise, which takes its rows from every routine that uses it, as a few
+/// Deleting a created exercise, which takes its rows from every workout that uses it, as a few
 /// beats one after the other, never two moving at once. They start as Delete's alert has gone:
 /// SwiftUI runs an alert's button once the alert has faded, about 0.3 s after its fade ends
 /// (measured on iOS 27), which is the first beat's rest.
 ///
-/// 1. What showed the exercise's form closes, if anything did: a routine row's sheet goes down
+/// 1. What showed the exercise's form closes, if anything did: a workout row's sheet goes down
 ///    as a sheet closes, still on the form, never its sets and reps page; a form pushed in Add
 ///    exercise pops back to the list, then a rest (`addPause`).
 /// 2. Where Add exercise shows, its row leaves the list and the rows below close the gap, a
 ///    letter heading left with no rows going with them, in one move (`listChange`); a search
 ///    whose only result it was narrows to Create in the same move.
 /// 3. After a rest (`addPause`, then the store's write and read back, about 0.1 s on the
-///    simulator), the open routine's rows of it leave as a row's Remove takes its row, in the
+///    simulator), the open workout's rows of it leave as a row's Remove takes its row, in the
 ///    turn the session has them gone (`showStoredWorkout`),
-///    Start and the + going down after if none is left: seen where the routine shows, above a
+///    Start and the + going down after if none is left: seen where the workout shows, above a
 ///    half-height Add exercise or once a row's sheet has gone; behind a full one, unseen.
 ///
-/// The store takes the delete only once nothing shows the form, and the routine shows it as
-/// soon as it is stored, so no edit lands on a routine the screen and the store disagree on.
+/// The store takes the delete only once nothing shows the form, and the workout shows it as
+/// soon as it is stored, so no edit lands on a workout the screen and the store disagree on.
 /// From the alert's Delete running until the delete is stored, a tap on one of the exercise's
 /// rows opens nothing, and its row in Add exercise adds nothing (after a row's sheet, Add
 /// exercise opened meanwhile doesn't list it); any other row opens its own sheet, on its sets
@@ -34,7 +34,7 @@ extension WorkoutScreen {
         /// The form pushed inside Add exercise: back pops to the list, which then shows the row
         /// go.
         case pop(back: () -> Void)
-        /// The form in a routine row's sheet: the sheet goes down, then the routine's rows go.
+        /// The form in a workout row's sheet: the sheet goes down, then the workout's rows go.
         case rowSheet
     }
 
@@ -78,9 +78,9 @@ extension WorkoutScreen {
         return .now + Self.listChange + Self.addPause
     }
 
-    /// Takes up the session's routine once an exercise's change has reached the store: its rows
+    /// Takes up the session's workout once an exercise's change has reached the store: its rows
     /// read the new settings, or, with a Delete, leave as a removed row does; with Reduce
-    /// Motion, the list crossfades to them gone. Not saved again: it is the stored routine. A
+    /// Motion, the list crossfades to them gone. Not saved again: it is the stored workout. A
     /// Delete can leave it empty: Start and the + go down after `footDelay`, as after the row's
     /// own Remove.
     func showStoredWorkout(footDelay: Duration = .zero) {

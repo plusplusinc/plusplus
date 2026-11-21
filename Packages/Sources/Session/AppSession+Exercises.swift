@@ -4,7 +4,7 @@ import WorkoutStore
 
 extension AppSession {
     /// Adds a created exercise to the list at once, and returns it once it is stored, so a
-    /// routine save that names it always lands after it: await this before adding its row.
+    /// workout save that names it always lands after it: await this before adding its row.
     /// A failed save is logged, and the exercise stays usable this session.
     public func create(_ created: CreatedExercise) async -> Exercise {
         exercises = exercises.adding(created)
@@ -17,7 +17,7 @@ extension AppSession {
     }
 
     /// Saves an exercise's new settings: a created one's own, a built-in's as its customization,
-    /// stored apart from the catalog. Every routine's rows of it read them at once, keeping
+    /// stored apart from the catalog. Every workout's rows of it read them at once, keeping
     /// their sets, reps or time, and weight. A created exercise's automatic rest follows its new
     /// groups; a built-in's stays by its kind of lift.
     public func customize(
@@ -44,7 +44,7 @@ extension AppSession {
         )
     }
 
-    /// Puts the built-in `id` back as it shipped, in every routine that uses it; the rows keep
+    /// Puts the built-in `id` back as it shipped, in every workout that uses it; the rows keep
     /// their numbers.
     public func clearCustomizations(_ id: Exercise.ID, weightUnit: WeightUnit) async {
         await changeExercises(
@@ -54,7 +54,7 @@ extension AppSession {
         )
     }
 
-    /// Deletes a created exercise, and its rows from every routine that uses it, once `ready`
+    /// Deletes a created exercise, and its rows from every workout that uses it, once `ready`
     /// has returned: the beats a screen plays first, while its rows still show. From the call
     /// until the delete is stored or refused, it is deleting (`isDeleting(_:)`), so none of its
     /// rows opens a sheet and it can't be picked: a row tapped in the beats opened on a form
@@ -80,18 +80,18 @@ extension AppSession {
         deleting.contains(id)
     }
 
-    /// Whether the open routine has the row `row`, of an exercise not being deleted: the only
+    /// Whether the open workout has the row `row`, of an exercise not being deleted: the only
     /// rows whose sheet can open.
     func canOpenSheet(of row: WorkoutExercise.ID) -> Bool {
         current.exercises.contains { $0.id == row && !deleting.contains($0.exercise.id) }
     }
 
-    /// Whether the open routine has a row of `id`: the routine a delete's question names first.
+    /// Whether the open workout has a row of `id`: the workout a delete's question names first.
     public func openWorkoutUses(_ id: Exercise.ID) -> Bool {
         current.exercises.contains { $0.exercise.id == id }
     }
 
-    /// The routines with a row of `id`, the latest opened or edited first.
+    /// The workouts with a row of `id`, the latest opened or edited first.
     public func workouts(using id: Exercise.ID) -> [Workout] {
         recent.filter { workout in workout.exercises.contains { $0.exercise.id == id } }
     }

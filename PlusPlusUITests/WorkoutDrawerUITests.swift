@@ -1,15 +1,15 @@
 import XCTest
 
-/// The ++ drawer and the Routines screen over saved routines: the drawer's mark, a row's
-/// Customize…, a built-in's hold menu in Add exercise, and the drill-in from the Routines screen.
-/// Which routines come first is `StoreRecencyTests`'. Names come from the muscle groups
-/// (`-fallbackNames`). A name typed on a pushed routine and left with no Return shows in the list
+/// The ++ drawer and the Workouts screen over saved workouts: the drawer's mark, a row's
+/// Customize…, a built-in's hold menu in Add exercise, and the drill-in from the Workouts screen.
+/// Which workouts come first is `StoreRecencyTests`'. Names come from the muscle groups
+/// (`-fallbackNames`). A name typed on a pushed workout and left with no Return shows in the list
 /// once popped, which only the session's save puts there; that a save reaches the store is
 /// `AppSessionTests`', and that one survives a quit `WorkoutAutosaveUITests`'.
 ///
 /// `nonisolated` because XCTestCase's initializers are; the test drives the UI on the main actor.
 final nonisolated class WorkoutDrawerUITests: XCTestCase {
-    /// On a saved routine opened with exercises in, a tap in the empty space below the last row
+    /// On a saved workout opened with exercises in, a tap in the empty space below the last row
     /// opens the picker at half height, as the first sheet the screen opens. Here, not after a
     /// pick, because the first opening is where a height set from the last one showed full. The
     /// picker's search is a bar button until tapped, so its Close, in the same bar, marks the
@@ -31,15 +31,15 @@ final nonisolated class WorkoutDrawerUITests: XCTestCase {
         }
     }
 
-    /// From one saved routine, the drawer, a row's Customize…, a second routine made and both
-    /// opened from the Routines screen, and both deleted.
+    /// From one saved workout, the drawer, a row's Customize…, a second workout made and both
+    /// opened from the Workouts screen, and both deleted.
     @MainActor
     func testDrawerSwitchesWorkouts() {
         let app = XCUIApplication()
         // Seeded, since the add is `WorkoutAutosaveUITests`'.
         let title = app.launchSeeding(["barbell-bench-press"], arguments: ["-fallbackNames", "YES"])
         openPickerFromBelowRows(in: app)
-        XCTContext.runActivity(named: "The drawer offers Routines") { _ in
+        XCTContext.runActivity(named: "The drawer offers Workouts") { _ in
             XCTAssertEqual(title.value(becoming: "Chest"), "Chest")
             XCTAssertTrue(app.buttons["Add exercise"].exists)
             openDrawer(in: app)
@@ -48,9 +48,9 @@ final nonisolated class WorkoutDrawerUITests: XCTestCase {
                 app.buttons["Add exercise"].disappears(),
                 "VoiceOver reaches Add exercise behind it",
             )
-            // A routine showing isn't Routines.
-            XCTAssertFalse(app.buttons["Workouts"].isSelected, "Workouts is marked on a routine")
-            attach(named: "drawer-routine")
+            // A workout showing isn't Workouts.
+            XCTAssertFalse(app.buttons["Workouts"].isSelected, "Workouts is marked on a workout")
+            attach(named: "drawer-workout")
             app.drawerTitle.tap()
             XCTAssertTrue(app.drawerTitle.disappears(), "Tapping the title left the drawer open")
             XCTAssertEqual(title.value as? String, "Chest")
@@ -62,13 +62,13 @@ final nonisolated class WorkoutDrawerUITests: XCTestCase {
         workoutsDeleteWorkouts(in: app, title: title)
     }
 
-    /// The Routines screen lists every routine, latest first; a row or + pushes a routine with a
+    /// The Workouts screen lists every workout, latest first; a row or + pushes a workout with a
     /// back chevron in place of ++, which the chevron or an edge swipe pops; the chevron keeps a
-    /// name still being typed. Each key reaches the routine as typed, whichever way the screen
+    /// name still being typed. Each key reaches the workout as typed, whichever way the screen
     /// goes, so the chevron, which ends no edit, shows it for the edge swipe too.
     @MainActor
     private func workoutsScreenDrillsIn(in app: XCUIApplication, title: XCUIElement) {
-        XCTContext.runActivity(named: "Routines lists every routine, and + pushes a new one") { _ in
+        XCTContext.runActivity(named: "Workouts lists every workout, and + pushes a new one") { _ in
             app.openDrawer(andTap: "Workouts")
             XCTAssertEqual(reading(app.workoutRowLabels, becoming: ["Chest"], within: 2), ["Chest"])
             openDrawer(in: app)
@@ -85,19 +85,19 @@ final nonisolated class WorkoutDrawerUITests: XCTestCase {
             XCTAssertEqual(title.value(becoming: "New workout"), "New workout")
             app.addExercise("Pull-up, Pull-up bar", searching: "pullup")
             XCTAssertEqual(title.value(becoming: "Back"), "Back")
-            XCTAssertFalse(app.buttons["Menu"].exists, "++ shows on a pushed routine")
-            attach(named: "pushed-routine")
+            XCTAssertFalse(app.buttons["Menu"].exists, "++ shows on a pushed workout")
+            attach(named: "pushed-workout")
             app.edgeSwipe()
             XCTAssertTrue(title.disappears(), "The edge swipe did not pop")
             XCTAssertFalse(app.drawerTitle.exists, "The edge swipe opened the drawer")
-            XCTAssertTrue(app.buttons["Menu"].appears(), "No ++ back on the Routines screen")
+            XCTAssertTrue(app.buttons["Menu"].appears(), "No ++ back on the Workouts screen")
             let listed = ["Back", "Chest"]
             XCTAssertEqual(reading(app.workoutRowLabels, becoming: listed, within: 2), listed)
-            attach(named: "routines-screen")
+            attach(named: "workouts-screen")
         }
-        XCTContext.runActivity(named: "A row pushes its routine, and an edit moves it up") { _ in
+        XCTContext.runActivity(named: "A row pushes its workout, and an edit moves it up") { _ in
             app.workoutRow(named: "Chest").tap()
-            XCTAssertEqual(title.value(becoming: "Chest"), "Chest", "The row pushed no routine")
+            XCTAssertEqual(title.value(becoming: "Chest"), "Chest", "The row pushed no workout")
             XCTAssertEqual(app.exerciseNames, ["Barbell bench press"])
             editTheFirstRow(in: app)
             app.tapBack()
@@ -111,7 +111,7 @@ final nonisolated class WorkoutDrawerUITests: XCTestCase {
         }
         XCTContext.runActivity(named: "The chevron keeps a name still being typed") { _ in
             app.workoutRow(named: "Chest").tap()
-            XCTAssertEqual(title.value(becoming: "Chest"), "Chest", "The row pushed no routine")
+            XCTAssertEqual(title.value(becoming: "Chest"), "Chest", "The row pushed no workout")
             typeName("Chest day", over: "Chest", in: app)
             app.tapBack()
             XCTAssertTrue(title.disappears(), "The chevron did not pop")
@@ -121,7 +121,7 @@ final nonisolated class WorkoutDrawerUITests: XCTestCase {
         }
     }
 
-    /// On the routine showing, opens its first row's sheet, adds a set, drags the weight ruler,
+    /// On the workout showing, opens its first row's sheet, adds a set, drags the weight ruler,
     /// and closes the sheet.
     @MainActor
     private func editTheFirstRow(in app: XCUIApplication) {
@@ -189,7 +189,7 @@ final nonisolated class WorkoutDrawerUITests: XCTestCase {
         return Double(value.prefix { $0.isNumber || $0 == "." }) ?? 0
     }
 
-    /// Types `name` over the pushed routine's `old` one, with no Return, so it is still being
+    /// Types `name` over the pushed workout's `old` one, with no Return, so it is still being
     /// edited.
     @MainActor
     private func typeName(_ name: String, over old: String, in app: XCUIApplication) {

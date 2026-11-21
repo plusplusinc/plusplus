@@ -6,7 +6,7 @@ import Testing
 
 /// A timed set's count through the session: each change stored, so a relaunch, a second store
 /// on the container, opens on it.
-@Suite("Routine session, timed set")
+@Suite("Workout session, timed set")
 struct AppSessionCountTests {
     private let container: ModelContainer
 

@@ -22,7 +22,7 @@ extension WorkoutScreen {
         workout.partnerNames(of: id).map { "In a superset with \($0)" } ?? ""
     }
 
-    /// Drawing a superset by a drag from a row's node, by the routine's rules.
+    /// Drawing a superset by a drag from a row's node, by the workout's rules.
     var regroup: RailRegroup<WorkoutExercise.ID> {
         RailRegroup { held, reach in
             workout.regrouped(holding: held, reaching: reach).map { regrouping in

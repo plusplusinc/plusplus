@@ -5,7 +5,7 @@ import Testing
 
 /// A relaunch is a second store over the same container: it sees only what was saved. Dates are
 /// explicit, so nothing rests on how fast the test runs.
-@Suite("Routine store workouts")
+@Suite("Store logged workouts")
 struct StoreLoggedWorkoutTests {
     private let container: ModelContainer
 
@@ -25,7 +25,9 @@ struct StoreLoggedWorkoutTests {
         LoggedWorkout(workoutID: workout.id, workoutName: workout.name, startedAt: at(seconds))
     }
 
-    @Test("A workout in progress comes back with its routine, its time counting the time away")
+    @Test(
+        "A logged workout in progress comes back with its workout, its time counting the time away",
+    )
     func inProgressRelaunch() async throws {
         let workout = Workout(name: "Upper")
         let loggedWorkout = Self.started(workout, at: 10)
@@ -128,7 +130,7 @@ struct StoreLoggedWorkoutTests {
         #expect(try ModelContext(container).fetchCount(FetchDescriptor<StoredSet>()) == 0)
     }
 
-    @Test("After Finish, launch opens a new routine, until a routine is opened or edited")
+    @Test("After Finish, launch opens a new workout, until a saved one is opened or edited")
     func afterFinish() async throws {
         var workout = Workout(name: "Upper")
         let store = relaunch()
@@ -146,7 +148,7 @@ struct StoreLoggedWorkoutTests {
         #expect(try await relaunch().launch(weightUnit: .pounds).workout == workout)
     }
 
-    @Test("After Discard, launch reopens the routine and the store holds no workout")
+    @Test("After Discard, launch reopens the workout and the store holds no logged workout")
     func afterDiscard() async throws {
         let workout = Workout(name: "Upper")
         let loggedWorkout = Self.started(workout, at: 10)
@@ -161,7 +163,7 @@ struct StoreLoggedWorkoutTests {
         try await store.discardLoggedWorkout(loggedWorkout.id)
     }
 
-    @Test("A workout whose routine is gone opens an empty one under its id and name")
+    @Test("A logged workout whose workout is gone opens an empty one under its id and name")
     func workoutGone() async throws {
         let workout = Workout(name: "Upper")
         let loggedWorkout = Self.started(workout, at: 10)
@@ -183,7 +185,7 @@ struct StoreLoggedWorkoutTests {
         #expect(try await relaunch().launch(weightUnit: .pounds).workout?.name == "Later")
     }
 
-    @Test("Renaming the routine leaves the name the workout stored")
+    @Test("Renaming the workout leaves the name the logged workout stored")
     func renameLeavesLoggedWorkout() async throws {
         var workout = Workout(name: "Upper")
         let store = relaunch()
@@ -197,7 +199,7 @@ struct StoreLoggedWorkoutTests {
     }
 
     @Test(
-        "A routine cleared while its workout runs is kept until a save without the workout",
+        "A workout cleared while in progress is kept until a save without the logged workout",
     )
     func clearedMidLiveWorkout() async throws {
         let workout = try Workout(exercises: [WorkoutExercise(
@@ -219,7 +221,7 @@ struct StoreLoggedWorkoutTests {
     }
 
     @Test(
-        "Ending a workout deletes its routine cleared to nothing in the same write",
+        "Ending a logged workout deletes its workout cleared to nothing in the same write",
         arguments: [false, true],
     )
     func endDeletesCleared(finishes: Bool) async throws {
@@ -240,7 +242,7 @@ struct StoreLoggedWorkoutTests {
         #expect(try await relaunch().workoutsByRecency(weightUnit: .pounds).isEmpty)
     }
 
-    @Test("Ending a workout keeps its routine with exercises")
+    @Test("Ending a logged workout keeps its workout with exercises")
     func endKeepsWorkout() async throws {
         let workout = Workout(name: "Upper")
         let store = relaunch()

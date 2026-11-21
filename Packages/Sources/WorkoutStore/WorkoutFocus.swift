@@ -1,4 +1,4 @@
-/// What a routine mostly works, worked out from its exercises' tags, so its name is honest
+/// What a workout mostly works, worked out from its exercises' tags, so its name is honest
 /// about it.
 enum WorkoutFocus: Equatable {
     /// Mostly stretches, over one part of the body or several.
@@ -77,10 +77,10 @@ enum WorkoutFocus: Equatable {
         } ?? .wholeBody
     }
 
-    /// The name, kept honest: one that mentions a group or muscle the routine doesn't work gives
+    /// The name, kept honest: one that mentions a group or muscle the workout doesn't work gives
     /// way to the muscle-group name, or its day for one group. A stretch counts only in a
-    /// mobility routine: a chest stretch after back and legs work doesn't make it a chest
-    /// routine.
+    /// mobility workout: a chest stretch after back and legs work doesn't make it a chest
+    /// workout.
     func checked(_ name: String, against exercises: [Exercise]) -> String {
         let words = Set(name.lowercased().split(whereSeparator: { !$0.isLetter }).map(String.init))
         let worked = if case .mobility = self {

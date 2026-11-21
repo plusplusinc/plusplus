@@ -1,9 +1,9 @@
 import XCTest
 
-/// Launching into the routine screen, and relaunching into what it saved.
+/// Launching into the workout screen, and relaunching into what it saved.
 @MainActor
 extension XCUIApplication {
-    /// The routine's title, a text view, since a name wraps.
+    /// The workout's title, a text view, since a name wraps.
     var workoutTitle: XCUIElement {
         textViews["Workout name"]
     }
@@ -13,7 +13,7 @@ extension XCUIApplication {
         buttons["PlusPlus"]
     }
 
-    /// Launches into a new routine, not the one the last test saved, at the text size
+    /// Launches into a new workout, not the one the last test saved, at the text size
     /// `category`, since the simulator keeps the last size it was set to, and with `arguments`
     /// besides. Returns the title once it is up. UIKit's animations are off
     /// (`LaunchOptions.turnsOffUIKitAnimations`).
@@ -28,7 +28,7 @@ extension XCUIApplication {
         return workoutTitle
     }
 
-    /// Launches into a routine of the built-in exercises `ids`, in order, named `name` or left
+    /// Launches into a workout of the built-in exercises `ids`, in order, named `name` or left
     /// for the namer, as `launchNewWorkout` does at `textSize` with `arguments`, and waits for
     /// every row.
     /// Seeding (`-seedExercises`) skips the picker, for a test that doesn't check adding.
@@ -61,23 +61,23 @@ extension XCUIApplication {
         XCTAssertTrue(workoutTitle.appears(within: 10), "No title after relaunch")
     }
 
-    /// Pushes a new, empty routine with the Routines screen's +, reached through the drawer, as a
-    /// launch with `-resetStore` starts on: a test that also needs a seeded routine launches into
+    /// Pushes a new, empty workout with the Workouts screen's +, reached through the drawer, as a
+    /// launch with `-resetStore` starts on: a test that also needs a seeded workout launches into
     /// that one and comes here, a few taps where a second launch costs 5 to 7 s on Xcode Cloud.
-    /// Its back chevron leads to the Routines screen.
+    /// Its back chevron leads to the Workouts screen.
     func openNewWorkout() {
         openDrawer(andTap: "Workouts")
         pushNewWorkout()
     }
 
-    /// Pushes a new, empty routine with the + of the Routines screen showing.
+    /// Pushes a new, empty workout with the + of the Workouts screen showing.
     func pushNewWorkout() {
         let new = buttons["New workout"]
-        XCTAssertTrue(new.appears(), "Routines showed no +")
+        XCTAssertTrue(new.appears(), "Workouts showed no +")
         new.tap()
         XCTAssertEqual(workoutTitle.value(becoming: "New workout"), "New workout")
-        XCTAssertEqual(exerciseRows.count, 0, "+ opened a routine with rows")
-        // The routine slides in as it is pushed.
+        XCTAssertEqual(exerciseRows.count, 0, "+ opened a workout with rows")
+        // The workout slides in as it is pushed.
         XCTAssertTrue(workoutTitle.settles(), "The title kept moving after the push")
     }
 

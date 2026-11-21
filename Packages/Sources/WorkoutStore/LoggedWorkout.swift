@@ -1,14 +1,14 @@
 import Foundation
 
-/// A logged workout: a routine being done, from Start to Finish. Running, paused, and finished
-/// follow from its dates, so there is no state to fall out of step with them. Every change
+/// A logged workout: one time through a workout, from Start to Finish. Running, paused, and
+/// finished follow from its dates, so there is no state to fall out of step with them. Every change
 /// takes the moment it happens, `now`, so the clock is the caller's.
 public struct LoggedWorkout: Identifiable, Equatable, Sendable {
     public let id: UUID
-    /// The routine it runs. An id, not the routine, so deleting the routine leaves the workout.
+    /// The workout it runs. An id, not the workout, so deleting the workout leaves this one.
     public var workoutID: UUID
-    /// The routine's name, written at Start and again at Finish, so a rename or delete after it
-    /// ends leaves the workout as it was.
+    /// The workout's name, written at Start and again at Finish, so a rename or delete after it
+    /// ends leaves the logged workout as it was.
     public var workoutName: String
     public var startedAt: Date
     /// When the pause in progress began; nil while running.

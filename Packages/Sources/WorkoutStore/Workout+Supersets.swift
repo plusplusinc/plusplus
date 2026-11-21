@@ -4,7 +4,7 @@ import Foundation
 // superset is at least two rows long and in one piece, and its rows share one round count, their
 // `plan.sets`, since rounds alternate. Every rule here keeps that true.
 
-/// What a drag from one row's node to another's makes of the routine's supersets: one superset of
+/// What a drag from one row's node to another's makes of the workout's supersets: one superset of
 /// the rows it spans.
 public struct Regrouping: Equatable, Sendable {
     public var workout: Workout

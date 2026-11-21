@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The one task that plays a workout's timed beats on the routine screen, Start's, a logged
+/// The one task that plays a workout's timed beats on the workout screen, Start's, a logged
 /// set's, and End's motion, held so that what stops a sequence can cancel it. Nothing stored
 /// waits on it: End's change to the store is made before its motion plays. Not observed, as
 /// `RowFrames` isn't: nothing is drawn from it.

@@ -4,7 +4,7 @@ import Testing
 @testable import WorkoutStore
 
 /// A relaunch is a second store over the same container: it sees only what was saved.
-@Suite("Routine store supersets")
+@Suite("Workout store supersets")
 struct StoreSupersetTests {
     private let container: ModelContainer
     private let rows: [WorkoutExercise]

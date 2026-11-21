@@ -5,7 +5,7 @@ import WorkoutStore
 /// A workout's sets as the screen draws them, and `play(_:leadingTo:)`, which shows what a
 /// stored log leads to: the next set, the move to the next exercise, or the close after the last.
 extension WorkoutScreen {
-    /// The workout on the routine as stored, every log in it: what the key's taps read.
+    /// The workout in progress as stored, every log in it: what the key's taps read.
     var live: LiveWorkout? {
         session.loggedWorkout.map { LiveWorkout(workout: workout, loggedWorkout: $0) }
     }

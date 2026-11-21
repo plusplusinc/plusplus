@@ -2,9 +2,9 @@ import OSLog
 import WorkoutStore
 
 /// The two queues the session writes through, each landing its writes in the store in order: the
-/// open routine's saves, newest only, and a workout's writes, every one.
+/// open workout's saves, newest only, and a logged workout's writes, every one.
 extension AppSession {
-    /// A routine to save, and whether to keep it once it is empty, as while its workout runs.
+    /// A workout to save, and whether to keep it once it is empty, as while it is in progress.
     struct WorkoutSave {
         let workout: Workout
         let keepsEmpty: Bool

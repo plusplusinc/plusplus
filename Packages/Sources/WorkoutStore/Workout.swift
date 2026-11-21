@@ -1,6 +1,6 @@
 import Foundation
 
-/// A routine as the app works with it: a value, saved through `Store`.
+/// A workout as the app works with it: a value, saved through `Store`.
 public struct Workout: Identifiable, Equatable, Sendable {
     public let id: UUID
     /// The name the user chose; empty when they haven't.

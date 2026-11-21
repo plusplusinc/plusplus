@@ -3,9 +3,9 @@ import SwiftData
 import Testing
 @testable import WorkoutStore
 
-/// Each row's plan saved with the routine, and read back field by field, with the exercise's
+/// Each row's plan saved with the workout, and read back field by field, with the exercise's
 /// default for anything never stored or not understood.
-@Suite("Routine store plans")
+@Suite("Workout store plans")
 struct StorePlanTests {
     private let container: ModelContainer
 
@@ -17,7 +17,7 @@ struct StorePlanTests {
         Store(modelContainer: container)
     }
 
-    /// Saves a routine of one `name` row, then sets its stored fields with `edit`.
+    /// Saves a workout of one `name` row, then sets its stored fields with `edit`.
     private func storedRow(_ name: String, edit: (StoredRoutineExercise) -> Void) async throws {
         try await relaunch().save(Workout(exercises: [WorkoutExercise.builtIn(name)]))
         let context = ModelContext(container)
@@ -43,8 +43,8 @@ struct StorePlanTests {
     }
 
     /// A weight off its load's 5 lb steps, as the ruler sets one, through every place a weight
-    /// is kept: the plan, the stored routine, and a set logged at it.
-    @Test("A 27.5 lb weight round-trips through the plan, the stored routine, and a logged set")
+    /// is kept: the plan, the stored workout, and a set logged at it.
+    @Test("A 27.5 lb weight round-trips through the plan, the stored workout, and a logged set")
     func offStepWeightRoundTrip() async throws {
         var curl = try WorkoutExercise.builtIn("Biceps curl")
         curl.setWeight(27.5)

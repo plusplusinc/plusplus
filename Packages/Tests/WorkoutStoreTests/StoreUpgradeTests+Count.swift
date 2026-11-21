@@ -7,7 +7,7 @@ extension StoreUpgradeTests {
     @Test("A V11 store opens its workout with no count and no time added, then keeps both")
     func upgradeBeforeCount() async throws {
         let folder = FileManager.default.temporaryDirectory
-            .appending(path: "RoutineStoreUpgrade-\(UUID().uuidString)")
+            .appending(path: "StoreUpgrade-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         let url = folder.appending(path: "PlusPlus.store")

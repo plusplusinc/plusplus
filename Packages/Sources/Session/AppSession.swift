@@ -3,27 +3,27 @@ import Observation
 import OSLog
 import WorkoutStore
 
-/// The routine open on screen, which screen shows, the switch to another routine, and the
-/// workout running it.
+/// The workout open on screen, which screen shows, the switch to another workout, and the
+/// logged workout in progress on it.
 ///
 /// It owns saving, so a switch can wait for the last edit to land before opening the next
-/// routine: an edit just before a switch is never lost, and the routine opened is newer than
+/// workout: an edit just before a switch is never lost, and the workout opened is newer than
 /// the one left.
 @Observable
 public final class AppSession {
-    /// The routine as it was opened. Changes only on a switch, which gives a fresh screen.
+    /// The workout as it was opened. Changes only on a switch, which gives a fresh screen.
     public private(set) var opened: Workout
-    /// The open routine as it is now, edits included.
+    /// The open workout as it is now, edits included.
     public private(set) var current: Workout
     /// Opened through `openDrawer()`, which a workout refuses, and shut through `closeDrawer()`.
     public private(set) var isDrawerOpen = false
-    /// The routine screen's open row sheet, through `openRowSheet(_:)` and `closeRowSheet()`.
+    /// The workout screen's open row sheet, through `openRowSheet(_:)` and `closeRowSheet()`.
     public private(set) var rowSheet: RowSheet?
     /// A finger holds the drawer, through `holdDrawer(_:)`: a swipe under way.
     public private(set) var isDrawerHeld = false
-    /// Where the app is: the routine, the Routines screen, or a routine pushed on it.
+    /// Where the app is: the workout, the Workouts screen, or a workout pushed on it.
     public internal(set) var screen = Screen.workout
-    /// The logged workout running the open routine, from Start until Finish or Discard.
+    /// The logged workout running the open workout, from Start until Finish or Discard.
     public private(set) var loggedWorkout: LoggedWorkout?
     /// Every exercise there is to pick, the ones created this session included.
     public internal(set) var exercises: ExerciseList
@@ -31,18 +31,18 @@ public final class AppSession {
     /// (`deleteExercise(_:weightUnit:once:)`). Read only by taps, never by a view's body.
     @ObservationIgnored var deleting: Set<Exercise.ID> = []
 
-    /// The saved routines, latest first, as of the last read, with each routine left since.
+    /// The saved workouts, latest first, as of the last read, with each workout left since.
     private var saved: [Workout] = []
     private var isSwitching = false
-    /// How many times the routine showing or the list has changed, so a read that one overtook
+    /// How many times the workout showing or the list has changed, so a read that one overtook
     /// is dropped.
     @ObservationIgnored private var switches = 0
 
     /// Nil when the store didn't open: switching works in memory, and nothing saves.
     @ObservationIgnored let store: Store?
-    /// Names a workout after its routine, at Start and again at Finish.
+    /// Names a logged workout after its workout, at Start and again at Finish.
     @ObservationIgnored private let namer: WorkoutNamer
-    /// Where every change to the routine goes, to be saved one at a time in the order they
+    /// Where every change to the workout goes, to be saved one at a time in the order they
     /// happened, so an older version can never land last. Only the newest unsaved one waits.
     @ObservationIgnored private var saves: AsyncStream<WorkoutSave>.Continuation
     @ObservationIgnored private var saving: Task<Void, Never>
@@ -69,12 +69,12 @@ public final class AppSession {
         loggedWorkoutWrites = Self.startWritingLoggedWorkouts(to: store)
     }
 
-    /// Every saved routine, latest first, with the open one first as it is now.
+    /// Every saved workout, latest first, with the open one first as it is now.
     public var recent: [Workout] {
         saved.withOpen(current)
     }
 
-    /// Saves a change to the open routine.
+    /// Saves a change to the open workout.
     public func save(_ workout: Workout) {
         current = workout
         saves.yield(WorkoutSave(workout: workout, keepsEmpty: loggedWorkout != nil))
@@ -98,7 +98,7 @@ public final class AppSession {
     /// way asks for the drawer as ++ does, and a sheet rising mid-swipe left the drawer drawn
     /// open under it.
     ///
-    /// Only a row the open routine has, of an exercise not being deleted (`isDeleting(_:)`),
+    /// Only a row the open workout has, of an exercise not being deleted (`isDeleting(_:)`),
     /// opens: a row tapped as it left, its removal already stored, opened an empty sheet that
     /// kept the drawer shut until swiped down, and one whose delete is confirmed would show a
     /// form for an exercise on its way out. The same ask again keeps the opening already asked
@@ -126,8 +126,8 @@ public final class AppSession {
         isDrawerOpen = false
     }
 
-    /// Starts a workout on `routine`, shown at the root, so no back button or swipe leaves it,
-    /// named as the routine shows now, when `canStart(on:)` allows it.
+    /// Starts `workout`, shown at the root, so no back button or swipe leaves it,
+    /// named as the workout shows now, when `canStart(on:)` allows it.
     public func start(on workout: Workout.ID, at now: Date = .now) {
         guard canStart(on: workout) else { return }
         // The workout first: a screen shown at the root reads it as it is made, to open on the
@@ -135,21 +135,21 @@ public final class AppSession {
         // A timed first set's "Starts in" begins as the screen lands on it (`beginCount`).
         change(.save(LoggedWorkout(workoutID: workout, workoutName: shownName, startedAt: now)))
         if screen != .workout {
-            // A fresh screen at the root, opening on the routine as it is now.
+            // A fresh screen at the root, opening on the workout as it is now.
             opened = current
             screen = .workout
         }
         closeDrawer()
     }
 
-    /// Whether a Start pressed on `routine` may still start: only on the open routine, once it
-    /// has an exercise, with no workout running and no switch under way. A routine switched away
+    /// Whether a Start pressed on `workout` may still start: only on the open workout, once it
+    /// has an exercise, with no workout running and no switch under way. A workout switched away
     /// from, or being switched away from, starts nothing: the switch stops Start.
     public func canStart(on workout: Workout.ID) -> Bool {
         loggedWorkout == nil && !isSwitching && workout == current.id && !current.exercises.isEmpty
     }
 
-    /// The name the open routine shows, which a workout on it keeps: empty for New workout.
+    /// The name the open workout shows, which its logged workout keeps: empty for New workout.
     private var shownName: String {
         namer.shownName(of: current) ?? ""
     }
@@ -184,8 +184,8 @@ public final class AppSession {
         changeLive { $0.skippingRest(override: override, at: now) }
     }
 
-    /// Finishes the workout, keeping it with the name the routine shows now, and a timed set
-    /// counting logged at the time done (`LiveWorkout.finishing(at:)`).
+    /// Finishes the logged workout, keeping it with the name the workout shows now, and a timed
+    /// set counting logged at the time done (`LiveWorkout.finishing(at:)`).
     public func finish(at now: Date = .now) {
         guard let loggedWorkout else { return }
         var finished = LiveWorkout(workout: current, loggedWorkout: loggedWorkout)
@@ -213,17 +213,17 @@ public final class AppSession {
         loggedWorkoutWrites.yield(.write(write))
     }
 
-    /// A routine cleared to nothing while its workout ran was kept for it; once the workout
-    /// ends, it is deleted, as any cleared routine is.
+    /// A workout cleared to nothing while in progress was kept; once it ends, it is deleted, as
+    /// any cleared workout is.
     private func deleteIfCleared() {
         if current.isEmpty {
             saves.yield(WorkoutSave(workout: current, keepsEmpty: false))
         }
     }
 
-    /// Reads the saved routines again, for the Routines screen and the Customize form's Used in.
+    /// Reads the saved workouts again, for the Workouts screen and the Customize form's Used in.
     /// A read that fails leaves the last one, to be tried again at the next refresh; one that
-    /// started before a switch is dropped, since it may be missing the routine left.
+    /// started before a switch is dropped, since it may be missing the workout left.
     public func refreshRecent(weightUnit: WeightUnit) async {
         guard let store else { return }
         let switchesBefore = switches
@@ -236,7 +236,7 @@ public final class AppSession {
         }
     }
 
-    /// Pushes a saved routine onto the Routines screen. The open one shows as it is now, edits
+    /// Pushes a saved workout onto the Workouts screen. The open one shows as it is now, edits
     /// included.
     public func open(_ id: Workout.ID, weightUnit: WeightUnit) async {
         guard !isSwitching else { return }
@@ -254,8 +254,8 @@ public final class AppSession {
         }
     }
 
-    /// Pushes a new, empty routine onto the Routines screen; an empty one open already is shown
-    /// as it is. Nothing is saved for the new routine until it changes.
+    /// Pushes a new, empty workout onto the Workouts screen; an empty one open already is shown
+    /// as it is. Nothing is saved for the new workout until it changes.
     public func startNew() async {
         guard !isSwitching else { return }
         guard !current.isEmpty else {
@@ -264,8 +264,8 @@ public final class AppSession {
         await switchTo { Workout() }
     }
 
-    /// Lets the last edit land, then pushes the routine `next` gives, if any. An edit made while
-    /// `next` runs lands before the next routine shows, too. A switch already under way takes
+    /// Lets the last edit land, then pushes the workout `next` gives, if any. An edit made while
+    /// `next` runs lands before the next workout shows, too. A switch already under way takes
     /// the tap. Internal so a test can hold `next`.
     func switchTo(_ next: () async -> Workout?) async {
         guard !isSwitching else { return }
@@ -280,7 +280,7 @@ public final class AppSession {
     }
 
     private func show(_ workout: Workout, on shown: Screen = .pushedWorkout) {
-        // The routine left stays in the list at its place, before its last save reads back.
+        // The workout left stays in the list at its place, before its last save reads back.
         saved = recent
         switches += 1
         opened = workout
@@ -306,9 +306,9 @@ public final class AppSession {
         (saves, saving) = Self.startSaving(to: store)
     }
 
-    /// Returns once every change sent so far has landed in the store: the routine's edits, as a
-    /// switch lets them land, then the workout's writes, in their order. For tests, which wait on
-    /// it rather than on time.
+    /// Returns once every change sent so far has landed in the store: the workout's edits, as a
+    /// switch lets them land, then the logged workout's writes, in their order. For tests, which
+    /// wait on it rather than on time.
     func writesLanded() async {
         await finishSaving()
         await withCheckedContinuation { done in loggedWorkoutWrites.yield(.landed(done)) }
@@ -316,8 +316,8 @@ public final class AppSession {
 }
 
 extension AppSession {
-    /// Lets every edit to the open routine land, then stores `change` to the exercises,
-    /// and reads the open routine and the saved ones back, so each shows what it did to their
+    /// Lets every edit to the open workout land, then stores `change` to the exercises,
+    /// and reads the open workout and the saved ones back, so each shows what it did to their
     /// rows. The list takes `listing` only once the change is stored, so a refused or failed
     /// change shows nowhere, and a form on the exercise stays up while it saves. Refused while a
     /// switch is under way, and holds off Start and a switch while it runs. With no store,
@@ -345,17 +345,17 @@ extension AppSession {
 }
 
 extension AppSession {
-    /// Whether the open routine has anything to delete: one with nothing saved has none, and
-    /// the one a workout runs on is not deleted.
+    /// Whether the open workout has anything to delete: one with nothing saved has none, and
+    /// one in progress is not deleted.
     public var canDeleteOpen: Bool {
         !current.isEmpty && loggedWorkout == nil
     }
 
-    /// Deletes a saved routine, its finished workouts staying stored. For the open one, its last
-    /// edit lands and the session takes a new, empty routine and shows Routines, whether the
+    /// Deletes a saved workout, its logged workouts staying stored. For the open one, its last
+    /// edit lands and the session takes a new, empty workout and shows Workouts, whether the
     /// deleted one was pushed or at the root, before the store deletes it, so no save can bring
-    /// it back. Refused for the routine a workout runs on, and while a switch is under way. A
-    /// delete that fails leaves the routine listed.
+    /// it back. Refused for a workout in progress, and while a switch is under way. A
+    /// delete that fails leaves the workout listed.
     public func delete(_ id: Workout.ID) async {
         guard !isSwitching, loggedWorkout?.workoutID != id else { return }
         isSwitching = true
@@ -370,7 +370,7 @@ extension AppSession {
             Logger.session.error("The workout didn't delete: \(error)")
             return
         }
-        // A read of the list the delete overtook still holds the routine: dropped.
+        // A read of the list the delete overtook still holds the workout: dropped.
         switches += 1
         saved.removeAll { $0.id == id }
     }

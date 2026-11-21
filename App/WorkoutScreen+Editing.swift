@@ -73,7 +73,7 @@ extension WorkoutScreen {
     }
 
     /// A row's sheet, its More menu's Customize… pushing the exercise's form inside it. Each
-    /// change shows in the routine behind it as it is stored; a Delete there shuts the sheet,
+    /// change shows in the workout behind it as it is stored; a Delete there shuts the sheet,
     /// still on the form, and then takes the exercise's rows (`deleteExercise(_:closing:)`).
     @ViewBuilder
     func exerciseSheet(_ opened: RowSheet) -> some View {
@@ -101,7 +101,7 @@ extension WorkoutScreen {
     }
 
     /// Add exercise's sheet. A created exercise is stored before its row is added, so the
-    /// routine's save that names it lands after it; then the sheet closes and the row goes in as
+    /// workout's save that names it lands after it; then the sheet closes and the row goes in as
     /// a pick's does, even if the sheet was swiped down meanwhile, and once it has landed its own
     /// sheet opens on Customize (`showCreated()`).
     var picker: some View {
@@ -191,7 +191,7 @@ extension WorkoutScreen {
     /// Create during a workout still opens it, as a tap on the row there does. The drawer and
     /// the sheet keep each other out as a tap's sheet does (`AppSession.openRowSheet(_:)`).
     /// The wait is the screen's own task (`createdWait`), so it ends with the screen, and the
-    /// session drops it if the app has left this screen or routine by then.
+    /// session drops it if the app has left this screen or workout by then.
     func showCreated() async {
         guard let wait = createdWait else { return }
         let id = wait.row
@@ -316,7 +316,7 @@ extension WorkoutScreen {
     }
 }
 
-/// A created row that has landed, its sheet waiting out `createdHold`, and whether the routine
+/// A created row that has landed, its sheet waiting out `createdHold`, and whether the workout
 /// was idle at the Create, so a Start pressed since keeps the sheet down.
 struct CreatedWait: Equatable {
     let row: WorkoutExercise.ID

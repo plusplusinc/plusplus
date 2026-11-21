@@ -2,8 +2,7 @@ import Foundation
 import Testing
 @testable import WorkoutStore
 
-/// A workout in progress on its routine: where it is, which rows show what, and what a log leads
-/// to.
+/// A workout in progress: where it is, which rows show what, and what a log leads to.
 @Suite("Live workout")
 struct LiveWorkoutTests {
     private let start = Date(timeIntervalSinceReferenceDate: 1000)
@@ -54,7 +53,7 @@ struct LiveWorkoutTests {
         #expect(live.currentExercise?.id == pull.id)
     }
 
-    @Test("A workout on a routine with no exercises is not done; one with every set logged is")
+    @Test("A workout in progress with no exercises is not done; one with every set logged is")
     func done() throws {
         let empty = live(Workout())
         #expect(empty.currentSet == nil)

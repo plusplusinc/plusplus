@@ -3,9 +3,9 @@ import SwiftData
 import Testing
 @testable import WorkoutStore
 
-/// Deleting a routine by id: it is gone after a relaunch, its rows with it, and its workouts
+/// Deleting a workout by id: it is gone after a relaunch, its rows with it, and its logged workouts
 /// stay. A relaunch is a second store over the same container.
-@Suite("Routine store delete")
+@Suite("Workout store delete")
 struct StoreDeleteTests {
     private let container: ModelContainer
 
@@ -21,7 +21,7 @@ struct StoreDeleteTests {
         Date(timeIntervalSinceReferenceDate: seconds)
     }
 
-    @Test("A deleted routine is gone after a relaunch, its rows with it, the others kept")
+    @Test("A deleted workout is gone after a relaunch, its rows with it, the others kept")
     func deletedIsGone() async throws {
         let upper = try Workout(name: "Upper", exercises: [.builtIn("Barbell bench press")])
         let lower = Workout(name: "Lower")
@@ -33,7 +33,7 @@ struct StoreDeleteTests {
         #expect(rows.isEmpty)
     }
 
-    @Test("A finished workout on a deleted routine is still stored")
+    @Test("A finished logged workout of a deleted workout is still stored")
     func loggedWorkoutsStay() async throws {
         let upper = Workout(name: "Upper")
         try await relaunch().save(upper, at: Self.at(1))
@@ -49,7 +49,7 @@ struct StoreDeleteTests {
         #expect(stored.map(\.loggedWorkout) == [loggedWorkout])
     }
 
-    @Test("Launch after the last-opened routine is deleted opens the next most recent")
+    @Test("Launch after the last-opened workout is deleted opens the next most recent")
     func launchAfterDelete() async throws {
         let lower = Workout(name: "Lower")
         let upper = Workout(name: "Upper")
@@ -59,7 +59,7 @@ struct StoreDeleteTests {
         #expect(try await relaunch().launch(weightUnit: .pounds).workout == lower)
     }
 
-    @Test("Deleting a routine that isn't stored changes nothing")
+    @Test("Deleting a workout that isn't stored changes nothing")
     func deleteMissing() async throws {
         let lower = Workout(name: "Lower")
         try await relaunch().save(lower, at: Self.at(1))

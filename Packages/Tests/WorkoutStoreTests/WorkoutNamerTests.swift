@@ -2,13 +2,13 @@ import Foundation
 import Testing
 @testable import WorkoutStore
 
-@Suite("Routine namer")
+@Suite("Workout namer")
 struct WorkoutNamerTests {
     private static func exercises(_ names: String...) throws -> [Exercise] {
         try Exercise.builtIn(named: names)
     }
 
-    /// A routine whose style seed is `seed`: a multiple of three has character, and the seed
+    /// A workout whose style seed is `seed`: a multiple of three has character, and the seed
     /// over three picks the variant.
     private static func workout(seed: UInt8) -> UUID {
         UUID(uuid: (0, 0, 0, 0, 0, 0, 0, seed, 0, 0, 0, 0, 0, 0, 0, 0))
@@ -42,7 +42,7 @@ struct WorkoutNamerTests {
         ) == "Full body")
     }
 
-    @Test("A routine is named for what it works, plain or with character by its id")
+    @Test("A workout is named for what it works, plain or with character by its id")
     func namedForFocus() throws {
         let legs = try Self.exercises("Goblet squat", "Reverse lunge", "Romanian deadlift")
         #expect(WorkoutNamer.standard.name(for: legs, of: Self.workout) == "Leg day")
@@ -110,7 +110,7 @@ struct WorkoutNamerTests {
         #expect(name(loadedPair) == "Heavy day")
     }
 
-    @Test("Every routine of up to two built-ins, in any style, gets a short name as written")
+    @Test("Every workout of up to two built-ins, in any style, gets a short name as written")
     func everyPair() {
         // Seeds 0 to 17 cover both styles at every variant of a list up to six long.
         let styles = (0 ..< 18).map { Self.workout(seed: UInt8($0)) }
@@ -140,7 +140,7 @@ struct WorkoutNamerTests {
             == WorkoutNamer.standard.name(for: once, of: Self.workout))
     }
 
-    @Test("A routine keeps its style, and about a third of routines have character")
+    @Test("A workout keeps its style, and about a third of workouts have character")
     func styleBySeed() {
         let workout = UUID()
         let first = NameStyle(of: workout)
@@ -152,7 +152,7 @@ struct WorkoutNamerTests {
         #expect(NameStyle(of: Self.characterWorkout).hasCharacter)
     }
 
-    @Test("A routine shows its chosen name, else its generated one")
+    @Test("A workout shows its chosen name, else its generated one")
     func shownName() throws {
         let namer = WorkoutNamer.muscleGroupsOnly
         let rows = try Exercise.builtIn(named: ["Goblet squat"])

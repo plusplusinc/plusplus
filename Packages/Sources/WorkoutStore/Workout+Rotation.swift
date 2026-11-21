@@ -6,7 +6,7 @@ public enum Side: String, Sendable, CaseIterable {
     case right
 }
 
-/// One set of a routine as a workout will do it: a row's set in a round, from 1, and for an
+/// One set of a workout as doing it will reach it: a row's set in a round, from 1, and for an
 /// exercise done one side at a time, the side.
 public struct PlannedSet: Hashable, Sendable {
     public let row: WorkoutExercise.ID
@@ -22,7 +22,7 @@ public struct PlannedSet: Hashable, Sendable {
 }
 
 extension Workout {
-    /// Every set of the routine in the order a workout does them: a plain row's sets one after
+    /// Every set of the workout in the order they are done: a plain row's sets one after
     /// another, and a superset's a round at a time, one set of each member in order (A1 B1 A2
     /// B2). A per-side exercise's set goes left then right, each side its own set, the two
     /// together in its turn of a round (A1L A1R B1). A member whose sets run out, which only

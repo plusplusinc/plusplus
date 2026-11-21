@@ -2,7 +2,7 @@ import Foundation
 import SwiftData
 
 extension Store {
-    /// The routine `id` as stored, its rows read through today's exercises, without marking it
+    /// The workout `id` as stored, its rows read through today's exercises, without marking it
     /// opened; nil if there is none.
     public func workout(_ id: Workout.ID, weightUnit: WeightUnit) throws -> Workout? {
         var descriptor = FetchDescriptor<StoredRoutine>(predicate: #Predicate { $0.id == id })
@@ -80,8 +80,8 @@ extension Store {
         }
     }
 
-    /// Deletes the created exercise `id` and every routine row that uses it, in one save. A
-    /// routine left with nothing, no name and no rows, goes too, as a cleared one does; one
+    /// Deletes the created exercise `id` and every workout row that uses it, in one save. A
+    /// workout left with nothing, no name and no rows, goes too, as a cleared one does; one
     /// left with a superset of one reads it as a plain row. Logged sets keep the exercise's id
     /// and name, so they still read.
     public func deleteExercise(_ id: String) throws {

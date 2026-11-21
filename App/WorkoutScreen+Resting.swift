@@ -2,7 +2,7 @@ import DesignSystem
 import SwiftUI
 import WorkoutStore
 
-/// The rest between two exercises, after the last set of one, when the routine stores a rest
+/// The rest between two exercises, after the last set of one, when the workout stores a rest
 /// after it. While the exercise is current, its caption line's end says the rest that will follow
 /// the set, "then rest 1:00" (`afterText(for:)`). The rest is a stop on the way: logging the last
 /// set plays a move to the next exercise with the rest as its destination (`RailStop.rest(in:)`),

@@ -27,7 +27,7 @@ struct RotationTests {
             == ["A1", "B1", "A2", "B2", "A3", "B3"])
     }
 
-    @Test("A plain row's sets go in a row, and groups go in the routine's order")
+    @Test("A plain row's sets go in a row, and groups go in the workout's order")
     func mixed() throws {
         let superset = UUID()
         let plain = try WorkoutExercise.builtIn("Plank") { $0.sets = 3 }

@@ -1,9 +1,9 @@
 import Foundation
 
-/// A workout in progress on its routine: where it is (the set to do next, its exercise, whether
-/// it is done, which rows are finished, which show their bars) and what logging a set leads to.
-/// The routine is the one on screen, edits included, so a row added, moved, or deleted
-/// mid-workout counts at once.
+/// A workout being done: the workout as planned and what is logged of it so far. Where it is
+/// (the set to do next, its exercise, whether it is done, which rows are finished, which show
+/// their bars) and what logging a set leads to. The workout is the one on screen, edits
+/// included, so a row added, moved, or deleted mid-workout counts at once.
 public struct LiveWorkout: Equatable, Sendable {
     public var workout: Workout
     public var loggedWorkout: LoggedWorkout
@@ -13,7 +13,7 @@ public struct LiveWorkout: Equatable, Sendable {
         self.loggedWorkout = loggedWorkout
     }
 
-    /// The set it does next: the first in the routine's order not yet logged. None once every
+    /// The set it does next: the first in the workout's order not yet logged. None once every
     /// one is.
     public var currentSet: PlannedSet? {
         workout.nextSet(after: loggedWorkout.sets)
@@ -24,7 +24,7 @@ public struct LiveWorkout: Equatable, Sendable {
         currentSet.flatMap { set in workout.exercises.first { $0.id == set.row } }
     }
 
-    /// Whether every planned set is logged, so what is left is to finish it. Never on a routine
+    /// Whether every planned set is logged, so what is left is to finish it. Never on a workout
     /// with no exercises, which has nothing to finish.
     public var isDone: Bool {
         !workout.exercises.isEmpty && currentSet == nil

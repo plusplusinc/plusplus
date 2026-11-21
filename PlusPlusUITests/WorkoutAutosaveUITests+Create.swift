@@ -1,7 +1,7 @@
 import XCTest
 
 extension WorkoutAutosaveUITests {
-    /// The created exercise's row, as the routine reads it.
+    /// The created exercise's row, as the workout reads it.
     static let ringRow = "Ring row with rotation, 3 sets of 10 reps"
 
     /// A search with no exact name offers Create as the list's last row, and one with no match
@@ -9,7 +9,7 @@ extension WorkoutAutosaveUITests {
     /// Add exercise, and adds its row; then the row's own sheet opens by itself on the
     /// exercise's Customize form, with no Save and no Done; the two checklists mark what is
     /// checked for VoiceOver and the form reads it back; back goes to the row's values, and
-    /// Close leaves the routine with the row in. The relaunch after it lists the exercise with
+    /// Close leaves the workout with the row in. The relaunch after it lists the exercise with
     /// the equipment checked here, so each change was stored as made. The rule for Create, the
     /// derived plan, and the store's round trip are the package's (`CreatedExerciseTests`,
     /// `StoreExerciseTests`, `AppSessionTests`); this holds the wire through the
@@ -17,7 +17,7 @@ extension WorkoutAutosaveUITests {
     @MainActor
     func createAnExercise(in app: XCUIApplication) {
         XCTContext
-            .runActivity(named: "An exercise created from the search joins the routine") { _ in
+            .runActivity(named: "An exercise created from the search joins the workout") { _ in
                 let search = app.openPicker()
                 app.search(for: "Ring")
                 let create = app.buttons["picker.create"]
@@ -66,18 +66,18 @@ extension WorkoutAutosaveUITests {
             }
     }
 
-    /// On an empty routine, an exercise created in Add exercise lands as the first row, and
-    /// its sheet opens on Customize; deleted there, with a question naming this routine, it
-    /// shuts the sheet, and only then takes its row, and the routine shows empty again: No
+    /// On an empty workout, an exercise created in Add exercise lands as the first row, and
+    /// its sheet opens on Customize; deleted there, with a question naming this workout, it
+    /// shuts the sheet, and only then takes its row, and the workout shows empty again: No
     /// exercises, no Start, and the + back down where it sat before. Only the running app shows
-    /// the screen taking up the stored routine from inside the sheet; that a delete removes its
+    /// the screen taking up the stored workout from inside the sheet; that a delete removes its
     /// rows, and the question's wording, are the package's (`StoreCustomizeTests`,
     /// `DeleteQuestionTests`).
     @MainActor
     func deleteCreatedEmptiesWorkout(in app: XCUIApplication) {
-        XCTContext.runActivity(named: "Deleting a created exercise that empties the routine") { _ in
+        XCTContext.runActivity(named: "Deleting a created exercise that empties the workout") { _ in
             let plus = app.buttons["Add exercise"]
-            XCTAssertEqual(app.exerciseRows.count, 0, "The routine isn't empty to start")
+            XCTAssertEqual(app.exerciseRows.count, 0, "The workout isn't empty to start")
             XCTAssertTrue(plus.settles(), "The + kept moving")
             let low = plus.frame
             _ = app.openPicker()
@@ -97,7 +97,7 @@ extension WorkoutAutosaveUITests {
             let message = app.answerAlert("Delete Zq?", with: "Delete exercise")
             XCTAssertTrue(
                 message.hasPrefix("It will be removed from this workout."),
-                "The question doesn't name the open routine: \(message)",
+                "The question doesn't name the open workout: \(message)",
             )
             XCTAssertTrue(name.disappears(), "Delete left the sheet up")
             // The row leaves once the sheet has gone, a rest after it.

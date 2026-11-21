@@ -2,11 +2,11 @@ import XCTest
 
 @MainActor
 extension WorkoutDrawerUITests {
-    /// A routine row's More menu offers Customize…, which pushes the exercise's Customize form
+    /// A workout row's More menu offers Customize…, which pushes the exercise's Customize form
     /// inside the sheet: a built-in's opens with its name and ends in Clear customizations, not
     /// Delete, disabled while nothing is changed. Arms checked, Clear asks first in a centered
     /// alert, saying what changed; confirmed, the form reads as shipped; back comes to the sheet.
-    /// What a customize or clear does to the routines, and the question's wording, are the
+    /// What a customize or clear does to the workouts, and the question's wording, are the
     /// package's (`StoreBuiltInTests`, `AppSessionExerciseTests`,
     /// `CustomizationTests`); this holds the wire through the menu, the push, the checklist, and
     /// the alert, which only the running app composes.
@@ -16,7 +16,7 @@ extension WorkoutDrawerUITests {
         XCTContext.runActivity(named: "A row's More menu opens its exercise's Customize") { _ in
             app.exerciseRows.element(boundBy: 0).tap()
             XCTAssertTrue(sets.appears(), "Tapping a row opened no sheet")
-            // The sheet's, not the routine's ••• in the bar behind it, also More.
+            // The sheet's, not the workout's ••• in the bar behind it, also More.
             app.buttons["exerciseSheet.more"].tap()
             let customize = app.buttons["Customize…"]
             XCTAssertTrue(customize.appears(), "The More menu offers no Customize…")
@@ -100,7 +100,7 @@ extension WorkoutDrawerUITests {
 
     /// An exercise created here is deleted from the form its hold menu's Customize… pushes
     /// inside Add exercise: the form goes back to the list, still searched, and only then does
-    /// the row leave it, the name free to create again, and its row leave the routine. Only the
+    /// the row leave it, the name free to create again, and its row leave the workout. Only the
     /// running app shows the sheet's own navigation popping under an alert's answer; the hold
     /// menu's Delete (`RowDragUITests`) and the row's sheet (`deleteCreatedEmptiesWorkout`)
     /// close nothing or a whole sheet.
@@ -143,7 +143,7 @@ extension WorkoutDrawerUITests {
         }
     }
 
-    /// From Add exercise's list, Create "Zq" on a routine of `count` rows: the sheet closes, the
+    /// From Add exercise's list, Create "Zq" on a workout of `count` rows: the sheet closes, the
     /// row goes in, and its own sheet opens on Customize; a swipe down closes it, the row kept.
     private func createdSheetSwipesDown(in app: XCUIApplication, from count: Int) {
         XCTContext.runActivity(named: "Create's sheet swipes down, leaving its row") { _ in

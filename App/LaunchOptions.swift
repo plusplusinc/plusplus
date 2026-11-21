@@ -10,9 +10,9 @@ enum LaunchOptions {
         UserDefaults.standard.bool(forKey: "resetStore")
     }
 
-    /// Name routines from their muscle groups alone. A routine's style follows its id, so a test
-    /// can't predict the standard name of a routine it just made; the muscle-group names are the
-    /// same for every routine.
+    /// Name workouts from their muscle groups alone. A workout's style follows its id, so a test
+    /// can't predict the standard name of a workout it just made; the muscle-group names are the
+    /// same for every workout.
     static var usesFallbackNames: Bool {
         UserDefaults.standard.bool(forKey: "fallbackNames")
     }
@@ -26,7 +26,7 @@ enum LaunchOptions {
         UserDefaults.standard.bool(forKey: "noUIKitAnimations")
     }
 
-    /// `-seedRest <seconds>`: every rest after a set lasts this long, in place of the routine's,
+    /// `-seedRest <seconds>`: every rest after a set lasts this long, in place of the workout's,
     /// so the UI tests, launched with 0, log on with no rest between exercises.
     static var restOverride: Int? {
         UserDefaults.standard.object(forKey: "seedRest").flatMap { _ in
@@ -34,14 +34,14 @@ enum LaunchOptions {
         }
     }
 
-    /// With `resetsStore`, a routine to launch into in place of a new one: `-seedExercises`
+    /// With `resetsStore`, a workout to launch into in place of a new one: `-seedExercises`
     /// lists built-in exercise ids, comma-separated, and `-seedName` names it. A test that needs
     /// rows but doesn't check adding them starts with them, rather than spending seconds an add
     /// in the picker.
     /// `-seedSuperset` joins the seeded rows from one index to another, from 0, into a
     /// superset ("1,2"), for a workout to step through one.
     /// `-seedSets` gives every seeded row that many sets, for a test that needs fewer logs to
-    /// reach a workout's end. `-seedWorkout <n>` also starts a workout on the routine, with its
+    /// reach a workout's end. `-seedWorkout <n>` also starts the seeded workout, with its
     /// first `n` sets logged as taps would, so the app opens mid-workout through the relaunch
     /// path, on the next set: none of them starts a rest.
     static var seededWorkout: SeededWorkout? {
@@ -61,7 +61,8 @@ enum LaunchOptions {
         )
     }
 
-    /// Empties the store, then saves the routine, and the workout, the launch arguments ask for.
+    /// Empties the store, then saves the workout and the logged workout the launch arguments ask
+    /// for.
     static func resetStore(
         _ store: Store,
         weightUnit: WeightUnit,
@@ -91,8 +92,8 @@ enum LaunchOptions {
     }
 }
 
-/// The routine, and the workout on it, that `-seedExercises`, `-seedName`, `-seedSuperset`,
-/// `-seedSets`, and `-seedWorkout` ask for.
+/// The workout, and the logged workout on it, that `-seedExercises`, `-seedName`,
+/// `-seedSuperset`, `-seedSets`, and `-seedWorkout` ask for.
 struct SeededWorkout {
     let name: String
     let exercises: [Exercise]

@@ -70,7 +70,7 @@ struct StartingWeight: Equatable, Sendable {
     }
 }
 
-/// An exercise's values in a routine: every set the same, so one sets count, one target, and one
+/// An exercise's values in a workout: every set the same, so one sets count, one target, and one
 /// weight, and the rest after each, in seconds.
 public struct ExercisePlan: Equatable, Sendable {
     public var sets: Int
@@ -154,7 +154,7 @@ extension Exercise {
     }
 }
 
-/// A value a routine row's sheet steps: one of its plan, or, in a superset, the rest after each
+/// A value a workout row's sheet steps: one of its plan, or, in a superset, the rest after each
 /// round, shared with its partners.
 public enum SheetPart: Hashable, Sendable {
     case plan(PlanPart)

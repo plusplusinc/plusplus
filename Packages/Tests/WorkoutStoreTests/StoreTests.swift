@@ -4,7 +4,7 @@ import Testing
 @testable import WorkoutStore
 
 /// A relaunch is a second store over the same container: it sees only what was saved.
-@Suite("Routine store")
+@Suite("Workout store")
 struct StoreTests {
     private let container: ModelContainer
 
@@ -30,14 +30,14 @@ struct StoreTests {
         #expect(try count(StoredRoutine.self) == 0)
     }
 
-    @Test("A new routine with nothing in it is never stored")
+    @Test("A new workout with nothing in it is never stored")
     func emptyNotStored() async throws {
         try await relaunch().save(Workout())
         #expect(try await relaunch().launch(weightUnit: .pounds).workout == nil)
         #expect(try count(StoredRoutine.self) == 0)
     }
 
-    @Test("A named routine with no exercises reopens")
+    @Test("A named workout with no exercises reopens")
     func namedReopens() async throws {
         let workout = Workout(name: "Arm and back day")
         try await relaunch().save(workout)
@@ -68,7 +68,7 @@ struct StoreTests {
         #expect(try count(StoredRoutineExercise.self) == 2)
     }
 
-    @Test("A reordered routine reopens in its new order")
+    @Test("A reordered workout reopens in its new order")
     func reorderedReopens() async throws {
         let store = relaunch()
         let last = try Self.row("Pull-up")
@@ -82,7 +82,7 @@ struct StoreTests {
         #expect(try count(StoredRoutineExercise.self) == 3)
     }
 
-    @Test("A routine cleared to nothing is deleted, rows and all")
+    @Test("A workout cleared to nothing is deleted, rows and all")
     func clearedIsDeleted() async throws {
         let store = relaunch()
         var workout = try Workout(name: "Legs", exercises: [Self.row("Goblet squat")])
@@ -96,7 +96,7 @@ struct StoreTests {
         #expect(try count(StoredRoutineExercise.self) == 0)
     }
 
-    @Test("The routine edited last is the one that opens")
+    @Test("The workout edited last is the one that opens")
     func latestEditedOpens() async throws {
         let store = relaunch()
         let older = Workout(name: "Older")
@@ -125,7 +125,7 @@ struct StoreTests {
         #expect(try await relaunch().launch(weightUnit: .pounds).workout?.exercises == [plank])
     }
 
-    @Test("A routine is empty with no name and no rows")
+    @Test("A workout is empty with no name and no rows")
     func isEmpty() throws {
         #expect(Workout().isEmpty)
         #expect(!Workout(name: "Legs").isEmpty)

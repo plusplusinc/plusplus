@@ -1,21 +1,21 @@
 extension AppSession {
     /// Where the app is, under the drawer.
     public enum Screen {
-        /// The open routine, at the root: as launched, and once a workout starts.
+        /// The open workout, at the root: as launched, and once it starts.
         case workout
-        /// The Routines screen, its list showing.
+        /// The Workouts screen, its list showing.
         case workouts
-        /// The open routine, pushed onto the Routines screen from its list.
+        /// The open workout, pushed onto the Workouts screen from its list.
         case pushedWorkout
     }
 
-    /// Shows the Routines screen and closes the drawer.
+    /// Shows the Workouts screen and closes the drawer.
     public func showWorkouts() {
         screen = .workouts
         closeDrawer()
     }
 
-    /// Pops the routine pushed onto the Routines screen, showing the list again, as its back
+    /// Pops the workout pushed onto the Workouts screen, showing the list again, as its back
     /// button and back swipe do. A push goes through `open` or `startNew`.
     public func popWorkout() {
         if screen == .pushedWorkout {
@@ -23,7 +23,7 @@ extension AppSession {
         }
     }
 
-    /// What the drawer marks as showing: the Routines screen, or a routine, which marks nothing.
+    /// What the drawer marks as showing: the Workouts screen, or a workout, which marks nothing.
     public var showing: Showing {
         switch screen {
         case .workouts: .workouts

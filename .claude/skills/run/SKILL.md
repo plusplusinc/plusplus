@@ -79,7 +79,7 @@ the frames or by logging its frame during the move.
   `PlusPlusUITests` test, and XCUITest's taps and swipes land where AXe's do not.
   Claude's own simulator tool is not for agents: it asks the maintainer to approve each simulator,
   and every worktree's is new, so an unattended session stalls on it. Where AXe falls short:
-  - The routine screen, and the sheets it presents, sit inside `swipeActionsContainer()`, which
+  - The workout screen, and the sheets it presents, sit inside `swipeActionsContainer()`, which
     drops a synthetic tap that goes down and up in the same instant. `axe tap` therefore does
     nothing at all there, on a button or a search field, and reads as a dead control; hold the
     touch instead, with `axe touch --down --up --delay 0.06`.

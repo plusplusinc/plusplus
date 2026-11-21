@@ -9,7 +9,7 @@ extension RowDragUITests {
     func reorderExercises(in app: XCUIApplication) {
         let rows = app.exerciseRows
         let first = rows.element(boundBy: 0)
-        // The rows in this routine are one line of name and one of plan, all one height.
+        // The rows in this workout are one line of name and one of plan, all one height.
         let height = rows.element(boundBy: 1).frame.minY - first.frame.minY
         XCTContext.runActivity(named: "A held row drags to a new place") { _ in
             var expected = app.exerciseNames

@@ -1,11 +1,11 @@
 import Foundation
 
-/// How a routine's generated name is worded, fixed by the routine's id: the same routine keeps
-/// its style as its exercises change, and different routines differ.
+/// How a workout's generated name is worded, fixed by the workout's id: the same workout keeps
+/// its style as its exercises change, and different workouts differ.
 struct NameStyle: Equatable {
-    /// About one routine in three gets a name with some character; the rest get a plain label.
+    /// About one workout in three gets a name with some character; the rest get a plain label.
     let hasCharacter: Bool
-    /// Which of a focus's names the routine takes. Up to 60, so it spreads evenly over a list of
+    /// Which of a focus's names the workout takes. Up to 60, so it spreads evenly over a list of
     /// any length up to six.
     let variant: Int
 
@@ -17,7 +17,7 @@ struct NameStyle: Equatable {
         variant = Int(seed / 3 % 60)
     }
 
-    /// The routine's pick of the names: one with character when the routine has it and the
+    /// The workout's pick of the names: one with character when the workout has it and the
     /// focus offers one.
     func pick(_ names: WorkoutFocus.Names) -> String? {
         let options = hasCharacter && !names.character.isEmpty ? names.character : names.plain
@@ -26,11 +26,11 @@ struct NameStyle: Equatable {
 }
 
 extension WorkoutFocus {
-    /// A focus's names: plain labels, and names with a touch of character, which a routine's
+    /// A focus's names: plain labels, and names with a touch of character, which a workout's
     /// style picks from.
     typealias Names = (plain: [String], character: [String])
 
-    /// Honest names for the routine, in the product's voice. Character comes from the word, not
+    /// Honest names for the workout, in the product's voice. Character comes from the word, not
     /// from a structure: an image ("Heavy legs"), how lifters say it ("Back and bis"), a mood
     /// ("Unwind"), understatement ("Odds and ends"), the equipment ("Barbell day"), or the work
     /// itself ("Hold still"). Each says only what the tags bear out: "Heavy" only under a

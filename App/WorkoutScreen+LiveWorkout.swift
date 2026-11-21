@@ -17,14 +17,14 @@ extension WorkoutScreen {
     /// Start's press: the key comes back up as any key does, a medium impact plays, and after a
     /// beat the first exercise is brought into view and grows (`leave()`), one sequence on the
     /// screen's task, which the screen going away stops. A second press in the meantime does
-    /// nothing. The press leaves the drawer open, as Dave decided (2026-11-14): a routine
-    /// switched to before the workout begins stops Start's beats (`check(_:)`), and the session
-    /// starts a workout only on the routine pressed (`AppSession.start(on:at:)`). Start stays
+    /// nothing. The press leaves the drawer open, as Dave decided (2026-11-14): a workout
+    /// switched to before it begins stops Start's beats (`check(_:)`), and the session
+    /// starts only the workout pressed (`AppSession.start(on:at:)`). Start stays
     /// up a moment after the last Remove, until the sheet has gone (`settleFoot(after:)`), and
-    /// does nothing then: the session starts nothing on a routine with no exercises.
+    /// does nothing then: the session starts nothing on a workout with no exercises.
     func pressStart() {
         guard phase == .idle, session.canStart(on: workout.id) else { return }
-        // The list's end lies under the first row until it grows, so a short routine may have
+        // The list's end lies under the first row until it grows, so a short workout may have
         // nowhere to scroll it to: room under the end, out of sight, lets it go. It goes in
         // ahead of the scroll: a scroll in the same transaction stops at the old end.
         withTransaction(\.disablesAnimations, true) {
@@ -109,10 +109,10 @@ extension WorkoutScreen {
     }
 
     /// Stops Start's beats unless the session would still start a workout on `pressed`, the
-    /// routine Start was pressed on: a switch of routine while they play, under way or done, stops
+    /// workout Start was pressed on: a switch of workout while they play, under way or done, stops
     /// them, so the grow never plays with no workout behind it. Called in the same turn as each
     /// `start(on:)`, which holds the same rule whoever calls it. The screen settles at rest as it
-    /// stops: a switch that fails to read its routine leaves this screen showing.
+    /// stops: a switch that fails to read its workout leaves this screen showing.
     private func check(_ pressed: Workout.ID) throws {
         guard session.canStart(on: pressed) else {
             stopSequence()
@@ -339,7 +339,7 @@ extension WorkoutScreen {
     /// or a rename to a longer name, the list lands on it again: the title's text view settles
     /// its height a pass after the rest, so one landing as the change came in fell short. A
     /// landing counts once asked for (`ScrollBeat.rests(on:asked:)`): after Start on a pushed
-    /// routine, the fresh root screen's row rises into place, and one landing was reported late.
+    /// workout, the fresh root screen's row rises into place, and one landing was reported late.
     func placeCurrent(_ place: CurrentPlace) {
         let old = currentPlace
         currentPlace = place
@@ -372,7 +372,7 @@ extension WorkoutScreen {
     static let scrollDuration = 0.35
     /// How long Start waits for its scroll to the first exercise to report it has stopped
     /// before it carries on: about twice the longest measured, from the end of a ten-exercise
-    /// routine, 0.58 to 0.62 s from the scroll's start (2026-11-14). No scroll was seen that
+    /// workout, 0.58 to 0.62 s from the scroll's start (2026-11-14). No scroll was seen that
     /// never reported stopping; this bounds the wait if one does. Carrying on, not waiting, is
     /// Dave's call (2026-11-14).
     static let scrollGiveUp = 1.25

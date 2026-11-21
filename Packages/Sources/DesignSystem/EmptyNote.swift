@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// One quiet line where a screen's content would be while it has none, as "No exercises" on an
-/// empty routine: centered in the room it is given, in the to-do gray, wrapping at large text
+/// empty workout: centered in the room it is given, in the to-do gray, wrapping at large text
 /// sizes. It takes no touches, so a tap through it lands on what is under it, and it stays put
 /// as the keyboard rises.
 public struct EmptyNote: View {

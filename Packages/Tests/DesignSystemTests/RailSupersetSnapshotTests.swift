@@ -6,7 +6,7 @@ import Testing
 @testable import DesignSystem
 
 /// Supersets on a rail: the loop at rest, and a moment of a drag from a row's node, drawn from
-/// plain values through `Rail`'s internal initializer. What a drag makes is the routine's rule,
+/// plain values through `Rail`'s internal initializer. What a drag makes is the workout's rule,
 /// unit-tested in `WorkoutStore`; where the finger reaches is `RailDrag`'s, in
 /// `RailGroupDragTests`.
 @Suite("Rail supersets")

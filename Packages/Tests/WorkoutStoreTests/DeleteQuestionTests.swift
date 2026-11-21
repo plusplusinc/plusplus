@@ -1,14 +1,14 @@
 import Testing
 @testable import WorkoutStore
 
-/// What Delete asks before a created exercise goes: the open routine named first when it uses
-/// the exercise, the others counted after it; otherwise every routine counted, as before.
+/// What Delete asks before a created exercise goes: the open workout named first when it uses
+/// the exercise, the others counted after it; otherwise every workout counted, as before.
 @Suite("Delete's question")
 struct DeleteQuestionTests {
     private static let history = " Deleting doesn’t affect your workout history."
 
     @Test(
-        "The open routine is named first when it uses the exercise",
+        "The open workout is named first when it uses the exercise",
         arguments: [
             (1, "It will be removed from this workout."),
             (2, "It will be removed from this workout and 1 other."),
@@ -23,7 +23,7 @@ struct DeleteQuestionTests {
     }
 
     @Test(
-        "Routines are counted when the open one doesn't use the exercise",
+        "Workouts are counted when the open one doesn't use the exercise",
         arguments: [
             (0, "No workout uses it."),
             (1, "It will be removed from the workout that uses it."),

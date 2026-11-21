@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import WorkoutStore
 
-@Suite("Routine focus")
+@Suite("Workout focus")
 struct WorkoutFocusTests {
     private static func focus(_ names: String...) throws -> WorkoutFocus {
         try WorkoutFocus(of: Exercise.builtIn(named: names))

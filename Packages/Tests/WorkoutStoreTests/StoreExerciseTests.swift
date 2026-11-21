@@ -4,7 +4,7 @@ import Testing
 @testable import WorkoutStore
 
 /// Created exercises in the store. A relaunch is a second store over the same container.
-@Suite("Routine store, created exercises")
+@Suite("Workout store, created exercises")
 struct StoreExerciseTests {
     private let container: ModelContainer
 
@@ -51,7 +51,7 @@ struct StoreExerciseTests {
         #expect(list == ExerciseList(created: [renamed]))
     }
 
-    @Test("A routine and a workout in progress reopen with a created exercise's row")
+    @Test("A workout and a logged workout in progress reopen with a created exercise's row")
     func workoutReopens() async throws {
         let store = relaunch()
         try await store.save(Self.ringRow)
@@ -71,7 +71,7 @@ struct StoreExerciseTests {
         #expect(try await relaunch().workoutsByRecency(weightUnit: .pounds) == [workout])
     }
 
-    @Test("A created exercise with no muscle group reopens, and so does its routine's row")
+    @Test("A created exercise with no muscle group reopens, and so does its workout's row")
     func noMuscleGroupReopens() async throws {
         let store = relaunch()
         let none = CreatedExercise(name: "Zq", muscleGroups: [])

@@ -5,8 +5,8 @@ import XCTest
 @MainActor
 extension RenameUITests {
     /// The picker opens fast and without the keyboard, and a pick adds a row, Start rising with
-    /// the + above it. The rest of the rows are seeded at the test's launch, in a routine the
-    /// Routines screen then opens, and one more is added through the picker's search onto them.
+    /// the + above it. The rest of the rows are seeded at the test's launch, in a workout the
+    /// Workouts screen then opens, and one more is added through the picker's search onto them.
     /// Search's list and empty state are left to use, and the add's scroll to the list's end is
     /// `TitleWrappingUITests`' at AX5. Where the + sits, to the point, is `PrimaryKeyBarTests`'.
     func addExercises(in app: XCUIApplication, keyboard: XCUIElement) {
@@ -39,7 +39,7 @@ extension RenameUITests {
                 )
             }
         XCTContext.runActivity(named: "An add through search lands after seeded rows") { _ in
-            // Back to the Routines screen the new routine was pushed from.
+            // Back to the Workouts screen the new workout was pushed from.
             app.tapBack()
             app.workoutRow(named: Self.seededName).tap()
             XCTAssertEqual(app.workoutTitle.value(becoming: Self.seededName), Self.seededName)
@@ -69,14 +69,14 @@ extension RenameUITests {
         }
     }
 
-    /// On an empty routine, a tap in the empty space opens the picker, and one that ends the
+    /// On an empty workout, a tap in the empty space opens the picker, and one that ends the
     /// title's edit opens it too, once the keyboard is down: through the tap gesture, the title's
     /// own tap, the touch-down that ends the edit, and the real keyboard's going, which only the
     /// running app arbitrates. That the picker waits for the keyboard is `TapPastTitleTests`'.
     private func openPickerFromEmptySpace(in app: XCUIApplication, keyboard: XCUIElement) {
         let search = app.searchButton
         XCTContext.runActivity(named: "A tap just under the title opens the picker, no edit") { _ in
-            XCTAssertTrue(app.noExercises.exists, "An empty routine shows no No exercises")
+            XCTAssertTrue(app.noExercises.exists, "An empty workout shows no No exercises")
             XCTAssertFalse(app.buttons["Start"].exists, "Start shows with no exercises")
             // Past the title's 44pt target, where SwiftUI still hands the target a tap.
             app.workoutTitle.coordinate(withNormalizedOffset: .zero)
@@ -197,7 +197,7 @@ extension XCUIApplication {
         return (rows, added)
     }
 
-    /// Launches into a routine named `name` holding `nineExercises`, seeded, for the checks
+    /// Launches into a workout named `name` holding `nineExercises`, seeded, for the checks
     /// that only need the rows. Adding them is `testRenameAtDefaultSize`'s.
     func launchSeedingNineExercises(named name: String) {
         let title = launchSeeding(Self.nineExercises.map(\.id), named: name)

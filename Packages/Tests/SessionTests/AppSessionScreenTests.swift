@@ -4,9 +4,9 @@ import Testing
 @testable import Session
 @testable import WorkoutStore
 
-/// Where the session shows, one value: the routine, the Routines screen, or a routine pushed on
+/// Where the session shows, one value: the workout, the Workouts screen, or a workout pushed on
 /// it, through each way in and out, and what the drawer marks for each.
-@Suite("Routine session screen")
+@Suite("Workout session screen")
 struct AppSessionScreenTests {
     private let store: Store
     private let saved = Workout(name: "Lower")
@@ -24,14 +24,14 @@ struct AppSessionScreenTests {
         AppSession(workout: workout, store: store, namer: .muscleGroupsOnly)
     }
 
-    /// A session on a routine of one bench press row, and the row, whose sheet can open.
+    /// A session on a workout of one bench press row, and the row, whose sheet can open.
     private func sessionWithRow() throws -> (AppSession, row: WorkoutExercise.ID) {
         let exercise = try #require(Exercise.builtIn(id: "barbell-bench-press"))
         let row = WorkoutExercise(exercise: exercise, weightUnit: .pounds)
         return (session(Workout(name: "Upper", exercises: [row])), row.id)
     }
 
-    /// A session on the Routines screen, `saved` pushed on it.
+    /// A session on the Workouts screen, `saved` pushed on it.
     private func pushedSession() async -> AppSession {
         let session = session()
         session.showWorkouts()
@@ -39,7 +39,7 @@ struct AppSessionScreenTests {
         return session
     }
 
-    /// `routine` with a bench press added, saved to the session.
+    /// `workout` with a bench press added, saved to the session.
     private func addingExercise(to workout: Workout, in session: AppSession) throws -> Workout {
         let exercise = try #require(Exercise.builtIn(id: "barbell-bench-press"))
         var edited = workout
@@ -48,7 +48,7 @@ struct AppSessionScreenTests {
         return edited
     }
 
-    @Test("Routines from the drawer shows the list, marked, and closes the drawer")
+    @Test("Workouts from the drawer shows the list, marked, and closes the drawer")
     func showWorkouts() {
         let session = session()
         session.openDrawer()
@@ -106,7 +106,7 @@ struct AppSessionScreenTests {
         #expect(second != first, "The sheet opened again would keep the last one's state")
     }
 
-    @Test("A row the open routine no longer has opens no sheet, as when tapped as it leaves")
+    @Test("A row the open workout no longer has opens no sheet, as when tapped as it leaves")
     func goneRowOpensNoSheet() throws {
         let (session, row) = try sessionWithRow()
         session.save(Workout(id: session.current.id, name: "Upper"))
@@ -129,7 +129,7 @@ struct AppSessionScreenTests {
         #expect(session.isDrawerOpen)
     }
 
-    @Test("A wait outlived by a pop off the Routines screen sets nothing")
+    @Test("A wait outlived by a pop off the Workouts screen sets nothing")
     func poppedWaitSetsNothing() async throws {
         let session = await pushedSession()
         let row = try #require(addingExercise(to: saved, in: session).exercises.first).id
@@ -144,7 +144,7 @@ struct AppSessionScreenTests {
         #expect(session.isDrawerOpen)
     }
 
-    @Test("A routine opened from the list is pushed on it")
+    @Test("A workout opened from the list is pushed on it")
     func openFromList() async {
         let session = await pushedSession()
         #expect(session.screen == .pushedWorkout)
@@ -152,7 +152,7 @@ struct AppSessionScreenTests {
         #expect(session.showing == .workout)
     }
 
-    @Test("The open routine opened from the list is pushed on it as it is")
+    @Test("The open workout opened from the list is pushed on it as it is")
     func openOpenFromList() async {
         let session = session()
         session.showWorkouts()
@@ -161,7 +161,7 @@ struct AppSessionScreenTests {
         #expect(session.current.name == "Upper")
     }
 
-    @Test("The list's + pushes a new routine on it, which marks neither place")
+    @Test("The list's + pushes a new workout on it, which marks neither place")
     func newFromList() async {
         let session = session()
         session.showWorkouts()
@@ -171,7 +171,7 @@ struct AppSessionScreenTests {
         #expect(session.showing == .workout)
     }
 
-    @Test("Back from a pushed routine shows the list again")
+    @Test("Back from a pushed workout shows the list again")
     func back() async {
         let session = await pushedSession()
         session.popWorkout()
@@ -189,7 +189,7 @@ struct AppSessionScreenTests {
         #expect(session.screen == .workout)
     }
 
-    @Test("Start on a pushed routine shows its workout at the root, as the routine is now")
+    @Test("Start on a pushed workout shows it in progress at the root, as it is now")
     func startPushed() async throws {
         let session = await pushedSession()
         let edited = try addingExercise(to: saved, in: session)
@@ -199,7 +199,7 @@ struct AppSessionScreenTests {
         #expect(session.loggedWorkout?.workoutID == saved.id)
     }
 
-    @Test("Start at the root keeps the screen the routine opened with")
+    @Test("Start at the root keeps the screen the workout opened with")
     func startAtRoot() throws {
         let workout = Workout(name: "Upper")
         let session = session(workout)

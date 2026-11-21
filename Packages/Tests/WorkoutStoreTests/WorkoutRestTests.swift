@@ -38,7 +38,7 @@ struct WorkoutRestTests {
         return workout
     }
 
-    /// The workout on `routine` with its first `count` sets logged, each `every` seconds after
+    /// `workout` in progress with its first `count` sets logged, each `every` seconds after
     /// the last, from the start.
     private static func live(
         _ workout: Workout,
@@ -57,7 +57,7 @@ struct WorkoutRestTests {
         return LiveWorkout(workout: workout, loggedWorkout: loggedWorkout)
     }
 
-    /// The rest between each set of `routine` and the next, in order, as the routine stores it.
+    /// The rest between each set of `workout` and the next, in order, as the workout stores it.
     private static func rests(_ workout: Workout) -> [Int] {
         let order = workout.setOrder
         return order.indices.map { index in

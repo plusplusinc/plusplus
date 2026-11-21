@@ -3,9 +3,9 @@ import SwiftData
 import Testing
 @testable import WorkoutStore
 
-/// A created exercise changed or deleted after routines use it. A relaunch is a second store
+/// A created exercise changed or deleted after workouts use it. A relaunch is a second store
 /// over the same container: it sees only what was saved.
-@Suite("Routine store, customizing and deleting an exercise")
+@Suite("Workout store, customizing and deleting an exercise")
 struct StoreCustomizeTests {
     private let container: ModelContainer
 
@@ -36,7 +36,7 @@ struct StoreCustomizeTests {
         return row
     }
 
-    /// The routine `id` as a relaunch reads it.
+    /// The workout `id` as a relaunch reads it.
     private func reread(_ id: Workout.ID) async throws -> Workout {
         try #require(try await relaunch().workout(id, weightUnit: .pounds))
     }
@@ -46,7 +46,7 @@ struct StoreCustomizeTests {
         try ModelContext(container).fetch(FetchDescriptor<StoredWorkout>()).map(\.loggedWorkout)
     }
 
-    @Test("A new muscle group reaches every routine's row, its numbers kept, its rest following")
+    @Test("A new muscle group reaches every workout's row, its numbers kept, its rest following")
     func groupsReachRows() async throws {
         let store = relaunch()
         try await store.save(Self.curl)
@@ -72,7 +72,7 @@ struct StoreCustomizeTests {
         }
     }
 
-    @Test("A rename reaches every routine; a set logged before keeps the old name")
+    @Test("A rename reaches every workout; a set logged before keeps the old name")
     func renameKeepsLoggedName() async throws {
         let store = relaunch()
         try await store.save(Self.curl)
@@ -149,7 +149,7 @@ struct StoreCustomizeTests {
         #expect(try await reread(workout.id).exercises[0].plan.target == .time(seconds: 45))
     }
 
-    @Test("A delete takes the exercise out of the list and every routine; logged sets still read")
+    @Test("A delete takes the exercise out of the list and every workout; logged sets still read")
     func delete() async throws {
         let store = relaunch()
         try await store.save(Self.curl)
@@ -181,7 +181,7 @@ struct StoreCustomizeTests {
         #expect(set.exerciseName == "Cable curl")
     }
 
-    @Test("Reading one routine doesn't mark it opened")
+    @Test("Reading one workout doesn't mark it opened")
     func readDoesNotOpen() async throws {
         let store = relaunch()
         let older = try Workout(name: "Older", exercises: [WorkoutExercise.builtIn("Push-up")])

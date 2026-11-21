@@ -3,19 +3,19 @@ import Session
 import SwiftUI
 import WorkoutStore
 
-/// The screen the app launches into: the routine being edited, or a new one.
+/// The screen the app launches into: the workout being edited, or a new one.
 ///
-/// Every change saves on its own, with no drafts. A new routine is saved once something is put
+/// Every change saves on its own, with no drafts. A new workout is saved once something is put
 /// in it, and deleted once it is cleared back to nothing.
 struct WorkoutScreen: View {
     // What the `WorkoutScreen+` extensions read is internal, not private, so they can be apart.
 
-    /// The routine as drawn. Written only through `routine`, which saves each change.
+    /// The workout as drawn. Written only through `workout`, which saves each change.
     @State private var shownWorkout: Workout
     /// Saves every change, and opens the drawer.
     let session: AppSession
     let namer: WorkoutNamer
-    /// Pushed onto the Routines screen, with a back button where ++ otherwise is.
+    /// Pushed onto the Workouts screen, with a back button where ++ otherwise is.
     let isPushed: Bool
     @State var isPicking = false
     /// How high the picker is: half as it opens (`openPicker()`), full once pulled up or once
@@ -45,7 +45,7 @@ struct WorkoutScreen: View {
     /// Where the touch down last came, which tells a tap on the list what to do, and the
     /// keyboard a picker waits on (`tappedList(at:)`).
     @State var titleTap = TapPastTitle()
-    /// Whether the screen's foot shows the routine as empty: no Start, and the + low. It follows
+    /// Whether the screen's foot shows the workout as empty: no Start, and the + low. It follows
     /// the exercises, but the first add and the last Remove change it only once their sheet has
     /// gone, so Start and the + are seen rising or going down (`settleFoot(after:)`).
     @State var footShowsEmpty: Bool
@@ -63,7 +63,7 @@ struct WorkoutScreen: View {
     @State var sideLogs = 0
     /// Whether the dialog asking how to end the workout shows.
     @State var isConfirmingEnd = false
-    /// Whether the alert asking to delete the routine shows.
+    /// Whether the alert asking to delete the workout shows.
     @State var isAskingToDeleteWorkout = false
     /// The scroll in Start's sequence, and how far the list is scrolled.
     @State var scrollBeat = ScrollBeat()
@@ -127,7 +127,7 @@ struct WorkoutScreen: View {
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     static let defaultName = String(localized: "New workout")
 
-    /// Shows the routine the session opened. A switch to another gives a new screen.
+    /// Shows the workout the session opened. A switch to another gives a new screen.
     init(session: AppSession, namer: WorkoutNamer, isPushed: Bool = false) {
         _shownWorkout = State(initialValue: session.opened)
         _opensOnCurrent = State(initialValue: session.loggedWorkout != nil)
@@ -143,9 +143,9 @@ struct WorkoutScreen: View {
         self.isPushed = isPushed
     }
 
-    /// The routine on screen. Every change to it is saved as it is made, and a write that changes
-    /// nothing saves nothing, so a routine opened and left alone is never saved. Saved here, not
-    /// from an `onChange` of the routine, which SwiftUI skips when the routine changes again in a
+    /// The workout on screen. Every change to it is saved as it is made, and a write that changes
+    /// nothing saves nothing, so a workout opened and left alone is never saved. Saved here, not
+    /// from an `onChange` of the workout, which SwiftUI skips when the workout changes again in a
     /// frame its action already ran in, losing the last key of a name typed fast.
     var workout: Workout {
         get { shownWorkout }
@@ -156,14 +156,14 @@ struct WorkoutScreen: View {
         }
     }
 
-    /// The name made for the routine from its exercises, which a chosen name hides and which
+    /// The name made for the workout from its exercises, which a chosen name hides and which
     /// clearing it brings back. Not stored: made again from the same exercises, it is the same
     /// name, so it is the same after a relaunch.
     private var generatedName: String? {
         namer.name(for: workout.exercises.map(\.exercise), of: workout.id)
     }
 
-    /// The name the routine shows: its chosen one, or else the one made for it.
+    /// The name the workout shows: its chosen one, or else the one made for it.
     var shownName: String? {
         namer.shownName(of: workout)
     }
@@ -386,7 +386,7 @@ struct WorkoutScreen: View {
 }
 
 extension WorkoutScreen {
-    /// Shows the routine as the store has it, not saving it again (`showStoredWorkout`).
+    /// Shows the workout as the store has it, not saving it again (`showStoredWorkout`).
     func show(stored: Workout) {
         shownWorkout = stored
     }

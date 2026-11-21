@@ -4,10 +4,10 @@ import Testing
 @testable import Session
 @testable import WorkoutStore
 
-/// Deleting a routine through the session: a listed one leaves the list, the open one leaves
-/// the session on a new routine with the Routines screen showing, and a relaunch never brings
+/// Deleting a workout through the session: a listed one leaves the list, the open one leaves
+/// the session on a new workout with the Workouts screen showing, and a relaunch never brings
 /// either back. A relaunch is a second store over the same container.
-@Suite("Routine session delete")
+@Suite("Workout session delete")
 struct AppSessionDeleteTests {
     private let container: ModelContainer
     private let lower = Workout(name: "Lower")
@@ -37,7 +37,7 @@ struct AppSessionDeleteTests {
         try await relaunch().workoutsByRecency(weightUnit: .pounds).map(\.id)
     }
 
-    @Test("A listed routine deleted from Routines leaves the list and the store")
+    @Test("A listed workout deleted from Workouts leaves the list and the store")
     func deleteListed() async throws {
         let upper = try Self.upper()
         let session = session(upper)
@@ -52,7 +52,7 @@ struct AppSessionDeleteTests {
         #expect(try await storedIDs() == [upper.id])
     }
 
-    @Test("Deleting the open routine lands its last edit first, so no save brings it back")
+    @Test("Deleting the open workout lands its last edit first, so no save brings it back")
     func deleteOpenAfterEdit() async throws {
         let upper = try Self.upper()
         let session = session(Workout())
@@ -62,7 +62,7 @@ struct AppSessionDeleteTests {
         #expect(try await storedIDs() == [lower.id])
     }
 
-    @Test("Deleting the open routine at the root shows Routines on a new, empty routine")
+    @Test("Deleting the open workout at the root shows Workouts on a new, empty workout")
     func deleteOpenAtRoot() async throws {
         let upper = try Self.upper()
         try await relaunch().save(upper)
@@ -75,7 +75,7 @@ struct AppSessionDeleteTests {
         #expect(!session.recent.contains { $0.id == upper.id })
     }
 
-    @Test("Deleting a pushed routine pops back to Routines on a new, empty routine")
+    @Test("Deleting a pushed workout pops back to Workouts on a new, empty workout")
     func deletePushed() async throws {
         let session = session(Workout())
         session.showWorkouts()
@@ -87,7 +87,7 @@ struct AppSessionDeleteTests {
         #expect(try await storedIDs().isEmpty)
     }
 
-    @Test("The routine a workout runs on can't be deleted, nor one with nothing saved")
+    @Test("A workout in progress can't be deleted, nor one with nothing saved")
     func refusals() throws {
         let upper = try Self.upper()
         let session = session(upper)
@@ -97,7 +97,7 @@ struct AppSessionDeleteTests {
         #expect(!self.session(Workout()).canDeleteOpen)
     }
 
-    @Test("A delete asked during a workout on that routine keeps it")
+    @Test("A delete asked while that workout is in progress keeps it")
     func refusedDuringLiveWorkout() async throws {
         let upper = try Self.upper()
         let session = session(upper)
@@ -109,7 +109,7 @@ struct AppSessionDeleteTests {
         #expect(try await storedIDs().contains(upper.id))
     }
 
-    @Test("A finished workout on the deleted routine is still stored")
+    @Test("A finished logged workout of the deleted workout is still stored")
     func loggedWorkoutKept() async throws {
         let upper = try Self.upper()
         let session = session(upper)

@@ -8,7 +8,7 @@ import UIKit
 @testable import DesignSystem
 
 /// A list pushed onto a navigation stack, under a bar and over a bottom `safeAreaBar` as the
-/// routine screen is from Routines, is laid out several times in the push's first frame
+/// workout screen is from Workouts, is laid out several times in the push's first frame
 /// (`ScrollExtent`); its rail autoscroll reacts once a frame all the same, with no
 /// `OnScrollGeometryChange` fault in the process's own log.
 @MainActor

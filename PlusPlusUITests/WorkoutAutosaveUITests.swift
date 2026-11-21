@@ -1,15 +1,15 @@
 import XCTest
 
 /// Saving across a real quit and relaunch. The store, each field's round trip, the launch rule,
-/// a routine cleared to nothing deleted, and the names are unit-tested in the package; this
+/// a workout cleared to nothing deleted, and the names are unit-tested in the package; this
 /// holds the wire from the screen to the store, with one relaunch that brings back every saved
 /// field at once (rows in their new order, their duplicates and values, a superset and its
 /// shared rounds, an exercise created from the picker, and a name typed with no Return). Names come
 /// from the muscle
 /// groups (`-fallbackNames`), so the same name shows on any simulator. The
 /// title's color, white for a name whether typed or generated and gray for New workout, is read
-/// from pixels against the placeholder's own gray at the start. The drawer over saved routines is
-/// `WorkoutDrawerUITests`'; this test, which ends with none saved, checks Routines empty.
+/// from pixels against the placeholder's own gray at the start. The drawer over saved workouts is
+/// `WorkoutDrawerUITests`'; this test, which ends with none saved, checks Workouts empty.
 ///
 /// `nonisolated` because XCTestCase's initializers are; the test drives the UI on the main actor.
 final nonisolated class WorkoutAutosaveUITests: XCTestCase {
@@ -27,7 +27,7 @@ final nonisolated class WorkoutAutosaveUITests: XCTestCase {
 
         nameFollowsTheExercises(in: app, title: title, gray: gray)
         // Typed first, so the row edits after it, each saved as made, are what the quit keeps,
-        // and not a save the name's last key made of the whole routine.
+        // and not a save the name's last key made of the whole workout.
         try nameStillBeingTyped(in: app, title: title)
         valuesChangeInTheSheet(in: app)
         moveARow(in: app)
@@ -58,19 +58,19 @@ final nonisolated class WorkoutAutosaveUITests: XCTestCase {
         emptyWorkoutsFillsTheWidth(in: app, margin: field.minX)
     }
 
-    /// With the routine cleared to nothing, no routine is saved, and Routines has no row to
+    /// With the workout cleared to nothing, no workout is saved, and Workouts has no row to
     /// stretch its scroll view: its background still reaches both edges, and its title sits at
-    /// the routine screen's `margin`.
+    /// the workout screen's `margin`.
     @MainActor
     private func emptyWorkoutsFillsTheWidth(in app: XCUIApplication, margin: CGFloat) {
-        XCTContext.runActivity(named: "Routines with none saved fills the width") { _ in
+        XCTContext.runActivity(named: "Workouts with none saved fills the width") { _ in
             app.openDrawer(andTap: "Workouts")
             let heading = app.staticTexts["Workouts"]
             // The screen slides back in as the drawer closes, so the title is read until it
             // reaches the margin, or for long enough that it would have.
             let left = reading(heading.frame.minX, until: { abs($0 - margin) <= 1 }, within: 2)
             XCTAssertEqual(left, margin, accuracy: 1, "The title is off the margin")
-            XCTAssertEqual(app.workoutRows.count, 0, "Routines lists a routine")
+            XCTAssertEqual(app.workoutRows.count, 0, "Workouts lists a workout")
             XCTAssertEqual(
                 app.scrollViews.containing(.staticText, identifier: "Workouts").firstMatch.frame
                     .width,
@@ -78,14 +78,14 @@ final nonisolated class WorkoutAutosaveUITests: XCTestCase {
                 accuracy: 1,
                 "The scroll view, and the background on it, is narrower than the screen",
             )
-            attach(named: "routines-empty")
+            attach(named: "workouts-empty")
         }
     }
 
-    /// An unnamed routine is named for its exercises as they come and go, in white.
+    /// An unnamed workout is named for its exercises as they come and go, in white.
     @MainActor
     private func nameFollowsTheExercises(in app: XCUIApplication, title: XCUIElement, gray: Int) {
-        XCTContext.runActivity(named: "An unnamed routine is named for its exercises") { _ in
+        XCTContext.runActivity(named: "An unnamed workout is named for its exercises") { _ in
             app.addExercise(Self.bench, searching: "bench")
             XCTAssertEqual(title.value(becoming: "Chest"), "Chest")
             app.addExercise(Self.pullUp, searching: "pullup")
@@ -177,7 +177,7 @@ final nonisolated class WorkoutAutosaveUITests: XCTestCase {
 
     /// Editing opens on the generated name; replaced, the typed name is kept without Return
     /// through Home and back, and the edit is left open for the next tap on a row to end. That
-    /// each key reaches the routine with no edit ended is `WorkoutDrawerUITests`' chevron check
+    /// each key reaches the workout with no edit ended is `WorkoutDrawerUITests`' chevron check
     /// and `EditableTitleTypingTests`'; a generated name is made again from the exercises, never
     /// stored (`WorkoutNamerTests`).
     @MainActor
@@ -197,7 +197,7 @@ final nonisolated class WorkoutAutosaveUITests: XCTestCase {
     }
 
     /// Every row deleted and the name cleared is nothing, the gray New workout. That the store
-    /// deletes it is `StoreTests`': a relaunch can't show it, since a routine cleared and
+    /// deletes it is `StoreTests`': a relaunch can't show it, since a workout cleared and
     /// kept would open as the same empty New workout.
     @MainActor
     private func clearedWorkoutIsNewWorkout(
@@ -205,7 +205,7 @@ final nonisolated class WorkoutAutosaveUITests: XCTestCase {
         title: XCUIElement,
         gray: Int,
     ) throws {
-        try XCTContext.runActivity(named: "A routine cleared to nothing is New routine") { _ in
+        try XCTContext.runActivity(named: "A workout cleared to nothing is New workout") { _ in
             let plus = app.buttons["Add exercise"]
             let aboveStart = plus.frame
             for left in (0 ..< 5).reversed() {

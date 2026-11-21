@@ -2,7 +2,7 @@ import XCTest
 
 @MainActor
 extension WorkoutDrawerUITests {
-    /// On a new routine with nothing saved, the ••• menu's Delete is dimmed. That such a routine
+    /// On a new workout with nothing saved, the ••• menu's Delete is dimmed. That such a workout
     /// can't be deleted is `AppSessionDeleteTests`'; this is the menu item's wire to it,
     /// which only the running app's bar menu shows. Leaves the menu closed.
     func newWorkoutDimsDelete(in app: XCUIApplication) {
@@ -11,9 +11,9 @@ extension WorkoutDrawerUITests {
         more.tap()
         let delete = app.buttons["Delete"]
         XCTAssertTrue(delete.appears(), "••• opened no menu with Delete")
-        XCTAssertFalse(delete.isEnabled, "Delete isn't dimmed on a routine with nothing saved")
+        XCTAssertFalse(delete.isEnabled, "Delete isn't dimmed on a workout with nothing saved")
         // A tap away from the menu closes it, and the bar takes taps again once it has closed.
-        // In the bar, between the chevron and the menu: the empty routine below opens Add
+        // In the bar, between the chevron and the menu: the empty workout below opens Add
         // exercise on a tap.
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.25, dy: 0.1)).tap()
         XCTAssertTrue(delete.disappears(), "The menu stayed open")
@@ -23,11 +23,11 @@ extension WorkoutDrawerUITests {
         )
     }
 
-    /// On the Routines screen with two routines, a row's hold menu and its swipe each ask before
-    /// deleting, and the pushed routine's ••• deletes it and shows Routines. The system's swipe
+    /// On the Workouts screen with two workouts, a row's hold menu and its swipe each ask before
+    /// deleting, and the pushed workout's ••• deletes it and shows Workouts. The system's swipe
     /// actions, context menu, and alert, and a bar menu, show only in the running app; what a
     /// delete stores and what shows next is `AppSessionDeleteTests`', and that a deleted
-    /// routine stays gone after a relaunch `StoreDeleteTests`'.
+    /// workout stays gone after a relaunch `StoreDeleteTests`'.
     func workoutsDeleteWorkouts(in app: XCUIApplication, title: XCUIElement) {
         let delete = app.buttons["Delete"]
         let listed = ["Chest day", "Back"]
@@ -36,7 +36,7 @@ extension WorkoutDrawerUITests {
             XCTAssertTrue(row.settles(), "The row kept moving")
             row.press(forDuration: 1)
             XCTAssertTrue(delete.appears(), "Holding a row opened no menu with Delete")
-            attach(named: "routine-held")
+            attach(named: "workout-held")
             delete.tap()
             app.answerAlert("Delete Back?", with: "Cancel")
             XCTAssertEqual(app.workoutRowLabels, listed, "Cancel changed the list")
@@ -44,18 +44,18 @@ extension WorkoutDrawerUITests {
         XCTContext.runActivity(named: "A row's swipe asks first, and Delete takes it out") { _ in
             app.workoutRow(named: "Back").swipeOpen()
             XCTAssertTrue(delete.appears(), "A swipe did not open the row")
-            attach(named: "routine-swiped")
+            attach(named: "workout-swiped")
             delete.tap()
             app.answerAlert("Delete Back?", with: "Delete")
             let left = ["Chest day"]
             XCTAssertEqual(reading(app.workoutRowLabels, becoming: left, within: 2), left)
         }
-        XCTContext.runActivity(named: "A pushed routine's ••• deletes it and shows Routines") { _ in
+        XCTContext.runActivity(named: "A pushed workout's ••• deletes it and shows Workouts") { _ in
             app.workoutRow(named: "Chest day").tap()
             XCTAssertEqual(
                 title.value(becoming: "Chest day"),
                 "Chest day",
-                "The row pushed no routine",
+                "The row pushed no workout",
             )
             let more = app.buttons["workout.more"]
             XCTAssertTrue(more.settles(), "••• kept moving")
@@ -64,8 +64,8 @@ extension WorkoutDrawerUITests {
             XCTAssertTrue(delete.appears(), "••• opened no menu with Delete")
             delete.tap()
             app.answerAlert("Delete Chest day?", with: "Delete")
-            XCTAssertTrue(title.disappears(), "Deleting the routine left it showing")
-            XCTAssertTrue(app.buttons["Menu"].appears(), "Routines did not show")
+            XCTAssertTrue(title.disappears(), "Deleting the workout left it showing")
+            XCTAssertTrue(app.buttons["Menu"].appears(), "Workouts did not show")
             XCTAssertEqual(reading(app.workoutRowLabels, becoming: [], within: 2), [])
         }
     }

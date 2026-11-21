@@ -21,7 +21,7 @@ struct TimedSetAccessibilityTests {
     )
 
     /// The current exercise with `wait` in its figures' place, and the wait's own element after
-    /// it, as the routine screen puts them.
+    /// it, as the workout screen puts them.
     private func exercise(_ wait: SetRest, after: String? = nil) -> some View {
         var focus = Self.focus
         focus.after = after ?? focus.after

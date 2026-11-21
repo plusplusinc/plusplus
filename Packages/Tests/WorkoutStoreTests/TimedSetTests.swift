@@ -26,7 +26,7 @@ struct TimedSetTests {
         return Workout(exercises: [plank, side, push])
     }
 
-    /// The workout as Start begins it on `routine`, at `start`.
+    /// `workout` as Start begins it, at `start`.
     static func started(_ workout: Workout) -> LiveWorkout {
         let loggedWorkout = LoggedWorkout(
             workoutID: workout.id,

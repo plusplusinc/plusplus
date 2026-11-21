@@ -102,11 +102,11 @@ struct WorkoutMoveTests {
 }
 
 extension Workout {
-    /// The routine with the row moved, or nil when `move` refused, having left it unchanged.
+    /// The workout with the row moved, or nil when `move` refused, having left it unchanged.
     fileprivate func moving(_ id: WorkoutExercise.ID, to slot: WorkoutSlot) -> Workout? {
         var moved = self
         guard moved.move(id, to: slot) else {
-            #expect(moved == self, "A refused move changed the routine")
+            #expect(moved == self, "A refused move changed the workout")
             return nil
         }
         return moved

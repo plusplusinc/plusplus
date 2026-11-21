@@ -2,7 +2,7 @@ import DesignSystem
 import SwiftUI
 import WorkoutStore
 
-/// Customize, an exercise's five settings, and no more, pushed from a routine row's Customize…
+/// Customize, an exercise's five settings, and no more, pushed from a workout row's Customize…
 /// in its sheet (the sheet a created exercise's row opens on after Create), or from Customize…
 /// in a row's hold menu in Add exercise. Name, not focused, since the next thing to set is the
 /// muscle groups; Muscle groups and Equipment, each one row reading what is checked ("Back,
@@ -15,9 +15,9 @@ import WorkoutStore
 /// Save: Muscle groups, Equipment, Measure, and Per side save as each changes, and the name
 /// as its edit ends (Return, a tap elsewhere, or going back), never per keystroke. A name that
 /// can't be saved (empty, or another exercise's) goes back to the stored one as its edit ends.
-/// Below the settings, Used in reads how many routines have a row of it and opens their names
+/// Below the settings, Used in reads how many workouts have a row of it and opens their names
 /// (`UsedInList`); last, Delete exercise, in red, asks first, with that count, naming the open
-/// routine first when it uses the exercise (`DeleteQuestion`); confirmed, the form stays as it
+/// workout first when it uses the exercise (`DeleteQuestion`); confirmed, the form stays as it
 /// is while what shows it closes, and its host shows the delete in beats
 /// (`WorkoutScreen.deleteExercise(_:closing:)`). A built-in's
 /// form ends instead in Clear customizations, red, disabled while nothing differs from how it
@@ -26,7 +26,7 @@ import WorkoutStore
 /// question.
 struct ExerciseForm: View {
     /// What the form ends in: Delete exercise for one someone created, Clear customizations for
-    /// a built-in, with the settings it shipped with. Delete's question names the open routine
+    /// a built-in, with the settings it shipped with. Delete's question names the open workout
     /// first when it uses the exercise (`DeleteQuestion`).
     enum Ending {
         case delete(usedByOpenWorkout: Bool, () async -> Void)
@@ -36,7 +36,7 @@ struct ExerciseForm: View {
     /// The exercise customized, which its name may stay the name of.
     let id: Exercise.ID
     let exercises: ExerciseList
-    /// The names of the routines that use the exercise customized, latest first.
+    /// The names of the workouts that use the exercise customized, latest first.
     let usedIn: [String]
     /// Takes each change as it is made.
     let onSave: (ExerciseSettings) async -> Void
@@ -227,7 +227,7 @@ struct ExerciseForm: View {
         .listRowBackground(Color.pp(.surface))
     }
 
-    /// What changed, then that the routines' numbers stay: Clear's question.
+    /// What changed, then that the workouts' numbers stay: Clear's question.
     private static func clearMessage(
         _ stored: ExerciseSettings,
         from original: ExerciseSettings,
@@ -300,7 +300,7 @@ struct ExerciseForm: View {
     }
 }
 
-/// The routines a created exercise is used in, by name, the latest opened or edited first,
+/// The workouts a created exercise is used in, by name, the latest opened or edited first,
 /// pushed from its Customize form's Used in. Names only: nothing here opens.
 struct UsedInList: View {
     let names: [String]

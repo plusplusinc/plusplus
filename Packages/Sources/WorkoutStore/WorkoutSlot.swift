@@ -1,6 +1,6 @@
 import Foundation
 
-/// Where a moved row lands in its routine. A slot names a row by id, not an index, so it still
+/// Where a moved row lands in its workout. A slot names a row by id, not an index, so it still
 /// means the same place if the rows change under it.
 public struct WorkoutSlot: Hashable, Sendable {
     public enum Place: Hashable, Sendable {

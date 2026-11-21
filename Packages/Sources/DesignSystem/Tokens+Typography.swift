@@ -46,10 +46,10 @@ extension Font {
     )
     /// A workout's time on its key in the bar: SF Mono, so the digits hold still as they tick.
     public static let ppWorkoutTime = ppRowTitleNumber
-    /// A place in the drawer, Workouts or a routine under it: one font for all, so none reads as
+    /// A place in the drawer, Workouts or a workout under it: one font for all, so none reads as
     /// a heading over the others.
     public static let ppDrawerItem = Font.system(.body, weight: .medium)
-    /// A routine's name in a list of routines: SF Pro, as the name can't be edited there, the
+    /// A workout's name in a list of workouts: SF Pro, as the name can't be edited there, the
     /// drawer's font, so a row reads the same in both.
     public static let ppWorkoutName = ppDrawerItem
     /// The +1 that pops off Start as it is pressed: SF Mono, as numbers are.
@@ -71,7 +71,7 @@ extension View {
         modifier(ScreenTitleFont(design: .monospaced))
     }
 
-    /// A title that can't be edited, such as the drawer's or the Routines screen's: the screen
+    /// A title that can't be edited, such as the drawer's or the Workouts screen's: the screen
     /// title's size and weight in SF Pro, as it is a name, not typed text.
     public func ppFixedTitleFont() -> some View {
         modifier(ScreenTitleFont(design: .default))

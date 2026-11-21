@@ -18,7 +18,7 @@ struct EditableTitleCaretTests {
     private nonisolated static let large = UIContentSizeCategory.large
     private nonisolated static let ax5 = UIContentSizeCategory.accessibilityExtraExtraExtraLarge
 
-    /// Names with characters wider than a cell of the title's font, at the routine screen's
+    /// Names with characters wider than a cell of the title's font, at the workout screen's
     /// width: emoji, and Chinese, which SF Mono lacks.
     nonisolated static let wideNames = [
         "Legs 💪💪💪💪💪💪💪 and back",

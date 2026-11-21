@@ -6,7 +6,7 @@ import Testing
 
 /// The session's list of exercises, and the order it stores a created one in. A relaunch is a
 /// second store over the same container: it sees only what landed.
-@Suite("Routine session exercises")
+@Suite("Workout session exercises")
 struct AppSessionExerciseTests {
     private let container: ModelContainer
 
@@ -18,7 +18,7 @@ struct AppSessionExerciseTests {
         Store(modelContainer: container)
     }
 
-    @Test("A created exercise is stored before the routine save that names it, and listed at once")
+    @Test("A created exercise is stored before the workout save that names it, and listed at once")
     func createdBeforeRow() async throws {
         let session = AppSession(
             workout: Workout(),
@@ -28,7 +28,7 @@ struct AppSessionExerciseTests {
         let created = CreatedExercise(name: "Ring row with rotation", muscleGroups: [.back])
         let exercise = await session.create(created)
         #expect(session.exercises.exercise(id: created.id) == exercise)
-        // Stored once `create` returns, before any routine save could name it.
+        // Stored once `create` returns, before any workout save could name it.
         #expect(try await relaunch().exercises().exercise(id: created.id) == exercise)
         let workout = Workout(exercises: [WorkoutExercise(exercise: exercise, weightUnit: .pounds)])
         session.save(workout)
@@ -36,8 +36,8 @@ struct AppSessionExerciseTests {
         #expect(try await relaunch().launch(weightUnit: .pounds).workout == workout)
     }
 
-    /// A session open on a routine with a row of a created exercise and a push-up, its last
-    /// edit not yet landed, and another saved routine using the exercise.
+    /// A session open on a workout with a row of a created exercise and a push-up, its last
+    /// edit not yet landed, and another saved workout using the exercise.
     private func sessionUsing(
         _ created: CreatedExercise,
     ) async throws -> (AppSession, other: Workout) {
@@ -61,7 +61,7 @@ struct AppSessionExerciseTests {
         return (session, other)
     }
 
-    @Test("A customize reaches the open routine and the saved ones, its last edit kept")
+    @Test("A customize reaches the open workout and the saved ones, its last edit kept")
     func customizeReachesOpen() async throws {
         let created = CreatedExercise(name: "Cable curl", muscleGroups: [.arms])
         let (session, other) = try await sessionUsing(created)
@@ -75,7 +75,7 @@ struct AppSessionExerciseTests {
         #expect(saved.exercises.map(\.exercise.name) == ["Hammer curl"])
     }
 
-    @Test("A built-in's customize and its clear reach the open routine and the saved ones")
+    @Test("A built-in's customize and its clear reach the open workout and the saved ones")
     func builtInCustomizeAndClear() async throws {
         let store = relaunch()
         let bench = try #require(Exercise.builtIn(id: "barbell-bench-press"))
@@ -104,7 +104,7 @@ struct AppSessionExerciseTests {
         #expect(try await relaunch().exercises() == .builtIn)
     }
 
-    @Test("A delete takes the exercise's rows from the open routine and the saved ones")
+    @Test("A delete takes the exercise's rows from the open workout and the saved ones")
     func deleteReachesOpen() async throws {
         let created = CreatedExercise(name: "Cable curl", muscleGroups: [.arms])
         let (session, other) = try await sessionUsing(created)
@@ -116,7 +116,7 @@ struct AppSessionExerciseTests {
         #expect(saved.exercises.isEmpty)
     }
 
-    @Test("The open routine uses an exercise while it has a row of it, and not once deleted")
+    @Test("The open workout uses an exercise while it has a row of it, and not once deleted")
     func openWorkoutUsesUntilDeleted() async throws {
         let created = CreatedExercise(name: "Cable curl", muscleGroups: [.arms])
         let (session, _) = try await sessionUsing(created)

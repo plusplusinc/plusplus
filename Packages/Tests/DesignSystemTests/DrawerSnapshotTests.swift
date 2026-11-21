@@ -6,8 +6,8 @@ import SwiftUI
 import Testing
 @testable import DesignSystem
 
-/// The ++ drawer open over a routine, and the Routines screen's list, built from the components
-/// the app composes them from. The drawer's menu and the Routines screen live in the app, which
+/// The ++ drawer open over a workout, and the Workouts screen's list, built from the components
+/// the app composes them from. The drawer's menu and the Workouts screen live in the app, which
 /// has no test target; their bars, and the drawer's motion, are checked on the simulator.
 @Suite("Drawer")
 struct DrawerSnapshotTests {
@@ -15,13 +15,13 @@ struct DrawerSnapshotTests {
     /// An iPhone's height, so the drawer and the screen beside it are drawn whole.
     private static let screenHeight: CGFloat = 844
 
-    /// The place showing, which the drawer marks; a routine marks nothing.
+    /// The place showing, which the drawer marks; a workout marks nothing.
     private enum Showing: Equatable {
         case workouts
         case workout
     }
 
-    /// The drawer as `DrawerMenu` lays it out: the title, then Routines.
+    /// The drawer as `DrawerMenu` lays it out: the title, then Workouts.
     private func menu(showing: Showing) -> some View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
             Text(verbatim: "PlusPlus")
@@ -46,7 +46,7 @@ struct DrawerSnapshotTests {
 
     private static let rows = [Row(name: "Goblet squat"), Row(name: "Romanian deadlift")]
 
-    /// A routine screen behind, slid aside to its sliver.
+    /// A workout screen behind, slid aside to its sliver.
     private var workout: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             EditableTitle(
@@ -77,17 +77,17 @@ struct DrawerSnapshotTests {
         .frame(height: Self.screenHeight)
     }
 
-    @Test("The drawer open on a routine: Routines, unmarked, beside the sliver")
+    @Test("The drawer open on a workout: Workouts, unmarked, beside the sliver")
     func workoutShowing() {
         assertThemedSnapshots(of: drawer(showing: .workout), width: Self.screenWidth)
     }
 
-    @Test("The drawer open on the Routines screen: Routines is marked")
+    @Test("The drawer open on the Workouts screen: Workouts is marked")
     func workoutsShowing() {
         assertThemedSnapshots(of: drawer(showing: .workouts), width: Self.screenWidth)
     }
 
-    /// The Routines screen's content as `WorkoutsScreen` lays it out, under its bar.
+    /// The Workouts screen's content as `WorkoutsScreen` lays it out, under its bar.
     private func workoutsList(_ names: [String]) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Workouts")
@@ -107,7 +107,7 @@ struct DrawerSnapshotTests {
         .background(Color.pp(.background))
     }
 
-    @Test("The Routines screen: a name per row under a line, a long one wrapping")
+    @Test("The Workouts screen: a name per row under a line, a long one wrapping")
     func workoutsScreen() {
         assertThemedSnapshots(
             of: workoutsList([

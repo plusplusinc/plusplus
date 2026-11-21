@@ -285,7 +285,7 @@ struct WorkoutSupersetTests {
 }
 
 extension WorkoutSupersetTests {
-    /// A routine of rows A to E grouped as `shape` writes them: "A-B C D-E", each superset at
+    /// A workout of rows A to E grouped as `shape` writes them: "A-B C D-E", each superset at
     /// its first row's round count.
     private func workout(_ shape: String) -> Workout {
         var exercises: [WorkoutExercise] = []
@@ -315,7 +315,7 @@ extension WorkoutSupersetTests {
             .map { String(UnicodeScalar(65 + $0).map(Character.init) ?? "?") } ?? "?"
     }
 
-    /// The routine's rows and supersets as `routine(_:)` takes them.
+    /// The workout's rows and supersets as `workout(_:)` takes them.
     private func shape(_ workout: Workout?) -> String? {
         guard let workout else { return nil }
         var groups: [String] = []

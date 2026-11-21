@@ -2,7 +2,7 @@ import Session
 import SwiftUI
 import WorkoutStore
 
-/// An exercise's Customize form (`ExerciseForm`) wired to the session, as a routine row's
+/// An exercise's Customize form (`ExerciseForm`) wired to the session, as a workout row's
 /// Customize… (and its sheet after Create) and Add exercise's hold menu push it. Each change is
 /// stored as made: a created exercise's as its own, with Delete handed to the host, which
 /// removes it and its rows, closing what shows the form first
@@ -35,7 +35,7 @@ struct CustomizeScreen: View {
                 },
                 ending: ending(weightUnit: weightUnit),
             )
-            // The routines Used in and Delete's question count, as stored now.
+            // The workouts Used in and Delete's question count, as stored now.
             .task { await session.refreshRecent(weightUnit: weightUnit) }
         }
     }

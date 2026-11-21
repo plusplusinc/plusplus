@@ -42,7 +42,7 @@ nonisolated struct CurrentPlace: Equatable {
 }
 
 extension CoordinateSpaceProtocol where Self == NamedCoordinateSpace {
-    /// The routine screen's list content, from its top, as a scroll position counts.
+    /// The workout screen's list content, from its top, as a scroll position counts.
     nonisolated static var list: NamedCoordinateSpace {
         .named("WorkoutScreen.list")
     }
