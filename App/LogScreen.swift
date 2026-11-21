@@ -122,8 +122,11 @@ struct LogScreen: View {
 
     /// Workouts at the root, as the drawer's Workouts row shows it, never pushed onto Log.
     func goToWorkouts() {
-        session.showWorkouts()
+        withAnimation(Self.placeChange) { session.showWorkouts() }
     }
+
+    /// Log fading into the place its pill goes to: quick, since it answers a tap.
+    static let placeChange = Animation.snappy(duration: 0.25)
 
     var now: Date {
         .now

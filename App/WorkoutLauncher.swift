@@ -31,16 +31,22 @@ struct WorkoutLauncher: View {
             ) {
                 DrawerMenu(session: session)
             } content: {
+                // A place changed from the drawer swaps at once, under the drawer as it closes.
+                // One changed from the screen itself, as Log's Go to Workouts, has nothing over
+                // it, so it changes inside an animation and these fade one into the other.
                 switch session.screen {
                 case .workout:
                     // A switch to another workout gives a fresh screen: scroll, sheets,
                     // and title.
                     WorkoutScreen(session: session, namer: namer)
                         .id(session.opened.id)
+                        .transition(.opacity)
                 case .workouts, .pushedWorkout:
                     WorkoutsScreen(session: session, namer: namer)
+                        .transition(.opacity)
                 case .log, .loggedWorkout:
                     LogScreen(session: session)
+                        .transition(.opacity)
                 }
             }
             .keepsScreenOn(session.loggedWorkout != nil)
