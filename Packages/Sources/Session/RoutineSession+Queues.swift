@@ -10,13 +10,13 @@ extension RoutineSession {
         let keepsEmpty: Bool
     }
 
-    enum WorkoutWrite {
-        case save(Workout)
-        case discard(Workout.ID)
+    enum LoggedWorkoutWrite {
+        case save(LoggedWorkout)
+        case discard(LoggedWorkout.ID)
     }
 
-    enum WorkoutQueueEntry {
-        case write(WorkoutWrite)
+    enum LoggedWorkoutQueueEntry {
+        case write(LoggedWorkoutWrite)
         /// Every write before it has landed.
         case landed(CheckedContinuation<Void, Never>)
     }
@@ -42,9 +42,9 @@ extension RoutineSession {
 
     static func startWritingWorkouts(
         to store: RoutineStore?,
-    ) -> AsyncStream<WorkoutQueueEntry>.Continuation {
+    ) -> AsyncStream<LoggedWorkoutQueueEntry>.Continuation {
         let (stream, continuation) = AsyncStream.makeStream(
-            of: WorkoutQueueEntry.self,
+            of: LoggedWorkoutQueueEntry.self,
             bufferingPolicy: .unbounded,
         )
         Task {

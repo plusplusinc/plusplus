@@ -170,7 +170,7 @@ struct RoutineStoreUpgradeTests {
             #expect(routine.exercises.map(\.plan.target) == [.reps(6), .reps(6)])
             #expect(routine.exercises.allSatisfy { $0.supersetID != nil })
         }
-        let workout = Workout(
+        let workout = LoggedWorkout(
             routineID: routines[0].id,
             routineName: routines[0].name,
             startedAt: Date(timeIntervalSinceReferenceDate: 10),

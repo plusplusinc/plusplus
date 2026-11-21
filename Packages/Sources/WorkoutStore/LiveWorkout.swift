@@ -6,9 +6,9 @@ import Foundation
 /// mid-workout counts at once.
 public struct LiveWorkout: Equatable, Sendable {
     public var routine: Routine
-    public var workout: Workout
+    public var workout: LoggedWorkout
 
-    public init(routine: Routine, workout: Workout) {
+    public init(routine: Routine, workout: LoggedWorkout) {
         self.routine = routine
         self.workout = workout
     }

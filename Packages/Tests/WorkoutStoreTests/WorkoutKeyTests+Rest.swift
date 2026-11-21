@@ -132,7 +132,7 @@ extension WorkoutKeyTests {
         let start = Date(timeIntervalSinceReferenceDate: 1000)
         var live = LiveWorkout(
             routine: routine,
-            workout: Workout(routineID: routine.id, routineName: "Pull", startedAt: start),
+            workout: LoggedWorkout(routineID: routine.id, routineName: "Pull", startedAt: start),
         )
         let bench = try #require(live.currentSet)
         live.workout = try live.workout.logging(

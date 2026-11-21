@@ -2,7 +2,7 @@ import Foundation
 
 extension WorkoutPhase {
     /// The workout End took from the store, while the list still draws it.
-    public var drawnWorkout: Workout? {
+    public var drawnWorkout: LoggedWorkout? {
         guard case let .ending(ending) = self, ending.drawsWorkout else { return nil }
         return ending.workout
     }
@@ -28,7 +28,7 @@ extension WorkoutPhase {
     /// The rest End came in, with the workout as it was, once the list has left it: its room
     /// closes showing the time it had. Gone with the list, its room closed drawing an empty rest,
     /// "0:00".
-    public var restLeft: (rest: Resting, workout: Workout)? {
+    public var restLeft: (rest: Resting, workout: LoggedWorkout)? {
         guard case let .ending(ending) = self, !ending.drawsWorkout, let rest = ending.rest
         else { return nil }
         return (rest, ending.workout)

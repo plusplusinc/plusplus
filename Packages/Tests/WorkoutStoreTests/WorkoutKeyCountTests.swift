@@ -15,7 +15,7 @@ struct WorkoutKeyCountTests {
         var second = try RoutineExercise.builtIn("Plank") { $0.sets = 1 }
         second.plan.target = .time(seconds: 30)
         let routine = Routine(exercises: [plank, second])
-        let workout = Workout(routineID: routine.id, routineName: "Test", startedAt: start)
+        let workout = LoggedWorkout(routineID: routine.id, routineName: "Test", startedAt: start)
         let begun = LiveWorkout(routine: routine, workout: workout).beginningCount(at: start)
         return LiveWorkout(routine: routine, workout: begun)
     }
@@ -131,7 +131,11 @@ struct WorkoutKeyCountTests {
     @Test("A reps set's key is Log set, as before")
     func reps() throws {
         let routine = try Routine(exercises: [RoutineExercise.builtIn("Push-up") { $0.sets = 2 }])
-        let workout = Workout(routineID: routine.id, routineName: "Test", startedAt: Self.start)
+        let workout = LoggedWorkout(
+            routineID: routine.id,
+            routineName: "Test",
+            startedAt: Self.start,
+        )
         let key = Self.key(LiveWorkout(routine: routine, workout: workout), phase: .running)
         #expect(key.drawnCount == nil)
         #expect(key.role == .log("Log set"))

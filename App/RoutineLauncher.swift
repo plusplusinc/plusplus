@@ -75,7 +75,7 @@ struct RoutineLauncher: View {
         }
     }
 
-    private func launch() async -> (routine: Routine, workout: Workout?) {
+    private func launch() async -> (routine: Routine, workout: LoggedWorkout?) {
         guard let store else { return (Routine(), nil) }
         do {
             #if DEBUG

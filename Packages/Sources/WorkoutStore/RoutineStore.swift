@@ -22,7 +22,9 @@ public actor RoutineStore {
     /// after that, which opens a new routine (nil). Every stored routine has been edited, since
     /// an untouched one is never saved and a cleared one is deleted. A weight never saved reads
     /// as its exercise's default in `weightUnit`.
-    public func launch(weightUnit: WeightUnit) throws -> (routine: Routine?, workout: Workout?) {
+    public func launch(weightUnit: WeightUnit) throws
+        -> (routine: Routine?, workout: LoggedWorkout?)
+    {
         var inProgress = FetchDescriptor<StoredWorkout>(
             predicate: #Predicate { $0.endedAt == nil },
             sortBy: [SortDescriptor(\.startedAt, order: .reverse), SortDescriptor(\.id)],
@@ -52,7 +54,7 @@ public actor RoutineStore {
 
     /// Saves the workout as it is now, every field. Once it has ended, its routine, if cleared
     /// to nothing while it ran, goes in the same save.
-    public func save(_ workout: Workout) throws {
+    public func save(_ workout: LoggedWorkout) throws {
         let target = try storedWorkout(id: workout.id) ?? {
             let new = StoredWorkout(id: workout.id)
             modelContext.insert(new)
@@ -90,7 +92,7 @@ public actor RoutineStore {
 
     /// Deletes the workout, keeping nothing of it, its sets with it, and its routine if cleared to
     /// nothing while it ran, in one save; nothing if there is none.
-    public func discardWorkout(_ id: Workout.ID) throws {
+    public func discardWorkout(_ id: LoggedWorkout.ID) throws {
         guard let stored = try storedWorkout(id: id) else { return }
         if let routineID = stored.routineID {
             try deleteIfCleared(routineID: routineID)

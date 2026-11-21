@@ -2,18 +2,18 @@ import Foundation
 import Testing
 @testable import WorkoutStore
 
-@Suite("Workout")
-struct WorkoutTests {
+@Suite("Logged workout")
+struct LoggedWorkoutTests {
     private let start = Date(timeIntervalSinceReferenceDate: 1000)
 
     private func at(_ seconds: Double) -> Date {
         start.addingTimeInterval(seconds)
     }
 
-    private let workout: Workout
+    private let workout: LoggedWorkout
 
     init() {
-        workout = Workout(routineID: UUID(), routineName: "Upper", startedAt: start)
+        workout = LoggedWorkout(routineID: UUID(), routineName: "Upper", startedAt: start)
     }
 
     @Test("Running, the time is the time since Start, never below zero")
@@ -98,8 +98,8 @@ struct WorkoutTests {
     }
 }
 
-@Suite("Workout text")
-struct WorkoutTextTests {
+@Suite("Logged workout text")
+struct LoggedWorkoutTextTests {
     private let locale = Locale(identifier: "en_US")
 
     @Test(
@@ -110,7 +110,7 @@ struct WorkoutTextTests {
         ],
     )
     func elapsedText(seconds: Int, text: String) {
-        #expect(Workout.elapsedText(.seconds(seconds), locale: locale) == text)
+        #expect(LoggedWorkout.elapsedText(.seconds(seconds), locale: locale) == text)
     }
 
     @Test(
@@ -121,6 +121,6 @@ struct WorkoutTextTests {
         ],
     )
     func spokenElapsed(seconds: Int, text: String) {
-        #expect(Workout.spokenElapsed(.seconds(seconds), locale: locale) == text)
+        #expect(LoggedWorkout.spokenElapsed(.seconds(seconds), locale: locale) == text)
     }
 }

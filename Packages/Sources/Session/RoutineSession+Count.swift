@@ -25,7 +25,7 @@ extension RoutineSession {
     }
 
     /// Changes the workout through a rule on it, storing only a change.
-    func changeLive(_ rule: (LiveWorkout) -> Workout) {
+    func changeLive(_ rule: (LiveWorkout) -> LoggedWorkout) {
         guard let workout else { return }
         let changed = rule(LiveWorkout(routine: current, workout: workout))
         if changed != workout {

@@ -72,7 +72,7 @@ enum LaunchOptions {
         let routine = seed.routine(weightUnit: weightUnit)
         try await store.save(routine)
         guard let logged = seed.loggedSets else { return }
-        var workout = Workout(
+        var workout = LoggedWorkout(
             routineID: routine.id,
             routineName: namer.shownName(of: routine) ?? "",
             startedAt: .now,

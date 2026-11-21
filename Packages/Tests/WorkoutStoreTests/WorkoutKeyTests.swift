@@ -62,7 +62,7 @@ struct WorkoutKeyTests {
             let start = Date(timeIntervalSinceReferenceDate: 1000)
             var live = LiveWorkout(
                 routine: routine,
-                workout: Workout(
+                workout: LoggedWorkout(
                     routineID: routine.id,
                     routineName: "Upper",
                     startedAt: start,

@@ -76,7 +76,7 @@ struct RoutineStoreBuiltInTests {
         let store = relaunch()
         let routine = try Routine(name: "Push", exercises: [Self.row()])
         try await store.save(routine)
-        var workout = Workout(
+        var workout = LoggedWorkout(
             routineID: routine.id,
             routineName: "Push",
             startedAt: Date(timeIntervalSinceReferenceDate: 10),

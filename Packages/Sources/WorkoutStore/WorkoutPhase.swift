@@ -54,7 +54,7 @@ public enum WorkoutPhase: Equatable, Sendable {
     /// A workout ending, from End's choice until Start comes back.
     public struct Ending: Equatable, Sendable {
         /// The workout as it was, whose time fades out of its key.
-        public let workout: Workout
+        public let workout: LoggedWorkout
         /// When End came: the rest drawn holds where it stood then (`drawnEnd`).
         public let date: Date
         /// A set logged but not yet drawn when End came, kept hidden so the screen stays as drawn
@@ -178,7 +178,7 @@ public enum WorkoutPhase: Equatable, Sendable {
     /// shown, so what End moves, it moves from where it is drawn. A rest drawn holds where it
     /// stood at `date`.
     @discardableResult
-    public mutating func end(_ workout: Workout, at date: Date = .now) -> Bool {
+    public mutating func end(_ workout: LoggedWorkout, at date: Date = .now) -> Bool {
         guard canEnd else { return false }
         let hidden: PlannedSet? = switch self {
         case .idle, .starting, .running, .timing, .closing(_, true), .fadingOn(_, true), .ending:

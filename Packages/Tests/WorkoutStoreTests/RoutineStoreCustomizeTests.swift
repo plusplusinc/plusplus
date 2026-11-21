@@ -42,7 +42,7 @@ struct RoutineStoreCustomizeTests {
     }
 
     /// Every workout stored, as a relaunch would read it.
-    private func workouts() throws -> [Workout] {
+    private func workouts() throws -> [LoggedWorkout] {
         try ModelContext(container).fetch(FetchDescriptor<StoredWorkout>()).map(\.workout)
     }
 
@@ -78,7 +78,11 @@ struct RoutineStoreCustomizeTests {
         try await store.save(Self.curl)
         let routine = Routine(name: "Arms", exercises: [Self.row(of: Self.curl)])
         try await store.save(routine)
-        var workout = Workout(routineID: routine.id, routineName: "Arms", startedAt: Self.at(10))
+        var workout = LoggedWorkout(
+            routineID: routine.id,
+            routineName: "Arms",
+            startedAt: Self.at(10),
+        )
         let next = try #require(routine.nextSet(after: workout.sets))
         workout = workout.logging(next, of: routine.exercises[0], at: Self.at(20))
         try await store.save(workout)
@@ -99,7 +103,11 @@ struct RoutineStoreCustomizeTests {
         try await store.save(Self.curl)
         let routine = Routine(name: "Arms", exercises: [Self.row(of: Self.curl)])
         try await store.save(routine)
-        var workout = Workout(routineID: routine.id, routineName: "Arms", startedAt: Self.at(10))
+        var workout = LoggedWorkout(
+            routineID: routine.id,
+            routineName: "Arms",
+            startedAt: Self.at(10),
+        )
         let next = try #require(routine.nextSet(after: workout.sets))
         workout = workout.logging(next, of: routine.exercises[0], at: Self.at(20))
         try await store.save(workout)
@@ -152,7 +160,11 @@ struct RoutineStoreCustomizeTests {
         for (index, routine) in [named, unnamed, emptiedNamed].enumerated() {
             try await store.save(routine, at: Self.at(TimeInterval(index)))
         }
-        var workout = Workout(routineID: named.id, routineName: "Arms", startedAt: Self.at(10))
+        var workout = LoggedWorkout(
+            routineID: named.id,
+            routineName: "Arms",
+            startedAt: Self.at(10),
+        )
         let next = try #require(named.nextSet(after: workout.sets))
         workout = workout.logging(next, of: named.exercises[0], at: Self.at(20))
         try await store.save(workout)

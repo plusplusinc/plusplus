@@ -11,7 +11,7 @@ struct LiveWorkoutTests {
     private func live(_ routine: Routine) -> LiveWorkout {
         LiveWorkout(
             routine: routine,
-            workout: Workout(routineID: routine.id, routineName: "Upper", startedAt: start),
+            workout: LoggedWorkout(routineID: routine.id, routineName: "Upper", startedAt: start),
         )
     }
 

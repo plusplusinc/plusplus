@@ -55,7 +55,7 @@ extension View {
 /// time's whole seconds while running, and draws once while paused.
 struct WorkoutTimeKey: View {
     let session: RoutineSession
-    let workout: Workout
+    let workout: LoggedWorkout
 
     @Environment(\.locale) private var locale
     /// The moment the time is drawn for: now, as each whole second of it comes (`tick()`).
@@ -96,12 +96,12 @@ struct WorkoutTimeKey: View {
     private func label(at date: Date) -> some View {
         let elapsed = workout.elapsed(at: date)
         return WorkoutTimeLabel(
-            Workout.elapsedText(elapsed, locale: locale),
+            LoggedWorkout.elapsedText(elapsed, locale: locale),
             isPaused: workout.isPaused,
         )
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(workout.isPaused ? "Resume" : "Pause")
-        .accessibilityValue(Workout.spokenElapsed(elapsed, locale: locale))
+        .accessibilityValue(LoggedWorkout.spokenElapsed(elapsed, locale: locale))
     }
 }
 
@@ -111,7 +111,7 @@ private struct Ticking: Equatable {
     let runs: Bool
 }
 
-extension Workout {
+extension LoggedWorkout {
     /// Whether its time is running on: in progress and not paused.
     fileprivate var runs: Bool {
         isInProgress && !isPaused

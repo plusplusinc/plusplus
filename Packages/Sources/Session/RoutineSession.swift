@@ -24,7 +24,7 @@ public final class RoutineSession {
     /// Where the app is: the routine, the Routines screen, or a routine pushed on it.
     public internal(set) var screen = Screen.routine
     /// The workout running the open routine, from Start until Finish or Discard.
-    public private(set) var workout: Workout?
+    public private(set) var workout: LoggedWorkout?
     /// Every exercise there is to pick, the ones created this session included.
     public internal(set) var exercises: ExerciseList
     /// The exercises whose delete is confirmed and not yet stored
@@ -49,11 +49,11 @@ public final class RoutineSession {
     /// Where every change to a workout goes, saved in the order they happened. Every one waits
     /// its turn: one workout's end and the next one's start can both be waiting, and keeping
     /// only the newest would drop the end, leaving the first in progress in the store.
-    @ObservationIgnored private let workoutWrites: AsyncStream<WorkoutQueueEntry>.Continuation
+    @ObservationIgnored private let workoutWrites: AsyncStream<LoggedWorkoutQueueEntry>.Continuation
 
     public init(
         routine: Routine,
-        workout: Workout? = nil,
+        workout: LoggedWorkout? = nil,
         exercises: ExerciseList = .builtIn,
         store: RoutineStore?,
         namer: RoutineNamer,
@@ -132,7 +132,7 @@ public final class RoutineSession {
         // The workout first: a screen shown at the root reads it as it is made, to open on the
         // current exercise.
         // A timed first set's "Starts in" begins as the screen lands on it (`beginCount`).
-        change(.save(Workout(routineID: routine, routineName: shownName, startedAt: now)))
+        change(.save(LoggedWorkout(routineID: routine, routineName: shownName, startedAt: now)))
         if screen != .routine {
             // A fresh screen at the root, opening on the routine as it is now.
             opened = current
@@ -199,7 +199,7 @@ public final class RoutineSession {
     /// The one way the workout changes: to what `write` stores, sent to be stored in the same
     /// call, so no change shows that a relaunch would lose. A workout saved in progress is the
     /// one running; one saved ended, or discarded, leaves none.
-    func change(_ write: WorkoutWrite) {
+    func change(_ write: LoggedWorkoutWrite) {
         switch write {
         case let .save(changed): workout = changed.isInProgress ? changed : nil
         case .discard: workout = nil

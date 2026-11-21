@@ -45,7 +45,7 @@ struct WorkoutRestTests {
         logged count: Int,
         every: Double = 10,
     ) throws -> LiveWorkout {
-        var workout = Workout(routineID: routine.id, routineName: "Test", startedAt: start)
+        var workout = LoggedWorkout(routineID: routine.id, routineName: "Test", startedAt: start)
         for (index, set) in routine.setOrder.prefix(count).enumerated() {
             let row = try #require(routine.exercises.first { $0.id == set.row })
             workout = workout.logging(set, of: row, at: at(Double(index + 1) * every))

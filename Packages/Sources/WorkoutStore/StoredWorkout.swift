@@ -8,7 +8,7 @@ typealias StoredSet = RoutineSchemaV12.StoredSet
 extension StoredWorkout {
     /// Writes every field, setting only those that differ, so an unchanged workout stays clean.
     /// Its sets are written by the store, which diffs them by id.
-    func write(_ workout: Workout) {
+    func write(_ workout: LoggedWorkout) {
         update(\.routineID, to: workout.routineID)
         update(\.routineName, to: workout.routineName)
         update(\.startedAt, to: workout.startedAt)
@@ -34,8 +34,8 @@ extension StoredWorkout {
     }
 
     /// The workout, its sets in the order logged; a set it can't read is left out.
-    var workout: Workout {
-        Workout(
+    var workout: LoggedWorkout {
+        LoggedWorkout(
             id: id,
             routineID: routineID ?? UUID(),
             routineName: routineName,

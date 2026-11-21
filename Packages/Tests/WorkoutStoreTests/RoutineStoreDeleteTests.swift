@@ -37,8 +37,12 @@ struct RoutineStoreDeleteTests {
     func workoutsStay() async throws {
         let upper = Routine(name: "Upper")
         try await relaunch().save(upper, at: Self.at(1))
-        let workout = Workout(routineID: upper.id, routineName: upper.name, startedAt: Self.at(10))
-            .finishing(at: Self.at(20))
+        let workout = LoggedWorkout(
+            routineID: upper.id,
+            routineName: upper.name,
+            startedAt: Self.at(10),
+        )
+        .finishing(at: Self.at(20))
         try await relaunch().save(workout)
         try await relaunch().deleteRoutine(upper.id)
         let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkout>())

@@ -28,7 +28,7 @@ struct TimedSetTests {
 
     /// The workout as Start begins it on `routine`, at `start`.
     static func started(_ routine: Routine) -> LiveWorkout {
-        let workout = Workout(routineID: routine.id, routineName: "Test", startedAt: start)
+        let workout = LoggedWorkout(routineID: routine.id, routineName: "Test", startedAt: start)
         let begun = LiveWorkout(routine: routine, workout: workout).beginningCount(at: start)
         return LiveWorkout(routine: routine, workout: begun)
     }

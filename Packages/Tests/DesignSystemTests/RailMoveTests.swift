@@ -15,7 +15,7 @@ import UIKit
 @Suite("Rail moves on")
 struct RailMoveTests {
     @Observable
-    final class Workout {
+    final class LoggedWorkout {
         var current = 0
         var isMoving = false
     }
@@ -26,7 +26,7 @@ struct RailMoveTests {
     }
 
     private struct Host: View {
-        let workout: Workout
+        let workout: LoggedWorkout
         private let rows = [
             Row(id: 0, title: "Goblet squat"),
             Row(id: 1, title: "Reverse lunge"),
@@ -134,7 +134,7 @@ struct RailMoveTests {
         arguments: [(from: 0, to: 1), (from: 1, to: 0)],
     )
     func unbroken(way: (from: Int, to: Int)) throws {
-        let workout = Workout()
+        let workout = LoggedWorkout()
         workout.current = way.from
         let window = UIWindow.sceneless(
             hosting: UIHostingController(rootView: Host(workout: workout)),

@@ -68,7 +68,7 @@ extension RoutineScreen {
 
     /// The rest as drawn, with the workout it runs on: the one running, or the one End came in
     /// until the list leaves it (`WorkoutPhase.drawnRest`).
-    var drawnResting: (rest: WorkoutRest, workout: Workout)? {
+    var drawnResting: (rest: WorkoutRest, workout: LoggedWorkout)? {
         guard phase.drawnRest != nil, let shown, let rest = shown.rest(override: restOverride)
         else { return nil }
         return (rest, shown.workout)
@@ -242,7 +242,7 @@ extension RoutineScreen {
 
     /// The row a rest between exercises is drawn in, `workout` holding the set it follows: the
     /// row left, under its label; before a superset's next round, the first member's, above it.
-    func restRow(of rest: WorkoutPhase.Resting, in workout: Workout) -> RoutineExercise.ID? {
+    func restRow(of rest: WorkoutPhase.Resting, in workout: LoggedWorkout) -> RoutineExercise.ID? {
         rest.isBack ? LiveWorkout(routine: routine, workout: workout).currentSet?.row : rest.set.row
     }
 
@@ -286,7 +286,7 @@ extension RoutineScreen {
     /// second's roll as it went.
     static func times(
         of rest: WorkoutRest,
-        on workout: Workout,
+        on workout: LoggedWorkout,
         stopped: Bool = false,
         end: Date? = nil,
     ) -> (ends: Date, pausedLeft: Double?) {

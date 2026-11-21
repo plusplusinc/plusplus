@@ -6,7 +6,7 @@ import Testing
 /// A relaunch is a second store over the same container: it sees only what was saved. Dates are
 /// explicit, so nothing rests on how fast the test runs.
 @Suite("Routine store workouts")
-struct RoutineStoreWorkoutTests {
+struct RoutineStoreLoggedWorkoutTests {
     private let container: ModelContainer
 
     init() throws {
@@ -21,8 +21,8 @@ struct RoutineStoreWorkoutTests {
         Date(timeIntervalSinceReferenceDate: seconds)
     }
 
-    private static func started(_ routine: Routine, at seconds: TimeInterval) -> Workout {
-        Workout(routineID: routine.id, routineName: routine.name, startedAt: at(seconds))
+    private static func started(_ routine: Routine, at seconds: TimeInterval) -> LoggedWorkout {
+        LoggedWorkout(routineID: routine.id, routineName: routine.name, startedAt: at(seconds))
     }
 
     @Test("A workout in progress comes back with its routine, its time counting the time away")
