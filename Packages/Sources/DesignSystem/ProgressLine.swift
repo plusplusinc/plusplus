@@ -32,37 +32,77 @@ public struct SetPlace: Equatable {
     }
 }
 
+/// What the lead of the current exercise's caption line reads, part by part, as `ProgressLine`
+/// draws it: "Set", "2", "of 3", then at its end "done" while resting after the set, else the
+/// side, "Left", while it shows, else nothing.
+struct ProgressWords: Equatable {
+    enum End: Equatable {
+        case done
+        case side(String)
+    }
+
+    var word: String
+    var number: String
+    var total: String
+    var end: End?
+
+    init(_ focus: RowFocus) {
+        word = focus.place.word
+        number = focus.place.numberText
+        total = focus.place.totalText
+        if focus.place.isDone {
+            end = .done
+        } else if focus.showsSide, let side = focus.side {
+            end = .side(side)
+        }
+    }
+}
+
 /// The lead of the current exercise's caption line: "Set 1 of 3", then, in one place, "done"
 /// while resting after the set, or the side, "· Left", set off in the name's color; the two
 /// never show together. As the sets go by only the number changes, rolling as a count's digits
 /// do (`RestBlock.countdown`, Dave, 2026-11-20): "Set", "of 3" hold still, and "done" keeps its
 /// room and fades, so nothing beside it moves. With Reduce Motion the number changes in place and
-/// "done" shows or goes at once. Side by side where they fit, else the side or "done" under the
-/// set (`FigureLayout`); the set's words wrap between words, as at the accessibility sizes.
+/// "done" shows or goes at once. The words wrap between words, as at the accessibility sizes,
+/// "done" with them; a side, or "done" in its place, goes beside the set where it fits, else
+/// under it (`FigureLayout`).
 struct ProgressLine: View {
     let focus: RowFocus
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        FigureLayout(spacing: 0) {
-            placeWords(focus.place)
-            ZStack(alignment: .topLeading) {
-                word("done")
-                    .opacity(focus.place.isDone ? 1 : 0)
-                    .animation(doneFade, value: focus.place.isDone)
-                if let side = focus.side {
+        let words = ProgressWords(focus)
+        let showsSide = words.end.map { $0 != .done } ?? false
+        let done = word("done")
+            .opacity(words.end == .done ? 1 : 0)
+            .animation(doneFade, value: words.end == .done)
+        if let side = focus.side {
+            FigureLayout(spacing: 0) {
+                FlowLayout(spacing: 0) {
+                    placeWords(words)
+                }
+                // The side laid out while hidden too, so the line keeps its room through a rest.
+                ZStack(alignment: .topLeading) {
+                    done
                     SideWord(side: side)
                         // Within a set, Left fades to Right; a side changed as it hides, the
                         // next set's taking the place of the one just done, changes at once.
                         .transaction(value: side) {
-                            if !focus.showsSide {
+                            if !showsSide {
                                 $0.animation = nil
                             }
                         }
-                        .opacity(focus.showsSide ? 1 : 0)
-                        .animation(sideFade, value: focus.showsSide)
+                        .opacity(showsSide ? 1 : 0)
+                        .animation(sideFade(showsSide), value: showsSide)
                 }
+            }
+        } else {
+            // "done" one more word, kept laid out: at the accessibility sizes it shares the
+            // second line with "of 3", so the line is as tall as it was before it had a "done".
+            FlowLayout(spacing: 0) {
+                placeWords(words)
+                done
             }
         }
     }
@@ -81,28 +121,28 @@ struct ProgressLine: View {
 
     /// The side goes at once as "done" comes in, since the side just done gives way to the next
     /// set's as it goes, and comes back once "done" has gone from its place.
-    private var sideFade: Animation? {
-        guard !reduceMotion, focus.showsSide else { return nil }
+    private func sideFade(_ showsSide: Bool) -> Animation? {
+        guard !reduceMotion, showsSide else { return nil }
         return Self.fadeIn.delay(SetMotion.leaveFade)
     }
 
     /// "Set 1 of 3 ", a word to a part, each with the space after it. The number's digits are of
     /// one width, so "of 3" holds still as it rolls.
-    private func placeWords(_ place: SetPlace) -> some View {
-        FlowLayout(spacing: 0) {
-            word("\(place.word) ")
-            word("\(place.numberText) ")
-                .monospacedDigit()
-                .contentTransition(
-                    reduceMotion ? .identity : .numericText(value: Double(place.number)),
-                )
-                // Its own roll, whatever else the update animates.
-                .transaction(value: place.number) {
-                    $0.animation = reduceMotion ? nil : SetMotion.restRoll
-                }
-            word("of ")
-            word("\(place.totalText) ")
-        }
+    @ViewBuilder
+    private func placeWords(_ words: ProgressWords) -> some View {
+        // A group, so each word is its own part of the flow it is put in.
+        word("\(words.word) ")
+        word("\(words.number) ")
+            .monospacedDigit()
+            .contentTransition(
+                reduceMotion ? .identity : .numericText(value: Double(focus.place.number)),
+            )
+            // Its own roll, whatever else the update animates.
+            .transaction(value: focus.place.number) {
+                $0.animation = reduceMotion ? nil : SetMotion.restRoll
+            }
+        word("of ")
+        word("\(words.total) ")
     }
 
     private func word(_ text: String) -> some View {
@@ -143,4 +183,22 @@ private struct SideWord: View {
         ),
         removal: .opacity.animation(.easeOut(duration: SetMotion.leaveFade)),
     )
+}
+
+#Preview {
+    let line = { (number: Int, isDone: Bool, side: String?) in
+        var place = SetPlace(word: "Set", number: number, total: 3)
+        place.isDone = isDone
+        var focus = RowFocus(place: place, side: side, figures: [], spokenFigures: "")
+        focus.showsSide = !isDone
+        return ProgressLine(focus: focus)
+    }
+    VStack(alignment: .leading, spacing: Spacing.md) {
+        line(1, false, nil)
+        line(1, true, nil)
+        line(2, false, "Left")
+        line(2, true, "Right")
+    }
+    .padding()
+    .background(Color.pp(.background))
 }

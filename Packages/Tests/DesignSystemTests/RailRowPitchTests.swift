@@ -31,7 +31,7 @@ struct RailRowPitchTests {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     content(focus: RowFocus(
-                        progress: "Set 1 of 3",
+                        place: SetPlace(word: "Set", number: 1, total: 3),
                         equipment: ["Dumbbells", "Bench"],
                         figures: [
                             .init(number: "10", unit: "reps"),

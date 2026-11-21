@@ -97,9 +97,15 @@ struct RestSnapshotTests {
         .init(number: "25", unit: "lb/side"),
     ]
 
-    private static func bench(progress: String, after: String? = nil) -> RowFocus {
-        RowFocus(
-            progress: progress,
+    private static func bench(
+        set: Int,
+        isDone: Bool = false,
+        after: String? = nil,
+    ) -> RowFocus {
+        var place = SetPlace(word: "Set", number: set, total: 3)
+        place.isDone = isDone
+        return RowFocus(
+            place: place,
             equipment: ["Dumbbells", "Bench"],
             figures: figures,
             spokenFigures: "10 reps, 25 pounds per side",
@@ -114,7 +120,7 @@ struct RestSnapshotTests {
         let current = Row(
             title: "Dumbbell bench press",
             detail: ["3 × 10 reps", "25 lb/side"],
-            focus: Self.bench(progress: "Set 2 of 3", after: "then rest 1:30"),
+            focus: Self.bench(set: 2, after: "then rest 1:30"),
             bars: SetProgress(done: 1, total: 3, spoken: "1 of 3 sets done"),
         )
         assertThemedSnapshots(of: rail([current, next], current: current.id), width: Self.width)
@@ -125,7 +131,7 @@ struct RestSnapshotTests {
         let current = Row(
             title: "Dumbbell bench press",
             detail: ["3 × 10 reps", "25 lb/side"],
-            focus: Self.bench(progress: "1 of 3 done"),
+            focus: Self.bench(set: 1, isDone: true),
             bars: SetProgress(done: 1, total: 3, spoken: "1 of 3 sets done"),
             setRest: SetRest(isRunning: true, length: 90, pausedLeft: 62),
         )
