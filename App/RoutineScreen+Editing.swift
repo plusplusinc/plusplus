@@ -263,11 +263,11 @@ extension RoutineScreen {
     /// growth got no scroll at all, every later one stopped short and the list rested short of
     /// its end, the last row under the + (at AX5, 394 against an end at 435). The change a short
     /// scroll makes is followed in turn, to the end the scroll view has by then.
-    func keepEndInView(from old: ScrollGeometry, to new: ScrollGeometry) {
+    func keepEndInView(from old: ScrollExtent, to new: ScrollExtent) {
         guard let follow = endFollow, !isMakingRoom, !isScrollingByHand,
               new.endY > new.scrolledY else { return }
         if follow != .following {
-            guard new.contentSize.height > old.contentSize.height else { return }
+            guard new.contentHeight > old.contentHeight else { return }
             if follow == .ready {
                 endFollow = .following
             }

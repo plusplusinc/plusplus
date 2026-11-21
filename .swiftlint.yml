@@ -92,6 +92,11 @@ force_unwrapping: error
 # Architecture rules from CLAUDE.md that are pure pattern matches. The compiler enforces the
 # dependency graph between targets; these catch the imports and idioms it cannot.
 custom_rules:
+  whole_scroll_geometry:
+    name: "Whole scroll geometry"
+    regex: 'onScrollGeometryChange\(\s*for: ScrollGeometry\.self'
+    message: "React to what the action reads (ScrollExtent or one value), not the whole ScrollGeometry, whose insets settle in several passes a frame"
+    severity: error
   observable_object:
     name: "ObservableObject"
     regex: '(\bObservableObject\b|@Published\b|@StateObject\b|@EnvironmentObject\b)'

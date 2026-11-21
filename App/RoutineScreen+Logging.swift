@@ -317,9 +317,9 @@ extension RoutineScreen {
     /// After the last set, while the room under the list's end closes, keeps the end where it
     /// shows as the content shortens, a frame at a time, as `keepEndInView(from:to:)` does as it
     /// grows.
-    func keepEndPinned(from old: ScrollGeometry, to new: ScrollGeometry) {
-        guard closingRoomTop != nil, new.contentSize.height < old.contentSize.height else { return }
-        let shrink = old.contentSize.height - new.contentSize.height
+    func keepEndPinned(from old: ScrollExtent, to new: ScrollExtent) {
+        guard closingRoomTop != nil, new.contentHeight < old.contentHeight else { return }
+        let shrink = old.contentHeight - new.contentHeight
         withTransaction(\.disablesAnimations, true) {
             scrollPosition.scrollTo(y: max(new.scrolledY - shrink, 0))
         }
