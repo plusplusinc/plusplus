@@ -42,11 +42,9 @@ struct RoutineScreen: View {
     @State var isScrollingByHand = false
     /// Whether the title's field has focus. Any touch outside the title ends the edit.
     @State var isEditingTitle = false
-    /// Whether the touch down last was outside the title with no edit to end, so a tap in the
-    /// empty space below the last row, or anywhere on an empty routine, opens the picker. Written
-    /// as the touch comes down, before the edit ends, since by the tap's end the edit has already
-    /// ended either way.
-    @State var tapOpensPicker = false
+    /// Where the touch down last came, which tells a tap on the list what to do, and the
+    /// keyboard a picker waits on (`tappedList(at:)`).
+    @State var titleTap = TapPastTitle()
     /// Whether the screen's foot shows the routine as empty: no Start, and the + low. It follows
     /// the exercises, but the first add and the last Remove change it only once their sheet has
     /// gone, so Start and the + are seen rising or going down (`settleFoot(after:)`).
@@ -181,9 +179,10 @@ struct RoutineScreen: View {
         // A touch anywhere outside the title, bars included, ends its edit and still acts. The
         // keyboard slides down as on Return, where `.scrollDismissesKeyboard` drops it at once.
         .onTouchDownOutsideTitle(
-            onTitle: { tapOpensPicker = false },
+            onTitle: { titleTap.touchDown(.onTitle) },
             perform: { touchedDownOutsideTitle() },
         )
+        .onKeyboardDown(for: $titleTap) { openPicker() }
         .endWorkoutDialog(
             isPresented: $isConfirmingEnd,
             session: session,
