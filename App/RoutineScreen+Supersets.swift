@@ -27,7 +27,7 @@ extension RoutineScreen {
         RailRegroup { held, reach in
             routine.regrouped(holding: held, reaching: reach).map { regrouping in
                 RailGrouping(
-                    links: regrouping.routine.joinedToNext,
+                    links: regrouping.workout.joinedToNext,
                     span: Set(regrouping.span),
                 )
             }

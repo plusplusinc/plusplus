@@ -7,9 +7,9 @@ import Testing
 struct RoundRestTests {
     /// The rows named, the first two joined into a superset.
     private static func joined(_ names: String...) throws -> Workout {
-        var routine = try Workout(exercises: names.map { try WorkoutExercise.builtIn($0) })
-        routine.join(routine.exercises[0].id, .below)
-        return routine
+        var workout = try Workout(exercises: names.map { try WorkoutExercise.builtIn($0) })
+        workout.join(workout.exercises[0].id, .below)
+        return workout
     }
 
     @Test("A superset rests its longest member's rest less 60 s, never under 30 s")
@@ -34,79 +34,79 @@ struct RoundRestTests {
 
     @Test("A plain row has no superset rest")
     func plain() throws {
-        let routine = try Self.joined("Push-up", "Plank", "Dumbbell row")
-        let plain = routine.exercises[2].id
-        #expect(routine.restAfterRound(of: plain) == nil)
-        #expect(routine.restAfterRoundText(of: plain).isEmpty)
-        #expect(!routine.isRoundAuto(of: plain))
+        let workout = try Self.joined("Push-up", "Plank", "Dumbbell row")
+        let plain = workout.exercises[2].id
+        #expect(workout.restAfterRound(of: plain) == nil)
+        #expect(workout.restAfterRoundText(of: plain).isEmpty)
+        #expect(!workout.isRoundAuto(of: plain))
     }
 
     @Test("Stepping one member's rest steps every member's, 15 s, and turns Auto off")
     func shared() throws {
-        var routine = try Self.joined("Barbell bench press", "Dumbbell row")
-        let (first, second) = (routine.exercises[0].id, routine.exercises[1].id)
-        routine.stepRestAfterRound(of: first, by: 1)
-        #expect(routine.restAfterRound(of: second) == 105)
-        #expect(!routine.isRoundAuto(of: second))
-        #expect(routine.restAfterRoundText(of: second, locale: Locale(identifier: "en_US"))
+        var workout = try Self.joined("Barbell bench press", "Dumbbell row")
+        let (first, second) = (workout.exercises[0].id, workout.exercises[1].id)
+        workout.stepRestAfterRound(of: first, by: 1)
+        #expect(workout.restAfterRound(of: second) == 105)
+        #expect(!workout.isRoundAuto(of: second))
+        #expect(workout.restAfterRoundText(of: second, locale: Locale(identifier: "en_US"))
             == "1m\u{00A0}45s")
         // A member's own reps no longer move a rest set by hand.
-        var bench = routine.exercises[0]
+        var bench = workout.exercises[0]
         bench.step(.target, by: 10)
-        routine.update(bench)
-        #expect(routine.restAfterRound(of: first) == 105)
+        workout.update(bench)
+        #expect(workout.restAfterRound(of: first) == 105)
     }
 
     @Test("Auto on derives the rest again; off brings back the one set by hand, on every member")
     func autoRemembers() throws {
-        var routine = try Self.joined("Barbell bench press", "Dumbbell row")
-        let (first, second) = (routine.exercises[0].id, routine.exercises[1].id)
-        routine.stepRestAfterRound(of: first, by: -1)
-        #expect(routine.restAfterRound(of: first) == 75)
-        routine.setRoundAuto(true, of: second)
-        #expect(routine.isRoundAuto(of: first))
-        #expect(routine.restAfterRound(of: first) == 90)
-        routine.setRoundAuto(false, of: first)
-        #expect(routine.restAfterRound(of: second) == 75)
+        var workout = try Self.joined("Barbell bench press", "Dumbbell row")
+        let (first, second) = (workout.exercises[0].id, workout.exercises[1].id)
+        workout.stepRestAfterRound(of: first, by: -1)
+        #expect(workout.restAfterRound(of: first) == 75)
+        workout.setRoundAuto(true, of: second)
+        #expect(workout.isRoundAuto(of: first))
+        #expect(workout.restAfterRound(of: first) == 90)
+        workout.setRoundAuto(false, of: first)
+        #expect(workout.restAfterRound(of: second) == 75)
     }
 
     @Test("Auto turned off before any rest was set keeps the rest it reads")
     func autoOffKeepsReading() throws {
-        var routine = try Self.joined("Barbell bench press", "Dumbbell row")
-        let first = routine.exercises[0].id
-        routine.setRoundAuto(false, of: first)
-        #expect(routine.restAfterRound(of: first) == 90)
-        var bench = routine.exercises[0]
+        var workout = try Self.joined("Barbell bench press", "Dumbbell row")
+        let first = workout.exercises[0].id
+        workout.setRoundAuto(false, of: first)
+        #expect(workout.restAfterRound(of: first) == 90)
+        var bench = workout.exercises[0]
         bench.step(.target, by: 10)
-        routine.update(bench)
-        #expect(routine.restAfterRound(of: first) == 90)
+        workout.update(bench)
+        #expect(workout.restAfterRound(of: first) == 90)
     }
 
     @Test("Joining keeps each row's own rest; splitting brings it back, the superset's gone")
     func splitRestores() throws {
-        var routine = try Workout(exercises: [
+        var workout = try Workout(exercises: [
             WorkoutExercise.builtIn("Barbell bench press") {
                 $0.rest = .byHand(200)
             },
             WorkoutExercise.builtIn("Dumbbell row"),
         ])
-        let (first, second) = (routine.exercises[0].id, routine.exercises[1].id)
-        routine.join(first, .below)
-        routine.stepRestAfterRound(of: first, by: 1)
-        #expect(routine.exercises.map(\.rest) == [200, 90])
-        routine.leaveSuperset(second)
-        #expect(routine.exercises.map(\.rest) == [200, 90])
-        #expect(routine.exercises.allSatisfy { $0.roundRest == .neverSet })
-        #expect(routine.restAfterRound(of: first) == nil)
+        let (first, second) = (workout.exercises[0].id, workout.exercises[1].id)
+        workout.join(first, .below)
+        workout.stepRestAfterRound(of: first, by: 1)
+        #expect(workout.exercises.map(\.rest) == [200, 90])
+        workout.leaveSuperset(second)
+        #expect(workout.exercises.map(\.rest) == [200, 90])
+        #expect(workout.exercises.allSatisfy { $0.roundRest == .neverSet })
+        #expect(workout.restAfterRound(of: first) == nil)
     }
 
     @Test("A row joining a superset takes its rest set by hand; a superset set by hand wins a join")
     func joinTakesSetRest() throws {
-        var routine = try Self.joined("Barbell bench press", "Dumbbell row", "Biceps curl")
-        let (first, third) = (routine.exercises[0].id, routine.exercises[2].id)
-        routine.stepRestAfterRound(of: first, by: 1)
-        routine.join(third, .above)
-        #expect(routine.restAfterRound(of: third) == 105)
-        #expect(!routine.isRoundAuto(of: third))
+        var workout = try Self.joined("Barbell bench press", "Dumbbell row", "Biceps curl")
+        let (first, third) = (workout.exercises[0].id, workout.exercises[2].id)
+        workout.stepRestAfterRound(of: first, by: 1)
+        workout.join(third, .above)
+        #expect(workout.restAfterRound(of: third) == 105)
+        #expect(!workout.isRoundAuto(of: third))
     }
 }

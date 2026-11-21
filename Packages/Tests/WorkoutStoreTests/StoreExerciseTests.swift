@@ -52,23 +52,23 @@ struct StoreExerciseTests {
     }
 
     @Test("A routine and a workout in progress reopen with a created exercise's row")
-    func routineReopens() async throws {
+    func workoutReopens() async throws {
         let store = relaunch()
         try await store.save(Self.ringRow)
         var row = WorkoutExercise(exercise: Exercise(created: Self.ringRow), weightUnit: .pounds)
         row.plan.sets = 4
-        let routine = try Workout(
+        let workout = try Workout(
             name: "Day A",
             exercises: [row, WorkoutExercise.builtIn("Waiter carry")],
         )
-        try await store.save(routine)
-        #expect(try await relaunch().launch(weightUnit: .pounds).routine == routine)
+        try await store.save(workout)
+        #expect(try await relaunch().launch(weightUnit: .pounds).workout == workout)
         try await relaunch()
-            .save(LoggedWorkout(routineID: routine.id, routineName: "Day A", startedAt: .now))
+            .save(LoggedWorkout(workoutID: workout.id, workoutName: "Day A", startedAt: .now))
         let launch = try await relaunch().launch(weightUnit: .pounds)
         #expect(launch.loggedWorkout != nil)
-        #expect(launch.routine == routine)
-        #expect(try await relaunch().routinesByRecency(weightUnit: .pounds) == [routine])
+        #expect(launch.workout == workout)
+        #expect(try await relaunch().workoutsByRecency(weightUnit: .pounds) == [workout])
     }
 
     @Test("A created exercise with no muscle group reopens, and so does its routine's row")
@@ -76,13 +76,13 @@ struct StoreExerciseTests {
         let store = relaunch()
         let none = CreatedExercise(name: "Zq", muscleGroups: [])
         try await store.save(none)
-        let routine = Workout(
+        let workout = Workout(
             name: "Day A",
             exercises: [WorkoutExercise(exercise: Exercise(created: none), weightUnit: .pounds)],
         )
-        try await store.save(routine)
+        try await store.save(workout)
         #expect(try await relaunch().exercises() == ExerciseList(created: [none]))
-        #expect(try await relaunch().launch(weightUnit: .pounds).routine == routine)
+        #expect(try await relaunch().launch(weightUnit: .pounds).workout == workout)
     }
 
     @Test("An exercise this build can't read is left out of the list and kept in the store")

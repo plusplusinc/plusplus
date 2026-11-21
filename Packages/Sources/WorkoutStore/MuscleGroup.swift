@@ -26,7 +26,7 @@ public enum MuscleGroup: String, NamedCase {
     /// A routine's name from the groups its exercises work: "Legs" for one, "Chest and back" for
     /// two, "Full body" for more, and nil for none. Named in declaration order, not the order
     /// exercises were added, so adding one never reshuffles the name.
-    public static func routineName(for groups: some Sequence<Self>) -> String? {
+    public static func workoutName(for groups: some Sequence<Self>) -> String? {
         let present = Set(groups)
         let named = allCases.filter(present.contains).map(\.name)
         switch named.count {

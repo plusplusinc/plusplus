@@ -28,40 +28,40 @@ struct WorkoutRestTests {
     /// A superset of dumbbell bench press and pull-up, 2 rounds resting `round` s after each,
     /// then a plank.
     private static func superset(round: Int = 75) throws -> Workout {
-        var routine = try Workout(exercises: [
+        var workout = try Workout(exercises: [
             WorkoutExercise.builtIn("Dumbbell bench press") { $0.sets = 2 },
             WorkoutExercise.builtIn("Pull-up") { $0.sets = 2 },
             WorkoutExercise.builtIn("Push-up") { $0.sets = 1 },
         ])
-        routine.join(routine.exercises[0].id, .below)
-        routine.setRestAfterRound(round, of: routine.exercises[0].id)
-        return routine
+        workout.join(workout.exercises[0].id, .below)
+        workout.setRestAfterRound(round, of: workout.exercises[0].id)
+        return workout
     }
 
     /// The workout on `routine` with its first `count` sets logged, each `every` seconds after
     /// the last, from the start.
     private static func live(
-        _ routine: Workout,
+        _ workout: Workout,
         logged count: Int,
         every: Double = 10,
     ) throws -> LiveWorkout {
         var loggedWorkout = LoggedWorkout(
-            routineID: routine.id,
-            routineName: "Test",
+            workoutID: workout.id,
+            workoutName: "Test",
             startedAt: start,
         )
-        for (index, set) in routine.setOrder.prefix(count).enumerated() {
-            let row = try #require(routine.exercises.first { $0.id == set.row })
+        for (index, set) in workout.setOrder.prefix(count).enumerated() {
+            let row = try #require(workout.exercises.first { $0.id == set.row })
             loggedWorkout = loggedWorkout.logging(set, of: row, at: at(Double(index + 1) * every))
         }
-        return LiveWorkout(routine: routine, loggedWorkout: loggedWorkout)
+        return LiveWorkout(workout: workout, loggedWorkout: loggedWorkout)
     }
 
     /// The rest between each set of `routine` and the next, in order, as the routine stores it.
-    private static func rests(_ routine: Workout) -> [Int] {
-        let order = routine.setOrder
+    private static func rests(_ workout: Workout) -> [Int] {
+        let order = workout.setOrder
         return order.indices.map { index in
-            routine.rest(
+            workout.rest(
                 after: order[index],
                 before: order.indices.contains(index + 1)
                     ? order[index + 1] : nil,
@@ -83,10 +83,10 @@ struct WorkoutRestTests {
 
     @Test("A rest of 0 runs no rest: none between sets, after a round, or before the next row")
     func restOfZero() throws {
-        var routine = try Self.plain()
-        routine.exercises[0].setRest(0)
-        #expect(routine.restBetweenSets(of: routine.exercises[0].id) == nil)
-        let live = try Self.live(routine, logged: 1)
+        var workout = try Self.plain()
+        workout.exercises[0].setRest(0)
+        #expect(workout.restBetweenSets(of: workout.exercises[0].id) == nil)
+        let live = try Self.live(workout, logged: 1)
         #expect(live.rest() == nil)
         #expect(!live.rests(after: live.loggedWorkout.sets[0].planned, leadingTo: .nextSet))
         let round = try Self.live(Self.superset(round: 0), logged: 2)

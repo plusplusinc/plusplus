@@ -4,11 +4,11 @@ import SwiftData
 extension Store {
     /// The routine `id` as stored, its rows read through today's exercises, without marking it
     /// opened; nil if there is none.
-    public func routine(_ id: Workout.ID, weightUnit: WeightUnit) throws -> Workout? {
+    public func workout(_ id: Workout.ID, weightUnit: WeightUnit) throws -> Workout? {
         var descriptor = FetchDescriptor<StoredRoutine>(predicate: #Predicate { $0.id == id })
         descriptor.fetchLimit = 1
         guard let stored = try modelContext.fetch(descriptor).first else { return nil }
-        return try Self.routine(from: stored, exercises: exercises(), weightUnit: weightUnit)
+        return try Self.workout(from: stored, exercises: exercises(), weightUnit: weightUnit)
     }
 
     /// Stores a built-in's customization in place of any it had; an empty one deletes it.
@@ -96,15 +96,15 @@ extension Store {
         ))
         var touched: [StoredRoutine] = []
         for row in rows {
-            if let routine = row.routine, !touched.contains(where: { $0 === routine }) {
-                touched.append(routine)
+            if let workout = row.routine, !touched.contains(where: { $0 === workout }) {
+                touched.append(workout)
             }
             modelContext.delete(row)
         }
-        for routine in touched {
-            let left = (routine.exercises ?? []).filter { $0.exerciseID != id }
-            if routine.name.isEmpty, left.isEmpty {
-                modelContext.delete(routine)
+        for workout in touched {
+            let left = (workout.exercises ?? []).filter { $0.exerciseID != id }
+            if workout.name.isEmpty, left.isEmpty {
+                modelContext.delete(workout)
             }
         }
         try modelContext.save()

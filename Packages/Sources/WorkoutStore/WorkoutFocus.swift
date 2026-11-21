@@ -99,7 +99,7 @@ enum WorkoutFocus: Equatable {
             if groups.count == 1, let only = groups.first {
                 return only.dayName
             }
-            return MuscleGroup.routineName(for: groups) ?? name
+            return MuscleGroup.workoutName(for: groups) ?? name
         }
         return name
     }

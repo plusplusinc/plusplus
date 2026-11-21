@@ -8,12 +8,12 @@ import Testing
 struct LiveWorkoutTests {
     private let start = Date(timeIntervalSinceReferenceDate: 1000)
 
-    private func live(_ routine: Workout) -> LiveWorkout {
+    private func live(_ workout: Workout) -> LiveWorkout {
         LiveWorkout(
-            routine: routine,
+            workout: workout,
             loggedWorkout: LoggedWorkout(
-                routineID: routine.id,
-                routineName: "Upper",
+                workoutID: workout.id,
+                workoutName: "Upper",
                 startedAt: start,
             ),
         )
@@ -23,27 +23,27 @@ struct LiveWorkoutTests {
     private func logging(_ sets: [PlannedSet], on live: LiveWorkout) throws -> LiveWorkout {
         var logged = live
         for set in sets {
-            let row = try #require(live.routine.exercises.first { $0.id == set.row })
+            let row = try #require(live.workout.exercises.first { $0.id == set.row })
             logged.loggedWorkout = logged.loggedWorkout.logging(set, of: row, at: start)
         }
         return logged
     }
 
     private func superset(_ first: String, _ second: String, sets: Int) throws -> Workout {
-        var routine = try Workout(exercises: [
+        var workout = try Workout(exercises: [
             WorkoutExercise.builtIn(first) { $0.sets = sets },
             WorkoutExercise.builtIn(second) { $0.sets = sets },
         ])
-        routine.join(routine.exercises[0].id, .below)
-        return routine
+        workout.join(workout.exercises[0].id, .below)
+        return workout
     }
 
     @Test("The current set and exercise are the first set not logged, and its row")
     func current() throws {
         let push = try WorkoutExercise.builtIn("Push-up") { $0.sets = 2 }
         let pull = try WorkoutExercise.builtIn("Pull-up")
-        let routine = Workout(exercises: [push, pull])
-        var live = live(routine)
+        let workout = Workout(exercises: [push, pull])
+        var live = live(workout)
         #expect(live.currentSet == PlannedSet(row: push.id, round: 1))
         #expect(live.currentExercise?.id == push.id)
         live = try logging(
@@ -69,8 +69,8 @@ struct LiveWorkoutTests {
     func finished() throws {
         let push = try WorkoutExercise.builtIn("Push-up") { $0.sets = 2 }
         let pull = try WorkoutExercise.builtIn("Pull-up") { $0.sets = 0 }
-        let routine = Workout(exercises: [push, pull])
-        var live = live(routine)
+        let workout = Workout(exercises: [push, pull])
+        var live = live(workout)
         #expect(live.finishedRows.isEmpty)
         live = try logging([PlannedSet(row: push.id, round: 1)], on: live)
         #expect(live.finishedRows.isEmpty)
@@ -96,11 +96,11 @@ struct LiveWorkoutTests {
 
     @Test("A superset member started and not current shows its bars")
     func startedBars() throws {
-        let routine = try superset("Push-up", "Pull-up", sets: 3)
-        let (rowA, rowB) = (routine.exercises[0].id, routine.exercises[1].id)
+        let workout = try superset("Push-up", "Pull-up", sets: 3)
+        let (rowA, rowB) = (workout.exercises[0].id, workout.exercises[1].id)
         let live = try logging(
             [PlannedSet(row: rowA, round: 1), PlannedSet(row: rowB, round: 1)],
-            on: live(routine),
+            on: live(workout),
         )
         #expect(live.currentExercise?.id == rowA)
         let bars = try #require(live.bars(of: rowB))
@@ -148,9 +148,9 @@ struct LiveWorkoutTests {
 
     @Test("In a superset, B's set leads back to A in the next round")
     func round() throws {
-        let routine = try superset("Push-up", "Pull-up", sets: 3)
-        let (rowA, rowB) = (routine.exercises[0].id, routine.exercises[1].id)
-        let live = try logging([PlannedSet(row: rowA, round: 1)], on: live(routine))
+        let workout = try superset("Push-up", "Pull-up", sets: 3)
+        let (rowA, rowB) = (workout.exercises[0].id, workout.exercises[1].id)
+        let live = try logging([PlannedSet(row: rowA, round: 1)], on: live(workout))
         #expect(live.step(logging: PlannedSet(row: rowB, round: 1)) == .nextExercise(
             to: PlannedSet(row: rowA, round: 2),
             isBack: true,
@@ -186,12 +186,12 @@ struct LiveWorkoutTests {
     @Test("Hiding the newest logged set gives the workout before it, and no older set")
     func hiding() throws {
         let push = try WorkoutExercise.builtIn("Push-up") { $0.sets = 3 }
-        let routine = Workout(exercises: [push])
+        let workout = Workout(exercises: [push])
         let (first, second) = (
             PlannedSet(row: push.id, round: 1),
             PlannedSet(row: push.id, round: 2),
         )
-        let before = try logging([first], on: live(routine))
+        let before = try logging([first], on: live(workout))
         let after = try logging([second], on: before)
         let hidden = after.hiding([second])
         #expect(hidden == before)

@@ -39,7 +39,7 @@ struct RoutineSessionTests {
         session.save(routine)
         await session.startNew()
         #expect(session.current.isEmpty)
-        #expect(try await relaunch().launch(weightUnit: .pounds).routine == routine)
+        #expect(try await relaunch().launch(weightUnit: .pounds).workout == routine)
     }
 
     @Test("An edit just before opening another routine is saved")
@@ -51,7 +51,7 @@ struct RoutineSessionTests {
         session.save(routine)
         await session.open(other.id, weightUnit: .pounds)
         #expect(session.current == other)
-        #expect(try await relaunch().openRoutine(routine.id, weightUnit: .pounds) == routine)
+        #expect(try await relaunch().openWorkout(routine.id, weightUnit: .pounds) == routine)
     }
 
     @Test("Of edits not yet saved, the newest is the one that lands")
@@ -63,7 +63,7 @@ struct RoutineSessionTests {
             session.save(routine)
         }
         await session.startNew()
-        #expect(try await relaunch().openRoutine(routine.id, weightUnit: .pounds)?.name == "Three")
+        #expect(try await relaunch().openWorkout(routine.id, weightUnit: .pounds)?.name == "Three")
     }
 
     /// The store deletes a cleared routine it is handed (`StoreTests`); this holds that the
@@ -75,13 +75,13 @@ struct RoutineSessionTests {
         var routine = try Self.upper()
         session.save(routine)
         await session.writesLanded()
-        #expect(try await relaunch().launch(weightUnit: .pounds).routine == routine)
+        #expect(try await relaunch().launch(weightUnit: .pounds).workout == routine)
         routine.exercises = []
         session.save(routine)
         routine.name = ""
         session.save(routine)
         await session.writesLanded()
-        #expect(try await relaunch().launch(weightUnit: .pounds).routine == nil)
+        #expect(try await relaunch().launch(weightUnit: .pounds).workout == nil)
     }
 
     @Test("An edit made while the next routine is being read is saved")
@@ -109,7 +109,7 @@ struct RoutineSessionTests {
         releaseRead.yield()
         await switching.value
         #expect(session.current == other)
-        #expect(try await relaunch().openRoutine(routine.id, weightUnit: .pounds) == edited)
+        #expect(try await relaunch().openWorkout(routine.id, weightUnit: .pounds) == edited)
     }
 
     @Test("An edit made as the read ends is saved before the next routine shows")
@@ -125,7 +125,7 @@ struct RoutineSessionTests {
             return other
         }
         #expect(session.current == other)
-        #expect(try await relaunch().openRoutine(routine.id, weightUnit: .pounds) == edited)
+        #expect(try await relaunch().openWorkout(routine.id, weightUnit: .pounds) == edited)
     }
 
     @Test("A workout's end is saved even with the next start queued behind it")
@@ -152,13 +152,13 @@ struct RoutineSessionTests {
         let session = session(routine)
         session.start(on: routine.id)
         let generated = try #require(WorkoutNamer.muscleGroupsOnly.shownName(of: routine))
-        #expect(session.loggedWorkout?.routineName == generated)
+        #expect(session.loggedWorkout?.workoutName == generated)
         routine.name = "Push day"
         session.save(routine)
         session.finish()
         await session.writesLanded()
         let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkout>())
-        #expect(stored.map(\.loggedWorkout.routineName) == ["Push day"])
+        #expect(stored.map(\.loggedWorkout.workoutName) == ["Push day"])
     }
 
     @Test("A routine emptied during a workout is kept until the workout ends, then deleted")
@@ -169,11 +169,11 @@ struct RoutineSessionTests {
         session.start(on: routine.id)
         session.save(Workout(id: routine.id))
         await session.writesLanded()
-        let kept = try await relaunch().openRoutine(routine.id, weightUnit: .pounds)
+        let kept = try await relaunch().openWorkout(routine.id, weightUnit: .pounds)
         #expect(kept?.isEmpty == true)
         session.finish()
         await session.writesLanded()
-        #expect(try await relaunch().openRoutine(routine.id, weightUnit: .pounds) == nil)
+        #expect(try await relaunch().openWorkout(routine.id, weightUnit: .pounds) == nil)
     }
 
     @Test("After every change to a workout, a relaunch opens it as the session shows it")

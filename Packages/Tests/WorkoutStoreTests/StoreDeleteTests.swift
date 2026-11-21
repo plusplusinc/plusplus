@@ -27,8 +27,8 @@ struct StoreDeleteTests {
         let lower = Workout(name: "Lower")
         try await relaunch().save(lower, at: Self.at(1))
         try await relaunch().save(upper, at: Self.at(2))
-        try await relaunch().deleteRoutine(upper.id)
-        #expect(try await relaunch().routinesByRecency(weightUnit: .pounds) == [lower])
+        try await relaunch().deleteWorkout(upper.id)
+        #expect(try await relaunch().workoutsByRecency(weightUnit: .pounds) == [lower])
         let rows = try ModelContext(container).fetch(FetchDescriptor<StoredRoutineExercise>())
         #expect(rows.isEmpty)
     }
@@ -38,13 +38,13 @@ struct StoreDeleteTests {
         let upper = Workout(name: "Upper")
         try await relaunch().save(upper, at: Self.at(1))
         let loggedWorkout = LoggedWorkout(
-            routineID: upper.id,
-            routineName: upper.name,
+            workoutID: upper.id,
+            workoutName: upper.name,
             startedAt: Self.at(10),
         )
         .finishing(at: Self.at(20))
         try await relaunch().save(loggedWorkout)
-        try await relaunch().deleteRoutine(upper.id)
+        try await relaunch().deleteWorkout(upper.id)
         let stored = try ModelContext(container).fetch(FetchDescriptor<StoredWorkout>())
         #expect(stored.map(\.loggedWorkout) == [loggedWorkout])
     }
@@ -55,15 +55,15 @@ struct StoreDeleteTests {
         let upper = Workout(name: "Upper")
         try await relaunch().save(lower, at: Self.at(1))
         try await relaunch().save(upper, at: Self.at(2))
-        try await relaunch().deleteRoutine(upper.id)
-        #expect(try await relaunch().launch(weightUnit: .pounds).routine == lower)
+        try await relaunch().deleteWorkout(upper.id)
+        #expect(try await relaunch().launch(weightUnit: .pounds).workout == lower)
     }
 
     @Test("Deleting a routine that isn't stored changes nothing")
     func deleteMissing() async throws {
         let lower = Workout(name: "Lower")
         try await relaunch().save(lower, at: Self.at(1))
-        try await relaunch().deleteRoutine(UUID())
-        #expect(try await relaunch().routinesByRecency(weightUnit: .pounds) == [lower])
+        try await relaunch().deleteWorkout(UUID())
+        #expect(try await relaunch().workoutsByRecency(weightUnit: .pounds) == [lower])
     }
 }

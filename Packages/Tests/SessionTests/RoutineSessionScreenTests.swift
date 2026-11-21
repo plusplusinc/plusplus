@@ -196,7 +196,7 @@ struct RoutineSessionScreenTests {
         session.start(on: session.current.id)
         #expect(session.screen == .routine)
         #expect(session.opened == edited)
-        #expect(session.loggedWorkout?.routineID == saved.id)
+        #expect(session.loggedWorkout?.workoutID == saved.id)
     }
 
     @Test("Start at the root keeps the screen the routine opened with")

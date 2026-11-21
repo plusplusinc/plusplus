@@ -248,7 +248,7 @@ extension RoutineScreen {
         -> WorkoutExercise.ID?
     {
         rest.isBack
-            ? LiveWorkout(routine: routine, loggedWorkout: loggedWorkout).currentSet?.row
+            ? LiveWorkout(workout: routine, loggedWorkout: loggedWorkout).currentSet?.row
             : rest.set.row
     }
 
@@ -272,7 +272,7 @@ extension RoutineScreen {
         // Ended mid-rest, its room closes with the list showing the time it had.
         if let (rest, loggedWorkout) = phase.restLeft, !rest.isWithinExercise,
            let row = restRow(of: rest, in: loggedWorkout),
-           let left = LiveWorkout(routine: routine, loggedWorkout: loggedWorkout)
+           let left = LiveWorkout(workout: routine, loggedWorkout: loggedWorkout)
                .rest(override: restOverride)
         {
             let (ends, pausedLeft) = Self.times(of: left, on: loggedWorkout, stopped: true)

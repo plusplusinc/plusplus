@@ -7,7 +7,7 @@ import Foundation
 /// What a drag from one row's node to another's makes of the routine's supersets: one superset of
 /// the rows it spans.
 public struct Regrouping: Equatable, Sendable {
-    public var routine: Workout
+    public var workout: Workout
     /// The rows the drag spans, from its anchor to the row reached, in order.
     public var span: [WorkoutExercise.ID]
 
@@ -80,10 +80,10 @@ extension Workout {
             rows.shareRoundRest(exercises[from].roundRest, over: span)
         }
         rows.normalizeSupersets()
-        var routine = self
-        routine.exercises = rows
+        var workout = self
+        workout.exercises = rows
         let members = span.map { exercises[$0].id }
-        return Regrouping(routine: routine, span: members)
+        return Regrouping(workout: workout, span: members)
     }
 
     /// What holding `held`'s node picks up, before the finger moves: its whole superset when it is
@@ -109,7 +109,7 @@ extension Workout {
         reaching reach: WorkoutExercise.ID,
     ) -> Bool {
         guard let regrouping = regrouped(holding: held, reaching: reach) else { return false }
-        self = regrouping.routine
+        self = regrouping.workout
         return true
     }
 

@@ -124,17 +124,17 @@ struct RulerValueTests {
 
     @Test("A superset's rest set on its ruler sets every member's, by hand")
     func roundRestRuler() throws {
-        var routine = try Workout(exercises: [
+        var workout = try Workout(exercises: [
             WorkoutExercise.builtIn("Barbell bench press"),
             WorkoutExercise.builtIn("Dumbbell row"),
         ])
-        routine.join(routine.exercises[0].id, .below)
-        let (first, second) = (routine.exercises[0].id, routine.exercises[1].id)
-        routine.setRestAfterRound(95, of: first)
-        #expect(routine.restAfterRound(of: second) == 95)
-        #expect(!routine.isRoundAuto(of: second))
-        routine.setRoundAuto(true, of: second)
-        #expect(routine.isRoundAuto(of: first))
+        workout.join(workout.exercises[0].id, .below)
+        let (first, second) = (workout.exercises[0].id, workout.exercises[1].id)
+        workout.setRestAfterRound(95, of: first)
+        #expect(workout.restAfterRound(of: second) == 95)
+        #expect(!workout.isRoundAuto(of: second))
+        workout.setRoundAuto(true, of: second)
+        #expect(workout.isRoundAuto(of: first))
     }
 
     /// While its ruler shows, a value keeps one shape as it turns: a weight one decimal, a time

@@ -174,13 +174,13 @@ struct CreatedExerciseTests {
     @Test("A superset with a created exercise of several groups shares a muscle by any one")
     func roundRestOfSeveralGroups() throws {
         let made = Self.exercise([.shoulders, .back], [.dumbbells])
-        var routine = try Workout(exercises: [
+        var workout = try Workout(exercises: [
             WorkoutExercise(exercise: made, weightUnit: .pounds),
             WorkoutExercise.builtIn("Dumbbell row"),
         ])
-        routine.join(routine.exercises[0].id, .below)
+        workout.join(workout.exercises[0].id, .below)
         // Back in common: the full 90 s, not 30.
-        #expect(routine.restAfterRound(of: routine.exercises[0].id) == 90)
+        #expect(workout.restAfterRound(of: workout.exercises[0].id) == 90)
     }
 
     @Test("Muscle groups read as a line from a set, in body order")
@@ -216,13 +216,13 @@ struct CreatedExerciseTests {
     func roundRest() throws {
         let made = Self.exercise(.back, [.dumbbells])
         let row = try WorkoutExercise.builtIn("Dumbbell row")
-        var routine = Workout(exercises: [
+        var workout = Workout(exercises: [
             WorkoutExercise(exercise: made, weightUnit: .pounds),
             row,
         ])
-        routine.join(routine.exercises[0].id, .below)
+        workout.join(workout.exercises[0].id, .below)
         // Both back, 90 s each: the full 90 s, not 30.
-        #expect(routine.restAfterRound(of: routine.exercises[0].id) == 90)
+        #expect(workout.restAfterRound(of: workout.exercises[0].id) == 90)
         var apart = Workout(exercises: [
             WorkoutExercise(exercise: Self.exercise(.legs, [.dumbbells]), weightUnit: .pounds),
             row,

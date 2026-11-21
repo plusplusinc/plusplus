@@ -6,10 +6,10 @@ import Foundation
 public struct LoggedWorkout: Identifiable, Equatable, Sendable {
     public let id: UUID
     /// The routine it runs. An id, not the routine, so deleting the routine leaves the workout.
-    public var routineID: UUID
+    public var workoutID: UUID
     /// The routine's name, written at Start and again at Finish, so a rename or delete after it
     /// ends leaves the workout as it was.
-    public var routineName: String
+    public var workoutName: String
     public var startedAt: Date
     /// When the pause in progress began; nil while running.
     public var pausedAt: Date?
@@ -24,8 +24,8 @@ public struct LoggedWorkout: Identifiable, Equatable, Sendable {
 
     public init(
         id: UUID = UUID(),
-        routineID: UUID,
-        routineName: String,
+        workoutID: UUID,
+        workoutName: String,
         startedAt: Date,
         pausedAt: Date? = nil,
         pausedSeconds: Double = 0,
@@ -35,8 +35,8 @@ public struct LoggedWorkout: Identifiable, Equatable, Sendable {
     ) {
         self.count = count
         self.id = id
-        self.routineID = routineID
-        self.routineName = routineName
+        self.workoutID = workoutID
+        self.workoutName = workoutName
         self.startedAt = startedAt
         self.pausedAt = pausedAt
         self.pausedSeconds = pausedSeconds

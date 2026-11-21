@@ -73,8 +73,8 @@ enum LaunchOptions {
         try await store.save(routine)
         guard let logged = seed.loggedSets else { return }
         var loggedWorkout = LoggedWorkout(
-            routineID: routine.id,
-            routineName: namer.shownName(of: routine) ?? "",
+            workoutID: routine.id,
+            workoutName: namer.shownName(of: routine) ?? "",
             startedAt: .now,
         )
         for set in routine.setOrder.prefix(logged) {

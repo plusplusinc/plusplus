@@ -134,7 +134,7 @@ extension RoutineScreen {
         let time = RestBlock.spoken(Double(seconds), locale: locale)
         // The workout with every log, the one drawn hidden included.
         let logs = (session.loggedWorkout ?? phase.drawnLoggedWorkout).map {
-            LiveWorkout(routine: routine, loggedWorkout: $0)
+            LiveWorkout(workout: routine, loggedWorkout: $0)
         }
         if let logged = phase.loggedAndDrawn ?? phase.endingHidden, logged.row == id,
            let kept = logs?.loggedCount(of: logged)

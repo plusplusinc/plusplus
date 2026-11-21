@@ -133,7 +133,7 @@ struct RoutineScreen: View {
         _opensOnCurrent = State(initialValue: session.loggedWorkout != nil)
         _phase = State(initialValue: WorkoutPhase(
             resuming: session.loggedWorkout
-                .map { LiveWorkout(routine: session.opened, loggedWorkout: $0) },
+                .map { LiveWorkout(workout: session.opened, loggedWorkout: $0) },
             restOverride: Self.restOverride,
             at: .now,
         ))

@@ -17,87 +17,87 @@ struct WorkoutSupersetTests {
     @Test("A node dragged onto the next row makes the two a superset, with the held row's rounds")
     func pair() {
         let result = regrouped("A B C", holding: "A", reaching: "B")
-        #expect(shape(result?.routine) == "A-B C")
-        #expect(sets(result?.routine) == [1, 1, 3])
+        #expect(shape(result?.workout) == "A-B C")
+        #expect(sets(result?.workout) == [1, 1, 3])
         #expect(result?.superset == [id("A"), id("B")])
     }
 
     @Test("The span runs from the held row to the row reached, and shrinks as the drag comes back")
     func spanAndShrink() {
-        #expect(shape(regrouped("A B C D E", holding: "A", reaching: "D")?.routine) == "A-B-C-D E")
-        #expect(shape(regrouped("A B C D E", holding: "A", reaching: "C")?.routine) == "A-B-C D E")
-        #expect(shape(regrouped("A B C D E", holding: "A", reaching: "B")?.routine) == "A-B C D E")
+        #expect(shape(regrouped("A B C D E", holding: "A", reaching: "D")?.workout) == "A-B-C-D E")
+        #expect(shape(regrouped("A B C D E", holding: "A", reaching: "C")?.workout) == "A-B-C D E")
+        #expect(shape(regrouped("A B C D E", holding: "A", reaching: "B")?.workout) == "A-B C D E")
         #expect(regrouped("A B C D E", holding: "A", reaching: "A") == nil)
         #expect(regrouped("A-B C", holding: "A", reaching: "A") == nil)
-        #expect(shape(regrouped("A B C D", holding: "B", reaching: "D")?.routine) == "A B-C-D")
+        #expect(shape(regrouped("A B C D", holding: "B", reaching: "D")?.workout) == "A B-C-D")
     }
 
     @Test("A span drawn upward takes the held row's rounds too")
     func upward() {
         let result = regrouped("A B C D", holding: "D", reaching: "B")
-        #expect(shape(result?.routine) == "A B-C-D")
-        #expect(sets(result?.routine) == [1, 4, 4, 4])
+        #expect(shape(result?.workout) == "A B-C-D")
+        #expect(sets(result?.workout) == [1, 4, 4, 4])
         #expect(result?.superset == [id("B"), id("C"), id("D")])
     }
 
     @Test("A middle member draws a new superset, cutting the old one; a lone row left goes plain")
     func middleCuts() {
-        #expect(shape(regrouped("A-B-C-D", holding: "C", reaching: "B")?.routine) == "A B-C D")
-        #expect(shape(regrouped("A-B-C-D-E", holding: "C", reaching: "D")?.routine) == "A-B C-D E")
-        #expect(shape(regrouped("A-B-C D-E", holding: "B", reaching: "D")?.routine) == "A B-C-D E")
+        #expect(shape(regrouped("A-B-C-D", holding: "C", reaching: "B")?.workout) == "A B-C D")
+        #expect(shape(regrouped("A-B-C-D-E", holding: "C", reaching: "D")?.workout) == "A-B C-D E")
+        #expect(shape(regrouped("A-B-C D-E", holding: "B", reaching: "D")?.workout) == "A B-C-D E")
     }
 
     @Test("An end member moves its end: the superset runs from its other end to the row reached")
     func endMoves() {
-        #expect(shape(regrouped("A-B-C-D", holding: "A", reaching: "B")?.routine) == "A B-C-D")
-        #expect(shape(regrouped("A-B C-D", holding: "B", reaching: "D")?.routine) == "A-B-C-D")
-        #expect(shape(regrouped("A-B C-D", holding: "B", reaching: "C")?.routine) == "A-B-C D")
-        #expect(shape(regrouped("A-B C", holding: "B", reaching: "C")?.routine) == "A-B-C")
-        #expect(shape(regrouped("A-B-C D", holding: "C", reaching: "B")?.routine) == "A-B C D")
-        #expect(shape(regrouped("A B-C", holding: "B", reaching: "A")?.routine) == "A-B-C")
-        #expect(shape(regrouped("A-B C-D", holding: "A", reaching: "D")?.routine) == "A B-C-D")
+        #expect(shape(regrouped("A-B-C-D", holding: "A", reaching: "B")?.workout) == "A B-C-D")
+        #expect(shape(regrouped("A-B C-D", holding: "B", reaching: "D")?.workout) == "A-B-C-D")
+        #expect(shape(regrouped("A-B C-D", holding: "B", reaching: "C")?.workout) == "A-B-C D")
+        #expect(shape(regrouped("A-B C", holding: "B", reaching: "C")?.workout) == "A-B-C")
+        #expect(shape(regrouped("A-B-C D", holding: "C", reaching: "B")?.workout) == "A-B C D")
+        #expect(shape(regrouped("A B-C", holding: "B", reaching: "A")?.workout) == "A-B-C")
+        #expect(shape(regrouped("A-B C-D", holding: "A", reaching: "D")?.workout) == "A B-C-D")
     }
 
     @Test("An end moved onto the other end leaves a span of one: every row plain, none a superset")
     func endOntoEnd() {
         let pair = regrouped("A-B C", holding: "A", reaching: "B")
-        #expect(shape(pair?.routine) == "A B C")
+        #expect(shape(pair?.workout) == "A B C")
         #expect(pair?.superset == [])
-        #expect(shape(regrouped("A-B-C", holding: "C", reaching: "A")?.routine) == "A B C")
+        #expect(shape(regrouped("A-B-C", holding: "C", reaching: "A")?.workout) == "A B C")
     }
 
     @Test("An end's superset keeps its round count; rows it takes in take it too")
     func endKeepsRounds() {
         let result = regrouped("A B-C D", holding: "C", reaching: "D")
-        #expect(shape(result?.routine) == "A B-C-D")
-        #expect(sets(result?.routine) == [1, 2, 2, 2])
+        #expect(shape(result?.workout) == "A B-C-D")
+        #expect(sets(result?.workout) == [1, 2, 2, 2])
         let grown = regrouped("A B-C D", holding: "B", reaching: "A")
-        #expect(sets(grown?.routine) == [2, 2, 2, 4])
+        #expect(sets(grown?.workout) == [2, 2, 2, 4])
     }
 
     @Test("A plain row's span takes the rows it covers, whole supersets or not")
     func plainAcross() {
-        #expect(shape(regrouped("A B-C D-E", holding: "A", reaching: "D")?.routine) == "A-B-C-D E")
-        #expect(shape(regrouped("A B-C-D", holding: "A", reaching: "B")?.routine) == "A-B C-D")
+        #expect(shape(regrouped("A B-C D-E", holding: "A", reaching: "D")?.workout) == "A-B-C-D E")
+        #expect(shape(regrouped("A B-C-D", holding: "A", reaching: "B")?.workout) == "A-B C-D")
     }
 
     @Test("Rows cut off keep the round count they shared")
     func cutKeepsRounds() throws {
-        var start = routine("A-B-C-D")
+        var start = workout("A-B-C-D")
         start.exercises = start.exercises.map { var row = $0
             row.plan.sets = 3
             return row
         }
         let result = try #require(start.regrouped(holding: id("C"), reaching: id("B")))
-        #expect(sets(result.routine) == [3, 3, 3, 3])
+        #expect(sets(result.workout) == [3, 3, 3, 3])
         let split = try #require(start.regrouped(holding: id("B"), reaching: id("A")))
-        #expect(shape(split.routine) == "A-B C-D")
-        #expect(split.routine.exercises[0].supersetID != split.routine.exercises[2].supersetID)
+        #expect(shape(split.workout) == "A-B C-D")
+        #expect(split.workout.exercises[0].supersetID != split.workout.exercises[2].supersetID)
     }
 
     @Test("Regroup applies the rule, and refuses a drag onto the held row")
     func regroup() {
-        var start = routine("A B")
+        var start = workout("A B")
         let changed = start.regroup(holding: id("A"), reaching: id("A"))
         #expect(!changed)
         let changedAgain = start.regroup(holding: id("A"), reaching: id("B"))
@@ -109,7 +109,7 @@ struct WorkoutSupersetTests {
 
     @Test("A plain row moved between two members joins, and takes the superset's rounds")
     func moveInside() {
-        var start = routine("A-B C")
+        var start = workout("A-B C")
         let changed = start.move(id("C"), to: .before(id("B")))
         #expect(changed)
         #expect(shape(start) == "A-C-B")
@@ -118,13 +118,13 @@ struct WorkoutSupersetTests {
 
     @Test("A row moved to a superset's edge joins it on the side named, and else stays plain")
     func moveToEdge() {
-        var below = routine("A B-C")
+        var below = workout("A B-C")
         let changed = below.move(id("A"), to: .before(id("B"), joining: .below))
         #expect(changed)
         #expect(shape(below) == "A-B-C")
         #expect(sets(below) == [2, 2, 2])
 
-        var above = routine("A-B C")
+        var above = workout("A-B C")
         let changedAgain = above.move(id("C"), to: .end)
         #expect(!changedAgain)
         let changedThird = above.move(id("C"), to: WorkoutSlot(.end, joining: .above))
@@ -132,7 +132,7 @@ struct WorkoutSupersetTests {
         #expect(shape(above) == "A-B-C")
         #expect(sets(above) == [1, 1, 1])
 
-        var plain = routine("C A-B")
+        var plain = workout("C A-B")
         let changedFourth = plain.move(id("C"), to: .end)
         #expect(changedFourth)
         #expect(shape(plain) == "A-B C")
@@ -140,11 +140,11 @@ struct WorkoutSupersetTests {
 
     @Test("A member moved away leaves a pair plain, and a triple a pair")
     func moveOut() {
-        var pair = routine("A-B C")
+        var pair = workout("A-B C")
         let changed = pair.move(id("A"), to: .end)
         #expect(changed)
         #expect(shape(pair) == "B C A")
-        var triple = routine("A-B-C D")
+        var triple = workout("A-B-C D")
         let changedAgain = triple.move(id("B"), to: .end)
         #expect(changedAgain)
         #expect(shape(triple) == "A-C D B")
@@ -152,7 +152,7 @@ struct WorkoutSupersetTests {
 
     @Test("A member dropped back at its own place, in its own superset, changes nothing")
     func moveInPlace() {
-        var start = routine("A-B C")
+        var start = workout("A-B C")
         let before = start
         let changed = start.move(id("B"), to: .before(id("C"), joining: .above))
         #expect(!changed)
@@ -168,19 +168,19 @@ struct WorkoutSupersetTests {
 
     @Test("Deleting one of a pair leaves the other plain, and one of three a pair")
     func delete() {
-        var pair = routine("A-B C")
+        var pair = workout("A-B C")
         pair.remove(id("A"))
         #expect(shape(pair) == "B C")
         #expect(pair.exercises.allSatisfy { $0.supersetID == nil })
-        var triple = routine("A-B-C")
+        var triple = workout("A-B-C")
         triple.remove(id("B"))
         #expect(shape(triple) == "A-C")
     }
 
     @Test("Stepping a member's rounds steps every member's; nothing else is shared")
     func sharedRounds() throws {
-        var start = try #require(routine("A B C").regrouped(holding: id("A"), reaching: id("B")))
-            .routine
+        var start = try #require(workout("A B C").regrouped(holding: id("A"), reaching: id("B")))
+            .workout
         var edited = start.exercises[1]
         edited.plan.sets = 4
         edited.plan.target = .reps(15)
@@ -199,7 +199,7 @@ struct WorkoutSupersetTests {
 
     @Test("A member's partners read as a list of names; a plain row has none")
     func partnerNames() {
-        let start = routine("A-B-C D")
+        let start = workout("A-B-C D")
         let (bName, cName) = (row("B").exercise.name, row("C").exercise.name)
         #expect(start.partnerNames(of: id("A")) == "\(bName) and \(cName)")
         #expect(start.partnerNames(of: id("D")) == nil)
@@ -214,25 +214,25 @@ struct WorkoutSupersetTests {
         }
         exercises[2].supersetID = UUID()
         exercises.normalizeSupersets()
-        let routine = Workout(exercises: exercises)
-        #expect(shape(routine) == "A-B C D-E")
+        let workout = Workout(exercises: exercises)
+        #expect(shape(workout) == "A-B C D-E")
         #expect(exercises[0].supersetID == superset)
         #expect(exercises[3].supersetID != superset)
         #expect(exercises[2].supersetID == nil)
-        #expect(sets(routine) == [1, 1, 3, 4, 4])
+        #expect(sets(workout) == [1, 1, 3, 4, 4])
     }
 
     @Test("The rows joined to the next")
     func joinedToNext() {
-        #expect(routine("A-B C D-E").joinedToNext == [id("A"), id("D")])
-        #expect(routine("A B").joinedToNext.isEmpty)
+        #expect(workout("A-B C D-E").joinedToNext == [id("A"), id("D")])
+        #expect(workout("A B").joinedToNext.isEmpty)
     }
 
     // MARK: VoiceOver
 
     @Test("Joining a neighbor is offered only where there's one, not joined yet")
     func canJoin() {
-        let start = routine("A B-C D")
+        let start = workout("A B-C D")
         #expect(!start.canJoin(id("A"), .above))
         #expect(start.canJoin(id("A"), .below))
         #expect(!start.canJoin(id("B"), .below))
@@ -248,13 +248,13 @@ struct WorkoutSupersetTests {
 
     @Test("Leaving a superset: in place from an end, to just below it from the middle")
     func leave() {
-        var end = routine("A-B-C D")
+        var end = workout("A-B-C D")
         end.leaveSuperset(id("C"))
         #expect(shape(end) == "A-B C D")
-        var first = routine("A-B D")
+        var first = workout("A-B D")
         first.leaveSuperset(id("A"))
         #expect(shape(first) == "A B D")
-        var middle = routine("A-B-C D")
+        var middle = workout("A-B-C D")
         middle.leaveSuperset(id("B"))
         #expect(shape(middle) == "A-C B D")
         #expect(!middle.isInSuperset(id("B")))
@@ -262,7 +262,7 @@ struct WorkoutSupersetTests {
 
     @Test("Move up and down keep a member in its superset, and take a plain row past one")
     func moveUpDown() throws {
-        let start = routine("A B-C D")
+        let start = workout("A B-C D")
         #expect(start.slotMovingUp(id("B")) == nil)
         #expect(start.slotMovingDown(id("C")) == nil)
 
@@ -287,7 +287,7 @@ struct WorkoutSupersetTests {
 extension WorkoutSupersetTests {
     /// A routine of rows A to E grouped as `shape` writes them: "A-B C D-E", each superset at
     /// its first row's round count.
-    private func routine(_ shape: String) -> Workout {
+    private func workout(_ shape: String) -> Workout {
         var exercises: [WorkoutExercise] = []
         for group in shape.split(separator: " ") {
             let superset = group.count > 1 ? UUID() : nil
@@ -316,11 +316,11 @@ extension WorkoutSupersetTests {
     }
 
     /// The routine's rows and supersets as `routine(_:)` takes them.
-    private func shape(_ routine: Workout?) -> String? {
-        guard let routine else { return nil }
+    private func shape(_ workout: Workout?) -> String? {
+        guard let workout else { return nil }
         var groups: [String] = []
         var previous: UUID?
-        for row in routine.exercises {
+        for row in workout.exercises {
             if let superset = row.supersetID, superset == previous {
                 groups[groups.count - 1] += "-" + letter(row.id)
             } else {
@@ -331,8 +331,8 @@ extension WorkoutSupersetTests {
         return groups.joined(separator: " ")
     }
 
-    private func sets(_ routine: Workout?) -> [Int]? {
-        routine?.exercises.map(\.plan.sets)
+    private func sets(_ workout: Workout?) -> [Int]? {
+        workout?.exercises.map(\.plan.sets)
     }
 
     private func regrouped(
@@ -340,7 +340,7 @@ extension WorkoutSupersetTests {
         holding held: String,
         reaching reach: String,
     ) -> Regrouping? {
-        routine(shape).regrouped(holding: id(held), reaching: id(reach))
+        workout(shape).regrouped(holding: id(held), reaching: id(reach))
     }
 }
 
@@ -349,12 +349,12 @@ extension WorkoutSupersetTests {
 extension WorkoutSupersetTests {
     @Test("The card's examples, each as Dave settled it")
     func cardExamples() {
-        #expect(shape(regrouped("A-B", holding: "A", reaching: "B")?.routine) == "A B")
-        #expect(shape(regrouped("A-B-C-D", holding: "A", reaching: "B")?.routine) == "A B-C-D")
-        #expect(shape(regrouped("A-B C-D", holding: "B", reaching: "D")?.routine) == "A-B-C-D")
-        #expect(shape(regrouped("A-B C-D", holding: "B", reaching: "C")?.routine) == "A-B-C D")
-        #expect(shape(regrouped("A-B-C-D", holding: "C", reaching: "B")?.routine) == "A B-C D")
-        #expect(shape(regrouped("A B-C-D", holding: "A", reaching: "B")?.routine) == "A-B C-D")
+        #expect(shape(regrouped("A-B", holding: "A", reaching: "B")?.workout) == "A B")
+        #expect(shape(regrouped("A-B-C-D", holding: "A", reaching: "B")?.workout) == "A B-C-D")
+        #expect(shape(regrouped("A-B C-D", holding: "B", reaching: "D")?.workout) == "A-B-C-D")
+        #expect(shape(regrouped("A-B C-D", holding: "B", reaching: "C")?.workout) == "A-B-C D")
+        #expect(shape(regrouped("A-B-C-D", holding: "C", reaching: "B")?.workout) == "A B-C D")
+        #expect(shape(regrouped("A B-C-D", holding: "A", reaching: "B")?.workout) == "A-B C-D")
     }
 
     @Test("The span runs from the anchor to the row reached, a lone row when it collapses")
@@ -367,31 +367,31 @@ extension WorkoutSupersetTests {
 
     @Test("A press picks up an end's whole superset, and a middle or plain row alone")
     func pickedUp() {
-        let start = routine("A-B-C D-E")
+        let start = workout("A-B-C D-E")
         #expect(start.pickedUp(holding: id("A")) == [id("A"), id("B"), id("C")])
         #expect(start.pickedUp(holding: id("C")) == [id("A"), id("B"), id("C")])
         #expect(start.pickedUp(holding: id("B")) == [id("B")])
         #expect(start.pickedUp(holding: id("D")) == [id("D"), id("E")])
         #expect(start.pickedUp(holding: id("E")) == [id("D"), id("E")])
-        #expect(routine("A B").pickedUp(holding: id("A")) == [id("A")])
+        #expect(workout("A B").pickedUp(holding: id("A")) == [id("A")])
     }
 }
 
 extension WorkoutSupersetTests {
     @Test("A row moved to a plain row's edge, joining it, pairs the two at the larger set count")
     func moveToPair() {
-        var below = routine("A B C")
+        var below = workout("A B C")
         let changed = below.move(id("A"), to: .before(id("C"), joining: .below))
         #expect(changed)
         #expect(shape(below) == "B A-C")
         #expect(sets(below) == [2, 3, 3])
-        var above = routine("A B C")
+        var above = workout("A B C")
         let changedAgain = above.move(id("C"), to: .before(id("B"), joining: .above))
         #expect(changedAgain)
         #expect(shape(above) == "A-C B")
         #expect(sets(above) == [3, 3, 2])
         // Its own neighbor, without moving.
-        var inPlace = routine("A B C")
+        var inPlace = workout("A B C")
         let changedThird = inPlace.move(id("B"), to: .before(id("C"), joining: .below))
         #expect(changedThird)
         #expect(shape(inPlace) == "A B-C")

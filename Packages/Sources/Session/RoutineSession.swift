@@ -133,7 +133,7 @@ public final class RoutineSession {
         // The workout first: a screen shown at the root reads it as it is made, to open on the
         // current exercise.
         // A timed first set's "Starts in" begins as the screen lands on it (`beginCount`).
-        change(.save(LoggedWorkout(routineID: routine, routineName: shownName, startedAt: now)))
+        change(.save(LoggedWorkout(workoutID: routine, workoutName: shownName, startedAt: now)))
         if screen != .routine {
             // A fresh screen at the root, opening on the routine as it is now.
             opened = current
@@ -168,7 +168,7 @@ public final class RoutineSession {
     /// its count has run (`LiveWorkout.logging`).
     public func log(_ planned: PlannedSet, of row: WorkoutExercise, at now: Date = .now) {
         guard let loggedWorkout else { return }
-        let live = LiveWorkout(routine: current, loggedWorkout: loggedWorkout)
+        let live = LiveWorkout(workout: current, loggedWorkout: loggedWorkout)
         change(.save(live.logging(planned, of: row, at: now)))
     }
 
@@ -188,9 +188,9 @@ public final class RoutineSession {
     /// counting logged at the time done (`LiveWorkout.finishing(at:)`).
     public func finish(at now: Date = .now) {
         guard let loggedWorkout else { return }
-        var finished = LiveWorkout(routine: current, loggedWorkout: loggedWorkout)
+        var finished = LiveWorkout(workout: current, loggedWorkout: loggedWorkout)
             .finishing(at: now)
-        finished.routineName = shownName
+        finished.workoutName = shownName
         change(.save(finished))
         deleteIfCleared()
     }
@@ -228,7 +228,7 @@ public final class RoutineSession {
         guard let store else { return }
         let switchesBefore = switches
         do {
-            let read = try await store.routinesByRecency(weightUnit: weightUnit)
+            let read = try await store.workoutsByRecency(weightUnit: weightUnit)
             guard switches == switchesBefore else { return }
             saved = read
         } catch {
@@ -246,7 +246,7 @@ public final class RoutineSession {
         guard let store else { return }
         await switchTo {
             do {
-                return try await store.openRoutine(id, weightUnit: weightUnit)
+                return try await store.openWorkout(id, weightUnit: weightUnit)
             } catch {
                 Logger.session.error("The routine didn't open: \(error)")
                 return nil
@@ -335,7 +335,7 @@ extension RoutineSession {
             try await change(store)
             exercises = listing(exercises)
             // Gone only if it was left with nothing: it reads as that, under its id.
-            current = try await store.routine(current.id, weightUnit: weightUnit)
+            current = try await store.workout(current.id, weightUnit: weightUnit)
                 ?? Workout(id: current.id, name: current.name)
         } catch {
             Logger.session.error("The exercise change didn't save: \(error)")
@@ -357,7 +357,7 @@ extension RoutineSession {
     /// it back. Refused for the routine a workout runs on, and while a switch is under way. A
     /// delete that fails leaves the routine listed.
     public func delete(_ id: Workout.ID) async {
-        guard !isSwitching, loggedWorkout?.routineID != id else { return }
+        guard !isSwitching, loggedWorkout?.workoutID != id else { return }
         isSwitching = true
         defer { isSwitching = false }
         if id == current.id {
@@ -365,7 +365,7 @@ extension RoutineSession {
             show(Workout(), on: .routines)
         }
         do {
-            try await store?.deleteRoutine(id)
+            try await store?.deleteWorkout(id)
         } catch {
             Logger.session.error("The routine didn't delete: \(error)")
             return

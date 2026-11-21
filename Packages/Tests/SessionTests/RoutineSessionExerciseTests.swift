@@ -33,7 +33,7 @@ struct RoutineSessionExerciseTests {
         let routine = Workout(exercises: [WorkoutExercise(exercise: exercise, weightUnit: .pounds)])
         session.save(routine)
         await session.writesLanded()
-        #expect(try await relaunch().launch(weightUnit: .pounds).routine == routine)
+        #expect(try await relaunch().launch(weightUnit: .pounds).workout == routine)
     }
 
     /// A session open on a routine with a row of a created exercise and a push-up, its last

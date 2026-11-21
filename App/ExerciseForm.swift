@@ -29,7 +29,7 @@ struct ExerciseForm: View {
     /// a built-in, with the settings it shipped with. Delete's question names the open routine
     /// first when it uses the exercise (`DeleteQuestion`).
     enum Ending {
-        case delete(usedByOpenRoutine: Bool, () async -> Void)
+        case delete(usedByOpenWorkout: Bool, () async -> Void)
         case clear(original: ExerciseSettings, () async -> Void)
     }
 
@@ -160,7 +160,7 @@ struct ExerciseForm: View {
             usedInSection
             switch ending {
             case let .delete(usedByOpen, onDelete):
-                deleteSection(usedByOpenRoutine: usedByOpen, onDelete)
+                deleteSection(usedByOpenWorkout: usedByOpen, onDelete)
             case let .clear(original, onClear): clearSection(original, onClear)
             }
         }
@@ -185,7 +185,7 @@ struct ExerciseForm: View {
                 NavigationLink {
                     UsedInList(names: usedIn)
                 } label: {
-                    LabeledContent("Used in", value: Self.routineCount(usedIn.count))
+                    LabeledContent("Used in", value: Self.workoutCount(usedIn.count))
                 }
             }
         }
@@ -238,7 +238,7 @@ struct ExerciseForm: View {
     }
 
     private func deleteSection(
-        usedByOpenRoutine: Bool,
+        usedByOpenWorkout: Bool,
         _ onDelete: @escaping () async -> Void,
     ) -> some View {
         Section {
@@ -263,15 +263,15 @@ struct ExerciseForm: View {
                 }
             } message: {
                 Text(DeleteQuestion.message(
-                    routineCount: usedIn.count,
-                    usedByOpenRoutine: usedByOpenRoutine,
+                    workoutCount: usedIn.count,
+                    usedByOpenWorkout: usedByOpenWorkout,
                 ))
             }
         }
         .listRowBackground(Color.pp(.surface))
     }
 
-    static func routineCount(_ count: Int) -> String {
+    static func workoutCount(_ count: Int) -> String {
         count == 1 ? String(localized: "1 workout") : String(localized: "\(count) workouts")
     }
 
@@ -331,7 +331,7 @@ struct UsedInList: View {
             exercises: .builtIn,
             usedIn: ["PT day A", "Total body"],
             onSave: { _ in },
-            ending: .delete(usedByOpenRoutine: true) { },
+            ending: .delete(usedByOpenWorkout: true) { },
         )
     }
 }

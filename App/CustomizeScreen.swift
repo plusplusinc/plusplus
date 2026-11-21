@@ -49,7 +49,7 @@ struct CustomizeScreen: View {
                 onStored()
             }
         } else {
-            .delete(usedByOpenRoutine: session.openRoutineUses(id), onDelete)
+            .delete(usedByOpenWorkout: session.openRoutineUses(id), onDelete)
         }
     }
 }

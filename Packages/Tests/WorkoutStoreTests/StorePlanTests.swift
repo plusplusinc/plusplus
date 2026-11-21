@@ -28,7 +28,7 @@ struct StorePlanTests {
 
     @Test("Plans round-trip: reps, time, each load, both units")
     func roundTrip() async throws {
-        let routine = try Workout(exercises: [
+        let workout = try Workout(exercises: [
             WorkoutExercise.builtIn("Barbell bench press") {
                 $0.sets = 5
                 $0.weight = Weight(135, .pounds)
@@ -38,8 +38,8 @@ struct StorePlanTests {
             WorkoutExercise.builtIn("Pigeon stretch") { $0.target = .time(seconds: 90) },
             WorkoutExercise.builtIn("Farmer\u{2019}s carry") { $0.weight = Weight(50, .pounds) },
         ])
-        try await relaunch().save(routine)
-        #expect(try await relaunch().launch(weightUnit: .pounds).routine == routine)
+        try await relaunch().save(workout)
+        #expect(try await relaunch().launch(weightUnit: .pounds).workout == workout)
     }
 
     /// A weight off its load's 5 lb steps, as the ruler sets one, through every place a weight
@@ -48,16 +48,16 @@ struct StorePlanTests {
     func offStepWeightRoundTrip() async throws {
         var curl = try WorkoutExercise.builtIn("Biceps curl")
         curl.setWeight(27.5)
-        let routine = Workout(name: "Arms", exercises: [curl])
-        try await relaunch().save(routine, at: Date(timeIntervalSinceReferenceDate: 1))
-        let reopened = try #require(try await relaunch().launch(weightUnit: .pounds).routine)
+        let workout = Workout(name: "Arms", exercises: [curl])
+        try await relaunch().save(workout, at: Date(timeIntervalSinceReferenceDate: 1))
+        let reopened = try #require(try await relaunch().launch(weightUnit: .pounds).workout)
         #expect(reopened.exercises.first?.plan.weight == Weight(27.5, .pounds))
 
         let next = try #require(reopened.nextSet(after: []))
         let row = try #require(reopened.exercises.first)
         let loggedWorkout = LoggedWorkout(
-            routineID: reopened.id,
-            routineName: reopened.name,
+            workoutID: reopened.id,
+            workoutName: reopened.name,
             startedAt: Date(timeIntervalSinceReferenceDate: 10),
         ).logging(next, of: row, at: Date(timeIntervalSinceReferenceDate: 20))
         try await relaunch().save(loggedWorkout)
@@ -70,16 +70,16 @@ struct StorePlanTests {
         var remembered = try WorkoutExercise.builtIn("Barbell bench press")
         remembered.step(.rest, by: 1)
         remembered.isRestAuto = true
-        let routine = try Workout(exercises: [
+        let workout = try Workout(exercises: [
             WorkoutExercise.builtIn("Push-up"),
             WorkoutExercise.builtIn("Biceps curl") {
                 $0.rest = .byHand(0)
             },
             remembered,
         ])
-        try await relaunch().save(routine)
-        let reopened = try #require(try await relaunch().launch(weightUnit: .pounds).routine)
-        #expect(reopened == routine)
+        try await relaunch().save(workout)
+        let reopened = try #require(try await relaunch().launch(weightUnit: .pounds).workout)
+        #expect(reopened == workout)
         #expect(reopened.exercises.map(\.rest) == [60, 0, 150])
         var back = reopened.exercises[2]
         back.isRestAuto = false
@@ -94,7 +94,7 @@ struct StorePlanTests {
             row.rest = 900
             row.isRestAuto = false
         }
-        let row = try #require(try await relaunch().launch(weightUnit: .pounds).routine?
+        let row = try #require(try await relaunch().launch(weightUnit: .pounds).workout?
             .exercises.first)
         #expect(row.plan.rest == .neverSet)
         #expect(row.rest == 60)
@@ -103,15 +103,15 @@ struct StorePlanTests {
     @Test("Two rows of one exercise keep their own values, and a kept row's change is saved")
     func rowsApart() async throws {
         let store = relaunch()
-        var routine = try Workout(exercises: [
+        var workout = try Workout(exercises: [
             WorkoutExercise.builtIn("Pull-up"),
             WorkoutExercise.builtIn("Pull-up"),
         ])
-        try await store.save(routine)
-        routine.exercises[1].plan.target = .reps(8)
-        try await store.save(routine)
+        try await store.save(workout)
+        workout.exercises[1].plan.target = .reps(8)
+        try await store.save(workout)
 
-        let reopened = try #require(try await relaunch().launch(weightUnit: .pounds).routine)
+        let reopened = try #require(try await relaunch().launch(weightUnit: .pounds).workout)
         #expect(reopened.exercises.map(\.plan.target) == [.reps(6), .reps(8)])
     }
 
@@ -135,9 +135,9 @@ struct StorePlanTests {
             row.weightUnit = nil
         }
         let row = try Exercise.builtIn(named: "Dumbbell row")
-        let inPounds = try #require(try await relaunch().launch(weightUnit: .pounds).routine)
+        let inPounds = try #require(try await relaunch().launch(weightUnit: .pounds).workout)
         #expect(inPounds.exercises.map(\.plan) == [row.defaultPlan(in: .pounds)])
-        let inKilograms = try #require(try await relaunch().launch(weightUnit: .kilograms).routine)
+        let inKilograms = try #require(try await relaunch().launch(weightUnit: .kilograms).workout)
         #expect(inKilograms.exercises.map(\.plan) == [row.defaultPlan(in: .kilograms)])
         #expect(inKilograms.exercises.first?.plan.weight == Weight(12, .kilograms))
     }
@@ -149,7 +149,7 @@ struct StorePlanTests {
             row.weight = 20
             row.weightUnit = "stone"
         }
-        let plan = try #require(try await relaunch().launch(weightUnit: .pounds).routine?.exercises
+        let plan = try #require(try await relaunch().launch(weightUnit: .pounds).workout?.exercises
             .first?.plan)
         #expect(plan == ExercisePlan(sets: 3, target: .reps(8), weight: Weight(15, .pounds)))
     }
@@ -163,7 +163,7 @@ struct StorePlanTests {
             row.weight = -5
             row.weightUnit = "lb"
         }
-        let plan = try #require(try await relaunch().launch(weightUnit: .pounds).routine?.exercises
+        let plan = try #require(try await relaunch().launch(weightUnit: .pounds).workout?.exercises
             .first?.plan)
         #expect(try plan == Exercise.builtIn(named: "Goblet squat").defaultPlan(in: .pounds))
     }
@@ -174,7 +174,7 @@ struct StorePlanTests {
             row.weight = 1005
             row.weightUnit = "lb"
         }
-        let plan = try #require(try await relaunch().launch(weightUnit: .pounds).routine?.exercises
+        let plan = try #require(try await relaunch().launch(weightUnit: .pounds).workout?.exercises
             .first?.plan)
         #expect(try plan.weight == Exercise.builtIn(named: "Goblet squat").defaultPlan(in: .pounds)
             .weight)
@@ -186,7 +186,7 @@ struct StorePlanTests {
             row.weight = 10
             row.weightUnit = "lb"
         }
-        let plan = try #require(try await relaunch().launch(weightUnit: .pounds).routine?.exercises
+        let plan = try #require(try await relaunch().launch(weightUnit: .pounds).workout?.exercises
             .first?.plan)
         #expect(plan.weight == nil)
     }

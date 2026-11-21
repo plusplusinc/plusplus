@@ -12,7 +12,7 @@ struct StoreUpgradeTests {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         let url = folder.appending(path: "PlusPlus.store")
-        let routineID = UUID()
+        let workoutID = UUID()
         let rowIDs = [UUID(), UUID()]
 
         do {
@@ -25,10 +25,10 @@ struct StoreUpgradeTests {
                 configurations: ModelConfiguration(schema: schema, url: url),
             )
             let context = ModelContext(old)
-            let routine = RoutineSchemaV1.StoredRoutine(id: routineID)
-            routine.name = "Upper"
-            routine.editedAt = .now
-            context.insert(routine)
+            let workout = RoutineSchemaV1.StoredRoutine(id: workoutID)
+            workout.name = "Upper"
+            workout.editedAt = .now
+            context.insert(workout)
             for (position, (id, exercise)) in zip(rowIDs, ["dumbbell-row", "pigeon-stretch"])
                 .enumerated()
             {
@@ -38,7 +38,7 @@ struct StoreUpgradeTests {
                     position: position,
                 )
                 context.insert(row)
-                row.routine = routine
+                row.routine = workout
             }
             try context.save()
         }
@@ -48,13 +48,13 @@ struct StoreUpgradeTests {
             migrationPlan: StoreMigrationPlan.self,
             configurations: ModelConfiguration(schema: Store.schema, url: url),
         )
-        let routine = try #require(try await Store(modelContainer: current)
-            .launch(weightUnit: .pounds).routine)
+        let workout = try #require(try await Store(modelContainer: current)
+            .launch(weightUnit: .pounds).workout)
         let expected = try Exercise.builtIn(named: ["Dumbbell row", "Pigeon stretch"])
-        #expect(routine.id == routineID)
-        #expect(routine.name == "Upper")
-        #expect(routine.exercises.map(\.id) == rowIDs)
-        #expect(routine.exercises.map(\.plan) == expected.map { $0.defaultPlan(in: .pounds) })
+        #expect(workout.id == workoutID)
+        #expect(workout.name == "Upper")
+        #expect(workout.exercises.map(\.id) == rowIDs)
+        #expect(workout.exercises.map(\.plan) == expected.map { $0.defaultPlan(in: .pounds) })
     }
 
     @Test("A store written before supersets opens with every row plain, plans kept")
@@ -76,9 +76,9 @@ struct StoreUpgradeTests {
                 configurations: ModelConfiguration(schema: schema, url: url),
             )
             let context = ModelContext(old)
-            let routine = RoutineSchemaV2.StoredRoutine(id: UUID())
-            routine.editedAt = .now
-            context.insert(routine)
+            let workout = RoutineSchemaV2.StoredRoutine(id: UUID())
+            workout.editedAt = .now
+            context.insert(workout)
             for (position, (id, exercise)) in zip(rowIDs, ["push-up", "pull-up"]).enumerated() {
                 let row = RoutineSchemaV2.StoredRoutineExercise(
                     id: id,
@@ -88,7 +88,7 @@ struct StoreUpgradeTests {
                 row.sets = 5
                 row.reps = 8
                 context.insert(row)
-                row.routine = routine
+                row.routine = workout
             }
             try context.save()
         }
@@ -98,12 +98,12 @@ struct StoreUpgradeTests {
             migrationPlan: StoreMigrationPlan.self,
             configurations: ModelConfiguration(schema: Store.schema, url: url),
         )
-        let routine = try #require(try await Store(modelContainer: current)
-            .launch(weightUnit: .pounds).routine)
-        #expect(routine.exercises.map(\.id) == rowIDs)
-        #expect(routine.exercises.allSatisfy { $0.supersetID == nil })
-        #expect(routine.exercises.map(\.plan.sets) == [5, 5])
-        #expect(routine.exercises.map(\.plan.target) == [.reps(8), .reps(8)])
+        let workout = try #require(try await Store(modelContainer: current)
+            .launch(weightUnit: .pounds).workout)
+        #expect(workout.exercises.map(\.id) == rowIDs)
+        #expect(workout.exercises.allSatisfy { $0.supersetID == nil })
+        #expect(workout.exercises.map(\.plan.sets) == [5, 5])
+        #expect(workout.exercises.map(\.plan.target) == [.reps(8), .reps(8)])
     }
 
     @Test("A store written before routines were opened opens in edited order")
@@ -125,10 +125,10 @@ struct StoreUpgradeTests {
             )
             let context = ModelContext(old)
             for (name, seconds) in [("Older", 1.0), ("Newer", 2.0)] {
-                let routine = RoutineSchemaV3.StoredRoutine(id: UUID())
-                routine.name = name
-                routine.editedAt = Date(timeIntervalSinceReferenceDate: seconds)
-                context.insert(routine)
+                let workout = RoutineSchemaV3.StoredRoutine(id: UUID())
+                workout.name = name
+                workout.editedAt = Date(timeIntervalSinceReferenceDate: seconds)
+                context.insert(workout)
             }
             try context.save()
         }
@@ -139,8 +139,8 @@ struct StoreUpgradeTests {
             configurations: ModelConfiguration(schema: Store.schema, url: url),
         )
         let store = Store(modelContainer: current)
-        #expect(try await store.launch(weightUnit: .pounds).routine?.name == "Newer")
-        #expect(try await store.routinesByRecency(weightUnit: .pounds).map(\.name)
+        #expect(try await store.launch(weightUnit: .pounds).workout?.name == "Newer")
+        #expect(try await store.workoutsByRecency(weightUnit: .pounds).map(\.name)
             == ["Newer", "Older"])
     }
 
@@ -162,24 +162,24 @@ struct StoreUpgradeTests {
         }
 
         let store = try open()
-        let routines = try await store.routinesByRecency(weightUnit: .pounds)
-        #expect(routines.map(\.name) == ["Older", "Newer"])
-        for routine in routines {
-            #expect(routine.exercises.map(\.exercise.id) == ["push-up", "pull-up"])
-            #expect(routine.exercises.map(\.plan.sets) == [4, 4])
-            #expect(routine.exercises.map(\.plan.target) == [.reps(6), .reps(6)])
-            #expect(routine.exercises.allSatisfy { $0.supersetID != nil })
+        let workouts = try await store.workoutsByRecency(weightUnit: .pounds)
+        #expect(workouts.map(\.name) == ["Older", "Newer"])
+        for workout in workouts {
+            #expect(workout.exercises.map(\.exercise.id) == ["push-up", "pull-up"])
+            #expect(workout.exercises.map(\.plan.sets) == [4, 4])
+            #expect(workout.exercises.map(\.plan.target) == [.reps(6), .reps(6)])
+            #expect(workout.exercises.allSatisfy { $0.supersetID != nil })
         }
         let loggedWorkout = LoggedWorkout(
-            routineID: routines[0].id,
-            routineName: routines[0].name,
+            workoutID: workouts[0].id,
+            workoutName: workouts[0].name,
             startedAt: Date(timeIntervalSinceReferenceDate: 10),
         )
         try await store.save(loggedWorkout)
 
         let launch = try await open().launch(weightUnit: .pounds)
         #expect(launch.loggedWorkout == loggedWorkout)
-        #expect(launch.routine?.name == "Older")
+        #expect(launch.workout?.name == "Older")
     }
 
     @Test("A store written before logged sets opens with its workout in progress, no sets")
@@ -198,11 +198,11 @@ struct StoreUpgradeTests {
                 configurations: ModelConfiguration(schema: schema, url: url),
             )
             let context = ModelContext(old)
-            let routine = try #require(try context
+            let workout = try #require(try context
                 .fetch(FetchDescriptor<StoredRoutine>())
                 .first { $0.name == "Older" })
             let loggedWorkout = RoutineSchemaV5.StoredWorkout(id: loggedWorkoutID)
-            loggedWorkout.routineID = routine.id
+            loggedWorkout.routineID = workout.id
             loggedWorkout.routineName = "Older"
             loggedWorkout.startedAt = Date(timeIntervalSinceReferenceDate: 10)
             context.insert(loggedWorkout)
@@ -217,7 +217,7 @@ struct StoreUpgradeTests {
         let launch = try await Store(modelContainer: current).launch(weightUnit: .pounds)
         #expect(launch.loggedWorkout?.id == loggedWorkoutID)
         #expect(launch.loggedWorkout?.sets == [])
-        #expect(launch.routine?.name == "Older")
+        #expect(launch.workout?.name == "Older")
     }
 
     /// Today's routines as #91 stored them: two, each with a superset of two rows with plans,
@@ -233,11 +233,11 @@ struct StoreUpgradeTests {
         )
         let context = ModelContext(old)
         for (name, edited, opened) in [("Older", 1.0, 3.0), ("Newer", 2.0, 0.0)] {
-            let routine = RoutineSchemaV4.StoredRoutine(id: UUID())
-            routine.name = name
-            routine.editedAt = Date(timeIntervalSinceReferenceDate: edited)
-            routine.openedAt = Date(timeIntervalSinceReferenceDate: opened)
-            context.insert(routine)
+            let workout = RoutineSchemaV4.StoredRoutine(id: UUID())
+            workout.name = name
+            workout.editedAt = Date(timeIntervalSinceReferenceDate: edited)
+            workout.openedAt = Date(timeIntervalSinceReferenceDate: opened)
+            context.insert(workout)
             let supersetID = UUID()
             for (position, exercise) in ["push-up", "pull-up"].enumerated() {
                 let row = RoutineSchemaV4.StoredRoutineExercise(
@@ -249,7 +249,7 @@ struct StoreUpgradeTests {
                 row.reps = 6
                 row.supersetID = supersetID
                 context.insert(row)
-                row.routine = routine
+                row.routine = workout
             }
         }
         try context.save()

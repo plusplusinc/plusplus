@@ -21,22 +21,22 @@ struct StoreRecencyTests {
         Date(timeIntervalSinceReferenceDate: seconds)
     }
 
-    private static func routine(_ name: String) -> Workout {
+    private static func workout(_ name: String) -> Workout {
         Workout(name: name)
     }
 
     private func listed() async throws -> [String] {
-        try await relaunch().routinesByRecency(weightUnit: .pounds).map(\.name)
+        try await relaunch().workoutsByRecency(weightUnit: .pounds).map(\.name)
     }
 
     @Test("Routines list by when they were last opened or edited")
     func listOrder() async throws {
         let store = relaunch()
-        let first = Self.routine("A")
-        var second = Self.routine("B")
+        let first = Self.workout("A")
+        var second = Self.workout("B")
         try await store.save(first, at: Self.at(1))
         try await store.save(second, at: Self.at(2))
-        _ = try await store.openRoutine(first.id, weightUnit: .pounds, at: Self.at(3))
+        _ = try await store.openWorkout(first.id, weightUnit: .pounds, at: Self.at(3))
         #expect(try await listed() == ["A", "B"])
         second.name = "B again"
         try await store.save(second, at: Self.at(4))
@@ -46,50 +46,50 @@ struct StoreRecencyTests {
     @Test("Launch reopens the routine opened last")
     func launchOpened() async throws {
         let store = relaunch()
-        let first = Self.routine("A")
+        let first = Self.workout("A")
         try await store.save(first, at: Self.at(1))
-        try await store.save(Self.routine("B"), at: Self.at(2))
-        _ = try await store.openRoutine(first.id, weightUnit: .pounds, at: Self.at(3))
-        #expect(try await relaunch().launch(weightUnit: .pounds).routine?.name == "A")
+        try await store.save(Self.workout("B"), at: Self.at(2))
+        _ = try await store.openWorkout(first.id, weightUnit: .pounds, at: Self.at(3))
+        #expect(try await relaunch().launch(weightUnit: .pounds).workout?.name == "A")
     }
 
     @Test("Launch reopens the routine edited last, after an open")
     func launchEditedAfterOpen() async throws {
         let store = relaunch()
-        let first = Self.routine("A")
+        let first = Self.workout("A")
         try await store.save(first, at: Self.at(1))
-        _ = try await store.openRoutine(first.id, weightUnit: .pounds, at: Self.at(3))
-        try await store.save(Self.routine("B"), at: Self.at(4))
-        #expect(try await relaunch().launch(weightUnit: .pounds).routine?.name == "B")
+        _ = try await store.openWorkout(first.id, weightUnit: .pounds, at: Self.at(3))
+        try await store.save(Self.workout("B"), at: Self.at(4))
+        #expect(try await relaunch().launch(weightUnit: .pounds).workout?.name == "B")
     }
 
     @Test("Launch opens the routine listed first, whatever ties")
     func launchMatchesList() async throws {
         let store = relaunch()
         for name in ["A", "B", "C", "D"] {
-            try await store.save(Self.routine(name), at: Self.at(1))
+            try await store.save(Self.workout(name), at: Self.at(1))
         }
         let first = try await listed().first
-        #expect(try await relaunch().launch(weightUnit: .pounds).routine?.name == first)
+        #expect(try await relaunch().launch(weightUnit: .pounds).workout?.name == first)
     }
 
     @Test("Opening a routine returns it whole: name, rows, plans, and supersets")
     func openReturnsWhole() async throws {
         let rows = try ["Push-up", "Plank", "Pull-up"].map { try WorkoutExercise.builtIn($0) }
-        var routine = Workout(name: "Whole", exercises: rows)
-        routine.exercises[0].plan.sets = 5
-        routine = try #require(routine.regrouped(holding: rows[1].id, reaching: rows[2].id))
-            .routine
-        try await relaunch().save(routine, at: Self.at(1))
+        var workout = Workout(name: "Whole", exercises: rows)
+        workout.exercises[0].plan.sets = 5
+        workout = try #require(workout.regrouped(holding: rows[1].id, reaching: rows[2].id))
+            .workout
+        try await relaunch().save(workout, at: Self.at(1))
         let opened = try await relaunch()
-            .openRoutine(routine.id, weightUnit: .pounds, at: Self.at(2))
-        #expect(opened == routine)
+            .openWorkout(workout.id, weightUnit: .pounds, at: Self.at(2))
+        #expect(opened == workout)
     }
 
     @Test("Opening an unknown routine stores nothing")
     func openUnknown() async throws {
-        try await relaunch().save(Self.routine("A"), at: Self.at(1))
-        #expect(try await relaunch().openRoutine(UUID(), weightUnit: .pounds) == nil)
+        try await relaunch().save(Self.workout("A"), at: Self.at(1))
+        #expect(try await relaunch().openWorkout(UUID(), weightUnit: .pounds) == nil)
         #expect(try ModelContext(container).fetchCount(FetchDescriptor<StoredRoutine>()) == 1)
     }
 
@@ -100,20 +100,20 @@ struct StoreRecencyTests {
     }
 
     @Test("Every saved routine lists, not just five")
-    func everyRoutineLists() async throws {
+    func everyWorkoutLists() async throws {
         let store = relaunch()
         let names = (1 ... 7).map { "R\($0)" }
         for (index, name) in names.enumerated() {
-            try await store.save(Self.routine(name), at: Self.at(TimeInterval(index)))
+            try await store.save(Self.workout(name), at: Self.at(TimeInterval(index)))
         }
         #expect(try await listed() == names.reversed())
     }
 
     @Test("The open routine comes first, as it is now")
     func withOpen() {
-        let first = Self.routine("A")
-        var second = Self.routine("B")
-        let third = Self.routine("C")
+        let first = Self.workout("A")
+        var second = Self.workout("B")
+        let third = Self.workout("C")
         let stored = [first, second, third]
         second.name = "B edited"
         #expect(stored.withOpen(second).map(\.name) == ["B edited", "A", "C"])
@@ -122,9 +122,9 @@ struct StoreRecencyTests {
 
     @Test("A list holds the order it was drawn in, as the routines change")
     func heldOrder() {
-        let first = Self.routine("A")
-        var second = Self.routine("B")
-        let third = Self.routine("C")
+        let first = Self.workout("A")
+        var second = Self.workout("B")
+        let third = Self.workout("C")
         let order = [first, second, third].map(\.id)
         second.name = "B edited"
         // B was opened, so it is now first; the list keeps showing it where it was.
@@ -135,10 +135,10 @@ struct StoreRecencyTests {
 
     @Test("A routine the order hasn't seen goes first, in its place among the new")
     func heldNewFirst() {
-        let old = Self.routine("Old")
+        let old = Self.workout("Old")
         let order = [old.id]
-        let newer = Self.routine("Newer")
-        let newest = Self.routine("Newest")
+        let newer = Self.workout("Newer")
+        let newest = Self.workout("Newest")
         #expect([newest, newer, old].held(in: order).map(\.name) == ["Newest", "Newer", "Old"])
         // Read before the saved routines arrived, the order holds only the open one.
         #expect([old, newer, newest].held(in: order).map(\.name) == ["Newer", "Newest", "Old"])

@@ -209,7 +209,7 @@ extension LiveWorkout {
            let row = currentExercise
         {
             live = LiveWorkout(
-                routine: routine,
+                workout: workout,
                 loggedWorkout: logging(timed.set, of: row, at: now),
             )
         }

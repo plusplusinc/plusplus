@@ -118,8 +118,8 @@ extension RoutineScreen {
             },
             deleteMessage: { id in
                 DeleteQuestion.message(
-                    routineCount: session.routines(using: id).count,
-                    usedByOpenRoutine: session.openRoutineUses(id),
+                    workoutCount: session.routines(using: id).count,
+                    usedByOpenWorkout: session.openRoutineUses(id),
                 )
             },
             onDelete: { await deleteExercise($0, closing: .nothing) },

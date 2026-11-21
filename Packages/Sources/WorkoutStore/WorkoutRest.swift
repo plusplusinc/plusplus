@@ -71,7 +71,7 @@ extension LiveWorkout {
         guard let last = loggedWorkout.sets.last, let start = last.clockWhenLogged,
               let next = currentSet
         else { return nil }
-        let stored = routine.rest(after: last.planned, before: next)
+        let stored = workout.rest(after: last.planned, before: next)
         let gap = stored > 0 ? override ?? stored : 0
         guard gap > 0 else { return nil }
         return WorkoutRest(
@@ -110,7 +110,7 @@ extension LiveWorkout {
         var skipped = loggedWorkout
         let rested = Int((clock - rest.startClock).rounded(.down))
         skipped.sets[skipped.sets.count - 1].restAdjustment += rested - rest.length
-        let next = LiveWorkout(routine: routine, loggedWorkout: skipped)
+        let next = LiveWorkout(workout: workout, loggedWorkout: skipped)
         if next.isOnTimedSet, let set = next.currentSet {
             skipped.count = SetCount(set: set, startClock: clock)
         }
@@ -135,10 +135,10 @@ extension LiveWorkout {
     ) -> Int {
         let stored: Int
         switch step {
-        case let .nextExercise(next, isBack, _) where !isBack || routine.isInSuperset(set.row):
-            stored = routine.rest(after: set, before: next)
+        case let .nextExercise(next, isBack, _) where !isBack || workout.isInSuperset(set.row):
+            stored = workout.rest(after: set, before: next)
         case .nextSet:
-            stored = routine.restBetweenSets(after: set) ?? 0
+            stored = workout.restBetweenSets(after: set) ?? 0
         default:
             return 0
         }

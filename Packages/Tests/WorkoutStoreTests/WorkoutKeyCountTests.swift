@@ -14,15 +14,15 @@ struct WorkoutKeyCountTests {
         plank.plan.target = .time(seconds: 30)
         var second = try WorkoutExercise.builtIn("Plank") { $0.sets = 1 }
         second.plan.target = .time(seconds: 30)
-        let routine = Workout(exercises: [plank, second])
+        let workout = Workout(exercises: [plank, second])
         let loggedWorkout = LoggedWorkout(
-            routineID: routine.id,
-            routineName: "Test",
+            workoutID: workout.id,
+            workoutName: "Test",
             startedAt: start,
         )
-        let begun = LiveWorkout(routine: routine, loggedWorkout: loggedWorkout)
+        let begun = LiveWorkout(workout: workout, loggedWorkout: loggedWorkout)
             .beginningCount(at: start)
-        return LiveWorkout(routine: routine, loggedWorkout: begun)
+        return LiveWorkout(workout: workout, loggedWorkout: begun)
     }
 
     private static func key(
@@ -79,7 +79,7 @@ struct WorkoutKeyCountTests {
         let row = try #require(live.currentExercise)
         // "Starts in" ends 10 s in; logged 12 s into the set's own 30.
         let logged = LiveWorkout(
-            routine: live.routine,
+            workout: live.workout,
             loggedWorkout: live.logging(set, of: row, at: Self.start.addingTimeInterval(22)),
         )
         #expect(logged.loggedCount(of: set) == LoggedCount(length: 30, done: 12))
@@ -102,11 +102,11 @@ struct WorkoutKeyCountTests {
             let row = try #require(live.currentExercise)
             let at = Self.start.addingTimeInterval(seconds)
             live = LiveWorkout(
-                routine: live.routine,
+                workout: live.workout,
                 loggedWorkout: live.logging(set, of: row, at: at),
             )
-            live = LiveWorkout(routine: live.routine, loggedWorkout: live.startingCountNow(at: at))
-            live = LiveWorkout(routine: live.routine, loggedWorkout: live.beginningCount(at: at))
+            live = LiveWorkout(workout: live.workout, loggedWorkout: live.startingCountNow(at: at))
+            live = LiveWorkout(workout: live.workout, loggedWorkout: live.beginningCount(at: at))
         }
         let last = try #require(live.loggedWorkout.sets.last?.planned)
         var move = WorkoutPhase.Move(set: last, isBack: false, startsRound: false, beat: .shown)
@@ -138,14 +138,14 @@ struct WorkoutKeyCountTests {
 
     @Test("A reps set's key is Log set, as before")
     func reps() throws {
-        let routine = try Workout(exercises: [WorkoutExercise.builtIn("Push-up") { $0.sets = 2 }])
+        let workout = try Workout(exercises: [WorkoutExercise.builtIn("Push-up") { $0.sets = 2 }])
         let loggedWorkout = LoggedWorkout(
-            routineID: routine.id,
-            routineName: "Test",
+            workoutID: workout.id,
+            workoutName: "Test",
             startedAt: Self.start,
         )
         let key = Self.key(
-            LiveWorkout(routine: routine, loggedWorkout: loggedWorkout),
+            LiveWorkout(workout: workout, loggedWorkout: loggedWorkout),
             phase: .running,
         )
         #expect(key.drawnCount == nil)

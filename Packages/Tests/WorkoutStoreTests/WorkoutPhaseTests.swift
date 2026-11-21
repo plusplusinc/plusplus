@@ -228,7 +228,7 @@ struct WorkoutPhaseTests {
         for phase in Self.everyPhase + Self.startAndEnd {
             for hasLiveWorkout in [false, true] {
                 var stopped = phase
-                let live = LiveWorkout(routine: Workout(), loggedWorkout: Self.loggedWorkout)
+                let live = LiveWorkout(workout: Workout(), loggedWorkout: Self.loggedWorkout)
                 stopped.settleAtOnce(
                     resuming: hasLiveWorkout ? live : nil,
                     restOverride: nil,

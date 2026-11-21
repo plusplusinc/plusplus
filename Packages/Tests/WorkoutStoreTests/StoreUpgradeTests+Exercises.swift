@@ -11,7 +11,7 @@ extension StoreUpgradeTests {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         let url = folder.appending(path: "PlusPlus.store")
-        let routineID = UUID()
+        let workoutID = UUID()
         let rowID = UUID()
 
         do {
@@ -21,10 +21,10 @@ extension StoreUpgradeTests {
                 configurations: ModelConfiguration(schema: schema, url: url),
             )
             let context = ModelContext(old)
-            let routine = RoutineSchemaV7.StoredRoutine(id: routineID)
-            routine.name = "Upper"
-            routine.editedAt = Date(timeIntervalSinceReferenceDate: 1)
-            context.insert(routine)
+            let workout = RoutineSchemaV7.StoredRoutine(id: workoutID)
+            workout.name = "Upper"
+            workout.editedAt = Date(timeIntervalSinceReferenceDate: 1)
+            context.insert(workout)
             let row = RoutineSchemaV7.StoredRoutineExercise(
                 id: rowID,
                 exerciseID: "dumbbell-row",
@@ -34,9 +34,9 @@ extension StoreUpgradeTests {
             row.rest = 75
             row.isRestAuto = false
             context.insert(row)
-            row.routine = routine
+            row.routine = workout
             let loggedWorkout = RoutineSchemaV6.StoredWorkout(id: UUID())
-            loggedWorkout.routineID = routineID
+            loggedWorkout.routineID = workoutID
             loggedWorkout.routineName = "Upper"
             loggedWorkout.startedAt = Date(timeIntervalSinceReferenceDate: 2)
             context.insert(loggedWorkout)
@@ -50,17 +50,17 @@ extension StoreUpgradeTests {
         )
         let store = Store(modelContainer: current)
         let launch = try await store.launch(weightUnit: .pounds)
-        let routine = try #require(launch.routine)
-        #expect(launch.loggedWorkout?.routineID == routineID)
-        #expect(routine.name == "Upper")
-        #expect(routine.exercises.map(\.id) == [rowID])
-        #expect(routine.exercises.first?.plan.sets == 4)
-        #expect(routine.exercises.first?.plan.rest == .byHand(75))
+        let workout = try #require(launch.workout)
+        #expect(launch.loggedWorkout?.workoutID == workoutID)
+        #expect(workout.name == "Upper")
+        #expect(workout.exercises.map(\.id) == [rowID])
+        #expect(workout.exercises.first?.plan.sets == 4)
+        #expect(workout.exercises.first?.plan.rest == .byHand(75))
         #expect(try await store.exercises() == .builtIn)
 
         let created = CreatedExercise(name: "Ring row with rotation", muscleGroups: [.back])
         try await store.save(created)
-        var edited = routine
+        var edited = workout
         edited.exercises.append(WorkoutExercise(
             exercise: Exercise(created: created),
             weightUnit: .pounds,
@@ -68,7 +68,7 @@ extension StoreUpgradeTests {
         try await store.save(edited, keepsEmpty: true)
         let reopened = Store(modelContainer: current)
         #expect(try await reopened.exercises() == ExerciseList(created: [created]))
-        #expect(try await reopened.launch(weightUnit: .pounds).routine == edited)
+        #expect(try await reopened.launch(weightUnit: .pounds).workout == edited)
     }
 
     @Test("A V8 store's exercise of one muscle group opens with that group, in its routine")
@@ -79,7 +79,7 @@ extension StoreUpgradeTests {
         defer { try? FileManager.default.removeItem(at: folder) }
         let url = folder.appending(path: "PlusPlus.store")
         let exerciseID = CreatedExercise.newID()
-        let routineID = UUID()
+        let workoutID = UUID()
 
         // As the build with one group per exercise wrote it: the group's raw value alone.
         do {
@@ -95,16 +95,16 @@ extension StoreUpgradeTests {
             stored.equipment = "rings"
             stored.createdAt = Date(timeIntervalSinceReferenceDate: 1)
             context.insert(stored)
-            let routine = RoutineSchemaV7.StoredRoutine(id: routineID)
-            routine.editedAt = Date(timeIntervalSinceReferenceDate: 2)
-            context.insert(routine)
+            let workout = RoutineSchemaV7.StoredRoutine(id: workoutID)
+            workout.editedAt = Date(timeIntervalSinceReferenceDate: 2)
+            context.insert(workout)
             let row = RoutineSchemaV7.StoredRoutineExercise(
                 id: UUID(),
                 exerciseID: exerciseID,
                 position: 0,
             )
             context.insert(row)
-            row.routine = routine
+            row.routine = workout
             try context.save()
         }
 
@@ -118,8 +118,8 @@ extension StoreUpgradeTests {
         let exercise = try #require(list.exercise(id: exerciseID))
         #expect(exercise.muscleGroups == [.back])
         #expect(exercise.equipment == [.rings])
-        let routine = try #require(try await store.launch(weightUnit: .pounds).routine)
-        #expect(routine.exercises.map(\.exercise) == [exercise])
+        let workout = try #require(try await store.launch(weightUnit: .pounds).workout)
+        #expect(workout.exercises.map(\.exercise) == [exercise])
 
         // Saved again with a second group, it reads back with both.
         var both = try #require(try ModelContext(current)
@@ -137,7 +137,7 @@ extension StoreUpgradeTests {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         let url = folder.appending(path: "PlusPlus.store")
-        let routineID = UUID()
+        let workoutID = UUID()
         let rowID = UUID()
 
         do {
@@ -147,19 +147,19 @@ extension StoreUpgradeTests {
                 configurations: ModelConfiguration(schema: schema, url: url),
             )
             let context = ModelContext(old)
-            let routine = RoutineSchemaV7.StoredRoutine(id: routineID)
-            routine.name = "Upper"
-            routine.editedAt = Date(timeIntervalSinceReferenceDate: 1)
-            context.insert(routine)
+            let workout = RoutineSchemaV7.StoredRoutine(id: workoutID)
+            workout.name = "Upper"
+            workout.editedAt = Date(timeIntervalSinceReferenceDate: 1)
+            context.insert(workout)
             let row = RoutineSchemaV7.StoredRoutineExercise(
                 id: rowID,
                 exerciseID: "push-up",
                 position: 0,
             )
             context.insert(row)
-            row.routine = routine
+            row.routine = workout
             let loggedWorkout = RoutineSchemaV6.StoredWorkout(id: UUID())
-            loggedWorkout.routineID = routineID
+            loggedWorkout.routineID = workoutID
             loggedWorkout.routineName = "Upper"
             loggedWorkout.startedAt = Date(timeIntervalSinceReferenceDate: 2)
             context.insert(loggedWorkout)
@@ -181,12 +181,12 @@ extension StoreUpgradeTests {
         )
         let launch = try await Store(modelContainer: current).launch(weightUnit: .pounds)
         var loggedWorkout = try #require(launch.loggedWorkout)
-        let routine = try #require(launch.routine)
+        let workout = try #require(launch.workout)
         #expect(loggedWorkout.sets.map(\.exerciseID) == ["push-up"])
         #expect(loggedWorkout.sets.map(\.exerciseName) == [nil])
 
-        let next = try #require(routine.nextSet(after: loggedWorkout.sets))
-        loggedWorkout = loggedWorkout.logging(next, of: routine.exercises[0], at: .now)
+        let next = try #require(workout.nextSet(after: loggedWorkout.sets))
+        loggedWorkout = loggedWorkout.logging(next, of: workout.exercises[0], at: .now)
         try await Store(modelContainer: current).save(loggedWorkout)
         let reread = try await Store(modelContainer: current).launch(weightUnit: .pounds)
         #expect(reread.loggedWorkout?.sets.map(\.exerciseName) == [nil, "Push-up"])
@@ -199,7 +199,7 @@ extension StoreUpgradeTests {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: folder) }
         let url = folder.appending(path: "PlusPlus.store")
-        let routineID = UUID()
+        let workoutID = UUID()
         let rowID = UUID()
 
         do {
@@ -209,18 +209,18 @@ extension StoreUpgradeTests {
                 configurations: ModelConfiguration(schema: schema, url: url),
             )
             let context = ModelContext(old)
-            let routine = RoutineSchemaV7.StoredRoutine(id: routineID)
-            routine.editedAt = Date(timeIntervalSinceReferenceDate: 1)
-            context.insert(routine)
+            let workout = RoutineSchemaV7.StoredRoutine(id: workoutID)
+            workout.editedAt = Date(timeIntervalSinceReferenceDate: 1)
+            context.insert(workout)
             let row = RoutineSchemaV7.StoredRoutineExercise(
                 id: rowID,
                 exerciseID: "barbell-bench-press",
                 position: 0,
             )
             context.insert(row)
-            row.routine = routine
+            row.routine = workout
             let loggedWorkout = RoutineSchemaV9.StoredWorkout(id: UUID())
-            loggedWorkout.routineID = routineID
+            loggedWorkout.routineID = workoutID
             loggedWorkout.routineName = "Push"
             loggedWorkout.startedAt = Date(timeIntervalSinceReferenceDate: 2)
             context.insert(loggedWorkout)
@@ -244,7 +244,7 @@ extension StoreUpgradeTests {
         let store = Store(modelContainer: current)
         #expect(try await store.exercises() == .builtIn)
         let launch = try await store.launch(weightUnit: .pounds)
-        #expect(launch.routine?.exercises.map(\.id) == [rowID])
+        #expect(launch.workout?.exercises.map(\.id) == [rowID])
         #expect(launch.loggedWorkout?.sets.map(\.exerciseName) == ["Barbell bench press"])
 
         let bench = try #require(Exercise.builtIn(id: "barbell-bench-press"))
@@ -252,8 +252,8 @@ extension StoreUpgradeTests {
         settings.muscleGroups = [.chest, .arms]
         try await store.save(Customization(of: bench, to: settings))
         // Its row, in a second store on the file, reads the customization.
-        let routine = try await Store(modelContainer: current).launch(weightUnit: .pounds)
-            .routine
-        #expect(routine?.exercises.first?.exercise.muscleGroups == [.chest, .arms])
+        let workout = try await Store(modelContainer: current).launch(weightUnit: .pounds)
+            .workout
+        #expect(workout?.exercises.first?.exercise.muscleGroups == [.chest, .arms])
     }
 }

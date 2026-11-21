@@ -13,7 +13,7 @@ struct LoggedWorkoutTests {
     private let loggedWorkout: LoggedWorkout
 
     init() {
-        loggedWorkout = LoggedWorkout(routineID: UUID(), routineName: "Upper", startedAt: start)
+        loggedWorkout = LoggedWorkout(workoutID: UUID(), workoutName: "Upper", startedAt: start)
     }
 
     @Test("Running, the time is the time since Start, never below zero")

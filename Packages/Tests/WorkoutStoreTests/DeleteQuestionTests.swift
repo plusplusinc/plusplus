@@ -15,10 +15,10 @@ struct DeleteQuestionTests {
             (4, "It will be removed from this workout and 3 others."),
         ],
     )
-    func namesOpenRoutine(routineCount: Int, routines: String) {
+    func namesOpenWorkout(workoutCount: Int, workouts: String) {
         #expect(
-            DeleteQuestion.message(routineCount: routineCount, usedByOpenRoutine: true)
-                == routines + Self.history,
+            DeleteQuestion.message(workoutCount: workoutCount, usedByOpenWorkout: true)
+                == workouts + Self.history,
         )
     }
 
@@ -30,10 +30,10 @@ struct DeleteQuestionTests {
             (3, "It will be removed from the 3 workouts that use it."),
         ],
     )
-    func countsOtherRoutines(routineCount: Int, routines: String) {
+    func countsOtherWorkouts(workoutCount: Int, workouts: String) {
         #expect(
-            DeleteQuestion.message(routineCount: routineCount, usedByOpenRoutine: false)
-                == routines + Self.history,
+            DeleteQuestion.message(workoutCount: workoutCount, usedByOpenWorkout: false)
+                == workouts + Self.history,
         )
     }
 }

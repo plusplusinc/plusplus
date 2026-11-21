@@ -38,7 +38,7 @@ struct StoreCustomizeTests {
 
     /// The routine `id` as a relaunch reads it.
     private func reread(_ id: Workout.ID) async throws -> Workout {
-        try #require(try await relaunch().routine(id, weightUnit: .pounds))
+        try #require(try await relaunch().workout(id, weightUnit: .pounds))
     }
 
     /// Every workout stored, as a relaunch would read it.
@@ -51,18 +51,18 @@ struct StoreCustomizeTests {
         let store = relaunch()
         try await store.save(Self.curl)
         let row = Self.row(of: Self.curl)
-        let routines = [Workout(name: "A", exercises: [row]), Workout(name: "B", exercises: [row])]
-        for routine in routines {
-            try await store.save(routine)
+        let workouts = [Workout(name: "A", exercises: [row]), Workout(name: "B", exercises: [row])]
+        for workout in workouts {
+            try await store.save(workout)
         }
         // Arms, single-joint: 60 s at 8 reps.
-        #expect(try await reread(routines[0].id).exercises.first?.rest == 60)
+        #expect(try await reread(workouts[0].id).exercises.first?.rest == 60)
 
         var shoulders = Self.curl
         shoulders.muscleGroups = [.shoulders]
         try await relaunch().save(shoulders)
-        for routine in routines {
-            let reread = try await reread(routine.id).exercises.first
+        for workout in workouts {
+            let reread = try await reread(workout.id).exercises.first
             #expect(reread?.exercise.muscleGroups == [.shoulders])
             #expect(reread?.plan.sets == 4)
             #expect(reread?.plan.target == .reps(8))
@@ -76,21 +76,21 @@ struct StoreCustomizeTests {
     func renameKeepsLoggedName() async throws {
         let store = relaunch()
         try await store.save(Self.curl)
-        let routine = Workout(name: "Arms", exercises: [Self.row(of: Self.curl)])
-        try await store.save(routine)
+        let workout = Workout(name: "Arms", exercises: [Self.row(of: Self.curl)])
+        try await store.save(workout)
         var loggedWorkout = LoggedWorkout(
-            routineID: routine.id,
-            routineName: "Arms",
+            workoutID: workout.id,
+            workoutName: "Arms",
             startedAt: Self.at(10),
         )
-        let next = try #require(routine.nextSet(after: loggedWorkout.sets))
-        loggedWorkout = loggedWorkout.logging(next, of: routine.exercises[0], at: Self.at(20))
+        let next = try #require(workout.nextSet(after: loggedWorkout.sets))
+        loggedWorkout = loggedWorkout.logging(next, of: workout.exercises[0], at: Self.at(20))
         try await store.save(loggedWorkout)
 
         var renamed = Self.curl
         renamed.name = "Hammer curl"
         try await relaunch().save(renamed)
-        #expect(try await reread(routine.id).exercises.map(\.exercise.name) == ["Hammer curl"])
+        #expect(try await reread(workout.id).exercises.map(\.exercise.name) == ["Hammer curl"])
         #expect(try await relaunch().exercises().exercise(id: Self.curl.id)?.name == "Hammer curl")
         let set = try #require(try loggedWorkouts().first?.sets.first)
         #expect(set.exerciseID == Self.curl.id)
@@ -101,15 +101,15 @@ struct StoreCustomizeTests {
     func renameFillsUnnamedSet() async throws {
         let store = relaunch()
         try await store.save(Self.curl)
-        let routine = Workout(name: "Arms", exercises: [Self.row(of: Self.curl)])
-        try await store.save(routine)
+        let workout = Workout(name: "Arms", exercises: [Self.row(of: Self.curl)])
+        try await store.save(workout)
         var loggedWorkout = LoggedWorkout(
-            routineID: routine.id,
-            routineName: "Arms",
+            workoutID: workout.id,
+            workoutName: "Arms",
             startedAt: Self.at(10),
         )
-        let next = try #require(routine.nextSet(after: loggedWorkout.sets))
-        loggedWorkout = loggedWorkout.logging(next, of: routine.exercises[0], at: Self.at(20))
+        let next = try #require(workout.nextSet(after: loggedWorkout.sets))
+        loggedWorkout = loggedWorkout.logging(next, of: workout.exercises[0], at: Self.at(20))
         try await store.save(loggedWorkout)
         let context = ModelContext(container)
         let set = try #require(try context.fetch(FetchDescriptor<StoredSet>()).first)
@@ -126,14 +126,14 @@ struct StoreCustomizeTests {
     func measureRoundTrip() async throws {
         let store = relaunch()
         try await store.save(Self.curl)
-        let routine = Workout(name: "Arms", exercises: [Self.row(of: Self.curl)])
-        try await store.save(routine)
+        let workout = Workout(name: "Arms", exercises: [Self.row(of: Self.curl)])
+        try await store.save(workout)
 
         var timed = Self.curl
         timed.measure = .time
         timed.equipment = []
         try await relaunch().save(timed)
-        var edited = try await reread(routine.id)
+        var edited = try await reread(workout.id)
         #expect(edited.exercises[0].plan.target == .time(seconds: 30))
         #expect(edited.exercises[0].plan.weight == nil)
         // Saved while timed and bodyweight: the reps and the weight stay stored.
@@ -141,12 +141,12 @@ struct StoreCustomizeTests {
         try await relaunch().save(edited)
 
         try await relaunch().save(Self.curl)
-        let back = try await reread(routine.id).exercises[0].plan
+        let back = try await reread(workout.id).exercises[0].plan
         #expect(back.target == .reps(8))
         #expect(back.weight == Weight(30, .pounds))
         #expect(back.sets == 4)
         try await relaunch().save(timed)
-        #expect(try await reread(routine.id).exercises[0].plan.target == .time(seconds: 45))
+        #expect(try await reread(workout.id).exercises[0].plan.target == .time(seconds: 45))
     }
 
     @Test("A delete takes the exercise out of the list and every routine; logged sets still read")
@@ -157,12 +157,12 @@ struct StoreCustomizeTests {
         let named = Workout(name: "Arms", exercises: [Self.row(of: Self.curl), pushUp])
         let unnamed = Workout(exercises: [Self.row(of: Self.curl)])
         let emptiedNamed = Workout(name: "Curls", exercises: [Self.row(of: Self.curl)])
-        for (index, routine) in [named, unnamed, emptiedNamed].enumerated() {
-            try await store.save(routine, at: Self.at(TimeInterval(index)))
+        for (index, workout) in [named, unnamed, emptiedNamed].enumerated() {
+            try await store.save(workout, at: Self.at(TimeInterval(index)))
         }
         var loggedWorkout = LoggedWorkout(
-            routineID: named.id,
-            routineName: "Arms",
+            workoutID: named.id,
+            workoutName: "Arms",
             startedAt: Self.at(10),
         )
         let next = try #require(named.nextSet(after: loggedWorkout.sets))
@@ -173,7 +173,7 @@ struct StoreCustomizeTests {
         #expect(try await relaunch().exercises() == .builtIn)
         #expect(try await reread(named.id).exercises == [pushUp])
         // Left with nothing, no name and no rows, it goes, as a cleared one does.
-        #expect(try await relaunch().routine(unnamed.id, weightUnit: .pounds) == nil)
+        #expect(try await relaunch().workout(unnamed.id, weightUnit: .pounds) == nil)
         // A name is something: it stays, with no rows.
         #expect(try await reread(emptiedNamed.id).exercises.isEmpty)
         let set = try #require(try loggedWorkouts().first?.sets.first)
@@ -188,8 +188,8 @@ struct StoreCustomizeTests {
         let newer = try Workout(name: "Newer", exercises: [WorkoutExercise.builtIn("Pull-up")])
         try await store.save(older, at: Self.at(1))
         try await store.save(newer, at: Self.at(2))
-        #expect(try await relaunch().routine(older.id, weightUnit: .pounds) == older)
-        #expect(try await relaunch().routinesByRecency(weightUnit: .pounds).map(\.name)
+        #expect(try await relaunch().workout(older.id, weightUnit: .pounds) == older)
+        #expect(try await relaunch().workoutsByRecency(weightUnit: .pounds).map(\.name)
             == ["Newer", "Older"])
     }
 }

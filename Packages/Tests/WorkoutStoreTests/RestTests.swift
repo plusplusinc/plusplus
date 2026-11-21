@@ -95,30 +95,30 @@ struct RestTests {
 
     @Test("Every row's sheet has Rest, a one-set row's and a one-round superset's too")
     func sheetParts() throws {
-        var routine = try Workout(exercises: [
+        var workout = try Workout(exercises: [
             WorkoutExercise.builtIn("Barbell bench press"),
             WorkoutExercise.builtIn("Push-up") { $0.sets = 1 },
             WorkoutExercise.builtIn("Dumbbell row"),
             WorkoutExercise.builtIn("Plank"),
         ])
-        let ids = routine.exercises.map(\.id)
-        #expect(routine.sheetParts(of: ids[0]) == [
+        let ids = workout.exercises.map(\.id)
+        #expect(workout.sheetParts(of: ids[0]) == [
             .plan(.sets),
             .plan(.target),
             .plan(.weight),
             .plan(.rest),
         ])
-        #expect(routine.sheetParts(of: ids[1]) == [.plan(.sets), .plan(.target), .plan(.rest)])
-        #expect(routine.exercises[1].label(of: .rest) == "Rest")
-        routine.join(ids[2], .below)
-        var row = routine.exercises[2]
+        #expect(workout.sheetParts(of: ids[1]) == [.plan(.sets), .plan(.target), .plan(.rest)])
+        #expect(workout.exercises[1].label(of: .rest) == "Rest")
+        workout.join(ids[2], .below)
+        var row = workout.exercises[2]
         while row.canStep(.sets, by: -1) {
             row.step(.sets, by: -1)
         }
-        routine.update(row)
-        #expect(routine.exercises[3].plan.sets == 1)
-        #expect(routine.sheetParts(of: ids[3]) == [.plan(.sets), .plan(.target), .restAfterRound])
-        #expect(routine.sheetParts(of: ids[2]).last == .restAfterRound)
+        workout.update(row)
+        #expect(workout.exercises[3].plan.sets == 1)
+        #expect(workout.sheetParts(of: ids[3]) == [.plan(.sets), .plan(.target), .restAfterRound])
+        #expect(workout.sheetParts(of: ids[2]).last == .restAfterRound)
     }
 
     @Test("A rest set by hand stays through reps, the time, or both, by what its rows count")

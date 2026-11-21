@@ -109,7 +109,7 @@ extension RoutineScreen {
     /// it stood where End came mid-rest; else full, as the keys leave once the rest is over.
     var restKeyFill: KeyFill {
         if let (_, loggedWorkout) = phase.restLeft,
-           let left = LiveWorkout(routine: routine, loggedWorkout: loggedWorkout)
+           let left = LiveWorkout(workout: routine, loggedWorkout: loggedWorkout)
                .rest(override: restOverride)
         {
             let (ends, pausedLeft) = Self.times(of: left, on: loggedWorkout, stopped: true)

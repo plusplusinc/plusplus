@@ -3,7 +3,7 @@ import Testing
 @testable import WorkoutStore
 
 extension WorkoutPhaseTests {
-    static let loggedWorkout = LoggedWorkout(routineID: UUID(), routineName: "", startedAt: .now)
+    static let loggedWorkout = LoggedWorkout(workoutID: UUID(), workoutName: "", startedAt: .now)
 
     /// A transition of Start's or End's, by name.
     enum Step {

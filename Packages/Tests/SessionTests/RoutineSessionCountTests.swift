@@ -80,7 +80,7 @@ struct RoutineSessionCountTests {
             #expect(relaunched == session.loggedWorkout, "after \(step.name)")
         }
         let stored = try #require(try await relaunch().launch(weightUnit: .pounds).loggedWorkout)
-        let live = LiveWorkout(routine: routine, loggedWorkout: stored)
+        let live = LiveWorkout(workout: routine, loggedWorkout: stored)
         let rest = try #require(live.rest())
         #expect(rest.length == 10)
         #expect(rest.isOver(atClock: stored.clock(at: Self.at(30))))

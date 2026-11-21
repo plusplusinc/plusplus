@@ -19,24 +19,24 @@ public struct WorkoutNamer: Sendable {
 
     /// A name for these exercises, or nil for none. `routine` sets the name's style, so each
     /// routine keeps its own as its exercises change, and different routines differ.
-    public func name(for exercises: [Exercise], of routine: Workout.ID) -> String? {
+    public func name(for exercises: [Exercise], of workout: Workout.ID) -> String? {
         let unique = Self.unique(exercises)
-        guard let fallback = MuscleGroup.routineName(for: unique.flatMap(\.muscleGroups)) else {
+        guard let fallback = MuscleGroup.workoutName(for: unique.flatMap(\.muscleGroups)) else {
             return nil
         }
         guard usesTags else { return fallback }
         let focus = WorkoutFocus(of: unique)
-        let style = NameStyle(of: routine)
+        let style = NameStyle(of: workout)
         guard let picked = style.pick(focus.names(for: unique)) else { return fallback }
         return focus.checked(picked, against: unique)
     }
 
     /// The name a routine shows: the one chosen, else the one made from its exercises, else
     /// nil for New workout.
-    public func shownName(of routine: Workout) -> String? {
-        routine.name.isEmpty
-            ? name(for: routine.exercises.map(\.exercise), of: routine.id)
-            : routine.name
+    public func shownName(of workout: Workout) -> String? {
+        workout.name.isEmpty
+            ? name(for: workout.exercises.map(\.exercise), of: workout.id)
+            : workout.name
     }
 
     private static func unique(_ exercises: [Exercise]) -> [Exercise] {

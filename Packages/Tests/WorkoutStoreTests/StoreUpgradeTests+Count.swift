@@ -20,18 +20,18 @@ extension StoreUpgradeTests {
                 configurations: ModelConfiguration(schema: schema, url: url),
             )
             let context = ModelContext(old)
-            let routine = RoutineSchemaV7.StoredRoutine(id: UUID())
-            routine.editedAt = Date(timeIntervalSinceReferenceDate: 1)
-            context.insert(routine)
+            let workout = RoutineSchemaV7.StoredRoutine(id: UUID())
+            workout.editedAt = Date(timeIntervalSinceReferenceDate: 1)
+            context.insert(workout)
             let row = RoutineSchemaV7.StoredRoutineExercise(
                 id: rowID,
                 exerciseID: "plank",
                 position: 0,
             )
             context.insert(row)
-            row.routine = routine
+            row.routine = workout
             let loggedWorkout = RoutineSchemaV11.StoredWorkout(id: UUID())
-            loggedWorkout.routineID = routine.id
+            loggedWorkout.routineID = workout.id
             loggedWorkout.startedAt = Date(timeIntervalSinceReferenceDate: 2)
             context.insert(loggedWorkout)
             let set = RoutineSchemaV11.StoredSet(id: UUID())

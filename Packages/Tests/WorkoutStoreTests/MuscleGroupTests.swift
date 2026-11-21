@@ -51,25 +51,25 @@ struct MuscleGroupTests {
 
     @Test("No groups have no name")
     func noGroups() {
-        #expect(MuscleGroup.routineName(for: []) == nil)
+        #expect(MuscleGroup.workoutName(for: []) == nil)
     }
 
     @Test("One group is its name, however many exercises work it")
     func oneGroup() {
-        #expect(MuscleGroup.routineName(for: [.legs]) == "Legs")
-        #expect(MuscleGroup.routineName(for: [.legs, .legs, .legs]) == "Legs")
+        #expect(MuscleGroup.workoutName(for: [.legs]) == "Legs")
+        #expect(MuscleGroup.workoutName(for: [.legs, .legs, .legs]) == "Legs")
     }
 
     @Test("Two groups are named in body order, not the order they were added")
     func twoGroups() {
-        #expect(MuscleGroup.routineName(for: [.chest, .back]) == "Chest and back")
-        #expect(MuscleGroup.routineName(for: [.back, .chest]) == "Chest and back")
-        #expect(MuscleGroup.routineName(for: [.core, .legs, .core]) == "Legs and core")
+        #expect(MuscleGroup.workoutName(for: [.chest, .back]) == "Chest and back")
+        #expect(MuscleGroup.workoutName(for: [.back, .chest]) == "Chest and back")
+        #expect(MuscleGroup.workoutName(for: [.core, .legs, .core]) == "Legs and core")
     }
 
     @Test("Three or more groups are Full body")
     func manyGroups() {
-        #expect(MuscleGroup.routineName(for: [.chest, .back, .legs]) == "Full body")
-        #expect(MuscleGroup.routineName(for: MuscleGroup.allCases) == "Full body")
+        #expect(MuscleGroup.workoutName(for: [.chest, .back, .legs]) == "Full body")
+        #expect(MuscleGroup.workoutName(for: MuscleGroup.allCases) == "Full body")
     }
 }

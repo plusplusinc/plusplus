@@ -9,9 +9,9 @@ struct NameStyle: Equatable {
     /// any length up to six.
     let variant: Int
 
-    init(of routine: UUID) {
+    init(of workout: UUID) {
         // From the id's own bytes, not `hashValue`, which changes from launch to launch.
-        let bytes = withUnsafeBytes(of: routine.uuid) { Array($0.prefix(8)) }
+        let bytes = withUnsafeBytes(of: workout.uuid) { Array($0.prefix(8)) }
         let seed = bytes.reduce(UInt64(0)) { $0 << 8 | UInt64($1) }
         hasCharacter = seed.isMultiple(of: 3)
         variant = Int(seed / 3 % 60)

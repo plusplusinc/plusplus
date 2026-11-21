@@ -34,7 +34,7 @@ struct RoutineSessionDeleteTests {
     }
 
     private func storedIDs() async throws -> [Workout.ID] {
-        try await relaunch().routinesByRecency(weightUnit: .pounds).map(\.id)
+        try await relaunch().workoutsByRecency(weightUnit: .pounds).map(\.id)
     }
 
     @Test("A listed routine deleted from Routines leaves the list and the store")
@@ -119,7 +119,7 @@ struct RoutineSessionDeleteTests {
         await session.delete(upper.id)
         await session.writesLanded()
         let loggedWorkouts = try ModelContext(container).fetch(FetchDescriptor<StoredWorkout>())
-        #expect(loggedWorkouts.map(\.loggedWorkout.routineID) == [upper.id])
+        #expect(loggedWorkouts.map(\.loggedWorkout.workoutID) == [upper.id])
         #expect(loggedWorkouts.allSatisfy { !$0.loggedWorkout.isInProgress })
     }
 }

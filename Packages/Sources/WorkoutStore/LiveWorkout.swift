@@ -5,36 +5,36 @@ import Foundation
 /// The routine is the one on screen, edits included, so a row added, moved, or deleted
 /// mid-workout counts at once.
 public struct LiveWorkout: Equatable, Sendable {
-    public var routine: Workout
+    public var workout: Workout
     public var loggedWorkout: LoggedWorkout
 
-    public init(routine: Workout, loggedWorkout: LoggedWorkout) {
-        self.routine = routine
+    public init(workout: Workout, loggedWorkout: LoggedWorkout) {
+        self.workout = workout
         self.loggedWorkout = loggedWorkout
     }
 
     /// The set it does next: the first in the routine's order not yet logged. None once every
     /// one is.
     public var currentSet: PlannedSet? {
-        routine.nextSet(after: loggedWorkout.sets)
+        workout.nextSet(after: loggedWorkout.sets)
     }
 
     /// The exercise it is on: the row of the set it does next.
     public var currentExercise: WorkoutExercise? {
-        currentSet.flatMap { set in routine.exercises.first { $0.id == set.row } }
+        currentSet.flatMap { set in workout.exercises.first { $0.id == set.row } }
     }
 
     /// Whether every planned set is logged, so what is left is to finish it. Never on a routine
     /// with no exercises, which has nothing to finish.
     public var isDone: Bool {
-        !routine.exercises.isEmpty && currentSet == nil
+        !workout.exercises.isEmpty && currentSet == nil
     }
 
     /// The rows with every set logged, whose nodes show them done. Never a row with none
     /// planned.
     public var finishedRows: Set<WorkoutExercise.ID> {
-        Set(routine.exercises.lazy.map(\.id).filter { id in
-            let progress = routine.progress(of: id, logged: loggedWorkout.sets)
+        Set(workout.exercises.lazy.map(\.id).filter { id in
+            let progress = workout.progress(of: id, logged: loggedWorkout.sets)
             return progress.total > 0 && progress.done == progress.total
         })
     }
@@ -42,9 +42,9 @@ public struct LiveWorkout: Equatable, Sendable {
     /// The set bars a row shows: on the current exercise always, from its first set; on any other
     /// only once started and until finished, where its node shows it done. Nil for none.
     public func bars(of id: WorkoutExercise.ID) -> (done: Int, total: Int)? {
-        let progress = routine.progress(of: id, logged: loggedWorkout.sets)
+        let progress = workout.progress(of: id, logged: loggedWorkout.sets)
         guard id == currentSet?.row
-            || routine.isStarted(id, logged: loggedWorkout.sets) && progress.done < progress.total
+            || workout.isStarted(id, logged: loggedWorkout.sets) && progress.done < progress.total
         else { return nil }
         return progress
     }
@@ -52,21 +52,21 @@ public struct LiveWorkout: Equatable, Sendable {
     /// What the key that logs the current set says ("Log set", "Log left", "Log last set"). None
     /// once every set is logged.
     public var logText: String? {
-        currentSet.map { routine.logText(for: $0, after: loggedWorkout.sets) }
+        currentSet.map { workout.logText(for: $0, after: loggedWorkout.sets) }
     }
 
     /// What logging `set` leads to, from where the workout is, with `earlier` logged first, as a
     /// set's first side is before its second.
     public func step(logging set: PlannedSet, after earlier: [PlannedSet] = []) -> Step {
         let done = Set(loggedWorkout.sets.map(\.planned)).union(earlier).union([set])
-        guard let next = routine.nextSet(notIn: done) else { return .last }
+        guard let next = workout.nextSet(notIn: done) else { return .last }
         guard next.row != set.row else { return .nextSet }
-        let rows = routine.exercises.map(\.id)
+        let rows = workout.exercises.map(\.id)
         let isBack = (rows.firstIndex(of: next.row) ?? 0) < (rows.firstIndex(of: set.row) ?? 0)
         return .nextExercise(
             to: next,
             isBack: isBack,
-            startsRound: isBack && next.round != set.round && routine.isInSuperset(next.row),
+            startsRound: isBack && next.round != set.round && workout.isInSuperset(next.row),
         )
     }
 
