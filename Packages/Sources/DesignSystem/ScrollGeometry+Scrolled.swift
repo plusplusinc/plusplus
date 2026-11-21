@@ -10,6 +10,31 @@ extension ScrollGeometry {
     /// The furthest `scrollTo(y:)` goes: the content's end at the bottom of the container, the
     /// area between the bars.
     public var endY: CGFloat {
-        max(contentSize.height - containerSize.height, 0)
+        ScrollExtent(self).endY
+    }
+}
+
+/// The part of a vertical list's scroll geometry that a scroll to a `scrollTo(y:)` value reads:
+/// how tall the content and the area between the bars are, and how far it is scrolled. What to
+/// react to in place of the whole `ScrollGeometry`, whose insets and visible rect change on
+/// their own: pushed under a bar and over a `safeAreaBar`, a list's geometry is laid out several
+/// times in the push's first frame, the bars' room leaving the container and then the insets
+/// growing to it. A reaction to the whole geometry is called for each pass, which SwiftUI logs as
+/// an `OnScrollGeometryChange` fault; only the container's change reaches this.
+public struct ScrollExtent: Equatable, Sendable {
+    public var contentHeight: CGFloat
+    public var containerHeight: CGFloat
+    /// As `ScrollGeometry.scrolledY` counts.
+    public var scrolledY: CGFloat
+
+    public init(_ geometry: ScrollGeometry) {
+        contentHeight = geometry.contentSize.height
+        containerHeight = geometry.containerSize.height
+        scrolledY = geometry.scrolledY
+    }
+
+    /// The furthest `scrollTo(y:)` goes, as `ScrollGeometry.endY` says.
+    public var endY: CGFloat {
+        max(contentHeight - containerHeight, 0)
     }
 }

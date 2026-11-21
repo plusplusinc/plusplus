@@ -155,9 +155,14 @@ extension RoutineScreen {
     /// scroll view's own content size follows the content's on that transaction's curve, behind
     /// it. Switched on with the grow, the room grew in with it, and when the room under the list
     /// went mid-grow the scroll view's trailing size, 45 to 130 pt short, clamped the list down.
+    ///
+    /// Not from a place read before the list had a height (`CurrentPlace.isLaidOut`): read at the
+    /// window's narrow first width as the app reopens into a workout, it held room far down for
+    /// the next frame's first pass, and the list's height changed twice in that frame.
     var landingRoomTop: CGFloat? {
         let isLanding = currentID != nil || isMovingOn || isStarting || isResting
-        return closingRoomTop ?? (isLanding ? currentPlace?.landingY : nil)
+        let place = currentPlace.flatMap { $0.isLaidOut ? $0 : nil }
+        return closingRoomTop ?? (isLanding ? place?.landingY : nil)
     }
 
     /// Takes away the screen's room under the list's end once Start or a move to the next

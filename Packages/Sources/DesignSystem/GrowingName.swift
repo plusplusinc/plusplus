@@ -61,8 +61,8 @@ struct GrowingName: View, Animatable {
             linesProbe(2, .ppRowTitle)
             linesProbe(1, .ppCurrentTitle)
             linesProbe(2, .ppCurrentTitle)
+            measure
         }
-        .background(alignment: .topLeading) { measure }
     }
 
     /// `count` lines in `font`, never drawn, from which the layout reads a line's height and the
@@ -81,8 +81,8 @@ struct GrowingName: View, Animatable {
             .fixedSize(horizontal: false, vertical: true)
     }
 
-    /// The large name as the system wraps it at the row's width, never drawn, where its lines are
-    /// read from.
+    /// The large name whole, as the system wraps it at the row's width, never drawn: where its
+    /// lines are read from, and what the layout counts them by (`GrowingNameLayout`).
     private var measure: some View {
         let title = title
         return Text(title)
@@ -209,12 +209,16 @@ struct GrowingName: View, Animatable {
 /// far between theirs. Its third subview is the node's glyph, which a node centers on at a row's
 /// size: the node's center is as far above the baseline as the glyph's, times `letterScale`, so the
 /// node column's baseline (`railNodeBaseline`) rises that offset times `letterScale - 1`. The last
-/// four are one line and two at each size, never drawn.
+/// four are one line and two at each size, never drawn, and the eighth the large name whole,
+/// never drawn either.
 ///
-/// The small name's height is that of as many lines at a row's size as the large name has, from
-/// the probes' line height and advance, so the row is laid out once, at the height it keeps:
-/// until the large name's lines are read, the small one is drawn whole, and from its own height
-/// the row grew a line in the pass after, a list of them reporting its height twice in one frame.
+/// The large name's height is the whole one's at the width offered, and the small name's that of
+/// as many lines at a row's size, from the probes' line height and advance, so the row is laid out
+/// once, at the height it keeps: until the large name's lines are read, the small one is drawn
+/// whole, and from its own height the row grew a line in the pass after, a list of them reporting
+/// its height twice in one frame. Not from the drawn names, whose breaks were read at the last
+/// width: at launch, read at the window's narrow first width, they stood the row that many lines
+/// tall at its full width for a pass.
 private struct GrowingNameLayout: Layout {
     var growth: CGFloat
     /// How large the letters are drawn against a row's name.
@@ -223,12 +227,18 @@ private struct GrowingNameLayout: Layout {
     /// As wide as the row, where it is given, so the name knows the width it has to grow in.
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
         var (small, large) = sizes(proposal, subviews)
-        if subviews.count == 7 {
+        let width = proposal.width.flatMap { $0.isFinite ? $0 : nil }
+        if subviews.count == 8 {
             let row = Lines(one: subviews[3], two: subviews[4])
             let current = Lines(one: subviews[5], two: subviews[6])
+            // Offered no width, the whole name would stand on one line: the drawn one's breaks
+            // are all there is to go by.
+            if let width {
+                large.height = subviews[7].sizeThatFits(ProposedViewSize(width: width, height: nil))
+                    .height
+            }
             small.height = row.height(of: current.count(in: large.height))
         }
-        let width = proposal.width.flatMap { $0.isFinite ? $0 : nil }
         return CGSize(
             width: width ?? max(small.width, large.width),
             height: small.height + (large.height - small.height) * growth,
@@ -246,9 +256,15 @@ private struct GrowingNameLayout: Layout {
             subview.place(at: bounds.origin, anchor: .topLeading, proposal: offer)
         }
         // Offered as `explicitAlignment` measures it, so it is measured once.
-        for subview in subviews.dropFirst(2) {
+        for subview in subviews.dropFirst(2).prefix(5) {
             subview.place(at: bounds.origin, anchor: .topLeading, proposal: .unspecified)
         }
+        // At the row's width, where its lines are read; offered one, as `sizeThatFits` measures it.
+        subviews.dropFirst(7).first?.place(
+            at: bounds.origin,
+            anchor: .topLeading,
+            proposal: ProposedViewSize(width: bounds.width, height: nil),
+        )
     }
 
     /// A name's lines at one size: a line's height and the next one's advance, from one line of
@@ -279,7 +295,7 @@ private struct GrowingNameLayout: Layout {
         subviews: Subviews,
         cache _: inout (),
     ) -> CGFloat? {
-        guard guide == .firstTextBaseline || guide == .railNodeBaseline, subviews.count == 7 else {
+        guard guide == .firstTextBaseline || guide == .railNodeBaseline, subviews.count == 8 else {
             return nil
         }
         let offer = ProposedViewSize(width: proposal.width, height: nil)
@@ -292,7 +308,7 @@ private struct GrowingNameLayout: Layout {
     }
 
     private func sizes(_ proposal: ProposedViewSize, _ subviews: Subviews) -> (CGSize, CGSize) {
-        guard subviews.count == 7 else { return (.zero, .zero) }
+        guard subviews.count == 8 else { return (.zero, .zero) }
         let offer = ProposedViewSize(width: proposal.width, height: nil)
         return (subviews[0].sizeThatFits(offer), subviews[1].sizeThatFits(offer))
     }

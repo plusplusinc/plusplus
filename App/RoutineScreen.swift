@@ -313,7 +313,8 @@ struct RoutineScreen: View {
         }
         .scrollPosition($scrollPosition)
         .railAutoscroll($scrollPosition)
-        .onScrollGeometryChange(for: ScrollGeometry.self, of: \.self) { old, new in
+        // Not the whole geometry: its insets settle in several passes of a push's first frame.
+        .onScrollGeometryChange(for: ScrollExtent.self, of: ScrollExtent.init) { old, new in
             keepEndInView(from: old, to: new)
             keepEndPinned(from: old, to: new)
         }
