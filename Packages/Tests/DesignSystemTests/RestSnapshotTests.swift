@@ -5,11 +5,13 @@ import DesignSystem
 import SwiftUI
 import Testing
 
-/// A workout's rests on the rail, as the routine screen composes them, each held at 1:02 of
-/// 1:30 (`pausedLeft`): before one, the current exercise saying the rest to follow; between two
-/// sets, the rest in the figures' place; between exercises, under the one done, the dot at its
-/// word; and in a superset with a round left, above its first member. With the routine list, a
-/// long name on the lines it grows into.
+/// A workout's rests on the rail, as the routine screen composes them, each held still
+/// (`pausedLeft`): before one, the current exercise saying the rest to follow; between two sets,
+/// the rest in the figures' place, nothing under its count, over Skip rest part filled with
+/// purple beside +15 s; between exercises, under the one done, the dot at its word, held at 0:18
+/// so the round "0" leads and shows whole; paused there, the count and Skip rest's fill gray;
+/// and in a superset with a round left, above its first member. With the routine list, a long
+/// name on the lines it grows into.
 @Suite("Rests")
 struct RestSnapshotTests {
     private static let width: CGFloat = 390
@@ -28,6 +30,32 @@ struct RestSnapshotTests {
     }
 
     private static let open = RestBlock(stage: .open, length: 90, pausedLeft: 62)
+
+    /// The rest's keys at the bottom, Skip rest filled to where `left` of 90 seconds stands.
+    private static func restKeys(left: Double, isPaused: Bool = false) -> some View {
+        CountKeys(
+            text: "Skip rest",
+            filling: KeyFill(length: 90, ends: .now, pausedLeft: left, isPaused: isPaused),
+            spoken: .left,
+            onKey: { },
+            onExtend: { },
+        )
+    }
+
+    /// `rows` on the rail, over `keys`, at the bottom as the bar puts them.
+    private func screen(
+        _ rows: [Row],
+        restDot: UUID? = nil,
+        current: UUID? = nil,
+        keys: some View,
+    ) -> some View {
+        VStack(spacing: Spacing.lg) {
+            rail(rows, current: current, restDot: restDot)
+            keys.padding(.horizontal, Spacing.md)
+        }
+        .padding(.bottom, Spacing.md)
+        .background(Color.pp(.background))
+    }
 
     private func rail(
         _ rows: [Row],
@@ -92,7 +120,7 @@ struct RestSnapshotTests {
         assertThemedSnapshots(of: rail([current, next], current: current.id), width: Self.width)
     }
 
-    @Test("Between sets: Rest over the countdown and its bar, in the figures' place")
+    @Test("Between sets: Rest over the countdown in the figures' place, over Skip rest and +15 s")
     func betweenSets() {
         let current = Row(
             title: "Dumbbell bench press",
@@ -101,23 +129,41 @@ struct RestSnapshotTests {
             bars: SetProgress(done: 1, total: 3, spoken: "1 of 3 sets done"),
             setRest: SetRest(isRunning: true, length: 90, pausedLeft: 62),
         )
-        assertThemedSnapshots(of: rail([current, next], current: current.id), width: Self.width)
+        assertThemedSnapshots(
+            of: screen([current, next], current: current.id, keys: Self.restKeys(left: 62)),
+            width: Self.width,
+        )
     }
 
-    @Test("Between exercises: under the one done, the dot at its word, the next one's equipment")
-    func betweenExercises() {
+    /// The rest under the exercise done, before the next one, `left` seconds to go.
+    private func betweenExercises(left: Double, isPaused: Bool = false) -> [Row] {
         let done = Row(
             title: "Dumbbell bench press",
             detail: ["3 × 10 reps", "25 lb/side"],
             isDone: true,
-            rest: Self.open,
+            rest: RestBlock(stage: .open, length: 90, pausedLeft: left, isPaused: isPaused),
         )
         let coming = Row(
             title: "Goblet squat",
             detail: ["3 × 10 reps", "35 lb"],
             nextUp: ["Kettlebell"],
         )
-        assertThemedSnapshots(of: rail([done, coming, next], restDot: done.id), width: Self.width)
+        return [done, coming, next]
+    }
+
+    @Test("Between exercises: under the one done, its first figure whole, the dot at its word")
+    func betweenExercises() {
+        let rows = betweenExercises(left: 18)
+        assertThemedSnapshots(of: rail(rows, restDot: rows[0].id), width: Self.width)
+    }
+
+    @Test("Paused between exercises: the count gray, Skip rest's fill gray")
+    func paused() {
+        let rows = betweenExercises(left: 62, isPaused: true)
+        assertThemedSnapshots(
+            of: screen(rows, restDot: rows[0].id, keys: Self.restKeys(left: 62, isPaused: true)),
+            width: Self.width,
+        )
     }
 
     @Test("A superset with a round left: the rest above its first member, the dot at its word")

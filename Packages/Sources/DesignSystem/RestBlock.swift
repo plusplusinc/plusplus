@@ -345,13 +345,23 @@ private struct BottomIn: ViewModifier {
 
 /// The open rest's room, `open` of its height: run from 0 to 1 on the row's animation, so the
 /// room grows and closes on its curve, every row below moving with it. Mid-change, what is coming
-/// in or going is cut off at the room's bottom, never drawn over the next row.
+/// in or going is cut off at the room's bottom, never drawn over the next row; nothing is cut at
+/// its sides, where the count's first figure stands a few points left of the column
+/// (`figureBox`): clipped to the room's own width, a leading "0" or "1" was sliced flat there.
 private struct RestRoomHeight: ViewModifier {
     let open: CGFloat
 
     func body(content: Content) -> some View {
         RestRoomLayout(open: open) { content }
-            .clipped()
+            .clipShape(TopAndBottom())
+    }
+}
+
+/// A rectangle as tall as its bounds and reaching a width past them on each side: a clip that cuts
+/// only at the top and bottom.
+private struct TopAndBottom: Shape {
+    nonisolated func path(in rect: CGRect) -> Path {
+        Path(rect.insetBy(dx: -rect.width, dy: 0))
     }
 }
 
