@@ -23,6 +23,16 @@ struct LogScreen: View {
             case .gaps: "Gaps"
             }
         }
+
+        /// What the tab will hold, in place of its rows while it has none. Gaps has none: with
+        /// no workouts it shows every group at 0.
+        var emptyText: String? {
+            switch self {
+            case .workouts: "Finished workouts show up here."
+            case .progress: "Exercises done in two workouts show up here."
+            case .gaps: nil
+            }
+        }
     }
 
     /// View state: it starts on Workouts each time Log opens from the drawer, and holds across a
@@ -53,7 +63,8 @@ struct LogScreen: View {
                     }
                     .pickerStyle(.segmented)
                     .padding(.bottom, Spacing.sm)
-                    if let log = session.log {
+                    // With nothing to show, the tab draws nothing but the empty line over it.
+                    if let log = session.log, emptyText == nil {
                         tabContent(log)
                     }
                 }

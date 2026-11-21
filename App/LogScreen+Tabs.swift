@@ -2,20 +2,16 @@ import DesignSystem
 import SwiftUI
 import WorkoutStore
 
-// Log's three lists, and the one line each shows with nothing in it.
+// Log's three lists, and the one line Workouts and Progress show with nothing in them.
 
 extension LogScreen {
-    /// The one line the tab showing has in place of its rows; nil while it has rows, and before
-    /// the first read, so the line never flashes before the workouts come.
+    /// The one line the tab showing has in place of its rows, and the tab then draws nothing
+    /// else; nil while it has rows, and before the first read, so the line never flashes before
+    /// the workouts come. Gaps has no line: it always shows its groups, at 0 with no workouts.
     var emptyText: String? {
-        guard let log = session.log else { return nil }
-        if log.workouts.isEmpty {
-            return tab == .progress
-                ? "Nothing here yet. Do an exercise in two workouts."
-                : "Nothing here yet. Finish a workout."
-        }
-        guard tab == .progress else { return nil }
-        return progress(log).isEmpty ? "Nothing here yet. Do an exercise in two workouts." : nil
+        guard let log = session.log, let text = tab.emptyText else { return nil }
+        let isEmpty = log.workouts.isEmpty || (tab == .progress && progress(log).isEmpty)
+        return isEmpty ? text : nil
     }
 
     func workoutRows(_ log: WorkoutLog) -> some View {
