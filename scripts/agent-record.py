@@ -7,7 +7,7 @@
 
 `line` prints one record line for one agent run, from the usage line of its task notification
 (`<usage><subagent_tokens>…</subagent_tokens><tool_uses>…</tool_uses><duration_ms>…</duration_ms></usage>`;
-the whole notification works too): `- <role>, <model>, round <n>: <tokens> tokens, <tool uses>
+the whole notification works too, and so do a foreground agent's `subagent_tokens: N` lines): `- <role>, <model>, round <n>: <tokens> tokens, <tool uses>
 tool uses, <minutes> min[; <note>]`. The role is a row of docs/agent-tooling.md's "Models by task"
 (a one-off by its agent's name: lookup, repro, edit, reviewer), and the model is that row's: a
 --model that differs is refused. Only a row with no single model (the lead) and a plain
@@ -79,11 +79,14 @@ def models():
 
 def usage(text):
     """(tokens, tool uses, ms) from a task notification's usage line."""
-    found = [re.search(rf"<{tag}>\s*(\d+)\s*</{tag}>", text) for tag in ("subagent_tokens", "tool_uses", "duration_ms")]
+    # A background agent's notification tags each number; an agent run in the foreground returns
+    # them as `name: number` lines, which is the form a night card's lead has.
+    found = [re.search(rf"<{tag}>\s*(\d+)\s*</{tag}>|{tag}:\s*(\d+)", text)
+             for tag in ("subagent_tokens", "tool_uses", "duration_ms")]
     if not all(found):
         raise ValueError("no usage line: pass the notification's <usage>…</usage>, with subagent_tokens, "
                          "tool_uses, and duration_ms")
-    return tuple(int(m[1]) for m in found)
+    return tuple(int(m[1] or m[2]) for m in found)
 
 
 def canonical(model, rows, tool):

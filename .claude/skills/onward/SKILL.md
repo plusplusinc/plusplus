@@ -147,8 +147,8 @@ Their time is the scarce thing, and it is for the product.
   its own, and add its line to the PR's agent record with `scripts/agent-record.py line` and
   `post` (`docs/agent-tooling.md`, "Agent records"); lines from before the PR exists go with
   the first post.
-- **While one runs**, it says nothing until it ends, so about every 15 minutes read where it
-  is and send the maintainer that line. A round still running at 15 minutes is told
+- **While one runs**, it says nothing until it ends, so every 15 minutes read where it
+  is and send the maintainer that line. Past 15 minutes, a round they wait on is told
   (SendMessage) to commit what builds and hand back, and that line says where it is. A wake you
   set says what was true then: cancel it when you stop what it watches, and a check that has
   finished is a result whatever a watch says. A turn with no text is sent back for one, so a

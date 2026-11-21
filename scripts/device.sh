@@ -82,6 +82,9 @@ behind_main() {
     git -C "$ROOT" fetch --quiet origin main 2> /dev/null || true
     missing=$(git -C "$ROOT" log --format='  %s' HEAD..origin/main 2> /dev/null) || return 0
     [ -n "$missing" ] || return 0
+    # A branch whose own PR was just squashed onto main is behind by that one commit and lacks
+    # nothing: its files are main's (the build of #239's branch was called behind, 2026-11-20).
+    if git -C "$ROOT" diff --quiet HEAD origin/main 2> /dev/null; then return 0; fi
     echo "this build lacks what merged to main after its branch was cut; say so with the build," \
         "or merge origin/main and install again:"
     echo "$missing"
