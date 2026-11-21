@@ -8,10 +8,9 @@ import SwiftUI
 /// gives way to, top to bottom, its sets as a bar of segments (`SetSegments`), a caption line,
 /// "Set 1 of 3" (`ProgressLine`) and at its end what follows the set, "then rest 1:00" or "last
 /// set" (`CaptionLine`), the plan's figures, large, side by side (`CurrentFigures`, in `SetRoom`),
-/// and
-/// the exercise's equipment, the label growing to their height. Changed in an animation, the name
-/// scales between its two sizes
-/// (`GrowingName`), and the parts under it come in, and go, in turn (`SetMotion`).
+/// and the exercise's equipment, the label growing to their height. Changed in an animation, the
+/// name scales between its two sizes (`GrowingName`), and the parts under it come in, and go, in
+/// turn (`SetMotion`).
 ///
 /// A finished exercise (`isDone`) goes quiet: its name in `textSecondary`, its detail in
 /// `textTertiary`. The exercise next after a rest between two exercises (`nextUp`) grows a step
