@@ -98,6 +98,9 @@ extension RoutineScreen {
     /// Skip rest: the rest is stored as ended at the tap, then ends as one that ran out does
     /// (`endRest()`). Only when `WorkoutKey.skipRest` says so.
     private func skipRest() {
+        // With the store's change, before `endRest()`'s animated swap: a new figure put in during
+        // the swap stood where it ends from its first frame.
+        restSkips += 1
         session.skipRest(override: restOverride)
         endRest()
     }

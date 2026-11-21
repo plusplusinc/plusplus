@@ -271,6 +271,7 @@ private struct WaitCountdown: View {
 
     @Environment(\.locale) private var locale
     @Environment(\.waitLeaves) private var leaves
+    @Environment(\.restSkips) private var skips
     @State private var leftAt: Date?
 
     var body: some View {
@@ -279,6 +280,7 @@ private struct WaitCountdown: View {
                 size: size,
                 locale: locale,
                 turns: turns,
+                skips: skips,
                 color: color,
                 shown: shown,
             )

@@ -31,13 +31,15 @@ struct CountRollTests {
         #expect(!RestBlock.closed.rolls(on: .moved, to: 45))
     }
 
-    @Test("A figure is cut, any roll in flight dropped, at 0:00 and held as it goes, not paused")
+    @Test("A new figure, any roll in flight dropped, held as it goes and on Skip rest, not paused")
     func cut() {
-        #expect(!Self.running.isCut(at: 9))
-        #expect(Self.running.isCut(at: 0))
-        // Held by End, or by a timed set's log.
-        #expect(Self.held.isCut(at: 30))
-        #expect(RestBlock.closed.isCut(at: 30))
+        let running = Self.running.figureKey(skips: 0)
+        // Held by End, by a timed set's log, or after End as the room closes.
+        #expect(Self.held.figureKey(skips: 0) != running)
+        let closing = RestBlock(stage: .none, length: 60, pausedLeft: 30)
+        #expect(closing.figureKey(skips: 0) != running)
+        // Skip rest, in the tap's own change.
+        #expect(Self.running.figureKey(skips: 1) != running)
         let paused = RestBlock(
             stage: .open,
             length: 60,
@@ -45,9 +47,9 @@ struct CountRollTests {
             pausedLeft: 30,
             isPaused: true,
         )
-        #expect(!paused.isCut(at: 30))
+        #expect(paused.figureKey(skips: 0) == running)
         // Leaving while paused, a wait is held by its going.
-        #expect(paused.holding(at: .now).isCut(at: 30))
+        #expect(paused.holding(at: .now).figureKey(skips: 0) != running)
         // A rest between sets paused keeps its roll, as a rest between exercises does.
         let pausedBetweenSets = SetRest(
             isRunning: true,
@@ -56,7 +58,20 @@ struct CountRollTests {
             turns: true,
             isPaused: true,
         )
-        #expect(!pausedBetweenSets.block.isCut(at: 30))
+        #expect(pausedBetweenSets.block.figureKey(skips: 0) == running)
+    }
+
+    @Test("A count that runs out keeps its figure through 0:00 and the swap back")
+    func runOut() {
+        let running = SetRest(isRunning: true, length: 60, ends: .now + 1, turns: true)
+        let over = SetRest(isRunning: false, length: 60, ends: .now, isOver: true)
+        #expect(over.block.figureKey(skips: 0) == running.block.figureKey(skips: 0))
+        // Between exercises its room closes, and leaving at 0:00, it holds nothing.
+        #expect(RestBlock.closed.figureKey(skips: 0) == Self.running.figureKey(skips: 0))
+        let ran = RestBlock(stage: .open, length: 60, ends: .now - 1)
+        #expect(ran.holding(at: .now).figureKey(skips: 0) == Self.running.figureKey(skips: 0))
+        // After a skip, the count it put in stays through the swap back.
+        #expect(over.block.figureKey(skips: 1) == running.block.figureKey(skips: 1))
     }
 
     @Test("A rest between sets turns its figure once up and as it goes, never as it comes in")

@@ -12,8 +12,9 @@ import SwiftUI
 /// before `ends` on a timeline, drawing once while paused (`pausedLeft`), so nothing is written
 /// per second. It reads "0:35", rounded up, so it shows the whole rest as it starts and 0:00 only
 /// as it ends. Its changing digits roll down as each second goes and up on +15 s, its last change,
-/// to 0:00, at once; cut, to 0:00 or held as it goes, it shows whole at once, whatever roll was
-/// in flight (`isCut(at:)`). To VoiceOver it is one element, "Rest", its value the time left in
+/// to 0:00, at once; cut, by Skip rest or held as it goes, it shows whole at once, whatever roll
+/// was in flight (`figureKey(skips:)`). To VoiceOver it is one element, "Rest", its value the time
+/// left in
 /// words.
 public struct RestBlock: View {
     public enum Stage: Sendable {
@@ -87,6 +88,7 @@ public struct RestBlock: View {
         size: CGFloat,
         locale: Locale,
         turns: Bool,
+        skips: Int,
         color: ColorToken = .textPrimary,
         shown: ClosedRange<Double> = 0 ... .infinity,
     ) -> some View {
@@ -126,7 +128,7 @@ public struct RestBlock: View {
                 // in flight: a cut landing on a second's roll, its change at once, carried the
                 // roll on to the new digits as the count went, toward 0:00 on Skip rest.
                 .transition(.identity)
-                .id(isCut(at: seconds))
+                .id(figureKey(skips: skips))
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Rest")
                 .accessibilityValue(Self.spoken(seconds, locale: locale))
@@ -138,11 +140,20 @@ public struct RestBlock: View {
         stage == .open && pausedLeft == nil
     }
 
-    /// Whether the figure showing `seconds` is cut, any roll in flight dropped: at 0:00, as at
-    /// the run-out or on Skip rest, and held other than by a pause, as the workout ends or the
-    /// count leaves. A paused count is not: a roll in flight at a pause ends gray.
-    func isCut(at seconds: Double) -> Bool {
-        seconds <= 0 || stage != .open || pausedLeft != nil && !isPaused
+    /// Which figure shows the count: a new one, any roll in flight dropped, where a cut can land
+    /// on a second's roll. Held with time left other than by a pause, as the workout ends, a timed
+    /// set is logged early, or the count leaves; and on each Skip rest (`skips`, changed in the
+    /// skip's own change, before the rest swaps back). A paused count keeps its figure: a roll in
+    /// flight at a pause ends gray. So does one that runs out, its last roll over a second before
+    /// 0:00: a new figure there, put in as the rest between sets swapped back, stood where the
+    /// swap ends from its first frame, 14 pt under the count it replaced.
+    func figureKey(skips: Int) -> FigureKey {
+        FigureKey(isHeld: (pausedLeft ?? 0) > 0 && !isPaused, skips: skips)
+    }
+
+    struct FigureKey: Hashable {
+        let isHeld: Bool
+        let skips: Int
     }
 
     /// What changed the figure.
@@ -195,6 +206,7 @@ private struct RestRoom: View, Animatable {
     @ScaledMetric(relativeTo: .body) private var capHeight = Self.defaultCapHeight
     @Environment(\.restIsAboveLabel) private var isAboveLabel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.restSkips) private var restSkips
 
     private static let defaultCapHeight: CGFloat = {
         #if canImport(UIKit)
@@ -276,6 +288,7 @@ private struct RestRoom: View, Animatable {
                 size: size,
                 locale: locale,
                 turns: !reduceMotion,
+                skips: restSkips,
                 color: block.isPaused ? .textSecondary : .textPrimary,
             )
             .figureBox(size: size)
@@ -289,6 +302,12 @@ private struct RestRoom: View, Animatable {
         .accessibilityHidden(block.stage != .open)
         .modifier(RestRoomHeight(open: open))
     }
+}
+
+extension EnvironmentValues {
+    /// How many times Skip rest has cut a rest short, changed in the skip's own change, never
+    /// an animated one: each puts in a new figure for every count (`RestBlock.figureKey(skips:)`).
+    @Entry public var restSkips = 0
 }
 
 /// Hears a view's bottom edge in a named space.
