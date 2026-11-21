@@ -1,6 +1,6 @@
 import Foundation
 
-/// Where a workout on the workout screen is in its sequence: not in progress, starting, at rest,
+/// Where the workout screen is in a workout's sequence: not in progress, starting, at rest,
 /// showing a set just logged, which stays on its exercise, moves on to another, or closes the
 /// workout's last, or ending. A log is stored at once; the phase says what the screen still has
 /// to show of it, so the screen draws the workout without it until its motion shows it. End

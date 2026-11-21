@@ -32,7 +32,7 @@ extension WorkoutDrawerUITests {
         let delete = app.buttons["Delete"]
         let listed = ["Chest day", "Back"]
         XCTContext.runActivity(named: "A row's hold menu asks first, and Cancel keeps it") { _ in
-            let row = app.workoutRow(named: "Back")
+            let row = app.listedWorkout(named: "Back")
             XCTAssertTrue(row.settles(), "The row kept moving")
             row.press(forDuration: 1)
             XCTAssertTrue(delete.appears(), "Holding a row opened no menu with Delete")
@@ -42,7 +42,7 @@ extension WorkoutDrawerUITests {
             XCTAssertEqual(app.workoutRowLabels, listed, "Cancel changed the list")
         }
         XCTContext.runActivity(named: "A row's swipe asks first, and Delete takes it out") { _ in
-            app.workoutRow(named: "Back").swipeOpen()
+            app.listedWorkout(named: "Back").swipeOpen()
             XCTAssertTrue(delete.appears(), "A swipe did not open the row")
             attach(named: "workout-swiped")
             delete.tap()
@@ -51,7 +51,7 @@ extension WorkoutDrawerUITests {
             XCTAssertEqual(reading(app.workoutRowLabels, becoming: left, within: 2), left)
         }
         XCTContext.runActivity(named: "A pushed workout's ••• deletes it and shows Workouts") { _ in
-            app.workoutRow(named: "Chest day").tap()
+            app.listedWorkout(named: "Chest day").tap()
             XCTAssertEqual(
                 title.value(becoming: "Chest day"),
                 "Chest day",

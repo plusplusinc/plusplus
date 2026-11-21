@@ -41,7 +41,7 @@ extension RenameUITests {
         XCTContext.runActivity(named: "An add through search lands after seeded rows") { _ in
             // Back to the Workouts screen the new workout was pushed from.
             app.tapBack()
-            app.workoutRow(named: Self.seededName).tap()
+            app.listedWorkout(named: Self.seededName).tap()
             XCTAssertEqual(app.workoutTitle.value(becoming: Self.seededName), Self.seededName)
             XCTAssertEqual(app.exerciseCount(becoming: seeded.count), seeded.count)
             app.addExercise(added.label, searching: added.query)

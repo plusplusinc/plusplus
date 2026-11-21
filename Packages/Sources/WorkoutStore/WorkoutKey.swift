@@ -10,7 +10,7 @@ import Foundation
 /// During a rest the key is Skip rest and +15 s (`Role.rest`), whose taps are `skipRest`'s and
 /// `extendRest(by:)`'s.
 public struct WorkoutKey: Sendable {
-    /// The logged workout as stored, every log in it: what a tap reads. Nil out of a workout, and
+    /// The workout in progress as stored, every log in it: what a tap reads. Nil out of one, and
     /// from End's choice.
     public let stored: LiveWorkout?
     /// The workout as the screen draws it, less the sets logged and not yet shown: what the

@@ -15,7 +15,7 @@ public final class AppSession {
     public private(set) var opened: Workout
     /// The open workout as it is now, edits included.
     public private(set) var current: Workout
-    /// Opened through `openDrawer()`, which a workout refuses, and shut through `closeDrawer()`.
+    /// Opened by `openDrawer()`, which a workout in progress refuses; shut by `closeDrawer()`.
     public private(set) var isDrawerOpen = false
     /// The workout screen's open row sheet, through `openRowSheet(_:)` and `closeRowSheet()`.
     public private(set) var rowSheet: RowSheet?
@@ -23,7 +23,7 @@ public final class AppSession {
     public private(set) var isDrawerHeld = false
     /// Where the app is: the workout, the Workouts screen, or a workout pushed on it.
     public internal(set) var screen = Screen.workout
-    /// The logged workout running the open workout, from Start until Finish or Discard.
+    /// The logged workout in progress on the open workout, from Start until Finish or Discard.
     public private(set) var loggedWorkout: LoggedWorkout?
     /// Every exercise there is to pick, the ones created this session included.
     public internal(set) var exercises: ExerciseList
@@ -46,9 +46,9 @@ public final class AppSession {
     /// happened, so an older version can never land last. Only the newest unsaved one waits.
     @ObservationIgnored private var saves: AsyncStream<WorkoutSave>.Continuation
     @ObservationIgnored private var saving: Task<Void, Never>
-    /// Where every change to a workout goes, saved in the order they happened. Every one waits
-    /// its turn: one workout's end and the next one's start can both be waiting, and keeping
-    /// only the newest would drop the end, leaving the first in progress in the store.
+    /// Where every change to a logged workout goes, saved in the order they happened. Each
+    /// waits its turn: one logged workout's end and the next one's start can both be waiting,
+    /// and keeping only the newest would drop the end, leaving the first in progress in the store.
     @ObservationIgnored
     private let loggedWorkoutWrites: AsyncStream<LoggedWorkoutQueueEntry>.Continuation
 
@@ -80,12 +80,12 @@ public final class AppSession {
         saves.yield(WorkoutSave(workout: workout, keepsEmpty: loggedWorkout != nil))
     }
 
-    /// While a workout runs, the drawer stays shut: neither ++ nor the edge swipe opens it.
+    /// While a workout is in progress, the drawer stays shut: neither ++ nor a swipe opens it.
     public var isDrawerLocked: Bool {
         loggedWorkout != nil
     }
 
-    /// Opens the drawer, unless a workout keeps it shut or a row's sheet has been asked for.
+    /// Opens the drawer, unless one in progress keeps it shut or a row's sheet has been asked for.
     public func openDrawer() {
         guard !isDrawerLocked, rowSheet == nil else { return }
         isDrawerOpen = true
@@ -126,12 +126,12 @@ public final class AppSession {
         isDrawerOpen = false
     }
 
-    /// Starts `workout`, shown at the root, so no back button or swipe leaves it,
-    /// named as the workout shows now, when `canStart(on:)` allows it.
+    /// Starts a logged workout on `workout`, shown at the root, so no back button or swipe leaves
+    /// it, named as the workout shows now, when `canStart(on:)` allows it.
     public func start(on workout: Workout.ID, at now: Date = .now) {
         guard canStart(on: workout) else { return }
-        // The workout first: a screen shown at the root reads it as it is made, to open on the
-        // current exercise.
+        // The logged workout first: a screen shown at the root reads it as it is made, to open
+        // on the current exercise.
         // A timed first set's "Starts in" begins as the screen lands on it (`beginCount`).
         change(.save(LoggedWorkout(workoutID: workout, workoutName: shownName, startedAt: now)))
         if screen != .workout {
@@ -143,7 +143,7 @@ public final class AppSession {
     }
 
     /// Whether a Start pressed on `workout` may still start: only on the open workout, once it
-    /// has an exercise, with no workout running and no switch under way. A workout switched away
+    /// has an exercise, with none in progress and no switch under way. A workout switched away
     /// from, or being switched away from, starts nothing: the switch stops Start.
     public func canStart(on workout: Workout.ID) -> Bool {
         loggedWorkout == nil && !isSwitching && workout == current.id && !current.exercises.isEmpty
@@ -202,8 +202,8 @@ public final class AppSession {
         deleteIfCleared()
     }
 
-    /// The one way the workout changes: to what `write` stores, sent to be stored in the same
-    /// call, so no change shows that a relaunch would lose. A workout saved in progress is the
+    /// The one way the logged workout changes: to what `write` stores, sent to be stored in the
+    /// same call, so no change shows that a relaunch would lose. One saved in progress is the
     /// one running; one saved ended, or discarded, leaves none.
     func change(_ write: LoggedWorkoutWrite) {
         switch write {

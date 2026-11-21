@@ -24,9 +24,9 @@ stored shape shipped so far is a `VersionedSchema` (`RoutineSchemaV1` to `V12`, 
 since each change only added an attribute or a model. Staged migration refuses a store whose
 shape matches none of the plan's versions, so a shipped version never changes: a stored change
 is a new version, a new stage, and a test that opens the last shape, written on disk, under it
-(`StoreUpgradeTests`). Its `Stored…` models are internal, with older names:
-`Workout`, a value stored as `StoredRoutine`, crosses the boundary, and the store diffs its rows by id rather than
-replacing them, so a row's identity, and later its sync record, is stable. A row carries its
+(`StoreUpgradeTests`). Its `Stored…` models are internal, with older names: `Workout`, a value
+stored as `StoredRoutine`, crosses the boundary, and the store diffs its rows by id rather
+than replacing them, so a row's identity, and later its sync record, is stable. A row carries its
 `position`, since a relationship is unordered, and its plan: `sets`, `reps` or `seconds` (apart,
 so a stored number never changes meaning if an exercise's measure does), and `weight` with
 `weightUnit`, the unit's raw string. Each is optional, and nil means never stored: a row saved
@@ -38,17 +38,15 @@ user last set, nil if never, and `isRestAuto`, true while rest follows the reps 
 keeps `rest` for when Auto goes off; and its superset's `roundRest` and `isRoundRestAuto`, the
 same on every member, nil and true on a plain row. A rest out of range reads as never set,
 and one set by hand with no seconds in range as Auto, never set; a store from before V7 opens
-with every rest automatic. Every save stores every
-row's plan, default or not, setting only the fields that changed, so an unchanged row stays
-clean. A row's `supersetID`, optional, joins it to the rows next to it with the same id; a
-workout is normalized as it loads (`normalizeSupersets()`). The store calls `save()` itself, since an
-actor's context does not autosave. An empty workout is deleted rather than stored, and every save
-marks the workout edited (`editedAt`), since a workout saves only when its name or rows changed.
-Opening a saved workout (`openWorkout`) marks it opened (`openedAt`), so an open is never
-taken for an edit. A workout's
-recency is the later of the two: `workoutsByRecency` sorts on it in Swift, a tie going by id,
-and launch opens the workout
-that list puts first.
+with every rest automatic. Every save stores every row's plan, default or not, setting only
+the fields that changed, so an unchanged row stays clean. A row's `supersetID`, optional,
+joins it to the rows next to it with the same id; a workout is normalized as it loads
+(`normalizeSupersets()`). The store calls `save()` itself, since an actor's context does not
+autosave. An empty workout is deleted rather than stored, and every save marks the workout
+edited (`editedAt`), since a workout saves only when its name or rows changed. Opening a saved
+workout (`openWorkout`) marks it opened (`openedAt`), so an open is never taken for an edit. A
+workout's recency is the later of the two: `workoutsByRecency` sorts on it in Swift, a tie
+going by id, and launch opens that list's first.
 
 `LoggedWorkout`, stored as `StoredWorkout`, holds its workout's id, not a relationship, and
 the workout's name as it was, so renaming or deleting the workout leaves it. It has no status:
@@ -59,8 +57,9 @@ keep their row's id, exercise id and, since V9, name, round, side (`Side`'s raw 
 nil), and numbers as done beside the numbers planned, each measure and weight apart as a row's
 are, with a `position` for the order logged, (V11) its rest's start and change, and (V12) the
 seconds +15 s added (`timeAdded`); `save(_ loggedWorkout:)` diffs them by id, as a workout's rows.
-Since V12 it keeps the timed set counting (`SetCount`), so a relaunch opens on the count. Discard deletes it, its sets with it. `launch(weightUnit:)` opens one in progress with
-its workout (an empty one under its id and name if the workout is gone; of two in progress, as
+Since V12 it keeps the timed set counting (`SetCount`), so a relaunch opens on the count.
+Discard deletes it, its sets with it. `launch(weightUnit:)` opens a logged workout in progress
+with its workout (an empty one under its id and name if the workout is gone; of two in progress, as
 sync could leave, the one started later), else the workout last opened or edited, unless one
 finished after that, which opens a new workout.
 

@@ -30,7 +30,7 @@ extension XCUIApplication {
     }
 
     /// The Workouts screen's row labeled `name`.
-    func workoutRow(named name: String) -> XCUIElement {
+    func listedWorkout(named name: String) -> XCUIElement {
         workoutRows.matching(NSPredicate(format: "label == %@", name)).firstMatch
     }
 

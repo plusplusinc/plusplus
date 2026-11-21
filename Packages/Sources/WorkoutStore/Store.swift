@@ -55,7 +55,7 @@ public actor Store {
     /// Saves the logged workout as it is now, every field. Once it has ended, its workout, if
     /// cleared to nothing while it ran, goes in the same save.
     public func save(_ loggedWorkout: LoggedWorkout) throws {
-        let target = try storedWorkout(id: loggedWorkout.id) ?? {
+        let target = try storedLoggedWorkout(id: loggedWorkout.id) ?? {
             let new = StoredWorkout(id: loggedWorkout.id)
             modelContext.insert(new)
             return new
@@ -68,8 +68,8 @@ public actor Store {
         try modelContext.save()
     }
 
-    /// Diffs the workout's stored sets against `sets` by id: a set gone is deleted, a new one
-    /// inserted, and each written at its place in the order logged. A stored set this build
+    /// Diffs the logged workout's stored sets against `sets` by id: a set gone is deleted, a
+    /// new one inserted, and each written at its place in the order logged. A stored set this build
     /// can't read, never in `sets`, is kept rather than taken for one gone.
     private func writeSets(_ sets: [LoggedSet], of loggedWorkout: StoredWorkout) {
         let old = loggedWorkout.sets ?? []
@@ -93,7 +93,7 @@ public actor Store {
     /// Deletes the logged workout, keeping nothing of it, its sets with it, and its workout if
     /// cleared to nothing while it ran, in one save; nothing if there is none.
     public func discardLoggedWorkout(_ id: LoggedWorkout.ID) throws {
-        guard let stored = try storedWorkout(id: id) else { return }
+        guard let stored = try storedLoggedWorkout(id: id) else { return }
         if let workoutID = stored.routineID {
             try deleteIfCleared(workoutID: workoutID)
         }
@@ -250,7 +250,7 @@ public actor Store {
         return oneRecency != otherRecency ? oneRecency > otherRecency : one.id < other.id
     }
 
-    private func storedWorkout(id: UUID) throws -> StoredWorkout? {
+    private func storedLoggedWorkout(id: UUID) throws -> StoredWorkout? {
         var descriptor = FetchDescriptor<StoredWorkout>(predicate: #Predicate { $0.id == id })
         descriptor.fetchLimit = 1
         return try modelContext.fetch(descriptor).first

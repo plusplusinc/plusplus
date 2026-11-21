@@ -173,7 +173,7 @@ extension WorkoutScreen {
         withTransaction(\.disablesAnimations, true) { isMakingRoom = false }
     }
 
-    /// Ends the workout with `change`, Start's grow in reverse, in one motion: the current
+    /// Ends the logged workout with `change`, Start's grow in reverse, in one motion: the current
     /// exercise shrinks back to a resting row as the rows below close up, and the list scrolls
     /// back to its top. Once that lands, Start comes up on its own from below the screen's edge,
     /// a short beat with no overshoot. The scroll is animated, not lifted

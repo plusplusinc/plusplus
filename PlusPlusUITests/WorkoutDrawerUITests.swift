@@ -96,7 +96,7 @@ final nonisolated class WorkoutDrawerUITests: XCTestCase {
             attach(named: "workouts-screen")
         }
         XCTContext.runActivity(named: "A row pushes its workout, and an edit moves it up") { _ in
-            app.workoutRow(named: "Chest").tap()
+            app.listedWorkout(named: "Chest").tap()
             XCTAssertEqual(title.value(becoming: "Chest"), "Chest", "The row pushed no workout")
             XCTAssertEqual(app.exerciseNames, ["Barbell bench press"])
             editTheFirstRow(in: app)
@@ -110,7 +110,7 @@ final nonisolated class WorkoutDrawerUITests: XCTestCase {
             )
         }
         XCTContext.runActivity(named: "The chevron keeps a name still being typed") { _ in
-            app.workoutRow(named: "Chest").tap()
+            app.listedWorkout(named: "Chest").tap()
             XCTAssertEqual(title.value(becoming: "Chest"), "Chest", "The row pushed no workout")
             typeName("Chest day", over: "Chest", in: app)
             app.tapBack()

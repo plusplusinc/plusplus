@@ -1,8 +1,8 @@
 import Foundation
 
-/// A workout being done: the workout as planned and what is logged of it so far. Where it is
-/// (the set to do next, its exercise, whether it is done, which rows are finished, which show
-/// their bars) and what logging a set leads to. The workout is the one on screen, edits
+/// A workout in progress: its plan and what is logged so far. It answers where it is (the set
+/// to do next, its exercise, whether it is done, which rows are finished, which show their
+/// bars) and what logging a set leads to. The workout is the one on screen, edits
 /// included, so a row added, moved, or deleted mid-workout counts at once.
 public struct LiveWorkout: Equatable, Sendable {
     public var workout: Workout
