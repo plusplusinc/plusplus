@@ -34,7 +34,7 @@ struct RoutinesScreen: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("Routines")
+                    Text("Routine")
                         .ppFixedTitleFont()
                         .foregroundStyle(.pp(.textPrimary))
                         .accessibilityAddTraits(.isHeader)
@@ -72,7 +72,7 @@ struct RoutinesScreen: View {
                     Button {
                         withAnimation(.snappy) { scrollPosition.scrollTo(edge: .top) }
                     } label: {
-                        Text("Routines")
+                        Text("Routine")
                             .font(.ppBarTitle)
                             .foregroundStyle(.pp(.textPrimary))
                             .lineLimit(1)
@@ -89,7 +89,7 @@ struct RoutinesScreen: View {
                     MenuButton(session: session)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("New routine", systemImage: "plus") {
+                    Button("New workout", systemImage: "plus") {
                         Task { await session.startNew() }
                     }
                     .makesSomething()

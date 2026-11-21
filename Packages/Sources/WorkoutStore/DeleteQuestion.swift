@@ -12,16 +12,16 @@ public enum DeleteQuestion {
         let others = routineCount - 1
         let routines = if usedByOpenRoutine {
             switch others {
-            case ...0: String(localized: "It will be removed from this routine.")
-            case 1: String(localized: "It will be removed from this routine and 1 other.")
-            default: String(localized: "It will be removed from this routine and \(others) others.")
+            case ...0: String(localized: "It will be removed from this workout.")
+            case 1: String(localized: "It will be removed from this workout and 1 other.")
+            default: String(localized: "It will be removed from this workout and \(others) others.")
             }
         } else {
             switch routineCount {
-            case ...0: String(localized: "No routine uses it.")
-            case 1: String(localized: "It will be removed from the routine that uses it.")
+            case ...0: String(localized: "No workout uses it.")
+            case 1: String(localized: "It will be removed from the workout that uses it.")
             default: String(
-                    localized: "It will be removed from the \(routineCount) routines that use it.",
+                    localized: "It will be removed from the \(routineCount) workouts that use it.",
                 )
             }
         }

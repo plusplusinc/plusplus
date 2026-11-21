@@ -103,12 +103,12 @@ struct EditableTitleContent: View {
     EditableTitleContent(
         draft: .constant("Arm and back"),
         selection: NSRange(location: 9, length: 0),
-        placeholder: "New routine",
-        shownPlaceholder: "New routine",
+        placeholder: "New workout",
+        shownPlaceholder: "New workout",
         isEditing: true,
         blinks: true,
-        accessibilityLabel: "Routine name",
-        accessibilityHint: "Renames the routine.",
+        accessibilityLabel: "Workout name",
+        accessibilityHint: "Renames the workout.",
     )
     .padding()
     .background(Color.pp(.background))

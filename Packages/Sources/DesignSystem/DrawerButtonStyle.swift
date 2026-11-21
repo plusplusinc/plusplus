@@ -109,9 +109,9 @@ extension ButtonStyle where Self == DrawerButtonStyle {
 
 #Preview {
     VStack(spacing: Spacing.xs) {
-        Button("Routines", systemImage: "checklist") { }
+        Button("Routine", systemImage: "checklist") { }
             .buttonStyle(.drawer(isSelected: true))
-        Button("Routines", systemImage: "checklist") { }
+        Button("Routine", systemImage: "checklist") { }
             .buttonStyle(.drawer(isSelected: false))
     }
     .padding()
