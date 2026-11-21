@@ -254,10 +254,3 @@ extension LogPeriod {
         Date.FormatStyle(locale: locale, calendar: calendar, timeZone: calendar.timeZone)
     }
 }
-
-extension StuckExercise {
-    /// "3 workouts".
-    public func countText(locale: Locale = .current) -> String {
-        counted(loggedWorkouts, "workout", "workouts", locale: locale)
-    }
-}

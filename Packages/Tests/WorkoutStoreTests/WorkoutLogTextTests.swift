@@ -65,17 +65,4 @@ struct WorkoutLogTextTests {
         #expect(loggedWorkout.logLine(sets: 21, locale: locale, calendar: calendar)
             == "Thu, Nov 19 · 51 min · 21 sets")
     }
-
-    @Test("Progress's arrow line and Not moving's count")
-    func counts() {
-        let stuck = StuckExercise(
-            id: "plank",
-            name: "Plank",
-            exercise: nil,
-            isPerSide: false,
-            topSet: TopSet(target: .reps(10), weight: nil),
-            loggedWorkouts: 3,
-        )
-        #expect(stuck.countText(locale: locale) == "3 workouts")
-    }
 }

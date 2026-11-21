@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import WorkoutStore
 
-@Suite("Gaps: every group's sets, the groups not worked lately, and exercises not moving")
+@Suite("Gaps: every group's sets, and the groups not worked lately")
 struct WorkoutGapsTests {
     private typealias Fixture = LogFixture
 
@@ -71,14 +71,5 @@ struct WorkoutGapsTests {
         #expect(missed(gaps).sorted { $0.rawValue < $1.rawValue }
             == [.arms, .core, .legs, .shoulders])
         #expect(group(.back, in: gaps)?.sets == 1)
-    }
-
-    @Test("Three workouts the same is not moving; two, or three with one different, is not")
-    func notMoving() {
-        let same = [core(1), core(3), core(5)]
-        #expect(gaps(same).notMoving.map(\.loggedWorkouts) == [3])
-        #expect(gaps([core(1), core(3)]).notMoving.isEmpty)
-        let longer = Fixture.loggedWorkout(daysAgo: 3, [Fixture.set("plank", .time(seconds: 45))])
-        #expect(gaps([core(1), longer, core(5)]).notMoving.isEmpty)
     }
 }

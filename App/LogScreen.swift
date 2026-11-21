@@ -4,34 +4,34 @@ import SwiftUI
 import WorkoutStore
 
 /// The record of finished workouts, read three ways in the system's segmented control under the
-/// bar: Workouts, a calendar of the period and the workouts themselves, newest first; Diff, what
-/// changed since the period's first day; and Gaps, what has been left alone. "Log" is the bar's
-/// own inline title, centered, with ++ leading. It opens on Workouts each time the drawer shows
+/// bar: History, a calendar of the period and the workouts themselves, newest first; Diff, what
+/// changed since the period's first day; and Gaps, each muscle group's sets. "Log" is the bar's
+/// own inline title, centered, with ++ leading. It opens on History each time the drawer shows
 /// it. The period is `LogPeriod`'s four calendar weeks, and the three tabs name its first day.
 /// Purple marks every logged number and green only a gain; nothing else on it is green. A
-/// logged workout's row pushes it, read-only, with the system push, as a routine is pushed on
-/// Routines.
+/// logged workout's row pushes it, read-only, with the system push, as a saved workout is
+/// pushed on Workouts.
 struct LogScreen: View {
     @Bindable var session: RoutineSession
 
     enum Tab: Hashable, CaseIterable {
-        case workouts
+        case history
         case diff
         case gaps
 
         var title: String {
             switch self {
-            case .workouts: "History"
+            case .history: "History"
             case .diff: "Diff"
             case .gaps: "Gaps"
             }
         }
     }
 
-    /// View state: it starts on Workouts each time Log opens from the drawer, and holds across a
+    /// View state: it starts on History each time Log opens from the drawer, and holds across a
     /// push and pop, since the stack keeps its root.
-    @State var tab = Tab.workouts
-    /// The scroll view's height inside its bars, for the empty Workouts to fill.
+    @State var tab = Tab.history
+    /// The scroll view's height inside its bars, for the empty History to fill.
     @State private var visibleHeight: CGFloat = 0
     @Environment(\.locale) var locale
 
@@ -54,9 +54,9 @@ struct LogScreen: View {
                 .padding(.horizontal, Spacing.md)
                 .padding(.top, Spacing.sm)
                 .padding(.bottom, Spacing.md)
-                // With nothing logged, Workouts' line and Go to Routines center in the room
+                // With nothing logged, History's line and Go to Workouts center in the room
                 // under the calendar.
-                .frame(height: isWorkoutsEmpty ? visibleHeight : nil, alignment: .top)
+                .frame(height: isHistoryEmpty ? visibleHeight : nil, alignment: .top)
             }
             .onScrollGeometryChange(for: CGFloat.self) { geometry in
                 geometry.containerSize.height - geometry.contentInsets.top
@@ -89,14 +89,14 @@ struct LogScreen: View {
     @ViewBuilder
     private func tabContent(_ log: WorkoutLog) -> some View {
         switch tab {
-        case .workouts: workoutsTab(log)
+        case .history: historyTab(log)
         case .diff: diffTab(log)
         case .gaps: gapsTab(log)
         }
     }
 
-    private var isWorkoutsEmpty: Bool {
-        tab == .workouts && session.log?.loggedWorkouts.isEmpty == true
+    private var isHistoryEmpty: Bool {
+        tab == .history && session.log?.loggedWorkouts.isEmpty == true
     }
 
     /// The pushed logged workout, which the back button and the back swipe pop.
@@ -120,8 +120,8 @@ struct LogScreen: View {
         session.openLoggedWorkout(id)
     }
 
-    /// Routines at the root, as the drawer's Routines row shows it, never pushed onto Log.
-    func goToRoutines() {
+    /// Workouts at the root, as the drawer's Workouts row shows it, never pushed onto Log.
+    func goToWorkouts() {
         session.showRoutines()
     }
 

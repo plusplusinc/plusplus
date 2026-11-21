@@ -2,17 +2,17 @@ import DesignSystem
 import SwiftUI
 import WorkoutStore
 
-// Log's three tabs: Workouts' period line, calendar, and list; Diff's date line, rows, and rule;
-// Gaps' caption, groups, and Not moving.
+// Log's three tabs: History's period line, calendar, and list; Diff's date line, rows, and rule;
+// Gaps' caption and groups.
 
 extension LogScreen {
-    /// Workouts with nothing logged, under the empty calendar.
+    /// History with nothing logged, under the empty calendar.
     static let noLoggedWorkoutsText = "A workout shows here once it's finished."
-    static let goToRoutinesLabel = "Go to Workouts"
+    static let goToWorkoutsLabel = "Go to Workouts"
     /// Under Diff's rows, or in their place while it has none.
     static let diffRuleText = "An exercise shows here once it has been done in two workouts."
 
-    func workoutsTab(_ log: WorkoutLog) -> some View {
+    func historyTab(_ log: WorkoutLog) -> some View {
         let period = log.period(now: now, calendar: calendar)
         return VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .firstTextBaseline) {
@@ -67,9 +67,9 @@ extension LogScreen {
                 .font(.ppRowDetail)
                 .foregroundStyle(.pp(.textSecondary))
                 .multilineTextAlignment(.center)
-            Button(Self.goToRoutinesLabel, action: goToRoutines)
+            Button(Self.goToWorkoutsLabel, action: goToWorkouts)
                 .buttonStyle(.compactKey)
-                .accessibilityIdentifier("log.goToRoutines")
+                .accessibilityIdentifier("log.goToWorkouts")
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -150,22 +150,6 @@ extension LogScreen {
                     spoken: group.spokenText(locale: locale),
                 )
             }
-            if !gaps.notMoving.isEmpty {
-                heading("Not moving")
-                ForEach(gaps.notMoving) { stuck in
-                    let load = stuck.exercise?.load
-                    LogRow(
-                        stuck.name,
-                        tag: .quiet(stuck.countText(locale: locale)),
-                        figures: stuck.topSet.figure(load: load, locale: locale),
-                        detail: stuck.isPerSide ? "Per side." : nil,
-                        spoken: "\(stuck.name), "
-                            + stuck.topSet.spokenFigure(load: load, locale: locale)
-                            + " in \(stuck.countText(locale: locale))",
-                    )
-                    .overlay(alignment: .bottom) { RowLine() }
-                }
-            }
         }
     }
 
@@ -174,14 +158,6 @@ extension LogScreen {
         Text(AttributedString.monoNumbers(text, font: .ppRowDetailNumber))
             .font(.ppRowDetail)
             .foregroundStyle(.pp(.textSecondary))
-    }
-
-    private func heading(_ text: String) -> some View {
-        Text(text)
-            .font(.ppRowDetail.weight(.semibold))
-            .foregroundStyle(.pp(.textSecondary))
-            .accessibilityAddTraits(.isHeader)
-            .padding(.top, Spacing.lg)
     }
 
     /// A logged workout's name as it was, New routine for an empty one.
