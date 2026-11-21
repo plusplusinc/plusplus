@@ -88,12 +88,22 @@ extension RoutineExercise {
     /// The row grown into the current exercise, on `set`.
     func focus(on set: PlannedSet, inSuperset: Bool, locale: Locale) -> RowFocus {
         RowFocus(
-            progress: progressText(set: set.round, inSuperset: inSuperset, locale: locale),
+            place: place(set: set.round, inSuperset: inSuperset, locale: locale),
             side: set.side?.text,
             equipment: [exercise].equipment.map(\.name),
             figures: shownFigures(side: set.side, locale: locale)
                 .map { .init(number: $0.number, unit: $0.unit) },
             spokenFigures: spokenFigures(side: set.side, locale: locale),
+        )
+    }
+
+    /// Which set or round of its plan `set` is, "Set 1 of 3", as its caption line shows it.
+    func place(set: Int, inSuperset: Bool, locale: Locale) -> SetPlace {
+        SetPlace(
+            word: Self.progressWord(inSuperset: inSuperset),
+            number: set,
+            total: plan.sets,
+            locale: locale,
         )
     }
 

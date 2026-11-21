@@ -75,7 +75,7 @@ extension RoutineScreen {
         if let move = phase.move, move.holdsRound,
            let left = routine.exercises.first(where: { $0.id == move.set.row })
         {
-            focus.progress = left.progressText(
+            focus.place = left.place(
                 set: move.set.round,
                 inSuperset: routine.isInSuperset(left.id),
                 locale: locale,
@@ -94,15 +94,14 @@ extension RoutineScreen {
             focus.showsAfter = false
         }
         timedCaption(&focus, of: item)
-        // Resting between two sets, the line says the set just done, "1 of 3 done", until the
-        // next set swaps back up; the caption line's end still says the rest it went to as it
-        // fades, not what follows the next set.
+        // Resting between two sets, the line says the set just done, "Set 1 of 3 done", until
+        // the next set's number rolls in as "done" goes; the caption line's end still says the
+        // rest it went to as it fades, not what follows the next set.
         if let rest = phase.drawnRest, rest.isWithinExercise, rest.beat >= .shown,
            rest.beat < .returning, rest.set.row == item.id
         {
-            let round = rest.set.round.formatted(.number.locale(locale))
-            let sets = item.plan.sets.formatted(.number.locale(locale))
-            focus.progress = String(localized: "\(round) of \(sets) done")
+            focus.place.number = rest.set.round
+            focus.place.isDone = true
             // Done one side at a time, the set just done was both sides: no side to name, though
             // its room stays, so the line keeps its height. Its word, the side just done, fades.
             focus.side = rest.set.side?.text

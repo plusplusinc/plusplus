@@ -16,7 +16,12 @@ extension RoutineExercise {
     public func progressText(set: Int, inSuperset: Bool, locale: Locale = .current) -> String {
         let set = set.formatted(.number.locale(locale))
         let sets = plan.sets.formatted(.number.locale(locale))
-        return "\(inSuperset ? "Round" : "Set") \(set) of \(sets)"
+        return "\(Self.progressWord(inSuperset: inSuperset)) \(set) of \(sets)"
+    }
+
+    /// The word that names where the current exercise is: "Set", or "Round" in a superset.
+    public static func progressWord(inSuperset: Bool) -> String {
+        inSuperset ? "Round" : "Set"
     }
 
     /// The reps or time, then the weight if the exercise holds one, each saying what it is for
