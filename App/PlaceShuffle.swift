@@ -13,9 +13,10 @@ import SwiftUI
 /// These transitions run only inside an animated place change, and only Log's pill animates
 /// one: a place changed from the drawer swaps at once, under the drawer as it closes.
 enum PlaceShuffle {
-    /// Long enough to read as a card put away, so it eases out on a timing curve and stops dead.
+    /// Long enough to read as a card put away, so it runs on a timing curve and stops dead. It
+    /// eases in as well: easing out alone, the sheet's first frame jumped a sixth of the way.
     static let duration = 0.35
-    static let animation = Animation.timingCurve(0.3, 0.7, 0.2, 1, duration: duration)
+    static let animation = Animation.timingCurve(0.4, 0, 0.2, 1, duration: duration)
 
     static let startScale: CGFloat = 0.94
     /// How round a moving card's corners are; at rest they are square.
