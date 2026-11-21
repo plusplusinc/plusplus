@@ -16,9 +16,8 @@ public struct SetRest {
     /// Over, and swapping back: the countdown reads 0:00 and holds still as it goes, never
     /// rolling its last figure.
     let isOver: Bool
-    /// Whether each second and +15 s turn the countdown's figure: once it is up. Turning as it came
-    /// in, its
-    /// end set at the log, it rolled from its length to itself.
+    /// Whether each second and +15 s turn the countdown's figure: once it is up. Turning as it
+    /// came in, its end set at the log, it rolled from its length to itself.
     let turns: Bool
     /// What waits in the slot: a rest, a timed set's "Starts in", or the set's own count.
     public let kind: Kind

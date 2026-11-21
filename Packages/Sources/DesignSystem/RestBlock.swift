@@ -11,7 +11,8 @@ import SwiftUI
 /// Nothing in it is green: a rest looks like an active exercise. The time ticks on whole seconds
 /// before `ends` on a timeline, drawing once while paused (`pausedLeft`), so nothing is written
 /// per second. It reads "0:35", rounded up, so it shows the whole rest as it starts and 0:00 only
-/// as it ends. To VoiceOver it is one element, "Rest", its value the time left in words.
+/// as it ends. Its changing digits roll down as each second goes and up on +15 s, its last change,
+/// to 0:00, at once. To VoiceOver it is one element, "Rest", its value the time left in words.
 public struct RestBlock: View {
     public enum Stage: Sendable {
         case none
@@ -76,9 +77,9 @@ public struct RestBlock: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// The time left, its changing digits rolling each second and on +15 s; with `turns` off, as
-    /// with Reduce Motion, it changes at once. Always within
-    /// `shown`: "Starts in" reads 0:10 as it comes in and 0:01 until it goes, never 0:00.
+    /// The time left, its changing digits rolling each second and on +15 s (`rolls(on:to:turns:)`);
+    /// with `turns` off, as with Reduce Motion, it changes at once. Always within `shown`:
+    /// "Starts in" reads 0:10 as it comes in and 0:01 until it goes, never 0:00.
     func countdown(
         size: CGFloat,
         locale: Locale,
@@ -86,9 +87,7 @@ public struct RestBlock: View {
         color: ColorToken = .textPrimary,
         shown: ClosedRange<Double> = 0 ... .infinity,
     ) -> some View {
-        let isOpen = stage == .open
-        let ticks = isOpen && pausedLeft == nil
-        return TimelineView(RestSchedule(
+        TimelineView(RestSchedule(
             ends: ends,
             isPaused: !ticks,
         )) { context in
@@ -103,17 +102,14 @@ public struct RestBlock: View {
                 .animation(nil, value: color)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
-                // +15 s and each second going by turn the figure, on the one roll. Its last
-                // change, to 0:00 at the run-out or on Skip rest, is at once: rolling, 0:00 came
-                // in half a second after the dot had left, and a cut to 0:00 rolled down as it
-                // shrank away. A held count, paused, ended, or going, never ticks. Only a change
-                // of its own: taking every update's animation away, the figure jumped to where a
-                // part going drops it while the part faded on its curve.
-                // By its value, the figure rolls down as a second goes and up on +15 s.
+                // By its value, the figure rolls down as a second goes and up on +15 s. Only a
+                // change of its own: taking every update's animation away, the figure jumped to
+                // where a part going drops it while the part faded on its curve.
                 .contentTransition(turns ? .numericText(value: seconds.rounded(.up)) : .identity)
+                // Inside the tick's below: on +15 s both run, and the move's says last.
                 .transaction(value: ends) {
-                    if isOpen, turns, seconds > 0 {
-                        $0.animation = .snappy(duration: SetMotion.restGlide)
+                    if rolls(on: .moved, to: seconds, turns: turns) {
+                        $0.animation = Self.roll
                     }
                 }
                 // A figure that turns only: one that never rolls, as a held count, changes at
@@ -121,9 +117,7 @@ public struct RestBlock: View {
                 // its leaving exercise drops it.
                 .transaction(value: text) {
                     if turns {
-                        $0.animation = ticks && seconds > 0
-                            ? .snappy(duration: SetMotion.restGlide)
-                            : nil
+                        $0.animation = rolls(on: .tick, to: seconds, turns: turns) ? Self.roll : nil
                     }
                 }
                 .accessibilityElement(children: .ignore)
@@ -131,6 +125,35 @@ public struct RestBlock: View {
                 .accessibilityValue(Self.spoken(seconds, locale: locale))
         }
     }
+
+    /// Whether the count runs: open and not held by a pause, the workout's end, or leaving.
+    var ticks: Bool {
+        stage == .open && pausedLeft == nil
+    }
+
+    /// What changed the figure.
+    enum Change {
+        /// A second went by.
+        case tick
+        /// The rest's end moved, as on +15 s.
+        case moved
+    }
+
+    /// Whether the figure rolls to `seconds` on `change`, with `turns` on (off, as with Reduce
+    /// Motion, nothing rolls): a second going by while the count runs, and +15 s while it is
+    /// open, paused included. A held count, paused, ended, or leaving, never ticks. A change to
+    /// 0:00, at the run-out or on Skip rest, is at once: rolling, 0:00 came in half a second
+    /// after the dot had left, and a cut to 0:00 rolled down as it shrank away.
+    func rolls(on change: Change, to seconds: Double, turns: Bool) -> Bool {
+        guard turns, seconds > 0 else { return false }
+        return switch change {
+        case .tick: ticks
+        case .moved: stage == .open
+        }
+    }
+
+    /// The roll a changing figure takes: +15 s's, and each second's.
+    private static let roll = Animation.snappy(duration: SetMotion.restGlide)
 
     /// "0:35", the seconds rounded up: a rest's time as the countdown and a caption show it.
     public static func text(_ seconds: Double, locale: Locale) -> String {
