@@ -37,7 +37,7 @@ struct WorkoutPhaseTests {
         case .land: phase.land()
         case .shift: phase.shift()
         case .roll: phase.roll()
-        case .settle: phase.settle()
+        case .settle: phase.settle(on: nil)
         }
     }
 
@@ -76,12 +76,6 @@ struct WorkoutPhaseTests {
         ] + others
     }
 
-    @Test("A screen opens idle with no workout, at rest with one")
-    func opening() {
-        #expect(WorkoutPhase(hasWorkout: false) == .idle)
-        #expect(WorkoutPhase(hasWorkout: true) == .running)
-    }
-
     @Test("A log is taken only at rest; anywhere else it changes nothing")
     func logOnlyAtRest() {
         for phase in Self.everyPhase where phase != .running {
@@ -100,10 +94,17 @@ struct WorkoutPhaseTests {
         #expect(phase.held == Self.logged)
         #expect(phase.hidden == [Self.logged])
         #expect(!phase.isMovingOn)
-        let shown = Self.after([.show], from: phase)
+        var shown = phase
+        let showed = shown.show()
+        #expect(!showed, "A held set rolls on, never shows as a move does")
+        let rolled = shown.rollOn(on: nil)
+        #expect(rolled)
         #expect(shown == .running)
         #expect(shown.held == nil)
         #expect(shown.hidden.isEmpty)
+        var timed = phase
+        timed.rollOn(on: .startsIn)
+        #expect(timed == .timing(.startsIn), "On a timed set, at rest on its Starts in")
     }
 
     @Test("A move is hidden until shown, its node unlit until landed, its beats only in order")
@@ -167,7 +168,7 @@ struct WorkoutPhaseTests {
         #expect(phase == .closing(Self.logged, isShown: false))
         #expect(phase.isMovingOn)
         #expect(phase.hidden == [Self.logged])
-        let settledEarly = phase.settle()
+        let settledEarly = phase.settle(on: nil)
         #expect(!settledEarly, "Not before it shows")
         phase = Self.after([.show], from: phase)
         #expect(phase == .closing(Self.logged, isShown: true))
@@ -185,7 +186,7 @@ struct WorkoutPhaseTests {
         for (step, moves) in [(LiveWorkout.Step.last, true), (Self.down, false), (.last, false)] {
             var phase = Self.logging(step, moves: moves)
             let logged = phase
-            let settledEarly = phase.settle()
+            let settledEarly = phase.settle(on: nil)
             #expect(!settledEarly, "Not before it shows: \(logged)")
             #expect(phase == logged)
             phase = Self.after([.show], from: phase)
@@ -207,12 +208,32 @@ struct WorkoutPhaseTests {
         #expect(Self.after([.settle], from: shown) == .running)
     }
 
+    @Test("With no motion, a rest's end keeps the set it followed drawn, then settles at rest")
+    func noMotionRestEnd() {
+        var phase = WorkoutPhase.running
+        phase.log(Self.logged, leadingTo: Self.down, rests: true, moves: false)
+        phase.show()
+        phase.landRest()
+        phase.settleRest()
+        let ended = phase.endRest(moves: false)
+        #expect(ended)
+        // Hidden again, the finished exercise drew grown as the current one before the fade.
+        #expect(phase.hidden.isEmpty)
+        #expect(phase.isMovingOn)
+        #expect(Self.after([.settle], from: phase) == .running)
+    }
+
     @Test("Stopped at once, the phase follows the store: at rest in a workout, out of one without")
     func settleAtOnce() {
         for phase in Self.everyPhase + Self.startAndEnd {
             for hasWorkout in [false, true] {
                 var stopped = phase
-                stopped.settleAtOnce(hasWorkout: hasWorkout)
+                let live = LiveWorkout(routine: Routine(), workout: Self.workout)
+                stopped.settleAtOnce(
+                    resuming: hasWorkout ? live : nil,
+                    restOverride: nil,
+                    at: .now,
+                )
                 #expect(stopped == (hasWorkout ? .running : .idle), "\(phase), \(hasWorkout)")
                 #expect(stopped.takesLog == hasWorkout, "The key logs only with a workout")
                 var ended = stopped

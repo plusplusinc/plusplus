@@ -34,7 +34,7 @@ final nonisolated class WorkoutUITests: XCTestCase {
         XCTContext.runActivity(named: "The drawer is locked") { _ in
             XCTAssertFalse(app.buttons["Menu"].exists, "++ shows in a workout")
             app.edgeSwipe()
-            XCTAssertFalse(app.drawerTitle.appears(within: 1), "The edge swipe opened the drawer")
+            XCTAssertTrue(app.drawerTitle.staysAway(), "The edge swipe opened the drawer")
         }
         // What launch opens after Discard is `RoutineStoreWorkoutTests`'.
         XCTContext
@@ -86,7 +86,7 @@ final nonisolated class WorkoutUITests: XCTestCase {
             )
             attach(named: "workout-started")
             current.swipeOpen()
-            XCTAssertFalse(app.buttons["Remove"].appears(within: 1), "The current row swiped")
+            XCTAssertTrue(app.buttons["Remove"].staysAway(), "The current row swiped")
         }
     }
 
@@ -124,9 +124,14 @@ final nonisolated class WorkoutUITests: XCTestCase {
                         .hasPrefix("Pull-up, Set 1 of 3"),
                     "The last set did not move on to Pull-up: \(pullUp.label)",
                 )
-                let bar = app.navigationBars.firstMatch.frame.maxY
-                let top = reading(pullUp.frame.minY, until: { abs($0 - bar) < 30 }, within: 3)
-                XCTAssertLessThan(abs(top - bar), 30, "Pull-up did not land under the bar: \(top)")
+                let landed = app.navigationBars.firstMatch.frame.maxY
+                    + XCUIApplication.currentLabelDrop
+                let top = reading(pullUp.frame.minY, until: { abs($0 - landed) < 30 }, within: 3)
+                XCTAssertLessThan(
+                    abs(top - landed),
+                    30,
+                    "Pull-up did not land under the bar: \(top)",
+                )
                 attach(named: "workout-moved-on")
             }
     }

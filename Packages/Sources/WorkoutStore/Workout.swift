@@ -19,6 +19,8 @@ public struct Workout: Identifiable, Equatable, Sendable {
     public var endedAt: Date?
     /// Every set done in it, in the order logged.
     public var sets: [LoggedSet]
+    /// The timed set whose turn has come, until it is logged; nil for none.
+    public var count: SetCount?
 
     public init(
         id: UUID = UUID(),
@@ -29,7 +31,9 @@ public struct Workout: Identifiable, Equatable, Sendable {
         pausedSeconds: Double = 0,
         endedAt: Date? = nil,
         sets: [LoggedSet] = [],
+        count: SetCount? = nil,
     ) {
+        self.count = count
         self.id = id
         self.routineID = routineID
         self.routineName = routineName
@@ -57,9 +61,25 @@ public struct Workout: Identifiable, Equatable, Sendable {
     /// The time spent working out at `now`, pauses left out, in whole seconds rounded down.
     /// Fixed once paused or finished; never below zero, as with a clock set back.
     public func elapsed(at now: Date) -> Duration {
+        .seconds(clock(at: now).rounded(.down))
+    }
+
+    /// The seconds spent working out at `now`, pauses left out, not rounded: the clock a rest
+    /// runs on, so a pause stops it. Never below zero.
+    public func clock(at now: Date) -> Double {
         let end = endedAt ?? pausedAt ?? now
-        let seconds = end.timeIntervalSince(startedAt) - pausedSeconds
-        return .seconds(max(0, seconds.rounded(.down)))
+        return max(0, end.timeIntervalSince(startedAt) - pausedSeconds)
+    }
+
+    /// When the clock reads `clock`, while it runs on from now with no pause.
+    public func date(ofClock clock: Double) -> Date {
+        clockStart.addingTimeInterval(clock)
+    }
+
+    /// When the elapsed time next turns over after `now`: its next whole second, on the clock
+    /// as it runs on from now with no pause.
+    public func nextSecond(after now: Date) -> Date {
+        date(ofClock: clock(at: now).rounded(.down) + 1)
     }
 
     /// When the elapsed time last stood at zero, as if there had been no pauses: whole seconds
@@ -102,14 +122,17 @@ public struct Workout: Identifiable, Equatable, Sendable {
             plannedWeight: row.shownWeight,
             loggedAt: now,
         ))
+        logged.sets[logged.sets.count - 1].clockWhenLogged = clock(at: now)
         return logged
     }
 
-    /// Finished at `now`, a pause in progress counting as paused; unchanged if already finished.
+    /// Finished at `now`, a pause in progress counting as paused, with no count kept: a set
+    /// counting is left unlogged. Unchanged if already finished.
     public func finishing(at now: Date) -> Self {
         guard isInProgress else { return self }
         var finished = resuming(at: now)
         finished.endedAt = now
+        finished.count = nil
         return finished
     }
 }

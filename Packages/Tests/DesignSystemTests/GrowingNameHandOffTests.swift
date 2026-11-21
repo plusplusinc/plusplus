@@ -34,8 +34,8 @@ struct GrowingNameHandOffTests {
         return CGFloat(last + 1 - first) / CGFloat(Coverage.scale)
     }
 
-    /// Names that break alike in both sizes at the text size, and one that breaks apart, which
-    /// crossfades.
+    /// Names on one line in both sizes at the text size, and one that wraps grown, which the row
+    /// breaks at the grown name's lines.
     nonisolated static let cases: [(String, UIContentSizeCategory)] = [
         ("Barbell back squat", .large),
         ("Plank", .accessibilityExtraExtraExtraLarge),

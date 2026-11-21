@@ -83,10 +83,7 @@ extension RenameUITests {
             emptySpace.tap()
             XCTAssertTrue(keyboard.disappears(), "The tap on empty space did not end the edit")
             // The keyboard's element goes before a sheet the tap opened would be in the tree.
-            XCTAssertFalse(
-                search.appears(within: 1),
-                "The tap that ended the edit opened the picker",
-            )
+            XCTAssertTrue(search.staysAway(), "The tap that ended the edit opened the picker")
         }
         XCTContext.runActivity(named: "A tap in an empty routine's space opens the picker") { _ in
             XCTAssertFalse(app.buttons["Start"].exists, "Start shows with no exercises")

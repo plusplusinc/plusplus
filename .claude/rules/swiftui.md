@@ -10,8 +10,8 @@ Leaf views take plain values and closures so they preview and snapshot without a
   `Font.pp*` or a `.pp*Font()` modifier, `Spacing`, and `Radius` from `DesignSystem`. If a
   token is missing, add a `ColorToken` case and its colorset. Green (`accent`) is what's
   active, and a value that went up: data, and the controls that make something
-  (`makesSomething()`). Purple (`done`) is done: a finished exercise's node and the bars of
-  the sets logged; a set still to do is `toDo`, a filled gray. A resting row shows its
+  (`makesSomething()`). Purple (`done`) is done: a finished exercise's node, the bars of
+  the sets logged, and a timed set's key filling as it counts (`KeyFill`); a set still to do is `toDo`, a filled gray. A resting row shows its
   bars only once started and until finished, at its detail line's trailing end.
   Blue (`railJoin`) marks something arriving: a row joining a rail, a superset a node's drag
   just made, and a generated name typing into the title, for the moment it arrives, then gives way to the thing's own color; nothing
@@ -56,17 +56,18 @@ of the types that draw it, with its timings in named constants. Read them before
 feature, and change them with it.
 
 - Start, End, and the current exercise: `RoutineScreen+Workout.swift`, `CurrentExercise.swift`,
-  `RowLabel.swift` (`RowFocus`), `GrowingName`, `RailStack`, `RailEntry` (a row joining a rail).
-  Their beats are `WorkoutPhase`'s `starting` and `ending` cases, on the same `SequenceTask` as a
-  log's; Start's scroll to the top waits on `ScrollBeat.settled(after:orWhen:)`.
-- The key at the bottom and the +1: `RoutineScreen+Key.swift`, `PrimaryKeyButtonStyle.swift`,
-  `PlusOneBurst`. The bar swaps the key on its own as its kind changes: the swap's stage is
+  `RowLabel.swift` (`RowFocus`, `CaptionLine`), `GrowingName`, `RailStack`, `RailEntry` (a row joining a rail).
+  Their beats are `WorkoutPhase`'s `starting` and `ending`, on a log's `SequenceTask`; Start's scroll to the top waits on `ScrollBeat.settled(after:orWhen:)`.
+- The key at the bottom and the +1: `WorkoutKey`, `RoutineScreen+Key.swift`,
+  `PrimaryKeyButtonStyle.swift`, `PlusOneBurst`. The bar swaps the key on its own as its kind changes: the swap's stage is
   `KeyStage`, held by `StagedKey` in `KeySwap.swift`.
 - Logging a set and moving on to the next exercise: `RoutineScreen+Logging.swift` (`play(_:leadingTo:)`,
   the one entry that shows a stored log), `SetMotion`, `RailPulse`, `SetBeat` in `RailRow.swift`.
   Where a workout is and what a log leads to are `LiveWorkout`'s, and where the screen is in
   showing a log `WorkoutPhase`'s, both in `WorkoutStore`; its timed beats run on the screen's
   one `SequenceTask` (`RoutineScreen+Sequence.swift`).
+- Rests: `RoutineScreen+Resting.swift`, `RestBlock`, `SetRest`, `RestKeys`, `WorkoutRest`.
+  A timed set's "Starts in" and count: `RoutineScreen+Timing.swift`, `TimedSetKeys`, `TimedSet`.
 - Dragging a row, and supersets: `RailDrag`, `RailLiftGesture`, `RailAutoscroll`, `LoopPen`
   (`LoopHeads.swift`), `RailPairing`, `RailWell.swift`, `RailRegroup`, `RailStrokes.swift`.
 - Drawer, Routines: `SideDrawer`, `DrawerSwipe`, `DrawerMenu`, `DrawerButtonStyle`,
@@ -110,8 +111,8 @@ Each of these cost a round on this app; the code at the named spot works around 
   50 of Start's grows, with no scroll in the transaction, SwiftUI ran it 12 to 28 ms in, before
   the first frame, while the rows went on growing. Change a count on the motion's own animation
   and read the animated value against its target (`listResizes(_:)`).
-- When comparing recordings frame by frame, set aside the first run after installing a build: its
-  actions landed up to 0.42 s late against their schedule, and later runs did not.
+- Compare recordings frame by frame from the second run after an install: the first's ran
+  0.42 s late.
 - A `keyframeAnimator` whose initial value follows its trigger runs from the new value to the
   new value, and the view snaps. Animate a state that flips with its trigger with
   `.animation(_:body:)` on the view that draws it. A keyframe timeline ending on a
@@ -132,7 +133,9 @@ Each of these cost a round on this app; the code at the named spot works around 
 - Controls in a navigation bar or `safeAreaBar` are hosted apart from the screen and ignore
   `accessibilityHidden`: behind the drawer each applies `.hiddenBehindDrawer()`, and a faded bar
   item hides from VoiceOver with `accessibilityShown(_:)`. A bar item's elements update only
-  with its host's state, so their state lives there (`BarSearchField`'s `isOpen`).
+  with its host's state, so their state lives there (`BarSearchField`'s `isOpen`). A
+  `TimelineView` in a navigation bar item looped layout with "Starts in"'s count,
+  stalling it: the time key ticks from a task (`WorkoutTimeKey`).
 - Attach a `confirmationDialog` outside the `NavigationStack`; inside, iOS shows a popover with
   an arrow, so a pushed screen's goes on its button (`ExerciseForm`).
 - A horizontal scroll view's offset set before the room around its content is laid out stays on

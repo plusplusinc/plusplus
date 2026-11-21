@@ -78,6 +78,16 @@ struct WorkoutTests {
         #expect(workout.pausing(at: at(10)).resuming(at: at(25)).clockStart == at(15))
     }
 
+    @Test("The time next turns over on the clock's whole seconds, from the start or past a pause")
+    func nextSecond() {
+        #expect(workout.nextSecond(after: at(0)) == at(1))
+        #expect(workout.nextSecond(after: at(4.3)) == at(5))
+        #expect(workout.nextSecond(after: at(5)) == at(6))
+        let resumed = workout.pausing(at: at(10)).resuming(at: at(25.4))
+        #expect(resumed.nextSecond(after: at(30)) == at(30.4))
+        #expect(resumed.nextSecond(after: at(30.4)) == at(31.4))
+    }
+
     @Test("Ending offers Finish only once a set is logged, and only while in progress")
     func offersFinish() throws {
         #expect(!workout.offersFinish)

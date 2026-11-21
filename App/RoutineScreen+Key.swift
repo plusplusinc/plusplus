@@ -20,8 +20,24 @@ extension RoutineScreen {
     /// The key that `primaryKeyBar` holds, for `role`. Within a kind, one key whose words
     /// change; across kinds, another key, which the bar swaps in. While the bar has it out in a
     /// swap, a tap or a VoiceOver activation does nothing, and the key stays enabled, so
-    /// VoiceOver doesn't read it dimmed for the swap's length.
+    /// VoiceOver doesn't read it dimmed for the swap's length. During a rest the bar swaps it for
+    /// −15 s and +15 s (`RestKeys`), and back as the rest ends.
+    @ViewBuilder
     func key(_ role: WorkoutKey.Role, isOut: Bool) -> some View {
+        if role == .rest {
+            RestKeys(
+                isOut: isOut,
+                onShorten: { perform(liveKey.restTap(by: -15)) },
+                onExtend: { perform(liveKey.restTap(by: 15)) },
+            )
+        } else if case let .count(text) = role {
+            countKeys(text, isOut: isOut)
+        } else {
+            mainKey(role, isOut: isOut)
+        }
+    }
+
+    private func mainKey(_ role: WorkoutKey.Role, isOut: Bool) -> some View {
         Button {
             if !isOut {
                 tapKey()
@@ -40,7 +56,7 @@ extension RoutineScreen {
         case let .back(exercise, isAbove):
             // Whole, wrapping at the largest text sizes rather than cut short.
             Label(exercise, systemImage: isAbove ? "arrow.up" : "arrow.down")
-        case .log, .finish:
+        case .log, .finish, .rest, .startNow, .count:
             // One branch, so words that stay are the same view: a branch per role crossfaded
             // "Log last set" into itself as the last set's row closed, which dimmed it.
             Text(verbatim: spokenKey(role))
@@ -50,19 +66,29 @@ extension RoutineScreen {
     private func spokenKey(_ role: WorkoutKey.Role) -> String {
         switch role {
         case .start: String(localized: "Start")
-        case let .log(text): text
+        case let .log(text), let .count(text): text
+        case .startNow: String(localized: "Start now")
         case let .back(exercise, _): String(localized: "Go to current exercise, \(exercise)")
         case .finish: String(localized: "Finish workout")
+        // Never drawn as this key: `key` draws `RestKeys`, which speak for themselves.
+        case .rest: ""
         }
     }
 
-    /// A tap on the key, as `WorkoutKey.tap` says. A log is stored through the session at once
-    /// and shown through `play(_:leadingTo:)`. Nothing while a row's sheet is up: it covers the
-    /// key, but a tap as it began to rise, as after Create, reached the key and started or logged
-    /// behind it. While the key swaps, `key` drops the tap.
+    /// A tap on the key, as `WorkoutKey.tap` says. Nothing while a row's sheet is up: it covers
+    /// the key, but a tap as it began to rise, as after Create, reached the key and started or
+    /// logged behind it. While the key swaps, `key` drops the tap.
     func tapKey() {
         guard editing == nil else { return }
-        switch liveKey.tap {
+        // Nothing more once "Log early" has stopped the set.
+        guard countBeats.earlyLog == nil else { return }
+        perform(liveKey.tap)
+    }
+
+    /// What a tap on the key, or on −15 s or +15 s, does. A log is stored through the session at
+    /// once and shown through `play(_:leadingTo:)`; a rest's change glides its bar.
+    func perform(_ tap: WorkoutKey.Tap) {
+        switch tap {
         case .start:
             pressStart()
         case .finish:
@@ -71,14 +97,28 @@ extension RoutineScreen {
             // With Reduce Motion the list jumps back, as the key's swap only fades.
             withAnimation(reduceMotion ? nil : .snappy(duration: 0.4), scrollToCurrent)
         case let .log(set, current, impact, step):
+            if impact != .runOut, phase.timing == .counting {
+                return logEarly(set, of: current, impact: impact, leadingTo: step)
+            }
             switch impact {
             case .set: setLogs += 1
             case .side: sideLogs += 1
+            case .runOut: countBeats.ends += 1
             }
             // Stored at once, at the numbers the row shows; then shown, from the workout before
             // it.
             session.log(set, of: current)
             play(set, leadingTo: step)
+        case let .adjustRest(seconds):
+            adjustRest(by: seconds)
+        case .startNow:
+            // The count, the key, and the segment all change from the tap, on the slot's swap.
+            withAnimation(SetMotion.restSwap) {
+                session.startCountNow()
+                phase.startCount()
+            }
+        case let .extendCount(seconds):
+            session.extendCount(by: seconds)
         case .nothing:
             break
         }
@@ -118,7 +158,9 @@ extension RoutineScreen {
         sequence.run {
             let start = ContinuousClock.now
             try await beat(until: start + .seconds(SetMotion.heldRoll))
-            withAnimation(.snappy(duration: SetMotion.roll)) { phase.show() }
+            withAnimation(.snappy(duration: SetMotion.roll)) {
+                phase.rollOn(on: arrivingCount(lead: SetMotion.roll))
+            }
         }
     }
 }

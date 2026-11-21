@@ -55,9 +55,10 @@ public struct LiveWorkout: Equatable, Sendable {
         currentSet.map { routine.logText(for: $0, after: workout.sets) }
     }
 
-    /// What logging `set` leads to, from where the workout is.
-    public func step(logging set: PlannedSet) -> Step {
-        let done = Set(workout.sets.map(\.planned)).union([set])
+    /// What logging `set` leads to, from where the workout is, with `earlier` logged first, as a
+    /// set's first side is before its second.
+    public func step(logging set: PlannedSet, after earlier: [PlannedSet] = []) -> Step {
+        let done = Set(workout.sets.map(\.planned)).union(earlier).union([set])
         guard let next = routine.nextSet(notIn: done) else { return .last }
         guard next.row != set.row else { return .nextSet }
         let rows = routine.exercises.map(\.id)

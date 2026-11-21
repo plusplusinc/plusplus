@@ -3,16 +3,15 @@ import SwiftData
 
 typealias StoredCustomization = RoutineSchemaV10.StoredCustomization
 
-/// Today's shape: V9's, with the changes someone made to built-in exercises, stored apart from
-/// the catalog.
+/// V9's, with the changes someone made to built-in exercises, stored apart from the catalog.
 enum RoutineSchemaV10: VersionedSchema {
     static let versionIdentifier = Schema.Version(10, 0, 0)
     static var models: [any PersistentModel.Type] {
         [
             StoredRoutine.self,
             StoredRoutineExercise.self,
-            StoredWorkout.self,
-            StoredSet.self,
+            RoutineSchemaV9.StoredWorkout.self,
+            RoutineSchemaV9.StoredSet.self,
             StoredExercise.self,
             StoredCustomization.self,
         ]

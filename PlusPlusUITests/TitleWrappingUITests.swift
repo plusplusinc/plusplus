@@ -19,9 +19,11 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
     func testWrappedTitleAtLargestTextSize() throws {
         let app = XCUIApplication()
         // The workout's routine is seeded at this launch, and the title's checks run on a new
-        // routine opened after it, so the test launches once.
+        // routine opened after it, so the test launches once. The drawer and Routines are
+        // audited on the way to the new routine.
         try workoutAtAX5(in: app)
-        app.openNewRoutine()
+        try drawerAtAX5(in: app)
+        app.pushNewRoutine()
         let title = app.routineTitle
         let keyboard = app.keyboards.element
 
@@ -79,7 +81,6 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         assertLastRowClearsAddAtTheEnd(in: app)
         dragARowAtAX5(in: app)
         try supersetAtAX5(in: app)
-        try drawerAtAX5(in: app)
     }
 
     /// The last row held and dragged above the one before it moves there at this size: the
@@ -101,18 +102,16 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         }
     }
 
-    /// The drawer, its places kept whole, and the Routines screen pass the audit at this size.
+    /// The drawer, its places kept whole, and the Routines screen pass the audit at this size,
+    /// opened with ++ over the workout's routine, which its relaunch reopened as the launch's
+    /// own. Ends on Routines.
     @MainActor
     private func drawerAtAX5(in app: XCUIApplication) throws {
         try XCTContext.runActivity(named: "The drawer and the Routines screen at AX5") { _ in
-            // Back from the routine pushed from Routines, to ++.
-            app.tapBack()
-            app.buttons["Menu"].tap()
-            XCTAssertTrue(app.drawerTitle.appears(), "++ did not open the drawer")
-            attach(named: "drawer-ax5")
-            try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
-            app.buttons["Routines"].tap()
-            XCTAssertTrue(app.drawerTitle.disappears(), "Routines did not close the drawer")
+            try app.openDrawer(andTap: "Routines") {
+                attach(named: "drawer-ax5")
+                try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
+            }
             let row = app.routineRows.firstMatch
             XCTAssertTrue(row.appears(), "The routine isn't listed")
             attach(named: "routines-ax5")
@@ -256,7 +255,7 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         title.typeText("\n")
         XCTAssertTrue(keyboard.disappears(), "Return did not end the edit", line: line)
         XCTAssertEqual(
-            watchFrames(of: [title], for: RenameUITests.keyboardAvoidanceWindow),
+            watchFrames(of: [title], for: RenameUITests.endedEditWindow),
             before,
             "Ending the edit moved the title",
             line: line,
@@ -278,7 +277,7 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         while ink.lines.count != expected, Date.now < drawn {
             ink = try read(field)
         }
-        attach(ink.shot.screenshot, named: label)
+        defer { attach(ink.shot.screenshot, named: label) }
         // The strip was placed by the frame read before the shot.
         XCTAssertEqual(title.frame, field, "\(label): the field moved while read", line: line)
         XCTAssertEqual(ink.lines.count, expected, "\(label): line count", line: line)
