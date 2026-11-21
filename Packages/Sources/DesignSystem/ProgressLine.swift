@@ -50,16 +50,40 @@ struct ProgressLine: View {
             ZStack(alignment: .topLeading) {
                 word("done")
                     .opacity(focus.place.isDone ? 1 : 0)
-                    .animation(
-                        reduceMotion ? nil : .easeOut(duration: SetMotion.roll),
-                        value: focus.place.isDone,
-                    )
+                    .animation(doneFade, value: focus.place.isDone)
                 if let side = focus.side {
                     SideWord(side: side)
-                        .fadingQuickly(focus.showsSide)
+                        // Within a set, Left rolls to Right; a side changed as it hides, the
+                        // next set's taking the place of the one just done, changes at once.
+                        .transaction(value: side) {
+                            if !focus.showsSide {
+                                $0.animation = nil
+                            }
+                        }
+                        .opacity(focus.showsSide ? 1 : 0)
+                        .animation(sideFade, value: focus.showsSide)
                 }
             }
         }
+    }
+
+    private static let fadeIn = Animation.easeOut(duration: SetMotion.roll)
+
+    /// "done" in and out; where it shares its place with a side, it goes as quickly as the side
+    /// does, and comes in once the side has gone, so the two are never seen over each other.
+    private var doneFade: Animation? {
+        guard !reduceMotion else { return nil }
+        guard focus.side != nil else { return Self.fadeIn }
+        return focus.place.isDone
+            ? Self.fadeIn.delay(SetMotion.leaveFade)
+            : .easeOut(duration: SetMotion.leaveFade)
+    }
+
+    /// The side goes at once as "done" comes in, since the side just done gives way to the next
+    /// set's as it goes, and comes back once "done" has gone from its place.
+    private var sideFade: Animation? {
+        guard !reduceMotion, focus.showsSide else { return nil }
+        return Self.fadeIn.delay(SetMotion.leaveFade)
     }
 
     /// "Set 1 of 3 ", a word to a part, each with the space after it. The number's digits are of

@@ -103,8 +103,8 @@ extension RoutineScreen {
             focus.place.number = rest.set.round
             focus.place.isDone = true
             // Done one side at a time, the set just done was both sides: no side to name, though
-            // its room stays, so the line keeps its height. Its word, the side just done, fades.
-            focus.side = rest.set.side?.text
+            // its room stays, so the line keeps its height. The next set's side waits there
+            // unseen, so the rest's end only fades it back in, never rolling it over "done".
             focus.showsSide = false
             focus.after = drawnResting.map { thenRest($0.rest.length).text }
         }
