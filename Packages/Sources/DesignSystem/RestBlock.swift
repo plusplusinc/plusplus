@@ -140,89 +140,6 @@ public struct RestBlock: View {
     }
 }
 
-/// A row's label with its rest under it (`RestBlock`), stacked as the rail stacks its rows, so
-/// the rest moves with the label's height on every frame. The label stands at least as tall as a
-/// resting row's floor (`restingLabelFloor`), the height a shrinking label stands at until its
-/// shrink ends: shorter at rest, a one-line detail's label let the rest under it jump up 8 pt as
-/// the shrink ended. `onRestHeight` hears the rest's height as it lays out: all the row gives back
-/// as the rest closes. Before a superset's next round its rest opens above its first member's
-/// label instead (`restAbove`), the row's node staying on the label's first line, so the rest
-/// sits on the rail's line into the node, between the row above and the label.
-public struct LabelWithRest<Label: View>: View {
-    let label: Label
-    let rest: RestBlock
-    let restAbove: RestBlock
-    let onRestHeight: (CGFloat) -> Void
-    @Environment(\.restingLabelFloor) private var floor
-
-    public init(
-        label: Label,
-        rest: RestBlock,
-        restAbove: RestBlock = RestBlock(stage: .none, length: 0),
-        onRestHeight: @escaping (CGFloat) -> Void = { _ in },
-    ) {
-        self.label = label
-        self.rest = rest
-        self.restAbove = restAbove
-        self.onRestHeight = onRestHeight
-    }
-
-    public var body: some View {
-        RestsAroundLabel {
-            restAbove
-            label.frame(minHeight: floor, alignment: .top)
-            rest
-                .onGeometryChange(for: CGFloat.self, of: \.size.height, action: onRestHeight)
-        }
-    }
-}
-
-/// A rest above, a label, and a rest below, stacked as `RailStack` stacks them, its text
-/// baselines the label's: the rest above, laid out even while closed, would otherwise lend the
-/// row its "Rest", and the row's node would sit on it.
-private struct RestsAroundLabel: Layout {
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
-        let sizes = sizes(subviews, width: proposal.width)
-        return CGSize(
-            width: sizes.map(\.width).max() ?? 0,
-            height: sizes.map(\.height).reduce(0, +),
-        )
-    }
-
-    func placeSubviews(
-        in bounds: CGRect,
-        proposal _: ProposedViewSize,
-        subviews: Subviews,
-        cache _: inout (),
-    ) {
-        let offer = ProposedViewSize(width: bounds.width, height: nil)
-        var top = bounds.minY
-        for (subview, size) in zip(subviews, sizes(subviews, width: bounds.width)) {
-            subview.place(at: CGPoint(x: bounds.minX, y: top), proposal: offer)
-            top += size.height
-        }
-    }
-
-    func explicitAlignment(
-        of guide: VerticalAlignment,
-        in bounds: CGRect,
-        proposal _: ProposedViewSize,
-        subviews: Subviews,
-        cache _: inout (),
-    ) -> CGFloat? {
-        guard subviews.count == 3,
-              guide == .firstTextBaseline || guide == .railNodeBaseline
-        else { return nil }
-        let offer = ProposedViewSize(width: bounds.width, height: nil)
-        return subviews[0].sizeThatFits(offer).height + subviews[1].dimensions(in: offer)[guide]
-    }
-
-    private func sizes(_ subviews: Subviews, width: CGFloat?) -> [CGSize] {
-        let offer = ProposedViewSize(width: width, height: nil)
-        return subviews.map { $0.sizeThatFits(offer) }
-    }
-}
-
 /// The rest drawn at a point in its opening or closing: `open` runs from 0 to 1 on the row's
 /// animation, and every part's fade is worked out from it, so the parts move with the room on
 /// its curve whatever the transaction, a move's, whose scroll is set with animations disabled,
@@ -237,6 +154,7 @@ private struct RestRoom: View, Animatable {
     /// The cap height of "Rest"'s font (`Font.ppRowTitle`), SF Pro semibold at body's size at the
     /// default text size, scaled with it.
     @ScaledMetric(relativeTo: .body) private var capHeight = Self.defaultCapHeight
+    @Environment(\.restIsAboveLabel) private var isAboveLabel
 
     private static let defaultCapHeight: CGFloat = {
         #if canImport(UIKit)
@@ -274,6 +192,14 @@ private struct RestRoom: View, Animatable {
     }
 
     private static let space = "restRoom"
+
+    /// The room under the count, so the next exercise's name stands `Spacing.lg` and a row's
+    /// insets under it wherever the rest is: under a label, the row's bottom inset and the next
+    /// row's top inset follow it; above a superset's first member, nothing does, and there the
+    /// name sat 16 pt closer than after a rest between exercises.
+    static func below(isAboveLabel: Bool) -> CGFloat {
+        Spacing.lg + (isAboveLabel ? 2 * RailRowMetrics.verticalInset : 0)
+    }
 
     var body: some View {
         // From the share of the room that holds each part whole, so nothing is drawn cut off at
@@ -316,7 +242,7 @@ private struct RestRoom: View, Animatable {
             .modifier(BottomIn(Self.space) { bottoms.countdown = $0 + SetMotion.arriveRise })
             .coming(countdown)
         }
-        .padding(.bottom, Spacing.lg)
+        .padding(.bottom, Self.below(isAboveLabel: isAboveLabel))
         .coordinateSpace(.named(Self.space))
         .onGeometryChange(for: CGFloat.self, of: \.size.height) { bottoms.room = $0 }
         .accessibilityHidden(block.stage != .open)
