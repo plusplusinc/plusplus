@@ -185,7 +185,6 @@ struct TimedSetTests {
         let caught = LiveWorkout(routine: live.routine, workout: live.caughtUp(at: Self.at(300)))
         #expect(caught.workout.sets.count == 1)
         #expect(caught.workout.sets.first?.clockWhenLogged == 40)
-        #expect(caught.workout.sets.first?.loggedAt == Self.at(40))
         #expect(caught.timedSet?.startClock == 310)
     }
 

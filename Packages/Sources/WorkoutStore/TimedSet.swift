@@ -141,8 +141,9 @@ extension LiveWorkout {
     /// done, its +15 s taps, and, when it ran out, the clock and the time of day at its end, so
     /// the rest after it starts where the set ended, and the set reads as done then, however
     /// late it is noticed. The end's time of day is the clock's at the end, read as if no pause
-    /// was resumed since: a count can't end in a pause, and one that ends on screen is logged as
-    /// it ends, so a pause between the end and the log is never resumed before it. The next
+    /// was resumed since: a count can't end in a pause, and the gap to its log is time away from
+    /// the count, the phone locked or the app gone, so a pause resumed inside it isn't expected;
+    /// one would put the time of day late by its length. The next
     /// set's count is not begun here: with no rest before it, its "Starts in" begins as the
     /// screen lands on it, so its ten seconds are all seen (`beginningCount(at:restOverride:)`).
     public func logging(_ set: PlannedSet, of row: RoutineExercise, at now: Date) -> Workout {
@@ -169,15 +170,12 @@ extension LiveWorkout {
 
     /// The workout finished at `now` (`Workout.finishing(at:)`), a set counting logged first at
     /// the time done, as a log at that moment logs it, and one whose count ran out at its full
-    /// time. A set still in "Starts in" logs nothing: it never began.
+    /// time. A set still in "Starts in" logs nothing: it never began. Paused, the set is logged
+    /// as the pause began, where its count stopped, so its time of day and its clock agree.
     public func finishing(at now: Date) -> Workout {
-        var last = workout
-        if let timed = timedSet, timed.startsIn(atClock: workout.clock(at: now)) == 0,
-           let row = currentExercise
-        {
-            last = logging(timed.set, of: row, at: now)
-        }
-        return last.finishing(at: now)
+        guard countStage(at: now) == .counting, let timed = timedSet, let row = currentExercise
+        else { return workout.finishing(at: now) }
+        return logging(timed.set, of: row, at: workout.pausedAt ?? now).finishing(at: now)
     }
 
     /// The workout with "Starts in" cut short at `now`: the set counts from now. Unchanged

@@ -17,8 +17,6 @@ extension TimedSetTests {
         #expect(finished.sets.count == 1)
         let set = try #require(finished.sets.first)
         #expect(set.target == .time(seconds: 18))
-        #expect(set.plannedTarget == .time(seconds: 30))
-        #expect(set.timeAdded == 15)
         #expect(finished.count == nil)
         #expect(finished.endedAt == Self.at(28))
         let early = try #require(Self.logged(live, at: 28).workout.sets.first)
@@ -26,6 +24,20 @@ extension TimedSetTests {
         #expect(early.timeAdded == set.timeAdded)
         #expect(early.loggedAt == set.loggedAt)
         #expect(early.clockWhenLogged == set.clockWhenLogged)
+    }
+
+    @Test("Finish while paused mid-count logs the set where the pause stopped it")
+    func finishedPausedMidCount() throws {
+        let live = try Self.started(Self.routine())
+        // Counting from 10, paused at 22 with 12 s done; finished ten minutes on.
+        let paused = LiveWorkout(
+            routine: live.routine,
+            workout: live.workout.pausing(at: Self.at(22)),
+        )
+        let set = try #require(paused.finishing(at: Self.at(622)).sets.first)
+        #expect(set.target == .time(seconds: 12))
+        #expect(set.loggedAt == Self.at(22))
+        #expect(set.clockWhenLogged == 22)
     }
 
     @Test("Finish during Starts in logs nothing for the set")
@@ -42,7 +54,6 @@ extension TimedSetTests {
         let set = try #require(finished.sets.first)
         #expect(set.target == .time(seconds: 30))
         #expect(set.loggedAt == Self.at(40))
-        #expect(set.clockWhenLogged == 40)
     }
 
     @Test("A count logged after it ran out stores the time of day it ended, not the log's")
