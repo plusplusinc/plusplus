@@ -178,7 +178,8 @@ def tests(bundle):
         print(f"  FAIL {failure.get('testName')}: {(failure.get('failureText') or '').strip()}")
     # xcodebuild reports success for an -only-testing identifier that matches nothing.
     if not s.get("totalTestCount"):
-        print("no tests ran; an -only-testing identifier that matches nothing does this")
+        print("no tests ran; an -only-testing identifier that matches nothing does this: name the "
+              "target first, as in PlusPlusUITests/RenameUITests")
         return 1
     return 0
 
