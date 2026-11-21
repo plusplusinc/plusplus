@@ -74,7 +74,7 @@ extension TimedSetTests {
     func tapTimeOfDay() throws {
         let live = try Self.started(Self.routine())
         #expect(try Self.logged(live, at: 28).loggedWorkout.sets.first?.loggedAt == Self.at(28))
-        let routine = try Routine(exercises: [RoutineExercise.builtIn("Push-up") { $0.sets = 1 }])
+        let routine = try Workout(exercises: [WorkoutExercise.builtIn("Push-up") { $0.sets = 1 }])
         let reps = try Self.logged(Self.started(routine), at: 5)
         #expect(reps.loggedWorkout.sets.first?.loggedAt == Self.at(5))
     }

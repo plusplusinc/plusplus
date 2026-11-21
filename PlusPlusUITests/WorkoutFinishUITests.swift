@@ -2,7 +2,7 @@ import XCTest
 
 /// After the last planned set, the key at the bottom reads Finish workout and finishes at once,
 /// with no "End this workout?" dialog, and keeps the workout: a relaunch then opens a new
-/// routine, where after Discard it reopens this one (`RoutineStoreLoggedWorkoutTests` holds both
+/// routine, where after Discard it reopens this one (`StoreLoggedWorkoutTests` holds both
 /// launch rules and every saved field). Which set comes next is `WorkoutLoggingTests`', and
 /// how the row looks is `WorkoutRailSnapshotTests`'; this is the key's wire to finishing, which
 /// nothing in the app shows afterward, so a break that discarded the sets would go unseen. On

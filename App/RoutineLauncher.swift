@@ -7,8 +7,8 @@ import WorkoutStore
 /// Opens the routine the app launches into before showing it, so the title never shows New
 /// routine and then the saved name.
 struct RoutineLauncher: View {
-    let store: RoutineStore?
-    let namer: RoutineNamer
+    let store: Store?
+    let namer: WorkoutNamer
     let resetsStore: Bool
 
     @State private var session: RoutineSession?
@@ -75,8 +75,8 @@ struct RoutineLauncher: View {
         }
     }
 
-    private func launch() async -> (routine: Routine, loggedWorkout: LoggedWorkout?) {
-        guard let store else { return (Routine(), nil) }
+    private func launch() async -> (routine: Workout, loggedWorkout: LoggedWorkout?) {
+        guard let store else { return (Workout(), nil) }
         do {
             #if DEBUG
             if resetsStore {
@@ -88,10 +88,10 @@ struct RoutineLauncher: View {
             }
             #endif
             let launch = try await store.launch(weightUnit: WeightUnit(region: locale))
-            return (launch.routine ?? Routine(), launch.loggedWorkout)
+            return (launch.routine ?? Workout(), launch.loggedWorkout)
         } catch {
             Logger.app.error("Opening a new routine: the saved one didn't load: \(error)")
-            return (Routine(), nil)
+            return (Workout(), nil)
         }
     }
 }

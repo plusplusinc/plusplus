@@ -5,10 +5,10 @@ import Foundation
 /// The routine is the one on screen, edits included, so a row added, moved, or deleted
 /// mid-workout counts at once.
 public struct LiveWorkout: Equatable, Sendable {
-    public var routine: Routine
+    public var routine: Workout
     public var loggedWorkout: LoggedWorkout
 
-    public init(routine: Routine, loggedWorkout: LoggedWorkout) {
+    public init(routine: Workout, loggedWorkout: LoggedWorkout) {
         self.routine = routine
         self.loggedWorkout = loggedWorkout
     }
@@ -20,7 +20,7 @@ public struct LiveWorkout: Equatable, Sendable {
     }
 
     /// The exercise it is on: the row of the set it does next.
-    public var currentExercise: RoutineExercise? {
+    public var currentExercise: WorkoutExercise? {
         currentSet.flatMap { set in routine.exercises.first { $0.id == set.row } }
     }
 
@@ -32,7 +32,7 @@ public struct LiveWorkout: Equatable, Sendable {
 
     /// The rows with every set logged, whose nodes show them done. Never a row with none
     /// planned.
-    public var finishedRows: Set<RoutineExercise.ID> {
+    public var finishedRows: Set<WorkoutExercise.ID> {
         Set(routine.exercises.lazy.map(\.id).filter { id in
             let progress = routine.progress(of: id, logged: loggedWorkout.sets)
             return progress.total > 0 && progress.done == progress.total
@@ -41,7 +41,7 @@ public struct LiveWorkout: Equatable, Sendable {
 
     /// The set bars a row shows: on the current exercise always, from its first set; on any other
     /// only once started and until finished, where its node shows it done. Nil for none.
-    public func bars(of id: RoutineExercise.ID) -> (done: Int, total: Int)? {
+    public func bars(of id: WorkoutExercise.ID) -> (done: Int, total: Int)? {
         let progress = routine.progress(of: id, logged: loggedWorkout.sets)
         guard id == currentSet?.row
             || routine.isStarted(id, logged: loggedWorkout.sets) && progress.done < progress.total

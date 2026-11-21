@@ -27,7 +27,7 @@ extension RoutineDrawerUITests {
     /// deleting, and the pushed routine's ••• deletes it and shows Routines. The system's swipe
     /// actions, context menu, and alert, and a bar menu, show only in the running app; what a
     /// delete stores and what shows next is `RoutineSessionDeleteTests`', and that a deleted
-    /// routine stays gone after a relaunch `RoutineStoreDeleteTests`'.
+    /// routine stays gone after a relaunch `StoreDeleteTests`'.
     func routinesDeleteRoutines(in app: XCUIApplication, title: XCUIElement) {
         let delete = app.buttons["Delete"]
         let listed = ["Chest day", "Back"]

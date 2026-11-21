@@ -13,7 +13,7 @@ extension RoutineScreen {
 
     /// The row with this id, bound by id rather than by index, so a sheet still showing it
     /// never reads past the end of the rows once it is deleted.
-    func row(_ id: RoutineExercise.ID) -> Binding<RoutineExercise>? {
+    func row(_ id: WorkoutExercise.ID) -> Binding<WorkoutExercise>? {
         guard let current = routine.exercises.first(where: { $0.id == id }) else { return nil }
         return Binding {
             routine.exercises.first { $0.id == id } ?? current
@@ -23,7 +23,7 @@ extension RoutineScreen {
     }
 
     /// The rest of `id`'s superset, read and stepped on every member; nil for a plain row.
-    func roundSteps(of id: RoutineExercise.ID) -> RoundSteps? {
+    func roundSteps(of id: WorkoutExercise.ID) -> RoundSteps? {
         guard routine.isInSuperset(id) else { return nil }
         return RoundSteps(
             value: {
@@ -48,13 +48,13 @@ extension RoutineScreen {
 
     /// Moves a row dropped on the rail, in the rail's transaction, so the order changes as the
     /// card settles into its gap; it saves once, as any change does.
-    func move(_ id: RoutineExercise.ID, to slot: RailSlot<RoutineExercise.ID>) {
-        routine.move(id, to: RoutineSlot(slot))
+    func move(_ id: WorkoutExercise.ID, to slot: RailSlot<WorkoutExercise.ID>) {
+        routine.move(id, to: WorkoutSlot(slot))
     }
 
     /// Moves a row one place with VoiceOver's Move up or Move down, and says which row it
     /// passed.
-    func step(_ id: RoutineExercise.ID, to slot: RoutineSlot, wentUp: Bool) {
+    func step(_ id: WorkoutExercise.ID, to slot: WorkoutSlot, wentUp: Bool) {
         withAnimation(.railChange) {
             routine.move(id, to: slot)
         }
@@ -65,7 +65,7 @@ extension RoutineScreen {
 
     /// Removes a row. The last one takes Start down and the + with it after `footDelay`: at once
     /// from a swipe, and from the exercise sheet's Remove once the sheet has gone.
-    func delete(_ id: RoutineExercise.ID, footDelay: Duration = .zero) {
+    func delete(_ id: WorkoutExercise.ID, footDelay: Duration = .zero) {
         withAnimation(.railChange) {
             routine.remove(id)
         }
@@ -154,9 +154,9 @@ extension RoutineScreen {
     /// Start is pressed, it enters where it is, with no scroll: the end is then Start's room
     /// under the list, out of sight, and a scroll to it took the list off the screen just as
     /// Start went to land on the first exercise. `landed` runs once the row has landed.
-    func add(_ exercise: Exercise, landed: @escaping (RoutineExercise.ID) -> Void = { _ in }) {
+    func add(_ exercise: Exercise, landed: @escaping (WorkoutExercise.ID) -> Void = { _ in }) {
         let added = ContinuousClock.now
-        let row = RoutineExercise(exercise: exercise, weightUnit: WeightUnit(region: locale))
+        let row = WorkoutExercise(exercise: exercise, weightUnit: WeightUnit(region: locale))
         arriving = row.id
         entering = row.id
         // Under Start's room or a move's, the row enters where it is (`keepEndInView`).
@@ -306,7 +306,7 @@ extension RoutineScreen {
 
     /// Once `row` has landed it takes taps and VoiceOver reaches it. A later add, its row
     /// arriving, keeps the scroll in step for its own place.
-    private func hasEntered(_ row: RoutineExercise) {
+    private func hasEntered(_ row: WorkoutExercise) {
         if arriving == nil {
             endFollow = nil
         }
@@ -319,6 +319,6 @@ extension RoutineScreen {
 /// A created row that has landed, its sheet waiting out `createdHold`, and whether the routine
 /// was idle at the Create, so a Start pressed since keeps the sheet down.
 struct CreatedWait: Equatable {
-    let row: RoutineExercise.ID
+    let row: WorkoutExercise.ID
     let wasIdle: Bool
 }

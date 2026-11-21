@@ -26,7 +26,7 @@ extension RoutineScreen {
     }
 
     /// The exercise the workout is on, as drawn. None once every set is logged.
-    var currentID: RoutineExercise.ID? {
+    var currentID: WorkoutExercise.ID? {
         // Resting between exercises, no row is grown once the rest shows: the next grows as the
         // rest ends. Until then the row left stays grown, so it shrinks in the rest's animated
         // transaction, not at the log's: changed at the log, it went at once and the rows below
@@ -39,7 +39,7 @@ extension RoutineScreen {
     /// The row whose node is lit on the rail: the current exercise, but while a move to it is on
     /// its way, none until the pulse lands on its node, nor through a rest, whose dot is the
     /// green on the rail.
-    var litID: RoutineExercise.ID? {
+    var litID: WorkoutExercise.ID? {
         phase.move.map(\.isLanded) == false
             || phase.drawnRest.map { !$0.isWithinExercise } == true
             ? nil : currentID
@@ -69,7 +69,7 @@ extension RoutineScreen {
     /// The current exercise as it grows into `set`, `after` at its caption line's end:
     /// at a superset round's end, it shows the round just done, as the logged set's row showed
     /// it, until the move rolls it to the new one.
-    func focus(of item: RoutineExercise, on set: PlannedSet, after: CaptionEnd?) -> RowFocus {
+    func focus(of item: WorkoutExercise, on set: PlannedSet, after: CaptionEnd?) -> RowFocus {
         var focus = item.focus(on: set, inSuperset: routine.isInSuperset(item.id), locale: locale)
         focus.after = after?.text
         focus.spokenAfter = after?.spoken
@@ -115,8 +115,8 @@ extension RoutineScreen {
     /// the screen's values read once, as the rows' closure holds them: read here, a list
     /// crossfading out took the bars of the workout it faded into, a finished row's gone at once.
     func rowLabel(
-        _ item: RoutineExercise,
-        current: RoutineExercise.ID?,
+        _ item: WorkoutExercise,
+        current: WorkoutExercise.ID?,
         on set: PlannedSet?,
         parts: RowParts?,
     ) -> RowLabel {
@@ -136,7 +136,7 @@ extension RoutineScreen {
 
     /// The set bars each row shows in `shown` (`LiveWorkout.bars(of:)`), for the rows' closure
     /// to hold as values.
-    func rowBars(in shown: LiveWorkout?) -> [RoutineExercise.ID: SetProgress] {
+    func rowBars(in shown: LiveWorkout?) -> [WorkoutExercise.ID: SetProgress] {
         guard let shown else { return [:] }
         let restingTo = phase.drawnRest.flatMap { $0.beat > .logged ? shown.currentSet?.row : nil }
         return routine.exercises.reduce(into: [:]) { bars, item in
@@ -154,7 +154,7 @@ extension RoutineScreen {
 
     /// The row that grows, or stands grown: the current exercise, or, out of a workout, the
     /// first, which Start grows.
-    var growingID: RoutineExercise.ID? {
+    var growingID: WorkoutExercise.ID? {
         guard shown != nil else { return routine.exercises.first?.id }
         // Relaunched into a rest between exercises, no row is grown until it ends: the list opens
         // on the row the rest is drawn in.
@@ -334,7 +334,7 @@ extension RoutineScreen {
     /// stays where it is; one below rises by what `leaving` gives back, from its pitch now, top
     /// to the next row's top, to its pitch at rest, measured from a copy of it at rest while it
     /// was current (`notesRestingPitch(of:current:)`). Nil when either isn't known.
-    func landing(on next: RoutineExercise.ID, leaving: RoutineExercise.ID) -> CGFloat? {
+    func landing(on next: WorkoutExercise.ID, leaving: WorkoutExercise.ID) -> CGFloat? {
         guard let nextTop = rowFrames.tops[next], let leavingTop = rowFrames.tops[leaving]
         else { return nil }
         guard nextTop > leavingTop else { return max(nextTop, 0) }
@@ -348,8 +348,8 @@ extension RoutineScreen {
     /// rest closing under the row left, already a resting row, all it gives back. Nil when the
     /// row isn't known.
     func landing(
-        on next: RoutineExercise.ID,
-        closingRestUnder leaving: RoutineExercise.ID,
+        on next: WorkoutExercise.ID,
+        closingRestUnder leaving: WorkoutExercise.ID,
     ) -> CGFloat? {
         guard let nextTop = rowFrames.tops[next] else { return nil }
         return max(nextTop - (rowFrames.restHeights[leaving] ?? 0), 0)
@@ -380,10 +380,10 @@ extension WorkoutPhase.Move {
 /// a move begins. Not observed: rows report as they lay out, and redrawing the screen for each
 /// would redraw it on every frame of a move.
 final class RowFrames {
-    var tops: [RoutineExercise.ID: CGFloat] = [:]
+    var tops: [WorkoutExercise.ID: CGFloat] = [:]
     /// Each row's pitch at rest, top to the next row's top, as it will rest once a set has moved
     /// the workout off it: what it gives back as it shrinks.
-    var restingPitch: [RoutineExercise.ID: CGFloat] = [:]
+    var restingPitch: [WorkoutExercise.ID: CGFloat] = [:]
     /// The height of the rest under each row, open or not.
-    var restHeights: [RoutineExercise.ID: CGFloat] = [:]
+    var restHeights: [WorkoutExercise.ID: CGFloat] = [:]
 }

@@ -2,7 +2,7 @@ import XCTest
 
 /// Holding a row and dragging it to a new place, run within `testDragAndDeleteRows` on its
 /// nine rows, which run past one screen. Where the gap goes, a drop in place included, is
-/// unit-tested in the package (`RailDragTests`, `RoutineMoveTests`), and the card and gap are
+/// unit-tested in the package (`RailDragTests`, `WorkoutMoveTests`), and the card and gap are
 /// snapshot-tested; this checks what needs real touches and the scroll view.
 @MainActor
 extension RowDragUITests {

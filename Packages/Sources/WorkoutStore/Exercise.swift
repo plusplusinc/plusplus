@@ -1,7 +1,7 @@
 import Foundation
 
 /// What an exercise is: its name, the muscle groups it works, and the equipment it uses.
-/// A routine holds instances of it, as `RoutineExercise`.
+/// A routine holds instances of it, as `WorkoutExercise`.
 public struct Exercise: Identifiable, Equatable, Sendable {
     /// Stable, so a routine refers to the exercise by something its name can change without
     /// breaking: a built-in's slug, or a created exercise's `created:` id

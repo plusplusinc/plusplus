@@ -61,7 +61,7 @@ extension RoutineScreen {
     /// the keys changing together once the key is full.
     func logEarly(
         _ set: PlannedSet,
-        of row: RoutineExercise,
+        of row: WorkoutExercise,
         impact: WorkoutKey.Impact,
         leadingTo step: LiveWorkout.Step,
     ) {
@@ -89,7 +89,7 @@ extension RoutineScreen {
     /// at the line's trailing end where it fits beside the counter, else under it, as "then rest
     /// 0:30" will once it counts; the change comes in the same update as the slot's, so the line
     /// changes once, with it.
-    func timedCaption(_ focus: inout RowFocus, of item: RoutineExercise) {
+    func timedCaption(_ focus: inout RowFocus, of item: WorkoutExercise) {
         guard case let .time(seconds) = item.plan.target else { return }
         focus.afterRoom = [focus.after, RestBlock.spoken(Double(seconds), locale: locale)]
             .compactMap(\.self)
@@ -121,7 +121,7 @@ extension RoutineScreen {
     /// stopped it, in that set's own row only; at rest on the set, "Starts in" or the count as
     /// the phase says; out of a rest, the count, which the rest's end began; else, on the way
     /// to it (Start, a move), "Starts in", held at 0:10 until the screen comes to rest on it.
-    func setWait(of id: RoutineExercise.ID, current: RoutineExercise.ID?) -> SetRest? {
+    func setWait(of id: WorkoutExercise.ID, current: WorkoutExercise.ID?) -> SetRest? {
         let rest = setRest(of: id, current: current)
         guard id == current, let shown, let row = routine.exercises.first(where: { $0.id == id }),
               case let .time(seconds) = row.plan.target

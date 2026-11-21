@@ -211,8 +211,8 @@ struct ExerciseTests {
     @Test("Each routine exercise is its own instance")
     func duplicateInstances() throws {
         let squat = try Exercise.builtIn(named: "Goblet squat")
-        let first = RoutineExercise(exercise: squat, weightUnit: .pounds)
-        let second = RoutineExercise(exercise: squat, weightUnit: .pounds)
+        let first = WorkoutExercise(exercise: squat, weightUnit: .pounds)
+        let second = WorkoutExercise(exercise: squat, weightUnit: .pounds)
         #expect(first.id != second.id)
     }
 }

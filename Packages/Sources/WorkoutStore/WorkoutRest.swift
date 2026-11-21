@@ -1,6 +1,6 @@
 import Foundation
 
-extension Routine {
+extension Workout {
     /// The rest between `set` and `next`, in seconds, as the routine stores it now: none after the
     /// workout's last set, or the set's row gone; none between a set's two sides, or between a
     /// superset's members in one round; a superset's rest after each round where a round ends;
@@ -17,7 +17,7 @@ extension Routine {
     /// The rest between two sets of `id`, in seconds, where a screen runs one: none in a
     /// superset, for one set, or for a rest of 0. An exercise done per side rests after each
     /// set's last side, as a plain one after each set.
-    public func restBetweenSets(of id: RoutineExercise.ID) -> Int? {
+    public func restBetweenSets(of id: WorkoutExercise.ID) -> Int? {
         guard let row = exercises.first(where: { $0.id == id }), !isInSuperset(id),
               row.plan.sets > 1, row.rest > 0
         else { return nil }

@@ -146,7 +146,7 @@ extension LiveWorkout {
     /// one would put the time of day late by its length. The next
     /// set's count is not begun here: with no rest before it, its "Starts in" begins as the
     /// screen lands on it, so its ten seconds are all seen (`beginningCount(at:restOverride:)`).
-    public func logging(_ set: PlannedSet, of row: RoutineExercise, at now: Date) -> LoggedWorkout {
+    public func logging(_ set: PlannedSet, of row: WorkoutExercise, at now: Date) -> LoggedWorkout {
         let clock = loggedWorkout.clock(at: now)
         let timed = timedSet.flatMap { $0.set == set ? $0 : nil }
         let endClock = timed.flatMap { $0.isOver(atClock: clock) ? $0.endClock : nil }

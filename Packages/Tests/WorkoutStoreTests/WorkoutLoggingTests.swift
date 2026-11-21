@@ -7,14 +7,14 @@ import Testing
 struct WorkoutLoggingTests {
     private let start = Date(timeIntervalSinceReferenceDate: 1000)
 
-    private func loggedWorkout(_ routine: Routine) -> LoggedWorkout {
+    private func loggedWorkout(_ routine: Workout) -> LoggedWorkout {
         LoggedWorkout(routineID: routine.id, routineName: "Upper", startedAt: start)
     }
 
     /// Logs the routine's next set, as the key does.
     private func logNext(
         _ loggedWorkout: LoggedWorkout,
-        _ routine: Routine,
+        _ routine: Workout,
     ) throws -> LoggedWorkout {
         let next = try #require(routine.nextSet(after: loggedWorkout.sets))
         let row = try #require(routine.exercises.first { $0.id == next.row })
@@ -23,9 +23,9 @@ struct WorkoutLoggingTests {
 
     @Test("Three logs on a 3-set exercise go set 2, set 3, then the next row's set 1")
     func plainRows() throws {
-        let bench = try RoutineExercise.builtIn("Barbell bench press") { $0.sets = 3 }
-        let pull = try RoutineExercise.builtIn("Pull-up")
-        let routine = Routine(exercises: [bench, pull])
+        let bench = try WorkoutExercise.builtIn("Barbell bench press") { $0.sets = 3 }
+        let pull = try WorkoutExercise.builtIn("Pull-up")
+        let routine = Workout(exercises: [bench, pull])
         var loggedWorkout = loggedWorkout(routine)
         #expect(routine.nextSet(after: loggedWorkout.sets) == PlannedSet(row: bench.id, round: 1))
         loggedWorkout = try logNext(loggedWorkout, routine)
@@ -38,8 +38,8 @@ struct WorkoutLoggingTests {
 
     @Test("Logging a set already logged changes nothing")
     func logTwice() throws {
-        let bench = try RoutineExercise.builtIn("Barbell bench press") { $0.sets = 3 }
-        let routine = Routine(exercises: [bench])
+        let bench = try WorkoutExercise.builtIn("Barbell bench press") { $0.sets = 3 }
+        let routine = Workout(exercises: [bench])
         let first = PlannedSet(row: bench.id, round: 1)
         let once = loggedWorkout(routine).logging(first, of: bench, at: start)
         #expect(once.logging(first, of: bench, at: start.addingTimeInterval(5)) == once)
@@ -48,11 +48,11 @@ struct WorkoutLoggingTests {
     @Test("In a superset, a log on A1 moves to B1, then A2")
     func superset() throws {
         let superset = UUID()
-        var first = try RoutineExercise.builtIn("Push-up") { $0.sets = 3 }
-        var second = try RoutineExercise.builtIn("Pull-up") { $0.sets = 3 }
+        var first = try WorkoutExercise.builtIn("Push-up") { $0.sets = 3 }
+        var second = try WorkoutExercise.builtIn("Pull-up") { $0.sets = 3 }
         first.supersetID = superset
         second.supersetID = superset
-        let routine = Routine(exercises: [first, second])
+        let routine = Workout(exercises: [first, second])
         var loggedWorkout = loggedWorkout(routine)
         loggedWorkout = try logNext(loggedWorkout, routine)
         #expect(routine.nextSet(after: loggedWorkout.sets)?.row == second.id)
@@ -62,8 +62,8 @@ struct WorkoutLoggingTests {
 
     @Test("A per-side set logs left then right, each its own set, and counts once both are in")
     func sides() throws {
-        let row = try RoutineExercise.builtIn("Dumbbell row") { $0.sets = 3 }
-        let routine = Routine(exercises: [row])
+        let row = try WorkoutExercise.builtIn("Dumbbell row") { $0.sets = 3 }
+        let routine = Workout(exercises: [row])
         var loggedWorkout = loggedWorkout(routine)
         loggedWorkout = try logNext(loggedWorkout, routine)
         #expect(loggedWorkout.sets.map(\.side) == [.left])
@@ -78,9 +78,9 @@ struct WorkoutLoggingTests {
 
     @Test("The key reads Log set, Log left then Log right, and Log last set on the last set")
     func logText() throws {
-        let push = try RoutineExercise.builtIn("Push-up") { $0.sets = 2 }
-        let row = try RoutineExercise.builtIn("Dumbbell row") { $0.sets = 2 }
-        let routine = Routine(exercises: [push, row])
+        let push = try WorkoutExercise.builtIn("Push-up") { $0.sets = 2 }
+        let row = try WorkoutExercise.builtIn("Dumbbell row") { $0.sets = 2 }
+        let routine = Workout(exercises: [push, row])
         var loggedWorkout = loggedWorkout(routine)
         var said: [String] = []
         while let next = routine.nextSet(after: loggedWorkout.sets) {
@@ -89,7 +89,7 @@ struct WorkoutLoggingTests {
         }
         // The last right side is the workout's last set, so it reads as the last, not as a side.
         #expect(said == ["Log set", "Log set", "Log left", "Log right", "Log left", "Log last set"])
-        let single = Routine(exercises: [push])
+        let single = Workout(exercises: [push])
         let first = PlannedSet(row: push.id, round: 1)
         #expect(single.logText(for: first, after: []) == "Log set")
         #expect(
@@ -101,8 +101,8 @@ struct WorkoutLoggingTests {
 
     @Test("Once every set is logged there is no next set, and every row reads finished")
     func allLogged() throws {
-        let row = try RoutineExercise.builtIn("Push-up") { $0.sets = 2 }
-        let routine = Routine(exercises: [row])
+        let row = try WorkoutExercise.builtIn("Push-up") { $0.sets = 2 }
+        let routine = Workout(exercises: [row])
         var loggedWorkout = loggedWorkout(routine)
         loggedWorkout = try logNext(loggedWorkout, routine)
         loggedWorkout = try logNext(loggedWorkout, routine)
@@ -112,17 +112,17 @@ struct WorkoutLoggingTests {
 
     @Test("A row not started has no progress and isn't started")
     func notStarted() throws {
-        let row = try RoutineExercise.builtIn("Push-up") { $0.sets = 2 }
-        let routine = Routine(exercises: [row])
+        let row = try WorkoutExercise.builtIn("Push-up") { $0.sets = 2 }
+        let routine = Workout(exercises: [row])
         #expect(routine.progress(of: row.id, logged: []) == (0, 2))
         #expect(!routine.isStarted(row.id, logged: []))
     }
 
     @Test("Raising a finished row's sets brings the next set back to it")
     func raisedSets() throws {
-        let first = try RoutineExercise.builtIn("Push-up") { $0.sets = 1 }
-        let second = try RoutineExercise.builtIn("Pull-up")
-        var routine = Routine(exercises: [first, second])
+        let first = try WorkoutExercise.builtIn("Push-up") { $0.sets = 1 }
+        let second = try WorkoutExercise.builtIn("Pull-up")
+        var routine = Workout(exercises: [first, second])
         let loggedWorkout = try logNext(loggedWorkout(routine), routine)
         #expect(routine.nextSet(after: loggedWorkout.sets)?.row == second.id)
         routine.exercises[0].plan.sets = 2
@@ -131,10 +131,10 @@ struct WorkoutLoggingTests {
 
     @Test("A log after a plan change records the new numbers, as done and as planned")
     func changedPlan() throws {
-        var row = try RoutineExercise.builtIn("Barbell bench press")
+        var row = try WorkoutExercise.builtIn("Barbell bench press")
         row.plan.weight = Weight(135, .pounds)
         row.plan.target = .reps(8)
-        var routine = Routine(exercises: [row])
+        var routine = Workout(exercises: [row])
         var loggedWorkout = loggedWorkout(routine)
         loggedWorkout = try logNext(loggedWorkout, routine)
         routine.exercises[0].plan.weight = Weight(145, .pounds)
@@ -150,8 +150,8 @@ struct WorkoutLoggingTests {
 
     @Test("An exercise with no load logs no weight")
     func noLoad() throws {
-        let row = try RoutineExercise.builtIn("Push-up")
-        let routine = Routine(exercises: [row])
+        let row = try WorkoutExercise.builtIn("Push-up")
+        let routine = Workout(exercises: [row])
         let loggedWorkout = try logNext(loggedWorkout(routine), routine)
         #expect(loggedWorkout.sets.first?.weight == nil)
         #expect(loggedWorkout.sets.first?.plannedWeight == nil)

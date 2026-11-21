@@ -63,9 +63,9 @@ enum LaunchOptions {
 
     /// Empties the store, then saves the routine, and the workout, the launch arguments ask for.
     static func resetStore(
-        _ store: RoutineStore,
+        _ store: Store,
         weightUnit: WeightUnit,
-        namer: RoutineNamer,
+        namer: WorkoutNamer,
     ) async throws {
         try await store.deleteAll()
         guard let seed = seededRoutine else { return }
@@ -105,11 +105,11 @@ struct SeededRoutine {
     /// `-seedTime <seconds>`: every timed row's time, so a timed set runs out in seconds.
     let time: Int?
 
-    func routine(weightUnit: WeightUnit) -> Routine {
-        var routine = Routine(
+    func routine(weightUnit: WeightUnit) -> Workout {
+        var routine = Workout(
             name: name,
             exercises: exercises.map { exercise in
-                var row = RoutineExercise(exercise: exercise, weightUnit: weightUnit)
+                var row = WorkoutExercise(exercise: exercise, weightUnit: weightUnit)
                 if let sets {
                     row.plan.sets = sets
                 }

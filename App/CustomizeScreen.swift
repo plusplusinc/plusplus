@@ -12,7 +12,7 @@ import WorkoutStore
 struct CustomizeScreen: View {
     let id: Exercise.ID
     let session: RoutineSession
-    let namer: RoutineNamer
+    let namer: WorkoutNamer
     /// Runs once each change has reached the store.
     var onStored: () -> Void = { }
     /// Deletes the created exercise, from the confirming tap.

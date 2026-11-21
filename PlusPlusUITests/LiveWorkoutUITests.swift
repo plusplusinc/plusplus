@@ -36,7 +36,7 @@ final nonisolated class LiveWorkoutUITests: XCTestCase {
             app.edgeSwipe()
             XCTAssertTrue(app.drawerTitle.staysAway(), "The edge swipe opened the drawer")
         }
-        // What launch opens after Discard is `RoutineStoreLoggedWorkoutTests`'.
+        // What launch opens after Discard is `StoreLoggedWorkoutTests`'.
         XCTContext
             .runActivity(named: "Finish is offered; Discard leaves the routine") { _ in
                 app.discardWorkout(withSetsLogged: true)

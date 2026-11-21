@@ -36,9 +36,9 @@ struct WorkoutKeyTests {
 
     /// Push-up, two sets; then Dumbbell row, one set, per side; and the workout's sets on it.
     struct Seed {
-        let routine: Routine
-        let push: RoutineExercise
-        let dumbbell: RoutineExercise
+        let routine: Workout
+        let push: WorkoutExercise
+        let dumbbell: WorkoutExercise
         let first: PlannedSet
         let second: PlannedSet
         let left: PlannedSet
@@ -47,9 +47,9 @@ struct WorkoutKeyTests {
         let toRow: LiveWorkout.Step
 
         init() throws {
-            push = try RoutineExercise.builtIn("Push-up") { $0.sets = 2 }
-            dumbbell = try RoutineExercise.builtIn("Dumbbell row") { $0.sets = 1 }
-            routine = Routine(exercises: [push, dumbbell])
+            push = try WorkoutExercise.builtIn("Push-up") { $0.sets = 2 }
+            dumbbell = try WorkoutExercise.builtIn("Dumbbell row") { $0.sets = 1 }
+            routine = Workout(exercises: [push, dumbbell])
             first = PlannedSet(row: push.id, round: 1)
             second = PlannedSet(row: push.id, round: 2)
             left = PlannedSet(row: dumbbell.id, round: 1, side: .left)

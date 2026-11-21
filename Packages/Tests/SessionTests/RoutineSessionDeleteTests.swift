@@ -10,30 +10,30 @@ import Testing
 @Suite("Routine session delete")
 struct RoutineSessionDeleteTests {
     private let container: ModelContainer
-    private let lower = Routine(name: "Lower")
+    private let lower = Workout(name: "Lower")
 
     init() async throws {
-        container = try WorkoutStoreContainer.make(mode: .inMemory, schema: RoutineStore.schema)
+        container = try WorkoutStoreContainer.make(mode: .inMemory, schema: Store.schema)
         try await relaunch().save(lower, at: Date(timeIntervalSinceReferenceDate: 1))
     }
 
-    private func relaunch() -> RoutineStore {
-        RoutineStore(modelContainer: container)
+    private func relaunch() -> Store {
+        Store(modelContainer: container)
     }
 
-    private func session(_ routine: Routine) -> RoutineSession {
+    private func session(_ routine: Workout) -> RoutineSession {
         RoutineSession(routine: routine, store: relaunch(), namer: .muscleGroupsOnly)
     }
 
-    private static func upper() throws -> Routine {
+    private static func upper() throws -> Workout {
         let exercise = try #require(Exercise.builtIn(id: "barbell-bench-press"))
-        return Routine(
+        return Workout(
             name: "Upper",
-            exercises: [RoutineExercise(exercise: exercise, weightUnit: .pounds)],
+            exercises: [WorkoutExercise(exercise: exercise, weightUnit: .pounds)],
         )
     }
 
-    private func storedIDs() async throws -> [Routine.ID] {
+    private func storedIDs() async throws -> [Workout.ID] {
         try await relaunch().routinesByRecency(weightUnit: .pounds).map(\.id)
     }
 
@@ -55,7 +55,7 @@ struct RoutineSessionDeleteTests {
     @Test("Deleting the open routine lands its last edit first, so no save brings it back")
     func deleteOpenAfterEdit() async throws {
         let upper = try Self.upper()
-        let session = session(Routine())
+        let session = session(Workout())
         session.save(upper)
         await session.delete(upper.id)
         await session.writesLanded()
@@ -77,7 +77,7 @@ struct RoutineSessionDeleteTests {
 
     @Test("Deleting a pushed routine pops back to Routines on a new, empty routine")
     func deletePushed() async throws {
-        let session = session(Routine())
+        let session = session(Workout())
         session.showRoutines()
         await session.open(lower.id, weightUnit: .pounds)
         #expect(session.screen == .pushedRoutine)
@@ -94,7 +94,7 @@ struct RoutineSessionDeleteTests {
         #expect(session.canDeleteOpen)
         session.start(on: upper.id)
         #expect(!session.canDeleteOpen)
-        #expect(!self.session(Routine()).canDeleteOpen)
+        #expect(!self.session(Workout()).canDeleteOpen)
     }
 
     @Test("A delete asked during a workout on that routine keeps it")

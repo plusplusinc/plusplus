@@ -123,9 +123,9 @@ extension WorkoutKeyTests {
     /// A superset of Dumbbell bench press and Pull-up, two rounds: the round's rest after the
     /// first round, above the first member, back up the loop.
     private static func supersetRound() throws -> [Row] {
-        var routine = try Routine(exercises: [
-            RoutineExercise.builtIn("Dumbbell bench press") { $0.sets = 2 },
-            RoutineExercise.builtIn("Pull-up") { $0.sets = 2 },
+        var routine = try Workout(exercises: [
+            WorkoutExercise.builtIn("Dumbbell bench press") { $0.sets = 2 },
+            WorkoutExercise.builtIn("Pull-up") { $0.sets = 2 },
         ])
         routine.join(routine.exercises[0].id, .below)
         routine.setRestAfterRound(60, of: routine.exercises[0].id)

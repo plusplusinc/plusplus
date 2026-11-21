@@ -15,23 +15,23 @@ struct WorkoutRestTests {
 
     /// Bench press, 3 sets resting 90 s, then a per-side Bulgarian split squat, 2 sets resting
     /// 60 s, then push-ups, 1 set resting 45 s.
-    private static func plain() throws -> Routine {
-        var bench = try RoutineExercise.builtIn("Barbell bench press") { $0.sets = 3 }
+    private static func plain() throws -> Workout {
+        var bench = try WorkoutExercise.builtIn("Barbell bench press") { $0.sets = 3 }
         bench.setRest(90)
-        var split = try RoutineExercise.builtIn("Bulgarian split squat") { $0.sets = 2 }
+        var split = try WorkoutExercise.builtIn("Bulgarian split squat") { $0.sets = 2 }
         split.setRest(60)
-        var push = try RoutineExercise.builtIn("Push-up") { $0.sets = 1 }
+        var push = try WorkoutExercise.builtIn("Push-up") { $0.sets = 1 }
         push.setRest(45)
-        return Routine(exercises: [bench, split, push])
+        return Workout(exercises: [bench, split, push])
     }
 
     /// A superset of dumbbell bench press and pull-up, 2 rounds resting `round` s after each,
     /// then a plank.
-    private static func superset(round: Int = 75) throws -> Routine {
-        var routine = try Routine(exercises: [
-            RoutineExercise.builtIn("Dumbbell bench press") { $0.sets = 2 },
-            RoutineExercise.builtIn("Pull-up") { $0.sets = 2 },
-            RoutineExercise.builtIn("Push-up") { $0.sets = 1 },
+    private static func superset(round: Int = 75) throws -> Workout {
+        var routine = try Workout(exercises: [
+            WorkoutExercise.builtIn("Dumbbell bench press") { $0.sets = 2 },
+            WorkoutExercise.builtIn("Pull-up") { $0.sets = 2 },
+            WorkoutExercise.builtIn("Push-up") { $0.sets = 1 },
         ])
         routine.join(routine.exercises[0].id, .below)
         routine.setRestAfterRound(round, of: routine.exercises[0].id)
@@ -41,7 +41,7 @@ struct WorkoutRestTests {
     /// The workout on `routine` with its first `count` sets logged, each `every` seconds after
     /// the last, from the start.
     private static func live(
-        _ routine: Routine,
+        _ routine: Workout,
         logged count: Int,
         every: Double = 10,
     ) throws -> LiveWorkout {
@@ -58,7 +58,7 @@ struct WorkoutRestTests {
     }
 
     /// The rest between each set of `routine` and the next, in order, as the routine stores it.
-    private static func rests(_ routine: Routine) -> [Int] {
+    private static func rests(_ routine: Workout) -> [Int] {
         let order = routine.setOrder
         return order.indices.map { index in
             routine.rest(

@@ -216,7 +216,7 @@ extension WorkoutKey {
         case start
         /// Logs `set` of its exercise, with the haptic `impact`, leading to the step shown next,
         /// from the workout before it.
-        case log(PlannedSet, of: RoutineExercise, impact: Impact, leadingTo: LiveWorkout.Step)
+        case log(PlannedSet, of: WorkoutExercise, impact: Impact, leadingTo: LiveWorkout.Step)
         /// Goes back to the current exercise, logging nothing.
         case back
         case finish

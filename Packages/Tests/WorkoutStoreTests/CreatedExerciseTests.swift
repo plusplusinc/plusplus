@@ -149,34 +149,34 @@ struct CreatedExerciseTests {
 
     @Test("Every checked group counts toward the name; each counts the exercise once")
     func namingSeveralGroups() {
-        let namer = RoutineNamer.muscleGroupsOnly
+        let namer = WorkoutNamer.muscleGroupsOnly
         let id = UUID()
         // One exercise, Back and Shoulders: both named.
         let backAndShoulders = [Self.exercise([.back, .shoulders], name: "One")]
         #expect(namer.name(for: backAndShoulders, of: id) == "Back and shoulders")
-        #expect(RoutineFocus(of: backAndShoulders) == .upperBody)
+        #expect(WorkoutFocus(of: backAndShoulders) == .upperBody)
         // Back and Shoulders, then Back alone: back works in both, three in five, a back focus.
         let mostlyBack = backAndShoulders + [Self.exercise(.back, name: "Two")]
-        #expect(RoutineFocus(of: mostlyBack) == .group(.back))
+        #expect(WorkoutFocus(of: mostlyBack) == .group(.back))
         // Legs and Core with Shoulders: three groups, full body.
         let spread = [
             Self.exercise([.legs, .core], name: "One"),
             Self.exercise(.shoulders, name: "Two"),
         ]
         #expect(namer.name(for: spread, of: id) == "Full body")
-        #expect(RoutineFocus(of: spread) == .fullBody)
+        #expect(WorkoutFocus(of: spread) == .fullBody)
         // Legs and Core alone: a pair.
         let legsAndCore = [Self.exercise([.legs, .core], name: "One")]
-        #expect(RoutineFocus(of: legsAndCore) == .pair(.legs, .core))
+        #expect(WorkoutFocus(of: legsAndCore) == .pair(.legs, .core))
         #expect(namer.name(for: legsAndCore, of: id) == "Legs and core")
     }
 
     @Test("A superset with a created exercise of several groups shares a muscle by any one")
     func roundRestOfSeveralGroups() throws {
         let made = Self.exercise([.shoulders, .back], [.dumbbells])
-        var routine = try Routine(exercises: [
-            RoutineExercise(exercise: made, weightUnit: .pounds),
-            RoutineExercise.builtIn("Dumbbell row"),
+        var routine = try Workout(exercises: [
+            WorkoutExercise(exercise: made, weightUnit: .pounds),
+            WorkoutExercise.builtIn("Dumbbell row"),
         ])
         routine.join(routine.exercises[0].id, .below)
         // Back in common: the full 90 s, not 30.
@@ -197,11 +197,11 @@ struct CreatedExerciseTests {
             Self.exercise(.back, [.dumbbells], name: "Two"),
             Self.exercise(.chest, [.dumbbells], name: "Three"),
         ]
-        #expect(RoutineFocus(of: rows) == .group(.back))
+        #expect(WorkoutFocus(of: rows) == .group(.back))
         // Upper body with no movement claimed: neither a push nor a pull day.
         let pushes = [Self.exercise(.chest, name: "One"), Self.exercise(.shoulders, name: "Two")]
-        #expect(RoutineFocus(of: pushes) == .upperBody)
-        #expect(RoutineNamer.muscleGroupsOnly.name(for: rows, of: UUID()) == "Chest and back")
+        #expect(WorkoutFocus(of: pushes) == .upperBody)
+        #expect(WorkoutNamer.muscleGroupsOnly.name(for: rows, of: UUID()) == "Chest and back")
     }
 
     @Test("Equipment reads as a line from a set, nothing for none")
@@ -215,16 +215,16 @@ struct CreatedExerciseTests {
     @Test("A superset with a created exercise shares a muscle by its group")
     func roundRest() throws {
         let made = Self.exercise(.back, [.dumbbells])
-        let row = try RoutineExercise.builtIn("Dumbbell row")
-        var routine = Routine(exercises: [
-            RoutineExercise(exercise: made, weightUnit: .pounds),
+        let row = try WorkoutExercise.builtIn("Dumbbell row")
+        var routine = Workout(exercises: [
+            WorkoutExercise(exercise: made, weightUnit: .pounds),
             row,
         ])
         routine.join(routine.exercises[0].id, .below)
         // Both back, 90 s each: the full 90 s, not 30.
         #expect(routine.restAfterRound(of: routine.exercises[0].id) == 90)
-        var apart = Routine(exercises: [
-            RoutineExercise(exercise: Self.exercise(.legs, [.dumbbells]), weightUnit: .pounds),
+        var apart = Workout(exercises: [
+            WorkoutExercise(exercise: Self.exercise(.legs, [.dumbbells]), weightUnit: .pounds),
             row,
         ])
         apart.join(apart.exercises[0].id, .below)

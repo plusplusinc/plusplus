@@ -170,7 +170,7 @@ extension RoutineScreen {
 
     /// The row whose rest the dot waits at: from the pulse's landing there until the next one
     /// sets off from it.
-    var restDotRow: RoutineExercise.ID? {
+    var restDotRow: WorkoutExercise.ID? {
         guard let rest = phase.drawnRest, !rest.isWithinExercise, rest.beat >= .landed,
               let shown
         else { return nil }
@@ -245,7 +245,7 @@ extension RoutineScreen {
     /// The row a rest between exercises is drawn in, `loggedWorkout` holding the set it follows:
     /// the row left, under its label; before a superset's next round, the first member's, above it.
     func restRow(of rest: WorkoutPhase.Resting, in loggedWorkout: LoggedWorkout)
-        -> RoutineExercise.ID?
+        -> WorkoutExercise.ID?
     {
         rest.isBack
             ? LiveWorkout(routine: routine, loggedWorkout: loggedWorkout).currentSet?.row
@@ -309,7 +309,7 @@ extension RoutineScreen {
     /// from the log until its end, then over as it swaps back; else unseen, keeping the slot as
     /// tall as the rest for every set of an exercise that rests between them. Nil for any other
     /// row, and an exercise with no rest between its sets.
-    func setRest(of id: RoutineExercise.ID, current: RoutineExercise.ID?) -> SetRest? {
+    func setRest(of id: WorkoutExercise.ID, current: WorkoutExercise.ID?) -> SetRest? {
         guard id == current, let shown, let gap = routine.restBetweenSets(of: id),
               (restOverride ?? gap) > 0
         else { return nil }
@@ -384,12 +384,12 @@ extension RoutineScreen {
 
 /// The rest between exercises as drawn, in `row`, under its label or `above` it.
 struct DrawnRestBlock {
-    let row: RoutineExercise.ID
+    let row: WorkoutExercise.ID
     let above: Bool
     let block: RestBlock
 
     /// The block in `id`'s row, under its label or `above` it: this one there, else closed.
-    func block(in id: RoutineExercise.ID, above: Bool) -> RestBlock {
+    func block(in id: WorkoutExercise.ID, above: Bool) -> RestBlock {
         id == row && above == self.above ? block : .closed
     }
 }

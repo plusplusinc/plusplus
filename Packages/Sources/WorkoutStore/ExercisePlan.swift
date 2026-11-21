@@ -161,7 +161,7 @@ public enum SheetPart: Hashable, Sendable {
     case restAfterRound
 }
 
-extension Collection<RoutineExercise> {
+extension Collection<WorkoutExercise> {
     /// What a rest set by hand on these rows stays put through: "reps", "the time" where every
     /// set is timed, or "reps or time" where some are.
     public var restChange: String {

@@ -4,7 +4,7 @@ import WorkoutStore
 /// A row's open sheet: which row, and whether it opens on Customize, as after Create. The flag
 /// rides with the sheet's item: a separate state set with it read as unset in the sheet.
 public struct RowSheet: Identifiable {
-    public let id: RoutineExercise.ID
+    public let id: WorkoutExercise.ID
     public var opensCustomizing: Bool
     /// This opening's own identity, which the sheet's content takes, so every opening starts
     /// from fresh state. A sheet asked for while the last one was still going down came up with
@@ -12,7 +12,7 @@ public struct RowSheet: Identifiable {
     /// it (measured on iOS 27, with the system's sheet slowed).
     public let opening = UUID()
 
-    public init(id: RoutineExercise.ID, opensCustomizing: Bool = false) {
+    public init(id: WorkoutExercise.ID, opensCustomizing: Bool = false) {
         self.id = id
         self.opensCustomizing = opensCustomizing
     }

@@ -84,7 +84,7 @@ extension View {
     }
 }
 
-extension RoutineExercise {
+extension WorkoutExercise {
     /// The row grown into the current exercise, on `set`.
     func focus(on set: PlannedSet, inSuperset: Bool, locale: Locale) -> RowFocus {
         RowFocus(

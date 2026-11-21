@@ -55,7 +55,7 @@ struct DrawerMenu: View {
 #Preview {
     DrawerMenu(
         session: RoutineSession(
-            routine: Routine(name: "Upper body"),
+            routine: Workout(name: "Upper body"),
             store: nil,
             namer: .muscleGroupsOnly,
         ),

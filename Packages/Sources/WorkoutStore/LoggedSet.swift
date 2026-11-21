@@ -6,7 +6,7 @@ import Foundation
 public struct LoggedSet: Identifiable, Equatable, Sendable {
     public let id: UUID
     /// The routine row it was a set of.
-    public let row: RoutineExercise.ID
+    public let row: WorkoutExercise.ID
     /// The exercise's `Exercise.id`, so the set still reads once its row is deleted.
     public let exerciseID: String
     /// The exercise's name when the set was logged, kept through a rename or a delete; nil for
@@ -33,7 +33,7 @@ public struct LoggedSet: Identifiable, Equatable, Sendable {
 
     public init(
         id: UUID = UUID(),
-        row: RoutineExercise.ID,
+        row: WorkoutExercise.ID,
         exerciseID: String,
         exerciseName: String?,
         round: Int,

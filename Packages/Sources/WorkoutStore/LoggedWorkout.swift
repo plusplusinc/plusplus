@@ -106,7 +106,7 @@ public struct LoggedWorkout: Identifiable, Equatable, Sendable {
     }
 
     /// With `planned` logged at `now`, at the numbers `row` plans now, done as planned.
-    public func logging(_ planned: PlannedSet, of row: RoutineExercise, at now: Date) -> Self {
+    public func logging(_ planned: PlannedSet, of row: WorkoutExercise, at now: Date) -> Self {
         // Once only: a log from a view built before the last one, or a second action, keeps one.
         guard !sets.contains(where: { $0.planned == planned }) else { return self }
         var logged = self

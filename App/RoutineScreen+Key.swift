@@ -160,7 +160,7 @@ extension RoutineScreen {
 
     private func log(
         _ set: PlannedSet,
-        of current: RoutineExercise,
+        of current: WorkoutExercise,
         impact: WorkoutKey.Impact,
         leadingTo step: LiveWorkout.Step,
     ) {

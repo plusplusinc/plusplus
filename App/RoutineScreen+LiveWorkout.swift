@@ -52,7 +52,7 @@ extension RoutineScreen {
     /// exercise grows into the current one as the list scrolls it up under the bar, in one
     /// motion, and the key rides down off the screen with the rows below it. With Reduce
     /// Motion, the list crossfades into the workout.
-    private func leave(_ pressed: Routine.ID) async throws {
+    private func leave(_ pressed: Workout.ID) async throws {
         guard !reduceMotion else {
             try check(pressed)
             beginCrossfade(scrollingTo: currentPlace?.landingY ?? scrollBeat.scrolledY)
@@ -113,7 +113,7 @@ extension RoutineScreen {
     /// them, so the grow never plays with no workout behind it. Called in the same turn as each
     /// `start(on:)`, which holds the same rule whoever calls it. The screen settles at rest as it
     /// stops: a switch that fails to read its routine leaves this screen showing.
-    private func check(_ pressed: Routine.ID) throws {
+    private func check(_ pressed: Workout.ID) throws {
         guard session.canStart(on: pressed) else {
             stopSequence()
             throw CancellationError()
@@ -124,7 +124,7 @@ extension RoutineScreen {
     /// one motion on one curve, the rows below stepping aside and Start riding down off the
     /// screen as they do. An animated scroll held the growth back until it had nearly landed, so
     /// the list is scrolled at once and drawn where it was, then both run in one animation.
-    private func grow(_ pressed: Routine.ID) {
+    private func grow(_ pressed: Workout.ID) {
         // The grown exercise's height is its content's, known once it is laid out, so Start rides
         // a screen's height down, out of sight by the time the growth ends.
         let drop = listHeight

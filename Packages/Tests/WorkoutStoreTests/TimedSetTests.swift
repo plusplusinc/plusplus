@@ -15,19 +15,19 @@ struct TimedSetTests {
 
     /// A plank, 3 × 30 s resting `rest` s between sets, then a side plank, 1 × 20 s per side,
     /// then push-ups.
-    static func routine(rest: Int = 0) throws -> Routine {
-        var plank = try RoutineExercise.builtIn("Plank") { $0.sets = 3 }
+    static func routine(rest: Int = 0) throws -> Workout {
+        var plank = try WorkoutExercise.builtIn("Plank") { $0.sets = 3 }
         plank.plan.target = .time(seconds: 30)
         plank.setRest(rest)
-        var side = try RoutineExercise.builtIn("Side plank") { $0.sets = 1 }
+        var side = try WorkoutExercise.builtIn("Side plank") { $0.sets = 1 }
         side.plan.target = .time(seconds: 20)
         side.setRest(0)
-        let push = try RoutineExercise.builtIn("Push-up") { $0.sets = 1 }
-        return Routine(exercises: [plank, side, push])
+        let push = try WorkoutExercise.builtIn("Push-up") { $0.sets = 1 }
+        return Workout(exercises: [plank, side, push])
     }
 
     /// The workout as Start begins it on `routine`, at `start`.
-    static func started(_ routine: Routine) -> LiveWorkout {
+    static func started(_ routine: Workout) -> LiveWorkout {
         let loggedWorkout = LoggedWorkout(
             routineID: routine.id,
             routineName: "Test",
@@ -280,7 +280,7 @@ struct TimedSetTests {
 
     @Test("A reps set logs as before, and begins no count")
     func reps() throws {
-        let routine = try Routine(exercises: [RoutineExercise.builtIn("Push-up") { $0.sets = 2 }])
+        let routine = try Workout(exercises: [WorkoutExercise.builtIn("Push-up") { $0.sets = 2 }])
         let live = Self.started(routine)
         #expect(live.loggedWorkout.count == nil)
         let after = try Self.logged(live, at: 5)

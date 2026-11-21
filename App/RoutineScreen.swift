@@ -11,10 +11,10 @@ struct RoutineScreen: View {
     // What the `RoutineScreen+` extensions read is internal, not private, so they can be apart.
 
     /// The routine as drawn. Written only through `routine`, which saves each change.
-    @State private var shownRoutine: Routine
+    @State private var shownRoutine: Workout
     /// Saves every change, and opens the drawer.
     let session: RoutineSession
-    let namer: RoutineNamer
+    let namer: WorkoutNamer
     /// Pushed onto the Routines screen, with a back button where ++ otherwise is.
     let isPushed: Bool
     @State var isPicking = false
@@ -24,11 +24,11 @@ struct RoutineScreen: View {
     @State var listEnd = ListEnd()
     @State var scrollPosition = ScrollPosition()
     /// The row just added, holding its place until it can be seen going in.
-    @State var arriving: RoutineExercise.ID?
+    @State var arriving: WorkoutExercise.ID?
     /// The row just added, from the add until its entry has played. A view takes taps where it
     /// will end up, not where it's drawn, so while its place opens a tap there, on what is still
     /// drawn there, lands on it; it ignores taps until it has landed.
-    @State var entering: RoutineExercise.ID?
+    @State var entering: WorkoutExercise.ID?
     /// A created row landed, its sheet waiting out `createdHold` (`showCreated()`).
     @State var createdWait: CreatedWait?
     /// Whether the list's end, the room it leaves for the floating +, is fully in view.
@@ -106,7 +106,7 @@ struct RoutineScreen: View {
     /// so the room went at once and the list jumped to its top.
     @State var closingRoomTop: CGFloat?
     /// The pulse that carries the workout from one exercise's node to the next one's.
-    @State var railPulse: RailPulse<RoutineExercise.ID>?
+    @State var railPulse: RailPulse<WorkoutExercise.ID>?
     /// Counts the moves landed on another exercise's node, each with a tick lighter than a log's.
     @State var landings = 0
     /// Counts the rests run to their end, each with a heavy tap, felt with the phone set down;
@@ -128,7 +128,7 @@ struct RoutineScreen: View {
     static let defaultName = String(localized: "New workout")
 
     /// Shows the routine the session opened. A switch to another gives a new screen.
-    init(session: RoutineSession, namer: RoutineNamer, isPushed: Bool = false) {
+    init(session: RoutineSession, namer: WorkoutNamer, isPushed: Bool = false) {
         _shownRoutine = State(initialValue: session.opened)
         _opensOnCurrent = State(initialValue: session.loggedWorkout != nil)
         _phase = State(initialValue: WorkoutPhase(
@@ -147,7 +147,7 @@ struct RoutineScreen: View {
     /// nothing saves nothing, so a routine opened and left alone is never saved. Saved here, not
     /// from an `onChange` of the routine, which SwiftUI skips when the routine changes again in a
     /// frame its action already ran in, losing the last key of a name typed fast.
-    var routine: Routine {
+    var routine: Workout {
         get { shownRoutine }
         nonmutating set {
             guard newValue != shownRoutine else { return }
@@ -387,14 +387,14 @@ struct RoutineScreen: View {
 
 extension RoutineScreen {
     /// Shows the routine as the store has it, not saving it again (`showStoredRoutine`).
-    func show(stored: Routine) {
+    func show(stored: Workout) {
         shownRoutine = stored
     }
 }
 
 #Preview {
     RoutineScreen(
-        session: RoutineSession(routine: Routine(), store: nil, namer: .muscleGroupsOnly),
+        session: RoutineSession(routine: Workout(), store: nil, namer: .muscleGroupsOnly),
         namer: .muscleGroupsOnly,
     )
 }

@@ -179,7 +179,7 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
     /// through Home and back, and the edit is left open for the next tap on a row to end. That
     /// each key reaches the routine with no edit ended is `RoutineDrawerUITests`' chevron check
     /// and `EditableTitleTypingTests`'; a generated name is made again from the exercises, never
-    /// stored (`RoutineNamerTests`).
+    /// stored (`WorkoutNamerTests`).
     @MainActor
     private func nameStillBeingTyped(in app: XCUIApplication, title: XCUIElement) throws {
         let keyboard = app.keyboards.element
@@ -197,7 +197,7 @@ final nonisolated class RoutineAutosaveUITests: XCTestCase {
     }
 
     /// Every row deleted and the name cleared is nothing, the gray New workout. That the store
-    /// deletes it is `RoutineStoreTests`': a relaunch can't show it, since a routine cleared and
+    /// deletes it is `StoreTests`': a relaunch can't show it, since a routine cleared and
     /// kept would open as the same empty New workout.
     @MainActor
     private func clearedRoutineIsNewRoutine(

@@ -8,27 +8,27 @@ import Testing
 /// it, through each way in and out, and what the drawer marks for each.
 @Suite("Routine session screen")
 struct RoutineSessionScreenTests {
-    private let store: RoutineStore
-    private let saved = Routine(name: "Lower")
+    private let store: Store
+    private let saved = Workout(name: "Lower")
 
     init() async throws {
         let container = try WorkoutStoreContainer.make(
             mode: .inMemory,
-            schema: RoutineStore.schema,
+            schema: Store.schema,
         )
-        store = RoutineStore(modelContainer: container)
+        store = Store(modelContainer: container)
         try await store.save(saved, at: Date(timeIntervalSinceReferenceDate: 1))
     }
 
-    private func session(_ routine: Routine = Routine(name: "Upper")) -> RoutineSession {
+    private func session(_ routine: Workout = Workout(name: "Upper")) -> RoutineSession {
         RoutineSession(routine: routine, store: store, namer: .muscleGroupsOnly)
     }
 
     /// A session on a routine of one bench press row, and the row, whose sheet can open.
-    private func sessionWithRow() throws -> (RoutineSession, row: RoutineExercise.ID) {
+    private func sessionWithRow() throws -> (RoutineSession, row: WorkoutExercise.ID) {
         let exercise = try #require(Exercise.builtIn(id: "barbell-bench-press"))
-        let row = RoutineExercise(exercise: exercise, weightUnit: .pounds)
-        return (session(Routine(name: "Upper", exercises: [row])), row.id)
+        let row = WorkoutExercise(exercise: exercise, weightUnit: .pounds)
+        return (session(Workout(name: "Upper", exercises: [row])), row.id)
     }
 
     /// A session on the Routines screen, `saved` pushed on it.
@@ -40,10 +40,10 @@ struct RoutineSessionScreenTests {
     }
 
     /// `routine` with a bench press added, saved to the session.
-    private func addingExercise(to routine: Routine, in session: RoutineSession) throws -> Routine {
+    private func addingExercise(to routine: Workout, in session: RoutineSession) throws -> Workout {
         let exercise = try #require(Exercise.builtIn(id: "barbell-bench-press"))
         var edited = routine
-        edited.exercises = [RoutineExercise(exercise: exercise, weightUnit: .pounds)]
+        edited.exercises = [WorkoutExercise(exercise: exercise, weightUnit: .pounds)]
         session.save(edited)
         return edited
     }
@@ -109,7 +109,7 @@ struct RoutineSessionScreenTests {
     @Test("A row the open routine no longer has opens no sheet, as when tapped as it leaves")
     func goneRowOpensNoSheet() throws {
         let (session, row) = try sessionWithRow()
-        session.save(Routine(id: session.current.id, name: "Upper"))
+        session.save(Workout(id: session.current.id, name: "Upper"))
         session.openRowSheet(RowSheet(id: row))
         #expect(session.rowSheet == nil)
         session.openDrawer()
@@ -201,7 +201,7 @@ struct RoutineSessionScreenTests {
 
     @Test("Start at the root keeps the screen the routine opened with")
     func startAtRoot() throws {
-        let routine = Routine(name: "Upper")
+        let routine = Workout(name: "Upper")
         let session = session(routine)
         _ = try addingExercise(to: routine, in: session)
         session.start(on: session.current.id)

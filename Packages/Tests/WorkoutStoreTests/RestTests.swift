@@ -76,14 +76,14 @@ struct RestTests {
     @Test("The card's rows read their rest, each automatic")
     func cardExamples() throws {
         let rows = try [
-            RoutineExercise.builtIn("Barbell back squat"),
-            RoutineExercise.builtIn("Barbell bench press") { $0.target = .reps(10) },
-            RoutineExercise.builtIn("Dumbbell row"),
-            RoutineExercise.builtIn("Biceps curl"),
-            RoutineExercise.builtIn("Push-up"),
-            RoutineExercise.builtIn("Bodyweight squat") { $0.sets = 3 },
-            RoutineExercise.builtIn("Plank"),
-            RoutineExercise.builtIn("Pigeon stretch"),
+            WorkoutExercise.builtIn("Barbell back squat"),
+            WorkoutExercise.builtIn("Barbell bench press") { $0.target = .reps(10) },
+            WorkoutExercise.builtIn("Dumbbell row"),
+            WorkoutExercise.builtIn("Biceps curl"),
+            WorkoutExercise.builtIn("Push-up"),
+            WorkoutExercise.builtIn("Bodyweight squat") { $0.sets = 3 },
+            WorkoutExercise.builtIn("Plank"),
+            WorkoutExercise.builtIn("Pigeon stretch"),
         ]
         #expect(rows.map { $0.value(of: .rest, locale: Self.locale) }
             .map { $0.replacingOccurrences(of: "\u{00A0}", with: " ") }
@@ -95,11 +95,11 @@ struct RestTests {
 
     @Test("Every row's sheet has Rest, a one-set row's and a one-round superset's too")
     func sheetParts() throws {
-        var routine = try Routine(exercises: [
-            RoutineExercise.builtIn("Barbell bench press"),
-            RoutineExercise.builtIn("Push-up") { $0.sets = 1 },
-            RoutineExercise.builtIn("Dumbbell row"),
-            RoutineExercise.builtIn("Plank"),
+        var routine = try Workout(exercises: [
+            WorkoutExercise.builtIn("Barbell bench press"),
+            WorkoutExercise.builtIn("Push-up") { $0.sets = 1 },
+            WorkoutExercise.builtIn("Dumbbell row"),
+            WorkoutExercise.builtIn("Plank"),
         ])
         let ids = routine.exercises.map(\.id)
         #expect(routine.sheetParts(of: ids[0]) == [
@@ -123,9 +123,9 @@ struct RestTests {
 
     @Test("A rest set by hand stays through reps, the time, or both, by what its rows count")
     func restChange() throws {
-        let bench = try RoutineExercise.builtIn("Barbell bench press")
-        let plank = try RoutineExercise.builtIn("Plank")
-        let farmer = try RoutineExercise.builtIn("Farmer\u{2019}s carry")
+        let bench = try WorkoutExercise.builtIn("Barbell bench press")
+        let plank = try WorkoutExercise.builtIn("Plank")
+        let farmer = try WorkoutExercise.builtIn("Farmer\u{2019}s carry")
         #expect([bench].restChange == "reps")
         #expect([plank].restChange == "the time")
         #expect([plank, farmer].restChange == "the time")
@@ -134,7 +134,7 @@ struct RestTests {
 
     @Test("While automatic, rest follows the reps and a timed set's time")
     func followsReps() throws {
-        var bench = try RoutineExercise.builtIn("Barbell bench press") { $0.target = .reps(10) }
+        var bench = try WorkoutExercise.builtIn("Barbell bench press") { $0.target = .reps(10) }
         #expect(bench.rest == 90)
         for _ in 0 ..< 5 {
             bench.step(.target, by: -1)
@@ -144,7 +144,7 @@ struct RestTests {
         #expect(bench.value(of: .rest, locale: Self.locale) == "2m\u{00A0}30s")
         #expect(bench.isRestAuto)
 
-        var plank = try RoutineExercise.builtIn("Plank")
+        var plank = try WorkoutExercise.builtIn("Plank")
         plank.step(.target, by: 1)
         #expect(plank.rest == 35)
     }
@@ -153,7 +153,7 @@ struct RestTests {
         "A step sets rest by hand, 15 s at a time: Auto goes off and the rest stays as reps change",
     )
     func handSetStays() throws {
-        var bench = try RoutineExercise.builtIn("Barbell bench press") { $0.target = .reps(10) }
+        var bench = try WorkoutExercise.builtIn("Barbell bench press") { $0.target = .reps(10) }
         bench.step(.rest, by: -1)
         #expect(bench.rest == 75)
         #expect(!bench.isRestAuto)
@@ -164,7 +164,7 @@ struct RestTests {
 
     @Test("Auto on goes back to the reps' rest; off again brings back the rest set by hand")
     func autoRemembers() throws {
-        var bench = try RoutineExercise.builtIn("Barbell bench press") { $0.target = .reps(10) }
+        var bench = try WorkoutExercise.builtIn("Barbell bench press") { $0.target = .reps(10) }
         bench.step(.rest, by: 1)
         #expect(bench.rest == 105)
         bench.isRestAuto = true
@@ -176,7 +176,7 @@ struct RestTests {
 
     @Test("Auto turned off before any rest was set keeps the rest it reads")
     func autoOffKeepsReading() throws {
-        var curl = try RoutineExercise.builtIn("Biceps curl")
+        var curl = try WorkoutExercise.builtIn("Biceps curl")
         curl.isRestAuto = false
         #expect(curl.plan.rest == .byHand(60))
         curl.step(.target, by: -10)
@@ -185,18 +185,18 @@ struct RestTests {
 
     @Test("A rest off the 15 s marks steps to the next mark that way, then by 15 s")
     func snapsToMarks() throws {
-        var plank = try RoutineExercise.builtIn("Plank") { $0.target = .time(seconds: 50) }
+        var plank = try WorkoutExercise.builtIn("Plank") { $0.target = .time(seconds: 50) }
         #expect(plank.rest == 50)
         plank.step(.rest, by: 1)
         #expect(plank.rest == 60)
         plank.step(.rest, by: 1)
         #expect(plank.rest == 75)
-        var down = try RoutineExercise.builtIn("Plank") { $0.target = .time(seconds: 50) }
+        var down = try WorkoutExercise.builtIn("Plank") { $0.target = .time(seconds: 50) }
         down.step(.rest, by: -1)
         #expect(down.rest == 45)
         down.step(.rest, by: -1)
         #expect(down.rest == 30)
-        var near = try RoutineExercise.builtIn("Plank") { $0.target = .time(seconds: 10) }
+        var near = try WorkoutExercise.builtIn("Plank") { $0.target = .time(seconds: 10) }
         near.step(.rest, by: -1)
         #expect(near.rest == 0)
         #expect(!near.canStep(.rest, by: -1))
@@ -206,12 +206,12 @@ struct RestTests {
 
     @Test("Rest steps stop at none and at 10 min")
     func limits() throws {
-        var stretch = try RoutineExercise.builtIn("Pigeon stretch")
+        var stretch = try WorkoutExercise.builtIn("Pigeon stretch")
         #expect(!stretch.canStep(.rest, by: -1))
         #expect(stretch.canStep(.rest, by: 1))
         stretch.step(.rest, by: 1)
         #expect(stretch.rest == 15)
-        var long = try RoutineExercise.builtIn("Barbell back squat") {
+        var long = try WorkoutExercise.builtIn("Barbell back squat") {
             $0.rest = .byHand(600)
         }
         #expect(!long.canStep(.rest, by: 1))

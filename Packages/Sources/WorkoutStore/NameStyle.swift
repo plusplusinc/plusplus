@@ -19,13 +19,13 @@ struct NameStyle: Equatable {
 
     /// The routine's pick of the names: one with character when the routine has it and the
     /// focus offers one.
-    func pick(_ names: RoutineFocus.Names) -> String? {
+    func pick(_ names: WorkoutFocus.Names) -> String? {
         let options = hasCharacter && !names.character.isEmpty ? names.character : names.plain
         return options.isEmpty ? nil : options[variant % options.count]
     }
 }
 
-extension RoutineFocus {
+extension WorkoutFocus {
     /// A focus's names: plain labels, and names with a touch of character, which a routine's
     /// style picks from.
     typealias Names = (plain: [String], character: [String])
@@ -213,7 +213,7 @@ extension Exercise {
 }
 
 extension MuscleGroup {
-    fileprivate func names(for work: Work) -> RoutineFocus.Names {
+    fileprivate func names(for work: Work) -> WorkoutFocus.Names {
         switch self {
         case .legs: Self.legNames(for: work)
         case .back: Self.backNames(for: work)
@@ -224,7 +224,7 @@ extension MuscleGroup {
         }
     }
 
-    private static func legNames(for work: Work) -> RoutineFocus.Names {
+    private static func legNames(for work: Work) -> WorkoutFocus.Names {
         if work.isShare(1 / 3, { $0.tags.kind == .balance }) {
             return (["Legs and balance", "Balance and legs"], ["Steady legs"])
         }
@@ -239,7 +239,7 @@ extension MuscleGroup {
         )
     }
 
-    private static func backNames(for work: Work) -> RoutineFocus.Names {
+    private static func backNames(for work: Work) -> WorkoutFocus.Names {
         if work.works(.forearms, inShare: 1 / 2) {
             return (["Back and grip"], ["Hang time"])
         }
@@ -256,7 +256,7 @@ extension MuscleGroup {
         return (["Back day", "Pull day"], [character])
     }
 
-    private static func chestNames(for work: Work) -> RoutineFocus.Names {
+    private static func chestNames(for work: Work) -> WorkoutFocus.Names {
         if work.works(.triceps, inShare: 1 / 2) {
             return (
                 ["Chest and triceps", "Push day", "Chest day"],
@@ -269,14 +269,14 @@ extension MuscleGroup {
         return (["Chest day", "Push day"], character)
     }
 
-    private static func armNames(for work: Work) -> RoutineFocus.Names {
+    private static func armNames(for work: Work) -> WorkoutFocus.Names {
         if work.works(.biceps, inShare: 1 / 3), work.works(.triceps, inShare: 1 / 3) {
             return (["Arm day", "Biceps and triceps"], ["Curls and extensions"])
         }
         return (["Arm day"], work.works(.biceps, inShare: 2 / 3) ? ["Curls"] : [])
     }
 
-    private static func coreNames(for work: Work) -> RoutineFocus.Names {
+    private static func coreNames(for work: Work) -> WorkoutFocus.Names {
         let plain = ["Core work", "Core day"]
         if work.moves(.hold, inShare: 1 / 2) {
             return (plain, ["Hold still", "Steady core"])
@@ -285,10 +285,10 @@ extension MuscleGroup {
     }
 }
 
-extension RoutineFocus.StretchRegion {
+extension WorkoutFocus.StretchRegion {
     /// Names that say only where the stretches reach: a calf stretch opens no hips, and a chest
     /// stretch alone is no shoulder stretch.
-    fileprivate func names(for stretches: [Exercise]) -> RoutineFocus.Names {
+    fileprivate func names(for stretches: [Exercise]) -> WorkoutFocus.Names {
         switch self {
         case .lowerBody:
             let hips = stretches.contains {

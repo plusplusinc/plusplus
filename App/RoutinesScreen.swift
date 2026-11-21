@@ -14,20 +14,20 @@ import WorkoutStore
 /// and the screen stays on Routines (`RoutineSession.delete(_:)`).
 struct RoutinesScreen: View {
     @Bindable var session: RoutineSession
-    let namer: RoutineNamer
+    let namer: WorkoutNamer
 
     /// The order the rows are drawn in, taken only while the list is out of sight or as it
     /// shows, so a routine opened from it moves to the top unseen, not as it slides away.
-    @State private var order: [Routine.ID] = []
+    @State private var order: [Workout.ID] = []
     @State private var scrollPosition = ScrollPosition()
     /// Whether the title has scrolled out of sight under the bar, for its small copy to show.
     @State private var isTitleUnderBar = false
     /// The routine Delete last asked about, kept as the alert goes, so its title keeps the name.
-    @State private var deleting: Routine?
+    @State private var deleting: Workout?
     @State private var isAskingToDelete = false
     /// Routines whose delete is confirmed, left out of the list from the confirming tap, in its
     /// animation, before the store has taken the delete.
-    @State private var leaving: Set<Routine.ID> = []
+    @State private var leaving: Set<Workout.ID> = []
     @Environment(\.locale) private var locale
 
     var body: some View {
@@ -112,7 +112,7 @@ struct RoutinesScreen: View {
         }
     }
 
-    private func row(_ routine: Routine) -> some View {
+    private func row(_ routine: Workout) -> some View {
         Button {
             Task { await session.open(routine.id, weightUnit: weightUnit) }
         } label: {
@@ -150,13 +150,13 @@ struct RoutinesScreen: View {
     /// How far inside its row's end the system draws a swiped action.
     private static let swipeInset = Spacing.sm
 
-    private func askToDelete(_ routine: Routine) {
+    private func askToDelete(_ routine: Workout) {
         deleting = routine
         isAskingToDelete = true
     }
 
     /// Takes the row out at once, the rows below closing the gap, then deletes the routine.
-    private func delete(_ id: Routine.ID) {
+    private func delete(_ id: Workout.ID) {
         withAnimation(.snappy) {
             _ = leaving.insert(id)
         }
@@ -182,7 +182,7 @@ struct RoutinesScreen: View {
         }
     }
 
-    private var shown: [Routine] {
+    private var shown: [Workout] {
         session.recent.held(in: order).filter { !leaving.contains($0.id) }
     }
 
@@ -198,7 +198,7 @@ struct RoutinesScreen: View {
 #Preview {
     RoutinesScreen(
         session: RoutineSession(
-            routine: Routine(name: "Upper body"),
+            routine: Workout(name: "Upper body"),
             store: nil,
             namer: .muscleGroupsOnly,
         ),
@@ -206,9 +206,9 @@ struct RoutinesScreen: View {
     )
 }
 
-extension RoutineNamer {
+extension WorkoutNamer {
     /// A routine's name where routines are listed: the name it shows, else New workout.
-    func listedName(of routine: Routine) -> String {
+    func listedName(of routine: Workout) -> String {
         shownName(of: routine) ?? RoutineScreen.defaultName
     }
 }

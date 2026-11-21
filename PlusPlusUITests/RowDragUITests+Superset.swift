@@ -3,7 +3,7 @@ import XCTest
 /// Supersets drawn by a row's node and moved into and out of by a row's body, run within
 /// `testDragAndDeleteRows` on its nine rows, after the reorder checks. What a drag makes is the
 /// routine's rule, unit-tested in the package: a node's span over ends, middles, and other
-/// supersets (`RoutineSupersetTests`), and a body's slots and which neighbor a rest pairs with
+/// supersets (`WorkoutSupersetTests`), and a body's slots and which neighbor a rest pairs with
 /// (`RailGroupDragTests`, `RailPairingTests`). The field and loops are snapshot-tested. This
 /// checks once per gesture that real touches reach the rule, and a row's VoiceOver value reads
 /// it.

@@ -11,24 +11,24 @@ struct RoutineSessionCountTests {
     private let container: ModelContainer
 
     init() throws {
-        container = try WorkoutStoreContainer.make(mode: .inMemory, schema: RoutineStore.schema)
+        container = try WorkoutStoreContainer.make(mode: .inMemory, schema: Store.schema)
     }
 
-    private func relaunch() -> RoutineStore {
-        RoutineStore(modelContainer: container)
+    private func relaunch() -> Store {
+        Store(modelContainer: container)
     }
 
     private static func at(_ seconds: Double) -> Date {
         Date(timeIntervalSinceReferenceDate: seconds)
     }
 
-    private static func planks() throws -> Routine {
+    private static func planks() throws -> Workout {
         let exercise = try #require(Exercise.builtIn(id: "plank"))
-        var plank = RoutineExercise(exercise: exercise, weightUnit: .pounds)
+        var plank = WorkoutExercise(exercise: exercise, weightUnit: .pounds)
         plank.plan.sets = 2
         plank.plan.target = .time(seconds: 30)
         plank.setRest(0)
-        return Routine(name: "Core", exercises: [plank])
+        return Workout(name: "Core", exercises: [plank])
     }
 
     @Test("Start, Start now, +15 s, and the log are each stored as the session shows them")

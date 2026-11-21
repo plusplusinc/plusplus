@@ -10,11 +10,11 @@ struct WorkoutKeyCountTests {
 
     /// A workout on two planks, the first of two sets, its count begun at `start`.
     private static func live() throws -> LiveWorkout {
-        var plank = try RoutineExercise.builtIn("Plank") { $0.sets = 2 }
+        var plank = try WorkoutExercise.builtIn("Plank") { $0.sets = 2 }
         plank.plan.target = .time(seconds: 30)
-        var second = try RoutineExercise.builtIn("Plank") { $0.sets = 1 }
+        var second = try WorkoutExercise.builtIn("Plank") { $0.sets = 1 }
         second.plan.target = .time(seconds: 30)
-        let routine = Routine(exercises: [plank, second])
+        let routine = Workout(exercises: [plank, second])
         let loggedWorkout = LoggedWorkout(
             routineID: routine.id,
             routineName: "Test",
@@ -138,7 +138,7 @@ struct WorkoutKeyCountTests {
 
     @Test("A reps set's key is Log set, as before")
     func reps() throws {
-        let routine = try Routine(exercises: [RoutineExercise.builtIn("Push-up") { $0.sets = 2 }])
+        let routine = try Workout(exercises: [WorkoutExercise.builtIn("Push-up") { $0.sets = 2 }])
         let loggedWorkout = LoggedWorkout(
             routineID: routine.id,
             routineName: "Test",

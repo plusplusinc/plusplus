@@ -12,7 +12,7 @@ extension RoutineAutosaveUITests {
     /// Close leaves the routine with the row in. The relaunch after it lists the exercise with
     /// the equipment checked here, so each change was stored as made. The rule for Create, the
     /// derived plan, and the store's round trip are the package's (`CreatedExerciseTests`,
-    /// `RoutineStoreExerciseTests`, `RoutineSessionTests`); this holds the wire through the
+    /// `StoreExerciseTests`, `RoutineSessionTests`); this holds the wire through the
     /// sheets, the search, and the pushed screens.
     @MainActor
     func createAnExercise(in app: XCUIApplication) {
@@ -71,7 +71,7 @@ extension RoutineAutosaveUITests {
     /// shuts the sheet, and only then takes its row, and the routine shows empty again: No
     /// exercises, no Start, and the + back down where it sat before. Only the running app shows
     /// the screen taking up the stored routine from inside the sheet; that a delete removes its
-    /// rows, and the question's wording, are the package's (`RoutineStoreCustomizeTests`,
+    /// rows, and the question's wording, are the package's (`StoreCustomizeTests`,
     /// `DeleteQuestionTests`).
     @MainActor
     func deleteCreatedEmptiesRoutine(in app: XCUIApplication) {

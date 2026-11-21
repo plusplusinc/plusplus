@@ -52,7 +52,7 @@ final nonisolated class RowDragUITests: XCTestCase {
     /// Customize… and Delete, which asks in a centered alert, naming the routine behind the
     /// sheet, and then takes it from the list and its row from the routine, its name free to
     /// create again. A built-in's menu is `RoutineDrawerUITests`'. That a delete removes its rows,
-    /// and the question's wording, are the package's (`RoutineStoreCustomizeTests`,
+    /// and the question's wording, are the package's (`StoreCustomizeTests`,
     /// `RoutineSessionExerciseTests`, `DeleteQuestionTests`).
     @MainActor
     private func createdHoldMenuDeletes(in app: XCUIApplication) {
@@ -98,7 +98,7 @@ final nonisolated class RowDragUITests: XCTestCase {
 extension RowDragUITests {
     /// The system's swipe actions: a swipe opens a row's Remove, a tap on Start closes it, and
     /// a full swipe deletes outright. What a delete does to a superset is
-    /// `RoutineSupersetTests`', and Start going with the last row `RoutineAutosaveUITests`'.
+    /// `WorkoutSupersetTests`', and Start going with the last row `RoutineAutosaveUITests`'.
     func deleteExercises(in app: XCUIApplication) {
         let delete = app.buttons["Remove"]
         XCTContext.runActivity(named: "A swipe opens a row, and Remove removes it") { _ in

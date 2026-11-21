@@ -11,14 +11,14 @@ struct RoutineSessionTests {
     private let container: ModelContainer
 
     init() throws {
-        container = try WorkoutStoreContainer.make(mode: .inMemory, schema: RoutineStore.schema)
+        container = try WorkoutStoreContainer.make(mode: .inMemory, schema: Store.schema)
     }
 
-    private func relaunch() -> RoutineStore {
-        RoutineStore(modelContainer: container)
+    private func relaunch() -> Store {
+        Store(modelContainer: container)
     }
 
-    private func session(_ routine: Routine = Routine()) -> RoutineSession {
+    private func session(_ routine: Workout = Workout()) -> RoutineSession {
         RoutineSession(routine: routine, store: relaunch(), namer: .muscleGroupsOnly)
     }
 
@@ -26,10 +26,10 @@ struct RoutineSessionTests {
         Date(timeIntervalSinceReferenceDate: seconds)
     }
 
-    private static func upper() throws -> Routine {
+    private static func upper() throws -> Workout {
         let exercise = try #require(Exercise.builtIn(id: "barbell-bench-press"))
-        let bench = RoutineExercise(exercise: exercise, weightUnit: .pounds)
-        return Routine(name: "Upper", exercises: [bench])
+        let bench = WorkoutExercise(exercise: exercise, weightUnit: .pounds)
+        return Workout(name: "Upper", exercises: [bench])
     }
 
     @Test("An edit just before a switch is saved before the next routine opens")
@@ -44,7 +44,7 @@ struct RoutineSessionTests {
 
     @Test("An edit just before opening another routine is saved")
     func editBeforeOpen() async throws {
-        let other = Routine(name: "Lower")
+        let other = Workout(name: "Lower")
         try await relaunch().save(other, at: Self.at(1))
         let session = session()
         let routine = try Self.upper()
@@ -66,7 +66,7 @@ struct RoutineSessionTests {
         #expect(try await relaunch().openRoutine(routine.id, weightUnit: .pounds)?.name == "Three")
     }
 
-    /// The store deletes a cleared routine it is handed (`RoutineStoreTests`); this holds that the
+    /// The store deletes a cleared routine it is handed (`StoreTests`); this holds that the
     /// session hands it one, with no workout running and no switch, as the screen's last edit
     /// before a quit.
     @Test("A saved routine cleared to nothing, rows then name, is gone at a relaunch")
@@ -88,7 +88,7 @@ struct RoutineSessionTests {
     func editDuringRead() async throws {
         let routine = try Self.upper()
         let session = session(routine)
-        let other = Routine(name: "Lower")
+        let other = Workout(name: "Lower")
         let (reading, readStarted) = AsyncStream.makeStream(of: Void.self)
         let (release, releaseRead) = AsyncStream.makeStream(of: Void.self)
         let switching = Task {
@@ -116,7 +116,7 @@ struct RoutineSessionTests {
     func editAsReadEnds() async throws {
         let routine = try Self.upper()
         let session = session(routine)
-        let other = Routine(name: "Lower")
+        let other = Workout(name: "Lower")
         var edited = routine
         edited.name = "Push day"
         // The edit is still on its way to the store when the read returns.
@@ -151,7 +151,7 @@ struct RoutineSessionTests {
         routine.name = ""
         let session = session(routine)
         session.start(on: routine.id)
-        let generated = try #require(RoutineNamer.muscleGroupsOnly.shownName(of: routine))
+        let generated = try #require(WorkoutNamer.muscleGroupsOnly.shownName(of: routine))
         #expect(session.loggedWorkout?.routineName == generated)
         routine.name = "Push day"
         session.save(routine)
@@ -167,7 +167,7 @@ struct RoutineSessionTests {
         let session = session(routine)
         session.save(routine)
         session.start(on: routine.id)
-        session.save(Routine(id: routine.id))
+        session.save(Workout(id: routine.id))
         await session.writesLanded()
         let kept = try await relaunch().openRoutine(routine.id, weightUnit: .pounds)
         #expect(kept?.isEmpty == true)
@@ -205,7 +205,7 @@ struct RoutineSessionTests {
 
     @Test("Start pressed on a routine with no exercises starts nothing")
     func startOnEmptyRoutine() async throws {
-        let routine = Routine(name: "Empty")
+        let routine = Workout(name: "Empty")
         let session = session(routine)
         #expect(!session.canStart(on: routine.id))
         session.start(on: routine.id)
@@ -217,7 +217,7 @@ struct RoutineSessionTests {
     @Test("Start pressed on a routine since switched away from starts nothing")
     func startOnAnotherRoutine() async throws {
         let session = try session(Self.upper())
-        session.start(on: Routine().id)
+        session.start(on: Workout().id)
         #expect(session.loggedWorkout == nil)
         await session.writesLanded()
         #expect(try await relaunch().launch(weightUnit: .pounds).loggedWorkout == nil)
@@ -227,7 +227,7 @@ struct RoutineSessionTests {
     func startDuringSwitch() async throws {
         let routine = try Self.upper()
         let session = session(routine)
-        let other = Routine(name: "Lower")
+        let other = Workout(name: "Lower")
         let (reading, readStarted) = AsyncStream.makeStream(of: Void.self)
         let (release, releaseRead) = AsyncStream.makeStream(of: Void.self)
         let switching = Task {

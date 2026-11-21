@@ -6,7 +6,7 @@ import WorkoutStore
 extension RoutineSession {
     /// A routine to save, and whether to keep it once it is empty, as while its workout runs.
     struct RoutineSave {
-        let routine: Routine
+        let routine: Workout
         let keepsEmpty: Bool
     }
 
@@ -22,7 +22,7 @@ extension RoutineSession {
     }
 
     static func startSaving(
-        to store: RoutineStore?,
+        to store: Store?,
     ) -> (AsyncStream<RoutineSave>.Continuation, Task<Void, Never>) {
         let (stream, continuation) = AsyncStream.makeStream(
             of: RoutineSave.self,
@@ -41,7 +41,7 @@ extension RoutineSession {
     }
 
     static func startWritingLoggedWorkouts(
-        to store: RoutineStore?,
+        to store: Store?,
     ) -> AsyncStream<LoggedWorkoutQueueEntry>.Continuation {
         let (stream, continuation) = AsyncStream.makeStream(
             of: LoggedWorkoutQueueEntry.self,

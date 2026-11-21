@@ -82,7 +82,7 @@ extension RoutineSession {
 
     /// Whether the open routine has the row `row`, of an exercise not being deleted: the only
     /// rows whose sheet can open.
-    func canOpenSheet(of row: RoutineExercise.ID) -> Bool {
+    func canOpenSheet(of row: WorkoutExercise.ID) -> Bool {
         current.exercises.contains { $0.id == row && !deleting.contains($0.exercise.id) }
     }
 
@@ -92,7 +92,7 @@ extension RoutineSession {
     }
 
     /// The routines with a row of `id`, the latest opened or edited first.
-    public func routines(using id: Exercise.ID) -> [Routine] {
+    public func routines(using id: Exercise.ID) -> [Workout] {
         recent.filter { routine in routine.exercises.contains { $0.exercise.id == id } }
     }
 }

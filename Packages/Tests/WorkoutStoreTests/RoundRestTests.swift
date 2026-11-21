@@ -6,8 +6,8 @@ import Testing
 @Suite("Superset rest")
 struct RoundRestTests {
     /// The rows named, the first two joined into a superset.
-    private static func joined(_ names: String...) throws -> Routine {
-        var routine = try Routine(exercises: names.map { try RoutineExercise.builtIn($0) })
+    private static func joined(_ names: String...) throws -> Workout {
+        var routine = try Workout(exercises: names.map { try WorkoutExercise.builtIn($0) })
         routine.join(routine.exercises[0].id, .below)
         return routine
     }
@@ -84,11 +84,11 @@ struct RoundRestTests {
 
     @Test("Joining keeps each row's own rest; splitting brings it back, the superset's gone")
     func splitRestores() throws {
-        var routine = try Routine(exercises: [
-            RoutineExercise.builtIn("Barbell bench press") {
+        var routine = try Workout(exercises: [
+            WorkoutExercise.builtIn("Barbell bench press") {
                 $0.rest = .byHand(200)
             },
-            RoutineExercise.builtIn("Dumbbell row"),
+            WorkoutExercise.builtIn("Dumbbell row"),
         ])
         let (first, second) = (routine.exercises[0].id, routine.exercises[1].id)
         routine.join(first, .below)
