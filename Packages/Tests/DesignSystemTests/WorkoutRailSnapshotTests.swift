@@ -89,7 +89,7 @@ struct WorkoutRailSnapshotTests {
             title: "Plank",
             detail: ["3 × 30s"],
             focus: RowFocus(
-                progress: "Round 1 of 3",
+                place: SetPlace(word: "Round", number: 1, total: 3),
                 equipment: [],
                 figures: [.init(number: "30s", unit: "")],
                 spokenFigures: "30 seconds",

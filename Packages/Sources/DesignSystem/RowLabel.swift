@@ -6,11 +6,11 @@ import SwiftUI
 ///
 /// Given a `focus`, it is the current exercise of a workout: the name grows large, and the detail
 /// gives way to, top to bottom, its sets as a bar of segments (`SetSegments`), a caption line,
-/// "Set 1 of 3" and at its end what follows the set, "then rest 1:00" or "last set"
-/// (`CaptionLine`), the plan's figures, large, side by side (`CurrentFigures`, in `SetRoom`), and
-/// the exercise's equipment, the label growing to their height. Changed in an animation, the name
-/// scales between its two sizes
-/// (`GrowingName`), and the parts under it come in, and go, in turn (`SetMotion`).
+/// "Set 1 of 3" (`ProgressLine`) and at its end what follows the set, "then rest 1:00" or "last
+/// set" (`CaptionLine`), the plan's figures, large, side by side (`CurrentFigures`, in `SetRoom`),
+/// and the exercise's equipment, the label growing to their height. Changed in an animation, the
+/// name scales between its two sizes (`GrowingName`), and the parts under it come in, and go, in
+/// turn (`SetMotion`).
 ///
 /// A finished exercise (`isDone`) goes quiet: its name in `textSecondary`, its detail in
 /// `textTertiary`. The exercise next after a rest between two exercises (`nextUp`) grows a step
@@ -180,10 +180,7 @@ public struct RowLabel: View {
                     if let bars {
                         SetSegments(progress: bars, isOnSet: setRest?.isOnSet ?? true)
                     }
-                    CaptionLine(spacing: Spacing.md) {
-                        progressLine(focus)
-                        CaptionEndWords(focus: focus, isResting: setRest?.isResting == true)
-                    }
+                    FocusCaption(focus: focus, isResting: setRest?.isResting == true)
                 }
                 .padding(.top, Spacing.sm)
                 .part(.progress)
@@ -208,56 +205,6 @@ public struct RowLabel: View {
         .fixedSize()
     }
 
-    /// Which set it is on, "Set 1 of 3", and the side, "· Left", set off in the name's color.
-    /// Each part rolls on its own as it changes, the new one in from below as the old one goes
-    /// out above, so a switch from Left to Right rolls only the side, and the next set rolls both.
-    /// Side by side where they fit, else the side under the set (`FigureLayout`).
-    @ViewBuilder
-    private func progressLine(_ focus: RowFocus) -> some View {
-        if let side = focus.side {
-            FigureLayout(spacing: 0) {
-                rolling(focus.progress, color: .textSecondary)
-                rolling("\(noBreakSpace)·\(noBreakSpace)\(side)", color: .textPrimary, dot: true)
-                    .fadingQuickly(focus.showsSide)
-            }
-        } else {
-            rolling(focus.progress, color: .textSecondary)
-        }
-    }
-
-    /// One part of the progress line, word by word, each word rolling only when it changes and
-    /// clipped around itself, so "Set 2 of 3" to "Set 3 of 3" rolls the 2 alone (Dave,
-    /// 2026-10-30). The dot before a side stays in the set's gray.
-    private func rolling(_ text: String, color: ColorToken, dot: Bool = false) -> some View {
-        // Wrapped at a breaking space where the line doesn't fit, as at the accessibility sizes.
-        FlowLayout(spacing: 0) {
-            ForEach(Array(rollingWords(text).enumerated()), id: \.offset) { _, group in
-                HStack(alignment: .firstTextBaseline, spacing: 0) {
-                    ForEach(Array(group.enumerated()), id: \.offset) { _, word in
-                        rollingWord(
-                            word,
-                            color: dot && word.contains("·") ? .textSecondary : color,
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    private func rollingWord(_ word: String, color: ColorToken) -> some View {
-        ZStack(alignment: .topLeading) {
-            Text(word)
-                .font(.ppCurrentProgress)
-                .foregroundStyle(Color.pp(color))
-                .fixedSize()
-                // By the word alone: "3" gaining the space before a word added after it, "Set 1
-                // of 3 done", stays put.
-                .id(word.trimmingCharacters(in: .whitespaces))
-                .transition(.push(from: .bottom))
-        }
-        .clipped()
-    }
-
     private var spokenLabel: String {
         let isResting = setRest?.isResting == true
         // A rest's or a set's own count reads as its own element after the label
@@ -268,9 +215,9 @@ public struct RowLabel: View {
         let parts = if let focus {
             [
                 title,
-                // Resting, the caption's "1 of 3 done" says what the bars' words say.
+                // Resting, the caption's "Set 1 of 3 done" says what the bars' words say.
                 [
-                    isResting && bars != nil ? nil : focus.progress,
+                    isResting && bars != nil ? nil : focus.place.text,
                     focus.showsSide ? focus.side : nil,
                 ]
                 .compactMap(\.self).joined(separator: ", "),
@@ -316,8 +263,8 @@ private nonisolated struct BottomClip: Shape {
 
 /// A row grown into the current exercise of a workout.
 public struct RowFocus: Equatable {
-    /// Which set it is on: "Set 1 of 3".
-    public var progress: String
+    /// Which set it is on: "Set 1 of 3", and "done" after it while resting.
+    public var place: SetPlace
     /// The side the set works, "Left", for an exercise done one side at a time.
     public var side: String?
     /// The exercise's own equipment, as capsules; none for an exercise that needs none.
@@ -330,9 +277,12 @@ public struct RowFocus: Equatable {
     public var after: String?
     /// `after` in words, for VoiceOver, "then rest 1 minute": a clock time read as one.
     public var spokenAfter: String?
-    /// Whether the side shows; unseen, it keeps its room, so the caption line keeps the height
-    /// a side gives it, as through a rest after a set's two sides.
-    public var showsSide = true
+    /// Whether the side shows: not while resting after the set, when "done" takes its place;
+    /// unseen, it keeps its room, so the caption line keeps the height a side gives it.
+    public var showsSide: Bool {
+        !place.isDone
+    }
+
     /// Whether `after` shows; unseen, it keeps its room, as on a set's first side, where the
     /// other side follows, so the line holds the height the second side's rest gives it.
     public var showsAfter = true
@@ -340,14 +290,14 @@ public struct RowFocus: Equatable {
     /// time and its "then rest", so the line, and the figures under it, never move between them.
     public var afterRoom: [String] = []
     public init(
-        progress: String,
+        place: SetPlace,
         side: String? = nil,
         equipment: [String] = [],
         figures: [Figure],
         spokenFigures: String,
         after: String? = nil,
     ) {
-        self.progress = progress
+        self.place = place
         self.after = after
         self.side = side
         self.equipment = equipment
@@ -380,7 +330,7 @@ public struct RowFocus: Equatable {
             title: "Dumbbell row",
             detail: [],
             focus: RowFocus(
-                progress: "Set 1 of 3",
+                place: SetPlace(word: "Set", number: 1, total: 3),
                 equipment: ["Dumbbell", "Bench"],
                 figures: [
                     .init(number: "10", unit: "reps per side"),

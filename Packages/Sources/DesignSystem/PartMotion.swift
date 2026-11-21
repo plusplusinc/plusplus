@@ -8,19 +8,6 @@ extension View {
         modifier(PartMotion(part: part))
     }
 
-    /// Shown while `isShown`; hidden in a motion, it fades out as a leaving part does
-    /// (`SetMotion.leaveFade`), whatever the motion's curve, so a side's word is gone as a rest
-    /// between sets starts, before "1 of 3 done" has rolled in beside it: on the rest's swap it
-    /// stood there, "· Left", for ten frames.
-    func fadingQuickly(_ isShown: Bool) -> some View {
-        opacity(isShown ? 1 : 0)
-            .transaction(value: isShown) { transaction in
-                if !isShown, transaction.animation != nil {
-                    transaction.animation = .easeOut(duration: SetMotion.leaveFade)
-                }
-            }
-    }
-
     /// Room above, animated as layout: a plain `.padding(.top:)` changed in a move drew the
     /// views inserted in it at their end places, 24 pt off, for the move's length.
     public func topSpace(_ space: CGFloat) -> some View {

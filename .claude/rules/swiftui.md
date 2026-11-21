@@ -56,7 +56,7 @@ of the types that draw it, with its timings in named constants. Read them before
 feature, and change them with it.
 
 - Start, End, and the current exercise: `RoutineScreen+Workout.swift`, `CurrentExercise.swift`,
-  `RowLabel.swift` (`RowFocus`, `CaptionLine`), `GrowingName`, `RailStack`, `RailEntry` (a row joining a rail).
+  `RowLabel.swift` (`RowFocus`, `CaptionLine`, `ProgressLine`), `GrowingName`, `RailStack`, `RailEntry` (a row joining a rail).
   Their beats are `WorkoutPhase`'s `starting` and `ending`, on a log's `SequenceTask`; Start's scroll to the top waits on `ScrollBeat.settled(after:orWhen:)`.
 - The key at the bottom and the +1: `WorkoutKey`, `RoutineScreen+Key.swift`,
   `PrimaryKeyButtonStyle.swift`, `PlusOneBurst`. The bar swaps the key on its own as its kind changes: the swap's stage is
@@ -80,7 +80,7 @@ feature, and change them with it.
 
 ## Pitfalls
 
-Each of these cost a round on this app; the code at the named spot works around it.
+Each of these cost a round; the code at the named spot works around it.
 
 - An animated `scrollTo` in the same transaction as a layout change holds the change back until
   the scroll has nearly landed. Scroll at once and draw the content lifted by an `Animatable`

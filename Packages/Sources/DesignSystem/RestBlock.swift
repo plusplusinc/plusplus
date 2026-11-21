@@ -11,7 +11,11 @@ import SwiftUI
 /// Nothing in it is green: a rest looks like an active exercise. The time ticks on whole seconds
 /// before `ends` on a timeline, drawing once while paused (`pausedLeft`), so nothing is written
 /// per second. It reads "0:35", rounded up, so it shows the whole rest as it starts and 0:00 only
-/// as it ends. To VoiceOver it is one element, "Rest", its value the time left in words.
+/// as it ends. Its changing digits roll down as each second goes and up on +15 s, its last change,
+/// to 0:00, at once; cut, by Skip rest or held as it goes, it shows whole at once, whatever roll
+/// was in flight (`figureKey(skips:)`). To VoiceOver it is one element, "Rest", its value the time
+/// left in
+/// words.
 public struct RestBlock: View {
     public enum Stage: Sendable {
         case none
@@ -44,14 +48,13 @@ public struct RestBlock: View {
         self.isPaused = isPaused
     }
 
-    /// The block held at what it showed at `date`.
+    /// The block leaving, held at what it showed at `date`: held by its going, not a pause.
     func holding(at date: Date) -> Self {
         Self(
             stage: stage,
             length: length,
             ends: ends,
             pausedLeft: left(at: date),
-            isPaused: isPaused,
         )
     }
 
@@ -76,19 +79,22 @@ public struct RestBlock: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// The time left; with `turns` off, it changes at once rather than rolling. Always within
-    /// `shown`: "Starts in" reads 0:10 as it comes in and 0:01 until it goes, never 0:00.
+    /// The time left, its changing digits rolling as `rolls(on:to:)` says. With `turns` off, as
+    /// with Reduce Motion, nothing rolls and the figure takes the update's own animation, so
+    /// `turns` never goes off in the change that moves the figure (`SetRest.turnsFigure`).
+    /// Always within `shown`: "Starts in" reads 0:10 as it comes in and 0:01 until it goes,
+    /// never 0:00.
     func countdown(
         size: CGFloat,
         locale: Locale,
-        turns: Bool = true,
+        turns: Bool,
+        skips: Int,
         color: ColorToken = .textPrimary,
         shown: ClosedRange<Double> = 0 ... .infinity,
     ) -> some View {
-        let isOpen = stage == .open
-        return TimelineView(RestSchedule(
+        TimelineView(RestSchedule(
             ends: ends,
-            isPaused: pausedLeft != nil || !isOpen,
+            isPaused: !ticks,
         )) { context in
             let seconds = left(at: context.date, within: shown)
             let text = Self.text(seconds, locale: locale)
@@ -101,29 +107,73 @@ public struct RestBlock: View {
                 .animation(nil, value: color)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
-                // +15 s turns the figure; a second going by, or the rest's end on the move's
-                // delayed shift, changes it at once: on that shift, 0:00 came in half a second
-                // after the dot had left. So does Skip rest: turning, a cut to 0:00 rolled down
-                // as it shrank away. Only a change of its own: taking every
-                // update's animation away, the figure jumped to where a part going drops it
-                // while the part faded on its curve.
-                .contentTransition(turns ? .numericText(countsDown: true) : .identity)
+                // By its value, the figure rolls down as a second goes and up on +15 s. Only a
+                // change of its own: taking every update's animation away, the figure jumped to
+                // where a part going drops it while the part faded on its curve.
+                .contentTransition(turns ? .numericText(value: seconds.rounded(.up)) : .identity)
+                // Inside the tick's below: on +15 s both run, and the move's says last.
                 .transaction(value: ends) {
-                    if isOpen, turns, seconds > 0 {
-                        $0.animation = .snappy(duration: SetMotion.restGlide)
+                    if turns, rolls(on: .moved, to: seconds) {
+                        $0.animation = SetMotion.restRoll
                     }
                 }
-                // A figure that turns only: one that never rolls, as a held count, changes at
-                // once anyway, and taking the animation, a count at its run-out jumped to where
-                // its leaving exercise drops it.
+                // Rolled, or at once. Only a figure that turns: taking a held one's animation, a
+                // count at its run-out jumped to where its leaving exercise drops it.
                 .transaction(value: text) {
                     if turns {
-                        $0.animation = nil
+                        $0.animation = rolls(on: .tick, to: seconds) ? SetMotion.restRoll : nil
                     }
                 }
+                // A cut figure is a new one, put in and the old taken out at once, with any roll
+                // in flight: a cut landing on a second's roll, its change at once, carried the
+                // roll on to the new digits as the count went, toward 0:00 on Skip rest.
+                .transition(.identity)
+                .id(figureKey(skips: skips))
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Rest")
                 .accessibilityValue(Self.spoken(seconds, locale: locale))
+        }
+    }
+
+    /// Whether the count runs: open and not held by a pause, the workout's end, or leaving.
+    var ticks: Bool {
+        stage == .open && pausedLeft == nil
+    }
+
+    /// Which figure shows the count: a new one, any roll in flight dropped, where a cut can land
+    /// on a second's roll. Held with time left other than by a pause, as the workout ends, a timed
+    /// set is logged early, or the count leaves; and on each Skip rest (`skips`, changed in the
+    /// skip's own change, before the rest swaps back). A paused count keeps its figure: a roll in
+    /// flight at a pause ends gray. So does one that runs out, its last roll over a second before
+    /// 0:00: a new figure there, put in as the rest between sets swapped back, stood where the
+    /// swap ends from its first frame, 14 pt under the count it replaced.
+    func figureKey(skips: Int) -> FigureKey {
+        FigureKey(isHeld: (pausedLeft ?? 0) > 0 && !isPaused, skips: skips)
+    }
+
+    struct FigureKey: Hashable {
+        let isHeld: Bool
+        let skips: Int
+    }
+
+    /// What changed the figure.
+    enum Change {
+        /// A second went by.
+        case tick
+        /// The rest's end moved, as on +15 s.
+        case moved
+    }
+
+    /// Whether the figure rolls to `seconds` on `change`: a second going by while the count
+    /// runs, and +15 s while it is open, paused included. A held count, paused, ended, or
+    /// leaving, never ticks. A change to 0:00, at the run-out or on Skip rest, is at once:
+    /// rolling, 0:00 came in half a second after the dot had left, and a cut to 0:00 rolled down
+    /// as it shrank away.
+    func rolls(on change: Change, to seconds: Double) -> Bool {
+        guard seconds > 0 else { return false }
+        return switch change {
+        case .tick: ticks
+        case .moved: stage == .open
         }
     }
 
@@ -155,6 +205,8 @@ private struct RestRoom: View, Animatable {
     /// default text size, scaled with it.
     @ScaledMetric(relativeTo: .body) private var capHeight = Self.defaultCapHeight
     @Environment(\.restIsAboveLabel) private var isAboveLabel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.restSkips) private var restSkips
 
     private static let defaultCapHeight: CGFloat = {
         #if canImport(UIKit)
@@ -235,6 +287,8 @@ private struct RestRoom: View, Animatable {
             block.countdown(
                 size: size,
                 locale: locale,
+                turns: !reduceMotion,
+                skips: restSkips,
                 color: block.isPaused ? .textSecondary : .textPrimary,
             )
             .figureBox(size: size)
@@ -248,6 +302,12 @@ private struct RestRoom: View, Animatable {
         .accessibilityHidden(block.stage != .open)
         .modifier(RestRoomHeight(open: open))
     }
+}
+
+extension EnvironmentValues {
+    /// How many times Skip rest has cut a rest short, changed in the skip's own change, never
+    /// an animated one: each puts in a new figure for every count (`RestBlock.figureKey(skips:)`).
+    @Entry public var restSkips = 0
 }
 
 /// Hears a view's bottom edge in a named space.

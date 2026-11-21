@@ -34,9 +34,9 @@ public enum SetMotion {
 
     // MARK: Within one exercise
 
-    /// "Set 2 of 3" rolling to "Set 3 of 3", only the words that change, each up and out as the
-    /// new one rolls up and in, once the held set's beat is over (`heldRoll`); the side word,
-    /// "Left" to "Right", rolls with it.
+    /// The current exercise moving on to its next set once the held set's beat is over
+    /// (`heldRoll`): "done" and a side's word, "Left" to "Right", fade in over it
+    /// (`ProgressLine`), as the set's number rolls (`restRoll`).
     public static let roll = 0.3
     /// After a tap logs a set that stays on the exercise, how long it is held as still to do
     /// before the line rolls on: about as the +1 has risen. Taps inside it are dropped.
@@ -224,8 +224,12 @@ public enum SetMotion {
 
     // MARK: A rest between exercises
 
-    /// A rest's countdown figure turning to its new time after +15 s.
+    /// A count's figure turning to its new time, as each second goes and on +15 s. Under a
+    /// second, so one second's roll ends before the next starts.
     public static let restGlide = 0.45
+
+    /// The roll a count's figure turns on (`restGlide`).
+    public static let restRoll = Animation.snappy(duration: restGlide)
 
     /// Into a rest between exercises, or out of one, everything the move changes: the row left
     /// closing, the rest's room opening or closing, the next exercise growing, and any scroll,

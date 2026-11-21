@@ -23,11 +23,9 @@ struct CurrentExerciseTextTests {
     }
 
     @Test("Set, or round in a superset")
-    func progress() throws {
-        let row = try Self.row("Dumbbell row")
-        #expect(row.progressText(set: 1, inSuperset: false, locale: Self.locale) == "Set 1 of 3")
-        #expect(row.progressText(set: 2, inSuperset: true, locale: Self.locale)
-            == "Round 2 of 3")
+    func progress() {
+        #expect(RoutineExercise.progressWord(inSuperset: false) == "Set")
+        #expect(RoutineExercise.progressWord(inSuperset: true) == "Round")
     }
 
     @Test("Reps, time, and weight, each with what it counts")

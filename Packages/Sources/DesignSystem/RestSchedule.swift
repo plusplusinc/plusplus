@@ -37,7 +37,7 @@ struct SpokenRest: View {
     var body: some View {
         TimelineView(RestSchedule(
             ends: block.ends,
-            isPaused: block.pausedLeft != nil || block.stage != .open,
+            isPaused: !block.ticks,
         )) { context in
             Color.clear
                 .frame(maxWidth: .infinity, maxHeight: 1)

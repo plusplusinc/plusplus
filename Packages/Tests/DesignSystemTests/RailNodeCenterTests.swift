@@ -85,7 +85,7 @@ struct RailNodeCenterTests {
     )
     func currentLabel(category: UIContentSizeCategory) throws {
         let focus = RowFocus(
-            progress: "Set 1 of 3",
+            place: SetPlace(word: "Set", number: 1, total: 3),
             equipment: ["Barbell"],
             figures: [.init(number: "5", unit: "reps"), .init(number: "225", unit: "lb")],
             spokenFigures: "5 reps, 225 pounds",
