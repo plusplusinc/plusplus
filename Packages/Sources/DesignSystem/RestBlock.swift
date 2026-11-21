@@ -55,17 +55,6 @@ public struct RestBlock: View {
         )
     }
 
-    /// The block as it was before its end moved to `ends`.
-    func ending(at ends: Date) -> Self {
-        Self(
-            stage: stage,
-            length: length,
-            ends: ends,
-            pausedLeft: pausedLeft,
-            isPaused: isPaused,
-        )
-    }
-
     /// The seconds the countdown shows at `date`, kept within `shown`. Closing with a time
     /// given, as a workout ended mid-rest, it holds that time.
     func left(at date: Date, within shown: ClosedRange<Double> = 0 ... .infinity) -> Double {
@@ -97,45 +86,13 @@ public struct RestBlock: View {
         color: ColorToken = .textPrimary,
         shown: ClosedRange<Double> = 0 ... .infinity,
     ) -> some View {
-        SteppedCountdown(
-            block: self,
-            size: size,
-            locale: locale,
-            turns: turns,
-            color: color,
-            shown: shown,
-        )
-    }
-
-    /// The figure at `date`, `steps` turning it up toward the time left after a +15 s.
-    func figure(
-        at date: Date,
-        within shown: ClosedRange<Double>,
-        steps: CountSteps?,
-    ) -> (seconds: Double, isStepping: Bool) {
-        let seconds = left(at: date, within: shown)
-        guard let steps, let step = steps.step(at: date) else { return (seconds, false) }
-        return (Double(CountSteps.seconds(
-            from: steps.from,
-            to: Int(seconds.rounded(.up)),
-            step: step,
-        )), true)
-    }
-
-    /// The countdown `view` draws, stepping on `steps`.
-    func drawn(for view: SteppedCountdown, steps: CountSteps?) -> some View {
         let isOpen = stage == .open
         let ticks = isOpen && pausedLeft == nil
-        let (size, locale, turns, color, shown) = (
-            view.size, view.locale, view.turns, view.color, view.shown,
-        )
-        return TimelineView(SteppedSchedule(
-            rest: RestSchedule(ends: ends, isPaused: !ticks),
-            steps: ticks ? steps?.dates ?? [] : [],
+        return TimelineView(RestSchedule(
+            ends: ends,
+            isPaused: !ticks,
         )) { context in
-            let actual = left(at: context.date, within: shown)
-            let figure = figure(at: context.date, within: shown, steps: ticks ? steps : nil)
-            let seconds = figure.seconds
+            let seconds = left(at: context.date, within: shown)
             let text = Self.text(seconds, locale: locale)
             Text(text)
                 .font(.system(size: size, weight: .bold, design: .monospaced))
@@ -153,11 +110,7 @@ public struct RestBlock: View {
                 // of its own: taking every update's animation away, the figure jumped to where a
                 // part going drops it while the part faded on its curve.
                 // By its value, the figure rolls down as a second goes and up on +15 s.
-                // Stepping up, every place turns up, a 9 to a 0 included, though a place's wrap
-                // can leave a step's value below the last one's (0:29 to 0:20 on the way to 0:21).
-                .contentTransition(!turns ? .identity : figure.isStepping
-                    ? .numericText(countsDown: false)
-                    : .numericText(value: seconds.rounded(.up)))
+                .contentTransition(turns ? .numericText(value: seconds.rounded(.up)) : .identity)
                 .transaction(value: ends) {
                     if isOpen, turns, seconds > 0 {
                         $0.animation = .snappy(duration: SetMotion.restGlide)
@@ -169,16 +122,13 @@ public struct RestBlock: View {
                 .transaction(value: text) {
                     if turns {
                         $0.animation = ticks && seconds > 0
-                            ? .snappy(duration: figure.isStepping
-                                ? CountSteps.roll
-                                : SetMotion.restGlide)
+                            ? .snappy(duration: SetMotion.restGlide)
                             : nil
                     }
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Rest")
-                // The true time, at once, while the figure steps up to it.
-                .accessibilityValue(Self.spoken(actual, locale: locale))
+                .accessibilityValue(Self.spoken(seconds, locale: locale))
         }
     }
 
