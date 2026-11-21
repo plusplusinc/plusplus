@@ -35,9 +35,8 @@ extension Routine {
 }
 
 /// The rest running after a set, on the workout's clock (`LoggedWorkout.clock(at:)`), so a pause
-/// stops
-/// it. It holds no date: it changes only with a log, a +15 s tap, a skip, or an edit to the
-/// routine.
+/// stops it. It holds no date: it changes only with a log, a +15 s tap, a skip, or an edit to
+/// the routine.
 public struct WorkoutRest: Equatable, Sendable {
     /// The set it follows.
     public let after: PlannedSet

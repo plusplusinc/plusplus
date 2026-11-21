@@ -19,7 +19,8 @@ time. Every `@Model` follows these from the start:
 
 `RoutineStore` is the one `@ModelActor`, opened through
 `WorkoutStoreContainer.make(mode:schema:migrationPlan:)` with its own schema, versioned: every
-stored shape shipped so far is a `VersionedSchema` (`RoutineSchemaV1` to `V12`), and `RoutineMigrationPlan` runs a lightweight stage between each,
+stored shape shipped so far is a `VersionedSchema` (`RoutineSchemaV1` to `V12`, the older ones in
+`RoutineSchema+Shipped.swift`), and `RoutineMigrationPlan` runs a lightweight stage between each,
 since each change only added an attribute or a model. Staged migration refuses a store whose
 shape matches none of the plan's versions, so a shipped version never changes: a stored change
 is a new version, a new stage, and a test that opens the last shape, written on disk, under it

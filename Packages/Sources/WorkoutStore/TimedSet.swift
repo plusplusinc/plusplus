@@ -169,8 +169,7 @@ extension LiveWorkout {
     }
 
     /// The workout finished at `now` (`LoggedWorkout.finishing(at:)`), a set counting logged first
-    /// at
-    /// the time done, as a log at that moment logs it, and one whose count ran out at its full
+    /// at the time done, as a log at that moment logs it, and one whose count ran out at its full
     /// time. A set still in "Starts in" logs nothing: it never began. Paused, the set is logged
     /// as the pause began, where its count stopped, so its time of day and its clock agree.
     public func finishing(at now: Date) -> LoggedWorkout {

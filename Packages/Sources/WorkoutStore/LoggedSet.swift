@@ -22,8 +22,8 @@ public struct LoggedSet: Identifiable, Equatable, Sendable {
     public let plannedWeight: Weight?
     public let loggedAt: Date
     /// Where the workout's clock stood at the log, pauses left out (`LoggedWorkout.clock(at:)`):
-    /// where
-    /// the rest after it starts. Nil for a set logged before V11 kept it, which rests for none.
+    /// where the rest after it starts. Nil for a set logged before V11 kept it, which rests for
+    /// none.
     public var clockWhenLogged: Double?
     /// The rest after this set against the routine's, in seconds: its +15 s taps, and a skip's cut
     /// to the seconds rested (`LiveWorkout.skippingRest(override:at:)`).

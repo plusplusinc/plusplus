@@ -284,8 +284,8 @@ struct TimedSetTests {
         let live = Self.started(routine)
         #expect(live.loggedWorkout.count == nil)
         let after = try Self.logged(live, at: 5)
-        #expect(after.loggedWorkout.sets.first?.target == after.loggedWorkout.sets.first?
-            .plannedTarget)
+        let first = after.loggedWorkout.sets.first
+        #expect(first?.target == first?.plannedTarget)
         #expect(after.loggedWorkout.count == nil)
     }
 }
