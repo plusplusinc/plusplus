@@ -13,7 +13,7 @@ struct LoggedWorkoutTests {
     private let loggedWorkout: LoggedWorkout
 
     init() {
-        loggedWorkout = LoggedWorkout(routineID: UUID(), routineName: "Upper", startedAt: start)
+        loggedWorkout = LoggedWorkout(workoutID: UUID(), workoutName: "Upper", startedAt: start)
     }
 
     @Test("Running, the time is the time since Start, never below zero")
@@ -91,7 +91,7 @@ struct LoggedWorkoutTests {
     @Test("Ending offers Finish only once a set is logged, and only while in progress")
     func offersFinish() throws {
         #expect(!loggedWorkout.offersFinish)
-        let row = try RoutineExercise.builtIn("Push-up")
+        let row = try WorkoutExercise.builtIn("Push-up")
         let done = loggedWorkout.logging(PlannedSet(row: row.id, round: 1), of: row, at: at(30))
         #expect(done.offersFinish)
         #expect(!done.finishing(at: at(300)).offersFinish)

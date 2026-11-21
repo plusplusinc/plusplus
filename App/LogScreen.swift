@@ -12,7 +12,7 @@ import WorkoutStore
 /// logged workout's row pushes it, read-only, with the system push, as a saved workout is
 /// pushed on Workouts.
 struct LogScreen: View {
-    @Bindable var session: RoutineSession
+    @Bindable var session: AppSession
 
     enum Tab: Hashable, CaseIterable {
         case history
@@ -122,7 +122,7 @@ struct LogScreen: View {
 
     /// Workouts at the root, as the drawer's Workouts row shows it, never pushed onto Log.
     func goToWorkouts() {
-        session.showRoutines()
+        session.showWorkouts()
     }
 
     var now: Date {
@@ -136,8 +136,8 @@ struct LogScreen: View {
 
 #Preview {
     LogScreen(
-        session: RoutineSession(
-            routine: Routine(name: "Upper body"),
+        session: AppSession(
+            workout: Workout(name: "Upper body"),
             store: nil,
             namer: .muscleGroupsOnly,
         ),

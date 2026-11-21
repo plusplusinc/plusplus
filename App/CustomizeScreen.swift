@@ -2,17 +2,17 @@ import Session
 import SwiftUI
 import WorkoutStore
 
-/// An exercise's Customize form (`ExerciseForm`) wired to the session, as a routine row's
+/// An exercise's Customize form (`ExerciseForm`) wired to the session, as a workout row's
 /// Customize… (and its sheet after Create) and Add exercise's hold menu push it. Each change is
 /// stored as made: a created exercise's as its own, with Delete handed to the host, which
 /// removes it and its rows, closing what shows the form first
-/// (`RoutineScreen.deleteExercise(_:closing:)`); a built-in's apart from the catalog, with
+/// (`WorkoutScreen.deleteExercise(_:closing:)`); a built-in's apart from the catalog, with
 /// Clear customizations putting it back as it shipped. Nothing shows for an id the list no
 /// longer has.
 struct CustomizeScreen: View {
     let id: Exercise.ID
-    let session: RoutineSession
-    let namer: RoutineNamer
+    let session: AppSession
+    let namer: WorkoutNamer
     /// Runs once each change has reached the store.
     var onStored: () -> Void = { }
     /// Deletes the created exercise, from the confirming tap.
@@ -22,7 +22,7 @@ struct CustomizeScreen: View {
 
     var body: some View {
         let weightUnit = WeightUnit(region: locale)
-        let usedIn = session.routines(using: id).map(namer.listedName(of:))
+        let usedIn = session.workouts(using: id).map(namer.listedName(of:))
         if let exercise = session.exercises.exercise(id: id) {
             ExerciseForm(
                 customizing: id,
@@ -35,7 +35,7 @@ struct CustomizeScreen: View {
                 },
                 ending: ending(weightUnit: weightUnit),
             )
-            // The routines Used in and Delete's question count, as stored now.
+            // The workouts Used in and Delete's question count, as stored now.
             .task { await session.refreshRecent(weightUnit: weightUnit) }
         }
     }
@@ -49,7 +49,7 @@ struct CustomizeScreen: View {
                 onStored()
             }
         } else {
-            .delete(usedByOpenRoutine: session.openRoutineUses(id), onDelete)
+            .delete(usedByOpenWorkout: session.openWorkoutUses(id), onDelete)
         }
     }
 }

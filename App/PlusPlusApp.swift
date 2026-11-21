@@ -7,14 +7,14 @@ import WorkoutStore
 struct PlusPlusApp: App {
     /// Nil when the store won't open: the app still works, and nothing saves. Better than a
     /// crash at every launch, or a store quietly opened somewhere else.
-    private let store: RoutineStore?
-    private let namer: RoutineNamer
+    private let store: Store?
+    private let namer: WorkoutNamer
     /// Whether to start from an empty store, as the UI tests do.
     private let resetsStore: Bool
 
     init() {
         do {
-            store = try RoutineStore.open(.local)
+            store = try Store.open(.local)
         } catch {
             Logger.app.fault("The store didn't open, so nothing will save: \(error)")
             store = nil
@@ -33,7 +33,7 @@ struct PlusPlusApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RoutineLauncher(store: store, namer: namer, resetsStore: resetsStore)
+            WorkoutLauncher(store: store, namer: namer, resetsStore: resetsStore)
         }
     }
 }

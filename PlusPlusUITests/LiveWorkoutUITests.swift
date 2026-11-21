@@ -36,11 +36,11 @@ final nonisolated class LiveWorkoutUITests: XCTestCase {
             app.edgeSwipe()
             XCTAssertTrue(app.drawerTitle.staysAway(), "The edge swipe opened the drawer")
         }
-        // What launch opens after Discard is `RoutineStoreLoggedWorkoutTests`'.
+        // What launch opens after Discard is `StoreLoggedWorkoutTests`'.
         XCTContext
-            .runActivity(named: "Finish is offered; Discard leaves the routine") { _ in
+            .runActivity(named: "Finish is offered; Discard leaves the workout") { _ in
                 app.discardWorkout(withSetsLogged: true)
-                XCTAssertEqual(title.value as? String, renamed, "Discard opened another routine")
+                XCTAssertEqual(title.value as? String, renamed, "Discard opened another workout")
                 XCTAssertFalse(app.endKey.exists)
                 XCTAssertTrue(app.buttons["Menu"].exists, "No ++ after Discard")
             }
@@ -187,8 +187,8 @@ final nonisolated class LiveWorkoutUITests: XCTestCase {
         }
     }
 
-    /// An add, a delete, and a rename each change the routine mid-workout, and, paused, the
-    /// workout comes back through a relaunch with them and its time held. Returns the new name.
+    /// An add, a delete, and a rename each change the workout in progress, and, paused, it
+    /// comes back through a relaunch with them and its time held. Returns the new name.
     @MainActor
     private func editsStayOn(in app: XCUIApplication, title: XCUIElement) throws -> String {
         try XCTContext

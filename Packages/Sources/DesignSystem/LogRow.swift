@@ -60,7 +60,7 @@ public struct LogRow: View {
             : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: Spacing.sm))
         return layout {
             Text(title)
-                .font(.ppRoutineName)
+                .font(.ppWorkoutName)
                 .foregroundStyle(.pp(.textPrimary))
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, alignment: .leading)

@@ -85,7 +85,7 @@ extension LoggedWorkout {
 }
 
 private struct PlannedRound: Hashable {
-    let row: RoutineExercise.ID
+    let row: WorkoutExercise.ID
     let round: Int
 }
 

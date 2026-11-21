@@ -1,6 +1,6 @@
 import Foundation
 
-/// Where a workout on the routine screen is in its sequence: out of a workout, starting, at rest,
+/// Where the workout screen is in a workout's sequence: not in progress, starting, at rest,
 /// showing a set just logged, which stays on its exercise, moves on to another, or closes the
 /// workout's last, or ending. A log is stored at once; the phase says what the screen still has
 /// to show of it, so the screen draws the workout without it until its motion shows it. End
@@ -372,7 +372,7 @@ public enum WorkoutPhase: Equatable, Sendable {
     /// How the key is gone from its bar: as Start lands, with its room kept, until the workout's
     /// key comes up; as Start fades in with no motion, and from the key's leaving at the end to
     /// the end's rest, with its room. None while it shows. A rest's key is the screen's to take
-    /// away: the bar swaps the key for Skip rest and +15 s (`RoutineScreen.key(_:isOut:)`).
+    /// away: the bar swaps the key for Skip rest and +15 s (`WorkoutScreen.key(_:isOut:)`).
     public var keyGone: KeyGone? {
         switch self {
         case .starting(.landed): .keepingRoom

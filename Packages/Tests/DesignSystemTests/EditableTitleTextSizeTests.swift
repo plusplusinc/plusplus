@@ -51,7 +51,7 @@ struct EditableTitleTextSizeTests {
                     accessibilityLabel: "Workout name",
                     accessibilityHint: "Renames the workout.",
                 )
-                // The routine screen scrolls, so the title is as tall as it asks to be.
+                // The workout screen scrolls, so the title is as tall as it asks to be.
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(width: EditableTitleTextSizeTests.width),
             ))

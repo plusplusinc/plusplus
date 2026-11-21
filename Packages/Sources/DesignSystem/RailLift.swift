@@ -121,7 +121,7 @@ struct CardLook: ViewModifier {
 
 /// How far down a plain row its node is, measured from a hidden one-line row at the current text
 /// size: what shapes a held card, whichever row it is. The rows' own nodes can't give it in a
-/// routine whose only row is the current exercise, its node on its large name well down the row.
+/// workout whose only row is the current exercise, its node on its large name well down the row.
 private struct PlainRowNode: View {
     @Binding var y: CGFloat?
 

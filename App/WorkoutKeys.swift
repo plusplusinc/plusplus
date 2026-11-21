@@ -3,8 +3,8 @@ import Session
 import SwiftUI
 import WorkoutStore
 
-/// End, in the bar while a workout runs, which only asks: the screen presents its dialog, whose
-/// choices are to finish the workout or discard it.
+/// End, in the bar while a workout is in progress, which only asks: the screen presents its
+/// dialog, whose choices are to finish the logged workout or discard it.
 struct EndButton: View {
     let action: () -> Void
 
@@ -22,7 +22,7 @@ extension View {
     /// content, it came as a popover with an arrow.
     func endWorkoutDialog(
         isPresented: Binding<Bool>,
-        session: RoutineSession,
+        session: AppSession,
         end: @escaping (@escaping () -> Void) -> Void,
     ) -> some View {
         confirmationDialog(
@@ -54,7 +54,7 @@ extension View {
 /// The workout's time, in the bar, which a tap pauses or resumes. It ticks on the elapsed
 /// time's whole seconds while running, and draws once while paused.
 struct WorkoutTimeKey: View {
-    let session: RoutineSession
+    let session: AppSession
     let loggedWorkout: LoggedWorkout
 
     @Environment(\.locale) private var locale

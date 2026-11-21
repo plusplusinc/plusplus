@@ -40,7 +40,7 @@ SITE="$MAIN/.build/phone-link"
 mkdir -p "$STAGING"
 
 # Every worktree installs on the same phone, and a build whose store schema is older than the
-# one on the phone can't read its store, so the app opens with no routines (a build from main
+# one on the phone can't read its store, so the app opens with no workouts (a build from main
 # over another session's branch did, 2026-11-02). The main checkout's .build/phone-schema
 # records the newest schema installed or linked, with its branch, and a build older than it is
 # refused, before building, unless PLUSPLUS_OLDER_SCHEMA=1, for when that branch was dropped.
@@ -59,7 +59,7 @@ schema_guard() {
     IFS=$'\t' read -r theirs branch < "$SCHEMA_RECORD"
     [ "$(printf '%s\n%s\n' "$ours" "$theirs" | sort -V | tail -n 1)" = "$ours" ] && return 0
     echo "refusing: this build's store schema is $ours, and the phone has $theirs from" \
-        "$branch, which this build can't read, so the app would open with no routines. Build" \
+        "$branch, which this build can't read, so the app would open with no workouts. Build" \
         "on top of $branch, or, if that work was dropped, run again with" \
         "PLUSPLUS_OLDER_SCHEMA=1." >&2
     exit 65

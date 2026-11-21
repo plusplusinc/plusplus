@@ -52,8 +52,8 @@ struct LogPeriodTests {
     @Test("A workout finished at 11:59 pm marks its day; one before the first day is out")
     func beforeMidnight() {
         let late = LoggedWorkout(
-            routineID: UUID(),
-            routineName: "Late",
+            workoutID: UUID(),
+            workoutName: "Late",
             startedAt: Fixture.date(day: 20, hour: 23),
             endedAt: Fixture.date(day: 20, hour: 23, minute: 59),
         )
@@ -68,8 +68,8 @@ struct LogPeriodTests {
     @Test("Two workouts on one day mark one square and count two; one in progress counts none")
     func countsLoggedWorkouts() {
         let inProgress = LoggedWorkout(
-            routineID: UUID(),
-            routineName: "Now",
+            workoutID: UUID(),
+            workoutName: "Now",
             startedAt: Fixture.now,
         )
         let period = period([

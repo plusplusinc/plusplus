@@ -50,7 +50,7 @@ struct RailRowPitchTests {
             }
         }
 
-        /// A row's content, as the routine screen gives `railRow()` it.
+        /// A row's content, as the workout screen gives `railRow()` it.
         private func content(focus: RowFocus?) -> some View {
             LabelWithRest(
                 label: RowLabel(title: title, detail: detail, focus: focus),

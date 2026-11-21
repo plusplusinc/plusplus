@@ -8,12 +8,12 @@ struct PlanValueTests {
     private static let locale = Locale(identifier: "en_US")
 
     private static func row(_ name: String, edit: (inout ExercisePlan) -> Void = { _ in })
-        throws -> RoutineExercise
+        throws -> WorkoutExercise
     {
-        try RoutineExercise.builtIn(name, edit)
+        try WorkoutExercise.builtIn(name, edit)
     }
 
-    private static func values(_ row: RoutineExercise) -> [String] {
+    private static func values(_ row: WorkoutExercise) -> [String] {
         row.exercise.planParts.map {
             "\(row.label(of: $0)) \(row.value(of: $0, locale: locale))"
                 .replacingOccurrences(of: "\u{00A0}", with: " ")
@@ -56,7 +56,7 @@ struct PlanValueTests {
     @Test("In kilograms a hand-held weight steps 2 kg, as its kit comes, and a bar 2.5 kg")
     func kilogramSteps() throws {
         func stepped(_ name: String) throws -> Weight? {
-            var row = try RoutineExercise(
+            var row = try WorkoutExercise(
                 exercise: Exercise.builtIn(named: name),
                 weightUnit: .kilograms,
             )
@@ -127,7 +127,7 @@ struct PlanValueTests {
         #expect(PlanLimits.seconds.contains(lowest))
         for unit in [WeightUnit.pounds, .kilograms] {
             for name in ["Overhead press", "Goblet squat", "Barbell row"] {
-                var row = try RoutineExercise(
+                var row = try WorkoutExercise(
                     exercise: Exercise.builtIn(named: name),
                     weightUnit: unit,
                 )

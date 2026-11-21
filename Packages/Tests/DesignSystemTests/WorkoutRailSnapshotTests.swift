@@ -32,7 +32,7 @@ struct WorkoutRailSnapshotTests {
     ) -> some View {
         Rail(rows, links: links, current: current, done: done, isSetHeld: isSetHeld) { row in
             RowLabel(title: row.title, detail: row.detail, focus: row.focus, bars: row.bars)
-                // As the routine screen gives the current exercise, shown with its focus
+                // As the workout screen gives the current exercise, shown with its focus
                 // (`currentTopSpace`).
                 .padding(.top, row.focus == nil ? 0 : Spacing.lg)
                 .railRow()

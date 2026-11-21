@@ -59,8 +59,8 @@ enum LogFixture {
         let end = calendar.date(byAdding: .day, value: -daysAgo, to: date(day: 21, hour: 11))
             ?? .distantPast
         return LoggedWorkout(
-            routineID: UUID(),
-            routineName: name,
+            workoutID: UUID(),
+            workoutName: name,
             startedAt: end.addingTimeInterval(-51 * 60),
             endedAt: end,
             sets: sets,

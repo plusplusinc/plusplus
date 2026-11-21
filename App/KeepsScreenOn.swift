@@ -3,7 +3,7 @@ import SwiftUI
 
 extension View {
     /// Keeps the screen from dimming and locking while `isOn` and the app is in front, as
-    /// while a workout runs, paused or not, so it can be read mid-set without a touch.
+    /// while a workout is in progress, paused or not, so it can be read mid-set without a touch.
     func keepsScreenOn(_ isOn: Bool) -> some View {
         modifier(KeepsScreenOn(isOn: isOn))
     }

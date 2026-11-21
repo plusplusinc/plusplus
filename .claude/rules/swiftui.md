@@ -55,19 +55,19 @@ How each part of the screen looks, moves, sounds, and reads to VoiceOver is in t
 of the types that draw it, with its timings in named constants. Read them before changing a
 feature, and change them with it.
 
-- Start, End, and the current exercise: `RoutineScreen+LiveWorkout.swift`, `CurrentExercise.swift`,
+- Start, End, and the current exercise: `WorkoutScreen+LiveWorkout.swift`, `CurrentExercise.swift`,
   `RowLabel.swift` (`RowFocus`, `CaptionLine`, `ProgressLine`), `GrowingName`, `RailStack`, `RailEntry` (a row joining a rail).
   Their beats are `WorkoutPhase`'s `starting` and `ending`, on a log's `SequenceTask`; Start's scroll to the top waits on `ScrollBeat.settled(after:orWhen:)`.
-- The key at the bottom and the +1: `WorkoutKey`, `RoutineScreen+Key.swift`,
+- The key at the bottom and the +1: `WorkoutKey`, `WorkoutScreen+Key.swift`,
   `PrimaryKeyButtonStyle.swift`, `PlusOneBurst`. The bar swaps the key on its own as its kind changes: the swap's stage is
   `KeyStage`, held by `StagedKey` in `KeySwap.swift`.
-- Logging a set and moving on to the next exercise: `RoutineScreen+Logging.swift` (`play(_:leadingTo:)`,
+- Logging a set and moving on to the next exercise: `WorkoutScreen+Logging.swift` (`play(_:leadingTo:)`,
   the one entry that shows a stored log), `SetMotion`, `RailPulse`, `SetBeat` in `RailRow.swift`.
   Where a workout is and what a log leads to are `LiveWorkout`'s, and where the screen is in
   showing a log `WorkoutPhase`'s, both in `WorkoutStore`; its timed beats run on the screen's
-  one `SequenceTask` (`RoutineScreen+Sequence.swift`).
-- Rests: `RoutineScreen+Resting.swift`, `RestBlock`, `SetRest`, `WorkoutRest`. A timed set's
-  "Starts in" and count: `RoutineScreen+Timing.swift`, `TimedSet`; keys, `CountKeys`.
+  one `SequenceTask` (`WorkoutScreen+Sequence.swift`).
+- Rests: `WorkoutScreen+Resting.swift`, `RestBlock`, `SetRest`, `WorkoutRest`. A timed set's
+  "Starts in" and count: `WorkoutScreen+Timing.swift`, `TimedSet`; keys, `CountKeys`.
 - Dragging a row, and supersets: `RailDrag`, `RailLiftGesture`, `RailAutoscroll`, `LoopPen`
   (`LoopHeads.swift`), `RailPairing`, `RailWell.swift`, `RailRegroup`, `RailStrokes.swift`.
 - Drawer, Workouts: `SideDrawer`, `DrawerSwipe`, `DrawerMenu`, `DrawerButtonStyle`,
@@ -155,7 +155,7 @@ Each of these cost a round; the code at the named spot works around it.
 - A sheet's `.height` detent measures inside its safe area, and a scroll view's container there
   already excludes the bar and the home indicator: grow it by the content's overflow alone
   (`ExerciseSheet.fit(_:)`).
-- `ViewThatFits` on the routine screen hung the app as the title took focus; use a small
+- `ViewThatFits` on the workout screen hung the app as the title took focus; use a small
   `Layout` (`FigureLayout`).
 - A hold on a row in a scroll view is a UIKit long press (`RailLiftGesture`) outside the row's
   SwiftUI tap and swipe actions: SwiftUI's long press stops the scroll view scrolling, and

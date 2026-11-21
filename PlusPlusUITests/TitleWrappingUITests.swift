@@ -3,7 +3,7 @@ import XCTest
 /// The title at the largest accessibility text size, where it wraps. VoiceOver frames the field,
 /// so every line it shows, the default drawn behind an empty field included, has to sit inside
 /// the field's frame. Lines are read from the pixels between the bar and a line's height below
-/// the field, where nothing else is drawn on a new routine. Where
+/// the field, where nothing else is drawn on a new workout. Where
 /// the `_` draws on a wrapped name is snapshot-tested.
 ///
 /// `nonisolated` because XCTestCase's initializers are; the test drives the UI on the main actor.
@@ -18,13 +18,13 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
     @MainActor
     func testWrappedTitleAtLargestTextSize() throws {
         let app = XCUIApplication()
-        // The workout's routine is seeded at this launch, and the title's checks run on a new
-        // routine opened after it, so the test launches once. The drawer and Routines are
-        // audited on the way to the new routine.
+        // The workout in progress is seeded at this launch, and the title's checks run on a new
+        // workout opened after it, so the test launches once. The drawer and Workouts are
+        // audited on the way to the new workout.
         try liveWorkoutAtAX5(in: app)
         try drawerAtAX5(in: app)
-        app.pushNewRoutine()
-        let title = app.routineTitle
+        app.pushNewWorkout()
+        let title = app.workoutTitle
         let keyboard = app.keyboards.element
 
         try XCTContext.runActivity(named: "The field covers the wrapped default") { _ in
@@ -102,19 +102,19 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         }
     }
 
-    /// The drawer, its places kept whole, and the Routines screen pass the audit at this size,
-    /// opened with ++ over the workout's routine, which its relaunch reopened as the launch's
-    /// own. Ends on Routines.
+    /// The drawer, its places kept whole, and the Workouts screen pass the audit at this size,
+    /// opened with ++ over the workout in progress, which its relaunch reopened as the launch's
+    /// own. Ends on Workouts.
     @MainActor
     private func drawerAtAX5(in app: XCUIApplication) throws {
-        try XCTContext.runActivity(named: "The drawer and the Routines screen at AX5") { _ in
+        try XCTContext.runActivity(named: "The drawer and the Workouts screen at AX5") { _ in
             try app.openDrawer(andTap: "Workouts") {
                 attach(named: "drawer-ax5")
                 try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
             }
-            let row = app.routineRows.firstMatch
-            XCTAssertTrue(row.appears(), "The routine isn't listed")
-            attach(named: "routines-ax5")
+            let row = app.workoutRows.firstMatch
+            XCTAssertTrue(row.appears(), "The workout isn't listed")
+            attach(named: "workouts-ax5")
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
         }
     }
@@ -133,7 +133,7 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
             XCTAssertEqual(app.supersets(becoming: ".AA"), ".AA")
             // Back at the top, as the rows' audit above was: the bar's small title, shown only
             // scrolled, doesn't scale, which the audit reports.
-            app.scrollToTop(titled: app.routineTitle.value as? String ?? "")
+            app.scrollToTop(titled: app.workoutTitle.value as? String ?? "")
             attach(named: "superset-ax5")
             try app.performAccessibilityAudit(for: [.dynamicType, .textClipped])
         }
@@ -196,7 +196,7 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
     }
 
     /// Customize, which the created row's sheet opens on after Create, passes the audit at this
-    /// text size, where the name wraps under its label; back and Close then leave the routine
+    /// text size, where the name wraps under its label; back and Close then leave the workout
     /// with the row in, as the next check expects it. No cheaper tier reaches the form: it is
     /// the app's, composed of system rows on the sheet's stack. Its checklists are not audited
     /// here, to keep the UI tests in their budget.
@@ -210,7 +210,7 @@ final nonisolated class TitleWrappingUITests: XCTestCase {
         XCTAssertEqual(name.value as? String, created, "Create's name isn't the search capitalized")
         attach(named: "customize-form-ax5")
         try auditBelowTheBar(in: app)
-        // The sheet's: the routine, pushed from Routines, has a back button of its own.
+        // The sheet's: the workout, pushed from Workouts, has a back button of its own.
         app.navigationBars["Customize"].buttons["BackButton"].tap()
         let sets = app.buttons["Sets"]
         XCTAssertTrue(sets.appears(), "Back did not come to the row's values")

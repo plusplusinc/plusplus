@@ -5,7 +5,7 @@ import SwiftUI
 /// ++, leading in a screen's bar as the bar's own item: opens the drawer, and takes VoiceOver's
 /// focus back as it closes.
 struct MenuButton: View {
-    let session: RoutineSession
+    let session: AppSession
 
     @AccessibilityFocusState private var isFocused: Bool
 

@@ -11,10 +11,10 @@ This file is the constitution: loaded every session, kept short. Detail lives in
 `.claude/rules/*.md`, which load when you touch matching files (read the one for an area before
 planning work in it), and in `docs/`. If this file and a rules file disagree, this file wins.
 
-**Status.** The app is one screen and its drawer: a routine built from built-in and created exercises, each
+**Status.** The app is one screen and its drawer: a workout built from built-in and created exercises, each
 with its sets, reps or time, weight, and rest, some joined into supersets, saved on the phone as
-it is edited; a workout logged set by set on that same screen; and a Workouts screen listing the
-saved routines. It shows only in dark appearance (`Config/Base.xcconfig`); the light palette is seen
+it is edited, and logged set by set on that same screen; and a Workouts screen listing the
+saved ones. It shows only in dark appearance (`Config/Base.xcconfig`); the light palette is seen
 only in snapshots. Nothing syncs yet, and there is no watch app yet.
 
 This file does not say how a feature looks or behaves. That is in the doc comments of the types
@@ -30,8 +30,8 @@ the arrows; SwiftLint custom rules catch the imports and idioms it cannot.
 
 ```
 App ──> DesignSystem   (SwiftUI only, no domain code)
- ├────> Session ──> WorkoutStore   (the open routine and its workout, observable; no UI)
- └────> WorkoutStore   (domain types, SwiftData, and routine naming; no UI)
+ ├────> Session ──> WorkoutStore   (the open workout and its logged sets, observable; no UI)
+ └────> WorkoutStore   (domain types, SwiftData, and workout naming; no UI)
 ```
 
 `Session` ships inside the `WorkoutStore` product, so the app links it with no project change.
@@ -68,7 +68,7 @@ state, stateless services hold side effects, free functions hold the math. The a
   absolute path; night cards, the rules ledger, and setup reviews use the main checkout's.
 - **US English** in code, comments, docs, and commits. A hook checks every edit.
 - **Tense tells the truth.** A present-tense statement says how things are on `main` today, so
-  write one only when it is. Something planned is an instruction ("Save the routine once it
+  write one only when it is. Something planned is an instruction ("Save the workout once it
   changes") or says "will". A decision that isn't built yet says it was decided. This holds
   for cards, the board README, plans, State sections, and docs. Writing about a change that
   hasn't landed (a PR body, a commit, a handoff, a report, a message) is read before it

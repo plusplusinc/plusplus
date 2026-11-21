@@ -161,9 +161,9 @@ extension LogScreen {
             .foregroundStyle(.pp(.textSecondary))
     }
 
-    /// A logged workout's name as it was, New routine for an empty one.
+    /// A logged workout's name as it was, New workout for an empty one.
     static func name(of loggedWorkout: LoggedWorkout) -> String {
-        loggedWorkout.routineName.isEmpty ? RoutineScreen.defaultName : loggedWorkout.routineName
+        loggedWorkout.workoutName.isEmpty ? WorkoutScreen.defaultName : loggedWorkout.workoutName
     }
 
     /// A gain in green; anything else in gray; nothing for a change of measure.

@@ -7,14 +7,14 @@ import Testing
 struct CurrentExerciseTextTests {
     private static let locale = Locale(identifier: "en_US")
 
-    private static func row(_ name: String, target: SetTarget? = nil) throws -> RoutineExercise {
+    private static func row(_ name: String, target: SetTarget? = nil) throws -> WorkoutExercise {
         let exercise = try Exercise.builtIn(named: name)
         var plan = exercise.defaultPlan(in: .pounds)
         plan.target = target ?? plan.target
-        return RoutineExercise(exercise: exercise, plan: plan)
+        return WorkoutExercise(exercise: exercise, plan: plan)
     }
 
-    private static func figures(_ row: RoutineExercise) -> [String] {
+    private static func figures(_ row: WorkoutExercise) -> [String] {
         row.figures(locale: locale).map {
             "\($0.number) \($0.unit)"
                 .replacingOccurrences(of: "\u{00A0}", with: " ")
@@ -24,8 +24,8 @@ struct CurrentExerciseTextTests {
 
     @Test("Set, or round in a superset")
     func progress() {
-        #expect(RoutineExercise.progressWord(inSuperset: false) == "Set")
-        #expect(RoutineExercise.progressWord(inSuperset: true) == "Round")
+        #expect(WorkoutExercise.progressWord(inSuperset: false) == "Set")
+        #expect(WorkoutExercise.progressWord(inSuperset: true) == "Round")
     }
 
     @Test("Reps, time, and weight, each with what it counts")

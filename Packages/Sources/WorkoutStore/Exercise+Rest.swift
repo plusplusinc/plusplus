@@ -68,7 +68,7 @@ enum RestKind: Int, Sendable {
     }
 }
 
-extension RoutineExercise {
+extension WorkoutExercise {
     /// The rest after each set: the exercise's for these reps or time while automatic, else the
     /// one the user set.
     public var rest: Int {

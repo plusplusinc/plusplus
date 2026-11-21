@@ -41,7 +41,7 @@ struct RailMoveTests {
                 isMoving: liveWorkout.isMoving,
             ) { row in
                 RowLabel(title: row.title, detail: ["3 × 10 reps"])
-                    // As the routine screen gives the current exercise (`currentTopSpace`).
+                    // As the workout screen gives the current exercise (`currentTopSpace`).
                     .padding(.top, row.id == liveWorkout.current ? 24 : 0)
                     .railRow()
             } end: {

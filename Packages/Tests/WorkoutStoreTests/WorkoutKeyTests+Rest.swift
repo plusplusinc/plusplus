@@ -123,15 +123,15 @@ extension WorkoutKeyTests {
     /// A superset of Dumbbell bench press and Pull-up, two rounds: the round's rest after the
     /// first round, above the first member, back up the loop.
     private static func supersetRound() throws -> [Row] {
-        var routine = try Routine(exercises: [
-            RoutineExercise.builtIn("Dumbbell bench press") { $0.sets = 2 },
-            RoutineExercise.builtIn("Pull-up") { $0.sets = 2 },
+        var workout = try Workout(exercises: [
+            WorkoutExercise.builtIn("Dumbbell bench press") { $0.sets = 2 },
+            WorkoutExercise.builtIn("Pull-up") { $0.sets = 2 },
         ])
-        routine.join(routine.exercises[0].id, .below)
-        routine.setRestAfterRound(60, of: routine.exercises[0].id)
+        workout.join(workout.exercises[0].id, .below)
+        workout.setRestAfterRound(60, of: workout.exercises[0].id)
         let start = Date(timeIntervalSinceReferenceDate: 1000)
-        let started = LoggedWorkout(routineID: routine.id, routineName: "Pull", startedAt: start)
-        var live = LiveWorkout(routine: routine, loggedWorkout: started)
+        let started = LoggedWorkout(workoutID: workout.id, workoutName: "Pull", startedAt: start)
+        var live = LiveWorkout(workout: workout, loggedWorkout: started)
         let bench = try #require(live.currentSet)
         live.loggedWorkout = try live.loggedWorkout.logging(
             bench,

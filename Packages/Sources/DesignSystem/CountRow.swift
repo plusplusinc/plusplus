@@ -46,7 +46,7 @@ public struct CountRow: View {
             : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: Spacing.sm))
         return layout {
             Text(title)
-                .font(isStressed ? .ppRowTitle : .ppRoutineName)
+                .font(isStressed ? .ppRowTitle : .ppWorkoutName)
                 .foregroundStyle(.pp(isStressed ? .textPrimary : .textSecondary))
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, alignment: .leading)

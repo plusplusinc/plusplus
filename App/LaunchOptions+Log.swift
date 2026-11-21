@@ -12,7 +12,7 @@ extension LaunchOptions {
         UserDefaults.standard.bool(forKey: "seedLog")
     }
 
-    static func seedLog(_ store: RoutineStore) async throws {
+    static func seedLog(_ store: Store) async throws {
         for loggedWorkout in LogSeed.loggedWorkouts(now: .now) {
             try await store.save(loggedWorkout)
         }
@@ -41,7 +41,7 @@ private enum LogSeed {
         )
     }
 
-    /// A routine name, days ago, minutes long, and each exercise's sets in order, by id; an id no
+    /// A workout name, days ago, minutes long, and each exercise's sets in order, by id; an id no
     /// exercise has is logged under `orphanName`.
     static func loggedWorkouts(now: Date) -> [LoggedWorkout] {
         let bench = "dumbbell-bench-press"
@@ -133,8 +133,8 @@ private enum LogSeed {
             }
         }
         return LoggedWorkout(
-            routineID: UUID(),
-            routineName: name,
+            workoutID: UUID(),
+            workoutName: name,
             startedAt: start,
             endedAt: end,
             sets: sets,

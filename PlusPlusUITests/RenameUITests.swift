@@ -22,17 +22,17 @@ final nonisolated class RenameUITests: XCTestCase {
     /// still reaches past UIKit's scroll, about 0.8 s after the tap that began the edit.
     static let endedEditWindow: TimeInterval = 1
 
-    /// The seeded routine's name, unlike the name the rename types.
+    /// The seeded workout's name, unlike the name the rename types.
     static let seededName = "Push and pull day"
 
     @MainActor
     func testRenameAtDefaultSize() throws {
         let app = XCUIApplication()
         // The rows the later checks need are seeded at this launch, and the rename runs on a new
-        // routine opened after it, so the test launches once.
+        // workout opened after it, so the test launches once.
         app.launchSeeding(XCUIApplication.renameRows.seeded.map(\.id), named: Self.seededName)
-        app.openNewRoutine()
-        let title = app.routineTitle
+        app.openNewWorkout()
+        let title = app.workoutTitle
         let keyboard = app.keyboards.element
         let field = title.frame
 

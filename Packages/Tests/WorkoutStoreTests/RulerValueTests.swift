@@ -11,16 +11,16 @@ struct RulerValueTests {
     private static let german = Locale(identifier: "de_DE")
 
     private static func row(_ name: String, edit: (inout ExercisePlan) -> Void = { _ in })
-        throws -> RoutineExercise
+        throws -> WorkoutExercise
     {
-        try RoutineExercise.builtIn(name, edit)
+        try WorkoutExercise.builtIn(name, edit)
     }
 
     @Test("A weight's range is its stepper's: one step, or the empty bar, up to 1000; none without")
     func weightRange() throws {
         #expect(try Self.row("Biceps curl").weightRange == 5 ... 1000)
         #expect(try Self.row("Barbell row").weightRange == 45 ... 1000)
-        let kilograms = try RoutineExercise(
+        let kilograms = try WorkoutExercise(
             exercise: Exercise.builtIn(named: "Barbell row"),
             weightUnit: .kilograms,
         )
@@ -36,7 +36,7 @@ struct RulerValueTests {
             equipment: [.dumbbells],
             isPerSide: true,
         )
-        var row = RoutineExercise(exercise: Exercise(created: created), weightUnit: .pounds)
+        var row = WorkoutExercise(exercise: Exercise(created: created), weightUnit: .pounds)
         #expect(try row.weightRange == Self.row("Biceps curl").weightRange)
         // From its start, − reaches the floor, 5 lb, and stops there.
         while row.canStep(.weight, by: -1) {
@@ -87,7 +87,7 @@ struct RulerValueTests {
 
     @Test("A time's top is the last 5 s mark a plan stores, 99m 55s, for stepper and ruler")
     func timeTop() throws {
-        #expect(RoutineExercise.timeRange == 5 ... 5995)
+        #expect(WorkoutExercise.timeRange == 5 ... 5995)
         var plank = try Self.row("Plank") { $0.target = .time(seconds: 5990) }
         plank.step(.target, by: 1)
         #expect(plank.plan.target == .time(seconds: 5995))
@@ -124,17 +124,17 @@ struct RulerValueTests {
 
     @Test("A superset's rest set on its ruler sets every member's, by hand")
     func roundRestRuler() throws {
-        var routine = try Routine(exercises: [
-            RoutineExercise.builtIn("Barbell bench press"),
-            RoutineExercise.builtIn("Dumbbell row"),
+        var workout = try Workout(exercises: [
+            WorkoutExercise.builtIn("Barbell bench press"),
+            WorkoutExercise.builtIn("Dumbbell row"),
         ])
-        routine.join(routine.exercises[0].id, .below)
-        let (first, second) = (routine.exercises[0].id, routine.exercises[1].id)
-        routine.setRestAfterRound(95, of: first)
-        #expect(routine.restAfterRound(of: second) == 95)
-        #expect(!routine.isRoundAuto(of: second))
-        routine.setRoundAuto(true, of: second)
-        #expect(routine.isRoundAuto(of: first))
+        workout.join(workout.exercises[0].id, .below)
+        let (first, second) = (workout.exercises[0].id, workout.exercises[1].id)
+        workout.setRestAfterRound(95, of: first)
+        #expect(workout.restAfterRound(of: second) == 95)
+        #expect(!workout.isRoundAuto(of: second))
+        workout.setRoundAuto(true, of: second)
+        #expect(workout.isRoundAuto(of: first))
     }
 
     /// While its ruler shows, a value keeps one shape as it turns: a weight one decimal, a time
@@ -179,19 +179,19 @@ struct RulerValueTests {
 
     @Test("Open, a time shows a zero unit too, and a minute its seconds")
     func dialedTimeZeros() {
-        #expect(RoutineExercise.dialedTime(0, locale: Self.english) == "0m\u{00A0}0s")
-        #expect(RoutineExercise.dialedTime(60, locale: Self.english) == "1m\u{00A0}0s")
-        #expect(RoutineExercise.dialedTime(5995, locale: Self.english) == "99m\u{00A0}55s")
+        #expect(WorkoutExercise.dialedTime(0, locale: Self.english) == "0m\u{00A0}0s")
+        #expect(WorkoutExercise.dialedTime(60, locale: Self.english) == "1m\u{00A0}0s")
+        #expect(WorkoutExercise.dialedTime(5995, locale: Self.english) == "99m\u{00A0}55s")
     }
 
     @Test("A rest in a sentence reads condensed, and no rest at none; spoken, in words")
     func restInSentence() {
-        #expect(RoutineExercise
+        #expect(WorkoutExercise
             .restInSentence(95, locale: Self.english) == "1\u{00A0}min\u{00A0}35\u{00A0}sec")
-        #expect(RoutineExercise.restInSentence(0, locale: Self.english) == "no rest")
-        #expect(RoutineExercise.restInSentence(95, spoken: true, locale: Self.english)
+        #expect(WorkoutExercise.restInSentence(0, locale: Self.english) == "no rest")
+        #expect(WorkoutExercise.restInSentence(95, spoken: true, locale: Self.english)
             == "1 minute, 35 seconds")
-        #expect(RoutineExercise.restInSentence(0, spoken: true, locale: Self.english) == "no rest")
+        #expect(WorkoutExercise.restInSentence(0, spoken: true, locale: Self.english) == "no rest")
     }
 
     @Test("VoiceOver hears a time and a weight in full words, a pair's per side")

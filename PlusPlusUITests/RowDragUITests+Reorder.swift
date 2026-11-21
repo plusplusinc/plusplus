@@ -2,14 +2,14 @@ import XCTest
 
 /// Holding a row and dragging it to a new place, run within `testDragAndDeleteRows` on its
 /// nine rows, which run past one screen. Where the gap goes, a drop in place included, is
-/// unit-tested in the package (`RailDragTests`, `RoutineMoveTests`), and the card and gap are
+/// unit-tested in the package (`RailDragTests`, `WorkoutMoveTests`), and the card and gap are
 /// snapshot-tested; this checks what needs real touches and the scroll view.
 @MainActor
 extension RowDragUITests {
     func reorderExercises(in app: XCUIApplication) {
         let rows = app.exerciseRows
         let first = rows.element(boundBy: 0)
-        // The rows in this routine are one line of name and one of plan, all one height.
+        // The rows in this workout are one line of name and one of plan, all one height.
         let height = rows.element(boundBy: 1).frame.minY - first.frame.minY
         XCTContext.runActivity(named: "A held row drags to a new place") { _ in
             var expected = app.exerciseNames

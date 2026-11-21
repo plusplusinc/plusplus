@@ -5,7 +5,7 @@ import DesignSystem
 import SwiftUI
 import Testing
 
-/// The routine screen's content, built from components the way the app composes it. The screen
+/// The workout screen's content, built from components the way the app composes it. The screen
 /// itself lives in the app, which has no test target; its toolbar is checked on the simulator.
 @Suite("Components")
 struct ComponentSnapshotTests {
@@ -19,7 +19,7 @@ struct ComponentSnapshotTests {
         let detail: [String]
     }
 
-    /// The routine's equipment shows under the title; Start shows once there is a row, with Add
+    /// The workout's equipment shows under the title; Start shows once there is a row, with Add
     /// exercise's + floating above it. With no row, "No exercises" shows mid-screen and the + sits
     /// low, where Start's bottom would be. Where the + is, to the point, is `PrimaryKeyBarTests`'.
     private func content(
@@ -63,8 +63,8 @@ struct ComponentSnapshotTests {
         .background(Color.pp(.background))
     }
 
-    @Test("A new routine: title at rest, No exercises mid-screen, and the + low")
-    func newRoutine() {
+    @Test("A new workout: title at rest, No exercises mid-screen, and the + low")
+    func newWorkout() {
         assertThemedSnapshots(of: content(), width: Self.screenWidth)
     }
 
@@ -88,7 +88,7 @@ struct ComponentSnapshotTests {
     }
 
     /// A generated name rests in white, as a chosen one does; only New workout is gray.
-    @Test("An unnamed routine with exercises shows its generated name")
+    @Test("An unnamed workout with exercises shows its generated name")
     func generatedName() {
         let rows: [Row] = [
             Row(title: "Goblet squat", detail: ["3 × 10 reps", "35 lb"]),
@@ -162,7 +162,7 @@ struct ComponentSnapshotTests {
     /// Every kind of plan: a bar's total, one weight with reps per side, a pair's weight per
     /// side, bodyweight, timed per side, and a single set; the equipment wrapping onto a second
     /// line of capsules.
-    @Test("Rows with plans, under the routine's equipment")
+    @Test("Rows with plans, under the workout's equipment")
     func railPlans() {
         let rows: [Row] = [
             Row(title: "Barbell bench press", detail: ["5 × 5 reps", "135 lb"]),

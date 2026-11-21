@@ -9,8 +9,8 @@ extension StoredWorkout {
     /// Writes every field, setting only those that differ, so an unchanged workout stays clean.
     /// Its sets are written by the store, which diffs them by id.
     func write(_ loggedWorkout: LoggedWorkout) {
-        update(\.routineID, to: loggedWorkout.routineID)
-        update(\.routineName, to: loggedWorkout.routineName)
+        update(\.routineID, to: loggedWorkout.workoutID)
+        update(\.routineName, to: loggedWorkout.workoutName)
         update(\.startedAt, to: loggedWorkout.startedAt)
         update(\.pausedAt, to: loggedWorkout.pausedAt)
         update(\.pausedSeconds, to: loggedWorkout.pausedSeconds)
@@ -37,8 +37,8 @@ extension StoredWorkout {
     var loggedWorkout: LoggedWorkout {
         LoggedWorkout(
             id: id,
-            routineID: routineID ?? UUID(),
-            routineName: routineName,
+            workoutID: routineID ?? UUID(),
+            workoutName: routineName,
             startedAt: startedAt,
             pausedAt: pausedAt,
             pausedSeconds: pausedSeconds,

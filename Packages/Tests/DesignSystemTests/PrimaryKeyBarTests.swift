@@ -106,7 +106,7 @@ struct PrimaryKeyBarTests {
         #expect(alone.floating == shown.floating, "the floating button moved with the key")
     }
 
-    /// On a screen with nothing for the key to do yet, as an empty routine, the floating button
+    /// On a screen with nothing for the key to do yet, as an empty workout, the floating button
     /// sits low, its bottom where the key's ledge's bottom is and its right edge on the key's.
     @Test("Floating low, the button's bottom sits on the key's ledge line, at its right end")
     func floatingLow() throws {
