@@ -80,12 +80,15 @@ struct TimedSetSnapshotTests {
         )
     }
 
-    @Test("Starts in: its count from 0:10, the set's time at the caption's end, and Start now")
+    @Test("Starts in: 0:10, the set's time beside the side though its rest wraps, and Start now")
     func startsIn() {
+        var focus = Self.plank(after: "30 seconds", side: "Left")
+        focus.progress = "Round 1 of 3"
+        focus.afterRoom = ["30 seconds", "then rest 0:30"]
         let plank = Row(
-            title: "Plank",
-            detail: ["3 × 30s"],
-            focus: Self.plank(after: "30 seconds"),
+            title: "Side plank",
+            detail: ["3 × 30s per side"],
+            focus: focus,
             bars: Self.bars,
             setRest: SetRest(
                 isRunning: true,
