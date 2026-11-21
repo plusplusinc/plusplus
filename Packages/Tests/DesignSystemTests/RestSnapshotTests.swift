@@ -102,10 +102,8 @@ struct RestSnapshotTests {
         isDone: Bool = false,
         after: String? = nil,
     ) -> RowFocus {
-        var place = SetPlace(word: "Set", number: set, total: 3)
-        place.isDone = isDone
-        return RowFocus(
-            place: place,
+        RowFocus(
+            place: SetPlace(word: "Set", number: set, total: 3, isDone: isDone),
             equipment: ["Dumbbells", "Bench"],
             figures: figures,
             spokenFigures: "10 reps, 25 pounds per side",

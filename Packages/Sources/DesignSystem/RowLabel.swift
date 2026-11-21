@@ -218,7 +218,7 @@ public struct RowLabel: View {
         let parts = if let focus {
             [
                 title,
-                // Resting, the caption's "1 of 3 done" says what the bars' words say.
+                // Resting, the caption's "Set 1 of 3 done" says what the bars' words say.
                 [
                     isResting && bars != nil ? nil : focus.place.text,
                     focus.showsSide ? focus.side : nil,
@@ -280,9 +280,12 @@ public struct RowFocus: Equatable {
     public var after: String?
     /// `after` in words, for VoiceOver, "then rest 1 minute": a clock time read as one.
     public var spokenAfter: String?
-    /// Whether the side shows; unseen, it keeps its room, so the caption line keeps the height
-    /// a side gives it, as through a rest after a set's two sides.
-    public var showsSide = true
+    /// Whether the side shows: not while resting after the set, when "done" takes its place;
+    /// unseen, it keeps its room, so the caption line keeps the height a side gives it.
+    public var showsSide: Bool {
+        !place.isDone
+    }
+
     /// Whether `after` shows; unseen, it keeps its room, as on a set's first side, where the
     /// other side follows, so the line holds the height the second side's rest gives it.
     public var showsAfter = true

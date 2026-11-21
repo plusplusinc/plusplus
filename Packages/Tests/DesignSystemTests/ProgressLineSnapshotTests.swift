@@ -18,11 +18,12 @@ struct ProgressLineSnapshotTests {
         isDone: Bool = false,
         side: String? = nil,
     ) -> some View {
-        var place = SetPlace(word: word, number: number, total: 3)
-        place.isDone = isDone
-        var focus = RowFocus(place: place, side: side, figures: [], spokenFigures: "")
-        focus.showsSide = !isDone
-        return ProgressLine(focus: focus)
+        ProgressLine(focus: RowFocus(
+            place: SetPlace(word: word, number: number, total: 3, isDone: isDone),
+            side: side,
+            figures: [],
+            spokenFigures: "",
+        ))
     }
 
     @Test("Each state's words, \"done\" and a side sharing one place")

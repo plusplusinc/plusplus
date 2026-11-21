@@ -20,22 +20,21 @@ struct ProgressWordsTests {
         word: String = "Set",
         isDone: Bool = false,
         side: String? = nil,
-        showsSide: Bool = true,
         after: String? = nil,
     ) -> RowFocus {
-        var place = SetPlace(
-            word: word, number: number, total: total, locale: Locale(identifier: "en_US"),
-        )
-        place.isDone = isDone
-        var focus = RowFocus(
-            place: place,
+        RowFocus(
+            place: SetPlace(
+                word: word,
+                number: number,
+                total: total,
+                isDone: isDone,
+                locale: Locale(identifier: "en_US"),
+            ),
             side: side,
             figures: [.init(number: "10", unit: "reps")],
             spokenFigures: "10 reps",
             after: after,
         )
-        focus.showsSide = showsSide
-        return focus
     }
 
     /// The line as it reads: "Set 1 of 3 done", "Set 1 of 3 · Left".
@@ -64,6 +63,8 @@ struct ProgressWordsTests {
     func reps() {
         #expect(Self.reads(Self.focus(1)) == "Set 1 of 3")
         #expect(Self.reads(Self.focus(1, isDone: true)) == "Set 1 of 3 done")
+        // VoiceOver reads the same words.
+        #expect(Self.focus(1, isDone: true).place.text == "Set 1 of 3 done")
     }
 
     @Test("Logging a set changes only its end, to \"done\"")
@@ -96,9 +97,9 @@ struct ProgressWordsTests {
         "Resting after a sided set, \"done\" takes the side's place, never shown with it",
     )
     func sidedResting() {
-        let resting = Self.focus(1, isDone: true, side: "Left", showsSide: false)
+        let resting = Self.focus(1, isDone: true, side: "Left")
         #expect(Self.reads(resting) == "Set 1 of 3 done")
-        #expect(Self.reads(Self.focus(1, isDone: true, side: "Right")) == "Set 1 of 3 done")
+        #expect(!resting.showsSide)
         #expect(Self.changes(Self.focus(1, side: "Right"), resting) == [.end])
         #expect(Self.changes(resting, Self.focus(2, side: "Left")) == [.number, .end])
     }

@@ -101,11 +101,10 @@ extension RoutineScreen {
            rest.beat < .returning, rest.set.row == item.id
         {
             focus.place.number = rest.set.round
+            // Done one side at a time, the set just done was both sides: "done" takes the side's
+            // place (`RowFocus.showsSide`). The next set's side waits there unseen, so the rest's
+            // end only fades it back in, never fading it over "done".
             focus.place.isDone = true
-            // Done one side at a time, the set just done was both sides: no side to name, though
-            // its room stays, so the line keeps its height. The next set's side waits there
-            // unseen, so the rest's end only fades it back in, never rolling it over "done".
-            focus.showsSide = false
             focus.after = drawnResting.map { thenRest($0.rest.length).text }
         }
         return focus
