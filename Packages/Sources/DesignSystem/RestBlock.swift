@@ -109,7 +109,8 @@ public struct RestBlock: View {
                 // shrank away. A held count, paused, ended, or going, never ticks. Only a change
                 // of its own: taking every update's animation away, the figure jumped to where a
                 // part going drops it while the part faded on its curve.
-                .contentTransition(turns ? .numericText(countsDown: true) : .identity)
+                // By its value, the figure rolls down as a second goes and up on +15 s.
+                .contentTransition(turns ? .numericText(value: seconds.rounded(.up)) : .identity)
                 .transaction(value: ends) {
                     if isOpen, turns, seconds > 0 {
                         $0.animation = .snappy(duration: SetMotion.restGlide)
